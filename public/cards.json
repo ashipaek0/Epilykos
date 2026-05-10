@@ -1,0 +1,30 @@
+[
+  {
+    "id": "battery_soc",
+    "title": "Battery SOC",
+    "metric": "battery_soc",
+    "unit": "%",
+    "icon": "battery-full"
+  },
+  {
+    "id": "solar_power",
+    "title": "Solar Power",
+    "metric": "solar_power",
+    "unit": "W",
+    "icon": "solar-panel"
+  },
+  {
+    "id": "consumption_power",
+    "title": "Consumption",
+    "metric": "consumption_power",
+    "unit": "W",
+    "icon": "home"
+  },
+  {
+    "id": "grid_import_power",
+    "title": "Grid Import",
+    "metric": "grid_import_power",
+    "unit": "W",
+    "icon": "grid"
+  }
+]
