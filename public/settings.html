@@ -291,6 +291,42 @@
         <span id="topic-test-status" class="test-status"></span>
       </div>
 
+      <!-- Modbus Direct -->
+      <h3>Modbus Direct</h3>
+      <div class="toggle-group">
+        <label><input type="checkbox" name="modbus_enabled" value="true"> Enable Modbus Direct</label>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Device Profile</label>
+          <select name="modbus_profile" id="modbus-profile"></select>
+        </div>
+        <div class="form-group">
+          <label>Host / IP</label>
+          <input name="modbus_host" placeholder="192.168.1.100" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Port</label>
+          <input name="modbus_port" value="502" placeholder="502" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Slave ID</label>
+          <input name="modbus_unit" value="1" placeholder="1" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Poll Interval (seconds)</label>
+          <input name="modbus_poll_interval" value="30" placeholder="30" autocomplete="off">
+        </div>
+      </div>
+      <div class="test-row">
+        <button type="button" id="test-modbus" class="fetch-btn">Test Modbus Connection</button>
+        <span id="modbus-test-status" class="test-status"></span>
+      </div>
+
       <!-- Solar Forecast -->
       <h3>Solar Forecast</h3>
       <div class="toggle-group">

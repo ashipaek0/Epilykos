@@ -9,6 +9,8 @@ const multer = require('multer');
 const fs = require('fs');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const Modbus = require('jsmodbus');
+const net = require('net');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,6 +45,8 @@ app.use('/api/test-mqtt', authLimiter);
 app.use('/api/test-mqtt-topic', authLimiter);
 app.use('/api/test-forecast', authLimiter);
 app.use('/api/ha/entities', authLimiter);
+app.use('/api/modbus/profiles', authLimiter);
+app.use('/api/test-modbus', authLimiter);
 
 // ──────────────────────────── CSRF mitigation middleware ───────────────────
 const csrfProtection = (req, res, next) => {
@@ -165,7 +169,9 @@ function initializeDatabase() {
     'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo',
     'solar_latitude', 'solar_longitude', 'solar_tilt', 'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key',
     'forecast_enabled', 'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
-    'all_time_pv_savings_override'
+    'all_time_pv_savings_override',
+    'modbus_enabled', 'modbus_host', 'modbus_port', 'modbus_unit',
+    'modbus_profile', 'modbus_poll_interval'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
@@ -177,6 +183,7 @@ function initializeDatabase() {
     ha_enabled: 'true',
     mqtt_enabled: 'false',
     forecast_enabled: 'false',
+    modbus_enabled: 'false',
     dashboard_title: '⚡ Energy Dashboard',
     savings_currency: '€',
     savings_rate: '0.30',
@@ -195,7 +202,7 @@ function initializeDatabase() {
 
 initializeDatabase();
 
-// ─── NEW UNIVERSAL METRICS TABLES ────────────────────────────────────────
+// ─── UNIVERSAL METRICS TABLES ──────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS metrics (
     timestamp INTEGER NOT NULL,
@@ -334,8 +341,105 @@ async function getHAState(entityId, haUrl = null, haToken = null) {
   return data.state;
 }
 
+// ─── MODBUS PROFILE LOADING ──────────────────────────────────────────────
+const profilesDir = path.join(__dirname, 'profiles');
+const availableProfiles = [];
+
+function loadProfiles() {
+  if (!fs.existsSync(profilesDir)) {
+    console.warn('Profiles directory not found, creating an empty one.');
+    fs.mkdirSync(profilesDir, { recursive: true });
+    return;
+  }
+  const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
+  availableProfiles.length = 0;
+  for (const file of files) {
+    try {
+      const raw = fs.readFileSync(path.join(profilesDir, file), 'utf8');
+      const profile = JSON.parse(raw);
+      availableProfiles.push({
+        id: file.replace('.json', ''),
+        name: profile.name || file,
+        registers: profile.registers || []
+      });
+    } catch (e) {
+      console.error(`Failed to parse profile ${file}:`, e.message);
+    }
+  }
+  console.log(`Loaded ${availableProfiles.length} Modbus profile(s).`);
+}
+
+loadProfiles();   // initial load
+
+async function pollModbus() {
+  const host = getConfig('modbus_host');
+  const port = parseInt(getConfig('modbus_port')) || 502;
+  const unitId = parseInt(getConfig('modbus_unit')) || 1;
+  const profileId = getConfig('modbus_profile');
+
+  if (!host || !profileId) return;
+
+  const profile = availableProfiles.find(p => p.id === profileId);
+  if (!profile) {
+    console.error(`Modbus profile '${profileId}' not found.`);
+    return;
+  }
+
+  const client = new Modbus.client.TCP(net.createConnection(port, host));
+
+  const results = {};
+  const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
+  let i = 0;
+
+  while (i < sorted.length) {
+    const startAddr = sorted[i].address;
+    let count = 0;
+    while (i < sorted.length && sorted[i].address === startAddr + count && count < 32) {
+      count++;
+      i++;
+    }
+    try {
+      const resp = await client.readHoldingRegisters(startAddr, count);
+      for (let j = 0; j < count; j++) {
+        const reg = sorted[i - count + j];
+        const raw = resp.response._body[j];
+        const value = reg.scale ? raw * reg.scale : raw;
+        results[reg.metric] = value;
+      }
+    } catch (err) {
+      console.error(`Modbus read error at ${startAddr}:`, err.message);
+    }
+  }
+
+  client.socket.end();
+
+  const now = Math.floor(Date.now() / 1000);
+  const metricInsert = db.prepare(
+    'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
+  );
+  const latestUpsert = db.prepare(
+    'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
+  );
+
+  const transaction = db.transaction(() => {
+    for (const [metric, value] of Object.entries(results)) {
+      metricInsert.run(now, metric, value);
+      latestUpsert.run(metric, value, now);
+    }
+  });
+  transaction();
+  console.log(`Modbus poll: ${Object.entries(results).length} metrics updated.`);
+}
+
 async function pollAndCache() {
   try {
+    const modbusEnabled = await isSourceEnabled('modbus_enabled');
+    if (modbusEnabled) {
+      await pollModbus();
+      // still check grid status entity if configured (from HA/MQTT? skip for now – but we keep the grid timeline)
+      return;
+    }
+
     const haEnabled = await isSourceEnabled('ha_enabled');
     const mqttEnabled = await isSourceEnabled('mqtt_enabled');
     async function getValue(mqttKey, haEntityKey) {
@@ -373,7 +477,7 @@ async function pollAndCache() {
     insertHistory.run(now, consumption, solarPower, battCharge, battDischarge, gridImport, gridExport, batterySoc,
       dailyConsumption, dailySolar, dailyBattCharge, dailyBattDischarge, dailyGridImport, dailyGridExport);
 
-    // ── Insert into new metrics tables in parallel ──
+    // parallel metrics table insertion (same as before)
     const metricInsert = db.prepare(
       'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
     );
@@ -1396,6 +1500,12 @@ app.post('/api/settings', async (req, res) => {
     if ('mqtt_broker_url' in updates || 'mqtt_username' in updates || 'mqtt_password' in updates || 'mqtt_enabled' in updates) {
       await restartMqtt();
     }
+    if ('modbus_enabled' in updates || 'modbus_host' in updates || 'modbus_port' in updates || 'modbus_unit' in updates || 'modbus_profile' in updates) {
+      // Reload profiles in case a new one was added (e.g., after a container update)
+      if ('modbus_profile' in updates) {
+        loadProfiles();
+      }
+    }
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -1407,6 +1517,29 @@ app.post('/api/settings', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) { console.error('[Settings] Save error:', err); res.status(500).json({ error: err.message }); }
+});
+
+// ── Modbus profiles API ──────────────────────────────────────────────────
+app.get('/api/modbus/profiles', authMiddleware, (req, res) => {
+  res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
+});
+
+// ── Test Modbus connection ──────────────────────────────────────────────
+app.get('/api/test-modbus', authMiddleware, async (req, res) => {
+  const host = getConfig('modbus_host');
+  const port = parseInt(getConfig('modbus_port')) || 502;
+  const unitId = parseInt(getConfig('modbus_unit')) || 1;
+  if (!host) return res.status(400).json({ error: 'Modbus host not configured' });
+
+  const client = new Modbus.client.TCP(net.createConnection(port, host));
+  try {
+    const resp = await client.readHoldingRegisters(256, 1);   // try reading battery SOC register
+    client.socket.end();
+    res.json({ success: true, value: resp.response._body[0] });
+  } catch (err) {
+    client.socket.end();
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/settings', authMiddleware, (req, res) => {
