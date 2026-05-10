@@ -736,13 +736,18 @@ async function updateDynamicCards() {
 
     dynamicCards.forEach(card => {
       const data = metrics[card.metric];
-      const valEl = document.getElementById(`val-${card.id}`);
-      if (valEl) {
-        if (data) {
+      const cardEl = document.getElementById(`dynamic-card-${card.id}`);
+      if (!cardEl) return;
+
+      if (data) {
+        cardEl.style.display = '';
+        const valEl = document.getElementById(`val-${card.id}`);
+        if (valEl) {
           valEl.textContent = `${data.value.toFixed(1)} ${card.unit || ''}`;
-        } else {
-          valEl.textContent = '--';
         }
+      } else {
+        // Metric not available – hide the entire card
+        cardEl.style.display = 'none';
       }
     });
   } catch (e) { console.error('Dynamic card update error', e); }

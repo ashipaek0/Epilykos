@@ -7,25 +7,22 @@
     "icon": "battery-full"
   },
   {
-    "id": "solar_power",
-    "title": "Solar Power",
-    "metric": "solar_power",
-    "unit": "W",
-    "icon": "solar-panel"
+    "id": "daily_solar",
+    "title": "Today’s Solar",
+    "metric": "daily_solar",
+    "unit": "kWh"
   },
   {
-    "id": "consumption_power",
-    "title": "Consumption",
-    "metric": "consumption_power",
-    "unit": "W",
-    "icon": "home"
+    "id": "daily_consumption",
+    "title": "Today’s Usage",
+    "metric": "daily_consumption",
+    "unit": "kWh"
   },
   {
-    "id": "grid_import_power",
-    "title": "Grid Import",
-    "metric": "grid_import_power",
-    "unit": "W",
-    "icon": "grid"
+    "id": "daily_grid_import",
+    "title": "Today’s Grid",
+    "metric": "daily_grid_import",
+    "unit": "kWh"
   },
   {
     "id": "battery_voltage",
