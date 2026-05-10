@@ -35,7 +35,6 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' }
 });
 
-// Apply to every route that requires authentication
 app.use('/settings', authLimiter);
 app.use('/api/settings', authLimiter);
 app.use('/api/backup', authLimiter);
@@ -80,7 +79,8 @@ const mqttValues = {
   consumption: 0, solar: 0, battery_charge: 0, battery_discharge: 0,
   grid_import: 0, grid_export: 0, battery_soc: 0,
   daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0, daily_battery_discharge: 0,
-  daily_grid_import: 0, daily_grid_export: 0
+  daily_grid_import: 0, daily_grid_export: 0,
+  battery_voltage: 0, inverter_temp: 0, solar_voltage: 0, load_power: 0
 };
 const topicKeyMap = {};
 
@@ -170,7 +170,9 @@ function initializeDatabase() {
     'forecast_enabled', 'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
     'all_time_pv_savings_override',
     'modbus_enabled', 'modbus_host', 'modbus_port', 'modbus_unit',
-    'modbus_profile', 'modbus_poll_interval'
+    'modbus_profile', 'modbus_poll_interval',
+    'ha_entity_battery_voltage', 'ha_entity_inverter_temp', 'ha_entity_solar_voltage', 'ha_entity_load_power',
+    'mqtt_topic_battery_voltage', 'mqtt_topic_inverter_temp', 'mqtt_topic_solar_voltage', 'mqtt_topic_load_power'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
@@ -308,12 +310,13 @@ async function setupMqtt() {
       'mqtt_topic_battery_discharge', 'mqtt_topic_grid_import', 'mqtt_topic_grid_export',
       'mqtt_topic_battery_soc',
       'mqtt_topic_daily_consumption', 'mqtt_topic_daily_solar', 'mqtt_topic_daily_battery_charge',
-      'mqtt_topic_daily_battery_discharge', 'mqtt_topic_daily_grid_import', 'mqtt_topic_daily_grid_export'
+      'mqtt_topic_daily_battery_discharge', 'mqtt_topic_daily_grid_import', 'mqtt_topic_daily_grid_export',
+      'mqtt_topic_battery_voltage', 'mqtt_topic_inverter_temp', 'mqtt_topic_solar_voltage', 'mqtt_topic_load_power'
     ];
     const topics = [];
     for (const k of topicKeys) {
-      const topic = getConfig(k);
-      if (topic) { topics.push(topic); topicKeyMap[topic] = k.replace('mqtt_topic_', ''); }
+      const topicStr = getConfig(k);
+      if (topicStr) { topics.push(topicStr); topicKeyMap[topicStr] = k.replace('mqtt_topic_', ''); }
     }
     if (topics.length) mqttClient.subscribe(topics);
   });
@@ -321,7 +324,12 @@ async function setupMqtt() {
     const val = parseFloat(message.toString());
     if (isNaN(val)) return;
     const key = topicKeyMap[topic];
-    if (key) mqttValues[key] = val;
+    if (key) {
+      mqttValues[key] = val;
+      const now = Math.floor(Date.now() / 1000);
+      db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)').run(key, val, now);
+      db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)').run(now, key, val);
+    }
   });
   mqttClient.on('error', (err) => console.error('MQTT error:', err));
 }
@@ -439,15 +447,23 @@ async function pollModbus() {
   }
 }
 
+// ─── EXTRA METRICS DEFINITIONS (configurable via HA/MQTT) ────────────────
+const extraMetrics = [
+  { metric: 'battery_voltage', haKey: 'ha_entity_battery_voltage', mqttKey: 'mqtt_topic_battery_voltage', mqttShort: 'battery_voltage' },
+  { metric: 'inverter_temp',   haKey: 'ha_entity_inverter_temp',   mqttKey: 'mqtt_topic_inverter_temp',   mqttShort: 'inverter_temp' },
+  { metric: 'solar_voltage',   haKey: 'ha_entity_solar_voltage',   mqttKey: 'mqtt_topic_solar_voltage',   mqttShort: 'solar_voltage' },
+  { metric: 'load_power',      haKey: 'ha_entity_load_power',      mqttKey: 'mqtt_topic_load_power',      mqttShort: 'load_power' }
+];
+
 async function pollAndCache() {
   try {
     const modbusEnabled = await isSourceEnabled('modbus_enabled');
     if (modbusEnabled) {
       await pollModbus();
-      // still check grid status entity if configured
       const gridEntity = getConfig('grid_status_entity');
       if (gridEntity) {
         try {
+          const now = Math.floor(Date.now() / 1000);
           const rawState = await getHAState(gridEntity);
           const isOn = parseGridState(rawState);
           const lastRecord = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
@@ -519,6 +535,14 @@ async function pollAndCache() {
       daily_grid_import: dailyGridImport,
       daily_grid_export: dailyGridExport
     };
+
+    // fetch extra metrics from HA / MQTT
+    for (const extra of extraMetrics) {
+      if (haEnabled || mqttEnabled) {
+        const val = await getValue(extra.mqttShort, extra.haKey);
+        metricData[extra.metric] = val;
+      }
+    }
 
     for (const [metric, value] of Object.entries(metricData)) {
       metricInsert.run(now, metric, value);

@@ -229,6 +229,27 @@
           <select name="ha_entity_daily_grid_export"></select>
         </div>
       </div>
+      <!-- NEW EXTRA METRICS -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Battery Voltage (V)</label>
+          <select name="ha_entity_battery_voltage"></select>
+        </div>
+        <div class="form-group">
+          <label>Inverter Temperature (°C)</label>
+          <select name="ha_entity_inverter_temp"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Solar Voltage (V)</label>
+          <select name="ha_entity_solar_voltage"></select>
+        </div>
+        <div class="form-group">
+          <label>Load Power (W)</label>
+          <select name="ha_entity_load_power"></select>
+        </div>
+      </div>
 
       <!-- MQTT -->
       <h3>MQTT</h3>
@@ -281,6 +302,15 @@
       <div class="form-row">
         <div class="form-group"><label>Daily Grid Import</label><input name="mqtt_topic_daily_grid_import" autocomplete="off"></div>
         <div class="form-group"><label>Daily Grid Export</label><input name="mqtt_topic_daily_grid_export" autocomplete="off"></div>
+      </div>
+      <!-- NEW EXTRA MQTT TOPICS -->
+      <div class="form-row">
+        <div class="form-group"><label>Battery Voltage (V)</label><input name="mqtt_topic_battery_voltage" placeholder="battery/voltage" autocomplete="off"></div>
+        <div class="form-group"><label>Inverter Temp (°C)</label><input name="mqtt_topic_inverter_temp" placeholder="inverter/temp" autocomplete="off"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Solar Voltage (V)</label><input name="mqtt_topic_solar_voltage" placeholder="solar/voltage" autocomplete="off"></div>
+        <div class="form-group"><label>Load Power (W)</label><input name="mqtt_topic_load_power" placeholder="load/power" autocomplete="off"></div>
       </div>
       <div class="test-row" style="margin-top:1rem;">
         <div class="form-group" style="flex:1; margin-bottom:0;">
@@ -380,7 +410,7 @@
           <input name="solar_install_date" placeholder="2020-01-01" autocomplete="off">
           <div class="note">Used for panel degradation calculations (Solcast).</div>
         </div>
-        <div class="form-group"></div> <!-- spacer for alignment -->
+        <div class="form-group"></div>
       </div>
       <div class="note">If Solcast key is provided, high‑accuracy forecasts will be used. Otherwise, Open‑Meteo (free) is used.</div>
       <div class="test-row">
