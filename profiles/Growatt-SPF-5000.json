@@ -1,0 +1,18 @@
+{
+  "name": "Growatt SPF 5000 (Off‑Grid)",
+  "defaultUnitId": 1,
+  "registers": [
+    { "metric": "solar_voltage",       "address": 1,    "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "solar_power",         "address": 3,    "type": "uint16", "scale": 0.1,  "unit": "W" },
+    { "metric": "battery_voltage",     "address": 17,   "type": "uint16", "scale": 0.01, "unit": "V" },
+    { "metric": "battery_soc",         "address": 18,   "type": "uint16", "scale": 1.0,  "unit": "%" },
+    { "metric": "grid_voltage",        "address": 20,   "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "load_power",          "address": 9,    "type": "uint16", "scale": 0.1,  "unit": "W" },
+    { "metric": "load_power",          "address": 10,   "type": "uint16", "scale": 0.1,  "unit": "W" },
+    { "metric": "inverter_temp",       "address": 25,   "type": "int16",  "scale": 0.1,  "unit": "°C" },
+    { "metric": "grid_import_power",   "address": 36,   "type": "uint16", "scale": 0.1,  "unit": "W" },
+    { "metric": "grid_export_power",   "address": 38,   "type": "uint16", "scale": 0.1,  "unit": "W" },
+    { "metric": "battery_charge_power", "address": 13,  "type": "uint16", "scale": 0.1,  "unit": "W" },
+    { "metric": "battery_discharge_power","address": 73,"type": "uint16", "scale": 0.1,  "unit": "W" }
+  ]
+}
