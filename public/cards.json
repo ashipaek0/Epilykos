@@ -26,5 +26,29 @@
     "metric": "grid_import_power",
     "unit": "W",
     "icon": "grid"
+  },
+  {
+    "id": "battery_voltage",
+    "title": "Battery Voltage",
+    "metric": "battery_voltage",
+    "unit": "V"
+  },
+  {
+    "id": "inverter_temp",
+    "title": "Inverter Temp",
+    "metric": "inverter_temp",
+    "unit": "°C"
+  },
+  {
+    "id": "solar_voltage",
+    "title": "Solar Voltage",
+    "metric": "solar_voltage",
+    "unit": "V"
+  },
+  {
+    "id": "load_power",
+    "title": "Load Power",
+    "metric": "load_power",
+    "unit": "W"
   }
 ]

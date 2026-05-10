@@ -197,11 +197,52 @@ document.getElementById('restore-file').addEventListener('change', async functio
   }
 });
 
+// ── Modbus profile loader ──────────────────────────────────────────────────
+async function loadModbusProfiles() {
+  try {
+    const res = await fetch('/api/modbus/profiles');
+    const profiles = await res.json();
+    const select = document.getElementById('modbus-profile');
+    select.innerHTML = '<option value="">-- Select a device --</option>';
+    profiles.forEach(p => {
+      const option = document.createElement('option');
+      option.value = p.id;
+      option.textContent = p.name;
+      select.appendChild(option);
+    });
+  } catch (e) {
+    console.error('Failed to load Modbus profiles', e);
+  }
+}
+
+// ── Test Modbus connection ─────────────────────────────────────────────────
+document.getElementById('test-modbus').addEventListener('click', async function() {
+  const btn = this;
+  const statusEl = document.getElementById('modbus-test-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Testing...';
+  showStatus(statusEl, 'Testing Modbus connection...', 'info');
+  try {
+    const res = await fetch('/api/test-modbus');
+    const data = await res.json();
+    if (res.ok) {
+      showStatus(statusEl, `✅ Connected. Register value: ${data.value}`, 'success');
+    } else {
+      showStatus(statusEl, `❌ ${data.error}`, 'error');
+    }
+  } catch (e) {
+    showStatus(statusEl, `❌ Error: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test Modbus Connection';
+  }
+});
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const formData = new FormData(form);
   const data = Object.fromEntries(formData.entries());
-  ['ha_enabled', 'mqtt_enabled', 'forecast_enabled'].forEach(key => {
+  ['ha_enabled', 'mqtt_enabled', 'forecast_enabled', 'modbus_enabled'].forEach(key => {
     data[key] = form.querySelector(`[name="${key}"]`)?.checked ? 'true' : 'false';
   });
   try {
@@ -220,4 +261,6 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-loadSettings();
+loadSettings().then(() => {
+  loadModbusProfiles();
+});
