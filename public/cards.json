@@ -41,11 +41,5 @@
     "title": "Solar Voltage",
     "metric": "solar_voltage",
     "unit": "V"
-  },
-  {
-    "id": "load_power",
-    "title": "Load Power",
-    "metric": "load_power",
-    "unit": "W"
   }
 ]
