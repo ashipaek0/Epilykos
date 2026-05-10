@@ -1,26 +1,19 @@
 [
   {
-    "id": "battery_soc",
-    "title": "Battery SOC",
-    "metric": "battery_soc",
-    "unit": "%",
-    "icon": "battery-full"
-  },
-  {
     "id": "daily_solar",
-    "title": "Today’s Solar",
+    "title": "Today's Solar",
     "metric": "daily_solar",
     "unit": "kWh"
   },
   {
     "id": "daily_consumption",
-    "title": "Today’s Usage",
+    "title": "Today's Usage",
     "metric": "daily_consumption",
     "unit": "kWh"
   },
   {
     "id": "daily_grid_import",
-    "title": "Today’s Grid",
+    "title": "Today's Grid",
     "metric": "daily_grid_import",
     "unit": "kWh"
   },
