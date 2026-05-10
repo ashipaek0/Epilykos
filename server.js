@@ -195,6 +195,73 @@ function initializeDatabase() {
 
 initializeDatabase();
 
+// ─── NEW UNIVERSAL METRICS TABLES ────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS metrics (
+    timestamp INTEGER NOT NULL,
+    metric TEXT NOT NULL,
+    value REAL,
+    PRIMARY KEY (timestamp, metric)
+  );
+  CREATE TABLE IF NOT EXISTS latest_metrics (
+    metric TEXT PRIMARY KEY,
+    value REAL,
+    timestamp INTEGER
+  );
+`);
+
+// One‑time migration from legacy history table
+const legacyHistoryExists = db.prepare(
+  "SELECT name FROM sqlite_master WHERE type='table' AND name='history'"
+).get();
+
+if (legacyHistoryExists) {
+  console.log('Migrating legacy history to metrics table…');
+  const insertMetric = db.prepare(
+    'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
+  );
+  const insertLatest = db.prepare(
+    'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
+  );
+
+  const columnMap = {
+    consumption:        'consumption_power',
+    solar:              'solar_power',
+    battery_charge:     'battery_charge_power',
+    battery_discharge:  'battery_discharge_power',
+    grid_import:        'grid_import_power',
+    grid_export:        'grid_export_power',
+    battery_soc:        'battery_soc',
+    daily_consumption:  'daily_consumption',
+    daily_solar:        'daily_solar',
+    daily_battery_charge:   'daily_battery_charge',
+    daily_battery_discharge:'daily_battery_discharge',
+    daily_grid_import:  'daily_grid_import',
+    daily_grid_export:  'daily_grid_export'
+  };
+
+  const oldRows = db.prepare('SELECT * FROM history').all();
+  const migrate = db.transaction(() => {
+    for (const row of oldRows) {
+      for (const [col, metricName] of Object.entries(columnMap)) {
+        if (row[col] !== null) {
+          insertMetric.run(row.timestamp, metricName, row[col]);
+        }
+      }
+    }
+    for (const metricName of Object.values(columnMap)) {
+      const last = db.prepare(
+        'SELECT timestamp, value FROM metrics WHERE metric = ? ORDER BY timestamp DESC LIMIT 1'
+      ).get(metricName);
+      if (last) {
+        insertLatest.run(metricName, last.value, last.timestamp);
+      }
+    }
+  });
+  migrate();
+  console.log('Legacy history migrated to metrics.');
+}
+
 function getConfig(key) {
   const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
   return row ? row.value : '';
@@ -305,6 +372,35 @@ async function pollAndCache() {
     `);
     insertHistory.run(now, consumption, solarPower, battCharge, battDischarge, gridImport, gridExport, batterySoc,
       dailyConsumption, dailySolar, dailyBattCharge, dailyBattDischarge, dailyGridImport, dailyGridExport);
+
+    // ── Insert into new metrics tables in parallel ──
+    const metricInsert = db.prepare(
+      'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
+    );
+    const latestUpsert = db.prepare(
+      'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
+    );
+
+    const metricData = {
+      consumption_power: consumption,
+      solar_power: solarPower,
+      battery_charge_power: battCharge,
+      battery_discharge_power: battDischarge,
+      grid_import_power: gridImport,
+      grid_export_power: gridExport,
+      battery_soc: batterySoc,
+      daily_consumption: dailyConsumption,
+      daily_solar: dailySolar,
+      daily_battery_charge: dailyBattCharge,
+      daily_battery_discharge: dailyBattDischarge,
+      daily_grid_import: dailyGridImport,
+      daily_grid_export: dailyGridExport
+    };
+
+    for (const [metric, value] of Object.entries(metricData)) {
+      metricInsert.run(now, metric, value);
+      latestUpsert.run(metric, value, now);
+    }
 
     const gridEntity = getConfig('grid_status_entity');
     if (gridEntity) {
@@ -442,7 +538,6 @@ app.get('/api/current', async (req, res) => {
 });
 
 app.get('/api/history', async (req, res) => {
-  // Cap to a maximum of 7 days to prevent memory exhaustion
   const requestedDays = parseInt(req.query.days) || 1;
   const days = Math.min(requestedDays, 7);
   const now = Math.floor(Date.now() / 1000);
@@ -463,7 +558,6 @@ app.get('/api/history', async (req, res) => {
 });
 
 app.get('/api/daily', async (req, res) => {
-  // Cap to a maximum of 365 days
   const requestedDays = parseInt(req.query.days) || 30;
   const days = Math.min(requestedDays, 365);
   const now = Math.floor(Date.now() / 1000);
@@ -1317,6 +1411,30 @@ app.post('/api/settings', async (req, res) => {
 
 app.get('/settings', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+// ─── New generic metrics endpoints ───────────────────────────────────────
+app.get('/api/metrics/current', async (req, res) => {
+  try {
+    const rows = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+    const result = {};
+    rows.forEach(r => { result[r.metric] = { value: r.value, timestamp: r.timestamp * 1000 }; });
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/metrics/history', async (req, res) => {
+  const metric = req.query.metric;
+  const hours = parseInt(req.query.hours) || 24;
+  if (!metric) return res.status(400).json({ error: 'Metric name required' });
+
+  const since = Math.floor(Date.now() / 1000) - hours * 3600;
+  try {
+    const rows = db.prepare(
+      'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? ORDER BY timestamp ASC'
+    ).all(metric, since);
+    res.json(rows.map(r => ({ timestamp: r.timestamp * 1000, value: r.value })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT}`));

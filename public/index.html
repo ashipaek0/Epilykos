@@ -158,27 +158,12 @@
       </div>
     </div>
 
-    <!-- Quick Stats Row -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Today's Solar</div>
-        <div class="stat-value" id="daily-solar">-- kWh</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Today's Usage</div>
-        <div class="stat-value" id="daily-load">-- kWh</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Today's Grid</div>
-        <div class="stat-value" id="daily-grid-import">-- kWh</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Self-sufficiency</div>
-        <div class="stat-value" id="self-sufficiency">--%</div>
-      </div>
+    <!-- Dynamic Stats Grid (replaces old hardcoded row) -->
+    <div id="dynamic-stats-grid" class="stats-grid">
+      <!-- Cards will be built by script.js from cards.json -->
     </div>
 
-    <!-- Savings Summary Row -->
+    <!-- Savings Summary Row (hardcoded – can be moved to cards.json later) -->
     <div class="stats-grid" id="savings-summary-row">
       <div class="stat-card">
         <div class="stat-label">PV Savings Today</div>

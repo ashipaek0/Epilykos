@@ -699,6 +699,55 @@ async function loadBranding() {
   } catch (e) {}
 }
 
+// ── Dynamic cards system ──
+let dynamicCards = [];
+
+async function loadDynamicCards() {
+  try {
+    const res = await fetch('/cards.json');
+    dynamicCards = await res.json();
+    renderDynamicCards();
+  } catch (e) { console.error('Failed to load cards.json', e); }
+}
+
+function renderDynamicCards() {
+  const container = document.getElementById('dynamic-stats-grid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  dynamicCards.forEach(card => {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'stat-card';
+    cardEl.id = `dynamic-card-${card.id}`;
+
+    cardEl.innerHTML = `
+      <div class="stat-label">${card.title}</div>
+      <div class="stat-value" id="val-${card.id}">-- ${card.unit || ''}</div>
+    `;
+    container.appendChild(cardEl);
+  });
+}
+
+async function updateDynamicCards() {
+  if (dynamicCards.length === 0) return;
+  try {
+    const res = await fetch('/api/metrics/current');
+    const metrics = await res.json();
+
+    dynamicCards.forEach(card => {
+      const data = metrics[card.metric];
+      const valEl = document.getElementById(`val-${card.id}`);
+      if (valEl) {
+        if (data) {
+          valEl.textContent = `${data.value.toFixed(1)} ${card.unit || ''}`;
+        } else {
+          valEl.textContent = '--';
+        }
+      }
+    });
+  } catch (e) { console.error('Dynamic card update error', e); }
+}
+
 function initTheme() {
   const savedTheme = localStorage.getItem('theme');
   const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -767,17 +816,20 @@ document.querySelectorAll('.chart-controls button').forEach(btn => {
 
 initTheme();
 initCharts();
-loadBranding().then(() => {
-  updateCurrent();
-  updateSavings();
-  updateForecast();
-  updateGridStatus();
-  updateGridTimeline();
-  updateChart(1);
-  updateEnergyBarChart();
-  updateDailyTable();
-  updateMonthlyTable();
+loadBranding();
+loadDynamicCards().then(() => {
+  updateDynamicCards();
 });
+updateCurrent();
+updateSavings();
+updateForecast();
+updateGridStatus();
+updateGridTimeline();
+updateChart(1);
+updateEnergyBarChart();
+updateDailyTable();
+updateMonthlyTable();
+
 setInterval(() => {
   updateCurrent();
   updateSavings();
@@ -788,4 +840,5 @@ setInterval(() => {
   updateEnergyBarChart();
   updateDailyTable();
   updateMonthlyTable();
+  updateDynamicCards();
 }, 30000);
