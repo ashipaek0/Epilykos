@@ -9,8 +9,7 @@ const multer = require('multer');
 const fs = require('fs');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const Modbus = require('jsmodbus');
-const net = require('net');
+const ModbusRTU = require('modbus-serial');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -369,8 +368,9 @@ function loadProfiles() {
   console.log(`Loaded ${availableProfiles.length} Modbus profile(s).`);
 }
 
-loadProfiles();   // initial load
+loadProfiles();
 
+// ─── MODBUS POLLING ──────────────────────────────────────────────────────
 async function pollModbus() {
   const host = getConfig('modbus_host');
   const port = parseInt(getConfig('modbus_port')) || 502;
@@ -385,50 +385,58 @@ async function pollModbus() {
     return;
   }
 
-  const client = new Modbus.client.TCP(net.createConnection(port, host));
+  let client;
+  try {
+    client = new ModbusRTU();
+    await client.connectTcp(host, { port });
+    await client.setID(unitId);
 
-  const results = {};
-  const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
-  let i = 0;
+    const results = {};
+    const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
+    let i = 0;
 
-  while (i < sorted.length) {
-    const startAddr = sorted[i].address;
-    let count = 0;
-    while (i < sorted.length && sorted[i].address === startAddr + count && count < 32) {
-      count++;
-      i++;
-    }
-    try {
-      const resp = await client.readHoldingRegisters(startAddr, count);
-      for (let j = 0; j < count; j++) {
-        const reg = sorted[i - count + j];
-        const raw = resp.response._body[j];
-        const value = reg.scale ? raw * reg.scale : raw;
-        results[reg.metric] = value;
+    while (i < sorted.length) {
+      const startAddr = sorted[i].address;
+      let count = 0;
+      while (i < sorted.length && sorted[i].address === startAddr + count && count < 32) {
+        count++;
+        i++;
       }
-    } catch (err) {
-      console.error(`Modbus read error at ${startAddr}:`, err.message);
+      try {
+        const resp = await client.readHoldingRegisters(startAddr, count);
+        for (let j = 0; j < resp.data.length; j++) {
+          const reg = sorted[i - count + j];
+          const raw = resp.data[j];
+          const value = reg.scale ? raw * reg.scale : raw;
+          results[reg.metric] = value;
+        }
+      } catch (err) {
+        console.error(`Modbus read error at ${startAddr}:`, err.message);
+      }
     }
+
+    client.close();
+
+    const now = Math.floor(Date.now() / 1000);
+    const metricInsert = db.prepare(
+      'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
+    );
+    const latestUpsert = db.prepare(
+      'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
+    );
+
+    const transaction = db.transaction(() => {
+      for (const [metric, value] of Object.entries(results)) {
+        metricInsert.run(now, metric, value);
+        latestUpsert.run(metric, value, now);
+      }
+    });
+    transaction();
+    console.log(`Modbus poll: ${Object.entries(results).length} metrics updated.`);
+  } catch (err) {
+    console.error('Modbus poll error:', err.message);
+    if (client) client.close();
   }
-
-  client.socket.end();
-
-  const now = Math.floor(Date.now() / 1000);
-  const metricInsert = db.prepare(
-    'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
-  );
-  const latestUpsert = db.prepare(
-    'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
-  );
-
-  const transaction = db.transaction(() => {
-    for (const [metric, value] of Object.entries(results)) {
-      metricInsert.run(now, metric, value);
-      latestUpsert.run(metric, value, now);
-    }
-  });
-  transaction();
-  console.log(`Modbus poll: ${Object.entries(results).length} metrics updated.`);
 }
 
 async function pollAndCache() {
@@ -436,7 +444,19 @@ async function pollAndCache() {
     const modbusEnabled = await isSourceEnabled('modbus_enabled');
     if (modbusEnabled) {
       await pollModbus();
-      // still check grid status entity if configured (from HA/MQTT? skip for now – but we keep the grid timeline)
+      // still check grid status entity if configured
+      const gridEntity = getConfig('grid_status_entity');
+      if (gridEntity) {
+        try {
+          const rawState = await getHAState(gridEntity);
+          const isOn = parseGridState(rawState);
+          const lastRecord = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
+          if (!lastRecord || lastRecord.state !== isOn) {
+            db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, isOn);
+            console.log(`Grid state changed to ${isOn ? 'ON' : 'OFF'} (raw: ${rawState})`);
+          }
+        } catch (e) { console.error('Grid status polling error:', e); }
+      }
       return;
     }
 
@@ -477,7 +497,6 @@ async function pollAndCache() {
     insertHistory.run(now, consumption, solarPower, battCharge, battDischarge, gridImport, gridExport, batterySoc,
       dailyConsumption, dailySolar, dailyBattCharge, dailyBattDischarge, dailyGridImport, dailyGridExport);
 
-    // parallel metrics table insertion (same as before)
     const metricInsert = db.prepare(
       'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
     );
@@ -1531,13 +1550,16 @@ app.get('/api/test-modbus', authMiddleware, async (req, res) => {
   const unitId = parseInt(getConfig('modbus_unit')) || 1;
   if (!host) return res.status(400).json({ error: 'Modbus host not configured' });
 
-  const client = new Modbus.client.TCP(net.createConnection(port, host));
+  let client;
   try {
-    const resp = await client.readHoldingRegisters(256, 1);   // try reading battery SOC register
-    client.socket.end();
-    res.json({ success: true, value: resp.response._body[0] });
+    client = new ModbusRTU();
+    await client.connectTcp(host, { port });
+    await client.setID(unitId);
+    const resp = await client.readHoldingRegisters(256, 1);   // battery SOC
+    client.close();
+    res.json({ success: true, value: resp.data[0] });
   } catch (err) {
-    client.socket.end();
+    if (client) client.close();
     res.status(500).json({ error: err.message });
   }
 });
