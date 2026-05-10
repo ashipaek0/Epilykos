@@ -1,0 +1,20 @@
+{
+  "name": "Deye Hybrid Inverter",
+  "defaultUnitId": 1,
+  "registers": [
+    { "metric": "grid_voltage",        "address": 150, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "grid_frequency",      "address": 192, "type": "uint16", "scale": 0.01, "unit": "Hz" },
+    { "metric": "grid_import_power",   "address": 169, "type": "int16",  "scale": 1.0,  "unit": "W" },
+    { "metric": "load_power",          "address": 175, "type": "int16",  "scale": 1.0,  "unit": "W" },
+    { "metric": "solar_power",         "address": 186, "type": "uint16", "scale": 1.0,  "unit": "W" },
+    { "metric": "solar_voltage",       "address": 109, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "battery_voltage",     "address": 183, "type": "uint16", "scale": 0.01, "unit": "V" },
+    { "metric": "battery_current",     "address": 191, "type": "int16",  "scale": 0.01, "unit": "A" },
+    { "metric": "battery_power",       "address": 190, "type": "int16",  "scale": 1.0,  "unit": "W" },
+    { "metric": "battery_soc",         "address": 184, "type": "uint16", "scale": 1.0,  "unit": "%" },
+    { "metric": "battery_temp",        "address": 182, "type": "int16",  "scale": 0.1,  "unit": "°C" },
+    { "metric": "inverter_temp",       "address": 90,  "type": "int16",  "scale": 0.1,  "unit": "°C" },
+    { "metric": "radiator_temp",       "address": 91,  "type": "int16",  "scale": 0.1,  "unit": "°C" },
+    { "metric": "daily_energy",        "address": 108, "type": "uint16", "scale": 0.1,  "unit": "kWh" }
+  ]
+}
