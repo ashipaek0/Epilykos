@@ -25,8 +25,7 @@ function toggleTheme() {
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', newTheme);
   localStorage.setItem('theme', newTheme);
-  const toggle = document.getElementById('theme-toggle');
-  toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
+  document.getElementById('theme-toggle').innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
   updateChartColors();
   if (powerChart) applyGradientFills(powerChart);
   updateForecast();
@@ -126,23 +125,14 @@ function renderDashboard() {
     tabBar.appendChild(tab);
   });
 
-  const container = document.querySelector('.container');
-
-  // Remove any previous dynamic content (flow card, etc.) but keep header and tab bar
-  const oldDashboard = document.getElementById('dashboard-container');
-  if (oldDashboard) oldDashboard.remove();
-  // Also remove any forecast banner that may have been outside container (we'll keep it separate)
-  const forecastBanner = document.getElementById('forecast-banner');
-  if (forecastBanner) forecastBanner.remove();
-
-  const layoutContainer = document.createElement('div');
-  layoutContainer.id = 'dashboard-container';
-  container.appendChild(layoutContainer);
+  // Clear previous dashboard content only
+  const container = document.getElementById('dashboard-container');
+  container.innerHTML = '';
 
   const active = config.dashboards.find(db => db.id === config.activeDashboard);
   if (!active) return;
 
-  // Render blocks
+  // Render blocks in order
   active.layout.forEach(block => {
     if (block.enabled === false) return;
     const builder = componentBuilders[block.type];
@@ -151,60 +141,8 @@ function renderDashboard() {
       return;
     }
     const el = builder(block);
-    if (el) layoutContainer.appendChild(el);
+    if (el) container.appendChild(el);
   });
-
-  // Re-insert forecast banner after the dashboard container if it exists (we'll recreate it)
-  const forecastBannerNew = document.createElement('div');
-  forecastBannerNew.className = 'pv-today-banner';
-  forecastBannerNew.id = 'forecast-banner';
-  forecastBannerNew.style.display = 'none';
-  forecastBannerNew.innerHTML = `
-    <div class="pv-top-bar">
-      <h3>Solar Forecast</h3>
-      <span class="forecast-date" id="forecast-date"></span>
-    </div>
-    <div class="pv-main-row">
-      <div class="pv-days">
-        <div class="pv-day"><span class="pv-day-label">Today</span><span class="pv-day-value" id="pv-today-value">0 kWh</span></div>
-        <div class="pv-day"><span class="pv-day-label" id="pred-day1-label">--</span><span class="pv-day-value" id="pv-tomorrow">0 kWh</span></div>
-        <div class="pv-day"><span class="pv-day-label" id="pred-day2-label">--</span><span class="pv-day-value" id="pv-nextday">0 kWh</span></div>
-      </div>
-      <div class="weather-section">
-        <div class="weather-column" id="forecast-weather-current">
-          <span class="weather-heading">Current Weather</span>
-          <div class="weather-icon-big"><i class="fi fi-sr-sun" id="weather-i"></i></div>
-          <div class="weather-details">
-            <span class="weather-temp" id="weather-temp">--°</span>
-            <span class="weather-desc" id="weather-desc">--</span>
-            <span class="weather-extra" id="weather-extra">--</span>
-          </div>
-        </div>
-        <div class="weather-column" id="forecast-weather-1" style="display:none;">
-          <span class="weather-heading" id="fcast-heading-1">--</span>
-          <div class="weather-icon-big"><i class="fi fi-sr-sun" id="fcast-icon-1"></i></div>
-          <div class="weather-details">
-            <span class="weather-temp" id="fcast-temp-1">--°</span>
-            <span class="weather-desc" id="fcast-desc-1">--</span>
-            <span class="weather-extra" id="fcast-extra-1">--</span>
-          </div>
-        </div>
-        <div class="weather-column" id="forecast-weather-2" style="display:none;">
-          <span class="weather-heading" id="fcast-heading-2">--</span>
-          <div class="weather-icon-big"><i class="fi fi-sr-sun" id="fcast-icon-2"></i></div>
-          <div class="weather-details">
-            <span class="weather-temp" id="fcast-temp-2">--°</span>
-            <span class="weather-desc" id="fcast-desc-2">--</span>
-            <span class="weather-extra" id="fcast-extra-2">--</span>
-          </div>
-        </div>
-      </div>
-      <div class="pv-sparkline-container">
-        <canvas id="pv-sparkline" width="300" height="160"></canvas>
-      </div>
-    </div>
-  `;
-  container.appendChild(forecastBannerNew);
 
   // Initialize charts if needed
   if (active.layout.some(b => b.type === 'chart-power') && !powerChart) {
@@ -214,10 +152,7 @@ function renderDashboard() {
     initEnergyChart();
   }
 
-  // Load branding and capacity
   loadBranding();
-
-  // Update all components immediately
   updateAllComponents();
 }
 
