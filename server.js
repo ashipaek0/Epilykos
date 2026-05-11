@@ -42,9 +42,10 @@ app.use('/api/restore', authLimiter);
 app.use('/api/test-mqtt', authLimiter);
 app.use('/api/test-mqtt-topic', authLimiter);
 app.use('/api/test-forecast', authLimiter);
-app.use('/api/ha/entities', authLimiter);
+app.use('/api/ha-device-entities', authLimiter);
 app.use('/api/modbus/profiles', authLimiter);
 app.use('/api/test-modbus', authLimiter);
+app.use('/api/dashboard-config', authLimiter);
 
 // ──────────────────────────── CSRF mitigation middleware ───────────────────
 const csrfProtection = (req, res, next) => {
@@ -74,41 +75,8 @@ const upload = multer({
 let db;
 const DB_PATH = './data/energy.db';
 
-let mqttClient = null;
-const mqttValues = {
-  consumption: 0, solar: 0, battery_charge: 0, battery_discharge: 0,
-  grid_import: 0, grid_export: 0, battery_soc: 0,
-  daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0, daily_battery_discharge: 0,
-  daily_grid_import: 0, daily_grid_export: 0,
-  battery_voltage: 0, inverter_temp: 0, solar_voltage: 0, load_power: 0
-};
-const topicKeyMap = {};
-
-// Weather code mapping (Flaticon icon classes)
-const weatherCodeMap = {
-  0: { icon: 'fi fi-sr-sun', desc: 'Clear Sky' },
-  1: { icon: 'fi fi-sr-sun', desc: 'Mainly Clear' },
-  2: { icon: 'fi fi-sr-cloud-sun', desc: 'Partly Cloudy' },
-  3: { icon: 'fi fi-sr-cloud', desc: 'Overcast' },
-  45: { icon: 'fi fi-sr-cloud', desc: 'Fog' },
-  48: { icon: 'fi fi-sr-cloud', desc: 'Depositing Rime Fog' },
-  51: { icon: 'fi fi-sr-cloud-rain', desc: 'Light Drizzle' },
-  53: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Drizzle' },
-  55: { icon: 'fi fi-sr-cloud-rain', desc: 'Dense Drizzle' },
-  61: { icon: 'fi fi-sr-cloud-rain', desc: 'Slight Rain' },
-  63: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Rain' },
-  65: { icon: 'fi fi-sr-cloud-rain', desc: 'Heavy Rain' },
-  80: { icon: 'fi fi-sr-cloud-rain', desc: 'Rain Showers' }
-};
-const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
-
-function parseGridState(state) {
-  if (state === null || state === undefined) return 0;
-  if (typeof state === 'number') return state > 0 ? 1 : 0;
-  const str = String(state).toLowerCase().trim();
-  if (str === 'on' || str === 'true' || str === '1' || str === 'open' || str === 'unlocked') return 1;
-  return 0;
-}
+// MQTT clients map: broker URL -> client
+const mqttClients = new Map();
 
 function initializeDatabase() {
   const dataDir = path.dirname(DB_PATH);
@@ -153,26 +121,28 @@ function initializeDatabase() {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metrics (
+      timestamp INTEGER NOT NULL,
+      metric TEXT NOT NULL,
+      value REAL,
+      PRIMARY KEY (timestamp, metric)
+    );
+    CREATE TABLE IF NOT EXISTS latest_metrics (
+      metric TEXT PRIMARY KEY,
+      value REAL,
+      timestamp INTEGER
+    );
+  `);
+
+  // Ensure essential keys exist
   const essentialKeys = [
-    'ha_url', 'ha_token', 'ha_enabled',
-    'mqtt_broker_url', 'mqtt_username', 'mqtt_password', 'mqtt_enabled',
-    'mqtt_topic_consumption', 'mqtt_topic_solar', 'mqtt_topic_battery_charge',
-    'mqtt_topic_battery_discharge', 'mqtt_topic_grid_import', 'mqtt_topic_grid_export',
-    'mqtt_topic_battery_soc',
-    'mqtt_topic_daily_consumption', 'mqtt_topic_daily_solar', 'mqtt_topic_daily_battery_charge',
-    'mqtt_topic_daily_battery_discharge', 'mqtt_topic_daily_grid_import', 'mqtt_topic_daily_grid_export',
-    'ha_entity_consumption', 'ha_entity_solar', 'ha_entity_battery_charge', 'ha_entity_battery_discharge',
-    'ha_entity_grid_import', 'ha_entity_grid_export', 'ha_entity_daily_consumption', 'ha_entity_daily_solar',
-    'ha_entity_daily_battery_charge', 'ha_entity_daily_battery_discharge', 'ha_entity_daily_grid_import', 'ha_entity_daily_grid_export',
-    'ha_entity_battery_soc', 'grid_status_entity',
+    'ha_devices', 'mqtt_devices', 'modbus_devices', 'dashboard_config',
+    'solar_latitude', 'solar_longitude', 'solar_tilt', 'solar_azimuth',
+    'solar_capacity_kwp', 'solcast_api_key', 'forecast_enabled',
+    'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
     'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo',
-    'solar_latitude', 'solar_longitude', 'solar_tilt', 'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key',
-    'forecast_enabled', 'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
-    'all_time_pv_savings_override',
-    'modbus_enabled', 'modbus_host', 'modbus_port', 'modbus_unit',
-    'modbus_profile', 'modbus_poll_interval',
-    'ha_entity_battery_voltage', 'ha_entity_inverter_temp', 'ha_entity_solar_voltage', 'ha_entity_load_power',
-    'mqtt_topic_battery_voltage', 'mqtt_topic_inverter_temp', 'mqtt_topic_solar_voltage', 'mqtt_topic_load_power'
+    'grid_status_entity', 'all_time_pv_savings_override'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
@@ -180,11 +150,9 @@ function initializeDatabase() {
     insertConfig.run(key, '');
   }
 
+  // Default values (if empty)
   const defaults = {
-    ha_enabled: 'true',
-    mqtt_enabled: 'false',
     forecast_enabled: 'false',
-    modbus_enabled: 'false',
     dashboard_title: '⚡ Energy Dashboard',
     savings_currency: '€',
     savings_rate: '0.30',
@@ -197,158 +165,90 @@ function initializeDatabase() {
     updateConfig.run(val, key, '');
   }
 
+  // ─── Legacy migration (single‑device to multi‑device arrays) ───
+  migrateLegacyConfig();
+
   console.log('Database initialized');
   setupMqtt();
 }
 
-initializeDatabase();
+function migrateLegacyConfig() {
+  const haDevicesStr = getConfig('ha_devices');
+  const mqttDevicesStr = getConfig('mqtt_devices');
 
-// ─── UNIVERSAL METRICS TABLES ──────────────────────────────────────────
-db.exec(`
-  CREATE TABLE IF NOT EXISTS metrics (
-    timestamp INTEGER NOT NULL,
-    metric TEXT NOT NULL,
-    value REAL,
-    PRIMARY KEY (timestamp, metric)
-  );
-  CREATE TABLE IF NOT EXISTS latest_metrics (
-    metric TEXT PRIMARY KEY,
-    value REAL,
-    timestamp INTEGER
-  );
-`);
+  // Migrate Home Assistant legacy keys
+  if (!haDevicesStr || JSON.parse(haDevicesStr || '[]').length === 0) {
+    const haUrl = getConfig('ha_url');
+    const haToken = getConfig('ha_token');
+    const haEnabled = getConfig('ha_enabled') === 'true';
+    if (haUrl || haToken) {
+      const entities = {};
+      const entityMap = [
+        'consumption', 'solar', 'battery_charge', 'battery_discharge',
+        'grid_import', 'grid_export', 'battery_soc',
+        'daily_consumption', 'daily_solar', 'daily_battery_charge',
+        'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export',
+        'battery_voltage', 'inverter_temp', 'solar_voltage', 'load_power'
+      ];
+      entityMap.forEach(metric => {
+        const entity = getConfig(`ha_entity_${metric}`);
+        if (entity) entities[metric] = entity;
+      });
+      const device = {
+        name: 'Home Assistant',
+        url: haUrl,
+        token: haToken,
+        enabled: haEnabled,
+        poll_interval: 30,
+        entities
+      };
+      setConfig('ha_devices', JSON.stringify([device]));
 
-// One‑time migration from legacy history table
-const legacyHistoryExists = db.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='history'"
-).get();
-
-if (legacyHistoryExists) {
-  console.log('Migrating legacy history to metrics table…');
-  const insertMetric = db.prepare(
-    'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
-  );
-  const insertLatest = db.prepare(
-    'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
-  );
-
-  const columnMap = {
-    consumption:        'consumption_power',
-    solar:              'solar_power',
-    battery_charge:     'battery_charge_power',
-    battery_discharge:  'battery_discharge_power',
-    grid_import:        'grid_import_power',
-    grid_export:        'grid_export_power',
-    battery_soc:        'battery_soc',
-    daily_consumption:  'daily_consumption',
-    daily_solar:        'daily_solar',
-    daily_battery_charge:   'daily_battery_charge',
-    daily_battery_discharge:'daily_battery_discharge',
-    daily_grid_import:  'daily_grid_import',
-    daily_grid_export:  'daily_grid_export'
-  };
-
-  const oldRows = db.prepare('SELECT * FROM history').all();
-  const migrate = db.transaction(() => {
-    for (const row of oldRows) {
-      for (const [col, metricName] of Object.entries(columnMap)) {
-        if (row[col] !== null) {
-          insertMetric.run(row.timestamp, metricName, row[col]);
-        }
-      }
+      // Remove old single keys
+      db.prepare("DELETE FROM config WHERE key LIKE 'ha_entity_%' OR key IN ('ha_url','ha_token','ha_enabled')").run();
+      console.log('Migrated legacy Home Assistant config to ha_devices array.');
     }
-    for (const metricName of Object.values(columnMap)) {
-      const last = db.prepare(
-        'SELECT timestamp, value FROM metrics WHERE metric = ? ORDER BY timestamp DESC LIMIT 1'
-      ).get(metricName);
-      if (last) {
-        insertLatest.run(metricName, last.value, last.timestamp);
-      }
+  }
+
+  // Migrate MQTT legacy keys
+  if (!mqttDevicesStr || JSON.parse(mqttDevicesStr || '[]').length === 0) {
+    const brokerUrl = getConfig('mqtt_broker_url');
+    const username = getConfig('mqtt_username');
+    const password = getConfig('mqtt_password');
+    const mqttEnabled = getConfig('mqtt_enabled') === 'true';
+    if (brokerUrl) {
+      const topics = {};
+      const topicMap = [
+        'consumption', 'solar', 'battery_charge', 'battery_discharge',
+        'grid_import', 'grid_export', 'battery_soc',
+        'daily_consumption', 'daily_solar', 'daily_battery_charge',
+        'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export',
+        'battery_voltage', 'inverter_temp', 'solar_voltage', 'load_power'
+      ];
+      topicMap.forEach(metric => {
+        const topic = getConfig(`mqtt_topic_${metric}`);
+        if (topic) topics[metric] = topic;
+      });
+      const device = {
+        name: 'MQTT Broker',
+        broker: brokerUrl,
+        username,
+        password,
+        enabled: mqttEnabled,
+        topics
+      };
+      setConfig('mqtt_devices', JSON.stringify([device]));
+
+      // Remove old single keys
+      db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled')").run();
+      console.log('Migrated legacy MQTT config to mqtt_devices array.');
     }
-  });
-  migrate();
-  console.log('Legacy history migrated to metrics.');
-}
-
-function getConfig(key) {
-  const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
-  return row ? row.value : '';
-}
-
-function setConfig(key, value) {
-  try {
-    const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
-    stmt.run(key, String(value));
-  } catch (err) {
-    console.error(`[setConfig] ERROR for ${key}:`, err.message);
-    throw err;
   }
 }
 
-async function isSourceEnabled(source) {
-  const val = getConfig(source);
-  return val === 'true' || val === true;
-}
+initializeDatabase();
 
-async function setupMqtt() {
-  if (mqttClient) { mqttClient.end(); mqttClient = null; }
-  for (let k in topicKeyMap) delete topicKeyMap[k];
-  const enabled = await isSourceEnabled('mqtt_enabled');
-  if (!enabled) return;
-  const brokerUrl = getConfig('mqtt_broker_url');
-  if (!brokerUrl) return;
-  const options = {};
-  const username = getConfig('mqtt_username');
-  const password = getConfig('mqtt_password');
-  if (username) options.username = username;
-  if (password) options.password = password;
-  mqttClient = mqtt.connect(brokerUrl, options);
-  mqttClient.on('connect', async () => {
-    console.log('MQTT connected');
-    const topicKeys = [
-      'mqtt_topic_consumption', 'mqtt_topic_solar', 'mqtt_topic_battery_charge',
-      'mqtt_topic_battery_discharge', 'mqtt_topic_grid_import', 'mqtt_topic_grid_export',
-      'mqtt_topic_battery_soc',
-      'mqtt_topic_daily_consumption', 'mqtt_topic_daily_solar', 'mqtt_topic_daily_battery_charge',
-      'mqtt_topic_daily_battery_discharge', 'mqtt_topic_daily_grid_import', 'mqtt_topic_daily_grid_export',
-      'mqtt_topic_battery_voltage', 'mqtt_topic_inverter_temp', 'mqtt_topic_solar_voltage', 'mqtt_topic_load_power'
-    ];
-    const topics = [];
-    for (const k of topicKeys) {
-      const topicStr = getConfig(k);
-      if (topicStr) { topics.push(topicStr); topicKeyMap[topicStr] = k.replace('mqtt_topic_', ''); }
-    }
-    if (topics.length) mqttClient.subscribe(topics);
-  });
-  mqttClient.on('message', (topic, message) => {
-    const val = parseFloat(message.toString());
-    if (isNaN(val)) return;
-    const key = topicKeyMap[topic];
-    if (key) {
-      mqttValues[key] = val;
-      const now = Math.floor(Date.now() / 1000);
-      db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)').run(key, val, now);
-      db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)').run(now, key, val);
-    }
-  });
-  mqttClient.on('error', (err) => console.error('MQTT error:', err));
-}
-
-async function restartMqtt() { await setupMqtt(); }
-
-async function getHAState(entityId, haUrl = null, haToken = null) {
-  if (!haUrl) haUrl = getConfig('ha_url');
-  if (!haToken) haToken = getConfig('ha_token');
-  if (!haUrl || !haToken || !entityId) return 0;
-  const res = await fetch(`${haUrl}/api/states/${entityId}`, {
-    headers: { 'Authorization': `Bearer ${haToken}` }
-  });
-  if (!res.ok) throw new Error(`HA API error: ${res.status}`);
-  const data = await res.json();
-  return data.state;
-}
-
-// ─── MODBUS PROFILE LOADING ──────────────────────────────────────────────
+// ─── Modbus profile loading (unchanged) ──────────────────────────────────
 const profilesDir = path.join(__dirname, 'profiles');
 const availableProfiles = [];
 
@@ -375,208 +275,285 @@ function loadProfiles() {
   }
   console.log(`Loaded ${availableProfiles.length} Modbus profile(s).`);
 }
-
 loadProfiles();
 
-// ─── MODBUS POLLING ──────────────────────────────────────────────────────
-async function pollModbus() {
-  const host = getConfig('modbus_host');
-  const port = parseInt(getConfig('modbus_port')) || 502;
-  const unitId = parseInt(getConfig('modbus_unit')) || 1;
-  const profileId = getConfig('modbus_profile');
+// ─── Helper functions ────────────────────────────────────────────────────
+function getConfig(key) {
+  const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
+  return row ? row.value : '';
+}
 
-  if (!host || !profileId) return;
-
-  const profile = availableProfiles.find(p => p.id === profileId);
-  if (!profile) {
-    console.error(`Modbus profile '${profileId}' not found.`);
-    return;
-  }
-
-  let client;
+function setConfig(key, value) {
   try {
-    client = new ModbusRTU();
-    await client.connectTcp(host, { port });
-    await client.setID(unitId);
+    const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
+    stmt.run(key, String(value));
+  } catch (err) {
+    console.error(`[setConfig] ERROR for ${key}:`, err.message);
+    throw err;
+  }
+}
 
-    const results = {};
-    const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
-    let i = 0;
+function parseGridState(state) {
+  if (state === null || state === undefined) return 0;
+  if (typeof state === 'number') return state > 0 ? 1 : 0;
+  const str = String(state).toLowerCase().trim();
+  if (str === 'on' || str === 'true' || str === '1' || str === 'open' || str === 'unlocked') return 1;
+  return 0;
+}
 
-    while (i < sorted.length) {
-      const startAddr = sorted[i].address;
-      let count = 0;
-      while (i < sorted.length && sorted[i].address === startAddr + count && count < 32) {
-        count++;
-        i++;
-      }
+// ─── Multi‑Device Polling Functions ──────────────────────────────────────
+
+// Store latest values from MQTT (still used as fallback for HA+MQTT hybrid)
+const mqttValues = {};
+
+async function pollHomeAssistant() {
+  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+  if (!haDevices.length) return;
+
+  const metricInsert = db.prepare(
+    'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
+  );
+  const latestUpsert = db.prepare(
+    'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
+  );
+
+  for (const device of haDevices) {
+    if (!device.enabled || !device.url || !device.token) continue;
+
+    for (const [metric, entityId] of Object.entries(device.entities)) {
+      if (!entityId) continue;
       try {
-        const resp = await client.readHoldingRegisters(startAddr, count);
-        for (let j = 0; j < resp.data.length; j++) {
-          const reg = sorted[i - count + j];
-          const raw = resp.data[j];
-          const value = reg.scale ? raw * reg.scale : raw;
-          results[reg.metric] = value;
-        }
-      } catch (err) {
-        console.error(`Modbus read error at ${startAddr}:`, err.message);
+        const res = await fetch(`${device.url}/api/states/${entityId}`, {
+          headers: { 'Authorization': `Bearer ${device.token}` },
+          timeout: 5000
+        });
+        if (!res.ok) throw new Error(`HA error ${res.status}`);
+        const data = await res.json();
+        const val = parseFloat(data.state);
+        if (isNaN(val)) continue;
+
+        const now = Math.floor(Date.now() / 1000);
+        metricInsert.run(now, metric, val);
+        latestUpsert.run(metric, val, now);
+
+        // Also populate legacy mqttValues for fallback & compatibility
+        mqttValues[metric] = val;
+      } catch (e) {
+        // silent
       }
     }
+  }
+}
 
-    client.close();
+// MQTT connections manager
+function setupMqtt() {
+  // Teardown existing clients
+  for (const [brokerUrl, client] of mqttClients.entries()) {
+    client.end();
+    mqttClients.delete(brokerUrl);
+  }
 
-    const now = Math.floor(Date.now() / 1000);
-    const metricInsert = db.prepare(
-      'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
-    );
-    const latestUpsert = db.prepare(
-      'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
-    );
+  const mqttDevices = JSON.parse(getConfig('mqtt_devices') || '[]');
+  if (!mqttDevices.length) return;
 
-    const transaction = db.transaction(() => {
+  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+
+  for (const device of mqttDevices) {
+    if (!device.enabled || !device.broker) continue;
+
+    const opts = {};
+    if (device.username) opts.username = device.username;
+    if (device.password) opts.password = device.password;
+
+    const client = mqtt.connect(device.broker, opts);
+    mqttClients.set(device.broker, client);
+
+    client.on('connect', () => {
+      console.log(`MQTT connected to ${device.broker}`);
+      const topics = Object.values(device.topics || {}).filter(t => t);
+      if (topics.length) client.subscribe(topics);
+    });
+
+    client.on('message', (topic, message) => {
+      const val = parseFloat(message.toString());
+      if (isNaN(val)) return;
+
+      // Find metric name by topic
+      const topicMap = device.topics || {};
+      let metric;
+      for (const [key, t] of Object.entries(topicMap)) {
+        if (t === topic) {
+          metric = key;
+          break;
+        }
+      }
+      if (!metric) return;
+
+      const now = Math.floor(Date.now() / 1000);
+      latestUpsert.run(metric, val, now);
+      metricInsert.run(now, metric, val);
+      mqttValues[metric] = val;
+    });
+
+    client.on('error', (err) => console.error(`MQTT ${device.broker} error:`, err));
+  }
+}
+
+async function restartMqtt() {
+  setupMqtt();
+}
+
+async function pollModbus() {
+  const modbusDevices = JSON.parse(getConfig('modbus_devices') || '[]');
+  if (!modbusDevices.length) return;
+
+  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+
+  for (const device of modbusDevices) {
+    if (!device.enabled || !device.host || !device.profile) continue;
+    const profile = availableProfiles.find(p => p.id === device.profile);
+    if (!profile) {
+      console.error(`Modbus profile '${device.profile}' not found.`);
+      continue;
+    }
+
+    let client;
+    try {
+      client = new ModbusRTU();
+      await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
+      await client.setID(parseInt(device.unit) || 1);
+
+      const results = {};
+      const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
+      let i = 0;
+
+      while (i < sorted.length) {
+        const startAddr = sorted[i].address;
+        let count = 0;
+        while (i < sorted.length && sorted[i].address === startAddr + count && count < 32) {
+          count++;
+          i++;
+        }
+        try {
+          const resp = await client.readHoldingRegisters(startAddr, count);
+          for (let j = 0; j < resp.data.length; j++) {
+            const reg = sorted[i - count + j];
+            const raw = resp.data[j];
+            const value = reg.scale ? raw * reg.scale : raw;
+            results[reg.metric] = value;
+          }
+        } catch (err) {
+          console.error(`Modbus read error at ${startAddr}:`, err.message);
+        }
+      }
+
+      client.close();
+
+      const now = Math.floor(Date.now() / 1000);
       for (const [metric, value] of Object.entries(results)) {
         metricInsert.run(now, metric, value);
         latestUpsert.run(metric, value, now);
+        mqttValues[metric] = value;
       }
-    });
-    transaction();
-    console.log(`Modbus poll: ${Object.entries(results).length} metrics updated.`);
-  } catch (err) {
-    console.error('Modbus poll error:', err.message);
-    if (client) client.close();
+
+      console.log(`Modbus poll (${device.name || device.host}): ${Object.keys(results).length} metrics.`);
+    } catch (err) {
+      console.error(`Modbus poll error for ${device.name || device.host}:`, err.message);
+      if (client) client.close();
+    }
   }
 }
 
-// ─── EXTRA METRICS DEFINITIONS (configurable via HA/MQTT) ────────────────
-const extraMetrics = [
-  { metric: 'battery_voltage', haKey: 'ha_entity_battery_voltage', mqttKey: 'mqtt_topic_battery_voltage', mqttShort: 'battery_voltage' },
-  { metric: 'inverter_temp',   haKey: 'ha_entity_inverter_temp',   mqttKey: 'mqtt_topic_inverter_temp',   mqttShort: 'inverter_temp' },
-  { metric: 'solar_voltage',   haKey: 'ha_entity_solar_voltage',   mqttKey: 'mqtt_topic_solar_voltage',   mqttShort: 'solar_voltage' },
-  { metric: 'load_power',      haKey: 'ha_entity_load_power',      mqttKey: 'mqtt_topic_load_power',      mqttShort: 'load_power' }
-];
+// Legacy history polling (still needed for charts / current API)
+async function pollLegacyHistory() {
+  // This function compiles data from latest_metrics into the history table for backward compatibility
+  // We map the metric names to history columns.
+  const metricMap = {
+    consumption_power:          'consumption',
+    solar_power:                'solar',
+    battery_charge_power:       'battery_charge',
+    battery_discharge_power:    'battery_discharge',
+    grid_import_power:          'grid_import',
+    grid_export_power:          'grid_export',
+    battery_soc:                'battery_soc',
+    daily_consumption:          'daily_consumption',
+    daily_solar:                'daily_solar',
+    daily_battery_charge:       'daily_battery_charge',
+    daily_battery_discharge:    'daily_battery_discharge',
+    daily_grid_import:          'daily_grid_import',
+    daily_grid_export:          'daily_grid_export'
+  };
 
-async function pollAndCache() {
+  const latest = db.prepare('SELECT metric, value FROM latest_metrics').all();
+  const values = {};
+  for (const row of latest) {
+    if (metricMap[row.metric]) {
+      values[metricMap[row.metric]] = row.value;
+    }
+  }
+
+  // Fill any missing with 0
+  const cols = Object.values(metricMap);
+  for (const col of cols) {
+    if (!(col in values)) values[col] = 0;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const insertHistory = db.prepare(`
+    INSERT OR REPLACE INTO history 
+    (timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export, battery_soc,
+     daily_consumption, daily_solar, daily_battery_charge, daily_battery_discharge, daily_grid_import, daily_grid_export)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  insertHistory.run(now, values.consumption, values.solar, values.battery_charge, values.battery_discharge,
+                    values.grid_import, values.grid_export, values.battery_soc,
+                    values.daily_consumption, values.daily_solar, values.daily_battery_charge,
+                    values.daily_battery_discharge, values.daily_grid_import, values.daily_grid_export);
+}
+
+// Grid status polling (from HA entity)
+async function pollGridStatus() {
+  const gridEntity = getConfig('grid_status_entity');
+  if (!gridEntity) return;
+
+  // We use the first enabled HA device to fetch state
+  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+  const haDevice = haDevices.find(d => d.enabled);
+  if (!haDevice || !haDevice.url || !haDevice.token) return;
+
   try {
-    const modbusEnabled = await isSourceEnabled('modbus_enabled');
-    if (modbusEnabled) {
-      await pollModbus();
-      const gridEntity = getConfig('grid_status_entity');
-      if (gridEntity) {
-        try {
-          const now = Math.floor(Date.now() / 1000);
-          const rawState = await getHAState(gridEntity);
-          const isOn = parseGridState(rawState);
-          const lastRecord = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
-          if (!lastRecord || lastRecord.state !== isOn) {
-            db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, isOn);
-            console.log(`Grid state changed to ${isOn ? 'ON' : 'OFF'} (raw: ${rawState})`);
-          }
-        } catch (e) { console.error('Grid status polling error:', e); }
-      }
-      return;
-    }
-
-    const haEnabled = await isSourceEnabled('ha_enabled');
-    const mqttEnabled = await isSourceEnabled('mqtt_enabled');
-    async function getValue(mqttKey, haEntityKey) {
-      if (mqttEnabled && mqttValues[mqttKey] !== undefined) return mqttValues[mqttKey];
-      if (haEnabled) {
-        const entity = getConfig(haEntityKey);
-        if (entity) {
-          const raw = await getHAState(entity).catch(() => 0);
-          return parseFloat(raw) || 0;
-        }
-      }
-      return 0;
-    }
-    const consumption = await getValue('consumption', 'ha_entity_consumption');
-    const battCharge = await getValue('battery_charge', 'ha_entity_battery_charge');
-    const battDischarge = await getValue('battery_discharge', 'ha_entity_battery_discharge');
-    const gridImport = await getValue('grid_import', 'ha_entity_grid_import');
-    const gridExport = await getValue('grid_export', 'ha_entity_grid_export');
-    const batterySoc = await getValue('battery_soc', 'ha_entity_battery_soc');
-    const solarPower = await getValue('solar', 'ha_entity_solar');
-    const dailySolar = await getValue('daily_solar', 'ha_entity_daily_solar');
-    const dailyConsumption = await getValue('daily_consumption', 'ha_entity_daily_consumption');
-    const dailyBattCharge = await getValue('daily_battery_charge', 'ha_entity_daily_battery_charge');
-    const dailyBattDischarge = await getValue('daily_battery_discharge', 'ha_entity_daily_battery_discharge');
-    const dailyGridImport = await getValue('daily_grid_import', 'ha_entity_daily_grid_import');
-    const dailyGridExport = await getValue('daily_grid_export', 'ha_entity_daily_grid_export');
-
+    const res = await fetch(`${haDevice.url}/api/states/${gridEntity}`, {
+      headers: { 'Authorization': `Bearer ${haDevice.token}` },
+      timeout: 5000
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const state = parseGridState(data.state);
     const now = Math.floor(Date.now() / 1000);
-    const insertHistory = db.prepare(`
-      INSERT OR REPLACE INTO history 
-      (timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export, battery_soc,
-       daily_consumption, daily_solar, daily_battery_charge, daily_battery_discharge, daily_grid_import, daily_grid_export)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertHistory.run(now, consumption, solarPower, battCharge, battDischarge, gridImport, gridExport, batterySoc,
-      dailyConsumption, dailySolar, dailyBattCharge, dailyBattDischarge, dailyGridImport, dailyGridExport);
-
-    const metricInsert = db.prepare(
-      'INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)'
-    );
-    const latestUpsert = db.prepare(
-      'INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)'
-    );
-
-    const metricData = {
-      consumption_power: consumption,
-      solar_power: solarPower,
-      battery_charge_power: battCharge,
-      battery_discharge_power: battDischarge,
-      grid_import_power: gridImport,
-      grid_export_power: gridExport,
-      battery_soc: batterySoc,
-      daily_consumption: dailyConsumption,
-      daily_solar: dailySolar,
-      daily_battery_charge: dailyBattCharge,
-      daily_battery_discharge: dailyBattDischarge,
-      daily_grid_import: dailyGridImport,
-      daily_grid_export: dailyGridExport
-    };
-
-    // fetch extra metrics from HA / MQTT
-    for (const extra of extraMetrics) {
-      if (haEnabled || mqttEnabled) {
-        const val = await getValue(extra.mqttShort, extra.haKey);
-        metricData[extra.metric] = val;
-      }
+    const last = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
+    if (!last || last.state !== state) {
+      db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
+      console.log(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
     }
+  } catch (e) { /* silent */ }
+}
 
-    for (const [metric, value] of Object.entries(metricData)) {
-      metricInsert.run(now, metric, value);
-      latestUpsert.run(metric, value, now);
-    }
-
-    const gridEntity = getConfig('grid_status_entity');
-    if (gridEntity) {
-      try {
-        const rawState = await getHAState(gridEntity);
-        const isOn = parseGridState(rawState);
-        const lastRecord = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
-        if (!lastRecord || lastRecord.state !== isOn) {
-          db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, isOn);
-          console.log(`Grid state changed to ${isOn ? 'ON' : 'OFF'} (raw: ${rawState})`);
-        }
-      } catch (e) { console.error('Grid status polling error:', e); }
-    }
-    console.log(`Cached at ${new Date().toISOString()}`);
+// Unified polling loop
+async function pollAllSources() {
+  try {
+    await pollHomeAssistant();
+    await pollModbus();
+    await pollLegacyHistory();
+    await pollGridStatus();
   } catch (err) { console.error('Polling error:', err); }
 }
 
-pollAndCache();
-setInterval(pollAndCache, 30000);
+pollAllSources();
+setInterval(pollAllSources, 30000);
 
-// Clear forecast cache at midnight
-setInterval(() => {
-  const now = new Date();
-  if (now.getHours() === 0 && now.getMinutes() === 0) {
-    forecastCache = { data: null, timestamp: 0 };
-    console.log('Forecast cache cleared at midnight');
-  }
-}, 60000);
-
+// ─── Solar computation (unchanged) ───────────────────────────────────────
 function computeSolarForDate(dateStr) {
   const startOfDay = new Date(dateStr + 'T00:00:00');
   const endOfDay = new Date(dateStr + 'T23:59:59');
@@ -632,6 +609,24 @@ function computeTodaySolar() {
 
   return totalKwh;
 }
+
+// Weather code mapping (unchanged)
+const weatherCodeMap = {
+  0: { icon: 'fi fi-sr-sun', desc: 'Clear Sky' },
+  1: { icon: 'fi fi-sr-sun', desc: 'Mainly Clear' },
+  2: { icon: 'fi fi-sr-cloud-sun', desc: 'Partly Cloudy' },
+  3: { icon: 'fi fi-sr-cloud', desc: 'Overcast' },
+  45: { icon: 'fi fi-sr-cloud', desc: 'Fog' },
+  48: { icon: 'fi fi-sr-cloud', desc: 'Depositing Rime Fog' },
+  51: { icon: 'fi fi-sr-cloud-rain', desc: 'Light Drizzle' },
+  53: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Drizzle' },
+  55: { icon: 'fi fi-sr-cloud-rain', desc: 'Dense Drizzle' },
+  61: { icon: 'fi fi-sr-cloud-rain', desc: 'Slight Rain' },
+  63: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Rain' },
+  65: { icon: 'fi fi-sr-cloud-rain', desc: 'Heavy Rain' },
+  80: { icon: 'fi fi-sr-cloud-rain', desc: 'Rain Showers' }
+};
+const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
 
 // --- Public API (no auth) ---
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -785,7 +780,12 @@ app.get('/api/grid/status', async (req, res) => {
   try {
     const entity = getConfig('grid_status_entity');
     if (!entity) return res.json({ configured: false });
-    const rawState = await getHAState(entity).catch(() => 0);
+    const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+    const haDevice = haDevices.find(d => d.enabled);
+    if (!haDevice) return res.json({ configured: false });
+    const rawState = await fetch(`${haDevice.url}/api/states/${entity}`, {
+      headers: { 'Authorization': `Bearer ${haDevice.token}` }
+    }).then(r => r.json()).then(d => d.state).catch(() => 0);
     const current = parseGridState(rawState);
     const lastOn = db.prepare("SELECT timestamp FROM grid_status WHERE state = 1 ORDER BY timestamp DESC LIMIT 1").get();
     const lastOff = db.prepare("SELECT timestamp FROM grid_status WHERE state = 0 ORDER BY timestamp DESC LIMIT 1").get();
@@ -1066,7 +1066,7 @@ const FORECAST_CACHE_MS = 3 * 60 * 60 * 1000;
 
 app.get('/api/solar-forecast', async (req, res) => {
   try {
-    const forecastEnabled = await isSourceEnabled('forecast_enabled');
+    const forecastEnabled = getConfig('forecast_enabled') === 'true';
     if (!forecastEnabled) {
       return res.json({ error: 'Forecast disabled' });
     }
@@ -1378,14 +1378,14 @@ app.get('/api/test-forecast', authMiddleware, async (req, res) => {
   } catch (err) { console.error('Test forecast error:', err); res.status(500).json({ error: err.message }); }
 });
 
-// ─── SSRF FIX: No longer accepts query URL/token ──────────────────────────
-app.get('/api/ha/entities', authMiddleware, async (req, res) => {
-  const haUrl = getConfig('ha_url');
-  const haToken = getConfig('ha_token');
-  if (!haUrl || !haToken) return res.status(400).json({ error: 'HA not configured' });
+// ─── New endpoint: fetch entities from a specific HA device (SSRF-safe, requires auth) ──
+app.get('/api/ha-device-entities', authMiddleware, async (req, res) => {
+  const { url, token } = req.query;
+  if (!url || !token) return res.status(400).json({ error: 'HA URL and token are required' });
   try {
-    const response = await fetch(`${haUrl}/api/states`, {
-      headers: { 'Authorization': `Bearer ${haToken}` }
+    const response = await fetch(`${url}/api/states`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 5000
     });
     if (!response.ok) throw new Error(`HA error ${response.status}`);
     const data = await response.json();
@@ -1394,16 +1394,65 @@ app.get('/api/ha/entities', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── MQTT Test routes – SSRF FIX: no longer accept query overrides ──────
+// ─── Dashboard configuration endpoint (public GET, protected POST) ───
+app.get('/api/dashboard-config', async (req, res) => {
+  try {
+    let configStr = getConfig('dashboard_config');
+    if (configStr) {
+      const config = JSON.parse(configStr);
+      return res.json(config);
+    }
+    // Return default layout (backward compatible with old dashboard)
+    const defaultConfig = {
+      dashboards: [
+        {
+          id: 'main',
+          name: 'Main',
+          layout: [
+            { type: 'flow-card' },
+            { type: 'metric-cards', cards: [
+              { id: 'daily_solar', title: "Today's Solar", metric: 'daily_solar', unit: 'kWh' },
+              { id: 'daily_consumption', title: "Today's Usage", metric: 'daily_consumption', unit: 'kWh' },
+              { id: 'daily_grid_import', title: "Today's Grid", metric: 'daily_grid_import', unit: 'kWh' },
+              { id: 'battery_voltage', title: 'Battery Voltage', metric: 'battery_voltage', unit: 'V' },
+              { id: 'inverter_temp', title: 'Inverter Temp', metric: 'inverter_temp', unit: '°C' },
+              { id: 'solar_voltage', title: 'Solar Voltage', metric: 'solar_voltage', unit: 'V' }
+            ]},
+            { type: 'grid-card' },
+            { type: 'chart-power' },
+            { type: 'chart-energy' },
+            { type: 'savings-summary' },
+            { type: 'data-table-daily' },
+            { type: 'data-table-monthly' }
+          ]
+        }
+      ],
+      activeDashboard: 'main'
+    };
+    // Save default to config so it's immediately available
+    setConfig('dashboard_config', JSON.stringify(defaultConfig));
+    res.json(defaultConfig);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/dashboard-config', authMiddleware, async (req, res) => {
+  const newConfig = req.body;
+  try {
+    setConfig('dashboard_config', JSON.stringify(newConfig));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── MQTT Test routes (use stored broker) ──
 app.get('/api/test-mqtt', authMiddleware, async (req, res) => {
-  const brokerUrl = getConfig('mqtt_broker_url');
-  if (!brokerUrl) return res.status(400).json({ error: 'MQTT broker URL not configured' });
+  // Use first enabled MQTT device for testing
+  const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
+  const device = devices.find(d => d.enabled);
+  if (!device || !device.broker) return res.status(400).json({ error: 'No MQTT broker configured' });
   const options = {};
-  const username = getConfig('mqtt_username');
-  const password = getConfig('mqtt_password');
-  if (username) options.username = username;
-  if (password) options.password = password;
-  const testClient = mqtt.connect(brokerUrl, options);
+  if (device.username) options.username = device.username;
+  if (device.password) options.password = device.password;
+  const testClient = mqtt.connect(device.broker, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
@@ -1421,16 +1470,15 @@ app.get('/api/test-mqtt', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/test-mqtt-topic', authMiddleware, async (req, res) => {
-  const brokerUrl = getConfig('mqtt_broker_url');
-  if (!brokerUrl) return res.status(400).json({ error: 'MQTT broker URL not configured' });
-  const topic = req.query.topic;  // topic is still passed, but broker is fixed
+  const topic = req.query.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
+  const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
+  const device = devices.find(d => d.enabled);
+  if (!device || !device.broker) return res.status(400).json({ error: 'No MQTT broker configured' });
   const options = {};
-  const username = getConfig('mqtt_username');
-  const password = getConfig('mqtt_password');
-  if (username) options.username = username;
-  if (password) options.password = password;
-  const testClient = mqtt.connect(brokerUrl, options);
+  if (device.username) options.username = device.username;
+  if (device.password) options.password = device.password;
+  const testClient = mqtt.connect(device.broker, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
@@ -1484,11 +1532,14 @@ app.post('/api/restore', authMiddleware, upload.single('dbfile'), async (req, re
 
     // Apply the new database
     if (db) db.close();
-    if (mqttClient) { mqttClient.end(); mqttClient = null; }
+    if (mqttClients.size) {
+      for (const client of mqttClients.values()) client.end();
+      mqttClients.clear();
+    }
 
     fs.copyFileSync(tempPath, DB_PATH);
     initializeDatabase();
-    await setupMqtt();
+    setupMqtt();
 
     // Clean up
     fs.unlinkSync(tempPath);
@@ -1503,12 +1554,15 @@ app.post('/api/restore', authMiddleware, upload.single('dbfile'), async (req, re
     try {
       if (fs.existsSync(backupPath)) {
         if (db) db.close();
-        if (mqttClient) { mqttClient.end(); mqttClient = null; }
+        if (mqttClients.size) {
+          for (const client of mqttClients.values()) client.end();
+          mqttClients.clear();
+        }
 
         fs.copyFileSync(backupPath, DB_PATH);
         fs.unlinkSync(backupPath);
         initializeDatabase();
-        await setupMqtt();
+        setupMqtt();
       }
     } catch (rollbackErr) {
       console.error('Critical: rollback failed!', rollbackErr.message);
@@ -1540,15 +1594,11 @@ app.post('/api/settings', async (req, res) => {
     for (const [key, value] of Object.entries(updates)) {
       stmt.run(key, String(value));
     }
-    if ('mqtt_broker_url' in updates || 'mqtt_username' in updates || 'mqtt_password' in updates || 'mqtt_enabled' in updates) {
-      await restartMqtt();
+    // If MQTT or Modbus config changed, restart clients/polling
+    if ('mqtt_devices' in updates) {
+      setupMqtt();
     }
-    if ('modbus_enabled' in updates || 'modbus_host' in updates || 'modbus_port' in updates || 'modbus_unit' in updates || 'modbus_profile' in updates) {
-      // Reload profiles in case a new one was added (e.g., after a container update)
-      if ('modbus_profile' in updates) {
-        loadProfiles();
-      }
-    }
+    // Forecast cache clear
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -1556,7 +1606,6 @@ app.post('/api/settings', async (req, res) => {
     ];
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
       forecastCache = { data: null, timestamp: 0 };
-      console.log('Forecast cache cleared – settings changed');
     }
     res.json({ success: true });
   } catch (err) { console.error('[Settings] Save error:', err); res.status(500).json({ error: err.message }); }
@@ -1569,16 +1618,15 @@ app.get('/api/modbus/profiles', authMiddleware, (req, res) => {
 
 // ── Test Modbus connection ──────────────────────────────────────────────
 app.get('/api/test-modbus', authMiddleware, async (req, res) => {
-  const host = getConfig('modbus_host');
-  const port = parseInt(getConfig('modbus_port')) || 502;
-  const unitId = parseInt(getConfig('modbus_unit')) || 1;
-  if (!host) return res.status(400).json({ error: 'Modbus host not configured' });
+  const devices = JSON.parse(getConfig('modbus_devices') || '[]');
+  const device = devices.find(d => d.enabled);
+  if (!device || !device.host) return res.status(400).json({ error: 'No Modbus device configured' });
 
   let client;
   try {
     client = new ModbusRTU();
-    await client.connectTcp(host, { port });
-    await client.setID(unitId);
+    await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
+    await client.setID(parseInt(device.unit) || 1);
     const resp = await client.readHoldingRegisters(256, 1);   // battery SOC
     client.close();
     res.json({ success: true, value: resp.data[0] });
@@ -1592,7 +1640,7 @@ app.get('/settings', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
 });
 
-// ─── New generic metrics endpoints ───────────────────────────────────────
+// ─── Generic metrics endpoints ───────────────────────────────────────
 app.get('/api/metrics/current', async (req, res) => {
   try {
     const rows = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
