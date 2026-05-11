@@ -1402,7 +1402,7 @@ app.get('/api/dashboard-config', async (req, res) => {
       const config = JSON.parse(configStr);
       return res.json(config);
     }
-    // Return default layout (backward compatible with old dashboard)
+    // Return default layout (correct order, matches original dashboard)
     const defaultConfig = {
       dashboards: [
         {
@@ -1418,10 +1418,10 @@ app.get('/api/dashboard-config', async (req, res) => {
               { id: 'inverter_temp', title: 'Inverter Temp', metric: 'inverter_temp', unit: '°C' },
               { id: 'solar_voltage', title: 'Solar Voltage', metric: 'solar_voltage', unit: 'V' }
             ]},
+            { type: 'savings-summary' },
             { type: 'grid-card' },
             { type: 'chart-power' },
             { type: 'chart-energy' },
-            { type: 'savings-summary' },
             { type: 'data-table-daily' },
             { type: 'data-table-monthly' }
           ]
