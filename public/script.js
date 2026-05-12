@@ -125,7 +125,7 @@ function renderDashboard() {
     tabBar.appendChild(tab);
   });
 
-  // Clear previous dashboard content only
+  // Clear previous dashboard content
   const container = document.getElementById('dashboard-container');
   container.innerHTML = '';
 
@@ -208,6 +208,68 @@ componentBuilders['flow-card'] = function() {
     </div>
   `;
   return card;
+};
+
+componentBuilders['forecast-banner'] = function() {
+  const banner = document.createElement('div');
+  banner.className = 'pv-today-banner';
+  banner.id = 'forecast-banner';
+  banner.style.display = 'none';
+  banner.innerHTML = `
+    <div class="pv-top-bar">
+      <h3>Solar Forecast</h3>
+      <span class="forecast-date" id="forecast-date"></span>
+    </div>
+    <div class="pv-main-row">
+      <div class="pv-days">
+        <div class="pv-day">
+          <span class="pv-day-label">Today</span>
+          <span class="pv-day-value" id="pv-today-value">0 kWh</span>
+        </div>
+        <div class="pv-day">
+          <span class="pv-day-label" id="pred-day1-label">Monday</span>
+          <span class="pv-day-value" id="pv-tomorrow">0 kWh</span>
+        </div>
+        <div class="pv-day">
+          <span class="pv-day-label" id="pred-day2-label">Tuesday</span>
+          <span class="pv-day-value" id="pv-nextday">0 kWh</span>
+        </div>
+      </div>
+      <div class="weather-section">
+        <div class="weather-column" id="forecast-weather-current">
+          <span class="weather-heading">Current Weather</span>
+          <div class="weather-icon-big"><i class="fi fi-sr-sun" id="weather-i"></i></div>
+          <div class="weather-details">
+            <span class="weather-temp" id="weather-temp">--°</span>
+            <span class="weather-desc" id="weather-desc">--</span>
+            <span class="weather-extra" id="weather-extra">--</span>
+          </div>
+        </div>
+        <div class="weather-column" id="forecast-weather-1" style="display:none;">
+          <span class="weather-heading" id="fcast-heading-1">--</span>
+          <div class="weather-icon-big"><i class="fi fi-sr-sun" id="fcast-icon-1"></i></div>
+          <div class="weather-details">
+            <span class="weather-temp" id="fcast-temp-1">--°</span>
+            <span class="weather-desc" id="fcast-desc-1">--</span>
+            <span class="weather-extra" id="fcast-extra-1">--</span>
+          </div>
+        </div>
+        <div class="weather-column" id="forecast-weather-2" style="display:none;">
+          <span class="weather-heading" id="fcast-heading-2">--</span>
+          <div class="weather-icon-big"><i class="fi fi-sr-sun" id="fcast-icon-2"></i></div>
+          <div class="weather-details">
+            <span class="weather-temp" id="fcast-temp-2">--°</span>
+            <span class="weather-desc" id="fcast-desc-2">--</span>
+            <span class="weather-extra" id="fcast-extra-2">--</span>
+          </div>
+        </div>
+      </div>
+      <div class="pv-sparkline-container">
+        <canvas id="pv-sparkline" width="300" height="160"></canvas>
+      </div>
+    </div>
+  `;
+  return banner;
 };
 
 componentBuilders['metric-cards'] = function(block) {
@@ -882,6 +944,7 @@ async function updateAllComponents() {
   if (!activeLayout) return;
 
   if (activeLayout.some(b => b.type === 'flow-card')) updateFlowCard();
+  if (activeLayout.some(b => b.type === 'forecast-banner')) updateForecast();
   if (activeLayout.some(b => b.type === 'metric-cards')) updateMetricCards();
   if (activeLayout.some(b => b.type === 'grid-card')) updateGridCard();
   if (activeLayout.some(b => b.type === 'chart-power')) updatePowerChart(1);
@@ -889,7 +952,8 @@ async function updateAllComponents() {
   if (activeLayout.some(b => b.type === 'savings-summary')) updateSavings();
   if (activeLayout.some(b => b.type === 'data-table-daily')) updateDailyTable();
   if (activeLayout.some(b => b.type === 'data-table-monthly')) updateMonthlyTable();
-  updateForecast();
+
+  // Forecast is already conditionally called above
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────
