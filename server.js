@@ -1275,6 +1275,230 @@ app.get('/api/solar-forecast', async (req, res) => {
   }
 });
 
+// Aggregated dashboard state endpoint
+app.get('/api/dashboard-state', async (req, res) => {
+  try {
+    // current power & daily totals
+    const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
+    const dailySolarKwh = computeTodaySolar();
+    const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
+    const rate = parseFloat(rateRow?.value) || 0.30;
+    const currency = getConfig('savings_currency') || '€';
+
+    let currentData = { error: 'No data yet' };
+    if (latest) {
+      currentData = {
+        consumption_kw: latest.consumption / 1000,
+        solar_kw: latest.solar / 1000,
+        battery_charge_kw: latest.battery_charge / 1000,
+        battery_discharge_kw: latest.battery_discharge / 1000,
+        grid_import_kw: latest.grid_import / 1000,
+        grid_export_kw: latest.grid_export / 1000,
+        battery_soc: latest.battery_soc,
+        daily_consumption_kwh: latest.daily_consumption,
+        daily_solar_kwh: dailySolarKwh,
+        daily_battery_charge_kwh: latest.daily_battery_charge,
+        daily_battery_discharge_kwh: latest.daily_battery_discharge,
+        daily_grid_import_kwh: latest.daily_grid_import,
+        daily_grid_export_kwh: latest.daily_grid_export,
+        savings_currency: currency,
+        savings_rate: rate,
+        today_savings: dailySolarKwh * rate,
+        timestamp: latest.timestamp * 1000
+      };
+    }
+
+    // latest metrics
+    const metricRows = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+    const latestMetrics = {};
+    metricRows.forEach(r => { latestMetrics[r.metric] = { value: r.value, timestamp: r.timestamp * 1000 }; });
+
+    // savings (week/month/all)
+    const todaySolar = computeTodaySolar();
+    const weekSolar = (() => {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const diff = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - diff);
+      weekStart.setHours(0,0,0,0);
+      let total = 0;
+      const loopDate = new Date(weekStart);
+      const todayStr = now.toLocaleDateString('en-CA');
+      while (loopDate.toLocaleDateString('en-CA') <= todayStr) {
+        const dateStr = loopDate.toLocaleDateString('en-CA');
+        if (dateStr === todayStr) total += computeTodaySolar();
+        else total += computeSolarForDate(dateStr);
+        loopDate.setDate(loopDate.getDate() + 1);
+      }
+      return total;
+    })();
+    const monthSolar = (() => {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      let total = 0;
+      const loopDate = new Date(monthStart);
+      const todayStr = now.toLocaleDateString('en-CA');
+      while (loopDate.toLocaleDateString('en-CA') <= todayStr) {
+        const dateStr = loopDate.toLocaleDateString('en-CA');
+        if (dateStr === todayStr) total += computeTodaySolar();
+        else total += computeSolarForDate(dateStr);
+        loopDate.setDate(loopDate.getDate() + 1);
+      }
+      return total;
+    })();
+    let allTimeSavings;
+    const overrideValStr = getConfig('all_time_pv_savings_override');
+    if (overrideValStr && !isNaN(parseFloat(overrideValStr))) {
+      allTimeSavings = parseFloat(overrideValStr);
+    } else {
+      const allTimeRows = db.prepare(`SELECT timestamp, daily_solar FROM history WHERE daily_solar IS NOT NULL ORDER BY timestamp ASC`).all();
+      const allDailyMax = {};
+      allTimeRows.forEach(row => {
+        const date = new Date(row.timestamp * 1000).toLocaleDateString('en-CA');
+        const val = row.daily_solar;
+        if (!allDailyMax[date] || val > allDailyMax[date]) { allDailyMax[date] = val; }
+      });
+      const allTimeSolar = Object.values(allDailyMax).reduce((sum, val) => sum + val, 0);
+      allTimeSavings = allTimeSolar * rate;
+    }
+    const savings = {
+      currency,
+      today: todaySolar * rate,
+      week: weekSolar * rate,
+      month: monthSolar * rate,
+      all: allTimeSavings
+    };
+
+    // grid status
+    let gridStatus = { configured: false };
+    const gridEntity = getConfig('grid_status_entity');
+    if (gridEntity) {
+      const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+      const haDevice = haDevices.find(d => d.enabled);
+      if (haDevice) {
+        try {
+          const rawState = await fetch(`${haDevice.url}/api/states/${gridEntity}`, {
+            headers: { 'Authorization': `Bearer ${haDevice.token}` },
+            timeout: 5000
+          }).then(r => r.json()).then(d => d.state).catch(() => 0);
+          const currentState = parseGridState(rawState);
+          const lastOn = db.prepare("SELECT timestamp FROM grid_status WHERE state = 1 ORDER BY timestamp DESC LIMIT 1").get();
+          const lastOff = db.prepare("SELECT timestamp FROM grid_status WHERE state = 0 ORDER BY timestamp DESC LIMIT 1").get();
+          gridStatus = {
+            configured: true,
+            current: currentState === 1,
+            lastOn: lastOn ? lastOn.timestamp * 1000 : null,
+            lastOff: lastOff ? lastOff.timestamp * 1000 : null
+          };
+        } catch (e) { /* leave as not configured */ }
+      }
+    }
+
+    // grid hours for day/week/month/year
+    const gridHours = { day: 0, week: 0, month: 0, year: 0 };
+    if (gridStatus.configured) {
+      const now = new Date();
+      const startUnix = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0).getTime() / 1000);
+      const endUnix = Math.floor(now.getTime() / 1000);
+      const periods = [
+        { key: 'day', start: startUnix, end: endUnix },
+        { key: 'week', start: Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay()===0?6:now.getDay()-1)), 0,0,0).getTime()/1000), end: endUnix },
+        { key: 'month', start: Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime()/1000), end: endUnix },
+        { key: 'year', start: Math.floor(new Date(now.getFullYear(), 0, 1).getTime()/1000), end: endUnix }
+      ];
+      for (const p of periods) {
+        const initialState = getGridStateAt(p.start);
+        const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(p.start, p.end);
+        let hours = 0;
+        let lastState = initialState;
+        let lastTime = p.start;
+        for (const row of rows) {
+          if (lastState === 1) hours += (row.timestamp - lastTime) / 3600;
+          lastState = row.state;
+          lastTime = row.timestamp;
+        }
+        if (lastState === 1) hours += (p.end - lastTime) / 3600;
+        gridHours[p.key] = Math.round(hours * 10) / 10;
+      }
+    }
+
+    // grid timeline (24h)
+    let gridTimeline = { configured: false, segments: [], windowStart: 0, windowEnd: 0 };
+    if (gridStatus.configured) {
+      const nowMs = Date.now();
+      const windowStart = nowMs - 24 * 60 * 60 * 1000;
+      const startUnix = Math.floor(windowStart / 1000);
+      const endUnix = Math.floor(nowMs / 1000);
+      const initialState = getGridStateAt(startUnix);
+      const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, endUnix);
+      const segments = [];
+      let lastState = initialState;
+      let lastTime = startUnix;
+      for (const row of rows) {
+        if (row.timestamp > lastTime) {
+          segments.push({ start: lastTime, end: row.timestamp, state: lastState });
+          lastState = row.state;
+          lastTime = row.timestamp;
+        } else {
+          lastState = row.state;
+        }
+      }
+      if (lastTime < endUnix) {
+        segments.push({ start: lastTime, end: endUnix, state: lastState });
+      }
+      gridTimeline = {
+        configured: true,
+        segments: segments.map(s => ({ start: s.start * 1000, end: s.end * 1000, state: s.state })),
+        windowStart: windowStart,
+        windowEnd: nowMs
+      };
+    }
+
+    // power history (24h for power chart)
+    const historySince = Math.floor(Date.now() / 1000) - 24 * 3600;
+    const historyRows = db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince);
+    const powerHistory = historyRows.map(r => ({
+      timestamp: r.timestamp * 1000,
+      consumption_kw: r.consumption / 1000,
+      solar_kw: r.solar / 1000,
+      battery_charge_kw: r.battery_charge / 1000,
+      grid_import_kw: r.grid_import / 1000
+    }));
+
+    // daily energy bar chart (7 days)
+    const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+    const barRows = db.prepare(`
+      SELECT date(timestamp, 'unixepoch') as day,
+        MAX(daily_solar) as solar_kwh,
+        MAX(daily_grid_import) as grid_import_kwh,
+        MAX(daily_consumption) as consumption_kwh
+      FROM history WHERE timestamp >= ?
+      GROUP BY day ORDER BY day ASC
+    `).all(barSince);
+    const dailyEnergyBar = barRows.map(r => ({
+      day: r.day,
+      solar_kwh: r.solar_kwh,
+      grid_import_kwh: r.grid_import_kwh,
+      consumption_kwh: r.consumption_kwh
+    }));
+
+    res.json({
+      current: currentData,
+      metrics: latestMetrics,
+      savings,
+      gridStatus,
+      gridHours,
+      gridTimeline,
+      powerHistory,
+      dailyEnergyBar
+    });
+  } catch (err) {
+    console.error('Aggregated state error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Settings API (protected) ──
 app.get('/api/test-forecast', authMiddleware, async (req, res) => {
   try {
