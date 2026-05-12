@@ -471,19 +471,19 @@ async function pollLegacyHistory() {
   // This function compiles data from latest_metrics into the history table for backward compatibility
   // We map the metric names to history columns.
   const metricMap = {
-    consumption_power:          'consumption',
-    solar_power:                'solar',
-    battery_charge_power:       'battery_charge',
-    battery_discharge_power:    'battery_discharge',
-    grid_import_power:          'grid_import',
-    grid_export_power:          'grid_export',
-    battery_soc:                'battery_soc',
-    daily_consumption:          'daily_consumption',
-    daily_solar:                'daily_solar',
-    daily_battery_charge:       'daily_battery_charge',
-    daily_battery_discharge:    'daily_battery_discharge',
-    daily_grid_import:          'daily_grid_import',
-    daily_grid_export:          'daily_grid_export'
+    consumption:         'consumption',
+    solar:               'solar',
+    battery_charge:      'battery_charge',
+    battery_discharge:   'battery_discharge',
+    grid_import:         'grid_import',
+    grid_export:         'grid_export',
+    battery_soc:         'battery_soc',
+    daily_consumption:   'daily_consumption',
+    daily_solar:         'daily_solar',
+    daily_battery_charge: 'daily_battery_charge',
+    daily_battery_discharge: 'daily_battery_discharge',
+    daily_grid_import:   'daily_grid_import',
+    daily_grid_export:   'daily_grid_export'
   };
 
   const latest = db.prepare('SELECT metric, value FROM latest_metrics').all();
@@ -1410,6 +1410,7 @@ app.get('/api/dashboard-config', async (req, res) => {
           name: 'Main',
           layout: [
             { type: 'flow-card' },
+            { type: 'forecast-banner' },
             { type: 'metric-cards', cards: [
               { id: 'daily_solar', title: "Today's Solar", metric: 'daily_solar', unit: 'kWh' },
               { id: 'daily_consumption', title: "Today's Usage", metric: 'daily_consumption', unit: 'kWh' },
