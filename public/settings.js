@@ -1,8 +1,9 @@
-// settings.js – with dynamic metric mapping for HA and MQTT
+// settings.js – with dynamic metric mapping and tooltips for HA and MQTT
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
+let usedDashboardMetrics = [];
 
 function showStatus(element, msg, type) {
   element.textContent = msg;
@@ -17,6 +18,7 @@ async function loadSettings() {
   try {
     const res = await fetch('/api/settings');
     const data = await res.json();
+    // Populate top‑level fields
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config') continue;
       const input = form.querySelector(`[name="${key}"]`);
@@ -33,6 +35,23 @@ async function loadSettings() {
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
+
+    // Extract metric names from all dashboards' metric-cards blocks
+    usedDashboardMetrics = [];
+    if (dashConfig && dashConfig.dashboards) {
+      dashConfig.dashboards.forEach(db => {
+        db.layout.forEach(block => {
+          if (block.type === 'metric-cards' && block.cards) {
+            block.cards.forEach(card => {
+              if (card.metric && !usedDashboardMetrics.includes(card.metric)) {
+                usedDashboardMetrics.push(card.metric);
+              }
+            });
+          }
+        });
+      });
+    }
+    usedDashboardMetrics.sort();
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
   }
@@ -70,10 +89,19 @@ function renderHaDevice(device, idx) {
     <div class="mappings-section" id="ha-mappings-${idx}">
       <h4>Entity Mappings</h4>
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
-      <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">+ Add Metric Mapping</button>
+      <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
+        + Add Metric Mapping
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(usedDashboardMetrics.join(', ') || 'none yet')}">?</span>
+      </button>
     </div>
   `;
   container.appendChild(card);
+
+  // Tooltip element (hidden)
+  const tooltipEl = document.createElement('div');
+  tooltipEl.className = 'metric-tooltip';
+  tooltipEl.style.display = 'none';
+  card.appendChild(tooltipEl);
 
   card.querySelector('[data-action="remove-ha"]').addEventListener('click', () => {
     card.remove();
@@ -93,7 +121,6 @@ function renderHaDevice(device, idx) {
       const res = await fetch(`/api/ha-device-entities?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`);
       const entities = await res.json();
       if (!res.ok) throw new Error(entities.error || 'Failed');
-      // Populate all mapping selects in this card
       const selects = card.querySelectorAll('.mappings-list select');
       selects.forEach(select => {
         const currentVal = select.value;
@@ -115,6 +142,26 @@ function renderHaDevice(device, idx) {
   card.querySelector('.add-ha-metric').addEventListener('click', () => {
     addHaMetricRow(device, idx);
   });
+
+  // Tooltip logic
+  const helpIcon = card.querySelector('.metric-help-icon');
+  if (helpIcon) {
+    helpIcon.addEventListener('mouseenter', (e) => {
+      const text = helpIcon.dataset.tooltip;
+      if (!text || text === 'none yet') return;
+      const tooltip = card.querySelector('.metric-tooltip');
+      tooltip.textContent = 'Dashboard metrics: ' + text;
+      tooltip.style.display = 'block';
+      const rect = helpIcon.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      tooltip.style.left = (rect.left - cardRect.left + 20) + 'px';
+      tooltip.style.top = (rect.top - cardRect.top - 30) + 'px';
+    });
+    helpIcon.addEventListener('mouseleave', () => {
+      const tooltip = card.querySelector('.metric-tooltip');
+      if (tooltip) tooltip.style.display = 'none';
+    });
+  }
 
   // Render existing mappings
   const mappingsList = card.querySelector('.mappings-list');
@@ -163,21 +210,16 @@ function reindexHa() {
     // Rename main inputs
     const nameInput = card.querySelector('.device-header input[type="text"]');
     if (nameInput) nameInput.name = `ha_devices[${i}][name]`;
-    // Enable checkbox
     const enableCb = card.querySelector('.device-header input[type="checkbox"]');
     if (enableCb) enableCb.name = `ha_devices[${i}][enabled]`;
-    // Url, token, poll_interval
     const urlInput = card.querySelector(`[name^="ha_devices["] [name$="[url]"]`);
     if (urlInput) urlInput.name = `ha_devices[${i}][url]`;
     const tokenInput = card.querySelector(`[name^="ha_devices["] [name$="[token]"]`);
     if (tokenInput) tokenInput.name = `ha_devices[${i}][token]`;
     const pollInput = card.querySelector(`[name^="ha_devices["] [name$="[poll_interval]"]`);
     if (pollInput) pollInput.name = `ha_devices[${i}][poll_interval]`;
-    // Fetch button (no name change needed)
-    // Add metric button
     const addBtn = card.querySelector('.add-ha-metric');
     if (addBtn) addBtn.dataset.device = i;
-    // The metric rows will be collected on save from the DOM, no need to rename individually.
     haDeviceCounter++;
   });
 }
@@ -226,10 +268,18 @@ function renderMqttDevice(device, idx) {
     <div class="mappings-section">
       <h4>Topic Mappings</h4>
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
-      <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">+ Add Metric Mapping</button>
+      <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
+        + Add Metric Mapping
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(usedDashboardMetrics.join(', ') || 'none yet')}">?</span>
+      </button>
     </div>
   `;
   container.appendChild(card);
+
+  const tooltipEl = document.createElement('div');
+  tooltipEl.className = 'metric-tooltip';
+  tooltipEl.style.display = 'none';
+  card.appendChild(tooltipEl);
 
   card.querySelector('[data-action="remove-mqtt"]').addEventListener('click', () => {
     card.remove();
@@ -279,6 +329,25 @@ function renderMqttDevice(device, idx) {
     addMqttMetricRow(device, idx);
   });
 
+  const helpIcon = card.querySelector('.metric-help-icon');
+  if (helpIcon) {
+    helpIcon.addEventListener('mouseenter', (e) => {
+      const text = helpIcon.dataset.tooltip;
+      if (!text || text === 'none yet') return;
+      const tooltip = card.querySelector('.metric-tooltip');
+      tooltip.textContent = 'Dashboard metrics: ' + text;
+      tooltip.style.display = 'block';
+      const rect = helpIcon.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      tooltip.style.left = (rect.left - cardRect.left + 20) + 'px';
+      tooltip.style.top = (rect.top - cardRect.top - 30) + 'px';
+    });
+    helpIcon.addEventListener('mouseleave', () => {
+      const tooltip = card.querySelector('.metric-tooltip');
+      if (tooltip) tooltip.style.display = 'none';
+    });
+  }
+
   const mappingsList = card.querySelector('.mappings-list');
   renderMqttMappings(device.topics || {}, idx, mappingsList);
 
@@ -318,7 +387,7 @@ function reindexMqtt() {
   mqttDeviceCounter = 0;
   cards.forEach((card, i) => {
     card.dataset.index = i;
-    // Rename main inputs minimally; the actual values are extracted on save by traversing the DOM.
+    // minimal reindex
     mqttDeviceCounter++;
   });
 }
@@ -528,7 +597,6 @@ document.getElementById('add-dashboard-btn').addEventListener('click', () => {
 // ======================== SAVE (builds JSON from DOM) ========================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  // Build payload object
   const payload = {};
 
   // Simple top-level inputs
