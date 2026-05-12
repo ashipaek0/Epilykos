@@ -114,7 +114,6 @@ function renderDashboard() {
   const config = dashboardConfig;
   if (!config || !config.dashboards) return;
 
-  // destroy existing charts before rebuilding DOM
   destroyCharts();
 
   let tabBar = document.getElementById('tab-bar');
@@ -150,7 +149,6 @@ function renderDashboard() {
     if (el) container.appendChild(el);
   });
 
-  // Initialize charts only if the blocks exist
   if (active.layout.some(b => b.type === 'chart-power') && !powerChart) {
     initPowerChart();
   }
@@ -158,7 +156,7 @@ function renderDashboard() {
     initEnergyChart();
   }
 
-  // Lazy-load tables: attach expand handler that fetches data once
+  // Lazy-load tables
   const dailyContent = document.querySelector('.daily-breakdown-content');
   if (dailyContent) {
     const toggleBtn = dailyContent.previousElementSibling.querySelector('.toggle-btn');
@@ -198,7 +196,7 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-// ─── Component Builders (unchanged) ─────────────────────────────────────
+/* ── Component Builders ── */
 componentBuilders['flow-card'] = function() {
   const card = document.createElement('div');
   card.className = 'flow-card';
@@ -359,7 +357,7 @@ componentBuilders['data-table-monthly'] = function() {
   return container;
 };
 
-// ─── Chart Initialization ─────────────────────────────────────────────────
+/* ── Chart Initialization ────────────────────────────────────────────── */
 function initPowerChart() {
   const canvas = document.getElementById('powerChart');
   if (!canvas) return;
@@ -413,7 +411,7 @@ function initEnergyChart() {
   });
 }
 
-// ─── Update Functions (use aggregated state) ──────────────────────────────
+/* ── Update Functions ───────────────────────────────────────────────── */
 async function fetchDashboardState() {
   const res = await fetch('/api/dashboard-state');
   return await res.json();
@@ -422,30 +420,111 @@ async function fetchDashboardState() {
 function updateFlowCard(state) {
   if (!state || !state.current || state.current.error) return;
   const d = state.current;
-  document.getElementById('flow-solar').textContent = Math.round(d.solar_kw * 1000) + ' W';
-  document.getElementById('flow-battery-soc').textContent = Math.round(d.battery_soc) + '%';
-  const battNet = (d.battery_charge_kw - d.battery_discharge_kw) * 1000;
+  const solarWatts = Math.round(d.solar_kw * 1000);
+  const consumption = Math.round(d.consumption_kw * 1000);
+  const battCharge = Math.round(d.battery_charge_kw * 1000);
+  const battDischarge = Math.round(d.battery_discharge_kw * 1000);
+  const gridImport = Math.round(d.grid_import_kw * 1000);
+  const gridExport = Math.round(d.grid_export_kw * 1000);
+  const battSoc = d.battery_soc || 0;
+
+  document.getElementById('flow-solar').textContent = solarWatts + ' W';
+  document.getElementById('flow-battery-soc').textContent = Math.round(battSoc) + '%';
+
+  const battNet = battCharge - battDischarge;
+  const battSign = battNet >= 0 ? '↑' : '↓';
+  const battColor = battNet >= 0 ? 'var(--battery)' : '#f59e0b';
   const battEl = document.getElementById('flow-battery-power');
   battEl.innerHTML = '';
-  const span = document.createElement('span');
-  span.style.color = battNet >= 0 ? 'var(--battery)' : '#f59e0b';
-  span.textContent = `${battNet >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(battNet))} W`;
-  battEl.appendChild(span);
-  document.getElementById('flow-home').textContent = Math.round(d.consumption_kw * 1000) + ' W';
-  const gridNet = (d.grid_import_kw - d.grid_export_kw) * 1000;
+  const battSpan = document.createElement('span');
+  battSpan.style.color = battColor;
+  battSpan.textContent = `${battSign} ${Math.abs(battNet)} W`;
+  battEl.appendChild(battSpan);
+
+  document.getElementById('flow-home').textContent = consumption + ' W';
+
+  const gridNet = gridImport - gridExport;
+  const gridDir = gridNet >= 0 ? 'Import' : 'Export';
+  const gridColor = gridNet >= 0 ? 'var(--grid)' : '#3b82f6';
   const gridEl = document.getElementById('flow-grid');
   gridEl.innerHTML = '';
   const gSpan = document.createElement('span');
-  gSpan.style.color = gridNet >= 0 ? 'var(--grid)' : '#3b82f6';
-  gSpan.textContent = Math.abs(Math.round(gridNet)) + ' W';
+  gSpan.style.color = gridColor;
+  gSpan.textContent = Math.abs(gridNet) + ' W';
   gridEl.appendChild(gSpan);
-  document.getElementById('flow-grid-direction').textContent = gridNet >= 0 ? 'Import' : 'Export';
+  document.getElementById('flow-grid-direction').textContent = gridDir;
+
+  // Icon colors
+  const solarIcon = document.getElementById('icon-solar');
+  const homeIcon = document.getElementById('icon-home');
+  const gridIcon = document.getElementById('icon-grid');
+  const batteryIcon = document.getElementById('icon-battery');
+
+  if (solarIcon) solarIcon.style.color = solarWatts > 0 ? 'var(--solar)' : 'var(--text)';
+  if (homeIcon) homeIcon.style.color = consumption > 0 ? 'var(--home)' : 'var(--text)';
+  if (gridIcon) {
+    if (gridNet > 0) gridIcon.style.color = 'var(--grid)';
+    else if (gridNet < 0) gridIcon.style.color = '#3b82f6';
+    else gridIcon.style.color = 'var(--text)';
+  }
+  if (batteryIcon) {
+    let battClass = 'fi fi-sr-battery-empty';
+    if (battSoc >= 76)      battClass = 'fi fi-sr-battery-full';
+    else if (battSoc >= 51) battClass = 'fi fi-sr-battery-three-quarters';
+    else if (battSoc >= 26) battClass = 'fi fi-sr-battery-half';
+    else if (battSoc >= 1)  battClass = 'fi fi-sr-battery-quarter';
+    batteryIcon.className = battClass;
+    if (battNet > 0)        batteryIcon.style.color = 'var(--battery)';
+    else if (battNet < 0)   batteryIcon.style.color = '#f59e0b';
+    else                    batteryIcon.style.color = 'var(--text)';
+  }
+
+  // Flow arrows
+  updateFlowArrows(solarWatts, consumption, battCharge, battDischarge, gridImport, gridExport);
+
+  // Solar gauge
   const gaugeFill = document.getElementById('gauge-bar-fill');
   const gaugePercent = document.getElementById('gauge-percent');
   if (gaugeFill && gaugePercent) {
-    const percent = systemCapacityKwp > 0 ? Math.min(100, (d.solar_kw / systemCapacityKwp) * 100) : 0;
+    const percent = systemCapacityKwp > 0 ? Math.min(100, (solarWatts / (systemCapacityKwp * 1000)) * 100) : 0;
     gaugeFill.style.width = percent + '%';
     gaugePercent.textContent = percent.toFixed(0) + '%';
+  }
+}
+
+function updateFlowArrows(solar, consumption, battCharge, battDischarge, gridImport, gridExport) {
+  const solarArrow = document.querySelector('.flow-arrow.solar-home');
+  const battArrow = document.querySelector('.flow-arrow.battery');
+  const gridArrow = document.querySelector('.flow-arrow.grid');
+  const gridToBatt = document.getElementById('grid-to-battery');
+
+  if (solar > 0) {
+    if (solarArrow) { solarArrow.style.color = 'var(--solar)'; solarArrow.classList.add('flowing'); solarArrow.textContent = '→'; }
+  } else {
+    if (solarArrow) { solarArrow.style.color = 'var(--text-secondary)'; solarArrow.classList.remove('flowing'); solarArrow.textContent = '→'; }
+  }
+
+  const isCharging = battCharge > battDischarge;
+  const isDischarging = battDischarge > battCharge;
+  const isGridChargingBattery = gridImport > 0 && isCharging;
+  const isSolarChargingBattery = solar > 0 && isCharging && !isGridChargingBattery;
+
+  if (battArrow) {
+    if (isDischarging) { battArrow.style.color = '#f59e0b'; battArrow.textContent = '→'; }
+    else if (isCharging) {
+      if (isGridChargingBattery) { battArrow.style.color = 'var(--grid)'; battArrow.textContent = '←'; }
+      else { battArrow.style.color = isSolarChargingBattery ? 'var(--solar)' : 'var(--battery)'; battArrow.textContent = '→'; }
+    } else { battArrow.style.color = 'var(--text-secondary)'; battArrow.textContent = '⇄'; }
+  }
+
+  if (gridArrow) {
+    if (gridImport > gridExport) { gridArrow.style.color = 'var(--grid)'; gridArrow.textContent = '←'; }
+    else if (gridExport > gridImport) { gridArrow.style.color = '#3b82f6'; gridArrow.textContent = '→'; }
+    else { gridArrow.style.color = 'var(--text-secondary)'; gridArrow.textContent = '⇄'; }
+  }
+
+  if (gridToBatt) {
+    gridToBatt.style.display = (isGridChargingBattery) ? 'block' : 'none';
   }
 }
 
@@ -537,7 +616,6 @@ function updateEnergyChartFromState(state) {
   energyBarChart.update();
 }
 
-// Lazy table fetchers (unchanged)
 async function updateDailyTable() {
   const tbody = document.getElementById('daily-table-body');
   if (!tbody) return;
@@ -859,7 +937,6 @@ async function loadBranding() {
   } catch (e) {}
 }
 
-// ─── Unified update cycle ─────────────────────────────────────────────────
 async function updateAllComponents() {
   try {
     const state = await fetchDashboardState();
@@ -872,7 +949,6 @@ async function updateAllComponents() {
     if (activeLayout.some(b => b.type === 'chart-power')) updatePowerChartFromState(state);
     if (activeLayout.some(b => b.type === 'chart-energy')) updateEnergyChartFromState(state);
     if (activeLayout.some(b => b.type === 'savings-summary')) updateSavingsFromState(state);
-    // Forecast still fetched independently
     updateForecast();
   } catch (e) { console.error(e); }
 }
