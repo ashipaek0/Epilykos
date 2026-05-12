@@ -120,16 +120,24 @@
       padding-left: 1rem;
       border-left: 2px solid var(--accent);
     }
+    /* Updated metric-row for dynamic mappings */
     .metric-row {
-      display: grid;
-      grid-template-columns: 180px 1fr;
+      display: flex;
       gap: 0.5rem;
       align-items: center;
       margin-bottom: 0.5rem;
     }
-    .metric-row label {
-      margin-bottom: 0;
-      font-size: 0.9rem;
+    .metric-row input {
+      flex: 1;
+      min-width: 80px;
+    }
+    .metric-row select {
+      flex: 1;
+      min-width: 120px;
+    }
+    .remove-metric {
+      flex-shrink: 0;
+      padding: 0.3rem 0.6rem;
     }
 
     /* Dashboard editor */
@@ -199,7 +207,8 @@
         margin: 0.5rem 0;
       }
       .metric-row {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
       }
       .metric-row label {
         margin-bottom: 0.2rem;
@@ -279,7 +288,7 @@
       <div id="mqtt-devices-container"></div>
       <button type="button" id="add-mqtt-device" class="fetch-btn">+ Add MQTT Broker</button>
 
-      <!-- Modbus (Multi‑Device) – unchanged -->
+      <!-- Modbus (Multi‑Device) -->
       <h3>Modbus Direct</h3>
       <div class="toggle-group">
         <label><input type="checkbox" name="modbus_enabled" value="true"> Enable Modbus Direct</label>
@@ -371,7 +380,7 @@
         <input name="dashboard_logo" placeholder="https://example.com/logo.png" autocomplete="off">
       </div>
 
-      <!-- Dashboard Editor (simple version for now) -->
+      <!-- Dashboard Editor -->
       <h3>Dashboard Layout</h3>
       <div id="dashboard-editor">
         <div id="dashboards-list"></div>
@@ -379,7 +388,7 @@
         <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
       </div>
 
-      <!-- Backup & Restore (unchanged) -->
+      <!-- Backup & Restore -->
       <h3>Backup & Restore</h3>
       <div class="backup-row">
         <button type="button" id="backup-btn" class="fetch-btn">⬇️ Download Backup</button>
