@@ -104,11 +104,19 @@ async function loadDashboardConfig() {
   renderDashboard();
 }
 
+function destroyCharts() {
+  if (powerChart) { powerChart.destroy(); powerChart = null; }
+  if (energyBarChart) { energyBarChart.destroy(); energyBarChart = null; }
+  if (sparklineChart) { sparklineChart.destroy(); sparklineChart = null; }
+}
+
 function renderDashboard() {
   const config = dashboardConfig;
   if (!config || !config.dashboards) return;
 
-  // Build tab bar
+  // destroy existing charts before rebuilding DOM
+  destroyCharts();
+
   let tabBar = document.getElementById('tab-bar');
   if (!tabBar) {
     tabBar = document.createElement('div');
@@ -125,14 +133,12 @@ function renderDashboard() {
     tabBar.appendChild(tab);
   });
 
-  // Clear previous dashboard content
   const container = document.getElementById('dashboard-container');
   container.innerHTML = '';
 
   const active = config.dashboards.find(db => db.id === config.activeDashboard);
   if (!active) return;
 
-  // Render blocks in order
   active.layout.forEach(block => {
     if (block.enabled === false) return;
     const builder = componentBuilders[block.type];
@@ -144,12 +150,36 @@ function renderDashboard() {
     if (el) container.appendChild(el);
   });
 
-  // Initialize charts if needed
+  // Initialize charts only if the blocks exist
   if (active.layout.some(b => b.type === 'chart-power') && !powerChart) {
     initPowerChart();
   }
   if (active.layout.some(b => b.type === 'chart-energy') && !energyBarChart) {
     initEnergyChart();
+  }
+
+  // Lazy-load tables: attach expand handler that fetches data once
+  const dailyContent = document.querySelector('.daily-breakdown-content');
+  if (dailyContent) {
+    const toggleBtn = dailyContent.previousElementSibling.querySelector('.toggle-btn');
+    const loadDaily = async () => {
+      await updateDailyTable();
+      dailyContent.dataset.loaded = 'true';
+    };
+    if (!dailyContent.dataset.loaded) {
+      toggleBtn.addEventListener('click', loadDaily, { once: true });
+    }
+  }
+  const monthlyContent = document.querySelectorAll('.daily-breakdown-content')[1];
+  if (monthlyContent) {
+    const toggleBtn = monthlyContent.previousElementSibling.querySelector('.toggle-btn');
+    const loadMonthly = async () => {
+      await updateMonthlyTable();
+      monthlyContent.dataset.loaded = 'true';
+    };
+    if (!monthlyContent.dataset.loaded) {
+      toggleBtn.addEventListener('click', loadMonthly, { once: true });
+    }
   }
 
   loadBranding();
@@ -168,7 +198,7 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-// ─── Component Builders ───────────────────────────────────────────────────
+// ─── Component Builders (unchanged) ─────────────────────────────────────
 componentBuilders['flow-card'] = function() {
   const card = document.createElement('div');
   card.className = 'flow-card';
@@ -222,51 +252,28 @@ componentBuilders['forecast-banner'] = function() {
     </div>
     <div class="pv-main-row">
       <div class="pv-days">
-        <div class="pv-day">
-          <span class="pv-day-label">Today</span>
-          <span class="pv-day-value" id="pv-today-value">0 kWh</span>
-        </div>
-        <div class="pv-day">
-          <span class="pv-day-label" id="pred-day1-label">Monday</span>
-          <span class="pv-day-value" id="pv-tomorrow">0 kWh</span>
-        </div>
-        <div class="pv-day">
-          <span class="pv-day-label" id="pred-day2-label">Tuesday</span>
-          <span class="pv-day-value" id="pv-nextday">0 kWh</span>
-        </div>
+        <div class="pv-day"><span class="pv-day-label">Today</span><span class="pv-day-value" id="pv-today-value">0 kWh</span></div>
+        <div class="pv-day"><span class="pv-day-label" id="pred-day1-label">Monday</span><span class="pv-day-value" id="pv-tomorrow">0 kWh</span></div>
+        <div class="pv-day"><span class="pv-day-label" id="pred-day2-label">Tuesday</span><span class="pv-day-value" id="pv-nextday">0 kWh</span></div>
       </div>
       <div class="weather-section">
         <div class="weather-column" id="forecast-weather-current">
           <span class="weather-heading">Current Weather</span>
           <div class="weather-icon-big"><i class="fi fi-sr-sun" id="weather-i"></i></div>
-          <div class="weather-details">
-            <span class="weather-temp" id="weather-temp">--°</span>
-            <span class="weather-desc" id="weather-desc">--</span>
-            <span class="weather-extra" id="weather-extra">--</span>
-          </div>
+          <div class="weather-details"><span class="weather-temp" id="weather-temp">--°</span><span class="weather-desc" id="weather-desc">--</span><span class="weather-extra" id="weather-extra">--</span></div>
         </div>
         <div class="weather-column" id="forecast-weather-1" style="display:none;">
           <span class="weather-heading" id="fcast-heading-1">--</span>
           <div class="weather-icon-big"><i class="fi fi-sr-sun" id="fcast-icon-1"></i></div>
-          <div class="weather-details">
-            <span class="weather-temp" id="fcast-temp-1">--°</span>
-            <span class="weather-desc" id="fcast-desc-1">--</span>
-            <span class="weather-extra" id="fcast-extra-1">--</span>
-          </div>
+          <div class="weather-details"><span class="weather-temp" id="fcast-temp-1">--°</span><span class="weather-desc" id="fcast-desc-1">--</span><span class="weather-extra" id="fcast-extra-1">--</span></div>
         </div>
         <div class="weather-column" id="forecast-weather-2" style="display:none;">
           <span class="weather-heading" id="fcast-heading-2">--</span>
           <div class="weather-icon-big"><i class="fi fi-sr-sun" id="fcast-icon-2"></i></div>
-          <div class="weather-details">
-            <span class="weather-temp" id="fcast-temp-2">--°</span>
-            <span class="weather-desc" id="fcast-desc-2">--</span>
-            <span class="weather-extra" id="fcast-extra-2">--</span>
-          </div>
+          <div class="weather-details"><span class="weather-temp" id="fcast-temp-2">--°</span><span class="weather-desc" id="fcast-desc-2">--</span><span class="weather-extra" id="fcast-extra-2">--</span></div>
         </div>
       </div>
-      <div class="pv-sparkline-container">
-        <canvas id="pv-sparkline" width="300" height="160"></canvas>
-      </div>
+      <div class="pv-sparkline-container"><canvas id="pv-sparkline" width="300" height="160"></canvas></div>
     </div>
   `;
   return banner;
@@ -281,10 +288,7 @@ componentBuilders['metric-cards'] = function(block) {
     const cardEl = document.createElement('div');
     cardEl.className = 'stat-card';
     cardEl.id = `dynamic-card-${card.id}`;
-    cardEl.innerHTML = `
-      <div class="stat-label">${card.title}</div>
-      <div class="stat-value" id="val-${card.id}">-- ${card.unit || ''}</div>
-    `;
+    cardEl.innerHTML = `<div class="stat-label">${card.title}</div><div class="stat-value" id="val-${card.id}">-- ${card.unit || ''}</div>`;
     grid.appendChild(cardEl);
   });
   return grid;
@@ -310,20 +314,14 @@ componentBuilders['grid-card'] = function() {
 componentBuilders['chart-power'] = function() {
   const container = document.createElement('div');
   container.className = 'chart-container';
-  container.innerHTML = `
-    <div class="chart-header"><h3>Power Overview</h3></div>
-    <canvas id="powerChart"></canvas>
-  `;
+  container.innerHTML = `<div class="chart-header"><h3>Power Overview</h3></div><canvas id="powerChart"></canvas>`;
   return container;
 };
 
 componentBuilders['chart-energy'] = function() {
   const container = document.createElement('div');
   container.className = 'chart-container';
-  container.innerHTML = `
-    <div class="chart-header"><h3>Daily Energy</h3></div>
-    <canvas id="energyBarChart"></canvas>
-  `;
+  container.innerHTML = `<div class="chart-header"><h3>Daily Energy</h3></div><canvas id="energyBarChart"></canvas>`;
   return container;
 };
 
@@ -345,25 +343,9 @@ componentBuilders['data-table-daily'] = function() {
   container.className = 'daily-breakdown-container';
   container.style.marginBottom = '1rem';
   container.innerHTML = `
-    <div class="daily-breakdown-header">
-      <h3>Last 30 Days</h3>
-      <button class="toggle-btn">▼</button>
-    </div>
-    <div class="daily-breakdown-content">
-      <div class="daily-table-wrapper">
-        <table class="energy-table">
-          <thead><tr><th>Date</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead>
-          <tbody id="daily-table-body"></tbody>
-        </table>
-      </div>
-    </div>
+    <div class="daily-breakdown-header"><h3>Last 30 Days</h3><button class="toggle-btn">▼</button></div>
+    <div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Date</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead><tbody id="daily-table-body"></tbody></table></div></div>
   `;
-  const toggleBtn = container.querySelector('.toggle-btn');
-  const content = container.querySelector('.daily-breakdown-content');
-  toggleBtn.addEventListener('click', () => {
-    content.classList.toggle('collapsed');
-    toggleBtn.classList.toggle('collapsed');
-  });
   return container;
 };
 
@@ -371,25 +353,9 @@ componentBuilders['data-table-monthly'] = function() {
   const container = document.createElement('div');
   container.className = 'daily-breakdown-container';
   container.innerHTML = `
-    <div class="daily-breakdown-header">
-      <h3>Last 12 Months</h3>
-      <button class="toggle-btn">▼</button>
-    </div>
-    <div class="daily-breakdown-content">
-      <div class="daily-table-wrapper">
-        <table class="energy-table">
-          <thead><tr><th>Month</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead>
-          <tbody id="monthly-table-body"></tbody>
-        </table>
-      </div>
-    </div>
+    <div class="daily-breakdown-header"><h3>Last 12 Months</h3><button class="toggle-btn">▼</button></div>
+    <div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Month</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead><tbody id="monthly-table-body"></tbody></table></div></div>
   `;
-  const toggleBtn = container.querySelector('.toggle-btn');
-  const content = container.querySelector('.daily-breakdown-content');
-  toggleBtn.addEventListener('click', () => {
-    content.classList.toggle('collapsed');
-    toggleBtn.classList.toggle('collapsed');
-  });
   return container;
 };
 
@@ -447,76 +413,50 @@ function initEnergyChart() {
   });
 }
 
-// ─── Data Update Functions ────────────────────────────────────────────────
-async function updateFlowCard() {
-  try {
-    const res = await fetch('/api/current');
-    const d = await res.json();
-    document.getElementById('flow-solar').textContent = Math.round(d.solar_kw * 1000) + ' W';
-    document.getElementById('flow-battery-soc').textContent = Math.round(d.battery_soc) + '%';
-
-    const battNet = (d.battery_charge_kw - d.battery_discharge_kw) * 1000;
-    const battEl = document.getElementById('flow-battery-power');
-    battEl.innerHTML = '';
-    const span = document.createElement('span');
-    span.style.color = battNet >= 0 ? 'var(--battery)' : '#f59e0b';
-    span.textContent = `${battNet >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(battNet))} W`;
-    battEl.appendChild(span);
-
-    document.getElementById('flow-home').textContent = Math.round(d.consumption_kw * 1000) + ' W';
-
-    const gridNet = (d.grid_import_kw - d.grid_export_kw) * 1000;
-    const gridEl = document.getElementById('flow-grid');
-    gridEl.innerHTML = '';
-    const gSpan = document.createElement('span');
-    gSpan.style.color = gridNet >= 0 ? 'var(--grid)' : '#3b82f6';
-    gSpan.textContent = Math.abs(Math.round(gridNet)) + ' W';
-    gridEl.appendChild(gSpan);
-    document.getElementById('flow-grid-direction').textContent = gridNet >= 0 ? 'Import' : 'Export';
-
-    const gaugeFill = document.getElementById('gauge-bar-fill');
-    const gaugePercent = document.getElementById('gauge-percent');
-    if (gaugeFill && gaugePercent) {
-      const percent = systemCapacityKwp > 0 ? Math.min(100, (d.solar_kw / systemCapacityKwp) * 100) : 0;
-      gaugeFill.style.width = percent + '%';
-      gaugePercent.textContent = percent.toFixed(0) + '%';
-    }
-
-    // Icon colors
-    const solarIcon = document.getElementById('icon-solar');
-    const homeIcon = document.getElementById('icon-home');
-    const gridIcon = document.getElementById('icon-grid');
-    if (solarIcon) solarIcon.style.color = d.solar_kw > 0 ? 'var(--solar)' : 'var(--text)';
-    if (homeIcon) homeIcon.style.color = d.consumption_kw > 0 ? 'var(--home)' : 'var(--text)';
-    if (gridIcon) {
-      if (gridNet > 0) gridIcon.style.color = 'var(--grid)';
-      else if (gridNet < 0) gridIcon.style.color = '#3b82f6';
-      else gridIcon.style.color = 'var(--text)';
-    }
-    const batteryIcon = document.getElementById('icon-battery');
-    if (batteryIcon) {
-      let cls = 'fi fi-sr-battery-empty';
-      if (d.battery_soc >= 76) cls = 'fi fi-sr-battery-full';
-      else if (d.battery_soc >= 51) cls = 'fi fi-sr-battery-three-quarters';
-      else if (d.battery_soc >= 26) cls = 'fi fi-sr-battery-half';
-      else if (d.battery_soc >= 1) cls = 'fi fi-sr-battery-quarter';
-      batteryIcon.className = cls;
-      if (battNet > 0) batteryIcon.style.color = 'var(--battery)';
-      else if (battNet < 0) batteryIcon.style.color = '#f59e0b';
-      else batteryIcon.style.color = 'var(--text)';
-    }
-  } catch (e) { console.error(e); }
+// ─── Update Functions (use aggregated state) ──────────────────────────────
+async function fetchDashboardState() {
+  const res = await fetch('/api/dashboard-state');
+  return await res.json();
 }
 
-async function updateMetricCards() {
-  const res = await fetch('/api/metrics/current');
-  const metrics = await res.json();
+function updateFlowCard(state) {
+  if (!state || !state.current || state.current.error) return;
+  const d = state.current;
+  document.getElementById('flow-solar').textContent = Math.round(d.solar_kw * 1000) + ' W';
+  document.getElementById('flow-battery-soc').textContent = Math.round(d.battery_soc) + '%';
+  const battNet = (d.battery_charge_kw - d.battery_discharge_kw) * 1000;
+  const battEl = document.getElementById('flow-battery-power');
+  battEl.innerHTML = '';
+  const span = document.createElement('span');
+  span.style.color = battNet >= 0 ? 'var(--battery)' : '#f59e0b';
+  span.textContent = `${battNet >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(battNet))} W`;
+  battEl.appendChild(span);
+  document.getElementById('flow-home').textContent = Math.round(d.consumption_kw * 1000) + ' W';
+  const gridNet = (d.grid_import_kw - d.grid_export_kw) * 1000;
+  const gridEl = document.getElementById('flow-grid');
+  gridEl.innerHTML = '';
+  const gSpan = document.createElement('span');
+  gSpan.style.color = gridNet >= 0 ? 'var(--grid)' : '#3b82f6';
+  gSpan.textContent = Math.abs(Math.round(gridNet)) + ' W';
+  gridEl.appendChild(gSpan);
+  document.getElementById('flow-grid-direction').textContent = gridNet >= 0 ? 'Import' : 'Export';
+  const gaugeFill = document.getElementById('gauge-bar-fill');
+  const gaugePercent = document.getElementById('gauge-percent');
+  if (gaugeFill && gaugePercent) {
+    const percent = systemCapacityKwp > 0 ? Math.min(100, (d.solar_kw / systemCapacityKwp) * 100) : 0;
+    gaugeFill.style.width = percent + '%';
+    gaugePercent.textContent = percent.toFixed(0) + '%';
+  }
+}
+
+function updateMetricCardsFromState(state) {
+  if (!state || !state.metrics) return;
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
   const metricCardsBlock = activeLayout.find(b => b.type === 'metric-cards');
   if (!metricCardsBlock || !metricCardsBlock.cards) return;
   metricCardsBlock.cards.forEach(card => {
-    const data = metrics[card.metric];
+    const data = state.metrics[card.metric];
     const cardEl = document.getElementById(`dynamic-card-${card.id}`);
     if (!cardEl) return;
     if (data) {
@@ -529,32 +469,302 @@ async function updateMetricCards() {
   });
 }
 
-async function updateGridCard() {
+function updateGridCardFromState(state) {
+  if (!state || !state.gridStatus) return;
+  const gs = state.gridStatus;
+  if (!gs.configured) {
+    document.getElementById('grid-state').textContent = 'Not configured';
+    return;
+  }
+  document.getElementById('grid-state').textContent = gs.current ? '⚡ ON' : '⚫ OFF';
+  document.getElementById('grid-state').style.color = gs.current ? 'var(--battery)' : 'var(--grid)';
+  const gh = state.gridHours || {};
+  document.getElementById('grid-hours-day').textContent = formatHoursToHM(gh.day || 0);
+  document.getElementById('grid-hours-week').textContent = formatHoursToHM(gh.week || 0);
+  document.getElementById('grid-hours-month').textContent = formatHoursToHM(gh.month || 0);
+  document.getElementById('grid-hours-year').textContent = formatHoursToHM(gh.year || 0);
+  updateGridDate();
+  if (state.gridTimeline && state.gridTimeline.segments) {
+    renderTimelineBar(state.gridTimeline.segments, state.gridTimeline.windowStart, state.gridTimeline.windowEnd);
+  }
+}
+
+function updateSavingsFromState(state) {
+  if (!state || !state.savings) return;
+  const s = state.savings;
+  const curr = s.currency || '€';
+  const format = (val) => curr + ' ' + Math.round(val).toLocaleString();
+  document.getElementById('savings-today').textContent = format(s.today);
+  document.getElementById('savings-week').textContent = format(s.week);
+  document.getElementById('savings-month').textContent = format(s.month);
+  document.getElementById('savings-all').textContent = format(s.all);
+}
+
+function updatePowerChartFromState(state) {
+  if (!powerChart || !state || !state.powerHistory) return;
+  const data = state.powerHistory;
+  if (!data.length) return;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const newDatasets = [
+    { label: 'Load', data: [], borderColor: isDark ? '#8b5cf6' : '#7c3aed', tension: 0.4, borderWidth: 1, fill: true },
+    { label: 'Solar PV', data: [], borderColor: isDark ? '#fbbf24' : '#d97706', tension: 0.4, borderWidth: 1, fill: true },
+    { label: 'Battery Charge', data: [], borderColor: isDark ? '#10b981' : '#059669', tension: 0.4, borderWidth: 1, fill: true },
+    { label: 'Grid Import', data: [], borderColor: isDark ? '#ef4444' : '#dc2626', tension: 0.4, borderWidth: 1, fill: true }
+  ];
+  data.forEach(d => {
+    newDatasets[0].data.push({ x: d.timestamp, y: d.consumption_kw });
+    newDatasets[1].data.push({ x: d.timestamp, y: d.solar_kw });
+    newDatasets[2].data.push({ x: d.timestamp, y: d.battery_charge_kw });
+    newDatasets[3].data.push({ x: d.timestamp, y: d.grid_import_kw });
+  });
+  powerChart.data.datasets = newDatasets;
+  powerChart.update();
+  applyGradientFills(powerChart);
+}
+
+function updateEnergyChartFromState(state) {
+  if (!energyBarChart || !state || !state.dailyEnergyBar) return;
+  const data = state.dailyEnergyBar;
+  if (!data.length) return;
+  const labels = data.map(d => {
+    const date = new Date(d.day + 'T00:00:00');
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  });
+  energyBarChart.data.labels = labels;
+  energyBarChart.data.datasets[0].data = data.map(d => d.solar_kwh);
+  energyBarChart.data.datasets[1].data = data.map(d => d.grid_import_kwh);
+  energyBarChart.data.datasets[2].data = data.map(d => d.consumption_kwh);
+  energyBarChart.update();
+}
+
+// Lazy table fetchers (unchanged)
+async function updateDailyTable() {
+  const tbody = document.getElementById('daily-table-body');
+  if (!tbody) return;
   try {
-    const res = await fetch('/api/grid/status');
-    const d = await res.json();
-    if (!d.configured) {
-      document.getElementById('grid-state').textContent = 'Not configured';
+    const res = await fetch('/api/daily?days=30');
+    const data = await res.json();
+    tbody.innerHTML = '';
+    data.reverse().forEach(row => {
+      const date = new Date(row.day + 'T00:00:00');
+      const formattedDate = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${formattedDate}</td><td>${row.consumption_kwh.toFixed(1)} kWh</td><td>${row.solar_kwh.toFixed(1)} kWh</td><td>${row.battery_charge_kwh.toFixed(1)} kWh</td><td>${row.battery_discharge_kwh.toFixed(1)} kWh</td><td>${row.grid_import_kwh.toFixed(1)} kWh</td><td>${row.grid_export_kwh.toFixed(1)} kWh</td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) { console.error(e); }
+}
+
+async function updateMonthlyTable() {
+  const tbody = document.getElementById('monthly-table-body');
+  if (!tbody) return;
+  try {
+    const res = await fetch('/api/monthly');
+    const data = await res.json();
+    tbody.innerHTML = '';
+    data.reverse().forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row.month}</td><td>${row.consumption_kwh.toFixed(1)} kWh</td><td>${row.solar_kwh.toFixed(1)} kWh</td><td>${row.battery_charge_kwh.toFixed(1)} kWh</td><td>${row.battery_discharge_kwh.toFixed(1)} kWh</td><td>${row.grid_import_kwh.toFixed(1)} kWh</td><td>${row.grid_export_kwh.toFixed(1)} kWh</td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) { console.error(e); }
+}
+
+async function updateForecast() {
+  const banner = document.getElementById('forecast-banner');
+  if (!banner) return;
+  try {
+    const res = await fetch('/api/solar-forecast');
+    const data = await res.json();
+    if (data.error || !data.daily || data.daily.length === 0) {
+      banner.style.display = 'none';
       return;
     }
-    document.getElementById('grid-state').textContent = d.current ? '⚡ ON' : '⚫ OFF';
-    document.getElementById('grid-state').style.color = d.current ? 'var(--battery)' : 'var(--grid)';
+    banner.style.display = 'block';
 
-    const periods = ['day', 'week', 'month', 'year'];
-    for (const p of periods) {
-      const hRes = await fetch(`/api/grid/hours?period=${p}`);
-      const hData = await hRes.json();
-      document.getElementById(`grid-hours-${p}`).textContent = formatHoursToHM(hData.hours);
+    const now = new Date();
+    const todayDate = now.toLocaleDateString('en-CA');
+    let todayIdx = data.daily.findIndex(d => d.date === todayDate);
+    if (todayIdx === -1) todayIdx = 0;
+    const today = data.daily[todayIdx];
+    const tomorrow = data.daily[todayIdx + 1] || null;
+    const nextDay = data.daily[todayIdx + 2] || null;
+
+    document.getElementById('pv-today-value').textContent = (today.total_kwh || 0).toFixed(1) + ' kWh';
+    if (tomorrow) {
+      document.getElementById('pred-day1-label').textContent = getDayName(tomorrow.date);
+      document.getElementById('pv-tomorrow').textContent = tomorrow.total_kwh.toFixed(1) + ' kWh';
+    } else {
+      document.getElementById('pred-day1-label').textContent = '--';
+      document.getElementById('pv-tomorrow').textContent = '-- kWh';
+    }
+    if (nextDay) {
+      document.getElementById('pred-day2-label').textContent = getDayName(nextDay.date);
+      document.getElementById('pv-nextday').textContent = nextDay.total_kwh.toFixed(1) + ' kWh';
+    } else {
+      document.getElementById('pred-day2-label').textContent = '--';
+      document.getElementById('pv-nextday').textContent = '-- kWh';
+    }
+    document.getElementById('forecast-date').textContent =
+      now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+    if (data.weather) {
+      const w = data.weather;
+      document.getElementById('weather-i').className = w.icon_class || 'fi fi-sr-sun';
+      document.getElementById('weather-temp').textContent = w.temp != null ? w.temp.toFixed(0) + '°C' : '--°';
+      document.getElementById('weather-desc').textContent = w.desc || '';
+      document.getElementById('weather-extra').textContent = w.extra || '';
+      setWeatherIconColor(document.getElementById('weather-i'), w.desc);
+
+      const forecastWeather = w.forecast_weather || [];
+      const col1 = document.getElementById('forecast-weather-1');
+      const fw1 = forecastWeather[0];
+      if (fw1 && fw1.temp != null) {
+        document.getElementById('fcast-heading-1').textContent = fw1.day_name || '--';
+        document.getElementById('fcast-icon-1').className = fw1.icon_class;
+        document.getElementById('fcast-temp-1').textContent = fw1.temp.toFixed(0) + '°C';
+        document.getElementById('fcast-desc-1').textContent = fw1.desc || '';
+        document.getElementById('fcast-extra-1').textContent = fw1.extra || '';
+        setWeatherIconColor(document.getElementById('fcast-icon-1'), fw1.desc);
+        col1.style.display = '';
+      } else {
+        col1.style.display = 'none';
+      }
+
+      const col2 = document.getElementById('forecast-weather-2');
+      const fw2 = forecastWeather[1];
+      if (fw2 && fw2.temp != null) {
+        document.getElementById('fcast-heading-2').textContent = fw2.day_name || '--';
+        document.getElementById('fcast-icon-2').className = fw2.icon_class;
+        document.getElementById('fcast-temp-2').textContent = fw2.temp.toFixed(0) + '°C';
+        document.getElementById('fcast-desc-2').textContent = fw2.desc || '';
+        document.getElementById('fcast-extra-2').textContent = fw2.extra || '';
+        setWeatherIconColor(document.getElementById('fcast-icon-2'), fw2.desc);
+        col2.style.display = '';
+      } else {
+        col2.style.display = 'none';
+      }
     }
 
-    updateGridDate();
+    const canvasSpark = document.getElementById('pv-sparkline');
+    if (canvasSpark) {
+      if (!sparklineChart) {
+        const ctx = canvasSpark.getContext('2d');
+        sparklineChart = new Chart(ctx, {
+          type: 'line',
+          data: { datasets: [] },
+          options: {
+            responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+            elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0 } },
+            scales: {
+              x: { type: 'time', time: { unit: 'hour', displayFormats: { hour: 'HH' } }, grid: { display: false } },
+              y: { beginAtZero: true, max: 1 }
+            },
+            plugins: { tooltip: { enabled: false }, legend: { display: true } }
+          }
+        });
+      }
 
-    const timelineRes = await fetch('/api/grid/timeline?period=24h');
-    const timelineData = await timelineRes.json();
-    if (timelineData.configured && timelineData.segments) {
-      renderTimelineBar(timelineData.segments, timelineData.windowStart, timelineData.windowEnd);
+      const historyRes = await fetch('/api/history?days=1');
+      const historyData = await historyRes.json();
+      const actualPoints = historyData
+        .filter(d => {
+          const date = new Date(d.timestamp);
+          return date.toLocaleDateString('en-CA') === todayDate && date.getHours() >= 7 && date.getHours() <= 19;
+        })
+        .map(d => ({ x: d.timestamp, y: d.solar_kw }));
+
+      const intervals = [];
+      for (let h = 7; h <= 19; h += 0.5) {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0);
+        intervals.push(start.getTime());
+      }
+
+      const actualByInterval = {};
+      actualPoints.forEach(p => {
+        const d = new Date(p.x);
+        const bucketMinute = Math.floor(d.getMinutes() / 30) * 30;
+        const bucketTime = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bucketMinute, 0).getTime();
+        if (!actualByInterval[bucketTime]) actualByInterval[bucketTime] = [];
+        actualByInterval[bucketTime].push(p.y);
+      });
+
+      const actualData = intervals.map(ts => {
+        const values = actualByInterval[ts] || [];
+        if (values.length === 0) return null;
+        return { x: ts, y: values.reduce((a,b) => a+b, 0) / values.length };
+      }).filter(p => p !== null && p.x <= now.getTime());
+
+      let forecastHourly = (data.hourly || [])
+        .filter(h => {
+          const d = new Date(h.period_end);
+          return d.toLocaleDateString('en-CA') === todayDate && d.getHours() >= 7 && d.getHours() <= 19;
+        })
+        .map(h => ({ x: new Date(h.period_end).getTime(), y: h.pv_estimate }));
+
+      const sevenAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7,0,0).getTime();
+      if (forecastHourly.length === 0 || forecastHourly[0].x > sevenAM) {
+        forecastHourly.unshift({ x: sevenAM, y: 0 });
+      }
+      forecastHourly.sort((a,b) => a.x - b.x);
+
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const actualColor = '#3b82f6';
+      const forecastColor = isDark ? '#fbbf24' : '#d97706';
+
+      sparklineChart.data.datasets = [
+        { label: 'Actual', data: actualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [] },
+        { label: 'Forecast', data: forecastHourly, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [5,5] }
+      ];
+      sparklineChart.update();
+
+      const chartArea = sparklineChart.chartArea;
+      if (chartArea && sparklineChart.data.datasets[1].data.length > 0) {
+        const ctx = sparklineChart.ctx;
+        const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+        const hex = forecastColor;
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        gradient.addColorStop(0, `rgba(${r},${g},${b},0.1)`);
+        gradient.addColorStop(0.5, `rgba(${r},${g},${b},0.3)`);
+        gradient.addColorStop(1, `rgba(${r},${g},${b},0.5)`);
+        sparklineChart.data.datasets[1].backgroundColor = gradient;
+        sparklineChart.update();
+      }
+
+      sparklineChart.options.scales.x.min = sevenAM;
+      sparklineChart.options.scales.x.max = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19,0,0).getTime();
+      sparklineChart.options.scales.y.max = systemCapacityKwp || undefined;
+      sparklineChart.options.scales.x.ticks.color = isDark ? '#f8fafc' : '#0f172a';
+      sparklineChart.options.scales.y.ticks.color = isDark ? '#f8fafc' : '#0f172a';
+      sparklineChart.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#0f172a';
+      sparklineChart.update();
     }
-  } catch (e) { console.error('Grid card error:', e); }
+  } catch (e) {
+    console.error('Forecast error:', e);
+    banner.style.display = 'none';
+  }
+}
+
+function setWeatherIconColor(iconEl, desc) {
+  const descLower = (desc || '').toLowerCase();
+  if (descLower.includes('clear') || descLower.includes('sunny')) iconEl.style.color = '#f59e0b';
+  else if (descLower.includes('partly cloudy')) iconEl.style.color = '#eab308';
+  else if (descLower.includes('cloudy') || descLower.includes('overcast')) iconEl.style.color = '#9ca3af';
+  else if (descLower.includes('rain') || descLower.includes('drizzle')) iconEl.style.color = '#3b82f6';
+  else if (descLower.includes('fog')) iconEl.style.color = '#94a3b8';
+  else iconEl.style.color = 'var(--text)';
+}
+
+function getDayName(dateStr) {
+  const date = new Date(dateStr + 'T12:00:00');
+  return date.toLocaleDateString(undefined, { weekday: 'long' });
+}
+
+function formatHoursToHM(hours) {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h.toString().padStart(2, '0')}h:${m.toString().padStart(2, '0')}m`;
 }
 
 function updateGridDate() {
@@ -633,296 +843,6 @@ function renderTimelineBar(segments, windowStart, windowEnd) {
   container.appendChild(labelRow);
 }
 
-async function updateSavings() {
-  try {
-    const res = await fetch('/api/savings');
-    const d = await res.json();
-    const curr = d.currency || '€';
-    const format = (val) => curr + ' ' + Math.round(val).toLocaleString();
-    document.getElementById('savings-today').textContent = format(d.today);
-    document.getElementById('savings-week').textContent = format(d.week);
-    document.getElementById('savings-month').textContent = format(d.month);
-    document.getElementById('savings-all').textContent = format(d.all);
-  } catch (e) { console.error('Savings error:', e); }
-}
-
-async function updatePowerChart(days = 1) {
-  if (!powerChart) return;
-  try {
-    const res = await fetch(`/api/history?days=${days}`);
-    const data = await res.json();
-    if (!data.length) return;
-
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const newDatasets = [
-      { label: 'Load', data: [], borderColor: isDark ? '#8b5cf6' : '#7c3aed', tension: 0.4, borderWidth: 1, fill: true },
-      { label: 'Solar PV', data: [], borderColor: isDark ? '#fbbf24' : '#d97706', tension: 0.4, borderWidth: 1, fill: true },
-      { label: 'Battery Charge', data: [], borderColor: isDark ? '#10b981' : '#059669', tension: 0.4, borderWidth: 1, fill: true },
-      { label: 'Grid Import', data: [], borderColor: isDark ? '#ef4444' : '#dc2626', tension: 0.4, borderWidth: 1, fill: true }
-    ];
-    data.forEach(d => {
-      newDatasets[0].data.push({ x: d.timestamp, y: d.consumption_kw });
-      newDatasets[1].data.push({ x: d.timestamp, y: d.solar_kw });
-      newDatasets[2].data.push({ x: d.timestamp, y: d.battery_charge_kw });
-      newDatasets[3].data.push({ x: d.timestamp, y: d.grid_import_kw });
-    });
-    powerChart.data.datasets = newDatasets;
-    powerChart.update();
-    applyGradientFills(powerChart);
-  } catch (e) { console.error(e); }
-}
-
-async function updateEnergyChart() {
-  if (!energyBarChart) return;
-  try {
-    const res = await fetch('/api/daily?days=7');
-    const data = await res.json();
-    if (!data.length) return;
-    const labels = data.map(d => {
-      const date = new Date(d.day + 'T00:00:00');
-      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    });
-    energyBarChart.data.labels = labels;
-    energyBarChart.data.datasets[0].data = data.map(d => d.solar_kwh);
-    energyBarChart.data.datasets[1].data = data.map(d => d.grid_import_kwh);
-    energyBarChart.data.datasets[2].data = data.map(d => d.consumption_kwh);
-    energyBarChart.update();
-  } catch (e) { console.error(e); }
-}
-
-async function updateDailyTable() {
-  const tbody = document.getElementById('daily-table-body');
-  if (!tbody) return;
-  try {
-    const res = await fetch('/api/daily?days=30');
-    const data = await res.json();
-    tbody.innerHTML = '';
-    data.reverse().forEach(row => {
-      const date = new Date(row.day + 'T00:00:00');
-      const formattedDate = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${formattedDate}</td><td>${row.consumption_kwh.toFixed(1)} kWh</td><td>${row.solar_kwh.toFixed(1)} kWh</td><td>${row.battery_charge_kwh.toFixed(1)} kWh</td><td>${row.battery_discharge_kwh.toFixed(1)} kWh</td><td>${row.grid_import_kwh.toFixed(1)} kWh</td><td>${row.grid_export_kwh.toFixed(1)} kWh</td>`;
-      tbody.appendChild(tr);
-    });
-  } catch (e) { console.error(e); }
-}
-
-async function updateMonthlyTable() {
-  const tbody = document.getElementById('monthly-table-body');
-  if (!tbody) return;
-  try {
-    const res = await fetch('/api/monthly');
-    const data = await res.json();
-    tbody.innerHTML = '';
-    data.reverse().forEach(row => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${row.month}</td><td>${row.consumption_kwh.toFixed(1)} kWh</td><td>${row.solar_kwh.toFixed(1)} kWh</td><td>${row.battery_charge_kwh.toFixed(1)} kWh</td><td>${row.battery_discharge_kwh.toFixed(1)} kWh</td><td>${row.grid_import_kwh.toFixed(1)} kWh</td><td>${row.grid_export_kwh.toFixed(1)} kWh</td>`;
-      tbody.appendChild(tr);
-    });
-  } catch (e) { console.error(e); }
-}
-
-async function updateForecast() {
-  const banner = document.getElementById('forecast-banner');
-  if (!banner) return;
-  try {
-    const res = await fetch('/api/solar-forecast');
-    const data = await res.json();
-    if (data.error || !data.daily || data.daily.length === 0) {
-      banner.style.display = 'none';
-      return;
-    }
-    banner.style.display = 'block';
-
-    const now = new Date();
-    const todayDate = now.toLocaleDateString('en-CA');
-    let todayIdx = data.daily.findIndex(d => d.date === todayDate);
-    if (todayIdx === -1) todayIdx = 0;
-    const today = data.daily[todayIdx];
-    const tomorrow = data.daily[todayIdx + 1] || null;
-    const nextDay = data.daily[todayIdx + 2] || null;
-
-    document.getElementById('pv-today-value').textContent = (today.total_kwh || 0).toFixed(1) + ' kWh';
-    if (tomorrow) {
-      document.getElementById('pred-day1-label').textContent = getDayName(tomorrow.date);
-      document.getElementById('pv-tomorrow').textContent = tomorrow.total_kwh.toFixed(1) + ' kWh';
-    } else {
-      document.getElementById('pred-day1-label').textContent = '--';
-      document.getElementById('pv-tomorrow').textContent = '-- kWh';
-    }
-    if (nextDay) {
-      document.getElementById('pred-day2-label').textContent = getDayName(nextDay.date);
-      document.getElementById('pv-nextday').textContent = nextDay.total_kwh.toFixed(1) + ' kWh';
-    } else {
-      document.getElementById('pred-day2-label').textContent = '--';
-      document.getElementById('pv-nextday').textContent = '-- kWh';
-    }
-    document.getElementById('forecast-date').textContent =
-      now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-
-    // Weather
-    if (data.weather) {
-      const w = data.weather;
-      document.getElementById('weather-i').className = w.icon_class || 'fi fi-sr-sun';
-      document.getElementById('weather-temp').textContent = w.temp != null ? w.temp.toFixed(0) + '°C' : '--°';
-      document.getElementById('weather-desc').textContent = w.desc || '';
-      document.getElementById('weather-extra').textContent = w.extra || '';
-      setWeatherIconColor(document.getElementById('weather-i'), w.desc);
-
-      const forecastWeather = w.forecast_weather || [];
-      const col1 = document.getElementById('forecast-weather-1');
-      const fw1 = forecastWeather[0];
-      if (fw1 && fw1.temp != null) {
-        document.getElementById('fcast-heading-1').textContent = fw1.day_name || '--';
-        document.getElementById('fcast-icon-1').className = fw1.icon_class;
-        document.getElementById('fcast-temp-1').textContent = fw1.temp.toFixed(0) + '°C';
-        document.getElementById('fcast-desc-1').textContent = fw1.desc || '';
-        document.getElementById('fcast-extra-1').textContent = fw1.extra || '';
-        setWeatherIconColor(document.getElementById('fcast-icon-1'), fw1.desc);
-        col1.style.display = '';
-      } else {
-        col1.style.display = 'none';
-      }
-
-      const col2 = document.getElementById('forecast-weather-2');
-      const fw2 = forecastWeather[1];
-      if (fw2 && fw2.temp != null) {
-        document.getElementById('fcast-heading-2').textContent = fw2.day_name || '--';
-        document.getElementById('fcast-icon-2').className = fw2.icon_class;
-        document.getElementById('fcast-temp-2').textContent = fw2.temp.toFixed(0) + '°C';
-        document.getElementById('fcast-desc-2').textContent = fw2.desc || '';
-        document.getElementById('fcast-extra-2').textContent = fw2.extra || '';
-        setWeatherIconColor(document.getElementById('fcast-icon-2'), fw2.desc);
-        col2.style.display = '';
-      } else {
-        col2.style.display = 'none';
-      }
-    }
-
-    // Sparkline
-    const canvasSpark = document.getElementById('pv-sparkline');
-    if (canvasSpark) {
-      if (!sparklineChart) {
-        const ctx = canvasSpark.getContext('2d');
-        sparklineChart = new Chart(ctx, {
-          type: 'line',
-          data: { datasets: [] },
-          options: {
-            responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
-            elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0 } },
-            scales: {
-              x: { type: 'time', time: { unit: 'hour', displayFormats: { hour: 'HH' } }, grid: { display: false } },
-              y: { beginAtZero: true, max: 1 }
-            },
-            plugins: { tooltip: { enabled: false }, legend: { display: true } }
-          }
-        });
-      }
-
-      const historyRes = await fetch('/api/history?days=1');
-      const historyData = await historyRes.json();
-
-      const actualPoints = historyData
-        .filter(d => {
-          const date = new Date(d.timestamp);
-          return date.toLocaleDateString('en-CA') === todayDate && date.getHours() >= 7 && date.getHours() <= 19;
-        })
-        .map(d => ({ x: d.timestamp, y: d.solar_kw }));
-
-      const intervals = [];
-      for (let h = 7; h <= 19; h += 0.5) {
-        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0);
-        intervals.push(start.getTime());
-      }
-
-      const actualByInterval = {};
-      actualPoints.forEach(p => {
-        const d = new Date(p.x);
-        const bucketMinute = Math.floor(d.getMinutes() / 30) * 30;
-        const bucketTime = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bucketMinute, 0).getTime();
-        if (!actualByInterval[bucketTime]) actualByInterval[bucketTime] = [];
-        actualByInterval[bucketTime].push(p.y);
-      });
-
-      const actualData = intervals.map(ts => {
-        const values = actualByInterval[ts] || [];
-        if (values.length === 0) return null;
-        return { x: ts, y: values.reduce((a,b) => a+b, 0) / values.length };
-      }).filter(p => p !== null && p.x <= now.getTime());
-
-      let forecastHourly = (data.hourly || [])
-        .filter(h => {
-          const d = new Date(h.period_end);
-          return d.toLocaleDateString('en-CA') === todayDate && d.getHours() >= 7 && d.getHours() <= 19;
-        })
-        .map(h => ({ x: new Date(h.period_end).getTime(), y: h.pv_estimate }));
-
-      const sevenAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7,0,0).getTime();
-      if (forecastHourly.length === 0 || forecastHourly[0].x > sevenAM) {
-        forecastHourly.unshift({ x: sevenAM, y: 0 });
-      }
-      forecastHourly.sort((a,b) => a.x - b.x);
-
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const actualColor = '#3b82f6';
-      const forecastColor = isDark ? '#fbbf24' : '#d97706';
-
-      sparklineChart.data.datasets = [
-        { label: 'Actual', data: actualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [] },
-        { label: 'Forecast', data: forecastHourly, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [5,5] }
-      ];
-
-      sparklineChart.update();
-
-      const chartArea = sparklineChart.chartArea;
-      if (chartArea && sparklineChart.data.datasets[1].data.length > 0) {
-        const ctx = sparklineChart.ctx;
-        const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-        const hex = forecastColor;
-        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-        gradient.addColorStop(0, `rgba(${r},${g},${b},0.1)`);
-        gradient.addColorStop(0.5, `rgba(${r},${g},${b},0.3)`);
-        gradient.addColorStop(1, `rgba(${r},${g},${b},0.5)`);
-        sparklineChart.data.datasets[1].backgroundColor = gradient;
-        sparklineChart.update();
-      }
-
-      sparklineChart.options.scales.x.min = sevenAM;
-      sparklineChart.options.scales.x.max = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19,0,0).getTime();
-      sparklineChart.options.scales.y.max = systemCapacityKwp || undefined;
-      sparklineChart.options.scales.x.ticks.color = isDark ? '#f8fafc' : '#0f172a';
-      sparklineChart.options.scales.y.ticks.color = isDark ? '#f8fafc' : '#0f172a';
-      sparklineChart.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#0f172a';
-      sparklineChart.update();
-    }
-  } catch (e) {
-    console.error('Forecast error:', e);
-    banner.style.display = 'none';
-  }
-}
-
-function setWeatherIconColor(iconEl, desc) {
-  const descLower = (desc || '').toLowerCase();
-  if (descLower.includes('clear') || descLower.includes('sunny')) iconEl.style.color = '#f59e0b';
-  else if (descLower.includes('partly cloudy')) iconEl.style.color = '#eab308';
-  else if (descLower.includes('cloudy') || descLower.includes('overcast')) iconEl.style.color = '#9ca3af';
-  else if (descLower.includes('rain') || descLower.includes('drizzle')) iconEl.style.color = '#3b82f6';
-  else if (descLower.includes('fog')) iconEl.style.color = '#94a3b8';
-  else iconEl.style.color = 'var(--text)';
-}
-
-function getDayName(dateStr) {
-  const date = new Date(dateStr + 'T12:00:00');
-  return date.toLocaleDateString(undefined, { weekday: 'long' });
-}
-
-function formatHoursToHM(hours) {
-  const totalMinutes = Math.round(hours * 60);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return `${h.toString().padStart(2, '0')}h:${m.toString().padStart(2, '0')}m`;
-}
-
 async function loadBranding() {
   try {
     const res = await fetch('/api/public-config');
@@ -939,21 +859,22 @@ async function loadBranding() {
   } catch (e) {}
 }
 
+// ─── Unified update cycle ─────────────────────────────────────────────────
 async function updateAllComponents() {
-  const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-  if (!activeLayout) return;
+  try {
+    const state = await fetchDashboardState();
+    const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
+    if (!activeLayout) return;
 
-  if (activeLayout.some(b => b.type === 'flow-card')) updateFlowCard();
-  if (activeLayout.some(b => b.type === 'forecast-banner')) updateForecast();
-  if (activeLayout.some(b => b.type === 'metric-cards')) updateMetricCards();
-  if (activeLayout.some(b => b.type === 'grid-card')) updateGridCard();
-  if (activeLayout.some(b => b.type === 'chart-power')) updatePowerChart(1);
-  if (activeLayout.some(b => b.type === 'chart-energy')) updateEnergyChart();
-  if (activeLayout.some(b => b.type === 'savings-summary')) updateSavings();
-  if (activeLayout.some(b => b.type === 'data-table-daily')) updateDailyTable();
-  if (activeLayout.some(b => b.type === 'data-table-monthly')) updateMonthlyTable();
-
-  // Forecast is already conditionally called above
+    if (activeLayout.some(b => b.type === 'flow-card')) updateFlowCard(state);
+    if (activeLayout.some(b => b.type === 'metric-cards')) updateMetricCardsFromState(state);
+    if (activeLayout.some(b => b.type === 'grid-card')) updateGridCardFromState(state);
+    if (activeLayout.some(b => b.type === 'chart-power')) updatePowerChartFromState(state);
+    if (activeLayout.some(b => b.type === 'chart-energy')) updateEnergyChartFromState(state);
+    if (activeLayout.some(b => b.type === 'savings-summary')) updateSavingsFromState(state);
+    // Forecast still fetched independently
+    updateForecast();
+  } catch (e) { console.error(e); }
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────
