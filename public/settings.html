@@ -185,71 +185,84 @@
       flex: 1;
     }
 
-    /* ── Mobile responsiveness ── */
-    @media (max-width: 600px) {
-      .settings-form {
-        padding: 1rem;
-        margin: 1rem 0.5rem;
-      }
-      .form-row,
-      .test-row {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-      }
-      .device-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .device-header input[type="text"] {
-        width: 100%;
-      }
-      .device-header label {
-        margin: 0.5rem 0;
-      }
-      .metric-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .metric-row label {
-        margin-bottom: 0.2rem;
-        font-size: 0.8rem;
-      }
-      .block-list li {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .block-type-select {
-        width: 100%;
-      }
-      .dash-row {
-        flex-wrap: wrap;
-      }
-      .toggle-group {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      button {
-        width: 100%;
-        margin-right: 0;
-        margin-bottom: 0.5rem;
-      }
-      .backup-row button {
-        width: auto;
-      }
-      .test-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .test-status {
-        margin-left: 0;
-        margin-top: 0.5rem;
-      }
-      .settings-header {
-        flex-direction: column;
-        gap: 0.5rem;
-        align-items: flex-start;
-      }
+  /* ── Enhanced Mobile responsiveness ── */
+  @media (max-width: 600px) {
+    .settings-form {
+      padding: 1rem;
+      margin: 1rem 0.5rem;
     }
+    .form-row,
+    .test-row {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+    .device-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .device-header input[type="text"] {
+      width: 100%;
+    }
+    .device-header label {
+      margin: 0.5rem 0;
+    }
+    .metric-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .metric-row select,
+    .metric-row input {
+      width: 100%;
+    }
+    .block-list li {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .block-type-select {
+      width: 100%;
+    }
+    .dash-row {
+      flex-wrap: wrap;
+    }
+    .dash-row input {
+      width: 100%;
+      margin-bottom: 0.5rem;
+    }
+    .dash-row button {
+      width: calc(50% - 0.5rem);
+      margin-right: 0.5rem;
+    }
+    .toggle-group {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    button {
+      width: 100%;
+      margin-right: 0;
+      margin-bottom: 0.5rem;
+    }
+    .backup-row button {
+      width: auto;  /* keep backup/restore buttons side by side if space allows */
+    }
+    .test-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .test-status {
+      margin-left: 0;
+      margin-top: 0.5rem;
+    }
+    .settings-header {
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+    .grid-last-changes {
+      flex-direction: column;
+      gap: 0.25rem;
+      align-items: flex-start;
+    }
+  }
   </style>
   <script>
     // CSRF helper
