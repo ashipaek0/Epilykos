@@ -1,5 +1,9 @@
+import { fetchDashboardState } from './api.js';
+
 let powerChart = null;
 let energyBarChart = null;
+let currentPowerRange = '24h';
+let currentEnergyRange = '7d';
 
 export function destroyCharts() {
   if (powerChart) { powerChart.destroy(); powerChart = null; }
@@ -26,6 +30,7 @@ export function initPowerChart() {
       plugins: { tooltip: { mode: 'index' }, legend: { labels: { color: textColor } } }
     }
   });
+  refreshPowerChart();
 }
 
 export function initEnergyChart() {
@@ -51,6 +56,7 @@ export function initEnergyChart() {
       plugins: { legend: { labels: { color: textColor } }, tooltip: { mode: 'index' } }
     }
   });
+  refreshEnergyChart();
 }
 
 export function resolveColor(color) {
@@ -116,9 +122,29 @@ export function updateChartColors() {
   }
 }
 
-export function updatePowerChartFromState(state) {
-  if (!powerChart || !state || !state.powerHistory) return;
-  const data = state.powerHistory;
+// Power chart range functions
+export async function refreshPowerChart() {
+  if (!powerChart) return;
+  let data;
+  if (currentPowerRange === '24h') {
+    const state = await fetchDashboardState();
+    data = state.powerHistory;
+  } else {
+    const days = parseInt(currentPowerRange);
+    const res = await fetch(`/api/history?days=${days}`);
+    const historyData = await res.json();
+    data = historyData.map(r => ({
+      timestamp: r.timestamp,
+      consumption_kw: r.consumption_kw,
+      solar_kw: r.solar_kw,
+      battery_charge_kw: r.battery_charge_kw,
+      grid_import_kw: r.grid_import_kw
+    }));
+  }
+  updatePowerChartData(data);
+}
+
+function updatePowerChartData(data) {
   if (!data.length) return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const newDatasets = [
@@ -138,9 +164,21 @@ export function updatePowerChartFromState(state) {
   applyGradientFills(powerChart);
 }
 
-export function updateEnergyChartFromState(state) {
-  if (!energyBarChart || !state || !state.dailyEnergyBar) return;
-  const data = state.dailyEnergyBar;
+export function setPowerRange(range) {
+  currentPowerRange = range;
+  refreshPowerChart();
+}
+
+// Energy chart range functions
+export async function refreshEnergyChart() {
+  if (!energyBarChart) return;
+  const days = parseInt(currentEnergyRange);
+  const res = await fetch(`/api/daily?days=${days}`);
+  const data = await res.json();
+  updateEnergyChartData(data);
+}
+
+function updateEnergyChartData(data) {
   if (!data.length) return;
   const labels = data.map(d => {
     const date = new Date(d.day + 'T00:00:00');
@@ -151,4 +189,29 @@ export function updateEnergyChartFromState(state) {
   energyBarChart.data.datasets[1].data = data.map(d => d.grid_import_kwh);
   energyBarChart.data.datasets[2].data = data.map(d => d.consumption_kwh);
   energyBarChart.update();
+}
+
+export function setEnergyRange(range) {
+  currentEnergyRange = range;
+  refreshEnergyChart();
+}
+
+// Legacy update functions (kept for compatibility with updater.js)
+export function updatePowerChartFromState(state) {
+  if (!powerChart) return;
+  if (currentPowerRange !== '24h') {
+    refreshPowerChart();
+    return;
+  }
+  updatePowerChartData(state.powerHistory);
+}
+
+export function updateEnergyChartFromState(state) {
+  if (!energyBarChart) return;
+  if (currentEnergyRange !== '7d') {
+    refreshEnergyChart();
+    return;
+  }
+  // Transform dailyEnergyBar to the format expected by updateEnergyChartData
+  if (state.dailyEnergyBar) updateEnergyChartData(state.dailyEnergyBar);
 }
