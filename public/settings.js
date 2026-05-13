@@ -1,9 +1,11 @@
 // settings.js – with dynamic metric mapping and tooltips for HA and MQTT
+// Phase 1: Added allMetricNames fetch and tooltip content update
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
 let usedDashboardMetrics = [];
+let allMetricNames = [];
 
 function showStatus(element, msg, type) {
   element.textContent = msg;
@@ -52,6 +54,13 @@ async function loadSettings() {
       });
     }
     usedDashboardMetrics.sort();
+
+    // Fetch all metric names from the database
+    const metricNamesRes = await fetch('/api/metrics/names');
+    if (metricNamesRes.ok) {
+      allMetricNames = await metricNamesRes.json();
+      allMetricNames.sort();
+    }
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
   }
@@ -143,14 +152,14 @@ function renderHaDevice(device, idx) {
     addHaMetricRow(device, idx);
   });
 
-  // Tooltip logic
+  // Tooltip logic (show all available metric names)
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = helpIcon.dataset.tooltip;
-      if (!text || text === 'none yet') return;
+      const text = allMetricNames.join(', ');
+      if (!text) return;
       const tooltip = card.querySelector('.metric-tooltip');
-      tooltip.textContent = 'Dashboard metrics: ' + text;
+      tooltip.textContent = 'Available metrics: ' + text;
       tooltip.style.display = 'block';
       const rect = helpIcon.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
@@ -329,13 +338,14 @@ function renderMqttDevice(device, idx) {
     addMqttMetricRow(device, idx);
   });
 
+  // Tooltip logic (show all available metric names)
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = helpIcon.dataset.tooltip;
-      if (!text || text === 'none yet') return;
+      const text = allMetricNames.join(', ');
+      if (!text) return;
       const tooltip = card.querySelector('.metric-tooltip');
-      tooltip.textContent = 'Dashboard metrics: ' + text;
+      tooltip.textContent = 'Available metrics: ' + text;
       tooltip.style.display = 'block';
       const rect = helpIcon.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
