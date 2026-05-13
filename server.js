@@ -3,6 +3,8 @@ const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const WebSocket = require('ws');
+const http = require('http');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { authMiddleware, authLimiter, csrfProtection } = require('./modules/auth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
@@ -43,13 +45,129 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
-// Polling loop (legacy, Modbus already polled inside pollModbus)
+// Create HTTP server and attach WebSocket server
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+// Store connected WebSocket clients
+const wsClients = new Set();
+
+// Broadcast function
+function broadcastDashboardState(state) {
+  const message = JSON.stringify({ type: 'dashboard-state', data: state });
+  for (const client of wsClients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+}
+
+// WebSocket connection handler
+wss.on('connection', (ws) => {
+  wsClients.add(ws);
+  console.log(`WebSocket client connected (${wsClients.size} total)`);
+  
+  // Send initial state immediately
+  (async () => {
+    try {
+      const state = await buildDashboardState();
+      ws.send(JSON.stringify({ type: 'dashboard-state', data: state }));
+    } catch (err) {
+      console.error('Error sending initial state via WebSocket:', err);
+    }
+  })();
+
+  ws.on('close', () => {
+    wsClients.delete(ws);
+    console.log(`WebSocket client disconnected (${wsClients.size} remaining)`);
+  });
+});
+
+// Helper to build dashboard state (used by broadcast and API)
+async function buildDashboardState() {
+  const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
+  const dailySolarKwh = computeTodaySolar();
+  const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
+  const rate = parseFloat(rateRow?.value) || 0.30;
+  const currency = getConfig('savings_currency') || '€';
+  let currentData = { error: 'No data yet' };
+  if (latest) {
+    currentData = {
+      consumption_kw: latest.consumption / 1000,
+      solar_kw: latest.solar / 1000,
+      battery_charge_kw: latest.battery_charge / 1000,
+      battery_discharge_kw: latest.battery_discharge / 1000,
+      grid_import_kw: latest.grid_import / 1000,
+      grid_export_kw: latest.grid_export / 1000,
+      battery_soc: latest.battery_soc,
+      daily_consumption_kwh: latest.daily_consumption,
+      daily_solar_kwh: dailySolarKwh,
+      daily_battery_charge_kwh: latest.daily_battery_charge,
+      daily_battery_discharge_kwh: latest.daily_battery_discharge,
+      daily_grid_import_kwh: latest.daily_grid_import,
+      daily_grid_export_kwh: latest.daily_grid_export,
+      savings_currency: currency,
+      savings_rate: rate,
+      today_savings: dailySolarKwh * rate,
+      timestamp: latest.timestamp * 1000
+    };
+  }
+  const metrics = getCurrentMetrics();
+  const savings = await getSavings();
+  const gridStatus = await getCurrentGridStatus();
+  const gridHours = {
+    day: gridStatus.configured ? await getGridHours('day') : 0,
+    week: gridStatus.configured ? await getGridHours('week') : 0,
+    month: gridStatus.configured ? await getGridHours('month') : 0,
+    year: gridStatus.configured ? await getGridHours('year') : 0
+  };
+  const gridTimeline = gridStatus.configured ? await getGridTimeline('24h') : { configured: false, segments: [], windowStart: 0, windowEnd: 0 };
+  const historySince = Math.floor(Date.now() / 1000) - 24 * 3600;
+  const historyRows = db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince);
+  const powerHistory = historyRows.map(r => ({
+    timestamp: r.timestamp * 1000,
+    consumption_kw: r.consumption / 1000,
+    solar_kw: r.solar / 1000,
+    battery_charge_kw: r.battery_charge / 1000,
+    grid_import_kw: r.grid_import / 1000
+  }));
+  const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+  const barRows = db.prepare(`
+    SELECT date(timestamp, 'unixepoch') as day,
+      MAX(daily_solar) as solar_kwh,
+      MAX(daily_grid_import) as grid_import_kwh,
+      MAX(daily_consumption) as consumption_kwh
+    FROM history WHERE timestamp >= ?
+    GROUP BY day ORDER BY day ASC
+  `).all(barSince);
+  const dailyEnergyBar = barRows.map(r => ({
+    day: r.day,
+    solar_kwh: r.solar_kwh,
+    grid_import_kwh: r.grid_import_kwh,
+    consumption_kwh: r.consumption_kwh
+  }));
+  return {
+    current: currentData,
+    metrics,
+    savings,
+    gridStatus,
+    gridHours,
+    gridTimeline,
+    powerHistory,
+    dailyEnergyBar
+  };
+}
+
+// Polling loop (now with broadcast)
 async function pollAllSources() {
   try {
     await pollHomeAssistant();
-    await pollModbus();       // includes both TCP and serial
+    await pollModbus();
     await pollLegacyHistory();
     await pollGridStatus();
+    // After gathering new data, broadcast to WebSocket clients
+    const state = await buildDashboardState();
+    broadcastDashboardState(state);
   } catch (err) {
     console.error('Polling error:', err);
   }
@@ -252,77 +370,8 @@ app.get('/api/solar-forecast', async (req, res) => {
 
 app.get('/api/dashboard-state', async (req, res) => {
   try {
-    const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
-    const dailySolarKwh = computeTodaySolar();
-    const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
-    const rate = parseFloat(rateRow?.value) || 0.30;
-    const currency = getConfig('savings_currency') || '€';
-    let currentData = { error: 'No data yet' };
-    if (latest) {
-      currentData = {
-        consumption_kw: latest.consumption / 1000,
-        solar_kw: latest.solar / 1000,
-        battery_charge_kw: latest.battery_charge / 1000,
-        battery_discharge_kw: latest.battery_discharge / 1000,
-        grid_import_kw: latest.grid_import / 1000,
-        grid_export_kw: latest.grid_export / 1000,
-        battery_soc: latest.battery_soc,
-        daily_consumption_kwh: latest.daily_consumption,
-        daily_solar_kwh: dailySolarKwh,
-        daily_battery_charge_kwh: latest.daily_battery_charge,
-        daily_battery_discharge_kwh: latest.daily_battery_discharge,
-        daily_grid_import_kwh: latest.daily_grid_import,
-        daily_grid_export_kwh: latest.daily_grid_export,
-        savings_currency: currency,
-        savings_rate: rate,
-        today_savings: dailySolarKwh * rate,
-        timestamp: latest.timestamp * 1000
-      };
-    }
-    const metrics = getCurrentMetrics();
-    const savings = await getSavings();
-    const gridStatus = await getCurrentGridStatus();
-    const gridHours = {
-      day: gridStatus.configured ? await getGridHours('day') : 0,
-      week: gridStatus.configured ? await getGridHours('week') : 0,
-      month: gridStatus.configured ? await getGridHours('month') : 0,
-      year: gridStatus.configured ? await getGridHours('year') : 0
-    };
-    const gridTimeline = gridStatus.configured ? await getGridTimeline('24h') : { configured: false, segments: [], windowStart: 0, windowEnd: 0 };
-    const historySince = Math.floor(Date.now() / 1000) - 24 * 3600;
-    const historyRows = db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince);
-    const powerHistory = historyRows.map(r => ({
-      timestamp: r.timestamp * 1000,
-      consumption_kw: r.consumption / 1000,
-      solar_kw: r.solar / 1000,
-      battery_charge_kw: r.battery_charge / 1000,
-      grid_import_kw: r.grid_import / 1000
-    }));
-    const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-    const barRows = db.prepare(`
-      SELECT date(timestamp, 'unixepoch') as day,
-        MAX(daily_solar) as solar_kwh,
-        MAX(daily_grid_import) as grid_import_kwh,
-        MAX(daily_consumption) as consumption_kwh
-      FROM history WHERE timestamp >= ?
-      GROUP BY day ORDER BY day ASC
-    `).all(barSince);
-    const dailyEnergyBar = barRows.map(r => ({
-      day: r.day,
-      solar_kwh: r.solar_kwh,
-      grid_import_kwh: r.grid_import_kwh,
-      consumption_kwh: r.consumption_kwh
-    }));
-    res.json({
-      current: currentData,
-      metrics,
-      savings,
-      gridStatus,
-      gridHours,
-      gridTimeline,
-      powerHistory,
-      dailyEnergyBar
-    });
+    const state = await buildDashboardState();
+    res.json(state);
   } catch (err) {
     console.error('Aggregated state error:', err);
     res.status(500).json({ error: err.message });
@@ -415,7 +464,6 @@ app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
 });
 
-// Test Modbus connection (POST to receive device config)
 app.use('/api/test-modbus', authMiddleware, authLimiter);
 app.post('/api/test-modbus', async (req, res) => {
   const device = req.body;
@@ -503,7 +551,7 @@ app.post('/api/settings', (req, res) => {
       'solar_loss_factor', 'solar_install_date'
     ];
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
-      // Force cache reset by re-importing solar module
+      // Force cache reset
     }
     res.json({ success: true });
   } catch (err) {
@@ -548,7 +596,6 @@ app.get('/api/dashboard-config', async (req, res) => {
   res.json(getDashboardConfig());
 });
 
-// Test external source endpoint
 app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => {
   const { url, jsonPath } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
@@ -572,4 +619,5 @@ app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => 
   }
 });
 
-app.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT}`));
+// Start the HTTP server with WebSocket support
+server.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT} (WebSocket enabled)`));
