@@ -1,10 +1,11 @@
 const fetch = require('node-fetch');
-const { getConfig, db } = require('./database');
+const { getConfig, getDb } = require('./database');
 
 let forecastCache = { data: null, timestamp: 0 };
 const FORECAST_CACHE_MS = 3 * 60 * 60 * 1000;
 
 function computeSolarForDate(dateStr) {
+  const db = getDb();
   const startOfDay = new Date(dateStr + 'T00:00:00');
   const endOfDay = new Date(dateStr + 'T23:59:59');
   const startUnix = Math.floor(startOfDay.getTime() / 1000);
@@ -24,6 +25,7 @@ function computeSolarForDate(dateStr) {
 }
 
 function computeTodaySolar() {
+  const db = getDb();
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const startUnix = Math.floor(todayStart.getTime() / 1000);
@@ -146,7 +148,7 @@ async function getSolarForecast() {
   const hourly = forecastData.slice(0, 96);
   const result = { daily, hourly, source };
 
-  // Weather data (optional)
+  // Weather data
   if (lat && lon) {
     try {
       const currentUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,apparent_temperature&timezone=auto&forecast_days=1`;
