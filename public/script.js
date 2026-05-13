@@ -156,29 +156,7 @@ function renderDashboard() {
     initEnergyChart();
   }
 
-  // Lazy-load tables
-  const dailyContent = document.querySelector('.daily-breakdown-content');
-  if (dailyContent) {
-    const toggleBtn = dailyContent.previousElementSibling.querySelector('.toggle-btn');
-    const loadDaily = async () => {
-      await updateDailyTable();
-      dailyContent.dataset.loaded = 'true';
-    };
-    if (!dailyContent.dataset.loaded) {
-      toggleBtn.addEventListener('click', loadDaily, { once: true });
-    }
-  }
-  const monthlyContent = document.querySelectorAll('.daily-breakdown-content')[1];
-  if (monthlyContent) {
-    const toggleBtn = monthlyContent.previousElementSibling.querySelector('.toggle-btn');
-    const loadMonthly = async () => {
-      await updateMonthlyTable();
-      monthlyContent.dataset.loaded = 'true';
-    };
-    if (!monthlyContent.dataset.loaded) {
-      toggleBtn.addEventListener('click', loadMonthly, { once: true });
-    }
-  }
+  // No additional lazy-load code needed – table builders handle it.
 
   loadBranding();
   updateAllComponents();
@@ -196,7 +174,7 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-/* ── Component Builders (new: chart controls) ── */
+/* ── Component Builders (fixed table toggles) ── */
 componentBuilders['flow-card'] = function() {
   const wrapper = document.createElement('div');
   const card = document.createElement('div');
@@ -328,7 +306,6 @@ componentBuilders['grid-card'] = function() {
 componentBuilders['chart-power'] = function() {
   const container = document.createElement('div');
   container.className = 'chart-container';
-  // Add a control bar
   container.innerHTML = `
     <div class="chart-header">
       <h3>Power Overview</h3>
@@ -341,8 +318,6 @@ componentBuilders['chart-power'] = function() {
     </div>
     <canvas id="powerChart"></canvas>
   `;
-  // Attach event listeners after the element is in the DOM (delegation later)
-  // We'll use event delegation on the container in the update cycle, or set them now.
   const controls = container.querySelector('.chart-controls');
   controls.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON') {
@@ -399,9 +374,34 @@ componentBuilders['data-table-daily'] = function() {
   container.className = 'daily-breakdown-container';
   container.style.marginBottom = '1rem';
   container.innerHTML = `
-    <div class="daily-breakdown-header"><h3>Last 30 Days</h3><button class="toggle-btn">▼</button></div>
-    <div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Date</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead><tbody id="daily-table-body"></tbody></table></div></div>
+    <div class="daily-breakdown-header">
+      <h3>Last 30 Days</h3>
+      <button class="toggle-btn collapsed">▼</button>
+    </div>
+    <div class="daily-breakdown-content collapsed">
+      <div class="daily-table-wrapper">
+        <table class="energy-table">
+          <thead><tr><th>Date</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead>
+          <tbody id="daily-table-body"></tbody>
+        </table>
+      </div>
+    </div>
   `;
+  const toggleBtn = container.querySelector('.toggle-btn');
+  const content = container.querySelector('.daily-breakdown-content');
+  let loaded = false;
+
+  toggleBtn.addEventListener('click', async () => {
+    // Toggle visibility
+    content.classList.toggle('collapsed');
+    toggleBtn.classList.toggle('collapsed');
+
+    // If opening for the first time, load data
+    if (!loaded && !content.classList.contains('collapsed')) {
+      loaded = true;
+      await updateDailyTable();
+    }
+  });
   return container;
 };
 
@@ -409,9 +409,31 @@ componentBuilders['data-table-monthly'] = function() {
   const container = document.createElement('div');
   container.className = 'daily-breakdown-container';
   container.innerHTML = `
-    <div class="daily-breakdown-header"><h3>Last 12 Months</h3><button class="toggle-btn">▼</button></div>
-    <div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Month</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead><tbody id="monthly-table-body"></tbody></table></div></div>
+    <div class="daily-breakdown-header">
+      <h3>Last 12 Months</h3>
+      <button class="toggle-btn collapsed">▼</button>
+    </div>
+    <div class="daily-breakdown-content collapsed">
+      <div class="daily-table-wrapper">
+        <table class="energy-table">
+          <thead><tr><th>Month</th><th>Load</th><th>Solar PV</th><th>Battery charged</th><th>Battery discharged</th><th>Grid used</th><th>Grid exported</th></tr></thead>
+          <tbody id="monthly-table-body"></tbody>
+        </table>
+      </div>
+    </div>
   `;
+  const toggleBtn = container.querySelector('.toggle-btn');
+  const content = container.querySelector('.daily-breakdown-content');
+  let loaded = false;
+
+  toggleBtn.addEventListener('click', async () => {
+    content.classList.toggle('collapsed');
+    toggleBtn.classList.toggle('collapsed');
+    if (!loaded && !content.classList.contains('collapsed')) {
+      loaded = true;
+      await updateMonthlyTable();
+    }
+  });
   return container;
 };
 
@@ -654,7 +676,6 @@ function updateSavingsFromState(state) {
 }
 
 function updatePowerChartFromState(state) {
-  // This is called from updateAllComponents with default (1 day) state.
   if (!powerChart || !state || !state.powerHistory) return;
   renderPowerChartData(state.powerHistory);
 }
