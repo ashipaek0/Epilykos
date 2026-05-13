@@ -1,8 +1,9 @@
 const fetch = require('node-fetch');
-const { getConfig, db } = require('./database');
+const { getConfig, getDb } = require('./database');
 const { parseGridState } = require('./utils');
 
 async function pollGridStatus() {
+  const db = getDb();
   const gridEntity = getConfig('grid_status_entity');
   if (!gridEntity) return;
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
@@ -26,6 +27,7 @@ async function pollGridStatus() {
 }
 
 function getGridStateAt(timestamp) {
+  const db = getDb();
   const row = db.prepare('SELECT state FROM grid_status WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1').get(timestamp);
   return row ? row.state : 0;
 }
@@ -42,6 +44,7 @@ async function getCurrentGridStatus() {
       timeout: 5000
     }).then(r => r.json()).then(d => d.state).catch(() => 0);
     const current = parseGridState(rawState);
+    const db = getDb();
     const lastOn = db.prepare("SELECT timestamp FROM grid_status WHERE state = 1 ORDER BY timestamp DESC LIMIT 1").get();
     const lastOff = db.prepare("SELECT timestamp FROM grid_status WHERE state = 0 ORDER BY timestamp DESC LIMIT 1").get();
     return {
@@ -54,6 +57,7 @@ async function getCurrentGridStatus() {
 }
 
 async function getGridHours(period) {
+  const db = getDb();
   const now = new Date();
   let start, end;
   if (period === 'day') {
@@ -92,6 +96,7 @@ async function getGridHours(period) {
 }
 
 async function getGridTimeline(period = '24h') {
+  const db = getDb();
   const entity = getConfig('grid_status_entity');
   if (!entity) return { configured: false, segments: [] };
   const now = new Date();
