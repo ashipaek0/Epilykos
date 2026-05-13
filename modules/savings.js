@@ -1,7 +1,8 @@
-const { getConfig, db } = require('./database');
+const { getConfig, getDb } = require('./database');
 const { computeTodaySolar, computeSolarForDate } = require('./solar');
 
 async function getSavings() {
+  const db = getDb();
   const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
   const rate = parseFloat(rateRow?.value) || 0.30;
   const currency = getConfig('savings_currency') || '€';
