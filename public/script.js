@@ -198,7 +198,7 @@ async function switchDashboard(id) {
 
 /* ── Component Builders ── */
 componentBuilders['flow-card'] = function() {
-  const wrapper = document.createElement('div');  // new wrapper
+  const wrapper = document.createElement('div');
 
   const card = document.createElement('div');
   card.className = 'flow-card';
@@ -239,7 +239,7 @@ componentBuilders['flow-card'] = function() {
   `;
   wrapper.appendChild(card);
 
-  // Grid‑to‑battery indicator (missing element restored)
+  // Grid‑to‑battery indicator (restored)
   const gridToBattery = document.createElement('div');
   gridToBattery.id = 'grid-to-battery';
   gridToBattery.style.display = 'none';
@@ -314,7 +314,11 @@ componentBuilders['grid-card'] = function() {
   card.innerHTML = `
     <div class="grid-date" id="grid-date"></div>
     <div class="grid-stats">
-      <div class="stat-card"><div class="stat-label">Grid Status</div><div class="stat-value" id="grid-state">--</div></div>
+      <div class="stat-card">
+        <div class="stat-label">Grid Status</div>
+        <div class="stat-value" id="grid-state">--</div>
+        <div class="stat-sub" id="grid-last-change"></div>
+      </div>
       <div class="stat-card"><div class="stat-label">Today's Grid</div><div class="stat-value" id="grid-hours-day">--</div></div>
       <div class="stat-card"><div class="stat-label">This Week</div><div class="stat-value" id="grid-hours-week">--</div></div>
       <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="grid-hours-month">--</div></div>
@@ -573,6 +577,22 @@ function updateGridCardFromState(state) {
   }
   document.getElementById('grid-state').textContent = gs.current ? '⚡ ON' : '⚫ OFF';
   document.getElementById('grid-state').style.color = gs.current ? 'var(--battery)' : 'var(--grid)';
+
+  // Update last change timestamp
+  const lastChangeEl = document.getElementById('grid-last-change');
+  if (lastChangeEl) {
+    const lastTimestamp = gs.current ? gs.lastOn : gs.lastOff;
+    if (lastTimestamp) {
+      const date = new Date(lastTimestamp);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const prefix = gs.current ? 'ON since' : 'OFF since';
+      lastChangeEl.textContent = `${prefix} ${timeStr}, ${dateStr}`;
+    } else {
+      lastChangeEl.textContent = '';
+    }
+  }
+
   const gh = state.gridHours || {};
   document.getElementById('grid-hours-day').textContent = formatHoursToHM(gh.day || 0);
   document.getElementById('grid-hours-week').textContent = formatHoursToHM(gh.week || 0);

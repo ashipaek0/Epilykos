@@ -1889,4 +1889,13 @@ app.get('/api/metrics/history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/metrics/names', async (req, res) => {
+  try {
+    const rows = db.prepare('SELECT DISTINCT metric FROM latest_metrics ORDER BY metric').all();
+    res.json(rows.map(r => r.metric));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT}`));

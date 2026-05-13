@@ -1,4 +1,5 @@
 // settings.js – with dynamic metric mapping and tooltips for HA and MQTT
+// Updated: tooltip now shows both dashboard metrics and all stored metrics
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -18,7 +19,6 @@ async function loadSettings() {
   try {
     const res = await fetch('/api/settings');
     const data = await res.json();
-    // Populate top‑level fields
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config') continue;
       const input = form.querySelector(`[name="${key}"]`);
@@ -36,7 +36,6 @@ async function loadSettings() {
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
 
-    // Extract metric names from all dashboards' metric-cards blocks
     usedDashboardMetrics = [];
     if (dashConfig && dashConfig.dashboards) {
       dashConfig.dashboards.forEach(db => {
@@ -52,6 +51,14 @@ async function loadSettings() {
       });
     }
     usedDashboardMetrics.sort();
+
+    // Fetch all stored metrics from the database
+    try {
+      const metricsRes = await fetch('/api/metrics/names');
+      window._allStoredMetrics = await metricsRes.json();
+    } catch (e) {
+      window._allStoredMetrics = [];
+    }
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
   }
@@ -97,7 +104,6 @@ function renderHaDevice(device, idx) {
   `;
   container.appendChild(card);
 
-  // Tooltip element (hidden)
   const tooltipEl = document.createElement('div');
   tooltipEl.className = 'metric-tooltip';
   tooltipEl.style.display = 'none';
@@ -143,14 +149,23 @@ function renderHaDevice(device, idx) {
     addHaMetricRow(device, idx);
   });
 
-  // Tooltip logic
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = helpIcon.dataset.tooltip;
-      if (!text || text === 'none yet') return;
+      const dashboardText = helpIcon.dataset.tooltip || '';
+      const storedMetrics = window._allStoredMetrics || [];
+      let tooltipText = '';
+      if (dashboardText && dashboardText !== 'none yet') {
+        tooltipText += 'Dashboard: ' + dashboardText;
+      }
+      if (storedMetrics.length) {
+        if (tooltipText) tooltipText += ' | ';
+        tooltipText += 'Stored: ' + storedMetrics.join(', ');
+      }
+      if (!tooltipText) tooltipText = 'No metrics available yet';
+
       const tooltip = card.querySelector('.metric-tooltip');
-      tooltip.textContent = 'Dashboard metrics: ' + text;
+      tooltip.textContent = tooltipText;
       tooltip.style.display = 'block';
       const rect = helpIcon.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
@@ -163,7 +178,6 @@ function renderHaDevice(device, idx) {
     });
   }
 
-  // Render existing mappings
   const mappingsList = card.querySelector('.mappings-list');
   renderHaMappings(device.entities || {}, idx, mappingsList);
 
@@ -175,7 +189,6 @@ function renderHaMappings(entities, deviceIdx, container) {
   Object.entries(entities).forEach(([metric, entityId]) => {
     addHaMetricRow({}, deviceIdx, container, metric, entityId);
   });
-  // Always show at least one empty row for new metric
   if (Object.keys(entities).length === 0) {
     addHaMetricRow({}, deviceIdx, container);
   }
@@ -207,7 +220,6 @@ function reindexHa() {
   haDeviceCounter = 0;
   cards.forEach((card, i) => {
     card.dataset.index = i;
-    // Rename main inputs
     const nameInput = card.querySelector('.device-header input[type="text"]');
     if (nameInput) nameInput.name = `ha_devices[${i}][name]`;
     const enableCb = card.querySelector('.device-header input[type="checkbox"]');
@@ -332,10 +344,20 @@ function renderMqttDevice(device, idx) {
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = helpIcon.dataset.tooltip;
-      if (!text || text === 'none yet') return;
+      const dashboardText = helpIcon.dataset.tooltip || '';
+      const storedMetrics = window._allStoredMetrics || [];
+      let tooltipText = '';
+      if (dashboardText && dashboardText !== 'none yet') {
+        tooltipText += 'Dashboard: ' + dashboardText;
+      }
+      if (storedMetrics.length) {
+        if (tooltipText) tooltipText += ' | ';
+        tooltipText += 'Stored: ' + storedMetrics.join(', ');
+      }
+      if (!tooltipText) tooltipText = 'No metrics available yet';
+
       const tooltip = card.querySelector('.metric-tooltip');
-      tooltip.textContent = 'Dashboard metrics: ' + text;
+      tooltip.textContent = tooltipText;
       tooltip.style.display = 'block';
       const rect = helpIcon.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
@@ -387,7 +409,6 @@ function reindexMqtt() {
   mqttDeviceCounter = 0;
   cards.forEach((card, i) => {
     card.dataset.index = i;
-    // minimal reindex
     mqttDeviceCounter++;
   });
 }
@@ -594,12 +615,11 @@ document.getElementById('add-dashboard-btn').addEventListener('click', () => {
   buildDashboardEditor(dashConfig);
 });
 
-// ======================== SAVE (builds JSON from DOM) ========================
+// ======================== SAVE ========================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {};
 
-  // Simple top-level inputs
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
     if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config') return;
     if (el.type === 'checkbox') {
@@ -609,7 +629,6 @@ form.addEventListener('submit', async (e) => {
     }
   });
 
-  // HA devices
   payload.ha_devices = collectDeviceArray('ha-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -626,7 +645,6 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
-  // MQTT devices
   payload.mqtt_devices = collectDeviceArray('mqtt-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -643,7 +661,6 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
-  // Modbus devices
   payload.modbus_devices = collectDeviceArray('modbus-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
