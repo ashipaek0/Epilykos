@@ -1,7 +1,26 @@
 const mqtt = require('mqtt');
-const { getConfig, db } = require('./database');
+const { getConfig, getDb } = require('./database');
 
 const mqttClients = new Map();
+
+let latestUpsertStmt = null;
+let metricInsertStmt = null;
+
+function getLatestUpsert() {
+  if (!latestUpsertStmt) {
+    const db = getDb();
+    latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  }
+  return latestUpsertStmt;
+}
+
+function getMetricInsert() {
+  if (!metricInsertStmt) {
+    const db = getDb();
+    metricInsertStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  }
+  return metricInsertStmt;
+}
 
 function setupMqtt() {
   for (const client of mqttClients.values()) client.end();
@@ -9,9 +28,6 @@ function setupMqtt() {
 
   const mqttDevices = JSON.parse(getConfig('mqtt_devices') || '[]');
   if (!mqttDevices.length) return;
-
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
 
   for (const device of mqttDevices) {
     if (!device.enabled || !device.broker) continue;
@@ -38,8 +54,8 @@ function setupMqtt() {
       }
       if (!metric) return;
       const now = Math.floor(Date.now() / 1000);
-      latestUpsert.run(metric, val, now);
-      metricInsert.run(now, metric, val);
+      getLatestUpsert().run(metric, val, now);
+      getMetricInsert().run(now, metric, val);
     });
 
     client.on('error', (err) => console.error(`MQTT ${device.broker} error:`, err));
