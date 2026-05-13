@@ -1,0 +1,17 @@
+const { db } = require('./database');
+
+function getCurrentMetrics() {
+  const rows = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+  const result = {};
+  rows.forEach(r => { result[r.metric] = { value: r.value, timestamp: r.timestamp * 1000 }; });
+  return result;
+}
+
+function getMetricHistory(metric, hours = 24) {
+  if (!metric) throw new Error('Metric name required');
+  const since = Math.floor(Date.now() / 1000) - hours * 3600;
+  const rows = db.prepare('SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? ORDER BY timestamp ASC').all(metric, since);
+  return rows.map(r => ({ timestamp: r.timestamp * 1000, value: r.value }));
+}
+
+module.exports = { getCurrentMetrics, getMetricHistory };
