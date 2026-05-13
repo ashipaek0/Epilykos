@@ -1,14 +1,30 @@
 const fetch = require('node-fetch');
-const { getConfig, db } = require('./database');
+const { getConfig, getDb } = require('./database');
 
-let mqttValues = {}; // still used as fallback
+let metricInsertStmt = null;
+let latestUpsertStmt = null;
+
+function getMetricInsert() {
+  if (!metricInsertStmt) {
+    const db = getDb();
+    metricInsertStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  }
+  return metricInsertStmt;
+}
+
+function getLatestUpsert() {
+  if (!latestUpsertStmt) {
+    const db = getDb();
+    latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  }
+  return latestUpsertStmt;
+}
+
+let mqttValues = {};
 
 async function pollHomeAssistant() {
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
   if (!haDevices.length) return;
-
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
 
   for (const device of haDevices) {
     if (!device.enabled || !device.url || !device.token) continue;
@@ -24,8 +40,8 @@ async function pollHomeAssistant() {
         const val = parseFloat(data.state);
         if (isNaN(val)) continue;
         const now = Math.floor(Date.now() / 1000);
-        metricInsert.run(now, metric, val);
-        latestUpsert.run(metric, val, now);
+        getMetricInsert().run(now, metric, val);
+        getLatestUpsert().run(metric, val, now);
         mqttValues[metric] = val;
       } catch (e) { /* silent */ }
     }

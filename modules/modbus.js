@@ -1,9 +1,27 @@
 const ModbusRTU = require('modbus-serial');
 const fs = require('fs');
 const path = require('path');
-const { getConfig, db } = require('./database');
+const { getConfig, getDb } = require('./database');
 
 let availableProfiles = [];
+let metricInsertStmt = null;
+let latestUpsertStmt = null;
+
+function getMetricInsert() {
+  if (!metricInsertStmt) {
+    const db = getDb();
+    metricInsertStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  }
+  return metricInsertStmt;
+}
+
+function getLatestUpsert() {
+  if (!latestUpsertStmt) {
+    const db = getDb();
+    latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  }
+  return latestUpsertStmt;
+}
 
 function loadProfiles() {
   const profilesDir = path.join(__dirname, '../profiles');
@@ -30,9 +48,6 @@ function loadProfiles() {
 async function pollModbus() {
   const modbusDevices = JSON.parse(getConfig('modbus_devices') || '[]');
   if (!modbusDevices.length) return;
-
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
 
   for (const device of modbusDevices) {
     if (!device.enabled || !device.host || !device.profile) continue;
@@ -68,8 +83,8 @@ async function pollModbus() {
 
       const now = Math.floor(Date.now() / 1000);
       for (const [metric, value] of Object.entries(results)) {
-        metricInsert.run(now, metric, value);
-        latestUpsert.run(metric, value, now);
+        getMetricInsert().run(now, metric, value);
+        getLatestUpsert().run(metric, value, now);
       }
       console.log(`Modbus poll (${device.name || device.host}): ${Object.keys(results).length} metrics.`);
     } catch (err) {
@@ -85,7 +100,7 @@ async function testModbusConnection(device) {
     client = new ModbusRTU();
     await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
     await client.setID(parseInt(device.unit) || 1);
-    const resp = await client.readHoldingRegisters(256, 1); // common battery SOC address
+    const resp = await client.readHoldingRegisters(256, 1);
     client.close();
     return { success: true, value: resp.data[0] };
   } catch (err) {
