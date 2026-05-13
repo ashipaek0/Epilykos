@@ -506,6 +506,17 @@ app.get('/api/metrics/history', async (req, res) => {
   }
 });
 
+// New endpoint: list all metric names from latest_metrics
+app.get('/api/metrics/names', async (req, res) => {
+  try {
+    const rows = db.prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
+    const names = rows.map(r => r.metric);
+    res.json(names);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/dashboard-config', async (req, res) => {
   res.json(getDashboardConfig());
 });
