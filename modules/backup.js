@@ -1,8 +1,9 @@
 const fs = require('fs');
-const { db, DB_PATH, initializeDatabase } = require('./database');
+const { getDb, DB_PATH, initializeDatabase } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 
 async function backupDatabase(res) {
+  const db = getDb();
   if (db) db.close();
   res.download(DB_PATH, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
     initializeDatabase();
@@ -11,7 +12,7 @@ async function backupDatabase(res) {
   });
 }
 
-async function restoreDatabase(filePath, originalPath) {
+async function restoreDatabase(filePath) {
   const backupPath = DB_PATH + '.bak';
   try {
     if (fs.existsSync(DB_PATH)) fs.copyFileSync(DB_PATH, backupPath);
@@ -19,7 +20,7 @@ async function restoreDatabase(filePath, originalPath) {
     testDb.prepare('SELECT 1').get();
     testDb.close();
 
-    if (db) db.close();
+    if (getDb()) getDb().close();
     for (const client of mqttClients.values()) client.end();
     mqttClients.clear();
 
@@ -30,7 +31,7 @@ async function restoreDatabase(filePath, originalPath) {
     return { success: true };
   } catch (err) {
     if (fs.existsSync(backupPath)) {
-      if (db) db.close();
+      if (getDb()) getDb().close();
       for (const client of mqttClients.values()) client.end();
       mqttClients.clear();
       fs.copyFileSync(backupPath, DB_PATH);
