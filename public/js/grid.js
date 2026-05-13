@@ -5,6 +5,19 @@ export function formatHoursToHM(hours) {
   return `${h.toString().padStart(2, '0')}h:${m.toString().padStart(2, '0')}m`;
 }
 
+export function formatTimestamp(ts) {
+  if (!ts) return 'never';
+  const date = new Date(ts);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+           date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
 export function updateGridDate() {
   const dateEl = document.getElementById('grid-date');
   if (dateEl) {
