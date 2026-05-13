@@ -1,5 +1,5 @@
-// settings.js – with dynamic metric mapping and tooltips for HA and MQTT
-// Updated: tooltip now shows both dashboard metrics and all stored metrics
+// settings.js – with dynamic metric mapping, tooltips, and metric-cards block editor
+// + Export/Import layout
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -52,7 +52,6 @@ async function loadSettings() {
     }
     usedDashboardMetrics.sort();
 
-    // Fetch all stored metrics from the database
     try {
       const metricsRes = await fetch('/api/metrics/names');
       window._allStoredMetrics = await metricsRes.json();
@@ -418,7 +417,7 @@ document.getElementById('add-mqtt-device').addEventListener('click', () => {
   renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
 });
 
-// ======================== MODBUS (unchanged) ========================
+// ======================== MODBUS ========================
 let modbusDeviceCounter = 0;
 function buildModbusDeviceList(devices) {
   const container = document.getElementById('modbus-devices-container');
@@ -523,7 +522,7 @@ document.getElementById('test-forecast').addEventListener('click', async functio
   }
 });
 
-// ======================== DASHBOARD EDITOR ========================
+// ======================== DASHBOARD EDITOR (with metric-cards sub-editor + export/import) ========================
 let dashConfig = null;
 
 function buildDashboardEditor(config) {
@@ -583,10 +582,27 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
       </select>
       <button type="button" class="remove-btn delete-block">Remove</button>
+      <div class="card-editor-container" style="display:${block.type === 'metric-cards' ? 'block' : 'none'}; margin-top:0.5rem; width:100%;"></div>
     `;
-    li.querySelector('.block-type-select').addEventListener('change', (e) => {
+    const select = li.querySelector('.block-type-select');
+    const cardEditorContainer = li.querySelector('.card-editor-container');
+
+    // Function to render card editor
+    const renderCardEditor = () => {
+      if (select.value === 'metric-cards') {
+        cardEditorContainer.style.display = 'block';
+        if (!block.cards) block.cards = [];
+        renderMetricCardsEditor(block, cardEditorContainer);
+      } else {
+        cardEditorContainer.style.display = 'none';
+      }
+    };
+    select.addEventListener('change', (e) => {
       dashboard.layout[idx].type = e.target.value;
+      renderCardEditor();
     });
+    renderCardEditor(); // initial render
+
     li.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);
       renderDashboardBlockEditor(dashboard);
@@ -602,6 +618,83 @@ function renderDashboardBlockEditor(dashboard) {
     renderDashboardBlockEditor(dashboard);
   });
   container.appendChild(addBlockBtn);
+
+  // Export/Import buttons
+  const exportBtn = document.createElement('button');
+  exportBtn.textContent = 'Export Layout';
+  exportBtn.className = 'fetch-btn';
+  exportBtn.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(dashConfig, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dashboard-layout.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  container.appendChild(exportBtn);
+
+  const importBtn = document.createElement('button');
+  importBtn.textContent = 'Import Layout';
+  importBtn.className = 'fetch-btn';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json';
+  fileInput.style.display = 'none';
+  importBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (imported.dashboards && imported.activeDashboard) {
+          dashConfig = imported;
+          buildDashboardEditor(dashConfig);
+          showStatus(saveStatus, 'Layout imported. Remember to save.', 'info');
+        } else {
+          showStatus(saveStatus, 'Invalid layout file', 'error');
+        }
+      } catch (ex) {
+        showStatus(saveStatus, 'Error parsing file', 'error');
+      }
+    };
+    reader.readAsText(file);
+  });
+  container.appendChild(importBtn);
+  container.appendChild(fileInput);
+}
+
+function renderMetricCardsEditor(block, container) {
+  container.innerHTML = '';
+  if (!block.cards) block.cards = [];
+  block.cards.forEach((card, cardIdx) => {
+    const row = document.createElement('div');
+    row.className = 'card-editor-row';
+    row.innerHTML = `
+      <input type="text" placeholder="Title" value="${escapeHtml(card.title || '')}" class="card-title" style="width:100px;">
+      <input type="text" placeholder="Metric" value="${escapeHtml(card.metric || '')}" class="card-metric" style="width:100px;">
+      <input type="text" placeholder="Unit" value="${escapeHtml(card.unit || '')}" class="card-unit" style="width:60px;">
+      <button type="button" class="remove-btn remove-card">−</button>
+    `;
+    row.querySelector('.card-title').addEventListener('input', (e) => { card.title = e.target.value; });
+    row.querySelector('.card-metric').addEventListener('input', (e) => { card.metric = e.target.value; });
+    row.querySelector('.card-unit').addEventListener('input', (e) => { card.unit = e.target.value; });
+    row.querySelector('.remove-card').addEventListener('click', () => {
+      block.cards.splice(cardIdx, 1);
+      renderMetricCardsEditor(block, container);
+    });
+    container.appendChild(row);
+  });
+  const addCardBtn = document.createElement('button');
+  addCardBtn.textContent = '+ Add Card';
+  addCardBtn.className = 'fetch-btn';
+  addCardBtn.addEventListener('click', () => {
+    block.cards.push({ id: 'card_' + Date.now(), title: '', metric: '', unit: '' });
+    renderMetricCardsEditor(block, container);
+  });
+  container.appendChild(addCardBtn);
 }
 
 document.getElementById('add-dashboard-btn').addEventListener('click', () => {

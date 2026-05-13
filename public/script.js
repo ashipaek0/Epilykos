@@ -196,10 +196,9 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-/* ── Component Builders ── */
+/* ── Component Builders (new: chart controls) ── */
 componentBuilders['flow-card'] = function() {
   const wrapper = document.createElement('div');
-
   const card = document.createElement('div');
   card.className = 'flow-card';
   card.innerHTML = `
@@ -238,8 +237,6 @@ componentBuilders['flow-card'] = function() {
     </div>
   `;
   wrapper.appendChild(card);
-
-  // Grid‑to‑battery indicator (restored)
   const gridToBattery = document.createElement('div');
   gridToBattery.id = 'grid-to-battery';
   gridToBattery.style.display = 'none';
@@ -250,7 +247,6 @@ componentBuilders['flow-card'] = function() {
   gridToBattery.style.fontSize = '0.9rem';
   gridToBattery.innerHTML = `<span>↑</span> Grid charging battery <span>↑</span>`;
   wrapper.appendChild(gridToBattery);
-
   return wrapper;
 };
 
@@ -332,14 +328,56 @@ componentBuilders['grid-card'] = function() {
 componentBuilders['chart-power'] = function() {
   const container = document.createElement('div');
   container.className = 'chart-container';
-  container.innerHTML = `<div class="chart-header"><h3>Power Overview</h3></div><canvas id="powerChart"></canvas>`;
+  // Add a control bar
+  container.innerHTML = `
+    <div class="chart-header">
+      <h3>Power Overview</h3>
+      <div class="chart-controls" data-chart="power">
+        <button data-days="1" class="active">24h</button>
+        <button data-days="7">7d</button>
+        <button data-days="30">30d</button>
+        <button data-days="90">90d</button>
+      </div>
+    </div>
+    <canvas id="powerChart"></canvas>
+  `;
+  // Attach event listeners after the element is in the DOM (delegation later)
+  // We'll use event delegation on the container in the update cycle, or set them now.
+  const controls = container.querySelector('.chart-controls');
+  controls.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+      controls.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const days = parseInt(e.target.dataset.days);
+      updatePowerChartWithDays(days);
+    }
+  });
   return container;
 };
 
 componentBuilders['chart-energy'] = function() {
   const container = document.createElement('div');
   container.className = 'chart-container';
-  container.innerHTML = `<div class="chart-header"><h3>Daily Energy</h3></div><canvas id="energyBarChart"></canvas>`;
+  container.innerHTML = `
+    <div class="chart-header">
+      <h3>Daily Energy</h3>
+      <div class="chart-controls" data-chart="energy">
+        <button data-days="7" class="active">7d</button>
+        <button data-days="30">30d</button>
+        <button data-days="90">90d</button>
+      </div>
+    </div>
+    <canvas id="energyBarChart"></canvas>
+  `;
+  const controls = container.querySelector('.chart-controls');
+  controls.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+      controls.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const days = parseInt(e.target.dataset.days);
+      updateEnergyChartWithDays(days);
+    }
+  });
   return container;
 };
 
@@ -432,8 +470,12 @@ function initEnergyChart() {
 }
 
 /* ── Update Functions ───────────────────────────────────────────────── */
-async function fetchDashboardState() {
-  const res = await fetch('/api/dashboard-state');
+async function fetchDashboardState(params = {}) {
+  const query = new URLSearchParams();
+  if (params.powerDays) query.set('powerDays', params.powerDays);
+  if (params.energyDays) query.set('energyDays', params.energyDays);
+  const url = '/api/dashboard-state' + (query.toString() ? '?' + query.toString() : '');
+  const res = await fetch(url);
   return await res.json();
 }
 
@@ -474,7 +516,6 @@ function updateFlowCard(state) {
   gridEl.appendChild(gSpan);
   document.getElementById('flow-grid-direction').textContent = gridDir;
 
-  // Icon colors
   const solarIcon = document.getElementById('icon-solar');
   const homeIcon = document.getElementById('icon-home');
   const gridIcon = document.getElementById('icon-grid');
@@ -499,10 +540,8 @@ function updateFlowCard(state) {
     else                    batteryIcon.style.color = 'var(--text)';
   }
 
-  // Flow arrows
   updateFlowArrows(solarWatts, consumption, battCharge, battDischarge, gridImport, gridExport);
 
-  // Solar gauge
   const gaugeFill = document.getElementById('gauge-bar-fill');
   const gaugePercent = document.getElementById('gauge-percent');
   if (gaugeFill && gaugePercent) {
@@ -578,7 +617,6 @@ function updateGridCardFromState(state) {
   document.getElementById('grid-state').textContent = gs.current ? '⚡ ON' : '⚫ OFF';
   document.getElementById('grid-state').style.color = gs.current ? 'var(--battery)' : 'var(--grid)';
 
-  // Update last change timestamp
   const lastChangeEl = document.getElementById('grid-last-change');
   if (lastChangeEl) {
     const lastTimestamp = gs.current ? gs.lastOn : gs.lastOff;
@@ -616,8 +654,12 @@ function updateSavingsFromState(state) {
 }
 
 function updatePowerChartFromState(state) {
+  // This is called from updateAllComponents with default (1 day) state.
   if (!powerChart || !state || !state.powerHistory) return;
-  const data = state.powerHistory;
+  renderPowerChartData(state.powerHistory);
+}
+
+function renderPowerChartData(data) {
   if (!data.length) return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const newDatasets = [
@@ -637,9 +679,20 @@ function updatePowerChartFromState(state) {
   applyGradientFills(powerChart);
 }
 
+async function updatePowerChartWithDays(days) {
+  if (!powerChart) return;
+  const state = await fetchDashboardState({ powerDays: days });
+  if (state && state.powerHistory) {
+    renderPowerChartData(state.powerHistory);
+  }
+}
+
 function updateEnergyChartFromState(state) {
   if (!energyBarChart || !state || !state.dailyEnergyBar) return;
-  const data = state.dailyEnergyBar;
+  renderEnergyChartData(state.dailyEnergyBar);
+}
+
+function renderEnergyChartData(data) {
   if (!data.length) return;
   const labels = data.map(d => {
     const date = new Date(d.day + 'T00:00:00');
@@ -650,6 +703,14 @@ function updateEnergyChartFromState(state) {
   energyBarChart.data.datasets[1].data = data.map(d => d.grid_import_kwh);
   energyBarChart.data.datasets[2].data = data.map(d => d.consumption_kwh);
   energyBarChart.update();
+}
+
+async function updateEnergyChartWithDays(days) {
+  if (!energyBarChart) return;
+  const state = await fetchDashboardState({ energyDays: days });
+  if (state && state.dailyEnergyBar) {
+    renderEnergyChartData(state.dailyEnergyBar);
+  }
 }
 
 async function updateDailyTable() {
@@ -975,7 +1036,7 @@ async function loadBranding() {
 
 async function updateAllComponents() {
   try {
-    const state = await fetchDashboardState();
+    const state = await fetchDashboardState(); // default powerDays=1, energyDays=7
     const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
     if (!activeLayout) return;
 

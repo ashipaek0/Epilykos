@@ -1455,8 +1455,9 @@ app.get('/api/dashboard-state', async (req, res) => {
       };
     }
 
-    // power history (24h for power chart)
-    const historySince = Math.floor(Date.now() / 1000) - 24 * 3600;
+    // power history (default 1 day)
+    const powerDays = parseInt(req.query.powerDays) || 1;
+    const historySince = Math.floor(Date.now() / 1000) - powerDays * 24 * 3600;
     const historyRows = db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince);
     const powerHistory = historyRows.map(r => ({
       timestamp: r.timestamp * 1000,
@@ -1466,8 +1467,9 @@ app.get('/api/dashboard-state', async (req, res) => {
       grid_import_kw: r.grid_import / 1000
     }));
 
-    // daily energy bar chart (7 days)
-    const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+    // daily energy bar chart (default 7 days, configurable via ?energyDays=N)
+    const energyDays = parseInt(req.query.energyDays) || 7;
+    const barSince = Math.floor(Date.now() / 1000) - energyDays * 24 * 3600;
     const barRows = db.prepare(`
       SELECT date(timestamp, 'unixepoch') as day,
         MAX(daily_solar) as solar_kwh,
@@ -1493,11 +1495,6 @@ app.get('/api/dashboard-state', async (req, res) => {
       powerHistory,
       dailyEnergyBar
     });
-  } catch (err) {
-    console.error('Aggregated state error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // ── Settings API (protected) ──
 app.get('/api/test-forecast', authMiddleware, async (req, res) => {
