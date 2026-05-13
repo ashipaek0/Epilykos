@@ -309,6 +309,16 @@
       <div id="modbus-devices-container"></div>
       <button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button>
 
+      <!-- External REST Sources (new) -->
+      <h3>External REST Sources</h3>
+      <div id="external-sources-container"></div>
+      <button type="button" id="add-external-source" class="fetch-btn">+ Add External Source</button>
+      <div class="form-group" style="margin-top: 1rem;">
+        <label>Global Poll Interval (seconds)</label>
+        <input name="external_poll_interval" value="60" placeholder="60" autocomplete="off">
+      <div class="note">How often to fetch all external sources.</div>
+      </div>
+
       <!-- Solar Forecast (unchanged) -->
       <h3>Solar Forecast</h3>
       <div class="toggle-group">
