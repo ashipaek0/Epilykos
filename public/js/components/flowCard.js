@@ -1,4 +1,6 @@
-export function buildFlowCard() {
+export function buildFlowCard(block = {}) {
+  const config = block.config || {};
+  const showGauge = config.showGauge !== false; // default true
   const card = document.createElement('div');
   card.className = 'flow-card';
   card.innerHTML = `
@@ -6,10 +8,12 @@ export function buildFlowCard() {
       <div class="flow-icon"><i id="icon-solar" class="fi fi-sr-solar-panel"></i></div>
       <div class="flow-label">Solar</div>
       <div class="flow-value" id="flow-solar">0 W</div>
+      ${showGauge ? `
       <div class="solar-now-gauge" id="solar-now-gauge">
         <div class="gauge-bar-bg"><div class="gauge-bar-fill" id="gauge-bar-fill"></div></div>
         <span class="gauge-percent" id="gauge-percent">0%</span>
       </div>
+      ` : ''}
     </div>
     <div class="flow-arrow solar-home">→</div>
     <div class="flow-item battery">
@@ -36,8 +40,7 @@ export function buildFlowCard() {
   return card;
 }
 
-// rest of file unchanged (updateFlowCard, updateFlowArrows) ...
-
+// updateFlowCard and updateFlowArrows remain exactly as before (they already handle the gauge elements gracefully even if missing)
 export function updateFlowCard(state) {
   if (!state || !state.current || state.current.error) return;
   const d = state.current;
@@ -56,11 +59,13 @@ export function updateFlowCard(state) {
   const battSign = battNet >= 0 ? '↑' : '↓';
   const battColor = battNet >= 0 ? 'var(--battery)' : '#f59e0b';
   const battEl = document.getElementById('flow-battery-power');
-  battEl.innerHTML = '';
-  const battSpan = document.createElement('span');
-  battSpan.style.color = battColor;
-  battSpan.textContent = `${battSign} ${Math.abs(battNet)} W`;
-  battEl.appendChild(battSpan);
+  if (battEl) {
+    battEl.innerHTML = '';
+    const battSpan = document.createElement('span');
+    battSpan.style.color = battColor;
+    battSpan.textContent = `${battSign} ${Math.abs(battNet)} W`;
+    battEl.appendChild(battSpan);
+  }
 
   document.getElementById('flow-home').textContent = consumption + ' W';
 
@@ -68,12 +73,15 @@ export function updateFlowCard(state) {
   const gridDir = gridNet >= 0 ? 'Import' : 'Export';
   const gridColor = gridNet >= 0 ? 'var(--grid)' : '#3b82f6';
   const gridEl = document.getElementById('flow-grid');
-  gridEl.innerHTML = '';
-  const gSpan = document.createElement('span');
-  gSpan.style.color = gridColor;
-  gSpan.textContent = Math.abs(gridNet) + ' W';
-  gridEl.appendChild(gSpan);
-  document.getElementById('flow-grid-direction').textContent = gridDir;
+  if (gridEl) {
+    gridEl.innerHTML = '';
+    const gSpan = document.createElement('span');
+    gSpan.style.color = gridColor;
+    gSpan.textContent = Math.abs(gridNet) + ' W';
+    gridEl.appendChild(gSpan);
+  }
+  const gridDirEl = document.getElementById('flow-grid-direction');
+  if (gridDirEl) gridDirEl.textContent = gridDir;
 
   // Icon colors
   const solarIcon = document.getElementById('icon-solar');
@@ -101,7 +109,8 @@ export function updateFlowCard(state) {
   }
 
   updateFlowArrows(solarWatts, consumption, battCharge, battDischarge, gridImport, gridExport);
-  // Gauge update
+  
+  // Gauge update (only if element exists)
   const gaugeFill = document.getElementById('gauge-bar-fill');
   const gaugePercent = document.getElementById('gauge-percent');
   if (gaugeFill && gaugePercent && window.systemCapacityKwp) {
@@ -115,25 +124,56 @@ function updateFlowArrows(solar, consumption, battCharge, battDischarge, gridImp
   const solarArrow = document.querySelector('.flow-arrow.solar-home');
   const battArrow = document.querySelector('.flow-arrow.battery');
   const gridArrow = document.querySelector('.flow-arrow.grid');
-  if (solar > 0) {
-    if (solarArrow) { solarArrow.style.color = 'var(--solar)'; solarArrow.classList.add('flowing'); solarArrow.textContent = '→'; }
-  } else {
-    if (solarArrow) { solarArrow.style.color = 'var(--text-secondary)'; solarArrow.classList.remove('flowing'); solarArrow.textContent = '→'; }
+  const gridToBatt = document.getElementById('grid-to-battery');
+  
+  if (solarArrow) {
+    if (solar > 0) {
+      solarArrow.style.color = 'var(--solar)';
+      solarArrow.classList.add('flowing');
+      solarArrow.textContent = '→';
+    } else {
+      solarArrow.style.color = 'var(--text-secondary)';
+      solarArrow.classList.remove('flowing');
+      solarArrow.textContent = '→';
+    }
   }
+  
   const isCharging = battCharge > battDischarge;
   const isDischarging = battDischarge > battCharge;
   const isGridChargingBattery = gridImport > 0 && isCharging;
-  const isSolarChargingBattery = solar > 0 && isCharging && !isGridChargingBattery;
+  
   if (battArrow) {
-    if (isDischarging) { battArrow.style.color = '#f59e0b'; battArrow.textContent = '→'; }
-    else if (isCharging) {
-      if (isGridChargingBattery) { battArrow.style.color = 'var(--grid)'; battArrow.textContent = '←'; }
-      else { battArrow.style.color = isSolarChargingBattery ? 'var(--solar)' : 'var(--battery)'; battArrow.textContent = '→'; }
-    } else { battArrow.style.color = 'var(--text-secondary)'; battArrow.textContent = '⇄'; }
+    if (isDischarging) {
+      battArrow.style.color = '#f59e0b';
+      battArrow.textContent = '→';
+    } else if (isCharging) {
+      if (isGridChargingBattery) {
+        battArrow.style.color = 'var(--grid)';
+        battArrow.textContent = '←';
+      } else {
+        battArrow.style.color = 'var(--solar)';
+        battArrow.textContent = '→';
+      }
+    } else {
+      battArrow.style.color = 'var(--text-secondary)';
+      battArrow.textContent = '⇄';
+    }
   }
+  
   if (gridArrow) {
-    if (gridImport > gridExport) { gridArrow.style.color = 'var(--grid)'; gridArrow.textContent = '←'; }
-    else if (gridExport > gridImport) { gridArrow.style.color = '#3b82f6'; gridArrow.textContent = '→'; }
-    else { gridArrow.style.color = 'var(--text-secondary)'; gridArrow.textContent = '⇄'; }
+    if (gridImport > gridExport) {
+      gridArrow.style.color = 'var(--grid)';
+      gridArrow.textContent = '←';
+    } else if (gridExport > gridImport) {
+      gridArrow.style.color = '#3b82f6';
+      gridArrow.textContent = '→';
+    } else {
+      gridArrow.style.color = 'var(--text-secondary)';
+      gridArrow.textContent = '⇄';
+    }
+  }
+  
+  if (gridToBatt) {
+    gridToBatt.style.display = isGridChargingBattery ? 'block' : 'none';
   }
 }
