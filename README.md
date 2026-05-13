@@ -1,6 +1,6 @@
 # ⚡ Energy Dashboard
 
-A self‑hosted, real‑time energy monitoring dashboard that integrates with **Home Assistant**, **MQTT**, and **Modbus TCP**. Designed for public displays – no login required for viewing, while settings are password‑protected.
+A self‑hosted, real‑time energy monitoring dashboard that integrates with **Home Assistant** and **MQTT**. Designed for public displays – no login required for viewing, while settings are password‑protected.
 
 <img width="1491" height="883" alt="Screenshot From 2026-05-02 14-55-31" src="https://github.com/user-attachments/assets/0511a0ba-f08c-4f72-918a-59945d3ee456" />
 <img width="1460" height="803" alt="Screenshot From 2026-05-02 14-56-37" src="https://github.com/user-attachments/assets/d0599cd5-bfd0-45e0-89e0-d8e291e31a0b" />
@@ -9,68 +9,35 @@ A self‑hosted, real‑time energy monitoring dashboard that integrates with **
 <img width="1506" height="956" alt="Screenshot From 2026-05-02 15-04-41" src="https://github.com/user-attachments/assets/6498c54d-119e-4754-a2d1-2f672d1624d1" />
 <img width="1506" height="956" alt="Screenshot From 2026-05-02 15-04-23" src="https://github.com/user-attachments/assets/655d143e-f1c2-4bd5-8ff2-39333b9e0f16" />
 
-> **Multi‑source, multi‑device, infinitely customisable.** Monitor your energy in real time across any combination of Home Assistant instances, MQTT brokers, and Modbus inverters.
-
----
-
 ## ✨ Features
 
-### 📊 Live Data & Flow Visualisation
-
-- **Animated Flow Card** – Colour‑coded arrows show power flowing between **Solar**, **Battery**, **Home**, and **Grid**. Icons change colour based on activity.
+- **Live Flow Card** – Animated arrows show power flowing between Solar, Battery, Home, and Grid.
 - **Real‑time Stats** – Current power (W), battery state of charge (%), daily totals (kWh), self‑sufficiency, and cost savings.
-- **Solar Forecast Banner** – Predicts solar generation for the next 4 days using high‑accuracy **Solcast** (with API key) or free **Open‑Meteo** as fallback. Includes hourly sparkline chart, weather summary, and daily prediction cards.
-- **Grid Status & Timeline** – Current grid state (ON/OFF), uptime hours (day/week/month/year), and a 24‑hour timeline bar with hover tooltips showing exact change timestamps.
+- **Grid Status Tracking** – Displays current grid state (ON/OFF), uptime hours (day/week/month/year).
+- **Grid Timeline Bar** – A continuous 24‑hour bar showing grid ON/OFF segments with **hover tooltips** displaying the exact change timestamps.
+- **Solar Forecast** – Predicts solar generation for the next 4 days using high‑accuracy **Solcast** (with API key) or free **Open‑Meteo** as fallback. Includes hourly chart and daily summary cards.
+- **Historical Charts**
+  - Power Overview (line chart) – 24h, 7d, 30d, 90d with smooth gradient fills.
+  - Daily Energy Bar Chart – Solar generated, grid imported, and energy consumed for the last 7 days.
+- **Data Tables**
+  - **Last 30 Days** – Collapsible table with daily totals for load, solar, battery, and grid.
+  - **Last 12 Months** – Collapsible table with monthly energy breakdown.
+- **Light / Dark Mode** – Toggle manually or follow system preference; choice is saved.
+- **Fully Configurable UI**
+  - Set dashboard title and logo.
+  - Configure savings currency and rate.
+- **Multiple Data Sources**
+  - **Home Assistant** – Pull sensor data via REST API (long‑lived token).
+  - **MQTT** – Subscribe to topics for real‑time updates.
+  - Enable/disable each source independently.
+- **Entity Auto‑Discovery** – Fetch sensor list from Home Assistant and map via dropdowns.
+- **Connection Testing** – Verify MQTT broker, topics, and solar forecast before saving.
+- **Backup & Restore** – Download the entire SQLite database (settings + history) and restore it later.
+- **Responsive Design** – Works on mobile, tablet, and desktop.
 
-### 🎨 Modular Dashboard Design
+## 🚀 Quick Start (Docker)
 
-- **Multiple tabs** – Create separate dashboard tabs (e.g. "Main", "Technical", "Living Room"). Each tab has its own custom layout.
-- **Drag‑and‑drop blocks** – Reorder blocks directly from the Settings page. Available block types:
-  - Flow Card
-  - Solar Forecast Banner
-  - Metric Cards (custom stat cards)
-  - Grid Card
-  - Power Overview Chart
-  - Daily Energy Bar Chart
-  - Savings Summary
-  - Last 30 Days Table
-  - Last 12 Months Table
-- **Custom metric cards** – Define any number of stat cards with title, metric name, and unit. Values update live from your data sources.
-- **Developer‑friendly API** – Adding new block types requires only a few lines of JavaScript (see the project wiki for a guide).
-
-### 🔌 Multiple Data Sources
-
-- **Home Assistant (multi‑device)** – Add multiple HA instances with separate URLs, tokens, and entity mappings.
-- **MQTT (multi‑broker)** – Connect to multiple MQTT brokers simultaneously. Map any topic to any metric name.
-- **Modbus TCP** – Directly poll inverters and meters. Device profiles included for:
-  - SRNE
-  - Growatt
-  - Deye
-  - Victron
-  - Voltronic
-  - …and more (easily extensible)
-- **Dynamic metric mapping** – Define any metric names you want (e.g. `grid_voltage`, `inverter_temp`). A built‑in tooltip shows which metrics are used by your current dashboard.
-
-### 📈 Charts & Data Tables
-
-- **Power Overview Chart** (24h line chart) – Load, Solar PV, Battery Charge, and Grid Import with smooth gradient fills.
-- **Daily Energy Bar Chart** – Solar generated, grid imported, and energy consumed for the last 7 days.
-- **Collapsible data tables**:
-  - **Last 30 Days** – Daily totals for load, solar, battery charge/discharge, grid import/export.
-  - **Last 12 Months** – Monthly energy breakdown.
-
-### 🎛️ Customisation & Management
-
-- **Light / Dark mode** – Manual toggle or auto‑sync with system preference.
-- **Branding** – Customise dashboard title and logo.
-- **Savings calculation** – Enter your electricity rate and currency symbol.
-- **Backup & Restore** – Download the entire SQLite database and restore it anytime.
-- **Connection testing** – Verify MQTT brokers, topics, and solar forecasts from the settings page.
-- **Responsive design** – Optimised for desktop, tablet, and mobile.
-
----
-
-## 🚀 Quick Start (Docker Compose)
+The easiest way to run the dashboard is with Docker Compose.
 
 ### 1. Clone the Repository
 
@@ -81,12 +48,15 @@ cd energy-dashboard
 
 ### 2. Create Environment File
 
+Copy the example environment file and set a **strong password** for the settings page:
+
 ```bash
 cp .env.example .env
-nano .env   # edit SETTINGS_PASSWORD to a strong password
+nano .env   # or your favourite editor
 ```
 
-*The `.env` file is excluded from version control and keeps your password secure.*
+Update the `SETTINGS_PASSWORD` value.  
+*The `.env` file is excluded from version control, keeping your password safe.*
 
 ### 3. Start the Container
 
@@ -94,101 +64,78 @@ nano .env   # edit SETTINGS_PASSWORD to a strong password
 docker compose up -d --build
 ```
 
-The dashboard is now available at `http://localhost:3000`.
+The dashboard will be available at `http://localhost:3000` (or your server's IP).
 
 ### 4. Configure Data Sources
 
-1. Open `http://your-ip:3000/settings`
-2. Log in with username `admin` and the password from your `.env` file.
-3. **Add Home Assistant device:**
-   - Enter name, URL (e.g. `http://homeassistant.local:8123`), and a Long‑Lived Access Token.
-   - Click **Fetch Entities** to load all available sensors.
-   - Map metric names (e.g. `solar`, `battery_charge`) to entity IDs.
-4. **Optionally add MQTT brokers** and Modbus devices:
-   - Enter broker URL, username, and password.
-   - Map topics to metric names.
-5. **Set up Solar Forecast** (optional):
-   - Enter latitude, longitude, system capacity, and (optionally) a Solcast API key.
-   - Click **Test Forecast** to verify.
-6. Click **Save All Settings**.
+1. Open `http://your-server-ip:3000/settings`
+2. Log in with username `admin` and the password you set in the `.env` file.
+3. Configure Home Assistant (URL and Long‑Lived Access Token).
+4. Click **Fetch Entities from HA** to load all available sensors.
+5. Map each measurement (consumption, solar, battery, grid, etc.) to the appropriate sensor.
+6. Optionally enable MQTT and fill in broker details and topics.
+7. Customise Savings Calculation (currency and rate) and Branding (title and logo).
+8. Click **Save All Settings**.
 
-The dashboard will immediately begin displaying live data.
+The dashboard will immediately begin displaying data.
 
----
+## 🔧 Configuration Details
 
-## 🔧 Configuration Reference
+### Home Assistant
 
-### Home Assistant (Multi‑Device)
+- **URL**: Your Home Assistant instance (e.g., `http://homeassistant.local:8123`).
+- **Token**: Generate a Long‑Lived Access Token in your Home Assistant profile.
+- **Entities**: After fetching, select the sensors for:
+  - Power (Watts): consumption, solar, battery charge/discharge, grid import/export.
+  - Battery SOC (%).
+  - Grid status (binary sensor – ON/OFF).
+  - Daily energy (kWh) – the dashboard now **calculates daily totals internally** from your power sensors, so you don't need sensors that reset at midnight.
 
-| Setting | Description |
-|---------|-------------|
-| **Name** | Friendly label for this HA instance |
-| **URL** | Home Assistant address (e.g. `http://homeassistant.local:8123`) |
-| **Token** | Long‑Lived Access Token (generate in HA profile → Security) |
-| **Poll interval** | Seconds between data fetches (default: 30) |
-| **Entity mappings** | Map metric names (e.g. `solar`) to entity IDs (e.g. `sensor.srne_pv_power`) |
-| **Fetch Entities** | Auto‑populate dropdown menus with your HA sensors |
-| **+ Add Metric Mapping** | Create custom metric names; a tooltip shows which ones your dashboard needs |
+### MQTT
 
-### MQTT (Multi‑Broker)
-
-| Setting | Description |
-|---------|-------------|
-| **Broker URL** | `mqtt://your-broker:1883` or `mqtt+tls://...` |
-| **Username / Password** | Optional authentication |
-| **Topic mappings** | Map metric names (e.g. `consumption`) to MQTT topics (e.g. `energy/load`) |
-| **Test Broker** | Verify connection before saving |
-| **Test Topic** | Confirm a topic is being received |
-
-### Modbus TCP
-
-| Setting | Description |
-|---------|-------------|
-| **Profile** | Pre‑defined register maps (SRNE, Growatt, Deye, Victron, etc.) |
-| **Host** | IP address of the Modbus device |
-| **Port** | Port number (default: 502) |
-| **Unit ID** | Slave ID / Unit ID (typically 1) |
-| **Poll interval** | How often to read registers (seconds) |
+- **Broker URL**: `mqtt://your-broker:1883`
+- **Username / Password**: Optional.
+- **Topics**: Map each measurement to its MQTT topic. Leave empty to skip.
 
 ### Solar Forecast
 
-| Setting | Description |
-|---------|-------------|
-| **Enable** | Toggle solar predictions on/off |
-| **Latitude / Longitude** | Geographic position of your panels |
-| **Tilt / Azimuth** | Panel angles (degrees) |
-| **System Capacity (kWp)** | Total peak power (e.g. 5.0 for 5 kW system) |
-| **Solcast API Key** | Optional; enables high‑accuracy forecasts. Falls back to Open‑Meteo if empty |
-| **Loss Factor** | Inverter and wiring losses (0–1, default 0.9) |
-| **Installation date** | Used for degradation calculations (Solcast only) |
+- **Enable**: Toggle on to activate solar predictions.
+- **Latitude / Longitude**: Your geographic coordinates.
+- **Panel Tilt & Azimuth**: Angles of your solar array.
+- **System Capacity (kWp)**: Total peak power in kilowatts (e.g., 2.7 for a 2700 W system).
+- **Solcast API Key** (optional): If provided, high‑accuracy forecasts from Solcast are used. Otherwise, the free Open‑Meteo API serves as a fallback.
+- **Loss Factor**: Accounts for inverter/wiring losses (default 0.9).
+- **Installation Date**: Used for panel degradation calculations (Solcast).
 
-### Dashboard Layout
+Click **Test Forecast** to verify your configuration. The forecast banner appears on the main dashboard once enabled and correctly configured.
 
-Each tab contains a list of **blocks**:
+All settings are stored in a SQLite database (`./data/energy.db`) and persist across container restarts.
 
-1. **Add/remove blocks** using the + and ✕ buttons.
-2. **Change block type** – select from Flow Card, Metric Cards, Grid Card, Charts, Tables, etc.
-3. **For Metric Cards** – add/remove individual stat cards with title, metric name, and unit.
-4. Click **Save All Settings** to persist all changes.
+## 💾 Backup & Restore
 
-### Savings Calculation
+The settings page includes a Backup & Restore section:
 
-| Setting | Description |
-|---------|-------------|
-| **Currency Symbol** | (e.g. €, $, ₦) |
-| **Rate per kWh** | Your electricity cost (e.g. 0.30) |
+- **Download Backup** – Saves the entire database as a `.db` file.
+- **Restore Backup** – Upload a previously saved `.db` file to restore all settings and historical data.
 
----
+This is especially useful before reinstalling or migrating the dashboard.
 
-## 🐳 Docker Hub Image
+## 📊 Dashboard Usage
 
-A pre‑built image is available:
+- **Public View**: `http://your-server:3000/` – No login required.
+- **Settings**: `http://your-server:3000/settings` – Protected by HTTP Basic Auth (`admin` / your password).
+- **Data Refresh**: Automatic every 30 seconds without page reload.
+
+## 🐳 Docker Image on Docker Hub
+
+A pre‑built image is available on Docker Hub:
 
 ```
 irunmole/energy-dashboard:latest
 ```
 
-**Example `docker-compose.yml`:**
+You can use it directly in your `docker-compose.yml` (see the `.env` example below).  
+**Note:** if you use the pre‑built image, make sure to still provide the `SETTINGS_PASSWORD` via environment.
 
 ```yaml
 services:
@@ -201,13 +148,9 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
-      - TZ=Africa/Lagos
+      - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}   # from .env
+      - TZ=Africa/Lagos                           # change to your timezone
 ```
-
-Run `docker compose up -d` to start.
-
----
 
 ## 🛠️ Development / Manual Installation
 
@@ -218,9 +161,7 @@ npm install
 npm start
 ```
 
-The server listens on port 3000. A SQLite database is created in `./data`.
-
----
+The server listens on port 3000. A SQLite database will be created in `./data`.
 
 ## 📁 Project Structure
 
@@ -228,148 +169,62 @@ The server listens on port 3000. A SQLite database is created in `./data`.
 energy-dashboard/
 ├── Dockerfile
 ├── docker-compose.yml
-├── .env.example               # Template for environment variables
+├── .env.example          # template for credentials
 ├── .gitignore
 ├── package.json
-├── server.js                  # Express backend, polling, aggregated API
+├── server.js             # Express backend + SQLite + polling + forecast
 ├── public/
-│   ├── index.html             # Minimal HTML shell
-│   ├── script.js              # Dashboard logic, block builders, charts
-│   ├── style.css              # Theme, layout, responsive styles
-│   ├── settings.html          # Configuration UI
-│   └── settings.js            # Settings logic, device editors, layout editor
-├── profiles/                  # JSON Modbus register maps
-├── data/                      # SQLite database (created at runtime)
+│   ├── index.html        # Main dashboard UI
+│   ├── style.css         # Light/dark theme styles
+│   ├── script.js         # Charts, flow card, tables, forecast, timeline
+│   ├── settings.html     # Protected configuration page
+│   └── settings.js       # Settings logic + backup/restore
 └── README.md
 ```
 
----
-
 ## 🔒 Security
 
-✅ **Password‑protected settings** – Basic Auth on all state‑changing endpoints  
-✅ **Rate limiting** – Prevents brute‑force attacks on authenticated routes  
-✅ **CSRF protection** – State‑changing requests require a custom header  
-✅ **SSRF‑safe** – User provides URLs and tokens explicitly; no blind redirects  
-✅ **Database rollback** – Backup created before restore; reverts on failure  
-✅ **Non‑root container** – Runs as `node` user, not root  
-✅ **No code injection** – No use of `eval()` or dynamic code execution  
-
----
+- **No hardcoded secrets** – passwords are stored in the `.env` file (excluded from git).
+- **Non‑root container** – the Docker process runs as a non‑privileged `node` user.
+- **No dynamic code execution** – all inputs are properly parsed and sanitised.
+- **XSS‑safe rendering** – the front end uses secure DOM methods; no `innerHTML` with user data.
 
 ## ❓ Troubleshooting
 
 ### All values show zero
 
-**Likely cause:** No data source enabled or incorrectly mapped.
+- Ensure at least one data source is enabled and correctly configured.
+- Use the **Test MQTT Broker Connection** and **Test Topic** buttons in settings to verify connectivity.
+- For Home Assistant, verify the token has read access to the selected entities.
 
-**Solution:**
-- Check that at least one Home Assistant device, MQTT broker, or Modbus device is enabled.
-- Verify entity/topic mappings are correct.
-- Use the **Test** buttons in Settings to validate connections.
-- Check server logs: `docker compose logs energy-dashboard`
+### Today's solar or savings not updating
 
-### Solar / savings values stuck
-
-**Likely cause:** `daily_solar` metric not being updated.
-
-**Solution:**
-- The dashboard computes daily solar from historical data. Ensure the solar power entity is mapped correctly.
-- Verify the backend is polling the data source.
-- Check server logs for polling errors.
+The dashboard calculates daily solar energy directly from your power sensors – **no special "daily" sensors are required**. If the value seems stuck, check that the correct **power** sensors are mapped (not the daily‑energy sensor).
 
 ### Grid timeline not appearing
 
-**Likely cause:** No `grid_status` entity configured.
+Make sure a **grid status entity** is selected in the settings (e.g., `binary_sensor.grid_status`). The timeline bar will appear once the server has recorded at least one state change.
 
-**Solution:**
-- Add a binary sensor entity ID in **Settings** → **Home Assistant device** (or global settings).
-- Save settings and wait for the next poll cycle.
+### Solar forecast shows zero or unrealistic values
 
-### Solar forecast not appearing
+- Ensure Latitude, Longitude, and System Capacity are correctly filled.
+- If using Solcast, verify your API key is valid and the hobbyist tier has remaining calls.
+- Check the server logs for detailed error messages:
 
-**Likely cause:** Forecast disabled or missing coordinates.
-
-**Solution:**
-- Enable the forecast checkbox in Settings.
-- Fill in latitude, longitude, and system capacity (kWp).
-- Click **Test Forecast** to verify the configuration.
-- If using Solcast, ensure your API key is valid and you have remaining calls.
+```bash
+docker compose logs energy-dashboard | grep -i forecast
+```
 
 ### Login popup appears on main page
 
-**Likely cause:** Cached old credentials.
-
-**Solution:**
-- Clear your browser cache.
-- Test in incognito/private mode.
-- Ensure `.env` SETTINGS_PASSWORD is set correctly.
-
-### Slow tab switching or unresponsive UI
-
-**Likely cause:** Too many individual API calls per poll cycle.
-
-**Solution:**
-- Ensure you're using the latest version of `script.js` and `server.js`.
-- The latest version uses a single aggregated API endpoint.
-- Reduce the number of data sources or increase poll intervals if needed.
-
----
-
-## 📖 Adding a New Block Type (Developer Guide)
-
-To create a custom block type:
-
-1. **Add a builder function** in `public/script.js`:
-   ```javascript
-   function buildMyCustomBlock(data) {
-     const block = document.createElement('div');
-     block.className = 'dashboard-block';
-     block.innerHTML = `<h3>My Block</h3><p>${data.value}</p>`;
-     return block;
-   }
-   ```
-
-2. **Register the block type** in `public/settings.js` (inside the block-type dropdown):
-   ```javascript
-   <option value="my-custom-block">My Custom Block</option>
-   ```
-
-3. **Add an update function** that populates the block from the aggregated state:
-   ```javascript
-   updateMyCustomBlock(element, state) {
-     element.querySelector('p').textContent = state.my_custom_metric;
-   }
-   ```
-
-4. **Add CSS** in `style.css` to style your block.
-
-5. **(Optional)** Add the block to the default layout in `server.js` (inside `defaultConfig.layout`).
-
-For a detailed guide, see the **[Developer Guide](docs/DEVELOPER.md)** (or add to your docs folder).
-
----
+This was fixed in recent versions. If you still see it, clear your browser cache or test in incognito mode.
 
 ## 📄 License
 
-**GNU General Public License v3.0** – see `LICENSE` file for details.
-
----
+GNU General License – see LICENSE file for details.
 
 ## 🙌 Acknowledgements
 
-Built with:
-- **Express.js** – Backend framework
-- **Chart.js** – Data visualisation
-- **SQLite** – Data storage
-- **MQTT.js** – MQTT client
-- **modbus-serial** – Modbus TCP client
+Built with Express, Chart.js, SQLite, and MQTT.js. Solar forecast powered by Solcast and Open-Meteo.
 
-Solar forecast powered by **Solcast** and **Open‑Meteo**.  
-Icons by **Flaticon** (uicons).
-
----
-
-**Happy monitoring!** ☀️🔋🏠
-
-For issues, suggestions, or contributions, please open an issue or pull request on [GitHub](https://github.com/ashipaek0/energy-dashboard).
+Happy monitoring! ☀️🔋🏠
