@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const ModbusRTU = require('modbus-serial');
 
 const app = express();
+app.set('trust proxy', 2);  // number of proxy hops
 const PORT = process.env.PORT || 3000;
 
 // ──────────────────────────── SECURITY: No more "admin" fallback ────────
