@@ -1,9 +1,10 @@
-export function buildChartEnergy() {
+export function buildChartEnergy(block = {}) {
+  const config = block.config || {};
   const container = document.createElement('div');
   container.className = 'chart-container';
   container.innerHTML = `
     <div class="chart-header">
-      <h3>Daily Energy</h3>
+      <h3>${escapeHtml(config.title || 'Daily Energy')}</h3>
       <div class="chart-controls" id="energy-chart-controls">
         <button data-range="7d" class="active">7d</button>
         <button data-range="30d">30d</button>
@@ -12,7 +13,7 @@ export function buildChartEnergy() {
     </div>
     <canvas id="energyBarChart"></canvas>
   `;
-  
+
   const controls = container.querySelector('#energy-chart-controls');
   if (controls) {
     controls.addEventListener('click', (e) => {
@@ -29,4 +30,10 @@ export function buildChartEnergy() {
     });
   }
   return container;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
