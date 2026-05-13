@@ -1,4 +1,4 @@
-// settings.js – full with Phase 2 & Phase 3: metric-cards editor, layout import/export, serial Modbus, external REST sources
+// settings.js – full with Phase 4.1: granular block configuration
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -629,7 +629,7 @@ document.getElementById('test-forecast').addEventListener('click', async functio
   }
 });
 
-// ======================== DASHBOARD EDITOR (with metric-cards sub-editor) ========================
+// ======================== DASHBOARD EDITOR (with block config) ========================
 let dashConfig = null;
 
 function buildDashboardEditor(config) {
@@ -691,9 +691,10 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
       </select>
       <button type="button" class="remove-btn delete-block">Remove</button>
+      <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
     `;
     
-    // Card editor for metric-cards block
+    // Card editor for metric-cards block (if type metric-cards)
     if (block.type === 'metric-cards') {
       const cardEditorDiv = document.createElement('div');
       cardEditorDiv.className = 'metric-cards-editor';
@@ -738,6 +739,74 @@ function renderDashboardBlockEditor(dashboard) {
       cardEditorDiv.appendChild(addCardBtn);
       li.appendChild(cardEditorDiv);
     }
+    
+    // Block configuration modal (popup) – simplified inline panel
+    const configBtn = li.querySelector('.config-block-btn');
+    configBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Remove any existing config panel
+      const existingPanel = li.querySelector('.block-config-panel');
+      if (existingPanel) existingPanel.remove();
+      
+      const configPanel = document.createElement('div');
+      configPanel.className = 'block-config-panel';
+      configPanel.style.marginTop = '0.5rem';
+      configPanel.style.padding = '0.5rem';
+      configPanel.style.backgroundColor = 'var(--bg)';
+      configPanel.style.borderRadius = '0.5rem';
+      configPanel.style.border = '1px solid var(--border)';
+      
+      // Generic config fields based on block type
+      if (block.type === 'chart-power' || block.type === 'chart-energy') {
+        configPanel.innerHTML = `
+          <label style="display:block; margin-bottom:0.25rem;">Chart Title</label>
+          <input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" placeholder="Power Overview" style="width:100%; margin-bottom:0.5rem;">
+          <label style="display:block; margin-bottom:0.25rem;">Datasets to show (comma-separated)</label>
+          <input type="text" class="config-datasets" value="${escapeHtml((block.config?.datasets || ['load','solar','battery','grid']).join(','))}" placeholder="load,solar,battery,grid" style="width:100%;">
+          <div class="note">Available: load, solar, battery_charge, grid_import</div>
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
+        `;
+      } else if (block.type === 'flow-card') {
+        configPanel.innerHTML = `
+          <label style="display:block; margin-bottom:0.25rem;">Show Solar Gauge</label>
+          <input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Yes
+          <div class="note">Display relative solar power gauge</div>
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
+        `;
+      } else if (block.type === 'grid-card') {
+        configPanel.innerHTML = `
+          <label style="display:block; margin-bottom:0.25rem;">Show Timeline Bar</label>
+          <input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Yes
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
+        `;
+      } else {
+        configPanel.innerHTML = `<div class="note">No configurable options for this block type.</div>`;
+      }
+      
+      const saveBtn = configPanel.querySelector('.save-config');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          if (!block.config) block.config = {};
+          if (block.type === 'chart-power' || block.type === 'chart-energy') {
+            const titleInput = configPanel.querySelector('.config-chart-title');
+            if (titleInput) block.config.title = titleInput.value;
+            const datasetsInput = configPanel.querySelector('.config-datasets');
+            if (datasetsInput) {
+              block.config.datasets = datasetsInput.value.split(',').map(s => s.trim()).filter(s => s);
+            }
+          } else if (block.type === 'flow-card') {
+            const gaugeCheckbox = configPanel.querySelector('.config-show-gauge');
+            if (gaugeCheckbox) block.config.showGauge = gaugeCheckbox.checked;
+          } else if (block.type === 'grid-card') {
+            const timelineCheckbox = configPanel.querySelector('.config-show-timeline');
+            if (timelineCheckbox) block.config.showTimeline = timelineCheckbox.checked;
+          }
+          configPanel.remove();
+          // Optionally re-render dashboard editor to reflect changes? Not needed, config saved.
+        });
+      }
+      li.appendChild(configPanel);
+    });
     
     li.querySelector('.block-type-select').addEventListener('change', (e) => {
       const newType = e.target.value;
@@ -854,7 +923,7 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
-  // Modbus devices (with serial fields)
+  // Modbus devices
   payload.modbus_devices = collectDeviceArray('modbus-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
