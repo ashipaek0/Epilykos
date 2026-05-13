@@ -198,6 +198,8 @@ async function switchDashboard(id) {
 
 /* ── Component Builders ── */
 componentBuilders['flow-card'] = function() {
+  const wrapper = document.createElement('div');  // new wrapper
+
   const card = document.createElement('div');
   card.className = 'flow-card';
   card.innerHTML = `
@@ -235,7 +237,21 @@ componentBuilders['flow-card'] = function() {
       <div class="flow-sub" id="flow-grid-direction">Import</div>
     </div>
   `;
-  return card;
+  wrapper.appendChild(card);
+
+  // Grid‑to‑battery indicator (missing element restored)
+  const gridToBattery = document.createElement('div');
+  gridToBattery.id = 'grid-to-battery';
+  gridToBattery.style.display = 'none';
+  gridToBattery.style.textAlign = 'center';
+  gridToBattery.style.marginTop = '-0.5rem';
+  gridToBattery.style.marginBottom = '1rem';
+  gridToBattery.style.color = 'var(--grid)';
+  gridToBattery.style.fontSize = '0.9rem';
+  gridToBattery.innerHTML = `<span>↑</span> Grid charging battery <span>↑</span>`;
+  wrapper.appendChild(gridToBattery);
+
+  return wrapper;
 };
 
 componentBuilders['forecast-banner'] = function() {
