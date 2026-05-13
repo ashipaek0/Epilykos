@@ -156,7 +156,7 @@ function renderDashboard() {
     initEnergyChart();
   }
 
-  // No additional lazy-load code needed – table builders handle it.
+  // Lazy-load tables are handled inside their builders
 
   loadBranding();
   updateAllComponents();
@@ -174,7 +174,7 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-/* ── Component Builders (fixed table toggles) ── */
+/* ── Component Builders ── */
 componentBuilders['flow-card'] = function() {
   const wrapper = document.createElement('div');
   const card = document.createElement('div');
@@ -392,11 +392,8 @@ componentBuilders['data-table-daily'] = function() {
   let loaded = false;
 
   toggleBtn.addEventListener('click', async () => {
-    // Toggle visibility
     content.classList.toggle('collapsed');
     toggleBtn.classList.toggle('collapsed');
-
-    // If opening for the first time, load data
     if (!loaded && !content.classList.contains('collapsed')) {
       loaded = true;
       await updateDailyTable();
