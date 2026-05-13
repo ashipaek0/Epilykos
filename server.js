@@ -26,12 +26,12 @@ const db = getDb();   // global db reference for this file
 loadProfiles();
 setupMqtt();
 
-// Multer for restore
+// Multer for restore and import
 const upload = multer({
   dest: '/tmp/',
   fileFilter: (req, file, cb) => {
-    if (file.originalname.endsWith('.db')) cb(null, true);
-    else cb(new Error('Only .db files allowed'));
+    if (file.originalname.endsWith('.db') || file.originalname.endsWith('.json')) cb(null, true);
+    else cb(new Error('Only .db or .json files allowed'));
   },
   limits: { fileSize: 50 * 1024 * 1024 }
 });
@@ -432,6 +432,33 @@ app.post('/api/dashboard-config', (req, res) => {
     saveDashboardConfig(req.body);
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Dashboard config export (download JSON)
+app.get('/api/dashboard-config/export', authMiddleware, (req, res) => {
+  const config = getDashboardConfig();
+  res.setHeader('Content-Disposition', 'attachment; filename="dashboard-layout.json"');
+  res.setHeader('Content-Type', 'application/json');
+  res.json(config);
+});
+
+// Dashboard config import (upload JSON)
+app.post('/api/dashboard-config/import', authMiddleware, upload.single('layout'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  try {
+    const content = fs.readFileSync(req.file.path, 'utf8');
+    const config = JSON.parse(content);
+    // Basic validation
+    if (!config.dashboards || !Array.isArray(config.dashboards)) {
+      throw new Error('Invalid dashboard config format');
+    }
+    saveDashboardConfig(config);
+    fs.unlinkSync(req.file.path);
+    res.json({ success: true });
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: err.message });
   }
 });
