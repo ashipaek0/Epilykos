@@ -1,4 +1,4 @@
-// settings.js – with dynamic metric mapping, tooltips, metric-cards editor, layout import/export
+// settings.js – full with Phase 2 & Phase 3: metric-cards editor, layout import/export, serial Modbus, external REST sources
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -20,7 +20,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -30,6 +30,7 @@ async function loadSettings() {
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
+    buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
 
@@ -371,7 +372,7 @@ document.getElementById('add-mqtt-device').addEventListener('click', () => {
   renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
 });
 
-// ======================== MODBUS ========================
+// ======================== MODBUS (with serial support) ========================
 let modbusDeviceCounter = 0;
 function buildModbusDeviceList(devices) {
   const container = document.getElementById('modbus-devices-container');
@@ -391,41 +392,91 @@ function renderModbusDevice(device, idx) {
       <button type="button" class="remove-btn" data-action="remove-modbus">Remove</button>
     </div>
     <div class="form-row">
+      <select name="modbus_devices[${idx}][transport]" class="modbus-transport-select">
+        <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>TCP/IP</option>
+        <option value="serial" ${device.transport === 'serial' ? 'selected' : ''}>Serial (USB/RS485)</option>
+      </select>
       <select name="modbus_devices[${idx}][profile]" class="modbus-profile-select">
         <option value="">-- Select profile --</option>
       </select>
-      <input type="text" name="modbus_devices[${idx}][host]" placeholder="Host/IP" value="${escapeHtml(device.host || '')}">
+    </div>
+    <div class="modbus-tcp-fields" style="${device.transport === 'tcp' ? '' : 'display:none;'}">
+      <div class="form-row">
+        <input type="text" name="modbus_devices[${idx}][host]" placeholder="Host/IP" value="${escapeHtml(device.host || '')}">
+        <input type="number" name="modbus_devices[${idx}][port]" placeholder="Port" value="${device.port || 502}">
+      </div>
+    </div>
+    <div class="modbus-serial-fields" style="${device.transport === 'serial' ? '' : 'display:none;'}">
+      <div class="form-row">
+        <input type="text" name="modbus_devices[${idx}][serial_path]" placeholder="Serial path (e.g., /dev/ttyUSB0)" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}">
+        <input type="number" name="modbus_devices[${idx}][serial_baud]" placeholder="Baud rate" value="${device.serial_baud || 9600}">
+      </div>
+      <div class="form-row">
+        <input type="number" name="modbus_devices[${idx}][serial_data_bits]" placeholder="Data bits" value="${device.serial_data_bits || 8}">
+        <select name="modbus_devices[${idx}][serial_parity]">
+          <option value="none" ${device.serial_parity === 'none' ? 'selected' : ''}>None</option>
+          <option value="even" ${device.serial_parity === 'even' ? 'selected' : ''}>Even</option>
+          <option value="odd" ${device.serial_parity === 'odd' ? 'selected' : ''}>Odd</option>
+        </select>
+        <input type="number" name="modbus_devices[${idx}][serial_stop_bits]" placeholder="Stop bits" value="${device.serial_stop_bits || 1}">
+      </div>
     </div>
     <div class="form-row">
-      <input type="number" name="modbus_devices[${idx}][port]" placeholder="Port" value="${device.port || 502}">
       <input type="number" name="modbus_devices[${idx}][unit]" placeholder="Unit ID" value="${device.unit || 1}">
-    </div>
-    <div class="form-row">
       <input type="number" name="modbus_devices[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:120px;">
       <button type="button" class="fetch-btn test-modbus">Test Modbus</button>
     </div>
   `;
   container.appendChild(card);
-  const select = card.querySelector('.modbus-profile-select');
+
+  const transportSelect = card.querySelector('.modbus-transport-select');
+  const tcpFields = card.querySelector('.modbus-tcp-fields');
+  const serialFields = card.querySelector('.modbus-serial-fields');
+
+  transportSelect.addEventListener('change', (e) => {
+    const isTcp = e.target.value === 'tcp';
+    tcpFields.style.display = isTcp ? '' : 'none';
+    serialFields.style.display = isTcp ? 'none' : '';
+  });
+
+  const profileSelect = card.querySelector('.modbus-profile-select');
   fetch('/api/modbus/profiles').then(r => r.json()).then(profiles => {
     profiles.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = p.name;
       if (p.id === device.profile) opt.selected = true;
-      select.appendChild(opt);
+      profileSelect.appendChild(opt);
     });
   });
+
   card.querySelector('[data-action="remove-modbus"]').addEventListener('click', () => {
     card.remove();
     reindexModbus();
   });
+
   card.querySelector('.test-modbus').addEventListener('click', async function() {
     const statusEl = document.createElement('span');
     statusEl.className = 'test-status';
     this.after(statusEl);
+    // Build device object from current inputs
+    const dev = {
+      transport: transportSelect.value,
+      host: card.querySelector('input[name$="[host]"]')?.value,
+      port: card.querySelector('input[name$="[port]"]')?.value,
+      serial_path: card.querySelector('input[name$="[serial_path]"]')?.value,
+      serial_baud: card.querySelector('input[name$="[serial_baud]"]')?.value,
+      serial_data_bits: card.querySelector('input[name$="[serial_data_bits]"]')?.value,
+      serial_parity: card.querySelector('select[name$="[serial_parity]"]')?.value,
+      serial_stop_bits: card.querySelector('input[name$="[serial_stop_bits]"]')?.value,
+      unit: card.querySelector('input[name$="[unit]"]')?.value,
+    };
     try {
-      const res = await fetch('/api/test-modbus');
+      const res = await fetch('/api/test-modbus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dev)
+      });
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `OK: ${data.value}`, 'success');
       else showStatus(statusEl, data.error, 'error');
@@ -447,7 +498,115 @@ function reindexModbus() {
 
 document.getElementById('add-modbus-device').addEventListener('click', () => {
   const idx = modbusDeviceCounter;
-  renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '' }, idx);
+  renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
+});
+
+// ======================== EXTERNAL REST SOURCES ========================
+let externalSourceCounter = 0;
+function buildExternalSourceList(sources) {
+  const container = document.getElementById('external-sources-container');
+  if (!container) return;
+  container.innerHTML = '';
+  externalSourceCounter = 0;
+  sources.forEach((src, idx) => renderExternalSource(src, idx));
+}
+
+function renderExternalSource(source, idx) {
+  const container = document.getElementById('external-sources-container');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="external_sources[${idx}][name]" placeholder="Source Name" value="${escapeHtml(source.name || '')}" style="flex:1;">
+      <label><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}> Enabled</label>
+      <button type="button" class="remove-btn" data-action="remove-external">Remove</button>
+    </div>
+    <div class="form-row">
+      <input type="text" name="external_sources[${idx}][url]" placeholder="URL" value="${escapeHtml(source.url || '')}">
+    </div>
+    <div class="mappings-section">
+      <h4>Metric Mappings (JSON path → metric name)</h4>
+      <div class="mappings-list" id="external-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn add-external-metric" data-device="${idx}">+ Add Mapping</button>
+      <div class="test-row" style="margin-top:0.5rem;">
+        <input type="text" class="test-jsonpath" placeholder="JSON path to test (e.g., data.temperature)">
+        <button type="button" class="fetch-btn test-external">Test</button>
+        <span class="test-status" id="external-test-status-${idx}"></span>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+
+  card.querySelector('[data-action="remove-external"]').addEventListener('click', () => {
+    card.remove();
+    reindexExternal();
+  });
+
+  const mappingsList = card.querySelector('.mappings-list');
+  renderExternalMappings(source.mappings || {}, idx, mappingsList);
+
+  card.querySelector('.add-external-metric').addEventListener('click', () => {
+    addExternalMetricRow(idx, mappingsList);
+  });
+
+  const testBtn = card.querySelector('.test-external');
+  const testPathInput = card.querySelector('.test-jsonpath');
+  const testStatus = card.querySelector(`#external-test-status-${idx}`);
+  testBtn.addEventListener('click', async () => {
+    const url = card.querySelector('input[name$="[url]"]').value;
+    const jsonPath = testPathInput.value.trim();
+    if (!url) { showStatus(testStatus, 'URL required', 'error'); return; }
+    showStatus(testStatus, 'Testing...', 'info');
+    try {
+      const res = await fetch('/api/test-external', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, jsonPath })
+      });
+      const data = await res.json();
+      if (res.ok) showStatus(testStatus, `Value: ${data.value}`, 'success');
+      else showStatus(testStatus, data.error, 'error');
+    } catch (err) {
+      showStatus(testStatus, err.message, 'error');
+    }
+  });
+
+  externalSourceCounter++;
+}
+
+function renderExternalMappings(mappings, deviceIdx, container) {
+  container.innerHTML = '';
+  Object.entries(mappings).forEach(([jsonPath, metric]) => {
+    addExternalMetricRow(deviceIdx, container, jsonPath, metric);
+  });
+  if (Object.keys(mappings).length === 0) addExternalMetricRow(deviceIdx, container);
+}
+
+function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') {
+  const row = document.createElement('div');
+  row.className = 'metric-row';
+  row.innerHTML = `
+    <input type="text" class="jsonpath" placeholder="JSON path (e.g., data.temperature)" value="${escapeHtml(jsonPath)}">
+    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
+    <button type="button" class="remove-btn remove-metric">−</button>
+  `;
+  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  container.appendChild(row);
+}
+
+function reindexExternal() {
+  const cards = document.querySelectorAll('#external-sources-container .device-card');
+  externalSourceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    externalSourceCounter++;
+  });
+}
+
+document.getElementById('add-external-source').addEventListener('click', () => {
+  const idx = externalSourceCounter;
+  renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
 });
 
 // ======================== FORECAST TEST ========================
@@ -656,11 +815,12 @@ form.addEventListener('submit', async (e) => {
   const payload = {};
 
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config') return;
+    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[')) return;
     if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
     else payload[el.name] = el.value;
   });
 
+  // HA devices
   payload.ha_devices = collectDeviceArray('ha-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -677,6 +837,7 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
+  // MQTT devices
   payload.mqtt_devices = collectDeviceArray('mqtt-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -693,16 +854,38 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
+  // Modbus devices (with serial fields)
   payload.modbus_devices = collectDeviceArray('modbus-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+    dev.transport = card.querySelector('.modbus-transport-select').value;
     dev.profile = card.querySelector('.modbus-profile-select').value;
-    dev.host = card.querySelector('input[name$="[host]"]').value;
-    dev.port = card.querySelector('input[name$="[port]"]').value;
-    dev.unit = card.querySelector('input[name$="[unit]"]').value;
-    dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]').value;
+    dev.host = card.querySelector('input[name$="[host]"]')?.value || '';
+    dev.port = card.querySelector('input[name$="[port]"]')?.value || '';
+    dev.serial_path = card.querySelector('input[name$="[serial_path]"]')?.value || '';
+    dev.serial_baud = card.querySelector('input[name$="[serial_baud]"]')?.value || '';
+    dev.serial_data_bits = card.querySelector('input[name$="[serial_data_bits]"]')?.value || '';
+    dev.serial_parity = card.querySelector('select[name$="[serial_parity]"]')?.value || '';
+    dev.serial_stop_bits = card.querySelector('input[name$="[serial_stop_bits]"]')?.value || '';
+    dev.unit = card.querySelector('input[name$="[unit]"]')?.value || 1;
+    dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]')?.value || 30;
     return dev;
+  });
+
+  // External sources
+  payload.external_sources = collectDeviceArray('external-sources-container', (card) => {
+    const src = {};
+    src.name = card.querySelector('.device-header input[type="text"]').value;
+    src.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+    src.url = card.querySelector('input[name$="[url]"]').value;
+    src.mappings = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const jsonPath = row.querySelector('.jsonpath').value.trim();
+      const metric = row.querySelector('.metric-name').value.trim();
+      if (jsonPath && metric) src.mappings[jsonPath] = metric;
+    });
+    return src;
   });
 
   payload.dashboard_config = JSON.stringify(dashConfig);
