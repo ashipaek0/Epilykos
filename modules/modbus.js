@@ -45,12 +45,33 @@ function loadProfiles() {
   console.log(`Loaded ${availableProfiles.length} Modbus profile(s).`);
 }
 
+async function connectModbus(device) {
+  const client = new ModbusRTU();
+  const transport = device.transport || 'tcp';
+  if (transport === 'serial') {
+    const path_ = device.serial_path || '/dev/ttyUSB0';
+    const baudRate = parseInt(device.serial_baud) || 9600;
+    const dataBits = parseInt(device.serial_data_bits) || 8;
+    const stopBits = parseInt(device.serial_stop_bits) || 1;
+    const parity = device.serial_parity || 'none';
+    await client.connectRTUBuffered(path_, { baudRate, dataBits, stopBits, parity });
+  } else {
+    await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
+  }
+  await client.setID(parseInt(device.unit) || 1);
+  return client;
+}
+
 async function pollModbus() {
   const modbusDevices = JSON.parse(getConfig('modbus_devices') || '[]');
   if (!modbusDevices.length) return;
 
   for (const device of modbusDevices) {
-    if (!device.enabled || !device.host || !device.profile) continue;
+    if (!device.enabled) continue;
+    if (device.transport !== 'tcp' && device.transport !== 'serial') device.transport = 'tcp';
+    if (device.transport === 'tcp' && !device.host) continue;
+    if (device.transport === 'serial' && !device.serial_path) continue;
+
     const profile = availableProfiles.find(p => p.id === device.profile);
     if (!profile) {
       console.error(`Modbus profile '${device.profile}' not found.`);
@@ -58,9 +79,7 @@ async function pollModbus() {
     }
     let client;
     try {
-      client = new ModbusRTU();
-      await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
-      await client.setID(parseInt(device.unit) || 1);
+      client = await connectModbus(device);
 
       const results = {};
       const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
@@ -79,16 +98,16 @@ async function pollModbus() {
           }
         } catch (err) { console.error(`Modbus read error at ${startAddr}:`, err.message); }
       }
-      client.close();
+      await client.close();
 
       const now = Math.floor(Date.now() / 1000);
       for (const [metric, value] of Object.entries(results)) {
         getMetricInsert().run(now, metric, value);
         getLatestUpsert().run(metric, value, now);
       }
-      console.log(`Modbus poll (${device.name || device.host}): ${Object.keys(results).length} metrics.`);
+      console.log(`Modbus poll (${device.name || device.host || device.serial_path}): ${Object.keys(results).length} metrics.`);
     } catch (err) {
-      console.error(`Modbus poll error for ${device.name || device.host}:`, err.message);
+      console.error(`Modbus poll error for ${device.name || device.host || device.serial_path}:`, err.message);
       if (client) client.close();
     }
   }
@@ -97,11 +116,9 @@ async function pollModbus() {
 async function testModbusConnection(device) {
   let client;
   try {
-    client = new ModbusRTU();
-    await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
-    await client.setID(parseInt(device.unit) || 1);
-    const resp = await client.readHoldingRegisters(256, 1);
-    client.close();
+    client = await connectModbus(device);
+    const resp = await client.readHoldingRegisters(256, 1); // common battery SOC address
+    await client.close();
     return { success: true, value: resp.data[0] };
   } catch (err) {
     if (client) client.close();

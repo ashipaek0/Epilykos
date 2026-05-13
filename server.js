@@ -16,15 +16,17 @@ const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
+const { startExternalPolling, restartExternalPolling } = require('./modules/external');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize database, load profiles, start MQTT
+// Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
-const db = getDb();   // global db reference for this file
+const db = getDb();
 loadProfiles();
 setupMqtt();
+startExternalPolling();
 
 // Multer for restore and import
 const upload = multer({
@@ -41,11 +43,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
-// Polling loop
+// Polling loop (legacy, Modbus already polled inside pollModbus)
 async function pollAllSources() {
   try {
     await pollHomeAssistant();
-    await pollModbus();
+    await pollModbus();       // includes both TCP and serial
     await pollLegacyHistory();
     await pollGridStatus();
   } catch (err) {
@@ -413,11 +415,13 @@ app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
 });
 
+// Test Modbus connection (POST to receive device config)
 app.use('/api/test-modbus', authMiddleware, authLimiter);
-app.get('/api/test-modbus', async (req, res) => {
-  const devices = JSON.parse(getConfig('modbus_devices') || '[]');
-  const device = devices.find(d => d.enabled);
-  if (!device || !device.host) return res.status(400).json({ error: 'No Modbus device configured' });
+app.post('/api/test-modbus', async (req, res) => {
+  const device = req.body;
+  if (!device) return res.status(400).json({ error: 'No device config provided' });
+  if (device.transport === 'tcp' && !device.host) return res.status(400).json({ error: 'Host required for TCP' });
+  if (device.transport === 'serial' && !device.serial_path) return res.status(400).json({ error: 'Serial path required' });
   try {
     const result = await testModbusConnection(device);
     res.json(result);
@@ -436,7 +440,6 @@ app.post('/api/dashboard-config', (req, res) => {
   }
 });
 
-// Dashboard config export (download JSON)
 app.get('/api/dashboard-config/export', authMiddleware, (req, res) => {
   const config = getDashboardConfig();
   res.setHeader('Content-Disposition', 'attachment; filename="dashboard-layout.json"');
@@ -444,13 +447,11 @@ app.get('/api/dashboard-config/export', authMiddleware, (req, res) => {
   res.json(config);
 });
 
-// Dashboard config import (upload JSON)
 app.post('/api/dashboard-config/import', authMiddleware, upload.single('layout'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     const content = fs.readFileSync(req.file.path, 'utf8');
     const config = JSON.parse(content);
-    // Basic validation
     if (!config.dashboards || !Array.isArray(config.dashboards)) {
       throw new Error('Invalid dashboard config format');
     }
@@ -495,14 +496,14 @@ app.post('/api/settings', (req, res) => {
       stmt.run(key, String(value));
     }
     if ('mqtt_devices' in updates) restartMqtt();
+    if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
       'solar_loss_factor', 'solar_install_date'
     ];
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
-      // Force cache reset by re-importing solar module (optional)
-      // The getSolarForecast will see empty cache on next call
+      // Force cache reset by re-importing solar module
     }
     res.json({ success: true });
   } catch (err) {
@@ -533,7 +534,6 @@ app.get('/api/metrics/history', async (req, res) => {
   }
 });
 
-// New endpoint: list all metric names from latest_metrics
 app.get('/api/metrics/names', async (req, res) => {
   try {
     const rows = db.prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
@@ -546,6 +546,30 @@ app.get('/api/metrics/names', async (req, res) => {
 
 app.get('/api/dashboard-config', async (req, res) => {
   res.json(getDashboardConfig());
+});
+
+// Test external source endpoint
+app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => {
+  const { url, jsonPath } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  try {
+    const response = await fetch(url, { timeout: 5000 });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    let value = null;
+    if (jsonPath) {
+      const parts = jsonPath.split('.');
+      let cur = data;
+      for (const part of parts) cur = cur?.[part];
+      value = cur;
+    } else {
+      value = data;
+    }
+    const num = parseFloat(value);
+    res.json({ success: true, value: isNaN(num) ? value : num });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT}`));
