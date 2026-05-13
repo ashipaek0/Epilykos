@@ -18,6 +18,7 @@ export function buildFlowCard() {
       <div class="flow-value" id="flow-battery-soc">--%</div>
       <div class="flow-sub" id="flow-battery-power">⚡ 0 W</div>
     </div>
+    <div id="grid-to-battery" class="flow-arrow" style="display: none;">←</div>
     <div class="flow-arrow battery">⇄</div>
     <div class="flow-item home">
       <div class="flow-icon"><i id="icon-home" class="fi fi-sr-home"></i></div>
@@ -34,6 +35,8 @@ export function buildFlowCard() {
   `;
   return card;
 }
+
+// rest of file unchanged (updateFlowCard, updateFlowArrows) ...
 
 export function updateFlowCard(state) {
   if (!state || !state.current || state.current.error) return;
