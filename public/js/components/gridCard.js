@@ -1,6 +1,8 @@
 import { renderTimelineBar, formatHoursToHM, updateGridDate, formatTimestamp } from '../grid.js';
 
-export function buildGridCard() {
+export function buildGridCard(block = {}) {
+  const config = block.config || {};
+  const showTimeline = config.showTimeline !== false; // default true
   const card = document.createElement('div');
   card.className = 'grid-card';
   card.innerHTML = `
@@ -16,7 +18,7 @@ export function buildGridCard() {
       <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="grid-hours-month">--</div></div>
       <div class="stat-card"><div class="stat-label">This Year</div><div class="stat-value" id="grid-hours-year">--</div></div>
     </div>
-    <div id="grid-timeline"></div>
+    ${showTimeline ? '<div id="grid-timeline"></div>' : ''}
   `;
   return card;
 }
@@ -35,7 +37,6 @@ export function updateGridCardFromState(state) {
   document.getElementById('grid-state').textContent = `⚡ ${currentState}`;
   document.getElementById('grid-state').style.color = gs.current ? 'var(--battery)' : 'var(--grid)';
 
-  // Show only the timestamp for the current state
   const sinceEl = document.getElementById('grid-state-since');
   const lastChangeTimestamp = gs.current ? gs.lastOn : gs.lastOff;
   if (sinceEl) {
@@ -53,7 +54,8 @@ export function updateGridCardFromState(state) {
   document.getElementById('grid-hours-year').textContent = formatHoursToHM(gh.year || 0);
   updateGridDate();
 
-  if (state.gridTimeline && state.gridTimeline.segments) {
+  const timelineContainer = document.getElementById('grid-timeline');
+  if (timelineContainer && state.gridTimeline && state.gridTimeline.segments) {
     renderTimelineBar(state.gridTimeline.segments, state.gridTimeline.windowStart, state.gridTimeline.windowEnd);
   }
 }
