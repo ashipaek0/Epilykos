@@ -4,6 +4,21 @@ let powerChart = null;
 let energyBarChart = null;
 let currentPowerRange = '24h';
 let currentEnergyRange = '7d';
+let currentPowerDatasets = ['load', 'solar', 'battery_charge', 'grid_import'];
+
+const datasetLabels = {
+  load: 'Load',
+  solar: 'Solar PV',
+  battery_charge: 'Battery Charge',
+  grid_import: 'Grid Import'
+};
+
+const datasetColors = {
+  load: { light: '#7c3aed', dark: '#8b5cf6' },
+  solar: { light: '#d97706', dark: '#fbbf24' },
+  battery_charge: { light: '#059669', dark: '#10b981' },
+  grid_import: { light: '#dc2626', dark: '#ef4444' }
+};
 
 export function destroyCharts() {
   if (powerChart) { powerChart.destroy(); powerChart = null; }
@@ -106,10 +121,10 @@ export function updateChartColors() {
     powerChart.options.scales.y.grid.color = gridColor;
     powerChart.options.plugins.legend.labels.color = textColor;
     powerChart.data.datasets.forEach((ds, i) => {
-      if (i === 0) ds.borderColor = isDark ? '#8b5cf6' : '#7c3aed';
-      else if (i === 1) ds.borderColor = isDark ? '#fbbf24' : '#d97706';
-      else if (i === 2) ds.borderColor = isDark ? '#10b981' : '#059669';
-      else if (i === 3) ds.borderColor = isDark ? '#ef4444' : '#dc2626';
+      const key = Object.keys(datasetLabels)[i];
+      if (key) {
+        ds.borderColor = isDark ? datasetColors[key].dark : datasetColors[key].light;
+      }
     });
     powerChart.update();
     applyGradientFills(powerChart);
@@ -122,7 +137,7 @@ export function updateChartColors() {
   }
 }
 
-// Power chart range functions
+// Power chart range + dataset filter
 export async function refreshPowerChart() {
   if (!powerChart) return;
   let data;
@@ -147,29 +162,38 @@ export async function refreshPowerChart() {
 function updatePowerChartData(data) {
   if (!data.length) return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const newDatasets = [
-    { label: 'Load', data: [], borderColor: isDark ? '#8b5cf6' : '#7c3aed', tension: 0.4, borderWidth: 1, fill: true },
-    { label: 'Solar PV', data: [], borderColor: isDark ? '#fbbf24' : '#d97706', tension: 0.4, borderWidth: 1, fill: true },
-    { label: 'Battery Charge', data: [], borderColor: isDark ? '#10b981' : '#059669', tension: 0.4, borderWidth: 1, fill: true },
-    { label: 'Grid Import', data: [], borderColor: isDark ? '#ef4444' : '#dc2626', tension: 0.4, borderWidth: 1, fill: true }
-  ];
-  data.forEach(d => {
-    newDatasets[0].data.push({ x: d.timestamp, y: d.consumption_kw });
-    newDatasets[1].data.push({ x: d.timestamp, y: d.solar_kw });
-    newDatasets[2].data.push({ x: d.timestamp, y: d.battery_charge_kw });
-    newDatasets[3].data.push({ x: d.timestamp, y: d.grid_import_kw });
-  });
+  const newDatasets = [];
+  const datasetMap = {
+    load: (d) => ({ x: d.timestamp, y: d.consumption_kw }),
+    solar: (d) => ({ x: d.timestamp, y: d.solar_kw }),
+    battery_charge: (d) => ({ x: d.timestamp, y: d.battery_charge_kw }),
+    grid_import: (d) => ({ x: d.timestamp, y: d.grid_import_kw })
+  };
+  
+  for (const ds of currentPowerDatasets) {
+    if (datasetMap[ds]) {
+      newDatasets.push({
+        label: datasetLabels[ds],
+        data: data.map(datasetMap[ds]),
+        borderColor: isDark ? datasetColors[ds].dark : datasetColors[ds].light,
+        tension: 0.4, borderWidth: 1, fill: true
+      });
+    }
+  }
   powerChart.data.datasets = newDatasets;
   powerChart.update();
   applyGradientFills(powerChart);
 }
 
-export function setPowerRange(range) {
+export function setPowerRange(range, datasets = null) {
   currentPowerRange = range;
+  if (datasets && Array.isArray(datasets) && datasets.length) {
+    currentPowerDatasets = datasets;
+  }
   refreshPowerChart();
 }
 
-// Energy chart range functions
+// Energy chart range
 export async function refreshEnergyChart() {
   if (!energyBarChart) return;
   const days = parseInt(currentEnergyRange);
@@ -196,7 +220,7 @@ export function setEnergyRange(range) {
   refreshEnergyChart();
 }
 
-// Legacy update functions (kept for compatibility with updater.js)
+// Legacy update functions for updater.js
 export function updatePowerChartFromState(state) {
   if (!powerChart) return;
   if (currentPowerRange !== '24h') {
@@ -212,6 +236,5 @@ export function updateEnergyChartFromState(state) {
     refreshEnergyChart();
     return;
   }
-  // Transform dailyEnergyBar to the format expected by updateEnergyChartData
   if (state.dailyEnergyBar) updateEnergyChartData(state.dailyEnergyBar);
 }

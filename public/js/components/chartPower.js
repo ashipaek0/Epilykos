@@ -1,9 +1,10 @@
-export function buildChartPower() {
+export function buildChartPower(block = {}) {
+  const config = block.config || {};
   const container = document.createElement('div');
   container.className = 'chart-container';
   container.innerHTML = `
     <div class="chart-header">
-      <h3>Power Overview</h3>
+      <h3>${escapeHtml(config.title || 'Power Overview')}</h3>
       <div class="chart-controls" id="power-chart-controls">
         <button data-range="24h" class="active">24h</button>
         <button data-range="7d">7d</button>
@@ -13,8 +14,7 @@ export function buildChartPower() {
     </div>
     <canvas id="powerChart"></canvas>
   `;
-  
-  // Attach event listeners for range buttons
+
   const controls = container.querySelector('#power-chart-controls');
   if (controls) {
     controls.addEventListener('click', (e) => {
@@ -25,10 +25,16 @@ export function buildChartPower() {
         controls.querySelectorAll('button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         import('../charts.js').then(module => {
-          module.setPowerRange(range);
+          module.setPowerRange(range, config.datasets);
         });
       }
     });
   }
   return container;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
