@@ -401,17 +401,18 @@
         <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
       </div>
 
-      <!-- Backup & Restore -->
       <h3>Backup & Restore</h3>
       <div class="backup-row">
         <button type="button" id="backup-btn" class="fetch-btn">⬇️ Download Backup</button>
         <button type="button" id="restore-btn" class="fetch-btn">⬆️ Restore Backup</button>
         <input type="file" id="restore-file" accept=".db">
       </div>
+      <div class="backup-row" style="margin-top: 0.5rem;">
+        <button type="button" id="export-layout-btn" class="fetch-btn">📤 Export Layout</button>
+        <button type="button" id="import-layout-btn" class="fetch-btn">📥 Import Layout</button>
+        <input type="file" id="import-layout-file" accept=".json" style="display:none;">
+      </div>
       <div id="backup-status" class="status"></div>
-
-      <button type="submit">Save All Settings</button>
-      <div id="save-status" class="status"></div>
     </form>
   </div>
 </div>
