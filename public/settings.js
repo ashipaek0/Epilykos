@@ -1,5 +1,4 @@
-// settings.js – with dynamic metric mapping and tooltips for HA and MQTT
-// Phase 1: Added allMetricNames fetch and tooltip content update
+// settings.js – with dynamic metric mapping, tooltips, metric-cards editor, layout import/export
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -20,16 +19,12 @@ async function loadSettings() {
   try {
     const res = await fetch('/api/settings');
     const data = await res.json();
-    // Populate top‑level fields
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
-        if (input.type === 'checkbox') {
-          input.checked = value === 'true';
-        } else {
-          input.value = value;
-        }
+        if (input.type === 'checkbox') input.checked = value === 'true';
+        else input.value = value;
       }
     }
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
@@ -38,24 +33,20 @@ async function loadSettings() {
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
 
-    // Extract metric names from all dashboards' metric-cards blocks
     usedDashboardMetrics = [];
     if (dashConfig && dashConfig.dashboards) {
       dashConfig.dashboards.forEach(db => {
         db.layout.forEach(block => {
           if (block.type === 'metric-cards' && block.cards) {
             block.cards.forEach(card => {
-              if (card.metric && !usedDashboardMetrics.includes(card.metric)) {
-                usedDashboardMetrics.push(card.metric);
-              }
+              if (card.metric && !usedDashboardMetrics.includes(card.metric)) usedDashboardMetrics.push(card.metric);
             });
           }
         });
       });
+      usedDashboardMetrics.sort();
     }
-    usedDashboardMetrics.sort();
 
-    // Fetch all metric names from the database
     const metricNamesRes = await fetch('/api/metrics/names');
     if (metricNamesRes.ok) {
       allMetricNames = await metricNamesRes.json();
@@ -106,7 +97,6 @@ function renderHaDevice(device, idx) {
   `;
   container.appendChild(card);
 
-  // Tooltip element (hidden)
   const tooltipEl = document.createElement('div');
   tooltipEl.className = 'metric-tooltip';
   tooltipEl.style.display = 'none';
@@ -152,7 +142,6 @@ function renderHaDevice(device, idx) {
     addHaMetricRow(device, idx);
   });
 
-  // Tooltip logic (show all available metric names)
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
@@ -172,10 +161,8 @@ function renderHaDevice(device, idx) {
     });
   }
 
-  // Render existing mappings
   const mappingsList = card.querySelector('.mappings-list');
   renderHaMappings(device.entities || {}, idx, mappingsList);
-
   haDeviceCounter++;
 }
 
@@ -184,17 +171,12 @@ function renderHaMappings(entities, deviceIdx, container) {
   Object.entries(entities).forEach(([metric, entityId]) => {
     addHaMetricRow({}, deviceIdx, container, metric, entityId);
   });
-  // Always show at least one empty row for new metric
-  if (Object.keys(entities).length === 0) {
-    addHaMetricRow({}, deviceIdx, container);
-  }
+  if (Object.keys(entities).length === 0) addHaMetricRow({}, deviceIdx, container);
 }
 
 function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = '') {
-  if (!container) {
-    container = document.getElementById(`ha-mappings-list-${deviceIdx}`);
-    if (!container) return;
-  }
+  if (!container) container = document.getElementById(`ha-mappings-list-${deviceIdx}`);
+  if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
   row.innerHTML = `
@@ -205,9 +187,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
     </select>
     <button type="button" class="remove-btn remove-metric">−</button>
   `;
-  row.querySelector('.remove-metric').addEventListener('click', () => {
-    row.remove();
-  });
+  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
   container.appendChild(row);
 }
 
@@ -216,7 +196,6 @@ function reindexHa() {
   haDeviceCounter = 0;
   cards.forEach((card, i) => {
     card.dataset.index = i;
-    // Rename main inputs
     const nameInput = card.querySelector('.device-header input[type="text"]');
     if (nameInput) nameInput.name = `ha_devices[${i}][name]`;
     const enableCb = card.querySelector('.device-header input[type="checkbox"]');
@@ -302,11 +281,8 @@ function renderMqttDevice(device, idx) {
     try {
       const res = await fetch('/api/test-mqtt');
       const data = await res.json();
-      if (res.ok) {
-        showStatus(statusEl, data.message, 'success');
-      } else {
-        showStatus(statusEl, data.error || 'Test failed', 'error');
-      }
+      if (res.ok) showStatus(statusEl, data.message, 'success');
+      else showStatus(statusEl, data.error || 'Test failed', 'error');
     } catch (err) {
       showStatus(statusEl, err.message, 'error');
     }
@@ -324,11 +300,8 @@ function renderMqttDevice(device, idx) {
     try {
       const res = await fetch(`/api/test-mqtt-topic?topic=${encodeURIComponent(topic)}`);
       const data = await res.json();
-      if (res.ok) {
-        showStatus(statusEl, `Received: ${data.value ?? data.raw}`, 'success');
-      } else {
-        showStatus(statusEl, data.error, 'error');
-      }
+      if (res.ok) showStatus(statusEl, `Received: ${data.value ?? data.raw}`, 'success');
+      else showStatus(statusEl, data.error, 'error');
     } catch (err) {
       showStatus(statusEl, err.message, 'error');
     }
@@ -338,7 +311,6 @@ function renderMqttDevice(device, idx) {
     addMqttMetricRow(device, idx);
   });
 
-  // Tooltip logic (show all available metric names)
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
@@ -360,7 +332,6 @@ function renderMqttDevice(device, idx) {
 
   const mappingsList = card.querySelector('.mappings-list');
   renderMqttMappings(device.topics || {}, idx, mappingsList);
-
   mqttDeviceCounter++;
 }
 
@@ -369,16 +340,12 @@ function renderMqttMappings(topics, deviceIdx, container) {
   Object.entries(topics).forEach(([metric, topic]) => {
     addMqttMetricRow({}, deviceIdx, container, metric, topic);
   });
-  if (Object.keys(topics).length === 0) {
-    addMqttMetricRow({}, deviceIdx, container);
-  }
+  if (Object.keys(topics).length === 0) addMqttMetricRow({}, deviceIdx, container);
 }
 
 function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '') {
-  if (!container) {
-    container = document.getElementById(`mqtt-mappings-list-${deviceIdx}`);
-    if (!container) return;
-  }
+  if (!container) container = document.getElementById(`mqtt-mappings-list-${deviceIdx}`);
+  if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
   row.innerHTML = `
@@ -386,9 +353,7 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
     <input type="text" class="topic-input" placeholder="topic" value="${escapeHtml(topic)}">
     <button type="button" class="remove-btn remove-metric">−</button>
   `;
-  row.querySelector('.remove-metric').addEventListener('click', () => {
-    row.remove();
-  });
+  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
   container.appendChild(row);
 }
 
@@ -397,7 +362,6 @@ function reindexMqtt() {
   mqttDeviceCounter = 0;
   cards.forEach((card, i) => {
     card.dataset.index = i;
-    // minimal reindex
     mqttDeviceCounter++;
   });
 }
@@ -407,7 +371,7 @@ document.getElementById('add-mqtt-device').addEventListener('click', () => {
   renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
 });
 
-// ======================== MODBUS (unchanged) ========================
+// ======================== MODBUS ========================
 let modbusDeviceCounter = 0;
 function buildModbusDeviceList(devices) {
   const container = document.getElementById('modbus-devices-container');
@@ -463,11 +427,8 @@ function renderModbusDevice(device, idx) {
     try {
       const res = await fetch('/api/test-modbus');
       const data = await res.json();
-      if (res.ok) {
-        showStatus(statusEl, `OK: ${data.value}`, 'success');
-      } else {
-        showStatus(statusEl, data.error, 'error');
-      }
+      if (res.ok) showStatus(statusEl, `OK: ${data.value}`, 'success');
+      else showStatus(statusEl, data.error, 'error');
     } catch (err) {
       showStatus(statusEl, err.message, 'error');
     }
@@ -499,11 +460,8 @@ document.getElementById('test-forecast').addEventListener('click', async functio
   try {
     const res = await fetch('/api/test-forecast');
     const data = await res.json();
-    if (res.ok) {
-      showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
-    } else {
-      showStatus(statusEl, `❌ ${data.error}`, 'error');
-    }
+    if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
+    else showStatus(statusEl, `❌ ${data.error}`, 'error');
   } catch (e) {
     showStatus(statusEl, `❌ Error: ${e.message}`, 'error');
   } finally {
@@ -512,7 +470,7 @@ document.getElementById('test-forecast').addEventListener('click', async functio
   }
 });
 
-// ======================== DASHBOARD EDITOR ========================
+// ======================== DASHBOARD EDITOR (with metric-cards sub-editor) ========================
 let dashConfig = null;
 
 function buildDashboardEditor(config) {
@@ -557,8 +515,10 @@ function renderDashboardBlockEditor(dashboard) {
   container.innerHTML = `<h4>Editing: ${escapeHtml(dashboard.name)}</h4>`;
   const blockList = document.createElement('ul');
   blockList.className = 'block-list';
+  
   dashboard.layout.forEach((block, idx) => {
     const li = document.createElement('li');
+    li.dataset.index = idx;
     li.innerHTML = `
       <select class="block-type-select">
         <option value="flow-card" ${block.type === 'flow-card' ? 'selected' : ''}>Flow Card</option>
@@ -573,8 +533,60 @@ function renderDashboardBlockEditor(dashboard) {
       </select>
       <button type="button" class="remove-btn delete-block">Remove</button>
     `;
+    
+    // Card editor for metric-cards block
+    if (block.type === 'metric-cards') {
+      const cardEditorDiv = document.createElement('div');
+      cardEditorDiv.className = 'metric-cards-editor';
+      cardEditorDiv.style.marginTop = '0.5rem';
+      cardEditorDiv.style.paddingLeft = '1rem';
+      cardEditorDiv.style.borderLeft = '2px solid var(--accent)';
+      
+      const cardsList = document.createElement('div');
+      cardsList.className = 'cards-list';
+      
+      function renderCards() {
+        cardsList.innerHTML = '';
+        (block.cards || []).forEach((card, cardIdx) => {
+          const cardRow = document.createElement('div');
+          cardRow.className = 'card-editor-row';
+          cardRow.innerHTML = `
+            <input type="text" class="card-title" value="${escapeHtml(card.title || '')}" placeholder="Title" style="flex:2;">
+            <input type="text" class="card-metric" value="${escapeHtml(card.metric || '')}" placeholder="Metric name" style="flex:2;">
+            <input type="text" class="card-unit" value="${escapeHtml(card.unit || '')}" placeholder="Unit" style="flex:1;">
+            <button type="button" class="remove-card-btn remove-btn" style="background:#ef4444;">−</button>
+          `;
+          cardRow.querySelector('.remove-card-btn').addEventListener('click', () => {
+            block.cards.splice(cardIdx, 1);
+            renderCards();
+          });
+          cardsList.appendChild(cardRow);
+        });
+      }
+      renderCards();
+      
+      const addCardBtn = document.createElement('button');
+      addCardBtn.textContent = '+ Add Card';
+      addCardBtn.className = 'fetch-btn';
+      addCardBtn.style.marginTop = '0.5rem';
+      addCardBtn.addEventListener('click', () => {
+        if (!block.cards) block.cards = [];
+        block.cards.push({ id: 'card_' + Date.now() + '_' + Math.random(), title: 'New Card', metric: '', unit: '' });
+        renderCards();
+      });
+      
+      cardEditorDiv.appendChild(cardsList);
+      cardEditorDiv.appendChild(addCardBtn);
+      li.appendChild(cardEditorDiv);
+    }
+    
     li.querySelector('.block-type-select').addEventListener('change', (e) => {
-      dashboard.layout[idx].type = e.target.value;
+      const newType = e.target.value;
+      dashboard.layout[idx].type = newType;
+      if (newType === 'metric-cards' && !dashboard.layout[idx].cards) {
+        dashboard.layout[idx].cards = [];
+      }
+      renderDashboardBlockEditor(dashboard);
     });
     li.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);
@@ -582,6 +594,7 @@ function renderDashboardBlockEditor(dashboard) {
     });
     blockList.appendChild(li);
   });
+  
   container.appendChild(blockList);
   const addBlockBtn = document.createElement('button');
   addBlockBtn.textContent = '+ Add Block';
@@ -604,22 +617,50 @@ document.getElementById('add-dashboard-btn').addEventListener('click', () => {
   buildDashboardEditor(dashConfig);
 });
 
-// ======================== SAVE (builds JSON from DOM) ========================
+// ======================== LAYOUT IMPORT/EXPORT ========================
+document.getElementById('export-layout-btn')?.addEventListener('click', () => {
+  window.location.href = '/api/dashboard-config/export';
+});
+
+const importLayoutFile = document.getElementById('import-layout-file');
+document.getElementById('import-layout-btn')?.addEventListener('click', () => {
+  importLayoutFile.click();
+});
+importLayoutFile?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('layout', file);
+  try {
+    const res = await fetch('/api/dashboard-config/import', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showStatus(backupStatus, 'Layout imported successfully! Reloading...', 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showStatus(backupStatus, data.error || 'Import failed', 'error');
+    }
+  } catch (err) {
+    showStatus(backupStatus, 'Error: ' + err.message, 'error');
+  } finally {
+    importLayoutFile.value = '';
+  }
+});
+
+// ======================== SAVE ========================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {};
 
-  // Simple top-level inputs
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
     if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config') return;
-    if (el.type === 'checkbox') {
-      payload[el.name] = el.checked ? 'true' : 'false';
-    } else {
-      payload[el.name] = el.value;
-    }
+    if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
+    else payload[el.name] = el.value;
   });
 
-  // HA devices
   payload.ha_devices = collectDeviceArray('ha-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -636,7 +677,6 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
-  // MQTT devices
   payload.mqtt_devices = collectDeviceArray('mqtt-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -653,7 +693,6 @@ form.addEventListener('submit', async (e) => {
     return dev;
   });
 
-  // Modbus devices
   payload.modbus_devices = collectDeviceArray('modbus-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -674,9 +713,8 @@ form.addEventListener('submit', async (e) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (res.ok) {
-      showStatus(saveStatus, 'Settings saved successfully!', 'success');
-    } else {
+    if (res.ok) showStatus(saveStatus, 'Settings saved successfully!', 'success');
+    else {
       const err = await res.json().catch(() => ({}));
       showStatus(saveStatus, err.error || 'Failed to save', 'error');
     }
@@ -690,10 +728,7 @@ function collectDeviceArray(containerId, extractFn) {
   if (!container) return '[]';
   const cards = container.querySelectorAll('.device-card');
   const arr = [];
-  cards.forEach(card => {
-    const dev = extractFn(card);
-    arr.push(dev);
-  });
+  cards.forEach(card => arr.push(extractFn(card)));
   return JSON.stringify(arr);
 }
 
@@ -703,5 +738,4 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// ======================== INIT ========================
 loadSettings();
