@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Settings - Energy Dashboard</title>
   <link rel="stylesheet" href="style.css">
   <style>
@@ -120,7 +120,6 @@
       padding-left: 1rem;
       border-left: 2px solid var(--accent);
     }
-    /* Updated metric-row for dynamic mappings */
     .metric-row {
       display: flex;
       gap: 0.5rem;
@@ -138,6 +137,35 @@
     .remove-metric {
       flex-shrink: 0;
       padding: 0.3rem 0.6rem;
+    }
+
+    /* Metric tooltip */
+    .metric-help-icon {
+      display: inline-block;
+      margin-left: 5px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      color: #fff;
+      text-align: center;
+      line-height: 18px;
+      font-size: 12px;
+      cursor: help;
+      position: relative;
+    }
+    .metric-tooltip {
+      position: absolute;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: var(--text);
+      z-index: 100;
+      max-width: 300px;
+      box-shadow: var(--shadow);
+      pointer-events: none;
     }
 
     /* Dashboard editor */
@@ -232,6 +260,7 @@
         width: 100%;
         margin-right: 0;
         margin-bottom: 0.5rem;
+        padding: 0.6rem 1rem;
       }
       .backup-row button {
         width: auto;
@@ -248,6 +277,22 @@
         flex-direction: column;
         gap: 0.5rem;
         align-items: flex-start;
+      }
+
+      /* Make tooltips more mobile-friendly */
+      .metric-tooltip {
+        max-width: 200px;
+        font-size: 0.65rem;
+        left: 0 !important;
+        top: auto !important;
+        bottom: 100%;
+        transform: none;
+      }
+      .metric-help-icon {
+        width: 22px;
+        height: 22px;
+        line-height: 22px;
+        font-size: 14px;
       }
     }
   </style>
@@ -296,7 +341,7 @@
       <div id="modbus-devices-container"></div>
       <button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button>
 
-      <!-- Solar Forecast (unchanged) -->
+      <!-- Solar Forecast -->
       <h3>Solar Forecast</h3>
       <div class="toggle-group">
         <label><input type="checkbox" name="forecast_enabled" value="true"> Enable Solar Forecast</label>
@@ -356,7 +401,7 @@
         <span id="forecast-test-status" class="test-status"></span>
       </div>
 
-      <!-- Savings (unchanged) -->
+      <!-- Savings -->
       <h3>Savings Calculation</h3>
       <div class="form-row">
         <div class="form-group">
@@ -369,7 +414,7 @@
         </div>
       </div>
 
-      <!-- Branding (unchanged) -->
+      <!-- Branding -->
       <h3>Branding</h3>
       <div class="form-group">
         <label>Dashboard Title</label>
