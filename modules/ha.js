@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 
