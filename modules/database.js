@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
@@ -125,10 +126,10 @@ function initializeDatabase() {
       activeDashboard: 'main'
     };
     setConfig('dashboard_config', JSON.stringify(defaultConfig));
-    console.log('Initialised default dashboard configuration');
+    logger.info('Initialised default dashboard configuration');
   }
 
-  console.log('Database initialized');
+  logger.info('Database initialized');
 }
 
 function migrateLegacyConfig() {
@@ -162,7 +163,7 @@ function migrateLegacyConfig() {
       };
       setConfig('ha_devices', JSON.stringify([device]));
       db.prepare("DELETE FROM config WHERE key LIKE 'ha_entity_%' OR key IN ('ha_url','ha_token','ha_enabled')").run();
-      console.log('Migrated legacy Home Assistant config to ha_devices array.');
+      logger.info('Migrated legacy Home Assistant config to ha_devices array.');
     }
   }
 
@@ -194,7 +195,7 @@ function migrateLegacyConfig() {
       };
       setConfig('mqtt_devices', JSON.stringify([device]));
       db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled')").run();
-      console.log('Migrated legacy MQTT config to mqtt_devices array.');
+      logger.info('Migrated legacy MQTT config to mqtt_devices array.');
     }
   }
 }
