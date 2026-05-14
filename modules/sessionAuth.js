@@ -1,11 +1,12 @@
+const { logger } = require('./logger');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 
 let settingsPassword = process.env.SETTINGS_PASSWORD;
 if (!settingsPassword) {
   settingsPassword = crypto.randomBytes(8).toString('hex');
-  console.warn('⚠️  WARNING: No SETTINGS_PASSWORD provided in environment.');
-  console.warn(`🔒  Using randomly generated password: ${settingsPassword}`);
+  logger.warn('⚠️  WARNING: No SETTINGS_PASSWORD provided in environment.');
+  logger.warn(`🔒  Using randomly generated password: ${settingsPassword}`);
 }
 
 // Middleware to check if user is authenticated
