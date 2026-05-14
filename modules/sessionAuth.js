@@ -1,12 +1,11 @@
-const { logger } = require('./logger');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 
 let settingsPassword = process.env.SETTINGS_PASSWORD;
 if (!settingsPassword) {
   settingsPassword = crypto.randomBytes(8).toString('hex');
-  logger.warn('⚠️  WARNING: No SETTINGS_PASSWORD provided in environment.');
-  logger.warn(`🔒  Using randomly generated password: ${settingsPassword}`);
+  console.warn('⚠️  WARNING: No SETTINGS_PASSWORD provided in environment.');
+  console.warn(`🔒  Using randomly generated password: ${settingsPassword}`);
 }
 
 // Middleware to check if user is authenticated
@@ -21,8 +20,8 @@ function isAuthenticated(req, res, next) {
   }
 }
 
-// Rate limiter for login attempts
-const authLimiter = rateLimit({
+// Rate limiter for login attempts only (10 per minute)
+const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many login attempts, please try again later' }
@@ -42,4 +41,4 @@ const csrfProtection = (req, res, next) => {
   next();
 };
 
-module.exports = { isAuthenticated, authLimiter, csrfProtection, settingsPassword };
+module.exports = { isAuthenticated, loginLimiter, csrfProtection, settingsPassword };
