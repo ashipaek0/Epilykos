@@ -1,28 +1,41 @@
 import { initTheme, toggleTheme } from './theme.js';
 import { loadDashboardConfig } from './dashboard.js';
 import { updateWithState } from './updater.js';
+import { enableEditMode, disableEditMode, isEditMode, setDashboardConfigRef } from './gridEditor.js';
 
 let ws = null;
 let reconnectTimer = null;
 let configLoadAttempts = 0;
 const MAX_CONFIG_ATTEMPTS = 3;
 
+let dashboardConfigGlobal = null;
+let editModeActive = false;
+const editBtn = document.getElementById('edit-dashboard-btn');
+
 async function loadConfigWithRetry() {
   try {
-    await loadDashboardConfig();
+    dashboardConfigGlobal = await loadDashboardConfig();
+    setDashboardConfigRef(dashboardConfigGlobal);
     console.log('Dashboard config loaded successfully');
-    // Proceed with WebSocket and polling
+    
+    // Check authentication status to show/hide edit button
+    const authRes = await fetch('/api/auth/status');
+    const { authenticated } = await authRes.json();
+    if (authenticated && editBtn) {
+      editBtn.style.display = 'inline-block';
+    } else if (editBtn) {
+      editBtn.style.display = 'none';
+    }
+    
     connectWebSocket();
     setInterval(async () => {
       const { updateAllComponents } = await import('./updater.js');
       updateAllComponents();
-      console.log('Fallback poll executed');
     }, 60000);
   } catch (err) {
     console.error(`Failed to load dashboard config (attempt ${configLoadAttempts + 1}/${MAX_CONFIG_ATTEMPTS}):`, err);
     configLoadAttempts++;
     if (configLoadAttempts < MAX_CONFIG_ATTEMPTS) {
-      // Retry after 2 seconds
       setTimeout(loadConfigWithRetry, 2000);
     } else {
       const container = document.getElementById('dashboard-container');
@@ -62,6 +75,21 @@ function connectWebSocket() {
     console.log('WebSocket disconnected, will reconnect');
     reconnectTimer = setTimeout(connectWebSocket, 5000);
   };
+}
+
+// Edit mode toggle
+if (editBtn) {
+  editBtn.addEventListener('click', () => {
+    if (!editModeActive) {
+      enableEditMode();
+      editBtn.textContent = '✔ Done';
+      editModeActive = true;
+    } else {
+      disableEditMode();
+      editBtn.textContent = '✎ Edit';
+      editModeActive = false;
+    }
+  });
 }
 
 // Show loading indicator

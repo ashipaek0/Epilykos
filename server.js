@@ -213,6 +213,11 @@ app.get('/api/public-config', async (req, res) => {
   }
 });
 
+// Auth status endpoint (public)
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
+});
+
 app.get('/api/current', async (req, res) => {
   try {
     const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
