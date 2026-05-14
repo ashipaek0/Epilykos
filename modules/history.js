@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const { getDb } = require('./database');
 
 let historyInsertStmt = null;
