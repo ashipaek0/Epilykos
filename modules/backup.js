@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const fs = require('fs');
 const { getDb, DB_PATH, initializeDatabase } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
