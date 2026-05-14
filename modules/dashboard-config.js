@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const { getConfig, setConfig } = require('./database');
 
 const DEFAULT_CONFIG = {
