@@ -7,8 +7,16 @@ import { updateAllComponents } from './updater.js';
 let dashboardConfig;
 
 export async function loadDashboardConfig() {
-  dashboardConfig = await fetchDashboardConfig();
+  const res = await fetch('/api/dashboard-config');
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  }
+  dashboardConfig = await res.json();
+  if (!dashboardConfig.dashboards || dashboardConfig.dashboards.length === 0) {
+    throw new Error('Invalid dashboard configuration: no dashboards');
+  }
   renderDashboard();
+  return dashboardConfig;
 }
 
 function renderDashboard() {

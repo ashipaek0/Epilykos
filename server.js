@@ -386,6 +386,23 @@ app.get('/api/dashboard-state', async (req, res) => {
   }
 });
 
+// Dashboard config endpoint (public) – with error handling
+app.get('/api/dashboard-config', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  try {
+    const config = getDashboardConfig();
+    res.json(config);
+  } catch (err) {
+    console.error('Error fetching dashboard config:', err);
+    // Return a minimal fallback config to prevent frontend crash
+    const fallback = {
+      dashboards: [{ id: 'main', name: 'Main', layout: [] }],
+      activeDashboard: 'main'
+    };
+    res.status(500).json(fallback);
+  }
+});
+
 // ---------- Authentication endpoints ----------
 app.post('/api/login', authLimiter, (req, res) => {
   const { password } = req.body;
@@ -598,7 +615,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API routes (already defined above)
 app.get('/api/metrics/current', async (req, res) => {
   try {
     res.json(getCurrentMetrics());
@@ -625,12 +641,6 @@ app.get('/api/metrics/names', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
-// Dashboard config endpoint (public) – with cache control
-app.get('/api/dashboard-config', async (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  res.json(getDashboardConfig());
 });
 
 app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) => {
