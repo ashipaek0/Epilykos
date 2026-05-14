@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 let settingsPassword = process.env.SETTINGS_PASSWORD;
 if (!settingsPassword) {
@@ -12,7 +13,6 @@ function isAuthenticated(req, res, next) {
   if (req.session && req.session.authenticated) {
     return next();
   }
-  // For API requests, return 401 JSON; for HTML pages, redirect to login
   if (req.xhr || req.path.startsWith('/api/')) {
     res.status(401).json({ error: 'Authentication required' });
   } else {
@@ -21,15 +21,18 @@ function isAuthenticated(req, res, next) {
 }
 
 // Rate limiter for login attempts
-const rateLimit = require('express-rate-limit');
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many login attempts, please try again later' }
 });
 
-// CSRF protection (unchanged)
+// CSRF protection (skip for login endpoint)
 const csrfProtection = (req, res, next) => {
+  // Skip CSRF for login endpoint
+  if (req.path === '/api/login') {
+    return next();
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
     if (!req.headers['x-requested-with'] || req.headers['x-requested-with'] !== 'XMLHttpRequest') {
       return res.status(403).json({ error: 'CSRF protection: Missing X-Requested-With header' });
