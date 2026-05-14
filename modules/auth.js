@@ -12,7 +12,7 @@ if (!settingsPassword) {
 const authMiddleware = basicAuth({
   users: { 'admin': settingsPassword },
   challenge: true,
-  realm: 'Energy Dashboard Settings'
+  realm: 'Energy Dashboard Settings v2'
 });
 
 const authLimiter = rateLimit({
