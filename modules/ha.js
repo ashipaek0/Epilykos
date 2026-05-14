@@ -46,6 +46,7 @@ async function pollHomeAssistant() {
         mqttValues[metric] = val;
       } catch (e) {
         logger.debug(`HA poll error for ${device.name} - ${metric}: ${e.message}`);
+      }
     }
   }
 }
