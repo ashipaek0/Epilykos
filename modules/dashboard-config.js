@@ -41,7 +41,7 @@ function getDashboardConfig() {
     }
     return parsed;
   } catch (err) {
-    console.error('Error parsing dashboard config, using default:', err.message);
+    logger.error('Error parsing dashboard config, using default:', err.message);
     setConfig('dashboard_config', JSON.stringify(DEFAULT_CONFIG));
     return DEFAULT_CONFIG;
   }
