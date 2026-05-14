@@ -68,20 +68,22 @@ function renderDashboard() {
   if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
   
   // Lazy-load tables (unchanged)
-  const dailyTableWidget = document.querySelector('.daily-breakdown-content');
-  if (dailyTableWidget && !dailyTableWidget.dataset.loaded) {
-    const toggleBtn = dailyTableWidget.previousElementSibling?.querySelector('.toggle-btn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', async () => { await updateDailyTable(); dailyTableWidget.dataset.loaded = 'true'; }, { once: true });
+  setTimeout(() => {
+    const dailyTableWidget = document.querySelector('.daily-breakdown-content');
+    if (dailyTableWidget && !dailyTableWidget.dataset.loaded) {
+      const toggleBtn = dailyTableWidget.previousElementSibling?.querySelector('.toggle-btn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', async () => { await updateDailyTable(); dailyTableWidget.dataset.loaded = 'true'; }, { once: true });
+      }
     }
-  }
-  const monthlyTableWidget = document.querySelectorAll('.daily-breakdown-content')[1];
-  if (monthlyTableWidget && !monthlyTableWidget.dataset.loaded) {
-    const toggleBtn = monthlyTableWidget.previousElementSibling?.querySelector('.toggle-btn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', async () => { await updateMonthlyTable(); monthlyTableWidget.dataset.loaded = 'true'; }, { once: true });
+    const monthlyTableWidget = document.querySelectorAll('.daily-breakdown-content')[1];
+    if (monthlyTableWidget && !monthlyTableWidget.dataset.loaded) {
+      const toggleBtn = monthlyTableWidget.previousElementSibling?.querySelector('.toggle-btn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', async () => { await updateMonthlyTable(); monthlyTableWidget.dataset.loaded = 'true'; }, { once: true });
+      }
     }
-  }
+  }, 100);
   
   loadBranding();
   updateAllComponents();
