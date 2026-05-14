@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const WebSocket = require('ws');
 const http = require('http');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
-const { authMiddleware, authLimiter, csrfProtection } = require('./modules/auth');
+const { isAuthenticated, authLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
@@ -22,6 +23,14 @@ const { startExternalPolling, restartExternalPolling } = require('./modules/exte
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 } // 1 day
+}));
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
@@ -62,12 +71,11 @@ function broadcastDashboardState(state) {
   }
 }
 
-// WebSocket connection handler
+// WebSocket connection handler (no auth – public)
 wss.on('connection', (ws) => {
   wsClients.add(ws);
   console.log(`WebSocket client connected (${wsClients.size} total)`);
   
-  // Send initial state immediately
   (async () => {
     try {
       const state = await buildDashboardState();
@@ -158,14 +166,13 @@ async function buildDashboardState() {
   };
 }
 
-// Polling loop (now with broadcast)
+// Polling loop (broadcast)
 async function pollAllSources() {
   try {
     await pollHomeAssistant();
     await pollModbus();
     await pollLegacyHistory();
     await pollGridStatus();
-    // After gathering new data, broadcast to WebSocket clients
     const state = await buildDashboardState();
     broadcastDashboardState(state);
   } catch (err) {
@@ -378,8 +385,24 @@ app.get('/api/dashboard-state', async (req, res) => {
   }
 });
 
-// ---------- Protected API (auth + rate limiting + CSRF) ----------
-app.use('/api/test-forecast', authMiddleware, authLimiter);
+// ---------- Authentication endpoints ----------
+app.post('/api/login', authLimiter, (req, res) => {
+  const { password } = req.body;
+  if (password && password === settingsPassword) {
+    req.session.authenticated = true;
+    return res.json({ success: true });
+  }
+  res.status(401).json({ error: 'Invalid password' });
+});
+
+app.get('/api/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/');
+});
+
+// ---------- Protected API (session + rate limiting + CSRF) ----------
+// Apply isAuthenticated to all routes below this line
+app.use('/api/test-forecast', isAuthenticated, authLimiter);
 app.get('/api/test-forecast', async (req, res) => {
   try {
     res.json(await testForecast());
@@ -388,7 +411,7 @@ app.get('/api/test-forecast', async (req, res) => {
   }
 });
 
-app.use('/api/ha-device-entities', authMiddleware, authLimiter);
+app.use('/api/ha-device-entities', isAuthenticated, authLimiter);
 app.get('/api/ha-device-entities', async (req, res) => {
   const { url, token } = req.query;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
@@ -399,7 +422,7 @@ app.get('/api/ha-device-entities', async (req, res) => {
   }
 });
 
-app.use('/api/test-mqtt', authMiddleware, authLimiter);
+app.use('/api/test-mqtt', isAuthenticated, authLimiter);
 app.get('/api/test-mqtt', async (req, res) => {
   const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
   const device = devices.find(d => d.enabled);
@@ -424,7 +447,7 @@ app.get('/api/test-mqtt', async (req, res) => {
   });
 });
 
-app.use('/api/test-mqtt-topic', authMiddleware, authLimiter);
+app.use('/api/test-mqtt-topic', isAuthenticated, authLimiter);
 app.get('/api/test-mqtt-topic', async (req, res) => {
   const topic = req.query.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
@@ -459,12 +482,12 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   });
 });
 
-app.use('/api/modbus/profiles', authMiddleware, authLimiter);
+app.use('/api/modbus/profiles', isAuthenticated, authLimiter);
 app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
 });
 
-app.use('/api/test-modbus', authMiddleware, authLimiter);
+app.use('/api/test-modbus', isAuthenticated, authLimiter);
 app.post('/api/test-modbus', async (req, res) => {
   const device = req.body;
   if (!device) return res.status(400).json({ error: 'No device config provided' });
@@ -478,7 +501,7 @@ app.post('/api/test-modbus', async (req, res) => {
   }
 });
 
-app.use('/api/dashboard-config', authMiddleware, authLimiter);
+app.use('/api/dashboard-config', isAuthenticated, authLimiter);
 app.post('/api/dashboard-config', (req, res) => {
   try {
     saveDashboardConfig(req.body);
@@ -488,14 +511,14 @@ app.post('/api/dashboard-config', (req, res) => {
   }
 });
 
-app.get('/api/dashboard-config/export', authMiddleware, (req, res) => {
+app.get('/api/dashboard-config/export', isAuthenticated, (req, res) => {
   const config = getDashboardConfig();
   res.setHeader('Content-Disposition', 'attachment; filename="dashboard-layout.json"');
   res.setHeader('Content-Type', 'application/json');
   res.json(config);
 });
 
-app.post('/api/dashboard-config/import', authMiddleware, upload.single('layout'), (req, res) => {
+app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     const content = fs.readFileSync(req.file.path, 'utf8');
@@ -512,10 +535,10 @@ app.post('/api/dashboard-config/import', authMiddleware, upload.single('layout')
   }
 });
 
-app.use('/api/backup', authMiddleware, authLimiter);
+app.use('/api/backup', isAuthenticated, authLimiter);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
-app.use('/api/restore', authMiddleware, authLimiter);
+app.use('/api/restore', isAuthenticated, authLimiter);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
@@ -528,7 +551,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   }
 });
 
-app.use('/api/settings', authMiddleware, authLimiter);
+app.use('/api/settings', isAuthenticated, authLimiter);
 app.get('/api/settings', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM config').all();
   const config = {};
@@ -560,8 +583,14 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
-app.get('/settings', authMiddleware, (req, res) => {
+// Settings page (protected) – redirects to login if not authenticated
+app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+// Login page (public)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 app.get('/api/metrics/current', async (req, res) => {
@@ -596,7 +625,7 @@ app.get('/api/dashboard-config', async (req, res) => {
   res.json(getDashboardConfig());
 });
 
-app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => {
+app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) => {
   const { url, jsonPath } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
   try {
@@ -619,5 +648,14 @@ app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => 
   }
 });
 
+// Catch-all: serve index.html for any non-API, non-asset route (SPA)
+app.get('*', (req, res) => {
+  // Skip API and asset routes
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Start the HTTP server with WebSocket support
-server.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT} (WebSocket enabled)`));
+server.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT} (session-based auth)`));
