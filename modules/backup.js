@@ -8,7 +8,7 @@ async function backupDatabase(res) {
   res.download(DB_PATH, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
     initializeDatabase();
     setupMqtt();
-    if (err) console.error('Backup download error:', err);
+    if (err) logger.error('Backup download error:', err);
   });
 }
 
