@@ -53,7 +53,7 @@ const upload = multer({
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
-app.use('/api', csrfProtection);
+app.use('/api', csrfProtection); // CSRF applies to all /api routes except login (exempted inside function)
 
 // Create HTTP server and attach WebSocket server
 const server = http.createServer(app);
@@ -92,7 +92,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Helper to build dashboard state
+// Helper to build dashboard state (used by broadcast and API)
 async function buildDashboardState() {
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   const dailySolarKwh = computeTodaySolar();
@@ -648,9 +648,10 @@ app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) =>
   }
 });
 
-// Catch-all: serve index.html for any non-API, non-asset route
+// Catch-all: serve index.html for any non-API, non-asset route (for SPA)
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  // Skip API and asset routes
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico|json|html)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
