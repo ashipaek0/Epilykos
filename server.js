@@ -53,7 +53,7 @@ const upload = multer({
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
-app.use('/api', csrfProtection); // CSRF applies to all /api routes except login (exempted inside function)
+app.use('/api', csrfProtection);
 
 // Create HTTP server and attach WebSocket server
 const server = http.createServer(app);
@@ -92,7 +92,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Helper to build dashboard state (used by broadcast and API)
+// Helper to build dashboard state
 async function buildDashboardState() {
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   const dailySolarKwh = computeTodaySolar();
@@ -593,6 +593,12 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+// Root route – serve main dashboard (public)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API routes (already defined above)
 app.get('/api/metrics/current', async (req, res) => {
   try {
     res.json(getCurrentMetrics());
@@ -648,10 +654,9 @@ app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) =>
   }
 });
 
-// Catch-all: serve index.html for any non-API, non-asset route (for SPA)
+// Catch-all for SPA – must be after all explicit routes
 app.get('*', (req, res, next) => {
-  // Skip API and asset routes
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico|json|html)$/)) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
