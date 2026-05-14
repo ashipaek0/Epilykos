@@ -18,6 +18,7 @@
     "better-sqlite3": "^11.7.0",
     "express-rate-limit": "^7.2.0",
     "modbus-serial": "^7.1.1",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "gridstack": "^10.2.0"
   }
 }
