@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const { getConfig, getDb } = require('./database');
 const { computeTodaySolar, computeSolarForDate } = require('./solar');
 

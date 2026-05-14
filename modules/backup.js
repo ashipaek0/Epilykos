@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const fs = require('fs');
 const { getDb, DB_PATH, initializeDatabase } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
@@ -8,7 +9,7 @@ async function backupDatabase(res) {
   res.download(DB_PATH, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
     initializeDatabase();
     setupMqtt();
-    if (err) console.error('Backup download error:', err);
+    if (err) logger.error('Backup download error:', err);
   });
 }
 

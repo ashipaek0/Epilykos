@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 
@@ -31,7 +32,7 @@ async function pollExternalSources() {
         latestUpsert.run(metric, value, now);
       }
     } catch (err) {
-      console.error(`External source ${source.name} error:`, err.message);
+      logger.error(`External source ${source.name} error:`, err.message);
     }
   }
 }

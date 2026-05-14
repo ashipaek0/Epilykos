@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const { getConfig, setConfig } = require('./database');
 
 const DEFAULT_CONFIG = {
@@ -29,10 +30,22 @@ const DEFAULT_CONFIG = {
 };
 
 function getDashboardConfig() {
-  const configStr = getConfig('dashboard_config');
-  if (configStr) return JSON.parse(configStr);
-  setConfig('dashboard_config', JSON.stringify(DEFAULT_CONFIG));
-  return DEFAULT_CONFIG;
+  try {
+    let configStr = getConfig('dashboard_config');
+    if (!configStr || configStr.trim() === '' || configStr === 'null') {
+      setConfig('dashboard_config', JSON.stringify(DEFAULT_CONFIG));
+      return DEFAULT_CONFIG;
+    }
+    const parsed = JSON.parse(configStr);
+    if (!parsed.dashboards || !Array.isArray(parsed.dashboards) || parsed.dashboards.length === 0) {
+      throw new Error('Invalid dashboard config structure');
+    }
+    return parsed;
+  } catch (err) {
+    logger.error('Error parsing dashboard config, using default:', err.message);
+    setConfig('dashboard_config', JSON.stringify(DEFAULT_CONFIG));
+    return DEFAULT_CONFIG;
+  }
 }
 
 function saveDashboardConfig(config) {

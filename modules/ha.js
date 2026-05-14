@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 
@@ -43,7 +44,9 @@ async function pollHomeAssistant() {
         getMetricInsert().run(now, metric, val);
         getLatestUpsert().run(metric, val, now);
         mqttValues[metric] = val;
-      } catch (e) { /* silent */ }
+      } catch (e) {
+        logger.debug(`HA poll error for ${device.name} - ${metric}: ${e.message}`);
+      }
     }
   }
 }
