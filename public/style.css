@@ -364,3 +364,42 @@ h1, h2, h3, h4,
   .pv-hourly-table td { color: var(--text); }
 }
 .pv-hourly-table { display: none; }
+
+/* GridStack drag handle */
+.grid-drag-handle {
+  cursor: move;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 20px;
+  z-index: 10;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.grid-drag-handle:hover {
+  opacity: 1;
+}
+.grid-stack-item.editable .grid-stack-item-content {
+  border: 2px dashed var(--accent);
+}
+.edit-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.edit-btn:hover {
+  background: var(--accent);
+  color: white;
+}
