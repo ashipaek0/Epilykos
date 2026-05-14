@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
@@ -12,9 +13,7 @@ function getDb() {
 
 function initializeDatabase() {
   const dataDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -74,40 +73,69 @@ function initializeDatabase() {
     'solar_capacity_kwp', 'solcast_api_key', 'forecast_enabled',
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
     'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo',
-    'grid_status_entity', 'all_time_pv_savings_override'
+    'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
-  for (const key of essentialKeys) {
-    insertConfig.run(key, '');
-  }
+  for (const key of essentialKeys) insertConfig.run(key, '');
 
-  // Default values (if empty)
+  // Default values
   const defaults = {
     forecast_enabled: 'false',
     dashboard_title: '⚡ Energy Dashboard',
     savings_currency: '€',
     savings_rate: '0.30',
     solar_loss_factor: '0.9',
-    solar_install_date: new Date().toISOString().split('T')[0]
+    solar_install_date: new Date().toISOString().split('T')[0],
+    external_poll_interval: '60'
   };
-
   const updateConfig = db.prepare('UPDATE config SET value = ? WHERE key = ? AND value = ?');
-  for (const [key, val] of Object.entries(defaults)) {
-    updateConfig.run(val, key, '');
-  }
+  for (const [key, val] of Object.entries(defaults)) updateConfig.run(val, key, '');
 
-  // ─── Legacy migration (single‑device to multi‑device arrays) ───
+  // Legacy migration
   migrateLegacyConfig();
 
-  console.log('Database initialized');
+  // Ensure dashboard_config exists with valid JSON
+  const dashConfig = getConfig('dashboard_config');
+  if (!dashConfig || dashConfig === '' || dashConfig === 'null') {
+    const defaultConfig = {
+      dashboards: [
+        {
+          id: 'main',
+          name: 'Main',
+          layout: [
+            { type: 'flow-card' },
+            { type: 'forecast-banner' },
+            { type: 'metric-cards', cards: [
+              { id: 'daily_solar', title: "Today's Solar", metric: 'daily_solar', unit: 'kWh' },
+              { id: 'daily_consumption', title: "Today's Usage", metric: 'daily_consumption', unit: 'kWh' },
+              { id: 'daily_grid_import', title: "Today's Grid", metric: 'daily_grid_import', unit: 'kWh' },
+              { id: 'battery_voltage', title: 'Battery Voltage', metric: 'battery_voltage', unit: 'V' },
+              { id: 'inverter_temp', title: 'Inverter Temp', metric: 'inverter_temp', unit: '°C' },
+              { id: 'solar_voltage', title: 'Solar Voltage', metric: 'solar_voltage', unit: 'V' }
+            ]},
+            { type: 'savings-summary' },
+            { type: 'grid-card' },
+            { type: 'chart-power' },
+            { type: 'chart-energy' },
+            { type: 'data-table-daily' },
+            { type: 'data-table-monthly' }
+          ]
+        }
+      ],
+      activeDashboard: 'main'
+    };
+    setConfig('dashboard_config', JSON.stringify(defaultConfig));
+    logger.info('Initialised default dashboard configuration');
+  }
+
+  logger.info('Database initialized');
 }
 
 function migrateLegacyConfig() {
   const haDevicesStr = getConfig('ha_devices');
   const mqttDevicesStr = getConfig('mqtt_devices');
 
-  // Migrate Home Assistant legacy keys
   if (!haDevicesStr || JSON.parse(haDevicesStr || '[]').length === 0) {
     const haUrl = getConfig('ha_url');
     const haToken = getConfig('ha_token');
@@ -134,14 +162,11 @@ function migrateLegacyConfig() {
         entities
       };
       setConfig('ha_devices', JSON.stringify([device]));
-
-      // Remove old single keys
       db.prepare("DELETE FROM config WHERE key LIKE 'ha_entity_%' OR key IN ('ha_url','ha_token','ha_enabled')").run();
-      console.log('Migrated legacy Home Assistant config to ha_devices array.');
+      logger.info('Migrated legacy Home Assistant config to ha_devices array.');
     }
   }
 
-  // Migrate MQTT legacy keys
   if (!mqttDevicesStr || JSON.parse(mqttDevicesStr || '[]').length === 0) {
     const brokerUrl = getConfig('mqtt_broker_url');
     const username = getConfig('mqtt_username');
@@ -169,10 +194,8 @@ function migrateLegacyConfig() {
         topics
       };
       setConfig('mqtt_devices', JSON.stringify([device]));
-
-      // Remove old single keys
       db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled')").run();
-      console.log('Migrated legacy MQTT config to mqtt_devices array.');
+      logger.info('Migrated legacy MQTT config to mqtt_devices array.');
     }
   }
 }
@@ -186,7 +209,6 @@ function setConfig(key, value) {
   getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, String(value));
 }
 
-// Export a getter for `db` so that destructuring `{ db }` still works
 Object.defineProperty(module.exports, 'db', {
   get: () => getDb()
 });

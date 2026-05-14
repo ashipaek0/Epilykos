@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 const { parseGridState } = require('./utils');
@@ -21,7 +22,7 @@ async function pollGridStatus() {
     const last = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
     if (!last || last.state !== state) {
       db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
-      console.log(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
+      logger.info(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
     }
   } catch (e) { /* silent */ }
 }

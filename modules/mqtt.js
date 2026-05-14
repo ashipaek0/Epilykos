@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const mqtt = require('mqtt');
 const { getConfig, getDb } = require('./database');
 
@@ -39,7 +40,7 @@ function setupMqtt() {
     mqttClients.set(device.broker, client);
 
     client.on('connect', () => {
-      console.log(`MQTT connected to ${device.broker}`);
+      logger.info(`MQTT connected to ${device.broker}`);
       const topics = Object.values(device.topics || {}).filter(t => t);
       if (topics.length) client.subscribe(topics);
     });
@@ -58,7 +59,7 @@ function setupMqtt() {
       getMetricInsert().run(now, metric, val);
     });
 
-    client.on('error', (err) => console.error(`MQTT ${device.broker} error:`, err));
+    client.on('error', (err) => logger.error(`MQTT ${device.broker} error:`, err));
   }
 }
 

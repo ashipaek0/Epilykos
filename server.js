@@ -1,12 +1,16 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
+const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const morgan = require('morgan');
 const WebSocket = require('ws');
 const http = require('http');
+const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
-const { authMiddleware, authLimiter, csrfProtection } = require('./modules/auth');
+const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
@@ -22,6 +26,17 @@ const { startExternalPolling, restartExternalPolling } = require('./modules/exte
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Morgan HTTP request logging (stream to winston)
+app.use(morgan('combined', { stream: logger.stream }));
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
+}));
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
@@ -65,26 +80,26 @@ function broadcastDashboardState(state) {
 // WebSocket connection handler
 wss.on('connection', (ws) => {
   wsClients.add(ws);
-  console.log(`WebSocket client connected (${wsClients.size} total)`);
+  logger.info(`WebSocket client connected (${wsClients.size} total)`);
   
-  // Send initial state immediately
   (async () => {
     try {
       const state = await buildDashboardState();
       ws.send(JSON.stringify({ type: 'dashboard-state', data: state }));
     } catch (err) {
-      console.error('Error sending initial state via WebSocket:', err);
+      logger.error('Error sending initial state via WebSocket:', err);
     }
   })();
 
   ws.on('close', () => {
     wsClients.delete(ws);
-    console.log(`WebSocket client disconnected (${wsClients.size} remaining)`);
+    logger.info(`WebSocket client disconnected (${wsClients.size} remaining)`);
   });
 });
 
-// Helper to build dashboard state (used by broadcast and API)
+// Helper to build dashboard state
 async function buildDashboardState() {
+  const start = Date.now();
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   const dailySolarKwh = computeTodaySolar();
   const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
@@ -146,6 +161,8 @@ async function buildDashboardState() {
     grid_import_kwh: r.grid_import_kwh,
     consumption_kwh: r.consumption_kwh
   }));
+  const elapsed = Date.now() - start;
+  logger.debug(`buildDashboardState took ${elapsed}ms`);
   return {
     current: currentData,
     metrics,
@@ -158,18 +175,21 @@ async function buildDashboardState() {
   };
 }
 
-// Polling loop (now with broadcast)
+// Polling loop
 async function pollAllSources() {
+  const start = Date.now();
+  logger.debug('Polling cycle started');
   try {
     await pollHomeAssistant();
     await pollModbus();
     await pollLegacyHistory();
     await pollGridStatus();
-    // After gathering new data, broadcast to WebSocket clients
     const state = await buildDashboardState();
     broadcastDashboardState(state);
+    const elapsed = Date.now() - start;
+    logger.info(`Polling cycle completed in ${elapsed}ms`);
   } catch (err) {
-    console.error('Polling error:', err);
+    logger.error('Polling error:', err);
   }
 }
 pollAllSources();
@@ -188,6 +208,7 @@ app.get('/api/public-config', async (req, res) => {
     config.savings_rate = config.savings_rate || '0.30';
     res.json(config);
   } catch (err) {
+    logger.error('Error in /api/public-config:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -226,6 +247,7 @@ app.get('/api/current', async (req, res) => {
       res.json({ error: 'No data yet' });
     }
   } catch (err) {
+    logger.error('Error in /api/current:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -248,6 +270,7 @@ app.get('/api/history', async (req, res) => {
       timestamp: r.timestamp * 1000
     })));
   } catch (err) {
+    logger.error('Error in /api/history:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -271,6 +294,7 @@ app.get('/api/daily', async (req, res) => {
     `).all(since);
     res.json(rows);
   } catch (err) {
+    logger.error('Error in /api/daily:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -323,6 +347,7 @@ app.get('/api/monthly', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
+    logger.error('Error in /api/monthly:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -331,6 +356,7 @@ app.get('/api/grid/status', async (req, res) => {
   try {
     res.json(await getCurrentGridStatus());
   } catch (err) {
+    logger.error('Error in /api/grid/status:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -340,6 +366,7 @@ app.get('/api/grid/hours', async (req, res) => {
     const hours = await getGridHours(req.query.period || 'day');
     res.json({ period: req.query.period || 'day', hours });
   } catch (err) {
+    logger.error('Error in /api/grid/hours:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -348,6 +375,7 @@ app.get('/api/grid/timeline', async (req, res) => {
   try {
     res.json(await getGridTimeline(req.query.period || '24h'));
   } catch (err) {
+    logger.error('Error in /api/grid/timeline:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -356,6 +384,7 @@ app.get('/api/savings', async (req, res) => {
   try {
     res.json(await getSavings());
   } catch (err) {
+    logger.error('Error in /api/savings:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -364,6 +393,7 @@ app.get('/api/solar-forecast', async (req, res) => {
   try {
     res.json(await getSolarForecast());
   } catch (err) {
+    logger.error('Error in /api/solar-forecast:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -373,33 +403,69 @@ app.get('/api/dashboard-state', async (req, res) => {
     const state = await buildDashboardState();
     res.json(state);
   } catch (err) {
-    console.error('Aggregated state error:', err);
+    logger.error('Aggregated state error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ---------- Protected API (auth + rate limiting + CSRF) ----------
-app.use('/api/test-forecast', authMiddleware, authLimiter);
+// Dashboard config endpoint (public) – with error handling
+app.get('/api/dashboard-config', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  try {
+    const config = getDashboardConfig();
+    res.json(config);
+  } catch (err) {
+    logger.error('Error fetching dashboard config:', err);
+    const fallback = {
+      dashboards: [{ id: 'main', name: 'Main', layout: [] }],
+      activeDashboard: 'main'
+    };
+    res.status(500).json(fallback);
+  }
+});
+
+// ---------- Authentication endpoints ----------
+app.post('/api/login', loginLimiter, (req, res) => {
+  const { password } = req.body;
+  if (password && password === settingsPassword) {
+    req.session.authenticated = true;
+    logger.info('User logged in successfully');
+    return res.json({ success: true });
+  }
+  logger.warn('Failed login attempt');
+  res.status(401).json({ error: 'Invalid password' });
+});
+
+app.get('/api/logout', (req, res) => {
+  req.session.destroy();
+  logger.info('User logged out');
+  res.redirect('/');
+});
+
+// ---------- Protected API (session + CSRF) – no rate limit ----------
+app.use('/api/test-forecast', isAuthenticated);
 app.get('/api/test-forecast', async (req, res) => {
   try {
     res.json(await testForecast());
   } catch (err) {
+    logger.error('Error in test-forecast:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.use('/api/ha-device-entities', authMiddleware, authLimiter);
+app.use('/api/ha-device-entities', isAuthenticated);
 app.get('/api/ha-device-entities', async (req, res) => {
   const { url, token } = req.query;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
   try {
     res.json(await fetchHAEntities(url, token));
   } catch (err) {
+    logger.error('Error fetching HA entities:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.use('/api/test-mqtt', authMiddleware, authLimiter);
+app.use('/api/test-mqtt', isAuthenticated);
 app.get('/api/test-mqtt', async (req, res) => {
   const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
   const device = devices.find(d => d.enabled);
@@ -424,7 +490,7 @@ app.get('/api/test-mqtt', async (req, res) => {
   });
 });
 
-app.use('/api/test-mqtt-topic', authMiddleware, authLimiter);
+app.use('/api/test-mqtt-topic', isAuthenticated);
 app.get('/api/test-mqtt-topic', async (req, res) => {
   const topic = req.query.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
@@ -459,12 +525,12 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   });
 });
 
-app.use('/api/modbus/profiles', authMiddleware, authLimiter);
+app.use('/api/modbus/profiles', isAuthenticated);
 app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
 });
 
-app.use('/api/test-modbus', authMiddleware, authLimiter);
+app.use('/api/test-modbus', isAuthenticated);
 app.post('/api/test-modbus', async (req, res) => {
   const device = req.body;
   if (!device) return res.status(400).json({ error: 'No device config provided' });
@@ -474,28 +540,30 @@ app.post('/api/test-modbus', async (req, res) => {
     const result = await testModbusConnection(device);
     res.json(result);
   } catch (err) {
+    logger.error('Modbus test error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.use('/api/dashboard-config', authMiddleware, authLimiter);
+app.use('/api/dashboard-config', isAuthenticated);
 app.post('/api/dashboard-config', (req, res) => {
   try {
     saveDashboardConfig(req.body);
     res.json({ success: true });
   } catch (err) {
+    logger.error('Error saving dashboard config:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/dashboard-config/export', authMiddleware, (req, res) => {
+app.get('/api/dashboard-config/export', isAuthenticated, (req, res) => {
   const config = getDashboardConfig();
   res.setHeader('Content-Disposition', 'attachment; filename="dashboard-layout.json"');
   res.setHeader('Content-Type', 'application/json');
   res.json(config);
 });
 
-app.post('/api/dashboard-config/import', authMiddleware, upload.single('layout'), (req, res) => {
+app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     const content = fs.readFileSync(req.file.path, 'utf8');
@@ -508,27 +576,29 @@ app.post('/api/dashboard-config/import', authMiddleware, upload.single('layout')
     res.json({ success: true });
   } catch (err) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    logger.error('Error importing dashboard config:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.use('/api/backup', authMiddleware, authLimiter);
+app.use('/api/backup', isAuthenticated);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
-app.use('/api/restore', authMiddleware, authLimiter);
+app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     await restoreDatabase(req.file.path);
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
+    logger.error('Restore error:', err);
     res.status(500).json({ error: 'Restore failed, original database restored. ' + err.message });
   } finally {
     try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(e) {}
   }
 });
 
-app.use('/api/settings', authMiddleware, authLimiter);
+app.use('/api/settings', isAuthenticated);
 app.get('/api/settings', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM config').all();
   const config = {};
@@ -553,50 +623,16 @@ app.post('/api/settings', (req, res) => {
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
       // Force cache reset
     }
+    logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
-    console.error('[Settings] Save error:', err);
+    logger.error('[Settings] Save error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/settings', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'settings.html'));
-});
-
-app.get('/api/metrics/current', async (req, res) => {
-  try {
-    res.json(getCurrentMetrics());
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/metrics/history', async (req, res) => {
-  const metric = req.query.metric;
-  const hours = parseInt(req.query.hours) || 24;
-  try {
-    res.json(getMetricHistory(metric, hours));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/metrics/names', async (req, res) => {
-  try {
-    const rows = db.prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
-    const names = rows.map(r => r.metric);
-    res.json(names);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/dashboard-config', async (req, res) => {
-  res.json(getDashboardConfig());
-});
-
-app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => {
+app.use('/api/test-external', isAuthenticated);
+app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
   try {
@@ -615,9 +651,64 @@ app.post('/api/test-external', authMiddleware, authLimiter, async (req, res) => 
     const num = parseFloat(value);
     res.json({ success: true, value: isNaN(num) ? value : num });
   } catch (err) {
+    logger.error('Error testing external source:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
+// Settings page (protected)
+app.get('/settings', isAuthenticated, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+// Login page (public)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Root route – serve main dashboard (public)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/api/metrics/current', async (req, res) => {
+  try {
+    res.json(getCurrentMetrics());
+  } catch (err) {
+    logger.error('Error in /api/metrics/current:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/metrics/history', async (req, res) => {
+  const metric = req.query.metric;
+  const hours = parseInt(req.query.hours) || 24;
+  try {
+    res.json(getMetricHistory(metric, hours));
+  } catch (err) {
+    logger.error('Error in /api/metrics/history:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/metrics/names', async (req, res) => {
+  try {
+    const rows = db.prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
+    const names = rows.map(r => r.metric);
+    res.json(names);
+  } catch (err) {
+    logger.error('Error in /api/metrics/names:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Catch-all for SPA – must be after all explicit routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Start the HTTP server with WebSocket support
-server.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT} (WebSocket enabled)`));
+server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));

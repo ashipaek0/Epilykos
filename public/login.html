@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Energy Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .login-container {
+      max-width: 400px;
+      margin: 100px auto;
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .login-container h2 {
+      margin-bottom: 1.5rem;
+    }
+    .login-container input {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text);
+    }
+    .login-container button {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .error {
+      color: #ef4444;
+      margin-bottom: 1rem;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 1rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+  </style>
+  <script>
+    // CSRF protection override – add X-Requested-With header to all non-GET fetches
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+      if (options.method && options.method.toUpperCase() !== 'GET') {
+        options.headers = options.headers || {};
+        if (options.headers instanceof Headers) {
+          options.headers.set('X-Requested-With', 'XMLHttpRequest');
+        } else {
+          options.headers['X-Requested-With'] = 'XMLHttpRequest';
+        }
+      }
+      return originalFetch.call(this, url, options);
+    };
+  </script>
+</head>
+<body>
+<div class="container">
+  <div class="login-container">
+    <h2>Energy Dashboard</h2>
+    <h3>Settings Login</h3>
+    <form id="login-form">
+      <input type="password" id="password" placeholder="Password" autocomplete="off">
+      <button type="submit">Login</button>
+      <div id="error-msg" class="error" style="display:none;"></div>
+    </form>
+    <a href="/" class="back-link">← Back to Dashboard</a>
+  </div>
+</div>
+<script>
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('error-msg');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      if (res.ok) {
+        window.location.href = '/settings';
+      } else {
+        const data = await res.json();
+        errorDiv.textContent = data.error || 'Invalid password';
+        errorDiv.style.display = 'block';
+      }
+    } catch (err) {
+      errorDiv.textContent = 'Login failed';
+      errorDiv.style.display = 'block';
+    }
+  });
+</script>
+</body>
+</html>
