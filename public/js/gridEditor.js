@@ -1,5 +1,6 @@
-import { dashboardConfig, saveDashboardConfig } from './dashboard.js';
+import { dashboardConfig } from './dashboard.js';
 import { componentBuilders } from './components/index.js';
+import { saveDashboardConfig } from './api.js';
 
 let grid = null;
 let editMode = false;
@@ -70,7 +71,7 @@ function debounceSaveLayout() {
 
 export function initGrid(containerId, layout) {
   const container = document.getElementById(containerId);
-  if (!container) return;
+  if (!container) return null;
   container.innerHTML = '<div id="dashboard-grid" class="grid-stack"></div>';
   const gridEl = document.getElementById('dashboard-grid');
   grid = GridStack.init({
@@ -87,7 +88,7 @@ export function initGrid(containerId, layout) {
     const builder = componentBuilders[block.type];
     if (!builder) return;
     const content = builder(block);
-    const widget = grid.addWidget(content, {
+    grid.addWidget(content, {
       x: block.x || 0,
       y: block.y || 0,
       w: block.w || 12,
@@ -96,7 +97,6 @@ export function initGrid(containerId, layout) {
       minH: block.minH || 2,
       id: block.id || `block-${Date.now()}-${Math.random()}`
     });
-    // Add drag handle if needed later (done in enableEditMode)
   });
   
   grid.on('change', () => {
