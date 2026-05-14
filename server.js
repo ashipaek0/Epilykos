@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
@@ -29,7 +30,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 } // 1 day
+  cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 // Initialize database, load profiles, start MQTT and external polling
@@ -71,7 +72,7 @@ function broadcastDashboardState(state) {
   }
 }
 
-// WebSocket connection handler (no auth – public)
+// WebSocket connection handler
 wss.on('connection', (ws) => {
   wsClients.add(ws);
   console.log(`WebSocket client connected (${wsClients.size} total)`);
@@ -91,7 +92,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Helper to build dashboard state (used by broadcast and API)
+// Helper to build dashboard state
 async function buildDashboardState() {
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   const dailySolarKwh = computeTodaySolar();
@@ -166,7 +167,7 @@ async function buildDashboardState() {
   };
 }
 
-// Polling loop (broadcast)
+// Polling loop
 async function pollAllSources() {
   try {
     await pollHomeAssistant();
@@ -401,7 +402,6 @@ app.get('/api/logout', (req, res) => {
 });
 
 // ---------- Protected API (session + rate limiting + CSRF) ----------
-// Apply isAuthenticated to all routes below this line
 app.use('/api/test-forecast', isAuthenticated, authLimiter);
 app.get('/api/test-forecast', async (req, res) => {
   try {
@@ -583,7 +583,7 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
-// Settings page (protected) – redirects to login if not authenticated
+// Settings page (protected)
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
 });
@@ -648,9 +648,8 @@ app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) =>
   }
 });
 
-// Catch-all: serve index.html for any non-API, non-asset route (SPA)
-app.get('*', (req, res) => {
-  // Skip API and asset routes
+// Catch-all: serve index.html for any non-API, non-asset route
+app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
