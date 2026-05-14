@@ -3,8 +3,10 @@ import { componentBuilders } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { updateAllComponents } from './updater.js';
+import { initGrid, disableEditMode } from './gridEditor.js';
 
 let dashboardConfig;
+let currentGrid = null;
 
 export async function loadDashboardConfig() {
   const res = await fetch('/api/dashboard-config');
@@ -15,6 +17,19 @@ export async function loadDashboardConfig() {
   if (!dashboardConfig.dashboards || dashboardConfig.dashboards.length === 0) {
     throw new Error('Invalid dashboard configuration: no dashboards');
   }
+  
+  // Check URL parameter for tab override
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get('tab');
+  if (tabParam) {
+    const matchingTab = dashboardConfig.dashboards.find(db => db.id === tabParam);
+    if (matchingTab) {
+      dashboardConfig.activeDashboard = tabParam;
+    } else {
+      console.warn(`Tab "${tabParam}" not found, using default active dashboard`);
+    }
+  }
+  
   renderDashboard();
   return dashboardConfig;
 }
@@ -41,39 +56,46 @@ function renderDashboard() {
 
   const container = document.getElementById('dashboard-container');
   container.innerHTML = '';
+  
   const active = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
   if (!active) return;
-
-  active.layout.forEach(block => {
-    if (block.enabled === false) return;
-    const builder = componentBuilders[block.type];
-    if (!builder) return;
-    const el = builder(block);
-    if (el) container.appendChild(el);
-  });
-
+  
+  // Initialize GridStack with the layout
+  currentGrid = initGrid('dashboard-container', active.layout);
+  
+  // After grid is built, initialise charts if needed
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
   if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
-
-  // Lazy-load tables
-  const dailyContent = document.querySelector('.daily-breakdown-content');
-  if (dailyContent && !dailyContent.dataset.loaded) {
-    const toggleBtn = dailyContent.previousElementSibling.querySelector('.toggle-btn');
-    toggleBtn.addEventListener('click', async () => { await updateDailyTable(); dailyContent.dataset.loaded = 'true'; }, { once: true });
+  
+  // Lazy-load tables (unchanged)
+  const dailyTableWidget = document.querySelector('.daily-breakdown-content');
+  if (dailyTableWidget && !dailyTableWidget.dataset.loaded) {
+    const toggleBtn = dailyTableWidget.previousElementSibling?.querySelector('.toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', async () => { await updateDailyTable(); dailyTableWidget.dataset.loaded = 'true'; }, { once: true });
+    }
   }
-  const monthlyContent = document.querySelectorAll('.daily-breakdown-content')[1];
-  if (monthlyContent && !monthlyContent.dataset.loaded) {
-    const toggleBtn = monthlyContent.previousElementSibling.querySelector('.toggle-btn');
-    toggleBtn.addEventListener('click', async () => { await updateMonthlyTable(); monthlyContent.dataset.loaded = 'true'; }, { once: true });
+  const monthlyTableWidget = document.querySelectorAll('.daily-breakdown-content')[1];
+  if (monthlyTableWidget && !monthlyTableWidget.dataset.loaded) {
+    const toggleBtn = monthlyTableWidget.previousElementSibling?.querySelector('.toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', async () => { await updateMonthlyTable(); monthlyTableWidget.dataset.loaded = 'true'; }, { once: true });
+    }
   }
-
+  
   loadBranding();
   updateAllComponents();
+  
+  // Ensure edit mode is off after re-render
+  disableEditMode();
 }
 
 async function switchDashboard(id) {
   dashboardConfig.activeDashboard = id;
   await saveDashboardConfig(dashboardConfig);
+  const url = new URL(window.location);
+  url.searchParams.set('tab', id);
+  window.history.pushState({}, '', url);
   renderDashboard();
 }
 
