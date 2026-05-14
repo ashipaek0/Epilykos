@@ -627,7 +627,9 @@ app.get('/api/metrics/names', async (req, res) => {
   }
 });
 
+// Dashboard config endpoint (public) – with cache control
 app.get('/api/dashboard-config', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.json(getDashboardConfig());
 });
 
