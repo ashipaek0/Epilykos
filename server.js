@@ -5,8 +5,10 @@ const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const morgan = require('morgan');
 const WebSocket = require('ws');
 const http = require('http');
+const { logger, getLogger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, authLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
@@ -24,6 +26,9 @@ const { startExternalPolling, restartExternalPolling } = require('./modules/exte
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Morgan HTTP request logging (stream to winston)
+app.use(morgan('combined', { stream: logger.stream }));
 
 // Session middleware
 app.use(session({
@@ -75,25 +80,26 @@ function broadcastDashboardState(state) {
 // WebSocket connection handler
 wss.on('connection', (ws) => {
   wsClients.add(ws);
-  console.log(`WebSocket client connected (${wsClients.size} total)`);
+  logger.info(`WebSocket client connected (${wsClients.size} total)`);
   
   (async () => {
     try {
       const state = await buildDashboardState();
       ws.send(JSON.stringify({ type: 'dashboard-state', data: state }));
     } catch (err) {
-      console.error('Error sending initial state via WebSocket:', err);
+      logger.error('Error sending initial state via WebSocket:', err);
     }
   })();
 
   ws.on('close', () => {
     wsClients.delete(ws);
-    console.log(`WebSocket client disconnected (${wsClients.size} remaining)`);
+    logger.info(`WebSocket client disconnected (${wsClients.size} remaining)`);
   });
 });
 
 // Helper to build dashboard state
 async function buildDashboardState() {
+  const start = Date.now();
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   const dailySolarKwh = computeTodaySolar();
   const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
@@ -155,6 +161,8 @@ async function buildDashboardState() {
     grid_import_kwh: r.grid_import_kwh,
     consumption_kwh: r.consumption_kwh
   }));
+  const elapsed = Date.now() - start;
+  logger.debug(`buildDashboardState took ${elapsed}ms`);
   return {
     current: currentData,
     metrics,
@@ -167,8 +175,10 @@ async function buildDashboardState() {
   };
 }
 
-// Polling loop
+// Polling loop with detailed logging
 async function pollAllSources() {
+  const start = Date.now();
+  logger.debug('Polling cycle started');
   try {
     await pollHomeAssistant();
     await pollModbus();
@@ -176,8 +186,10 @@ async function pollAllSources() {
     await pollGridStatus();
     const state = await buildDashboardState();
     broadcastDashboardState(state);
+    const elapsed = Date.now() - start;
+    logger.info(`Polling cycle completed in ${elapsed}ms`);
   } catch (err) {
-    console.error('Polling error:', err);
+    logger.error('Polling error:', err);
   }
 }
 pollAllSources();
@@ -196,6 +208,7 @@ app.get('/api/public-config', async (req, res) => {
     config.savings_rate = config.savings_rate || '0.30';
     res.json(config);
   } catch (err) {
+    logger.error('Error in /api/public-config:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -234,6 +247,7 @@ app.get('/api/current', async (req, res) => {
       res.json({ error: 'No data yet' });
     }
   } catch (err) {
+    logger.error('Error in /api/current:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -256,6 +270,7 @@ app.get('/api/history', async (req, res) => {
       timestamp: r.timestamp * 1000
     })));
   } catch (err) {
+    logger.error('Error in /api/history:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -279,6 +294,7 @@ app.get('/api/daily', async (req, res) => {
     `).all(since);
     res.json(rows);
   } catch (err) {
+    logger.error('Error in /api/daily:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -331,6 +347,7 @@ app.get('/api/monthly', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
+    logger.error('Error in /api/monthly:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -339,6 +356,7 @@ app.get('/api/grid/status', async (req, res) => {
   try {
     res.json(await getCurrentGridStatus());
   } catch (err) {
+    logger.error('Error in /api/grid/status:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -348,6 +366,7 @@ app.get('/api/grid/hours', async (req, res) => {
     const hours = await getGridHours(req.query.period || 'day');
     res.json({ period: req.query.period || 'day', hours });
   } catch (err) {
+    logger.error('Error in /api/grid/hours:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -356,6 +375,7 @@ app.get('/api/grid/timeline', async (req, res) => {
   try {
     res.json(await getGridTimeline(req.query.period || '24h'));
   } catch (err) {
+    logger.error('Error in /api/grid/timeline:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -364,6 +384,7 @@ app.get('/api/savings', async (req, res) => {
   try {
     res.json(await getSavings());
   } catch (err) {
+    logger.error('Error in /api/savings:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -372,6 +393,7 @@ app.get('/api/solar-forecast', async (req, res) => {
   try {
     res.json(await getSolarForecast());
   } catch (err) {
+    logger.error('Error in /api/solar-forecast:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -381,7 +403,7 @@ app.get('/api/dashboard-state', async (req, res) => {
     const state = await buildDashboardState();
     res.json(state);
   } catch (err) {
-    console.error('Aggregated state error:', err);
+    logger.error('Aggregated state error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -393,8 +415,7 @@ app.get('/api/dashboard-config', async (req, res) => {
     const config = getDashboardConfig();
     res.json(config);
   } catch (err) {
-    console.error('Error fetching dashboard config:', err);
-    // Return a minimal fallback config to prevent frontend crash
+    logger.error('Error fetching dashboard config:', err);
     const fallback = {
       dashboards: [{ id: 'main', name: 'Main', layout: [] }],
       activeDashboard: 'main'
@@ -408,13 +429,16 @@ app.post('/api/login', authLimiter, (req, res) => {
   const { password } = req.body;
   if (password && password === settingsPassword) {
     req.session.authenticated = true;
+    logger.info('User logged in successfully');
     return res.json({ success: true });
   }
+  logger.warn('Failed login attempt');
   res.status(401).json({ error: 'Invalid password' });
 });
 
 app.get('/api/logout', (req, res) => {
   req.session.destroy();
+  logger.info('User logged out');
   res.redirect('/');
 });
 
@@ -424,6 +448,7 @@ app.get('/api/test-forecast', async (req, res) => {
   try {
     res.json(await testForecast());
   } catch (err) {
+    logger.error('Error in test-forecast:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -435,6 +460,7 @@ app.get('/api/ha-device-entities', async (req, res) => {
   try {
     res.json(await fetchHAEntities(url, token));
   } catch (err) {
+    logger.error('Error fetching HA entities:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -514,6 +540,7 @@ app.post('/api/test-modbus', async (req, res) => {
     const result = await testModbusConnection(device);
     res.json(result);
   } catch (err) {
+    logger.error('Modbus test error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -524,6 +551,7 @@ app.post('/api/dashboard-config', (req, res) => {
     saveDashboardConfig(req.body);
     res.json({ success: true });
   } catch (err) {
+    logger.error('Error saving dashboard config:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -548,6 +576,7 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
     res.json({ success: true });
   } catch (err) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    logger.error('Error importing dashboard config:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -562,6 +591,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
     await restoreDatabase(req.file.path);
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
+    logger.error('Restore error:', err);
     res.status(500).json({ error: 'Restore failed, original database restored. ' + err.message });
   } finally {
     try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(e) {}
@@ -593,9 +623,10 @@ app.post('/api/settings', (req, res) => {
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
       // Force cache reset
     }
+    logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
-    console.error('[Settings] Save error:', err);
+    logger.error('[Settings] Save error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -619,6 +650,7 @@ app.get('/api/metrics/current', async (req, res) => {
   try {
     res.json(getCurrentMetrics());
   } catch (err) {
+    logger.error('Error in /api/metrics/current:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -629,6 +661,7 @@ app.get('/api/metrics/history', async (req, res) => {
   try {
     res.json(getMetricHistory(metric, hours));
   } catch (err) {
+    logger.error('Error in /api/metrics/history:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -639,6 +672,7 @@ app.get('/api/metrics/names', async (req, res) => {
     const names = rows.map(r => r.metric);
     res.json(names);
   } catch (err) {
+    logger.error('Error in /api/metrics/names:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -662,6 +696,7 @@ app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) =>
     const num = parseFloat(value);
     res.json({ success: true, value: isNaN(num) ? value : num });
   } catch (err) {
+    logger.error('Error testing external source:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -675,4 +710,4 @@ app.get('*', (req, res, next) => {
 });
 
 // Start the HTTP server with WebSocket support
-server.listen(PORT, () => console.log(`Energy dashboard running on port ${PORT} (session-based auth)`));
+server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
