@@ -1,3 +1,4 @@
+const { logger } = require('./logger');
 const ModbusRTU = require('modbus-serial');
 const fs = require('fs');
 const path = require('path');
@@ -40,7 +41,7 @@ function loadProfiles() {
         name: profile.name || file,
         registers: profile.registers || []
       });
-    } catch (e) { console.error(`Failed to parse profile ${file}:`, e.message); }
+    } catch (e) { logger.error(`Failed to parse profile ${file}:`, e.message); }
   }
   console.log(`Loaded ${availableProfiles.length} Modbus profile(s).`);
 }
@@ -74,7 +75,7 @@ async function pollModbus() {
 
     const profile = availableProfiles.find(p => p.id === device.profile);
     if (!profile) {
-      console.error(`Modbus profile '${device.profile}' not found.`);
+      logger.error(`Modbus profile '${device.profile}' not found.`);
       continue;
     }
     let client;
@@ -96,7 +97,7 @@ async function pollModbus() {
             const value = reg.scale ? raw * reg.scale : raw;
             results[reg.metric] = value;
           }
-        } catch (err) { console.error(`Modbus read error at ${startAddr}:`, err.message); }
+        } catch (err) { logger.error(`Modbus read error at ${startAddr}:`, err.message); }
       }
       await client.close();
 
@@ -107,7 +108,7 @@ async function pollModbus() {
       }
       console.log(`Modbus poll (${device.name || device.host || device.serial_path}): ${Object.keys(results).length} metrics.`);
     } catch (err) {
-      console.error(`Modbus poll error for ${device.name || device.host || device.serial_path}:`, err.message);
+      logger.error(`Modbus poll error for ${device.name || device.host || device.serial_path}:`, err.message);
       if (client) client.close();
     }
   }
