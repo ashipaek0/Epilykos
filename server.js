@@ -8,9 +8,9 @@ const fs = require('fs');
 const morgan = require('morgan');
 const WebSocket = require('ws');
 const http = require('http');
-const { logger, getLogger } = require('./modules/logger');
+const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
-const { isAuthenticated, authLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
+const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
@@ -175,7 +175,7 @@ async function buildDashboardState() {
   };
 }
 
-// Polling loop with detailed logging
+// Polling loop
 async function pollAllSources() {
   const start = Date.now();
   logger.debug('Polling cycle started');
@@ -425,7 +425,7 @@ app.get('/api/dashboard-config', async (req, res) => {
 });
 
 // ---------- Authentication endpoints ----------
-app.post('/api/login', authLimiter, (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   const { password } = req.body;
   if (password && password === settingsPassword) {
     req.session.authenticated = true;
@@ -442,8 +442,8 @@ app.get('/api/logout', (req, res) => {
   res.redirect('/');
 });
 
-// ---------- Protected API (session + rate limiting + CSRF) ----------
-app.use('/api/test-forecast', isAuthenticated, authLimiter);
+// ---------- Protected API (session + CSRF) – no rate limit ----------
+app.use('/api/test-forecast', isAuthenticated);
 app.get('/api/test-forecast', async (req, res) => {
   try {
     res.json(await testForecast());
@@ -453,7 +453,7 @@ app.get('/api/test-forecast', async (req, res) => {
   }
 });
 
-app.use('/api/ha-device-entities', isAuthenticated, authLimiter);
+app.use('/api/ha-device-entities', isAuthenticated);
 app.get('/api/ha-device-entities', async (req, res) => {
   const { url, token } = req.query;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
@@ -465,7 +465,7 @@ app.get('/api/ha-device-entities', async (req, res) => {
   }
 });
 
-app.use('/api/test-mqtt', isAuthenticated, authLimiter);
+app.use('/api/test-mqtt', isAuthenticated);
 app.get('/api/test-mqtt', async (req, res) => {
   const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
   const device = devices.find(d => d.enabled);
@@ -490,7 +490,7 @@ app.get('/api/test-mqtt', async (req, res) => {
   });
 });
 
-app.use('/api/test-mqtt-topic', isAuthenticated, authLimiter);
+app.use('/api/test-mqtt-topic', isAuthenticated);
 app.get('/api/test-mqtt-topic', async (req, res) => {
   const topic = req.query.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
@@ -525,12 +525,12 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   });
 });
 
-app.use('/api/modbus/profiles', isAuthenticated, authLimiter);
+app.use('/api/modbus/profiles', isAuthenticated);
 app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
 });
 
-app.use('/api/test-modbus', isAuthenticated, authLimiter);
+app.use('/api/test-modbus', isAuthenticated);
 app.post('/api/test-modbus', async (req, res) => {
   const device = req.body;
   if (!device) return res.status(400).json({ error: 'No device config provided' });
@@ -545,7 +545,7 @@ app.post('/api/test-modbus', async (req, res) => {
   }
 });
 
-app.use('/api/dashboard-config', isAuthenticated, authLimiter);
+app.use('/api/dashboard-config', isAuthenticated);
 app.post('/api/dashboard-config', (req, res) => {
   try {
     saveDashboardConfig(req.body);
@@ -581,10 +581,10 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
   }
 });
 
-app.use('/api/backup', isAuthenticated, authLimiter);
+app.use('/api/backup', isAuthenticated);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
-app.use('/api/restore', isAuthenticated, authLimiter);
+app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
@@ -598,7 +598,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   }
 });
 
-app.use('/api/settings', isAuthenticated, authLimiter);
+app.use('/api/settings', isAuthenticated);
 app.get('/api/settings', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM config').all();
   const config = {};
@@ -627,6 +627,31 @@ app.post('/api/settings', (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error('[Settings] Save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/test-external', isAuthenticated);
+app.post('/api/test-external', async (req, res) => {
+  const { url, jsonPath } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  try {
+    const response = await fetch(url, { timeout: 5000 });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    let value = null;
+    if (jsonPath) {
+      const parts = jsonPath.split('.');
+      let cur = data;
+      for (const part of parts) cur = cur?.[part];
+      value = cur;
+    } else {
+      value = data;
+    }
+    const num = parseFloat(value);
+    res.json({ success: true, value: isNaN(num) ? value : num });
+  } catch (err) {
+    logger.error('Error testing external source:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -673,30 +698,6 @@ app.get('/api/metrics/names', async (req, res) => {
     res.json(names);
   } catch (err) {
     logger.error('Error in /api/metrics/names:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/test-external', isAuthenticated, authLimiter, async (req, res) => {
-  const { url, jsonPath } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  try {
-    const response = await fetch(url, { timeout: 5000 });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    let value = null;
-    if (jsonPath) {
-      const parts = jsonPath.split('.');
-      let cur = data;
-      for (const part of parts) cur = cur?.[part];
-      value = cur;
-    } else {
-      value = data;
-    }
-    const num = parseFloat(value);
-    res.json({ success: true, value: isNaN(num) ? value : num });
-  } catch (err) {
-    logger.error('Error testing external source:', err);
     res.status(500).json({ error: err.message });
   }
 });
