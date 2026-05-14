@@ -4,6 +4,34 @@ import { updateWithState } from './updater.js';
 
 let ws = null;
 let reconnectTimer = null;
+let configLoadAttempts = 0;
+const MAX_CONFIG_ATTEMPTS = 3;
+
+async function loadConfigWithRetry() {
+  try {
+    await loadDashboardConfig();
+    console.log('Dashboard config loaded successfully');
+    // Proceed with WebSocket and polling
+    connectWebSocket();
+    setInterval(async () => {
+      const { updateAllComponents } = await import('./updater.js');
+      updateAllComponents();
+      console.log('Fallback poll executed');
+    }, 60000);
+  } catch (err) {
+    console.error(`Failed to load dashboard config (attempt ${configLoadAttempts + 1}/${MAX_CONFIG_ATTEMPTS}):`, err);
+    configLoadAttempts++;
+    if (configLoadAttempts < MAX_CONFIG_ATTEMPTS) {
+      // Retry after 2 seconds
+      setTimeout(loadConfigWithRetry, 2000);
+    } else {
+      const container = document.getElementById('dashboard-container');
+      if (container) {
+        container.innerHTML = '<div class="error" style="padding:2rem;text-align:center;color:#ef4444;">Unable to load dashboard configuration after multiple attempts. Please check server logs.</div>';
+      }
+    }
+  }
+}
 
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -19,7 +47,6 @@ function connectWebSocket() {
     try {
       const message = JSON.parse(event.data);
       if (message.type === 'dashboard-state') {
-        console.log('Received WebSocket update');
         updateWithState(message.data);
       }
     } catch (err) {
@@ -37,31 +64,12 @@ function connectWebSocket() {
   };
 }
 
-// Show a loading indicator
+// Show loading indicator
 const container = document.getElementById('dashboard-container');
 if (container) {
   container.innerHTML = '<div style="text-align:center; padding:2rem;">Loading dashboard...</div>';
 }
 
 initTheme();
-
-try {
-  await loadDashboardConfig();
-  console.log('Dashboard config loaded successfully');
-} catch (err) {
-  console.error('Failed to load dashboard config:', err);
-  if (container) {
-    container.innerHTML = '<div class="error" style="padding:2rem;text-align:center;color:#ef4444;">Failed to load dashboard configuration. Please check the server logs and ensure the server is running.</div>';
-  }
-}
-
-connectWebSocket();
-
-// Fallback polling every 60 seconds (in case WebSocket fails)
-setInterval(async () => {
-  const { updateAllComponents } = await import('./updater.js');
-  updateAllComponents();
-  console.log('Fallback poll executed');
-}, 60000);
-
+loadConfigWithRetry();
 document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
