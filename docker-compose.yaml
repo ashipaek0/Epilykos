@@ -1,35 +1,33 @@
 services:
   epilykos:
-    image: irunmole/epilykos:latest 
+    image: irunmole/epilykos:dev
     container_name: epilykos
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8095:3000"
     volumes:
       - ./data:/app/data
     environment:
-      - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
-      - TZ=${TZ:-Africa/Lagos}
+      - SETTINGS_PASSWORD=spiceenergy
+      - TZ=Africa/Lagos
       - BMS_BRIDGE_URL=http://bms-bridge:8000
     depends_on:
       - bms-bridge
     networks:
       - epilykos-net
+    extra_hosts:
+      - "bms-bridge:host-gateway"
 
   bms-bridge:
-    image: irunmole/epilykos-bms:latest
+    image: irunmole/epilykos-bms:dev
     container_name: bms-bridge
     restart: unless-stopped
-    network_mode: host          # required for Bluetooth access
-    # For non‑host networking, use privileged and dbus mount:
-    # privileged: true
-    # volumes:
-    #   - /var/run/dbus:/var/run/dbus
+    network_mode: host
     environment:
       - LOG_LEVEL=info
-    networks:
-      - epilykos-net   # still needed for name resolution (though host networking overrides)
+    # No networks section – host network already provides connectivity
 
 networks:
   epilykos-net:
     driver: bridge
+
