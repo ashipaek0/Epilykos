@@ -203,7 +203,7 @@ app.get('/api/public-config', async (req, res) => {
     const keys = ['dashboard_title', 'dashboard_logo', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
     const config = {};
     for (const key of keys) config[key] = getConfig(key);
-    config.dashboard_title = config.dashboard_title || '⚡ Energy Dashboard';
+    config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
     config.savings_currency = config.savings_currency || '€';
     config.savings_rate = config.savings_rate || '0.30';
     res.json(config);
