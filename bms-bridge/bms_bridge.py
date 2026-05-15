@@ -6,7 +6,7 @@ Exposes a simple HTTP API for the main Node.js dashboard.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from aiobmsble import scan, connect_bms
+from aiobmsble import discover, connect
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -55,7 +55,8 @@ async def list_devices(force_scan: bool = False):
 
     try:
         logger.info("Scanning for BLE BMS devices...")
-        devices = await asyncio.wait_for(scan(), timeout=5.0)
+        # discover() returns a list of Device objects
+        devices = await asyncio.wait_for(discover(), timeout=5.0)
         result = [{"address": d.address, "name": d.name or "Unknown", "rssi": d.rssi} for d in devices]
         discovered_cache = result
         last_scan_time = now
@@ -76,17 +77,24 @@ async def get_device_data(address: str):
     """
     try:
         logger.info(f"Connecting to {address}")
-        bms = await connect_bms(address)
-        sample = await bms.async_update()
-        # Convert sample to dictionary
-        if hasattr(sample, "as_dict"):
-            data = sample.as_dict()
-        else:
-            data = sample.__dict__
-        # Filter out non-numeric values and None
-        clean = {k: v for k, v in data.items() if isinstance(v, (int, float)) and v is not None}
-        logger.debug(f"Data from {address}: {clean}")
-        return clean
+        bms = await connect(address)
+        # The BMS object has properties like voltage, current, soc, etc.
+        # Let's extract all numeric attributes we can find.
+        data = {}
+        # Known attributes from aiobmsble (common across JK, JBD, Daly)
+        for attr in ['voltage', 'current', 'soc', 'temperature', 'cells', 'cell_voltages', 'capacity_remain', 'capacity_nominal', 'cycles', 'balance', 'fet']:
+            if hasattr(bms, attr):
+                val = getattr(bms, attr)
+                if isinstance(val, (int, float)):
+                    data[attr] = val
+        # If the BMS has cell voltages array, we can also report min/max or individual cells
+        if hasattr(bms, 'cell_voltages') and bms.cell_voltages:
+            data['min_cell_voltage'] = min(bms.cell_voltages)
+            data['max_cell_voltage'] = max(bms.cell_voltages)
+            data['cells_count'] = len(bms.cell_voltages)
+        logger.debug(f"Data from {address}: {data}")
+        await bms.disconnect()
+        return data
     except Exception as e:
         logger.error(f"Error reading {address}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
