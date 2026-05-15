@@ -23,6 +23,7 @@ const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard
 const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling } = require('./modules/external');
+const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,6 +45,7 @@ const db = getDb();
 loadProfiles();
 setupMqtt();
 startExternalPolling();
+startBmsPolling();
 
 // Multer for restore and import
 const upload = multer({
@@ -681,6 +683,7 @@ app.post('/api/settings', (req, res) => {
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
       'solar_loss_factor', 'solar_install_date'
+    if ('bms_devices' in updates) restartBmsPolling();
     ];
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
       // Force cache reset
