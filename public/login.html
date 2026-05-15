@@ -17,7 +17,12 @@
       text-align: center;
     }
     .login-container h2 {
+      margin-bottom: 0.5rem;
+    }
+    .login-container .subtitle {
       margin-bottom: 1.5rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
     }
     .login-container input {
       width: 100%;
@@ -68,8 +73,8 @@
 <body>
 <div class="container">
   <div class="login-container">
-    <h2>Energy Dashboard</h2>
-    <h3>Settings Login</h3>
+    <h2>⚡ Epilykos</h2>
+    <div class="subtitle">Login to access settings</div>
     <form id="login-form">
       <input type="password" id="password" placeholder="Password" autocomplete="off">
       <button type="submit">Login</button>
