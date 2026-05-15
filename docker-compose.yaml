@@ -1,0 +1,12 @@
+services:
+  energy-dashboard:
+    build: .
+    container_name: energy-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
+      - TZ=${TZ:-Africa/Lagos}
