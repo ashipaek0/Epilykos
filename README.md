@@ -1,4 +1,4 @@
-# ⚡ Energy Dashboard
+# ⚡ Epilykos
 
 A self‑hosted, real‑time energy monitoring dashboard that integrates with **Home Assistant**, **MQTT**, **Modbus TCP/Serial**, and **any REST API**. Designed for public displays – no login required for viewing, while settings are password‑protected.
 
