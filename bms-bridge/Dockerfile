@@ -19,6 +19,6 @@ RUN pip show aiobmsble && \
 
 COPY bms_bridge.py .
 
-EXPOSE 8000
+EXPOSE 8020
 
-CMD ["uvicorn", "bms_bridge:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "bms_bridge:app", "--host", "0.0.0.0", "--port", "8020"]
