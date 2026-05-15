@@ -65,32 +65,9 @@ function renderDashboard() {
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
   if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
 
-  // Lazy-load tables: attach data loader to the toggle button inside each table container
-  const dailyTableContainer = document.querySelector('.daily-breakdown-container:first-child');
-  if (dailyTableContainer) {
-    const toggleBtn = dailyTableContainer.querySelector('.toggle-btn');
-    const contentDiv = dailyTableContainer.querySelector('.daily-breakdown-content');
-    if (toggleBtn && contentDiv && !contentDiv.dataset.loaded) {
-      const loadData = async () => {
-        await updateDailyTable();
-        contentDiv.dataset.loaded = 'true';
-      };
-      toggleBtn.addEventListener('click', loadData, { once: true });
-    }
-  }
-  
-  const monthlyTableContainer = document.querySelectorAll('.daily-breakdown-container')[1];
-  if (monthlyTableContainer) {
-    const toggleBtn = monthlyTableContainer.querySelector('.toggle-btn');
-    const contentDiv = monthlyTableContainer.querySelector('.daily-breakdown-content');
-    if (toggleBtn && contentDiv && !contentDiv.dataset.loaded) {
-      const loadData = async () => {
-        await updateMonthlyTable();
-        contentDiv.dataset.loaded = 'true';
-      };
-      toggleBtn.addEventListener('click', loadData, { once: true });
-    }
-  }
+  // Load table data immediately (no lazy‑load required)
+  updateDailyTable().catch(e => console.error('Daily table error:', e));
+  updateMonthlyTable().catch(e => console.error('Monthly table error:', e));
 
   loadBranding();
   updateAllComponents();

@@ -11,7 +11,7 @@ export function buildDataTableDaily() {
   `;
   
   const content = document.createElement('div');
-  content.className = 'daily-breakdown-content collapsed';
+  content.className = 'daily-breakdown-content'; // no 'collapsed' class – show by default
   content.innerHTML = `
     <div class="daily-table-wrapper">
       <table class="energy-table">
@@ -34,7 +34,7 @@ export function buildDataTableDaily() {
   container.appendChild(header);
   container.appendChild(content);
   
-  // Toggle functionality
+  // Toggle functionality (collapse/expand)
   const toggleBtn = header.querySelector('.toggle-btn');
   toggleBtn.addEventListener('click', () => {
     const isCollapsed = content.classList.contains('collapsed');
