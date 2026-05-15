@@ -1,4 +1,4 @@
-// settings.js – full with Phase 4.1: granular block configuration
+// settings.js – with Metrics tab, metric cards dropdown, device editors, dashboard editor, layout import/export
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -459,7 +459,6 @@ function renderModbusDevice(device, idx) {
     const statusEl = document.createElement('span');
     statusEl.className = 'test-status';
     this.after(statusEl);
-    // Build device object from current inputs
     const dev = {
       transport: transportSelect.value,
       host: card.querySelector('input[name$="[host]"]')?.value,
@@ -629,6 +628,112 @@ document.getElementById('test-forecast').addEventListener('click', async functio
   }
 });
 
+// ======================== METRICS MANAGEMENT ========================
+let metricsList = [];
+
+async function loadMetricsList() {
+  try {
+    const res = await fetch('/api/metrics/list');
+    if (!res.ok) throw new Error('Failed to fetch metrics');
+    metricsList = await res.json();
+    renderMetricsTable();
+  } catch (err) {
+    console.error('Error loading metrics:', err);
+    const tbody = document.getElementById('metrics-table-body');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
+  }
+}
+
+function renderMetricsTable() {
+  const tbody = document.getElementById('metrics-table-body');
+  if (!tbody) return;
+  if (!metricsList.length) {
+    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  metricsList.forEach(metric => {
+    const row = document.createElement('tr');
+    const lastUpdated = metric.timestamp ? new Date(metric.timestamp * 1000).toLocaleString() : 'Never';
+    row.innerHTML = `
+      <td>${escapeHtml(metric.name)}</td>
+      <td>${metric.value !== null ? metric.value : '-'}</td>
+      <td>${lastUpdated}</td>
+      <td>${escapeHtml(metric.unit || '-')}</td>
+      <td><button class="delete-metric-btn remove-btn" data-name="${escapeHtml(metric.name)}">Delete</button></td>
+    `;
+    tbody.appendChild(row);
+  });
+  // Attach delete event handlers
+  document.querySelectorAll('.delete-metric-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const name = btn.dataset.name;
+      if (confirm(`Delete metric "${name}"? This will remove it from all mappings and cannot be undone.`)) {
+        try {
+          const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          if (res.ok) {
+            showStatus(backupStatus, `Metric "${name}" deleted`, 'success');
+            await loadMetricsList();
+          } else {
+            const err = await res.json();
+            showStatus(backupStatus, err.error || 'Delete failed', 'error');
+          }
+        } catch (err) {
+          showStatus(backupStatus, err.message, 'error');
+        }
+      }
+    });
+  });
+}
+
+// Modal handling
+const modal = document.getElementById('metric-modal');
+const createBtn = document.getElementById('create-metric-btn');
+const modalCancel = document.getElementById('modal-cancel');
+const modalCreate = document.getElementById('modal-create');
+
+if (createBtn) {
+  createBtn.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    document.getElementById('new-metric-name').value = '';
+    document.getElementById('new-metric-unit').value = '';
+  });
+}
+if (modalCancel) {
+  modalCancel.addEventListener('click', () => { modal.style.display = 'none'; });
+}
+if (modalCreate) {
+  modalCreate.addEventListener('click', async () => {
+    const name = document.getElementById('new-metric-name').value.trim();
+    const unit = document.getElementById('new-metric-unit').value.trim();
+    if (!name) {
+      alert('Metric name is required');
+      return;
+    }
+    try {
+      const res = await fetch('/api/metrics/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, unit })
+      });
+      if (res.ok) {
+        modal.style.display = 'none';
+        await loadMetricsList();
+        showStatus(backupStatus, `Metric "${name}" created`, 'success');
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Creation failed');
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+}
+// Click outside modal to close
+window.addEventListener('click', (e) => {
+  if (e.target === modal) modal.style.display = 'none';
+});
+
 // ======================== DASHBOARD EDITOR (with block config) ========================
 let dashConfig = null;
 
@@ -689,6 +794,8 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="savings-summary" ${block.type === 'savings-summary' ? 'selected' : ''}>Savings Summary</option>
         <option value="data-table-daily" ${block.type === 'data-table-daily' ? 'selected' : ''}>Daily Table</option>
         <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
+        <option value="weather-block" ${block.type === 'weather-block' ? 'selected' : ''}>Weather Block</option>
+        <option value="battery-block" ${block.type === 'battery-block' ? 'selected' : ''}>Battery Block</option>
       </select>
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
@@ -705,6 +812,18 @@ function renderDashboardBlockEditor(dashboard) {
       const cardsList = document.createElement('div');
       cardsList.className = 'cards-list';
       
+      // Helper to populate metric dropdown options
+      function getMetricOptions(selectedMetric) {
+        let options = '<option value="">-- Select metric --</option>';
+        if (metricsList && metricsList.length) {
+          metricsList.forEach(m => {
+            options += `<option value="${escapeHtml(m.name)}" ${selectedMetric === m.name ? 'selected' : ''}>${escapeHtml(m.name)}${m.unit ? ` (${escapeHtml(m.unit)})` : ''}</option>`;
+          });
+        }
+        options += '<option value="__CREATE_NEW__">+ Create new metric...</option>';
+        return options;
+      }
+      
       function renderCards() {
         cardsList.innerHTML = '';
         (block.cards || []).forEach((card, cardIdx) => {
@@ -712,10 +831,63 @@ function renderDashboardBlockEditor(dashboard) {
           cardRow.className = 'card-editor-row';
           cardRow.innerHTML = `
             <input type="text" class="card-title" value="${escapeHtml(card.title || '')}" placeholder="Title" style="flex:2;">
-            <input type="text" class="card-metric" value="${escapeHtml(card.metric || '')}" placeholder="Metric name" style="flex:2;">
+            <select class="card-metric-select" style="flex:2;">
+              ${getMetricOptions(card.metric || '')}
+            </select>
             <input type="text" class="card-unit" value="${escapeHtml(card.unit || '')}" placeholder="Unit" style="flex:1;">
             <button type="button" class="remove-card-btn remove-btn" style="background:#ef4444;">−</button>
           `;
+          const metricSelect = cardRow.querySelector('.card-metric-select');
+          metricSelect.addEventListener('change', async (e) => {
+            if (e.target.value === '__CREATE_NEW__') {
+              e.target.value = card.metric || '';
+              // Open the create metric modal
+              if (modal) {
+                modal.style.display = 'flex';
+                const newMetricNameInput = document.getElementById('new-metric-name');
+                const newMetricUnitInput = document.getElementById('new-metric-unit');
+                if (newMetricNameInput) newMetricNameInput.value = '';
+                if (newMetricUnitInput) newMetricUnitInput.value = '';
+                // Wait for modal create to finish, then refresh dropdowns
+                const originalCreateHandler = modalCreate.onclick;
+                modalCreate.onclick = async () => {
+                  const name = document.getElementById('new-metric-name').value.trim();
+                  const unit = document.getElementById('new-metric-unit').value.trim();
+                  if (!name) { alert('Metric name is required'); return; }
+                  try {
+                    const res = await fetch('/api/metrics/create', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name, unit })
+                    });
+                    if (res.ok) {
+                      modal.style.display = 'none';
+                      await loadMetricsList();
+                      // Refresh all metric selects in the editor
+                      document.querySelectorAll('.card-metric-select').forEach(select => {
+                        const currentVal = select.value;
+                        select.innerHTML = getMetricOptions(currentVal);
+                      });
+                      showStatus(backupStatus, `Metric "${name}" created`, 'success');
+                    } else {
+                      const err = await res.json();
+                      alert(err.error || 'Creation failed');
+                    }
+                  } catch (err) {
+                    alert(err.message);
+                  }
+                  // Restore original handler
+                  modalCreate.onclick = originalCreateHandler;
+                };
+              }
+            } else {
+              card.metric = e.target.value;
+            }
+          });
+          const unitInput = cardRow.querySelector('.card-unit');
+          unitInput.addEventListener('change', (e) => { card.unit = e.target.value; });
+          const titleInput = cardRow.querySelector('.card-title');
+          titleInput.addEventListener('change', (e) => { card.title = e.target.value; });
           cardRow.querySelector('.remove-card-btn').addEventListener('click', () => {
             block.cards.splice(cardIdx, 1);
             renderCards();
@@ -744,7 +916,6 @@ function renderDashboardBlockEditor(dashboard) {
     const configBtn = li.querySelector('.config-block-btn');
     configBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Remove any existing config panel
       const existingPanel = li.querySelector('.block-config-panel');
       if (existingPanel) existingPanel.remove();
       
@@ -756,11 +927,10 @@ function renderDashboardBlockEditor(dashboard) {
       configPanel.style.borderRadius = '0.5rem';
       configPanel.style.border = '1px solid var(--border)';
       
-      // Generic config fields based on block type
       if (block.type === 'chart-power' || block.type === 'chart-energy') {
         configPanel.innerHTML = `
           <label style="display:block; margin-bottom:0.25rem;">Chart Title</label>
-          <input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" placeholder="Power Overview" style="width:100%; margin-bottom:0.5rem;">
+          <input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" placeholder="Title" style="width:100%; margin-bottom:0.5rem;">
           <label style="display:block; margin-bottom:0.25rem;">Datasets to show (comma-separated)</label>
           <input type="text" class="config-datasets" value="${escapeHtml((block.config?.datasets || ['load','solar','battery','grid']).join(','))}" placeholder="load,solar,battery,grid" style="width:100%;">
           <div class="note">Available: load, solar, battery_charge, grid_import</div>
@@ -777,6 +947,18 @@ function renderDashboardBlockEditor(dashboard) {
         configPanel.innerHTML = `
           <label style="display:block; margin-bottom:0.25rem;">Show Timeline Bar</label>
           <input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Yes
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
+        `;
+      } else if (block.type === 'weather-block') {
+        configPanel.innerHTML = `
+          <label style="display:block; margin-bottom:0.25rem;">Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Weather')}" placeholder="Title" style="width:100%;">
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
+        `;
+      } else if (block.type === 'battery-block') {
+        configPanel.innerHTML = `
+          <label style="display:block; margin-bottom:0.25rem;">Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}" placeholder="Title" style="width:100%;">
           <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
         `;
       } else {
@@ -800,9 +982,11 @@ function renderDashboardBlockEditor(dashboard) {
           } else if (block.type === 'grid-card') {
             const timelineCheckbox = configPanel.querySelector('.config-show-timeline');
             if (timelineCheckbox) block.config.showTimeline = timelineCheckbox.checked;
+          } else if (block.type === 'weather-block' || block.type === 'battery-block') {
+            const titleInput = configPanel.querySelector('.config-title');
+            if (titleInput) block.config.title = titleInput.value;
           }
           configPanel.remove();
-          // Optionally re-render dashboard editor to reflect changes? Not needed, config saved.
         });
       }
       li.appendChild(configPanel);
@@ -990,4 +1174,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Initialize metrics list when page loads (for any tab)
+loadMetricsList();
 loadSettings();
