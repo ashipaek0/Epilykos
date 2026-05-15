@@ -1,6 +1,6 @@
 services:
   epilykos:
-    image: irunmole/epilykos:dev
+    image: irunmole/epilykos:latest
     container_name: epilykos
     restart: unless-stopped
     ports:
@@ -8,7 +8,7 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - SETTINGS_PASSWORD=spiceenergy
+      - SETTINGS_PASSWORD=
       - TZ=Africa/Lagos
       - BMS_BRIDGE_URL=http://bms-bridge:8020
     depends_on:
@@ -19,7 +19,7 @@ services:
       - "bms-bridge:host-gateway"
 
   bms-bridge:
-    image: irunmole/epilykos-bms:dev
+    image: irunmole/epilykos-bms:latest
     container_name: bms-bridge
     restart: unless-stopped
     network_mode: host
