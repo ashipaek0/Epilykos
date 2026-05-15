@@ -20,6 +20,20 @@ function getBmsBridgeUrl() {
   return `${window.location.protocol}//${window.location.hostname}:8020`;
 }
 
+let bridgeAvailable = null;
+
+async function checkBridgeAvailable() {
+  const bridgeUrl = getBmsBridgeUrl();
+  try {
+    const res = await fetch(`${bridgeUrl}/health`, { timeout: 2000 });
+    bridgeAvailable = res.ok;
+    return bridgeAvailable;
+  } catch {
+    bridgeAvailable = false;
+    return false;
+  }
+}
+
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
   try {
@@ -630,9 +644,13 @@ function renderBmsDevice(device, idx) {
     reindexBms();
   });
   card.querySelector('.scan-bms').addEventListener('click', async () => {
-    const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    const bridgeUrl = getBmsBridgeUrl();
-    showStatus(statusEl, `Scanning for BLE devices via ${bridgeUrl}...`, 'info');
+  const statusEl = document.getElementById(`bms-test-status-${idx}`);
+  const available = await checkBridgeAvailable();
+  if (!available) {
+    showStatus(statusEl, 'BMS bridge not reachable – works only when dashboard is accessed from the same local network as the Bluetooth hardware.', 'error');
+    return;
+  }
+});
     try {
       const res = await fetch(`${bridgeUrl}/devices`, { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -657,11 +675,14 @@ function renderBmsDevice(device, idx) {
     }
   });
   card.querySelector('.test-bms').addEventListener('click', async () => {
-    const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    const address = card.querySelector('input[name$="[address]"]').value.trim();
-    if (!address) {
-      showStatus(statusEl, 'MAC address required', 'error');
-      return;
+  const statusEl = document.getElementById(`bms-test-status-${idx}`);
+  const available = await checkBridgeAvailable();
+  if (!available) {
+    showStatus(statusEl, 'BMS bridge not reachable.', 'error');
+    return;
+  }
+  // ... existing test code ...
+});
     }
     const bridgeUrl = getBmsBridgeUrl();
     showStatus(statusEl, `Testing connection to ${bridgeUrl}...`, 'info');
