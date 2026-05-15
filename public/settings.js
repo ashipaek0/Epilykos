@@ -1,4 +1,5 @@
 // settings.js – complete with Metrics tab, BMS devices, dropdown metric cards, savings config, etc.
+// Includes null checks for all DOM event listeners to prevent errors when elements are missing.
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -214,10 +215,13 @@ function reindexHa() {
   });
 }
 
-document.getElementById('add-ha-device').addEventListener('click', () => {
-  const idx = haDeviceCounter;
-  renderHaDevice({ name: '', url: '', token: '', enabled: true, poll_interval: 30, entities: {} }, idx);
-});
+const addHaBtn = document.getElementById('add-ha-device');
+if (addHaBtn) {
+  addHaBtn.addEventListener('click', () => {
+    const idx = haDeviceCounter;
+    renderHaDevice({ name: '', url: '', token: '', enabled: true, poll_interval: 30, entities: {} }, idx);
+  });
+}
 
 // ======================== MQTT ========================
 let mqttDeviceCounter = 0;
@@ -368,10 +372,13 @@ function reindexMqtt() {
   });
 }
 
-document.getElementById('add-mqtt-device').addEventListener('click', () => {
-  const idx = mqttDeviceCounter;
-  renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
-});
+const addMqttBtn = document.getElementById('add-mqtt-device');
+if (addMqttBtn) {
+  addMqttBtn.addEventListener('click', () => {
+    const idx = mqttDeviceCounter;
+    renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
+  });
+}
 
 // ======================== MODBUS (with serial support) ========================
 let modbusDeviceCounter = 0;
@@ -496,10 +503,13 @@ function reindexModbus() {
   });
 }
 
-document.getElementById('add-modbus-device').addEventListener('click', () => {
-  const idx = modbusDeviceCounter;
-  renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
-});
+const addModbusBtn = document.getElementById('add-modbus-device');
+if (addModbusBtn) {
+  addModbusBtn.addEventListener('click', () => {
+    const idx = modbusDeviceCounter;
+    renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
+  });
+}
 
 // ======================== EXTERNAL REST SOURCES ========================
 let externalSourceCounter = 0;
@@ -604,12 +614,15 @@ function reindexExternal() {
   });
 }
 
-document.getElementById('add-external-source').addEventListener('click', () => {
-  const idx = externalSourceCounter;
-  renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
-});
+const addExternalBtn = document.getElementById('add-external-source');
+if (addExternalBtn) {
+  addExternalBtn.addEventListener('click', () => {
+    const idx = externalSourceCounter;
+    renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
+  });
+}
 
-// ======================== BLUETOOTH BMS (new) ========================
+// ======================== BLUETOOTH BMS ========================
 let bmsDeviceCounter = 0;
 function buildBmsDeviceList(devices) {
   const container = document.getElementById('bms-devices-container');
@@ -653,7 +666,8 @@ function renderBmsDevice(device, idx) {
     }
     showStatus(statusEl, 'Testing...', 'info');
     try {
-      const res = await fetch(`http://localhost:8000/device/${address}`, { timeout: 5000 });
+      // Note: port must match the bridge's exposed port (8001)
+      const res = await fetch(`http://localhost:8001/device/${address}`, { timeout: 5000 });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
@@ -677,30 +691,36 @@ function reindexBms() {
   });
 }
 
-document.getElementById('add-bms-device').addEventListener('click', () => {
-  const idx = bmsDeviceCounter;
-  renderBmsDevice({ name: '', address: '', enabled: true }, idx);
-});
+const addBmsBtn = document.getElementById('add-bms-device');
+if (addBmsBtn) {
+  addBmsBtn.addEventListener('click', () => {
+    const idx = bmsDeviceCounter;
+    renderBmsDevice({ name: '', address: '', enabled: true }, idx);
+  });
+}
 
 // ======================== FORECAST TEST ========================
-document.getElementById('test-forecast').addEventListener('click', async function() {
-  const btn = this;
-  const statusEl = document.getElementById('forecast-test-status');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Testing...';
-  showStatus(statusEl, 'Fetching forecast...', 'info');
-  try {
-    const res = await fetch('/api/test-forecast');
-    const data = await res.json();
-    if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
-    else showStatus(statusEl, `❌ ${data.error}`, 'error');
-  } catch (e) {
-    showStatus(statusEl, `❌ Error: ${e.message}`, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Test Forecast';
-  }
-});
+const forecastTestBtn = document.getElementById('test-forecast');
+if (forecastTestBtn) {
+  forecastTestBtn.addEventListener('click', async function() {
+    const btn = this;
+    const statusEl = document.getElementById('forecast-test-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Testing...';
+    showStatus(statusEl, 'Fetching forecast...', 'info');
+    try {
+      const res = await fetch('/api/test-forecast');
+      const data = await res.json();
+      if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
+      else showStatus(statusEl, `❌ ${data.error}`, 'error');
+    } catch (e) {
+      showStatus(statusEl, `❌ Error: ${e.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Test Forecast';
+    }
+  });
+}
 
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
@@ -767,18 +787,24 @@ const modalCreate = document.getElementById('modal-create');
 
 if (createBtn) {
   createBtn.addEventListener('click', () => {
-    modal.style.display = 'flex';
-    document.getElementById('new-metric-name').value = '';
-    document.getElementById('new-metric-unit').value = '';
+    if (modal) modal.style.display = 'flex';
+    const nameInput = document.getElementById('new-metric-name');
+    const unitInput = document.getElementById('new-metric-unit');
+    if (nameInput) nameInput.value = '';
+    if (unitInput) unitInput.value = '';
   });
 }
 if (modalCancel) {
-  modalCancel.addEventListener('click', () => { modal.style.display = 'none'; });
+  modalCancel.addEventListener('click', () => {
+    if (modal) modal.style.display = 'none';
+  });
 }
 if (modalCreate) {
   modalCreate.addEventListener('click', async () => {
-    const name = document.getElementById('new-metric-name').value.trim();
-    const unit = document.getElementById('new-metric-unit').value.trim();
+    const nameInput = document.getElementById('new-metric-name');
+    const unitInput = document.getElementById('new-metric-unit');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const unit = unitInput ? unitInput.value.trim() : '';
     if (!name) {
       alert('Metric name is required');
       return;
@@ -790,7 +816,7 @@ if (modalCreate) {
         body: JSON.stringify({ name, unit })
       });
       if (res.ok) {
-        modal.style.display = 'none';
+        if (modal) modal.style.display = 'none';
         await loadMetricsList();
         showStatus(backupStatus, `Metric "${name}" created`, 'success');
       } else {
@@ -803,7 +829,7 @@ if (modalCreate) {
   });
 }
 window.addEventListener('click', (e) => {
-  if (e.target === modal) modal.style.display = 'none';
+  if (modal && e.target === modal) modal.style.display = 'none';
 });
 
 // ======================== DASHBOARD EDITOR ========================
@@ -914,8 +940,10 @@ function renderDashboardBlockEditor(dashboard) {
                 modal.style.display = 'flex';
                 const originalCreateHandler = modalCreate.onclick;
                 modalCreate.onclick = async () => {
-                  const name = document.getElementById('new-metric-name').value.trim();
-                  const unit = document.getElementById('new-metric-unit').value.trim();
+                  const nameInput = document.getElementById('new-metric-name');
+                  const unitInput = document.getElementById('new-metric-unit');
+                  const name = nameInput ? nameInput.value.trim() : '';
+                  const unit = unitInput ? unitInput.value.trim() : '';
                   if (!name) { alert('Metric name is required'); return; }
                   try {
                     const res = await fetch('/api/metrics/create', {
@@ -924,7 +952,7 @@ function renderDashboardBlockEditor(dashboard) {
                       body: JSON.stringify({ name, unit })
                     });
                     if (res.ok) {
-                      modal.style.display = 'none';
+                      if (modal) modal.style.display = 'none';
                       await loadMetricsList();
                       document.querySelectorAll('.card-metric-select').forEach(select => {
                         const currentVal = select.value;
@@ -936,7 +964,7 @@ function renderDashboardBlockEditor(dashboard) {
                       alert(err.error || 'Creation failed');
                     }
                   } catch (err) { alert(err.message); }
-                  modalCreate.onclick = originalCreateHandler;
+                  if (modalCreate) modalCreate.onclick = originalCreateHandler;
                 };
               }
             } else {
@@ -1083,41 +1111,50 @@ function renderDashboardBlockEditor(dashboard) {
   container.appendChild(addBlockBtn);
 }
 
-document.getElementById('add-dashboard-btn').addEventListener('click', () => {
-  const newId = 'db_' + Date.now();
-  dashConfig.dashboards.push({ id: newId, name: 'New Tab', layout: [] });
-  dashConfig.activeDashboard = newId;
-  buildDashboardEditor(dashConfig);
-});
+const addDashboardBtn = document.getElementById('add-dashboard-btn');
+if (addDashboardBtn) {
+  addDashboardBtn.addEventListener('click', () => {
+    const newId = 'db_' + Date.now();
+    dashConfig.dashboards.push({ id: newId, name: 'New Tab', layout: [] });
+    dashConfig.activeDashboard = newId;
+    buildDashboardEditor(dashConfig);
+  });
+}
 
 // ======================== LAYOUT IMPORT/EXPORT ========================
-document.getElementById('export-layout-btn')?.addEventListener('click', () => {
-  window.location.href = '/api/dashboard-config/export';
-});
+const exportLayoutBtn = document.getElementById('export-layout-btn');
+if (exportLayoutBtn) {
+  exportLayoutBtn.addEventListener('click', () => {
+    window.location.href = '/api/dashboard-config/export';
+  });
+}
+const importLayoutBtn = document.getElementById('import-layout-btn');
 const importLayoutFile = document.getElementById('import-layout-file');
-document.getElementById('import-layout-btn')?.addEventListener('click', () => {
-  importLayoutFile.click();
-});
-importLayoutFile?.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const formData = new FormData();
-  formData.append('layout', file);
-  try {
-    const res = await fetch('/api/dashboard-config/import', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (res.ok) {
-      showStatus(backupStatus, 'Layout imported successfully! Reloading...', 'success');
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      showStatus(backupStatus, data.error || 'Import failed', 'error');
+if (importLayoutBtn && importLayoutFile) {
+  importLayoutBtn.addEventListener('click', () => {
+    importLayoutFile.click();
+  });
+  importLayoutFile.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('layout', file);
+    try {
+      const res = await fetch('/api/dashboard-config/import', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus(backupStatus, 'Layout imported successfully! Reloading...', 'success');
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showStatus(backupStatus, data.error || 'Import failed', 'error');
+      }
+    } catch (err) {
+      showStatus(backupStatus, 'Error: ' + err.message, 'error');
+    } finally {
+      importLayoutFile.value = '';
     }
-  } catch (err) {
-    showStatus(backupStatus, 'Error: ' + err.message, 'error');
-  } finally {
-    importLayoutFile.value = '';
-  }
-});
+  });
+}
 
 // ======================== SAVE ========================
 form.addEventListener('submit', async (e) => {
@@ -1237,4 +1274,4 @@ function escapeHtml(str) {
 
 // Initialize
 loadMetricsList();
-loadSettings();
+loadSettings(); 
