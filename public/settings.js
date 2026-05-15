@@ -1,4 +1,4 @@
-// settings.js – complete with Metrics tab, BMS devices, scan button, port 8020, and tab switching
+// settings.js – complete with Metrics tab, BMS devices, scan button, dynamic bridge URL
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -12,6 +12,12 @@ function showStatus(element, msg, type) {
   if (type !== 'info') {
     setTimeout(() => { element.textContent = ''; element.className = 'status'; }, 5000);
   }
+}
+
+// Helper to get BMS bridge URL
+function getBmsBridgeUrl() {
+  // Use the same hostname as the dashboard, but port 8020
+  return `${window.location.protocol}//${window.location.hostname}:8020`;
 }
 
 // ── Load existing settings ─────────────────────────────────────────────────
@@ -590,7 +596,7 @@ if (addExternalBtn) addExternalBtn.addEventListener('click', () => {
   renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
 });
 
-// ======================== BLUETOOTH BMS (with scan button, port 8020) ========================
+// ======================== BLUETOOTH BMS (with scan button, dynamic bridge URL) ========================
 let bmsDeviceCounter = 0;
 function buildBmsDeviceList(devices) {
   const container = document.getElementById('bms-devices-container');
@@ -625,9 +631,10 @@ function renderBmsDevice(device, idx) {
   });
   card.querySelector('.scan-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    showStatus(statusEl, 'Scanning for BLE devices...', 'info');
+    const bridgeUrl = getBmsBridgeUrl();
+    showStatus(statusEl, `Scanning for BLE devices via ${bridgeUrl}...`, 'info');
     try {
-      const res = await fetch('http://localhost:8020/devices', { timeout: 10000 });
+      const res = await fetch(`${bridgeUrl}/devices`, { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const devices = await res.json();
       if (!devices.length) {
@@ -656,9 +663,10 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, 'MAC address required', 'error');
       return;
     }
-    showStatus(statusEl, 'Testing...', 'info');
+    const bridgeUrl = getBmsBridgeUrl();
+    showStatus(statusEl, `Testing connection to ${bridgeUrl}...`, 'info');
     try {
-      const res = await fetch(`http://localhost:8020/device/${address}`, { timeout: 5000 });
+      const res = await fetch(`${bridgeUrl}/device/${address}`, { timeout: 5000 });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
@@ -726,7 +734,7 @@ function renderMetricsTable() {
   const tbody = document.getElementById('metrics-table-body');
   if (!tbody) return;
   if (!metricsList.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></tr>';
+    tbody.innerHTML = '<td><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></td>';
     return;
   }
   tbody.innerHTML = '';
