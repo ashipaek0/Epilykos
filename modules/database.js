@@ -82,7 +82,7 @@ function initializeDatabase() {
   // Default values
   const defaults = {
     forecast_enabled: 'false',
-    dashboard_title: '⚡ Energy Dashboard',
+    dashboard_title: '⚡ Epilykos',
     savings_currency: '€',
     savings_rate: '0.30',
     solar_loss_factor: '0.9',
