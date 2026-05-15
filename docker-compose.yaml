@@ -1,6 +1,6 @@
 services:
   epilykos:
-    build: .
+    image: irunmole/epilykos:latest 
     container_name: epilykos
     restart: unless-stopped
     ports:
