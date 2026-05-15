@@ -1,4 +1,4 @@
-// settings.js – complete with Metrics tab, BMS devices, scan button, port 8020
+// settings.js – complete with Metrics tab, BMS devices, scan button, port 8020, and tab switching
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -215,12 +215,10 @@ function reindexHa() {
 }
 
 const addHaBtn = document.getElementById('add-ha-device');
-if (addHaBtn) {
-  addHaBtn.addEventListener('click', () => {
-    const idx = haDeviceCounter;
-    renderHaDevice({ name: '', url: '', token: '', enabled: true, poll_interval: 30, entities: {} }, idx);
-  });
-}
+if (addHaBtn) addHaBtn.addEventListener('click', () => {
+  const idx = haDeviceCounter;
+  renderHaDevice({ name: '', url: '', token: '', enabled: true, poll_interval: 30, entities: {} }, idx);
+});
 
 // ======================== MQTT ========================
 let mqttDeviceCounter = 0;
@@ -372,14 +370,12 @@ function reindexMqtt() {
 }
 
 const addMqttBtn = document.getElementById('add-mqtt-device');
-if (addMqttBtn) {
-  addMqttBtn.addEventListener('click', () => {
-    const idx = mqttDeviceCounter;
-    renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
-  });
-}
+if (addMqttBtn) addMqttBtn.addEventListener('click', () => {
+  const idx = mqttDeviceCounter;
+  renderMqttDevice({ name: '', broker: '', username: '', password: '', enabled: true, topics: {} }, idx);
+});
 
-// ======================== MODBUS (with serial support) ========================
+// ======================== MODBUS ========================
 let modbusDeviceCounter = 0;
 function buildModbusDeviceList(devices) {
   const container = document.getElementById('modbus-devices-container');
@@ -439,13 +435,11 @@ function renderModbusDevice(device, idx) {
   const transportSelect = card.querySelector('.modbus-transport-select');
   const tcpFields = card.querySelector('.modbus-tcp-fields');
   const serialFields = card.querySelector('.modbus-serial-fields');
-
   transportSelect.addEventListener('change', (e) => {
     const isTcp = e.target.value === 'tcp';
     tcpFields.style.display = isTcp ? '' : 'none';
     serialFields.style.display = isTcp ? 'none' : '';
   });
-
   const profileSelect = card.querySelector('.modbus-profile-select');
   fetch('/api/modbus/profiles').then(r => r.json()).then(profiles => {
     profiles.forEach(p => {
@@ -456,12 +450,10 @@ function renderModbusDevice(device, idx) {
       profileSelect.appendChild(opt);
     });
   });
-
   card.querySelector('[data-action="remove-modbus"]').addEventListener('click', () => {
     card.remove();
     reindexModbus();
   });
-
   card.querySelector('.test-modbus').addEventListener('click', async function() {
     const statusEl = document.createElement('span');
     statusEl.className = 'test-status';
@@ -478,11 +470,7 @@ function renderModbusDevice(device, idx) {
       unit: card.querySelector('input[name$="[unit]"]')?.value,
     };
     try {
-      const res = await fetch('/api/test-modbus', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dev)
-      });
+      const res = await fetch('/api/test-modbus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dev) });
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `OK: ${data.value}`, 'success');
       else showStatus(statusEl, data.error, 'error');
@@ -501,14 +489,11 @@ function reindexModbus() {
     modbusDeviceCounter++;
   });
 }
-
 const addModbusBtn = document.getElementById('add-modbus-device');
-if (addModbusBtn) {
-  addModbusBtn.addEventListener('click', () => {
-    const idx = modbusDeviceCounter;
-    renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
-  });
-}
+if (addModbusBtn) addModbusBtn.addEventListener('click', () => {
+  const idx = modbusDeviceCounter;
+  renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
+});
 
 // ======================== EXTERNAL REST SOURCES ========================
 let externalSourceCounter = 0;
@@ -519,7 +504,6 @@ function buildExternalSourceList(sources) {
   externalSourceCounter = 0;
   sources.forEach((src, idx) => renderExternalSource(src, idx));
 }
-
 function renderExternalSource(source, idx) {
   const container = document.getElementById('external-sources-container');
   const card = document.createElement('div');
@@ -546,19 +530,15 @@ function renderExternalSource(source, idx) {
     </div>
   `;
   container.appendChild(card);
-
   card.querySelector('[data-action="remove-external"]').addEventListener('click', () => {
     card.remove();
     reindexExternal();
   });
-
   const mappingsList = card.querySelector('.mappings-list');
   renderExternalMappings(source.mappings || {}, idx, mappingsList);
-
   card.querySelector('.add-external-metric').addEventListener('click', () => {
     addExternalMetricRow(idx, mappingsList);
   });
-
   const testBtn = card.querySelector('.test-external');
   const testPathInput = card.querySelector('.test-jsonpath');
   const testStatus = card.querySelector(`#external-test-status-${idx}`);
@@ -568,11 +548,7 @@ function renderExternalSource(source, idx) {
     if (!url) { showStatus(testStatus, 'URL required', 'error'); return; }
     showStatus(testStatus, 'Testing...', 'info');
     try {
-      const res = await fetch('/api/test-external', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, jsonPath })
-      });
+      const res = await fetch('/api/test-external', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, jsonPath }) });
       const data = await res.json();
       if (res.ok) showStatus(testStatus, `Value: ${data.value}`, 'success');
       else showStatus(testStatus, data.error, 'error');
@@ -580,10 +556,8 @@ function renderExternalSource(source, idx) {
       showStatus(testStatus, err.message, 'error');
     }
   });
-
   externalSourceCounter++;
 }
-
 function renderExternalMappings(mappings, deviceIdx, container) {
   container.innerHTML = '';
   Object.entries(mappings).forEach(([jsonPath, metric]) => {
@@ -591,7 +565,6 @@ function renderExternalMappings(mappings, deviceIdx, container) {
   });
   if (Object.keys(mappings).length === 0) addExternalMetricRow(deviceIdx, container);
 }
-
 function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') {
   const row = document.createElement('div');
   row.className = 'metric-row';
@@ -603,7 +576,6 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') 
   row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
   container.appendChild(row);
 }
-
 function reindexExternal() {
   const cards = document.querySelectorAll('#external-sources-container .device-card');
   externalSourceCounter = 0;
@@ -612,14 +584,11 @@ function reindexExternal() {
     externalSourceCounter++;
   });
 }
-
 const addExternalBtn = document.getElementById('add-external-source');
-if (addExternalBtn) {
-  addExternalBtn.addEventListener('click', () => {
-    const idx = externalSourceCounter;
-    renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
-  });
-}
+if (addExternalBtn) addExternalBtn.addEventListener('click', () => {
+  const idx = externalSourceCounter;
+  renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
+});
 
 // ======================== BLUETOOTH BMS (with scan button, port 8020) ========================
 let bmsDeviceCounter = 0;
@@ -630,7 +599,6 @@ function buildBmsDeviceList(devices) {
   bmsDeviceCounter = 0;
   devices.forEach((dev, idx) => renderBmsDevice(dev, idx));
 }
-
 function renderBmsDevice(device, idx) {
   const container = document.getElementById('bms-devices-container');
   const card = document.createElement('div');
@@ -651,14 +619,10 @@ function renderBmsDevice(device, idx) {
     <div class="note">MAC address can be found by scanning with a phone BLE scanner or using the bridge's /devices endpoint.</div>
   `;
   container.appendChild(card);
-
-  // Remove button
   card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
     card.remove();
     reindexBms();
   });
-
-  // Scan button
   card.querySelector('.scan-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
     showStatus(statusEl, 'Scanning for BLE devices...', 'info');
@@ -670,7 +634,6 @@ function renderBmsDevice(device, idx) {
         showStatus(statusEl, 'No BMS devices found', 'error');
         return;
       }
-      // Build a simple prompt with device list
       const deviceList = devices.map(d => `${d.address} (${d.name || 'Unknown'}, RSSI: ${d.rssi})`).join('\n');
       const selected = prompt(`Select a device by entering its MAC address:\n${deviceList}`);
       if (selected && selected.trim()) {
@@ -686,8 +649,6 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, `Scan failed: ${err.message}`, 'error');
     }
   });
-
-  // Test connection button
   card.querySelector('.test-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
     const address = card.querySelector('input[name$="[address]"]').value.trim();
@@ -708,10 +669,8 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, `Failed: ${err.message}`, 'error');
     }
   });
-
   bmsDeviceCounter++;
 }
-
 function reindexBms() {
   const cards = document.querySelectorAll('#bms-devices-container .device-card');
   bmsDeviceCounter = 0;
@@ -720,14 +679,11 @@ function reindexBms() {
     bmsDeviceCounter++;
   });
 }
-
 const addBmsBtn = document.getElementById('add-bms-device');
-if (addBmsBtn) {
-  addBmsBtn.addEventListener('click', () => {
-    const idx = bmsDeviceCounter;
-    renderBmsDevice({ name: '', address: '', enabled: true }, idx);
-  });
-}
+if (addBmsBtn) addBmsBtn.addEventListener('click', () => {
+  const idx = bmsDeviceCounter;
+  renderBmsDevice({ name: '', address: '', enabled: true }, idx);
+});
 
 // ======================== FORECAST TEST ========================
 const forecastTestBtn = document.getElementById('test-forecast');
@@ -754,7 +710,6 @@ if (forecastTestBtn) {
 
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
-
 async function loadMetricsList() {
   try {
     const res = await fetch('/api/metrics/list');
@@ -764,15 +719,14 @@ async function loadMetricsList() {
   } catch (err) {
     console.error('Error loading metrics:', err);
     const tbody = document.getElementById('metrics-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics<tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
   }
 }
-
 function renderMetricsTable() {
   const tbody = document.getElementById('metrics-table-body');
   if (!tbody) return;
   if (!metricsList.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</tr>';
+    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></tr>';
     return;
   }
   tbody.innerHTML = '';
@@ -808,13 +762,11 @@ function renderMetricsTable() {
     });
   });
 }
-
 // Modal handling
 const modal = document.getElementById('metric-modal');
 const createBtn = document.getElementById('create-metric-btn');
 const modalCancel = document.getElementById('modal-cancel');
 const modalCreate = document.getElementById('modal-create');
-
 if (createBtn) {
   createBtn.addEventListener('click', () => {
     if (modal) modal.style.display = 'flex';
@@ -824,27 +776,16 @@ if (createBtn) {
     if (unitInput) unitInput.value = '';
   });
 }
-if (modalCancel) {
-  modalCancel.addEventListener('click', () => {
-    if (modal) modal.style.display = 'none';
-  });
-}
+if (modalCancel) modalCancel.addEventListener('click', () => { if (modal) modal.style.display = 'none'; });
 if (modalCreate) {
   modalCreate.addEventListener('click', async () => {
     const nameInput = document.getElementById('new-metric-name');
     const unitInput = document.getElementById('new-metric-unit');
     const name = nameInput ? nameInput.value.trim() : '';
     const unit = unitInput ? unitInput.value.trim() : '';
-    if (!name) {
-      alert('Metric name is required');
-      return;
-    }
+    if (!name) { alert('Metric name is required'); return; }
     try {
-      const res = await fetch('/api/metrics/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, unit })
-      });
+      const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, unit }) });
       if (res.ok) {
         if (modal) modal.style.display = 'none';
         await loadMetricsList();
@@ -853,24 +794,18 @@ if (modalCreate) {
         const err = await res.json();
         alert(err.error || 'Creation failed');
       }
-    } catch (err) {
-      alert(err.message);
-    }
+    } catch (err) { alert(err.message); }
   });
 }
-window.addEventListener('click', (e) => {
-  if (modal && e.target === modal) modal.style.display = 'none';
-});
+window.addEventListener('click', (e) => { if (modal && e.target === modal) modal.style.display = 'none'; });
 
 // ======================== DASHBOARD EDITOR ========================
 let dashConfig = null;
-
 function buildDashboardEditor(config) {
   dashConfig = config || { dashboards: [], activeDashboard: 'main' };
   const listEl = document.getElementById('dashboards-list');
   listEl.innerHTML = '';
   if (!dashConfig.dashboards.length) return;
-  
   const activeId = dashConfig.activeDashboard || dashConfig.dashboards[0]?.id;
   dashConfig.dashboards.forEach(db => {
     const row = document.createElement('div');
@@ -881,33 +816,25 @@ function buildDashboardEditor(config) {
       <button type="button" class="remove-btn delete-dash" data-id="${db.id}">Del</button>
     `;
     listEl.appendChild(row);
-
     row.querySelector('.set-active').addEventListener('click', () => {
       dashConfig.activeDashboard = db.id;
       buildDashboardEditor(dashConfig);
     });
     row.querySelector('.delete-dash').addEventListener('click', () => {
       dashConfig.dashboards = dashConfig.dashboards.filter(d => d.id !== db.id);
-      if (dashConfig.activeDashboard === db.id) {
-        dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
-      }
+      if (dashConfig.activeDashboard === db.id) dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
       buildDashboardEditor(dashConfig);
     });
-    row.querySelector('.dash-name').addEventListener('change', (e) => {
-      db.name = e.target.value;
-    });
+    row.querySelector('.dash-name').addEventListener('change', (e) => { db.name = e.target.value; });
   });
-
   const activeDb = dashConfig.dashboards.find(db => db.id === activeId);
   if (activeDb) renderDashboardBlockEditor(activeDb);
 }
-
 function renderDashboardBlockEditor(dashboard) {
   const container = document.getElementById('active-dashboard-editor');
   container.innerHTML = `<h4>Editing: ${escapeHtml(dashboard.name)}</h4>`;
   const blockList = document.createElement('ul');
   blockList.className = 'block-list';
-  
   dashboard.layout.forEach((block, idx) => {
     const li = document.createElement('li');
     li.dataset.index = idx;
@@ -928,7 +855,6 @@ function renderDashboardBlockEditor(dashboard) {
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
     `;
-    
     if (block.type === 'metric-cards') {
       const cardEditorDiv = document.createElement('div');
       cardEditorDiv.className = 'metric-cards-editor';
@@ -937,7 +863,6 @@ function renderDashboardBlockEditor(dashboard) {
       cardEditorDiv.style.borderLeft = '2px solid var(--accent)';
       const cardsList = document.createElement('div');
       cardsList.className = 'cards-list';
-      
       function getMetricOptions(selectedMetric) {
         let options = '<option value="">-- Select metric --</option>';
         if (metricsList && metricsList.length) {
@@ -948,7 +873,6 @@ function renderDashboardBlockEditor(dashboard) {
         options += '<option value="__CREATE_NEW__">+ Create new metric...</option>';
         return options;
       }
-      
       function renderCards() {
         cardsList.innerHTML = '';
         (block.cards || []).forEach((card, cardIdx) => {
@@ -956,9 +880,7 @@ function renderDashboardBlockEditor(dashboard) {
           cardRow.className = 'card-editor-row';
           cardRow.innerHTML = `
             <input type="text" class="card-title" value="${escapeHtml(card.title || '')}" placeholder="Title" style="flex:2;">
-            <select class="card-metric-select" style="flex:2;">
-              ${getMetricOptions(card.metric || '')}
-            </select>
+            <select class="card-metric-select" style="flex:2;">${getMetricOptions(card.metric || '')}</select>
             <input type="text" class="card-unit" value="${escapeHtml(card.unit || '')}" placeholder="Unit" style="flex:1;">
             <button type="button" class="remove-card-btn remove-btn" style="background:#ef4444;">−</button>
           `;
@@ -976,11 +898,7 @@ function renderDashboardBlockEditor(dashboard) {
                   const unit = unitInput ? unitInput.value.trim() : '';
                   if (!name) { alert('Metric name is required'); return; }
                   try {
-                    const res = await fetch('/api/metrics/create', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ name, unit })
-                    });
+                    const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, unit }) });
                     if (res.ok) {
                       if (modal) modal.style.display = 'none';
                       await loadMetricsList();
@@ -994,7 +912,7 @@ function renderDashboardBlockEditor(dashboard) {
                       alert(err.error || 'Creation failed');
                     }
                   } catch (err) { alert(err.message); }
-                  if (modalCreate) modalCreate.onclick = originalCreateHandler;
+                  modalCreate.onclick = originalCreateHandler;
                 };
               }
             } else {
@@ -1026,7 +944,6 @@ function renderDashboardBlockEditor(dashboard) {
       cardEditorDiv.appendChild(addCardBtn);
       li.appendChild(cardEditorDiv);
     }
-    
     const configBtn = li.querySelector('.config-block-btn');
     configBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1039,53 +956,26 @@ function renderDashboardBlockEditor(dashboard) {
       configPanel.style.backgroundColor = 'var(--bg)';
       configPanel.style.borderRadius = '0.5rem';
       configPanel.style.border = '1px solid var(--border)';
-      
       if (block.type === 'chart-power' || block.type === 'chart-energy') {
-        configPanel.innerHTML = `
-          <label>Chart Title</label>
-          <input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;">
-          <label>Datasets (comma-separated)</label>
-          <input type="text" class="config-datasets" value="${escapeHtml((block.config?.datasets || ['load','solar','battery','grid']).join(','))}" style="width:100%;">
-          <button class="fetch-btn save-config">Save</button>
-        `;
+        configPanel.innerHTML = `<label>Chart Title</label><input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;"><label>Datasets (comma-separated)</label><input type="text" class="config-datasets" value="${escapeHtml((block.config?.datasets || ['load','solar','battery','grid']).join(','))}" style="width:100%;"><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'flow-card') {
-        configPanel.innerHTML = `
-          <label>Show Solar Gauge</label>
-          <input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Yes
-          <button class="fetch-btn save-config">Save</button>
-        `;
+        configPanel.innerHTML = `<label>Show Solar Gauge</label><input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Yes<button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'grid-card') {
-        configPanel.innerHTML = `
-          <label>Show Timeline Bar</label>
-          <input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Yes
-          <button class="fetch-btn save-config">Save</button>
-        `;
+        configPanel.innerHTML = `<label>Show Timeline Bar</label><input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Yes<button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'weather-block') {
-        configPanel.innerHTML = `
-          <label>Title</label>
-          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Weather')}">
-          <button class="fetch-btn save-config">Save</button>
-        `;
+        configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Weather')}"><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'battery-block') {
-        configPanel.innerHTML = `
-          <label>Title</label>
-          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}">
-          <button class="fetch-btn save-config">Save</button>
-        `;
+        configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}"><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'savings-summary') {
-        configPanel.innerHTML = `
-          <label>Block Title</label>
-          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
+        configPanel.innerHTML = `<label>Block Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
           <label><input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Show Today</label>
           <label><input type="checkbox" class="config-show-week" ${block.config?.showWeek !== false ? 'checked' : ''}> Show Week</label>
           <label><input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Show Month</label>
           <label><input type="checkbox" class="config-show-all" ${block.config?.showAll !== false ? 'checked' : ''}> Show All-Time</label>
-          <button class="fetch-btn save-config">Save</button>
-        `;
+          <button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       }
-      
       const saveBtn = configPanel.querySelector('.save-config');
       if (saveBtn) {
         saveBtn.addEventListener('click', () => {
@@ -1117,7 +1007,6 @@ function renderDashboardBlockEditor(dashboard) {
       }
       li.appendChild(configPanel);
     });
-    
     li.querySelector('.block-type-select').addEventListener('change', (e) => {
       const newType = e.target.value;
       dashboard.layout[idx].type = newType;
@@ -1140,30 +1029,21 @@ function renderDashboardBlockEditor(dashboard) {
   });
   container.appendChild(addBlockBtn);
 }
-
 const addDashboardBtn = document.getElementById('add-dashboard-btn');
-if (addDashboardBtn) {
-  addDashboardBtn.addEventListener('click', () => {
-    const newId = 'db_' + Date.now();
-    dashConfig.dashboards.push({ id: newId, name: 'New Tab', layout: [] });
-    dashConfig.activeDashboard = newId;
-    buildDashboardEditor(dashConfig);
-  });
-}
+if (addDashboardBtn) addDashboardBtn.addEventListener('click', () => {
+  const newId = 'db_' + Date.now();
+  dashConfig.dashboards.push({ id: newId, name: 'New Tab', layout: [] });
+  dashConfig.activeDashboard = newId;
+  buildDashboardEditor(dashConfig);
+});
 
 // ======================== LAYOUT IMPORT/EXPORT ========================
 const exportLayoutBtn = document.getElementById('export-layout-btn');
-if (exportLayoutBtn) {
-  exportLayoutBtn.addEventListener('click', () => {
-    window.location.href = '/api/dashboard-config/export';
-  });
-}
+if (exportLayoutBtn) exportLayoutBtn.addEventListener('click', () => window.location.href = '/api/dashboard-config/export');
 const importLayoutBtn = document.getElementById('import-layout-btn');
 const importLayoutFile = document.getElementById('import-layout-file');
 if (importLayoutBtn && importLayoutFile) {
-  importLayoutBtn.addEventListener('click', () => {
-    importLayoutFile.click();
-  });
+  importLayoutBtn.addEventListener('click', () => importLayoutFile.click());
   importLayoutFile.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1190,13 +1070,11 @@ if (importLayoutBtn && importLayoutFile) {
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {};
-
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
     if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[') || el.name.startsWith('bms_devices[')) return;
     if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
     else payload[el.name] = el.value;
   });
-
   payload.ha_devices = collectDeviceArray('ha-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -1212,7 +1090,6 @@ form.addEventListener('submit', async (e) => {
     });
     return dev;
   });
-
   payload.mqtt_devices = collectDeviceArray('mqtt-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -1228,7 +1105,6 @@ form.addEventListener('submit', async (e) => {
     });
     return dev;
   });
-
   payload.modbus_devices = collectDeviceArray('modbus-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -1246,7 +1122,6 @@ form.addEventListener('submit', async (e) => {
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]')?.value || 30;
     return dev;
   });
-
   payload.external_sources = collectDeviceArray('external-sources-container', (card) => {
     const src = {};
     src.name = card.querySelector('.device-header input[type="text"]').value;
@@ -1260,7 +1135,6 @@ form.addEventListener('submit', async (e) => {
     });
     return src;
   });
-
   payload.bms_devices = collectDeviceArray('bms-devices-container', (card) => {
     const dev = {};
     dev.name = card.querySelector('.device-header input[type="text"]').value;
@@ -1268,23 +1142,12 @@ form.addEventListener('submit', async (e) => {
     dev.address = card.querySelector('input[name$="[address]"]').value;
     return dev;
   });
-
   payload.dashboard_config = JSON.stringify(dashConfig);
-
   try {
-    const res = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (res.ok) showStatus(saveStatus, 'Settings saved successfully!', 'success');
-    else {
-      const err = await res.json().catch(() => ({}));
-      showStatus(saveStatus, err.error || 'Failed to save', 'error');
-    }
-  } catch (e) {
-    showStatus(saveStatus, 'Error: ' + e.message, 'error');
-  }
+    else { const err = await res.json().catch(() => ({})); showStatus(saveStatus, err.error || 'Failed to save', 'error'); }
+  } catch (e) { showStatus(saveStatus, 'Error: ' + e.message, 'error'); }
 });
 
 function collectDeviceArray(containerId, extractFn) {
@@ -1295,12 +1158,54 @@ function collectDeviceArray(containerId, extractFn) {
   cards.forEach(card => arr.push(extractFn(card)));
   return JSON.stringify(arr);
 }
-
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
+
+// ======================== TAB SWITCHING (FIX) ========================
+function setupTabs() {
+  const mainTabs = document.querySelectorAll('.tab-btn');
+  const mainContents = document.querySelectorAll('.tab-content');
+  mainTabs.forEach(tab => {
+    tab.removeEventListener('click', mainTabHandler);
+    tab.addEventListener('click', mainTabHandler);
+  });
+  function mainTabHandler() {
+    const tabId = this.dataset.tab;
+    mainTabs.forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    mainContents.forEach(c => c.classList.remove('active'));
+    const active = document.getElementById(`tab-${tabId}`);
+    if (active) active.classList.add('active');
+    if (tabId === 'metrics' && typeof loadMetricsList === 'function') loadMetricsList();
+  }
+  const subTabs = document.querySelectorAll('.sub-tab-btn');
+  const subContents = document.querySelectorAll('.sub-tab-content');
+  subTabs.forEach(tab => {
+    tab.removeEventListener('click', subTabHandler);
+    tab.addEventListener('click', subTabHandler);
+  });
+  function subTabHandler() {
+    const subId = this.dataset.subtab;
+    subTabs.forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    subContents.forEach(c => c.classList.remove('active'));
+    const activeSub = document.getElementById(`subtab-${subId}`);
+    if (activeSub) activeSub.classList.add('active');
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  setupTabs();
+});
+// Re-run setup after settings load (in case of dynamic updates)
+const originalLoad = loadSettings;
+window.loadSettings = async function() {
+  await originalLoad();
+  setupTabs();
+};
+loadSettings = window.loadSettings;
 
 // Initialize
 loadMetricsList();
