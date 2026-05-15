@@ -6,7 +6,7 @@
   <title>Settings - Epilykos</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* All settings page styles from previous version (copy from earlier) */
+    /* All settings page styles (same as before – keep them) */
     .settings-form { background: var(--card-bg); padding: 2rem; border-radius: 1rem; max-width: 1000px; margin: 2rem auto; box-shadow: var(--shadow); border: 1px solid var(--border); }
     .form-group { margin-bottom: 1.2rem; }
     label { display: block; margin-bottom: 0.4rem; font-weight: 500; color: var(--text); }
@@ -109,7 +109,7 @@
     </div>
 
     <form id="settings-form">
-      <!-- Tab 1: Data Sources -->
+      <!-- Tab 1: Data Sources (with sub‑tabs) -->
       <div id="tab-data-sources" class="tab-content active">
         <div class="sub-tabs" id="data-source-subtabs">
           <button class="sub-tab-btn active" data-subtab="ha">Home Assistant</button>
@@ -168,7 +168,7 @@
 </div>
 
 <script>
-  // Theme toggle (simple)
+  // Theme toggle
   function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -191,6 +191,44 @@
   }
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+  // Tab switching (main tabs)
+  const mainTabs = document.querySelectorAll('.tab-btn');
+  const mainContents = document.querySelectorAll('.tab-content');
+  function switchMainTab(tabId) {
+    mainTabs.forEach(t => t.classList.remove('active'));
+    const activeTab = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+    if (activeTab) activeTab.classList.add('active');
+    mainContents.forEach(c => c.classList.remove('active'));
+    const activeContent = document.getElementById(`tab-${tabId}`);
+    if (activeContent) activeContent.classList.add('active');
+    // If metrics tab, refresh metrics list if function exists
+    if (tabId === 'metrics' && window.loadMetricsList) window.loadMetricsList();
+  }
+  mainTabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      const tabId = tab.getAttribute('data-tab');
+      switchMainTab(tabId);
+    });
+  });
+
+  // Sub‑tab switching inside Data Sources
+  const subTabs = document.querySelectorAll('.sub-tab-btn');
+  const subContents = document.querySelectorAll('.sub-tab-content');
+  function switchSubTab(subId) {
+    subTabs.forEach(t => t.classList.remove('active'));
+    const activeSub = document.querySelector(`.sub-tab-btn[data-subtab="${subId}"]`);
+    if (activeSub) activeSub.classList.add('active');
+    subContents.forEach(c => c.classList.remove('active'));
+    const activeContent = document.getElementById(`subtab-${subId}`);
+    if (activeContent) activeContent.classList.add('active');
+  }
+  subTabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      const subId = tab.getAttribute('data-subtab');
+      switchSubTab(subId);
+    });
+  });
 </script>
 <script src="settings.js"></script>
 </body>

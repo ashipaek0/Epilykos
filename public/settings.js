@@ -1164,49 +1164,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// ======================== TAB SWITCHING (FIX) ========================
-function setupTabs() {
-  const mainTabs = document.querySelectorAll('.tab-btn');
-  const mainContents = document.querySelectorAll('.tab-content');
-  mainTabs.forEach(tab => {
-    tab.removeEventListener('click', mainTabHandler);
-    tab.addEventListener('click', mainTabHandler);
-  });
-  function mainTabHandler() {
-    const tabId = this.dataset.tab;
-    mainTabs.forEach(t => t.classList.remove('active'));
-    this.classList.add('active');
-    mainContents.forEach(c => c.classList.remove('active'));
-    const active = document.getElementById(`tab-${tabId}`);
-    if (active) active.classList.add('active');
-    if (tabId === 'metrics' && typeof loadMetricsList === 'function') loadMetricsList();
-  }
-  const subTabs = document.querySelectorAll('.sub-tab-btn');
-  const subContents = document.querySelectorAll('.sub-tab-content');
-  subTabs.forEach(tab => {
-    tab.removeEventListener('click', subTabHandler);
-    tab.addEventListener('click', subTabHandler);
-  });
-  function subTabHandler() {
-    const subId = this.dataset.subtab;
-    subTabs.forEach(t => t.classList.remove('active'));
-    this.classList.add('active');
-    subContents.forEach(c => c.classList.remove('active'));
-    const activeSub = document.getElementById(`subtab-${subId}`);
-    if (activeSub) activeSub.classList.add('active');
-  }
-}
-document.addEventListener('DOMContentLoaded', () => {
-  setupTabs();
-});
-// Re-run setup after settings load (in case of dynamic updates)
-const originalLoad = loadSettings;
-window.loadSettings = async function() {
-  await originalLoad();
-  setupTabs();
-};
-loadSettings = window.loadSettings;
-
 // Initialize
 loadMetricsList();
 loadSettings();
