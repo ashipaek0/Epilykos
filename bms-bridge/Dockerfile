@@ -2,7 +2,6 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies required for aiobmsble and Bluetooth
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
@@ -13,6 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Debug: list installed package and available functions
+RUN pip show aiobmsble && \
+    python -c "import aiobmsble; print('Available functions:', dir(aiobmsble))"
 
 COPY bms_bridge.py .
 
