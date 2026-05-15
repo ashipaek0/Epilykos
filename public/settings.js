@@ -1,4 +1,4 @@
-// settings.js – with Metrics tab, metric cards dropdown, device editors, dashboard editor, layout import/export
+// settings.js – with Metrics tab, metric cards dropdown, savings block config, device editors, dashboard editor
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -961,6 +961,20 @@ function renderDashboardBlockEditor(dashboard) {
           <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}" placeholder="Title" style="width:100%;">
           <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
         `;
+      } else if (block.type === 'savings-summary') {
+        configPanel.innerHTML = `
+          <label style="display:block; margin-bottom:0.25rem;">Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}" placeholder="Title" style="width:100%; margin-bottom:0.5rem;">
+          <label style="display:block; margin-bottom:0.25rem;">Show Today's Savings</label>
+          <input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Yes
+          <label style="display:block; margin-bottom:0.25rem; margin-top:0.5rem;">Show Week's Savings</label>
+          <input type="checkbox" class="config-show-week" ${block.config?.showWeek !== false ? 'checked' : ''}> Yes
+          <label style="display:block; margin-bottom:0.25rem; margin-top:0.5rem;">Show Month's Savings</label>
+          <input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Yes
+          <label style="display:block; margin-bottom:0.25rem; margin-top:0.5rem;">Show All-Time Savings</label>
+          <input type="checkbox" class="config-show-all" ${block.config?.showAll !== false ? 'checked' : ''}> Yes
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>
+        `;
       } else {
         configPanel.innerHTML = `<div class="note">No configurable options for this block type.</div>`;
       }
@@ -985,6 +999,17 @@ function renderDashboardBlockEditor(dashboard) {
           } else if (block.type === 'weather-block' || block.type === 'battery-block') {
             const titleInput = configPanel.querySelector('.config-title');
             if (titleInput) block.config.title = titleInput.value;
+          } else if (block.type === 'savings-summary') {
+            const titleInput = configPanel.querySelector('.config-title');
+            if (titleInput) block.config.title = titleInput.value;
+            const showTodayCheck = configPanel.querySelector('.config-show-today');
+            if (showTodayCheck) block.config.showToday = showTodayCheck.checked;
+            const showWeekCheck = configPanel.querySelector('.config-show-week');
+            if (showWeekCheck) block.config.showWeek = showWeekCheck.checked;
+            const showMonthCheck = configPanel.querySelector('.config-show-month');
+            if (showMonthCheck) block.config.showMonth = showMonthCheck.checked;
+            const showAllCheck = configPanel.querySelector('.config-show-all');
+            if (showAllCheck) block.config.showAll = showAllCheck.checked;
           }
           configPanel.remove();
         });
