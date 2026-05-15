@@ -1,7 +1,7 @@
 services:
   energy-dashboard:
     build: .
-    container_name: energy-dashboard
+    container_name: epilykos
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -10,3 +10,4 @@ services:
     environment:
       - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
       - TZ=${TZ:-Africa/Lagos}
+      - LOG_LEVEL=${LOG_LEVEL}
