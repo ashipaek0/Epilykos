@@ -764,6 +764,43 @@ app.get('/api/metrics/names', async (req, res) => {
   }
 });
 
+// ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
+app.get('/api/metrics/list', isAuthenticated, (req, res) => {
+  try {
+    const { getAllMetrics } = require('./modules/metricsManager');
+    const metrics = getAllMetrics();
+    res.json(metrics);
+  } catch (err) {
+    logger.error('Error fetching metrics list:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/metrics/create', isAuthenticated, (req, res) => {
+  try {
+    const { createMetric } = require('./modules/metricsManager');
+    const { name, unit } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    createMetric(name, unit || '');
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error creating metric:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
+  try {
+    const { deleteMetric } = require('./modules/metricsManager');
+    const { name } = req.params;
+    deleteMetric(name);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error deleting metric:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Catch-all for SPA – must be after all explicit routes
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
