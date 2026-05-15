@@ -6,7 +6,7 @@
   <title>Settings - Epilykos</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Tab bar styles (main tabs) */
+    /* Tab bar styles */
     .settings-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -39,7 +39,6 @@
     .tab-content.active {
       display: block;
     }
-
     /* Sub‑tab styles (inside Data Sources) */
     .sub-tabs {
       display: flex;
@@ -70,7 +69,6 @@
     .sub-tab-content.active {
       display: block;
     }
-
     /* Rest of existing styles */
     .settings-form {
       background: var(--card-bg);
@@ -250,6 +248,39 @@
       margin-top: 0.5rem;
     }
 
+    /* Metrics table */
+    .metrics-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .metrics-table th, .metrics-table td {
+      padding: 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .metrics-table th {
+      background: var(--bg);
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 1rem;
+      min-width: 300px;
+      max-width: 500px;
+    }
+
     /* Mobile responsive */
     @media (max-width: 600px) {
       .settings-form {
@@ -296,6 +327,9 @@
         font-size: 0.8rem;
         padding: 0.4rem 0.8rem;
       }
+      .metrics-table th, .metrics-table td {
+        font-size: 0.8rem;
+      }
     }
   </style>
   <script>
@@ -328,6 +362,7 @@
     <!-- Main tab bar -->
     <div class="settings-tabs" id="settings-tabs">
       <button class="tab-btn active" data-tab="data-sources">Data Sources</button>
+      <button class="tab-btn" data-tab="metrics">Metrics</button>
       <button class="tab-btn" data-tab="solar">Solar Forecast</button>
       <button class="tab-btn" data-tab="dashboard">Dashboard Layout</button>
       <button class="tab-btn" data-tab="backup">Backup & Restore</button>
@@ -375,7 +410,25 @@
         </div>
       </div>
 
-      <!-- Tab 2: Solar Forecast -->
+      <!-- Tab 2: Metrics -->
+      <div id="tab-metrics" class="tab-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="margin:0;">Metrics Management</h3>
+          <button type="button" id="create-metric-btn" class="fetch-btn">+ New Metric</button>
+        </div>
+        <div id="metrics-table-container">
+          <table class="metrics-table">
+            <thead>
+              <tr><th>Metric Name</th><th>Current Value</th><th>Last Updated</th><th>Unit</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="metrics-table-body">
+              <tr><td colspan="5">Loading metrics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 3: Solar Forecast -->
       <div id="tab-solar" class="tab-content">
         <div class="toggle-group">
           <label><input type="checkbox" name="forecast_enabled" value="true"> Enable Solar Forecast</label>
@@ -436,7 +489,7 @@
         </div>
       </div>
 
-      <!-- Tab 3: Dashboard Layout -->
+      <!-- Tab 4: Dashboard Layout -->
       <div id="tab-dashboard" class="tab-content">
         <div id="dashboard-editor">
           <div id="dashboards-list"></div>
@@ -450,7 +503,7 @@
         </div>
       </div>
 
-      <!-- Tab 4: Backup & Restore -->
+      <!-- Tab 5: Backup & Restore -->
       <div id="tab-backup" class="tab-content">
         <div class="backup-row">
           <button type="button" id="backup-btn" class="fetch-btn">⬇️ Download Backup</button>
@@ -460,12 +513,12 @@
         <div id="backup-status" class="status"></div>
       </div>
 
-      <!-- Tab 5: Branding & Savings -->
+      <!-- Tab 6: Branding & Savings -->
       <div id="tab-branding" class="tab-content">
         <h3>Branding</h3>
         <div class="form-group">
           <label>Dashboard Title</label>
-          <input name="dashboard_title" placeholder="My Energy Dashboard" value="⚡ Energy Dashboard">
+          <input name="dashboard_title" placeholder="My Energy Dashboard" value="⚡ Epilykos">
         </div>
         <div class="form-group">
           <label>Logo URL (optional)</label>
@@ -492,8 +545,28 @@
     </form>
   </div>
 </div>
+
+<!-- Modal for creating new metric -->
+<div id="metric-modal" class="modal">
+  <div class="modal-content">
+    <h3>Create New Metric</h3>
+    <div class="form-group">
+      <label>Metric Name</label>
+      <input type="text" id="new-metric-name" placeholder="e.g., outside_temp">
+    </div>
+    <div class="form-group">
+      <label>Unit (optional)</label>
+      <input type="text" id="new-metric-unit" placeholder="e.g., °C, kW, V">
+    </div>
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+      <button type="button" id="modal-cancel">Cancel</button>
+      <button type="button" id="modal-create" class="fetch-btn">Create</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  // Theme toggle
+  // Theme toggle (same as before)
   function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -525,6 +598,10 @@
       btn.classList.add('active');
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       document.getElementById(`tab-${tabId}`).classList.add('active');
+      // If Metrics tab, refresh the metrics list
+      if (tabId === 'metrics' && typeof loadMetricsList === 'function') {
+        loadMetricsList();
+      }
     });
   });
 
