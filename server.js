@@ -281,18 +281,43 @@ app.get('/api/daily', async (req, res) => {
   const now = Math.floor(Date.now() / 1000);
   const since = now - (days * 24 * 3600);
   try {
+    // Fetch power readings (watts) from history
     const rows = db.prepare(`
-      SELECT date(timestamp, 'unixepoch') as day,
-        MAX(daily_consumption) as consumption_kwh,
-        MAX(daily_solar) as solar_kwh,
-        MAX(daily_battery_charge) as battery_charge_kwh,
-        MAX(daily_battery_discharge) as battery_discharge_kwh,
-        MAX(daily_grid_import) as grid_import_kwh,
-        MAX(daily_grid_export) as grid_export_kwh
-      FROM history WHERE timestamp >= ?
-      GROUP BY day ORDER BY day ASC
+      SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
+      FROM history
+      WHERE timestamp >= ?
+      ORDER BY timestamp ASC
     `).all(since);
-    res.json(rows);
+
+    // Integrate watt‑seconds to kWh per day
+    const dailyMap = new Map();
+    for (let i = 0; i < rows.length - 1; i++) {
+      const cur = rows[i];
+      const next = rows[i + 1];
+      const dtHours = (next.timestamp - cur.timestamp) / 3600;
+      const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
+      if (!dailyMap.has(day)) {
+        dailyMap.set(day, {
+          day,
+          consumption_kwh: 0,
+          solar_kwh: 0,
+          battery_charge_kwh: 0,
+          battery_discharge_kwh: 0,
+          grid_import_kwh: 0,
+          grid_export_kwh: 0
+        });
+      }
+      const entry = dailyMap.get(day);
+      entry.consumption_kwh    += ((cur.consumption + next.consumption) / 2000) * dtHours;
+      entry.solar_kwh          += ((cur.solar + next.solar) / 2000) * dtHours;
+      entry.battery_charge_kwh += ((cur.battery_charge + next.battery_charge) / 2000) * dtHours;
+      entry.battery_discharge_kwh += ((cur.battery_discharge + next.battery_discharge) / 2000) * dtHours;
+      entry.grid_import_kwh    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
+      entry.grid_export_kwh    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
+    }
+
+    const result = Array.from(dailyMap.values()).sort((a, b) => a.day.localeCompare(b.day));
+    res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
     res.status(500).json({ error: err.message });
@@ -301,6 +326,7 @@ app.get('/api/daily', async (req, res) => {
 
 app.get('/api/monthly', async (req, res) => {
   try {
+    // First compute the last 12 months of daily data (we'll reuse the daily endpoint logic)
     const now = new Date();
     const months = [];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -311,30 +337,66 @@ app.get('/api/monthly', async (req, res) => {
         display: `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(2)}`
       });
     }
+
+    // Compute daily data for the last 365 days (or as far as needed)
+    const since = Math.floor(Date.now() / 1000) - 365 * 24 * 3600;
     const rows = db.prepare(`
-      WITH daily_max AS (
-        SELECT date(timestamp, 'unixepoch') as day,
-          MAX(daily_consumption) as consumption,
-          MAX(daily_solar) as solar,
-          MAX(daily_battery_charge) as battery_charge,
-          MAX(daily_battery_discharge) as battery_discharge,
-          MAX(daily_grid_import) as grid_import,
-          MAX(daily_grid_export) as grid_export
-        FROM history GROUP BY day
-      )
-      SELECT strftime('%Y-%m', day) as month,
-        SUM(consumption) as consumption_kwh,
-        SUM(solar) as solar_kwh,
-        SUM(battery_charge) as battery_charge_kwh,
-        SUM(battery_discharge) as battery_discharge_kwh,
-        SUM(grid_import) as grid_import_kwh,
-        SUM(grid_export) as grid_export_kwh
-      FROM daily_max GROUP BY month ORDER BY month DESC LIMIT 12
-    `).all();
-    const dataMap = {};
-    rows.forEach(r => { dataMap[r.month] = r; });
+      SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
+      FROM history
+      WHERE timestamp >= ?
+      ORDER BY timestamp ASC
+    `).all(since);
+
+    const dailyMap = new Map();
+    for (let i = 0; i < rows.length - 1; i++) {
+      const cur = rows[i];
+      const next = rows[i + 1];
+      const dtHours = (next.timestamp - cur.timestamp) / 3600;
+      const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
+      if (!dailyMap.has(day)) {
+        dailyMap.set(day, {
+          consumption: 0,
+          solar: 0,
+          battery_charge: 0,
+          battery_discharge: 0,
+          grid_import: 0,
+          grid_export: 0
+        });
+      }
+      const entry = dailyMap.get(day);
+      entry.consumption    += ((cur.consumption + next.consumption) / 2000) * dtHours;
+      entry.solar          += ((cur.solar + next.solar) / 2000) * dtHours;
+      entry.battery_charge += ((cur.battery_charge + next.battery_charge) / 2000) * dtHours;
+      entry.battery_discharge += ((cur.battery_discharge + next.battery_discharge) / 2000) * dtHours;
+      entry.grid_import    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
+      entry.grid_export    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
+    }
+
+    // Aggregate by month
+    const monthlyMap = new Map();
+    for (const [day, values] of dailyMap.entries()) {
+      const monthKey = day.slice(0, 7); // YYYY-MM
+      if (!monthlyMap.has(monthKey)) {
+        monthlyMap.set(monthKey, {
+          consumption_kwh: 0,
+          solar_kwh: 0,
+          battery_charge_kwh: 0,
+          battery_discharge_kwh: 0,
+          grid_import_kwh: 0,
+          grid_export_kwh: 0
+        });
+      }
+      const monthData = monthlyMap.get(monthKey);
+      monthData.consumption_kwh += values.consumption;
+      monthData.solar_kwh += values.solar;
+      monthData.battery_charge_kwh += values.battery_charge;
+      monthData.battery_discharge_kwh += values.battery_discharge;
+      monthData.grid_import_kwh += values.grid_import;
+      monthData.grid_export_kwh += values.grid_export;
+    }
+
     const result = months.map(m => {
-      const data = dataMap[m.key] || {};
+      const data = monthlyMap.get(m.key) || {};
       return {
         month: m.display,
         consumption_kwh: data.consumption_kwh || 0,
