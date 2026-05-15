@@ -1,5 +1,5 @@
 services:
-  energy-dashboard:
+  epilykos:
     build: .
     container_name: epilykos
     restart: unless-stopped
@@ -10,4 +10,26 @@ services:
     environment:
       - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
       - TZ=${TZ:-Africa/Lagos}
-      - LOG_LEVEL=${LOG_LEVEL}
+      - BMS_BRIDGE_URL=http://bms-bridge:8000
+    depends_on:
+      - bms-bridge
+    networks:
+      - epilykos-net
+
+  bms-bridge:
+    build: ./bms-bridge
+    container_name: bms-bridge
+    restart: unless-stopped
+    network_mode: host          # required for Bluetooth access
+    # For non‑host networking, use privileged and dbus mount:
+    # privileged: true
+    # volumes:
+    #   - /var/run/dbus:/var/run/dbus
+    environment:
+      - LOG_LEVEL=info
+    networks:
+      - epilykos-net   # still needed for name resolution (though host networking overrides)
+
+networks:
+  epilykos-net:
+    driver: bridge
