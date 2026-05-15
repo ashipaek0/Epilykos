@@ -17,7 +17,7 @@ services:
       - epilykos-net
 
   bms-bridge:
-    build: ./bms-bridge
+    image: irunmole/epilykos-bms:latest
     container_name: bms-bridge
     restart: unless-stopped
     network_mode: host          # required for Bluetooth access
