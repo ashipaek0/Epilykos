@@ -58,6 +58,7 @@
       cursor: pointer;
       transition: all 0.2s;
     }
+    <button class="sub-tab-btn" data-subtab="bms">Bluetooth BMS</button>
     .sub-tab-btn.active {
       background: var(--accent);
       color: white;
@@ -379,6 +380,12 @@
           <button class="sub-tab-btn" data-subtab="modbus">Modbus</button>
           <button class="sub-tab-btn" data-subtab="external">External REST</button>
         </div>
+        
+        <div id="subtab-bms" class="sub-tab-content">
+  <div id="bms-devices-container"></div>
+  <button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button>
+  <div class="note">Requires the BMS bridge container to be running. After adding, the dashboard will poll the bridge every 30 seconds.</div>
+</div>
 
         <!-- Home Assistant sub‑content -->
         <div id="subtab-ha" class="sub-tab-content active">

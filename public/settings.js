@@ -608,6 +608,79 @@ document.getElementById('add-external-source').addEventListener('click', () => {
   renderExternalSource({ name: '', url: '', enabled: true, mappings: {} }, idx);
 });
 
+// ======================== BLUETOOTH BMS ========================
+let bmsDeviceCounter = 0;
+function buildBmsDeviceList(devices) {
+  const container = document.getElementById('bms-devices-container');
+  if (!container) return;
+  container.innerHTML = '';
+  bmsDeviceCounter = 0;
+  devices.forEach((dev, idx) => renderBmsDevice(dev, idx));
+}
+
+function renderBmsDevice(device, idx) {
+  const container = document.getElementById('bms-devices-container');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
+      <button type="button" class="remove-btn" data-action="remove-bms">Remove</button>
+    </div>
+    <div class="form-row">
+      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}">
+      <button type="button" class="fetch-btn test-bms">Test Connection</button>
+      <span class="test-status" id="bms-test-status-${idx}"></span>
+    </div>
+    <div class="note">MAC address can be found by scanning with a phone BLE scanner or using the bridge's /devices endpoint.</div>
+  `;
+  container.appendChild(card);
+
+  card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
+    card.remove();
+    reindexBms();
+  });
+
+  card.querySelector('.test-bms').addEventListener('click', async () => {
+    const statusEl = document.getElementById(`bms-test-status-${idx}`);
+    const address = card.querySelector('input[name$="[address]"]').value.trim();
+    if (!address) {
+      showStatus(statusEl, 'MAC address required', 'error');
+      return;
+    }
+    showStatus(statusEl, 'Testing...', 'info');
+    try {
+      const res = await fetch(`http://localhost:8000/device/${address}`, { timeout: 5000 });
+      if (res.ok) {
+        const data = await res.json();
+        showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
+      } else {
+        showStatus(statusEl, `Error ${res.status}`, 'error');
+      }
+    } catch (err) {
+      showStatus(statusEl, `Failed: ${err.message}`, 'error');
+    }
+  });
+
+  bmsDeviceCounter++;
+}
+
+function reindexBms() {
+  const cards = document.querySelectorAll('#bms-devices-container .device-card');
+  bmsDeviceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    bmsDeviceCounter++;
+  });
+}
+
+document.getElementById('add-bms-device').addEventListener('click', () => {
+  const idx = bmsDeviceCounter;
+  renderBmsDevice({ name: '', address: '', enabled: true }, idx);
+});
+
 // ======================== FORECAST TEST ========================
 document.getElementById('test-forecast').addEventListener('click', async function() {
   const btn = this;
@@ -1202,3 +1275,4 @@ function escapeHtml(str) {
 // Initialize metrics list when page loads (for any tab)
 loadMetricsList();
 loadSettings();
+buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
