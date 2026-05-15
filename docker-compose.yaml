@@ -4,13 +4,13 @@ services:
     container_name: epilykos
     restart: unless-stopped
     ports:
-      - "8095:3000"
+      - "3000:3000"
     volumes:
       - ./data:/app/data
     environment:
       - SETTINGS_PASSWORD=spiceenergy
       - TZ=Africa/Lagos
-      - BMS_BRIDGE_URL=http://bms-bridge:8000
+      - BMS_BRIDGE_URL=http://bms-bridge:8020
     depends_on:
       - bms-bridge
     networks:
@@ -25,7 +25,6 @@ services:
     network_mode: host
     environment:
       - LOG_LEVEL=info
-    # No networks section – host network already provides connectivity
 
 networks:
   epilykos-net:
