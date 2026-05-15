@@ -682,8 +682,7 @@ app.post('/api/settings', (req, res) => {
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
-      'solar_loss_factor', 'solar_install_date',
-    if ('bms_devices' in updates) restartBmsPolling();
+      'solar_loss_factor', 'solar_install_date'
     ];
     if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
       // Force cache reset
