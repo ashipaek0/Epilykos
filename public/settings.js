@@ -1,5 +1,4 @@
-// settings.js – complete with Metrics tab, BMS devices, dropdown metric cards, savings config, etc.
-// Includes null checks for all DOM event listeners to prevent errors when elements are missing.
+// settings.js – complete with Metrics tab, BMS devices, scan button, port 8020
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -622,7 +621,7 @@ if (addExternalBtn) {
   });
 }
 
-// ======================== BLUETOOTH BMS ========================
+// ======================== BLUETOOTH BMS (with scan button, port 8020) ========================
 let bmsDeviceCounter = 0;
 function buildBmsDeviceList(devices) {
   const container = document.getElementById('bms-devices-container');
@@ -644,7 +643,8 @@ function renderBmsDevice(device, idx) {
       <button type="button" class="remove-btn" data-action="remove-bms">Remove</button>
     </div>
     <div class="form-row">
-      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}">
+      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
+      <button type="button" class="fetch-btn scan-bms" data-device="${idx}">🔍 Scan</button>
       <button type="button" class="fetch-btn test-bms">Test Connection</button>
       <span class="test-status" id="bms-test-status-${idx}"></span>
     </div>
@@ -652,11 +652,42 @@ function renderBmsDevice(device, idx) {
   `;
   container.appendChild(card);
 
+  // Remove button
   card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
     card.remove();
     reindexBms();
   });
 
+  // Scan button
+  card.querySelector('.scan-bms').addEventListener('click', async () => {
+    const statusEl = document.getElementById(`bms-test-status-${idx}`);
+    showStatus(statusEl, 'Scanning for BLE devices...', 'info');
+    try {
+      const res = await fetch('http://localhost:8020/devices', { timeout: 10000 });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const devices = await res.json();
+      if (!devices.length) {
+        showStatus(statusEl, 'No BMS devices found', 'error');
+        return;
+      }
+      // Build a simple prompt with device list
+      const deviceList = devices.map(d => `${d.address} (${d.name || 'Unknown'}, RSSI: ${d.rssi})`).join('\n');
+      const selected = prompt(`Select a device by entering its MAC address:\n${deviceList}`);
+      if (selected && selected.trim()) {
+        const macMatch = selected.match(/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/);
+        if (macMatch) {
+          card.querySelector('input[name$="[address]"]').value = macMatch[0];
+          showStatus(statusEl, `Selected ${macMatch[0]}`, 'success');
+        } else {
+          showStatus(statusEl, 'Invalid MAC address', 'error');
+        }
+      }
+    } catch (err) {
+      showStatus(statusEl, `Scan failed: ${err.message}`, 'error');
+    }
+  });
+
+  // Test connection button
   card.querySelector('.test-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
     const address = card.querySelector('input[name$="[address]"]').value.trim();
@@ -666,8 +697,7 @@ function renderBmsDevice(device, idx) {
     }
     showStatus(statusEl, 'Testing...', 'info');
     try {
-      // Note: port must match the bridge's exposed port (8001)
-      const res = await fetch(`http://localhost:8001/device/${address}`, { timeout: 5000 });
+      const res = await fetch(`http://localhost:8020/device/${address}`, { timeout: 5000 });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
@@ -734,7 +764,7 @@ async function loadMetricsList() {
   } catch (err) {
     console.error('Error loading metrics:', err);
     const tbody = document.getElementById('metrics-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics<tr>';
   }
 }
 
@@ -1274,4 +1304,4 @@ function escapeHtml(str) {
 
 // Initialize
 loadMetricsList();
-loadSettings(); 
+loadSettings();

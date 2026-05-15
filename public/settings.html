@@ -6,7 +6,7 @@
   <title>Settings - Epilykos</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Additional styles specific to settings page */
+    /* Settings page specific styles (same as before) */
     .settings-form {
       background: var(--card-bg);
       padding: 2rem;
@@ -378,113 +378,50 @@
           <label><input type="checkbox" name="forecast_enabled" value="true"> Enable Solar Forecast</label>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Latitude</label>
-            <input name="solar_latitude" placeholder="e.g., 6.5244">
-          </div>
-          <div class="form-group">
-            <label>Longitude</label>
-            <input name="solar_longitude" placeholder="e.g., 3.3792">
-          </div>
+          <div class="form-group"><label>Latitude</label><input name="solar_latitude" placeholder="e.g., 6.5244"></div>
+          <div class="form-group"><label>Longitude</label><input name="solar_longitude" placeholder="e.g., 3.3792"></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Panel Tilt (degrees)</label>
-            <input name="solar_tilt" value="30" placeholder="30">
-          </div>
-          <div class="form-group">
-            <label>Panel Azimuth (degrees)</label>
-            <input name="solar_azimuth" value="180" placeholder="180 (South)">
-          </div>
+          <div class="form-group"><label>Panel Tilt (degrees)</label><input name="solar_tilt" value="30"></div>
+          <div class="form-group"><label>Panel Azimuth (degrees)</label><input name="solar_azimuth" value="180"></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>System Capacity (kWp)</label>
-            <input name="solar_capacity_kwp" placeholder="e.g., 5.0">
-            <div class="note">Total peak power in kilowatts (kWp).</div>
-          </div>
-          <div class="form-group">
-            <label>Solcast API Key (optional)</label>
-            <input type="password" name="solcast_api_key" placeholder="Leave empty for Open-Meteo">
-          </div>
+          <div class="form-group"><label>System Capacity (kWp)</label><input name="solar_capacity_kwp" placeholder="e.g., 5.0"><div class="note">Total peak power in kilowatts (kWp).</div></div>
+          <div class="form-group"><label>Solcast API Key (optional)</label><input type="password" name="solcast_api_key" placeholder="Leave empty for Open-Meteo"></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Solcast Resource ID (optional)</label>
-            <input name="solcast_resource_id" placeholder="e.g., abc1-2345-def6-7890">
-            <div class="note">Found in your Solcast site details.</div>
-          </div>
-          <div class="form-group">
-            <label>System Loss Factor (0.7–1.0)</label>
-            <input name="solar_loss_factor" value="0.9" placeholder="0.9">
-          </div>
+          <div class="form-group"><label>Solcast Resource ID (optional)</label><input name="solcast_resource_id" placeholder="e.g., abc1-2345-def6-7890"></div>
+          <div class="form-group"><label>System Loss Factor (0.7–1.0)</label><input name="solar_loss_factor" value="0.9"></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Installation Date</label>
-            <input name="solar_install_date" placeholder="2020-01-01">
-            <div class="note">Used for panel degradation (Solcast).</div>
-          </div>
+          <div class="form-group"><label>Installation Date</label><input name="solar_install_date" placeholder="2020-01-01"></div>
           <div class="form-group"></div>
         </div>
-        <div class="test-row">
-          <button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button>
-          <span id="forecast-test-status" class="test-status"></span>
-        </div>
+        <div class="test-row"><button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button><span id="forecast-test-status" class="test-status"></span></div>
       </div>
 
       <!-- Tab 4: Dashboard Layout -->
       <div id="tab-dashboard" class="tab-content">
-        <div id="dashboard-editor">
-          <div id="dashboards-list"></div>
-          <button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button>
-          <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
-        </div>
-        <div class="backup-row" style="margin-top: 1rem;">
-          <button type="button" id="export-layout-btn" class="fetch-btn">📤 Export Layout</button>
-          <button type="button" id="import-layout-btn" class="fetch-btn">📥 Import Layout</button>
-          <input type="file" id="import-layout-file" accept=".json">
-        </div>
+        <div id="dashboard-editor"><div id="dashboards-list"></div><button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button><div id="active-dashboard-editor" style="margin-top:1rem;"></div></div>
+        <div class="backup-row" style="margin-top: 1rem;"><button type="button" id="export-layout-btn" class="fetch-btn">📤 Export Layout</button><button type="button" id="import-layout-btn" class="fetch-btn">📥 Import Layout</button><input type="file" id="import-layout-file" accept=".json"></div>
       </div>
 
       <!-- Tab 5: Backup & Restore -->
       <div id="tab-backup" class="tab-content">
-        <div class="backup-row">
-          <button type="button" id="backup-btn" class="fetch-btn">⬇️ Download Backup</button>
-          <button type="button" id="restore-btn" class="fetch-btn">⬆️ Restore Backup</button>
-          <input type="file" id="restore-file" accept=".db">
-        </div>
+        <div class="backup-row"><button type="button" id="backup-btn" class="fetch-btn">⬇️ Download Backup</button><button type="button" id="restore-btn" class="fetch-btn">⬆️ Restore Backup</button><input type="file" id="restore-file" accept=".db"></div>
         <div id="backup-status" class="status"></div>
       </div>
 
       <!-- Tab 6: Branding & Savings -->
       <div id="tab-branding" class="tab-content">
         <h3>Branding</h3>
-        <div class="form-group">
-          <label>Dashboard Title</label>
-          <input name="dashboard_title" placeholder="My Energy Dashboard" value="⚡ Epilykos">
-        </div>
-        <div class="form-group">
-          <label>Logo URL (optional)</label>
-          <input name="dashboard_logo" placeholder="https://example.com/logo.png">
-        </div>
-
+        <div class="form-group"><label>Dashboard Title</label><input name="dashboard_title" placeholder="My Energy Dashboard" value="⚡ Epilykos"></div>
+        <div class="form-group"><label>Logo URL (optional)</label><input name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
         <h3>Savings Calculation</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Currency Symbol</label>
-            <input name="savings_currency" value="€" placeholder="€">
-          </div>
-          <div class="form-group">
-            <label>Rate per kWh</label>
-            <input name="savings_rate" value="0.30" placeholder="0.30">
-          </div>
-        </div>
+        <div class="form-row"><div class="form-group"><label>Currency Symbol</label><input name="savings_currency" value="€"></div><div class="form-group"><label>Rate per kWh</label><input name="savings_rate" value="0.30"></div></div>
       </div>
 
-      <div style="margin-top: 2rem; text-align: center;">
-        <button type="submit">Save All Settings</button>
-      </div>
+      <div style="margin-top: 2rem; text-align: center;"><button type="submit">Save All Settings</button></div>
       <div id="save-status" class="status"></div>
     </form>
   </div>
@@ -494,33 +431,24 @@
 <div id="metric-modal" class="modal">
   <div class="modal-content">
     <h3>Create New Metric</h3>
-    <div class="form-group">
-      <label>Metric Name</label>
-      <input type="text" id="new-metric-name" placeholder="e.g., outside_temp">
-    </div>
-    <div class="form-group">
-      <label>Unit (optional)</label>
-      <input type="text" id="new-metric-unit" placeholder="e.g., °C, kW, V">
-    </div>
-    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-      <button type="button" id="modal-cancel">Cancel</button>
-      <button type="button" id="modal-create" class="fetch-btn">Create</button>
-    </div>
+    <div class="form-group"><label>Metric Name</label><input type="text" id="new-metric-name" placeholder="e.g., outside_temp"></div>
+    <div class="form-group"><label>Unit (optional)</label><input type="text" id="new-metric-unit" placeholder="e.g., °C, kW, V"></div>
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;"><button type="button" id="modal-cancel">Cancel</button><button type="button" id="modal-create" class="fetch-btn">Create</button></div>
   </div>
 </div>
 
 <script>
-  // Theme toggle (must match main dashboard)
+  // Theme toggle
   function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const toggle = document.getElementById('theme-toggle');
     if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
       document.documentElement.setAttribute('data-theme', 'dark');
-      if (toggle) toggle.innerHTML = '<span class="theme-icon">☀️</span>';
+      toggle.innerHTML = '<span class="theme-icon">☀️</span>';
     } else {
       document.documentElement.setAttribute('data-theme', 'light');
-      if (toggle) toggle.innerHTML = '<span class="theme-icon">🌙</span>';
+      toggle.innerHTML = '<span class="theme-icon">🌙</span>';
     }
   }
   function toggleTheme() {
@@ -529,7 +457,7 @@
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     const toggle = document.getElementById('theme-toggle');
-    if (toggle) toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
+    toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
   }
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -542,9 +470,7 @@
       btn.classList.add('active');
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       document.getElementById(`tab-${tabId}`).classList.add('active');
-      if (tabId === 'metrics' && typeof loadMetricsList === 'function') {
-        loadMetricsList();
-      }
+      if (tabId === 'metrics' && typeof loadMetricsList === 'function') loadMetricsList();
     });
   });
 
