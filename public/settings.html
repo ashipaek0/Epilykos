@@ -6,7 +6,7 @@
   <title>Settings - Epilykos</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* All settings page styles (same as before – keep them) */
+    /* Settings page specific styles */
     .settings-form { background: var(--card-bg); padding: 2rem; border-radius: 1rem; max-width: 1000px; margin: 2rem auto; box-shadow: var(--shadow); border: 1px solid var(--border); }
     .form-group { margin-bottom: 1.2rem; }
     label { display: block; margin-bottom: 0.4rem; font-weight: 500; color: var(--text); }
@@ -30,47 +30,51 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .note { font-size: 0.85rem; opacity: 0.7; margin-top: 0.25rem; color: var(--text-secondary); }
     .settings-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .settings-tabs, .sub-tabs { display: flex; flex-wrap: nowrap; gap: 0.5rem; margin-bottom: 1rem; align-items: center; overflow-x: auto; padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch; }
-    .tab-btn, .sub-tab-btn { white-space: nowrap; flex-shrink: 0; padding: 0.5rem 1rem; }
     .theme-toggle { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 2rem; cursor: pointer; font-size: 1.2rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
     .backup-row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
     #restore-file, #import-layout-file { display: none; }
+    
+    /* Tab styling */
+    .main-tabs { display: flex; flex-wrap: nowrap; gap: 0.5rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border); -webkit-overflow-scrolling: touch; }
+    .main-tab-btn { white-space: nowrap; flex-shrink: 0; padding: 0.5rem 1rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 0.5rem; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; margin: 0; }
+    .main-tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .main-tab-btn:hover { background: var(--accent); color: white; }
+
+    .sub-tabs { display: flex; flex-wrap: nowrap; gap: 0.5rem; margin-bottom: 1.2rem; overflow-x: auto; padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch; }
+    .sub-tab-btn { white-space: nowrap; flex-shrink: 0; padding: 0.4rem 0.8rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 0.4rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+    .sub-tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .sub-tab-btn:hover { background: var(--accent); color: white; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .sub-tab-content { display: none; }
+    .sub-tab-content.active { display: block; }
+
     .device-card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
     .device-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem; }
     .device-header input[type="text"] { flex: 1 1 100%; }
-    .remove-btn { background: #ef4444; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 0.5rem; cursor: pointer; }
+    .remove-btn { background: #ef4444; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 0.5rem; cursor: pointer; margin: 0; }
     .mappings-section { margin-top: 0.5rem; padding-left: 1rem; border-left: 2px solid var(--accent); }
     .metric-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
     .metric-row input { flex: 1; min-width: 80px; }
     .metric-row select { flex: 1; min-width: 120px; }
-    .remove-metric { flex-shrink: 0; padding: 0.3rem 0.6rem; }
-    .dash-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-    .dash-row input { flex: 1; }
-    .block-list { margin: 0.5rem 0; padding: 0; list-style: none; }
-    .block-list li { background: var(--card-bg); padding: 0.5rem; margin-bottom: 0.3rem; border: 1px solid var(--border); border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-    .block-type-select { width: 180px; flex: 1; }
-    .card-editor-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }
-    .card-editor-row input { width: auto; flex: 1; }
-    .block-config-panel { width: 100%; margin-top: 0.5rem; }
+    .remove-metric { flex-shrink: 0; padding: 0.3rem 0.6rem; margin: 0; }
+
     .metrics-table { width: 100%; border-collapse: collapse; }
     .metrics-table th, .metrics-table td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
     .metrics-table th { background: var(--bg); }
+
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: var(--card-bg); padding: 2rem; border-radius: 1rem; min-width: 300px; max-width: 500px; }
+
     @media (max-width: 600px) {
       .settings-form { padding: 1rem; margin: 1rem 0.5rem; }
-      .form-row, .test-row { grid-template-columns: 1fr; gap: 0.5rem; }
-      .device-header { flex-direction: column; align-items: flex-start; }
-      .metric-row { flex-direction: column; align-items: stretch; }
-      .metric-row select, .metric-row input { width: 100%; }
-      .block-list li { flex-direction: column; align-items: flex-start; }
-      .block-type-select { width: 100%; }
-      .dash-row { flex-wrap: wrap; }
+      .form-row { grid-template-columns: 1fr; gap: 0.5rem; }
+      .main-tabs, .sub-tabs { gap: 0.3rem; }
+      .main-tab-btn, .sub-tab-btn { font-size: 0.75rem; padding: 0.4rem 0.7rem; }
       button { width: 100%; margin-right: 0; margin-bottom: 0.5rem; }
       .backup-row button { width: auto; }
-      .settings-tabs, .sub-tabs { gap: 0.3rem; }
-      .tab-btn, .sub-tab-btn { font-size: 0.75rem; padding: 0.4rem 0.7rem; }
-      .metrics-table th, .metrics-table td { font-size: 0.8rem; }
     }
   </style>
   <script>
@@ -100,19 +104,19 @@
   <div class="settings-form">
     <h2>Configuration</h2>
 
-    <!-- Main tab bar -->
-    <div class="settings-tabs" id="settings-tabs" role="tablist">
-      <button class="tab-btn active" data-tab="data-sources" aria-selected="true" aria-controls="tab-data-sources" role="tab">Data Sources</button>
-      <button class="tab-btn" data-tab="metrics" aria-selected="false" aria-controls="tab-metrics" role="tab">Metrics</button>
-      <button class="tab-btn" data-tab="solar" aria-selected="false" aria-controls="tab-solar" role="tab">Solar Forecast</button>
-      <button class="tab-btn" data-tab="dashboard" aria-selected="false" aria-controls="tab-dashboard" role="tab">Dashboard Layout</button>
-      <button class="tab-btn" data-tab="backup" aria-selected="false" aria-controls="tab-backup" role="tab">Backup & Restore</button>
-      <button class="tab-btn" data-tab="branding" aria-selected="false" aria-controls="tab-branding" role="tab">Branding & Savings</button>
+    <!-- Main tabs -->
+    <div class="main-tabs" id="main-tabs" role="tablist">
+      <button class="main-tab-btn active" data-tab="data-sources" aria-selected="true" aria-controls="tab-data-sources" role="tab">Data Sources</button>
+      <button class="main-tab-btn" data-tab="metrics" aria-selected="false" aria-controls="tab-metrics" role="tab">Metrics</button>
+      <button class="main-tab-btn" data-tab="solar" aria-selected="false" aria-controls="tab-solar" role="tab">Solar Forecast</button>
+      <button class="main-tab-btn" data-tab="dashboard" aria-selected="false" aria-controls="tab-dashboard" role="tab">Dashboard Layout</button>
+      <button class="main-tab-btn" data-tab="backup" aria-selected="false" aria-controls="tab-backup" role="tab">Backup & Restore</button>
+      <button class="main-tab-btn" data-tab="branding" aria-selected="false" aria-controls="tab-branding" role="tab">Branding & Savings</button>
     </div>
 
     <form id="settings-form">
-      <!-- Tab 1: Data Sources (with sub‑tabs) -->
-      <div id="tab-data-sources" class="tab-content active" role="tabpanel" aria-labelledby="data-sources-tab">
+      <!-- Tab 1: Data Sources (with sub-tabs) -->
+      <div id="tab-data-sources" class="tab-content active" role="tabpanel" aria-labelledby="data-sources">
         <div class="sub-tabs" id="data-source-subtabs" role="tablist">
           <button class="sub-tab-btn active" data-subtab="ha" aria-selected="true" aria-controls="subtab-ha" role="tab">Home Assistant</button>
           <button class="sub-tab-btn" data-subtab="mqtt" aria-selected="false" aria-controls="subtab-mqtt" role="tab">MQTT</button>
@@ -120,43 +124,126 @@
           <button class="sub-tab-btn" data-subtab="external" aria-selected="false" aria-controls="subtab-external" role="tab">External REST</button>
           <button class="sub-tab-btn" data-subtab="bms" aria-selected="false" aria-controls="subtab-bms" role="tab">Bluetooth BMS</button>
         </div>
-        <div id="subtab-ha" class="sub-tab-content active" role="tabpanel" aria-labelledby="ha-tab"><div id="ha-devices-container"></div><button type="button" id="add-ha-device" class="fetch-btn">+ Add HA Device</button></div>
-        <div id="subtab-mqtt" class="sub-tab-content" role="tabpanel" aria-labelledby="mqtt-tab"><div id="mqtt-devices-container"></div><button type="button" id="add-mqtt-device" class="fetch-btn">+ Add MQTT Broker</button></div>
-        <div id="subtab-modbus" class="sub-tab-content" role="tabpanel" aria-labelledby="modbus-tab"><div id="modbus-devices-container"></div><button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button></div>
-        <div id="subtab-external" class="sub-tab-content" role="tabpanel" aria-labelledby="external-tab"><div id="external-sources-container"></div><button type="button" id="add-external-source" class="fetch-btn">+ Add External Source</button><div class="form-group" style="margin-top:1rem;"><label for="external-poll-interval">Global Poll Interval (seconds)</label><input id="external-poll-interval" name="external_poll_interval" value="60"></div></div>
-        <div id="subtab-bms" class="sub-tab-content" role="tabpanel" aria-labelledby="bms-tab"><div id="bms-devices-container"></div><button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button><div class="note">Requires the BMS bridge container to be running.</div></div>
+        
+        <div id="subtab-ha" class="sub-tab-content active" role="tabpanel" aria-labelledby="ha">
+          <div id="ha-devices-container"></div>
+          <button type="button" id="add-ha-device" class="fetch-btn">+ Add HA Device</button>
+        </div>
+
+        <div id="subtab-mqtt" class="sub-tab-content" role="tabpanel" aria-labelledby="mqtt">
+          <div id="mqtt-devices-container"></div>
+          <button type="button" id="add-mqtt-device" class="fetch-btn">+ Add MQTT Broker</button>
+        </div>
+
+        <div id="subtab-modbus" class="sub-tab-content" role="tabpanel" aria-labelledby="modbus">
+          <div id="modbus-devices-container"></div>
+          <button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button>
+        </div>
+
+        <div id="subtab-external" class="sub-tab-content" role="tabpanel" aria-labelledby="external">
+          <div id="external-sources-container"></div>
+          <button type="button" id="add-external-source" class="fetch-btn">+ Add External Source</button>
+          <div class="form-group" style="margin-top:1rem;">
+            <label for="external-poll-interval">Global Poll Interval (seconds)</label>
+            <input id="external-poll-interval" name="external_poll_interval" value="60">
+          </div>
+        </div>
+
+        <div id="subtab-bms" class="sub-tab-content" role="tabpanel" aria-labelledby="bms">
+          <div id="bms-devices-container"></div>
+          <button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button>
+          <div class="note">Requires the BMS bridge container to be running.</div>
+        </div>
       </div>
 
       <!-- Tab 2: Metrics -->
-      <div id="tab-metrics" class="tab-content" role="tabpanel" aria-labelledby="metrics-tab">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"><h3 style="margin:0;">Metrics Management</h3><button type="button" id="create-metric-btn" class="fetch-btn">+ New Metric</button></div>
-        <div id="metrics-table-container"><table class="metrics-table"><thead><tr><th>Metric Name</th><th>Current Value</th><th>Last Updated</th><th>Unit</th><th>Actions</th></tr></thead><tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics...</td></tr></tbody></table></div>
+      <div id="tab-metrics" class="tab-content" role="tabpanel" aria-labelledby="metrics">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3 style="margin:0;">Metrics Management</h3>
+          <button type="button" id="create-metric-btn" class="fetch-btn">+ New Metric</button>
+        </div>
+        <div id="metrics-table-container">
+          <table class="metrics-table">
+            <thead>
+              <tr>
+                <th>Metric Name</th>
+                <th>Current Value</th>
+                <th>Last Updated</th>
+                <th>Unit</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-table-body">
+              <tr><td colspan="5">Loading metrics...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Tab 3: Solar Forecast -->
-      <div id="tab-solar" class="tab-content" role="tabpanel" aria-labelledby="solar-tab">
-        <div class="toggle-group"><label for="forecast-enabled"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"> Enable Solar Forecast</label></div>
-        <div class="form-row"><div class="form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" name="solar_latitude"></div><div class="form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" name="solar_longitude"></div></div>
-        <div class="form-row"><div class="form-group"><label for="solar-tilt">Panel Tilt (degrees)</label><input id="solar-tilt" name="solar_tilt" value="30"></div><div class="form-group"><label for="solar-azimuth">Panel Azimuth (degrees)</label><input id="solar-azimuth" name="solar_azimuth" value="180"></div></div>
-        <div class="form-row"><div class="form-group"><label for="solar-capacity">System Capacity (kWp)</label><input id="solar-capacity" name="solar_capacity_kwp"><div class="note">Total peak power in kWp.</div></div><div class="form-group"><label for="solcast-api-key">Solcast API Key (optional)</label><input id="solcast-api-key" type="password" name="solcast_api_key" autocomplete="off"></div></div>
-        <div class="form-row"><div class="form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" name="solcast_resource_id"></div><div class="form-group"><label for="solar-loss-factor">System Loss Factor</label><input id="solar-loss-factor" name="solar_loss_factor" value="0.9"></div></div>
-        <div class="form-row"><div class="form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" name="solar_install_date" placeholder="2020-01-01"></div></div>
-        <div class="test-row"><button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button><span id="forecast-test-status" class="test-status"></span></div>
+      <div id="tab-solar" class="tab-content" role="tabpanel" aria-labelledby="solar">
+        <div class="toggle-group">
+          <label for="forecast-enabled"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"> Enable Solar Forecast</label>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" name="solar_latitude"></div>
+          <div class="form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" name="solar_longitude"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="solar-tilt">Panel Tilt (degrees)</label><input id="solar-tilt" name="solar_tilt" value="30"></div>
+          <div class="form-group"><label for="solar-azimuth">Panel Azimuth (degrees)</label><input id="solar-azimuth" name="solar_azimuth" value="180"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="solar-capacity">System Capacity (kWp)</label><input id="solar-capacity" name="solar_capacity_kwp"><div class="note">Total peak power in kWp.</div></div>
+          <div class="form-group"><label for="solcast-api-key">Solcast API Key (optional)</label><input id="solcast-api-key" type="password" name="solcast_api_key" autocomplete="off"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" name="solcast_resource_id"></div>
+          <div class="form-group"><label for="solar-loss-factor">System Loss Factor</label><input id="solar-loss-factor" name="solar_loss_factor" value="0.9"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" name="solar_install_date" placeholder="2020-01-01"></div>
+        </div>
+        <div class="test-row">
+          <button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button>
+          <span id="forecast-test-status" class="test-status"></span>
+        </div>
       </div>
 
       <!-- Tab 4: Dashboard Layout -->
-      <div id="tab-dashboard" class="tab-content" role="tabpanel" aria-labelledby="dashboard-tab">
-        <div id="dashboard-editor"><div id="dashboards-list"></div><button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button><div id="active-dashboard-editor" style="margin-top:1rem;"></div></div>
-        <div class="backup-row" style="margin-top:1rem;"><button type="button" id="export-layout-btn" class="fetch-btn" aria-label="Download dashboard layout configuration">📤 Export Layout</button><button type="button" id="import-layout-btn" class="fetch-btn" aria-label="Upload and import dashboard layout configuration">📥 Import Layout</button><input type="file" id="import-layout-file" accept=".json"></div>
+      <div id="tab-dashboard" class="tab-content" role="tabpanel" aria-labelledby="dashboard">
+        <div id="dashboard-editor">
+          <div id="dashboards-list"></div>
+          <button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button>
+          <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
+        </div>
+        <div class="backup-row" style="margin-top:1rem;">
+          <button type="button" id="export-layout-btn" class="fetch-btn" aria-label="Download dashboard layout configuration">📤 Export Layout</button>
+          <button type="button" id="import-layout-btn" class="fetch-btn" aria-label="Upload and import dashboard layout configuration">📥 Import Layout</button>
+          <input type="file" id="import-layout-file" accept=".json">
+        </div>
       </div>
 
       <!-- Tab 5: Backup & Restore -->
-      <div id="tab-backup" class="tab-content" role="tabpanel" aria-labelledby="backup-tab"><div class="backup-row"><button type="button" id="backup-btn" class="fetch-btn" aria-label="Download database backup">⬇️ Download Backup</button><button type="button" id="restore-btn" class="fetch-btn" aria-label="Upload and restore from backup file">⬆️ Restore Backup</button><input type="file" id="restore-file" accept=".db"></div><div id="backup-status" class="status"></div></div>
+      <div id="tab-backup" class="tab-content" role="tabpanel" aria-labelledby="backup">
+        <div class="backup-row">
+          <button type="button" id="backup-btn" class="fetch-btn" aria-label="Download database backup">⬇️ Download Backup</button>
+          <button type="button" id="restore-btn" class="fetch-btn" aria-label="Upload and restore from backup file">⬆️ Restore Backup</button>
+          <input type="file" id="restore-file" accept=".db">
+        </div>
+        <div id="backup-status" class="status"></div>
+      </div>
 
       <!-- Tab 6: Branding & Savings -->
-      <div id="tab-branding" class="tab-content" role="tabpanel" aria-labelledby="branding-tab">
-        <h3>Branding</h3><div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" name="dashboard_title" value="⚡ Epilykos"></div><div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" name="dashboard_logo"></div>
-        <h3>Savings Calculation</h3><div class="form-row"><div class="form-group"><label for="savings-currency">Currency Symbol</label><input id="savings-currency" name="savings_currency" value="€"></div><div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div></div>
+      <div id="tab-branding" class="tab-content" role="tabpanel" aria-labelledby="branding">
+        <h3>Branding</h3>
+        <div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" name="dashboard_title" value="⚡ Epilykos"></div>
+        <div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" name="dashboard_logo"></div>
+        <h3>Savings Calculation</h3>
+        <div class="form-row">
+          <div class="form-group"><label for="savings-currency">Currency Symbol</label><input id="savings-currency" name="savings_currency" value="€"></div>
+          <div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div>
+        </div>
       </div>
 
       <div style="margin-top:2rem; text-align:center;"><button type="submit">Save All Settings</button></div>
@@ -165,8 +252,17 @@
   </div>
 </div>
 
+<!-- Metric creation modal -->
 <div id="metric-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-  <div class="modal-content"><h3 id="modal-title">Create New Metric</h3><div class="form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name"></div><div class="form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit"></div><div style="display:flex; gap:1rem; justify-content:flex-end;"><button type="button" id="modal-cancel">Cancel</button><button type="button" id="modal-create" class="fetch-btn">Create</button></div></div>
+  <div class="modal-content">
+    <h3 id="modal-title">Create New Metric</h3>
+    <div class="form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name"></div>
+    <div class="form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit"></div>
+    <div style="display:flex; gap:1rem; justify-content:flex-end;">
+      <button type="button" id="modal-cancel">Cancel</button>
+      <button type="button" id="modal-create" class="fetch-btn">Create</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -194,32 +290,22 @@
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-  // Tab switching (main tabs) with ARIA support
-  const mainTabs = document.querySelectorAll('.settings-tabs .tab-btn');
+  // Main tab switching
+  const mainTabs = document.querySelectorAll('.main-tab-btn');
   const mainContents = document.querySelectorAll('.tab-content');
   function switchMainTab(tabId) {
-    mainTabs.forEach(t => {
-      t.classList.remove('active');
-      t.setAttribute('aria-selected', 'false');
-    });
-    const activeTab = document.querySelector(`.settings-tabs .tab-btn[data-tab="${tabId}"]`);
-    if (activeTab) {
-      activeTab.classList.add('active');
-      activeTab.setAttribute('aria-selected', 'true');
-      activeTab.focus();
-    }
+    mainTabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+    const activeTab = document.querySelector(`.main-tab-btn[data-tab="${tabId}"]`);
+    if (activeTab) { activeTab.classList.add('active'); activeTab.setAttribute('aria-selected', 'true'); activeTab.focus(); }
     mainContents.forEach(c => c.classList.remove('active'));
     const activeContent = document.getElementById(`tab-${tabId}`);
     if (activeContent) activeContent.classList.add('active');
-    // If metrics tab, refresh metrics list if function exists
-    if (tabId === 'metrics' && window.loadMetricsList) window.loadMetricsList();
   }
   mainTabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
+    tab.addEventListener('click', () => {
       const tabId = tab.getAttribute('data-tab');
       switchMainTab(tabId);
     });
-    // Keyboard navigation support
     tab.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
@@ -234,30 +320,22 @@
     });
   });
 
-  // Sub‑tab switching inside Data Sources with ARIA support
-  const subTabs = document.querySelectorAll('.sub-tabs .sub-tab-btn');
+  // Sub-tab switching (Data Sources)
+  const subTabs = document.querySelectorAll('.sub-tab-btn');
   const subContents = document.querySelectorAll('.sub-tab-content');
   function switchSubTab(subId) {
-    subTabs.forEach(t => {
-      t.classList.remove('active');
-      t.setAttribute('aria-selected', 'false');
-    });
-    const activeSub = document.querySelector(`.sub-tabs .sub-tab-btn[data-subtab="${subId}"]`);
-    if (activeSub) {
-      activeSub.classList.add('active');
-      activeSub.setAttribute('aria-selected', 'true');
-      activeSub.focus();
-    }
+    subTabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+    const activeSub = document.querySelector(`.sub-tab-btn[data-subtab="${subId}"]`);
+    if (activeSub) { activeSub.classList.add('active'); activeSub.setAttribute('aria-selected', 'true'); activeSub.focus(); }
     subContents.forEach(c => c.classList.remove('active'));
     const activeContent = document.getElementById(`subtab-${subId}`);
     if (activeContent) activeContent.classList.add('active');
   }
   subTabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
+    tab.addEventListener('click', () => {
       const subId = tab.getAttribute('data-subtab');
       switchSubTab(subId);
     });
-    // Keyboard navigation support
     tab.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
@@ -272,37 +350,14 @@
     });
   });
 
-  // Modal handling with backdrop click and ESC key support
+  // Modal handling
   const modal = document.getElementById('metric-modal');
   const cancelBtn = document.getElementById('modal-cancel');
-
-  function closeModal() {
-    modal.style.display = 'none';
-  }
-
-  function openModal() {
-    modal.style.display = 'flex';
-    document.getElementById('new-metric-name').focus();
-  }
-
-  // Close on backdrop click
-  modal.addEventListener('click', (e) => {
-    if (e.target.id === 'metric-modal') {
-      closeModal();
-    }
-  });
-
-  // Close on Cancel button
+  function closeModal() { modal.style.display = 'none'; }
+  function openModal() { modal.style.display = 'flex'; document.getElementById('new-metric-name').focus(); }
+  modal.addEventListener('click', (e) => { if (e.target.id === 'metric-modal') closeModal(); });
   cancelBtn.addEventListener('click', closeModal);
-
-  // Close on ESC key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.style.display !== 'none') {
-      closeModal();
-    }
-  });
-
-  // Open modal when create button is clicked
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.style.display !== 'none') closeModal(); });
   document.getElementById('create-metric-btn').addEventListener('click', openModal);
 </script>
 <script src="settings.js"></script>
