@@ -74,7 +74,7 @@ function initializeDatabase() {
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
     'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo',
     'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
-    'user_metrics'   // <-- ADDED
+    'user_metrics', 'bms_devices'     // <-- ADDED
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
