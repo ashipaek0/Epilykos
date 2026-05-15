@@ -45,7 +45,7 @@ const db = getDb();
 loadProfiles();
 setupMqtt();
 startExternalPolling();
-startBmsPolling();
+startBmsPolling();   // Start BMS bridge polling
 
 // Multer for restore and import
 const upload = multer({
@@ -186,6 +186,7 @@ async function pollAllSources() {
     await pollModbus();
     await pollLegacyHistory();
     await pollGridStatus();
+    // BMS polling is independent and runs on its own interval
     const state = await buildDashboardState();
     broadcastDashboardState(state);
     const elapsed = Date.now() - start;
@@ -280,18 +281,22 @@ app.get('/api/history', async (req, res) => {
 app.get('/api/daily', async (req, res) => {
   const requestedDays = parseInt(req.query.days) || 30;
   const days = Math.min(requestedDays, 365);
-  const now = Math.floor(Date.now() / 1000);
-  const since = now - (days * 24 * 3600);
+  const now = new Date();
+  const dateArray = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    dateArray.push(d.toISOString().split('T')[0]);
+  }
+  const startUnix = Math.floor(new Date(dateArray[0]).getTime() / 1000);
+  const endUnix = Math.floor(now.getTime() / 1000);
   try {
-    // Fetch power readings (watts) from history
     const rows = db.prepare(`
       SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
       FROM history
-      WHERE timestamp >= ?
+      WHERE timestamp >= ? AND timestamp <= ?
       ORDER BY timestamp ASC
-    `).all(since);
-
-    // Integrate watt‑seconds to kWh per day
+    `).all(startUnix, endUnix);
     const dailyMap = new Map();
     for (let i = 0; i < rows.length - 1; i++) {
       const cur = rows[i];
@@ -300,7 +305,6 @@ app.get('/api/daily', async (req, res) => {
       const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
       if (!dailyMap.has(day)) {
         dailyMap.set(day, {
-          day,
           consumption_kwh: 0,
           solar_kwh: 0,
           battery_charge_kwh: 0,
@@ -317,8 +321,15 @@ app.get('/api/daily', async (req, res) => {
       entry.grid_import_kwh    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
       entry.grid_export_kwh    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
     }
-
-    const result = Array.from(dailyMap.values()).sort((a, b) => a.day.localeCompare(b.day));
+    const result = dateArray.map(date => ({
+      day: date,
+      consumption_kwh: dailyMap.get(date)?.consumption_kwh || 0,
+      solar_kwh: dailyMap.get(date)?.solar_kwh || 0,
+      battery_charge_kwh: dailyMap.get(date)?.battery_charge_kwh || 0,
+      battery_discharge_kwh: dailyMap.get(date)?.battery_discharge_kwh || 0,
+      grid_import_kwh: dailyMap.get(date)?.grid_import_kwh || 0,
+      grid_export_kwh: dailyMap.get(date)?.grid_export_kwh || 0
+    }));
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
@@ -328,7 +339,6 @@ app.get('/api/daily', async (req, res) => {
 
 app.get('/api/monthly', async (req, res) => {
   try {
-    // First compute the last 12 months of daily data (we'll reuse the daily endpoint logic)
     const now = new Date();
     const months = [];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -339,66 +349,30 @@ app.get('/api/monthly', async (req, res) => {
         display: `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(2)}`
       });
     }
-
-    // Compute daily data for the last 365 days (or as far as needed)
-    const since = Math.floor(Date.now() / 1000) - 365 * 24 * 3600;
     const rows = db.prepare(`
-      SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
-      FROM history
-      WHERE timestamp >= ?
-      ORDER BY timestamp ASC
-    `).all(since);
-
-    const dailyMap = new Map();
-    for (let i = 0; i < rows.length - 1; i++) {
-      const cur = rows[i];
-      const next = rows[i + 1];
-      const dtHours = (next.timestamp - cur.timestamp) / 3600;
-      const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
-      if (!dailyMap.has(day)) {
-        dailyMap.set(day, {
-          consumption: 0,
-          solar: 0,
-          battery_charge: 0,
-          battery_discharge: 0,
-          grid_import: 0,
-          grid_export: 0
-        });
-      }
-      const entry = dailyMap.get(day);
-      entry.consumption    += ((cur.consumption + next.consumption) / 2000) * dtHours;
-      entry.solar          += ((cur.solar + next.solar) / 2000) * dtHours;
-      entry.battery_charge += ((cur.battery_charge + next.battery_charge) / 2000) * dtHours;
-      entry.battery_discharge += ((cur.battery_discharge + next.battery_discharge) / 2000) * dtHours;
-      entry.grid_import    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
-      entry.grid_export    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
-    }
-
-    // Aggregate by month
-    const monthlyMap = new Map();
-    for (const [day, values] of dailyMap.entries()) {
-      const monthKey = day.slice(0, 7); // YYYY-MM
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, {
-          consumption_kwh: 0,
-          solar_kwh: 0,
-          battery_charge_kwh: 0,
-          battery_discharge_kwh: 0,
-          grid_import_kwh: 0,
-          grid_export_kwh: 0
-        });
-      }
-      const monthData = monthlyMap.get(monthKey);
-      monthData.consumption_kwh += values.consumption;
-      monthData.solar_kwh += values.solar;
-      monthData.battery_charge_kwh += values.battery_charge;
-      monthData.battery_discharge_kwh += values.battery_discharge;
-      monthData.grid_import_kwh += values.grid_import;
-      monthData.grid_export_kwh += values.grid_export;
-    }
-
+      WITH daily_max AS (
+        SELECT date(timestamp, 'unixepoch') as day,
+          MAX(daily_consumption) as consumption,
+          MAX(daily_solar) as solar,
+          MAX(daily_battery_charge) as battery_charge,
+          MAX(daily_battery_discharge) as battery_discharge,
+          MAX(daily_grid_import) as grid_import,
+          MAX(daily_grid_export) as grid_export
+        FROM history GROUP BY day
+      )
+      SELECT strftime('%Y-%m', day) as month,
+        SUM(consumption) as consumption_kwh,
+        SUM(solar) as solar_kwh,
+        SUM(battery_charge) as battery_charge_kwh,
+        SUM(battery_discharge) as battery_discharge_kwh,
+        SUM(grid_import) as grid_import_kwh,
+        SUM(grid_export) as grid_export_kwh
+      FROM daily_max GROUP BY month ORDER BY month DESC LIMIT 12
+    `).all();
+    const dataMap = {};
+    rows.forEach(r => { dataMap[r.month] = r; });
     const result = months.map(m => {
-      const data = monthlyMap.get(m.key) || {};
+      const data = dataMap[m.key] || {};
       return {
         month: m.display,
         consumption_kwh: data.consumption_kwh || 0,
@@ -679,6 +653,7 @@ app.post('/api/settings', (req, res) => {
     }
     if ('mqtt_devices' in updates) restartMqtt();
     if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
+    if ('bms_devices' in updates) restartBmsPolling();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -716,6 +691,43 @@ app.post('/api/test-external', async (req, res) => {
     res.json({ success: true, value: isNaN(num) ? value : num });
   } catch (err) {
     logger.error('Error testing external source:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
+app.get('/api/metrics/list', isAuthenticated, (req, res) => {
+  try {
+    const { getAllMetrics } = require('./modules/metricsManager');
+    const metrics = getAllMetrics();
+    res.json(metrics);
+  } catch (err) {
+    logger.error('Error fetching metrics list:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/metrics/create', isAuthenticated, (req, res) => {
+  try {
+    const { createMetric } = require('./modules/metricsManager');
+    const { name, unit } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    createMetric(name, unit || '');
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error creating metric:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
+  try {
+    const { deleteMetric } = require('./modules/metricsManager');
+    const { name } = req.params;
+    deleteMetric(name);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error deleting metric:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -766,41 +778,8 @@ app.get('/api/metrics/names', async (req, res) => {
   }
 });
 
-// ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
-app.get('/api/metrics/list', isAuthenticated, (req, res) => {
-  try {
-    const { getAllMetrics } = require('./modules/metricsManager');
-    const metrics = getAllMetrics();
-    res.json(metrics);
-  } catch (err) {
-    logger.error('Error fetching metrics list:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/metrics/create', isAuthenticated, (req, res) => {
-  try {
-    const { createMetric } = require('./modules/metricsManager');
-    const { name, unit } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name required' });
-    createMetric(name, unit || '');
-    res.json({ success: true });
-  } catch (err) {
-    logger.error('Error creating metric:', err);
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
-  try {
-    const { deleteMetric } = require('./modules/metricsManager');
-    const { name } = req.params;
-    deleteMetric(name);
-    res.json({ success: true });
-  } catch (err) {
-    logger.error('Error deleting metric:', err);
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
 });
 
 // Catch-all for SPA – must be after all explicit routes
