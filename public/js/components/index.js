@@ -7,6 +7,8 @@ import { buildChartEnergy } from './chartEnergy.js';
 import { buildSavingsSummary } from './savingsSummary.js';
 import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
+import { buildWeatherBlock } from './weatherBlock.js';
+import { buildBatteryBlock } from './batteryBlock.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -17,5 +19,7 @@ export const componentBuilders = {
   'chart-energy': buildChartEnergy,
   'savings-summary': buildSavingsSummary,
   'data-table-daily': buildDataTableDaily,
-  'data-table-monthly': buildDataTableMonthly
+  'data-table-monthly': buildDataTableMonthly,
+  'weather-block': buildWeatherBlock,
+  'battery-block': buildBatteryBlock
 };
