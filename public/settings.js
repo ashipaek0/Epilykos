@@ -16,7 +16,6 @@ function showStatus(element, msg, type) {
 
 // Helper to get BMS bridge URL
 function getBmsBridgeUrl() {
-  // Use the same hostname as the dashboard, but port 8020
   return `${window.location.protocol}//${window.location.hostname}:8020`;
 }
 
@@ -643,14 +642,17 @@ function renderBmsDevice(device, idx) {
     card.remove();
     reindexBms();
   });
+
+  // Scan button
   card.querySelector('.scan-bms').addEventListener('click', async () => {
-  const statusEl = document.getElementById(`bms-test-status-${idx}`);
-  const available = await checkBridgeAvailable();
-  if (!available) {
-    showStatus(statusEl, 'BMS bridge not reachable – works only when dashboard is accessed from the same local network as the Bluetooth hardware.', 'error');
-    return;
-  }
-});
+    const statusEl = document.getElementById(`bms-test-status-${idx}`);
+    const available = await checkBridgeAvailable();
+    if (!available) {
+      showStatus(statusEl, 'BMS bridge not reachable – works only when dashboard is accessed from the same local network as the Bluetooth hardware.', 'error');
+      return;
+    }
+    const bridgeUrl = getBmsBridgeUrl();
+    showStatus(statusEl, `Scanning for BLE devices via ${bridgeUrl}...`, 'info');
     try {
       const res = await fetch(`${bridgeUrl}/devices`, { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -674,15 +676,19 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, `Scan failed: ${err.message}`, 'error');
     }
   });
+
+  // Test connection button
   card.querySelector('.test-bms').addEventListener('click', async () => {
-  const statusEl = document.getElementById(`bms-test-status-${idx}`);
-  const available = await checkBridgeAvailable();
-  if (!available) {
-    showStatus(statusEl, 'BMS bridge not reachable.', 'error');
-    return;
-  }
-  // ... existing test code ...
-});
+    const statusEl = document.getElementById(`bms-test-status-${idx}`);
+    const address = card.querySelector('input[name$="[address]"]').value.trim();
+    if (!address) {
+      showStatus(statusEl, 'MAC address required', 'error');
+      return;
+    }
+    const available = await checkBridgeAvailable();
+    if (!available) {
+      showStatus(statusEl, 'BMS bridge not reachable.', 'error');
+      return;
     }
     const bridgeUrl = getBmsBridgeUrl();
     showStatus(statusEl, `Testing connection to ${bridgeUrl}...`, 'info');
@@ -698,6 +704,7 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, `Failed: ${err.message}`, 'error');
     }
   });
+
   bmsDeviceCounter++;
 }
 function reindexBms() {
@@ -748,14 +755,14 @@ async function loadMetricsList() {
   } catch (err) {
     console.error('Error loading metrics:', err);
     const tbody = document.getElementById('metrics-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></td>';
   }
 }
 function renderMetricsTable() {
   const tbody = document.getElementById('metrics-table-body');
   if (!tbody) return;
   if (!metricsList.length) {
-    tbody.innerHTML = '<td><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></td>';
+    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></tr>';
     return;
   }
   tbody.innerHTML = '';
