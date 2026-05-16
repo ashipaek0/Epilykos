@@ -15,6 +15,16 @@ export async function loadDashboardConfig() {
   if (!dashboardConfig.dashboards || dashboardConfig.dashboards.length === 0) {
     throw new Error('Invalid dashboard configuration: no dashboards');
   }
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get('tab');
+  if (tabParam) {
+    const matchingTab = dashboardConfig.dashboards.find(db => db.id === tabParam);
+    if (matchingTab) {
+      dashboardConfig.activeDashboard = tabParam;
+    }
+  }
+  
   renderDashboard();
   return dashboardConfig;
 }
@@ -55,17 +65,9 @@ function renderDashboard() {
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
   if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
 
-  // Lazy-load tables
-  const dailyContent = document.querySelector('.daily-breakdown-content');
-  if (dailyContent && !dailyContent.dataset.loaded) {
-    const toggleBtn = dailyContent.previousElementSibling.querySelector('.toggle-btn');
-    toggleBtn.addEventListener('click', async () => { await updateDailyTable(); dailyContent.dataset.loaded = 'true'; }, { once: true });
-  }
-  const monthlyContent = document.querySelectorAll('.daily-breakdown-content')[1];
-  if (monthlyContent && !monthlyContent.dataset.loaded) {
-    const toggleBtn = monthlyContent.previousElementSibling.querySelector('.toggle-btn');
-    toggleBtn.addEventListener('click', async () => { await updateMonthlyTable(); monthlyContent.dataset.loaded = 'true'; }, { once: true });
-  }
+  // Load table data immediately (no lazy‑load required)
+  updateDailyTable().catch(e => console.error('Daily table error:', e));
+  updateMonthlyTable().catch(e => console.error('Monthly table error:', e));
 
   loadBranding();
   updateAllComponents();
@@ -74,6 +76,9 @@ function renderDashboard() {
 async function switchDashboard(id) {
   dashboardConfig.activeDashboard = id;
   await saveDashboardConfig(dashboardConfig);
+  const url = new URL(window.location);
+  url.searchParams.set('tab', id);
+  window.history.pushState({}, '', url);
   renderDashboard();
 }
 

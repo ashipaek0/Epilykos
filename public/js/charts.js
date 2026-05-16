@@ -144,8 +144,8 @@ export async function refreshPowerChart() {
   if (currentPowerRange === '24h') {
     const state = await fetchDashboardState();
     data = state.powerHistory;
-  } else {
-    const days = parseInt(currentPowerRange);
+  } else if (currentPowerRange === '3d') {
+    const days = 3;
     const res = await fetch(`/api/history?days=${days}`);
     const historyData = await res.json();
     data = historyData.map(r => ({
@@ -155,6 +155,10 @@ export async function refreshPowerChart() {
       battery_charge_kw: r.battery_charge_kw,
       grid_import_kw: r.grid_import_kw
     }));
+  } else {
+    // fallback to 24h
+    const state = await fetchDashboardState();
+    data = state.powerHistory;
   }
   updatePowerChartData(data);
 }
@@ -193,7 +197,7 @@ export function setPowerRange(range, datasets = null) {
   refreshPowerChart();
 }
 
-// Energy chart range
+// Energy chart range (unchanged)
 export async function refreshEnergyChart() {
   if (!energyBarChart) return;
   const days = parseInt(currentEnergyRange);

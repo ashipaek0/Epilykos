@@ -23,6 +23,7 @@ const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard
 const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling } = require('./modules/external');
+const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,6 +45,7 @@ const db = getDb();
 loadProfiles();
 setupMqtt();
 startExternalPolling();
+startBmsPolling();   // Start BMS bridge polling
 
 // Multer for restore and import
 const upload = multer({
@@ -184,6 +186,7 @@ async function pollAllSources() {
     await pollModbus();
     await pollLegacyHistory();
     await pollGridStatus();
+    // BMS polling is independent and runs on its own interval
     const state = await buildDashboardState();
     broadcastDashboardState(state);
     const elapsed = Date.now() - start;
@@ -203,7 +206,7 @@ app.get('/api/public-config', async (req, res) => {
     const keys = ['dashboard_title', 'dashboard_logo', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
     const config = {};
     for (const key of keys) config[key] = getConfig(key);
-    config.dashboard_title = config.dashboard_title || '⚡ Energy Dashboard';
+    config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
     config.savings_currency = config.savings_currency || '€';
     config.savings_rate = config.savings_rate || '0.30';
     res.json(config);
@@ -278,21 +281,56 @@ app.get('/api/history', async (req, res) => {
 app.get('/api/daily', async (req, res) => {
   const requestedDays = parseInt(req.query.days) || 30;
   const days = Math.min(requestedDays, 365);
-  const now = Math.floor(Date.now() / 1000);
-  const since = now - (days * 24 * 3600);
+  const now = new Date();
+  const dateArray = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    dateArray.push(d.toISOString().split('T')[0]);
+  }
+  const startUnix = Math.floor(new Date(dateArray[0]).getTime() / 1000);
+  const endUnix = Math.floor(now.getTime() / 1000);
   try {
     const rows = db.prepare(`
-      SELECT date(timestamp, 'unixepoch') as day,
-        MAX(daily_consumption) as consumption_kwh,
-        MAX(daily_solar) as solar_kwh,
-        MAX(daily_battery_charge) as battery_charge_kwh,
-        MAX(daily_battery_discharge) as battery_discharge_kwh,
-        MAX(daily_grid_import) as grid_import_kwh,
-        MAX(daily_grid_export) as grid_export_kwh
-      FROM history WHERE timestamp >= ?
-      GROUP BY day ORDER BY day ASC
-    `).all(since);
-    res.json(rows);
+      SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
+      FROM history
+      WHERE timestamp >= ? AND timestamp <= ?
+      ORDER BY timestamp ASC
+    `).all(startUnix, endUnix);
+    const dailyMap = new Map();
+    for (let i = 0; i < rows.length - 1; i++) {
+      const cur = rows[i];
+      const next = rows[i + 1];
+      const dtHours = (next.timestamp - cur.timestamp) / 3600;
+      const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
+      if (!dailyMap.has(day)) {
+        dailyMap.set(day, {
+          consumption_kwh: 0,
+          solar_kwh: 0,
+          battery_charge_kwh: 0,
+          battery_discharge_kwh: 0,
+          grid_import_kwh: 0,
+          grid_export_kwh: 0
+        });
+      }
+      const entry = dailyMap.get(day);
+      entry.consumption_kwh    += ((cur.consumption + next.consumption) / 2000) * dtHours;
+      entry.solar_kwh          += ((cur.solar + next.solar) / 2000) * dtHours;
+      entry.battery_charge_kwh += ((cur.battery_charge + next.battery_charge) / 2000) * dtHours;
+      entry.battery_discharge_kwh += ((cur.battery_discharge + next.battery_discharge) / 2000) * dtHours;
+      entry.grid_import_kwh    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
+      entry.grid_export_kwh    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
+    }
+    const result = dateArray.map(date => ({
+      day: date,
+      consumption_kwh: dailyMap.get(date)?.consumption_kwh || 0,
+      solar_kwh: dailyMap.get(date)?.solar_kwh || 0,
+      battery_charge_kwh: dailyMap.get(date)?.battery_charge_kwh || 0,
+      battery_discharge_kwh: dailyMap.get(date)?.battery_discharge_kwh || 0,
+      grid_import_kwh: dailyMap.get(date)?.grid_import_kwh || 0,
+      grid_export_kwh: dailyMap.get(date)?.grid_export_kwh || 0
+    }));
+    res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
     res.status(500).json({ error: err.message });
@@ -615,6 +653,7 @@ app.post('/api/settings', (req, res) => {
     }
     if ('mqtt_devices' in updates) restartMqtt();
     if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
+    if ('bms_devices' in updates) restartBmsPolling();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -652,6 +691,43 @@ app.post('/api/test-external', async (req, res) => {
     res.json({ success: true, value: isNaN(num) ? value : num });
   } catch (err) {
     logger.error('Error testing external source:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
+app.get('/api/metrics/list', isAuthenticated, (req, res) => {
+  try {
+    const { getAllMetrics } = require('./modules/metricsManager');
+    const metrics = getAllMetrics();
+    res.json(metrics);
+  } catch (err) {
+    logger.error('Error fetching metrics list:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/metrics/create', isAuthenticated, (req, res) => {
+  try {
+    const { createMetric } = require('./modules/metricsManager');
+    const { name, unit } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    createMetric(name, unit || '');
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error creating metric:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
+  try {
+    const { deleteMetric } = require('./modules/metricsManager');
+    const { name } = req.params;
+    deleteMetric(name);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error deleting metric:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -700,6 +776,10 @@ app.get('/api/metrics/names', async (req, res) => {
     logger.error('Error in /api/metrics/names:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
 });
 
 // Catch-all for SPA – must be after all explicit routes
