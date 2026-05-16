@@ -7,9 +7,7 @@ export function buildChartPower(block = {}) {
       <h3>${escapeHtml(config.title || 'Power Overview')}</h3>
       <div class="chart-controls" id="power-chart-controls">
         <button data-range="24h" class="active">24h</button>
-        <button data-range="7d">7d</button>
-        <button data-range="30d">30d</button>
-        <button data-range="90d">90d</button>
+        <button data-range="3d">3d</button>
       </div>
     </div>
     <canvas id="powerChart"></canvas>

@@ -1,7 +1,7 @@
-const { logger } = require('./logger');
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('./logger');
 
 let db;
 const DB_PATH = './data/energy.db';
@@ -73,7 +73,8 @@ function initializeDatabase() {
     'solar_capacity_kwp', 'solcast_api_key', 'forecast_enabled',
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
     'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo',
-    'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval'
+    'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
+    'user_metrics', 'bms_devices'     // <-- ADDED
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
@@ -82,7 +83,7 @@ function initializeDatabase() {
   // Default values
   const defaults = {
     forecast_enabled: 'false',
-    dashboard_title: '⚡ Energy Dashboard',
+    dashboard_title: '⚡ Epilykos',
     savings_currency: '€',
     savings_rate: '0.30',
     solar_loss_factor: '0.9',

@@ -1,12 +1,36 @@
 services:
-  energy-dashboard:
-    build: .
-    container_name: energy-dashboard
+  epilykos:
+    image: irunmole/epilykos:latest
+    container_name: epilykos
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
       - ./data:/app/data
     environment:
-      - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
-      - TZ=${TZ:-Africa/Lagos}
+      - SETTINGS_PASSWORD=
+      - TZ=Africa/Lagos
+      - BMS_BRIDGE_URL=http://bms-bridge:8020
+    depends_on:
+      - bms-bridge
+    networks:
+      - epilykos-net
+    extra_hosts:
+      - "bms-bridge:host-gateway"
+
+  bms-bridge:
+    image: irunmole/epilykos-bms:latest
+    container_name: bms-bridge
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - LOG_LEVEL=info
+    privileged: true   # add this
+    volumes:
+      - /var/run/dbus:/var/run/dbus   # mount dbus socket
+      - /dev:/dev:ro 
+
+networks:
+  epilykos-net:
+    driver: bridge
+
