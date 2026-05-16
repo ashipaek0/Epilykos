@@ -1,10 +1,10 @@
-// settings.js – complete with Metrics tab, BMS devices, scan button, dynamic bridge URL
+// settings.js – complete with Metrics tab, BMS devices, scan button, dynamic bridge URL, and metric dropdowns
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
 let usedDashboardMetrics = [];
-let allMetricNames = [];
+let allMetricNames = []; // will hold the list of metric names for dropdowns
 
 function showStatus(element, msg, type) {
   element.textContent = msg;
@@ -78,6 +78,49 @@ async function loadSettings() {
   }
 }
 
+// ---------- Helper: Create metric dropdown ----------
+function createMetricDropdown(selectedMetric = '') {
+  const select = document.createElement('select');
+  select.className = 'metric-name';
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = '';
+  emptyOpt.textContent = '-- Select Metric --';
+  select.appendChild(emptyOpt);
+  for (const name of allMetricNames) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === selectedMetric) opt.selected = true;
+    select.appendChild(opt);
+  }
+  return select;
+}
+
+// Helper to refresh all metric dropdowns after a new metric is created
+async function refreshAllMetricDropdowns() {
+  const res = await fetch('/api/metrics/names');
+  if (res.ok) {
+    allMetricNames = await res.json();
+    allMetricNames.sort();
+  }
+  const selects = document.querySelectorAll('.metric-name');
+  for (const select of selects) {
+    const currentVal = select.value;
+    select.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select Metric --';
+    select.appendChild(emptyOpt);
+    for (const name of allMetricNames) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+    if (currentVal && allMetricNames.includes(currentVal)) select.value = currentVal;
+  }
+}
+
 // ======================== HOME ASSISTANT ========================
 let haDeviceCounter = 0;
 function buildHaDeviceList(devices) {
@@ -112,7 +155,7 @@ function renderHaDevice(device, idx) {
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(usedDashboardMetrics.join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetricNames.join(', ') || 'none yet')}">?</span>
       </button>
     </div>
   `;
@@ -141,7 +184,7 @@ function renderHaDevice(device, idx) {
       const res = await fetch(`/api/ha-device-entities?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`);
       const entities = await res.json();
       if (!res.ok) throw new Error(entities.error || 'Failed');
-      const selects = card.querySelectorAll('.mappings-list select');
+      const selects = card.querySelectorAll('.mappings-list select.entity-select');
       selects.forEach(select => {
         const currentVal = select.value;
         select.innerHTML = '<option value="">-- Select entity --</option>';
@@ -200,15 +243,25 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  row.innerHTML = `
-    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
-    <select class="entity-select">
-      <option value="">-- Select entity --</option>
-      ${entityId ? `<option value="${escapeHtml(entityId)}" selected>${escapeHtml(entityId)}</option>` : ''}
-    </select>
-    <button type="button" class="remove-btn remove-metric">−</button>
-  `;
-  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  const metricSelect = createMetricDropdown(metric);
+  const entitySelect = document.createElement('select');
+  entitySelect.className = 'entity-select';
+  entitySelect.innerHTML = '<option value="">-- Select entity --</option>';
+  if (entityId) {
+    const opt = document.createElement('option');
+    opt.value = entityId;
+    opt.textContent = entityId;
+    opt.selected = true;
+    entitySelect.appendChild(opt);
+  }
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '−';
+  removeBtn.addEventListener('click', () => row.remove());
+  row.appendChild(metricSelect);
+  row.appendChild(entitySelect);
+  row.appendChild(removeBtn);
   container.appendChild(row);
 }
 
@@ -280,7 +333,7 @@ function renderMqttDevice(device, idx) {
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(usedDashboardMetrics.join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetricNames.join(', ') || 'none yet')}">?</span>
       </button>
     </div>
   `;
@@ -370,12 +423,20 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  row.innerHTML = `
-    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
-    <input type="text" class="topic-input" placeholder="topic" value="${escapeHtml(topic)}">
-    <button type="button" class="remove-btn remove-metric">−</button>
-  `;
-  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  const metricSelect = createMetricDropdown(metric);
+  const topicInput = document.createElement('input');
+  topicInput.type = 'text';
+  topicInput.className = 'topic-input';
+  topicInput.placeholder = 'topic';
+  topicInput.value = topic;
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '−';
+  removeBtn.addEventListener('click', () => row.remove());
+  row.appendChild(metricSelect);
+  row.appendChild(topicInput);
+  row.appendChild(removeBtn);
   container.appendChild(row);
 }
 
@@ -587,12 +648,20 @@ function renderExternalMappings(mappings, deviceIdx, container) {
 function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') {
   const row = document.createElement('div');
   row.className = 'metric-row';
-  row.innerHTML = `
-    <input type="text" class="jsonpath" placeholder="JSON path (e.g., data.temperature)" value="${escapeHtml(jsonPath)}">
-    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
-    <button type="button" class="remove-btn remove-metric">−</button>
-  `;
-  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  const jsonPathInput = document.createElement('input');
+  jsonPathInput.type = 'text';
+  jsonPathInput.className = 'jsonpath';
+  jsonPathInput.placeholder = 'JSON path (e.g., data.temperature)';
+  jsonPathInput.value = jsonPath;
+  const metricSelect = createMetricDropdown(metric);
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '−';
+  removeBtn.addEventListener('click', () => row.remove());
+  row.appendChild(jsonPathInput);
+  row.appendChild(metricSelect);
+  row.appendChild(removeBtn);
   container.appendChild(row);
 }
 function reindexExternal() {
@@ -755,7 +824,7 @@ async function loadMetricsList() {
   } catch (err) {
     console.error('Error loading metrics:', err);
     const tbody = document.getElementById('metrics-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></td>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
   }
 }
 function renderMetricsTable() {
@@ -787,6 +856,7 @@ function renderMetricsTable() {
           if (res.ok) {
             showStatus(backupStatus, `Metric "${name}" deleted`, 'success');
             await loadMetricsList();
+            await refreshAllMetricDropdowns();
           } else {
             const err = await res.json();
             showStatus(backupStatus, err.error || 'Delete failed', 'error');
@@ -825,6 +895,7 @@ if (modalCreate) {
       if (res.ok) {
         if (modal) modal.style.display = 'none';
         await loadMetricsList();
+        await refreshAllMetricDropdowns();
         showStatus(backupStatus, `Metric "${name}" created`, 'success');
       } else {
         const err = await res.json();
@@ -938,6 +1009,7 @@ function renderDashboardBlockEditor(dashboard) {
                     if (res.ok) {
                       if (modal) modal.style.display = 'none';
                       await loadMetricsList();
+                      await refreshAllMetricDropdowns();
                       document.querySelectorAll('.card-metric-select').forEach(select => {
                         const currentVal = select.value;
                         select.innerHTML = getMetricOptions(currentVal);
@@ -1120,7 +1192,7 @@ form.addEventListener('submit', async (e) => {
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]').value;
     dev.entities = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
-      const metricName = row.querySelector('.metric-name').value.trim();
+      const metricName = row.querySelector('.metric-name').value; // from dropdown
       const entityId = row.querySelector('.entity-select').value;
       if (metricName && entityId) dev.entities[metricName] = entityId;
     });
@@ -1135,7 +1207,7 @@ form.addEventListener('submit', async (e) => {
     dev.password = card.querySelector('input[name$="[password]"]')?.value || '';
     dev.topics = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
-      const metricName = row.querySelector('.metric-name').value.trim();
+      const metricName = row.querySelector('.metric-name').value;
       const topic = row.querySelector('.topic-input').value.trim();
       if (metricName && topic) dev.topics[metricName] = topic;
     });
@@ -1166,8 +1238,8 @@ form.addEventListener('submit', async (e) => {
     src.mappings = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const jsonPath = row.querySelector('.jsonpath').value.trim();
-      const metric = row.querySelector('.metric-name').value.trim();
-      if (jsonPath && metric) src.mappings[jsonPath] = metric;
+      const metricName = row.querySelector('.metric-name').value;
+      if (jsonPath && metricName) src.mappings[jsonPath] = metricName;
     });
     return src;
   });
