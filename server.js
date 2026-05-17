@@ -27,6 +27,7 @@ const { startExternalPolling, restartExternalPolling } = require('./modules/exte
 const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Morgan HTTP request logging (stream to winston)
