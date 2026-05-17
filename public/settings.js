@@ -1367,7 +1367,14 @@ function renderDashboardBlockEditor(dashboard) {
   addBlockBtn.textContent = '+ Add Block';
   addBlockBtn.className = 'fetch-btn';
   addBlockBtn.addEventListener('click', () => {
-    dashboard.layout.push({ type: 'flow-card' });
+    dashboard.layout.push({
+      id: 'block_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      type: 'flow-card',
+      enabled: true,
+      colSpan: 12,
+      rowSpan: 0,
+      config: {}
+    });
     renderDashboardBlockEditor(dashboard);
   });
   container.appendChild(addBlockBtn);
