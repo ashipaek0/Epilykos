@@ -8,16 +8,30 @@ export function buildForecastBanner(block = {}) {
   banner.id = 'forecast-banner';
   banner.style.display = 'none';
   banner.dataset.metricMap = JSON.stringify({ actual_energy: actualEnergyMetric });
+
   banner.innerHTML = `
     <div class="pv-top-bar">
-      <h3>Solar Forecast</h3>
+      <div>
+        <h3>Solar Forecast</h3>
+        <div class="forecast-clock" id="forecast-clock"></div>
+      </div>
       <span class="forecast-date" id="forecast-date"></span>
     </div>
     <div class="pv-main-row">
       <div class="pv-days">
-        <div class="pv-day"><span class="pv-day-label">Today</span><span class="pv-day-value" id="pv-today-value">0 kWh</span></div>
-        <div class="pv-day"><span class="pv-day-label" id="pred-day1-label">Monday</span><span class="pv-day-value" id="pv-tomorrow">0 kWh</span></div>
-        <div class="pv-day"><span class="pv-day-label" id="pred-day2-label">Tuesday</span><span class="pv-day-value" id="pv-nextday">0 kWh</span></div>
+        <div class="pv-day">
+          <span class="pv-day-label">Today</span>
+          <span class="pv-day-value" id="pv-today-value">0 kWh</span>
+          <span class="pv-day-remaining" id="pv-today-remaining"></span>
+        </div>
+        <div class="pv-day">
+          <span class="pv-day-label" id="pred-day1-label">Monday</span>
+          <span class="pv-day-value" id="pv-tomorrow">0 kWh</span>
+        </div>
+        <div class="pv-day">
+          <span class="pv-day-label" id="pred-day2-label">Tuesday</span>
+          <span class="pv-day-value" id="pv-nextday">0 kWh</span>
+        </div>
       </div>
       <div class="weather-section">
         <div class="weather-column" id="forecast-weather-current">
@@ -42,10 +56,6 @@ export function buildForecastBanner(block = {}) {
   return banner;
 }
 
-// The updateForecast function will be imported from ../forecast.js
-// We'll export a placeholder that will be overridden or just import directly in updater.
-// For now, we'll export a stub; the real updateForecast is in forecast.js.
 export function updateForecastStub() {
-  // Actual implementation is in forecast.js
   import('../forecast.js').then(m => m.updateForecast());
 }

@@ -189,12 +189,14 @@ h1, h2, h3, h4,
 .pv-top-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
 .pv-top-bar h3 { font-size: var(--fs-large); font-weight: 600; margin: 0; white-space: nowrap; }
 .forecast-date { font-size: var(--fs-small); color: var(--text-secondary); min-width: 90px; text-align: right; }
+.forecast-clock { font-size: var(--fs-medium); font-weight: 500; color: var(--accent); margin-top: 0.15rem; }
 
-.pv-main-row { display: flex; align-items: flex-start; gap: 1.5rem; flex: 1; min-height: 0; }
-.pv-days { display: flex; flex-direction: column; gap: 0.25rem; min-width: 110px; }
+.pv-main-row { display: flex; align-items: flex-start; gap: 1.5rem; flex: 1; min-height: 0; margin-top: 0.5rem; }
+.pv-days { display: flex; flex-direction: column; gap: 0.75rem; min-width: 110px; }
 .pv-day { display: flex; flex-direction: column; }
 .pv-day-label { font-size: var(--fs-small); color: var(--text-secondary); }
 .pv-day-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); }
+.pv-day-remaining { font-size: 0.7rem; color: var(--accent); margin-top: 0.1rem; }
 
 /* Weather section */
 .weather-section { display: flex; gap: 1.5rem; align-items: flex-start; }
