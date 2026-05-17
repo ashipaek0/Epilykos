@@ -288,48 +288,37 @@ app.get('/api/daily', async (req, res) => {
     d.setDate(now.getDate() - i);
     dateArray.push(d.toISOString().split('T')[0]);
   }
-  const startUnix = Math.floor(new Date(dateArray[0]).getTime() / 1000);
+  const startUnix = Math.floor(new Date(dateArray[0] + 'T00:00:00').getTime() / 1000);
   const endUnix = Math.floor(now.getTime() / 1000);
   try {
+    // Use MAX(daily_*) — the running cumulative totals — for reliable daily energy
     const rows = db.prepare(`
-      SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
+      SELECT date(timestamp, 'unixepoch') as day,
+        MAX(daily_consumption) as consumption_kwh,
+        MAX(daily_solar) as solar_kwh,
+        MAX(daily_battery_charge) as battery_charge_kwh,
+        MAX(daily_battery_discharge) as battery_discharge_kwh,
+        MAX(daily_grid_import) as grid_import_kwh,
+        MAX(daily_grid_export) as grid_export_kwh
       FROM history
       WHERE timestamp >= ? AND timestamp <= ?
-      ORDER BY timestamp ASC
+      GROUP BY day
+      ORDER BY day ASC
     `).all(startUnix, endUnix);
-    const dailyMap = new Map();
-    for (let i = 0; i < rows.length - 1; i++) {
-      const cur = rows[i];
-      const next = rows[i + 1];
-      const dtHours = (next.timestamp - cur.timestamp) / 3600;
-      const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
-      if (!dailyMap.has(day)) {
-        dailyMap.set(day, {
-          consumption_kwh: 0,
-          solar_kwh: 0,
-          battery_charge_kwh: 0,
-          battery_discharge_kwh: 0,
-          grid_import_kwh: 0,
-          grid_export_kwh: 0
-        });
-      }
-      const entry = dailyMap.get(day);
-      entry.consumption_kwh    += ((cur.consumption + next.consumption) / 2000) * dtHours;
-      entry.solar_kwh          += ((cur.solar + next.solar) / 2000) * dtHours;
-      entry.battery_charge_kwh += ((cur.battery_charge + next.battery_charge) / 2000) * dtHours;
-      entry.battery_discharge_kwh += ((cur.battery_discharge + next.battery_discharge) / 2000) * dtHours;
-      entry.grid_import_kwh    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
-      entry.grid_export_kwh    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
-    }
-    const result = dateArray.map(date => ({
-      day: date,
-      consumption_kwh: dailyMap.get(date)?.consumption_kwh || 0,
-      solar_kwh: dailyMap.get(date)?.solar_kwh || 0,
-      battery_charge_kwh: dailyMap.get(date)?.battery_charge_kwh || 0,
-      battery_discharge_kwh: dailyMap.get(date)?.battery_discharge_kwh || 0,
-      grid_import_kwh: dailyMap.get(date)?.grid_import_kwh || 0,
-      grid_export_kwh: dailyMap.get(date)?.grid_export_kwh || 0
-    }));
+    const dataMap = {};
+    rows.forEach(r => { dataMap[r.day] = r; });
+    const result = dateArray.map(date => {
+      const d = dataMap[date];
+      return {
+        day: date,
+        consumption_kwh: d?.consumption_kwh || 0,
+        solar_kwh: d?.solar_kwh || 0,
+        battery_charge_kwh: d?.battery_charge_kwh || 0,
+        battery_discharge_kwh: d?.battery_discharge_kwh || 0,
+        grid_import_kwh: d?.grid_import_kwh || 0,
+        grid_export_kwh: d?.grid_export_kwh || 0
+      };
+    });
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);

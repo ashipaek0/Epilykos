@@ -983,6 +983,7 @@ function renderDashboardBlockEditor(dashboard) {
       </select>
       <select class="block-height-select" style="width:80px;">
         <option value="0" ${!block.rowSpan ? 'selected' : ''}>Auto</option>
+        <option value="200" ${block.rowSpan == 200 ? 'selected' : ''}>200px</option>
         <option value="300" ${block.rowSpan == 300 ? 'selected' : ''}>300px</option>
         <option value="400" ${block.rowSpan == 400 ? 'selected' : ''}>400px</option>
         <option value="500" ${block.rowSpan == 500 ? 'selected' : ''}>500px</option>
@@ -1176,6 +1177,40 @@ function renderDashboardBlockEditor(dashboard) {
           <label><input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Show Month</label>
           <label><input type="checkbox" class="config-show-all" ${block.config?.showAll !== false ? 'checked' : ''}> Show All-Time</label>
           <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'data-table-daily' || block.type === 'data-table-monthly') {
+        const columns = block.config?.columns || [
+          { field: 'consumption_kwh', label: 'Load (kWh)' },
+          { field: 'solar_kwh', label: 'Solar PV (kWh)' },
+          { field: 'battery_charge_kwh', label: 'Battery charged (kWh)' },
+          { field: 'battery_discharge_kwh', label: 'Battery discharged (kWh)' },
+          { field: 'grid_import_kwh', label: 'Grid used (kWh)' },
+          { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }
+        ];
+        const fieldOptions = [
+          { value: 'consumption_kwh', label: 'Load' },
+          { value: 'solar_kwh', label: 'Solar PV' },
+          { value: 'battery_charge_kwh', label: 'Battery charged' },
+          { value: 'battery_discharge_kwh', label: 'Battery discharged' },
+          { value: 'grid_import_kwh', label: 'Grid used' },
+          { value: 'grid_export_kwh', label: 'Grid exported' }
+        ];
+        const fieldSelectHtml = fieldOptions.map(f =>
+          `<option value="${f.value}">${f.label}</option>`
+        ).join('');
+        const colRows = columns.map((col, i) => `
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;">
+            <input type="text" class="config-col-label" data-idx="${i}" value="${escapeHtml(col.label)}" style="flex:1;">
+            <select class="config-col-field" data-idx="${i}" style="flex:1;">${fieldSelectHtml.replace(`value="${col.field}"`, `value="${col.field}" selected`)}</select>
+            <button type="button" class="remove-col-btn" data-idx="${i}" style="padding:0.3rem 0.5rem;">✕</button>
+          </div>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;">
+          <h4 style="margin:0.5rem 0;">Columns</h4>
+          ${colRows}
+          <button type="button" class="add-col-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Column</button>
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
       } else if (block.type === 'forecast-banner') {
         const currentMetrics = block.config?.metrics || {};
         const fieldOptions = [
@@ -1241,6 +1276,16 @@ function renderDashboardBlockEditor(dashboard) {
               const role = select.dataset.role;
               if (select.value) block.config.metrics[role] = select.value;
             });
+          } else if (block.type === 'data-table-daily' || block.type === 'data-table-monthly') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.columns = [];
+            configPanel.querySelectorAll('.config-col-label').forEach(labelEl => {
+              const idx = parseInt(labelEl.dataset.idx);
+              const fieldEl = configPanel.querySelector(`.config-col-field[data-idx="${idx}"]`);
+              if (labelEl && fieldEl && fieldEl.value) {
+                block.config.columns.push({ label: labelEl.value, field: fieldEl.value });
+              }
+            });
           } else if (block.type === 'forecast-banner') {
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => {
@@ -1282,6 +1327,41 @@ function renderDashboardBlockEditor(dashboard) {
           });
         }
         configPanel.querySelectorAll('.remove-ds-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            btn.closest('div').remove();
+          });
+        });
+      }
+      // Attach add/remove column handlers for table config panels
+      if (block.type === 'data-table-daily' || block.type === 'data-table-monthly') {
+        const addBtn = configPanel.querySelector('.add-col-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const existingRows = configPanel.querySelectorAll('.config-col-label');
+            const newIdx = existingRows.length;
+            const fieldOptions = [
+              { value: 'consumption_kwh', label: 'Load' },
+              { value: 'solar_kwh', label: 'Solar PV' },
+              { value: 'battery_charge_kwh', label: 'Battery charged' },
+              { value: 'battery_discharge_kwh', label: 'Battery discharged' },
+              { value: 'grid_import_kwh', label: 'Grid used' },
+              { value: 'grid_export_kwh', label: 'Grid exported' }
+            ];
+            const fieldSelectHtml = fieldOptions.map(f =>
+              `<option value="${f.value}">${f.label}</option>`
+            ).join('');
+            const newRow = document.createElement('div');
+            newRow.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;';
+            newRow.innerHTML = `
+              <input type="text" class="config-col-label" data-idx="${newIdx}" value="New Column" style="flex:1;">
+              <select class="config-col-field" data-idx="${newIdx}" style="flex:1;">${fieldSelectHtml}</select>
+              <button type="button" class="remove-col-btn" data-idx="${newIdx}" style="padding:0.3rem 0.5rem;">✕</button>
+            `;
+            newRow.querySelector('.remove-col-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-col-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             btn.closest('div').remove();
           });

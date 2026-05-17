@@ -1,308 +1,249 @@
-# ⚡ Epilykos
+# Epilykos
 
-> **Multi‑source, multi‑device, infinitely customisable.** A self‑hosted, real‑time energy monitoring dashboard that integrates with **Home Assistant**, **MQTT**, **Modbus TCP/Serial**, **any REST API**, and **Bluetooth BMS** devices. Designed for public displays – no login required for viewing, while settings are password‑protected.
-
-A self‑hosted, real‑time energy monitoring dashboard that integrates with **Home Assistant**, **MQTT**, **Modbus TCP/Serial**, **any REST API**, and now **Bluetooth BMS** devices. Designed for public displays – no login required for viewing, while settings are password‑protected.
+> **Multi-source, multi-device energy monitoring.** A self-hosted, real-time dashboard integrating **Home Assistant**, **MQTT**, **Modbus TCP/Serial**, **REST APIs**, and **Bluetooth BMS** devices. Public display with no login required; settings are password-protected.
 
 ![Screenshot 1](https://github.com/user-attachments/assets/0511a0ba-f08c-4f72-918a-59945d3ee456)
 ![Screenshot 2](https://github.com/user-attachments/assets/d0599cd5-bfd0-45e0-89e0-d8e291e31a0b)
-![Screenshot 3](https://github.com/user-attachments/assets/35f69b77-0695-48d4-b1d8-9cb9481990d7)
-![Screenshot 4](https://github.com/user-attachments/assets/0fdc6430-fbcf-438d-9074-f466fe92b363)
-![Screenshot 5](https://github.com/user-attachments/assets/6498c54d-119e-4754-a2d1-2f672d1624d1)
-![Screenshot 6](https://github.com/user-attachments/assets/655d143e-f1c2-4bd5-8ff2-39333b9e0f16)
 
 ---
 
-## ✨ Features
+## Features
 
-### 📊 Live Data & Flow Visualisation
+### Live Data & Flow
 
-- **Animated Flow Card** – Colour‑coded arrows show power flowing between **Solar**, **Battery**, **Home**, and **Grid**. Icons change colour based on activity.
-- **Real‑time Stats** – Current power (W), battery state of charge (%), daily totals (kWh), self‑sufficiency, and cost savings.
-- **Solar Forecast Banner** – Predicts solar generation for the next 4 days using high‑accuracy **Solcast** (with API key) or free **Open‑Meteo** as fallback. Includes hourly sparkline, weather summary, and daily predictions.
-- **Grid Status & Timeline** – Current grid state (ON/OFF), uptime hours (day/week/month/year), and a 24‑hour timeline bar with hover tooltips. Displays when the current state began (e.g. "ON since 2:30 PM").
+- **Animated Flow Card** — colour-coded arrows for Solar → Battery → Home → Grid. Icons change colour with activity.
+- **Real-time Stats** — current power (W), battery SoC (%), daily totals (kWh), self-sufficiency, cost savings.
+- **Solar Forecast Banner** — 4-day predictions via Solcast (API key) or Open-Meteo (free). Hourly sparkline comparing actual vs forecast power, weather summary.
+- **Grid Status & Timeline** — ON/OFF state, uptime hours (day/week/month/year), 24-hour timeline bar with hover tooltips.
 
-### 🎨 Modular Dashboard Design
+### Modular Dashboard
 
-- **Multiple tabs** – Create separate dashboard tabs (e.g. "Main", "Technical", "Living Room") with custom layouts
-- **Drag‑and‑drop blocks** – Reorder blocks directly from Settings. Available block types:
-  - Flow Card
-  - Solar Forecast Banner
-  - Metric Cards (custom stat cards)
-  - Grid Card
-  - Power Overview Chart
-  - Daily Energy Bar Chart
-  - Savings Summary
-  - Last 30 Days Table
-  - Last 12 Months Table
-  - Weather Block
-  - Battery Block
+- **Multiple tabs** — separate dashboards (e.g. "Main", "Technical", "Living Room").
+- **Drag-to-reorder** — drag blocks to rearrange directly on the dashboard (authenticated users).
+- **12-column CSS Grid** — stack blocks side-by-side. Each block has configurable width (Full, 3/4, 2/3, 1/2, 1/3, 1/4) and optional min-height.
+- **Metric configurability** — every block reads metric names from config. Pick which metrics feed each block from Settings. Fallback defaults mean existing layouts keep working.
+- **Available block types:**
+  - Flow Card, Solar Forecast Banner, Metric Cards, Grid Card
+  - Power Overview Chart, Daily Energy Bar Chart
+  - Savings Summary, Last 30 Days Table, Last 12 Months Table
+  - Weather Block, Battery Block
 
-- **Per‑block configuration** – Customise individual blocks:
-  - **Charts:** Title and dataset visibility (load, solar, battery, grid)
-  - **Flow Card:** Toggle solar gauge
-  - **Grid Card:** Toggle timeline bar
-  - **Savings Summary:** Custom title and show/hide periods
-  - **Weather / Battery blocks:** Custom titles
+### Data Sources
 
-- **Custom metric cards** – Add unlimited stat cards with title, metric, unit. Live updates from all data sources
-- **Export / Import layouts** – Share dashboard configurations as JSON files
+- **Home Assistant** — multi-instance, entity mapping per device.
+- **MQTT** — multi-broker, topic-to-metric mapping.
+- **Modbus TCP & Serial** — profiles for SRNE, Growatt, Deye, Victron, Voltronic.
+- **External REST APIs** — poll any HTTP endpoint, map JSON paths to metrics.
+- **Bluetooth BMS** — JK, JBD, Daly via Python sidecar (auto-discover, cell voltages, temperature).
 
-### 🔌 Multiple Data Sources
+### Charts & Tables
 
-- **Home Assistant (multi‑device)** – Multiple instances, each with own URL, token, entity mappings
-- **MQTT (multi‑broker)** – Multiple brokers with flexible topic-to-metric mapping
-- **Modbus TCP & Serial** – Direct polling with profiles for SRNE, Growatt, Deye, Victron, Voltronic, and more
-- **External REST APIs** – Poll any HTTP endpoint and map JSON paths to metrics
-- **Bluetooth BMS** ⭐ **NEW** – Monitor JK, JBD, Daly, and other BMS via lightweight sidecar. Auto-discover devices, read voltage, current, SOC, temperature, cell voltages
-- **Dynamic metric mapping** – Define any metric names (e.g. `grid_voltage`, `inverter_temp`). Built-in tooltip shows all available metrics
+- **Power Overview** — line chart, 24h/3d range, toggle datasets.
+- **Daily Energy** — bar chart, 7d/30d/90d range.
+- **Data Tables** — collapsible daily (30 days) and monthly (12 months) breakdowns.
 
-### 📈 Interactive Charts & Tables
+### Customisation
 
-- **Power Overview Chart** – Line chart with range selector (24h / 3d). Filter datasets. Smooth gradients
-- **Daily Energy Bar Chart** – Range selector (7d / 30d / 90d) for solar, grid import, consumption
-- **Collapsible data tables:**
-  - **Last 30 Days** – Daily totals
-  - **Last 12 Months** – Monthly breakdown
+- Light / dark mode (manual or system auto-sync).
+- Custom title and logo.
+- Electricity rate and currency for savings calculation.
+- Backup & restore database.
+- Layout configuration via Settings (add/remove blocks, change type, width, height, per-block metric mapping).
 
-### 🎛️ Customisation & Management
+### Real-Time Updates
 
-- **Light / Dark mode** – Manual toggle or system auto-sync
-- **Branding** – Custom title and logo
-- **Savings calculation** – Electricity rate and currency
-- **Backup & Restore** – Download/upload entire database
-- **Layout Export / Import** – Share JSON files
-- **Connection testing** – Verify all data sources from Settings
-- **Responsive design** – Desktop, tablet, mobile optimised
+- **WebSocket** pushes data every 30s with near-instant refresh.
+- Automatic fallback to polling (60s) if WebSocket disconnects.
 
-### ⚡ Real‑Time Updates (WebSocket)
+### Security
 
-- **Near‑instant refresh** – Persistent WebSocket connection pushes data immediately (every 30s)
-- **Automatic fallback** – Falls back to polling (60s) if WebSocket fails
-- **Zero‑latency updates** – No lag or manual refreshes
-
-### 🧠 Central Metric Management
-
-- **Metrics tab** – View all metrics, last value, and unit
-- **Create custom metrics** – Define name and unit; appears in all dropdowns
-- **Delete metrics** – Removes from mappings and stored data
-- **Dropdown selection** – Choose from existing metrics (prevents typos)
-
-### 🔐 Security & Logging
-
-- **Session‑based authentication** 
-- **Structured logging** (Winston) – Log levels, file rotation (`./logs/`)
-- **Rate limiting**
-- **CSRF protection**
+- Session-based authentication for settings.
+- Rate limiting on login.
+- CSRF protection.
+- Structured logging (Winston) with rotation.
 
 ---
 
-## 🚀 Quick Start (Docker Compose)
+## Quick Start (Docker Compose)
 
-### 1. Clone the Repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/yourusername/epilykos.git
 cd epilykos
 ```
 
-### 2. Create Environment File
+### 2. Configure
 
 ```bash
-cp .env.example .env
-nano .env   # Edit SETTINGS_PASSWORD to a strong password
+nano .env   # set SETTINGS_PASSWORD to a strong password
 ```
 
-The `.env` file is excluded from version control and keeps your password secure.
-
-### 3. Start the Containers
-
-For a full installation including the optional Bluetooth BMS bridge:
+### 3. Start
 
 ```bash
 docker compose up -d --build
 ```
 
-The dashboard is now available at `http://localhost:3000`.
+Dashboard: `http://localhost:3000`
 
-### 4. Configure Data Sources
+### 4. Add Data Sources
 
-1. Open `http://your-ip:3000/settings`
-2. Log in with username `admin` and your `.env` password
-3. **Add Home Assistant device:**
-   - Enter name, URL (e.g. `http://homeassistant.local:8123`)
-   - Generate and paste a Long‑Lived Access Token
-   - Click **Fetch Entities** to load sensors
-   - Map metric names to entity IDs
-4. **Optionally add:**
-   - MQTT brokers with topic mappings
-   - Modbus devices (TCP or serial)
-   - External REST API sources
-   - Bluetooth BMS devices (scan for devices, select MAC address)
-5. **Set up Solar Forecast** (optional):
-   - Enter latitude, longitude, system capacity
-   - Optionally add Solcast API key
-   - Click **Test Forecast**
-6. **Customise dashboard layout:**
-   - Add/remove tabs and blocks
-   - Configure each block's settings
-   - Add metric cards
-7. Click **Save All Settings**
-
-The dashboard immediately begins displaying live data.
+1. Open `http://your-ip:3000/settings`, log in with username `admin` and your `.env` password.
+2. **Home Assistant:** add URL, token, fetch entities, map metrics.
+3. **MQTT:** add broker URL, map topics to metrics.
+4. **Modbus:** pick profile, configure TCP or serial.
+5. **BMS:** scan for devices, select MAC address.
+6. **Solar Forecast:** set latitude, longitude, capacity. Optionally add Solcast API key.
+7. **Dashboard layout:** add/remove blocks, set type, width, height, configure per-block metrics.
+8. Click **Save All Settings**.
 
 ---
 
-## 🔧 Configuration Reference
+## Project Structure
 
-### Home Assistant (Multi‑Device)
+```
+epilykos/
+├── server.js                     # Express entry point
+├── modules/                      # Backend
+│   ├── database.js               # SQLite (WAL mode)
+│   ├── ha.js                     # Home Assistant polling
+│   ├── mqtt.js                   # MQTT broker connections
+│   ├── modbus.js                 # Modbus TCP/Serial
+│   ├── external.js               # REST API polling
+│   ├── bms.js                    # Bluetooth BMS bridge
+│   ├── solar.js                  # Solar forecast (Solcast/Open-Meteo)
+│   ├── grid.js                   # Grid status tracking
+│   ├── history.js                # Legacy history snapshots
+│   ├── metrics.js                # Current metrics query
+│   ├── metricsManager.js         # User-created metrics CRUD
+│   ├── dashboard-config.js       # Layout config
+│   ├── savings.js                # Cost savings
+│   ├── backup.js                 # Database backup/restore
+│   ├── sessionAuth.js            # Auth, CSRF, rate limiting
+│   ├── logger.js                 # Winston logger
+│   └── utils.js                  # Grid state parser
+├── public/
+│   ├── index.html                # Main dashboard
+│   ├── style.css                 # Styles (CSS Grid layout)
+│   ├── settings.html / settings.js  # Settings page
+│   └── js/
+│       ├── main.js               # Entry: WebSocket, theme, config
+│       ├── dashboard.js          # CSS Grid + SortableJS layout
+│       ├── api.js                # API fetch helpers
+│       ├── updater.js            # State update dispatcher
+│       ├── charts.js             # Chart.js power & energy charts
+│       ├── forecast.js           # Forecast sparkline & weather
+│       ├── theme.js              # Light/dark mode
+│       ├── tables.js             # Daily/monthly data tables
+│       ├── grid.js               # Grid timeline bar
+│       └── components/
+│           ├── flowCard.js       # Animated flow diagram
+│           ├── forecastBanner.js # Solar forecast banner
+│           ├── metricCards.js    # Custom stat cards
+│           ├── gridCard.js       # Grid status & hours
+│           ├── chartPower.js     # Power chart builder
+│           ├── chartEnergy.js    # Energy chart builder
+│           ├── savingsSummary.js # Savings display
+│           ├── dataTableDaily.js # Daily data table
+│           ├── dataTableMonthly.js# Monthly data table
+│           ├── weatherBlock.js   # Weather display
+│           └── batteryBlock.js   # Battery metrics
+├── bms-bridge/                   # Python FastAPI sidecar for BLE BMS
+├── profiles/                     # Modbus register maps (JSON)
+└── data/                         # SQLite database (runtime)
+```
 
-| Setting | Description |
-|---------|-------------|
-| **Name** | Friendly label for this HA instance |
-| **URL** | Address (e.g. `http://homeassistant.local:8123`) |
-| **Token** | Long‑Lived Access Token (HA profile → Security) |
-| **Poll interval** | Seconds between fetches (default: 30) |
-| **Entity mappings** | Metric name → Entity ID (e.g. `solar` → `sensor.pv_power`) |
-| **Fetch Entities** | Auto-populate entity dropdowns |
-| **+ Add Metric Mapping** | Create custom metrics; tooltip shows all available |
+---
 
-### MQTT (Multi‑Broker)
+## Configuration Reference
 
-| Setting | Description |
-|---------|-------------|
-| **Broker URL** | `mqtt://broker:1883` or `mqtt+tls://...` |
-| **Username / Password** | Optional authentication |
-| **Topic mappings** | Metric name → Topic (e.g. `consumption` → `energy/load`) |
-| **Test Broker** | Verify connection |
-| **Test Topic** | Confirm topic is being received |
+### Dashboard Layout
 
-### Modbus (TCP and Serial)
+Each block in settings has:
+- **Type** — block component
+- **Width** — Full, 3/4, 2/3, 1/2, 1/3, 1/4 (12-column grid)
+- **Height** — Auto or fixed px
+- **Config** — per-block settings (metrics, title, datasets, visibility)
 
-| Setting | Description |
-|---------|-------------|
-| **Transport** | TCP/IP or Serial (USB/RS485) |
-| **Profile** | Pre‑defined register maps (SRNE, Growatt, Deye, Victron, etc.) |
-| **Host / Port (TCP)** | IP address and port (default: 502) |
-| **Serial path (Serial)** | e.g. `/dev/ttyUSB0`, `/dev/ttyAMA0` |
-| **Baud rate (Serial)** | 9600, 19200, 115200, etc. |
-| **Unit ID** | Slave ID (typically 1) |
-| **Poll interval** | How often to read registers (seconds) |
+Blocks are rendered in a 12-column CSS Grid. Drag to reorder on the dashboard (SortableJS). Changes persist on save.
 
-### External REST API
+### Per-Block Metric Configuration
+
+Each block type can override which metrics it reads:
+
+| Block | Configurable Metrics |
+|-------|---------------------|
+| Battery | SOC, Voltage, Current, Power, Temperature |
+| Flow Card | Solar, Battery SOC, Charge/Discharge, Consumption, Grid Import/Export |
+| Grid Card | Grid Status (optional override) |
+| Power/Energy Charts | Datasets: Label, Metric, Color (add/remove freely) |
+| Forecast Banner | Actual energy field for sparkline |
+
+All blocks fall back to sensible defaults if no config is set — existing layouts keep working.
+
+### Home Assistant (Multi-Device)
 
 | Setting | Description |
 |---------|-------------|
 | **Name** | Friendly label |
-| **URL** | HTTP/HTTPS endpoint (e.g. `https://api.weather.com/data`) |
-| **Metric mappings** | JSON path → metric name (e.g. `data.temp` → `outside_temp`) |
-| **Global poll interval** | How often to fetch all sources (seconds, default: 60) |
-| **Test** | Fetch and verify extraction |
+| **URL** | `http://homeassistant.local:8123` |
+| **Token** | Long-Lived Access Token |
+| **Entity mappings** | Metric name → Entity ID |
 
-### Bluetooth BMS ⭐ **NEW**
+### MQTT (Multi-Broker)
 
 | Setting | Description |
 |---------|-------------|
-| **Name** | Friendly label (e.g. "Battery1") |
-| **MAC address** | Bluetooth address of the BMS (found via Scan button) |
-| **Enabled** | Toggle polling |
-| **Test Connection** | Verify the bridge can read data |
-| **Scan** | Discover nearby BLE devices that look like BMS |
+| **Broker URL** | `mqtt://broker:1883` |
+| **Topic mappings** | Metric name → Topic |
 
-> **Note:** BMS metrics are automatically prefixed with `bms_<name>_` (e.g. `bms_battery1_voltage`).
+### Modbus
+
+| Setting | Description |
+|---------|-------------|
+| **Transport** | TCP/IP or Serial |
+| **Profile** | Pre-defined register map |
+| **Host/Port** | TCP settings |
+| **Serial path** | `/dev/ttyUSB0` etc. |
+
+### Bluetooth BMS
+
+| Setting | Description |
+|---------|-------------|
+| **MAC address** | Found via Scan button |
+| **Enabled** | Toggle polling |
+
+BMS metrics are auto-prefixed: `bms_<name>_voltage`, etc.
 
 ### Solar Forecast
 
 | Setting | Description |
 |---------|-------------|
-| **Enable** | Toggle predictions |
 | **Latitude / Longitude** | Panel position |
-| **Tilt / Azimuth** | Panel angles (degrees) |
-| **System Capacity (kWp)** | Total peak power (e.g. 5.0) |
-| **Solcast API Key** | Optional; high‑accuracy. Falls back to Open‑Meteo |
-| **Loss Factor** | Inverter/wiring losses (0–1, default 0.9) |
-| **Installation date** | For degradation calculations (Solcast only) |
-
-### Dashboard Layout
-
-For each dashboard (tab):
-
-- **Add / Remove blocks** using ➕ and ✕ buttons
-- **Change block type** from dropdown
-- **Reorder blocks** via drag-and-drop
-- **Configure individual blocks** by clicking ⚙️:
-  - Charts: title, dataset visibility
-  - Flow Card: show/hide gauge
-  - Grid Card: show/hide timeline
-  - Savings Summary: title, show/hide periods
-  - Metric Cards: add/remove cards
-- **Export / Import:** Download JSON layout or upload saved layout
-
-### Savings Calculation
-
-| Setting | Description |
-|---------|-------------|
-| **Currency Symbol** | €, $, ₦, etc. |
-| **Rate per kWh** | Electricity cost (e.g. 0.30) |
+| **System Capacity** | kWp |
+| **Solcast API Key** | Optional, high accuracy |
 
 ---
 
-## 🐳 Docker Hub Images
+## Docker Hub
 
-Pre‑built images available:
-
-- **Main dashboard:** `irunmole/epilykos:latest`
-- **BMS bridge (sidecar):** `irunmole/epilykos-bms:latest`
-
-**Example `docker-compose.yml` (with BMS bridge):**
-
-```yaml
-services:
-  epilykos:
-    image: irunmole/epilykos:latest
-    container_name: epilykos
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - SETTINGS_PASSWORD=${SETTINGS_PASSWORD}
-      - TZ=Africa/Lagos
-      - BMS_BRIDGE_URL=http://bms-bridge:8020
-    depends_on:
-      - bms-bridge
-    extra_hosts:
-      - "bms-bridge:host-gateway"
-
-  bms-bridge:
-    image: irunmole/epilykos-bms:latest
-    container_name: bms-bridge
-    restart: unless-stopped
-    network_mode: host
-    privileged: true
-    volumes:
-      - /var/run/dbus:/var/run/dbus
-      - /dev:/dev:ro
-```
-
-Run `docker compose up -d` to start.
+Pre-built images:
+- **Dashboard:** `irunmole/epilykos:latest`
+- **BMS bridge:** `irunmole/epilykos-bms:latest`
 
 ---
 
-## 🛠️ Development / Manual Installation
-
-Without Docker:
+## Development
 
 ```bash
 npm install
 npm start
 ```
 
-Server listens on port 3000. Database created in `./data`.
+Server on port 3000. Database in `./data`.
 
-The BMS bridge requires Python 3.12+ and can be run separately:
-
+BMS bridge (Python 3.12+):
 ```bash
 cd bms-bridge
 pip install -r requirements.txt
@@ -311,181 +252,21 @@ python bms_bridge.py
 
 ---
 
-## 📁 Project Structure
+## License
 
-```
-epilykos/
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── package.json
-├── server.js                     # Entry point (modular)
-├── modules/                      # Backend modules
-│   ├── auth.js
-│   ├── backup.js
-│   ├── bms.js                    # BMS polling
-│   ├── dashboard-config.js
-│   ├── database.js
-│   ├── external.js               # REST API
-│   ├── grid.js
-│   ├── ha.js
-│   ├── history.js
-│   ├── metrics.js
-│   ├── metricsManager.js         # User-created metrics
-│   ├── modbus.js                 # TCP + serial
-│   ├── mqtt.js
-│   ├── savings.js
-│   ├── solar.js
-│   └── utils.js
-├── public/
-│   ├── index.html
-│   ├── style.css
-│   ├── settings.html
-│   ├── settings.js
-│   └── js/                       # Frontend ES modules
-│       ├── main.js
-│       ├── api.js
-│       ├── dashboard.js
-│       ├── updater.js
-│       ├── theme.js
-│       ├── charts.js
-│       ├── forecast.js
-│       ├── tables.js
-│       ├── grid.js
-│       ├── utils.js
-│       └── components/
-│           ├── index.js
-│           ├── flowCard.js
-│           ├── forecastBanner.js
-│           ├── metricCards.js
-│           ├── gridCard.js
-│           ├── chartPower.js
-│           ├── chartEnergy.js
-│           ├── savingsSummary.js
-│           ├── dataTableDaily.js
-│           ├── dataTableMonthly.js
-│           ├── weatherBlock.js
-│           └── batteryBlock.js
-├── bms-bridge/                   # Python sidecar for Bluetooth BMS
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── bms_bridge.py
-├── profiles/                     # JSON Modbus register maps
-└── data/                         # SQLite database (runtime)
-```
+GNU General Public License v3.0 — see `LICENSE`.
 
 ---
 
-## ❓ Troubleshooting
+## Acknowledgements
 
-### All values show zero
+- **Express.js** — backend
+- **Chart.js** — charts
+- **SQLite** — storage
+- **SortableJS** — drag-to-reorder
+- **MQTT.js** — MQTT client
+- **modbus-serial** — Modbus
+- **Winston** — logging
+- **bleak** — Bluetooth BLE scanning
 
-**Cause:** No data source enabled or incorrectly configured.
-
-**Solution:**
-- Verify at least one source (HA, MQTT, Modbus, REST, BMS) is enabled
-- Check entity/topic/mapping configurations
-- Use **Test** buttons in Settings
-- Check logs: `docker compose logs epilykos`
-
-### BMS scan returns "BMS bridge not reachable"
-
-**Cause:** Bridge container not running or not accessible on port 8020.
-
-**Solution:**
-- Ensure bridge is running: `docker compose ps`
-- Verify host's Bluetooth is working: `bluetoothctl`
-- For remote access: scanning only works on local network
-
-### BMS scan finds no devices
-
-**Cause:** Device name doesn't contain "BMS", "JK", "JBD", or "Daly".
-
-**Solution:**
-- Filter can be adjusted in `bms-bridge/bms_bridge.py`
-- All devices may be returned if no BMS keywords match – check the full list
-
-### WebSocket disconnects
-
-**Cause:** Reverse proxy not supporting WebSocket upgrade.
-
-**Solution:**
-- Ensure nginx/Traefik configured with `Upgrade` headers
-- Dashboard automatically falls back to polling (60s)
-
-### Modbus serial device not reading
-
-**Cause:** Wrong serial path or permissions.
-
-**Solution:**
-- Verify device exists: `ls -l /dev/ttyUSB0`
-- Grant permissions: `usermod -a -G dialout node` (inside container)
-- For testing: set `privileged: true` in docker-compose (not recommended)
-
-### "Metric" dropdown shows no options
-
-**Cause:** No metrics created or fetched yet.
-
-**Solution:**
-- Go to **Metrics** tab and create a metric
-- Or add a device mapping (auto-creates metrics)
-- After adding, dropdowns will populate
-
-### Login popup on main page (old Basic Auth)
-
-**Cause:** Cached credentials from older version.
-
-**Solution:**
-- Clear browser cache and hard refresh
-- Current version uses session‑based auth; main page is fully public
-
----
-
-## 📖 Developer Resources
-
-### Developer Guide
-
-See the **[Developer Guide](docs/DEVELOPER.md)** for:
-- Adding new block types
-- Extending data sources
-- Contributing metrics
-- Custom Modbus profiles
-- Building features
-
-### Knowledge Base
-
-See the **[Knowledge Base](docs/KNOWLEDGE_BASE.md)** for:
-- Complete database schema
-- All API endpoints
-- Data flow architecture
-- Polling and caching strategies
-- Function reference
-
----
-
-## 📄 License
-
-**GNU General Public License v3.0** – see `LICENSE` file for details.
-
----
-
-## 🙌 Acknowledgements
-
-Built with:
-- **Express.js** – Backend framework
-- **Chart.js** – Data visualisation
-- **SQLite** – Data storage
-- **MQTT.js** – MQTT client
-- **modbus-serial** – Modbus TCP/serial
-- **ws** – WebSocket server
-- **bleak** – Bluetooth BLE scanning (bridge)
-
-Solar forecast powered by **Solcast** and **Open-Meteo**.  
-Icons by **Flaticon** (uicons).
-
----
-
-**Happy monitoring!** ☀️🔋🏠
-
-For issues, suggestions, or contributions, please open an issue or pull request on [GitHub](https://github.com/yourusername/epilykos).
+Solar forecast by **Solcast** and **Open-Meteo**. Icons by **Flaticon** (uicons).
