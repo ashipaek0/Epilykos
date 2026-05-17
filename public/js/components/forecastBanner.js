@@ -1,8 +1,13 @@
-export function buildForecastBanner() {
+export function buildForecastBanner(block = {}) {
+  const config = block.config || {};
+  const metrics = config.metrics || {};
+  const actualEnergyMetric = metrics.actual_energy || 'solar_kw';
+
   const banner = document.createElement('div');
   banner.className = 'pv-today-banner';
   banner.id = 'forecast-banner';
   banner.style.display = 'none';
+  banner.dataset.metricMap = JSON.stringify({ actual_energy: actualEnergyMetric });
   banner.innerHTML = `
     <div class="pv-top-bar">
       <h3>Solar Forecast</h3>

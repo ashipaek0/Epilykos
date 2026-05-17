@@ -1,13 +1,25 @@
 export function buildFlowCard(block = {}) {
   const config = block.config || {};
-  const showGauge = config.showGauge !== false; // default true
+  const showGauge = config.showGauge !== false;
+  const metrics = config.metrics || {
+    solar: 'solar',
+    battery_soc: 'battery_soc',
+    battery_charge: 'battery_charge',
+    battery_discharge: 'battery_discharge',
+    consumption: 'consumption',
+    grid_import: 'grid_import',
+    grid_export: 'grid_export'
+  };
+
   const card = document.createElement('div');
   card.className = 'flow-card';
+  card.dataset.metricMap = JSON.stringify(metrics);
+
   card.innerHTML = `
     <div class="flow-item solar">
       <div class="flow-icon"><i id="icon-solar" class="fi fi-sr-solar-panel"></i></div>
       <div class="flow-label">Solar</div>
-      <div class="flow-value" id="flow-solar">0 W</div>
+      <div class="flow-value" data-metric="${escapeHtml(metrics.solar)}" id="flow-solar">0 W</div>
       ${showGauge ? `
       <div class="solar-now-gauge" id="solar-now-gauge">
         <div class="gauge-bar-bg"><div class="gauge-bar-fill" id="gauge-bar-fill"></div></div>
@@ -19,7 +31,7 @@ export function buildFlowCard(block = {}) {
     <div class="flow-item battery">
       <div class="flow-icon"><i id="icon-battery" class="fi fi-sr-battery-full"></i></div>
       <div class="flow-label">Battery</div>
-      <div class="flow-value" id="flow-battery-soc">--%</div>
+      <div class="flow-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="flow-battery-soc">--%</div>
       <div class="flow-sub" id="flow-battery-power">⚡ 0 W</div>
     </div>
     <div id="grid-to-battery" class="flow-arrow" style="display: none;">←</div>
@@ -27,7 +39,7 @@ export function buildFlowCard(block = {}) {
     <div class="flow-item home">
       <div class="flow-icon"><i id="icon-home" class="fi fi-sr-home"></i></div>
       <div class="flow-label">Home</div>
-      <div class="flow-value" id="flow-home">0 W</div>
+      <div class="flow-value" data-metric="${escapeHtml(metrics.consumption)}" id="flow-home">0 W</div>
     </div>
     <div class="flow-arrow grid">⇄</div>
     <div class="flow-item grid">
@@ -40,17 +52,38 @@ export function buildFlowCard(block = {}) {
   return card;
 }
 
-// updateFlowCard and updateFlowArrows remain exactly as before (they already handle the gauge elements gracefully even if missing)
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 export function updateFlowCard(state) {
-  if (!state || !state.current || state.current.error) return;
-  const d = state.current;
-  const solarWatts = Math.round(d.solar_kw * 1000);
-  const consumption = Math.round(d.consumption_kw * 1000);
-  const battCharge = Math.round(d.battery_charge_kw * 1000);
-  const battDischarge = Math.round(d.battery_discharge_kw * 1000);
-  const gridImport = Math.round(d.grid_import_kw * 1000);
-  const gridExport = Math.round(d.grid_export_kw * 1000);
-  const battSoc = d.battery_soc || 0;
+  const card = document.querySelector('.flow-card');
+  if (!card) return;
+
+  let metricsMap;
+  try {
+    metricsMap = JSON.parse(card.dataset.metricMap);
+  } catch (e) {
+    return;
+  }
+
+  const metrics = state.metrics || {};
+
+  const getMetricVal = (role) => {
+    const name = metricsMap[role];
+    if (!name) return undefined;
+    return metrics[name]?.value;
+  };
+
+  const solarWatts = Math.round(getMetricVal('solar') || 0);
+  const consumption = Math.round(getMetricVal('consumption') || 0);
+  const battCharge = Math.round(getMetricVal('battery_charge') || 0);
+  const battDischarge = Math.round(getMetricVal('battery_discharge') || 0);
+  const gridImport = Math.round(getMetricVal('grid_import') || 0);
+  const gridExport = Math.round(getMetricVal('grid_export') || 0);
+  const battSoc = getMetricVal('battery_soc') || 0;
 
   document.getElementById('flow-solar').textContent = solarWatts + ' W';
   document.getElementById('flow-battery-soc').textContent = Math.round(battSoc) + '%';
@@ -109,8 +142,8 @@ export function updateFlowCard(state) {
   }
 
   updateFlowArrows(solarWatts, consumption, battCharge, battDischarge, gridImport, gridExport);
-  
-  // Gauge update (only if element exists)
+
+  // Gauge update
   const gaugeFill = document.getElementById('gauge-bar-fill');
   const gaugePercent = document.getElementById('gauge-percent');
   if (gaugeFill && gaugePercent && window.systemCapacityKwp) {
@@ -125,7 +158,7 @@ function updateFlowArrows(solar, consumption, battCharge, battDischarge, gridImp
   const battArrow = document.querySelector('.flow-arrow.battery');
   const gridArrow = document.querySelector('.flow-arrow.grid');
   const gridToBatt = document.getElementById('grid-to-battery');
-  
+
   if (solarArrow) {
     if (solar > 0) {
       solarArrow.style.color = 'var(--solar)';
@@ -137,11 +170,11 @@ function updateFlowArrows(solar, consumption, battCharge, battDischarge, gridImp
       solarArrow.textContent = '→';
     }
   }
-  
+
   const isCharging = battCharge > battDischarge;
   const isDischarging = battDischarge > battCharge;
   const isGridChargingBattery = gridImport > 0 && isCharging;
-  
+
   if (battArrow) {
     if (isDischarging) {
       battArrow.style.color = '#f59e0b';
@@ -159,7 +192,7 @@ function updateFlowArrows(solar, consumption, battCharge, battDischarge, gridImp
       battArrow.textContent = '⇄';
     }
   }
-  
+
   if (gridArrow) {
     if (gridImport > gridExport) {
       gridArrow.style.color = 'var(--grid)';
@@ -172,7 +205,7 @@ function updateFlowArrows(solar, consumption, battCharge, battDischarge, gridImp
       gridArrow.textContent = '⇄';
     }
   }
-  
+
   if (gridToBatt) {
     gridToBatt.style.display = isGridChargingBattery ? 'block' : 'none';
   }

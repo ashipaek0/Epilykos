@@ -97,6 +97,17 @@ function createMetricDropdown(selectedMetric = '') {
   return select;
 }
 
+// Generate metric options as HTML string (for innerHTML-based config panels)
+function generateMetricOptionsHtml(selectedMetric, label) {
+  let html = `<option value="">-- ${escapeHtml(label || 'Select metric')} --</option>`;
+  for (const m of allMetrics) {
+    const sel = selectedMetric === m.name ? ' selected' : '';
+    const unitStr = m.unit ? ` (${escapeHtml(m.unit)})` : '';
+    html += `<option value="${escapeHtml(m.name)}"${sel}>${escapeHtml(m.name)}${unitStr}</option>`;
+  }
+  return html;
+}
+
 // Helper to refresh all metric dropdowns after a new metric is created
 async function refreshAllMetricDropdowns() {
   const res = await fetch('/api/metrics/list');
@@ -946,6 +957,13 @@ function renderDashboardBlockEditor(dashboard) {
   dashboard.layout.forEach((block, idx) => {
     const li = document.createElement('li');
     li.dataset.index = idx;
+    const currentSpan = block.colSpan ?? block.gridW ?? 12;
+    const spanOpts = [
+      [12, 'Full'], [9, '3/4'], [8, '2/3'], [6, '1/2'], [4, '1/3'], [3, '1/4']
+    ];
+    const spanOptions = spanOpts.map(([v, label]) =>
+      `<option value="${v}" ${currentSpan == v ? 'selected' : ''}>${label}</option>`
+    ).join('');
     li.innerHTML = `
       <select class="block-type-select">
         <option value="flow-card" ${block.type === 'flow-card' ? 'selected' : ''}>Flow Card</option>
@@ -959,6 +977,17 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
         <option value="weather-block" ${block.type === 'weather-block' ? 'selected' : ''}>Weather Block</option>
         <option value="battery-block" ${block.type === 'battery-block' ? 'selected' : ''}>Battery Block</option>
+      </select>
+      <select class="block-width-select" style="width:80px;">
+        ${spanOptions}
+      </select>
+      <select class="block-height-select" style="width:80px;">
+        <option value="0" ${!block.rowSpan ? 'selected' : ''}>Auto</option>
+        <option value="300" ${block.rowSpan == 300 ? 'selected' : ''}>300px</option>
+        <option value="400" ${block.rowSpan == 400 ? 'selected' : ''}>400px</option>
+        <option value="500" ${block.rowSpan == 500 ? 'selected' : ''}>500px</option>
+        <option value="600" ${block.rowSpan == 600 ? 'selected' : ''}>600px</option>
+        <option value="700" ${block.rowSpan == 700 ? 'selected' : ''}>700px</option>
       </select>
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
@@ -1066,21 +1095,105 @@ function renderDashboardBlockEditor(dashboard) {
       configPanel.style.borderRadius = '0.5rem';
       configPanel.style.border = '1px solid var(--border)';
       if (block.type === 'chart-power' || block.type === 'chart-energy') {
-        configPanel.innerHTML = `<label>Chart Title</label><input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;"><label>Datasets (comma-separated)</label><input type="text" class="config-datasets" value="${escapeHtml((block.config?.datasets || ['load','solar','battery','grid']).join(','))}" style="width:100%;"><button class="fetch-btn save-config">Save</button>`;
+        let datasets = block.config?.datasets || [];
+        if (datasets.length && typeof datasets[0] === 'string') {
+          datasets = datasets.map(ds => ({ label: ds, metric: ds, color: '#888' }));
+        }
+        if (!datasets.length) {
+          datasets = block.type === 'chart-power'
+            ? [{ label: 'Load', metric: 'consumption', color: '#7c3aed' }, { label: 'Solar', metric: 'solar', color: '#d97706' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#059669' }, { label: 'Grid Import', metric: 'grid_import', color: '#dc2626' }]
+            : [{ label: 'Solar Generated', metric: 'daily_solar', color: '#d97706' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#dc2626' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#7c3aed' }];
+        }
+        const datasetRows = datasets.map((ds, idx) => `
+          <div style="border:1px solid var(--border);padding:0.5rem;margin:0.5rem 0;border-radius:4px;">
+            <label>Label</label>
+            <input type="text" class="config-ds-label" data-idx="${idx}" value="${escapeHtml(ds.label || '')}" style="width:100%;margin-bottom:0.3rem;">
+            <label>Metric</label>
+            <select class="config-ds-metric" data-idx="${idx}" style="width:100%;margin-bottom:0.3rem;">${generateMetricOptionsHtml(ds.metric)}</select>
+            <label>Color</label>
+            <input type="color" class="config-ds-color" data-idx="${idx}" value="${escapeHtml(ds.color || '#888')}" style="width:100%;margin-bottom:0.3rem;">
+            <button type="button" class="remove-ds-btn" data-idx="${idx}" style="width:100%;">Remove</button>
+          </div>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Chart Title</label>
+          <input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%;margin-bottom:0.5rem;">
+          <h4 style="margin:0.5rem 0;">Datasets</h4>
+          ${datasetRows}
+          <button type="button" class="add-ds-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Dataset</button>
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
       } else if (block.type === 'flow-card') {
-        configPanel.innerHTML = `<label>Show Solar Gauge</label><input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Yes<button class="fetch-btn save-config">Save</button>`;
+        const currentMetrics = block.config?.metrics || {};
+        const metricRoles = [
+          { key: 'solar', label: 'Solar Power Metric' },
+          { key: 'battery_soc', label: 'Battery SOC Metric' },
+          { key: 'battery_charge', label: 'Battery Charge Power Metric' },
+          { key: 'battery_discharge', label: 'Battery Discharge Power Metric' },
+          { key: 'consumption', label: 'Consumption Metric' },
+          { key: 'grid_import', label: 'Grid Import Power Metric' },
+          { key: 'grid_export', label: 'Grid Export Power Metric' }
+        ];
+        const selectsHtml = metricRoles.map(role => `
+          <label>${escapeHtml(role.label)}</label>
+          <select class="config-metric" data-role="${role.key}" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[role.key])}</select>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Energy Flow')}" style="width:100%; margin-bottom:0.5rem;">
+          <label><input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Show Solar Gauge</label>
+          ${selectsHtml}
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'grid-card') {
-        configPanel.innerHTML = `<label>Show Timeline Bar</label><input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Yes<button class="fetch-btn save-config">Save</button>`;
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `
+          <label><input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Show Timeline Bar</label>
+          <label>Grid Status Metric (optional)</label>
+          <select class="config-metric" data-role="grid_status" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.grid_status, 'Use global setting')}</select>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">Leave empty to use Home Assistant entity</p>
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'weather-block') {
         configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Weather')}"><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'battery-block') {
-        configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}"><button class="fetch-btn save-config">Save</button>`;
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}" style="width:100%; margin-bottom:0.5rem;">
+          <label>SOC Metric</label>
+          <select class="config-metric" data-role="soc" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.soc)}</select>
+          <label>Voltage Metric</label>
+          <select class="config-metric" data-role="voltage" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.voltage)}</select>
+          <label>Current Metric</label>
+          <select class="config-metric" data-role="current" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.current)}</select>
+          <label>Power Metric</label>
+          <select class="config-metric" data-role="power" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.power)}</select>
+          <label>Temperature Metric</label>
+          <select class="config-metric" data-role="temperature" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.temperature)}</select>
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'savings-summary') {
         configPanel.innerHTML = `<label>Block Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
           <label><input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Show Today</label>
           <label><input type="checkbox" class="config-show-week" ${block.config?.showWeek !== false ? 'checked' : ''}> Show Week</label>
           <label><input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Show Month</label>
           <label><input type="checkbox" class="config-show-all" ${block.config?.showAll !== false ? 'checked' : ''}> Show All-Time</label>
+          <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-banner') {
+        const currentMetrics = block.config?.metrics || {};
+        const fieldOptions = [
+          { value: 'solar_kw', label: 'Solar Power (kW)' },
+          { value: 'consumption_kw', label: 'Consumption (kW)' },
+          { value: 'battery_charge_kw', label: 'Battery Charge (kW)' },
+          { value: 'grid_import_kw', label: 'Grid Import (kW)' }
+        ];
+        const fieldSelectHtml = fieldOptions.map(f =>
+          `<option value="${f.value}" ${currentMetrics.actual_energy === f.value ? 'selected' : ''}>${f.label}</option>`
+        ).join('');
+        configPanel.innerHTML = `
+          <label>Actual Energy Metric for Sparkline</label>
+          <select class="config-metric" data-role="actual_energy" style="width:100%; margin-bottom:0.5rem;">
+            <option value="">-- Select --</option>
+            ${fieldSelectHtml}
+          </select>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Default: Solar PV.</p>
           <button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
@@ -1090,28 +1203,88 @@ function renderDashboardBlockEditor(dashboard) {
         saveBtn.addEventListener('click', () => {
           if (!block.config) block.config = {};
           if (block.type === 'chart-power' || block.type === 'chart-energy') {
-            const title = configPanel.querySelector('.config-chart-title')?.value;
-            if (title) block.config.title = title;
-            const datasets = configPanel.querySelector('.config-datasets')?.value;
-            if (datasets) block.config.datasets = datasets.split(',').map(s => s.trim()).filter(s => s);
+            block.config.title = configPanel.querySelector('.config-chart-title')?.value || '';
+            block.config.datasets = [];
+            configPanel.querySelectorAll('.config-ds-label').forEach(labelEl => {
+              const idx = parseInt(labelEl.dataset.idx);
+              const metricEl = configPanel.querySelector(`.config-ds-metric[data-idx="${idx}"]`);
+              const colorEl = configPanel.querySelector(`.config-ds-color[data-idx="${idx}"]`);
+              if (labelEl && metricEl && colorEl) {
+                block.config.datasets.push({
+                  label: labelEl.value,
+                  metric: metricEl.value,
+                  color: colorEl.value
+                });
+              }
+            });
+          } else if (block.type === 'battery-block') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
           } else if (block.type === 'flow-card') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
             const gauge = configPanel.querySelector('.config-show-gauge');
             block.config.showGauge = gauge ? gauge.checked : true;
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
           } else if (block.type === 'grid-card') {
             const timeline = configPanel.querySelector('.config-show-timeline');
             block.config.showTimeline = timeline ? timeline.checked : true;
-          } else if (block.type === 'weather-block' || block.type === 'battery-block') {
-            const title = configPanel.querySelector('.config-title')?.value;
-            if (title) block.config.title = title;
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
+          } else if (block.type === 'forecast-banner') {
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
+          } else if (block.type === 'weather-block') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
           } else if (block.type === 'savings-summary') {
-            const title = configPanel.querySelector('.config-title')?.value;
-            if (title) block.config.title = title;
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
             block.config.showToday = configPanel.querySelector('.config-show-today')?.checked ?? true;
             block.config.showWeek = configPanel.querySelector('.config-show-week')?.checked ?? true;
             block.config.showMonth = configPanel.querySelector('.config-show-month')?.checked ?? true;
             block.config.showAll = configPanel.querySelector('.config-show-all')?.checked ?? true;
           }
           configPanel.remove();
+        });
+      }
+      // Attach add/remove dataset handlers for chart config panels
+      if (block.type === 'chart-power' || block.type === 'chart-energy') {
+        const addBtn = configPanel.querySelector('.add-ds-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const existingRows = configPanel.querySelectorAll('.config-ds-label');
+            const newIdx = existingRows.length;
+            const newRow = document.createElement('div');
+            newRow.style.cssText = 'border:1px solid var(--border);padding:0.5rem;margin:0.5rem 0;border-radius:4px;';
+            newRow.innerHTML = `
+              <label>Label</label>
+              <input type="text" class="config-ds-label" data-idx="${newIdx}" value="New Dataset" style="width:100%;margin-bottom:0.3rem;">
+              <label>Metric</label>
+              <select class="config-ds-metric" data-idx="${newIdx}" style="width:100%;margin-bottom:0.3rem;">${generateMetricOptionsHtml('')}</select>
+              <label>Color</label>
+              <input type="color" class="config-ds-color" data-idx="${newIdx}" value="#888888" style="width:100%;margin-bottom:0.3rem;">
+              <button type="button" class="remove-ds-btn" data-idx="${newIdx}" style="width:100%;">Remove</button>
+            `;
+            newRow.querySelector('.remove-ds-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-ds-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            btn.closest('div').remove();
+          });
         });
       }
       li.appendChild(configPanel);
@@ -1121,6 +1294,12 @@ function renderDashboardBlockEditor(dashboard) {
       dashboard.layout[idx].type = newType;
       if (newType === 'metric-cards' && !dashboard.layout[idx].cards) dashboard.layout[idx].cards = [];
       renderDashboardBlockEditor(dashboard);
+    });
+    li.querySelector('.block-width-select').addEventListener('change', (e) => {
+      dashboard.layout[idx].colSpan = parseInt(e.target.value);
+    });
+    li.querySelector('.block-height-select').addEventListener('change', (e) => {
+      dashboard.layout[idx].rowSpan = parseInt(e.target.value) || 0;
     });
     li.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);
