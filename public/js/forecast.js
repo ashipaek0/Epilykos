@@ -33,10 +33,25 @@ function setWeatherIconColor(iconEl, desc) {
   else iconEl.style.color = 'var(--text)';
 }
 
+let clockInterval = null;
+
+function startClock() {
+  const el = document.getElementById('forecast-clock');
+  if (!el) return;
+  const tick = () => {
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+  tick();
+  if (clockInterval) clearInterval(clockInterval);
+  clockInterval = setInterval(tick, 1000);
+}
+
 export async function updateForecast() {
   const banner = document.getElementById('forecast-banner');
   if (!banner) return;
   try {
+    startClock();
     const res = await fetch('/api/solar-forecast');
     const data = await res.json();
     if (data.error || !data.daily || data.daily.length === 0) {
@@ -53,7 +68,17 @@ export async function updateForecast() {
     const tomorrow = data.daily[todayIdx + 1] || null;
     const nextDay = data.daily[todayIdx + 2] || null;
 
-    document.getElementById('pv-today-value').textContent = (today.total_kwh || 0).toFixed(1) + ' kWh';
+    // Show remaining today (total minus actual so far)
+    const remaining = today.actual_so_far != null
+      ? Math.max(0, (today.total_kwh || 0) - today.actual_so_far)
+      : (today.total_kwh || 0);
+    document.getElementById('pv-today-value').textContent = remaining.toFixed(1) + ' kWh';
+
+    const remainingEl = document.getElementById('pv-today-remaining');
+    if (remainingEl) {
+      remainingEl.textContent = 'remaining';
+    }
+
     if (tomorrow) {
       document.getElementById('pred-day1-label').textContent = getDayName(tomorrow.date);
       document.getElementById('pv-tomorrow').textContent = tomorrow.total_kwh.toFixed(1) + ' kWh';
@@ -127,6 +152,13 @@ export async function updateForecast() {
         });
       }
 
+      // Read configured actual-energy field from container, default to solar_kw
+      let actualField = 'solar_kw';
+      try {
+        const metricMap = JSON.parse(banner.dataset.metricMap);
+        if (metricMap.actual_energy) actualField = metricMap.actual_energy;
+      } catch (e) { /* use default */ }
+
       const historyRes = await fetch('/api/history?days=1');
       const historyData = await historyRes.json();
       const actualPoints = historyData
@@ -134,8 +166,9 @@ export async function updateForecast() {
           const date = new Date(d.timestamp);
           return date.toLocaleDateString('en-CA') === todayDate && date.getHours() >= 7 && date.getHours() <= 19;
         })
-        .map(d => ({ x: d.timestamp, y: d.solar_kw }));
+        .map(d => ({ x: d.timestamp, y: d[actualField] ?? 0 }));
 
+      // 30-minute bucketing from working version — properly averages and handles zeros
       const intervals = [];
       for (let h = 7; h <= 19; h += 0.5) {
         const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0);

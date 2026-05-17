@@ -1,10 +1,9 @@
-// settings.js – complete with Metrics tab, BMS devices, scan button, dynamic bridge URL
-
+// settings.js – fixed to use /api/metrics/list for immediate dropdown updates
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
 let usedDashboardMetrics = [];
-let allMetricNames = [];
+let allMetrics = []; // array of { name, unit, value?, timestamp? }
 
 function showStatus(element, msg, type) {
   element.textContent = msg;
@@ -14,28 +13,18 @@ function showStatus(element, msg, type) {
   }
 }
 
-// Helper to get BMS bridge URL
-function getBmsBridgeUrl() {
-  return `${window.location.protocol}//${window.location.hostname}:8020`;
-}
-
-let bridgeAvailable = null;
-
-async function checkBridgeAvailable() {
-  const bridgeUrl = getBmsBridgeUrl();
-  try {
-    const res = await fetch(`${bridgeUrl}/health`, { timeout: 2000 });
-    bridgeAvailable = res.ok;
-    return bridgeAvailable;
-  } catch {
-    bridgeAvailable = false;
-    return false;
-  }
-}
 
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
   try {
+    // FIRST: fetch all metrics (including those without data)
+    const metricsRes = await fetch('/api/metrics/list');
+    if (metricsRes.ok) {
+      allMetrics = await metricsRes.json();
+      allMetrics.sort((a,b) => a.name.localeCompare(b.name));
+    }
+
+    // THEN fetch all settings
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
@@ -67,14 +56,62 @@ async function loadSettings() {
       });
       usedDashboardMetrics.sort();
     }
-
-    const metricNamesRes = await fetch('/api/metrics/names');
-    if (metricNamesRes.ok) {
-      allMetricNames = await metricNamesRes.json();
-      allMetricNames.sort();
-    }
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
+  }
+}
+
+// ---------- Helper: Create metric dropdown ----------
+function createMetricDropdown(selectedMetric = '') {
+  const select = document.createElement('select');
+  select.className = 'metric-name';
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = '';
+  emptyOpt.textContent = '-- Select Metric --';
+  select.appendChild(emptyOpt);
+  for (const metric of allMetrics) {
+    const opt = document.createElement('option');
+    opt.value = metric.name;
+    opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+    if (metric.name === selectedMetric) opt.selected = true;
+    select.appendChild(opt);
+  }
+  return select;
+}
+
+// Generate metric options as HTML string (for innerHTML-based config panels)
+function generateMetricOptionsHtml(selectedMetric, label) {
+  let html = `<option value="">-- ${escapeHtml(label || 'Select metric')} --</option>`;
+  for (const m of allMetrics) {
+    const sel = selectedMetric === m.name ? ' selected' : '';
+    const unitStr = m.unit ? ` (${escapeHtml(m.unit)})` : '';
+    html += `<option value="${escapeHtml(m.name)}"${sel}>${escapeHtml(m.name)}${unitStr}</option>`;
+  }
+  return html;
+}
+
+// Helper to refresh all metric dropdowns after a new metric is created
+async function refreshAllMetricDropdowns() {
+  const res = await fetch('/api/metrics/list');
+  if (res.ok) {
+    allMetrics = await res.json();
+    allMetrics.sort((a,b) => a.name.localeCompare(b.name));
+  }
+  const selects = document.querySelectorAll('.metric-name');
+  for (const select of selects) {
+    const currentVal = select.value;
+    select.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select Metric --';
+    select.appendChild(emptyOpt);
+    for (const metric of allMetrics) {
+      const opt = document.createElement('option');
+      opt.value = metric.name;
+      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+      select.appendChild(opt);
+    }
+    if (currentVal && allMetrics.some(m => m.name === currentVal)) select.value = currentVal;
   }
 }
 
@@ -112,7 +149,7 @@ function renderHaDevice(device, idx) {
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(usedDashboardMetrics.join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
       </button>
     </div>
   `;
@@ -141,7 +178,7 @@ function renderHaDevice(device, idx) {
       const res = await fetch(`/api/ha-device-entities?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`);
       const entities = await res.json();
       if (!res.ok) throw new Error(entities.error || 'Failed');
-      const selects = card.querySelectorAll('.mappings-list select');
+      const selects = card.querySelectorAll('.mappings-list select.entity-select');
       selects.forEach(select => {
         const currentVal = select.value;
         select.innerHTML = '<option value="">-- Select entity --</option>';
@@ -166,7 +203,7 @@ function renderHaDevice(device, idx) {
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = allMetricNames.join(', ');
+      const text = allMetrics.map(m => m.name).join(', ');
       if (!text) return;
       const tooltip = card.querySelector('.metric-tooltip');
       tooltip.textContent = 'Available metrics: ' + text;
@@ -200,15 +237,25 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  row.innerHTML = `
-    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
-    <select class="entity-select">
-      <option value="">-- Select entity --</option>
-      ${entityId ? `<option value="${escapeHtml(entityId)}" selected>${escapeHtml(entityId)}</option>` : ''}
-    </select>
-    <button type="button" class="remove-btn remove-metric">−</button>
-  `;
-  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  const metricSelect = createMetricDropdown(metric);
+  const entitySelect = document.createElement('select');
+  entitySelect.className = 'entity-select';
+  entitySelect.innerHTML = '<option value="">-- Select entity --</option>';
+  if (entityId) {
+    const opt = document.createElement('option');
+    opt.value = entityId;
+    opt.textContent = entityId;
+    opt.selected = true;
+    entitySelect.appendChild(opt);
+  }
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '−';
+  removeBtn.addEventListener('click', () => row.remove());
+  row.appendChild(metricSelect);
+  row.appendChild(entitySelect);
+  row.appendChild(removeBtn);
   container.appendChild(row);
 }
 
@@ -280,7 +327,7 @@ function renderMqttDevice(device, idx) {
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(usedDashboardMetrics.join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
       </button>
     </div>
   `;
@@ -336,7 +383,7 @@ function renderMqttDevice(device, idx) {
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = allMetricNames.join(', ');
+      const text = allMetrics.map(m => m.name).join(', ');
       if (!text) return;
       const tooltip = card.querySelector('.metric-tooltip');
       tooltip.textContent = 'Available metrics: ' + text;
@@ -370,12 +417,20 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  row.innerHTML = `
-    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
-    <input type="text" class="topic-input" placeholder="topic" value="${escapeHtml(topic)}">
-    <button type="button" class="remove-btn remove-metric">−</button>
-  `;
-  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  const metricSelect = createMetricDropdown(metric);
+  const topicInput = document.createElement('input');
+  topicInput.type = 'text';
+  topicInput.className = 'topic-input';
+  topicInput.placeholder = 'topic';
+  topicInput.value = topic;
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '−';
+  removeBtn.addEventListener('click', () => row.remove());
+  row.appendChild(metricSelect);
+  row.appendChild(topicInput);
+  row.appendChild(removeBtn);
   container.appendChild(row);
 }
 
@@ -587,12 +642,20 @@ function renderExternalMappings(mappings, deviceIdx, container) {
 function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') {
   const row = document.createElement('div');
   row.className = 'metric-row';
-  row.innerHTML = `
-    <input type="text" class="jsonpath" placeholder="JSON path (e.g., data.temperature)" value="${escapeHtml(jsonPath)}">
-    <input type="text" class="metric-name" placeholder="metric name" value="${escapeHtml(metric)}">
-    <button type="button" class="remove-btn remove-metric">−</button>
-  `;
-  row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+  const jsonPathInput = document.createElement('input');
+  jsonPathInput.type = 'text';
+  jsonPathInput.className = 'jsonpath';
+  jsonPathInput.placeholder = 'JSON path (e.g., data.temperature)';
+  jsonPathInput.value = jsonPath;
+  const metricSelect = createMetricDropdown(metric);
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '−';
+  removeBtn.addEventListener('click', () => row.remove());
+  row.appendChild(jsonPathInput);
+  row.appendChild(metricSelect);
+  row.appendChild(removeBtn);
   container.appendChild(row);
 }
 function reindexExternal() {
@@ -643,19 +706,17 @@ function renderBmsDevice(device, idx) {
     reindexBms();
   });
 
-  // Scan button
+  // Scan button – uses backend proxy to reach BMS bridge
   card.querySelector('.scan-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    const available = await checkBridgeAvailable();
-    if (!available) {
-      showStatus(statusEl, 'BMS bridge not reachable – works only when dashboard is accessed from the same local network as the Bluetooth hardware.', 'error');
-      return;
-    }
-    const bridgeUrl = getBmsBridgeUrl();
-    showStatus(statusEl, `Scanning for BLE devices via ${bridgeUrl}...`, 'info');
+    showStatus(statusEl, 'Scanning for BLE devices...', 'info');
     try {
-      const res = await fetch(`${bridgeUrl}/devices`, { timeout: 10000 });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch('/api/bms/scan', { timeout: 20000 });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showStatus(statusEl, err.error || 'Scan failed', 'error');
+        return;
+      }
       const devices = await res.json();
       if (!devices.length) {
         showStatus(statusEl, 'No BMS devices found', 'error');
@@ -677,7 +738,7 @@ function renderBmsDevice(device, idx) {
     }
   });
 
-  // Test connection button
+  // Test connection button – uses backend proxy to reach BMS bridge
   card.querySelector('.test-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
     const address = card.querySelector('input[name$="[address]"]').value.trim();
@@ -685,20 +746,15 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, 'MAC address required', 'error');
       return;
     }
-    const available = await checkBridgeAvailable();
-    if (!available) {
-      showStatus(statusEl, 'BMS bridge not reachable.', 'error');
-      return;
-    }
-    const bridgeUrl = getBmsBridgeUrl();
-    showStatus(statusEl, `Testing connection to ${bridgeUrl}...`, 'info');
+    showStatus(statusEl, 'Testing connection...', 'info');
     try {
-      const res = await fetch(`${bridgeUrl}/device/${address}`, { timeout: 5000 });
+      const res = await fetch(`/api/bms/test?address=${encodeURIComponent(address)}`, { timeout: 15000 });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
       } else {
-        showStatus(statusEl, `Error ${res.status}`, 'error');
+        const err = await res.json().catch(() => ({}));
+        showStatus(statusEl, err.error || `Error`, 'error');
       }
     } catch (err) {
       showStatus(statusEl, `Failed: ${err.message}`, 'error');
@@ -755,7 +811,7 @@ async function loadMetricsList() {
   } catch (err) {
     console.error('Error loading metrics:', err);
     const tbody = document.getElementById('metrics-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></td>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
   }
 }
 function renderMetricsTable() {
@@ -787,6 +843,7 @@ function renderMetricsTable() {
           if (res.ok) {
             showStatus(backupStatus, `Metric "${name}" deleted`, 'success');
             await loadMetricsList();
+            await refreshAllMetricDropdowns();
           } else {
             const err = await res.json();
             showStatus(backupStatus, err.error || 'Delete failed', 'error');
@@ -825,6 +882,7 @@ if (modalCreate) {
       if (res.ok) {
         if (modal) modal.style.display = 'none';
         await loadMetricsList();
+        await refreshAllMetricDropdowns();
         showStatus(backupStatus, `Metric "${name}" created`, 'success');
       } else {
         const err = await res.json();
@@ -874,6 +932,13 @@ function renderDashboardBlockEditor(dashboard) {
   dashboard.layout.forEach((block, idx) => {
     const li = document.createElement('li');
     li.dataset.index = idx;
+    const currentSpan = block.colSpan ?? block.gridW ?? 12;
+    const spanOpts = [
+      [12, 'Full'], [9, '3/4'], [8, '2/3'], [6, '1/2'], [4, '1/3'], [3, '1/4']
+    ];
+    const spanOptions = spanOpts.map(([v, label]) =>
+      `<option value="${v}" ${currentSpan == v ? 'selected' : ''}>${label}</option>`
+    ).join('');
     li.innerHTML = `
       <select class="block-type-select">
         <option value="flow-card" ${block.type === 'flow-card' ? 'selected' : ''}>Flow Card</option>
@@ -887,6 +952,18 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
         <option value="weather-block" ${block.type === 'weather-block' ? 'selected' : ''}>Weather Block</option>
         <option value="battery-block" ${block.type === 'battery-block' ? 'selected' : ''}>Battery Block</option>
+      </select>
+      <select class="block-width-select" style="width:80px;">
+        ${spanOptions}
+      </select>
+      <select class="block-height-select" style="width:80px;">
+        <option value="0" ${!block.rowSpan ? 'selected' : ''}>Auto</option>
+        <option value="200" ${block.rowSpan == 200 ? 'selected' : ''}>200px</option>
+        <option value="300" ${block.rowSpan == 300 ? 'selected' : ''}>300px</option>
+        <option value="400" ${block.rowSpan == 400 ? 'selected' : ''}>400px</option>
+        <option value="500" ${block.rowSpan == 500 ? 'selected' : ''}>500px</option>
+        <option value="600" ${block.rowSpan == 600 ? 'selected' : ''}>600px</option>
+        <option value="700" ${block.rowSpan == 700 ? 'selected' : ''}>700px</option>
       </select>
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
@@ -938,6 +1015,7 @@ function renderDashboardBlockEditor(dashboard) {
                     if (res.ok) {
                       if (modal) modal.style.display = 'none';
                       await loadMetricsList();
+                      await refreshAllMetricDropdowns();
                       document.querySelectorAll('.card-metric-select').forEach(select => {
                         const currentVal = select.value;
                         select.innerHTML = getMetricOptions(currentVal);
@@ -993,21 +1071,139 @@ function renderDashboardBlockEditor(dashboard) {
       configPanel.style.borderRadius = '0.5rem';
       configPanel.style.border = '1px solid var(--border)';
       if (block.type === 'chart-power' || block.type === 'chart-energy') {
-        configPanel.innerHTML = `<label>Chart Title</label><input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;"><label>Datasets (comma-separated)</label><input type="text" class="config-datasets" value="${escapeHtml((block.config?.datasets || ['load','solar','battery','grid']).join(','))}" style="width:100%;"><button class="fetch-btn save-config">Save</button>`;
+        let datasets = block.config?.datasets || [];
+        if (datasets.length && typeof datasets[0] === 'string') {
+          datasets = datasets.map(ds => ({ label: ds, metric: ds, color: '#888' }));
+        }
+        if (!datasets.length) {
+          datasets = block.type === 'chart-power'
+            ? [{ label: 'Load', metric: 'consumption', color: '#7c3aed' }, { label: 'Solar', metric: 'solar', color: '#d97706' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#059669' }, { label: 'Grid Import', metric: 'grid_import', color: '#dc2626' }]
+            : [{ label: 'Solar Generated', metric: 'daily_solar', color: '#d97706' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#dc2626' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#7c3aed' }];
+        }
+        const datasetRows = datasets.map((ds, idx) => `
+          <div style="border:1px solid var(--border);padding:0.5rem;margin:0.5rem 0;border-radius:4px;">
+            <label>Label</label>
+            <input type="text" class="config-ds-label" data-idx="${idx}" value="${escapeHtml(ds.label || '')}" style="width:100%;margin-bottom:0.3rem;">
+            <label>Metric</label>
+            <select class="config-ds-metric" data-idx="${idx}" style="width:100%;margin-bottom:0.3rem;">${generateMetricOptionsHtml(ds.metric)}</select>
+            <label>Color</label>
+            <input type="color" class="config-ds-color" data-idx="${idx}" value="${escapeHtml(ds.color || '#888')}" style="width:100%;margin-bottom:0.3rem;">
+            <button type="button" class="remove-ds-btn" data-idx="${idx}" style="width:100%;">Remove</button>
+          </div>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Chart Title</label>
+          <input type="text" class="config-chart-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%;margin-bottom:0.5rem;">
+          <h4 style="margin:0.5rem 0;">Datasets</h4>
+          ${datasetRows}
+          <button type="button" class="add-ds-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Dataset</button>
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
       } else if (block.type === 'flow-card') {
-        configPanel.innerHTML = `<label>Show Solar Gauge</label><input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Yes<button class="fetch-btn save-config">Save</button>`;
+        const currentMetrics = block.config?.metrics || {};
+        const metricRoles = [
+          { key: 'solar', label: 'Solar Power Metric' },
+          { key: 'battery_soc', label: 'Battery SOC Metric' },
+          { key: 'battery_charge', label: 'Battery Charge Power Metric' },
+          { key: 'battery_discharge', label: 'Battery Discharge Power Metric' },
+          { key: 'consumption', label: 'Consumption Metric' },
+          { key: 'grid_import', label: 'Grid Import Power Metric' },
+          { key: 'grid_export', label: 'Grid Export Power Metric' }
+        ];
+        const selectsHtml = metricRoles.map(role => `
+          <label>${escapeHtml(role.label)}</label>
+          <select class="config-metric" data-role="${role.key}" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[role.key])}</select>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Energy Flow')}" style="width:100%; margin-bottom:0.5rem;">
+          <label><input type="checkbox" class="config-show-gauge" ${block.config?.showGauge !== false ? 'checked' : ''}> Show Solar Gauge</label>
+          ${selectsHtml}
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'grid-card') {
-        configPanel.innerHTML = `<label>Show Timeline Bar</label><input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Yes<button class="fetch-btn save-config">Save</button>`;
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `
+          <label><input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Show Timeline Bar</label>
+          <label>Grid Status Metric (optional)</label>
+          <select class="config-metric" data-role="grid_status" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.grid_status, 'Use global setting')}</select>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">Leave empty to use Home Assistant entity</p>
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'weather-block') {
         configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Weather')}"><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'battery-block') {
-        configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}"><button class="fetch-btn save-config">Save</button>`;
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}" style="width:100%; margin-bottom:0.5rem;">
+          <label>SOC Metric</label>
+          <select class="config-metric" data-role="soc" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.soc)}</select>
+          <label>Voltage Metric</label>
+          <select class="config-metric" data-role="voltage" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.voltage)}</select>
+          <label>Current Metric</label>
+          <select class="config-metric" data-role="current" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.current)}</select>
+          <label>Power Metric</label>
+          <select class="config-metric" data-role="power" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.power)}</select>
+          <label>Temperature Metric</label>
+          <select class="config-metric" data-role="temperature" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.temperature)}</select>
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'savings-summary') {
         configPanel.innerHTML = `<label>Block Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
           <label><input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Show Today</label>
           <label><input type="checkbox" class="config-show-week" ${block.config?.showWeek !== false ? 'checked' : ''}> Show Week</label>
           <label><input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Show Month</label>
           <label><input type="checkbox" class="config-show-all" ${block.config?.showAll !== false ? 'checked' : ''}> Show All-Time</label>
+          <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'data-table-daily' || block.type === 'data-table-monthly') {
+        const columns = block.config?.columns || [
+          { field: 'consumption_kwh', label: 'Load (kWh)' },
+          { field: 'solar_kwh', label: 'Solar PV (kWh)' },
+          { field: 'battery_charge_kwh', label: 'Battery charged (kWh)' },
+          { field: 'battery_discharge_kwh', label: 'Battery discharged (kWh)' },
+          { field: 'grid_import_kwh', label: 'Grid used (kWh)' },
+          { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }
+        ];
+        const fieldOptions = [
+          { value: 'consumption_kwh', label: 'Load' },
+          { value: 'solar_kwh', label: 'Solar PV' },
+          { value: 'battery_charge_kwh', label: 'Battery charged' },
+          { value: 'battery_discharge_kwh', label: 'Battery discharged' },
+          { value: 'grid_import_kwh', label: 'Grid used' },
+          { value: 'grid_export_kwh', label: 'Grid exported' }
+        ];
+        const fieldSelectHtml = fieldOptions.map(f =>
+          `<option value="${f.value}">${f.label}</option>`
+        ).join('');
+        const colRows = columns.map((col, i) => `
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;">
+            <input type="text" class="config-col-label" data-idx="${i}" value="${escapeHtml(col.label)}" style="flex:1;">
+            <select class="config-col-field" data-idx="${i}" style="flex:1;">${fieldSelectHtml.replace(`value="${col.field}"`, `value="${col.field}" selected`)}</select>
+            <button type="button" class="remove-col-btn" data-idx="${i}" style="padding:0.3rem 0.5rem;">✕</button>
+          </div>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;">
+          <h4 style="margin:0.5rem 0;">Columns</h4>
+          ${colRows}
+          <button type="button" class="add-col-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Column</button>
+          <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
+      } else if (block.type === 'forecast-banner') {
+        const currentMetrics = block.config?.metrics || {};
+        const fieldOptions = [
+          { value: 'solar_kw', label: 'Solar Power (kW)' },
+          { value: 'consumption_kw', label: 'Consumption (kW)' },
+          { value: 'battery_charge_kw', label: 'Battery Charge (kW)' },
+          { value: 'grid_import_kw', label: 'Grid Import (kW)' }
+        ];
+        const fieldSelectHtml = fieldOptions.map(f =>
+          `<option value="${f.value}" ${currentMetrics.actual_energy === f.value ? 'selected' : ''}>${f.label}</option>`
+        ).join('');
+        configPanel.innerHTML = `
+          <label>Actual Energy Metric for Sparkline</label>
+          <select class="config-metric" data-role="actual_energy" style="width:100%; margin-bottom:0.5rem;">
+            <option value="">-- Select --</option>
+            ${fieldSelectHtml}
+          </select>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Default: Solar PV.</p>
           <button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
@@ -1017,28 +1213,133 @@ function renderDashboardBlockEditor(dashboard) {
         saveBtn.addEventListener('click', () => {
           if (!block.config) block.config = {};
           if (block.type === 'chart-power' || block.type === 'chart-energy') {
-            const title = configPanel.querySelector('.config-chart-title')?.value;
-            if (title) block.config.title = title;
-            const datasets = configPanel.querySelector('.config-datasets')?.value;
-            if (datasets) block.config.datasets = datasets.split(',').map(s => s.trim()).filter(s => s);
+            block.config.title = configPanel.querySelector('.config-chart-title')?.value || '';
+            block.config.datasets = [];
+            configPanel.querySelectorAll('.config-ds-label').forEach(labelEl => {
+              const idx = parseInt(labelEl.dataset.idx);
+              const metricEl = configPanel.querySelector(`.config-ds-metric[data-idx="${idx}"]`);
+              const colorEl = configPanel.querySelector(`.config-ds-color[data-idx="${idx}"]`);
+              if (labelEl && metricEl && colorEl) {
+                block.config.datasets.push({
+                  label: labelEl.value,
+                  metric: metricEl.value,
+                  color: colorEl.value
+                });
+              }
+            });
+          } else if (block.type === 'battery-block') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
           } else if (block.type === 'flow-card') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
             const gauge = configPanel.querySelector('.config-show-gauge');
             block.config.showGauge = gauge ? gauge.checked : true;
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
           } else if (block.type === 'grid-card') {
             const timeline = configPanel.querySelector('.config-show-timeline');
             block.config.showTimeline = timeline ? timeline.checked : true;
-          } else if (block.type === 'weather-block' || block.type === 'battery-block') {
-            const title = configPanel.querySelector('.config-title')?.value;
-            if (title) block.config.title = title;
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
+          } else if (block.type === 'data-table-daily' || block.type === 'data-table-monthly') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.columns = [];
+            configPanel.querySelectorAll('.config-col-label').forEach(labelEl => {
+              const idx = parseInt(labelEl.dataset.idx);
+              const fieldEl = configPanel.querySelector(`.config-col-field[data-idx="${idx}"]`);
+              if (labelEl && fieldEl && fieldEl.value) {
+                block.config.columns.push({ label: labelEl.value, field: fieldEl.value });
+              }
+            });
+          } else if (block.type === 'forecast-banner') {
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
+          } else if (block.type === 'weather-block') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
           } else if (block.type === 'savings-summary') {
-            const title = configPanel.querySelector('.config-title')?.value;
-            if (title) block.config.title = title;
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
             block.config.showToday = configPanel.querySelector('.config-show-today')?.checked ?? true;
             block.config.showWeek = configPanel.querySelector('.config-show-week')?.checked ?? true;
             block.config.showMonth = configPanel.querySelector('.config-show-month')?.checked ?? true;
             block.config.showAll = configPanel.querySelector('.config-show-all')?.checked ?? true;
           }
           configPanel.remove();
+        });
+      }
+      // Attach add/remove dataset handlers for chart config panels
+      if (block.type === 'chart-power' || block.type === 'chart-energy') {
+        const addBtn = configPanel.querySelector('.add-ds-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const existingRows = configPanel.querySelectorAll('.config-ds-label');
+            const newIdx = existingRows.length;
+            const newRow = document.createElement('div');
+            newRow.style.cssText = 'border:1px solid var(--border);padding:0.5rem;margin:0.5rem 0;border-radius:4px;';
+            newRow.innerHTML = `
+              <label>Label</label>
+              <input type="text" class="config-ds-label" data-idx="${newIdx}" value="New Dataset" style="width:100%;margin-bottom:0.3rem;">
+              <label>Metric</label>
+              <select class="config-ds-metric" data-idx="${newIdx}" style="width:100%;margin-bottom:0.3rem;">${generateMetricOptionsHtml('')}</select>
+              <label>Color</label>
+              <input type="color" class="config-ds-color" data-idx="${newIdx}" value="#888888" style="width:100%;margin-bottom:0.3rem;">
+              <button type="button" class="remove-ds-btn" data-idx="${newIdx}" style="width:100%;">Remove</button>
+            `;
+            newRow.querySelector('.remove-ds-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-ds-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            btn.closest('div').remove();
+          });
+        });
+      }
+      // Attach add/remove column handlers for table config panels
+      if (block.type === 'data-table-daily' || block.type === 'data-table-monthly') {
+        const addBtn = configPanel.querySelector('.add-col-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const existingRows = configPanel.querySelectorAll('.config-col-label');
+            const newIdx = existingRows.length;
+            const fieldOptions = [
+              { value: 'consumption_kwh', label: 'Load' },
+              { value: 'solar_kwh', label: 'Solar PV' },
+              { value: 'battery_charge_kwh', label: 'Battery charged' },
+              { value: 'battery_discharge_kwh', label: 'Battery discharged' },
+              { value: 'grid_import_kwh', label: 'Grid used' },
+              { value: 'grid_export_kwh', label: 'Grid exported' }
+            ];
+            const fieldSelectHtml = fieldOptions.map(f =>
+              `<option value="${f.value}">${f.label}</option>`
+            ).join('');
+            const newRow = document.createElement('div');
+            newRow.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;';
+            newRow.innerHTML = `
+              <input type="text" class="config-col-label" data-idx="${newIdx}" value="New Column" style="flex:1;">
+              <select class="config-col-field" data-idx="${newIdx}" style="flex:1;">${fieldSelectHtml}</select>
+              <button type="button" class="remove-col-btn" data-idx="${newIdx}" style="padding:0.3rem 0.5rem;">✕</button>
+            `;
+            newRow.querySelector('.remove-col-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-col-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            btn.closest('div').remove();
+          });
         });
       }
       li.appendChild(configPanel);
@@ -1048,6 +1349,12 @@ function renderDashboardBlockEditor(dashboard) {
       dashboard.layout[idx].type = newType;
       if (newType === 'metric-cards' && !dashboard.layout[idx].cards) dashboard.layout[idx].cards = [];
       renderDashboardBlockEditor(dashboard);
+    });
+    li.querySelector('.block-width-select').addEventListener('change', (e) => {
+      dashboard.layout[idx].colSpan = parseInt(e.target.value);
+    });
+    li.querySelector('.block-height-select').addEventListener('change', (e) => {
+      dashboard.layout[idx].rowSpan = parseInt(e.target.value) || 0;
     });
     li.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);
@@ -1060,7 +1367,14 @@ function renderDashboardBlockEditor(dashboard) {
   addBlockBtn.textContent = '+ Add Block';
   addBlockBtn.className = 'fetch-btn';
   addBlockBtn.addEventListener('click', () => {
-    dashboard.layout.push({ type: 'flow-card' });
+    dashboard.layout.push({
+      id: 'block_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      type: 'flow-card',
+      enabled: true,
+      colSpan: 12,
+      rowSpan: 0,
+      config: {}
+    });
     renderDashboardBlockEditor(dashboard);
   });
   container.appendChild(addBlockBtn);
@@ -1120,7 +1434,7 @@ form.addEventListener('submit', async (e) => {
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]').value;
     dev.entities = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
-      const metricName = row.querySelector('.metric-name').value.trim();
+      const metricName = row.querySelector('.metric-name').value; // from dropdown
       const entityId = row.querySelector('.entity-select').value;
       if (metricName && entityId) dev.entities[metricName] = entityId;
     });
@@ -1135,7 +1449,7 @@ form.addEventListener('submit', async (e) => {
     dev.password = card.querySelector('input[name$="[password]"]')?.value || '';
     dev.topics = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
-      const metricName = row.querySelector('.metric-name').value.trim();
+      const metricName = row.querySelector('.metric-name').value;
       const topic = row.querySelector('.topic-input').value.trim();
       if (metricName && topic) dev.topics[metricName] = topic;
     });
@@ -1166,8 +1480,8 @@ form.addEventListener('submit', async (e) => {
     src.mappings = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const jsonPath = row.querySelector('.jsonpath').value.trim();
-      const metric = row.querySelector('.metric-name').value.trim();
-      if (jsonPath && metric) src.mappings[jsonPath] = metric;
+      const metricName = row.querySelector('.metric-name').value;
+      if (jsonPath && metricName) src.mappings[jsonPath] = metricName;
     });
     return src;
   });
