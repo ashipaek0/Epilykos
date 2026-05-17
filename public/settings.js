@@ -1,4 +1,5 @@
 // settings.js – complete with Metrics tab, BMS devices, scan button, dynamic bridge URL, and metric dropdowns
+// FIX: Load metric names BEFORE building device lists
 
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
@@ -36,6 +37,14 @@ async function checkBridgeAvailable() {
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
   try {
+    // FIRST: fetch metric names so dropdowns are populated correctly
+    const metricNamesRes = await fetch('/api/metrics/names');
+    if (metricNamesRes.ok) {
+      allMetricNames = await metricNamesRes.json();
+      allMetricNames.sort();
+    }
+
+    // THEN fetch all settings
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
@@ -46,6 +55,7 @@ async function loadSettings() {
         else input.value = value;
       }
     }
+    // Build device lists (they will use allMetricNames which is now populated)
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
@@ -66,12 +76,6 @@ async function loadSettings() {
         });
       });
       usedDashboardMetrics.sort();
-    }
-
-    const metricNamesRes = await fetch('/api/metrics/names');
-    if (metricNamesRes.ok) {
-      allMetricNames = await metricNamesRes.json();
-      allMetricNames.sort();
     }
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
