@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const httpFetch = require('node-fetch');
 const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
@@ -671,12 +672,17 @@ app.use('/api/bms', isAuthenticated);
 
 app.get('/api/bms/scan', async (req, res) => {
   try {
-    const r = await fetch(`${BMS_BRIDGE_URL}/devices`, { timeout: 15000 });
+    const r = await httpFetch(`${BMS_BRIDGE_URL}/devices`, { timeout: 15000 });
+    if (!r.ok) {
+      const text = await r.text();
+      logger.error(`BMS scan bridge returned ${r.status}: ${text.slice(0,200)}`);
+      return res.status(502).json({ error: `Bridge returned ${r.status}` });
+    }
     const data = await r.json();
     res.json(data);
   } catch (err) {
     logger.error('BMS scan proxy error:', err.message);
-    res.status(502).json({ error: 'BMS bridge not reachable' });
+    res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
   }
 });
 
@@ -684,12 +690,17 @@ app.get('/api/bms/test', async (req, res) => {
   const address = req.query.address;
   if (!address) return res.status(400).json({ error: 'MAC address required' });
   try {
-    const r = await fetch(`${BMS_BRIDGE_URL}/device/${address}`, { timeout: 10000 });
+    const r = await httpFetch(`${BMS_BRIDGE_URL}/device/${encodeURIComponent(address)}`, { timeout: 10000 });
+    if (!r.ok) {
+      const text = await r.text();
+      logger.error(`BMS test bridge returned ${r.status}: ${text.slice(0,200)}`);
+      return res.status(502).json({ error: `Bridge returned ${r.status}` });
+    }
     const data = await r.json();
     res.json(data);
   } catch (err) {
     logger.error('BMS test proxy error:', err.message);
-    res.status(502).json({ error: 'BMS bridge not reachable' });
+    res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
   }
 });
 
