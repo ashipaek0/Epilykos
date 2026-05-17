@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const httpFetch = require('node-fetch');
 const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
@@ -26,6 +27,7 @@ const { startExternalPolling, restartExternalPolling } = require('./modules/exte
 const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Morgan HTTP request logging (stream to winston)
@@ -288,48 +290,37 @@ app.get('/api/daily', async (req, res) => {
     d.setDate(now.getDate() - i);
     dateArray.push(d.toISOString().split('T')[0]);
   }
-  const startUnix = Math.floor(new Date(dateArray[0]).getTime() / 1000);
+  const startUnix = Math.floor(new Date(dateArray[0] + 'T00:00:00').getTime() / 1000);
   const endUnix = Math.floor(now.getTime() / 1000);
   try {
+    // Use MAX(daily_*) — the running cumulative totals — for reliable daily energy
     const rows = db.prepare(`
-      SELECT timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export
+      SELECT date(timestamp, 'unixepoch') as day,
+        MAX(daily_consumption) as consumption_kwh,
+        MAX(daily_solar) as solar_kwh,
+        MAX(daily_battery_charge) as battery_charge_kwh,
+        MAX(daily_battery_discharge) as battery_discharge_kwh,
+        MAX(daily_grid_import) as grid_import_kwh,
+        MAX(daily_grid_export) as grid_export_kwh
       FROM history
       WHERE timestamp >= ? AND timestamp <= ?
-      ORDER BY timestamp ASC
+      GROUP BY day
+      ORDER BY day ASC
     `).all(startUnix, endUnix);
-    const dailyMap = new Map();
-    for (let i = 0; i < rows.length - 1; i++) {
-      const cur = rows[i];
-      const next = rows[i + 1];
-      const dtHours = (next.timestamp - cur.timestamp) / 3600;
-      const day = new Date(cur.timestamp * 1000).toISOString().split('T')[0];
-      if (!dailyMap.has(day)) {
-        dailyMap.set(day, {
-          consumption_kwh: 0,
-          solar_kwh: 0,
-          battery_charge_kwh: 0,
-          battery_discharge_kwh: 0,
-          grid_import_kwh: 0,
-          grid_export_kwh: 0
-        });
-      }
-      const entry = dailyMap.get(day);
-      entry.consumption_kwh    += ((cur.consumption + next.consumption) / 2000) * dtHours;
-      entry.solar_kwh          += ((cur.solar + next.solar) / 2000) * dtHours;
-      entry.battery_charge_kwh += ((cur.battery_charge + next.battery_charge) / 2000) * dtHours;
-      entry.battery_discharge_kwh += ((cur.battery_discharge + next.battery_discharge) / 2000) * dtHours;
-      entry.grid_import_kwh    += ((cur.grid_import + next.grid_import) / 2000) * dtHours;
-      entry.grid_export_kwh    += ((cur.grid_export + next.grid_export) / 2000) * dtHours;
-    }
-    const result = dateArray.map(date => ({
-      day: date,
-      consumption_kwh: dailyMap.get(date)?.consumption_kwh || 0,
-      solar_kwh: dailyMap.get(date)?.solar_kwh || 0,
-      battery_charge_kwh: dailyMap.get(date)?.battery_charge_kwh || 0,
-      battery_discharge_kwh: dailyMap.get(date)?.battery_discharge_kwh || 0,
-      grid_import_kwh: dailyMap.get(date)?.grid_import_kwh || 0,
-      grid_export_kwh: dailyMap.get(date)?.grid_export_kwh || 0
-    }));
+    const dataMap = {};
+    rows.forEach(r => { dataMap[r.day] = r; });
+    const result = dateArray.map(date => {
+      const d = dataMap[date];
+      return {
+        day: date,
+        consumption_kwh: d?.consumption_kwh || 0,
+        solar_kwh: d?.solar_kwh || 0,
+        battery_charge_kwh: d?.battery_charge_kwh || 0,
+        battery_discharge_kwh: d?.battery_discharge_kwh || 0,
+        grid_import_kwh: d?.grid_import_kwh || 0,
+        grid_export_kwh: d?.grid_export_kwh || 0
+      };
+    });
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
@@ -478,6 +469,11 @@ app.get('/api/logout', (req, res) => {
   req.session.destroy();
   logger.info('User logged out');
   res.redirect('/');
+});
+
+// Auth status endpoint (public, but indicates session state)
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
 });
 
 // ---------- Protected API (session + CSRF) – no rate limit ----------
@@ -670,6 +666,45 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
+// BMS bridge proxy – browser can't reach bms-bridge directly
+const BMS_BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
+
+app.use('/api/bms', isAuthenticated);
+
+app.get('/api/bms/scan', async (req, res) => {
+  try {
+    const r = await httpFetch(`${BMS_BRIDGE_URL}/devices`, { timeout: 15000 });
+    if (!r.ok) {
+      const text = await r.text();
+      logger.error(`BMS scan bridge returned ${r.status}: ${text.slice(0,200)}`);
+      return res.status(502).json({ error: `Bridge returned ${r.status}` });
+    }
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    logger.error('BMS scan proxy error:', err.message);
+    res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+  }
+});
+
+app.get('/api/bms/test', async (req, res) => {
+  const address = req.query.address;
+  if (!address) return res.status(400).json({ error: 'MAC address required' });
+  try {
+    const r = await httpFetch(`${BMS_BRIDGE_URL}/device/${encodeURIComponent(address)}`, { timeout: 10000 });
+    if (!r.ok) {
+      const text = await r.text();
+      logger.error(`BMS test bridge returned ${r.status}: ${text.slice(0,200)}`);
+      return res.status(502).json({ error: `Bridge returned ${r.status}` });
+    }
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    logger.error('BMS test proxy error:', err.message);
+    res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+  }
+});
+
 app.use('/api/test-external', isAuthenticated);
 app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;
@@ -732,21 +767,22 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   }
 });
 
-// Settings page (protected)
+// ---------- Settings page (protected) ----------
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
 });
 
-// Login page (public)
+// ---------- Login page (public) ----------
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Root route – serve main dashboard (public)
+// ---------- Root route (public) ----------
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ---------- Metrics endpoints ----------
 app.get('/api/metrics/current', async (req, res) => {
   try {
     res.json(getCurrentMetrics());
@@ -778,17 +814,13 @@ app.get('/api/metrics/names', async (req, res) => {
   }
 });
 
-app.get('/api/auth/status', (req, res) => {
-  res.json({ authenticated: !!(req.session && req.session.authenticated) });
-});
-
-// Catch-all for SPA – must be after all explicit routes
+// ---------- Catch-all for SPA ----------
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start the HTTP server with WebSocket support
+// Start HTTP server with WebSocket support
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));

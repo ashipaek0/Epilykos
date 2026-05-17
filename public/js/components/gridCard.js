@@ -2,9 +2,14 @@ import { renderTimelineBar, formatHoursToHM, updateGridDate, formatTimestamp } f
 
 export function buildGridCard(block = {}) {
   const config = block.config || {};
-  const showTimeline = config.showTimeline !== false; // default true
+  const showTimeline = config.showTimeline !== false;
+  const metrics = config.metrics || {};
+  const gridStatusMetric = metrics.grid_status || '';
+
   const card = document.createElement('div');
   card.className = 'grid-card';
+  card.dataset.metricMap = JSON.stringify({ grid_status: gridStatusMetric });
+
   card.innerHTML = `
     <div class="grid-date" id="grid-date"></div>
     <div class="grid-stats">
@@ -24,21 +29,43 @@ export function buildGridCard(block = {}) {
 }
 
 export function updateGridCardFromState(state) {
-  if (!state || !state.gridStatus) return;
-  const gs = state.gridStatus;
-  if (!gs.configured) {
+  if (!state) return;
+  const card = document.querySelector('.grid-card');
+  if (!card) return;
+
+  // Check if a local metric override is configured
+  let metricsMap;
+  try {
+    metricsMap = JSON.parse(card.dataset.metricMap);
+  } catch (e) {
+    metricsMap = { grid_status: '' };
+  }
+
+  const gridStatusMetric = metricsMap.grid_status;
+  let currentState, lastChangeTimestamp;
+
+  if (gridStatusMetric && state.metrics && state.metrics[gridStatusMetric] !== undefined) {
+    // Use configured metric for grid status
+    const val = state.metrics[gridStatusMetric]?.value;
+    currentState = val > 0;
+    lastChangeTimestamp = null; // can't determine from single metric value
+  } else if (state.gridStatus && state.gridStatus.configured) {
+    // Fall back to backend grid status
+    const gs = state.gridStatus;
+    currentState = gs.current;
+    lastChangeTimestamp = gs.current ? gs.lastOn : gs.lastOff;
+  } else {
     document.getElementById('grid-state').textContent = 'Not configured';
     const sinceEl = document.getElementById('grid-state-since');
     if (sinceEl) sinceEl.textContent = '';
     return;
   }
 
-  const currentState = gs.current ? 'ON' : 'OFF';
-  document.getElementById('grid-state').textContent = `⚡ ${currentState}`;
-  document.getElementById('grid-state').style.color = gs.current ? 'var(--battery)' : 'var(--grid)';
+  const displayState = currentState ? 'ON' : 'OFF';
+  document.getElementById('grid-state').textContent = `⚡ ${displayState}`;
+  document.getElementById('grid-state').style.color = currentState ? 'var(--battery)' : 'var(--grid)';
 
   const sinceEl = document.getElementById('grid-state-since');
-  const lastChangeTimestamp = gs.current ? gs.lastOn : gs.lastOff;
   if (sinceEl) {
     if (lastChangeTimestamp) {
       sinceEl.textContent = `since ${formatTimestamp(lastChangeTimestamp)}`;

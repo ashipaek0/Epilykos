@@ -15,22 +15,20 @@ services:
       - bms-bridge
     networks:
       - epilykos-net
-    extra_hosts:
-      - "bms-bridge:host-gateway"
 
   bms-bridge:
     image: irunmole/epilykos-bms:latest
     container_name: bms-bridge
     restart: unless-stopped
-    network_mode: host
+    privileged: true
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /dev:/dev:ro
     environment:
       - LOG_LEVEL=info
-    privileged: true   # add this
-    volumes:
-      - /var/run/dbus:/var/run/dbus   # mount dbus socket
-      - /dev:/dev:ro 
+    networks:
+      - epilykos-net
 
 networks:
   epilykos-net:
     driver: bridge
-

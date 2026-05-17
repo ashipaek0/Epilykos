@@ -201,18 +201,44 @@
     }
   </style>
   <script>
-    // CSRF helper
+    // Enhanced fetch override: adds CSRF header AND stringifies array fields for /api/settings
     const originalFetch = window.fetch;
     window.fetch = function(url, options = {}) {
-      if (options.method && options.method.toUpperCase() !== 'GET') {
-        options.headers = options.headers || {};
-        if (options.headers instanceof Headers) {
-          options.headers.set('X-Requested-With', 'XMLHttpRequest');
+      // Clone options to avoid mutation
+      let newOptions = { ...options };
+      if (newOptions.method && newOptions.method.toUpperCase() !== 'GET') {
+        newOptions.headers = newOptions.headers || {};
+        if (newOptions.headers instanceof Headers) {
+          newOptions.headers.set('X-Requested-With', 'XMLHttpRequest');
         } else {
-          options.headers['X-Requested-With'] = 'XMLHttpRequest';
+          newOptions.headers['X-Requested-With'] = 'XMLHttpRequest';
+        }
+
+        // Special handling for /api/settings POST: stringify array fields
+        if (typeof url === 'string' && url.endsWith('/api/settings') && newOptions.method.toUpperCase() === 'POST') {
+          if (newOptions.body && typeof newOptions.body === 'string') {
+            try {
+              let bodyObj = JSON.parse(newOptions.body);
+              let modified = false;
+              // List of config keys that should be stored as JSON strings
+              const arrayKeys = ['mqtt_devices', 'ha_devices', 'modbus_devices', 'external_sources', 'bms_devices', 'user_metrics'];
+              for (let key of arrayKeys) {
+                if (bodyObj.hasOwnProperty(key) && Array.isArray(bodyObj[key])) {
+                  bodyObj[key] = JSON.stringify(bodyObj[key]);
+                  modified = true;
+                }
+              }
+              if (modified) {
+                newOptions.body = JSON.stringify(bodyObj);
+              }
+            } catch(e) {
+              // If body isn't valid JSON, leave unchanged
+              console.warn('Failed to parse settings body for stringification', e);
+            }
+          }
         }
       }
-      return originalFetch.call(this, url, options);
+      return originalFetch.call(this, url, newOptions);
     };
   </script>
 </head>
@@ -299,7 +325,7 @@
             <tbody id="metrics-table-body">
               <tr><td colspan="5">Loading metrics...</td></tr>
             </tbody>
-          </table>
+           </table>
         </div>
       </div>
 

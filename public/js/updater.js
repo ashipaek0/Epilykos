@@ -1,6 +1,7 @@
 import { fetchDashboardState } from './api.js';
 import { dashboardConfig } from './dashboard.js';
 import { updateFlowCard } from './components/flowCard.js';
+import { updateBatteryBlock } from './components/batteryBlock.js';
 import { updateMetricCardsFromState } from './components/metricCards.js';
 import { updateGridCardFromState } from './components/gridCard.js';
 import { updatePowerChartFromState, updateEnergyChartFromState } from './charts.js';
@@ -22,6 +23,7 @@ export function updateWithState(state) {
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
   if (activeLayout.some(b => b.type === 'flow-card')) updateFlowCard(state);
+  if (activeLayout.some(b => b.type === 'battery-block')) updateBatteryBlock(state);
   if (activeLayout.some(b => b.type === 'metric-cards')) updateMetricCardsFromState(state);
   if (activeLayout.some(b => b.type === 'grid-card')) updateGridCardFromState(state);
   if (activeLayout.some(b => b.type === 'chart-power')) updatePowerChartFromState(state);
