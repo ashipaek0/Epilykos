@@ -33,10 +33,25 @@ function setWeatherIconColor(iconEl, desc) {
   else iconEl.style.color = 'var(--text)';
 }
 
+let clockInterval = null;
+
+function startClock() {
+  const el = document.getElementById('forecast-clock');
+  if (!el) return;
+  const tick = () => {
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+  tick();
+  if (clockInterval) clearInterval(clockInterval);
+  clockInterval = setInterval(tick, 1000);
+}
+
 export async function updateForecast() {
   const banner = document.getElementById('forecast-banner');
   if (!banner) return;
   try {
+    startClock();
     const res = await fetch('/api/solar-forecast');
     const data = await res.json();
     if (data.error || !data.daily || data.daily.length === 0) {
@@ -53,7 +68,17 @@ export async function updateForecast() {
     const tomorrow = data.daily[todayIdx + 1] || null;
     const nextDay = data.daily[todayIdx + 2] || null;
 
-    document.getElementById('pv-today-value').textContent = (today.total_kwh || 0).toFixed(1) + ' kWh';
+    // Show remaining today (total minus actual so far)
+    const remaining = today.actual_so_far != null
+      ? Math.max(0, (today.total_kwh || 0) - today.actual_so_far)
+      : (today.total_kwh || 0);
+    document.getElementById('pv-today-value').textContent = remaining.toFixed(1) + ' kWh';
+
+    const remainingEl = document.getElementById('pv-today-remaining');
+    if (remainingEl) {
+      remainingEl.textContent = 'remaining';
+    }
+
     if (tomorrow) {
       document.getElementById('pred-day1-label').textContent = getDayName(tomorrow.date);
       document.getElementById('pv-tomorrow').textContent = tomorrow.total_kwh.toFixed(1) + ' kWh';
