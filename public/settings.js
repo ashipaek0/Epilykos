@@ -13,24 +13,6 @@ function showStatus(element, msg, type) {
   }
 }
 
-// Helper to get BMS bridge URL
-function getBmsBridgeUrl() {
-  return `${window.location.protocol}//${window.location.hostname}:8020`;
-}
-
-let bridgeAvailable = null;
-
-async function checkBridgeAvailable() {
-  const bridgeUrl = getBmsBridgeUrl();
-  try {
-    const res = await fetch(`${bridgeUrl}/health`, { timeout: 2000 });
-    bridgeAvailable = res.ok;
-    return bridgeAvailable;
-  } catch {
-    bridgeAvailable = false;
-    return false;
-  }
-}
 
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
@@ -724,19 +706,17 @@ function renderBmsDevice(device, idx) {
     reindexBms();
   });
 
-  // Scan button
+  // Scan button – uses backend proxy to reach BMS bridge
   card.querySelector('.scan-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    const available = await checkBridgeAvailable();
-    if (!available) {
-      showStatus(statusEl, 'BMS bridge not reachable – works only when dashboard is accessed from the same local network as the Bluetooth hardware.', 'error');
-      return;
-    }
-    const bridgeUrl = getBmsBridgeUrl();
-    showStatus(statusEl, `Scanning for BLE devices via ${bridgeUrl}...`, 'info');
+    showStatus(statusEl, 'Scanning for BLE devices...', 'info');
     try {
-      const res = await fetch(`${bridgeUrl}/devices`, { timeout: 10000 });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch('/api/bms/scan', { timeout: 20000 });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showStatus(statusEl, err.error || 'Scan failed', 'error');
+        return;
+      }
       const devices = await res.json();
       if (!devices.length) {
         showStatus(statusEl, 'No BMS devices found', 'error');
@@ -758,7 +738,7 @@ function renderBmsDevice(device, idx) {
     }
   });
 
-  // Test connection button
+  // Test connection button – uses backend proxy to reach BMS bridge
   card.querySelector('.test-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
     const address = card.querySelector('input[name$="[address]"]').value.trim();
@@ -766,20 +746,15 @@ function renderBmsDevice(device, idx) {
       showStatus(statusEl, 'MAC address required', 'error');
       return;
     }
-    const available = await checkBridgeAvailable();
-    if (!available) {
-      showStatus(statusEl, 'BMS bridge not reachable.', 'error');
-      return;
-    }
-    const bridgeUrl = getBmsBridgeUrl();
-    showStatus(statusEl, `Testing connection to ${bridgeUrl}...`, 'info');
+    showStatus(statusEl, 'Testing connection...', 'info');
     try {
-      const res = await fetch(`${bridgeUrl}/device/${address}`, { timeout: 5000 });
+      const res = await fetch(`/api/bms/test?address=${encodeURIComponent(address)}`, { timeout: 15000 });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
       } else {
-        showStatus(statusEl, `Error ${res.status}`, 'error');
+        const err = await res.json().catch(() => ({}));
+        showStatus(statusEl, err.error || `Error`, 'error');
       }
     } catch (err) {
       showStatus(statusEl, `Failed: ${err.message}`, 'error');
