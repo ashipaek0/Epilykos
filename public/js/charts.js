@@ -4,21 +4,63 @@ let powerChart = null;
 let energyBarChart = null;
 let currentPowerRange = '24h';
 let currentEnergyRange = '7d';
-let currentPowerDatasets = ['load', 'solar', 'battery_charge', 'grid_import'];
+let currentPowerDatasets = null;
 
-const datasetLabels = {
-  load: 'Load',
-  solar: 'Solar PV',
-  battery_charge: 'Battery Charge',
-  grid_import: 'Grid Import'
+// Map metric names to powerHistory field names
+const metricToPowerField = {
+  solar: 'solar_kw',
+  solar_power: 'solar_kw',
+  consumption: 'consumption_kw',
+  load_power: 'consumption_kw',
+  load: 'consumption_kw',
+  battery_charge: 'battery_charge_kw',
+  battery_charge_power: 'battery_charge_kw',
+  battery_discharge: 'battery_discharge_kw',
+  grid_import: 'grid_import_kw',
+  grid_import_power: 'grid_import_kw',
+  grid_export: 'grid_export_kw'
 };
 
-const datasetColors = {
-  load: { light: '#7c3aed', dark: '#8b5cf6' },
-  solar: { light: '#d97706', dark: '#fbbf24' },
-  battery_charge: { light: '#059669', dark: '#10b981' },
-  grid_import: { light: '#dc2626', dark: '#ef4444' }
+// Map metric names to daily energy field names
+const metricToEnergyField = {
+  daily_solar: 'solar_kwh',
+  solar: 'solar_kwh',
+  daily_grid_import: 'grid_import_kwh',
+  grid_import: 'grid_import_kwh',
+  daily_consumption: 'consumption_kwh',
+  consumption: 'consumption_kwh',
+  daily_battery_charge: 'battery_charge_kwh',
+  battery_charge: 'battery_charge_kwh',
+  daily_battery_discharge: 'battery_discharge_kwh',
+  daily_grid_export: 'grid_export_kwh',
+  grid_export: 'grid_export_kwh'
 };
+
+function getPowerDatasets() {
+  if (currentPowerDatasets && currentPowerDatasets.length) return currentPowerDatasets;
+  const el = document.querySelector('.chart-container');
+  if (el && el.dataset.chartDatasets) {
+    try { return JSON.parse(el.dataset.chartDatasets); } catch (e) { /* fall through */ }
+  }
+  return [
+    { label: 'Load', metric: 'consumption', color: '#7c3aed' },
+    { label: 'Solar', metric: 'solar', color: '#d97706' },
+    { label: 'Battery Charge', metric: 'battery_charge', color: '#059669' },
+    { label: 'Grid Import', metric: 'grid_import', color: '#dc2626' }
+  ];
+}
+
+function getEnergyDatasets() {
+  const el = document.querySelectorAll('.chart-container')[1] || document.querySelector('.chart-container');
+  if (el && el.dataset.chartDatasets) {
+    try { return JSON.parse(el.dataset.chartDatasets); } catch (e) { /* fall through */ }
+  }
+  return [
+    { label: 'Solar Generated', metric: 'daily_solar', color: '#d97706' },
+    { label: 'Grid Imported', metric: 'daily_grid_import', color: '#dc2626' },
+    { label: 'Energy Consumed', metric: 'daily_consumption', color: '#7c3aed' }
+  ];
+}
 
 export function destroyCharts() {
   if (powerChart) { powerChart.destroy(); powerChart = null; }
@@ -55,13 +97,17 @@ export function initEnergyChart() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const gridColor = isDark ? '#334155' : '#cbd5e1';
   const textColor = isDark ? '#f8fafc' : '#0f172a';
+
+  const datasets = getEnergyDatasets();
+  const chartDatasets = datasets.map(ds => ({
+    label: ds.label,
+    backgroundColor: ds.color || '#888',
+    data: []
+  }));
+
   energyBarChart = new Chart(ctx, {
     type: 'bar',
-    data: { labels: [], datasets: [
-      { label: 'Solar Generated', backgroundColor: '#d97706', data: [] },
-      { label: 'Grid Imported', backgroundColor: '#dc2626', data: [] },
-      { label: 'Energy Consumed', backgroundColor: '#7c3aed', data: [] }
-    ] },
+    data: { labels: [], datasets: chartDatasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
@@ -75,11 +121,12 @@ export function initEnergyChart() {
 }
 
 export function resolveColor(color) {
+  if (!color) return '#cccccc';
   if (color.startsWith('#')) return color;
   if (color.startsWith('var(--')) {
     const varName = color.slice(4, -1);
     const style = getComputedStyle(document.documentElement);
-    const raw = style.getPropertyValue('--' + varName).trim();
+    const raw = style.getPropertyValue(varName).trim();
     if (raw.startsWith('#')) return raw;
   }
   return '#cccccc';
@@ -120,10 +167,10 @@ export function updateChartColors() {
     powerChart.options.scales.x.grid.color = gridColor;
     powerChart.options.scales.y.grid.color = gridColor;
     powerChart.options.plugins.legend.labels.color = textColor;
+    const datasets = getPowerDatasets();
     powerChart.data.datasets.forEach((ds, i) => {
-      const key = Object.keys(datasetLabels)[i];
-      if (key) {
-        ds.borderColor = isDark ? datasetColors[key].dark : datasetColors[key].light;
+      if (datasets[i] && datasets[i].color) {
+        ds.borderColor = resolveColor(datasets[i].color);
       }
     });
     powerChart.update();
@@ -133,6 +180,12 @@ export function updateChartColors() {
     energyBarChart.options.scales.x.grid.color = gridColor;
     energyBarChart.options.scales.y.grid.color = gridColor;
     energyBarChart.options.plugins.legend.labels.color = textColor;
+    const datasets = getEnergyDatasets();
+    energyBarChart.data.datasets.forEach((ds, i) => {
+      if (datasets[i] && datasets[i].color) {
+        ds.backgroundColor = datasets[i].color;
+      }
+    });
     energyBarChart.update();
   }
 }
@@ -156,7 +209,6 @@ export async function refreshPowerChart() {
       grid_import_kw: r.grid_import_kw
     }));
   } else {
-    // fallback to 24h
     const state = await fetchDashboardState();
     data = state.powerHistory;
   }
@@ -164,32 +216,27 @@ export async function refreshPowerChart() {
 }
 
 function updatePowerChartData(data) {
-  if (!data.length) return;
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (!data || !data.length) return;
+  const datasets = getPowerDatasets();
   const newDatasets = [];
-  const datasetMap = {
-    load: (d) => ({ x: d.timestamp, y: d.consumption_kw }),
-    solar: (d) => ({ x: d.timestamp, y: d.solar_kw }),
-    battery_charge: (d) => ({ x: d.timestamp, y: d.battery_charge_kw }),
-    grid_import: (d) => ({ x: d.timestamp, y: d.grid_import_kw })
-  };
-  
-  for (const ds of currentPowerDatasets) {
-    if (datasetMap[ds]) {
-      newDatasets.push({
-        label: datasetLabels[ds],
-        data: data.map(datasetMap[ds]),
-        borderColor: isDark ? datasetColors[ds].dark : datasetColors[ds].light,
-        tension: 0.4, borderWidth: 1, fill: true
-      });
-    }
+
+  for (const ds of datasets) {
+    const field = metricToPowerField[ds.metric] || ds.metric;
+    const extractor = (d) => ({ x: d.timestamp, y: d[field] ?? 0 });
+    newDatasets.push({
+      label: ds.label,
+      data: data.map(extractor),
+      borderColor: resolveColor(ds.color),
+      tension: 0.4, borderWidth: 1, fill: true
+    });
   }
+
   powerChart.data.datasets = newDatasets;
   powerChart.update();
   applyGradientFills(powerChart);
 }
 
-export function setPowerRange(range, datasets = null) {
+export function setPowerRange(range, datasets) {
   currentPowerRange = range;
   if (datasets && Array.isArray(datasets) && datasets.length) {
     currentPowerDatasets = datasets;
@@ -197,7 +244,7 @@ export function setPowerRange(range, datasets = null) {
   refreshPowerChart();
 }
 
-// Energy chart range (unchanged)
+// Energy chart
 export async function refreshEnergyChart() {
   if (!energyBarChart) return;
   const days = parseInt(currentEnergyRange);
@@ -207,15 +254,27 @@ export async function refreshEnergyChart() {
 }
 
 function updateEnergyChartData(data) {
-  if (!data.length) return;
+  if (!data || !data.length) return;
+  const sources = getEnergyDatasets();
   const labels = data.map(d => {
     const date = new Date(d.day + 'T00:00:00');
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   });
+
+  const chartDatasets = sources.map(src => {
+    const field = metricToEnergyField[src.metric];
+    if (field) {
+      return {
+        label: src.label,
+        data: data.map(d => d[field] || 0),
+        backgroundColor: src.color || '#888'
+      };
+    }
+    return { label: src.label, data: [], backgroundColor: src.color || '#888' };
+  });
+
   energyBarChart.data.labels = labels;
-  energyBarChart.data.datasets[0].data = data.map(d => d.solar_kwh);
-  energyBarChart.data.datasets[1].data = data.map(d => d.grid_import_kwh);
-  energyBarChart.data.datasets[2].data = data.map(d => d.consumption_kwh);
+  energyBarChart.data.datasets = chartDatasets;
   energyBarChart.update();
 }
 

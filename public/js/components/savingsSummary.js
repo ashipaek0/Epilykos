@@ -1,6 +1,6 @@
 export function buildSavingsSummary(block = {}) {
   const config = block.config || {};
-  const title = config.title || 'Savings Summary';
+  const title = config.title || '';
   const showToday = config.showToday !== false;
   const showWeek = config.showWeek !== false;
   const showMonth = config.showMonth !== false;

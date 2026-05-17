@@ -480,6 +480,11 @@ app.get('/api/logout', (req, res) => {
   res.redirect('/');
 });
 
+// Auth status endpoint (public, but indicates session state)
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
+});
+
 // ---------- Protected API (session + CSRF) – no rate limit ----------
 app.use('/api/test-forecast', isAuthenticated);
 app.get('/api/test-forecast', async (req, res) => {
@@ -732,21 +737,22 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   }
 });
 
-// Settings page (protected)
+// ---------- Settings page (protected) ----------
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
 });
 
-// Login page (public)
+// ---------- Login page (public) ----------
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Root route – serve main dashboard (public)
+// ---------- Root route (public) ----------
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ---------- Metrics endpoints ----------
 app.get('/api/metrics/current', async (req, res) => {
   try {
     res.json(getCurrentMetrics());
@@ -778,17 +784,13 @@ app.get('/api/metrics/names', async (req, res) => {
   }
 });
 
-app.get('/api/auth/status', (req, res) => {
-  res.json({ authenticated: !!(req.session && req.session.authenticated) });
-});
-
-// Catch-all for SPA – must be after all explicit routes
+// ---------- Catch-all for SPA ----------
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start the HTTP server with WebSocket support
+// Start HTTP server with WebSocket support
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));

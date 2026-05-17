@@ -3,28 +3,26 @@ import { componentBuilders } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { updateAllComponents } from './updater.js';
+import { ensureBlockIds } from './utils/blockId.js';
 
 let dashboardConfig;
+let sortable = null;
 
+// Load and render dashboard
 export async function loadDashboardConfig() {
   const res = await fetch('/api/dashboard-config');
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   dashboardConfig = await res.json();
   if (!dashboardConfig.dashboards || dashboardConfig.dashboards.length === 0) {
     throw new Error('Invalid dashboard configuration: no dashboards');
   }
-  
+
   const urlParams = new URLSearchParams(window.location.search);
   const tabParam = urlParams.get('tab');
-  if (tabParam) {
-    const matchingTab = dashboardConfig.dashboards.find(db => db.id === tabParam);
-    if (matchingTab) {
-      dashboardConfig.activeDashboard = tabParam;
-    }
+  if (tabParam && dashboardConfig.dashboards.find(db => db.id === tabParam)) {
+    dashboardConfig.activeDashboard = tabParam;
   }
-  
+
   renderDashboard();
   return dashboardConfig;
 }
@@ -51,24 +49,76 @@ function renderDashboard() {
 
   const container = document.getElementById('dashboard-container');
   container.innerHTML = '';
+
+  // Destroy previous Sortable instance
+  if (sortable) { sortable.destroy(); sortable = null; }
+
   const active = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
   if (!active) return;
 
-  active.layout.forEach(block => {
+  const layoutWithIds = ensureBlockIds(active.layout);
+
+  // Migrate: ensure every block has a colSpan (from gridW if available, else default 12)
+  let migrated = false;
+  layoutWithIds.forEach(block => {
+    if (block.colSpan === undefined) {
+      block.colSpan = block.gridW ?? 12;
+      migrated = true;
+    }
+  });
+  if (migrated) {
+    saveDashboardConfig(dashboardConfig).catch(e => console.warn('ColSpan migration save failed:', e));
+  }
+
+  // Render blocks as CSS Grid children
+  layoutWithIds.forEach((block) => {
     if (block.enabled === false) return;
     const builder = componentBuilders[block.type];
     if (!builder) return;
-    const el = builder(block);
-    if (el) container.appendChild(el);
+    const content = builder(block);
+    if (!content) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dashboard-block';
+    wrapper.dataset.blockId = block.id;
+    const span = block.colSpan ?? 12;
+    wrapper.style.gridColumn = `span ${Math.min(12, Math.max(1, span))}`;
+    if (block.rowSpan) {
+      wrapper.style.minHeight = block.rowSpan + 'px';
+    }
+    wrapper.appendChild(content);
+    container.appendChild(wrapper);
   });
+
+  // Init SortableJS for drag-to-reorder (authenticated users only)
+  fetch('/api/auth/status')
+    .then(r => r.json())
+    .then(auth => {
+      if (!auth.authenticated) return;
+      sortable = new Sortable(container, {
+        animation: 200,
+        handle: '.dashboard-block',
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: () => {
+          // Sync DOM order back to layout array
+          const blockElems = container.querySelectorAll('.dashboard-block');
+          const ordered = [];
+          blockElems.forEach(el => {
+            const b = active.layout.find(b => b.id === el.dataset.blockId);
+            if (b) ordered.push(b);
+          });
+          active.layout = ordered;
+          saveDashboardConfig(dashboardConfig).catch(e => console.warn('Reorder save failed:', e));
+        }
+      });
+    }).catch(() => {});
 
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
   if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
 
-  // Load table data immediately (no lazy‑load required)
   updateDailyTable().catch(e => console.error('Daily table error:', e));
   updateMonthlyTable().catch(e => console.error('Monthly table error:', e));
-
   loadBranding();
   updateAllComponents();
 }
