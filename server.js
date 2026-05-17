@@ -664,6 +664,35 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
+// BMS bridge proxy – browser can't reach bms-bridge directly
+const BMS_BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
+
+app.use('/api/bms', isAuthenticated);
+
+app.get('/api/bms/scan', async (req, res) => {
+  try {
+    const r = await fetch(`${BMS_BRIDGE_URL}/devices`, { timeout: 15000 });
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    logger.error('BMS scan proxy error:', err.message);
+    res.status(502).json({ error: 'BMS bridge not reachable' });
+  }
+});
+
+app.get('/api/bms/test', async (req, res) => {
+  const address = req.query.address;
+  if (!address) return res.status(400).json({ error: 'MAC address required' });
+  try {
+    const r = await fetch(`${BMS_BRIDGE_URL}/device/${address}`, { timeout: 10000 });
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    logger.error('BMS test proxy error:', err.message);
+    res.status(502).json({ error: 'BMS bridge not reachable' });
+  }
+});
+
 app.use('/api/test-external', isAuthenticated);
 app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;

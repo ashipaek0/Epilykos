@@ -497,6 +497,15 @@ h1, h2, h3, h4,
   color: white;
 }
 
+/* Settings – dashboard tabs */
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
 /* Settings – dashboard editor block list */
 .block-list {
   list-style: none;
