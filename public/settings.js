@@ -1,11 +1,9 @@
-// settings.js – complete with Metrics tab, BMS devices, scan button, dynamic bridge URL, and metric dropdowns
-// FIX: Load metric names BEFORE building device lists
-
+// settings.js – fixed to use /api/metrics/list for immediate dropdown updates
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
 let usedDashboardMetrics = [];
-let allMetricNames = []; // will hold the list of metric names for dropdowns
+let allMetrics = []; // array of { name, unit, value?, timestamp? }
 
 function showStatus(element, msg, type) {
   element.textContent = msg;
@@ -37,11 +35,11 @@ async function checkBridgeAvailable() {
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
   try {
-    // FIRST: fetch metric names so dropdowns are populated correctly
-    const metricNamesRes = await fetch('/api/metrics/names');
-    if (metricNamesRes.ok) {
-      allMetricNames = await metricNamesRes.json();
-      allMetricNames.sort();
+    // FIRST: fetch all metrics (including those without data)
+    const metricsRes = await fetch('/api/metrics/list');
+    if (metricsRes.ok) {
+      allMetrics = await metricsRes.json();
+      allMetrics.sort((a,b) => a.name.localeCompare(b.name));
     }
 
     // THEN fetch all settings
@@ -55,7 +53,6 @@ async function loadSettings() {
         else input.value = value;
       }
     }
-    // Build device lists (they will use allMetricNames which is now populated)
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
@@ -90,11 +87,11 @@ function createMetricDropdown(selectedMetric = '') {
   emptyOpt.value = '';
   emptyOpt.textContent = '-- Select Metric --';
   select.appendChild(emptyOpt);
-  for (const name of allMetricNames) {
+  for (const metric of allMetrics) {
     const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    if (name === selectedMetric) opt.selected = true;
+    opt.value = metric.name;
+    opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+    if (metric.name === selectedMetric) opt.selected = true;
     select.appendChild(opt);
   }
   return select;
@@ -102,10 +99,10 @@ function createMetricDropdown(selectedMetric = '') {
 
 // Helper to refresh all metric dropdowns after a new metric is created
 async function refreshAllMetricDropdowns() {
-  const res = await fetch('/api/metrics/names');
+  const res = await fetch('/api/metrics/list');
   if (res.ok) {
-    allMetricNames = await res.json();
-    allMetricNames.sort();
+    allMetrics = await res.json();
+    allMetrics.sort((a,b) => a.name.localeCompare(b.name));
   }
   const selects = document.querySelectorAll('.metric-name');
   for (const select of selects) {
@@ -115,13 +112,13 @@ async function refreshAllMetricDropdowns() {
     emptyOpt.value = '';
     emptyOpt.textContent = '-- Select Metric --';
     select.appendChild(emptyOpt);
-    for (const name of allMetricNames) {
+    for (const metric of allMetrics) {
       const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
+      opt.value = metric.name;
+      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
       select.appendChild(opt);
     }
-    if (currentVal && allMetricNames.includes(currentVal)) select.value = currentVal;
+    if (currentVal && allMetrics.some(m => m.name === currentVal)) select.value = currentVal;
   }
 }
 
@@ -159,7 +156,7 @@ function renderHaDevice(device, idx) {
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetricNames.join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
       </button>
     </div>
   `;
@@ -213,7 +210,7 @@ function renderHaDevice(device, idx) {
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = allMetricNames.join(', ');
+      const text = allMetrics.map(m => m.name).join(', ');
       if (!text) return;
       const tooltip = card.querySelector('.metric-tooltip');
       tooltip.textContent = 'Available metrics: ' + text;
@@ -337,7 +334,7 @@ function renderMqttDevice(device, idx) {
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetricNames.join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
       </button>
     </div>
   `;
@@ -393,7 +390,7 @@ function renderMqttDevice(device, idx) {
   const helpIcon = card.querySelector('.metric-help-icon');
   if (helpIcon) {
     helpIcon.addEventListener('mouseenter', (e) => {
-      const text = allMetricNames.join(', ');
+      const text = allMetrics.map(m => m.name).join(', ');
       if (!text) return;
       const tooltip = card.querySelector('.metric-tooltip');
       tooltip.textContent = 'Available metrics: ' + text;
