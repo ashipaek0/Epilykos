@@ -122,7 +122,7 @@ h1, h2, h3, h4,
 #dashboard-container {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 1.5rem;
+  gap: 0.5rem;
   width: 100%;
 }
 
@@ -132,10 +132,14 @@ h1, h2, h3, h4,
   overflow: visible;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
 }
 .dashboard-block > * {
   flex: 1 0 auto;
   min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dashboard-block.sortable-ghost {
@@ -160,15 +164,16 @@ h1, h2, h3, h4,
 /* Flow Card */
 .flow-card {
   display: flex; align-items: center; justify-content: space-around; background: var(--card-bg);
-  padding: 2.5rem 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; flex-wrap: wrap;
+  padding: 1rem; border-radius: var(--radius); flex-wrap: wrap;
   gap: 1rem; box-shadow: var(--shadow); border: 1px solid var(--border);
+  height: 100%; box-sizing: border-box;
 }
 .flow-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 150px; min-width: 130px; text-align: center; }
 .flow-icon { font-size: 3.5rem; margin-bottom: 0.5rem; line-height: 1; }
 .flow-icon i { font-size: inherit; color: var(--text); display: block; }
 .flow-icon svg { width: 1em; height: 1em; color: var(--text); }
 #icon-battery { transform: rotate(270deg); }
-.flow-label { font-size: var(--fs-small); opacity: 0.8; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.flow-label { font-size: var(--fs-small); opacity: 0.8; color: var(--text-secondary); margin-bottom: 0.5rem; }
 .flow-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); margin-bottom: 0.1rem; }
 .flow-sub { font-size: var(--fs-small); opacity: 0.7; margin-top: 0.15rem; }
 .flow-arrow { font-size: 3.5rem; opacity: 0.7; transition: color 0.3s ease; min-width: 50px; text-align: center; color: var(--text-secondary); font-weight: bold; align-self: center; }
@@ -183,7 +188,7 @@ h1, h2, h3, h4,
 /* Solar Forecast Banner */
 .pv-today-banner {
   background: var(--card-bg); border-radius: var(--radius); padding: 0.8rem 1.2rem;
-  margin-bottom: 2rem; box-shadow: var(--shadow); border: 1px solid var(--border);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
   display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
 }
 .pv-top-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
@@ -217,8 +222,7 @@ h1, h2, h3, h4,
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
 }
 .stat-card {
   background: var(--card-bg);
@@ -238,8 +242,9 @@ h1, h2, h3, h4,
 
 /* Chart Container */
 .chart-container {
-  background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius);
-  margin-bottom: 2rem; height: 450px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
+  background: var(--card-bg); padding: 1rem; border-radius: var(--radius);
+  height: 380px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
+  width: 100%; box-sizing: border-box;
 }
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .chart-controls { display: flex; gap: 0.5rem; }
@@ -251,10 +256,10 @@ h1, h2, h3, h4,
 
 /* Daily Breakdown Containers */
 .daily-breakdown-container {
-  background: var(--card-bg); border-radius: var(--radius); padding: 1.5rem; margin-top: 2rem;
+  background: var(--card-bg); border-radius: var(--radius); padding: 1rem;
   box-shadow: var(--shadow); border: 1px solid var(--border);
+  width: 100%; box-sizing: border-box;
 }
-.daily-breakdown-container + .daily-breakdown-container { margin-top: 1rem; }
 .daily-breakdown-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .toggle-btn {
   background: transparent; border: none; color: var(--text); font-size: var(--fs-medium);
@@ -282,8 +287,8 @@ h1, h2, h3, h4,
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
-  padding: 1.2rem 1.5rem;
-  margin-bottom: 2rem;
+  padding: 1rem;
+  width: 100%; box-sizing: border-box;
 }
 
 .grid-date {
@@ -303,8 +308,7 @@ h1, h2, h3, h4,
 .grid-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
   justify-content: space-around;
 }
 .grid-stats .stat-card {
@@ -497,6 +501,202 @@ h1, h2, h3, h4,
 .config-btn-save {
   background: var(--accent);
   color: white;
+}
+
+/* ───────── Flow Card 2 ───────── */
+.flow-card-2 {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  width: 100%; box-sizing: border-box;
+}
+
+.topo-grid {
+  display: grid;
+  grid-template-columns: 1fr 90px 1fr;
+  grid-template-rows: 1fr 280px 1fr;
+  gap: 0.25rem;
+  align-items: center;
+  justify-items: center;
+  position: relative;
+}
+
+/* Node circles — icon + value inside */
+.topo-node-circle {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.1rem;
+  transition: border-color 0.3s;
+  padding: 0.25rem;
+  box-sizing: border-box;
+}
+.topo-node-circle i {
+  font-size: 1.8rem;
+  color: var(--text-secondary);
+  transition: color 0.3s;
+  line-height: 1;
+}
+
+.topo-node {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  z-index: 1;
+}
+
+.topo-label {
+  font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.topo-value {
+  font-size: 0.7rem; font-weight: 600; color: var(--text);
+  line-height: 1;
+}
+
+.topo-sub {
+  font-size: 0.6rem; color: var(--text-secondary);
+  line-height: 1;
+}
+
+/* Center hub */
+.topo-center {
+  z-index: 1;
+}
+.topo-hub {
+  width: 70px; height: 110px;
+  border-radius: 10px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: background 0.5s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.topo-hub-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* Grid positions: 3x3 */
+.topo-solar   { grid-column: 2; grid-row: 1; }
+.topo-grid-node { grid-column: 1; grid-row: 2; }
+.topo-center  { grid-column: 2; grid-row: 2; }
+.topo-home    { grid-column: 3; grid-row: 2; }
+.topo-battery { grid-column: 2; grid-row: 3; }
+
+/* ── Flow lines ── */
+.topo-line {
+  position: absolute; z-index: 0;
+  background: var(--border);
+  transition: background 0.3s;
+}
+.topo-line::before {
+  content: '';
+  position: absolute;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0;
+}
+.topo-line.active::before {
+  opacity: 1;
+}
+
+/* Vertical lines — dot travels along Y axis */
+.topo-line-solar::before,
+.topo-line-battery::before {
+  left: 50%; top: 0; transform: translateX(-50%);
+}
+.topo-line-solar.active::before {
+  animation: dot-v 1.4s linear infinite;
+}
+.topo-line-solar.reverse::before {
+  animation: dot-v 1.4s linear infinite reverse;
+}
+.topo-line-battery.active::before {
+  animation: dot-v 1.4s linear infinite;
+}
+.topo-line-battery.reverse::before {
+  animation: dot-v 1.4s linear infinite reverse;
+}
+@keyframes dot-v {
+  0%   { top: 0%; }
+  100% { top: calc(100% - 7px); }
+}
+
+/* Horizontal lines — dot travels along X axis */
+.topo-line-grid::before,
+.topo-line-home::before {
+  top: 50%; left: 0; transform: translateY(-50%);
+}
+.topo-line-grid.active::before {
+  animation: dot-h 1.4s linear infinite;
+}
+.topo-line-grid.reverse::before {
+  animation: dot-h 1.4s linear infinite reverse;
+}
+.topo-line-home.active::before {
+  animation: dot-h 1.4s linear infinite;
+}
+.topo-line-home.reverse::before {
+  animation: dot-h 1.4s linear infinite reverse;
+}
+@keyframes dot-h {
+  0%   { left: 0%; }
+  100% { left: calc(100% - 7px); }
+}
+
+/* Vertical line: solar circle → hub */
+.topo-line-solar {
+  left: 50%; top: 10%;
+  width: 3px;
+  height: calc(50% - 55px - 10%);
+  transform: translateX(-50%);
+}
+/* Vertical line: hub → battery circle */
+.topo-line-battery {
+  left: 50%; top: calc(50% + 55px);
+  width: 3px;
+  height: calc(50% - 55px - 10%);
+  transform: translateX(-50%);
+}
+/* Horizontal line: grid circle → hub */
+.topo-line-grid {
+  top: 50%; left: 14%;
+  height: 3px;
+  width: calc(50% - 35px - 14%);
+  transform: translateY(-50%);
+}
+/* Horizontal line: hub → home circle */
+.topo-line-home {
+  top: 50%; left: calc(50% + 35px);
+  height: 3px;
+  width: calc(50% - 35px - 14%);
+  transform: translateY(-50%);
+}
+
+@keyframes topo-flow {
+  0%   { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
+}
+
+@media (max-width: 480px) {
+  .topo-grid {
+    grid-template-columns: 1fr 64px 1fr;
+    grid-template-rows: 1fr 180px 1fr;
+  }
+  .topo-node-circle { width: 70px; height: 70px; }
+  .topo-node-circle i { font-size: 1.4rem; }
+  .topo-hub { width: 48px; height: 76px; font-size: 0.55rem; }
+  .topo-line-solar  { top: 10%; height: calc(50% - 38px - 10%); }
+  .topo-line-battery { top: calc(50% + 38px); height: calc(50% - 38px - 10%); }
+  .topo-line-grid   { left: 14%; width: calc(50% - 24px - 14%); }
+  .topo-line-home   { left: calc(50% + 24px); width: calc(50% - 24px - 14%); }
 }
 
 /* Settings – dashboard tabs */

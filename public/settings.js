@@ -952,12 +952,14 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
         <option value="weather-block" ${block.type === 'weather-block' ? 'selected' : ''}>Weather Block</option>
         <option value="battery-block" ${block.type === 'battery-block' ? 'selected' : ''}>Battery Block</option>
+        <option value="flow-card-2" ${block.type === 'flow-card-2' ? 'selected' : ''}>Flow Card 2</option>
       </select>
       <select class="block-width-select" style="width:80px;">
         ${spanOptions}
       </select>
       <select class="block-height-select" style="width:80px;">
         <option value="0" ${!block.rowSpan ? 'selected' : ''}>Auto</option>
+        <option value="100" ${block.rowSpan == 100 ? 'selected' : ''}>100px</option>
         <option value="200" ${block.rowSpan == 200 ? 'selected' : ''}>200px</option>
         <option value="300" ${block.rowSpan == 300 ? 'selected' : ''}>300px</option>
         <option value="400" ${block.rowSpan == 400 ? 'selected' : ''}>400px</option>
@@ -1186,6 +1188,26 @@ function renderDashboardBlockEditor(dashboard) {
           ${colRows}
           <button type="button" class="add-col-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Column</button>
           <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
+      } else if (block.type === 'flow-card-2') {
+        const currentMetrics = block.config?.metrics || {};
+        const metricRoles = [
+          { key: 'solar', label: 'Solar Power Metric' },
+          { key: 'grid', label: 'Grid Import Metric' },
+          { key: 'consumption', label: 'Consumption Metric' },
+          { key: 'battery_power', label: 'Battery Power Metric' },
+          { key: 'battery_soc', label: 'Battery SOC Metric' }
+        ];
+        const selectsHtml = metricRoles.map(role => `
+          <label>${escapeHtml(role.label)}</label>
+          <select class="config-metric" data-role="${role.key}" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[role.key])}</select>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;">
+          <label>Inverter Image URL</label>
+          <input type="text" class="config-inverter-image" value="${escapeHtml(block.config?.inverter_image || '')}" placeholder="https://..." style="width:100%; margin-bottom:0.5rem;">
+          ${selectsHtml}
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'forecast-banner') {
         const currentMetrics = block.config?.metrics || {};
         const fieldOptions = [
@@ -1229,6 +1251,14 @@ function renderDashboardBlockEditor(dashboard) {
             });
           } else if (block.type === 'battery-block') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => {
+              const role = select.dataset.role;
+              if (select.value) block.config.metrics[role] = select.value;
+            });
+          } else if (block.type === 'flow-card-2') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.inverter_image = configPanel.querySelector('.config-inverter-image')?.value || '';
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => {
               const role = select.dataset.role;

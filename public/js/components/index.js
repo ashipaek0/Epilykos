@@ -9,6 +9,7 @@ import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildBatteryBlock } from './batteryBlock.js';
+import { buildSystemTopology, updateSystemTopology } from './systemTopology.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -21,5 +22,6 @@ export const componentBuilders = {
   'data-table-daily': buildDataTableDaily,
   'data-table-monthly': buildDataTableMonthly,
   'weather-block': buildWeatherBlock,
-  'battery-block': buildBatteryBlock
+  'battery-block': buildBatteryBlock,
+  'flow-card-2': buildSystemTopology
 };
