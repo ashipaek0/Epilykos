@@ -91,26 +91,57 @@ function renderDashboard() {
   });
 
   // Init SortableJS for drag-to-reorder (authenticated users only)
+  let dragEnabled = false;
+
   fetch('/api/auth/status')
     .then(r => r.json())
     .then(auth => {
       if (!auth.authenticated) return;
-      sortable = new Sortable(container, {
-        animation: 200,
-        handle: '.dashboard-block',
-        ghostClass: 'sortable-ghost',
-        chosenClass: 'sortable-chosen',
-        onEnd: () => {
-          // Sync DOM order back to layout array
-          const blockElems = container.querySelectorAll('.dashboard-block');
-          const ordered = [];
-          blockElems.forEach(el => {
-            const b = active.layout.find(b => b.id === el.dataset.blockId);
-            if (b) ordered.push(b);
-          });
-          active.layout = ordered;
-          saveDashboardConfig(dashboardConfig).catch(e => console.warn('Reorder save failed:', e));
-        }
+
+      // Show signout button
+      const signoutBtn = document.getElementById('signout-btn');
+      if (signoutBtn) signoutBtn.style.display = '';
+
+      // Add drag toggle button to tab bar
+      const toggleBtn = document.createElement('button');
+      toggleBtn.id = 'drag-toggle';
+      toggleBtn.className = 'settings-link';
+      toggleBtn.textContent = '🔒 Locked';
+      toggleBtn.title = 'Toggle drag-to-reorder';
+      toggleBtn.style.marginLeft = 'auto';
+      tabBar.appendChild(toggleBtn);
+
+      const enableDrag = () => {
+        if (sortable) { sortable.destroy(); sortable = null; }
+        sortable = new Sortable(container, {
+          animation: 200,
+          handle: '.dashboard-block',
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          onEnd: () => {
+            const blockElems = container.querySelectorAll('.dashboard-block');
+            const ordered = [];
+            blockElems.forEach(el => {
+              const b = active.layout.find(b => b.id === el.dataset.blockId);
+              if (b) ordered.push(b);
+            });
+            active.layout = ordered;
+            saveDashboardConfig(dashboardConfig).catch(e => console.warn('Reorder save failed:', e));
+          }
+        });
+        toggleBtn.textContent = '🔓 Unlocked';
+        dragEnabled = true;
+      };
+
+      const disableDrag = () => {
+        if (sortable) { sortable.destroy(); sortable = null; }
+        toggleBtn.textContent = '🔒 Locked';
+        dragEnabled = false;
+      };
+
+      toggleBtn.addEventListener('click', () => {
+        if (dragEnabled) disableDrag();
+        else enableDrag();
       });
     }).catch(() => {});
 
