@@ -98,9 +98,13 @@ function renderDashboard() {
     .then(auth => {
       if (!auth.authenticated) return;
 
-      // Show signout button
+      // Swap sign-in for settings + signout
+      const signinBtn = document.getElementById('signin-btn');
       const signoutBtn = document.getElementById('signout-btn');
+      const settingsBtn = document.getElementById('settings-btn');
+      if (signinBtn) signinBtn.style.display = 'none';
       if (signoutBtn) signoutBtn.style.display = '';
+      if (settingsBtn) settingsBtn.style.display = '';
 
       // Add drag toggle button to tab bar
       const toggleBtn = document.createElement('button');
@@ -165,13 +169,25 @@ async function switchDashboard(id) {
 
 async function loadBranding() {
   const cfg = await fetchPublicConfig();
-  if (cfg.dashboard_title) {
-    document.getElementById('dashboard-title').textContent = cfg.dashboard_title;
-    document.title = cfg.dashboard_title;
-  }
+  const titleEl = document.getElementById('dashboard-title');
+  const logoEl = document.getElementById('logo-img');
+  const title = cfg.dashboard_title || 'Epilykos';
+  titleEl.textContent = title;
+  document.title = title;
   if (cfg.dashboard_logo) {
-    document.getElementById('logo-img').src = cfg.dashboard_logo;
-    document.getElementById('logo-img').style.display = 'inline';
+    logoEl.src = cfg.dashboard_logo;
+    logoEl.style.display = 'inline';
+  } else {
+    logoEl.style.display = 'none';
+  }
+  if (cfg.dashboard_favicon) {
+    let link = document.querySelector('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = cfg.dashboard_favicon;
   }
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
 }

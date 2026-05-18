@@ -206,21 +206,21 @@ export async function updateForecast() {
       const forecastColor = isDark ? '#fbbf24' : '#d97706';
 
       sparklineChart.data.datasets = [
-        { label: 'Actual', data: actualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [] },
-        { label: 'Forecast', data: forecastHourly, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [5,5] }
+        { label: 'Actual', data: actualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [] },
+        { label: 'Forecast', data: forecastHourly, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [5,5] }
       ];
       sparklineChart.update();
 
       const chartArea = sparklineChart.chartArea;
-      if (chartArea && sparklineChart.data.datasets[1].data.length > 0) {
+      if (chartArea && sparklineChart.data.datasets[0].data.length > 0) {
         const ctx = sparklineChart.ctx;
         const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-        const hex = forecastColor;
+        const hex = actualColor;
         const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
         gradient.addColorStop(0, `rgba(${r},${g},${b},0.1)`);
         gradient.addColorStop(0.5, `rgba(${r},${g},${b},0.3)`);
         gradient.addColorStop(1, `rgba(${r},${g},${b},0.5)`);
-        sparklineChart.data.datasets[1].backgroundColor = gradient;
+        sparklineChart.data.datasets[0].backgroundColor = gradient;
         sparklineChart.update();
       }
 
