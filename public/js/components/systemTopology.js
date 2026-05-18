@@ -15,11 +15,11 @@ export function buildSystemTopology(block = {}) {
   container.innerHTML = `
     <div class="topo-grid">
       <div class="topo-node topo-solar" id="topo-solar">
+        <span class="topo-label">Solar</span>
         <div class="topo-node-circle">
           <i id="topo-icon-solar" class="fi fi-sr-solar-panel"></i>
           <span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span>
         </div>
-        <span class="topo-label">Solar</span>
       </div>
 
       <div class="topo-node topo-grid-node" id="topo-grid-node">
