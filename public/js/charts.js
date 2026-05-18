@@ -67,6 +67,24 @@ export function destroyCharts() {
   if (energyBarChart) { energyBarChart.destroy(); energyBarChart = null; }
 }
 
+const negativeZonePlugin = {
+  id: 'negativeZone',
+  beforeDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const yScale = scales.y;
+    const zeroY = yScale.getPixelForValue(0);
+    const bottomY = Math.min(chartArea.bottom, zeroY);
+    if (zeroY >= chartArea.bottom) return;
+    const grad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
+    grad.addColorStop(0, 'rgba(220, 38, 38, 0)');
+    grad.addColorStop(0.4, 'rgba(220, 38, 38, 0.08)');
+    grad.addColorStop(1, 'rgba(220, 38, 38, 0.18)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(chartArea.left, zeroY, chartArea.right - chartArea.left, chartArea.bottom - zeroY);
+  }
+};
+
 export function initPowerChart() {
   const canvas = document.getElementById('powerChart');
   if (!canvas) return;
@@ -85,7 +103,8 @@ export function initPowerChart() {
         y: { title: { display: true, text: 'Power (kW)', color: textColor }, grid: { color: gridColor } }
       },
       plugins: { tooltip: { mode: 'index' }, legend: { labels: { color: textColor } } }
-    }
+    },
+    plugins: [negativeZonePlugin]
   });
   refreshPowerChart();
 }
