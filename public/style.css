@@ -163,9 +163,9 @@ h1, h2, h3, h4,
 
 /* Flow Card */
 .flow-card {
-  display: flex; align-items: center; justify-content: space-around; background: var(--card-bg);
+  display: flex; align-items: center; justify-content: space-around; background: transparent;
   padding: 1rem; border-radius: var(--radius); flex-wrap: wrap;
-  gap: 1rem; box-shadow: var(--shadow); border: 1px solid var(--border);
+  gap: 1rem; box-shadow: none; border: 1px solid transparent;
   height: 100%; box-sizing: border-box;
 }
 .flow-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 150px; min-width: 130px; text-align: center; }
@@ -187,24 +187,26 @@ h1, h2, h3, h4,
 
 /* Solar Forecast Banner */
 .pv-today-banner {
-  background: var(--card-bg); border-radius: var(--radius); padding: 0.8rem 1.2rem;
-  box-shadow: var(--shadow); border: 1px solid var(--border);
+  background: transparent; border-radius: var(--radius); padding: 0.8rem 1.2rem;
+  box-shadow: none; border: 1px solid transparent;
   display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
 }
-.pv-top-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-.pv-top-bar h3 { font-size: var(--fs-large); font-weight: 600; margin: 0; white-space: nowrap; }
+.pv-top-bar { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0; }
+.pv-top-bar h3 { font-size: var(--fs-large); font-weight: 600; margin: 2rem 0 0 0; white-space: nowrap; }
 .forecast-date { font-size: var(--fs-small); color: var(--text-secondary); min-width: 90px; text-align: right; }
 .forecast-clock { font-size: var(--fs-medium); font-weight: 500; color: var(--accent); margin-top: 0.15rem; }
+.forecast-date-clock { display: flex; flex-direction: column; align-items: center; }
+.weather-icon-big { margin-top: 5px; }
 
-.pv-main-row { display: flex; align-items: flex-start; gap: 1.5rem; flex: 1; min-height: 0; margin-top: 0.5rem; }
-.pv-days { display: flex; flex-direction: column; gap: 0.75rem; min-width: 110px; }
+.pv-main-row { display: flex; align-items: center; gap: 1.5rem; flex: 1; min-height: 0; margin-top: 0.25rem; }
+.pv-days { display: flex; flex-direction: column; gap: 0.75rem; min-width: 110px; justify-content: center; }
 .pv-day { display: flex; flex-direction: column; }
 .pv-day-label { font-size: var(--fs-small); color: var(--text-secondary); }
 .pv-day-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); }
 .pv-day-remaining { font-size: 0.7rem; color: var(--accent); margin-top: 0.1rem; }
 
 /* Weather section */
-.weather-section { display: flex; gap: 1.5rem; align-items: flex-start; }
+.weather-section { display: flex; gap: 1.5rem; align-items: center; }
 .weather-column { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; min-width: 110px; }
 .weather-heading { font-size: var(--fs-small); font-weight: 500; color: var(--text-secondary); }
 .weather-icon-big { font-size: 4rem; line-height: 1; }
@@ -225,12 +227,12 @@ h1, h2, h3, h4,
   gap: 0.5rem;
 }
 .stat-card {
-  background: var(--card-bg);
+  background: transparent;
   padding: 0.6rem 0.8rem;
   border-radius: var(--radius);
   text-align: center;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border);
+  box-shadow: none;
+  border: 1px solid transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -242,8 +244,8 @@ h1, h2, h3, h4,
 
 /* Chart Container */
 .chart-container {
-  background: var(--card-bg); padding: 1rem; border-radius: var(--radius);
-  height: 380px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
+  background: transparent; padding: 1rem; border-radius: var(--radius);
+  height: 380px; position: relative; box-shadow: none; border: 1px solid transparent;
   width: 100%; box-sizing: border-box;
 }
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -256,8 +258,8 @@ h1, h2, h3, h4,
 
 /* Daily Breakdown Containers */
 .daily-breakdown-container {
-  background: var(--card-bg); border-radius: var(--radius); padding: 1rem;
-  box-shadow: var(--shadow); border: 1px solid var(--border);
+  background: transparent; border-radius: var(--radius); padding: 1rem;
+  box-shadow: none; border: 1px solid transparent;
   width: 100%; box-sizing: border-box;
 }
 .daily-breakdown-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
@@ -283,10 +285,10 @@ h1, h2, h3, h4,
 
 /* ───────── MERGED GRID CARD ───────── */
 .grid-card {
-  background: var(--card-bg);
+  background: transparent;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border);
+  box-shadow: none;
+  border: 1px solid transparent;
   padding: 1rem;
   width: 100%; box-sizing: border-box;
 }
@@ -505,10 +507,10 @@ h1, h2, h3, h4,
 
 /* ───────── Flow Card 2 ───────── */
 .flow-card-2 {
-  background: var(--card-bg);
+  background: transparent;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border);
+  box-shadow: none;
+  border: 1px solid transparent;
   padding: 1rem;
   width: 100%; box-sizing: border-box;
 }
