@@ -23,6 +23,7 @@ export async function loadDashboardConfig() {
     dashboardConfig.activeDashboard = tabParam;
   }
 
+  await loadBranding();
   renderDashboard();
   return dashboardConfig;
 }
@@ -154,7 +155,6 @@ function renderDashboard() {
 
   updateDailyTable().catch(e => console.error('Daily table error:', e));
   updateMonthlyTable().catch(e => console.error('Monthly table error:', e));
-  loadBranding();
   updateAllComponents();
 }
 
@@ -190,6 +190,14 @@ async function loadBranding() {
     link.href = cfg.dashboard_favicon;
   }
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
+  document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
+  if (cfg.dashboard_bg_color) document.body.style.backgroundColor = cfg.dashboard_bg_color;
+  if (cfg.dashboard_bg_image) {
+    document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundAttachment = 'fixed';
+  }
 }
 
 export { dashboardConfig, renderDashboard, switchDashboard };

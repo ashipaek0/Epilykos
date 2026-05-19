@@ -2,11 +2,11 @@ export function buildWeatherBlock(block = {}) {
   const config = block.config || {};
   const container = document.createElement('div');
   container.className = 'weather-block card';
-  container.style.background = 'transparent';
+  container.style.background = 'var(--card-bg)';
   container.style.borderRadius = 'var(--radius)';
   container.style.padding = '1rem';
-  container.style.boxShadow = 'none';
-  container.style.border = '1px solid transparent';
+  container.style.boxShadow = 'var(--shadow)';
+  container.style.border = '1px solid var(--border)';
   
   container.innerHTML = `
     <div class="weather-block-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
