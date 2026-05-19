@@ -163,9 +163,9 @@ h1, h2, h3, h4,
 
 /* Flow Card */
 .flow-card {
-  display: flex; align-items: center; justify-content: space-around; background: transparent;
+  display: flex; align-items: center; justify-content: space-around; background: var(--card-bg);
   padding: 1rem; border-radius: var(--radius); flex-wrap: wrap;
-  gap: 1rem; box-shadow: none; border: 1px solid transparent;
+  gap: 1rem; box-shadow: var(--shadow); border: 1px solid var(--border);
   height: 100%; box-sizing: border-box;
 }
 .flow-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 150px; min-width: 130px; text-align: center; }
@@ -187,8 +187,8 @@ h1, h2, h3, h4,
 
 /* Solar Forecast Banner */
 .pv-today-banner {
-  background: transparent; border-radius: var(--radius); padding: 0.8rem 1.2rem;
-  box-shadow: none; border: 1px solid transparent;
+  background: var(--card-bg); border-radius: var(--radius); padding: 0.8rem 1.2rem;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
   display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
 }
 .pv-top-bar { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0; }
@@ -227,12 +227,12 @@ h1, h2, h3, h4,
   gap: 0.5rem;
 }
 .stat-card {
-  background: transparent;
+  background: var(--card-bg);
   padding: 0.6rem 0.8rem;
   border-radius: var(--radius);
   text-align: center;
-  box-shadow: none;
-  border: 1px solid transparent;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -244,8 +244,8 @@ h1, h2, h3, h4,
 
 /* Chart Container */
 .chart-container {
-  background: transparent; padding: 1rem; border-radius: var(--radius);
-  height: 380px; position: relative; box-shadow: none; border: 1px solid transparent;
+  background: var(--card-bg); padding: 1rem; border-radius: var(--radius);
+  height: 380px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
   width: 100%; box-sizing: border-box;
 }
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -258,8 +258,8 @@ h1, h2, h3, h4,
 
 /* Daily Breakdown Containers */
 .daily-breakdown-container {
-  background: transparent; border-radius: var(--radius); padding: 1rem;
-  box-shadow: none; border: 1px solid transparent;
+  background: var(--card-bg); border-radius: var(--radius); padding: 1rem;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
   width: 100%; box-sizing: border-box;
 }
 .daily-breakdown-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
@@ -285,10 +285,10 @@ h1, h2, h3, h4,
 
 /* ───────── MERGED GRID CARD ───────── */
 .grid-card {
-  background: transparent;
+  background: var(--card-bg);
   border-radius: var(--radius);
-  box-shadow: none;
-  border: 1px solid transparent;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
   padding: 1rem;
   width: 100%; box-sizing: border-box;
 }
@@ -507,10 +507,10 @@ h1, h2, h3, h4,
 
 /* ───────── Flow Card 2 ───────── */
 .flow-card-2 {
-  background: transparent;
+  background: var(--card-bg);
   border-radius: var(--radius);
-  box-shadow: none;
-  border: 1px solid transparent;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
   padding: 1rem;
   width: 100%; box-sizing: border-box;
 }
@@ -723,4 +723,19 @@ h1, h2, h3, h4,
   padding: 1.25rem 0;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+}
+
+/* Transparency toggle */
+body.transparent-blocks .flow-card,
+body.transparent-blocks .pv-today-banner,
+body.transparent-blocks .chart-container,
+body.transparent-blocks .daily-breakdown-container,
+body.transparent-blocks .grid-card,
+body.transparent-blocks .flow-card-2,
+body.transparent-blocks .battery-block,
+body.transparent-blocks .weather-block,
+body.transparent-blocks .stat-card {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
