@@ -594,7 +594,7 @@ h1, h2, h3, h4,
 /* ── Flow lines ── */
 .topo-line {
   position: absolute; z-index: 0;
-  background: var(--border);
+  background: transparent;
   transition: background 0.3s;
 }
 .topo-line::before {
@@ -653,32 +653,30 @@ h1, h2, h3, h4,
   100% { left: calc(100% - 7px); }
 }
 
-/* Vertical line: solar circle → hub */
+/* Vertical lines: circle edges to hub edges — calc with rem */
 .topo-line-solar {
-  left: 50%; top: 10%;
+  left: 50%; top: 5.625rem;
   width: 3px;
-  height: calc(50% - 55px - 10%);
+  height: calc(50% - 5.625rem - 3.4375rem);
   transform: translateX(-50%);
 }
-/* Vertical line: hub → battery circle */
 .topo-line-battery {
-  left: 50%; top: calc(50% + 55px);
+  left: 50%; top: calc(50% + 3.4375rem);
   width: 3px;
-  height: calc(50% - 55px - 10%);
+  height: calc(50% - 5.625rem - 3.4375rem);
   transform: translateX(-50%);
 }
-/* Horizontal line: grid circle → hub */
+/* Horizontal lines: circle edges to hub edges — calc with rem */
 .topo-line-grid {
-  top: 50%; left: 14%;
+  top: 50%; left: 5.625rem;
   height: 3px;
-  width: calc(50% - 35px - 14%);
+  width: calc(50% - 5.625rem - 2.1875rem);
   transform: translateY(-50%);
 }
-/* Horizontal line: hub → home circle */
 .topo-line-home {
-  top: 50%; left: calc(50% + 35px);
+  top: 50%; left: calc(50% + 2.1875rem);
   height: 3px;
-  width: calc(50% - 35px - 14%);
+  width: calc(50% - 5.625rem - 2.1875rem);
   transform: translateY(-50%);
 }
 
@@ -695,11 +693,132 @@ h1, h2, h3, h4,
   .topo-node-circle { width: 70px; height: 70px; }
   .topo-node-circle i { font-size: 1.4rem; }
   .topo-hub { width: 48px; height: 76px; font-size: 0.55rem; }
-  .topo-line-solar  { top: 10%; height: calc(50% - 38px - 10%); }
-  .topo-line-battery { top: calc(50% + 38px); height: calc(50% - 38px - 10%); }
-  .topo-line-grid   { left: 14%; width: calc(50% - 24px - 14%); }
-  .topo-line-home   { left: calc(50% + 24px); width: calc(50% - 24px - 14%); }
+  .topo-line-solar  { top: 4.375rem; height: calc(50% - 4.375rem - 2.375rem); }
+  .topo-line-battery { top: calc(50% + 2.375rem); height: calc(50% - 4.375rem - 2.375rem); }
+  .topo-line-grid   { left: 4.375rem; width: calc(50% - 4.375rem - 1.5rem); }
+  .topo-line-home   { left: calc(50% + 1.5rem); width: calc(50% - 4.375rem - 1.5rem); }
 }
+
+/* ───────── Flow Card Square ───────── */
+.flow-card-square {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  width: 100%; box-sizing: border-box;
+}
+.fcs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.25rem;
+}
+.fcs-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem;
+}
+.fcs-icon {
+  font-size: 4rem;
+  color: var(--text-secondary);
+  transition: color 0.3s;
+  flex-shrink: 0;
+  width: 4rem;
+  text-align: center;
+}
+.fcs-inverter-icon {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  width: 3rem;
+  height: 5rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fcs-cell[id*="fcs-solar"] { justify-content: flex-start; align-items: flex-start; }
+.fcs-cell[id*="fcs-battery"] { justify-content: flex-end; align-items: flex-start; }
+.fcs-cell[id*="fcs-grid"] { justify-content: flex-end; align-items: flex-end; }
+.fcs-cell[id*="fcs-inverter"] { justify-content: flex-start; align-items: flex-end; }
+
+.fcs-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.fcs-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fcs-value {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text);
+}
+.fcs-sub {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+/* ───────── Flow Card Square 2 ───────── */
+.flow-card-square2 {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  width: 100%; box-sizing: border-box;
+}
+.fcs2-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.25rem;
+  position: relative;
+}
+.fcs2-cell {
+  display: flex; align-items: center; gap: 0.5rem; padding: 3rem; z-index: 1;
+}
+.fcs2-icon { font-size: 4rem; color: var(--text-secondary); transition: color 0.3s; flex-shrink: 0; width: 4rem; text-align: center; }
+.fcs2-inv { font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); width: 3rem; height: 5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fcs2-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.fcs2-label { font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.fcs2-value { font-size: var(--fs-small); font-weight: 600; color: var(--text); }
+.fcs2-sub { font-size: 0.65rem; color: var(--text-secondary); }
+.fcs2-cell[id*="fcs2-solar"] { justify-content: flex-start; align-items: flex-start; }
+.fcs2-cell[id*="fcs2-battery"] { justify-content: flex-end; align-items: flex-start; }
+.fcs2-cell[id*="fcs2-inverter"] { justify-content: flex-start; align-items: flex-end; }
+.fcs2-cell[id*="fcs2-grid"] { justify-content: flex-end; align-items: flex-end; }
+
+/* Flow lines: X axis (horizontal) and Y axis (vertical) between cells */
+.fcs2-line { position: absolute; z-index: 0; background: transparent; transition: background 0.3s; pointer-events: none; }
+.fcs2-line::before { content: ''; position: absolute; width: 6px; height: 6px; border-radius: 50%; background: inherit; opacity: 0; }
+.fcs2-line.active::before { opacity: 1; }
+/* Top horizontal: solar → battery */
+/* Horizontal lines: between icon edges, auto-sizing */
+.fcs2-line-top { top: calc(3rem + 2rem); left: calc(3rem + 4rem); right: calc(3rem + 4rem); height: 2px; }
+.fcs2-line-top.active::before { animation: fcs2-dot-h 1.4s linear infinite; }
+.fcs2-line-top.reverse::before { animation: fcs2-dot-h 1.4s linear infinite reverse; }
+.fcs2-line-bottom { bottom: calc(3rem + 2rem); left: calc(3rem + 3rem); right: calc(3rem + 4rem); height: 2px; }
+.fcs2-line-bottom.active::before { animation: fcs2-dot-h 1.4s linear infinite; }
+.fcs2-line-bottom.reverse::before { animation: fcs2-dot-h 1.4s linear infinite reverse; }
+/* Vertical lines: between icon edges, auto-sizing */
+.fcs2-line-left { left: calc(3rem + 2rem); top: calc(3rem + 4rem); bottom: calc(3rem + 5rem); width: 2px; }
+.fcs2-line-left.active::before { animation: fcs2-dot-v 1.4s linear infinite; }
+.fcs2-line-left.reverse::before { animation: fcs2-dot-v 1.4s linear infinite reverse; }
+.fcs2-line-right { right: calc(3rem + 2rem); top: calc(3rem + 4rem); bottom: calc(3rem + 4rem); width: 2px; }
+.fcs2-line-right.active::before { animation: fcs2-dot-v 1.4s linear infinite; }
+.fcs2-line-right.reverse::before { animation: fcs2-dot-v 1.4s linear infinite reverse; }
+@keyframes fcs2-dot-v { 0% { top: 0%; } 100% { top: calc(100% - 6px); } }
+@keyframes fcs2-dot-h { 0% { left: 0%; } 100% { left: calc(100% - 6px); } }
 
 /* Settings – dashboard tabs */
 .dash-row {

@@ -107,6 +107,14 @@ function renderDashboard() {
       if (signoutBtn) signoutBtn.style.display = '';
       if (settingsBtn) settingsBtn.style.display = '';
 
+      // Add editor link to tab bar
+      const editorLink = document.createElement('a');
+      editorLink.href = `/editor?tab=${dashboardConfig.activeDashboard}`;
+      editorLink.className = 'settings-link';
+      editorLink.textContent = 'Edit Layout';
+      editorLink.style.marginLeft = '0.5rem';
+      tabBar.appendChild(editorLink);
+
       // Add drag toggle button to tab bar
       const toggleBtn = document.createElement('button');
       toggleBtn.id = 'drag-toggle';

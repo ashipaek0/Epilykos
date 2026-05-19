@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Dashboard Editor - Epilykos</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@12.6.0/dist/gridstack.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@12.6.0/dist/gridstack-all.js"></script>
   <style>
     /* Editor-specific styles */
     body { background: var(--bg); margin: 0; padding: 1rem; }
@@ -239,15 +241,25 @@
       .editor-controls { justify-content: center; }
     }
   </style>
+  <script>
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+      if (options.method && options.method.toUpperCase() !== 'GET') {
+        options.headers = options.headers || {};
+        if (options.headers instanceof Headers) options.headers.set('X-Requested-With', 'XMLHttpRequest');
+        else options.headers['X-Requested-With'] = 'XMLHttpRequest';
+      }
+      return originalFetch.call(this, url, options);
+    };
+  </script>
 </head>
 <body>
 <div class="container">
   <div class="editor-header">
     <h1 class="editor-title">⚡ Dashboard Editor</h1>
     <div class="editor-controls">
-      <button id="undo-btn" class="editor-btn secondary" title="Undo">↶ Undo</button>
-      <button id="redo-btn" class="editor-btn secondary" title="Redo">↷ Redo</button>
-      <button id="reset-btn" class="editor-btn secondary" title="Reset to defaults">↺ Reset</button>
+      <button id="new-dash-btn" class="editor-btn secondary" title="New Dashboard">+ New</button>
+      <button id="delete-dash-btn" class="editor-btn danger" title="Delete Dashboard">🗑 Delete</button>
       <button id="save-btn" class="editor-btn">💾 Save & Exit</button>
       <a href="/" class="editor-btn secondary" style="text-decoration:none;">← Back</a>
     </div>
@@ -267,16 +279,19 @@
 
     <!-- RIGHT: Settings Panel -->
     <div class="settings-panel">
-      <h3>⚙️ Settings</h3>
-      <div class="info-box">
-        💡 Drag blocks to rearrange. Drag edges to resize. Click ⚙️ to configure, ✕ to remove.
-      </div>
+      <h3>⚙️ Dashboards</h3>
       <div style="margin-bottom: 1rem;">
-        <label for="tab-select" style="display:block; margin-bottom:0.5rem; font-weight:500;">Edit Dashboard:</label>
+        <label for="tab-select" style="display:block; margin-bottom:0.5rem; font-weight:500;">Switch to:</label>
         <select id="tab-select" style="width:100%; padding:0.5rem;"></select>
       </div>
+      <div style="margin-bottom: 1rem;">
+        <label style="display:block; margin-bottom:0.25rem; font-weight:500;">Rename:</label>
+        <input type="text" id="dash-name-input" style="width:100%; padding:0.5rem;" placeholder="Dashboard name">
+      </div>
+      <div class="info-box">
+        💡 Click a block to add it to the grid. Drag to rearrange. Drag edges to resize. Click ✕ to remove.
+      </div>
       <div>
-        <h4 style="margin-bottom:0.5rem; font-size:0.9rem;">Import / Export</h4>
         <button id="export-btn" class="editor-btn secondary" style="width:100%; margin-bottom:0.5rem;">📥 Export Layout</button>
         <button id="import-btn" class="editor-btn secondary" style="width:100%;">📤 Import Layout</button>
       </div>
