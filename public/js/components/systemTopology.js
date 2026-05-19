@@ -41,8 +41,12 @@ export function updateSystemTopology(state) {
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
     const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
-    const battDischargeName = mm.battery_power === 'battery_charge' ? 'battery_discharge' : null;
-    const battDischarge = battDischargeName ? (m[battDischargeName]?.value || 0) : (battPower < 0 ? Math.abs(battPower) : 0);
+    // Try multiple common discharge metric names
+    let battDischarge = 0;
+    for (const name of ['battery_discharge', 'battery_discharge_power', 'discharge']) {
+      if (m[name]?.value > 0) { battDischarge = m[name].value; break; }
+    }
+    if (!battDischarge && battPower < 0) battDischarge = Math.abs(battPower);
     const battIsSource = battDischarge > 50;
     const el = (s) => document.getElementById(uid(s, id));
     const sv = container.querySelector('.topo-solar .topo-value'); if (sv) sv.textContent = Math.round(solar) + ' W';

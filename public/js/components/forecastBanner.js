@@ -15,11 +15,7 @@ export function buildForecastBanner(block = {}) {
 
   banner.innerHTML = `
     <div class="pv-top-bar">
-      <div>
-        <h3>Solar Forecast</h3>
-        <div class="forecast-clock" id="${uid('forecast-clock', id)}"></div>
-      </div>
-      <span class="forecast-date" id="${uid('forecast-date', id)}"></span>
+      <h3>Solar Forecast</h3>
     </div>
     <div class="pv-main-row">
       <div class="pv-days">
@@ -39,6 +35,10 @@ export function buildForecastBanner(block = {}) {
       </div>
       <div class="weather-section">
         <div class="weather-column" id="${uid('forecast-weather-current', id)}">
+          <div class="forecast-date-clock">
+            <span class="forecast-date" id="${uid('forecast-date', id)}"></span>
+            <div class="forecast-clock" id="${uid('forecast-clock', id)}"></div>
+          </div>
           <span class="weather-heading">Current Weather</span>
           <div class="weather-icon-big"><i class="fi fi-sr-sun" id="${uid('weather-i', id)}"></i></div>
           <div class="weather-details"><span class="weather-temp" id="${uid('weather-temp', id)}">--°</span><span class="weather-desc" id="${uid('weather-desc', id)}">--</span><span class="weather-extra" id="${uid('weather-extra', id)}">--</span></div>
