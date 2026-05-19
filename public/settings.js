@@ -953,6 +953,14 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="weather-block" ${block.type === 'weather-block' ? 'selected' : ''}>Weather Block</option>
         <option value="battery-block" ${block.type === 'battery-block' ? 'selected' : ''}>Battery Block</option>
         <option value="flow-card-2" ${block.type === 'flow-card-2' ? 'selected' : ''}>Flow Card 2</option>
+        <option value="multi-value" ${block.type === 'multi-value' ? 'selected' : ''}>Multi-Value Card</option>
+        <option value="gauge-card" ${block.type === 'gauge-card' ? 'selected' : ''}>Gauge Card</option>
+        <option value="half-gauge" ${block.type === 'half-gauge' ? 'selected' : ''}>Half Gauge</option>
+        <option value="half-gauge-2" ${block.type === 'half-gauge-2' ? 'selected' : ''}>Half Gauge 2</option>
+        <option value="flow-card-square" ${block.type === 'flow-card-square' ? 'selected' : ''}>Flow Card Square</option>
+        <option value="flow-card-square-2" ${block.type === 'flow-card-square-2' ? 'selected' : ''}>Flow Card Square 2</option>
+        <option value="text-card" ${block.type === 'text-card' ? 'selected' : ''}>Text Card</option>
+        <option value="iframe-card" ${block.type === 'iframe-card' ? 'selected' : ''}>Embed Card</option>
       </select>
       <select class="block-width-select" style="width:80px;">
         ${spanOptions}
@@ -1227,6 +1235,33 @@ function renderDashboardBlockEditor(dashboard) {
           </select>
           <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Default: Solar PV.</p>
           <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'multi-value') {
+        const metrics = block.config?.metrics || [{ label: '', metric: '', unit: '' }];
+        const rows = metrics.map((m, i) => `
+          <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;" class="mv-row">
+            <input type="text" class="config-mv-label" data-idx="${i}" value="${escapeHtml(m.label||'')}" placeholder="Label" style="flex:1;">
+            <select class="config-mv-metric" data-idx="${i}" style="flex:1;">${generateMetricOptionsHtml(m.metric)}</select>
+            <input type="text" class="config-mv-unit" data-idx="${i}" value="${escapeHtml(m.unit||'')}" placeholder="Unit" style="width:50px;">
+            <button type="button" class="remove-mv-btn" data-idx="${i}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>
+          </div>`).join('');
+        configPanel.innerHTML = `<h4>Metrics</h4><div id="mv-rows">${rows}</div><button type="button" class="add-mv-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Metric</button><button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
+      } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
+        const currentMetrics = block.config?.metrics || {};
+        const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Power' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
+        configPanel.innerHTML = `<h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
+        const isHalf = block.type === 'half-gauge';
+        configPanel.innerHTML = `
+          <label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title||'Gauge')}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Metric</label><select class="config-metric" data-role="value" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.metric)}</select>
+          <label>Min</label><input type="number" class="config-min" value="${block.config?.min ?? (isHalf ? -100 : 0)}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Max</label><input type="number" class="config-max" value="${block.config?.max ?? 100}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Color</label><input type="color" class="config-color" value="${escapeHtml(block.config?.color||'#3b82f6')}" style="width:100%;margin-bottom:0.5rem;">
+          <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'text-card') {
+        configPanel.innerHTML = `<label>Content (HTML/Markdown)</label><textarea class="config-content" style="width:100%;height:150px;margin-bottom:0.5rem;">${escapeHtml(block.config?.content||'')}</textarea><button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'iframe-card') {
+        configPanel.innerHTML = `<label>URL</label><input type="text" class="config-url" value="${escapeHtml(block.config?.url||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       }
@@ -1305,6 +1340,27 @@ function renderDashboardBlockEditor(dashboard) {
             block.config.showWeek = configPanel.querySelector('.config-show-week')?.checked ?? true;
             block.config.showMonth = configPanel.querySelector('.config-show-month')?.checked ?? true;
             block.config.showAll = configPanel.querySelector('.config-show-all')?.checked ?? true;
+          } else if (block.type === 'multi-value') {
+            block.config.metrics = [];
+            configPanel.querySelectorAll('.config-mv-label').forEach(l => {
+              const i = parseInt(l.dataset.idx);
+              const m = configPanel.querySelector(`.config-mv-metric[data-idx="${i}"]`);
+              const u = configPanel.querySelector(`.config-mv-unit[data-idx="${i}"]`);
+              if (l && m) block.config.metrics.push({ label: l.value, metric: m.value, unit: u?.value || '' });
+            });
+          } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => { const role = select.dataset.role; if (select.value) block.config.metrics[role] = select.value; });
+          } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.metric = configPanel.querySelector('.config-metric')?.value || '';
+            block.config.min = parseFloat(configPanel.querySelector('.config-min')?.value) || 0;
+            block.config.max = parseFloat(configPanel.querySelector('.config-max')?.value) || 100;
+            block.config.color = configPanel.querySelector('.config-color')?.value || '#3b82f6';
+          } else if (block.type === 'text-card') {
+            block.config.content = configPanel.querySelector('.config-content')?.value || '';
+          } else if (block.type === 'iframe-card') {
+            block.config.url = configPanel.querySelector('.config-url')?.value || '';
           }
           configPanel.remove();
         });
@@ -1370,6 +1426,25 @@ function renderDashboardBlockEditor(dashboard) {
           btn.addEventListener('click', (e) => {
             btn.closest('div').remove();
           });
+        });
+      }
+      // Attach add/remove metric handlers for multi-value config panels
+      if (block.type === 'multi-value') {
+        const addBtn = configPanel.querySelector('.add-mv-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const rows = configPanel.querySelectorAll('.mv-row');
+            const newIdx = rows.length;
+            const newRow = document.createElement('div');
+            newRow.className = 'mv-row';
+            newRow.style.cssText = 'display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;';
+            newRow.innerHTML = `<input type="text" class="config-mv-label" data-idx="${newIdx}" placeholder="Label" style="flex:1;"><select class="config-mv-metric" data-idx="${newIdx}" style="flex:1;">${generateMetricOptionsHtml('')}</select><input type="text" class="config-mv-unit" data-idx="${newIdx}" placeholder="Unit" style="width:50px;"><button type="button" class="remove-mv-btn" data-idx="${newIdx}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>`;
+            newRow.querySelector('.remove-mv-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-mv-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => { btn.closest('.mv-row').remove(); });
         });
       }
       li.appendChild(configPanel);

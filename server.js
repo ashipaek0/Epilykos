@@ -767,6 +767,12 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   }
 });
 
+// ---------- Visual Editor (protected) ----------
+app.get('/editor', (req, res) => {
+  if (!req.session || !req.session.authenticated) return res.redirect('/login');
+  res.sendFile(path.join(__dirname, 'public', 'editor.html'));
+});
+
 // ---------- Settings page (protected) ----------
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
