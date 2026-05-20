@@ -259,6 +259,7 @@
       <button class="main-tab-btn" data-tab="metrics" aria-selected="false" aria-controls="tab-metrics" role="tab">Metrics</button>
       <button class="main-tab-btn" data-tab="solar" aria-selected="false" aria-controls="tab-solar" role="tab">Solar Forecast</button>
       <button class="main-tab-btn" data-tab="dashboard" aria-selected="false" aria-controls="tab-dashboard" role="tab">Dashboard</button>
+      <button class="main-tab-btn" data-tab="savings" aria-selected="false" aria-controls="tab-savings" role="tab">Savings</button>
       <button class="main-tab-btn" data-tab="backup" aria-selected="false" aria-controls="tab-backup" role="tab">Backup</button>
       <button class="main-tab-btn" data-tab="branding" aria-selected="false" aria-controls="tab-branding" role="tab">Branding</button>
     </div>
@@ -326,6 +327,15 @@
               <tr><td colspan="5">Loading metrics...</td></tr>
             </tbody>
            </table>
+        </div>
+      </div>
+
+      <!-- Tab: Savings -->
+      <div id="tab-savings" class="tab-content" role="tabpanel" aria-labelledby="savings">
+        <h3>Savings Calculation</h3>
+        <div class="form-row">
+          <div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" name="savings_currency" value="€"></div>
+          <div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div>
         </div>
       </div>
 
@@ -400,11 +410,6 @@
         <div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" name="dashboard_title" value="⚡ Epilykos"></div>
         <div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" name="dashboard_logo"></div>
         <div class="form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" name="dashboard_favicon"></div>
-        <h3>Savings Calculation</h3>
-        <div class="form-row">
-          <div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" name="savings_currency" value="€"></div>
-          <div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div>
-        </div>
       </div>
 
       <div style="margin-top:2rem; text-align:center;"><button type="submit">Save All Settings</button></div>
