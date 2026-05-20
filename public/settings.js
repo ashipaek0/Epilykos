@@ -951,44 +951,52 @@ function renderDashboardBlockEditor(dashboard) {
     const spanOptions = spanOpts.map(([v, label]) =>
       `<option value="${v}" ${currentSpan == v ? 'selected' : ''}>${label}</option>`
     ).join('');
+    const ctl = (inner, label) => `<div style="display:flex;flex-direction:column;align-items:center;gap:0.1rem;"><div>${inner}</div><span style="font-size:0.6rem;color:var(--text-secondary);white-space:nowrap;">${label}</span></div>`;
     li.innerHTML = `
-      <select class="block-type-select">
-        <option value="flow-card" ${block.type === 'flow-card' ? 'selected' : ''}>Flow Card</option>
-        <option value="forecast-banner" ${block.type === 'forecast-banner' ? 'selected' : ''}>Forecast Banner</option>
-        <option value="forecast-sparkline" ${block.type === 'forecast-sparkline' ? 'selected' : ''}>Forecast Sparkline</option>
-        <option value="forecast-info" ${block.type === 'forecast-info' ? 'selected' : ''}>Forecast Info</option>
-        <option value="metric-cards" ${block.type === 'metric-cards' ? 'selected' : ''}>Metric Cards</option>
-        <option value="grid-card" ${block.type === 'grid-card' ? 'selected' : ''}>Grid Card</option>
-        <option value="chart-power" ${block.type === 'chart-power' ? 'selected' : ''}>Power Chart</option>
-        <option value="chart-energy" ${block.type === 'chart-energy' ? 'selected' : ''}>Energy Chart</option>
-        <option value="savings-summary" ${block.type === 'savings-summary' ? 'selected' : ''}>Savings Summary</option>
-        <option value="data-table-daily" ${block.type === 'data-table-daily' ? 'selected' : ''}>Daily Table</option>
-        <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
-        <option value="flow-card-2" ${block.type === 'flow-card-2' ? 'selected' : ''}>Flow Card 2</option>
-        <option value="multi-value" ${block.type === 'multi-value' ? 'selected' : ''}>Multi-Value Card</option>
-        <option value="gauge-card" ${block.type === 'gauge-card' ? 'selected' : ''}>Gauge Card</option>
-        <option value="half-gauge" ${block.type === 'half-gauge' ? 'selected' : ''}>Half Gauge</option>
-        <option value="half-gauge-2" ${block.type === 'half-gauge-2' ? 'selected' : ''}>Half Gauge 2</option>
-        <option value="flow-card-square" ${block.type === 'flow-card-square' ? 'selected' : ''}>Flow Card Square</option>
-        <option value="flow-card-square-2" ${block.type === 'flow-card-square-2' ? 'selected' : ''}>Flow Card Square 2</option>
-        <option value="text-card" ${block.type === 'text-card' ? 'selected' : ''}>Text Card</option>
-        <option value="iframe-card" ${block.type === 'iframe-card' ? 'selected' : ''}>Embed Card</option>
-      </select>
-      <select class="block-width-select" style="width:80px;">
-        ${spanOptions}
-      </select>
-      <input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor || '#ffffff')}" title="Block background" style="width:32px;height:32px;padding:0;border:none;cursor:pointer;">
-      <label class="block-transparent-label" title="Transparent"><input type="checkbox" class="block-transparent" ${block.transparent ? 'checked' : ''}> T</label>
-      <select class="block-height-select" style="width:80px;">
-        <option value="0" ${!block.rowSpan ? 'selected' : ''}>Auto</option>
-        <option value="100" ${block.rowSpan == 100 ? 'selected' : ''}>100px</option>
-        <option value="200" ${block.rowSpan == 200 ? 'selected' : ''}>200px</option>
-        <option value="300" ${block.rowSpan == 300 ? 'selected' : ''}>300px</option>
-        <option value="400" ${block.rowSpan == 400 ? 'selected' : ''}>400px</option>
-        <option value="500" ${block.rowSpan == 500 ? 'selected' : ''}>500px</option>
-        <option value="600" ${block.rowSpan == 600 ? 'selected' : ''}>600px</option>
-        <option value="700" ${block.rowSpan == 700 ? 'selected' : ''}>700px</option>
-      </select>
+      ${ctl(`<select class="block-type-select">
+        <option value="flow-card" ${block.type==='flow-card'?'selected':''}>Flow Card</option>
+        <option value="forecast-banner" ${block.type==='forecast-banner'?'selected':''}>Forecast</option>
+        <option value="forecast-sparkline" ${block.type==='forecast-sparkline'?'selected':''}>Sparkline</option>
+        <option value="forecast-info" ${block.type==='forecast-info'?'selected':''}>Forecast Info</option>
+        <option value="metric-cards" ${block.type==='metric-cards'?'selected':''}>Metrics</option>
+        <option value="grid-card" ${block.type==='grid-card'?'selected':''}>Grid Card</option>
+        <option value="chart-power" ${block.type==='chart-power'?'selected':''}>Power Chart</option>
+        <option value="chart-energy" ${block.type==='chart-energy'?'selected':''}>Energy Chart</option>
+        <option value="savings-summary" ${block.type==='savings-summary'?'selected':''}>Savings</option>
+        <option value="data-table-daily" ${block.type==='data-table-daily'?'selected':''}>Daily Table</option>
+        <option value="data-table-monthly" ${block.type==='data-table-monthly'?'selected':''}>Monthly Table</option>
+        <option value="flow-card-2" ${block.type==='flow-card-2'?'selected':''}>Flow Card 2</option>
+        <option value="multi-value" ${block.type==='multi-value'?'selected':''}>Multi-Value</option>
+        <option value="gauge-card" ${block.type==='gauge-card'?'selected':''}>Gauge</option>
+        <option value="half-gauge" ${block.type==='half-gauge'?'selected':''}>Half Gauge</option>
+        <option value="half-gauge-2" ${block.type==='half-gauge-2'?'selected':''}>Half Gauge 2</option>
+        <option value="flow-card-square" ${block.type==='flow-card-square'?'selected':''}>Flow Card Sq</option>
+        <option value="flow-card-square-2" ${block.type==='flow-card-square-2'?'selected':''}>Flow Card Sq 2</option>
+        <option value="text-card" ${block.type==='text-card'?'selected':''}>Text</option>
+        <option value="iframe-card" ${block.type==='iframe-card'?'selected':''}>Embed</option>
+      </select>`, 'Type')}
+      ${ctl(`<select class="block-width-select" style="width:65px;">${spanOptions}</select>`, 'Width')}
+      ${ctl(`<select class="block-height-select" style="width:65px;">
+        <option value="0" ${!block.rowSpan?'selected':''}>Auto</option>
+        <option value="100" ${block.rowSpan==100?'selected':''}>100</option>
+        <option value="200" ${block.rowSpan==200?'selected':''}>200</option>
+        <option value="300" ${block.rowSpan==300?'selected':''}>300</option>
+        <option value="400" ${block.rowSpan==400?'selected':''}>400</option>
+        <option value="500" ${block.rowSpan==500?'selected':''}>500</option>
+        <option value="600" ${block.rowSpan==600?'selected':''}>600</option>
+        <option value="700" ${block.rowSpan==700?'selected':''}>700</option>
+      </select>`, 'Height')}
+      ${ctl(`<input type="color" class="block-font-color" value="${escapeHtml(block.fontColor||'#0f172a')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'Font')}
+      ${ctl(`<select class="block-font-size" style="width:55px;">
+        <option value="" ${!block.fontSize?'selected':''}>-</option>
+        <option value="0.75rem" ${block.fontSize==='0.75rem'?'selected':''}>XS</option>
+        <option value="0.85rem" ${block.fontSize==='0.85rem'?'selected':''}>S</option>
+        <option value="1rem" ${block.fontSize==='1rem'?'selected':''}>M</option>
+        <option value="1.25rem" ${block.fontSize==='1.25rem'?'selected':''}>L</option>
+        <option value="1.5rem" ${block.fontSize==='1.5rem'?'selected':''}>XL</option>
+      </select>`, 'Size')}
+      ${ctl(`<input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'BG')}
+      ${ctl(`<label class="block-transparent-label" title="Transparent"><input type="checkbox" class="block-transparent" ${block.transparent?'checked':''}> T</label>`, 'Glass')}
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
     `;
@@ -1465,6 +1473,12 @@ function renderDashboardBlockEditor(dashboard) {
     });
     li.querySelector('.block-transparent').addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;
+    });
+    li.querySelector('.block-font-color').addEventListener('change', (e) => {
+      dashboard.layout[idx].fontColor = e.target.value;
+    });
+    li.querySelector('.block-font-size').addEventListener('change', (e) => {
+      dashboard.layout[idx].fontSize = e.target.value || '';
     });
     li.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);
