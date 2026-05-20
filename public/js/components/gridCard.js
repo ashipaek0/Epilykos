@@ -21,17 +21,24 @@ export function updateGridCardFromState(state) {
     const id = card.dataset.blockId || '';
     let mm; try{mm=JSON.parse(card.dataset.metricMap);}catch(e){mm={grid_status:''};}
     const gsm = mm.grid_status; let cs, lct;
-    if (gsm && state.metrics && state.metrics[gsm] !== undefined) { cs = (state.metrics[gsm]?.value) > 0; lct = null; }
-    else if (state.gridStatus && state.gridStatus.configured) { cs = state.gridStatus.current; lct = cs ? state.gridStatus.lastOn : state.gridStatus.lastOff; }
-    else { const e = document.getElementById(uid('grid-state',id)); if (e) e.textContent = 'Not configured'; return; }
+    if (gsm && state.metrics && state.metrics[gsm] !== undefined) {
+      cs = (state.metrics[gsm]?.value) > 0;
+      lct = cs ? state.gridStatus?.lastOn : state.gridStatus?.lastOff;
+    } else if (gsm) {
+      const e = document.getElementById(uid('grid-state',id)); if (e) e.textContent = 'No data'; return;
+    } else if (state.gridStatus && state.gridStatus.configured) {
+      cs = state.gridStatus.current; lct = cs ? state.gridStatus.lastOn : state.gridStatus.lastOff;
+    } else {
+      const e = document.getElementById(uid('grid-state',id)); if (e) e.textContent = 'Not configured'; return;
+    }
     const se = document.getElementById(uid('grid-state', id));
     if (se) { se.textContent = `⚡ ${cs?'ON':'OFF'}`; se.style.color = cs ? 'var(--battery)' : 'var(--grid)'; }
     const si = document.getElementById(uid('grid-state-since', id));
     if (si) si.textContent = lct ? `since ${formatTimestamp(lct)}` : '';
     const gh = state.gridHours || {};
     ['grid-hours-day','grid-hours-week','grid-hours-month','grid-hours-year'].forEach((k,i) => { const e = document.getElementById(uid(k,id)); if (e) e.textContent = formatHoursToHM(Object.values(gh)[i] || 0); });
-    updateGridDate();
+    updateGridDate(id);
     const te = document.getElementById(uid('grid-timeline', id));
-    if (te && state.gridTimeline && state.gridTimeline.segments) renderTimelineBar(state.gridTimeline.segments, state.gridTimeline.windowStart, state.gridTimeline.windowEnd);
+    if (te && state.gridTimeline && state.gridTimeline.segments) renderTimelineBar(state.gridTimeline.segments, state.gridTimeline.windowStart, state.gridTimeline.windowEnd, id);
   });
 }

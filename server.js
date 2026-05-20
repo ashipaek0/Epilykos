@@ -205,7 +205,7 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 app.get('/api/public-config', async (req, res) => {
   try {
-    const keys = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_image', 'transparent_blocks', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
+    const keys = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
     const config = {};
     for (const key of keys) config[key] = getConfig(key);
     config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
@@ -579,8 +579,7 @@ app.post('/api/test-modbus', async (req, res) => {
   }
 });
 
-app.use('/api/dashboard-config', isAuthenticated);
-app.post('/api/dashboard-config', (req, res) => {
+app.post('/api/dashboard-config', isAuthenticated, (req, res) => {
   try {
     saveDashboardConfig(req.body);
     res.json({ success: true });

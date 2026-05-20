@@ -5,26 +5,40 @@ const { parseGridState } = require('./utils');
 
 async function pollGridStatus() {
   const db = getDb();
-  const gridEntity = getConfig('grid_status_entity');
-  if (!gridEntity) return;
-  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
-  const haDevice = haDevices.find(d => d.enabled);
-  if (!haDevice || !haDevice.url || !haDevice.token) return;
-  try {
-    const res = await fetch(`${haDevice.url}/api/states/${gridEntity}`, {
-      headers: { 'Authorization': `Bearer ${haDevice.token}` },
-      timeout: 5000
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const state = parseGridState(data.state);
-    const now = Math.floor(Date.now() / 1000);
-    const last = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
-    if (!last || last.state !== state) {
-      db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
-      logger.info(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
+  const gridMetric = getConfig('grid_status_entity');
+  if (!gridMetric) return;
+
+  let state = null;
+  const now = Math.floor(Date.now() / 1000);
+
+  // First try reading from latest_metrics (works with any data source)
+  const metricRow = db.prepare('SELECT value FROM latest_metrics WHERE metric = ?').get(gridMetric);
+  if (metricRow && metricRow.value !== null && metricRow.value !== undefined) {
+    state = parseGridState(metricRow.value);
+  } else {
+    // Fall back to HA entity polling
+    const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+    const haDevice = haDevices.find(d => d.enabled);
+    if (haDevice && haDevice.url && haDevice.token) {
+      try {
+        const res = await fetch(`${haDevice.url}/api/states/${gridMetric}`, {
+          headers: { 'Authorization': `Bearer ${haDevice.token}` },
+          timeout: 5000
+        });
+        if (res.ok) {
+          const data = await res.json();
+          state = parseGridState(data.state);
+        }
+      } catch (e) { /* silent */ }
     }
-  } catch (e) { /* silent */ }
+  }
+
+  if (state === null) return;
+  const last = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
+  if (!last || last.state !== state) {
+    db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
+    logger.info(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
+  }
 }
 
 function getGridStateAt(timestamp) {
@@ -34,27 +48,37 @@ function getGridStateAt(timestamp) {
 }
 
 async function getCurrentGridStatus() {
-  const entity = getConfig('grid_status_entity');
-  if (!entity) return { configured: false };
-  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
-  const haDevice = haDevices.find(d => d.enabled);
-  if (!haDevice) return { configured: false };
-  try {
-    const rawState = await fetch(`${haDevice.url}/api/states/${entity}`, {
-      headers: { 'Authorization': `Bearer ${haDevice.token}` },
-      timeout: 5000
-    }).then(r => r.json()).then(d => d.state).catch(() => 0);
-    const current = parseGridState(rawState);
-    const db = getDb();
-    const lastOn = db.prepare("SELECT timestamp FROM grid_status WHERE state = 1 ORDER BY timestamp DESC LIMIT 1").get();
-    const lastOff = db.prepare("SELECT timestamp FROM grid_status WHERE state = 0 ORDER BY timestamp DESC LIMIT 1").get();
-    return {
-      configured: true,
-      current: current === 1,
-      lastOn: lastOn ? lastOn.timestamp * 1000 : null,
-      lastOff: lastOff ? lastOff.timestamp * 1000 : null
-    };
-  } catch { return { configured: false }; }
+  const gridMetric = getConfig('grid_status_entity');
+  if (!gridMetric) return { configured: false };
+  const db = getDb();
+
+  // Check latest_metrics first
+  const metricRow = db.prepare('SELECT value FROM latest_metrics WHERE metric = ?').get(gridMetric);
+  let current;
+  if (metricRow && metricRow.value !== null && metricRow.value !== undefined) {
+    current = parseGridState(metricRow.value);
+  } else {
+    // Fall back to HA
+    const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+    const haDevice = haDevices.find(d => d.enabled);
+    if (!haDevice) return { configured: false };
+    try {
+      const rawState = await fetch(`${haDevice.url}/api/states/${gridMetric}`, {
+        headers: { 'Authorization': `Bearer ${haDevice.token}` },
+        timeout: 5000
+      }).then(r => r.json()).then(d => d.state).catch(() => 0);
+      current = parseGridState(rawState);
+    } catch { return { configured: false }; }
+  }
+
+  const lastOn = db.prepare("SELECT timestamp FROM grid_status WHERE state = 1 ORDER BY timestamp DESC LIMIT 1").get();
+  const lastOff = db.prepare("SELECT timestamp FROM grid_status WHERE state = 0 ORDER BY timestamp DESC LIMIT 1").get();
+  return {
+    configured: true,
+    current: current === 1,
+    lastOn: lastOn ? lastOn.timestamp * 1000 : null,
+    lastOff: lastOff ? lastOff.timestamp * 1000 : null
+  };
 }
 
 async function getGridHours(period) {
@@ -84,7 +108,13 @@ async function getGridHours(period) {
   const currentUnix = Math.floor(now.getTime() / 1000);
   const effectiveEndUnix = Math.min(endUnix, currentUnix);
 
-  const initialState = getGridStateAt(startUnix);
+  // Use current state as initial if no history exists
+  let initialState = getGridStateAt(startUnix);
+  const anyRows = db.prepare('SELECT COUNT(*) as c FROM grid_status WHERE timestamp < ?').get(startUnix);
+  if (!anyRows || anyRows.c === 0) {
+    const status = await getCurrentGridStatus();
+    initialState = status.current ? 1 : 0;
+  }
   const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, effectiveEndUnix);
   let hours = 0, lastState = initialState, lastTime = startUnix;
   for (const row of rows) {
@@ -128,7 +158,12 @@ async function getGridTimeline(period = '24h') {
   const currentUnix = Math.floor(now.getTime() / 1000);
   const effectiveEnd = Math.min(endUnix, currentUnix);
 
-  const initialState = getGridStateAt(startUnix);
+  let initialState = getGridStateAt(startUnix);
+  const anyRows = db.prepare('SELECT COUNT(*) as c FROM grid_status WHERE timestamp < ?').get(startUnix);
+  if (!anyRows || anyRows.c === 0) {
+    const status = await getCurrentGridStatus();
+    initialState = status.current ? 1 : 0;
+  }
   const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, effectiveEnd);
   const segments = [];
   let lastState = initialState, lastTime = startUnix;

@@ -9,7 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/gridstack@12.6.0/dist/gridstack-all.js"></script>
   <style>
     /* Editor-specific styles */
-    body { background: var(--bg); margin: 0; padding: 1rem; }
+    body { background: var(--bg); margin: 0; padding: 0.5rem; }
+    .container { max-width: 100% !important; margin: 0 !important; }
     .editor-header {
       display: flex;
       justify-content: space-between;
@@ -85,6 +86,9 @@
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
       min-height: 500px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
     }
     .grid-stack { background: transparent; }
     .grid-stack-item-content {

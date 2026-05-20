@@ -7,8 +7,6 @@ import { buildChartEnergy } from './chartEnergy.js';
 import { buildSavingsSummary } from './savingsSummary.js';
 import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
-import { buildWeatherBlock } from './weatherBlock.js';
-import { buildBatteryBlock } from './batteryBlock.js';
 import { buildSystemTopology, updateSystemTopology } from './systemTopology.js';
 import { buildMultiValueCard, updateMultiValueCard } from './multiValueCard.js';
 import { buildGaugeCard, updateGaugeCard } from './gaugeCard.js';
@@ -29,8 +27,6 @@ export const componentBuilders = {
   'savings-summary': buildSavingsSummary,
   'data-table-daily': buildDataTableDaily,
   'data-table-monthly': buildDataTableMonthly,
-  'weather-block': buildWeatherBlock,
-  'battery-block': buildBatteryBlock,
   'flow-card-2': buildSystemTopology,
   'multi-value': buildMultiValueCard,
   'gauge-card': buildGaugeCard,

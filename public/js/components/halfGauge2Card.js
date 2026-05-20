@@ -15,7 +15,7 @@ export function buildHalfGauge2Card(block = {}) {
       <div style="position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;font-size:0.6rem;color:var(--text-secondary);padding:0 20px;">
         <span id="hg2-min-${block.id}">${min}</span><span id="hg2-max-${block.id}">${max}</span>
       </div>
-      <div class="stat-label" style="position:absolute;top:55px;left:0;right:0;text-align:center;font-size:0.65rem;color:var(--text-secondary);">${escapeHtml(config.title || 'Gauge')}</div>
+      <div class="stat-label" style="position:absolute;top:55px;left:0;right:0;text-align:center;font-size:0.85rem;color:var(--text-secondary);">${escapeHtml(config.title || 'Gauge')}</div>
       <div class="stat-value" style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:1.1rem;font-weight:600;line-height:1;" id="hg2-val-${block.id}">--</div>
     </div>`;
   return container;

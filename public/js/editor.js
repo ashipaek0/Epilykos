@@ -8,20 +8,20 @@ function clearUnsaved() { unsaved = false; document.getElementById('unsaved-indi
 function showLoading(msg) { let o = document.getElementById('loading-overlay'); if (!o) { o = document.createElement('div'); o.id = 'loading-overlay'; o.className = 'loading-overlay'; o.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p id="loading-message"></p></div>'; document.body.appendChild(o); } document.getElementById('loading-message').textContent = msg; o.style.display = 'flex'; }
 function hideLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'none'; }
 
-function persistLayout() {
+async function persistLayout() {
   if (!grid) return;
   const items = grid.getGridItems();
   const layout = [];
   items.forEach(el => {
     const n = el.gridstackNode;
-    const block = { id: el.dataset.blockId, type: el.dataset.blockType, colSpan: n.w, rowSpan: n.h * 50, enabled: true, config: {} };
+    const block = { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true, config: {} };
     const existing = dashboardConfig.dashboards.find(db => db.id === currentTabId)?.layout.find(b => b.id === el.dataset.blockId);
-    if (existing) { block.config = existing.config; if (existing.metrics) block.metrics = existing.metrics; }
+    if (existing) { block.config = existing.config; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
     layout.push(block);
   });
   const tab = dashboardConfig.dashboards.find(db => db.id === currentTabId);
   if (tab) { tab.layout = layout; tab.name = document.getElementById('dash-name-input').value || tab.name; }
-  saveDashboardConfig(dashboardConfig).catch(e => console.warn('Save failed:', e));
+  await saveDashboardConfig(dashboardConfig).catch(e => console.warn('Save failed:', e));
 }
 
 function refreshTabSelect() {
@@ -55,8 +55,10 @@ async function loadTab(tabId) {
     item.className = 'grid-stack-item';
     item.dataset.blockId = block.id || ('b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
     item.dataset.blockType = block.type;
-    item.setAttribute('gs-w', block.colSpan ?? block.gridW ?? 6);
-    item.setAttribute('gs-h', Math.max(1, Math.round((block.rowSpan ?? block.gridH ?? 200) / 50)));
+    item.setAttribute('gs-x', block.gridX ?? 0);
+    item.setAttribute('gs-y', block.gridY ?? 0);
+    item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? 6);
+    item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / 50)));
     item.setAttribute('gs-min-w', 2);
     item.setAttribute('gs-min-h', 1);
 
@@ -171,7 +173,7 @@ async function initEditor() {
     });
 
     await loadTab(currentTabId);
-    document.getElementById('save-btn').addEventListener('click', async () => { persistLayout(); clearUnsaved(); window.location.href = '/?tab=' + currentTabId; });
+    document.getElementById('save-btn').addEventListener('click', async () => { await persistLayout(); clearUnsaved(); window.location.href = '/?tab=' + currentTabId; });
     hideLoading();
   } catch (e) { hideLoading(); alert('Editor failed: ' + e.message); }
 }

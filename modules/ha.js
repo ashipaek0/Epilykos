@@ -38,8 +38,13 @@ async function pollHomeAssistant() {
         });
         if (!res.ok) continue;
         const data = await res.json();
-        const val = parseFloat(data.state);
-        if (isNaN(val)) continue;
+        let val = parseFloat(data.state);
+        if (isNaN(val)) {
+          // Handle binary sensors returning on/off strings
+          if (data.state === 'on') val = 1;
+          else if (data.state === 'off') val = 0;
+          else continue;
+        }
         const now = Math.floor(Date.now() / 1000);
         getMetricInsert().run(now, metric, val);
         getLatestUpsert().run(metric, val, now);
