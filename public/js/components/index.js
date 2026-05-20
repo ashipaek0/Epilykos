@@ -12,6 +12,8 @@ import { buildMultiValueCard, updateMultiValueCard } from './multiValueCard.js';
 import { buildGaugeCard, updateGaugeCard } from './gaugeCard.js';
 import { buildTextCard } from './textCard.js';
 import { buildIframeCard } from './iframeCard.js';
+import { buildForecastSparkline } from './forecastSparkline.js';
+import { buildForecastInfo } from './forecastInfo.js';
 import { buildHalfGaugeCard, updateHalfGaugeCard } from './halfGaugeCard.js';
 import { buildHalfGauge2Card, updateHalfGauge2Card } from './halfGauge2Card.js';
 import { buildFlowCardSquare, updateFlowCardSquare } from './flowCardSquare.js';
@@ -20,6 +22,8 @@ import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.j
 export const componentBuilders = {
   'flow-card': buildFlowCard,
   'forecast-banner': buildForecastBanner,
+  'forecast-sparkline': buildForecastSparkline,
+  'forecast-info': buildForecastInfo,
   'metric-cards': buildMetricCards,
   'grid-card': buildGridCard,
   'chart-power': buildChartPower,

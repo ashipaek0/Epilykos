@@ -1,3 +1,18 @@
+/**
+ * Dashboard Layout Engine
+ *
+ * Renders blocks using absolute positioning derived from GridStack coordinates.
+ * Each block saves gridX, gridY, gridW, gridH — converted to pixel positions
+ * with column-based percentage widths. Supports multi-instance blocks via uid().
+ *
+ * Key features:
+ * - SortableJS drag-to-reorder (auth-only, lock/unlock toggle)
+ * - Per-block background colour and transparency
+ * - Desktop/mobile dashboard auto-switch
+ * - Automatic migration of legacy blocks to grid coordinates
+ *
+ * @module dashboard
+ */
 import { fetchDashboardConfig, saveDashboardConfig, fetchPublicConfig } from './api.js';
 import { componentBuilders } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart } from './charts.js';
@@ -8,7 +23,11 @@ import { ensureBlockIds } from './utils/blockId.js';
 let dashboardConfig;
 let sortable = null;
 
-// Load and render dashboard
+/**
+ * Fetch dashboard config from API, select active tab (honouring ?tab= param
+ * and desktop/mobile defaults), apply branding, then render all blocks.
+ * @returns {Promise<object>} the dashboard configuration
+ */
 export async function loadDashboardConfig() {
   const res = await fetch('/api/dashboard-config');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -36,6 +55,12 @@ export async function loadDashboardConfig() {
   return dashboardConfig;
 }
 
+/**
+ * Render all blocks for the active dashboard tab using absolute positioning.
+ * Blocks placed via gridX/gridY (GridStack coordinates) → pixel left/top.
+ * Width uses (gridW/12)*100% for responsive columns.
+ * Initialises SortableJS if authenticated, with lock/unlock toggle.
+ */
 function renderDashboard() {
   if (!dashboardConfig || !dashboardConfig.dashboards) return;
   destroyCharts();
@@ -67,7 +92,7 @@ function renderDashboard() {
 
   const layoutWithIds = ensureBlockIds(active.layout);
 
-  // Migrate: ensure every block has GridStack grid coordinates
+  // Migrate legacy blocks: colSpan → gridW, rowSpan → gridH, missing gridY assigned sequentially
   let migrated = false;
   let accumY = 0;
   layoutWithIds.forEach(block => {
@@ -95,6 +120,7 @@ function renderDashboard() {
     const content = builder(block);
     if (!content) return;
 
+    // GridStack → pixel conversion: 12-column grid, 50px row height
     const x = block.gridX ?? 0;
     const y = block.gridY ?? 0;
     const w = block.gridW ?? 12;
@@ -103,9 +129,10 @@ function renderDashboard() {
     const wrapper = document.createElement('div');
     wrapper.className = 'dashboard-block';
     wrapper.dataset.blockId = block.id;
+    // Absolute positioning mirrors GridStack's internal layout
     wrapper.style.position = 'absolute';
-    wrapper.style.left = ((x / 12) * 100) + '%';
-    wrapper.style.top = (y * ROW_HEIGHT) + 'px';
+    wrapper.style.left = ((x / 12) * 100) + '%';  // responsive width via percentage
+    wrapper.style.top = (y * ROW_HEIGHT) + 'px';    // fixed 50px row height
     wrapper.style.width = ((w / 12) * 100) + '%';
     wrapper.style.minHeight = (h * ROW_HEIGHT) + 'px';
 
@@ -210,6 +237,13 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
+/** Apply the configured background colour for the current theme (light/dark) */
+function applyBodyBg() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const color = isDark ? (window._bgDark || '') : (window._bgLight || '');
+  document.body.style.backgroundColor = color || '';
+}
+
 function applyBranding(cfg) {
   const titleEl = document.getElementById('dashboard-title');
   const logoEl = document.getElementById('logo-img');
@@ -225,7 +259,11 @@ function applyBranding(cfg) {
   }
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
   document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
-  if (cfg.dashboard_bg_color) document.body.style.backgroundColor = cfg.dashboard_bg_color;
+  // Store bg colors for theme-aware application
+  window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '';
+  window._bgDark = cfg.dashboard_bg_color_dark || '';
+  applyBodyBg();
+  document.body.addEventListener('theme-changed', applyBodyBg);
   if (cfg.dashboard_bg_image) { document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
 }
 
