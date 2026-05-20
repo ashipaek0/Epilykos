@@ -237,7 +237,7 @@ h1, h2, h3, h4,
   display: flex; flex-direction: column;
 }
 .forecast-info-card .pv-main-row { flex: 1; min-height: 0; }
-.forecast-info-card .weather-section,
+.forecast-info-card .weather-section { align-self: center; margin-left: auto; }
 .forecast-info-card .pv-days { align-self: center; }
 
 /* Stats Grid */
