@@ -18,8 +18,8 @@ export function formatTimestamp(ts) {
   }
 }
 
-export function updateGridDate() {
-  const dateEl = document.getElementById('grid-date');
+export function updateGridDate(id) {
+  const dateEl = document.getElementById(id ? `grid-date-${id}` : 'grid-date');
   if (dateEl) {
     dateEl.textContent = new Date().toLocaleDateString(undefined, {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -27,8 +27,8 @@ export function updateGridDate() {
   }
 }
 
-export function renderTimelineBar(segments, windowStart, windowEnd) {
-  const container = document.getElementById('grid-timeline');
+export function renderTimelineBar(segments, windowStart, windowEnd, id) {
+  const container = document.getElementById(id ? `grid-timeline-${id}` : 'grid-timeline');
   if (!container) return;
   container.innerHTML = '';
   if (!segments.length) return;

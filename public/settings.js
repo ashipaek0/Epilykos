@@ -42,6 +42,7 @@ async function loadSettings() {
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
+    populateDashboardSelects(dashConfig);
 
     usedDashboardMetrics = [];
     if (dashConfig && dashConfig.dashboards) {
@@ -893,6 +894,17 @@ if (modalCreate) {
 }
 window.addEventListener('click', (e) => { if (modal && e.target === modal) modal.style.display = 'none'; });
 
+function populateDashboardSelects(config) {
+  const dashboards = config?.dashboards || [];
+  [('desktop-dashboard'), ('mobile-dashboard')].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- Default --</option>';
+    dashboards.forEach(db => { const o = document.createElement('option'); o.value = db.id; o.textContent = db.name; if (db.id === cur) o.selected = true; sel.appendChild(o); });
+  });
+}
+
 // ======================== DASHBOARD EDITOR ========================
 let dashConfig = null;
 function buildDashboardEditor(config) {
@@ -939,32 +951,52 @@ function renderDashboardBlockEditor(dashboard) {
     const spanOptions = spanOpts.map(([v, label]) =>
       `<option value="${v}" ${currentSpan == v ? 'selected' : ''}>${label}</option>`
     ).join('');
+    const ctl = (inner, label) => `<div style="display:flex;flex-direction:column;align-items:center;gap:0.1rem;"><div>${inner}</div><span style="font-size:0.6rem;color:var(--text-secondary);white-space:nowrap;">${label}</span></div>`;
     li.innerHTML = `
-      <select class="block-type-select">
-        <option value="flow-card" ${block.type === 'flow-card' ? 'selected' : ''}>Flow Card</option>
-        <option value="forecast-banner" ${block.type === 'forecast-banner' ? 'selected' : ''}>Forecast Banner</option>
-        <option value="metric-cards" ${block.type === 'metric-cards' ? 'selected' : ''}>Metric Cards</option>
-        <option value="grid-card" ${block.type === 'grid-card' ? 'selected' : ''}>Grid Card</option>
-        <option value="chart-power" ${block.type === 'chart-power' ? 'selected' : ''}>Power Chart</option>
-        <option value="chart-energy" ${block.type === 'chart-energy' ? 'selected' : ''}>Energy Chart</option>
-        <option value="savings-summary" ${block.type === 'savings-summary' ? 'selected' : ''}>Savings Summary</option>
-        <option value="data-table-daily" ${block.type === 'data-table-daily' ? 'selected' : ''}>Daily Table</option>
-        <option value="data-table-monthly" ${block.type === 'data-table-monthly' ? 'selected' : ''}>Monthly Table</option>
-        <option value="weather-block" ${block.type === 'weather-block' ? 'selected' : ''}>Weather Block</option>
-        <option value="battery-block" ${block.type === 'battery-block' ? 'selected' : ''}>Battery Block</option>
-      </select>
-      <select class="block-width-select" style="width:80px;">
-        ${spanOptions}
-      </select>
-      <select class="block-height-select" style="width:80px;">
-        <option value="0" ${!block.rowSpan ? 'selected' : ''}>Auto</option>
-        <option value="200" ${block.rowSpan == 200 ? 'selected' : ''}>200px</option>
-        <option value="300" ${block.rowSpan == 300 ? 'selected' : ''}>300px</option>
-        <option value="400" ${block.rowSpan == 400 ? 'selected' : ''}>400px</option>
-        <option value="500" ${block.rowSpan == 500 ? 'selected' : ''}>500px</option>
-        <option value="600" ${block.rowSpan == 600 ? 'selected' : ''}>600px</option>
-        <option value="700" ${block.rowSpan == 700 ? 'selected' : ''}>700px</option>
-      </select>
+      ${ctl(`<select class="block-type-select">
+        <option value="flow-card" ${block.type==='flow-card'?'selected':''}>Flow Card</option>
+        <option value="forecast-banner" ${block.type==='forecast-banner'?'selected':''}>Forecast</option>
+        <option value="forecast-sparkline" ${block.type==='forecast-sparkline'?'selected':''}>Sparkline</option>
+        <option value="forecast-info" ${block.type==='forecast-info'?'selected':''}>Forecast Info</option>
+        <option value="metric-cards" ${block.type==='metric-cards'?'selected':''}>Metrics</option>
+        <option value="grid-card" ${block.type==='grid-card'?'selected':''}>Grid Card</option>
+        <option value="chart-power" ${block.type==='chart-power'?'selected':''}>Power Chart</option>
+        <option value="chart-energy" ${block.type==='chart-energy'?'selected':''}>Energy Chart</option>
+        <option value="savings-summary" ${block.type==='savings-summary'?'selected':''}>Savings</option>
+        <option value="data-table-daily" ${block.type==='data-table-daily'?'selected':''}>Daily Table</option>
+        <option value="data-table-monthly" ${block.type==='data-table-monthly'?'selected':''}>Monthly Table</option>
+        <option value="flow-card-2" ${block.type==='flow-card-2'?'selected':''}>Flow Card 2</option>
+        <option value="multi-value" ${block.type==='multi-value'?'selected':''}>Multi-Value</option>
+        <option value="gauge-card" ${block.type==='gauge-card'?'selected':''}>Gauge</option>
+        <option value="half-gauge" ${block.type==='half-gauge'?'selected':''}>Half Gauge</option>
+        <option value="half-gauge-2" ${block.type==='half-gauge-2'?'selected':''}>Half Gauge 2</option>
+        <option value="flow-card-square" ${block.type==='flow-card-square'?'selected':''}>Flow Card Sq</option>
+        <option value="flow-card-square-2" ${block.type==='flow-card-square-2'?'selected':''}>Flow Card Sq 2</option>
+        <option value="text-card" ${block.type==='text-card'?'selected':''}>Text</option>
+        <option value="iframe-card" ${block.type==='iframe-card'?'selected':''}>Embed</option>
+      </select>`, 'Type')}
+      ${ctl(`<select class="block-width-select" style="width:65px;">${spanOptions}</select>`, 'Width')}
+      ${ctl(`<select class="block-height-select" style="width:65px;">
+        <option value="0" ${!block.rowSpan?'selected':''}>Auto</option>
+        <option value="100" ${block.rowSpan==100?'selected':''}>100</option>
+        <option value="200" ${block.rowSpan==200?'selected':''}>200</option>
+        <option value="300" ${block.rowSpan==300?'selected':''}>300</option>
+        <option value="400" ${block.rowSpan==400?'selected':''}>400</option>
+        <option value="500" ${block.rowSpan==500?'selected':''}>500</option>
+        <option value="600" ${block.rowSpan==600?'selected':''}>600</option>
+        <option value="700" ${block.rowSpan==700?'selected':''}>700</option>
+      </select>`, 'Height')}
+      ${ctl(`<input type="color" class="block-font-color" value="${escapeHtml(block.fontColor||'#0f172a')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'Font')}
+      ${ctl(`<select class="block-font-size" style="width:55px;">
+        <option value="" ${!block.fontSize?'selected':''}>-</option>
+        <option value="0.75rem" ${block.fontSize==='0.75rem'?'selected':''}>XS</option>
+        <option value="0.85rem" ${block.fontSize==='0.85rem'?'selected':''}>S</option>
+        <option value="1rem" ${block.fontSize==='1rem'?'selected':''}>M</option>
+        <option value="1.25rem" ${block.fontSize==='1.25rem'?'selected':''}>L</option>
+        <option value="1.5rem" ${block.fontSize==='1.5rem'?'selected':''}>XL</option>
+      </select>`, 'Size')}
+      ${ctl(`<input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'BG')}
+      ${ctl(`<label class="block-transparent-label" title="Transparent"><input type="checkbox" class="block-transparent" ${block.transparent?'checked':''}> T</label>`, 'Glass')}
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
     `;
@@ -1123,28 +1155,13 @@ function renderDashboardBlockEditor(dashboard) {
         const currentMetrics = block.config?.metrics || {};
         configPanel.innerHTML = `
           <label><input type="checkbox" class="config-show-timeline" ${block.config?.showTimeline !== false ? 'checked' : ''}> Show Timeline Bar</label>
-          <label>Grid Status Metric (optional)</label>
-          <select class="config-metric" data-role="grid_status" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.grid_status, 'Use global setting')}</select>
-          <p style="font-size:0.8rem;color:var(--text-secondary);">Leave empty to use Home Assistant entity</p>
+          <label>Grid Status Metric</label>
+          <select class="config-metric" data-role="grid_status" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.grid_status, 'Use backend default')}</select>
           <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'weather-block') {
-        configPanel.innerHTML = `<label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Weather')}"><button class="fetch-btn save-config">Save</button>`;
+        configPanel.innerHTML = '<div class="note">Removed.</div>';
       } else if (block.type === 'battery-block') {
-        const currentMetrics = block.config?.metrics || {};
-        configPanel.innerHTML = `
-          <label>Block Title</label>
-          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Battery')}" style="width:100%; margin-bottom:0.5rem;">
-          <label>SOC Metric</label>
-          <select class="config-metric" data-role="soc" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.soc)}</select>
-          <label>Voltage Metric</label>
-          <select class="config-metric" data-role="voltage" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.voltage)}</select>
-          <label>Current Metric</label>
-          <select class="config-metric" data-role="current" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.current)}</select>
-          <label>Power Metric</label>
-          <select class="config-metric" data-role="power" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.power)}</select>
-          <label>Temperature Metric</label>
-          <select class="config-metric" data-role="temperature" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.temperature)}</select>
-          <button class="fetch-btn save-config">Save</button>`;
+        configPanel.innerHTML = '<div class="note">Removed.</div>';
       } else if (block.type === 'savings-summary') {
         configPanel.innerHTML = `<label>Block Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
           <label><input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Show Today</label>
@@ -1186,6 +1203,31 @@ function renderDashboardBlockEditor(dashboard) {
           ${colRows}
           <button type="button" class="add-col-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Column</button>
           <button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
+      } else if (block.type === 'flow-card-2') {
+        const currentMetrics = block.config?.metrics || {};
+        const metricRoles = [
+          { key: 'solar', label: 'Solar Power Metric' },
+          { key: 'grid', label: 'Grid Import Metric' },
+          { key: 'consumption', label: 'Consumption Metric' },
+          { key: 'battery_power', label: 'Battery Power Metric' },
+          { key: 'battery_soc', label: 'Battery SOC Metric' }
+        ];
+        const selectsHtml = metricRoles.map(role => `
+          <label>${escapeHtml(role.label)}</label>
+          <select class="config-metric" data-role="${role.key}" style="width:100%; margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[role.key])}</select>
+        `).join('');
+        configPanel.innerHTML = `
+          <label>Block Title</label>
+          <input type="text" class="config-title" value="${escapeHtml(block.config?.title || '')}" style="width:100%; margin-bottom:0.5rem;">
+          <label>Inverter Image URL</label>
+          <input type="text" class="config-inverter-image" value="${escapeHtml(block.config?.inverter_image || '')}" placeholder="https://..." style="width:100%; margin-bottom:0.5rem;">
+          ${selectsHtml}
+          <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-sparkline') {
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `<label>Actual Energy Field</label><select class="config-metric" data-role="actual_energy" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.actual_energy)}</select><button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-info') {
+        configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       } else if (block.type === 'forecast-banner') {
         const currentMetrics = block.config?.metrics || {};
         const fieldOptions = [
@@ -1205,6 +1247,33 @@ function renderDashboardBlockEditor(dashboard) {
           </select>
           <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Default: Solar PV.</p>
           <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'multi-value') {
+        const metrics = block.config?.metrics || [{ label: '', metric: '', unit: '' }];
+        const rows = metrics.map((m, i) => `
+          <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;" class="mv-row">
+            <input type="text" class="config-mv-label" data-idx="${i}" value="${escapeHtml(m.label||'')}" placeholder="Label" style="flex:1;">
+            <select class="config-mv-metric" data-idx="${i}" style="flex:1;">${generateMetricOptionsHtml(m.metric)}</select>
+            <input type="text" class="config-mv-unit" data-idx="${i}" value="${escapeHtml(m.unit||'')}" placeholder="Unit" style="width:50px;">
+            <button type="button" class="remove-mv-btn" data-idx="${i}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>
+          </div>`).join('');
+        configPanel.innerHTML = `<h4>Metrics</h4><div id="mv-rows">${rows}</div><button type="button" class="add-mv-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Metric</button><button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
+      } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
+        const currentMetrics = block.config?.metrics || {};
+        const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Power' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
+        configPanel.innerHTML = `<h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
+        const isHalf = block.type === 'half-gauge';
+        configPanel.innerHTML = `
+          <label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title||'Gauge')}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Metric</label><select class="config-metric" data-role="value" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.metric)}</select>
+          <label>Min</label><input type="number" class="config-min" value="${block.config?.min ?? (isHalf ? -100 : 0)}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Max</label><input type="number" class="config-max" value="${block.config?.max ?? 100}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Color</label><input type="color" class="config-color" value="${escapeHtml(block.config?.color||'#3b82f6')}" style="width:100%;margin-bottom:0.5rem;">
+          <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'text-card') {
+        configPanel.innerHTML = `<label>Content (HTML/Markdown)</label><textarea class="config-content" style="width:100%;height:150px;margin-bottom:0.5rem;">${escapeHtml(block.config?.content||'')}</textarea><button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'iframe-card') {
+        configPanel.innerHTML = `<label>URL</label><input type="text" class="config-url" value="${escapeHtml(block.config?.url||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       }
@@ -1228,7 +1297,10 @@ function renderDashboardBlockEditor(dashboard) {
               }
             });
           } else if (block.type === 'battery-block') {
+            // removed
+          } else if (block.type === 'flow-card-2') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.inverter_image = configPanel.querySelector('.config-inverter-image')?.value || '';
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => {
               const role = select.dataset.role;
@@ -1261,20 +1333,41 @@ function renderDashboardBlockEditor(dashboard) {
                 block.config.columns.push({ label: labelEl.value, field: fieldEl.value });
               }
             });
-          } else if (block.type === 'forecast-banner') {
+          } else if (block.type === 'forecast-banner' || block.type === 'forecast-sparkline') {
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => {
               const role = select.dataset.role;
               if (select.value) block.config.metrics[role] = select.value;
             });
           } else if (block.type === 'weather-block') {
-            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            // removed
           } else if (block.type === 'savings-summary') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
             block.config.showToday = configPanel.querySelector('.config-show-today')?.checked ?? true;
             block.config.showWeek = configPanel.querySelector('.config-show-week')?.checked ?? true;
             block.config.showMonth = configPanel.querySelector('.config-show-month')?.checked ?? true;
             block.config.showAll = configPanel.querySelector('.config-show-all')?.checked ?? true;
+          } else if (block.type === 'multi-value') {
+            block.config.metrics = [];
+            configPanel.querySelectorAll('.config-mv-label').forEach(l => {
+              const i = parseInt(l.dataset.idx);
+              const m = configPanel.querySelector(`.config-mv-metric[data-idx="${i}"]`);
+              const u = configPanel.querySelector(`.config-mv-unit[data-idx="${i}"]`);
+              if (l && m) block.config.metrics.push({ label: l.value, metric: m.value, unit: u?.value || '' });
+            });
+          } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(select => { const role = select.dataset.role; if (select.value) block.config.metrics[role] = select.value; });
+          } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
+            block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.metric = configPanel.querySelector('.config-metric')?.value || '';
+            block.config.min = parseFloat(configPanel.querySelector('.config-min')?.value) || 0;
+            block.config.max = parseFloat(configPanel.querySelector('.config-max')?.value) || 100;
+            block.config.color = configPanel.querySelector('.config-color')?.value || '#3b82f6';
+          } else if (block.type === 'text-card') {
+            block.config.content = configPanel.querySelector('.config-content')?.value || '';
+          } else if (block.type === 'iframe-card') {
+            block.config.url = configPanel.querySelector('.config-url')?.value || '';
           }
           configPanel.remove();
         });
@@ -1342,6 +1435,25 @@ function renderDashboardBlockEditor(dashboard) {
           });
         });
       }
+      // Attach add/remove metric handlers for multi-value config panels
+      if (block.type === 'multi-value') {
+        const addBtn = configPanel.querySelector('.add-mv-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const rows = configPanel.querySelectorAll('.mv-row');
+            const newIdx = rows.length;
+            const newRow = document.createElement('div');
+            newRow.className = 'mv-row';
+            newRow.style.cssText = 'display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;';
+            newRow.innerHTML = `<input type="text" class="config-mv-label" data-idx="${newIdx}" placeholder="Label" style="flex:1;"><select class="config-mv-metric" data-idx="${newIdx}" style="flex:1;">${generateMetricOptionsHtml('')}</select><input type="text" class="config-mv-unit" data-idx="${newIdx}" placeholder="Unit" style="width:50px;"><button type="button" class="remove-mv-btn" data-idx="${newIdx}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>`;
+            newRow.querySelector('.remove-mv-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-mv-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => { btn.closest('.mv-row').remove(); });
+        });
+      }
       li.appendChild(configPanel);
     });
     li.querySelector('.block-type-select').addEventListener('change', (e) => {
@@ -1355,6 +1467,18 @@ function renderDashboardBlockEditor(dashboard) {
     });
     li.querySelector('.block-height-select').addEventListener('change', (e) => {
       dashboard.layout[idx].rowSpan = parseInt(e.target.value) || 0;
+    });
+    li.querySelector('.block-bg-color').addEventListener('change', (e) => {
+      dashboard.layout[idx].bgColor = e.target.value;
+    });
+    li.querySelector('.block-transparent').addEventListener('change', (e) => {
+      dashboard.layout[idx].transparent = e.target.checked;
+    });
+    li.querySelector('.block-font-color').addEventListener('change', (e) => {
+      dashboard.layout[idx].fontColor = e.target.value;
+    });
+    li.querySelector('.block-font-size').addEventListener('change', (e) => {
+      dashboard.layout[idx].fontSize = e.target.value || '';
     });
     li.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);

@@ -120,22 +120,19 @@ h1, h2, h3, h4,
 }
 
 #dashboard-container {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 1.5rem;
+  position: relative;
   width: 100%;
 }
 
 .dashboard-block {
   background: transparent;
-  padding: 0;
+  padding: 0.25px;
   overflow: visible;
-  display: flex;
-  flex-direction: column;
+  box-sizing: border-box;
 }
 .dashboard-block > * {
-  flex: 1 0 auto;
-  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dashboard-block.sortable-ghost {
@@ -147,28 +144,37 @@ h1, h2, h3, h4,
   box-shadow: 0 8px 25px rgba(0,0,0,0.3);
 }
 
-/* Responsive: drop to 1 column on mobile */
+/* Responsive: stack vertically on mobile */
 @media (max-width: 768px) {
   #dashboard-container {
-    grid-template-columns: 1fr;
+    position: static !important;
+    height: auto !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
   .dashboard-block {
-    grid-column: span 1 !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
   }
 }
 
 /* Flow Card */
 .flow-card {
   display: flex; align-items: center; justify-content: space-around; background: var(--card-bg);
-  padding: 2.5rem 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; flex-wrap: wrap;
+  padding: 1rem; border-radius: var(--radius); flex-wrap: wrap;
   gap: 1rem; box-shadow: var(--shadow); border: 1px solid var(--border);
+  height: 100%; box-sizing: border-box;
 }
 .flow-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 150px; min-width: 130px; text-align: center; }
 .flow-icon { font-size: 3.5rem; margin-bottom: 0.5rem; line-height: 1; }
 .flow-icon i { font-size: inherit; color: var(--text); display: block; }
 .flow-icon svg { width: 1em; height: 1em; color: var(--text); }
 #icon-battery { transform: rotate(270deg); }
-.flow-label { font-size: var(--fs-small); opacity: 0.8; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.flow-label { font-size: var(--fs-small); opacity: 0.8; color: var(--text-secondary); margin-bottom: 0.5rem; }
 .flow-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); margin-bottom: 0.1rem; }
 .flow-sub { font-size: var(--fs-small); opacity: 0.7; margin-top: 0.15rem; }
 .flow-arrow { font-size: 3.5rem; opacity: 0.7; transition: color 0.3s ease; min-width: 50px; text-align: center; color: var(--text-secondary); font-weight: bold; align-self: center; }
@@ -183,23 +189,25 @@ h1, h2, h3, h4,
 /* Solar Forecast Banner */
 .pv-today-banner {
   background: var(--card-bg); border-radius: var(--radius); padding: 0.8rem 1.2rem;
-  margin-bottom: 2rem; box-shadow: var(--shadow); border: 1px solid var(--border);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
   display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
 }
-.pv-top-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-.pv-top-bar h3 { font-size: var(--fs-large); font-weight: 600; margin: 0; white-space: nowrap; }
+.pv-top-bar { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0; }
+.pv-top-bar h3 { font-size: var(--fs-large); font-weight: 600; margin: 2rem 0 0 0; white-space: nowrap; }
 .forecast-date { font-size: var(--fs-small); color: var(--text-secondary); min-width: 90px; text-align: right; }
 .forecast-clock { font-size: var(--fs-medium); font-weight: 500; color: var(--accent); margin-top: 0.15rem; }
+.forecast-date-clock { display: flex; flex-direction: column; align-items: center; }
+.weather-icon-big { margin-top: 5px; }
 
-.pv-main-row { display: flex; align-items: flex-start; gap: 1.5rem; flex: 1; min-height: 0; margin-top: 0.5rem; }
-.pv-days { display: flex; flex-direction: column; gap: 0.75rem; min-width: 110px; }
+.pv-main-row { display: flex; align-items: center; gap: 1.5rem; flex: 1; min-height: 0; margin-top: 0.25rem; }
+.pv-days { display: flex; flex-direction: column; gap: 0.75rem; min-width: 110px; justify-content: center; }
 .pv-day { display: flex; flex-direction: column; }
 .pv-day-label { font-size: var(--fs-small); color: var(--text-secondary); }
 .pv-day-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); }
 .pv-day-remaining { font-size: 0.7rem; color: var(--accent); margin-top: 0.1rem; }
 
 /* Weather section */
-.weather-section { display: flex; gap: 1.5rem; align-items: flex-start; }
+.weather-section { display: flex; gap: 1.5rem; align-items: center; }
 .weather-column { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; min-width: 110px; }
 .weather-heading { font-size: var(--fs-small); font-weight: 500; color: var(--text-secondary); }
 .weather-icon-big { font-size: 4rem; line-height: 1; }
@@ -213,12 +221,30 @@ h1, h2, h3, h4,
 .pv-sparkline-container { flex: 1 1 auto; min-height: 50px; align-self: stretch; }
 .pv-sparkline-container canvas { width: 100% !important; height: 100% !important; }
 
+/* Standalone forecast cards */
+.forecast-sparkline-card {
+  background: var(--card-bg); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 0.25rem; height: 100%; box-sizing: border-box;
+  display: flex; align-items: stretch;
+}
+.forecast-sparkline-card .pv-sparkline-container { flex: 1; min-height: 0; }
+.forecast-sparkline-card canvas { width: 100% !important; height: 100% !important; }
+.forecast-info-card {
+  background: var(--card-bg); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 0.25rem; height: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column;
+}
+.forecast-info-card .pv-main-row { flex: 1; min-height: 0; }
+.forecast-info-card .weather-section { align-self: center; margin-left: auto; }
+.forecast-info-card .pv-days { align-self: center; }
+
 /* Stats Grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
 }
 .stat-card {
   background: var(--card-bg);
@@ -238,8 +264,9 @@ h1, h2, h3, h4,
 
 /* Chart Container */
 .chart-container {
-  background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius);
-  margin-bottom: 2rem; height: 450px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
+  background: var(--card-bg); padding: 1rem; border-radius: var(--radius);
+  height: 380px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
+  width: 100%; box-sizing: border-box;
 }
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .chart-controls { display: flex; gap: 0.5rem; }
@@ -251,10 +278,10 @@ h1, h2, h3, h4,
 
 /* Daily Breakdown Containers */
 .daily-breakdown-container {
-  background: var(--card-bg); border-radius: var(--radius); padding: 1.5rem; margin-top: 2rem;
+  background: var(--card-bg); border-radius: var(--radius); padding: 1rem;
   box-shadow: var(--shadow); border: 1px solid var(--border);
+  width: 100%; box-sizing: border-box;
 }
-.daily-breakdown-container + .daily-breakdown-container { margin-top: 1rem; }
 .daily-breakdown-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .toggle-btn {
   background: transparent; border: none; color: var(--text); font-size: var(--fs-medium);
@@ -282,8 +309,8 @@ h1, h2, h3, h4,
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
-  padding: 1.2rem 1.5rem;
-  margin-bottom: 2rem;
+  padding: 1rem;
+  width: 100%; box-sizing: border-box;
 }
 
 .grid-date {
@@ -303,8 +330,7 @@ h1, h2, h3, h4,
 .grid-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
   justify-content: space-around;
 }
 .grid-stats .stat-card {
@@ -499,6 +525,327 @@ h1, h2, h3, h4,
   color: white;
 }
 
+/* ───────── Flow Card 2 ───────── */
+.flow-card-2 {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  width: 100%; box-sizing: border-box;
+}
+
+.topo-grid {
+  display: grid;
+  grid-template-columns: 1fr 130px 1fr;
+  grid-template-rows: 1fr 260px 1fr;
+  gap: 0.25rem;
+  align-items: center;
+  justify-items: center;
+  position: relative;
+}
+
+/* Node circles — icon + value inside */
+.topo-node-circle {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  padding: 0.25rem;
+  box-sizing: border-box;
+}
+.topo-node-circle i {
+  font-size: 2.2rem;
+  color: var(--text-secondary);
+  transition: color 0.3s;
+  line-height: 1;
+}
+
+.topo-node {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  z-index: 1;
+}
+
+.topo-label {
+  font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.topo-value {
+  font-size: 0.9rem; font-weight: 600; color: var(--text);
+  line-height: 1;
+}
+.topo-pct {
+  font-size: 1.4rem; font-weight: 700; color: var(--solar);
+  line-height: 1;
+}
+
+.topo-sub {
+  font-size: 0.9rem; color: var(--text-secondary);
+  line-height: 1;
+}
+
+/* Center hub */
+.topo-center {
+  z-index: 1;
+}
+.topo-hub {
+  width: 70px; height: 110px;
+  border-radius: 10px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: background 0.5s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.topo-hub-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* Grid positions: 3x3 */
+.topo-solar   { grid-column: 2; grid-row: 1; }
+.topo-grid-node { grid-column: 1; grid-row: 2; }
+.topo-center  { grid-column: 2; grid-row: 2; }
+.topo-home    { grid-column: 3; grid-row: 2; }
+.topo-battery { grid-column: 2; grid-row: 3; }
+
+/* ── Flow lines ── */
+.topo-line {
+  position: absolute; z-index: 0;
+  background: transparent;
+  transition: background 0.3s;
+}
+.topo-line::before {
+  content: '';
+  position: absolute;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0;
+}
+.topo-line.active::before {
+  opacity: 1;
+}
+
+/* Vertical lines — dot travels along Y axis */
+.topo-line-solar::before,
+.topo-line-battery::before {
+  left: 50%; top: 0; transform: translateX(-50%);
+}
+.topo-line-solar.active::before {
+  animation: dot-v 1.4s linear infinite;
+}
+.topo-line-solar.reverse::before {
+  animation: dot-v 1.4s linear infinite reverse;
+}
+.topo-line-battery.active::before {
+  animation: dot-v 1.4s linear infinite;
+}
+.topo-line-battery.reverse::before {
+  animation: dot-v 1.4s linear infinite reverse;
+}
+@keyframes dot-v {
+  0%   { top: 0%; }
+  100% { top: calc(100% - 7px); }
+}
+
+/* Horizontal lines — dot travels along X axis */
+.topo-line-grid::before,
+.topo-line-home::before {
+  top: 50%; left: 0; transform: translateY(-50%);
+}
+.topo-line-grid.active::before {
+  animation: dot-h 1.4s linear infinite;
+}
+.topo-line-grid.reverse::before {
+  animation: dot-h 1.4s linear infinite reverse;
+}
+.topo-line-home.active::before {
+  animation: dot-h 1.4s linear infinite;
+}
+.topo-line-home.reverse::before {
+  animation: dot-h 1.4s linear infinite reverse;
+}
+@keyframes dot-h {
+  0%   { left: 0%; }
+  100% { left: calc(100% - 7px); }
+}
+
+/* Vertical line: solar circle → hub */
+.topo-line-solar {
+  left: 50%; top: 10%;
+  width: 3px;
+  height: calc(50% - 55px - 10%);
+  transform: translateX(-50%);
+}
+/* Vertical line: hub → battery circle */
+.topo-line-battery {
+  left: 50%; top: calc(50% + 55px);
+  width: 3px;
+  height: calc(50% - 55px - 10%);
+  transform: translateX(-50%);
+}
+/* Horizontal line: grid circle → hub */
+.topo-line-grid {
+  top: 50%; left: 14%;
+  height: 3px;
+  width: calc(50% - 35px - 14%);
+  transform: translateY(-50%);
+}
+/* Horizontal line: hub → home circle */
+.topo-line-home {
+  top: 50%; left: calc(50% + 35px);
+  height: 3px;
+  width: calc(50% - 35px - 14%);
+  transform: translateY(-50%);
+}
+
+@keyframes topo-flow {
+  0%   { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
+}
+
+@media (max-width: 480px) {
+  .topo-grid {
+    grid-template-columns: 1fr 100px 1fr;
+    grid-template-rows: 1fr 180px 1fr;
+  }
+  .topo-node-circle { width: 90px; height: 90px; }
+  .topo-node-circle i { font-size: 1.8rem; }
+  .topo-hub { width: 48px; height: 76px; font-size: 0.55rem; }
+  .topo-line-solar  { top: 10%; height: calc(50% - 38px - 10%); }
+  .topo-line-battery { top: calc(50% + 38px); height: calc(50% - 38px - 10%); }
+  .topo-line-grid   { left: 14%; width: calc(50% - 24px - 14%); }
+  .topo-line-home   { left: calc(50% + 24px); width: calc(50% - 24px - 14%); }
+}
+
+/* ───────── Flow Card Square ───────── */
+.flow-card-square {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  width: 100%; box-sizing: border-box;
+}
+.fcs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.25rem;
+}
+.fcs-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem;
+}
+.fcs-icon {
+  font-size: 4rem;
+  color: var(--text-secondary);
+  transition: color 0.3s;
+  flex-shrink: 0;
+  width: 4rem;
+  text-align: center;
+}
+.fcs-inverter-icon {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  width: 3rem;
+  height: 5rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fcs-cell[id*="fcs-solar"] { justify-content: flex-start; align-items: flex-start; }
+.fcs-cell[id*="fcs-battery"] { justify-content: flex-end; align-items: flex-start; }
+.fcs-cell[id*="fcs-grid"] { justify-content: flex-end; align-items: flex-end; }
+.fcs-cell[id*="fcs-inverter"] { justify-content: flex-start; align-items: flex-end; }
+
+.fcs-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.fcs-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fcs-value {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text);
+}
+.fcs-sub {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+/* ───────── Flow Card Square 2 ───────── */
+.flow-card-square2 {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  width: 100%; box-sizing: border-box;
+}
+.fcs2-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.25rem;
+  position: relative;
+}
+.fcs2-cell {
+  display: flex; align-items: center; gap: 0.5rem; padding: 3rem; z-index: 1;
+}
+.fcs2-icon { font-size: 4rem; color: var(--text-secondary); transition: color 0.3s; flex-shrink: 0; width: 4rem; text-align: center; }
+.fcs2-inv { font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); width: 3rem; height: 5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fcs2-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.fcs2-label { font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.fcs2-value { font-size: var(--fs-small); font-weight: 600; color: var(--text); }
+.fcs2-sub { font-size: 0.65rem; color: var(--text-secondary); }
+.fcs2-cell[id*="fcs2-solar"] { justify-content: flex-start; align-items: flex-start; }
+.fcs2-cell[id*="fcs2-battery"] { justify-content: flex-end; align-items: flex-start; }
+.fcs2-cell[id*="fcs2-inverter"] { justify-content: flex-start; align-items: flex-end; }
+.fcs2-cell[id*="fcs2-grid"] { justify-content: flex-end; align-items: flex-end; }
+
+/* Flow lines: X axis (horizontal) and Y axis (vertical) between cells */
+.fcs2-line { position: absolute; z-index: 0; background: transparent; transition: background 0.3s; pointer-events: none; }
+.fcs2-line::before { content: ''; position: absolute; width: 6px; height: 6px; border-radius: 50%; background: inherit; opacity: 0; }
+.fcs2-line.active::before { opacity: 1; }
+/* Top horizontal: solar → battery */
+/* Horizontal lines: between icon edges, auto-sizing */
+.fcs2-line-top { top: calc(3rem + 2rem); left: calc(3rem + 4rem); right: calc(3rem + 4rem); height: 2px; }
+.fcs2-line-top.active::before { animation: fcs2-dot-h 1.4s linear infinite; }
+.fcs2-line-top.reverse::before { animation: fcs2-dot-h 1.4s linear infinite reverse; }
+.fcs2-line-bottom { bottom: calc(3rem + 2rem); left: calc(3rem + 3rem); right: calc(3rem + 4rem); height: 2px; }
+.fcs2-line-bottom.active::before { animation: fcs2-dot-h 1.4s linear infinite; }
+.fcs2-line-bottom.reverse::before { animation: fcs2-dot-h 1.4s linear infinite reverse; }
+/* Vertical lines: between icon edges, auto-sizing */
+.fcs2-line-left { left: calc(3rem + 2rem); top: calc(3rem + 4rem); bottom: calc(3rem + 5rem); width: 2px; }
+.fcs2-line-left.active::before { animation: fcs2-dot-v 1.4s linear infinite; }
+.fcs2-line-left.reverse::before { animation: fcs2-dot-v 1.4s linear infinite reverse; }
+.fcs2-line-right { right: calc(3rem + 2rem); top: calc(3rem + 4rem); bottom: calc(3rem + 4rem); width: 2px; }
+.fcs2-line-right.active::before { animation: fcs2-dot-v 1.4s linear infinite; }
+.fcs2-line-right.reverse::before { animation: fcs2-dot-v 1.4s linear infinite reverse; }
+@keyframes fcs2-dot-v { 0% { top: 0%; } 100% { top: calc(100% - 6px); } }
+@keyframes fcs2-dot-h { 0% { left: 0%; } 100% { left: calc(100% - 6px); } }
+
 /* Settings – dashboard tabs */
 .dash-row {
   display: flex;
@@ -521,4 +868,22 @@ h1, h2, h3, h4,
   padding: 1.25rem 0;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+}
+.block-transparent-label { font-size: 0.7rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.15rem; cursor: pointer; }
+
+/* Transparency toggle */
+body.transparent-blocks .flow-card,
+body.transparent-blocks .pv-today-banner,
+body.transparent-blocks .chart-container,
+body.transparent-blocks .daily-breakdown-container,
+body.transparent-blocks .grid-card,
+body.transparent-blocks .flow-card-2,
+body.transparent-blocks .battery-block,
+body.transparent-blocks .weather-block,
+body.transparent-blocks .forecast-sparkline-card,
+body.transparent-blocks .forecast-info-card,
+body.transparent-blocks .stat-card {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }

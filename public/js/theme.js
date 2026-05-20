@@ -11,6 +11,10 @@ export function initTheme() {
   }
 }
 
+function dispatchThemeEvent() {
+  document.body.dispatchEvent(new CustomEvent('theme-changed'));
+}
+
 export function toggleTheme() {
   const currentTheme = document.documentElement.getAttribute('data-theme');
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -18,6 +22,7 @@ export function toggleTheme() {
   localStorage.setItem('theme', newTheme);
   const toggle = document.getElementById('theme-toggle');
   if (toggle) toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
+  dispatchThemeEvent();
   updateChartColors();
   import('./charts.js').then(module => {
     module.updateChartColors();
