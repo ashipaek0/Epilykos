@@ -29,7 +29,7 @@ export function buildSystemTopology(block = {}) {
     <div class="topo-grid">
       <div class="topo-node topo-solar" id="${uid('topo-solar',id)}">
         <span class="topo-label">Solar</span>
-        <div class="topo-node-circle topo-solar-circle"><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span></div>
+        <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
       </div>
       <div class="topo-node topo-grid-node" id="${uid('topo-grid-node',id)}">
         <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid)}">0 W</span></div>

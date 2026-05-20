@@ -144,11 +144,21 @@ h1, h2, h3, h4,
   box-shadow: 0 8px 25px rgba(0,0,0,0.3);
 }
 
-/* Responsive: full width on mobile */
+/* Responsive: stack vertically on mobile */
 @media (max-width: 768px) {
+  #dashboard-container {
+    position: static !important;
+    height: auto !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
   .dashboard-block {
+    position: relative !important;
     left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
+    min-height: auto !important;
   }
 }
 
@@ -527,8 +537,8 @@ h1, h2, h3, h4,
 
 .topo-grid {
   display: grid;
-  grid-template-columns: 1fr 90px 1fr;
-  grid-template-rows: 1fr 280px 1fr;
+  grid-template-columns: 1fr 130px 1fr;
+  grid-template-rows: 1fr 260px 1fr;
   gap: 0.25rem;
   align-items: center;
   justify-items: center;
@@ -537,7 +547,7 @@ h1, h2, h3, h4,
 
 /* Node circles — icon + value inside */
 .topo-node-circle {
-  width: 90px; height: 90px;
+  width: 120px; height: 120px;
   border-radius: 50%;
   background: var(--card-bg);
   border: 2px solid var(--border);
@@ -548,7 +558,7 @@ h1, h2, h3, h4,
   box-sizing: border-box;
 }
 .topo-node-circle i {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   color: var(--text-secondary);
   transition: color 0.3s;
   line-height: 1;
@@ -565,19 +575,16 @@ h1, h2, h3, h4,
 }
 
 .topo-value {
-  font-size: 0.7rem; font-weight: 600; color: var(--text);
+  font-size: 0.9rem; font-weight: 600; color: var(--text);
   line-height: 1;
 }
 .topo-pct {
-  font-size: 0.85rem; font-weight: 700; color: var(--solar);
+  font-size: 1.4rem; font-weight: 700; color: var(--solar);
   line-height: 1;
-}
-.topo-solar-circle {
-  width: 100px; height: 100px;
 }
 
 .topo-sub {
-  font-size: 0.6rem; color: var(--text-secondary);
+  font-size: 0.9rem; color: var(--text-secondary);
   line-height: 1;
 }
 
@@ -706,11 +713,11 @@ h1, h2, h3, h4,
 
 @media (max-width: 480px) {
   .topo-grid {
-    grid-template-columns: 1fr 64px 1fr;
+    grid-template-columns: 1fr 100px 1fr;
     grid-template-rows: 1fr 180px 1fr;
   }
-  .topo-node-circle { width: 70px; height: 70px; }
-  .topo-node-circle i { font-size: 1.4rem; }
+  .topo-node-circle { width: 90px; height: 90px; }
+  .topo-node-circle i { font-size: 1.8rem; }
   .topo-hub { width: 48px; height: 76px; font-size: 0.55rem; }
   .topo-line-solar  { top: 10%; height: calc(50% - 38px - 10%); }
   .topo-line-battery { top: calc(50% + 38px); height: calc(50% - 38px - 10%); }
