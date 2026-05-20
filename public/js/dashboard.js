@@ -21,7 +21,6 @@ import { updateAllComponents } from './updater.js';
 import { ensureBlockIds } from './utils/blockId.js';
 
 let dashboardConfig;
-let sortable = null;
 
 /**
  * Fetch dashboard config from API, select active tab (honouring ?tab= param
@@ -84,9 +83,6 @@ function renderDashboard() {
   const container = document.getElementById('dashboard-container');
   container.innerHTML = '';
 
-  // Destroy previous Sortable instance
-  if (sortable) { sortable.destroy(); sortable = null; }
-
   const active = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
   if (!active) return;
 
@@ -120,29 +116,47 @@ function renderDashboard() {
     const content = builder(block);
     if (!content) return;
 
-    // GridStack → pixel conversion: 12-column grid, 50px row height
+    // GridStack → pixel conversion: 12-column grid, 50px row height, 10px default margin
     const x = block.gridX ?? 0;
     const y = block.gridY ?? 0;
     const w = block.gridW ?? 12;
     const h = block.gridH ?? 4;
+    const GAP = 5; // half of GridStack's ~10px default margin between items
 
     const wrapper = document.createElement('div');
     wrapper.className = 'dashboard-block';
     wrapper.dataset.blockId = block.id;
-    // Absolute positioning mirrors GridStack's internal layout
+    // Absolute positioning mirrors GridStack's internal layout with gap compensation
     wrapper.style.position = 'absolute';
-    wrapper.style.left = ((x / 12) * 100) + '%';  // responsive width via percentage
-    wrapper.style.top = (y * ROW_HEIGHT) + 'px';    // fixed 50px row height
-    wrapper.style.width = ((w / 12) * 100) + '%';
-    wrapper.style.minHeight = (h * ROW_HEIGHT) + 'px';
+    wrapper.style.left = `calc(${((x / 12) * 100)}% + ${GAP}px)`;
+    wrapper.style.top = (y * ROW_HEIGHT + GAP) + 'px';
+    wrapper.style.width = `calc(${((w / 12) * 100)}% - ${GAP * 2}px)`;
+    wrapper.style.minHeight = (h * ROW_HEIGHT - GAP * 2) + 'px';
 
     if (block.bgColor) {
       wrapper.style.backgroundColor = block.bgColor;
+    }
+    if (block.fontColor) {
+      content.style.color = block.fontColor;
+    }
+    if (block.fontSize) {
+      content.style.fontSize = block.fontSize;
+      // Scale down children that use rem units by adjusting the root for this block
+      const scale = parseFloat(block.fontSize) / 1;
+      content.style.setProperty('--fs-small', (0.85 * scale) + 'rem', 'important');
+      content.style.setProperty('--fs-medium', (1.1 * scale) + 'rem', 'important');
+      content.style.setProperty('--fs-large', (1.5 * scale) + 'rem', 'important');
     }
     if (block.transparent) {
       content.style.background = 'transparent';
       content.style.borderColor = 'transparent';
       content.style.boxShadow = 'none';
+      // Also make inner stat-cards and node circles transparent
+      content.querySelectorAll('.stat-card, .topo-node-circle').forEach(el => {
+        el.style.background = 'transparent';
+        el.style.borderColor = 'transparent';
+        el.style.boxShadow = 'none';
+      });
     }
     wrapper.appendChild(content);
     container.appendChild(wrapper);
@@ -153,9 +167,7 @@ function renderDashboard() {
   container.style.position = 'relative';
   container.style.height = maxBottom + 'px';
 
-  // Init SortableJS for drag-to-reorder (authenticated users only)
-  let dragEnabled = false;
-
+  // Auth-dependent UI: sign-in/out, editor link
   fetch('/api/auth/status')
     .then(r => r.json())
     .then(auth => {
@@ -176,48 +188,6 @@ function renderDashboard() {
       editorLink.textContent = 'Edit Layout';
       editorLink.style.marginLeft = '0.5rem';
       tabBar.appendChild(editorLink);
-
-      // Add drag toggle button to tab bar
-      const toggleBtn = document.createElement('button');
-      toggleBtn.id = 'drag-toggle';
-      toggleBtn.className = 'settings-link';
-      toggleBtn.textContent = '🔒 Locked';
-      toggleBtn.title = 'Toggle drag-to-reorder';
-      toggleBtn.style.marginLeft = 'auto';
-      tabBar.appendChild(toggleBtn);
-
-      const enableDrag = () => {
-        if (sortable) { sortable.destroy(); sortable = null; }
-        sortable = new Sortable(container, {
-          animation: 200,
-          handle: '.dashboard-block',
-          ghostClass: 'sortable-ghost',
-          chosenClass: 'sortable-chosen',
-          onEnd: () => {
-            const blockElems = container.querySelectorAll('.dashboard-block');
-            const ordered = [];
-            blockElems.forEach(el => {
-              const b = active.layout.find(b => b.id === el.dataset.blockId);
-              if (b) ordered.push(b);
-            });
-            active.layout = ordered;
-            saveDashboardConfig(dashboardConfig).catch(e => console.warn('Reorder save failed:', e));
-          }
-        });
-        toggleBtn.textContent = '🔓 Unlocked';
-        dragEnabled = true;
-      };
-
-      const disableDrag = () => {
-        if (sortable) { sortable.destroy(); sortable = null; }
-        toggleBtn.textContent = '🔒 Locked';
-        dragEnabled = false;
-      };
-
-      toggleBtn.addEventListener('click', () => {
-        if (dragEnabled) disableDrag();
-        else enableDrag();
-      });
     }).catch(() => {});
 
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
