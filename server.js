@@ -1,3 +1,16 @@
+/**
+ * Epilykos Energy Dashboard — Express Server
+ *
+ * Core responsibilities:
+ * - Serves static frontend files (HTML, CSS, JS modules)
+ * - Provides REST API for dashboard state, metrics, config, and settings
+ * - Manages WebSocket connections for real-time state push (30s interval)
+ * - Orchestrates polling: HA, MQTT, Modbus, External REST, BMS bridge
+ * - Session-based auth for settings/editor with CSRF protection
+ * - Database backup/restore, layout import/export
+ *
+ * @module server
+ */
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -71,7 +84,11 @@ const wss = new WebSocket.Server({ server });
 // Store connected WebSocket clients
 const wsClients = new Set();
 
-// Broadcast function
+/**
+ * Push dashboard state to all connected WebSocket clients.
+ * Each client receives JSON: { type: 'dashboard-state', data: state }
+ * @param {object} state - built by buildDashboardState()
+ */
 function broadcastDashboardState(state) {
   const message = JSON.stringify({ type: 'dashboard-state', data: state });
   for (const client of wsClients) {
@@ -101,7 +118,12 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Helper to build dashboard state
+/**
+ * Build the complete dashboard state object sent via WebSocket and REST API.
+ * Aggregates: latest power values, all metrics, savings, grid status/hours/timeline,
+ * 24h power history, 7d energy bar data.
+ * @returns {Promise<object>} dashboard state
+ */
 async function buildDashboardState() {
   const start = Date.now();
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
@@ -179,7 +201,11 @@ async function buildDashboardState() {
   };
 }
 
-// Polling loop
+/**
+ * Main 30-second polling cycle. Fetches data from all configured sources,
+ * builds dashboard state, and broadcasts to WebSocket clients.
+ * Runs once immediately on startup, then every 30s via setInterval.
+ */
 async function pollAllSources() {
   const start = Date.now();
   logger.debug('Polling cycle started');
@@ -205,7 +231,7 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 app.get('/api/public-config', async (req, res) => {
   try {
-    const keys = ['dashboard_title', 'dashboard_logo', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
+    const keys = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
     const config = {};
     for (const key of keys) config[key] = getConfig(key);
     config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
@@ -579,8 +605,7 @@ app.post('/api/test-modbus', async (req, res) => {
   }
 });
 
-app.use('/api/dashboard-config', isAuthenticated);
-app.post('/api/dashboard-config', (req, res) => {
+app.post('/api/dashboard-config', isAuthenticated, (req, res) => {
   try {
     saveDashboardConfig(req.body);
     res.json({ success: true });
@@ -765,6 +790,12 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
     logger.error('Error deleting metric:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---------- Visual Editor (protected) ----------
+app.get('/editor', (req, res) => {
+  if (!req.session || !req.session.authenticated) return res.redirect('/login');
+  res.sendFile(path.join(__dirname, 'public', 'editor.html'));
 });
 
 // ---------- Settings page (protected) ----------

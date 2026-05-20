@@ -1,65 +1,15 @@
+import { uid } from '../utils/uid.js';
+
 export function buildDataTableDaily(block = {}) {
+  const id = block.id || '';
   const config = block.config || {};
-  const columns = config.columns || [
-    { field: 'consumption_kwh', label: 'Load (kWh)' },
-    { field: 'solar_kwh', label: 'Solar PV (kWh)' },
-    { field: 'battery_charge_kwh', label: 'Battery charged (kWh)' },
-    { field: 'battery_discharge_kwh', label: 'Battery discharged (kWh)' },
-    { field: 'grid_import_kwh', label: 'Grid used (kWh)' },
-    { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }
-  ];
-
+  const columns = config.columns || [{ field: 'consumption_kwh', label: 'Load (kWh)' }, { field: 'solar_kwh', label: 'Solar PV (kWh)' }, { field: 'battery_charge_kwh', label: 'Battery charged (kWh)' }, { field: 'battery_discharge_kwh', label: 'Battery discharged (kWh)' }, { field: 'grid_import_kwh', label: 'Grid used (kWh)' }, { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }];
   const container = document.createElement('div');
-  container.className = 'daily-breakdown-container';
-  container.style.marginBottom = '1rem';
-  container.dataset.tableConfig = JSON.stringify({ columns });
-
-  const header = document.createElement('div');
-  header.className = 'daily-breakdown-header';
-  header.innerHTML = `
-    <h3>${escapeHtml(config.title || 'Last 30 Days')}</h3>
-    <button class="toggle-btn">▼</button>
-  `;
-
-  const content = document.createElement('div');
-  content.className = 'daily-breakdown-content';
-
-  const thHtml = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join('');
-
-  content.innerHTML = `
-    <div class="daily-table-wrapper">
-      <table class="energy-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            ${thHtml}
-          </tr>
-        </thead>
-        <tbody id="daily-table-body"></tbody>
-      </table>
-    </div>
-  `;
-
-  container.appendChild(header);
-  container.appendChild(content);
-
-  const toggleBtn = header.querySelector('.toggle-btn');
-  toggleBtn.addEventListener('click', () => {
-    const isCollapsed = content.classList.contains('collapsed');
-    if (isCollapsed) {
-      content.classList.remove('collapsed');
-      toggleBtn.textContent = '▲';
-    } else {
-      content.classList.add('collapsed');
-      toggleBtn.textContent = '▼';
-    }
-  });
-
+  container.className = 'daily-breakdown-container'; container.style.marginBottom = '1rem';
+  container.dataset.tableConfig = JSON.stringify({ columns }); container.dataset.blockId = id;
+  const thHtml = columns.map(c => `<th>${escapeHtml(c.label)}</th>`).join('');
+  container.innerHTML = `<div class="daily-breakdown-header"><h3>${escapeHtml(config.title||'Last 30 Days')}</h3><button class="toggle-btn">▼</button></div><div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Date</th>${thHtml}</tr></thead><tbody id="${uid('daily-table-body',id)}"></tbody></table></div></div>`;
+  container.querySelector('.toggle-btn').addEventListener('click', function(){ const c = this.closest('.daily-breakdown-container').querySelector('.daily-breakdown-content'); const coll = c.classList.toggle('collapsed'); this.textContent = coll ? '▼' : '▲'; });
   return container;
 }
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}

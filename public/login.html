@@ -95,7 +95,7 @@
         body: JSON.stringify({ password })
       });
       if (res.ok) {
-        window.location.href = '/settings';
+        window.location.href = '/';
       } else {
         const data = await res.json();
         errorDiv.textContent = data.error || 'Invalid password';

@@ -259,6 +259,8 @@
       <button class="main-tab-btn" data-tab="metrics" aria-selected="false" aria-controls="tab-metrics" role="tab">Metrics</button>
       <button class="main-tab-btn" data-tab="solar" aria-selected="false" aria-controls="tab-solar" role="tab">Solar Forecast</button>
       <button class="main-tab-btn" data-tab="dashboard" aria-selected="false" aria-controls="tab-dashboard" role="tab">Dashboard</button>
+      <button class="main-tab-btn" data-tab="savings" aria-selected="false" aria-controls="tab-savings" role="tab">Savings</button>
+      <button class="main-tab-btn" data-tab="help" aria-selected="false" aria-controls="tab-help" role="tab">Help</button>
       <button class="main-tab-btn" data-tab="backup" aria-selected="false" aria-controls="tab-backup" role="tab">Backup</button>
       <button class="main-tab-btn" data-tab="branding" aria-selected="false" aria-controls="tab-branding" role="tab">Branding</button>
     </div>
@@ -329,6 +331,15 @@
         </div>
       </div>
 
+      <!-- Tab: Savings -->
+      <div id="tab-savings" class="tab-content" role="tabpanel" aria-labelledby="savings">
+        <h3>Savings Calculation</h3>
+        <div class="form-row">
+          <div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" name="savings_currency" value="€"></div>
+          <div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div>
+        </div>
+      </div>
+
       <!-- Tab 3: Solar Forecast -->
       <div id="tab-solar" class="tab-content" role="tabpanel" aria-labelledby="solar">
         <div class="toggle-group">
@@ -364,7 +375,18 @@
         <div id="dashboard-editor">
           <div id="dashboards-list"></div>
           <button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button>
+          <div class="form-row" style="margin-top:0.75rem;">
+            <div class="form-group"><label for="desktop-dashboard">Default for Desktop</label><select id="desktop-dashboard" name="desktop_dashboard"></select></div>
+            <div class="form-group"><label for="mobile-dashboard">Default for Mobile</label><select id="mobile-dashboard" name="mobile_dashboard"></select></div>
+          </div>
           <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
+          <h3 style="margin-top:1.5rem;">Display</h3>
+          <div class="form-group"><label><input type="checkbox" name="transparent_blocks"> Transparent blocks</label></div>
+          <div class="form-group"><label for="dashboard-bg-color-light">Background Colour (Light)</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color"></div>
+          <div class="form-group"><label for="dashboard-bg-color-dark">Background Colour (Dark)</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color"></div>
+          <div class="form-group"><label for="dashboard-bg-image">Background Image URL</label><input id="dashboard-bg-image" name="dashboard_bg_image" placeholder="https://..."></div>
+          <div class="form-group"><label for="grid-status-entity">Grid Status Metric</label><input id="grid-status-entity" name="grid_status_entity" placeholder="e.g. grid_status"></div>
+          <p style="color:var(--text-secondary);font-size:0.85rem;">Visual layout: use the <a href="/editor" style="color:var(--accent);">Editor</a>.</p>
         </div>
         <div class="backup-row" style="margin-top:1rem;">
           <button type="button" id="export-layout-btn" class="fetch-btn" aria-label="Download dashboard layout configuration">📤 Export</button>
@@ -388,11 +410,26 @@
         <h3>Branding</h3>
         <div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" name="dashboard_title" value="⚡ Epilykos"></div>
         <div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" name="dashboard_logo"></div>
-        <h3>Savings Calculation</h3>
-        <div class="form-row">
-          <div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" name="savings_currency" value="€"></div>
-          <div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div>
-        </div>
+        <div class="form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" name="dashboard_favicon"></div>
+      </div>
+
+      <!-- Tab: Help -->
+      <div id="tab-help" class="tab-content" role="tabpanel" aria-labelledby="help" style="max-width:780px;">
+        <style>
+          .manual-step { background: var(--card-bg); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.25rem; border: 1px solid var(--border); box-shadow: var(--shadow); }
+          .manual-step h4 { margin: 0 0 0.75rem 0; color: var(--accent); font-size: 1.1rem; }
+          .manual-step p, .manual-step li { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; }
+          .manual-step code { background: var(--bg); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.9rem; }
+          .manual-step ul { margin: 0.75rem 0 0 1.5rem; }
+        </style>
+        <div class="manual-step"><h4>1. Add a Data Source</h4><p>Start in <strong>Data Sources</strong> and add at least one:</p><ul><li><strong>Home Assistant</strong> — URL + Long-Lived Access Token, click <em>Fetch Entities</em>, map metrics to entity IDs.</li><li><strong>MQTT</strong> — broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>), map topics to metric names.</li><li><strong>Modbus</strong> — pick a profile (SRNE, Growatt, Deye, Victron), configure TCP or serial.</li><li><strong>External REST</strong> — any HTTP API returning JSON. Map JSON paths to metrics.</li><li><strong>Bluetooth BMS</strong> — requires the BMS bridge. Scan for devices, select MAC address.</li></ul></div>
+        <div class="manual-step"><h4>2. Create & Map Metrics</h4><p>Metric names identify your data. Mapping an entity/topic auto-creates the metric. Create custom ones in the <strong>Metrics</strong> tab.</p><p>Common names: <code>solar</code> <code>consumption</code> <code>battery_soc</code> <code>battery_voltage</code> <code>grid_import</code> <code>grid_export</code>. Binary sensors (on/off) auto-convert to 1/0.</p></div>
+        <div class="manual-step"><h4>3. Build Your Dashboard</h4><p>Use the <strong>Editor</strong> (<code>/editor</code>) for visual layout — drag blocks from the palette, arrange freely, resize. Or use <strong>Dashboard</strong> settings to add/remove blocks and configure metrics per block.</p><p>Each block's <strong>Config</strong> button lets you pick which metrics feed it. Click <strong>Save All Settings</strong> when done.</p></div>
+        <div class="manual-step"><h4>4. Solar Forecast</h4><p>In <strong>Solar Forecast</strong>: enable, enter latitude/longitude and system capacity (kWp). Add a Solcast API key for high accuracy, or leave blank for free Open-Meteo.</p></div>
+        <div class="manual-step"><h4>5. Grid Status Tracking</h4><p>In <strong>Dashboard</strong> settings, enter your grid status metric name (e.g. <code>grid_status</code>). Epilykos tracks ON/OFF state, computes uptime hours (day/week/month/year) and the 24h timeline bar.</p></div>
+        <div class="manual-step"><h4>6. Appearance</h4><p><strong>Dashboard → Display</strong>: background colours (light/dark), background image, transparent blocks, title, logo, favicon. <strong>Savings</strong>: currency and rate per kWh.</p></div>
+        <div class="manual-step"><h4>7. Desktop & Mobile</h4><p>Create separate layouts. In <strong>Dashboard</strong>, set the default tab for desktop and mobile — Epilykos auto-switches by screen width.</p></div>
+        <div class="manual-step"><h4>Tips</h4><ul><li>Blocks support <strong>multiple instances</strong> — add the same type twice with different metrics.</li><li>Use the <strong>lock/unlock</strong> button on the dashboard to prevent accidental drags.</li><li>Export your layout as JSON for backup or sharing.</li></ul></div>
       </div>
 
       <div style="margin-top:2rem; text-align:center;"><button type="submit">Save All Settings</button></div>

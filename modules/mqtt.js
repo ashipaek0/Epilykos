@@ -46,8 +46,13 @@ function setupMqtt() {
     });
 
     client.on('message', (topic, message) => {
-      const val = parseFloat(message.toString());
-      if (isNaN(val)) return;
+      const msg = message.toString().trim().toLowerCase();
+      let val = parseFloat(msg);
+      if (isNaN(val)) {
+        if (msg === 'on') val = 1;
+        else if (msg === 'off') val = 0;
+        else return;
+      }
       const topicMap = device.topics || {};
       let metric;
       for (const [key, t] of Object.entries(topicMap)) {
