@@ -16,7 +16,7 @@ async function persistLayout() {
     const n = el.gridstackNode;
     const block = { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true, config: {} };
     const existing = dashboardConfig.dashboards.find(db => db.id === currentTabId)?.layout.find(b => b.id === el.dataset.blockId);
-    if (existing) { block.config = existing.config; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
+    if (existing) { block.config = existing.config; block.transparent = existing.transparent; block.bgColor = existing.bgColor; block.fontColor = existing.fontColor; block.fontSize = existing.fontSize; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
     layout.push(block);
   });
   const tab = dashboardConfig.dashboards.find(db => db.id === currentTabId);
