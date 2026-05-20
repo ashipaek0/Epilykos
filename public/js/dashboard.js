@@ -17,13 +17,21 @@ export async function loadDashboardConfig() {
     throw new Error('Invalid dashboard configuration: no dashboards');
   }
 
+  // Load branding first for desktop/mobile dashboard selection
+  const cfg = await fetchPublicConfig();
   const urlParams = new URLSearchParams(window.location.search);
   const tabParam = urlParams.get('tab');
   if (tabParam && dashboardConfig.dashboards.find(db => db.id === tabParam)) {
     dashboardConfig.activeDashboard = tabParam;
+  } else {
+    const isMobile = window.innerWidth < 768;
+    const defTab = isMobile ? cfg.mobile_dashboard : cfg.desktop_dashboard;
+    if (defTab && dashboardConfig.dashboards.find(db => db.id === defTab)) {
+      dashboardConfig.activeDashboard = defTab;
+    }
   }
+  applyBranding(cfg);
 
-  await loadBranding();
   renderDashboard();
   return dashboardConfig;
 }
@@ -59,19 +67,27 @@ function renderDashboard() {
 
   const layoutWithIds = ensureBlockIds(active.layout);
 
-  // Migrate: ensure every block has a colSpan (from gridW if available, else default 12)
+  // Migrate: ensure every block has GridStack grid coordinates
   let migrated = false;
+  let accumY = 0;
   layoutWithIds.forEach(block => {
-    if (block.colSpan === undefined) {
-      block.colSpan = block.gridW ?? 12;
+    if (block.gridX === undefined) { block.gridX = 0; migrated = true; }
+    if (block.gridW === undefined) { block.gridW = block.colSpan ?? 12; migrated = true; }
+    if (block.gridH === undefined) { block.gridH = Math.max(1, Math.round((block.rowSpan || 200) / 50)); migrated = true; }
+    if (block.gridY === undefined) {
+      block.gridY = accumY;
+      accumY += block.gridH;
       migrated = true;
     }
   });
   if (migrated) {
-    saveDashboardConfig(dashboardConfig).catch(e => console.warn('ColSpan migration save failed:', e));
+    saveDashboardConfig(dashboardConfig).catch(e => console.warn('Migration save failed:', e));
   }
 
-  // Render blocks as CSS Grid children
+  // Render blocks with absolute positioning based on GridStack coordinates
+  const ROW_HEIGHT = 50; // matches editor cellHeight
+  let maxBottom = 0;
+
   layoutWithIds.forEach((block) => {
     if (block.enabled === false) return;
     const builder = componentBuilders[block.type];
@@ -79,17 +95,36 @@ function renderDashboard() {
     const content = builder(block);
     if (!content) return;
 
+    const x = block.gridX ?? 0;
+    const y = block.gridY ?? 0;
+    const w = block.gridW ?? 12;
+    const h = block.gridH ?? 4;
+
     const wrapper = document.createElement('div');
     wrapper.className = 'dashboard-block';
     wrapper.dataset.blockId = block.id;
-    const span = block.colSpan ?? 12;
-    wrapper.style.gridColumn = `span ${Math.min(12, Math.max(1, span))}`;
-    if (block.rowSpan) {
-      wrapper.style.minHeight = block.rowSpan + 'px';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = ((x / 12) * 100) + '%';
+    wrapper.style.top = (y * ROW_HEIGHT) + 'px';
+    wrapper.style.width = ((w / 12) * 100) + '%';
+    wrapper.style.minHeight = (h * ROW_HEIGHT) + 'px';
+
+    if (block.bgColor) {
+      wrapper.style.backgroundColor = block.bgColor;
+    }
+    if (block.transparent) {
+      content.style.background = 'transparent';
+      content.style.borderColor = 'transparent';
+      content.style.boxShadow = 'none';
     }
     wrapper.appendChild(content);
     container.appendChild(wrapper);
+
+    maxBottom = Math.max(maxBottom, (y + h) * ROW_HEIGHT);
   });
+
+  container.style.position = 'relative';
+  container.style.height = maxBottom + 'px';
 
   // Init SortableJS for drag-to-reorder (authenticated users only)
   let dragEnabled = false;
@@ -175,37 +210,23 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-async function loadBranding() {
-  const cfg = await fetchPublicConfig();
+function applyBranding(cfg) {
   const titleEl = document.getElementById('dashboard-title');
   const logoEl = document.getElementById('logo-img');
   const title = cfg.dashboard_title || 'Epilykos';
   titleEl.textContent = title;
   document.title = title;
-  if (cfg.dashboard_logo) {
-    logoEl.src = cfg.dashboard_logo;
-    logoEl.style.display = 'inline';
-  } else {
-    logoEl.style.display = 'none';
-  }
+  if (cfg.dashboard_logo) { logoEl.src = cfg.dashboard_logo; logoEl.style.display = 'inline'; }
+  else { logoEl.style.display = 'none'; }
   if (cfg.dashboard_favicon) {
     let link = document.querySelector('link[rel="icon"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
     link.href = cfg.dashboard_favicon;
   }
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
   document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
   if (cfg.dashboard_bg_color) document.body.style.backgroundColor = cfg.dashboard_bg_color;
-  if (cfg.dashboard_bg_image) {
-    document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`;
-    document.body.style.backgroundSize = 'cover';
-    document.body.style.backgroundPosition = 'center';
-    document.body.style.backgroundAttachment = 'fixed';
-  }
+  if (cfg.dashboard_bg_image) { document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
 }
 
 export { dashboardConfig, renderDashboard, switchDashboard };
