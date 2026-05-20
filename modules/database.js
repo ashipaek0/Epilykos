@@ -1,3 +1,16 @@
+/**
+ * SQLite Database Layer
+ *
+ * Single-file SQLite database at ./data/energy.db (WAL mode for concurrent reads).
+ * Tables: history (power time-series), grid_status (ON/OFF state changes),
+ * config (key-value settings), metrics (time-series), latest_metrics (current values).
+ *
+ * Key functions:
+ * - getConfig(key) / setConfig(key, value) — key-value config store
+ * - initializeDatabase() — creates tables, seeds defaults, migrates legacy configs
+ *
+ * @module database
+ */
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
@@ -72,7 +85,7 @@ function initializeDatabase() {
     'solar_latitude', 'solar_longitude', 'solar_tilt', 'solar_azimuth',
     'solar_capacity_kwp', 'solcast_api_key', 'forecast_enabled',
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
-    'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard',
+    'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard',
     'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
     'user_metrics', 'bms_devices'     // <-- ADDED
   ];

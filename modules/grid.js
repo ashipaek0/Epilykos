@@ -1,8 +1,20 @@
+/**
+ * Grid Status Tracking
+ *
+ * Monitors a binary metric (0/1 or on/off) from any data source via latest_metrics.
+ * Records state changes in the grid_status table for uptime hours and timeline.
+ * Falls back to Home Assistant entity polling if metric not found in latest_metrics.
+ *
+ * The configured metric name is stored in config key 'grid_status_entity'.
+ *
+ * @module grid
+ */
 const { logger } = require('./logger');
 const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 const { parseGridState } = require('./utils');
 
+/** Poll current grid state from latest_metrics (any source) or HA, record changes */
 async function pollGridStatus() {
   const db = getDb();
   const gridMetric = getConfig('grid_status_entity');

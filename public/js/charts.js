@@ -1,3 +1,16 @@
+/**
+ * Chart Management
+ *
+ * Multi-instance Chart.js wrapper for power (line) and energy (bar) charts.
+ * Charts stored in Maps keyed by canvas ID for multi-instance support.
+ *
+ * Power chart: 24h/3d range, configurable datasets, green/red zone gradients.
+ * Energy chart: 7d/30d/90d range, configurable datasets.
+ *
+ * Exports lifecycle functions: init, refresh, update from state, range switching.
+ *
+ * @module charts
+ */
 import { fetchDashboardState } from './api.js';
 
 const powerCharts = {}, energyCharts = {};

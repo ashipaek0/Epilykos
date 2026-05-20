@@ -1,3 +1,19 @@
+/**
+ * Flow Card 2 — System Topology Diagram
+ *
+ * Cross/cardinal layout showing energy flow between Solar (top), Battery (bottom),
+ * Grid (left), Home (right), and a central Inverter hub.
+ *
+ * Features:
+ * - Animated flow lines with travelling dots showing power direction
+ * - Colour-coded icons and circle borders (amber=solar, green=charge, red=grid, amber=discharge)
+ * - Hub colour reflects active power source with priority: solar > battery discharge > grid
+ * - Solar circle shows utilization % (watts / system capacity)
+ * - Battery discharge detected across multiple metric names
+ * - Configurable inverter image via block.config.inverter_image
+ *
+ * @module systemTopology
+ */
 import { uid } from '../utils/uid.js';
 
 export function buildSystemTopology(block = {}) {
@@ -41,7 +57,7 @@ export function updateSystemTopology(state) {
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
     const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
-    // Try multiple common discharge metric names
+    // Battery discharge detection: check common metric names, fall back to negative battery_power
     let battDischarge = 0;
     for (const name of ['battery_discharge', 'battery_discharge_power', 'discharge']) {
       if (m[name]?.value > 0) { battDischarge = m[name].value; break; }
@@ -59,7 +75,7 @@ export function updateSystemTopology(state) {
     const ih = el('topo-icon-home'); if (ih) { if (solar > 100) ih.style.color = 'var(--solar)'; else if (battIsSource) ih.style.color = '#f59e0b'; else if (grid > 50) ih.style.color = 'var(--grid)'; else ih.style.color = 'var(--text-secondary)'; }
     const ig = el('topo-icon-grid'); if (ig) { if (gv('grid') < 0) ig.style.color = '#3b82f6'; else if (grid > 50) ig.style.color = 'var(--grid)'; else ig.style.color = 'var(--text-secondary)'; }
     const ib = el('topo-icon-battery'); if (ib) { if (battPower > 50) ib.style.color = 'var(--battery)'; else if (battDischarge > 50) ib.style.color = '#f59e0b'; else ib.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; ib.className = cl; }
-    // Circle border glow
+    // Circle borders glow with active power source colour
     const solarCircle = container.querySelector('.topo-solar-circle');
     if (solarCircle) solarCircle.style.borderColor = solar > 50 ? 'var(--solar)' : 'var(--border)';
     const gridCircle = container.querySelector('.topo-grid-node .topo-node-circle');

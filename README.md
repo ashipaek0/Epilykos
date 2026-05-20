@@ -2,31 +2,60 @@
 
 > **Multi-source, multi-device energy monitoring.** A self-hosted, real-time dashboard integrating **Home Assistant**, **MQTT**, **Modbus TCP/Serial**, **REST APIs**, and **Bluetooth BMS** devices. Public display with no login required; settings are password-protected.
 
-![Screenshot 1](https://github.com/user-attachments/assets/0511a0ba-f08c-4f72-918a-59945d3ee456)
-![Screenshot 2](https://github.com/user-attachments/assets/d0599cd5-bfd0-45e0-89e0-d8e291e31a0b)
-
 ---
 
 ## Features
 
 ### Live Data & Flow
 
-- **Animated Flow Card** — colour-coded arrows for Solar → Battery → Home → Grid. Icons change colour with activity.
+- **Flow Card** — colour-coded energy flow diagram with animated arrows for Solar → Battery → Home → Grid.
+- **Flow Card 2** — cross/cardinal topology diagram with center hub icon and directional flow lines with animated dots.
+- **Flow Card Square** — compact 2×2 grid with icons at corners, data beside icons, configurable metrics.
+- **Flow Card Square 2** — same 2×2 grid with flow lines along X/Y axes, animated dots, per-source colour coding.
 - **Real-time Stats** — current power (W), battery SoC (%), daily totals (kWh), self-sufficiency, cost savings.
-- **Solar Forecast Banner** — 4-day predictions via Solcast (API key) or Open-Meteo (free). Hourly sparkline comparing actual vs forecast power, weather summary.
-- **Grid Status & Timeline** — ON/OFF state, uptime hours (day/week/month/year), 24-hour timeline bar with hover tooltips.
+- **Solar Forecast Banner** — 4-day predictions via Solcast or Open-Meteo. Sparkline comparing actual vs forecast with fill gradient. Live clock, weather summary, "remaining today" estimate.
+- **Grid Status & Timeline** — binary metric from any source (HA, MQTT, Modbus). ON/OFF state with "since" timestamp, uptime hours (day/week/month/year), 24-hour timeline bar with hover tooltips.
 
 ### Modular Dashboard
 
-- **Multiple tabs** — separate dashboards (e.g. "Main", "Technical", "Living Room").
-- **Drag-to-reorder** — drag blocks to rearrange directly on the dashboard (authenticated users).
-- **12-column CSS Grid** — stack blocks side-by-side. Each block has configurable width (Full, 3/4, 2/3, 1/2, 1/3, 1/4) and optional min-height.
-- **Metric configurability** — every block reads metric names from config. Pick which metrics feed each block from Settings. Fallback defaults mean existing layouts keep working.
-- **Available block types:**
-  - Flow Card, Solar Forecast Banner, Metric Cards, Grid Card
-  - Power Overview Chart, Daily Energy Bar Chart
-  - Savings Summary, Last 30 Days Table, Last 12 Months Table
-  - Weather Block, Battery Block
+- **Multiple tabs** — separate dashboards per context.
+- **Drag-to-reorder** — drag blocks on the dashboard (SortableJS). Lock/unlock toggle (authenticated users).
+- **Absolute positioning** — blocks placed at exact pixel coordinates from the editor. Responsive width via percentage columns.
+- **Visual Layout Editor** — `/editor` page with GridStack. Drag blocks from palette, resize, arrange freely. Create/rename/delete dashboards. Positions persist exactly.
+- **Per-block configurable** — background colour, transparency toggle, metric mapping, width, height.
+- **Desktop/mobile defaults** — auto-switch to different dashboard tabs based on screen width.
+- **Multi-instance support** — any block can appear multiple times on the same dashboard.
+
+### Block Types (20)
+
+| Block | Description |
+|-------|-------------|
+| Flow Card | Animated flow diagram (Solar/Battery/Home/Grid) |
+| Flow Card 2 | Cross topology with center hub + animated flow lines |
+| Flow Card Square | 2×2 grid, icons at corners |
+| Flow Card Square 2 | 2×2 grid with X/Y flow lines |
+| Forecast Banner | Solar forecast + sparkline + weather + clock |
+| Forecast Sparkline | Standalone sparkline graph |
+| Forecast Info | Weather + days + clock without sparkline |
+| Metric Cards | Custom stat cards with configurable metrics |
+| Multi-Value Card | Multiple metrics on one card (unlimited) |
+| Gauge Card | Full-circle SVG gauge |
+| Half Gauge | 180° semicircle gauge (positive fills right) |
+| Half Gauge 2 | 180° semicircle (positive fills left) |
+| Grid Card | Grid status, uptime hours, timeline |
+| Power Chart | Line chart (24h/3d) with green/red zone gradients |
+| Energy Chart | Bar chart (7d/30d/90d) |
+| Savings Summary | Today/week/month/all-time PV savings |
+| Daily Table | Last 30 days with configurable columns |
+| Monthly Table | Last 12 months with configurable columns |
+| Text Card | Freeform HTML/markdown content |
+| Embed Card | IFrame for external URL |
+
+### Gauge Variants
+
+- **Gauge Card** — 360° circular gauge. Configurable min/max/color. Label + value centered inside.
+- **Half Gauge** — 180° semicircle (9 o'clock to 3 o'clock). Zero at bottom center. Positive fills right, negative fills left.
+- **Half Gauge 2** — Same arc, reversed: positive fills from left (9 o'clock), negative from right (3 o'clock).
 
 ### Data Sources
 
@@ -34,21 +63,24 @@
 - **MQTT** — multi-broker, topic-to-metric mapping.
 - **Modbus TCP & Serial** — profiles for SRNE, Growatt, Deye, Victron, Voltronic.
 - **External REST APIs** — poll any HTTP endpoint, map JSON paths to metrics.
-- **Bluetooth BMS** — JK, JBD, Daly via Python sidecar (auto-discover, cell voltages, temperature).
+- **Bluetooth BMS** — JK, JBD, Daly via Python sidecar (auto-discover, cell voltages).
 
 ### Charts & Tables
 
-- **Power Overview** — line chart, 24h/3d range, toggle datasets.
-- **Daily Energy** — bar chart, 7d/30d/90d range.
-- **Data Tables** — collapsible daily (30 days) and monthly (12 months) breakdowns.
+- **Power Overview** — line chart, 24h/3d range. Green gradient above zero, red below. Configurable datasets with metric/label/color.
+- **Daily Energy** — bar chart, 7d/30d/90d range. Configurable datasets.
+- **Data Tables** — daily (30 days) and monthly (12 months) with configurable columns (show/hide, change metric per column).
 
 ### Customisation
 
 - Light / dark mode (manual or system auto-sync).
-- Custom title and logo.
-- Electricity rate and currency for savings calculation.
+- Custom title, logo, and favicon.
+- Background colour and background image for the page.
+- Global transparency toggle (all blocks).
+- Per-block background colour and transparency.
+- Electricity rate and currency for savings.
 - Backup & restore database.
-- Layout configuration via Settings (add/remove blocks, change type, width, height, per-block metric mapping).
+- Export/import dashboard layout as JSON.
 
 ### Real-Time Updates
 
@@ -57,7 +89,7 @@
 
 ### Security
 
-- Session-based authentication for settings.
+- Session-based authentication for settings and editor.
 - Rate limiting on login.
 - CSRF protection.
 - Structured logging (Winston) with rotation.
@@ -95,7 +127,7 @@ Dashboard: `http://localhost:3000`
 4. **Modbus:** pick profile, configure TCP or serial.
 5. **BMS:** scan for devices, select MAC address.
 6. **Solar Forecast:** set latitude, longitude, capacity. Optionally add Solcast API key.
-7. **Dashboard layout:** add/remove blocks, set type, width, height, configure per-block metrics.
+7. **Dashboard layout:** use the **Editor** (`/editor`) to visually arrange blocks, or configure in Settings → Dashboard.
 8. Click **Save All Settings**.
 
 ---
@@ -125,11 +157,15 @@ epilykos/
 │   └── utils.js                  # Grid state parser
 ├── public/
 │   ├── index.html                # Main dashboard
-│   ├── style.css                 # Styles (CSS Grid layout)
-│   ├── settings.html / settings.js  # Settings page
+│   ├── editor.html               # Visual layout editor
+│   ├── settings.html             # Settings page
+│   ├── settings.js               # Settings logic
+│   ├── login.html                # Login page
+│   ├── style.css                 # Styles
 │   └── js/
 │       ├── main.js               # Entry: WebSocket, theme, config
 │       ├── dashboard.js          # CSS Grid + SortableJS layout
+│       ├── editor.js             # GridStack visual editor
 │       ├── api.js                # API fetch helpers
 │       ├── updater.js            # State update dispatcher
 │       ├── charts.js             # Chart.js power & energy charts
@@ -137,18 +173,31 @@ epilykos/
 │       ├── theme.js              # Light/dark mode
 │       ├── tables.js             # Daily/monthly data tables
 │       ├── grid.js               # Grid timeline bar
+│       ├── utils/
+│       │   ├── blockId.js        # Block ID generation
+│       │   └── uid.js            # Scoped ID helper
 │       └── components/
+│           ├── index.js          # Component registry
 │           ├── flowCard.js       # Animated flow diagram
-│           ├── forecastBanner.js # Solar forecast banner
+│           ├── systemTopology.js # Flow Card 2 (cross topology)
+│           ├── flowCardSquare.js # 2×2 square layout
+│           ├── flowCardSquare2.js# 2×2 square + flow lines
+│           ├── forecastBanner.js # Full forecast banner
+│           ├── forecastSparkline.js # Standalone sparkline
+│           ├── forecastInfo.js   # Weather + days info card
 │           ├── metricCards.js    # Custom stat cards
+│           ├── multiValueCard.js # Multi-value card
+│           ├── gaugeCard.js      # Full-circle gauge
+│           ├── halfGaugeCard.js  # Half gauge
+│           ├── halfGauge2Card.js # Half gauge 2 (reversed)
 │           ├── gridCard.js       # Grid status & hours
-│           ├── chartPower.js     # Power chart builder
-│           ├── chartEnergy.js    # Energy chart builder
+│           ├── chartPower.js     # Power chart
+│           ├── chartEnergy.js    # Energy chart
 │           ├── savingsSummary.js # Savings display
-│           ├── dataTableDaily.js # Daily data table
-│           ├── dataTableMonthly.js# Monthly data table
-│           ├── weatherBlock.js   # Weather display
-│           └── batteryBlock.js   # Battery metrics
+│           ├── dataTableDaily.js # Daily table
+│           ├── dataTableMonthly.js# Monthly table
+│           ├── textCard.js       # HTML/markdown content
+│           └── iframeCard.js     # IFrame embed
 ├── bms-bridge/                   # Python FastAPI sidecar for BLE BMS
 ├── profiles/                     # Modbus register maps (JSON)
 └── data/                         # SQLite database (runtime)
@@ -158,29 +207,39 @@ epilykos/
 
 ## Configuration Reference
 
-### Dashboard Layout
+### Dashboard Layout (Settings → Dashboard)
 
-Each block in settings has:
+Each block has:
 - **Type** — block component
-- **Width** — Full, 3/4, 2/3, 1/2, 1/3, 1/4 (12-column grid)
+- **Width** — Full, 3/4, 2/3, 1/2, 1/3, 1/4
 - **Height** — Auto or fixed px
-- **Config** — per-block settings (metrics, title, datasets, visibility)
+- **Background** — colour picker
+- **Transparent** — per-block toggle
+- **Config** — per-block settings (metrics, title, datasets, columns)
 
-Blocks are rendered in a 12-column CSS Grid. Drag to reorder on the dashboard (SortableJS). Changes persist on save.
+### Editor (`/editor`)
+
+- Drag blocks from palette onto grid
+- Drag to reposition, drag edges to resize
+- Click ✕ to remove a block
+- + New / Delete / Rename dashboards
+- Save & Exit persists layout
 
 ### Per-Block Metric Configuration
 
-Each block type can override which metrics it reads:
-
 | Block | Configurable Metrics |
 |-------|---------------------|
-| Battery | SOC, Voltage, Current, Power, Temperature |
 | Flow Card | Solar, Battery SOC, Charge/Discharge, Consumption, Grid Import/Export |
+| Flow Card 2 | Solar, Grid, Battery Power, Battery SOC, Consumption |
+| Flow Card Square / Square 2 | Solar, Grid, Battery Power, Battery SOC, Consumption |
 | Grid Card | Grid Status (optional override) |
-| Power/Energy Charts | Datasets: Label, Metric, Color (add/remove freely) |
+| Gauge / Half Gauge | Metric, Min, Max, Color |
+| Multi-Value Card | Unlimited metrics with Label, Metric, Unit |
+| Text Card | HTML/markdown content |
+| Embed Card | URL |
+| Power/Energy Charts | Datasets: Label, Metric, Color (add/remove) |
 | Forecast Banner | Actual energy field for sparkline |
-
-All blocks fall back to sensible defaults if no config is set — existing layouts keep working.
+| Daily/Monthly Tables | Columns: Label, Field (show/hide, reorder) |
 
 ### Home Assistant (Multi-Device)
 
@@ -264,6 +323,7 @@ GNU General Public License v3.0 — see `LICENSE`.
 - **Chart.js** — charts
 - **SQLite** — storage
 - **SortableJS** — drag-to-reorder
+- **GridStack.js** — visual editor
 - **MQTT.js** — MQTT client
 - **modbus-serial** — Modbus
 - **Winston** — logging

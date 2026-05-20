@@ -955,6 +955,8 @@ function renderDashboardBlockEditor(dashboard) {
       <select class="block-type-select">
         <option value="flow-card" ${block.type === 'flow-card' ? 'selected' : ''}>Flow Card</option>
         <option value="forecast-banner" ${block.type === 'forecast-banner' ? 'selected' : ''}>Forecast Banner</option>
+        <option value="forecast-sparkline" ${block.type === 'forecast-sparkline' ? 'selected' : ''}>Forecast Sparkline</option>
+        <option value="forecast-info" ${block.type === 'forecast-info' ? 'selected' : ''}>Forecast Info</option>
         <option value="metric-cards" ${block.type === 'metric-cards' ? 'selected' : ''}>Metric Cards</option>
         <option value="grid-card" ${block.type === 'grid-card' ? 'selected' : ''}>Grid Card</option>
         <option value="chart-power" ${block.type === 'chart-power' ? 'selected' : ''}>Power Chart</option>
@@ -1213,6 +1215,11 @@ function renderDashboardBlockEditor(dashboard) {
           <input type="text" class="config-inverter-image" value="${escapeHtml(block.config?.inverter_image || '')}" placeholder="https://..." style="width:100%; margin-bottom:0.5rem;">
           ${selectsHtml}
           <button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-sparkline') {
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `<label>Actual Energy Field</label><select class="config-metric" data-role="actual_energy" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.actual_energy)}</select><button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-info') {
+        configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       } else if (block.type === 'forecast-banner') {
         const currentMetrics = block.config?.metrics || {};
         const fieldOptions = [
@@ -1318,7 +1325,7 @@ function renderDashboardBlockEditor(dashboard) {
                 block.config.columns.push({ label: labelEl.value, field: fieldEl.value });
               }
             });
-          } else if (block.type === 'forecast-banner') {
+          } else if (block.type === 'forecast-banner' || block.type === 'forecast-sparkline') {
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => {
               const role = select.dataset.role;
