@@ -173,7 +173,7 @@ async function initEditor() {
     });
 
     await loadTab(currentTabId);
-    document.getElementById('save-btn').addEventListener('click', async () => { await persistLayout(); clearUnsaved(); window.location.href = '/?tab=' + currentTabId; });
+    document.getElementById('save-btn').addEventListener('click', async () => { await persistLayout(); clearUnsaved(); const validTab = dashboardConfig.dashboards.find(db => db.id === currentTabId) ? currentTabId : dashboardConfig.dashboards[0]?.id || 'main'; window.location.href = '/?tab=' + encodeURIComponent(validTab); });
     hideLoading();
   } catch (e) { hideLoading(); alert('Editor failed: ' + e.message); }
 }

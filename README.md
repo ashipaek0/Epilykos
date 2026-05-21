@@ -294,6 +294,7 @@ Pre-built images:
 ---
 
 ## Development
+https://github.com/ashipaek0/Epilykos/wiki/Development-Guide 
 
 ```bash
 npm install
