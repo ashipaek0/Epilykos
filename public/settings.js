@@ -28,7 +28,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -40,6 +40,7 @@ async function loadSettings() {
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
+    buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
     populateDashboardSelects(dashConfig);
@@ -776,6 +777,134 @@ const addBmsBtn = document.getElementById('add-bms-device');
 if (addBmsBtn) addBmsBtn.addEventListener('click', () => {
   const idx = bmsDeviceCounter;
   renderBmsDevice({ name: '', address: '', enabled: true }, idx);
+});
+
+// ======================== INVERTER DONGLE ========================
+let dongleDeviceCounter = 0;
+let dongleProfilesCache = [];
+
+function buildDongleDeviceList(devices) {
+  const container = document.getElementById('dongle-devices-container');
+  if (!container) return;
+  container.innerHTML = '';
+  dongleDeviceCounter = 0;
+  // Preload profiles once
+  fetch('/api/dongle/profiles').then(r => r.json()).then(p => { dongleProfilesCache = p; }).catch(() => {});
+  devices.forEach((dev, idx) => renderDongleDevice(dev, idx));
+}
+
+function getProfileById(id) {
+  return dongleProfilesCache.find(p => p.id === id);
+}
+
+function getTransportForProfile(profileId) {
+  const p = getProfileById(profileId);
+  return p ? p.transport : 'solarman-v5';
+}
+
+function renderDongleDevice(device, idx) {
+  const container = document.getElementById('dongle-devices-container');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+
+  const transport = device.profile ? getTransportForProfile(device.profile) : (device.transport || 'solarman-v5');
+
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="dongle_config[${idx}][name]" placeholder="Instance Name (e.g., SRNE Inverter)" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}> Enabled</label>
+      <button type="button" class="remove-btn" data-action="remove-dongle">Remove</button>
+    </div>
+    <div class="form-row">
+      <select name="dongle_config[${idx}][profile]" class="dongle-profile-select">
+        <option value="">-- Select profile --</option>
+      </select>
+      <input type="text" name="dongle_config[${idx}][host]" placeholder="Host / IP Address" value="${escapeHtml(device.host || '')}">
+      <input type="number" name="dongle_config[${idx}][port]" placeholder="Port" value="${device.port || ''}">
+    </div>
+    <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
+      <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
+    </div>
+    <div class="form-row">
+      <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
+      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:100px;">
+      <input type="text" name="dongle_config[${idx}][prefix]" placeholder="Metric Prefix (optional)" value="${escapeHtml(device.prefix || '')}" style="width:150px;">
+      <button type="button" class="fetch-btn test-dongle">Test Connection</button>
+      <span class="test-status" id="dongle-test-status-${idx}"></span>
+    </div>
+    <input type="hidden" name="dongle_config[${idx}][transport]" value="${transport}">
+  `;
+  container.appendChild(card);
+
+  const serialRow = card.querySelector('.dongle-serial-row');
+  const transportHidden = card.querySelector('input[name$="[transport]"]');
+
+  const profileSelect = card.querySelector('.dongle-profile-select');
+  (dongleProfilesCache.length ? Promise.resolve(dongleProfilesCache) : fetch('/api/dongle/profiles').then(r => r.json()))
+    .then(profiles => {
+      if (!dongleProfilesCache.length) dongleProfilesCache = profiles;
+      profiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        if (p.id === device.profile) opt.selected = true;
+        profileSelect.appendChild(opt);
+      });
+    }).catch(() => {});
+
+  profileSelect.addEventListener('change', () => {
+    const p = getProfileById(profileSelect.value);
+    if (!p) return;
+    transportHidden.value = p.transport;
+    serialRow.style.display = p.transport === 'modbus-tcp' ? 'none' : '';
+    const portInput = card.querySelector('input[name$="[port]"]');
+    portInput.value = p.default_port || '';
+    card.querySelector('input[name$="[modbus_unit_id]"]').value = p.default_unit_id || 1;
+  });
+
+  card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
+    card.remove();
+    reindexDongle();
+  });
+
+  card.querySelector('.test-dongle').addEventListener('click', async () => {
+    const statusEl = document.getElementById(`dongle-test-status-${idx}`);
+    const host = card.querySelector('input[name$="[host]"]').value.trim();
+    const port = card.querySelector('input[name$="[port]"]').value;
+    const serial = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    const unitId = card.querySelector('input[name$="[modbus_unit_id]"]').value;
+    const tx = transportHidden.value;
+    if (!host) { showStatus(statusEl, 'Host required', 'error'); return; }
+    showStatus(statusEl, 'Testing...', 'info');
+    try {
+      const res = await fetch('/api/dongle/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, modbus_unit_id: parseInt(unitId) || 1, transport: tx })
+      });
+      const data = await res.json();
+      if (res.ok) showStatus(statusEl, `OK — Register 0x0100 = ${data.raw}`, 'success');
+      else showStatus(statusEl, data.error, 'error');
+    } catch (err) {
+      showStatus(statusEl, err.message, 'error');
+    }
+  });
+
+  dongleDeviceCounter++;
+}
+function reindexDongle() {
+  const cards = document.querySelectorAll('#dongle-devices-container .device-card');
+  dongleDeviceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    dongleDeviceCounter++;
+  });
+}
+const addDongleBtn = document.getElementById('add-dongle-device');
+if (addDongleBtn) addDongleBtn.addEventListener('click', () => {
+  const idx = dongleDeviceCounter;
+  renderDongleDevice({ name: '', host: '', port: '', serial_number: '', modbus_unit_id: 1, poll_interval: 30, transport: 'solarman-v5', profile: '', prefix: '', enabled: true }, idx);
 });
 
 // ======================== FORECAST TEST ========================
@@ -1614,6 +1743,20 @@ form.addEventListener('submit', async (e) => {
     dev.name = card.querySelector('.device-header input[type="text"]').value;
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
     dev.address = card.querySelector('input[name$="[address]"]').value;
+    return dev;
+  });
+  payload.dongle_config = collectDeviceArray('dongle-devices-container', (card) => {
+    const dev = {};
+    dev.name = card.querySelector('.device-header input[type="text"]').value;
+    dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+    dev.profile = card.querySelector('.dongle-profile-select').value;
+    dev.transport = card.querySelector('input[name$="[transport]"]').value;
+    dev.host = card.querySelector('input[name$="[host]"]').value;
+    dev.port = parseInt(card.querySelector('input[name$="[port]"]').value) || undefined;
+    dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
+    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
+    dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
     return dev;
   });
   payload.dashboard_config = JSON.stringify(dashConfig);

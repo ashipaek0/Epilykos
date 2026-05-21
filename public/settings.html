@@ -221,7 +221,7 @@
               let bodyObj = JSON.parse(newOptions.body);
               let modified = false;
               // List of config keys that should be stored as JSON strings
-              const arrayKeys = ['mqtt_devices', 'ha_devices', 'modbus_devices', 'external_sources', 'bms_devices', 'user_metrics'];
+              const arrayKeys = ['mqtt_devices', 'ha_devices', 'modbus_devices', 'external_sources', 'bms_devices', 'dongle_config', 'user_metrics'];
               for (let key of arrayKeys) {
                 if (bodyObj.hasOwnProperty(key) && Array.isArray(bodyObj[key])) {
                   bodyObj[key] = JSON.stringify(bodyObj[key]);
@@ -274,6 +274,7 @@
           <button class="sub-tab-btn" data-subtab="modbus" aria-selected="false" aria-controls="subtab-modbus" role="tab">Modbus</button>
           <button class="sub-tab-btn" data-subtab="external" aria-selected="false" aria-controls="subtab-external" role="tab">REST</button>
           <button class="sub-tab-btn" data-subtab="bms" aria-selected="false" aria-controls="subtab-bms" role="tab">BMS</button>
+          <button class="sub-tab-btn" data-subtab="dongle" aria-selected="false" aria-controls="subtab-dongle" role="tab">Dongle</button>
         </div>
         
         <div id="subtab-ha" class="sub-tab-content active" role="tabpanel" aria-labelledby="ha">
@@ -304,6 +305,12 @@
           <div id="bms-devices-container"></div>
           <button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button>
           <div class="note">Requires the BMS bridge container to be running.</div>
+        </div>
+
+        <div id="subtab-dongle" class="sub-tab-content" role="tabpanel" aria-labelledby="dongle">
+          <div id="dongle-devices-container"></div>
+          <button type="button" id="add-dongle-device" class="fetch-btn">+ Add Dongle Instance</button>
+          <div class="note">The dongle connects directly to your inverter's WiFi module via TCP. For Growatt dongles, reconfigure the dongle's web UI to point to this server's IP on the configured port instead of server.growatt.com.</div>
         </div>
       </div>
 
@@ -422,7 +429,7 @@
           .manual-step code { background: var(--bg); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.9rem; }
           .manual-step ul { margin: 0.75rem 0 0 1.5rem; }
         </style>
-        <div class="manual-step"><h4>1. Add a Data Source</h4><p>Start in <strong>Data Sources</strong> and add at least one:</p><ul><li><strong>Home Assistant</strong> — URL + Long-Lived Access Token, click <em>Fetch Entities</em>, map metrics to entity IDs.</li><li><strong>MQTT</strong> — broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>), map topics to metric names.</li><li><strong>Modbus</strong> — pick a profile (SRNE, Growatt, Deye, Victron), configure TCP or serial.</li><li><strong>External REST</strong> — any HTTP API returning JSON. Map JSON paths to metrics.</li><li><strong>Bluetooth BMS</strong> — requires the BMS bridge. Scan for devices, select MAC address.</li></ul></div>
+        <div class="manual-step"><h4>1. Add a Data Source</h4><p>Start in <strong>Data Sources</strong> and add at least one:</p><ul><li><strong>Home Assistant</strong> — URL + Long-Lived Access Token, click <em>Fetch Entities</em>, map metrics to entity IDs.</li><li><strong>MQTT</strong> — broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>), map topics to metric names.</li><li><strong>Modbus</strong> — pick a profile (SRNE, Growatt, Deye, Victron), configure TCP or serial.</li><li><strong>Inverter Dongle</strong> — direct TCP connection to your inverter's WiFi module. Supports Solarman V5, plain Modbus TCP, and Growatt push mode.</li><li><strong>External REST</strong> — any HTTP API returning JSON. Map JSON paths to metrics.</li><li><strong>Bluetooth BMS</strong> — requires the BMS bridge. Scan for devices, select MAC address.</li></ul></div>
         <div class="manual-step"><h4>2. Create & Map Metrics</h4><p>Metric names identify your data. Mapping an entity/topic auto-creates the metric. Create custom ones in the <strong>Metrics</strong> tab.</p><p>Common names: <code>solar</code> <code>consumption</code> <code>battery_soc</code> <code>battery_voltage</code> <code>grid_import</code> <code>grid_export</code>. Binary sensors (on/off) auto-convert to 1/0.</p></div>
         <div class="manual-step"><h4>3. Build Your Dashboard</h4><p>Use the <strong>Editor</strong> (<code>/editor</code>) for visual layout — drag blocks from the palette, arrange freely, resize. Or use <strong>Dashboard</strong> settings to add/remove blocks and configure metrics per block.</p><p>Each block's <strong>Config</strong> button lets you pick which metrics feed it. Click <strong>Save All Settings</strong> when done.</p></div>
         <div class="manual-step"><h4>4. Solar Forecast</h4><p>In <strong>Solar Forecast</strong>: enable, enter latitude/longitude and system capacity (kWp). Add a Solcast API key for high accuracy, or leave blank for free Open-Meteo.</p></div>
