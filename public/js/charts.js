@@ -62,7 +62,7 @@ export async function refreshPowerChart() { for (const cid of Object.keys(powerC
 
 function updatePowerChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const ds = getDatasets(ct) || defaultPower(); chart.data.datasets = ds.map(d => { const f = metricToPowerField[d.metric] || d.metric; return { label: d.label, data: data.map(p => ({ x: p.timestamp, y: p[f] ?? 0 })), borderColor: resolveColor(d.color), tension: 0.4, borderWidth: 1, fill: true }; }); chart.update(); applyGradientFills(chart); }
 
-export function setPowerRange(range, datasets) { currentPowerRange = range; refreshPowerChart(); }
+export function setPowerRange(range, datasets) { currentPowerRange = range; if (datasets) { document.querySelectorAll('.chart-container').forEach(c => { if (c.querySelector('canvas[id^="powerChart"]')) c.dataset.chartDatasets = JSON.stringify(datasets); }); } refreshPowerChart(); }
 
 async function refreshEnergyChartFor(cid) { const chart = energyCharts[cid]; if (!chart) return; const days = parseInt(currentEnergyRange); const r = await fetch(`/api/daily?days=${days}`); const data = await r.json(); updateEnergyChartData(chart, cid, data); }
 
