@@ -38,13 +38,14 @@ const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
+const { startDonglePolling, restartDonglePolling } = require('./modules/dongle');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Global rate limiter — 200 requests per 15 min per IP
-const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 1000, standardHeaders: true, legacyHeaders: false });
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
@@ -65,6 +66,7 @@ loadProfiles();
 setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
+startDonglePolling();
 
 // Multer for restore and import
 const upload = multer({
@@ -679,6 +681,7 @@ app.post('/api/settings', (req, res) => {
     if ('mqtt_devices' in updates) restartMqtt();
     if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
     if ('bms_devices' in updates) restartBmsPolling();
+    if ('dongle_config' in updates) restartDonglePolling();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -755,6 +758,61 @@ app.post('/api/test-external', async (req, res) => {
     res.json({ success: true, value: isNaN(num) ? value : num });
   } catch (err) {
     logger.error('Error testing external source:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== DONGLE ENDPOINTS (protected) ==========
+app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
+  try {
+    const profilesDir = path.join(__dirname, 'profiles', 'dongles');
+    if (!fs.existsSync(profilesDir)) return res.json([]);
+    const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
+    const profiles = files.map(f => {
+      const raw = JSON.parse(fs.readFileSync(path.join(profilesDir, f), 'utf8'));
+      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id };
+    });
+    res.json(profiles);
+  } catch (err) {
+    logger.error('Error listing dongle profiles:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/dongle/test', isAuthenticated);
+app.post('/api/dongle/test', async (req, res) => {
+  const { host, port, serial_number, modbus_unit_id, transport } = req.body;
+  if (!host) return res.status(400).json({ error: 'Host required' });
+  try {
+    let transportObj;
+    if (transport === 'solarman-v5') {
+      transportObj = new (require('./modules/dongle/solarmanV5').SolarmanV5Transport)({ host, port: port || 8899, serial_number, modbus_unit_id: modbus_unit_id || 1 });
+    } else {
+      transportObj = new (require('./modules/dongle/modbusTcp').ModbusTcpTransport)({ host, port: port || 502, modbus_unit_id: modbus_unit_id || 1 });
+    }
+    const data = await transportObj.readRegisters(0x0100, 1);
+    res.json({ success: true, raw: data.readUInt16BE(0) });
+  } catch (err) {
+    logger.warn(`[dongle] test connection failed to ${host}: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/dongle/status', isAuthenticated);
+app.get('/api/dongle/status', (req, res) => {
+  try {
+    const raw = getConfig('dongle_config');
+    if (!raw || raw === '[]') return res.json([]);
+    const config = JSON.parse(raw);
+    const result = config.map(inst => ({
+      name: inst.name,
+      enabled: inst.enabled,
+      transport: inst.transport,
+      lastSeen: inst.lastSeen || null,
+      consecutiveFails: inst.consecutiveFails || 0
+    }));
+    res.json(result);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
