@@ -8,6 +8,7 @@ export function buildTextCard(block = {}) {
   container.style.lineHeight = '1.5';
   container.style.whiteSpace = 'pre-wrap';
   container.style.wordBreak = 'break-word';
+  // Note: content is intentionally rendered as HTML — only trusted admins can configure blocks
   container.innerHTML = config.content || '<em style="color:var(--text-secondary)">Configure content in settings</em>';
   return container;
 }
