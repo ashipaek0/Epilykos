@@ -20,8 +20,8 @@ export function buildHalfGauge2Card(block = {}) {
   container.innerHTML = `
     <div class="gauge-wrap" style="position:relative;width:100%;max-width:220px;aspect-ratio:2/1.1;margin:0.25rem auto 0;overflow:hidden;">
       <svg viewBox="0 0 200 110" style="width:100%;height:100%;display:block;">
-        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--border)" stroke-width="35" stroke-linecap="round"/>
-        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="${color}" stroke-width="35" stroke-dasharray="0 260" stroke-dashoffset="130" stroke-linecap="round" id="${svgId}"/>
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--border)" stroke-width="35" stroke-linecap="butt"/>
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="${color}" stroke-width="35" stroke-dasharray="0 260" stroke-dashoffset="130" stroke-linecap="butt" id="${svgId}"/>
       </svg>
       <div style="position:absolute;bottom:6%;left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;">
         <span class="stat-value" style="font-size:clamp(0.85rem,2.5vw,1.1rem);font-weight:600;line-height:1;" id="hg2-val-${id}">--</span>
