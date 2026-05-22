@@ -62,6 +62,7 @@
 - **Home Assistant** — multi-instance, entity mapping per device.
 - **MQTT** — multi-broker, topic-to-metric mapping.
 - **Modbus TCP & Serial** — profiles for SRNE, Growatt, Deye, Victron, Voltronic.
+- **Inverter Dongle** — direct TCP to WiFi dongles. Solarman V5, Modbus TCP, Growatt push mode. No cloud, no HA, no intermediary.
 - **External REST APIs** — poll any HTTP endpoint, map JSON paths to metrics.
 - **Bluetooth BMS** — JK, JBD, Daly via Python sidecar (auto-discover, cell voltages).
 
@@ -144,6 +145,12 @@ epilykos/
 │   ├── modbus.js                 # Modbus TCP/Serial
 │   ├── external.js               # REST API polling
 │   ├── bms.js                    # Bluetooth BMS bridge
+│   ├── dongle.js                 # Inverter dongle polling
+│   ├── dongle/                   # Dongle transports
+│   │   ├── crc.js                # Modbus CRC-16, frame helpers
+│   │   ├── solarmanV5.js         # Solarman V5 TCP client
+│   │   ├── modbusTcp.js          # Plain Modbus TCP client
+│   │   └── growatt.js            # Growatt TCP server (push)
 │   ├── solar.js                  # Solar forecast (Solcast/Open-Meteo)
 │   ├── grid.js                   # Grid status tracking
 │   ├── history.js                # Legacy history snapshots
@@ -200,6 +207,7 @@ epilykos/
 │           └── iframeCard.js     # IFrame embed
 ├── bms-bridge/                   # Python FastAPI sidecar for BLE BMS
 ├── profiles/                     # Modbus register maps (JSON)
+├── profiles/dongles/             # Dongle inverter profiles (JSON)
 └── data/                         # SQLite database (runtime)
 ```
 
@@ -275,6 +283,23 @@ Each block has:
 
 BMS metrics are auto-prefixed: `bms_<name>_voltage`, etc.
 
+### Inverter Dongle
+
+| Setting | Description |
+|---------|-------------|
+| **Name** | Friendly label for this instance |
+| **Profile** | Inverter model — auto-fills transport, port, unit ID |
+| **Host** | Dongle IP address on your LAN |
+| **Port** | 8899 (Solarman V5), 8899 (Sofar), 502 (Voltronic), 5279 (Growatt) |
+| **Serial Number** | Logger serial (Solarman V5 only — printed on dongle label) |
+| **Modbus Unit ID** | Usually 1 |
+| **Poll Interval** | Seconds between polls (default 30) |
+| **Prefix** | Optional prefix for metric names (e.g. `inverter1_`) |
+
+**Profiles included:** SRNE Hybrid, Deye/SunSynk Hybrid (Solarman V5), Sofar LSE-3 (Modbus TCP), Voltronic/Axpert (Modbus TCP), Growatt SPF (TCP Server).
+
+**Growatt note:** You must reconfigure the dongle's web UI at `http://<dongle-ip>` — change "Server Address" from `server.growatt.com` to your Epilykos host IP on port 5279.
+
 ### Solar Forecast
 
 | Setting | Description |
@@ -294,7 +319,6 @@ Pre-built images:
 ---
 
 ## Development
-https://github.com/ashipaek0/Epilykos/wiki/Development-Guide 
 
 ```bash
 npm install
@@ -308,6 +332,69 @@ BMS bridge (Python 3.12+):
 cd bms-bridge
 pip install -r requirements.txt
 python bms_bridge.py
+```
+
+---
+
+## Troubleshooting
+
+### Dongle Connection Issues
+
+| Error | Likely Cause | Fix |
+|-------|-------------|-----|
+| `timeout` | Dongle unreachable or wrong port | `ping <dongle-ip>` from server; verify port number |
+| `connection refused` | TCP port not open on dongle | Factory reset dongle or update firmware to enable Modbus |
+| `checksum mismatch` | Data corruption or wrong serial number | Verify serial number (Solarman V5); usually transient |
+| `Modbus exception 2` | Register doesn't exist on this inverter | Profile register map may not match your firmware version |
+| No data on dashboard | Metric name mismatch | Check Metrics tab — if using a prefix, names are `prefix + metric` |
+| Growatt no data | Dongle still pointing to cloud | Reconfigure dongle web UI to point to Epilykos IP:5279 |
+
+### General
+
+| Symptom | Fix |
+|---------|-----|
+| Settings page won't load | Check `SETTINGS_PASSWORD` in `.env`; restart server |
+| WebSocket disconnects | Falls back to 60s polling automatically |
+| Dashboard shows "No data yet" | Verify at least one data source has produced metrics |
+| Blocks overlapping on mobile | Check mobile dashboard assignment in Settings → Dashboard |
+| Charts not rendering | Open browser console for Chart.js errors; usually missing metric |
+
+---
+
+## Debug Logging
+
+Epilykos logs to both console and rotating files.
+
+**Set log level in `.env`:**
+```bash
+LOG_LEVEL=debug   # debug, info, warn, error (default: info)
+```
+
+**Log files:** `logs/energy-dashboard-YYYY-MM-DD.log` (rotates daily, keeps 14 days).
+
+**Find dongle-specific logs:**
+```bash
+grep '\[dongle\]' logs/energy-dashboard-*.log
+```
+
+**Successful poll example:**
+```
+2026-05-21 16:02:30 [debug]: [dongle] SRNE Inverter: 7 metrics in 312ms
+```
+
+**Failed poll example:**
+```
+2026-05-21 16:02:30 [warn]: [dongle] SRNE Inverter: poll failed — timeout
+```
+
+**Docker real-time logs:**
+```bash
+docker compose logs -f epilykos
+```
+
+**Local real-time logs:**
+```bash
+LOG_LEVEL=debug node server.js 2>&1 | grep dongle
 ```
 
 ---

@@ -39,6 +39,7 @@ const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
 const { startDonglePolling, restartDonglePolling } = require('./modules/dongle');
+const pvoutput = require('./modules/pvoutput');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -67,6 +68,7 @@ setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
 startDonglePolling();
+pvoutput.start();     // Start PVOutput push/pull engines
 
 // Multer for restore and import
 const upload = multer({
@@ -459,6 +461,21 @@ app.get('/api/solar-forecast', async (req, res) => {
   }
 });
 
+app.get('/api/solar/intraday', async (req, res) => {
+  try {
+    const field = req.query.field || 'solar';
+    const allowed = ['solar', 'consumption', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'];
+    if (!allowed.includes(field)) return res.status(400).json({ error: `Invalid field. Allowed: ${allowed.join(', ')}` });
+    const now = new Date();
+    const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
+    const rows = db.prepare(`SELECT timestamp, ${field} as watts FROM history WHERE timestamp >= ? ORDER BY timestamp ASC`).all(todayStart);
+    res.json(rows.map(r => ({ timestamp: r.timestamp, watts: r.watts })));
+  } catch (err) {
+    logger.error('Error in /api/solar/intraday:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/dashboard-state', async (req, res) => {
   try {
     const state = await buildDashboardState();
@@ -682,6 +699,7 @@ app.post('/api/settings', (req, res) => {
     if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
     if ('bms_devices' in updates) restartBmsPolling();
     if ('dongle_config' in updates) restartDonglePolling();
+    if ('pvoutput_config' in updates) pvoutput.restart();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -816,6 +834,12 @@ app.get('/api/dongle/status', (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ========== PVOUTPUT ROUTES ==========
+// Public webhook (CSRF skipped in sessionAuth.js — called by PVOutput servers)
+app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
+// Protected routes
+app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {

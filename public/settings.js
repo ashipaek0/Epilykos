@@ -28,7 +28,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -41,6 +41,7 @@ async function loadSettings() {
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
+    buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
     populateDashboardSelects(dashConfig);
@@ -907,6 +908,145 @@ if (addDongleBtn) addDongleBtn.addEventListener('click', () => {
   renderDongleDevice({ name: '', host: '', port: '', serial_number: '', modbus_unit_id: 1, poll_interval: 30, transport: 'solarman-v5', profile: '', prefix: '', enabled: true }, idx);
 });
 
+// ======================== PVOUTPUT ========================
+function buildPvoutputConfig(config) {
+  if (!config) config = {};
+  const enabledCb = document.getElementById('pvoutput-enabled');
+  if (enabledCb) enabledCb.checked = config.enabled === true;
+  const apiKey = document.getElementById('pvoutput-api-key');
+  if (apiKey) apiKey.value = config.api_key || '';
+  const sysId = document.getElementById('pvoutput-system-id');
+  if (sysId) sysId.value = config.system_id || '';
+  const tz = document.getElementById('pvoutput-timezone');
+  if (tz) tz.value = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const interval = document.getElementById('pvoutput-interval');
+  if (interval) interval.value = config.upload_interval_minutes || 5;
+  const sysSize = document.getElementById('pvoutput-system-size');
+  if (sysSize) sysSize.value = config.system_size_w || '';
+  const webhookUrl = document.getElementById('pvoutput-webhook-url');
+  if (webhookUrl) webhookUrl.value = config.webhook_url || '';
+
+  const cumulativeRadio = document.querySelector('input[name="pvoutput-mode"][value="cumulative"]');
+  const netRadio = document.querySelector('input[name="pvoutput-mode"][value="net"]');
+  if (cumulativeRadio) cumulativeRadio.checked = !config.net_mode;
+  if (netRadio) netRadio.checked = config.net_mode === true;
+
+  // Metric mapping dropdowns
+  const mm = config.metric_map || {};
+  const metricFields = [
+    { key: 'v1', label: 'v1 Energy Generated (Wh)', hint: 'Cumulative daily solar generation. Typically daily_solar_kwh or solar_kwh.' },
+    { key: 'v2', label: 'v2 Power Generated (W)', hint: 'Instantaneous solar output in watts. Typically solar_power or solar.' },
+    { key: 'v3', label: 'v3 Energy Consumed (Wh)', hint: 'Cumulative daily consumption. Typically daily_consumption or load_kwh.' },
+    { key: 'v4', label: 'v4 Power Consumed (W)', hint: 'Instantaneous load in watts. Typically load_power or consumption.' },
+    { key: 'v5', label: 'v5 Temperature (°C)', hint: 'Ambient or inverter temperature. Typically inverter_temperature.' },
+    { key: 'v6', label: 'v6 Voltage (V)', hint: 'Grid/mains voltage. Typically grid_voltage.' }
+  ];
+  const container = document.getElementById('pvoutput-metrics-container');
+  if (container) {
+    container.innerHTML = metricFields.map(f => {
+      const sel = generateMetricOptionsHtml(mm[f.key]);
+      return `<div class="form-group" style="flex:1;min-width:200px;"><label>${escapeHtml(f.label)}</label><select class="pvoutput-metric" data-key="${f.key}" style="width:100%;">${sel}</select><div class="note">${escapeHtml(f.hint)}</div></div>`;
+    }).join('');
+  }
+
+  // Queue status
+  refreshPvoutputQueue();
+}
+
+function collectPvoutputConfig() {
+  const mm = {};
+  document.querySelectorAll('.pvoutput-metric').forEach(sel => {
+    if (sel.value) mm[sel.dataset.key] = sel.value;
+  });
+  return {
+    enabled: document.getElementById('pvoutput-enabled')?.checked || false,
+    api_key: document.getElementById('pvoutput-api-key')?.value || '',
+    system_id: document.getElementById('pvoutput-system-id')?.value || '',
+    timezone: document.getElementById('pvoutput-timezone')?.value || '',
+    upload_interval_minutes: parseInt(document.getElementById('pvoutput-interval')?.value) || 5,
+    system_size_w: parseInt(document.getElementById('pvoutput-system-size')?.value) || 0,
+    net_mode: document.querySelector('input[name="pvoutput-mode"]:checked')?.value === 'net',
+    webhook_url: document.getElementById('pvoutput-webhook-url')?.value || '',
+    metric_map: mm
+  };
+}
+
+async function refreshPvoutputQueue() {
+  const statusEl = document.getElementById('pvoutput-queue-status');
+  if (!statusEl) return;
+  try {
+    const res = await fetch('/api/pvoutput/queue');
+    if (!res.ok) { statusEl.textContent = 'Configure PVOutput first'; return; }
+    const data = await res.json();
+    if (data.pending > 0) {
+      statusEl.innerHTML = `Pending: <strong>${data.pending}</strong> records across ${data.byDate?.length || 0} dates.`;
+      if (data.pending > 100) {
+        statusEl.innerHTML += `<br><span class="note" style="color:#dc2626;">Large queue detected. Free account backfill may take several hours. Consider enabling donation mode for batch upload support.</span>`;
+      }
+    } else {
+      statusEl.textContent = 'Queue empty.';
+    }
+  } catch (e) { statusEl.textContent = ''; }
+}
+
+// Test connection button
+const pvoutputTestBtn = document.getElementById('pvoutput-test-btn');
+if (pvoutputTestBtn) {
+  pvoutputTestBtn.addEventListener('click', async () => {
+    const statusEl = document.getElementById('pvoutput-test-status');
+    const apiKey = document.getElementById('pvoutput-api-key')?.value.trim();
+    const sysId = document.getElementById('pvoutput-system-id')?.value.trim();
+    if (!apiKey || !sysId) { showStatus(statusEl, 'API key and System ID required', 'error'); return; }
+    showStatus(statusEl, 'Connecting to PVOutput...', 'info');
+    try {
+      const res = await fetch('/api/pvoutput/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, system_id: sysId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus(statusEl, `Connected — ${data.system_name}, ${data.system_size}W. Timezone: ${data.timezone}`, 'success');
+        // Auto-fill timezone (NM6)
+        if (data.timezone) {
+          const tzInput = document.getElementById('pvoutput-timezone');
+          if (tzInput && !tzInput.value) tzInput.value = data.timezone;
+        }
+      } else {
+        showStatus(statusEl, data.error, 'error');
+      }
+    } catch (e) { showStatus(statusEl, e.message, 'error'); }
+  });
+}
+
+// Backfill button
+const backfillBtn = document.getElementById('pvoutput-backfill-btn');
+if (backfillBtn) {
+  backfillBtn.addEventListener('click', async () => {
+    backfillBtn.disabled = true;
+    backfillBtn.textContent = 'Running...';
+    try {
+      const res = await fetch('/api/pvoutput/backfill', { method: 'POST' });
+      const data = await res.json();
+      showStatus(document.getElementById('pvoutput-test-status'), data.message || 'Backfill complete', 'success');
+      refreshPvoutputQueue();
+    } catch (e) {
+      showStatus(document.getElementById('pvoutput-test-status'), e.message, 'error');
+    } finally {
+      backfillBtn.disabled = false;
+      backfillBtn.textContent = 'Run Backfill';
+    }
+  });
+}
+
+// View Queue button
+const viewQueueBtn = document.getElementById('pvoutput-view-queue-btn');
+if (viewQueueBtn) {
+  viewQueueBtn.addEventListener('click', () => {
+    refreshPvoutputQueue();
+  });
+}
+
 // ======================== FORECAST TEST ========================
 const forecastTestBtn = document.getElementById('test-forecast');
 if (forecastTestBtn) {
@@ -1103,6 +1243,7 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="flow-card-square-2" ${block.type==='flow-card-square-2'?'selected':''}>Flow Card Sq 2</option>
         <option value="text-card" ${block.type==='text-card'?'selected':''}>Text</option>
         <option value="iframe-card" ${block.type==='iframe-card'?'selected':''}>Embed</option>
+        <option value="forecast-pvtoday" ${block.type==='forecast-pvtoday'?'selected':''}>PV Today</option>
       </select>`, 'Type')}
       ${ctl(`<select class="block-width-select" style="width:65px;">${spanOptions}</select>`, 'Width')}
       ${ctl(`<select class="block-height-select" style="width:65px;">
@@ -1403,6 +1544,9 @@ function renderDashboardBlockEditor(dashboard) {
         configPanel.innerHTML = `<label>Content (HTML/Markdown)</label><textarea class="config-content" style="width:100%;height:150px;margin-bottom:0.5rem;">${escapeHtml(block.config?.content||'')}</textarea><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'iframe-card') {
         configPanel.innerHTML = `<label>URL</label><input type="text" class="config-url" value="${escapeHtml(block.config?.url||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-pvtoday') {
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `<label>Location Name</label><input type="text" class="config-location" value="${escapeHtml(block.config?.location_name||'')}" placeholder="e.g. Shomolu, NG" style="width:100%;margin-bottom:0.5rem;"><label>Generated Curve Metric</label><select class="config-metric" data-role="generated" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.generated, 'solar (default)')}</select><button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       }
@@ -1497,6 +1641,10 @@ function renderDashboardBlockEditor(dashboard) {
             block.config.content = configPanel.querySelector('.config-content')?.value || '';
           } else if (block.type === 'iframe-card') {
             block.config.url = configPanel.querySelector('.config-url')?.value || '';
+          } else if (block.type === 'forecast-pvtoday') {
+            block.config.location_name = configPanel.querySelector('.config-location')?.value || '';
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(s => { const r = s.dataset.role; if (s.value) block.config.metrics[r] = s.value; });
           }
           configPanel.remove();
         });
@@ -1759,6 +1907,7 @@ form.addEventListener('submit', async (e) => {
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
     return dev;
   });
+  payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
   payload.dashboard_config = JSON.stringify(dashConfig);
   try {
     const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

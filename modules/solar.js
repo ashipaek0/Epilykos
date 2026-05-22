@@ -63,7 +63,7 @@ const weatherCodeMap = {
 const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
 
 async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&timezone=auto&forecast_days=4`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,cloud_cover&timezone=auto&forecast_days=4`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Open-Meteo API error: ${response.status}`);
   const data = await response.json();
@@ -71,7 +71,8 @@ async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
   const hourly = data.hourly;
   const forecasts = hourly.time.map((t, i) => ({
     period_end: new Date(t).toISOString(),
-    pv_estimate: hourly.shortwave_radiation[i] * conversionFactor
+    pv_estimate: hourly.shortwave_radiation[i] * conversionFactor,
+    cloud_cover: hourly.cloud_cover?.[i] ?? null
   }));
   return { forecasts, source: 'open-meteo' };
 }
@@ -106,7 +107,7 @@ async function getSolarForecast() {
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
-          if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate })); source = 'solcast'; }
+          if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
         }
       } catch (e) {}
     }
@@ -118,7 +119,7 @@ async function getSolarForecast() {
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
-          if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate })); source = 'solcast'; }
+          if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
         }
       } catch (e) {}
     }

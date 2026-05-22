@@ -13,6 +13,7 @@
  * @module forecast
  */
 import { fetchDashboardState } from './api.js';
+import { updatePvToday } from './components/pvToday.js';
 
 const sparklineCharts = {};
 const clockIntervals = {};
@@ -218,4 +219,9 @@ export async function updateForecast() {
     sc.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#0f172a';
     sc.update();
   });
+
+  // PV Today cards
+  if (document.querySelectorAll('.pv-today-instance').length) {
+    updatePvToday(data);
+  }
 }
