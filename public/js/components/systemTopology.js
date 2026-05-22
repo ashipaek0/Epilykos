@@ -75,20 +75,38 @@ export function updateSystemTopology(state) {
     const ih = el('topo-icon-home'); if (ih) { if (solar > 100) ih.style.color = 'var(--solar)'; else if (battIsSource) ih.style.color = '#f59e0b'; else if (grid > 50) ih.style.color = 'var(--grid)'; else ih.style.color = 'var(--text-secondary)'; }
     const ig = el('topo-icon-grid'); if (ig) { if (gv('grid') < 0) ig.style.color = '#3b82f6'; else if (grid > 50) ig.style.color = 'var(--grid)'; else ig.style.color = 'var(--text-secondary)'; }
     const ib = el('topo-icon-battery'); if (ib) { if (battPower > 50) ib.style.color = 'var(--battery)'; else if (battDischarge > 50) ib.style.color = '#f59e0b'; else ib.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; ib.className = cl; }
-    // Circle borders glow with active power source colour
+    // Circle borders — proportional when multiple sources feed a node
     const solarCircle = container.querySelector('.topo-solar-circle');
-    if (solarCircle) solarCircle.style.borderColor = solar > 50 ? 'var(--solar)' : 'var(--border)';
+    applyCircleBorder(solarCircle, [{ color: 'var(--solar)', watts: solar }], 50);
+
     const gridCircle = container.querySelector('.topo-grid-node .topo-node-circle');
-    if (gridCircle) gridCircle.style.borderColor = grid > 50 ? 'var(--grid)' : (m['grid_export']?.value||0) > 50 ? '#3b82f6' : 'var(--border)';
+    const gridExport = m['grid_export']?.value || 0;
+    applyCircleBorder(gridCircle, [
+      { color: 'var(--grid)', watts: grid },
+      { color: '#3b82f6', watts: gridExport }
+    ], 50);
+
+    // Battery: can charge from solar + grid simultaneously
     const battCircle = container.querySelector('.topo-battery .topo-node-circle');
-    if (battCircle) battCircle.style.borderColor = battPower > 50 ? 'var(--battery)' : battDischarge > 50 ? '#f59e0b' : 'var(--border)';
-    const homeCircle = container.querySelector('.topo-home .topo-node-circle');
-    if (homeCircle) {
-      if (solar > 100) homeCircle.style.borderColor = 'var(--solar)';
-      else if (battIsSource) homeCircle.style.borderColor = '#f59e0b';
-      else if (grid > 50) homeCircle.style.borderColor = 'var(--grid)';
-      else homeCircle.style.borderColor = 'var(--border)';
+    if (battPower > 50) {
+      applyCircleBorder(battCircle, [
+        { color: 'var(--solar)', watts: solar },
+        { color: 'var(--grid)', watts: grid }
+      ], 50);
+    } else if (battDischarge > 50) {
+      applyCircleBorder(battCircle, [{ color: '#f59e0b', watts: battDischarge }], 50);
+    } else {
+      battCircle.style.borderColor = 'var(--border)';
+      battCircle.style.background = 'var(--card-bg)';
     }
+
+    // Home: can be fed by solar, battery discharge, and grid simultaneously
+    const homeCircle = container.querySelector('.topo-home .topo-node-circle');
+    applyCircleBorder(homeCircle, [
+      { color: 'var(--solar)', watts: solar },
+      { color: '#f59e0b', watts: battIsSource ? battDischarge : 0 },
+      { color: 'var(--grid)', watts: grid }
+    ], 50);
     const hub = container.querySelector('.topo-hub'); if (hub) { if (solar > 100) hub.style.background = 'var(--solar)'; else if (battIsSource) hub.style.background = '#f59e0b'; else if (grid > 50) hub.style.background = 'var(--grid)'; else hub.style.background = 'var(--accent)'; }
     container.querySelectorAll('.topo-line').forEach(l => { l.classList.remove('active', 'reverse'); l.style.background = ''; });
     const setLine = (cls, active, bg, rev) => { const l = container.querySelector(cls); if (l && active) { l.classList.add('active'); if (rev) l.classList.add('reverse'); l.style.background = bg; } };
@@ -103,4 +121,41 @@ export function updateSystemTopology(state) {
     }
     setLine('.topo-line-battery', battDischarge > 50, '#f59e0b', true);
   });
+}
+
+/**
+ * Apply a proportional conic-gradient ring to a circle element.
+ * When only one source is active, falls back to solid borderColor for simplicity.
+ * When multiple sources feed the node, shows proportional color segments.
+ *
+ * @param {HTMLElement} circle — the .topo-node-circle element
+ * @param {Array<{color: string, watts: number}>} sources — power sources with colors
+ * @param {number} threshold — minimum watts to consider a source "active"
+ */
+function applyCircleBorder(circle, sources, threshold) {
+  if (!circle) return;
+  const active = sources.filter(s => s.watts > threshold);
+  if (active.length === 0) {
+    circle.style.borderColor = 'var(--border)';
+    circle.style.background = 'var(--card-bg)';
+    return;
+  }
+  if (active.length === 1) {
+    circle.style.borderColor = active[0].color;
+    circle.style.background = 'var(--card-bg)';
+    return;
+  }
+  // Two or more active sources — proportional conic gradient ring
+  const total = active.reduce((s, x) => s + x.watts, 0);
+  let acc = 0;
+  const stops = active.map(s => {
+    const start = (acc / total) * 100;
+    acc += s.watts;
+    const end = (acc / total) * 100;
+    return `${s.color} ${start}% ${end}%`;
+  }).join(', ');
+  circle.style.borderColor = 'transparent';
+  circle.style.background = `conic-gradient(${stops}) border-box`;
+  circle.style.webkitMask = 'radial-gradient(transparent 57%, #000 60%)';
+  circle.style.mask = 'radial-gradient(transparent 57%, #000 60%)';
 }

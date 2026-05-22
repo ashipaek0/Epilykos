@@ -8,6 +8,7 @@ import { updateHalfGaugeCard } from './components/halfGaugeCard.js';
 import { updateHalfGauge2Card } from './components/halfGauge2Card.js';
 import { updateFlowCardSquare } from './components/flowCardSquare.js';
 import { updateFlowCardSquare2 } from './components/flowCardSquare2.js';
+import { updatePvToday } from './components/pvToday.js';
 import { updateMetricCardsFromState } from './components/metricCards.js';
 import { updateGridCardFromState } from './components/gridCard.js';
 import { updatePowerChartFromState, updateEnergyChartFromState } from './charts.js';

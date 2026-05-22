@@ -275,6 +275,7 @@
           <button class="sub-tab-btn" data-subtab="external" aria-selected="false" aria-controls="subtab-external" role="tab">REST</button>
           <button class="sub-tab-btn" data-subtab="bms" aria-selected="false" aria-controls="subtab-bms" role="tab">BMS</button>
           <button class="sub-tab-btn" data-subtab="dongle" aria-selected="false" aria-controls="subtab-dongle" role="tab">Dongle</button>
+          <button class="sub-tab-btn" data-subtab="pvoutput" aria-selected="false" aria-controls="subtab-pvoutput" role="tab">PVOutput</button>
         </div>
         
         <div id="subtab-ha" class="sub-tab-content active" role="tabpanel" aria-labelledby="ha">
@@ -311,6 +312,43 @@
           <div id="dongle-devices-container"></div>
           <button type="button" id="add-dongle-device" class="fetch-btn">+ Add Dongle Instance</button>
           <div class="note">The dongle connects directly to your inverter's WiFi module via TCP. For Growatt dongles, reconfigure the dongle's web UI to point to this server's IP on the configured port instead of server.growatt.com.</div>
+        </div>
+
+        <div id="subtab-pvoutput" class="sub-tab-content" role="tabpanel" aria-labelledby="pvoutput">
+          <div class="toggle-group">
+            <label for="pvoutput-enabled"><input type="checkbox" id="pvoutput-enabled"> Enable PVOutput Upload</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label for="pvoutput-api-key">API Key</label><input type="password" id="pvoutput-api-key" placeholder="Your PVOutput API key"></div>
+            <div class="form-group"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" placeholder="12345"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label for="pvoutput-timezone">Timezone (required)</label><input type="text" id="pvoutput-timezone" placeholder="e.g. Africa/Lagos"><div class="note">Press Test Connection to auto-detect, or enter manually.</div></div>
+            <div class="form-group"><label for="pvoutput-interval">Upload Interval (min)</label><select id="pvoutput-interval"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div>
+            <div class="form-group"><label for="pvoutput-system-size">System Size (W)</label><input type="number" id="pvoutput-system-size" placeholder="5000"></div>
+          </div>
+          <div class="test-row">
+            <button type="button" id="pvoutput-test-btn" class="fetch-btn">Test Connection</button>
+            <span id="pvoutput-test-status" class="test-status"></span>
+          </div>
+          <h4 style="margin-top:1.5rem;">Metric Mapping</h4>
+          <div class="form-row" id="pvoutput-metrics-container">
+            <!-- Populated by settings.js -->
+          </div>
+          <h4 style="margin-top:1.5rem;">Upload Mode</h4>
+          <label style="margin-right:1.5rem;font-size:1rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="cumulative" checked style="width:1.1rem;height:1.1rem;"> Cumulative (c1) — daily running totals</label>
+          <div class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</div>
+          <label style="font-size:1rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="net" style="width:1.1rem;height:1.1rem;"> Net data (n) — v2/v4 are net export/import</label>
+
+          <h4 style="margin-top:1.5rem;">Upload Queue</h4>
+          <div id="pvoutput-queue-status"></div>
+          <div class="backup-row" style="margin-top:0.5rem;">
+            <button type="button" id="pvoutput-backfill-btn" class="fetch-btn">Run Backfill</button>
+            <button type="button" id="pvoutput-view-queue-btn" class="fetch-btn">View Queue</button>
+          </div>
+
+          <h4 style="margin-top:1.5rem;">Notifications (optional)</h4>
+          <div class="form-group"><label for="pvoutput-webhook-url">Webhook URL</label><input type="text" id="pvoutput-webhook-url" placeholder="https://energy.yourdomain.com/api/pvoutput/webhook"><div class="note">Requires a public URL. Leave empty to skip webhook registration.</div></div>
         </div>
       </div>
 
@@ -429,7 +467,8 @@
           .manual-step code { background: var(--bg); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.9rem; }
           .manual-step ul { margin: 0.75rem 0 0 1.5rem; }
         </style>
-        <div class="manual-step"><h4>1. Add a Data Source</h4><p>Start in <strong>Data Sources</strong> and add at least one:</p><ul><li><strong>Home Assistant</strong> — URL + Long-Lived Access Token, click <em>Fetch Entities</em>, map metrics to entity IDs.</li><li><strong>MQTT</strong> — broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>), map topics to metric names.</li><li><strong>Modbus</strong> — pick a profile (SRNE, Growatt, Deye, Victron), configure TCP or serial.</li><li><strong>Inverter Dongle</strong> — direct TCP connection to your inverter's WiFi module. Supports Solarman V5, plain Modbus TCP, and Growatt push mode.</li><li><strong>External REST</strong> — any HTTP API returning JSON. Map JSON paths to metrics.</li><li><strong>Bluetooth BMS</strong> — requires the BMS bridge. Scan for devices, select MAC address.</li></ul></div>
+        <div class="manual-step"><h4>1. Add a Data Source</h4><p>Start in <strong>Data Sources</strong> and add at least one:</p><ul><li><strong>Home Assistant</strong> — URL + Long-Lived Access Token, click <em>Fetch Entities</em>, map metrics to entity IDs.</li><li><strong>MQTT</strong> — broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>), map topics to metric names.</li><li><strong>Modbus</strong> — pick a profile (SRNE, Growatt, Deye, Victron), configure TCP or serial.</li><li><strong>Inverter Dongle</strong> — direct TCP connection to your inverter's WiFi module. Supports Solarman V5, plain Modbus TCP, and Growatt push mode. See step below for details.</li><li><strong>External REST</strong> — any HTTP API returning JSON. Map JSON paths to metrics.</li><li><strong>Bluetooth BMS</strong> — requires the BMS bridge. Scan for devices, select MAC address.</li></ul></div>
+        <div class="manual-step"><h4>0. Inverter Dongle Setup</h4><p>Connect directly to your inverter's WiFi dongle without cloud services, Home Assistant, or any intermediary.</p><p><strong>Setup steps:</strong></p><ul><li>Go to <strong>Data Sources → Dongle</strong>, click <em>+ Add Dongle Instance</em>.</li><li>Give it a name (e.g. "SRNE Inverter").</li><li>Pick a <strong>Profile</strong> matching your inverter brand — this auto-fills the transport type, port, and Modbus unit ID.</li><li>Enter the dongle's <strong>Host / IP Address</strong> (e.g. <code>192.168.1.55</code>).</li><li><strong>Port</strong> and <strong>Modbus Unit ID</strong> are pre-filled from the profile — change only if your dongle uses non-standard values.</li><li>For <strong>Solarman V5</strong> dongles: enter the <strong>Logger Serial Number</strong> (printed on the dongle label, usually 10 digits).</li><li>Optional: set a <strong>Metric Prefix</strong> (e.g. <code>inverter1_</code>) if you have multiple inverters to avoid metric name collisions.</li><li>Click <strong>Test Connection</strong> — a successful test returns a raw register value.</li><li>Click <strong>Save All Settings</strong> at the bottom of the page.</li></ul><p><strong>Transport types:</strong></p><ul><li><strong>Solarman V5</strong> (port 8899) — used by SRNE, Deye, SunSynk WiFi dongles. Requires the logger serial number for authentication. Opens a new TCP connection each poll cycle.</li><li><strong>Modbus TCP</strong> (port 8899 or 502) — used by Sofar LSE-3 and Voltronic/Axpert dongles. Plain Modbus TCP — no serial number needed.</li><li><strong>Growatt (TCP Server)</strong> (port 5279) — the dongle <em>pushes</em> data to Epilykos. You must reconfigure the dongle via its web UI at <code>http://&lt;dongle-ip&gt;</code>: change "Server Address" from <code>server.growatt.com</code> to your Epilykos host IP.</li></ul><p><strong>Polling behaviour:</strong></p><ul><li>Each enabled instance polls on its own interval (default 30s).</li><li>Registers are grouped into contiguous ranges and read in bulk — one TCP round-trip per range.</li><li>After 5 consecutive failures, the poll interval doubles (max 5 minutes) to reduce load on an unreachable dongle. It resets on the next successful poll.</li></ul></div>
         <div class="manual-step"><h4>2. Create & Map Metrics</h4><p>Metric names identify your data. Mapping an entity/topic auto-creates the metric. Create custom ones in the <strong>Metrics</strong> tab.</p><p>Common names: <code>solar</code> <code>consumption</code> <code>battery_soc</code> <code>battery_voltage</code> <code>grid_import</code> <code>grid_export</code>. Binary sensors (on/off) auto-convert to 1/0.</p></div>
         <div class="manual-step"><h4>3. Build Your Dashboard</h4><p>Use the <strong>Editor</strong> (<code>/editor</code>) for visual layout — drag blocks from the palette, arrange freely, resize. Or use <strong>Dashboard</strong> settings to add/remove blocks and configure metrics per block.</p><p>Each block's <strong>Config</strong> button lets you pick which metrics feed it. Click <strong>Save All Settings</strong> when done.</p></div>
         <div class="manual-step"><h4>4. Solar Forecast</h4><p>In <strong>Solar Forecast</strong>: enable, enter latitude/longitude and system capacity (kWp). Add a Solcast API key for high accuracy, or leave blank for free Open-Meteo.</p></div>
@@ -437,6 +476,7 @@
         <div class="manual-step"><h4>6. Appearance</h4><p><strong>Dashboard → Display</strong>: background colours (light/dark), background image, transparent blocks, title, logo, favicon. <strong>Savings</strong>: currency and rate per kWh.</p></div>
         <div class="manual-step"><h4>7. Desktop & Mobile</h4><p>Create separate layouts. In <strong>Dashboard</strong>, set the default tab for desktop and mobile — Epilykos auto-switches by screen width.</p></div>
         <div class="manual-step"><h4>Tips</h4><ul><li>Blocks support <strong>multiple instances</strong> — add the same type twice with different metrics.</li><li>Use the <strong>lock/unlock</strong> button on the dashboard to prevent accidental drags.</li><li>Export your layout as JSON for backup or sharing.</li></ul></div>
+        <div class="manual-step"><h4>8. Troubleshooting</h4><p><strong>Dongle connection errors:</strong></p><ul><li><strong>"timeout"</strong> — the dongle didn't respond within 8 seconds. Check the IP address is reachable from the Epilykos host. Try <code>ping &lt;dongle-ip&gt;</code> from the server. Verify the port number matches your dongle model.</li><li><strong>"connection refused"</strong> — the dongle's TCP port isn't open. Some dongles need a factory reset or firmware update to enable the Modbus TCP port.</li><li><strong>"checksum mismatch"</strong> — data corruption on the wire. Usually transient; the next poll will succeed. If persistent, the serial number may be wrong (Solarman V5) or the profile doesn't match your inverter's register layout.</li><li><strong>"Modbus exception 2"</strong> — illegal data address. The register in the profile doesn't exist on your inverter model. You may need a custom profile with the correct register map for your firmware version.</li><li><strong>No data appearing on dashboard</strong> — check the metric names in <strong>Metrics</strong> tab match what the profile outputs. If you set a <strong>prefix</strong>, the metric name will be <code>prefix + metric_name</code> (e.g. <code>inverter1_solar_power</code>).</li><li><strong>Growatt dongle not sending data</strong> — verify the dongle's web UI points to the Epilykos IP on port 5279. The dongle pushes data roughly every 5 minutes. Ensure no firewall blocks inbound port 5279.</li></ul><p><strong>Debug logs:</strong></p><ul><li>The server writes structured logs to <code>logs/energy-dashboard-YYYY-MM-DD.log</code>.</li><li>Set <code>LOG_LEVEL=debug</code> in your <code>.env</code> file and restart to see per-poll metrics and timing: <code>LOG_LEVEL=debug node server.js</code>.</li><li>Dongle log lines are prefixed with <code>[dongle]</code> — grep for them: <code>grep '\[dongle\]' logs/energy-dashboard-*.log</code>.</li><li>Each successful poll logs: <code>[dongle] InstanceName: N metrics in Xms</code>.</li><li>Each failed poll logs: <code>[dongle] InstanceName: poll failed — reason</code>.</li><li>Use <code>docker compose logs -f epilykos</code> for real-time logs in Docker deployments.</li></ul></div>
       </div>
 
       <div style="margin-top:2rem; text-align:center;"><button type="submit">Save All Settings</button></div>

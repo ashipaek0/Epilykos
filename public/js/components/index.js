@@ -18,6 +18,7 @@ import { buildHalfGaugeCard, updateHalfGaugeCard } from './halfGaugeCard.js';
 import { buildHalfGauge2Card, updateHalfGauge2Card } from './halfGauge2Card.js';
 import { buildFlowCardSquare, updateFlowCardSquare } from './flowCardSquare.js';
 import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.js';
+import { buildPvToday } from './pvToday.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -39,5 +40,6 @@ export const componentBuilders = {
   'flow-card-square': buildFlowCardSquare,
   'flow-card-square-2': buildFlowCardSquare2,
   'text-card': buildTextCard,
-  'iframe-card': buildIframeCard
+  'iframe-card': buildIframeCard,
+  'forecast-pvtoday': buildPvToday
 };
