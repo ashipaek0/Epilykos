@@ -46,8 +46,11 @@ async function pollGridStatus() {
   }
 
   if (state === null) return;
-  const last = db.prepare('SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
+  const last = db.prepare('SELECT timestamp, state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
   if (!last || last.state !== state) {
+    // Debounce: skip state changes that occur within 60s of the last one.
+    // Rapid flicker is noise, not a real grid transition.
+    if (last && (now - last.timestamp) < 60) return;
     db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
     logger.info(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
   }
@@ -120,19 +123,31 @@ async function getGridHours(period) {
   const currentUnix = Math.floor(now.getTime() / 1000);
   const effectiveEndUnix = Math.min(endUnix, currentUnix);
 
-  // Use current state as initial if no history exists
-  let initialState = getGridStateAt(startUnix);
-  const anyRows = db.prepare('SELECT COUNT(*) as c FROM grid_status WHERE timestamp < ?').get(startUnix);
-  if (!anyRows || anyRows.c === 0) {
-    const status = await getCurrentGridStatus();
-    initialState = status.current ? 1 : 0;
+  // Determine initial state for the period start
+  let initialState = 0;
+  const lastBeforeStart = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1').get(startUnix);
+  const firstInPeriod = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? ORDER BY timestamp ASC LIMIT 1').get(startUnix);
+
+  if (!firstInPeriod) return 0;  // No records at all — nothing to count
+
+  // Use the last state before the period only if it's recent (< 1 hour old).
+  // A stale state (e.g. 3+ hours ago) might have changed since; default to the
+  // first recorded state in the period instead.
+  if (lastBeforeStart && (startUnix - lastBeforeStart.timestamp) < 3600) {
+    initialState = lastBeforeStart.state;
+  } else {
+    initialState = firstInPeriod.state;
   }
   const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, effectiveEndUnix);
+  // Prepend initial state if we have one not already in rows
   let hours = 0, lastState = initialState, lastTime = startUnix;
-  for (const row of rows) {
-    if (lastState === 1) hours += (row.timestamp - lastTime) / 3600;
-    lastState = row.state;
-    lastTime = row.timestamp;
+  let i = 0;
+  // Skip rows that are before or equal to our initial state timestamp
+  while (i < rows.length && rows[i].timestamp <= startUnix) i++;
+  for (; i < rows.length; i++) {
+    if (lastState === 1) hours += (rows[i].timestamp - lastTime) / 3600;
+    lastState = rows[i].state;
+    lastTime = rows[i].timestamp;
   }
   if (lastState === 1) hours += (effectiveEndUnix - lastTime) / 3600;
   return Math.round(hours * 10) / 10;
@@ -170,11 +185,14 @@ async function getGridTimeline(period = '24h') {
   const currentUnix = Math.floor(now.getTime() / 1000);
   const effectiveEnd = Math.min(endUnix, currentUnix);
 
-  let initialState = getGridStateAt(startUnix);
-  const anyRows = db.prepare('SELECT COUNT(*) as c FROM grid_status WHERE timestamp < ?').get(startUnix);
-  if (!anyRows || anyRows.c === 0) {
-    const status = await getCurrentGridStatus();
-    initialState = status.current ? 1 : 0;
+  let initialState = 0;
+  const lastBeforeStart = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1').get(startUnix);
+  const firstInPeriod = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? ORDER BY timestamp ASC LIMIT 1').get(startUnix);
+  if (!firstInPeriod) return { configured: false, segments: [] };
+  if (lastBeforeStart && (startUnix - lastBeforeStart.timestamp) < 3600) {
+    initialState = lastBeforeStart.state;
+  } else {
+    initialState = firstInPeriod.state;
   }
   const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, effectiveEnd);
   const segments = [];
@@ -182,9 +200,9 @@ async function getGridTimeline(period = '24h') {
   for (const row of rows) {
     if (row.timestamp > lastTime) {
       segments.push({ start: lastTime, end: row.timestamp, state: lastState });
-      lastState = row.state;
-      lastTime = row.timestamp;
-    } else { lastState = row.state; }
+    }
+    lastState = row.state;
+    lastTime = row.timestamp;
   }
   if (lastTime < effectiveEnd) segments.push({ start: lastTime, end: effectiveEnd, state: lastState });
 

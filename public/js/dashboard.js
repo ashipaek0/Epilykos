@@ -107,31 +107,59 @@ function renderDashboard() {
 
   // Render blocks with absolute positioning based on GridStack coordinates
   const ROW_HEIGHT = 50; // matches editor cellHeight
-  let maxBottom = 0;
+  const GAP = 5; // half of GridStack's ~10px default margin between items
 
+  // Build position descriptors sorted by gridY for overlap prevention
+  const positioned = [];
   layoutWithIds.forEach((block) => {
     if (block.enabled === false) return;
     const builder = componentBuilders[block.type];
     if (!builder) return;
-    const content = builder(block);
-    if (!content) return;
-
-    // GridStack → pixel conversion: 12-column grid, 50px row height, 10px default margin
     const x = block.gridX ?? 0;
     const y = block.gridY ?? 0;
     const w = block.gridW ?? 12;
     const h = block.gridH ?? 4;
-    const GAP = 5; // half of GridStack's ~10px default margin between items
+    positioned.push({ block, x, y, w, h });
+  });
+  positioned.sort((a, b) => a.y - b.y || a.x - b.x);
+
+  // De-overlap pass: for each block, check against all previously placed blocks
+  // and push down if their vertical spans overlap within the same horizontal region
+  for (let i = 0; i < positioned.length; i++) {
+    const cur = positioned[i];
+    let adjustedY = cur.y;
+    for (let j = 0; j < i; j++) {
+      const prev = positioned[j];
+      // Horizontal overlap check: columns intersect?
+      const curLeft = cur.x;
+      const curRight = cur.x + cur.w;
+      const prevLeft = prev.x;
+      const prevRight = prev.x + prev.w;
+      if (curRight > prevLeft && curLeft < prevRight) {
+        // Vertical: check if cur would overlap prev's bottom edge
+        const prevBottom = prev._top + prev.h;
+        if (adjustedY < prevBottom) {
+          adjustedY = prevBottom;
+        }
+      }
+    }
+    cur._top = adjustedY;
+  }
+
+  let maxBottom = 0;
+
+  positioned.forEach(({ block, x, w, h, _top }) => {
+    const content = componentBuilders[block.type](block);
+    if (!content) return;
 
     const wrapper = document.createElement('div');
     wrapper.className = 'dashboard-block';
     wrapper.dataset.blockId = block.id;
-    // Absolute positioning mirrors GridStack's internal layout with gap compensation
     wrapper.style.position = 'absolute';
     wrapper.style.left = `calc(${((x / 12) * 100)}% + ${GAP}px)`;
-    wrapper.style.top = (y * ROW_HEIGHT + GAP) + 'px';
+    wrapper.style.top = (_top * ROW_HEIGHT + GAP) + 'px';
     wrapper.style.width = `calc(${((w / 12) * 100)}% - ${GAP * 2}px)`;
-    wrapper.style.minHeight = (h * ROW_HEIGHT - GAP * 2) + 'px';
+    wrapper.style.height = (h * ROW_HEIGHT - GAP * 2) + 'px';
 
     if (block.bgColor) {
       wrapper.style.backgroundColor = block.bgColor;
@@ -161,7 +189,7 @@ function renderDashboard() {
     wrapper.appendChild(content);
     container.appendChild(wrapper);
 
-    maxBottom = Math.max(maxBottom, (y + h) * ROW_HEIGHT);
+    maxBottom = Math.max(maxBottom, (_top + h) * ROW_HEIGHT);
   });
 
   container.style.position = 'relative';

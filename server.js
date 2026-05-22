@@ -178,22 +178,30 @@ async function buildDashboardState() {
     consumption_kw: r.consumption / 1000,
     solar_kw: r.solar / 1000,
     battery_charge_kw: r.battery_charge / 1000,
-    grid_import_kw: r.grid_import / 1000
+    battery_discharge_kw: r.battery_discharge / 1000,
+    grid_import_kw: r.grid_import / 1000,
+    grid_export_kw: r.grid_export / 1000
   }));
   const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
   const barRows = db.prepare(`
     SELECT date(timestamp, 'unixepoch') as day,
       MAX(daily_solar) as solar_kwh,
+      MAX(daily_consumption) as consumption_kwh,
+      MAX(daily_battery_charge) as battery_charge_kwh,
+      MAX(daily_battery_discharge) as battery_discharge_kwh,
       MAX(daily_grid_import) as grid_import_kwh,
-      MAX(daily_consumption) as consumption_kwh
+      MAX(daily_grid_export) as grid_export_kwh
     FROM history WHERE timestamp >= ?
     GROUP BY day ORDER BY day ASC
   `).all(barSince);
   const dailyEnergyBar = barRows.map(r => ({
     day: r.day,
     solar_kwh: r.solar_kwh,
+    consumption_kwh: r.consumption_kwh,
+    battery_charge_kwh: r.battery_charge_kwh,
+    battery_discharge_kwh: r.battery_discharge_kwh,
     grid_import_kwh: r.grid_import_kwh,
-    consumption_kwh: r.consumption_kwh
+    grid_export_kwh: r.grid_export_kwh
   }));
   const elapsed = Date.now() - start;
   logger.debug(`buildDashboardState took ${elapsed}ms`);
@@ -468,8 +476,8 @@ app.get('/api/solar/intraday', async (req, res) => {
     if (!allowed.includes(field)) return res.status(400).json({ error: `Invalid field. Allowed: ${allowed.join(', ')}` });
     const now = new Date();
     const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
-    const rows = db.prepare(`SELECT timestamp, ${field} as watts FROM history WHERE timestamp >= ? ORDER BY timestamp ASC`).all(todayStart);
-    res.json(rows.map(r => ({ timestamp: r.timestamp, watts: r.watts })));
+    const rows = db.prepare(`SELECT timestamp, ${field} as watts, daily_solar FROM history WHERE timestamp >= ? ORDER BY timestamp ASC`).all(todayStart);
+    res.json(rows.map(r => ({ timestamp: r.timestamp, watts: r.watts, daily_solar: r.daily_solar })));
   } catch (err) {
     logger.error('Error in /api/solar/intraday:', err);
     res.status(500).json({ error: err.message });

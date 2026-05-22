@@ -28,7 +28,7 @@ export function buildFlowCardSquare2(block = {}) {
         </div>
       </div>
       <div class="fcs2-cell" id="${uid('fcs2-inverter',id)}">
-        <div class="fcs2-inv">INV</div>
+        <div class="fcs2-inv">${config.inverter_image ? `<img src="${escapeHtml(config.inverter_image)}" alt="Inverter" class="fcs2-inv-img">` : 'INV'}</div>
         <div class="fcs2-info">
           <span class="fcs2-label">Inverter</span>
           <span class="fcs2-value" id="${uid('fcs2-inverter-mode',id)}">--</span>
@@ -57,18 +57,19 @@ export function updateFlowCardSquare2(state) {
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
     const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
-    const battDischarge = (() => { for (const n of ['battery_discharge','battery_discharge_power','discharge']) { if (m[n]?.value > 0) return m[n].value; } return battPower < 0 ? Math.abs(battPower) : 0; })();
+    const battDischarge = findMetricValue2(m, ['battery', 'discharge']) || findMetricValue2(m, ['battery', 'discharging']) || (battPower < 0 ? Math.abs(battPower) : 0);
+    const gridExport = findMetricValue2(m, ['grid', 'export']);
     const battIsSource = battDischarge > 50;
     const el = (s) => document.getElementById(uid(s, id));
 
     const sv = card.querySelector(`#${uid('fcs2-solar',id)} .fcs2-value`);
     if (sv) sv.textContent = Math.round(solar) + ' W';
     const gv2 = card.querySelector(`#${uid('fcs2-grid',id)} .fcs2-value`);
-    if (gv2) { const ge = m['grid_export']?.value || 0; gv2.textContent = ge > grid ? Math.round(ge) + ' W out' : Math.round(grid) + ' W in'; }
+    if (gv2) { gv2.textContent = gridExport > grid ? Math.round(gridExport) + ' W out' : Math.round(grid) + ' W in'; }
     const so = el('fcs2-battery-soc'); if (so) so.textContent = Math.round(battSoc) + '%';
     const bp = el('fcs2-battery-power'); if (bp) { if (battPower > 50) bp.textContent = '↑ ' + Math.round(battPower) + ' W'; else if (battDischarge > 50) bp.textContent = '↓ ' + Math.round(battDischarge) + ' W'; else bp.textContent = '0 W'; }
     const si = el('fcs2-icon-solar'); if (si) si.style.color = solar > 50 ? 'var(--solar)' : 'var(--text-secondary)';
-    const gi = el('fcs2-icon-grid'); if (gi) { if (grid > 50) gi.style.color = 'var(--grid)'; else if ((m['grid_export']?.value||0) > 50) gi.style.color = '#3b82f6'; else gi.style.color = 'var(--text-secondary)'; }
+    const gi = el('fcs2-icon-grid'); if (gi) { if (grid > 50) gi.style.color = 'var(--grid)'; else if (gridExport > 50) gi.style.color = '#3b82f6'; else gi.style.color = 'var(--text-secondary)'; }
     const bi = el('fcs2-icon-battery'); if (bi) { if (battPower > 50) bi.style.color = 'var(--battery)'; else if (battDischarge > 50) bi.style.color = '#f59e0b'; else bi.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; bi.className = cl + ' fcs2-icon'; }
     const im = el('fcs2-inverter-mode'); if (im) { if (solar > 100) { im.textContent = 'Solar'; im.style.color = 'var(--solar)'; } else if (battIsSource) { im.textContent = 'Battery'; im.style.color = '#f59e0b'; } else if (grid > 50) { im.textContent = 'Grid'; im.style.color = 'var(--grid)'; } else { im.textContent = 'Idle'; im.style.color = 'var(--text-secondary)'; } }
 
@@ -77,12 +78,20 @@ export function updateFlowCardSquare2(state) {
     const setLine = (cls, active, bg, rev) => { const l = card.querySelector(cls); if (l && active) { l.classList.add('active'); if (rev) l.classList.add('reverse'); l.style.background = bg; } };
     // Top: solar → battery
     if (solar > 100) setLine('.fcs2-line-top', true, 'var(--solar)', false);
-    // Bottom: inverter → grid
-    if (grid > 50) setLine('.fcs2-line-bottom', true, 'var(--grid)', false);
-    else if ((m['grid_export']?.value||0) > 50) setLine('.fcs2-line-bottom', true, '#3b82f6', true);
+    // Bottom: grid ↔ inverter (default direction: inverter → grid, left to right)
+    if (grid > 50) setLine('.fcs2-line-bottom', true, 'var(--grid)', true);              // grid→inverter = right→left = reverse
+    else if (gridExport > 50) setLine('.fcs2-line-bottom', true, '#3b82f6', false); // inverter→grid = left→right = forward
     // Left: solar ↔ inverter
     if (solar > 100 || battIsSource) setLine('.fcs2-line-left', true, solar > 100 ? 'var(--solar)' : '#f59e0b', false);
     // Right: grid → battery (charging only, never battery→grid)
     if (grid > 50 && battPower > 50) setLine('.fcs2-line-right', true, 'var(--grid)', true);
   });
+}
+
+function findMetricValue2(metrics, keywords) {
+  for (const key of Object.keys(metrics || {})) {
+    const n = key.toLowerCase();
+    if (keywords.every(kw => n.includes(kw))) return metrics[key].value || 0;
+  }
+  return 0;
 }

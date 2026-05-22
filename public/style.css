@@ -127,7 +127,7 @@ h1, h2, h3, h4,
 .dashboard-block {
   background: transparent;
   padding: 0.25px;
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
 }
 .dashboard-block > * {
@@ -242,38 +242,39 @@ h1, h2, h3, h4,
 .pv-today-card {
   background: var(--card-bg); border-radius: var(--radius);
   box-shadow: var(--shadow); border: 1px solid var(--border);
-  padding: 0.75rem 1rem; height: 100%; box-sizing: border-box;
-  display: flex; flex-direction: column; gap: 0.5rem;
-  overflow: hidden;
+  padding: 0.3rem 0.5rem; height: 100%; width: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 0.15rem;
+  overflow: hidden; min-height: 0;
 }
-.pv-today-header { text-align: center; flex-shrink: 0; }
-.pv-today-title { font-weight: 600; font-size: var(--fs-medium); color: var(--text); }
-.pv-today-summary { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
-.pvt-metric { display: flex; flex-direction: column; flex-shrink: 0; min-width: 70px; }
+.pv-today-header { text-align: center; flex-shrink: 0; line-height: 1.1; }
+.pv-today-title { font-weight: 600; font-size: clamp(0.65rem, 1.8vw, 0.85rem); color: var(--text); }
+.pv-today-summary { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.pvt-metric { display: flex; flex-direction: column; flex-shrink: 0; min-width: 55px; }
 .pvt-left { align-items: flex-end; text-align: right; }
 .pvt-right { align-items: flex-start; text-align: left; }
-.pvt-value { font-size: clamp(0.8rem, 1.6vw, 1.1rem); font-weight: 700; color: var(--text); line-height: 1.1; }
-.pvt-label { font-size: 0.65rem; color: var(--text-secondary); }
+.pvt-value { font-size: clamp(0.7rem, 1.5vw, 0.95rem); font-weight: 700; color: var(--text); line-height: 1.1; }
+.pvt-label { font-size: 0.6rem; color: var(--text-secondary); }
 .pvt-progress-wrap { flex: 1; display: flex; align-items: center; }
-.pvt-progress-bar { width: 100%; height: 26px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.pvt-progress-bar { width: 100%; height: 18px; background: var(--bg); border-radius: 3px; overflow: hidden; }
 .pvt-progress-fill { height: 100%; background: linear-gradient(90deg, #d4b100, #f0d040); border-radius: 3px; transition: width 0.6s ease; }
-.pv-today-timeline { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 0.25rem; }
-.pvt-timeline-icons { display: flex; justify-content: space-around; padding: 0 0.25rem; }
-.pvt-timeline-icon { font-size: clamp(1rem, 2vw, 1.4rem); cursor: default; }
-.pvt-timeline-bar { display: flex; gap: 2px; }
-.pvt-chart-container { flex: 1; min-height: 60px; position: relative; }
+.pv-today-timeline { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 0 0.25rem; }
+.pvt-timeline-icons { display: flex; justify-content: space-around; padding: 0 0.1rem; }
+.pvt-timeline-icon { font-size: clamp(0.65rem, 1.5vw, 0.9rem); cursor: default; }
+.pvt-timeline-bar { display: flex; gap: 1px; }
+.pvt-chart-container { flex: 1 1 0; min-height: 30px; min-width: 0; position: relative; }
 .pvt-chart-container canvas { width: 100% !important; height: 100% !important; }
-.pvt-legend { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; font-size: 0.7rem; color: var(--text-secondary); }
-.pvt-legend-item { display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
-.pvt-legend-line { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
+.pvt-legend { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; font-size: 0.6rem; color: var(--text-secondary); }
+.pvt-legend-item { display: flex; align-items: center; gap: 0.15rem; white-space: nowrap; }
+.pvt-legend-line { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
 .pvt-legend-generated { background: #d8b400; }
-.pvt-legend-predicted { background: transparent; border-top: 3px dashed #d8b400; height: 0; width: 20px; }
-.pvt-legend-now { background: transparent; border-top: 3px dashed #d94141; height: 0; width: 20px; }
+.pvt-legend-predicted { background: transparent; border-top: 2px dashed #d8b400; height: 0; width: 16px; }
+.pvt-legend-now { background: transparent; border-top: 2px dashed #d94141; height: 0; width: 16px; }
 .pvt-legend-cloud { background: #c8cada; }
+.pvt-no-data { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.8rem; }
 
 @media (max-width: 600px) {
-  .pv-today-summary { flex-direction: column; gap: 0.3rem; }
-  .pvt-left, .pvt-right { align-items: center; text-align: center; }
+  .pv-today-summary { flex-direction: column; gap: 0.2rem; }
+  .pvt-left, .pvt-right { align-items: center; text-align: center; min-width: 0; }
   .pvt-progress-wrap { width: 100%; }
 }
 .forecast-info-card .weather-section { align-self: center; margin-left: auto; }
@@ -853,7 +854,9 @@ h1, h2, h3, h4,
   display: flex; align-items: center; gap: 0.5rem; padding: 3rem; z-index: 1;
 }
 .fcs2-icon { font-size: 4rem; color: var(--text-secondary); transition: color 0.3s; flex-shrink: 0; width: 4rem; text-align: center; }
-.fcs2-inv { font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); width: 3rem; height: 5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fcs2-inv { font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); width: 3rem; height: 5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.fcs2-inv-img { width: 100%; height: 100%; object-fit: cover; }
+.fcs-inv-img { width: 3rem; height: 5rem; object-fit: cover; border-radius: 6px; }
 .fcs2-info { display: flex; flex-direction: column; gap: 0.1rem; }
 .fcs2-label { font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
 .fcs2-value { font-size: var(--fs-small); font-weight: 600; color: var(--text); }
@@ -862,6 +865,7 @@ h1, h2, h3, h4,
 .fcs2-cell[id*="fcs2-battery"] { justify-content: flex-end; align-items: flex-start; }
 .fcs2-cell[id*="fcs2-inverter"] { justify-content: flex-start; align-items: flex-end; }
 .fcs2-cell[id*="fcs2-grid"] { justify-content: flex-end; align-items: flex-end; }
+.fcs2-cell[id*="fcs2-grid"] .fcs2-icon { margin-right: -3.5rem; }
 
 /* Flow lines: X axis (horizontal) and Y axis (vertical) between cells */
 .fcs2-line { position: absolute; z-index: 0; background: transparent; transition: background 0.3s; pointer-events: none; }
