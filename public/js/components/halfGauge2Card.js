@@ -23,8 +23,10 @@ export function buildHalfGauge2Card(block = {}) {
         <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--border)" stroke-width="35" stroke-linecap="round"/>
         <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="${color}" stroke-width="35" stroke-dasharray="0 260" stroke-dashoffset="130" stroke-linecap="round" id="${svgId}"/>
       </svg>
-      <div class="stat-label" style="position:absolute;top:50%;left:0;right:0;text-align:center;font-size:0.75rem;color:var(--text-secondary);transform:translateY(-60%);">${escapeHtml(config.title || 'Gauge')}</div>
-      <div class="stat-value" style="position:absolute;bottom:10%;left:0;right:0;text-align:center;font-size:clamp(0.85rem,2.5vw,1.1rem);font-weight:600;line-height:1;" id="hg2-val-${id}">--</div>
+      <div style="position:absolute;bottom:6%;left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <span class="stat-value" style="font-size:clamp(0.85rem,2.5vw,1.1rem);font-weight:600;line-height:1;" id="hg2-val-${id}">--</span>
+        <span class="stat-label" style="font-size:1rem;color:var(--text-secondary);margin-top:1px;">${escapeHtml(config.title || 'Gauge')}</span>
+      </div>
     </div>`;
   return container;
 }
