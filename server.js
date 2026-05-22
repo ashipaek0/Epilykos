@@ -46,7 +46,7 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Global rate limiter — 200 requests per 15 min per IP
-const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 1000, standardHeaders: true, legacyHeaders: false });
+const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 2000, standardHeaders: true, legacyHeaders: false });
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
