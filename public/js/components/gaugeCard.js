@@ -30,6 +30,6 @@ export function updateGaugeCard(state) {
     const fill = document.getElementById('gauge-fill-' + id);
     if (fill) fill.setAttribute('stroke-dasharray', `${(pct/100)*314} 314`);
     const val = document.getElementById('gauge-val-' + id);
-    if (val) val.textContent = Number(v).toFixed(1);
+    if (val) val.textContent = Math.round(v);
   });
 }

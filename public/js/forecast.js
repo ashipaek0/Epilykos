@@ -36,7 +36,8 @@ export async function updateForecast() {
   const banners = document.querySelectorAll('.forecast-banner-instance');
   const infoCards = document.querySelectorAll('.forecast-info-instance');
   const sparkCards = document.querySelectorAll('.forecast-sparkline-instance');
-  if (!banners.length && !infoCards.length && !sparkCards.length) return;
+  const pvTodayCards = document.querySelectorAll('.pv-today-instance');
+  if (!banners.length && !infoCards.length && !sparkCards.length && !pvTodayCards.length) return;
   let forecastData;
   try { const r = await fetch('/api/solar-forecast'); forecastData = await r.json(); }
   catch (e) { banners.forEach(b => b.style.display = 'none'); return; }
@@ -64,8 +65,12 @@ export async function updateForecast() {
     const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
     const setTxt = (s, v) => { const e = el(s); if (e) e.textContent = v || ''; };
 
-    const remaining = today.actual_so_far != null ? Math.max(0, (today.total_kwh || 0) - today.actual_so_far) : (today.total_kwh || 0);
-    setTxt('pv-today-value', remaining.toFixed(1) + ' kWh');
+    // Remaining: sum forecast from now until end of today, not total - actual
+    const nowMs = Date.now();
+    const remainingTodayKwh = (data.hourly || [])
+      .filter(h => new Date(h.period_end).getTime() > nowMs && new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
+      .reduce((sum, h) => sum + (h.pv_estimate || 0), 0);
+    setTxt('pv-today-value', remainingTodayKwh.toFixed(1) + ' kWh');
     setTxt('pv-today-remaining', 'remaining');
     if (tomorrow) { setTxt('pred-day1-label', getDayName(tomorrow.date)); setTxt('pv-tomorrow', tomorrow.total_kwh.toFixed(1) + ' kWh'); }
     if (nextDay) { setTxt('pred-day2-label', getDayName(nextDay.date)); setTxt('pv-nextday', nextDay.total_kwh.toFixed(1) + ' kWh'); }
@@ -120,11 +125,37 @@ export async function updateForecast() {
     let actualField = 'solar_kw';
     try { const mm = JSON.parse(banner.dataset.metricMap); if (mm.actual_energy) actualField = mm.actual_energy; } catch (e) {}
 
-    const actualPoints = historyData.filter(d => { const dt = new Date(d.timestamp); return dt.toLocaleDateString('en-CA') === todayDate && dt.getHours() >= 7 && dt.getHours() <= 19; }).map(d => ({ x: d.timestamp, y: d[actualField] ?? 0 }));
     const intervals = []; for (let h = 7; h <= 19; h += 0.5) intervals.push(new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0).getTime());
-    const abi = {}; actualPoints.forEach(p => { const d = new Date(p.x), bm = Math.floor(d.getMinutes() / 30) * 30, bt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bm, 0).getTime(); if (!abi[bt]) abi[bt] = []; abi[bt].push(p.y); });
-    const actualData = intervals.map(ts => { const vals = abi[ts] || []; if (!vals.length) return null; return { x: ts, y: vals.reduce((a, b) => a + b, 0) / vals.length }; }).filter(p => p !== null && p.x <= now.getTime());
-
+    // Build actual curve from history data — prefer instantaneous kW, fall back to daily_solar increments
+    const pointsForToday = historyData.filter(d => { const dt = new Date(d.timestamp); return dt.toLocaleDateString('en-CA') === todayDate && dt.getHours() >= 6 && dt.getHours() <= 20; });
+    let actualData;
+    const hasInstantKw = pointsForToday.some(d => (d[actualField] || 0) > 0);
+    if (hasInstantKw) {
+      const bins = {}; pointsForToday.forEach(p => { const d = new Date(p.timestamp), bm = Math.floor(d.getMinutes() / 30) * 30, bt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bm, 0).getTime(); if (!bins[bt]) bins[bt] = []; bins[bt].push(p[actualField] || 0); });
+      actualData = intervals.map(ts => { const vals = bins[ts] || []; if (!vals.length) return null; return { x: ts, y: vals.reduce((a, b) => a + b, 0) / vals.length }; }).filter(p => p !== null && p.x <= now.getTime());
+    } else {
+      // Derive hourly kW from daily_solar kWh increments
+      const dailySolarPoints = pointsForToday.filter(d => d.daily_solar != null).sort((a, b) => a.timestamp - b.timestamp);
+      // Anchor: prepend a synthetic 0 kWh point at sunrise if cumulative started above 0
+      if (dailySolarPoints.length >= 1 && dailySolarPoints[0].daily_solar > 0) {
+        const sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+        dailySolarPoints.unshift({ timestamp: Math.floor(sunrise.getTime() / 1000), daily_solar: 0 });
+      }
+      if (dailySolarPoints.length >= 2) {
+        actualData = intervals.map(ts => {
+          const t = ts / 1000;
+          let prev = null; for (let i = dailySolarPoints.length - 1; i >= 0; i--) { if (dailySolarPoints[i].timestamp / 1000 <= t) { prev = dailySolarPoints[i]; break; } }
+          const next = dailySolarPoints.find(p => p.timestamp / 1000 > t);
+          if (!prev || !next) return null;
+          const dtHours = (next.timestamp / 1000 - prev.timestamp / 1000) / 3600;
+          if (dtHours <= 0) return null;
+          const kw = ((next.daily_solar - prev.daily_solar) / dtHours) || 0;
+          return { x: ts, y: Math.max(0, kw) };
+        }).filter(p => p !== null && p.x <= now.getTime());
+      } else {
+        actualData = [];
+      }
+    }
     let fh = (data.hourly || []).filter(h => { const d = new Date(h.period_end); return d.toLocaleDateString('en-CA') === todayDate && d.getHours() >= 7 && d.getHours() <= 19; }).map(h => ({ x: new Date(h.period_end).getTime(), y: h.pv_estimate }));
     if (!fh.length || fh[0].x > sevenAM) fh.unshift({ x: sevenAM, y: 0 });
     fh.sort((a, b) => a.x - b.x);
@@ -156,8 +187,10 @@ export async function updateForecast() {
     setTxt('fi-date', now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }));
     const clockEl = el('fi-clock');
     if (clockEl) { clockEl.textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
-    const remaining = today.actual_so_far != null ? Math.max(0, (today.total_kwh || 0) - today.actual_so_far) : (today.total_kwh || 0);
-    setTxt('fi-today-value', remaining.toFixed(1) + ' kWh');
+    const remainingTodayKwh = (data.hourly || [])
+      .filter(h => new Date(h.period_end).getTime() > Date.now() && new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
+      .reduce((sum, h) => sum + (h.pv_estimate || 0), 0);
+    setTxt('fi-today-value', remainingTodayKwh.toFixed(1) + ' kWh');
     setTxt('fi-today-remaining', 'remaining');
     if (tomorrow) { setTxt('fi-day1-label', getDayName(tomorrow.date)); setTxt('fi-tomorrow', tomorrow.total_kwh.toFixed(1) + ' kWh'); }
     if (nextDay) { setTxt('fi-day2-label', getDayName(nextDay.date)); setTxt('fi-nextday', nextDay.total_kwh.toFixed(1) + ' kWh'); }
@@ -181,6 +214,7 @@ export async function updateForecast() {
 
   // Forecast sparkline cards (graph only)
   document.querySelectorAll('.forecast-sparkline-instance').forEach(card => {
+    const intervals = []; for (let h = 7; h <= 19; h += 0.5) intervals.push(new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0).getTime());
     const id = card.dataset.blockId || '';
     const canvasId = id ? `fc-sparkline-${id}` : 'fc-sparkline';
     const canvas = document.getElementById(canvasId);
@@ -196,13 +230,34 @@ export async function updateForecast() {
     const sc = sparklineCharts[canvasId];
     let actualField = 'solar_kw';
     try { const mm = JSON.parse(card.dataset.metricMap); if (mm.actual_energy) actualField = mm.actual_energy; } catch (e) {}
-    const actualPoints = historyData.filter(d => { const dt = new Date(d.timestamp); return dt.toLocaleDateString('en-CA') === todayDate && dt.getHours() >= 7 && dt.getHours() <= 19; }).map(d => ({ x: d.timestamp, y: d[actualField] ?? 0 }));
-    const intervals = []; for (let h = 7; h <= 19; h += 0.5) intervals.push(new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0).getTime());
-    const abi = {}; actualPoints.forEach(p => { const d = new Date(p.x), bm = Math.floor(d.getMinutes() / 30) * 30, bt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bm, 0).getTime(); if (!abi[bt]) abi[bt] = []; abi[bt].push(p.y); });
-    const actualData = intervals.map(ts => { const vals = abi[ts] || []; if (!vals.length) return null; return { x: ts, y: vals.reduce((a, b) => a + b, 0) / vals.length }; }).filter(p => p !== null && p.x <= now.getTime());
+    const sPointsForToday = historyData.filter(d => { const dt = new Date(d.timestamp); return dt.toLocaleDateString('en-CA') === todayDate && dt.getHours() >= 6 && dt.getHours() <= 20; });
+    let sActualData;
+    const sHasInstantKw = sPointsForToday.some(d => (d[actualField] || 0) > 0);
+    if (sHasInstantKw) {
+      const bins = {}; sPointsForToday.forEach(p => { const d = new Date(p.timestamp), bm = Math.floor(d.getMinutes() / 30) * 30, bt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bm, 0).getTime(); if (!bins[bt]) bins[bt] = []; bins[bt].push(p[actualField] || 0); });
+      sActualData = intervals.map(ts => { const vals = bins[ts] || []; if (!vals.length) return null; return { x: ts, y: vals.reduce((a, b) => a + b, 0) / vals.length }; }).filter(p => p !== null && p.x <= now.getTime());
+    } else {
+      const dailySolarPoints = sPointsForToday.filter(d => d.daily_solar != null).sort((a, b) => a.timestamp - b.timestamp);
+      if (dailySolarPoints.length >= 1 && dailySolarPoints[0].daily_solar > 0) {
+        const sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+        dailySolarPoints.unshift({ timestamp: Math.floor(sunrise.getTime() / 1000), daily_solar: 0 });
+      }
+      if (dailySolarPoints.length >= 2) {
+        sActualData = intervals.map(ts => {
+          const t = ts / 1000;
+          let prev = null; for (let i = dailySolarPoints.length - 1; i >= 0; i--) { if (dailySolarPoints[i].timestamp / 1000 <= t) { prev = dailySolarPoints[i]; break; } }
+          const next = dailySolarPoints.find(p => p.timestamp / 1000 > t);
+          if (!prev || !next) return null;
+          const dtHours = (next.timestamp / 1000 - prev.timestamp / 1000) / 3600;
+          if (dtHours <= 0) return null;
+          const kw = ((next.daily_solar - prev.daily_solar) / dtHours) || 0;
+          return { x: ts, y: Math.max(0, kw) };
+        }).filter(p => p !== null && p.x <= now.getTime());
+      } else { sActualData = []; }
+    }
     let fh = (data.hourly || []).filter(h => { const d = new Date(h.period_end); return d.toLocaleDateString('en-CA') === todayDate && d.getHours() >= 7 && d.getHours() <= 19; }).map(h => ({ x: new Date(h.period_end).getTime(), y: h.pv_estimate }));
     if (!fh.length || fh[0].x > sevenAM) fh.unshift({ x: sevenAM, y: 0 }); fh.sort((a, b) => a.x - b.x);
-    sc.data.datasets = [{ label: 'Actual', data: actualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [] }, { label: 'Forecast', data: fh, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [5, 5] }];
+    sc.data.datasets = [{ label: 'Actual', data: sActualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [] }, { label: 'Forecast', data: fh, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [5, 5] }];
     sc.update();
     const ca = sc.chartArea;
     if (ca && sc.data.datasets[0].data.length > 0) {

@@ -1,20 +1,10 @@
 /**
- * PV Today Card — industrial solar monitoring block inspired by PV Today widget.
- *
- * Features:
- * - Title bar with location name
- * - Daily production summary: Generated kWh + progress bar + Remaining kWh
- * - Weather timeline strip with icons and colored condition segments
- * - Dual-axis Chart.js chart: generated curve (solid), predicted curve (dashed),
- *   cloud cover overlay (lavender), "Now" marker (red dashed)
- * - Responsive and freely resizable via GridStack editor
- * - Respects Epilykos theme system (light/dark, transparency toggle, per-block styling)
- *
- * @module components/pvToday
+ * PV Today Card — solar monitoring block with summary bar, weather timeline, and chart.
  */
 import { uid } from '../utils/uid.js';
 
 const pvTodayCharts = {};
+const pvTodayObservers = {};
 
 export function buildPvToday(block = {}) {
   const id = block.id || '';
@@ -30,37 +20,48 @@ export function buildPvToday(block = {}) {
 
   card.innerHTML = `
     <div class="pv-today-header">
-      <span class="pv-today-title" id="${uid('pvt-title', id)}">${escapeHtml(locationName)} — PV Today</span>
+      <span class="pv-today-title" id="${uid('pvt-title', id)}">${escapeHtml(locationName)}</span>
     </div>
     <div class="pv-today-summary" id="${uid('pvt-summary', id)}">
       <div class="pvt-metric pvt-left">
-        <span class="pvt-value" id="${uid('pvt-generated', id)}">0.0 kWh</span>
+        <span class="pvt-value" id="${uid('pvt-generated', id)}">--</span>
         <span class="pvt-label">Generated</span>
       </div>
       <div class="pvt-progress-wrap">
-        <div class="pvt-progress-bar" id="${uid('pvt-progress', id)}">
-          <div class="pvt-progress-fill" id="${uid('pvt-progress-fill', id)}" style="width:0%"></div>
-        </div>
+        <div class="pvt-progress-bar"><div class="pvt-progress-fill" id="${uid('pvt-progress-fill', id)}" style="width:0%"></div></div>
       </div>
       <div class="pvt-metric pvt-right">
-        <span class="pvt-value" id="${uid('pvt-remaining', id)}">0.0 kWh</span>
+        <span class="pvt-value" id="${uid('pvt-remaining', id)}">--</span>
         <span class="pvt-label">Remaining</span>
       </div>
     </div>
-    <div class="pv-today-timeline" id="${uid('pvt-timeline', id)}">
-      <div class="pvt-timeline-icons" id="${uid('pvt-icons', id)}"></div>
-      <div class="pvt-timeline-bar" id="${uid('pvt-timeline-bar', id)}"></div>
-    </div>
     <div class="pvt-chart-container" id="${uid('pvt-chart-wrap', id)}">
       <canvas id="${uid('pvt-chart', id)}"></canvas>
+      <div class="pvt-no-data" id="${uid('pvt-empty', id)}" style="display:none;">No forecast data</div>
     </div>
-    <div class="pvt-legend" id="${uid('pvt-legend', id)}">
+    <div class="pvt-legend">
       <span class="pvt-legend-item"><span class="pvt-legend-line pvt-legend-generated"></span> Generated</span>
       <span class="pvt-legend-item"><span class="pvt-legend-line pvt-legend-predicted"></span> Predicted</span>
       <span class="pvt-legend-item"><span class="pvt-legend-line pvt-legend-now"></span> Now</span>
-      <span class="pvt-legend-item"><span class="pvt-legend-line pvt-legend-cloud"></span> Cloud Cover</span>
+      <span class="pvt-legend-item"><span class="pvt-legend-line pvt-legend-cloud"></span> Cloud</span>
     </div>
   `;
+
+  // ResizeObserver: keeps canvas sized to container, triggers chart.resize()
+  const canvasId = id ? `pvt-chart-${id}` : 'pvt-chart';
+  const wrapId = id ? `pvt-chart-wrap-${id}` : 'pvt-chart-wrap';
+  requestAnimationFrame(() => {
+    const wrap = document.getElementById(wrapId);
+    const canvas = document.getElementById(canvasId);
+    if (!wrap || !canvas) return;
+    const observer = new ResizeObserver(() => {
+      const chart = pvTodayCharts[canvasId];
+      if (chart) chart.resize();
+    });
+    observer.observe(wrap);
+    pvTodayObservers[canvasId] = observer;
+  });
+
   return card;
 }
 
@@ -68,193 +69,121 @@ export async function updatePvToday(forecastData) {
   const cards = document.querySelectorAll('.pv-today-instance');
   if (!cards.length) return;
 
-  if (!forecastData || forecastData.error || !forecastData.daily || !forecastData.daily.length) {
-    cards.forEach(c => c.style.display = 'none');
-    return;
-  }
+  const hasData = forecastData && !forecastData.error && forecastData.daily && forecastData.daily.length;
 
   const now = new Date();
   const todayDate = now.toLocaleDateString('en-CA');
-  let ti = forecastData.daily.findIndex(d => d.date === todayDate);
-  if (ti === -1) ti = 0;
-  const today = forecastData.daily[ti];
-  const totalForecastKwh = today.total_kwh || 0;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
-  // Process forecast hourly data for today
-  const todayHourly = (forecastData.hourly || [])
-    .filter(h => new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
-    .map(h => ({
-      x: new Date(h.period_end).getTime(),
-      pv: h.pv_estimate || 0,
-      cloud: h.cloud_cover != null ? h.cloud_cover : null
-    }));
+  let today = null, totalForecastKwh = 0, todayHourly = [];
+
+  if (hasData) {
+    let ti = forecastData.daily.findIndex(d => d.date === todayDate);
+    if (ti === -1) ti = 0;
+    today = forecastData.daily[ti];
+    totalForecastKwh = today.total_kwh || 0;
+    todayHourly = (forecastData.hourly || [])
+      .filter(h => new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
+      .map(h => ({ x: new Date(h.period_end).getTime(), pv: h.pv_estimate || 0, cloud: h.cloud_cover != null ? h.cloud_cover : null }));
+  }
 
   for (const card of cards) {
+    try {
     const id = card.dataset.blockId || '';
     const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
+    const canvasId = id ? `pvt-chart-${id}` : 'pvt-chart';
+    const canvas = document.getElementById(canvasId);
+    const emptyEl = el('pvt-empty');
 
-    // Read configured metric
+    if (!hasData) {
+      if (emptyEl) emptyEl.style.display = 'flex';
+      if (canvas) canvas.style.display = 'none';
+      continue;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (canvas) canvas.style.display = '';
+
     let generatedField = 'solar';
     try { const mm = JSON.parse(card.dataset.metricMap); if (mm.generated) generatedField = mm.generated; } catch (e) {}
 
-    // Fetch intraday data for this card's configured field
     let intradayData = [];
     try {
-      const intraRes = await fetch(`/api/solar/intraday?field=${encodeURIComponent(generatedField)}`);
+      // Always query 'solar' column from history; daily_solar provides the cumulative curve
+      const intraRes = await fetch('/api/solar/intraday?field=solar');
       if (intraRes.ok) intradayData = await intraRes.json();
     } catch (e) {}
 
-    // Compute actual kWh for the configured field from intraday data
     let actualKwh = 0;
     if (intradayData.length > 1) {
-      for (let i = 0; i < intradayData.length - 1; i++) {
-        const dt = (intradayData[i + 1].timestamp - intradayData[i].timestamp) / 3600;
-        actualKwh += ((intradayData[i].watts + intradayData[i + 1].watts) / 2000) * dt;
+      const hasInstant = intradayData.some(r => r.watts > 0);
+      if (hasInstant) {
+        for (let i = 0; i < intradayData.length - 1; i++) {
+          const dt = (intradayData[i + 1].timestamp - intradayData[i].timestamp) / 3600;
+          actualKwh += ((intradayData[i].watts + intradayData[i + 1].watts) / 2000) * dt;
+        }
+      } else if (intradayData[0].daily_solar != null) {
+        // Derive from daily_solar increments
+        const ds = intradayData.filter(r => r.daily_solar != null);
+        if (ds.length >= 2) actualKwh = ds[ds.length - 1].daily_solar - ds[0].daily_solar;
+        if (actualKwh < 0) actualKwh = ds[ds.length - 1].daily_solar || 0;
       }
     }
-    // Fallback to forecast's actual_so_far for solar field if intraday is empty
-    if (actualKwh === 0 && generatedField === 'solar') actualKwh = today.actual_so_far ?? 0;
-    const remKwh = Math.max(0, totalForecastKwh - actualKwh);
-    const progPct = totalForecastKwh > 0 ? Math.min(100, (actualKwh / totalForecastKwh) * 100) : 0;
+    if (actualKwh === 0 && generatedField === 'solar') actualKwh = today?.actual_so_far ?? 0;
+    // Remaining: sum forecast from now until end of today
+    const nowMs = Date.now();
+    const remKwh = todayHourly
+      .filter(h => h.x > nowMs)
+      .reduce((sum, h) => sum + (h.pv || 0), 0);
+    const progPct = totalForecastKwh > 0 ? Math.min(100, (actualKwh / Math.max(totalForecastKwh, actualKwh + remKwh)) * 100) : 0;
 
-    // Update summary
     const genEl = el('pvt-generated');
     if (genEl) genEl.textContent = actualKwh.toFixed(1) + ' kWh';
     const remEl = el('pvt-remaining');
     if (remEl) remEl.textContent = remKwh.toFixed(1) + ' kWh';
     const fillEl = el('pvt-progress-fill');
-    if (fillEl) { fillEl.style.width = progPct + '%'; fillEl.style.transition = 'width 0.6s ease'; }
+    if (fillEl) fillEl.style.width = progPct + '%';
 
-    // Update timeline strip
-    renderTimeline(el('pvt-icons'), el('pvt-timeline-bar'), todayHourly, now, isDark);
-
-    // Update chart
-    const canvasId = id ? `pvt-chart-${id}` : 'pvt-chart';
-    const canvas = document.getElementById(canvasId);
+    // Chart — sized by CSS + Chart.js responsive; resize handled by observer in builder
     if (!canvas) continue;
 
-    const wrap = el('pvt-chart-wrap');
-    if (wrap) {
-      const rect = wrap.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        canvas.width = rect.width * (window.devicePixelRatio || 1);
-        canvas.height = rect.height * (window.devicePixelRatio || 1);
-      }
-    }
-
-    const ctx = canvas.getContext('2d');
-
-    // Build generated curve: intraday solar wattage, bucketed by hour
-    const generatedByHour = bucketIntradayByHour(intradayData, now);
-    // Build predicted curve from forecast hourly
-    const predictedByHour = todayHourly.map(h => ({ x: h.x, y: h.pv * 1000 })); // kW → W
-    // Build cloud cover curve
+    const hasInstantW = intradayData.some(r => r.watts > 0);
+    const generatedByHour = hasInstantW
+      ? bucketIntradayByHour(intradayData, now)
+      : bucketIntradayByDailySolar(intradayData, now);
+    const predictedByHour = todayHourly.map(h => ({ x: h.x, y: h.pv * 1000 }));
     const cloudByHour = todayHourly.filter(h => h.cloud != null).map(h => ({ x: h.x, y: h.cloud }));
 
-    // Destroy previous chart
     if (pvTodayCharts[canvasId]) {
       pvTodayCharts[canvasId].destroy();
       pvTodayCharts[canvasId] = null;
     }
 
-    const textColor = isDark ? '#f8fafc' : '#0f172a';
+    if (typeof Chart === 'undefined') continue;
+
     const mutedColor = isDark ? '#94a3b8' : '#666666';
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
+    const ctx = canvas.getContext('2d');
+    try {
     pvTodayCharts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
         datasets: [
-          {
-            label: 'Generated',
-            data: generatedByHour,
-            borderColor: '#d8b400',
-            backgroundColor: 'rgba(216,180,0,0.15)',
-            borderWidth: 2.5,
-            tension: 0.4,
-            pointRadius: 0,
-            fill: true,
-            yAxisID: 'y',
-            order: 2
-          },
-          {
-            label: 'Predicted',
-            data: predictedByHour,
-            borderColor: '#d8b400',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            borderDash: [6, 5],
-            tension: 0.4,
-            pointRadius: 0,
-            fill: false,
-            yAxisID: 'y',
-            order: 3
-          },
-          {
-            label: 'Cloud Cover',
-            data: cloudByHour,
-            borderColor: '#c8cada',
-            backgroundColor: 'transparent',
-            borderWidth: 1.5,
-            tension: 0.3,
-            pointRadius: 0,
-            fill: false,
-            yAxisID: 'y1',
-            order: 1
-          }
+          { label: 'Generated', data: generatedByHour, borderColor: '#d8b400', backgroundColor: 'rgba(216,180,0,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
+          { label: 'Predicted', data: predictedByHour, borderColor: '#d8b400', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 3 },
+          { label: 'Cloud Cover', data: cloudByHour, borderColor: '#c8cada', backgroundColor: 'transparent', borderWidth: 1, tension: 0.3, pointRadius: 0, fill: false, yAxisID: 'y1', order: 1 }
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        animation: false,
         interaction: { intersect: false, mode: 'index' },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: isDark ? '#1e293b' : '#fff',
-            titleColor: textColor,
-            bodyColor: textColor,
-            borderColor: isDark ? '#334155' : '#e2e8f0',
-            borderWidth: 1
-          }
-        },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
         scales: {
-          x: {
-            type: 'linear',
-            min: getHourTimestamp(6),
-            max: getHourTimestamp(20),
-            ticks: {
-              stepSize: 2 * 3600000,
-              callback: (val) => new Date(val).getHours(),
-              color: mutedColor,
-              font: { size: 11 }
-            },
-            grid: { color: gridColor, drawBorder: false }
-          },
-          y: {
-            type: 'linear',
-            position: 'left',
-            beginAtZero: true,
-            ticks: {
-              callback: (val) => val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val,
-              color: mutedColor,
-              font: { size: 11 }
-            },
-            grid: { color: gridColor, drawBorder: false }
-          },
-          y1: {
-            type: 'linear',
-            position: 'right',
-            min: 0,
-            max: 100,
-            ticks: {
-              callback: (val) => val === 0 || val === 50 || val === 100 ? val : '',
-              color: '#7d869e',
-              font: { size: 10 }
-            },
-            grid: { display: false }
-          }
+          x: { type: 'linear', min: getHourTimestamp(6), max: getHourTimestamp(20), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
+          y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
+          y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: '#7d869e', font: { size: 8 } }, grid: { display: false } }
         }
       },
       plugins: [{
@@ -264,31 +193,13 @@ export async function updatePvToday(forecastData) {
           const nowX = Date.now();
           if (nowX < scales.x.min || nowX > scales.x.max) return;
           const x = scales.x.getPixelForValue(nowX);
-          ctx.save();
-          ctx.beginPath();
-          ctx.setLineDash([4, 4]);
-          ctx.strokeStyle = '#d94141';
-          ctx.lineWidth = 1.5;
-          ctx.moveTo(x, chartArea.top);
-          ctx.lineTo(x, chartArea.bottom);
-          ctx.stroke();
-          ctx.restore();
+          ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.strokeStyle = '#d94141'; ctx.lineWidth = 1;
+          ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke(); ctx.restore();
         }
       }]
     });
-
-    // Apply gradient fill to generated curve
-    const chart = pvTodayCharts[canvasId];
-    if (chart && chart.chartArea) {
-      const ca = chart.chartArea;
-      const gctx = chart.ctx;
-      const grad = gctx.createLinearGradient(0, ca.bottom, 0, ca.top);
-      grad.addColorStop(0, 'rgba(216,180,0,0.02)');
-      grad.addColorStop(0.6, 'rgba(216,180,0,0.08)');
-      grad.addColorStop(1, 'rgba(216,180,0,0.18)');
-      chart.data.datasets[0].backgroundColor = grad;
-      chart.update();
-    }
+    } catch (e) { console.error('pvToday chart:', e); }
+    } catch (e) { console.error('pvToday card:', e); }
   }
 }
 
@@ -301,62 +212,39 @@ function bucketIntradayByHour(data, now) {
     if (!buckets[hour]) buckets[hour] = [];
     buckets[hour].push(row.watts);
   }
-  const result = [];
-  for (const [hour, vals] of Object.entries(buckets)) {
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    const x = todayStart + parseInt(hour) * 3600000 + 1800000; // middle of hour
-    result.push({ x, y: Math.round(avg) });
+  return Object.entries(buckets).map(([hour, vals]) => ({
+    x: todayStart + parseInt(hour) * 3600000 + 1800000,
+    y: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
+  })).sort((a, b) => a.x - b.x);
+}
+
+function bucketIntradayByDailySolar(data, now) {
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const rows = data.filter(r => r.daily_solar != null).sort((a, b) => a.timestamp - b.timestamp);
+  if (rows.length < 1) return [];
+  // Anchor: prepend a synthetic 0 kWh point at sunrise if cumulative started above 0
+  if (rows[0].daily_solar > 0) {
+    const sunrise = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0).getTime() / 1000);
+    rows.unshift({ timestamp: sunrise, daily_solar: 0 });
   }
-  result.sort((a, b) => a.x - b.x);
+  if (rows.length < 2) return [];
+  const result = [];
+  for (let h = 6; h <= 20; h++) {
+    const t = (todayStart + h * 3600000 + 1800000) / 1000;
+    let prev = null; for (let i = rows.length - 1; i >= 0; i--) { if (rows[i].timestamp <= t) { prev = rows[i]; break; } }
+    const next = rows.find(r => r.timestamp > t);
+    if (!prev || !next) continue;
+    const dtHours = (next.timestamp - prev.timestamp) / 3600;
+    if (dtHours <= 0) continue;
+    const kw = ((next.daily_solar - prev.daily_solar) / dtHours) || 0;
+    result.push({ x: todayStart + h * 3600000 + 1800000, y: Math.round(Math.max(0, kw) * 1000) });
+  }
   return result;
 }
 
 function getHourTimestamp(hour) {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, 0, 0).getTime();
-}
-
-function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
-  if (!iconsEl || !barEl) return;
-
-  // Find 4 representative time slots: morning, late morning, afternoon, evening
-  const slots = [7, 10, 13, 16, 19];
-  const timelineData = slots.map(h => {
-    const t = getHourTimestamp(h);
-    const entry = hourly.reduce((best, cur) => {
-      if (!best || Math.abs(cur.x - t) < Math.abs(best.x - t)) return cur;
-      return best;
-    }, null);
-    return {
-      hour: h,
-      cloud: entry ? entry.cloud : null
-    };
-  });
-
-  // Icons
-  iconsEl.innerHTML = timelineData.map(d => {
-    let icon = '☀️';
-    if (d.cloud != null) {
-      if (d.cloud > 80) icon = '🌧️';
-      else if (d.cloud > 50) icon = '☁️';
-      else if (d.cloud > 20) icon = '⛅';
-    }
-    const label = d.hour + ':00';
-    return `<span class="pvt-timeline-icon" title="${label}">${icon}</span>`;
-  }).join('');
-
-  // Bar segments
-  const colors = timelineData.map(d => {
-    if (d.cloud == null) return isDark ? '#475569' : '#c8cada';
-    if (d.cloud > 80) return '#7b84a0';
-    if (d.cloud > 50) return '#9ca3af';
-    if (d.cloud > 20) return '#c8ba78';
-    return '#e3c200';
-  });
-
-  barEl.innerHTML = colors.map((c, i) => {
-    return `<div class="pvt-timeline-seg" style="background:${c};flex:1;height:4px;border-radius:2px;margin:0 1px;"></div>`;
-  }).join('');
 }
 
 function escapeHtml(s) {

@@ -1530,9 +1530,9 @@ function renderDashboardBlockEditor(dashboard) {
       } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
         const currentMetrics = block.config?.metrics || {};
         const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Power' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
-        configPanel.innerHTML = `<h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
+        configPanel.innerHTML = `<label>Inverter Image URL</label><input type="text" class="config-inverter-image" value="${escapeHtml(block.config?.inverter_image||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
-        const isHalf = block.type === 'half-gauge';
+        const isHalf = block.type === 'half-gauge' || block.type === 'half-gauge-2';
         configPanel.innerHTML = `
           <label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title||'Gauge')}" style="width:100%;margin-bottom:0.5rem;">
           <label>Metric</label><select class="config-metric" data-role="value" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.metric)}</select>
@@ -1629,12 +1629,14 @@ function renderDashboardBlockEditor(dashboard) {
               if (l && m) block.config.metrics.push({ label: l.value, metric: m.value, unit: u?.value || '' });
             });
           } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
+            block.config.inverter_image = configPanel.querySelector('.config-inverter-image')?.value || '';
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => { const role = select.dataset.role; if (select.value) block.config.metrics[role] = select.value; });
           } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
             block.config.metric = configPanel.querySelector('.config-metric')?.value || '';
-            block.config.min = parseFloat(configPanel.querySelector('.config-min')?.value) || 0;
+            const minVal = parseFloat(configPanel.querySelector('.config-min')?.value);
+            block.config.min = isNaN(minVal) ? (isHalf ? -100 : 0) : minVal;
             block.config.max = parseFloat(configPanel.querySelector('.config-max')?.value) || 100;
             block.config.color = configPanel.querySelector('.config-color')?.value || '#3b82f6';
           } else if (block.type === 'text-card') {
