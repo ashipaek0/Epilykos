@@ -35,6 +35,10 @@ export function buildPvToday(block = {}) {
         <span class="pvt-label">Remaining</span>
       </div>
     </div>
+    <div class="pv-today-timeline" id="${uid('pvt-timeline', id)}">
+      <div class="pvt-timeline-icons" id="${uid('pvt-icons', id)}"></div>
+      <div class="pvt-timeline-bar" id="${uid('pvt-timeline-bar', id)}"></div>
+    </div>
     <div class="pvt-chart-container" id="${uid('pvt-chart-wrap', id)}">
       <canvas id="${uid('pvt-chart', id)}"></canvas>
       <div class="pvt-no-data" id="${uid('pvt-empty', id)}" style="display:none;">No forecast data</div>
@@ -143,6 +147,9 @@ export async function updatePvToday(forecastData) {
     const fillEl = el('pvt-progress-fill');
     if (fillEl) fillEl.style.width = progPct + '%';
 
+    // Weather timeline strip
+    renderTimeline(el('pvt-icons'), el('pvt-timeline-bar'), todayHourly, now, isDark);
+
     // Chart — sized by CSS + Chart.js responsive; resize handled by observer in builder
     if (!canvas) continue;
 
@@ -240,6 +247,38 @@ function bucketIntradayByDailySolar(data, now) {
     result.push({ x: todayStart + h * 3600000 + 1800000, y: Math.round(Math.max(0, kw) * 1000) });
   }
   return result;
+}
+
+function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
+  if (!iconsEl || !barEl) return;
+  const slots = [7, 10, 13, 16, 19];
+  const timelineData = slots.map(h => {
+    const t = getHourTimestamp(h);
+    const entry = hourly.reduce((best, cur) => {
+      if (!best || Math.abs(cur.x - t) < Math.abs(best.x - t)) return cur;
+      return best;
+    }, null);
+    return { hour: h, cloud: entry ? entry.cloud : null };
+  });
+  iconsEl.innerHTML = timelineData.map(d => {
+    let icon = '☀️';
+    if (d.cloud != null) {
+      if (d.cloud > 80) icon = '🌧️';
+      else if (d.cloud > 50) icon = '☁️';
+      else if (d.cloud > 20) icon = '⛅';
+    }
+    return `<span class="pvt-timeline-icon" title="${d.hour}:00">${icon}</span>`;
+  }).join('');
+  const colors = timelineData.map(d => {
+    if (d.cloud == null) return isDark ? '#475569' : '#c8cada';
+    if (d.cloud > 80) return '#7b84a0';
+    if (d.cloud > 50) return '#9ca3af';
+    if (d.cloud > 20) return '#c8ba78';
+    return '#e3c200';
+  });
+  barEl.innerHTML = colors.map(c =>
+    `<div class="pvt-timeline-seg" style="background:${c};flex:1;height:3px;border-radius:1px;margin:0 1px;"></div>`
+  ).join('');
 }
 
 function getHourTimestamp(hour) {

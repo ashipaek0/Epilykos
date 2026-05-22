@@ -243,12 +243,12 @@ h1, h2, h3, h4,
   background: var(--card-bg); border-radius: var(--radius);
   box-shadow: var(--shadow); border: 1px solid var(--border);
   padding: 0.3rem 0.5rem; height: 100%; width: 100%; box-sizing: border-box;
-  display: flex; flex-direction: column; gap: 0.15rem;
+  display: flex; flex-direction: column; gap: 2px;
   overflow: hidden; min-height: 0;
 }
 .pv-today-header { text-align: center; flex-shrink: 0; line-height: 1.1; }
 .pv-today-title { font-weight: 600; font-size: clamp(0.65rem, 1.8vw, 0.85rem); color: var(--text); }
-.pv-today-summary { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.pv-today-summary { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; margin-bottom: 10px; }
 .pvt-metric { display: flex; flex-direction: column; flex-shrink: 0; min-width: 55px; }
 .pvt-left { align-items: flex-end; text-align: right; }
 .pvt-right { align-items: flex-start; text-align: left; }
@@ -258,8 +258,8 @@ h1, h2, h3, h4,
 .pvt-progress-bar { width: 100%; height: 18px; background: var(--bg); border-radius: 3px; overflow: hidden; }
 .pvt-progress-fill { height: 100%; background: linear-gradient(90deg, #d4b100, #f0d040); border-radius: 3px; transition: width 0.6s ease; }
 .pv-today-timeline { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 0 0.25rem; }
-.pvt-timeline-icons { display: flex; justify-content: space-around; padding: 0 0.1rem; }
-.pvt-timeline-icon { font-size: clamp(0.65rem, 1.5vw, 0.9rem); cursor: default; }
+.pvt-timeline-icon { font-size: clamp(1rem, 2.5vw, 1.5rem); cursor: default; }
+.pvt-timeline-icons { display: flex; justify-content: space-around; padding: 0 0.1rem; margin-bottom: 2rem; }
 .pvt-timeline-bar { display: flex; gap: 1px; }
 .pvt-chart-container { flex: 1 1 0; min-height: 30px; min-width: 0; position: relative; }
 .pvt-chart-container canvas { width: 100% !important; height: 100% !important; }
@@ -305,7 +305,7 @@ h1, h2, h3, h4,
 /* Chart Container */
 .chart-container {
   background: var(--card-bg); padding: 1rem; border-radius: var(--radius);
-  height: 380px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
+  height: 475px; position: relative; box-shadow: var(--shadow); border: 1px solid var(--border);
   width: 100%; box-sizing: border-box;
 }
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -457,7 +457,7 @@ h1, h2, h3, h4,
   .flow-card { flex-direction: column; }
   .flow-item { min-height: auto; }
   .stat-value { font-size: var(--fs-large); }
-  .chart-container { height: 350px; }
+  .chart-container { height: 440px; }
   .pv-today-banner { padding: 0.8rem 1rem; }
   .pv-main-row { flex-direction: column; }
   .weather-section { flex-wrap: wrap; }
