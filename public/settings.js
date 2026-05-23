@@ -44,7 +44,7 @@ async function loadSettings() {
     buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
-    populateDashboardSelects(dashConfig);
+    populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard);
 
     usedDashboardMetrics = [];
     if (dashConfig && dashConfig.dashboards) {
@@ -1163,12 +1163,13 @@ if (modalCreate) {
 }
 window.addEventListener('click', (e) => { if (modal && e.target === modal) modal.style.display = 'none'; });
 
-function populateDashboardSelects(config) {
+function populateDashboardSelects(config, savedDesktop, savedMobile) {
   const dashboards = config?.dashboards || [];
-  [('desktop-dashboard'), ('mobile-dashboard')].forEach(id => {
+  const saved = { 'desktop-dashboard': savedDesktop, 'mobile-dashboard': savedMobile };
+  ['desktop-dashboard', 'mobile-dashboard'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    const cur = sel.value;
+    const cur = saved[id] || '';
     sel.innerHTML = '<option value="">-- Default --</option>';
     dashboards.forEach(db => { const o = document.createElement('option'); o.value = db.id; o.textContent = db.name; if (db.id === cur) o.selected = true; sel.appendChild(o); });
   });
