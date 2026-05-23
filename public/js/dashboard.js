@@ -17,6 +17,7 @@ import { fetchDashboardConfig, saveDashboardConfig, fetchPublicConfig } from './
 import { componentBuilders } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
+import { clearSparklineCharts } from './forecast.js';
 import { updateAllComponents } from './updater.js';
 import { ensureBlockIds } from './utils/blockId.js';
 
@@ -63,6 +64,7 @@ export async function loadDashboardConfig() {
 function renderDashboard() {
   if (!dashboardConfig || !dashboardConfig.dashboards) return;
   destroyCharts();
+  clearSparklineCharts();
 
   // Build tab bar
   let tabBar = document.getElementById('tab-bar');

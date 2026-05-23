@@ -118,16 +118,18 @@ export async function updatePvToday(forecastData) {
     } catch (e) {}
 
     let actualKwh = 0;
+    const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
     if (intradayData.length > 1) {
-      const hasInstant = intradayData.some(r => r.watts > 0);
+      const todayData = intradayData.filter(r => r.timestamp >= todayStart);
+      const hasInstant = todayData.some(r => r.watts > 0);
       if (hasInstant) {
-        for (let i = 0; i < intradayData.length - 1; i++) {
-          const dt = (intradayData[i + 1].timestamp - intradayData[i].timestamp) / 3600;
-          actualKwh += ((intradayData[i].watts + intradayData[i + 1].watts) / 2000) * dt;
+        for (let i = 0; i < todayData.length - 1; i++) {
+          const dt = (todayData[i + 1].timestamp - todayData[i].timestamp) / 3600;
+          actualKwh += ((todayData[i].watts + todayData[i + 1].watts) / 2000) * dt;
         }
-      } else if (intradayData[0].daily_solar != null) {
-        // Derive from daily_solar increments
-        const ds = intradayData.filter(r => r.daily_solar != null);
+      } else if (todayData[0]?.daily_solar != null) {
+        // Derive from daily_solar — use today's data only, skip yesterday's tail
+        const ds = todayData.filter(r => r.daily_solar != null);
         if (ds.length >= 2) actualKwh = ds[ds.length - 1].daily_solar - ds[0].daily_solar;
         if (actualKwh < 0) actualKwh = ds[ds.length - 1].daily_solar || 0;
       }
@@ -176,9 +178,9 @@ export async function updatePvToday(forecastData) {
       type: 'line',
       data: {
         datasets: [
-          { label: 'Generated', data: generatedByHour, borderColor: '#d8b400', backgroundColor: 'rgba(216,180,0,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
-          { label: 'Predicted', data: predictedByHour, borderColor: '#d8b400', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 3 },
-          { label: 'Cloud Cover', data: cloudByHour, borderColor: '#c8cada', backgroundColor: 'transparent', borderWidth: 1, tension: 0.3, pointRadius: 0, fill: false, yAxisID: 'y1', order: 1 }
+          { label: 'Generated', data: generatedByHour, borderColor: '#FFEA00', backgroundColor: 'rgba(255,234,0,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
+          { label: 'Predicted', data: predictedByHour, borderColor: '#FFEA00', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 3 },
+          { label: 'Cloud Cover', data: cloudByHour, borderColor: '#c8cada', backgroundColor: 'rgba(200,202,218,0.08)', borderWidth: 1, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 1 }
         ]
       },
       options: {
@@ -188,7 +190,7 @@ export async function updatePvToday(forecastData) {
         interaction: { intersect: false, mode: 'index' },
         plugins: { legend: { display: false }, tooltip: { enabled: false } },
         scales: {
-          x: { type: 'linear', min: getHourTimestamp(6), max: getHourTimestamp(20), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
+          x: { type: 'linear', min: getHourTimestamp(6), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
           y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
           y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: '#7d869e', font: { size: 8 } }, grid: { display: false } }
         }
@@ -211,9 +213,11 @@ export async function updatePvToday(forecastData) {
 }
 
 function bucketIntradayByHour(data, now) {
-  const buckets = {};
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const todayStartUnix = Math.floor(todayStart / 1000);
+  const buckets = {};
   for (const row of data) {
+    if (row.timestamp < todayStartUnix) continue;
     const ts = row.timestamp * 1000;
     const hour = Math.floor((ts - todayStart) / 3600000);
     if (!buckets[hour]) buckets[hour] = [];
@@ -227,7 +231,8 @@ function bucketIntradayByHour(data, now) {
 
 function bucketIntradayByDailySolar(data, now) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const rows = data.filter(r => r.daily_solar != null).sort((a, b) => a.timestamp - b.timestamp);
+  const todayStartUnix = Math.floor(todayStart / 1000);
+  const rows = data.filter(r => r.daily_solar != null && r.timestamp >= todayStartUnix).sort((a, b) => a.timestamp - b.timestamp);
   if (rows.length < 1) return [];
   // Anchor: prepend a synthetic 0 kWh point at sunrise if cumulative started above 0
   if (rows[0].daily_solar > 0) {
@@ -235,8 +240,9 @@ function bucketIntradayByDailySolar(data, now) {
     rows.unshift({ timestamp: sunrise, daily_solar: 0 });
   }
   if (rows.length < 2) return [];
+  const firstHour = Math.max(6, Math.floor((rows[0].timestamp - todayStartUnix) / 3600));
   const result = [];
-  for (let h = 6; h <= 20; h++) {
+  for (let h = firstHour; h <= 20; h++) {
     const t = (todayStart + h * 3600000 + 1800000) / 1000;
     let prev = null; for (let i = rows.length - 1; i >= 0; i--) { if (rows[i].timestamp <= t) { prev = rows[i]; break; } }
     const next = rows.find(r => r.timestamp > t);
@@ -273,8 +279,8 @@ function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
     if (d.cloud == null) return isDark ? '#475569' : '#c8cada';
     if (d.cloud > 80) return '#7b84a0';
     if (d.cloud > 50) return '#9ca3af';
-    if (d.cloud > 20) return '#c8ba78';
-    return '#e3c200';
+    if (d.cloud > 20) return '#ffe870';
+    return '#FFEA00';
   });
   barEl.innerHTML = colors.map(c =>
     `<div class="pvt-timeline-seg" style="background:${c};flex:1;height:3px;border-radius:1px;margin:0 1px;"></div>`
