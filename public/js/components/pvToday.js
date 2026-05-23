@@ -69,15 +69,20 @@ export function buildPvToday(block = {}) {
   return card;
 }
 
+const DEBUG_PVTODAY = true; // Set to false to silence diagnostic logs
+
 export async function updatePvToday(forecastData) {
   const cards = document.querySelectorAll('.pv-today-instance');
-  if (!cards.length) return;
+  if (!cards.length) { DEBUG_PVTODAY && console.log('[pvToday] no .pv-today-instance elements in DOM'); return; }
 
   const hasData = forecastData && !forecastData.error && forecastData.daily && forecastData.daily.length;
+  DEBUG_PVTODAY && console.log('[pvToday] called — hasData:', hasData, 'cards found:', cards.length,
+    forecastData ? `daily:${forecastData.daily?.length} hourly:${forecastData.hourly?.length} error:${forecastData.error}` : 'no forecastData');
 
   const now = new Date();
   const todayDate = now.toLocaleDateString('en-CA');
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  DEBUG_PVTODAY && console.log('[pvToday] todayDate:', todayDate, 'systemCapacityKwp:', window.systemCapacityKwp, 'Chart loaded:', typeof Chart !== 'undefined');
 
   let today = null, totalForecastKwh = 0, todayHourly = [];
 
@@ -86,18 +91,22 @@ export async function updatePvToday(forecastData) {
     if (ti === -1) ti = 0;
     today = forecastData.daily[ti];
     totalForecastKwh = today.total_kwh || 0;
+    DEBUG_PVTODAY && console.log('[pvToday] today index:', ti, 'total_kwh:', totalForecastKwh, 'actual_so_far:', today.actual_so_far);
     todayHourly = (forecastData.hourly || [])
       .filter(h => new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
       .map(h => ({ x: new Date(h.period_end).getTime(), pv: h.pv_estimate || 0, cloud: h.cloud_cover != null ? h.cloud_cover : null }));
+    DEBUG_PVTODAY && console.log('[pvToday] todayHourly entries:', todayHourly.length);
   }
 
   for (const card of cards) {
     try {
     const id = card.dataset.blockId || '';
+    DEBUG_PVTODAY && console.log('[pvToday] processing card:', id || '(no id)');
     const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
     const canvasId = id ? `pvt-chart-${id}` : 'pvt-chart';
     const canvas = document.getElementById(canvasId);
     const emptyEl = el('pvt-empty');
+    DEBUG_PVTODAY && console.log('[pvToday] canvas found:', !!canvas, 'canvasId:', canvasId, 'emptyEl:', !!emptyEl);
 
     if (!hasData) {
       if (emptyEl) emptyEl.style.display = 'flex';
@@ -107,15 +116,18 @@ export async function updatePvToday(forecastData) {
     if (emptyEl) emptyEl.style.display = 'none';
     if (canvas) canvas.style.display = '';
 
-    let generatedField = 'solar';
+    let generatedField = '';
     try { const mm = JSON.parse(card.dataset.metricMap); if (mm.generated) generatedField = mm.generated; } catch (e) {}
+    if (!generatedField) generatedField = 'solar'; // legacy — configure in block settings
+    DEBUG_PVTODAY && console.log('[pvToday] generatedField:', generatedField);
 
     let intradayData = [];
     try {
-      // Always query 'solar' column from history; daily_solar provides the cumulative curve
       const intraRes = await fetch('/api/solar/intraday?field=solar');
+      DEBUG_PVTODAY && console.log('[pvToday] intraday fetch status:', intraRes.status, 'ok:', intraRes.ok);
       if (intraRes.ok) intradayData = await intraRes.json();
-    } catch (e) {}
+    } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] intraday fetch error:', e); }
+    DEBUG_PVTODAY && console.log('[pvToday] intraday rows:', intradayData.length, 'hasWatts>0:', intradayData.some(r => r.watts > 0), 'hasDailySolar>0:', intradayData.some(r => r.daily_solar > 0));
 
     let actualKwh = 0;
     const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
@@ -141,6 +153,7 @@ export async function updatePvToday(forecastData) {
       .filter(h => h.x > nowMs)
       .reduce((sum, h) => sum + (h.pv || 0), 0);
     const progPct = totalForecastKwh > 0 ? Math.min(100, (actualKwh / Math.max(totalForecastKwh, actualKwh + remKwh)) * 100) : 0;
+    DEBUG_PVTODAY && console.log('[pvToday] actualKwh:', actualKwh.toFixed(2), 'remKwh:', remKwh.toFixed(2), 'progPct:', progPct.toFixed(1));
 
     const genEl = el('pvt-generated');
     if (genEl) genEl.textContent = actualKwh.toFixed(1) + ' kWh';
@@ -161,18 +174,21 @@ export async function updatePvToday(forecastData) {
       : bucketIntradayByDailySolar(intradayData, now);
     const predictedByHour = todayHourly.map(h => ({ x: h.x, y: h.pv * 1000 }));
     const cloudByHour = todayHourly.filter(h => h.cloud != null).map(h => ({ x: h.x, y: h.cloud }));
+    DEBUG_PVTODAY && console.log('[pvToday] chart datasets — generated:', generatedByHour.length, 'predicted:', predictedByHour.length, 'cloud:', cloudByHour.length, 'hasInstantW:', hasInstantW);
+    if (generatedByHour.length) DEBUG_PVTODAY && console.log('[pvToday] generated sample:', generatedByHour.slice(0, 3));
 
     if (pvTodayCharts[canvasId]) {
       pvTodayCharts[canvasId].destroy();
       pvTodayCharts[canvasId] = null;
     }
 
-    if (typeof Chart === 'undefined') continue;
+    if (typeof Chart === 'undefined') { DEBUG_PVTODAY && console.error('[pvToday] Chart.js not loaded!'); continue; }
 
     const mutedColor = isDark ? '#94a3b8' : '#666666';
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
     const ctx = canvas.getContext('2d');
+    DEBUG_PVTODAY && console.log('[pvToday] canvas size:', canvas.width, 'x', canvas.height, 'ctx:', !!ctx);
     try {
     pvTodayCharts[canvasId] = new Chart(ctx, {
       type: 'line',
@@ -207,8 +223,8 @@ export async function updatePvToday(forecastData) {
         }
       }]
     });
-    } catch (e) { console.error('pvToday chart:', e); }
-    } catch (e) { console.error('pvToday card:', e); }
+    } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] chart creation error:', e); }
+    } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] card processing error:', e); }
   }
 }
 

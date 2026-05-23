@@ -3,9 +3,9 @@ const { getDb } = require('./database');
 
 function getCurrentMetrics() {
   const db = getDb();
-  const rows = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+  const rows = db.prepare('SELECT metric, value, timestamp, unit FROM latest_metrics').all();
   const result = {};
-  rows.forEach(r => { result[r.metric] = { value: r.value, timestamp: r.timestamp * 1000 }; });
+  rows.forEach(r => { result[r.metric] = { value: r.value, timestamp: r.timestamp * 1000, unit: r.unit || null }; });
   return result;
 }
 
