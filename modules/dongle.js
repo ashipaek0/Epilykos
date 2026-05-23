@@ -66,15 +66,15 @@ function stopDonglePolling() {
 
 function restartDonglePolling() { startDonglePolling(); }
 
-function writeMetrics(metrics) {
+function writeMetrics(metrics, units) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
   const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)');
   for (const [name, value] of Object.entries(metrics)) {
     if (value !== undefined && !isNaN(value)) {
       metricInsert.run(now, name, value);
-      latestUpsert.run(name, value, now);
+      latestUpsert.run(name, value, now, (units && units[name]) || null);
     }
   }
 }
@@ -120,6 +120,7 @@ async function pollInstance(instance, transport, profile) {
     }
 
     const metrics = {};
+    const units = {};
     const prefix = instance.prefix || '';
     for (const m of profile.metrics) {
       const addr = parseInt(m.register, 16);
@@ -134,10 +135,12 @@ async function pollInstance(instance, transport, profile) {
       }
 
       const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
-      metrics[prefix + m.name] = value;
+      const name = prefix + m.name;
+      metrics[name] = value;
+      if (m.unit) units[name] = m.unit;
     }
 
-    writeMetrics(metrics);
+    writeMetrics(metrics, units);
     instance.lastSeen = Date.now();
     instance.consecutiveFails = 0;
     logger.debug(`[dongle] ${instance.name}: ${Object.keys(metrics).length} metrics in ${Date.now() - start}ms`);
