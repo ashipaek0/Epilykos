@@ -116,8 +116,9 @@ export async function updatePvToday(forecastData) {
     if (emptyEl) emptyEl.style.display = 'none';
     if (canvas) canvas.style.display = '';
 
-    let generatedField = 'solar';
+    let generatedField = '';
     try { const mm = JSON.parse(card.dataset.metricMap); if (mm.generated) generatedField = mm.generated; } catch (e) {}
+    if (!generatedField) generatedField = 'solar'; // legacy — configure in block settings
     DEBUG_PVTODAY && console.log('[pvToday] generatedField:', generatedField);
 
     let intradayData = [];
