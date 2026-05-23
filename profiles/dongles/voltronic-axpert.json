@@ -1,0 +1,99 @@
+{
+  "name": "Voltronic / Axpert (Modbus TCP)",
+  "transport": "modbus-tcp",
+  "requires_serial": false,
+  "default_port": 502,
+  "default_unit_id": 1,
+  "metrics": [
+    {
+      "name": "solar_power",
+      "register": "0x0001",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "field": "solar_power"
+    },
+    {
+      "name": "solar_voltage",
+      "register": "0x0000",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "solar_voltage"
+    },
+    {
+      "name": "grid_voltage",
+      "register": "0x0002",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "grid_voltage"
+    },
+    {
+      "name": "grid_power",
+      "register": "0x000C",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "field": "grid_power"
+    },
+    {
+      "name": "load_power",
+      "register": "0x000F",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "field": "load_power"
+    },
+    {
+      "name": "battery_soc",
+      "register": "0x001C",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "field": "battery_soc"
+    },
+    {
+      "name": "battery_voltage",
+      "register": "0x001A",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "battery_voltage"
+    },
+    {
+      "name": "battery_current",
+      "register": "0x001B",
+      "count": 1,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "field": "battery_current"
+    },
+    {
+      "name": "inverter_temperature",
+      "register": "0x0010",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "°C",
+      "field": "inverter_temperature"
+    },
+    {
+      "name": "daily_solar",
+      "register": "0x0013",
+      "count": 2,
+      "type": "uint32",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "daily_solar"
+    }
+  ]
+}

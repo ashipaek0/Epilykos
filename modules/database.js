@@ -79,15 +79,83 @@ function initializeDatabase() {
     );
   `);
 
+  // PVOutput integration tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pvoutput_upload_queue (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      date         TEXT NOT NULL,
+      time         TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      reason       TEXT,
+      status       TEXT DEFAULT 'pending',
+      attempts     INTEGER DEFAULT 0,
+      created_at   TEXT NOT NULL,
+      uploaded_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pvoutput_queue_date_status ON pvoutput_upload_queue(date, status);
+
+    CREATE TABLE IF NOT EXISTS pvoutput_history (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      date         TEXT NOT NULL,
+      time         TEXT NOT NULL,
+      energy_gen   INTEGER,
+      power_gen    INTEGER,
+      energy_con   INTEGER,
+      power_con    INTEGER,
+      efficiency   REAL,
+      temperature  REAL,
+      voltage      REAL,
+      UNIQUE(date, time)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pvoutput_history_date ON pvoutput_history(date);
+
+    CREATE TABLE IF NOT EXISTS pvoutput_daily_outputs (
+      date         TEXT PRIMARY KEY,
+      energy_gen   INTEGER,
+      peak_power   INTEGER,
+      peak_time    TEXT,
+      energy_con   INTEGER,
+      temperature_min REAL,
+      temperature_max REAL,
+      condition    TEXT,
+      status       TEXT DEFAULT 'pending',
+      attempts     INTEGER DEFAULT 0,
+      source       TEXT NOT NULL DEFAULT 'push'
+    );
+
+    CREATE TABLE IF NOT EXISTS pvoutput_alerts (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      system_id        TEXT,
+      alert_type       INTEGER,
+      message          TEXT,
+      pvoutput_datetime TEXT,
+      received_at      TEXT NOT NULL,
+      acknowledged     INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_pvoutput_alerts_type ON pvoutput_alerts(alert_type, acknowledged);
+
+    CREATE TABLE IF NOT EXISTS pvoutput_system (
+      system_id    TEXT PRIMARY KEY,
+      system_name  TEXT,
+      system_size  INTEGER,
+      postcode     TEXT,
+      install_date TEXT,
+      latitude     REAL,
+      longitude    REAL,
+      status_interval INTEGER,
+      fetched_at   TEXT
+    );
+  `);
+
   // Ensure essential keys exist
   const essentialKeys = [
     'ha_devices', 'mqtt_devices', 'modbus_devices', 'dashboard_config',
     'solar_latitude', 'solar_longitude', 'solar_tilt', 'solar_azimuth',
     'solar_capacity_kwp', 'solcast_api_key', 'forecast_enabled',
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
-    'savings_currency', 'savings_rate', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard',
+    'savings_currency', 'savings_rate', 'savings_solar_metric', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard',
     'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
-    'user_metrics', 'bms_devices'     // <-- ADDED
+    'user_metrics', 'bms_devices', 'dongle_config', 'pvoutput_config', 'pvoutput_stats_cache', 'pvoutput_rate_limit_state'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');

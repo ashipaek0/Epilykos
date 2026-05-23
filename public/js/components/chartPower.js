@@ -1,8 +1,8 @@
 import { uid } from '../utils/uid.js';
 
 function normalizeDatasets(datasets) {
-  if (!datasets || !datasets.length) return [{ label: 'Load', metric: 'consumption', color: '#7c3aed' }, { label: 'Solar', metric: 'solar', color: '#d97706' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#059669' }, { label: 'Grid Import', metric: 'grid_import', color: '#dc2626' }];
-  if (typeof datasets[0] === 'string') { const lm = { load: { label: 'Load', color: '#7c3aed' }, solar: { label: 'Solar', color: '#d97706' }, battery_charge: { label: 'Battery Charge', color: '#059669' }, grid_import: { label: 'Grid Import', color: '#dc2626' }, battery_discharge: { label: 'Battery Discharge', color: '#10b981' }, grid_export: { label: 'Grid Export', color: '#f59e0b' } }; return datasets.map(ds => { const b = lm[ds] || { label: ds, color: '#888' }; return { label: b.label, metric: ds, color: b.color }; }); }
+  if (!datasets || !datasets.length) return [{ label: 'Load', metric: 'consumption', color: '#0062FF' }, { label: 'Solar', metric: 'solar', color: '#FFEA00' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#00E056' }, { label: 'Grid Import', metric: 'grid_import', color: '#FF4255' }];
+  if (typeof datasets[0] === 'string') { const lm = { load: { label: 'Load', color: '#0062FF' }, solar: { label: 'Solar', color: '#FFEA00' }, battery_charge: { label: 'Battery Charge', color: '#00E056' }, grid_import: { label: 'Grid Import', color: '#FF4255' }, battery_discharge: { label: 'Battery Discharge', color: '#00E056' }, grid_export: { label: 'Grid Export', color: '#f59e0b' } }; return datasets.map(ds => { const b = lm[ds] || { label: ds, color: '#888' }; return { label: b.label, metric: ds, color: b.color }; }); }
   return datasets.map(ds => ({ label: ds.label || ds.metric || 'Unknown', metric: ds.metric || '', color: ds.color || '#888' }));
 }
 

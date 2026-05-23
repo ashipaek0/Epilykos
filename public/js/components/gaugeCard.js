@@ -12,8 +12,9 @@ export function buildGaugeCard(block = {}) {
         <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" stroke-width="20"/>
         <circle cx="60" cy="60" r="50" fill="none" stroke="${color}" stroke-width="20" stroke-dasharray="0 314" stroke-linecap="round" id="gauge-fill-${block.id}"/>
       </svg>
-      <div class="stat-label" style="position:absolute;top:55px;left:0;right:0;text-align:center;font-size:0.85rem;color:var(--text-secondary);">${escapeHtml(config.title || 'Gauge')}</div>
-      <div class="stat-value" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:600;" id="gauge-val-${block.id}">--</div>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span class="stat-value" style="font-size:1.6rem;font-weight:600;line-height:1;" id="gauge-val-${block.id}">--</span>
+        <span class="stat-label" style="font-size:1rem;color:var(--text-secondary);margin-top:1px;">${escapeHtml(config.title || 'Gauge')}</span>
       </div>
     </div>`;
   return container;
@@ -30,6 +31,9 @@ export function updateGaugeCard(state) {
     const fill = document.getElementById('gauge-fill-' + id);
     if (fill) fill.setAttribute('stroke-dasharray', `${(pct/100)*314} 314`);
     const val = document.getElementById('gauge-val-' + id);
-    if (val) val.textContent = Number(v).toFixed(1);
+    if (val) {
+      const unit = state.metrics?.[cfg.value]?.unit || '';
+      val.textContent = Math.round(v) + (unit ? ' ' + unit : '');
+    }
   });
 }
