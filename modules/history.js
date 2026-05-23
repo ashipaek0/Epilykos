@@ -28,7 +28,7 @@ async function pollLegacyHistory() {
     // Instantaneous power
     if (/^(consumption|load)/.test(n) && /(power|watts|consumption)$/.test(n)) values.consumption = row.value;
     else if (n === 'consumption') values.consumption = row.value;
-    else if (/^solar/.test(n) && /(power|watts)$/.test(n)) values.solar = row.value;
+    else if (/(solar|pv)/.test(n) && /(power|watts)$/.test(n)) values.solar = row.value;
     else if (n === 'solar') values.solar = row.value;
     else if (/^battery/.test(n) && /(charge|charging)/.test(n) && /(power|watts)$/.test(n)) values.battery_charge = row.value;
     else if (n === 'battery_charge') values.battery_charge = row.value;
@@ -52,7 +52,7 @@ async function pollLegacyHistory() {
     else if (/battery/.test(n) && /(soc|percentage|percent)/.test(n)) values.battery_soc = row.value;
     else if (n === 'battery_soc') values.battery_soc = row.value;
     // Daily cumulative totals — match gen/daily/today/cumulative/energy keywords
-    else if (/solar/.test(n) && /(gen|daily|today|cumulative|energy)/.test(n)) values.daily_solar = row.value;
+    else if (/(solar|pv)/.test(n) && /(gen|daily|today|cumulative|energy)/.test(n)) values.daily_solar = row.value;
     else if (n === 'daily_solar') values.daily_solar = row.value;
     else if (/(consumption|load)/.test(n) && /(gen|daily|today|cumulative|energy)/.test(n)) values.daily_consumption = row.value;
     else if (n === 'daily_consumption') values.daily_consumption = row.value;
