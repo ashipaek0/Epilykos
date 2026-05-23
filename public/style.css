@@ -5,10 +5,10 @@
   --text-secondary: #475569;
   --border: #e2e8f0;
   --accent: #3b82f6;
-  --solar: #d97706;
-  --battery: #059669;
-  --grid: #dc2626;
-  --home: #7c3aed;
+  --solar: #FFEA00;
+  --battery: #00E056;
+  --grid: #FF4255;
+  --home: #0062FF;
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --grid-color: #cbd5e1;
   --radius: 1rem;
@@ -24,10 +24,10 @@
   --text-secondary: #94a3b8;
   --border: #334155;
   --accent: #3b82f6;
-  --solar: #fbbf24;
-  --battery: #10b981;
-  --grid: #ef4444;
-  --home: #8b5cf6;
+  --solar: #FFEA00;
+  --battery: #00E056;
+  --grid: #FF4255;
+  --home: #0062FF;
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
   --grid-color: #334155;
 }
@@ -158,6 +158,7 @@ h1, h2, h3, h4,
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
+    height: auto !important;
     min-height: auto !important;
   }
 }
@@ -252,11 +253,11 @@ h1, h2, h3, h4,
 .pvt-metric { display: flex; flex-direction: column; flex-shrink: 0; min-width: 55px; }
 .pvt-left { align-items: flex-end; text-align: right; }
 .pvt-right { align-items: flex-start; text-align: left; }
-.pvt-value { font-size: clamp(0.7rem, 1.5vw, 0.95rem); font-weight: 700; color: var(--text); line-height: 1.1; }
+.pvt-value { font-size: clamp(0.7rem, 1.5vw, 0.95rem); font-weight: 700; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .pvt-label { font-size: 0.6rem; color: var(--text-secondary); }
 .pvt-progress-wrap { flex: 1; display: flex; align-items: center; }
 .pvt-progress-bar { width: 100%; height: 18px; background: var(--bg); border-radius: 3px; overflow: hidden; }
-.pvt-progress-fill { height: 100%; background: linear-gradient(90deg, #d4b100, #f0d040); border-radius: 3px; transition: width 0.6s ease; }
+.pvt-progress-fill { height: 100%; background: linear-gradient(90deg, #FFEA00, #fff07a); border-radius: 3px; transition: width 0.6s ease; }
 .pv-today-timeline { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 0 0.25rem; }
 .pvt-timeline-icon { font-size: clamp(1rem, 2.5vw, 1.5rem); cursor: default; }
 .pvt-timeline-icons { display: flex; justify-content: space-around; padding: 0 0.1rem; margin-bottom: 2rem; }
@@ -266,8 +267,8 @@ h1, h2, h3, h4,
 .pvt-legend { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; font-size: 0.6rem; color: var(--text-secondary); }
 .pvt-legend-item { display: flex; align-items: center; gap: 0.15rem; white-space: nowrap; }
 .pvt-legend-line { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
-.pvt-legend-generated { background: #d8b400; }
-.pvt-legend-predicted { background: transparent; border-top: 2px dashed #d8b400; height: 0; width: 16px; }
+.pvt-legend-generated { background: #FFEA00; }
+.pvt-legend-predicted { background: transparent; border-top: 2px dashed #FFEA00; height: 0; width: 16px; }
 .pvt-legend-now { background: transparent; border-top: 2px dashed #d94141; height: 0; width: 16px; }
 .pvt-legend-cloud { background: #c8cada; }
 .pvt-no-data { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.8rem; }
@@ -299,7 +300,7 @@ h1, h2, h3, h4,
   justify-content: center;
 }
 .stat-label { font-size: var(--fs-small); opacity: 0.8; margin-bottom: 0.5rem; color: var(--text-secondary); }
-.stat-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); }
+.stat-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: var(--fs-small); opacity: 0.7; margin-top: 0.25rem; }
 
 /* Chart Container */
@@ -454,12 +455,22 @@ h1, h2, h3, h4,
   .flow-icon { font-size: 2.5rem; }
   .flow-value { font-size: var(--fs-large); }
   .flow-arrow { font-size: 2.5rem; display: none; }
-  .flow-card { flex-direction: column; }
+  .grid-stats { display: grid; grid-template-columns: 1fr 1fr; }
+  .grid-stats .stat-card { flex: none; min-width: 0; }
+  .forecast-info-card .pv-main-row { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
+  .forecast-info-card .weather-section, .forecast-info-card .pv-days { flex: 1 1 45%; min-width: 0; }
+  .flow-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .flow-arrow { display: none; }
   .flow-item { min-height: auto; }
   .stat-value { font-size: var(--fs-large); }
   .chart-container { height: 440px; }
   .pv-today-banner { padding: 0.8rem 1rem; }
   .pv-main-row { flex-direction: column; }
+  .pv-today-banner .pv-days, .pv-today-banner .weather-section { flex: 1 1 45%; }
+  .pv-today-banner .pv-main-row { flex-wrap: wrap; flex-direction: row; }
+  .pv-today-banner .pv-sparkline-container { flex: 1 1 100%; min-height: 60px; }
+  .weather-section { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+  .weather-column { min-width: 100px; flex: 1 1 40%; }
   .weather-section { flex-wrap: wrap; }
   .weather-column { min-width: 100px; }
   .weather-icon-big { font-size: 3rem; }
@@ -929,4 +940,26 @@ body.transparent-blocks .stat-card {
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
+}
+
+/* Screen-reader-only utility */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* Accessibility — keyboard focus indicators */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible, .fetch-btn:focus-visible, .toggle-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Ensure interactive controls have minimum 44px touch target */
+button, .fetch-btn, .toggle-btn, .sub-tab-btn, .main-tab-btn {
+  min-height: 44px;
+  min-width: 44px;
 }

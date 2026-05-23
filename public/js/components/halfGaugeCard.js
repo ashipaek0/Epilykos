@@ -55,6 +55,6 @@ export function updateHalfGaugeCard(state) {
       fill.setAttribute('stroke', pct >= zeroPoint ? color : negColor);
     }
     const val = document.getElementById('hgauge-val-' + id);
-    if (val) val.textContent = Math.round(v);
+    if (val) { const unit = state.metrics?.[cfg.value]?.unit || ''; val.textContent = Math.round(v) + (unit ? ' ' + unit : ''); }
   });
 }

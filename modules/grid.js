@@ -53,6 +53,10 @@ async function pollGridStatus() {
     if (last && (now - last.timestamp) < 60) return;
     db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
     logger.info(`Grid state changed to ${state ? 'ON' : 'OFF'}`);
+  } else if (last && (now - last.timestamp) >= 60) {
+    // Heartbeat: insert a confirming row every minute even when state is unchanged.
+    // This gives getGridHours() current data points so it doesn't need to guess.
+    db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
   }
 }
 
@@ -128,7 +132,7 @@ async function getGridHours(period) {
   const lastBeforeStart = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1').get(startUnix);
   const firstInPeriod = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? ORDER BY timestamp ASC LIMIT 1').get(startUnix);
 
-  if (!firstInPeriod) return 0;  // No records at all — nothing to count
+  if (!firstInPeriod) return 0;
 
   // Use the last state before the period only if it's recent (< 1 hour old).
   // A stale state (e.g. 3+ hours ago) might have changed since; default to the
