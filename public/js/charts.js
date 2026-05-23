@@ -23,19 +23,20 @@ function resolvePowerField(metricName) {
   if (/consumption|load/.test(n)) return 'consumption_kw';
   if (/battery/.test(n)) {
     if (/discharge|discharging/.test(n)) return 'battery_discharge_kw';
-    return 'battery_charge_kw';  // generic "battery power" → assume charge
+    return 'battery_charge_kw';
   }
   if (/grid/.test(n)) {
     if (/export/.test(n)) return 'grid_export_kw';
-    return 'grid_import_kw';  // generic "grid power" → assume import
+    return 'grid_import_kw';
   }
+  console.warn('[charts] could not resolve power field for metric:', metricName);
   return null;
 }
 
 /** Resolve any arbitrary metric name to the matching API energy field via keyword matching. */
 function resolveEnergyField(metricName) {
   const n = (metricName || '').toLowerCase();
-  if (/solar/.test(n)) return 'solar_kwh';
+  if (/solar|pv/.test(n)) return 'solar_kwh';
   if (/consumption|load/.test(n)) return 'consumption_kwh';
   if (/battery/.test(n)) {
     if (/discharge|discharging/.test(n)) return 'battery_discharge_kwh';
@@ -45,6 +46,7 @@ function resolveEnergyField(metricName) {
     if (/export/.test(n)) return 'grid_export_kwh';
     return 'grid_import_kwh';
   }
+  console.warn('[charts] could not resolve energy field for metric:', metricName);
   return null;
 }
 
