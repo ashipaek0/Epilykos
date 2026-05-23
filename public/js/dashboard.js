@@ -66,12 +66,29 @@ function renderDashboard() {
   destroyCharts();
   clearSparklineCharts();
 
-  // Build tab bar
+  // Build tab bar — hidden by default, shown when authenticated
   let tabBar = document.getElementById('tab-bar');
+  let tabToggle = document.getElementById('tab-toggle');
   if (!tabBar) {
     tabBar = document.createElement('div');
     tabBar.id = 'tab-bar';
+    tabBar.style.display = 'none';
     document.querySelector('header').after(tabBar);
+  }
+  if (!tabToggle) {
+    tabToggle = document.createElement('button');
+    tabToggle.id = 'tab-toggle';
+    tabToggle.className = 'settings-link';
+    tabToggle.textContent = '☰';
+    tabToggle.title = 'Show dashboard tabs';
+    tabToggle.style.display = 'none';
+    tabToggle.onclick = () => {
+      const show = tabBar.style.display === 'none';
+      tabBar.style.display = show ? '' : 'none';
+      tabToggle.textContent = '☰';
+      tabToggle.title = show ? 'Hide dashboard tabs' : 'Show dashboard tabs';
+    };
+    document.querySelector('header').appendChild(tabToggle);
   }
   tabBar.innerHTML = '';
   dashboardConfig.dashboards.forEach(db => {
@@ -204,23 +221,27 @@ function renderDashboard() {
   fetch('/api/auth/status')
     .then(r => r.json())
     .then(auth => {
-      if (!auth.authenticated) return;
+      if (auth.authenticated) {
+        // Swap sign-in for settings + signout
+        const signinBtn = document.getElementById('signin-btn');
+        const signoutBtn = document.getElementById('signout-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        if (signinBtn) signinBtn.style.display = 'none';
+        if (signoutBtn) signoutBtn.style.display = '';
+        if (settingsBtn) settingsBtn.style.display = '';
 
-      // Swap sign-in for settings + signout
-      const signinBtn = document.getElementById('signin-btn');
-      const signoutBtn = document.getElementById('signout-btn');
-      const settingsBtn = document.getElementById('settings-btn');
-      if (signinBtn) signinBtn.style.display = 'none';
-      if (signoutBtn) signoutBtn.style.display = '';
-      if (settingsBtn) settingsBtn.style.display = '';
+        // Show tabs and tab toggle
+        tabBar.style.display = '';
+        if (tabToggle) tabToggle.style.display = '';
 
-      // Add editor link to tab bar
-      const editorLink = document.createElement('a');
-      editorLink.href = `/editor?tab=${dashboardConfig.activeDashboard}`;
-      editorLink.className = 'settings-link';
-      editorLink.textContent = 'Edit Layout';
-      editorLink.style.marginLeft = '0.5rem';
-      tabBar.appendChild(editorLink);
+        // Add editor link to tab bar
+        const editorLink = document.createElement('a');
+        editorLink.href = `/editor?tab=${dashboardConfig.activeDashboard}`;
+        editorLink.className = 'settings-link';
+        editorLink.textContent = ' Edit Layout';
+        editorLink.style.marginLeft = '0.5rem';
+        tabBar.appendChild(editorLink);
+      }
     }).catch(() => {});
 
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
