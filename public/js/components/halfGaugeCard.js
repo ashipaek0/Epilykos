@@ -55,6 +55,7 @@ export function updateHalfGaugeCard(state) {
       fill.setAttribute('stroke', pct >= zeroPoint ? color : negColor);
     }
     const val = document.getElementById('hgauge-val-' + id);
-    if (val) { const unit = state.metrics?.[cfg.value]?.unit || ''; val.textContent = Math.round(v) + (unit ? ' ' + unit : ''); }
+    if (val) { const unit = state.metrics?.[cfg.value]?.unit || inferHalfUnit(cfg.value); val.textContent = Math.round(v) + (unit ? ' ' + unit : ''); }
   });
 }
+function inferHalfUnit(n){n=(n||"").toLowerCase();if(/soc|percentage|percent/.test(n))return"%";if(/temp/.test(n))return"°C";if(/volt/.test(n))return"V";if(/current|amp/.test(n))return"A";if(/power|watt/.test(n))return"W";if(/energy|kwh|wh/.test(n))return"kWh";if(/freq|hz/.test(n))return"Hz";if(/runtime/.test(n))return"h";return"";}
