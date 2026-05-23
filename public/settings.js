@@ -28,7 +28,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -40,6 +40,8 @@ async function loadSettings() {
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
+    buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
+    buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
     populateDashboardSelects(dashConfig);
@@ -778,6 +780,273 @@ if (addBmsBtn) addBmsBtn.addEventListener('click', () => {
   renderBmsDevice({ name: '', address: '', enabled: true }, idx);
 });
 
+// ======================== INVERTER DONGLE ========================
+let dongleDeviceCounter = 0;
+let dongleProfilesCache = [];
+
+function buildDongleDeviceList(devices) {
+  const container = document.getElementById('dongle-devices-container');
+  if (!container) return;
+  container.innerHTML = '';
+  dongleDeviceCounter = 0;
+  // Preload profiles once
+  fetch('/api/dongle/profiles').then(r => r.json()).then(p => { dongleProfilesCache = p; }).catch(() => {});
+  devices.forEach((dev, idx) => renderDongleDevice(dev, idx));
+}
+
+function getProfileById(id) {
+  return dongleProfilesCache.find(p => p.id === id);
+}
+
+function getTransportForProfile(profileId) {
+  const p = getProfileById(profileId);
+  return p ? p.transport : 'solarman-v5';
+}
+
+function renderDongleDevice(device, idx) {
+  const container = document.getElementById('dongle-devices-container');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+
+  const transport = device.profile ? getTransportForProfile(device.profile) : (device.transport || 'solarman-v5');
+
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="dongle_config[${idx}][name]" placeholder="Instance Name (e.g., SRNE Inverter)" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}> Enabled</label>
+      <button type="button" class="remove-btn" data-action="remove-dongle">Remove</button>
+    </div>
+    <div class="form-row">
+      <select name="dongle_config[${idx}][profile]" class="dongle-profile-select">
+        <option value="">-- Select profile --</option>
+      </select>
+      <input type="text" name="dongle_config[${idx}][host]" placeholder="Host / IP Address" value="${escapeHtml(device.host || '')}">
+      <input type="number" name="dongle_config[${idx}][port]" placeholder="Port" value="${device.port || ''}">
+    </div>
+    <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
+      <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
+    </div>
+    <div class="form-row">
+      <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
+      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:100px;">
+      <input type="text" name="dongle_config[${idx}][prefix]" placeholder="Metric Prefix (optional)" value="${escapeHtml(device.prefix || '')}" style="width:150px;">
+      <button type="button" class="fetch-btn test-dongle">Test Connection</button>
+      <span class="test-status" id="dongle-test-status-${idx}"></span>
+    </div>
+    <input type="hidden" name="dongle_config[${idx}][transport]" value="${transport}">
+  `;
+  container.appendChild(card);
+
+  const serialRow = card.querySelector('.dongle-serial-row');
+  const transportHidden = card.querySelector('input[name$="[transport]"]');
+
+  const profileSelect = card.querySelector('.dongle-profile-select');
+  (dongleProfilesCache.length ? Promise.resolve(dongleProfilesCache) : fetch('/api/dongle/profiles').then(r => r.json()))
+    .then(profiles => {
+      if (!dongleProfilesCache.length) dongleProfilesCache = profiles;
+      profiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        if (p.id === device.profile) opt.selected = true;
+        profileSelect.appendChild(opt);
+      });
+    }).catch(() => {});
+
+  profileSelect.addEventListener('change', () => {
+    const p = getProfileById(profileSelect.value);
+    if (!p) return;
+    transportHidden.value = p.transport;
+    serialRow.style.display = p.transport === 'modbus-tcp' ? 'none' : '';
+    const portInput = card.querySelector('input[name$="[port]"]');
+    portInput.value = p.default_port || '';
+    card.querySelector('input[name$="[modbus_unit_id]"]').value = p.default_unit_id || 1;
+  });
+
+  card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
+    card.remove();
+    reindexDongle();
+  });
+
+  card.querySelector('.test-dongle').addEventListener('click', async () => {
+    const statusEl = document.getElementById(`dongle-test-status-${idx}`);
+    const host = card.querySelector('input[name$="[host]"]').value.trim();
+    const port = card.querySelector('input[name$="[port]"]').value;
+    const serial = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    const unitId = card.querySelector('input[name$="[modbus_unit_id]"]').value;
+    const tx = transportHidden.value;
+    if (!host) { showStatus(statusEl, 'Host required', 'error'); return; }
+    showStatus(statusEl, 'Testing...', 'info');
+    try {
+      const res = await fetch('/api/dongle/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, modbus_unit_id: parseInt(unitId) || 1, transport: tx })
+      });
+      const data = await res.json();
+      if (res.ok) showStatus(statusEl, `OK — Register 0x0100 = ${data.raw}`, 'success');
+      else showStatus(statusEl, data.error, 'error');
+    } catch (err) {
+      showStatus(statusEl, err.message, 'error');
+    }
+  });
+
+  dongleDeviceCounter++;
+}
+function reindexDongle() {
+  const cards = document.querySelectorAll('#dongle-devices-container .device-card');
+  dongleDeviceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    dongleDeviceCounter++;
+  });
+}
+const addDongleBtn = document.getElementById('add-dongle-device');
+if (addDongleBtn) addDongleBtn.addEventListener('click', () => {
+  const idx = dongleDeviceCounter;
+  renderDongleDevice({ name: '', host: '', port: '', serial_number: '', modbus_unit_id: 1, poll_interval: 30, transport: 'solarman-v5', profile: '', prefix: '', enabled: true }, idx);
+});
+
+// ======================== PVOUTPUT ========================
+function buildPvoutputConfig(config) {
+  if (!config) config = {};
+  const enabledCb = document.getElementById('pvoutput-enabled');
+  if (enabledCb) enabledCb.checked = config.enabled === true;
+  const apiKey = document.getElementById('pvoutput-api-key');
+  if (apiKey) apiKey.value = config.api_key || '';
+  const sysId = document.getElementById('pvoutput-system-id');
+  if (sysId) sysId.value = config.system_id || '';
+  const tz = document.getElementById('pvoutput-timezone');
+  if (tz) tz.value = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const interval = document.getElementById('pvoutput-interval');
+  if (interval) interval.value = config.upload_interval_minutes || 5;
+  const sysSize = document.getElementById('pvoutput-system-size');
+  if (sysSize) sysSize.value = config.system_size_w || '';
+  const webhookUrl = document.getElementById('pvoutput-webhook-url');
+  if (webhookUrl) webhookUrl.value = config.webhook_url || '';
+
+  const cumulativeRadio = document.querySelector('input[name="pvoutput-mode"][value="cumulative"]');
+  const netRadio = document.querySelector('input[name="pvoutput-mode"][value="net"]');
+  if (cumulativeRadio) cumulativeRadio.checked = !config.net_mode;
+  if (netRadio) netRadio.checked = config.net_mode === true;
+
+  // Metric mapping dropdowns
+  const mm = config.metric_map || {};
+  const metricFields = [
+    { key: 'v1', label: 'v1 Energy Generated (Wh)', hint: 'Cumulative daily solar generation. Typically daily_solar_kwh or solar_kwh.' },
+    { key: 'v2', label: 'v2 Power Generated (W)', hint: 'Instantaneous solar output in watts. Typically solar_power or solar.' },
+    { key: 'v3', label: 'v3 Energy Consumed (Wh)', hint: 'Cumulative daily consumption. Typically daily_consumption or load_kwh.' },
+    { key: 'v4', label: 'v4 Power Consumed (W)', hint: 'Instantaneous load in watts. Typically load_power or consumption.' },
+    { key: 'v5', label: 'v5 Temperature (°C)', hint: 'Ambient or inverter temperature. Typically inverter_temperature.' },
+    { key: 'v6', label: 'v6 Voltage (V)', hint: 'Grid/mains voltage. Typically grid_voltage.' }
+  ];
+  const container = document.getElementById('pvoutput-metrics-container');
+  if (container) {
+    container.innerHTML = metricFields.map(f => {
+      const sel = generateMetricOptionsHtml(mm[f.key]);
+      return `<div class="form-group" style="flex:1;min-width:200px;"><label>${escapeHtml(f.label)}</label><select class="pvoutput-metric" data-key="${f.key}" style="width:100%;">${sel}</select><div class="note">${escapeHtml(f.hint)}</div></div>`;
+    }).join('');
+  }
+
+  // Queue status
+  refreshPvoutputQueue();
+}
+
+function collectPvoutputConfig() {
+  const mm = {};
+  document.querySelectorAll('.pvoutput-metric').forEach(sel => {
+    if (sel.value) mm[sel.dataset.key] = sel.value;
+  });
+  return {
+    enabled: document.getElementById('pvoutput-enabled')?.checked || false,
+    api_key: document.getElementById('pvoutput-api-key')?.value || '',
+    system_id: document.getElementById('pvoutput-system-id')?.value || '',
+    timezone: document.getElementById('pvoutput-timezone')?.value || '',
+    upload_interval_minutes: parseInt(document.getElementById('pvoutput-interval')?.value) || 5,
+    system_size_w: parseInt(document.getElementById('pvoutput-system-size')?.value) || 0,
+    net_mode: document.querySelector('input[name="pvoutput-mode"]:checked')?.value === 'net',
+    webhook_url: document.getElementById('pvoutput-webhook-url')?.value || '',
+    metric_map: mm
+  };
+}
+
+async function refreshPvoutputQueue() {
+  const statusEl = document.getElementById('pvoutput-queue-status');
+  if (!statusEl) return;
+  try {
+    const res = await fetch('/api/pvoutput/queue');
+    if (!res.ok) { statusEl.textContent = 'Configure PVOutput first'; return; }
+    const data = await res.json();
+    if (data.pending > 0) {
+      statusEl.innerHTML = `Pending: <strong>${data.pending}</strong> records across ${data.byDate?.length || 0} dates.`;
+      if (data.pending > 100) {
+        statusEl.innerHTML += `<br><span class="note" style="color:#dc2626;">Large queue detected. Free account backfill may take several hours. Consider enabling donation mode for batch upload support.</span>`;
+      }
+    } else {
+      statusEl.textContent = 'Queue empty.';
+    }
+  } catch (e) { statusEl.textContent = ''; }
+}
+
+// Test connection button
+const pvoutputTestBtn = document.getElementById('pvoutput-test-btn');
+if (pvoutputTestBtn) {
+  pvoutputTestBtn.addEventListener('click', async () => {
+    const statusEl = document.getElementById('pvoutput-test-status');
+    const apiKey = document.getElementById('pvoutput-api-key')?.value.trim();
+    const sysId = document.getElementById('pvoutput-system-id')?.value.trim();
+    if (!apiKey || !sysId) { showStatus(statusEl, 'API key and System ID required', 'error'); return; }
+    showStatus(statusEl, 'Connecting to PVOutput...', 'info');
+    try {
+      const res = await fetch('/api/pvoutput/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, system_id: sysId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus(statusEl, `Connected — ${data.system_name}, ${data.system_size}W. Timezone: ${data.timezone}`, 'success');
+        // Auto-fill timezone (NM6)
+        if (data.timezone) {
+          const tzInput = document.getElementById('pvoutput-timezone');
+          if (tzInput && !tzInput.value) tzInput.value = data.timezone;
+        }
+      } else {
+        showStatus(statusEl, data.error, 'error');
+      }
+    } catch (e) { showStatus(statusEl, e.message, 'error'); }
+  });
+}
+
+// Backfill button
+const backfillBtn = document.getElementById('pvoutput-backfill-btn');
+if (backfillBtn) {
+  backfillBtn.addEventListener('click', async () => {
+    backfillBtn.disabled = true;
+    backfillBtn.textContent = 'Running...';
+    try {
+      const res = await fetch('/api/pvoutput/backfill', { method: 'POST' });
+      const data = await res.json();
+      showStatus(document.getElementById('pvoutput-test-status'), data.message || 'Backfill complete', 'success');
+      refreshPvoutputQueue();
+    } catch (e) {
+      showStatus(document.getElementById('pvoutput-test-status'), e.message, 'error');
+    } finally {
+      backfillBtn.disabled = false;
+      backfillBtn.textContent = 'Run Backfill';
+    }
+  });
+}
+
+// View Queue button
+const viewQueueBtn = document.getElementById('pvoutput-view-queue-btn');
+if (viewQueueBtn) {
+  viewQueueBtn.addEventListener('click', () => {
+    refreshPvoutputQueue();
+  });
+}
+
 // ======================== FORECAST TEST ========================
 const forecastTestBtn = document.getElementById('test-forecast');
 if (forecastTestBtn) {
@@ -974,6 +1243,7 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="flow-card-square-2" ${block.type==='flow-card-square-2'?'selected':''}>Flow Card Sq 2</option>
         <option value="text-card" ${block.type==='text-card'?'selected':''}>Text</option>
         <option value="iframe-card" ${block.type==='iframe-card'?'selected':''}>Embed</option>
+        <option value="forecast-pvtoday" ${block.type==='forecast-pvtoday'?'selected':''}>PV Today</option>
       </select>`, 'Type')}
       ${ctl(`<select class="block-width-select" style="width:65px;">${spanOptions}</select>`, 'Width')}
       ${ctl(`<select class="block-height-select" style="width:65px;">
@@ -1109,8 +1379,8 @@ function renderDashboardBlockEditor(dashboard) {
         }
         if (!datasets.length) {
           datasets = block.type === 'chart-power'
-            ? [{ label: 'Load', metric: 'consumption', color: '#7c3aed' }, { label: 'Solar', metric: 'solar', color: '#d97706' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#059669' }, { label: 'Grid Import', metric: 'grid_import', color: '#dc2626' }]
-            : [{ label: 'Solar Generated', metric: 'daily_solar', color: '#d97706' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#dc2626' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#7c3aed' }];
+            ? [{ label: 'Load', metric: 'consumption', color: '#0062FF' }, { label: 'Solar', metric: 'solar', color: '#FFEA00' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#00E056' }, { label: 'Grid Import', metric: 'grid_import', color: '#FF4255' }]
+            : [{ label: 'Solar Generated', metric: 'daily_solar', color: '#FFEA00' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#FF4255' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#0062FF' }];
         }
         const datasetRows = datasets.map((ds, idx) => `
           <div style="border:1px solid var(--border);padding:0.5rem;margin:0.5rem 0;border-radius:4px;">
@@ -1260,9 +1530,9 @@ function renderDashboardBlockEditor(dashboard) {
       } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
         const currentMetrics = block.config?.metrics || {};
         const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Power' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
-        configPanel.innerHTML = `<h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
+        configPanel.innerHTML = `<label>Inverter Image URL</label><input type="text" class="config-inverter-image" value="${escapeHtml(block.config?.inverter_image||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
-        const isHalf = block.type === 'half-gauge';
+        const isHalf = block.type === 'half-gauge' || block.type === 'half-gauge-2';
         configPanel.innerHTML = `
           <label>Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title||'Gauge')}" style="width:100%;margin-bottom:0.5rem;">
           <label>Metric</label><select class="config-metric" data-role="value" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.metric)}</select>
@@ -1274,6 +1544,9 @@ function renderDashboardBlockEditor(dashboard) {
         configPanel.innerHTML = `<label>Content (HTML/Markdown)</label><textarea class="config-content" style="width:100%;height:150px;margin-bottom:0.5rem;">${escapeHtml(block.config?.content||'')}</textarea><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'iframe-card') {
         configPanel.innerHTML = `<label>URL</label><input type="text" class="config-url" value="${escapeHtml(block.config?.url||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><button class="fetch-btn save-config">Save</button>`;
+      } else if (block.type === 'forecast-pvtoday') {
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `<label>Location Name</label><input type="text" class="config-location" value="${escapeHtml(block.config?.location_name||'')}" placeholder="e.g. Shomolu, NG" style="width:100%;margin-bottom:0.5rem;"><label>Generated Curve Metric</label><select class="config-metric" data-role="generated" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.generated, 'solar (default)')}</select><button class="fetch-btn save-config">Save</button>`;
       } else {
         configPanel.innerHTML = '<div class="note">No configurable options.</div>';
       }
@@ -1356,18 +1629,24 @@ function renderDashboardBlockEditor(dashboard) {
               if (l && m) block.config.metrics.push({ label: l.value, metric: m.value, unit: u?.value || '' });
             });
           } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
+            block.config.inverter_image = configPanel.querySelector('.config-inverter-image')?.value || '';
             block.config.metrics = {};
             configPanel.querySelectorAll('.config-metric').forEach(select => { const role = select.dataset.role; if (select.value) block.config.metrics[role] = select.value; });
           } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
             block.config.metric = configPanel.querySelector('.config-metric')?.value || '';
-            block.config.min = parseFloat(configPanel.querySelector('.config-min')?.value) || 0;
+            const minVal = parseFloat(configPanel.querySelector('.config-min')?.value);
+            block.config.min = isNaN(minVal) ? (isHalf ? -100 : 0) : minVal;
             block.config.max = parseFloat(configPanel.querySelector('.config-max')?.value) || 100;
             block.config.color = configPanel.querySelector('.config-color')?.value || '#3b82f6';
           } else if (block.type === 'text-card') {
             block.config.content = configPanel.querySelector('.config-content')?.value || '';
           } else if (block.type === 'iframe-card') {
             block.config.url = configPanel.querySelector('.config-url')?.value || '';
+          } else if (block.type === 'forecast-pvtoday') {
+            block.config.location_name = configPanel.querySelector('.config-location')?.value || '';
+            block.config.metrics = {};
+            configPanel.querySelectorAll('.config-metric').forEach(s => { const r = s.dataset.role; if (s.value) block.config.metrics[r] = s.value; });
           }
           configPanel.remove();
         });
@@ -1616,6 +1895,21 @@ form.addEventListener('submit', async (e) => {
     dev.address = card.querySelector('input[name$="[address]"]').value;
     return dev;
   });
+  payload.dongle_config = collectDeviceArray('dongle-devices-container', (card) => {
+    const dev = {};
+    dev.name = card.querySelector('.device-header input[type="text"]').value;
+    dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+    dev.profile = card.querySelector('.dongle-profile-select').value;
+    dev.transport = card.querySelector('input[name$="[transport]"]').value;
+    dev.host = card.querySelector('input[name$="[host]"]').value;
+    dev.port = parseInt(card.querySelector('input[name$="[port]"]').value) || undefined;
+    dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
+    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
+    dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
+    return dev;
+  });
+  payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
   payload.dashboard_config = JSON.stringify(dashConfig);
   try {
     const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

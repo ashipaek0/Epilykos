@@ -38,13 +38,15 @@ const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
+const { startDonglePolling, restartDonglePolling } = require('./modules/dongle');
+const pvoutput = require('./modules/pvoutput');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Global rate limiter — 200 requests per 15 min per IP
-const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 2000, standardHeaders: true, legacyHeaders: false });
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
@@ -65,6 +67,8 @@ loadProfiles();
 setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
+startDonglePolling();
+pvoutput.start();     // Start PVOutput push/pull engines
 
 // Multer for restore and import
 const upload = multer({
@@ -174,22 +178,30 @@ async function buildDashboardState() {
     consumption_kw: r.consumption / 1000,
     solar_kw: r.solar / 1000,
     battery_charge_kw: r.battery_charge / 1000,
-    grid_import_kw: r.grid_import / 1000
+    battery_discharge_kw: r.battery_discharge / 1000,
+    grid_import_kw: r.grid_import / 1000,
+    grid_export_kw: r.grid_export / 1000
   }));
   const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
   const barRows = db.prepare(`
     SELECT date(timestamp, 'unixepoch') as day,
       MAX(daily_solar) as solar_kwh,
+      MAX(daily_consumption) as consumption_kwh,
+      MAX(daily_battery_charge) as battery_charge_kwh,
+      MAX(daily_battery_discharge) as battery_discharge_kwh,
       MAX(daily_grid_import) as grid_import_kwh,
-      MAX(daily_consumption) as consumption_kwh
+      MAX(daily_grid_export) as grid_export_kwh
     FROM history WHERE timestamp >= ?
     GROUP BY day ORDER BY day ASC
   `).all(barSince);
   const dailyEnergyBar = barRows.map(r => ({
     day: r.day,
     solar_kwh: r.solar_kwh,
+    consumption_kwh: r.consumption_kwh,
+    battery_charge_kwh: r.battery_charge_kwh,
+    battery_discharge_kwh: r.battery_discharge_kwh,
     grid_import_kwh: r.grid_import_kwh,
-    consumption_kwh: r.consumption_kwh
+    grid_export_kwh: r.grid_export_kwh
   }));
   const elapsed = Date.now() - start;
   logger.debug(`buildDashboardState took ${elapsed}ms`);
@@ -457,6 +469,21 @@ app.get('/api/solar-forecast', async (req, res) => {
   }
 });
 
+app.get('/api/solar/intraday', async (req, res) => {
+  try {
+    const field = req.query.field || 'solar';
+    const allowed = ['solar', 'consumption', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'];
+    if (!allowed.includes(field)) return res.status(400).json({ error: `Invalid field. Allowed: ${allowed.join(', ')}` });
+    const now = new Date();
+    const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
+    const rows = db.prepare(`SELECT timestamp, ${field} as watts, daily_solar FROM history WHERE timestamp >= ? ORDER BY timestamp ASC`).all(todayStart);
+    res.json(rows.map(r => ({ timestamp: r.timestamp, watts: r.watts, daily_solar: r.daily_solar })));
+  } catch (err) {
+    logger.error('Error in /api/solar/intraday:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/dashboard-state', async (req, res) => {
   try {
     const state = await buildDashboardState();
@@ -679,6 +706,8 @@ app.post('/api/settings', (req, res) => {
     if ('mqtt_devices' in updates) restartMqtt();
     if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
     if ('bms_devices' in updates) restartBmsPolling();
+    if ('dongle_config' in updates) restartDonglePolling();
+    if ('pvoutput_config' in updates) pvoutput.restart();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -758,6 +787,67 @@ app.post('/api/test-external', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ========== DONGLE ENDPOINTS (protected) ==========
+app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
+  try {
+    const profilesDir = path.join(__dirname, 'profiles', 'dongles');
+    if (!fs.existsSync(profilesDir)) return res.json([]);
+    const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
+    const profiles = files.map(f => {
+      const raw = JSON.parse(fs.readFileSync(path.join(profilesDir, f), 'utf8'));
+      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id };
+    });
+    res.json(profiles);
+  } catch (err) {
+    logger.error('Error listing dongle profiles:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/dongle/test', isAuthenticated);
+app.post('/api/dongle/test', async (req, res) => {
+  const { host, port, serial_number, modbus_unit_id, transport } = req.body;
+  if (!host) return res.status(400).json({ error: 'Host required' });
+  try {
+    let transportObj;
+    if (transport === 'solarman-v5') {
+      transportObj = new (require('./modules/dongle/solarmanV5').SolarmanV5Transport)({ host, port: port || 8899, serial_number, modbus_unit_id: modbus_unit_id || 1 });
+    } else {
+      transportObj = new (require('./modules/dongle/modbusTcp').ModbusTcpTransport)({ host, port: port || 502, modbus_unit_id: modbus_unit_id || 1 });
+    }
+    const data = await transportObj.readRegisters(0x0100, 1);
+    res.json({ success: true, raw: data.readUInt16BE(0) });
+  } catch (err) {
+    logger.warn(`[dongle] test connection failed to ${host}: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/dongle/status', isAuthenticated);
+app.get('/api/dongle/status', (req, res) => {
+  try {
+    const raw = getConfig('dongle_config');
+    if (!raw || raw === '[]') return res.json([]);
+    const config = JSON.parse(raw);
+    const result = config.map(inst => ({
+      name: inst.name,
+      enabled: inst.enabled,
+      transport: inst.transport,
+      lastSeen: inst.lastSeen || null,
+      consecutiveFails: inst.consecutiveFails || 0
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== PVOUTPUT ROUTES ==========
+// Public webhook (CSRF skipped in sessionAuth.js — called by PVOutput servers)
+app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
+// Protected routes
+app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {

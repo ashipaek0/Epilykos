@@ -4,6 +4,7 @@ export function buildFlowCardSquare(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const metrics = config.metrics || { solar: 'solar', grid: 'grid_import', battery_power: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption' };
+  const invImg = config.inverter_image || '';
 
   const card = document.createElement('div');
   card.className = 'flow-card-square';
@@ -28,7 +29,7 @@ export function buildFlowCardSquare(block = {}) {
         </div>
       </div>
       <div class="fcs-cell" id="${uid('fcs-inverter',id)}">
-        <div class="fcs-inverter-icon">INV</div>
+        <div class="fcs-inverter-icon">${invImg ? `<img src="${escapeHtml(invImg)}" alt="Inverter" class="fcs-inv-img">` : 'INV'}</div>
         <div class="fcs-info">
           <span class="fcs-label">Inverter</span>
           <span class="fcs-value" id="${uid('fcs-inverter-mode',id)}">--</span>
@@ -53,6 +54,9 @@ export function updateFlowCardSquare(state) {
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
     const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
+    // Auto-detect battery discharge and grid export from any matching metric name
+    const battDischarge = findMetricValue(m, ['battery', 'discharge']) || findMetricValue(m, ['battery', 'discharging']) || (battPower < 0 ? Math.abs(battPower) : 0);
+    const gridExport = findMetricValue(m, ['grid', 'export']);
     const el = (s) => document.getElementById(uid(s, id));
 
     // Solar
@@ -67,12 +71,13 @@ export function updateFlowCardSquare(state) {
     const bp = el('fcs-battery-power');
     if (bp) {
       if (battPower > 50) bp.textContent = '↑ ' + Math.round(battPower) + ' W';
-      else { const bd = m['battery_discharge']?.value || 0; if (bd > 50) bp.textContent = '↓ ' + Math.round(bd) + ' W'; else bp.textContent = '0 W'; }
+      else if (battDischarge > 50) bp.textContent = '↓ ' + Math.round(battDischarge) + ' W';
+      else bp.textContent = '0 W';
     }
     const bi = el('fcs-icon-battery');
     if (bi) {
       if (battPower > 50) bi.style.color = 'var(--battery)';
-      else if ((m['battery_discharge']?.value || 0) > 50) bi.style.color = '#f59e0b';
+      else if (battDischarge > 50) bi.style.color = '#f59e0b';
       else bi.style.color = 'var(--text-secondary)';
       let cl = 'fi fi-sr-battery-empty';
       if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter';
@@ -82,13 +87,12 @@ export function updateFlowCardSquare(state) {
     // Grid
     const gv2 = card.querySelector(`#${uid('fcs-grid',id)} .fcs-value`);
     if (gv2) {
-      const ge = m['grid_export']?.value || 0;
-      gv2.textContent = ge > grid ? Math.round(ge) + ' W out' : Math.round(grid) + ' W in';
+      gv2.textContent = gridExport > grid ? Math.round(gridExport) + ' W out' : Math.round(grid) + ' W in';
     }
     const gi = el('fcs-icon-grid');
     if (gi) {
       if (grid > 50) gi.style.color = 'var(--grid)';
-      else if ((m['grid_export']?.value || 0) > 50) gi.style.color = '#3b82f6';
+      else if (gridExport > 50) gi.style.color = '#3b82f6';
       else gi.style.color = 'var(--text-secondary)';
     }
 
@@ -97,9 +101,18 @@ export function updateFlowCardSquare(state) {
     if (im) {
       if (solar > 100) { im.textContent = 'Solar'; im.style.color = 'var(--solar)'; }
       else if (battPower > 50) { im.textContent = 'Charging'; im.style.color = 'var(--battery)'; }
-      else if ((m['battery_discharge']?.value || 0) > 50) { im.textContent = 'Battery'; im.style.color = '#f59e0b'; }
+      else if (battDischarge > 50) { im.textContent = 'Battery'; im.style.color = '#f59e0b'; }
       else if (grid > 50) { im.textContent = 'Grid'; im.style.color = 'var(--grid)'; }
       else { im.textContent = 'Idle'; im.style.color = 'var(--text-secondary)'; }
     }
   });
+}
+
+/** Find a metric value by searching for keywords in metric names (case-insensitive). */
+function findMetricValue(metrics, keywords) {
+  for (const key of Object.keys(metrics || {})) {
+    const n = key.toLowerCase();
+    if (keywords.every(kw => n.includes(kw))) return metrics[key].value || 0;
+  }
+  return 0;
 }
