@@ -19,7 +19,7 @@ let currentPowerRange = '24h', currentEnergyRange = '7d';
 /** Resolve any arbitrary metric name to the matching API power field via keyword matching. */
 function resolvePowerField(metricName) {
   const n = (metricName || '').toLowerCase();
-  if (/solar/.test(n)) return 'solar_kw';
+  if (/solar|pv/.test(n)) return 'solar_kw';
   if (/consumption|load/.test(n)) return 'consumption_kw';
   if (/battery/.test(n)) {
     if (/discharge|discharging/.test(n)) return 'battery_discharge_kw';
