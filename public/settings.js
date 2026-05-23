@@ -44,7 +44,7 @@ async function loadSettings() {
     buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
-    populateDashboardSelects(dashConfig);
+    populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard);
 
     usedDashboardMetrics = [];
     if (dashConfig && dashConfig.dashboards) {
@@ -1163,12 +1163,13 @@ if (modalCreate) {
 }
 window.addEventListener('click', (e) => { if (modal && e.target === modal) modal.style.display = 'none'; });
 
-function populateDashboardSelects(config) {
+function populateDashboardSelects(config, savedDesktop, savedMobile) {
   const dashboards = config?.dashboards || [];
-  [('desktop-dashboard'), ('mobile-dashboard')].forEach(id => {
+  const saved = { 'desktop-dashboard': savedDesktop, 'mobile-dashboard': savedMobile };
+  ['desktop-dashboard', 'mobile-dashboard'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    const cur = sel.value;
+    const cur = saved[id] || '';
     sel.innerHTML = '<option value="">-- Default --</option>';
     dashboards.forEach(db => { const o = document.createElement('option'); o.value = db.id; o.textContent = db.name; if (db.id === cur) o.selected = true; sel.appendChild(o); });
   });
@@ -1478,8 +1479,10 @@ function renderDashboardBlockEditor(dashboard) {
         const metricRoles = [
           { key: 'solar', label: 'Solar Power Metric' },
           { key: 'grid', label: 'Grid Import Metric' },
+          { key: 'grid_export', label: 'Grid Export Metric' },
           { key: 'consumption', label: 'Consumption Metric' },
           { key: 'battery_power', label: 'Battery Power Metric' },
+          { key: 'battery_discharge', label: 'Battery Discharge Metric' },
           { key: 'battery_soc', label: 'Battery SOC Metric' }
         ];
         const selectsHtml = metricRoles.map(role => `
@@ -1529,7 +1532,7 @@ function renderDashboardBlockEditor(dashboard) {
         configPanel.innerHTML = `<h4>Metrics</h4><div id="mv-rows">${rows}</div><button type="button" class="add-mv-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Metric</button><button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
       } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
         const currentMetrics = block.config?.metrics || {};
-        const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Power' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
+        const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Import' }, { key: 'grid_export', label: 'Grid Export' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_discharge', label: 'Battery Discharge' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
         configPanel.innerHTML = `<label>Inverter Image URL</label><input type="text" class="config-inverter-image" value="${escapeHtml(block.config?.inverter_image||'')}" placeholder="https://..." style="width:100%;margin-bottom:0.5rem;"><h4>Metric Mapping</h4>${roles.map(r => `<label>${escapeHtml(r.label)}</label><select class="config-metric" data-role="${r.key}" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics[r.key])}</select>`).join('')}<button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'gauge-card' || block.type === 'half-gauge' || block.type === 'half-gauge-2') {
         const isHalf = block.type === 'half-gauge' || block.type === 'half-gauge-2';

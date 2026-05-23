@@ -19,7 +19,7 @@ import { uid } from '../utils/uid.js';
 export function buildSystemTopology(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
-  const metrics = config.metrics || { solar: 'solar', grid: 'grid_import', battery_power: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption' };
+  const metrics = config.metrics || { solar: 'solar', grid: 'grid_import', battery_power: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
   const container = document.createElement('div');
   container.className = 'flow-card-2';
   container.dataset.metricMap = JSON.stringify(metrics);
@@ -57,9 +57,8 @@ export function updateSystemTopology(state) {
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
     const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
-    // Auto-detect battery discharge and grid export from any matching metric name
-    const battDischarge = findTopoMetric(m, ['battery', 'discharge']) || findTopoMetric(m, ['battery', 'discharging']) || (battPower < 0 ? Math.abs(battPower) : 0);
-    const gridExport = findTopoMetric(m, ['grid', 'export']);
+    const battDischarge = gv('battery_discharge') || (battPower < 0 ? Math.abs(battPower) : 0);
+    const gridExport = gv('grid_export');
     const battIsSource = battDischarge > 50;
     const el = (s) => document.getElementById(uid(s, id));
     const sv = container.querySelector('.topo-solar .topo-value'); if (sv) sv.textContent = Math.round(solar) + ' W';
@@ -147,14 +146,6 @@ export function updateSystemTopology(state) {
  * @param {Array<{color: string, watts: number}>} sources — power sources with colors
  * @param {number} threshold — minimum watts to consider a source "active"
  */
-function findTopoMetric(metrics, keywords) {
-  for (const key of Object.keys(metrics || {})) {
-    const n = key.toLowerCase();
-    if (keywords.every(kw => n.includes(kw))) return metrics[key].value || 0;
-  }
-  return 0;
-}
-
 function applyCircleBorder(circle, sources, threshold) {
   if (!circle) return;
   const active = sources.filter(s => s.watts > threshold);

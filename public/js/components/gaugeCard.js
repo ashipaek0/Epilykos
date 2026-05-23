@@ -32,8 +32,21 @@ export function updateGaugeCard(state) {
     if (fill) fill.setAttribute('stroke-dasharray', `${(pct/100)*314} 314`);
     const val = document.getElementById('gauge-val-' + id);
     if (val) {
-      const unit = state.metrics?.[cfg.value]?.unit || '';
+      const unit = state.metrics?.[cfg.value]?.unit || inferUnit(cfg.value);
       val.textContent = Math.round(v) + (unit ? ' ' + unit : '');
     }
   });
+}
+
+function inferUnit(metricName) {
+  const n = (metricName || '').toLowerCase();
+  if (/soc|percentage|percent/.test(n)) return '%';
+  if (/temp/.test(n)) return '°C';
+  if (/volt/.test(n)) return 'V';
+  if (/current|amp/.test(n)) return 'A';
+  if (/power|watt/.test(n)) return 'W';
+  if (/energy|kwh|wh/.test(n)) return 'kWh';
+  if (/freq|hz/.test(n)) return 'Hz';
+  if (/runtime/.test(n)) return 'h';
+  return '';
 }

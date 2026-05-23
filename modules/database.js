@@ -75,9 +75,12 @@ function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS latest_metrics (
       metric TEXT PRIMARY KEY,
       value REAL,
-      timestamp INTEGER
+      timestamp INTEGER,
+      unit TEXT
     );
   `);
+  // Migration: add unit column to existing installs
+  try { db.exec('ALTER TABLE latest_metrics ADD COLUMN unit TEXT'); } catch (e) { /* already exists */ }
 
   // PVOutput integration tables
   db.exec(`

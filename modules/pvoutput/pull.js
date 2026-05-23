@@ -24,10 +24,10 @@ function start(db, client, config) {
   // 7-day status history — cache-gated per date (GS3)
   populateHistory(db, client).catch(e => logger.warn(`[pvoutput] history fetch failed: ${e.message}`));
 
-  // Daily pulls at 01:00, 01:30 (fixed UTC-agnostic)
+  // Daily pulls at 01:00, 01:30 — evaluated in PVOutput system timezone (S3/S6)
+  const tz = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   dailyInterval = setInterval(() => {
-    const h = new Date().getHours();
-    const m = new Date().getMinutes();
+    const { h, m } = getLocalTime(tz);
     if (h === 1 && m === 0) {
       fetchStatistics(db, client).catch(e => logger.warn(`[pvoutput] getstatistic failed: ${e.message}`));
     }
@@ -198,3 +198,11 @@ async function fetchDailyOutputs(db, client) {
 }
 
 module.exports = { start, stop, fetchSystemInfo };
+
+function getLocalTime(timezone) {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
+  return { h: parseInt(parts.hour), m: parseInt(parts.minute) };
+}

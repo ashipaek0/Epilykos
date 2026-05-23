@@ -51,7 +51,7 @@ function computeTodaySolar() {
   const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
   const dailyCandidates = allMetrics.filter(r => {
     const n = r.metric.toLowerCase();
-    return n.includes('solar') && (n.includes('gen') || n.includes('daily') || n.includes('today') || n.includes('cumulative'));
+    return (n.includes('solar') || n.includes('pv')) && (n.includes('gen') || n.includes('daily') || n.includes('today') || n.includes('cumulative'));
   });
   for (const c of dailyCandidates) {
     if (c.value > 0) return c.value;
