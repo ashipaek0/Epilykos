@@ -131,7 +131,9 @@ async function getSolarForecast() {
   if (forecastCache.data && (now - forecastCache.timestamp) < FORECAST_CACHE_MS) {
     const cacheDate = forecastCache.data.daily[0]?.date;
     const todayDate = new Date().toLocaleDateString('en-CA');
-    if (cacheDate !== todayDate) forecastCache = { data: null, timestamp: 0 };
+    // Invalidate if date changed, or if cached data is missing cloud_cover (stale cache from older code)
+    const hasCloudCover = forecastCache.data.hourly?.length && forecastCache.data.hourly[0].cloud_cover != null;
+    if (cacheDate !== todayDate || !hasCloudCover) forecastCache = { data: null, timestamp: 0 };
     else return forecastCache.data;
   }
 
