@@ -95,7 +95,7 @@ export async function updatePvToday(forecastData) {
     todayHourly = (forecastData.hourly || [])
       .filter(h => new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
       .map(h => ({ x: new Date(h.period_end).getTime(), pv: h.pv_estimate || 0, cloud: h.cloud_cover != null ? h.cloud_cover : null }));
-    DEBUG_PVTODAY && console.log('[pvToday] todayHourly entries:', todayHourly.length);
+    DEBUG_PVTODAY && console.log('[pvToday] todayHourly entries:', todayHourly.length, 'sample:', todayHourly.slice(0,3));
   }
 
   for (const card of cards) {
@@ -177,53 +177,55 @@ export async function updatePvToday(forecastData) {
     DEBUG_PVTODAY && console.log('[pvToday] chart datasets — generated:', generatedByHour.length, 'predicted:', predictedByHour.length, 'cloud:', cloudByHour.length, 'hasInstantW:', hasInstantW);
     if (generatedByHour.length) DEBUG_PVTODAY && console.log('[pvToday] generated sample:', generatedByHour.slice(0, 3));
 
-    if (pvTodayCharts[canvasId]) {
-      pvTodayCharts[canvasId].destroy();
-      pvTodayCharts[canvasId] = null;
-    }
-
     if (typeof Chart === 'undefined') { DEBUG_PVTODAY && console.error('[pvToday] Chart.js not loaded!'); continue; }
 
     const mutedColor = isDark ? '#94a3b8' : '#666666';
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
     const ctx = canvas.getContext('2d');
-    DEBUG_PVTODAY && console.log('[pvToday] canvas size:', canvas.width, 'x', canvas.height, 'ctx:', !!ctx);
     try {
-    pvTodayCharts[canvasId] = new Chart(ctx, {
-      type: 'line',
-      data: {
-        datasets: [
-          { label: 'Generated', data: generatedByHour, borderColor: '#FFEA00', backgroundColor: 'rgba(255,234,0,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
-          { label: 'Predicted', data: predictedByHour, borderColor: '#FFEA00', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 3 },
-          { label: 'Cloud Cover', data: cloudByHour, borderColor: '#c8cada', backgroundColor: 'rgba(200,202,218,0.08)', borderWidth: 1, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 1 }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        devicePixelRatio: window.devicePixelRatio || 1,
-        animation: false,
-        interaction: { intersect: false, mode: 'index' },
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: {
-          x: { type: 'linear', min: getHourTimestamp(6), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
-          y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
-          y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: '#7d869e', font: { size: 8 } }, grid: { display: false } }
-        }
-      },
-      plugins: [{
-        id: 'nowLine',
-        afterDraw(chart) {
-          const { ctx, chartArea, scales } = chart;
-          const nowX = Date.now();
-          if (nowX < scales.x.min || nowX > scales.x.max) return;
-          const x = scales.x.getPixelForValue(nowX);
-          ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.strokeStyle = '#d94141'; ctx.lineWidth = 1;
-          ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke(); ctx.restore();
-        }
-      }]
-    });
-    } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] chart creation error:', e); }
+    if (!pvTodayCharts[canvasId]) {
+      pvTodayCharts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [
+          { label: 'Generated', data: [], borderColor: '#FFEA00', backgroundColor: 'rgba(255,234,0,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
+          { label: 'Predicted', data: [], borderColor: '#FFEA00', backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 4 },
+          { label: 'Cloud Cover', data: [], borderColor: 'rgba(180,185,210,0.7)', backgroundColor: 'rgba(180,185,210,0.15)', borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 0 }
+        ]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          devicePixelRatio: window.devicePixelRatio || 1,
+          animation: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: {
+            x: { type: 'linear', min: getHourTimestamp(6), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
+            y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
+            y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: '#7d869e', font: { size: 8 } }, grid: { display: false } }
+          }
+        },
+        plugins: [{
+          id: 'nowLine',
+          afterDraw(chart) {
+            const { ctx, chartArea, scales } = chart;
+            const nowX = Date.now();
+            if (nowX < scales.x.min || nowX > scales.x.max) return;
+            const x = scales.x.getPixelForValue(nowX);
+            ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.strokeStyle = '#d94141'; ctx.lineWidth = 1;
+            ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke(); ctx.restore();
+          }
+        }]
+      });
+    }
+    // Update datasets in place — don't destroy/recreate
+    const chart = pvTodayCharts[canvasId];
+    chart.data.datasets[0].data = generatedByHour;
+    chart.data.datasets[1].data = predictedByHour;
+    chart.data.datasets[2].data = cloudByHour;
+    chart.options.scales.x.ticks.color = mutedColor;
+    chart.options.scales.y.ticks.color = mutedColor;
+    chart.update('none');
+    } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] chart error:', e); }
     } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] card processing error:', e); }
   }
 }
@@ -272,7 +274,7 @@ function bucketIntradayByDailySolar(data, now) {
 }
 
 function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
-  if (!iconsEl || !barEl) return;
+  if (!iconsEl || !barEl) { DEBUG_PVTODAY && console.log('[pvToday] renderTimeline skipped — iconsEl:', !!iconsEl, 'barEl:', !!barEl); return; }
   const slots = [7, 10, 13, 16, 19];
   const timelineData = slots.map(h => {
     const t = getHourTimestamp(h);
@@ -282,6 +284,7 @@ function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
     }, null);
     return { hour: h, cloud: entry ? entry.cloud : null };
   });
+  DEBUG_PVTODAY && console.log('[pvToday] timelineData:', timelineData, 'hourly count:', hourly.length);
   iconsEl.innerHTML = timelineData.map(d => {
     let icon = '☀️';
     if (d.cloud != null) {
