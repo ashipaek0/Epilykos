@@ -98,6 +98,14 @@ export async function updatePvToday(forecastData) {
     DEBUG_PVTODAY && console.log('[pvToday] todayHourly entries:', todayHourly.length, 'sample:', todayHourly.slice(0,3));
   }
 
+  // Fetch intraday once, not per-card
+  let intradayData = [];
+  try {
+    const intraRes = await fetch('/api/solar/intraday?field=solar');
+    if (intraRes.ok) intradayData = await intraRes.json();
+  } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] intraday fetch error:', e); }
+  DEBUG_PVTODAY && console.log('[pvToday] intraday rows:', intradayData.length, 'hasWatts>0:', intradayData.some(r => r.watts > 0), 'hasDailySolar>0:', intradayData.some(r => r.daily_solar > 0));
+
   for (const card of cards) {
     try {
     const id = card.dataset.blockId || '';
@@ -118,16 +126,8 @@ export async function updatePvToday(forecastData) {
 
     let generatedField = '';
     try { const mm = JSON.parse(card.dataset.metricMap); if (mm.generated) generatedField = mm.generated; } catch (e) {}
-    if (!generatedField) generatedField = 'solar'; // legacy — configure in block settings
+    if (!generatedField) generatedField = 'solar';
     DEBUG_PVTODAY && console.log('[pvToday] generatedField:', generatedField);
-
-    let intradayData = [];
-    try {
-      const intraRes = await fetch('/api/solar/intraday?field=solar');
-      DEBUG_PVTODAY && console.log('[pvToday] intraday fetch status:', intraRes.status, 'ok:', intraRes.ok);
-      if (intraRes.ok) intradayData = await intraRes.json();
-    } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] intraday fetch error:', e); }
-    DEBUG_PVTODAY && console.log('[pvToday] intraday rows:', intradayData.length, 'hasWatts>0:', intradayData.some(r => r.watts > 0), 'hasDailySolar>0:', intradayData.some(r => r.daily_solar > 0));
 
     let actualKwh = 0;
     const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);

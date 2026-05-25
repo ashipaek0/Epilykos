@@ -93,7 +93,8 @@ async function pollModbus() {
           const resp = await client.readHoldingRegisters(startAddr, count);
           for (let j = 0; j < resp.data.length; j++) {
             const reg = sorted[i - count + j];
-            const raw = resp.data[j];
+            let raw = resp.data[j];
+            if (reg.type === 'int16' && raw > 0x7FFF) raw -= 0x10000;
             const value = reg.scale ? raw * reg.scale : raw;
             results[reg.metric] = value;
           }

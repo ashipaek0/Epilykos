@@ -37,11 +37,10 @@ function createRouter(db, getConfigFn) {
     }
 
     try {
-      db.run(
+      db.prepare(
         `INSERT INTO pvoutput_alerts (system_id, alert_type, message, pvoutput_datetime, received_at)
-         VALUES (?, ?, ?, ?, datetime('now'))`,
-        [sid, parseInt(type), message || '', datetime || '']
-      );
+         VALUES (?, ?, ?, ?, datetime('now'))`
+      ).run(sid, parseInt(type), message || '', datetime || '');
       logger.info(`[pvoutput:webhook] alert type=${type}: ${message}`);
     } catch (e) {
       logger.error(`[pvoutput:webhook] failed to store alert: ${e.message}`);

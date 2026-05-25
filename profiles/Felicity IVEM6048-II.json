@@ -1,0 +1,32 @@
+{
+  "name": "Felicity IVEM6048-II",
+  "defaultUnitId": 1,
+  "registers": [
+    { "metric": "inverter_fault_code",       "address": 4355, "type": "uint16", "scale": 1.0,  "unit": "" },
+    { "metric": "battery_power",             "address": 4362, "type": "int16",  "scale": 1.0,  "unit": "W" },
+    { "metric": "inverter_voltage",          "address": 4364, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "inverter_current",          "address": 4365, "type": "int16",  "scale": 0.1,  "unit": "A" },
+    { "metric": "inverter_frequency",        "address": 4366, "type": "uint16", "scale": 0.01, "unit": "Hz" },
+    { "metric": "inverter_power",            "address": 4367, "type": "int16",  "scale": 1.0,  "unit": "W" },
+    { "metric": "inverter_apparent_power",   "address": 4368, "type": "uint16", "scale": 1.0,  "unit": "VA" },
+    { "metric": "ac_output_voltage",         "address": 4369, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "ac_input_voltage",          "address": 4375, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "ac_input_frequency",        "address": 4377, "type": "uint16", "scale": 0.01, "unit": "Hz" },
+    { "metric": "load_power",                "address": 4382, "type": "int16",  "scale": 1.0,  "unit": "W" },
+    { "metric": "ac_output_apparent_power",  "address": 4383, "type": "uint16", "scale": 1.0,  "unit": "VA" },
+    { "metric": "load_percentage",           "address": 4384, "type": "uint16", "scale": 1.0,  "unit": "%" },
+    { "metric": "transformer_temperature",   "address": 4385, "type": "int16",  "scale": 1.0,  "unit": "°C" },
+    { "metric": "inverter_temperature",      "address": 4386, "type": "int16",  "scale": 1.0,  "unit": "°C" },
+    { "metric": "status_register",           "address": 4400, "type": "uint16", "scale": 1.0,  "unit": "" },
+    { "metric": "smart_port_status",         "address": 4461, "type": "uint16", "scale": 1.0,  "unit": "" },
+    { "metric": "ac_input_current",          "address": 4502, "type": "uint16", "scale": 0.1,  "unit": "A" },
+    { "metric": "ac_output_current",         "address": 4503, "type": "uint16", "scale": 0.1,  "unit": "A" },
+    { "metric": "battery_current",           "address": 4504, "type": "int16",  "scale": 0.1,  "unit": "A" },
+    { "metric": "pv_current",                "address": 4505, "type": "uint16", "scale": 0.1,  "unit": "A" },
+    { "metric": "ac_input_power",            "address": 4509, "type": "uint16", "scale": 1.0,  "unit": "W" },
+    { "metric": "ac_output_power",           "address": 4510, "type": "uint16", "scale": 1.0,  "unit": "W" },
+    { "metric": "battery_voltage",           "address": 4623, "type": "uint16", "scale": 0.01, "unit": "V" },
+    { "metric": "battery_soc",               "address": 4624, "type": "uint16", "scale": 0.1,  "unit": "%" },
+    { "metric": "battery_soh",               "address": 4625, "type": "uint16", "scale": 0.1,  "unit": "%" }
+  ]
+}

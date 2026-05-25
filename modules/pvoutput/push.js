@@ -32,10 +32,9 @@ function start(db, client, config, getMetricsFn) {
   // Ensure today's push row exists (RM4)
   const tz = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const todayStr = getLocalDate(tz);
-  db.run(
-    `INSERT OR IGNORE INTO pvoutput_daily_outputs (date, status, attempts, source) VALUES (?, 'pending', 0, 'push')`,
-    [todayStr]
-  );
+  db.prepare(
+    `INSERT OR IGNORE INTO pvoutput_daily_outputs (date, status, attempts, source) VALUES (?, 'pending', 0, 'push')`
+  ).run(todayStr);
 
   eodInterval = setInterval(() => {
     const { h, m } = getLocalTime(tz);
@@ -50,11 +49,11 @@ function start(db, client, config, getMetricsFn) {
     else if (att === 2 && h === 1 && m === 0) shouldFire = true;
 
     if (shouldFire && row.status !== 'uploaded') {
-      db.run('UPDATE pvoutput_daily_outputs SET attempts = attempts + 1 WHERE date = ? AND source = ?', [todayStr, 'push']);
+      db.prepare('UPDATE pvoutput_daily_outputs SET attempts = attempts + 1 WHERE date = ? AND source = ?').run(todayStr, 'push');
       uploadEod(db, client);
     }
     if (att >= 3 && row.status !== 'uploaded' && row.status !== 'failed') {
-      db.run("UPDATE pvoutput_daily_outputs SET status = 'failed' WHERE date = ? AND source = ?", [todayStr, 'push']);
+      db.prepare("UPDATE pvoutput_daily_outputs SET status = 'failed' WHERE date = ? AND source = ?").run(todayStr, 'push');
     }
   }, 60_000);
 
@@ -63,7 +62,7 @@ function start(db, client, config, getMetricsFn) {
   if (nowLocal.h >= 0 && (nowLocal.h > 23 || (nowLocal.h === 23 && nowLocal.m >= 55))) {
     const existingRow = db.prepare('SELECT status FROM pvoutput_daily_outputs WHERE date = ? AND source = ?').get(todayStr, 'push');
     if (!existingRow || existingRow.status !== 'uploaded') {
-      db.run("UPDATE pvoutput_daily_outputs SET attempts = attempts + 1 WHERE date = ? AND source = ?", [todayStr, 'push']);
+      db.prepare("UPDATE pvoutput_daily_outputs SET attempts = attempts + 1 WHERE date = ? AND source = ?").run(todayStr, 'push');
       uploadEod(db, client);
     }
   }
@@ -116,18 +115,18 @@ async function uploadEod(db, client) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const todayStr = getLocalDate(tz);
     // NC2: all EOD data from Epilykos history table
-    const stats = db.get(
+    const stats = db.prepare(
       `SELECT MAX(daily_solar) as daily_solar, MAX(solar) as peak_watts,
               MAX(daily_consumption) as daily_con
-       FROM history WHERE date(timestamp, 'unixepoch') = ?`, [todayStr]
-    );
+       FROM history WHERE date(timestamp, 'unixepoch') = ?`
+    ).get(todayStr);
     if (!stats || stats.daily_solar == null) {
       logger.debug('[pvoutput] no history data for today, skipping EOD');
       return;
     }
-    const peakRow = db.get(
-      `SELECT timestamp FROM history WHERE date(timestamp, 'unixepoch') = ? ORDER BY solar DESC LIMIT 1`, [todayStr]
-    );
+    const peakRow = db.prepare(
+      `SELECT timestamp FROM history WHERE date(timestamp, 'unixepoch') = ? ORDER BY solar DESC LIMIT 1`
+    ).get(todayStr);
     let pt = '';
     if (peakRow) {
       const peakDate = new Date(peakRow.timestamp * 1000);
@@ -141,10 +140,9 @@ async function uploadEod(db, client) {
       c: Math.round((stats.daily_con || 0) * 1000)
     };
     const resp = await client.post('addoutput.jsp', payload, 'general');
-    db.run(
-      "UPDATE pvoutput_daily_outputs SET status = ? WHERE date = ? AND source = 'push'",
-      ['uploaded', todayStr]
-    );
+    db.prepare(
+      "UPDATE pvoutput_daily_outputs SET status = ? WHERE date = ? AND source = 'push'"
+    ).run('uploaded', todayStr);
     logger.info(`[pvoutput] end-of-day output uploaded: ${resp.trim()}`);
   } catch (err) {
     logger.warn(`[pvoutput] EOD upload failed: ${err.message}`);
@@ -161,11 +159,10 @@ function queueForBackfill(db, payload, date, reason) {
       hour: '2-digit', minute: '2-digit', hour12: false
     });
     const parts = Object.fromEntries(fmt.formatToParts(rounded).map(p => [p.type, p.value]));
-    db.run(
+    db.prepare(
       `INSERT INTO pvoutput_upload_queue (date, time, payload_json, reason, status, attempts, created_at)
-       VALUES (?, ?, ?, ?, 'pending', 0, datetime('now'))`,
-      [`${parts.year}${parts.month}${parts.day}`, `${parts.hour}:${parts.minute}`, JSON.stringify(payload), reason]
-    );
+       VALUES (?, ?, ?, ?, 'pending', 0, datetime('now'))`
+    ).run(`${parts.year}${parts.month}${parts.day}`, `${parts.hour}:${parts.minute}`, JSON.stringify(payload), reason);
   } catch (e) { /* non-critical */ }
 }
 
