@@ -41,6 +41,8 @@ function connectWebSocket() {
   ws.onopen = () => {
     console.log('WebSocket connected');
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    // Immediately fetch initial state since WebSocket push may take up to 30s
+    import('./updater.js').then(m => m.updateAllComponents());
   };
 
   ws.onmessage = (event) => {

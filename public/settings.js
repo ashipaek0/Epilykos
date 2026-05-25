@@ -1806,7 +1806,7 @@ if (importLayoutBtn && importLayoutFile) {
     const formData = new FormData();
     formData.append('layout', file);
     try {
-      const res = await fetch('/api/dashboard-config/import', { method: 'POST', body: formData });
+      const res = await fetch('/api/dashboard-config/import?merge=true', { method: 'POST', body: formData });
       const data = await res.json();
       if (res.ok) {
         showStatus(backupStatus, 'Layout imported successfully! Reloading...', 'success');

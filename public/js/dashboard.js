@@ -247,9 +247,12 @@ function renderDashboard() {
   if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
   if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
 
-  updateDailyTable().catch(e => console.error('Daily table error:', e));
-  updateMonthlyTable().catch(e => console.error('Monthly table error:', e));
-  updateAllComponents();
+  // Defer data fetches — WebSocket pushes initial state; tables and forecast load staggered
+  setTimeout(() => {
+    updateDailyTable().catch(e => console.error('Daily table error:', e));
+    updateMonthlyTable().catch(e => console.error('Monthly table error:', e));
+  }, 2000);
+  // updateAllComponents() is called by main.js after WebSocket connects
 }
 
 async function switchDashboard(id) {
