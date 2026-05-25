@@ -800,7 +800,9 @@ function getProfileById(id) {
 
 function getTransportForProfile(profileId) {
   const p = getProfileById(profileId);
-  return p ? p.transport : 'solarman-v5';
+  if (!p) return 'solarman-v5';
+  if (p.protocol === 'felicity-tcp') return 'felicity-tcp';
+  return p.transport || 'solarman-v5';
 }
 
 function renderDongleDevice(device, idx) {
@@ -857,11 +859,14 @@ function renderDongleDevice(device, idx) {
   profileSelect.addEventListener('change', () => {
     const p = getProfileById(profileSelect.value);
     if (!p) return;
-    transportHidden.value = p.transport;
-    serialRow.style.display = p.transport === 'modbus-tcp' ? 'none' : '';
+    const tx = p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport;
+    transportHidden.value = tx;
+    serialRow.style.display = (tx === 'felicity-tcp' || tx === 'modbus-tcp') ? 'none' : '';
     const portInput = card.querySelector('input[name$="[port]"]');
     portInput.value = p.default_port || '';
-    card.querySelector('input[name$="[modbus_unit_id]"]').value = p.default_unit_id || 1;
+    const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
+    unitIdInput.value = p.default_unit_id || 1;
+    unitIdInput.style.display = (tx === 'felicity-tcp') ? 'none' : '';
   });
 
   card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
