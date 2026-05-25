@@ -181,10 +181,12 @@ function renderDashboard() {
     wrapper.style.height = (h * ROW_HEIGHT - GAP * 2) + 'px';
 
     if (block.bgColor) {
-      wrapper.style.backgroundColor = block.bgColor;
+      content.style.setProperty('background-color', block.bgColor, 'important');
+      content.style.setProperty('--card-bg', block.bgColor, 'important');
+      content.style.setProperty('--bg', block.bgColor, 'important');
     }
     if (block.fontColor) {
-      content.style.color = block.fontColor;
+      content.style.setProperty('color', block.fontColor, 'important');
     }
     if (block.fontSize) {
       content.style.fontSize = block.fontSize;
