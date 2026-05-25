@@ -1,0 +1,126 @@
+{
+  "name": "Felicity IVPS10048 Inverter (10kVA)",
+  "transport": "modbus-tcp",
+  "requires_serial": false,
+  "default_port": 502,
+  "default_unit_id": 1,
+  "metrics": [
+    {
+      "name": "inverter_mode",
+      "register": "0x1101",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "field": "inverter_mode"
+    },
+    {
+      "name": "battery_voltage",
+      "register": "0x1108",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "V",
+      "field": "battery_voltage"
+    },
+    {
+      "name": "battery_current",
+      "register": "0x1109",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "A",
+      "field": "battery_current"
+    },
+    {
+      "name": "battery_consumption",
+      "register": "0x110A",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "field": "battery_consumption"
+    },
+    {
+      "name": "output_frequency",
+      "register": "0x110E",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "field": "output_frequency"
+    },
+    {
+      "name": "apparent_load",
+      "register": "0x1110",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "VA",
+      "field": "apparent_load"
+    },
+    {
+      "name": "output_voltage",
+      "register": "0x1111",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "output_voltage"
+    },
+    {
+      "name": "output_current",
+      "register": "0x1112",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "field": "output_current"
+    },
+    {
+      "name": "input_voltage",
+      "register": "0x1117",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "input_voltage"
+    },
+    {
+      "name": "input_current",
+      "register": "0x1118",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "field": "input_current"
+    },
+    {
+      "name": "input_frequency",
+      "register": "0x1119",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "field": "input_frequency"
+    },
+    {
+      "name": "real_load",
+      "register": "0x111E",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "field": "real_load"
+    },
+    {
+      "name": "load_percentage",
+      "register": "0x1120",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "field": "load_percentage"
+    }
+  ]
+}

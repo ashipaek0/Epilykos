@@ -800,7 +800,9 @@ function getProfileById(id) {
 
 function getTransportForProfile(profileId) {
   const p = getProfileById(profileId);
-  return p ? p.transport : 'solarman-v5';
+  if (!p) return 'solarman-v5';
+  if (p.protocol === 'felicity-tcp') return 'felicity-tcp';
+  return p.transport || 'solarman-v5';
 }
 
 function renderDongleDevice(device, idx) {
@@ -857,11 +859,14 @@ function renderDongleDevice(device, idx) {
   profileSelect.addEventListener('change', () => {
     const p = getProfileById(profileSelect.value);
     if (!p) return;
-    transportHidden.value = p.transport;
-    serialRow.style.display = p.transport === 'modbus-tcp' ? 'none' : '';
+    const tx = p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport;
+    transportHidden.value = tx;
+    serialRow.style.display = (tx === 'felicity-tcp' || tx === 'modbus-tcp') ? 'none' : '';
     const portInput = card.querySelector('input[name$="[port]"]');
     portInput.value = p.default_port || '';
-    card.querySelector('input[name$="[modbus_unit_id]"]').value = p.default_unit_id || 1;
+    const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
+    unitIdInput.value = p.default_unit_id || 1;
+    unitIdInput.style.display = (tx === 'felicity-tcp') ? 'none' : '';
   });
 
   card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
@@ -1267,6 +1272,7 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="1.5rem" ${block.fontSize==='1.5rem'?'selected':''}>XL</option>
       </select>`, 'Size')}
       ${ctl(`<input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'BG')}
+      ${ctl(`<input type="color" class="block-inner-bg-color" value="${escapeHtml(block.innerBgColor||'')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'Inner')}
       ${ctl(`<label class="block-transparent-label" title="Transparent"><input type="checkbox" class="block-transparent" ${block.transparent?'checked':''}> T</label>`, 'Glass')}
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
@@ -1752,6 +1758,9 @@ function renderDashboardBlockEditor(dashboard) {
     });
     li.querySelector('.block-bg-color').addEventListener('change', (e) => {
       dashboard.layout[idx].bgColor = e.target.value;
+    });
+    li.querySelector('.block-inner-bg-color').addEventListener('change', (e) => {
+      dashboard.layout[idx].innerBgColor = e.target.value;
     });
     li.querySelector('.block-transparent').addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;

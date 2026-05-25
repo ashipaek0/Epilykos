@@ -22,6 +22,7 @@ const fs = require('fs');
 const morgan = require('morgan');
 const WebSocket = require('ws');
 const http = require('http');
+const net = require('net');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
@@ -824,17 +825,68 @@ app.use('/api/dongle/test', isAuthenticated);
 app.post('/api/dongle/test', async (req, res) => {
   const { host, port, serial_number, modbus_unit_id, transport } = req.body;
   if (!host) return res.status(400).json({ error: 'Host required' });
+
+  const rawHost = String(host).trim();
+  const isPrivateOrLocalIp = (ip) => {
+    if (ip === '127.0.0.1' || ip === '::1') return true;
+    if (ip.startsWith('10.')) return true;
+    if (ip.startsWith('192.168.')) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
+    if (ip.startsWith('169.254.')) return true;
+    if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
+    if (ip.startsWith('fe80:')) return true;
+    return false;
+  };
+  const isValidHostname = (value) => {
+    if (value.length > 253) return false;
+    const labels = value.split('.');
+    return labels.every(label =>
+      /^[a-zA-Z0-9-]{1,63}$/.test(label) &&
+      !label.startsWith('-') &&
+      !label.endsWith('-')
+    );
+  };
+
+  const ipVersion = net.isIP(rawHost);
+  if (ipVersion) {
+    if (isPrivateOrLocalIp(rawHost.toLowerCase())) {
+      return res.status(400).json({ error: 'Host is not allowed' });
+    }
+  } else {
+    if (!isValidHostname(rawHost)) {
+      return res.status(400).json({ error: 'Invalid host' });
+    }
+    const lowered = rawHost.toLowerCase();
+    if (lowered === 'localhost' || lowered.endsWith('.local')) {
+      return res.status(400).json({ error: 'Host is not allowed' });
+    }
+  }
+
+  const parsedPort = Number.parseInt(port, 10);
+  const safePort = Number.isInteger(parsedPort) && parsedPort >= 1 && parsedPort <= 65535 ? parsedPort : null;
+  if (port !== undefined && port !== null && port !== '' && safePort === null) {
+    return res.status(400).json({ error: 'Invalid port' });
+  }
+  const safeHost = rawHost;
+
   try {
     let transportObj;
+    if (transport === 'felicity-tcp') {
+      transportObj = new (require('./modules/dongle/felicityTcp').FelicityTcpTransport)({ host: safeHost, port: safePort || 53970 });
+      const data = await transportObj.poll();
+      const count = data.realtime ? Object.keys(data.realtime).length : 0;
+      res.json({ success: true, raw: `JSON OK — ${count} realtime keys` });
+      return;
+    }
     if (transport === 'solarman-v5') {
-      transportObj = new (require('./modules/dongle/solarmanV5').SolarmanV5Transport)({ host, port: port || 8899, serial_number, modbus_unit_id: modbus_unit_id || 1 });
+      transportObj = new (require('./modules/dongle/solarmanV5').SolarmanV5Transport)({ host: safeHost, port: safePort || 8899, serial_number, modbus_unit_id: modbus_unit_id || 1 });
     } else {
-      transportObj = new (require('./modules/dongle/modbusTcp').ModbusTcpTransport)({ host, port: port || 502, modbus_unit_id: modbus_unit_id || 1 });
+      transportObj = new (require('./modules/dongle/modbusTcp').ModbusTcpTransport)({ host: safeHost, port: safePort || 502, modbus_unit_id: modbus_unit_id || 1 });
     }
     const data = await transportObj.readRegisters(0x0100, 1);
     res.json({ success: true, raw: data.readUInt16BE(0) });
   } catch (err) {
-    logger.warn(`[dongle] test connection failed to ${host}: ${err.message}`);
+    logger.warn(`[dongle] test connection failed to ${safeHost}: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
