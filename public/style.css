@@ -470,6 +470,7 @@ h1, h2, h3, h4,
   .flow-arrow { display: none; }
   .flow-item { min-height: auto; }
   .stat-value { font-size: var(--fs-large); }
+  #signin-btn { display: none !important; }
   .chart-container { height: auto; min-height: 300px; }
   .pv-today-banner { padding: 0.8rem 1rem; }
   .pv-main-row { flex-direction: column; }
