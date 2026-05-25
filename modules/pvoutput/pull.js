@@ -84,7 +84,7 @@ async function fetchSystemInfo(db, client) {
   db.prepare(`INSERT OR REPLACE INTO pvoutput_system
     (system_id, system_name, system_size, postcode, install_date, latitude, longitude, status_interval, fetched_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`)
-    .run(config.system_id, info.system_name, info.system_size, info.postcode, info.install_date,
+    .run(client.systemId, info.system_name, info.system_size, info.postcode, info.install_date,
          info.latitude, info.longitude, info.status_interval);
 
   // Auto-fill timezone in config if not manually set (NM6)
