@@ -65,7 +65,7 @@ export function initPowerChart() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a';
     powerCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: [] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index' }, elements: { line: { borderWidth: 2, tension: 0.4, fill: true }, point: { radius: 0, hoverRadius: 4 } }, scales: { x: { type: 'time', time: { unit: 'hour' }, grid: { color: gc } }, y: { title: { display: true, text: 'Power (kW)', color: tc }, grid: { color: gc }, grace: '5%' } }, plugins: { tooltip: { mode: 'index' }, legend: { labels: { color: tc } } } }, plugins: [zonePlugin] });
-    refreshPowerChartFor(canvas.id);
+    // Data filled by updatePowerChartFromState when WebSocket connects
   });
 }
 
@@ -77,7 +77,7 @@ export function initEnergyChart() {
     const gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a';
     const ds = getDatasets(canvas.closest('.chart-container')) || defaultEnergy();
     energyCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: [], datasets: ds.map(d => ({ label: d.label, backgroundColor: d.color || '#888', data: [] })) }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { color: gc } }, y: { title: { display: true, text: 'Energy (kWh)', color: tc }, grid: { color: gc }, beginAtZero: true } }, plugins: { legend: { labels: { color: tc } }, tooltip: { mode: 'index' } } } });
-    refreshEnergyChartFor(canvas.id);
+    // Data filled by updateEnergyChartFromState when WebSocket connects
   });
 }
 
@@ -91,7 +91,7 @@ async function refreshPowerChartFor(cid) { const chart = powerCharts[cid]; if (!
 
 export async function refreshPowerChart() { for (const cid of Object.keys(powerCharts)) await refreshPowerChartFor(cid); }
 
-function updatePowerChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const ds = getDatasets(ct) || defaultPower(); chart.data.datasets = ds.map(d => { const f = resolvePowerField(d.metric); return { label: d.label, data: data.map(p => ({ x: p.timestamp, y: f ? (p[f] ?? 0) : 0 })), borderColor: resolveColor(d.color), tension: 0.4, borderWidth: 1, fill: true }; }); chart.update(); applyGradientFills(chart); }
+function updatePowerChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const ds = getDatasets(ct) || defaultPower(); const existing = chart.data.datasets; ds.forEach((d, i) => { const f = resolvePowerField(d.metric); const pts = data.map(p => ({ x: p.timestamp, y: f ? (p[f] ?? 0) : 0 })); if (i < existing.length) { existing[i].label = d.label; existing[i].data = pts; existing[i].borderColor = resolveColor(d.color); } else { existing.push({ label: d.label, data: pts, borderColor: resolveColor(d.color), tension: 0.4, borderWidth: 1, fill: true }); } }); while (existing.length > ds.length) existing.pop(); chart.update(); applyGradientFills(chart); }
 
 export function setPowerRange(range, datasets) { currentPowerRange = range; if (datasets) { document.querySelectorAll('.chart-container').forEach(c => { if (c.querySelector('canvas[id^="powerChart"]')) c.dataset.chartDatasets = JSON.stringify(datasets); }); } refreshPowerChart(); }
 
@@ -99,7 +99,7 @@ async function refreshEnergyChartFor(cid) { const chart = energyCharts[cid]; if 
 
 export async function refreshEnergyChart() { for (const cid of Object.keys(energyCharts)) await refreshEnergyChartFor(cid); }
 
-function updateEnergyChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const src = getDatasets(ct) || defaultEnergy(); chart.data.labels = data.map(d => new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })); chart.data.datasets = src.map(s => { const f = resolveEnergyField(s.metric); return { label: s.label, data: f ? data.map(d => d[f] || 0) : [], backgroundColor: s.color || '#888' }; }); chart.update(); }
+function updateEnergyChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const src = getDatasets(ct) || defaultEnergy(); chart.data.labels = data.map(d => new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })); const existing = chart.data.datasets; src.forEach((s, i) => { const f = resolveEnergyField(s.metric); const vals = f ? data.map(d => d[f] || 0) : []; if (i < existing.length) { existing[i].label = s.label; existing[i].data = vals; existing[i].backgroundColor = s.color || '#888'; } else { existing.push({ label: s.label, data: vals, backgroundColor: s.color || '#888' }); } }); while (existing.length > src.length) existing.pop(); chart.update(); }
 
 export function setEnergyRange(range) { currentEnergyRange = range; refreshEnergyChart(); }
 
