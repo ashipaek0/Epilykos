@@ -657,11 +657,26 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     const content = fs.readFileSync(req.file.path, 'utf8');
-    const config = JSON.parse(content);
-    if (!config.dashboards || !Array.isArray(config.dashboards)) {
+    const imported = JSON.parse(content);
+    if (!imported.dashboards || !Array.isArray(imported.dashboards)) {
       throw new Error('Invalid dashboard config format');
     }
-    saveDashboardConfig(config);
+    // Merge: add imported dashboards to existing ones, avoiding ID collisions
+    if (req.query.merge !== 'false') {
+      const existing = getDashboardConfig();
+      const existingIds = new Set(existing.dashboards.map(d => d.id));
+      for (const db of imported.dashboards) {
+        if (existingIds.has(db.id)) {
+          db.id = 'db_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+          if (db.name) db.name += ' (imported)';
+        }
+        existing.dashboards.push(db);
+        existingIds.add(db.id);
+      }
+      saveDashboardConfig(existing);
+    } else {
+      saveDashboardConfig(imported);
+    }
     fs.unlinkSync(req.file.path);
     res.json({ success: true });
   } catch (err) {
