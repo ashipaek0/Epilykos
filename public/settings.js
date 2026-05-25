@@ -1272,6 +1272,7 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="1.5rem" ${block.fontSize==='1.5rem'?'selected':''}>XL</option>
       </select>`, 'Size')}
       ${ctl(`<input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'BG')}
+      ${ctl(`<input type="color" class="block-inner-bg-color" value="${escapeHtml(block.innerBgColor||'')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'Inner')}
       ${ctl(`<label class="block-transparent-label" title="Transparent"><input type="checkbox" class="block-transparent" ${block.transparent?'checked':''}> T</label>`, 'Glass')}
       <button type="button" class="remove-btn delete-block">Remove</button>
       <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
@@ -1757,6 +1758,9 @@ function renderDashboardBlockEditor(dashboard) {
     });
     li.querySelector('.block-bg-color').addEventListener('change', (e) => {
       dashboard.layout[idx].bgColor = e.target.value;
+    });
+    li.querySelector('.block-inner-bg-color').addEventListener('change', (e) => {
+      dashboard.layout[idx].innerBgColor = e.target.value;
     });
     li.querySelector('.block-transparent').addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;
