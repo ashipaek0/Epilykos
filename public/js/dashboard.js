@@ -182,8 +182,10 @@ function renderDashboard() {
 
     if (block.bgColor) {
       content.style.setProperty('background-color', block.bgColor, 'important');
-      content.style.setProperty('--card-bg', block.bgColor, 'important');
-      content.style.setProperty('--bg', block.bgColor, 'important');
+    }
+    if (block.innerBgColor) {
+      content.style.setProperty('--card-bg', block.innerBgColor, 'important');
+      content.style.setProperty('--bg', block.innerBgColor, 'important');
     }
     if (block.fontColor) {
       content.style.setProperty('color', block.fontColor, 'important');
