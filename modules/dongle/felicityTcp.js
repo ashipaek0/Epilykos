@@ -12,8 +12,14 @@ const net = require('net');
 
 class FelicityTcpTransport {
   constructor(instance) {
-    this.host = instance.host;
-    this.port = instance.port || 53970;
+    const host = (instance.host || '').trim();
+    if (!host || host.length > 253) throw new Error('Invalid host');
+    const ipType = net.isIP(host);
+    if (ipType === 0 && !/^[a-zA-Z0-9.-]+$/.test(host)) throw new Error('Invalid hostname');
+    const port = parseInt(instance.port) || 53970;
+    if (port < 1 || port > 65535) throw new Error('Invalid port');
+    this.host = host;
+    this.port = port;
   }
 
   /**
