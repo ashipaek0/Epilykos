@@ -1,0 +1,48 @@
+{
+  "name": "Felicity IVEM6048-II (ESPHome Modbus)",
+  "transport": "modbus-tcp",
+  "requires_serial": false,
+  "default_port": 502,
+  "default_unit_id": 1,
+  "metrics": [
+    { "name": "inverter_fault_code", "register": "0x1103", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "inverter_fault_code" },
+
+    { "name": "battery_power", "register": "0x110A", "count": 1, "type": "int16", "scale": 1, "unit": "W", "field": "battery_power" },
+    { "name": "inverter_voltage", "register": "0x110C", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "inverter_voltage" },
+    { "name": "inverter_current", "register": "0x110D", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "inverter_current" },
+    { "name": "inverter_frequency", "register": "0x110E", "count": 1, "type": "uint16", "scale": 0.01, "unit": "Hz", "field": "inverter_frequency" },
+    { "name": "inverter_power", "register": "0x110F", "count": 1, "type": "int16", "scale": 1, "unit": "W", "field": "inverter_power" },
+    { "name": "inverter_apparent_power", "register": "0x1110", "count": 1, "type": "uint16", "scale": 1, "unit": "VA", "field": "inverter_apparent_power" },
+
+    { "name": "ac_output_voltage", "register": "0x1111", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "ac_output_voltage" },
+
+    { "name": "ac_input_voltage", "register": "0x1117", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "ac_input_voltage" },
+    { "name": "ac_input_frequency", "register": "0x1119", "count": 1, "type": "uint16", "scale": 0.01, "unit": "Hz", "field": "ac_input_frequency" },
+
+    { "name": "load_power", "register": "0x111E", "count": 1, "type": "int16", "scale": 1, "unit": "W", "field": "load_power" },
+    { "name": "ac_output_apparent_power", "register": "0x111F", "count": 1, "type": "uint16", "scale": 1, "unit": "VA", "field": "ac_output_apparent_power" },
+    { "name": "load_percentage", "register": "0x1120", "count": 1, "type": "uint16", "scale": 1, "unit": "%", "field": "load_percentage" },
+    { "name": "transformer_temperature", "register": "0x1121", "count": 1, "type": "int16", "scale": 1, "unit": "°C", "field": "transformer_temperature" },
+    { "name": "inverter_temperature", "register": "0x1122", "count": 1, "type": "int16", "scale": 1, "unit": "°C", "field": "inverter_temperature" },
+
+    { "name": "status_register", "register": "0x1130", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "status_register" },
+    { "name": "bms_communication_connected", "register": "0x1130", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "bms_communication_connected", "bit": 0 },
+    { "name": "bms_version_mismatch", "register": "0x1130", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "bms_version_mismatch", "bit": 1 },
+    { "name": "bms_forced_charge", "register": "0x1130", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "bms_forced_charge", "bit": 2 },
+    { "name": "bms_charge_stopped", "register": "0x1130", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "bms_charge_stopped", "bit": 3 },
+    { "name": "bms_discharge_stopped", "register": "0x1130", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "bms_discharge_stopped", "bit": 4 },
+
+    { "name": "smart_port_status", "register": "0x116D", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "smart_port_status" },
+
+    { "name": "ac_input_current", "register": "0x1196", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "ac_input_current" },
+    { "name": "ac_output_current", "register": "0x1197", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "ac_output_current" },
+    { "name": "battery_current", "register": "0x1198", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "battery_current" },
+    { "name": "pv_current", "register": "0x1199", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "pv_current" },
+    { "name": "ac_input_power", "register": "0x119D", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "ac_input_power" },
+    { "name": "ac_output_power", "register": "0x119E", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "ac_output_power" },
+
+    { "name": "battery_voltage", "register": "0x120F", "count": 1, "type": "uint16", "scale": 0.01, "unit": "V", "field": "battery_voltage" },
+    { "name": "battery_soc", "register": "0x1210", "count": 1, "type": "uint16", "scale": 0.1, "unit": "%", "field": "battery_soc" },
+    { "name": "battery_soh", "register": "0x1211", "count": 1, "type": "uint16", "scale": 0.1, "unit": "%", "field": "battery_soh" }
+  ]
+}

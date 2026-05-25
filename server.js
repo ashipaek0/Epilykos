@@ -826,6 +826,13 @@ app.post('/api/dongle/test', async (req, res) => {
   if (!host) return res.status(400).json({ error: 'Host required' });
   try {
     let transportObj;
+    if (transport === 'felicity-tcp') {
+      transportObj = new (require('./modules/dongle/felicityTcp').FelicityTcpTransport)({ host, port: port || 53970 });
+      const data = await transportObj.poll();
+      const count = data.realtime ? Object.keys(data.realtime).length : 0;
+      res.json({ success: true, raw: `JSON OK — ${count} realtime keys` });
+      return;
+    }
     if (transport === 'solarman-v5') {
       transportObj = new (require('./modules/dongle/solarmanV5').SolarmanV5Transport)({ host, port: port || 8899, serial_number, modbus_unit_id: modbus_unit_id || 1 });
     } else {
