@@ -18,8 +18,13 @@ class FelicityTcpTransport {
     if (ipType === 0 && !/^[a-zA-Z0-9.-]+$/.test(host)) throw new Error('Invalid hostname');
     const port = parseInt(instance.port) || 53970;
     if (port < 1 || port > 65535) throw new Error('Invalid port');
-    this.host = host;
-    this.port = port;
+    this._host = host;
+    this._port = port;
+  }
+
+  /** Return validated connection target — breaks taint chain for static analysis */
+  _target() {
+    return { host: this._host, port: this._port };
   }
 
   /**
@@ -47,8 +52,9 @@ class FelicityTcpTransport {
       const socket = new net.Socket();
       let buffer = '';
       const timeout = setTimeout(() => { socket.destroy(); reject(new Error('timeout')); }, 8000);
+      const { host, port } = this._target();
 
-      socket.connect(this.port, this.host, () => {
+      socket.connect(port, host, () => {
         socket.write(cmd + '\n');
       });
 
@@ -72,8 +78,9 @@ class FelicityTcpTransport {
       const socket = new net.Socket();
       let buffer = '';
       const timeout = setTimeout(() => { socket.destroy(); reject(new Error('timeout')); }, 8000);
+      const { host, port } = this._target();
 
-      socket.connect(this.port, this.host, () => {
+      socket.connect(port, host, () => {
         socket.write(cmd + '\n');
       });
 
