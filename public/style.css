@@ -227,7 +227,7 @@ h1, h2, h3, h4,
   background: var(--card-bg); border-radius: var(--radius);
   box-shadow: var(--shadow); border: 1px solid var(--border);
   padding: 0.25rem; height: 100%; box-sizing: border-box;
-  display: flex; align-items: stretch;
+  display: flex; flex-direction: column;
 }
 .forecast-sparkline-card .pv-sparkline-container { flex: 1; min-height: 0; }
 .forecast-sparkline-card canvas { width: 100% !important; height: 100% !important; }
@@ -272,6 +272,7 @@ h1, h2, h3, h4,
 .pvt-legend-now { background: transparent; border-top: 2px dashed #d94141; height: 0; width: 16px; }
 .pvt-legend-cloud { background: #c8cada; }
 .pvt-no-data { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.8rem; }
+.forecast-source { font-size: 0.7rem; color: var(--text-secondary); opacity: 0.8; text-align: right; display: block; padding: 2px 8px 2px 0; flex-shrink: 0; font-style: italic; }
 
 @media (max-width: 600px) {
   .pv-today-summary { flex-direction: column; gap: 0.2rem; }
