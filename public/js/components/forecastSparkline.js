@@ -11,7 +11,7 @@ export function buildForecastSparkline(block = {}) {
   card.className = 'forecast-sparkline-card forecast-sparkline-instance';
   card.dataset.metricMap = JSON.stringify({ actual_energy: actualField });
   card.dataset.blockId = id;
-  card.innerHTML = `<div class="pv-sparkline-container"><canvas id="${uid('fc-sparkline', id)}"></canvas></div>`;
+  card.innerHTML = `<div class="pv-sparkline-container"><canvas id="${uid('fc-sparkline', id)}"></canvas></div><span class="forecast-source" id="${uid('fc-source', id)}"></span>`;
   return card;
 }
 
