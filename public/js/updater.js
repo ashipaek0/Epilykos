@@ -6,6 +6,8 @@ import { updateMultiValueCard } from './components/multiValueCard.js';
 import { updateGaugeCard } from './components/gaugeCard.js';
 import { updateHalfGaugeCard } from './components/halfGaugeCard.js';
 import { updateHalfGauge2Card } from './components/halfGauge2Card.js';
+import { updateBarGauge } from './components/barGauge.js';
+import { updateBarGaugeRetro } from './components/barGaugeRetro.js';
 import { updateFlowCardSquare } from './components/flowCardSquare.js';
 import { updateFlowCardSquare2 } from './components/flowCardSquare2.js';
 import { updatePvToday } from './components/pvToday.js';
@@ -28,6 +30,8 @@ export function updateWithState(state) {
   if (activeLayout.some(b => b.type === 'gauge-card')) updateGaugeCard(state);
   if (activeLayout.some(b => b.type === 'half-gauge')) updateHalfGaugeCard(state);
   if (activeLayout.some(b => b.type === 'half-gauge-2')) updateHalfGauge2Card(state);
+  if (activeLayout.some(b => b.type === 'bar-gauge')) updateBarGauge(state);
+  if (activeLayout.some(b => b.type === 'bar-gauge-retro')) updateBarGaugeRetro(state);
   if (activeLayout.some(b => b.type === 'flow-card-square')) updateFlowCardSquare(state);
   if (activeLayout.some(b => b.type === 'flow-card-square-2')) updateFlowCardSquare2(state);
   if (activeLayout.some(b => b.type === 'metric-cards')) updateMetricCardsFromState(state);
