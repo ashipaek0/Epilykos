@@ -199,7 +199,7 @@ export async function updatePvToday(forecastData) {
           interaction: { intersect: false, mode: 'index' },
           plugins: { legend: { display: false }, tooltip: { enabled: false } },
           scales: {
-            x: { type: 'linear', min: getHourTimestamp(6), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
+            x: { type: 'linear', min: getHourTimestamp(7), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
             y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
             y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: '#7d869e', font: { size: 8 } }, grid: { display: false } }
           }
