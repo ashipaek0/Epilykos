@@ -46,12 +46,16 @@ export async function updateForecast() {
   try { const r = await fetch('/api/solar-forecast'); forecastData = await r.json(); }
   catch (e) { banners.forEach(b => b.style.display = 'none'); return; }
   const data = forecastData;
+  const source = data.source || 'unknown';
+  document.querySelectorAll('.forecast-source').forEach(el => { el.textContent = source === 'solcast' ? 'Solcast' : source === 'open-meteo' ? 'Open-Meteo' : ''; });
+
   if (data.error || !data.daily || !data.daily.length) {
     banners.forEach(b => b.style.display = 'none');
     infoCards.forEach(b => b.style.display = 'none');
     sparkCards.forEach(b => b.style.display = 'none');
     return;
   }
+
   const now = new Date(), todayDate = now.toLocaleDateString('en-CA');
   let ti = data.daily.findIndex(d => d.date === todayDate);
   if (ti === -1) ti = 0;

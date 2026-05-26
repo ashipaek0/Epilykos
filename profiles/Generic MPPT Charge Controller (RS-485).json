@@ -1,0 +1,17 @@
+{
+  "name": "Generic MPPT Charge Controller (RS-485)",
+  "defaultUnitId": 1,
+  "registers": [
+    { "metric": "pv_voltage",              "address": 4096, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "pv_current",              "address": 4097, "type": "uint16", "scale": 0.1,  "unit": "A" },
+    { "metric": "pv_power",                "address": 4098, "type": "uint16", "scale": 1.0,  "unit": "W" },
+    { "metric": "battery_voltage",         "address": 4099, "type": "uint16", "scale": 0.1,  "unit": "V" },
+    { "metric": "charging_current",        "address": 4100, "type": "uint16", "scale": 0.1,  "unit": "A" },
+    { "metric": "battery_temperature",     "address": 4101, "type": "int16",  "scale": 1.0,  "unit": "°C" },
+    { "metric": "controller_temperature",  "address": 4102, "type": "int16",  "scale": 1.0,  "unit": "°C" },
+    { "metric": "daily_energy",            "address": 4103, "type": "uint16", "scale": 0.1,  "unit": "kWh" },
+    { "metric": "total_energy_hi",         "address": 4104, "type": "uint16", "scale": 1.0,  "unit": "kWh" },
+    { "metric": "total_energy_lo",         "address": 4105, "type": "uint16", "scale": 1.0,  "unit": "kWh" },
+    { "metric": "device_status",           "address": 4106, "type": "uint16", "scale": 1.0,  "unit": "" }
+  ]
+}
