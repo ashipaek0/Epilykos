@@ -41,7 +41,8 @@ export function buildForecastInfo(block = {}) {
           <div class="weather-details"><span class="weather-temp" id="${uid('fi-fcast-temp-2', id)}">--°</span><span class="weather-desc" id="${uid('fi-fcast-desc-2', id)}">--</span><span class="weather-extra" id="${uid('fi-fcast-extra-2', id)}">--</span></div>
         </div>
       </div>
-    </div>`;
+    </div>
+    <span class="forecast-source" id="${uid('fi-source', id)}"></span>`;
   return card;
 }
 

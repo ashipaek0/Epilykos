@@ -56,6 +56,7 @@ export function buildForecastBanner(block = {}) {
       </div>
       <div class="pv-sparkline-container"><canvas id="${uid('pv-sparkline', id)}"></canvas></div>
     </div>
+    <span class="forecast-source" id="${uid('forecast-source', id)}"></span>
   `;
   return banner;
 }
