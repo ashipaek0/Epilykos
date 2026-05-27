@@ -254,7 +254,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
-  removeBtn.textContent = '−';
+  removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => row.remove());
   row.appendChild(metricSelect);
   row.appendChild(entitySelect);
@@ -429,7 +429,7 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
-  removeBtn.textContent = '−';
+  removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => row.remove());
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
@@ -654,7 +654,7 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
-  removeBtn.textContent = '−';
+  removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => row.remove());
   row.appendChild(jsonPathInput);
   row.appendChild(metricSelect);
@@ -1214,71 +1214,95 @@ function buildDashboardEditor(config) {
 function renderDashboardBlockEditor(dashboard) {
   const container = document.getElementById('active-dashboard-editor');
   container.innerHTML = `<h4>Editing: ${escapeHtml(dashboard.name)}</h4>`;
-  const blockList = document.createElement('ul');
-  blockList.className = 'block-list';
+  const blockList = document.createElement('div');
+  blockList.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;';
+
   dashboard.layout.forEach((block, idx) => {
-    const li = document.createElement('li');
-    li.dataset.index = idx;
     const currentSpan = block.colSpan ?? block.gridW ?? 12;
-    const spanOpts = [
-      [12, 'Full'], [9, '3/4'], [8, '2/3'], [6, '1/2'], [4, '1/3'], [3, '1/4']
-    ];
+    const spanOpts = [[12, 'Full'], [9, '3/4'], [8, '2/3'], [6, '1/2'], [4, '1/3'], [3, '1/4']];
     const spanOptions = spanOpts.map(([v, label]) =>
       `<option value="${v}" ${currentSpan == v ? 'selected' : ''}>${label}</option>`
     ).join('');
-    const ctl = (inner, label) => `<div style="display:flex;flex-direction:column;align-items:center;gap:0.1rem;"><div>${inner}</div><span style="font-size:0.6rem;color:var(--text-secondary);white-space:nowrap;">${label}</span></div>`;
-    li.innerHTML = `
-      ${ctl(`<select class="block-type-select">
-        <option value="flow-card" ${block.type==='flow-card'?'selected':''}>Flow Card</option>
-        <option value="forecast-banner" ${block.type==='forecast-banner'?'selected':''}>Forecast</option>
-        <option value="forecast-sparkline" ${block.type==='forecast-sparkline'?'selected':''}>Sparkline</option>
-        <option value="forecast-info" ${block.type==='forecast-info'?'selected':''}>Forecast Info</option>
-        <option value="metric-cards" ${block.type==='metric-cards'?'selected':''}>Metrics</option>
-        <option value="grid-card" ${block.type==='grid-card'?'selected':''}>Grid Card</option>
-        <option value="chart-power" ${block.type==='chart-power'?'selected':''}>Power Chart</option>
-        <option value="chart-energy" ${block.type==='chart-energy'?'selected':''}>Energy Chart</option>
-        <option value="savings-summary" ${block.type==='savings-summary'?'selected':''}>Savings</option>
-        <option value="data-table-daily" ${block.type==='data-table-daily'?'selected':''}>Daily Table</option>
-        <option value="data-table-monthly" ${block.type==='data-table-monthly'?'selected':''}>Monthly Table</option>
-        <option value="flow-card-2" ${block.type==='flow-card-2'?'selected':''}>Flow Card 2</option>
-        <option value="multi-value" ${block.type==='multi-value'?'selected':''}>Multi-Value</option>
-        <option value="gauge-card" ${block.type==='gauge-card'?'selected':''}>Gauge</option>
-        <option value="half-gauge" ${block.type==='half-gauge'?'selected':''}>Half Gauge</option>
-        <option value="half-gauge-2" ${block.type==='half-gauge-2'?'selected':''}>Half Gauge 2</option>
-        <option value="bar-gauge" ${block.type==='bar-gauge'?'selected':''}>Bar Gauge</option>
-        <option value="bar-gauge-retro" ${block.type==='bar-gauge-retro'?'selected':''}>Bar Gauge Retro</option>
-        <option value="flow-card-square" ${block.type==='flow-card-square'?'selected':''}>Flow Card Sq</option>
-        <option value="flow-card-square-2" ${block.type==='flow-card-square-2'?'selected':''}>Flow Card Sq 2</option>
-        <option value="text-card" ${block.type==='text-card'?'selected':''}>Text</option>
-        <option value="iframe-card" ${block.type==='iframe-card'?'selected':''}>Embed</option>
-        <option value="forecast-pvtoday" ${block.type==='forecast-pvtoday'?'selected':''}>PV Today</option>
-      </select>`, 'Type')}
-      ${ctl(`<select class="block-width-select" style="width:65px;">${spanOptions}</select>`, 'Width')}
-      ${ctl(`<select class="block-height-select" style="width:65px;">
-        <option value="0" ${!block.rowSpan?'selected':''}>Auto</option>
-        <option value="100" ${block.rowSpan==100?'selected':''}>100</option>
-        <option value="200" ${block.rowSpan==200?'selected':''}>200</option>
-        <option value="300" ${block.rowSpan==300?'selected':''}>300</option>
-        <option value="400" ${block.rowSpan==400?'selected':''}>400</option>
-        <option value="500" ${block.rowSpan==500?'selected':''}>500</option>
-        <option value="600" ${block.rowSpan==600?'selected':''}>600</option>
-        <option value="700" ${block.rowSpan==700?'selected':''}>700</option>
-      </select>`, 'Height')}
-      ${ctl(`<input type="color" class="block-font-color" value="${escapeHtml(block.fontColor||'#0f172a')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'Font')}
-      ${ctl(`<select class="block-font-size" style="width:55px;">
-        <option value="" ${!block.fontSize?'selected':''}>-</option>
-        <option value="0.75rem" ${block.fontSize==='0.75rem'?'selected':''}>XS</option>
-        <option value="0.85rem" ${block.fontSize==='0.85rem'?'selected':''}>S</option>
-        <option value="1rem" ${block.fontSize==='1rem'?'selected':''}>M</option>
-        <option value="1.25rem" ${block.fontSize==='1.25rem'?'selected':''}>L</option>
-        <option value="1.5rem" ${block.fontSize==='1.5rem'?'selected':''}>XL</option>
-      </select>`, 'Size')}
-      ${ctl(`<input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'BG')}
-      ${ctl(`<input type="color" class="block-inner-bg-color" value="${escapeHtml(block.innerBgColor||'')}" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;">`, 'Inner')}
-      ${ctl(`<label class="block-transparent-label" title="Transparent"><input type="checkbox" class="block-transparent" ${block.transparent?'checked':''}> T</label>`, 'Glass')}
-      <button type="button" class="remove-btn delete-block">Remove</button>
-      <button type="button" class="fetch-btn config-block-btn" style="background:#4b5563;">⚙️ Config</button>
-    `;
+    const typeName = block.type || 'unknown';
+
+    const card = document.createElement('div');
+    card.dataset.index = idx;
+    card.style.cssText = 'background:var(--card-bg);border:1px solid var(--border);border-radius:0.6rem;padding:0.85rem 1rem;';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.65rem;">
+        <span style="font-weight:700;font-size:0.9rem;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(typeName)}</span>
+        <button type="button" class="remove-btn delete-block" style="flex-shrink:0;">Remove</button>
+        <button type="button" class="fetch-btn config-block-btn" style="flex-shrink:0;">⚙️ Config</button>
+      </div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-end;">
+        <div class="stg-form-group" style="margin-bottom:0;min-width:100px;">
+          <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">Type</label>
+          <select class="block-type-select" style="padding:0.45rem 0.6rem;background:var(--bg);border:2px solid var(--border);border-radius:0.4rem;color:var(--text);font-size:0.82rem;width:100%;">${(() => {
+            const types = [
+              ['flow-card','Flow Card'],['forecast-banner','Forecast'],['forecast-sparkline','Sparkline'],
+              ['forecast-info','Forecast Info'],['metric-cards','Metrics'],['grid-card','Grid Card'],
+              ['chart-power','Power Chart'],['chart-energy','Energy Chart'],['savings-summary','Savings'],
+              ['data-table-daily','Daily Table'],['data-table-monthly','Monthly Table'],
+              ['flow-card-2','Flow Card 2'],['multi-value','Multi-Value'],
+              ['gauge-card','Gauge'],['half-gauge','Half Gauge'],['half-gauge-2','Half Gauge 2'],
+              ['bar-gauge','Bar Gauge'],['bar-gauge-retro','Bar Gauge Retro'],
+              ['flow-card-square','Flow Card Sq'],['flow-card-square-2','Flow Card Sq 2'],
+              ['text-card','Text'],['iframe-card','Embed'],['forecast-pvtoday','PV Today']
+            ];
+            return types.map(([v,l]) => `<option value="${v}" ${block.type===v?'selected':''}>${l}</option>`).join('');
+          })()}</select>
+        </div>
+        <div class="stg-form-group" style="margin-bottom:0;min-width:70px;">
+          <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">Width</label>
+          <select class="block-width-select" style="padding:0.45rem 0.6rem;background:var(--bg);border:2px solid var(--border);border-radius:0.4rem;color:var(--text);font-size:0.82rem;width:100%;">${spanOptions}</select>
+        </div>
+        <div class="stg-form-group" style="margin-bottom:0;min-width:75px;">
+          <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">Height</label>
+          <select class="block-height-select" style="padding:0.45rem 0.6rem;background:var(--bg);border:2px solid var(--border);border-radius:0.4rem;color:var(--text);font-size:0.82rem;width:100%;">
+            <option value="0" ${!block.rowSpan?'selected':''}>Auto</option>
+            <option value="100" ${block.rowSpan==100?'selected':''}>100</option>
+            <option value="200" ${block.rowSpan==200?'selected':''}>200</option>
+            <option value="300" ${block.rowSpan==300?'selected':''}>300</option>
+            <option value="400" ${block.rowSpan==400?'selected':''}>400</option>
+            <option value="500" ${block.rowSpan==500?'selected':''}>500</option>
+            <option value="600" ${block.rowSpan==600?'selected':''}>600</option>
+            <option value="700" ${block.rowSpan==700?'selected':''}>700</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:0.4rem;align-items:flex-end;padding-bottom:1px;">
+          <div class="stg-form-group" style="margin-bottom:0;text-align:center;">
+            <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">Font</label>
+            <input type="color" class="block-font-color" value="${escapeHtml(block.fontColor||'#0f172a')}" style="width:30px;height:30px;padding:1px;border:2px solid var(--border);border-radius:0.3rem;cursor:pointer;background:var(--bg);">
+          </div>
+          <div class="stg-form-group" style="margin-bottom:0;">
+            <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">Size</label>
+            <select class="block-font-size" style="padding:0.45rem 0.4rem;background:var(--bg);border:2px solid var(--border);border-radius:0.4rem;color:var(--text);font-size:0.8rem;width:52px;">
+              <option value="" ${!block.fontSize?'selected':''}>-</option>
+              <option value="0.75rem" ${block.fontSize==='0.75rem'?'selected':''}>XS</option>
+              <option value="0.85rem" ${block.fontSize==='0.85rem'?'selected':''}>S</option>
+              <option value="1rem" ${block.fontSize==='1rem'?'selected':''}>M</option>
+              <option value="1.25rem" ${block.fontSize==='1.25rem'?'selected':''}>L</option>
+              <option value="1.5rem" ${block.fontSize==='1.5rem'?'selected':''}>XL</option>
+            </select>
+          </div>
+          <div class="stg-form-group" style="margin-bottom:0;text-align:center;">
+            <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">BG</label>
+            <input type="color" class="block-bg-color" value="${escapeHtml(block.bgColor||'#ffffff')}" style="width:30px;height:30px;padding:1px;border:2px solid var(--border);border-radius:0.3rem;cursor:pointer;background:var(--bg);">
+          </div>
+          <div class="stg-form-group" style="margin-bottom:0;text-align:center;">
+            <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.25rem;">Inner</label>
+            <input type="color" class="block-inner-bg-color" value="${escapeHtml(block.innerBgColor||'')}" style="width:30px;height:30px;padding:1px;border:2px solid var(--border);border-radius:0.3rem;cursor:pointer;background:var(--bg);">
+          </div>
+          <div class="stg-form-group" style="margin-bottom:0;text-align:center;padding-bottom:2px;">
+            <label style="display:block;font-size:0.68rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.35rem;">Glass</label>
+            <label class="block-transparent-label" title="Transparent" style="display:flex;align-items:center;cursor:pointer;">
+              <input type="checkbox" class="block-transparent" ${block.transparent?'checked':''} style="width:1.1rem;height:1.1rem;accent-color:var(--accent);">
+            </label>
+          </div>
+        </div>
+      </div>`;
+
     if (block.type === 'metric-cards') {
       const cardEditorDiv = document.createElement('div');
       cardEditorDiv.className = 'metric-cards-editor';
@@ -1367,12 +1391,12 @@ function renderDashboardBlockEditor(dashboard) {
       });
       cardEditorDiv.appendChild(cardsList);
       cardEditorDiv.appendChild(addCardBtn);
-      li.appendChild(cardEditorDiv);
+      card.appendChild(cardEditorDiv);
     }
-    const configBtn = li.querySelector('.config-block-btn');
+    const configBtn = card.querySelector('.config-block-btn');
     configBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const existingPanel = li.querySelector('.block-config-panel');
+      const existingPanel = card.querySelector('.block-config-panel');
       if (existingPanel) existingPanel.remove();
       const configPanel = document.createElement('div');
       configPanel.className = 'block-config-panel';
@@ -1800,45 +1824,45 @@ function renderDashboardBlockEditor(dashboard) {
           btn.addEventListener('click', (e) => { btn.closest('.bg-row').remove(); });
         });
       }
-      li.appendChild(configPanel);
+      card.appendChild(configPanel);
     });
-    li.querySelector('.block-type-select').addEventListener('change', (e) => {
+    card.querySelector('.block-type-select').addEventListener('change', (e) => {
       const newType = e.target.value;
       dashboard.layout[idx].type = newType;
       if (newType === 'metric-cards' && !dashboard.layout[idx].cards) dashboard.layout[idx].cards = [];
       renderDashboardBlockEditor(dashboard);
     });
-    li.querySelector('.block-width-select').addEventListener('change', (e) => {
+    card.querySelector('.block-width-select').addEventListener('change', (e) => {
       dashboard.layout[idx].colSpan = parseInt(e.target.value);
     });
-    li.querySelector('.block-height-select').addEventListener('change', (e) => {
+    card.querySelector('.block-height-select').addEventListener('change', (e) => {
       dashboard.layout[idx].rowSpan = parseInt(e.target.value) || 0;
     });
-    li.querySelector('.block-bg-color').addEventListener('change', (e) => {
+    card.querySelector('.block-bg-color').addEventListener('change', (e) => {
       dashboard.layout[idx].bgColor = e.target.value;
     });
-    li.querySelector('.block-inner-bg-color').addEventListener('change', (e) => {
+    card.querySelector('.block-inner-bg-color').addEventListener('change', (e) => {
       dashboard.layout[idx].innerBgColor = e.target.value;
     });
-    li.querySelector('.block-transparent').addEventListener('change', (e) => {
+    card.querySelector('.block-transparent').addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;
     });
-    li.querySelector('.block-font-color').addEventListener('change', (e) => {
+    card.querySelector('.block-font-color').addEventListener('change', (e) => {
       dashboard.layout[idx].fontColor = e.target.value;
     });
-    li.querySelector('.block-font-size').addEventListener('change', (e) => {
+    card.querySelector('.block-font-size').addEventListener('change', (e) => {
       dashboard.layout[idx].fontSize = e.target.value || '';
     });
-    li.querySelector('.delete-block').addEventListener('click', () => {
+    card.querySelector('.delete-block').addEventListener('click', () => {
       dashboard.layout.splice(idx, 1);
       renderDashboardBlockEditor(dashboard);
     });
-    blockList.appendChild(li);
+    blockList.appendChild(card);
   });
   container.appendChild(blockList);
   const addBlockBtn = document.createElement('button');
   addBlockBtn.textContent = '+ Add Block';
-  addBlockBtn.className = 'fetch-btn';
+  addBlockBtn.className = 'fetch-btn add-btn';
   addBlockBtn.addEventListener('click', () => {
     dashboard.layout.push({
       id: 'block_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
