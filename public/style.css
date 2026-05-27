@@ -312,10 +312,10 @@ h1, h2, h3, h4,
   display: flex; flex-direction: column; gap: 0.4rem; justify-content: center;
 }
 .bar-gauge-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
-.bar-gauge-label { font-size: clamp(0.6rem, 1.8vw, 0.75rem); color: var(--text-secondary); min-width: 60px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-gauge-track { flex: 1; height: clamp(10px, 2.5vw, 16px); background: var(--border); border-radius: 4px; overflow: hidden; }
+.bar-gauge-label { font-size: clamp(1.2rem, 3.6vw, 1.5rem); color: var(--text-secondary); min-width: 60px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-gauge-track { flex: 1; height: clamp(20px, 5vw, 32px); background: var(--border); border-radius: 4px; overflow: hidden; }
 .bar-gauge-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 0; }
-.bar-gauge-value { font-size: clamp(0.65rem, 1.8vw, 0.8rem); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; white-space: nowrap; }
+.bar-gauge-value { font-size: clamp(1.3rem, 3.6vw, 1.6rem); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; white-space: nowrap; }
 
 /* Retro Bar Gauge (segmented LED) */
 .bar-gauge-retro-card {
@@ -325,10 +325,10 @@ h1, h2, h3, h4,
   display: flex; flex-direction: column; gap: 0.45rem; justify-content: center;
 }
 .bg-retro-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
-.bg-retro-label { font-size: clamp(0.6rem, 1.8vw, 0.75rem); color: var(--text-secondary); min-width: 60px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-retro-label { font-size: clamp(1.2rem, 3.6vw, 1.5rem); color: var(--text-secondary); min-width: 60px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bg-retro-segments { flex: 1; display: flex; gap: 2px; }
-.bg-retro-seg { flex: 1; height: clamp(10px, 2.5vw, 18px); border-radius: 2px; transition: background 0.3s ease, box-shadow 0.3s ease; }
-.bg-retro-value { font-size: clamp(0.65rem, 1.8vw, 0.8rem); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; white-space: nowrap; }
+.bg-retro-seg { flex: 1; height: clamp(20px, 5vw, 36px); border-radius: 2px; transition: background 0.3s ease, box-shadow 0.3s ease; }
+.bg-retro-value { font-size: clamp(1.3rem, 3.6vw, 1.6rem); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; white-space: nowrap; }
 
 /* Chart Container */
 .chart-container {
