@@ -1,0 +1,10 @@
+node_modules/
+data/
+logs/
+cookies.txt
+.DS_Store
+*.log
+/tmp/
+.env
+__pycache__/
+*.pyc

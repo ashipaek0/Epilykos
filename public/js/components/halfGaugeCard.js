@@ -1,0 +1,61 @@
+/**
+ * Half Gauge Card — 180° semicircle gauge (9 o'clock to 3 o'clock).
+ * Zero at bottom center. Positive fills right, negative fills left.
+ */
+export function buildHalfGaugeCard(block = {}) {
+  const id = block.id || '';
+  const config = block.config || {};
+  const metric = config.metric || '';
+  const min = config.min ?? -100;
+  const max = config.max ?? 100;
+  const color = config.color || '#3b82f6';
+
+  const container = document.createElement('div');
+  container.className = 'half-gauge-card stat-card';
+  container.dataset.metricMap = JSON.stringify({ value: metric, min, max, color });
+  container.dataset.blockId = id;
+
+  const svgId = `hgauge-fill-${id}`;
+  container.innerHTML = `
+    <div class="gauge-wrap" style="position:relative;width:100%;max-width:220px;aspect-ratio:2/1.1;margin:0.25rem auto 0;overflow:hidden;">
+      <svg viewBox="0 0 200 110" style="width:100%;height:100%;display:block;">
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--border)" stroke-width="35" stroke-linecap="butt"/>
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="${color}" stroke-width="35" stroke-dasharray="0 260" stroke-dashoffset="130" stroke-linecap="butt" id="${svgId}"/>
+      </svg>
+      <div style="position:absolute;bottom:6%;left:0;right:0;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <span class="stat-value" style="font-size:clamp(0.85rem,2.5vw,1.1rem);font-weight:600;line-height:1;" id="hgauge-val-${id}">--</span>
+        <span class="stat-label" style="font-size:1rem;color:var(--text-secondary);margin-top:1px;">${escapeHtml(config.title || 'Gauge')}</span>
+      </div>
+    </div>`;
+  return container;
+}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+export function updateHalfGaugeCard(state) {
+  document.querySelectorAll('.half-gauge-card').forEach(container => {
+    let cfg; try{cfg=JSON.parse(container.dataset.metricMap);}catch(e){return;}
+    const v = state.metrics?.[cfg.value]?.value;
+    if (v === undefined || v === null) return;
+    const min = cfg.min ?? -100, max = cfg.max ?? 100;
+    const range = max - min;
+    const pct = (v - min) / range;
+    const arcLen = 260;
+    // Split at actual zero within the range
+    const zeroPoint = Math.max(0, Math.min(1, (0 - min) / range));
+    const fillLen = Math.min(arcLen, Math.abs(pct - zeroPoint) * arcLen);
+    // Above zero fills from 9 o'clock (left); below zero fills from 3 o'clock (right)
+    const offset = pct >= zeroPoint ? 0 : arcLen - fillLen;
+    const color = cfg.color || '#3b82f6';
+    const negColor = '#ef4444';
+    const id = container.querySelector('[id^="hgauge-fill-"]')?.id?.replace('hgauge-fill-','');
+    const fill = document.getElementById('hgauge-fill-' + id);
+    if (fill) {
+      fill.setAttribute('stroke-dasharray', `${fillLen} ${arcLen}`);
+      fill.setAttribute('stroke-dashoffset', offset);
+      fill.setAttribute('stroke', pct >= zeroPoint ? color : negColor);
+    }
+    const val = document.getElementById('hgauge-val-' + id);
+    if (val) { const unit = state.metrics?.[cfg.value]?.unit || inferHalfUnit(cfg.value); val.textContent = Math.round(v) + (unit ? ' ' + unit : ''); }
+  });
+}
+function inferHalfUnit(n){n=(n||"").toLowerCase();if(/soc|percentage|percent/.test(n))return"%";if(/temp/.test(n))return"°C";if(/volt/.test(n))return"V";if(/current|amp/.test(n))return"A";if(/power|watt/.test(n))return"W";if(/energy|kwh|wh/.test(n))return"kWh";if(/freq|hz/.test(n))return"Hz";if(/runtime/.test(n))return"h";return"";}

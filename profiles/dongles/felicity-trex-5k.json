@@ -1,0 +1,84 @@
+{
+  "name": "Felicity T-REX 5K (P1G01)",
+  "transport": "modbus-tcp",
+  "requires_serial": false,
+  "default_port": 502,
+  "default_unit_id": 1,
+  "metrics": [
+    { "name": "working_mode", "register": "0x1101", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "working_mode" },
+    { "name": "fault_code", "register": "0x1108", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "fault_code" },
+    { "name": "status_bit", "register": "0x1192", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "status_bit" },
+    { "name": "faultflag_lo", "register": "0x1206", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "faultflag_lo" },
+    { "name": "faultflag_hi", "register": "0x1207", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "faultflag_hi" },
+
+    { "name": "pv1_voltage", "register": "0x1117", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "pv1_voltage" },
+    { "name": "pv1_current", "register": "0x1118", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "pv1_current" },
+    { "name": "pv1_power", "register": "0x1119", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "pv1_power" },
+    { "name": "pv2_voltage", "register": "0x111A", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "pv2_voltage" },
+    { "name": "pv2_current", "register": "0x111B", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "pv2_current" },
+    { "name": "pv2_power", "register": "0x111C", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "pv2_power" },
+
+    { "name": "grid_voltage", "register": "0x1109", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "grid_voltage" },
+    { "name": "grid_current", "register": "0x110A", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "grid_current" },
+    { "name": "grid_frequency", "register": "0x110B", "count": 1, "type": "uint16", "scale": 0.01, "unit": "Hz", "field": "grid_frequency" },
+    { "name": "grid_power", "register": "0x110C", "count": 1, "type": "int16", "scale": 1, "unit": "W", "field": "grid_power" },
+    { "name": "total_grid_power", "register": "0x1128", "count": 2, "type": "int32", "scale": 1, "unit": "W", "field": "total_grid_power" },
+
+    { "name": "ac_output_voltage", "register": "0x1111", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "ac_output_voltage" },
+    { "name": "ac_output_current", "register": "0x1112", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "ac_output_current" },
+    { "name": "ac_output_frequency", "register": "0x1113", "count": 1, "type": "uint16", "scale": 0.01, "unit": "Hz", "field": "ac_output_frequency" },
+    { "name": "ac_output_active_power", "register": "0x1114", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "ac_output_active_power" },
+    { "name": "ac_output_apparent_power", "register": "0x1115", "count": 1, "type": "uint16", "scale": 1, "unit": "VA", "field": "ac_output_apparent_power" },
+    { "name": "load_percentage", "register": "0x1116", "count": 1, "type": "uint16", "scale": 1, "unit": "%", "field": "load_percentage" },
+    { "name": "total_output_active_power", "register": "0x1134", "count": 2, "type": "uint32", "scale": 1, "unit": "W", "field": "total_output_active_power" },
+    { "name": "total_output_apparent_power", "register": "0x1136", "count": 2, "type": "uint32", "scale": 1, "unit": "VA", "field": "total_output_apparent_power" },
+
+    { "name": "invert_voltage", "register": "0x1138", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "invert_voltage" },
+    { "name": "invert_current", "register": "0x1139", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "invert_current" },
+    { "name": "invert_active_power", "register": "0x113A", "count": 1, "type": "int16", "scale": 1, "unit": "W", "field": "invert_active_power" },
+
+    { "name": "battery_voltage", "register": "0x110D", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "battery_voltage" },
+    { "name": "battery_current", "register": "0x110E", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "battery_current" },
+    { "name": "battery_power", "register": "0x110F", "count": 1, "type": "int16", "scale": 1, "unit": "W", "field": "battery_power" },
+    { "name": "battery_soc", "register": "0x1110", "count": 1, "type": "uint16", "scale": 0.1, "unit": "%", "field": "battery_soc" },
+
+    { "name": "p_bus_voltage_master", "register": "0x1144", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "p_bus_voltage_master" },
+    { "name": "n_bus_voltage_master", "register": "0x1145", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "n_bus_voltage_master" },
+    { "name": "p_dc_converter_voltage", "register": "0x1146", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "p_dc_converter_voltage" },
+    { "name": "n_dc_converter_voltage", "register": "0x1147", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "n_dc_converter_voltage" },
+    { "name": "p_dcdc_current", "register": "0x1148", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "p_dcdc_current" },
+    { "name": "n_dcdc_current", "register": "0x1149", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "n_dcdc_current" },
+
+    { "name": "inner_temp_1", "register": "0x114A", "count": 1, "type": "int16", "scale": 0.1, "unit": "°C", "field": "inner_temp_1" },
+    { "name": "inner_temp_2", "register": "0x114B", "count": 1, "type": "int16", "scale": 0.1, "unit": "°C", "field": "inner_temp_2" },
+    { "name": "heatsink_temp_1", "register": "0x114C", "count": 1, "type": "int16", "scale": 0.1, "unit": "°C", "field": "heatsink_temp_1" },
+    { "name": "heatsink_temp_2", "register": "0x114D", "count": 1, "type": "int16", "scale": 0.1, "unit": "°C", "field": "heatsink_temp_2" },
+    { "name": "heatsink_temp_3", "register": "0x114E", "count": 1, "type": "int16", "scale": 0.1, "unit": "°C", "field": "heatsink_temp_3" },
+    { "name": "heatsink_temp_4", "register": "0x114F", "count": 1, "type": "int16", "scale": 0.1, "unit": "°C", "field": "heatsink_temp_4" },
+
+    { "name": "bms_flag", "register": "0x11FF", "count": 1, "type": "uint16", "scale": 1, "unit": "", "field": "bms_flag" },
+    { "name": "charge_voltage_limit", "register": "0x1200", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "charge_voltage_limit" },
+    { "name": "discharge_voltage_limit", "register": "0x1201", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "discharge_voltage_limit" },
+    { "name": "charge_current_limit", "register": "0x1202", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "charge_current_limit" },
+    { "name": "discharge_current_limit", "register": "0x1203", "count": 1, "type": "uint16", "scale": 0.1, "unit": "A", "field": "discharge_current_limit" },
+
+    { "name": "pv_energy_total", "register": "0x1156", "count": 4, "type": "uint64", "scale": 0.001, "unit": "kWh", "field": "pv_energy_total" },
+    { "name": "load_energy_total", "register": "0x1160", "count": 4, "type": "uint64", "scale": 0.001, "unit": "kWh", "field": "load_energy_total" },
+    { "name": "grid_import_energy_total", "register": "0x116A", "count": 4, "type": "uint64", "scale": 0.001, "unit": "kWh", "field": "grid_import_energy_total" },
+    { "name": "grid_export_energy_total", "register": "0x1174", "count": 4, "type": "uint64", "scale": 0.001, "unit": "kWh", "field": "grid_export_energy_total" },
+    { "name": "battery_charge_energy_total", "register": "0x117E", "count": 4, "type": "uint64", "scale": 0.001, "unit": "kWh", "field": "battery_charge_energy_total" },
+    { "name": "battery_discharge_energy_total", "register": "0x1188", "count": 4, "type": "uint64", "scale": 0.001, "unit": "kWh", "field": "battery_discharge_energy_total" },
+
+    { "name": "pv_energy_year", "register": "0x115A", "count": 2, "type": "uint32", "scale": 0.001, "unit": "kWh", "field": "pv_energy_year" },
+    { "name": "pv_energy_month", "register": "0x115C", "count": 2, "type": "uint32", "scale": 0.001, "unit": "kWh", "field": "pv_energy_month" },
+    { "name": "pv_energy_day", "register": "0x115E", "count": 2, "type": "uint32", "scale": 0.001, "unit": "kWh", "field": "pv_energy_day" },
+    { "name": "battery_charge_energy_day", "register": "0x118E", "count": 2, "type": "uint32", "scale": 0.001, "unit": "kWh", "field": "battery_charge_energy_day" },
+    { "name": "battery_discharge_energy_day", "register": "0x1196", "count": 2, "type": "uint32", "scale": 0.001, "unit": "kWh", "field": "battery_discharge_energy_day" },
+
+    { "name": "mcu1_version", "register": "0xF83D", "count": 1, "type": "uint16", "scale": 0.01, "unit": "", "field": "mcu1_version" },
+    { "name": "mcu2_version", "register": "0xF83E", "count": 1, "type": "uint16", "scale": 0.01, "unit": "", "field": "mcu2_version" },
+    { "name": "display_hw_version", "register": "0xF83F", "count": 1, "type": "uint16", "scale": 0.01, "unit": "", "field": "display_hw_version" },
+    { "name": "control_hw_version", "register": "0xF840", "count": 1, "type": "uint16", "scale": 0.01, "unit": "", "field": "control_hw_version" },
+    { "name": "power_hw_version", "register": "0xF841", "count": 1, "type": "uint16", "scale": 0.01, "unit": "", "field": "power_hw_version" }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "name": "Deye / SunSynk Hybrid (Solarman V5)",
+  "transport": "solarman-v5",
+  "requires_serial": true,
+  "default_port": 8899,
+  "default_unit_id": 1,
+  "metrics": [
+    {
+      "name": "solar_power",
+      "register": "0x0065",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "W",
+      "field": "solar_power"
+    },
+    {
+      "name": "solar_voltage",
+      "register": "0x006D",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "solar_voltage"
+    },
+    {
+      "name": "grid_power",
+      "register": "0x006B",
+      "count": 1,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "W",
+      "field": "grid_power"
+    },
+    {
+      "name": "load_power",
+      "register": "0x0070",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "W",
+      "field": "load_power"
+    },
+    {
+      "name": "inverter_temperature",
+      "register": "0x0074",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "°C",
+      "field": "inverter_temperature"
+    },
+    {
+      "name": "battery_soc",
+      "register": "0x0100",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "field": "battery_soc"
+    },
+    {
+      "name": "battery_power",
+      "register": "0x0101",
+      "count": 1,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "W",
+      "field": "battery_power"
+    },
+    {
+      "name": "battery_voltage",
+      "register": "0x0105",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "V",
+      "field": "battery_voltage"
+    },
+    {
+      "name": "battery_current",
+      "register": "0x0106",
+      "count": 1,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "A",
+      "field": "battery_current"
+    },
+    {
+      "name": "daily_solar",
+      "register": "0x0045",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "daily_solar"
+    },
+    {
+      "name": "daily_consumption",
+      "register": "0x0049",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "daily_consumption"
+    },
+    {
+      "name": "daily_grid_import",
+      "register": "0x004B",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "daily_grid_import"
+    },
+    {
+      "name": "daily_grid_export",
+      "register": "0x004D",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "daily_grid_export"
+    }
+  ]
+}
