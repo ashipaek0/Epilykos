@@ -6,205 +6,179 @@
   <title>Settings - Epilykos</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* [All your existing styles – unchanged] */
-    .settings-form { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; max-width: 1000px; margin: 2rem auto; box-shadow: var(--shadow); border: 1px solid var(--border); }
-    .form-group { margin-bottom: 1.2rem; }
-    label { display: block; margin-bottom: 0.4rem; font-weight: 500; color: var(--text); font-size: 0.95rem; }
-    input, select { width: 100%; padding: 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 1rem; }
-    input:focus, select:focus { outline: none; border-color: var(--accent); background: var(--card-bg); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    button { background: var(--accent); color: white; border: none; padding: 0.75rem 2rem; border-radius: 0.5rem; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; font-weight: 500; }
-    button:hover { opacity: 0.9; }
-    button:active { transform: scale(0.98); }
-    .back-link { display: inline-block; margin-bottom: 1rem; color: var(--accent); text-decoration: none; font-weight: 500; }
-    .status { padding: 0.75rem; border-radius: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; }
-    .success { background: #10b98120; color: #10b981; border: 1px solid #10b98150; }
-    .error { background: #ef444420; color: #ef4444; border: 1px solid #ef444450; }
-    .info { background: #3b82f620; color: #3b82f6; border: 1px solid #3b82f650; }
-    h3 { margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text); }
-    h4 { color: var(--text); margin: 1.5rem 0 0.5rem; }
-    .fetch-btn { background: var(--text-secondary); margin-top: 0.5rem; }
-    .toggle-group { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-    input[type="checkbox"] { width: auto; margin-right: 0.5rem; cursor: pointer; }
-    .test-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    .test-status { margin-left: 1rem; font-size: 0.9rem; }
-    .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #fff3; border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .note { font-size: 0.85rem; opacity: 0.7; margin-top: 0.25rem; color: var(--text-secondary); }
-    .settings-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .theme-toggle { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 2rem; cursor: pointer; font-size: 1.2rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-    .theme-toggle:hover { background: var(--accent); color: white; }
-    .backup-row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    #restore-file, #import-layout-file { display: none; }
-    
-    /* Enhanced Tab styling for mobile */
-    .main-tabs { 
-      display: flex; 
-      flex-wrap: nowrap; 
-      gap: 0.5rem; 
-      margin-bottom: 1.5rem; 
-      overflow-x: auto; 
-      padding-bottom: 0.75rem;
-      padding-right: 2rem; /* Scroll indicator space */
-      border-bottom: 2px solid var(--border); 
-      -webkit-overflow-scrolling: touch; 
-      scroll-behavior: smooth;
-      position: relative;
-    }
-    
-    /* Scroll indicator for tabs */
-    .main-tabs::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 1.5rem;
-      background: linear-gradient(to right, rgba(255,255,255,0), var(--card-bg));
-      pointer-events: none;
-      opacity: 0.8;
-    }
-    
-    [data-theme="dark"] .main-tabs::after {
-      background: linear-gradient(to right, rgba(30,41,59,0), var(--card-bg));
-    }
+    /* ── Settings Layout ─────────────────────────────────────────── */
+    .stg-shell { display: flex; min-height: 100vh; }
+    .stg-sidebar { width: 200px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 1rem 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; z-index: 10; }
+    .stg-logo { padding: 0 1rem 1rem; font-weight: 700; font-size: 1.1rem; color: var(--accent); letter-spacing: -0.02em; }
+    .stg-nav { list-style: none; flex: 1; }
+    .stg-nav li { margin: 1px 0.5rem; }
+    .stg-nav-btn { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.55rem 0.75rem; border: none; background: transparent; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; border-radius: 0.5rem; transition: all 0.15s; text-align: left; font-weight: 500; }
+    .stg-nav-btn:hover { background: var(--bg); color: var(--text); }
+    .stg-nav-btn.active { background: var(--accent); color: #fff; }
+    .stg-nav-icon { font-size: 1.1rem; width: 1.3rem; text-align: center; flex-shrink: 0; }
+    .stg-nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 99px; font-weight: 600; min-width: 1.2rem; text-align: center; display: none; }
+    .stg-nav-badge.dirty { display: block; background: #f59e0b; }
+    .stg-sidebar-footer { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+    .stg-back-link { color: var(--text-secondary); text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.35rem; }
+    .stg-back-link:hover { color: var(--accent); }
 
-    .main-tab-btn { 
-      white-space: nowrap; 
-      flex-shrink: 0; 
-      padding: 0.6rem 1.2rem; 
-      background: var(--card-bg); 
-      border: 1px solid var(--border); 
-      color: var(--text); 
-      border-radius: 2rem;
-      font-size: 0.9rem; 
-      cursor: pointer; 
-      transition: all 0.2s; 
-      margin: 0;
-      font-weight: 500;
-      min-height: 40px;
-      display: flex;
-      align-items: center;
-    }
-    .main-tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
-    .main-tab-btn:hover { background: var(--accent); color: white; }
-    .main-tab-btn:active { transform: scale(0.96); }
-
-    .sub-tabs { 
-      display: flex; 
-      flex-wrap: nowrap; 
-      gap: 0.4rem; 
-      margin-bottom: 1.2rem; 
-      overflow-x: auto; 
-      padding-bottom: 0.5rem;
-      padding-right: 1.5rem;
-      border-bottom: 1px solid var(--border);
-      -webkit-overflow-scrolling: touch; 
-      scroll-behavior: smooth;
-      position: relative;
-    }
-
-    /* Scroll indicator for sub-tabs */
-    .sub-tabs::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 1rem;
-      background: linear-gradient(to right, rgba(255,255,255,0), var(--card-bg));
-      pointer-events: none;
-      opacity: 0.6;
-    }
-
-    [data-theme="dark"] .sub-tabs::after {
-      background: linear-gradient(to right, rgba(30,41,59,0), var(--card-bg));
-    }
-
-    .sub-tab-btn { 
-      white-space: nowrap; 
-      flex-shrink: 0; 
-      padding: 0.5rem 1rem; 
-      background: var(--bg); 
-      border: 1px solid var(--border); 
-      color: var(--text); 
-      border-radius: 2rem;
-      font-size: 0.85rem; 
-      cursor: pointer; 
-      transition: all 0.2s; 
-      font-weight: 500;
-      min-height: 36px;
-      display: flex;
-      align-items: center;
-    }
-    .sub-tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
-    .sub-tab-btn:hover { background: var(--accent); color: white; }
-    .sub-tab-btn:active { transform: scale(0.96); }
-
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
+    .stg-main { flex: 1; min-width: 0; padding: 1.5rem 2rem 5rem; max-width: 1000px; }
+    .stg-section { display: none; }
+    .stg-section.active { display: block; animation: stgFadeIn 0.2s ease; }
     .sub-tab-content { display: none; }
     .sub-tab-content.active { display: block; }
+    @keyframes stgFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .stg-section-header { margin-bottom: 1.25rem; }
+    .stg-section-header h2 { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.25rem; color: var(--text); }
+    .stg-section-header p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; }
 
-    .device-card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
-    .device-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem; }
-    .device-header input[type="text"] { flex: 1 1 100%; }
-    .remove-btn { background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; margin: 0; min-height: 36px; font-weight: 500; }
-    .mappings-section { margin-top: 0.5rem; padding-left: 1rem; border-left: 2px solid var(--accent); }
-    .metric-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
-    .metric-row input { flex: 1; min-width: 80px; }
-    .metric-row select { flex: 1; min-width: 120px; }
-    .remove-metric { flex-shrink: 0; padding: 0.5rem 1rem; margin: 0; min-height: 36px; }
+    /* ── Cards ─────────────────────────────────────────── */
+    .stg-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+    .stg-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+    .stg-card-title { font-weight: 600; font-size: 0.95rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
+    .stg-card-title .stg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .stg-card-title .stg-dot.ok { background: #22c55e; }
+    .stg-card-title .stg-dot.warn { background: #f59e0b; }
+    .stg-card-title .stg-dot.off { background: #94a3b8; }
 
-    .metrics-table { width: 100%; border-collapse: collapse; }
-    .metrics-table th, .metrics-table td { padding: 0.75rem 0.5rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
-    .metrics-table th { background: var(--bg); font-weight: 600; }
+    /* ── Sub-nav ───────────────────────────────────────── */
+    .stg-subnav { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+    .stg-subnav-btn { padding: 0.4rem 0.85rem; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); border-radius: 99px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; font-weight: 500; }
+    .stg-subnav-btn:hover { border-color: var(--accent); color: var(--text); }
+    .stg-subnav-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 1rem; }
-    .modal-content { background: var(--card-bg); padding: 2rem; border-radius: 1rem; min-width: 300px; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    /* ── Device Cards ──────────────────────────────────── */
+    .stg-device { background: var(--bg); border: 1px solid var(--border); border-radius: 0.6rem; margin-bottom: 0.5rem; overflow: hidden; }
+    .stg-device-bar { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.85rem; cursor: pointer; user-select: none; }
+    .stg-device-bar:hover { background: var(--card-bg); }
+    .stg-device-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .stg-device-status.on { background: #22c55e; box-shadow: 0 0 6px #22c55e80; }
+    .stg-device-status.off { background: #94a3b8; }
+    .stg-device-name { font-weight: 600; font-size: 0.85rem; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stg-device-type { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 99px; background: var(--border); color: var(--text-secondary); font-weight: 500; white-space: nowrap; }
+    .stg-device-arrow { color: var(--text-secondary); font-size: 0.7rem; transition: transform 0.2s; }
+    .stg-device.open .stg-device-arrow { transform: rotate(180deg); }
+    .stg-device-body { display: none; padding: 0 0.85rem 0.85rem; }
+    .stg-device.open .stg-device-body { display: block; }
 
-    /* Mobile-first responsive design */
+    /* ── Form elements ──────────────────────────────────── */
+    .stg-form-group { margin-bottom: 1.2rem; }
+    .stg-form-group label { display: block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+    .stg-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 600px) { .stg-form-row { grid-template-columns: 1fr; } }
+    .stg-input, .stg-select { width: 100%; padding: 0.7rem 0.85rem; background: var(--bg); border: 2px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.9rem; transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit; }
+    .stg-input:focus, .stg-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); background: var(--card-bg); }
+    .stg-input::placeholder { color: var(--text-secondary); opacity: 0.4; }
+    .stg-toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .stg-toggle input[type="checkbox"] { width: 1.2rem; height: 1.2rem; accent-color: var(--accent); cursor: pointer; }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .stg-btn { padding: 0.6rem 1.2rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.15s; background: var(--bg); color: var(--text); white-space: nowrap; }
+    .stg-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .stg-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .stg-btn.primary:hover { opacity: 0.9; }
+    .stg-btn.add { background: #22c55e; color: #fff; border-color: #22c55e; }
+    .stg-btn.add:hover { background: #16a34a; border-color: #16a34a; }
+    .stg-btn.danger { background: #ef4444; color: #fff; border-color: #ef4444; }
+    .stg-btn.danger:hover { background: #dc2626; border-color: #dc2626; }
+    .stg-btn:active { transform: scale(0.97); }
+
+    /* Color-coded action buttons for device cards */
+    button.fetch-btn { padding: 0.55rem 1.15rem; border: none; border-radius: 0.45rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.15s; }
+    button.fetch-btn:hover { opacity: 0.9; }
+    button.fetch-btn:active { transform: scale(0.97); }
+    button.fetch-btn.add-btn, button[id^="add-"] { background: #22c55e; color: #fff; }
+    button.fetch-btn.add-btn:hover, button[id^="add-"]:hover { background: #16a34a; }
+    button.remove-btn, button[data-action*="remove"] { background: #ef4444 !important; color: #fff !important; border: none; padding: 0.45rem 0.85rem; border-radius: 0.4rem; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    button.remove-btn:hover, button[data-action*="remove"]:hover { background: #dc2626 !important; }
+    button.test-dongle, button.test-mqtt-broker, button.test-mqtt-topic-btn, button.test-modbus, button[id*="test"] { background: #3b82f6; color: #fff; }
+    button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-btn:hover, button.test-modbus:hover, button[id*="test"]:hover { background: #2563eb; }
+
+    /* ── Floating save bar ──────────────────────────────── */
+    .stg-savebar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 0.75rem 2rem; display: flex; align-items: center; gap: 1rem; z-index: 20; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
+    .stg-savebar .stg-dirty-count { font-size: 0.8rem; color: #f59e0b; font-weight: 600; display: none; }
+    .stg-savebar .stg-dirty-count.show { display: block; }
+    .stg-savebar .stg-save-status { font-size: 0.8rem; flex: 1; }
+    .stg-savebar .stg-save-status.ok { color: #22c55e; }
+    .stg-savebar .stg-save-status.err { color: #ef4444; }
+    .stg-savebar button { padding: 0.6rem 1.5rem; border-radius: 0.4rem; border: none; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+    .stg-savebar button:hover { opacity: 0.9; }
+
+    /* ── Metrics search ─────────────────────────────────── */
+    .stg-metrics-toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .stg-search { flex: 1; max-width: 300px; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; color: var(--text); font-size: 0.85rem; }
+    .stg-search:focus { outline: none; border-color: var(--accent); }
+    .stg-table-wrap { overflow-x: auto; }
+    .stg-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .stg-table th { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--border); color: var(--text-secondary); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stg-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .stg-table tr:hover td { background: var(--bg); }
+    .stg-table .stg-row-hidden { display: none; }
+
+    /* ── Status messages ────────────────────────────────── */
+    .stg-status { padding: 0.5rem 0.75rem; border-radius: 0.4rem; font-size: 0.8rem; margin-top: 0.5rem; }
+    .stg-status.info { background: #3b82f618; color: #3b82f6; border: 1px solid #3b82f630; }
+    .stg-status.ok { background: #22c55e18; color: #22c55e; border: 1px solid #22c55e30; }
+    .stg-status.err { background: #ef444418; color: #ef4444; border: 1px solid #ef444430; }
+
+    /* ── Modal ──────────────────────────────────────────── */
+    .stg-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; padding: 1rem; }
+    .stg-modal.show { display: flex; }
+    .stg-modal-box { background: var(--card-bg); border-radius: 0.75rem; padding: 1.5rem; min-width: 300px; max-width: 450px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+
+    /* Preserve legacy status classes for settings.js compatibility */
+    .status { padding: 0.5rem 0.75rem; border-radius: 0.4rem; font-size: 0.8rem; margin-top: 0.5rem; }
+    .status.success { background: #22c55e18; color: #22c55e; border: 1px solid #22c55e30; }
+    .status.error { background: #ef444418; color: #ef4444; border: 1px solid #ef444430; }
+    .status.info { background: #3b82f618; color: #3b82f6; border: 1px solid #3b82f630; }
+
+    /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
-      .settings-form { padding: 1.2rem; margin: 1rem 0; }
-      .form-row { grid-template-columns: 1fr; gap: 0.75rem; }
-      .main-tab-btn { font-size: 0.8rem; padding: 0.5rem 1rem; }
-      .sub-tab-btn { font-size: 0.75rem; padding: 0.4rem 0.8rem; }
-      button { width: auto; min-height: 44px; padding: 0.6rem 1.2rem; font-size: 0.95rem; }
-      .backup-row button { width: auto; }
-      .test-row { flex-direction: column; align-items: stretch; }
-      .test-row button { width: 100%; }
-      .metric-row { flex-wrap: wrap; gap: 0.3rem; }
-      .metric-row input, .metric-row select { min-width: 100%; }
-      .device-header { flex-direction: column; align-items: stretch; }
-      .device-header input { width: 100%; }
-      h3 { font-size: 1.2rem; margin: 1.5rem 0 0.75rem; }
-      label { font-size: 0.9rem; }
-      input, select { font-size: 16px; } /* Prevents zoom on iOS */
+      .stg-sidebar { width: 52px; padding: 0.75rem 0; }
+      .stg-sidebar .stg-logo { display: none; }
+      .stg-nav-btn { justify-content: center; padding: 0.6rem; }
+      .stg-nav-btn span:not(.stg-nav-icon) { display: none; }
+      .stg-nav-badge { display: none !important; }
+      .stg-sidebar-footer { display: none; }
+      .stg-main { padding: 1rem 1rem 5rem; }
+      .stg-savebar { left: 52px; padding: 0.6rem 1rem; }
+    }
+    @media (max-width: 480px) {
+      .stg-shell { flex-direction: column; }
+      .stg-sidebar { width: 100%; height: auto; position: relative; flex-direction: row; padding: 0.5rem; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); }
+      .stg-nav { display: flex; gap: 0.25rem; }
+      .stg-nav li { margin: 0; }
+      .stg-nav-btn { flex-direction: column; gap: 0.15rem; font-size: 0.65rem; padding: 0.4rem 0.5rem; white-space: nowrap; }
+      .stg-nav-btn .stg-nav-icon { font-size: 1rem; }
+      .stg-nav-btn span:not(.stg-nav-icon) { display: block !important; font-size: 0.6rem; }
+      .stg-main { padding: 0.75rem 0.75rem 5rem; }
+      .stg-savebar { left: 0; }
     }
 
-    @media (max-width: 480px) {
-      .settings-form { padding: 1rem; margin: 0.5rem 0; border-radius: 0.75rem; }
-      .settings-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
-      .back-link { font-size: 0.9rem; }
-      .theme-toggle { width: 36px; height: 36px; font-size: 1rem; }
-      h2 { font-size: 1.5rem; }
-      h3 { font-size: 1.1rem; margin: 1.2rem 0 0.6rem; padding-bottom: 0.4rem; }
-      .main-tabs { margin-bottom: 1rem; padding-right: 1.5rem; }
-      .main-tab-btn { padding: 0.45rem 0.8rem; font-size: 0.75rem; }
-      .sub-tab-btn { padding: 0.35rem 0.65rem; font-size: 0.7rem; }
-      .form-group { margin-bottom: 1rem; }
-      button { padding: 0.5rem 1rem; font-size: 0.9rem; }
-      .modal-content { padding: 1.5rem; margin: 0 1rem; }
-      .device-card { padding: 0.75rem; margin-bottom: 0.75rem; }
-      .status { padding: 0.5rem; font-size: 0.85rem; }
-    }
+    /* Settings.js generated form elements — high contrast */
+    .settings-form input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+    .settings-form select, .settings-form textarea { width: 100%; padding: 0.7rem 0.85rem; background: var(--bg); border: 2px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.9rem; font-family: inherit; margin-bottom: 0.2rem; }
+    .settings-form input[type="checkbox"], .settings-form input[type="radio"] { width: auto; padding: 0; accent-color: var(--accent); }
+    .settings-form input[type="color"] { width: 100%; height: 38px; padding: 2px; border: 2px solid var(--border); border-radius: 0.4rem; cursor: pointer; }
+    .settings-form input:focus, .settings-form select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); background: var(--card-bg); }
+    .settings-form input::placeholder { color: var(--text-secondary); opacity: 0.4; }
+    .test-status { font-size: 0.8rem; font-weight: 500; }
+    .note { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
+
+    /* Mapping rows inside device cards */
+    .metric-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--border); }
+    .metric-row:last-child { border-bottom: none; margin-bottom: 0; }
+    .metric-row select, .metric-row input[type="text"] { width: auto; flex: 1; min-width: 100px; }
+    .remove-metric { flex-shrink: 0; padding: 0.45rem 0.75rem; margin: 0; min-height: 34px; font-size: 0.8rem; font-weight: 600; }
+    .mappings-list { margin-top: 0.25rem; }
+    button.fetch-btn { background: var(--text-secondary); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 0.5rem; }
+    button.fetch-btn:hover { opacity: 0.9; }
+    .test-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .backup-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; }
   </style>
   <script>
-    // Enhanced fetch override: adds CSRF header AND stringifies array fields for /api/settings
     const originalFetch = window.fetch;
     window.fetch = function(url, options = {}) {
-      // Clone options to avoid mutation
       let newOptions = { ...options };
       if (newOptions.method && newOptions.method.toUpperCase() !== 'GET') {
         newOptions.headers = newOptions.headers || {};
@@ -213,14 +187,11 @@
         } else {
           newOptions.headers['X-Requested-With'] = 'XMLHttpRequest';
         }
-
-        // Special handling for /api/settings POST: stringify array fields
         if (typeof url === 'string' && url.endsWith('/api/settings') && newOptions.method.toUpperCase() === 'POST') {
           if (newOptions.body && typeof newOptions.body === 'string') {
             try {
               let bodyObj = JSON.parse(newOptions.body);
               let modified = false;
-              // List of config keys that should be stored as JSON strings
               const arrayKeys = ['mqtt_devices', 'ha_devices', 'modbus_devices', 'external_sources', 'bms_devices', 'dongle_config', 'user_metrics'];
               for (let key of arrayKeys) {
                 if (bodyObj.hasOwnProperty(key) && Array.isArray(bodyObj[key])) {
@@ -228,13 +199,8 @@
                   modified = true;
                 }
               }
-              if (modified) {
-                newOptions.body = JSON.stringify(bodyObj);
-              }
-            } catch(e) {
-              // If body isn't valid JSON, leave unchanged
-              console.warn('Failed to parse settings body for stringification', e);
-            }
+              if (modified) { newOptions.body = JSON.stringify(bodyObj); }
+            } catch(e) { console.warn('Failed to parse settings body', e); }
           }
         }
       }
@@ -243,274 +209,325 @@
   </script>
 </head>
 <body>
-<div class="container">
-  <div class="settings-header">
-    <a href="/" class="back-link">← Back to Dashboard</a>
-    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode">
-      <span class="theme-icon">🌙</span>
-    </button>
-  </div>
-  <div class="settings-form">
-    <h2>Configuration</h2>
-
-    <!-- Main tabs with scroll indicator -->
-    <div class="main-tabs" id="main-tabs" role="tablist">
-      <button class="main-tab-btn active" data-tab="data-sources" aria-selected="true" aria-controls="tab-data-sources" role="tab">Data Sources</button>
-      <button class="main-tab-btn" data-tab="metrics" aria-selected="false" aria-controls="tab-metrics" role="tab">Metrics</button>
-      <button class="main-tab-btn" data-tab="solar" aria-selected="false" aria-controls="tab-solar" role="tab">Solar Forecast</button>
-      <button class="main-tab-btn" data-tab="dashboard" aria-selected="false" aria-controls="tab-dashboard" role="tab">Dashboard</button>
-      <button class="main-tab-btn" data-tab="savings" aria-selected="false" aria-controls="tab-savings" role="tab">Savings</button>
-      <button class="main-tab-btn" data-tab="help" aria-selected="false" aria-controls="tab-help" role="tab">Help</button>
-      <button class="main-tab-btn" data-tab="backup" aria-selected="false" aria-controls="tab-backup" role="tab">Backup</button>
-      <button class="main-tab-btn" data-tab="branding" aria-selected="false" aria-controls="tab-branding" role="tab">Branding</button>
+<div class="stg-shell">
+  <!-- ── Sidebar ──────────────────────────────────────────── -->
+  <nav class="stg-sidebar">
+    <div class="stg-logo">⚡ Epilykos</div>
+    <ul class="stg-nav" id="stg-nav">
+      <li><button class="stg-nav-btn active" data-section="data-sources"><span class="stg-nav-icon">📡</span> Data Sources</button></li>
+      <li><button class="stg-nav-btn" data-section="metrics"><span class="stg-nav-icon">📊</span> Metrics</button></li>
+      <li><button class="stg-nav-btn" data-section="solar"><span class="stg-nav-icon">☀️</span> Solar</button></li>
+      <li><button class="stg-nav-btn" data-section="dashboard"><span class="stg-nav-icon">🏠</span> Dashboard</button></li>
+      <li><button class="stg-nav-btn" data-section="savings"><span class="stg-nav-icon">💰</span> Savings</button></li>
+      <li><button class="stg-nav-btn" data-section="backup"><span class="stg-nav-icon">💾</span> Backup</button></li>
+      <li><button class="stg-nav-btn" data-section="branding"><span class="stg-nav-icon">🎨</span> Branding</button></li>
+      <li><button class="stg-nav-btn" data-section="help"><span class="stg-nav-icon">❓</span> Help</button></li>
+    </ul>
+    <div class="stg-sidebar-footer">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <a href="/" class="stg-back-link" style="flex:1;">← Dashboard</a>
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.5rem;border-radius:2rem;cursor:pointer;font-size:0.9rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">🌙</button>
+      </div>
     </div>
+  </nav>
 
-    <form id="settings-form">
-      <!-- Tab 1: Data Sources (with sub-tabs) -->
-      <div id="tab-data-sources" class="tab-content active" role="tabpanel" aria-labelledby="data-sources">
-        <div class="sub-tabs" id="data-source-subtabs" role="tablist">
-          <button class="sub-tab-btn active" data-subtab="ha" aria-selected="true" aria-controls="subtab-ha" role="tab">Home Assistant</button>
-          <button class="sub-tab-btn" data-subtab="mqtt" aria-selected="false" aria-controls="subtab-mqtt" role="tab">MQTT</button>
-          <button class="sub-tab-btn" data-subtab="modbus" aria-selected="false" aria-controls="subtab-modbus" role="tab">Modbus</button>
-          <button class="sub-tab-btn" data-subtab="external" aria-selected="false" aria-controls="subtab-external" role="tab">REST</button>
-          <button class="sub-tab-btn" data-subtab="bms" aria-selected="false" aria-controls="subtab-bms" role="tab">BMS</button>
-          <button class="sub-tab-btn" data-subtab="dongle" aria-selected="false" aria-controls="subtab-dongle" role="tab">Dongle</button>
-          <button class="sub-tab-btn" data-subtab="pvoutput" aria-selected="false" aria-controls="subtab-pvoutput" role="tab">PVOutput</button>
+  <!-- ── Main Content ──────────────────────────────────────── -->
+  <main class="stg-main" id="stg-main">
+    <form id="settings-form" class="settings-form">
+
+      <!-- Data Sources -->
+      <section class="stg-section active" id="stg-section-data-sources">
+        <div class="stg-section-header"><h2>Data Sources</h2><p>Configure where Epilykos reads metrics from</p></div>
+        <div class="stg-subnav" id="data-source-subtabs">
+          <button class="stg-subnav-btn active" data-subtab="ha">Home Assistant</button>
+          <button class="stg-subnav-btn" data-subtab="mqtt">MQTT</button>
+          <button class="stg-subnav-btn" data-subtab="modbus">Modbus</button>
+          <button class="stg-subnav-btn" data-subtab="external">REST API</button>
+          <button class="stg-subnav-btn" data-subtab="bms">BMS</button>
+          <button class="stg-subnav-btn" data-subtab="dongle">Dongle</button>
+          <button class="stg-subnav-btn" data-subtab="pvoutput">PVOutput</button>
         </div>
-        
-        <div id="subtab-ha" class="sub-tab-content active" role="tabpanel" aria-labelledby="ha">
+
+        <div id="subtab-ha" class="sub-tab-content active">
           <div id="ha-devices-container"></div>
           <button type="button" id="add-ha-device" class="fetch-btn">+ Add HA Device</button>
         </div>
-
-        <div id="subtab-mqtt" class="sub-tab-content" role="tabpanel" aria-labelledby="mqtt">
+        <div id="subtab-mqtt" class="sub-tab-content">
           <div id="mqtt-devices-container"></div>
           <button type="button" id="add-mqtt-device" class="fetch-btn">+ Add MQTT Broker</button>
         </div>
-
-        <div id="subtab-modbus" class="sub-tab-content" role="tabpanel" aria-labelledby="modbus">
+        <div id="subtab-modbus" class="sub-tab-content">
           <div id="modbus-devices-container"></div>
           <button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button>
         </div>
-
-        <div id="subtab-external" class="sub-tab-content" role="tabpanel" aria-labelledby="external">
+        <div id="subtab-external" class="sub-tab-content">
           <div id="external-sources-container"></div>
           <button type="button" id="add-external-source" class="fetch-btn">+ Add External Source</button>
-          <div class="form-group" style="margin-top:1rem;">
-            <label for="external-poll-interval">Global Poll Interval (seconds)</label>
-            <input id="external-poll-interval" name="external_poll_interval" value="60">
-          </div>
+          <div class="form-group" style="margin-top:1rem;"><label for="external-poll-interval">Global Poll Interval (seconds)</label><input class="stg-input" id="external-poll-interval" name="external_poll_interval" value="60"></div>
         </div>
-
-        <div id="subtab-bms" class="sub-tab-content" role="tabpanel" aria-labelledby="bms">
+        <div id="subtab-bms" class="sub-tab-content">
           <div id="bms-devices-container"></div>
           <button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button>
           <div class="note">Requires the BMS bridge container to be running.</div>
         </div>
-
-        <div id="subtab-dongle" class="sub-tab-content" role="tabpanel" aria-labelledby="dongle">
+        <div id="subtab-dongle" class="sub-tab-content">
           <div id="dongle-devices-container"></div>
           <button type="button" id="add-dongle-device" class="fetch-btn">+ Add Dongle Instance</button>
-          <div class="note">The dongle connects directly to your inverter's WiFi module via TCP. For Growatt dongles, reconfigure the dongle's web UI to point to this server's IP on the configured port instead of server.growatt.com.</div>
+          <div class="note">Direct TCP connection to your inverter's WiFi module.</div>
         </div>
-
-        <div id="subtab-pvoutput" class="sub-tab-content" role="tabpanel" aria-labelledby="pvoutput">
-          <div class="toggle-group">
-            <label for="pvoutput-enabled"><input type="checkbox" id="pvoutput-enabled"> Enable PVOutput Upload</label>
+        <div id="subtab-pvoutput" class="sub-tab-content">
+          <div class="stg-card">
+            <div class="stg-card-header"><span class="stg-card-title">PVOutput.org Upload</span></div>
+            <div class="stg-toggle" style="margin-bottom:0.75rem;"><label for="pvoutput-enabled"><input type="checkbox" id="pvoutput-enabled"> Enable PVOutput Upload</label></div>
+            <div class="stg-form-row">
+              <div class="stg-form-group"><label for="pvoutput-api-key">API Key</label><input type="password" id="pvoutput-api-key" class="stg-input" placeholder="Your PVOutput API key"></div>
+              <div class="stg-form-group"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="stg-input" placeholder="12345"></div>
+            </div>
+            <div class="stg-form-row">
+              <div class="stg-form-group"><label for="pvoutput-timezone">Timezone</label><input type="text" id="pvoutput-timezone" class="stg-input" placeholder="e.g. Africa/Lagos"><div class="note">Auto-detected on test, or enter manually.</div></div>
+              <div class="stg-form-group"><label for="pvoutput-interval">Upload Interval (min)</label><select id="pvoutput-interval" class="stg-select"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div>
+              <div class="stg-form-group"><label for="pvoutput-system-size">System Size (W)</label><input type="number" id="pvoutput-system-size" class="stg-input" placeholder="5000"></div>
+            </div>
+            <div class="test-row"><button type="button" id="pvoutput-test-btn" class="fetch-btn">Test Connection</button><span id="pvoutput-test-status" class="test-status"></span></div>
+            <h4 style="margin-top:1.25rem;">Metric Mapping</h4>
+            <div class="stg-form-row" id="pvoutput-metrics-container"></div>
+            <h4 style="margin-top:1.25rem;">Upload Mode</h4>
+            <label style="margin-right:1.5rem;font-size:0.9rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="cumulative" checked style="width:1.1rem;height:1.1rem;"> Cumulative (c1) — daily running totals</label>
+            <div class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</div>
+            <label style="font-size:0.9rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="net" style="width:1.1rem;height:1.1rem;"> Net data (n) — v2/v4 are net export/import</label>
+            <h4 style="margin-top:1.25rem;">Upload Queue</h4>
+            <div id="pvoutput-queue-status" style="font-size:0.85rem;"></div>
+            <div class="backup-row"><button type="button" id="pvoutput-backfill-btn" class="fetch-btn">Run Backfill</button><button type="button" id="pvoutput-view-queue-btn" class="fetch-btn">View Queue</button></div>
+            <h4 style="margin-top:1.25rem;">Notifications (optional)</h4>
+            <div class="stg-form-group"><label for="pvoutput-webhook-url">Webhook URL</label><input type="text" id="pvoutput-webhook-url" class="stg-input" placeholder="https://energy.yourdomain.com/api/pvoutput/webhook"><div class="note">Requires a public URL. Leave empty to skip.</div></div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label for="pvoutput-api-key">API Key</label><input type="password" id="pvoutput-api-key" placeholder="Your PVOutput API key"></div>
-            <div class="form-group"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" placeholder="12345"></div>
+        </div>
+      </section>
+
+      <!-- Metrics -->
+      <section class="stg-section" id="stg-section-metrics">
+        <div class="stg-section-header"><h2>Metrics</h2><p>Manage custom metrics and view current values</p></div>
+        <div class="stg-card">
+          <div class="stg-metrics-toolbar">
+            <input type="text" class="stg-search" id="metrics-search" placeholder="Filter metrics...">
+            <button type="button" id="create-metric-btn" class="stg-btn primary">+ New Metric</button>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label for="pvoutput-timezone">Timezone (required)</label><input type="text" id="pvoutput-timezone" placeholder="e.g. Africa/Lagos"><div class="note">Press Test Connection to auto-detect, or enter manually.</div></div>
-            <div class="form-group"><label for="pvoutput-interval">Upload Interval (min)</label><select id="pvoutput-interval"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div>
-            <div class="form-group"><label for="pvoutput-system-size">System Size (W)</label><input type="number" id="pvoutput-system-size" placeholder="5000"></div>
+          <div class="stg-table-wrap">
+            <table class="stg-table" id="metrics-table">
+              <thead><tr><th>Metric Name</th><th>Current Value</th><th>Last Updated</th><th>Unit</th><th>Actions</th></tr></thead>
+              <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics...</td></tr></tbody>
+            </table>
           </div>
-          <div class="test-row">
-            <button type="button" id="pvoutput-test-btn" class="fetch-btn">Test Connection</button>
-            <span id="pvoutput-test-status" class="test-status"></span>
-          </div>
-          <h4 style="margin-top:1.5rem;">Metric Mapping</h4>
-          <div class="form-row" id="pvoutput-metrics-container">
-            <!-- Populated by settings.js -->
-          </div>
-          <h4 style="margin-top:1.5rem;">Upload Mode</h4>
-          <label style="margin-right:1.5rem;font-size:1rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="cumulative" checked style="width:1.1rem;height:1.1rem;"> Cumulative (c1) — daily running totals</label>
-          <div class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</div>
-          <label style="font-size:1rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="net" style="width:1.1rem;height:1.1rem;"> Net data (n) — v2/v4 are net export/import</label>
+        </div>
+      </section>
 
-          <h4 style="margin-top:1.5rem;">Upload Queue</h4>
-          <div id="pvoutput-queue-status"></div>
-          <div class="backup-row" style="margin-top:0.5rem;">
-            <button type="button" id="pvoutput-backfill-btn" class="fetch-btn">Run Backfill</button>
-            <button type="button" id="pvoutput-view-queue-btn" class="fetch-btn">View Queue</button>
-          </div>
+      <!-- Solar Forecast -->
+      <section class="stg-section" id="stg-section-solar">
+        <div class="stg-section-header"><h2>Solar Forecast</h2><p>Configure PV forecast via Solcast or Open-Meteo</p></div>
+        <div class="stg-card">
+          <div class="stg-toggle" style="margin-bottom:1rem;"><label for="forecast-enabled"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"> Enable Solar Forecast</label></div>
+          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" class="stg-input" name="solar_latitude"></div><div class="stg-form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" class="stg-input" name="solar_longitude"></div></div>
+          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-tilt">Panel Tilt (°)</label><input id="solar-tilt" class="stg-input" name="solar_tilt" value="30"></div><div class="stg-form-group"><label for="solar-azimuth">Panel Azimuth (°)</label><input id="solar-azimuth" class="stg-input" name="solar_azimuth" value="180"></div></div>
+          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-capacity">Capacity (kWp)</label><input id="solar-capacity" class="stg-input" name="solar_capacity_kwp"><div class="note">Peak power</div></div><div class="stg-form-group"><label for="solcast-api-key">Solcast API Key</label><input id="solcast-api-key" class="stg-input" type="password" name="solcast_api_key" autocomplete="off"></div></div>
+          <div class="stg-form-row"><div class="stg-form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" class="stg-input" name="solcast_resource_id"></div><div class="stg-form-group"><label for="solar-loss-factor">Loss Factor</label><input id="solar-loss-factor" class="stg-input" name="solar_loss_factor" value="0.9"></div></div>
+          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" class="stg-input" name="solar_install_date" placeholder="2020-01-01"></div></div>
+          <div class="test-row"><button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button><span id="forecast-test-status" class="test-status"></span></div>
+        </div>
+      </section>
 
-          <h4 style="margin-top:1.5rem;">Notifications (optional)</h4>
-          <div class="form-group"><label for="pvoutput-webhook-url">Webhook URL</label><input type="text" id="pvoutput-webhook-url" placeholder="https://energy.yourdomain.com/api/pvoutput/webhook"><div class="note">Requires a public URL. Leave empty to skip webhook registration.</div></div>
-        </div>
-      </div>
-
-      <!-- Tab 2: Metrics -->
-      <div id="tab-metrics" class="tab-content" role="tabpanel" aria-labelledby="metrics">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap: wrap; gap: 0.5rem;">
-          <h3 style="margin:0; flex: 1 1 100%;">Metrics Management</h3>
-          <button type="button" id="create-metric-btn" class="fetch-btn">+ New Metric</button>
-        </div>
-        <div id="metrics-table-container">
-          <table class="metrics-table">
-            <thead>
-              <tr>
-                <th>Metric Name</th>
-                <th>Current Value</th>
-                <th>Last Updated</th>
-                <th>Unit</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="metrics-table-body">
-              <tr><td colspan="5">Loading metrics...</td></tr>
-            </tbody>
-           </table>
-        </div>
-      </div>
-
-      <!-- Tab: Savings -->
-      <div id="tab-savings" class="tab-content" role="tabpanel" aria-labelledby="savings">
-        <h3>Savings Calculation</h3>
-        <div class="form-row">
-          <div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" name="savings_currency" value="€"></div>
-          <div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" name="savings_rate" value="0.30"></div>
-        </div>
-        <div class="form-group"><label for="savings-solar-metric">Solar Metric</label><input id="savings-solar-metric" name="savings_solar_metric" placeholder="e.g. Solar Gen Today"><div class="note">Which metric tracks solar generation for savings. Leave empty to auto-detect.</div></div>
-      </div>
-
-      <!-- Tab 3: Solar Forecast -->
-      <div id="tab-solar" class="tab-content" role="tabpanel" aria-labelledby="solar">
-        <div class="toggle-group">
-          <label for="forecast-enabled"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"> Enable Solar Forecast</label>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" name="solar_latitude"></div>
-          <div class="form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" name="solar_longitude"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label for="solar-tilt">Panel Tilt (°)</label><input id="solar-tilt" name="solar_tilt" value="30"></div>
-          <div class="form-group"><label for="solar-azimuth">Panel Azimuth (°)</label><input id="solar-azimuth" name="solar_azimuth" value="180"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label for="solar-capacity">Capacity (kWp)</label><input id="solar-capacity" name="solar_capacity_kwp"><div class="note">Peak power</div></div>
-          <div class="form-group"><label for="solcast-api-key">Solcast API Key</label><input id="solcast-api-key" type="password" name="solcast_api_key" autocomplete="off"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" name="solcast_resource_id"></div>
-          <div class="form-group"><label for="solar-loss-factor">Loss Factor</label><input id="solar-loss-factor" name="solar_loss_factor" value="0.9"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" name="solar_install_date" placeholder="2020-01-01"></div>
-        </div>
-        <div class="test-row">
-          <button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button>
-          <span id="forecast-test-status" class="test-status"></span>
-        </div>
-      </div>
-
-      <!-- Tab 4: Dashboard Layout -->
-      <div id="tab-dashboard" class="tab-content" role="tabpanel" aria-labelledby="dashboard">
-        <div id="dashboard-editor">
+      <!-- Dashboard -->
+      <section class="stg-section" id="stg-section-dashboard">
+        <div class="stg-section-header"><h2>Dashboard</h2><p>Layout, display &amp; defaults</p></div>
+        <div class="stg-card">
           <div id="dashboards-list"></div>
           <button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button>
-          <div class="form-row" style="margin-top:0.75rem;">
-            <div class="form-group"><label for="desktop-dashboard">Default for Desktop</label><select id="desktop-dashboard" name="desktop_dashboard"></select></div>
-            <div class="form-group"><label for="mobile-dashboard">Default for Mobile</label><select id="mobile-dashboard" name="mobile_dashboard"></select></div>
+          <div class="stg-form-row" style="margin-top:0.75rem;">
+            <div class="stg-form-group"><label for="desktop-dashboard">Default for Desktop</label><select id="desktop-dashboard" class="stg-select" name="desktop_dashboard"></select></div>
+            <div class="stg-form-group"><label for="mobile-dashboard">Default for Mobile</label><select id="mobile-dashboard" class="stg-select" name="mobile_dashboard"></select></div>
           </div>
           <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
-          <h3 style="margin-top:1.5rem;">Display</h3>
-          <div class="form-group"><label><input type="checkbox" name="transparent_blocks"> Transparent blocks</label></div>
-          <div class="form-group"><label for="dashboard-bg-color-light">Background Colour (Light)</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color"></div>
-          <div class="form-group"><label for="dashboard-bg-color-dark">Background Colour (Dark)</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color"></div>
-          <div class="form-group"><label for="dashboard-bg-image">Background Image URL</label><input id="dashboard-bg-image" name="dashboard_bg_image" placeholder="https://..."></div>
-          <div class="form-group"><label for="grid-status-entity">Grid Status Metric</label><input id="grid-status-entity" name="grid_status_entity" placeholder="e.g. grid_status"></div>
-          <p style="color:var(--text-secondary);font-size:0.85rem;">Visual layout: use the <a href="/editor" style="color:var(--accent);">Editor</a>.</p>
+          <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+            <h4 style="margin:0 0 0.75rem;color:var(--text);font-size:0.9rem;">Display</h4>
+            <div class="stg-form-group"><label class="stg-toggle"><input type="checkbox" name="transparent_blocks"> Transparent blocks</label></div>
+            <div class="stg-form-row"><div class="stg-form-group"><label for="dashboard-bg-color-light">Background Colour (Light)</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color" style="width:100%;height:36px;"></div><div class="stg-form-group"><label for="dashboard-bg-color-dark">Background Colour (Dark)</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" style="width:100%;height:36px;"></div></div>
+            <div class="stg-form-group"><label for="dashboard-bg-image">Background Image URL</label><input id="dashboard-bg-image" class="stg-input" name="dashboard_bg_image" placeholder="https://..."></div>
+            <div class="stg-form-group"><label for="grid-status-entity">Grid Status Metric</label><input id="grid-status-entity" class="stg-input" name="grid_status_entity" placeholder="e.g. grid_status"></div>
+            <p style="color:var(--text-secondary);font-size:0.8rem;">Visual layout: use the <a href="/editor" style="color:var(--accent);">Editor</a>.</p>
+          </div>
         </div>
-        <div class="backup-row" style="margin-top:1rem;">
-          <button type="button" id="export-layout-btn" class="fetch-btn" aria-label="Download dashboard layout configuration">📤 Export</button>
-          <button type="button" id="import-layout-btn" class="fetch-btn" aria-label="Upload dashboard layout configuration">📥 Import</button>
-          <input type="file" id="import-layout-file" accept=".json">
+        <div class="backup-row"><button type="button" id="export-layout-btn" class="stg-btn">Export Layout</button><button type="button" id="import-layout-btn" class="stg-btn">Import Layout</button><input type="file" id="import-layout-file" accept=".json" style="display:none;"></div>
+      </section>
+
+      <!-- Savings -->
+      <section class="stg-section" id="stg-section-savings">
+        <div class="stg-section-header"><h2>Savings</h2><p>Calculate cost savings from solar generation</p></div>
+        <div class="stg-card">
+          <div class="stg-form-row"><div class="stg-form-group"><label for="savings-currency">Currency</label><input id="savings-currency" class="stg-input" name="savings_currency" value="€"></div><div class="stg-form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" class="stg-input" name="savings_rate" value="0.30"></div></div>
+          <div class="stg-form-group"><label for="savings-solar-metric">Solar Metric</label><input id="savings-solar-metric" class="stg-input" name="savings_solar_metric" placeholder="e.g. Solar Gen Today"><div class="note">Which metric tracks solar generation for savings. Leave empty to auto-detect.</div></div>
         </div>
-      </div>
+      </section>
 
-      <!-- Tab 5: Backup & Restore -->
-      <div id="tab-backup" class="tab-content" role="tabpanel" aria-labelledby="backup">
-        <div class="backup-row">
-          <button type="button" id="backup-btn" class="fetch-btn" aria-label="Download database backup">⬇️ Download</button>
-          <button type="button" id="restore-btn" class="fetch-btn" aria-label="Upload and restore from backup">⬆️ Restore</button>
-          <input type="file" id="restore-file" accept=".db">
+      <!-- Backup -->
+      <section class="stg-section" id="stg-section-backup">
+        <div class="stg-section-header"><h2>Backup &amp; Restore</h2><p>Download or restore your database</p></div>
+        <div class="stg-card">
+          <div class="backup-row"><button type="button" id="backup-btn" class="stg-btn primary">Download Backup</button><button type="button" id="restore-btn" class="stg-btn">Restore from File</button><input type="file" id="restore-file" accept=".db" style="display:none;"></div>
+          <div id="backup-status" class="stg-status" style="margin-top:0.75rem;"></div>
         </div>
-        <div id="backup-status" class="status"></div>
-      </div>
+      </section>
 
-      <!-- Tab 6: Branding & Savings -->
-      <div id="tab-branding" class="tab-content" role="tabpanel" aria-labelledby="branding">
-        <h3>Branding</h3>
-        <div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" name="dashboard_title" value="⚡ Epilykos"></div>
-        <div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" name="dashboard_logo"></div>
-        <div class="form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" name="dashboard_favicon"></div>
-      </div>
+      <!-- Branding -->
+      <section class="stg-section" id="stg-section-branding">
+        <div class="stg-section-header"><h2>Branding</h2><p>Customise the dashboard appearance</p></div>
+        <div class="stg-card">
+          <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos"></div>
+          <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo"></div>
+          <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon"></div>
+        </div>
+      </section>
 
-      <!-- Tab: Help -->
-      <div id="tab-help" class="tab-content" role="tabpanel" aria-labelledby="help" style="max-width:780px;">
-        <style>
-          .manual-step { background: var(--card-bg); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.25rem; border: 1px solid var(--border); box-shadow: var(--shadow); }
-          .manual-step h4 { margin: 0 0 0.75rem 0; color: var(--accent); font-size: 1.1rem; }
-          .manual-step p, .manual-step li { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; }
-          .manual-step code { background: var(--bg); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.9rem; }
-          .manual-step ul { margin: 0.75rem 0 0 1.5rem; }
-        </style>
-        <div class="manual-step"><h4>1. Add a Data Source</h4><p>Start in <strong>Data Sources</strong> and add at least one:</p><ul><li><strong>Home Assistant</strong> — URL + Long-Lived Access Token, click <em>Fetch Entities</em>, map metrics to entity IDs.</li><li><strong>MQTT</strong> — broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>), map topics to metric names.</li><li><strong>Modbus</strong> — pick a profile (SRNE, Growatt, Deye, Victron), configure TCP or serial.</li><li><strong>Inverter Dongle</strong> — direct TCP connection to your inverter's WiFi module. Supports Solarman V5, plain Modbus TCP, and Growatt push mode. See step below for details.</li><li><strong>External REST</strong> — any HTTP API returning JSON. Map JSON paths to metrics.</li><li><strong>Bluetooth BMS</strong> — requires the BMS bridge. Scan for devices, select MAC address.</li></ul></div>
-        <div class="manual-step"><h4>0. Inverter Dongle Setup</h4><p>Connect directly to your inverter's WiFi dongle without cloud services, Home Assistant, or any intermediary.</p><p><strong>Setup steps:</strong></p><ul><li>Go to <strong>Data Sources → Dongle</strong>, click <em>+ Add Dongle Instance</em>.</li><li>Give it a name (e.g. "SRNE Inverter").</li><li>Pick a <strong>Profile</strong> matching your inverter brand — this auto-fills the transport type, port, and Modbus unit ID.</li><li>Enter the dongle's <strong>Host / IP Address</strong> (e.g. <code>192.168.1.55</code>).</li><li><strong>Port</strong> and <strong>Modbus Unit ID</strong> are pre-filled from the profile — change only if your dongle uses non-standard values.</li><li>For <strong>Solarman V5</strong> dongles: enter the <strong>Logger Serial Number</strong> (printed on the dongle label, usually 10 digits).</li><li>Optional: set a <strong>Metric Prefix</strong> (e.g. <code>inverter1_</code>) if you have multiple inverters to avoid metric name collisions.</li><li>Click <strong>Test Connection</strong> — a successful test returns a raw register value.</li><li>Click <strong>Save All Settings</strong> at the bottom of the page.</li></ul><p><strong>Transport types:</strong></p><ul><li><strong>Solarman V5</strong> (port 8899) — used by SRNE, Deye, SunSynk WiFi dongles. Requires the logger serial number for authentication. Opens a new TCP connection each poll cycle.</li><li><strong>Modbus TCP</strong> (port 8899 or 502) — used by Sofar LSE-3 and Voltronic/Axpert dongles. Plain Modbus TCP — no serial number needed.</li><li><strong>Growatt (TCP Server)</strong> (port 5279) — the dongle <em>pushes</em> data to Epilykos. You must reconfigure the dongle via its web UI at <code>http://&lt;dongle-ip&gt;</code>: change "Server Address" from <code>server.growatt.com</code> to your Epilykos host IP.</li></ul><p><strong>Polling behaviour:</strong></p><ul><li>Each enabled instance polls on its own interval (default 30s).</li><li>Registers are grouped into contiguous ranges and read in bulk — one TCP round-trip per range.</li><li>After 5 consecutive failures, the poll interval doubles (max 5 minutes) to reduce load on an unreachable dongle. It resets on the next successful poll.</li></ul></div>
-        <div class="manual-step"><h4>2. Create & Map Metrics</h4><p>Metric names identify your data. Mapping an entity/topic auto-creates the metric. Create custom ones in the <strong>Metrics</strong> tab.</p><p>Common names: <code>solar</code> <code>consumption</code> <code>battery_soc</code> <code>battery_voltage</code> <code>grid_import</code> <code>grid_export</code>. Binary sensors (on/off) auto-convert to 1/0.</p></div>
-        <div class="manual-step"><h4>3. Build Your Dashboard</h4><p>Use the <strong>Editor</strong> (<code>/editor</code>) for visual layout — drag blocks from the palette, arrange freely, resize. Or use <strong>Dashboard</strong> settings to add/remove blocks and configure metrics per block.</p><p>Each block's <strong>Config</strong> button lets you pick which metrics feed it. Click <strong>Save All Settings</strong> when done.</p></div>
-        <div class="manual-step"><h4>4. Solar Forecast</h4><p>In <strong>Solar Forecast</strong>: enable, enter latitude/longitude and system capacity (kWp). Add a Solcast API key for high accuracy, or leave blank for free Open-Meteo.</p></div>
-        <div class="manual-step"><h4>5. Grid Status Tracking</h4><p>In <strong>Dashboard</strong> settings, enter your grid status metric name (e.g. <code>grid_status</code>). Epilykos tracks ON/OFF state, computes uptime hours (day/week/month/year) and the 24h timeline bar.</p></div>
-        <div class="manual-step"><h4>6. Appearance</h4><p><strong>Dashboard → Display</strong>: background colours (light/dark), background image, transparent blocks, title, logo, favicon. <strong>Savings</strong>: currency and rate per kWh.</p></div>
-        <div class="manual-step"><h4>7. Desktop & Mobile</h4><p>Create separate layouts. In <strong>Dashboard</strong>, set the default tab for desktop and mobile — Epilykos auto-switches by screen width.</p></div>
-        <div class="manual-step"><h4>Tips</h4><ul><li>Blocks support <strong>multiple instances</strong> — add the same type twice with different metrics.</li><li>Use the <strong>lock/unlock</strong> button on the dashboard to prevent accidental drags.</li><li>Export your layout as JSON for backup or sharing.</li></ul></div>
-        <div class="manual-step"><h4>8. Troubleshooting</h4><p><strong>Dongle connection errors:</strong></p><ul><li><strong>"timeout"</strong> — the dongle didn't respond within 8 seconds. Check the IP address is reachable from the Epilykos host. Try <code>ping &lt;dongle-ip&gt;</code> from the server. Verify the port number matches your dongle model.</li><li><strong>"connection refused"</strong> — the dongle's TCP port isn't open. Some dongles need a factory reset or firmware update to enable the Modbus TCP port.</li><li><strong>"checksum mismatch"</strong> — data corruption on the wire. Usually transient; the next poll will succeed. If persistent, the serial number may be wrong (Solarman V5) or the profile doesn't match your inverter's register layout.</li><li><strong>"Modbus exception 2"</strong> — illegal data address. The register in the profile doesn't exist on your inverter model. You may need a custom profile with the correct register map for your firmware version.</li><li><strong>No data appearing on dashboard</strong> — check the metric names in <strong>Metrics</strong> tab match what the profile outputs. If you set a <strong>prefix</strong>, the metric name will be <code>prefix + metric_name</code> (e.g. <code>inverter1_solar_power</code>).</li><li><strong>Growatt dongle not sending data</strong> — verify the dongle's web UI points to the Epilykos IP on port 5279. The dongle pushes data roughly every 5 minutes. Ensure no firewall blocks inbound port 5279.</li></ul><p><strong>Debug logs:</strong></p><ul><li>The server writes structured logs to <code>logs/energy-dashboard-YYYY-MM-DD.log</code>.</li><li>Set <code>LOG_LEVEL=debug</code> in your <code>.env</code> file and restart to see per-poll metrics and timing: <code>LOG_LEVEL=debug node server.js</code>.</li><li>Dongle log lines are prefixed with <code>[dongle]</code> — grep for them: <code>grep '\[dongle\]' logs/energy-dashboard-*.log</code>.</li><li>Each successful poll logs: <code>[dongle] InstanceName: N metrics in Xms</code>.</li><li>Each failed poll logs: <code>[dongle] InstanceName: poll failed — reason</code>.</li><li>Use <code>docker compose logs -f epilykos</code> for real-time logs in Docker deployments.</li></ul></div>
-      </div>
+      <!-- Help -->
+      <section class="stg-section" id="stg-section-help">
+        <div class="stg-section-header"><h2>Help</h2><p>Setup guide &amp; troubleshooting</p></div>
+        <div class="stg-card"><div class="stg-form-group"><label>1. Add a Data Source</label><p class="note">Start in Data Sources — add Home Assistant, MQTT, Modbus, Dongle, BMS, or REST API. Map entities/topics/registers to metric names.</p></div></div>
+        <div class="stg-card"><div class="stg-form-group"><label>2. Create &amp; Map Metrics</label><p class="note">Metric names identify your data. Common names: <code>solar</code> <code>consumption</code> <code>battery_soc</code> <code>grid_import</code>. Binary sensors auto-convert to 1/0.</p></div></div>
+        <div class="stg-card"><div class="stg-form-group"><label>3. Build Your Dashboard</label><p class="note">Use the <a href="/editor" style="color:var(--accent);">Editor</a> for visual drag-and-drop layout. Each block has a Config button to pick which metrics feed it.</p></div></div>
+        <div class="stg-card"><div class="stg-form-group"><label>4. Solar Forecast</label><p class="note">Enable, enter lat/lng and kWp. Add Solcast API key for high accuracy, or leave blank for free Open-Meteo.</p></div></div>
+        <div class="stg-card"><div class="stg-form-group"><label>5. Appearance</label><p class="note">Dashboard → Display: background colours, background image, transparent blocks, title, logo, favicon.</p></div></div>
+        <div class="stg-card"><div class="stg-form-group"><label>Troubleshooting</label><p class="note"><strong>Dongle timeout:</strong> check IP reachable. <strong>Connection refused:</strong> port not open. <strong>Checksum mismatch:</strong> wrong serial number or profile. <strong>No data:</strong> check metric names match. Debug logs at <code>logs/energy-dashboard-*.log</code>. Set <code>LOG_LEVEL=debug</code> for verbose output.</p></div></div>
+      </section>
 
-      <div style="margin-top:2rem; text-align:center;"><button type="submit">Save All Settings</button></div>
-      <div id="save-status" class="status"></div>
     </form>
+  </main>
+
+  <!-- ── Floating Save Bar ──────────────────────────────────── -->
+  <div class="stg-savebar" id="stg-savebar">
+    <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
+    <span class="stg-save-status" id="save-status"></span>
+    <button type="button" id="stg-save-btn">Save All Settings</button>
   </div>
 </div>
 
-<!-- Metric creation modal -->
-<div id="metric-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-  <div class="modal-content">
-    <h3 id="modal-title">Create New Metric</h3>
-    <div class="form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name"></div>
-    <div class="form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit"></div>
-    <div style="display:flex; gap:1rem; justify-content:flex-end; flex-wrap: wrap;">
-      <button type="button" id="modal-cancel">Cancel</button>
-      <button type="button" id="modal-create" class="fetch-btn">Create</button>
+<!-- Metric Modal -->
+<div class="stg-modal" id="metric-modal">
+  <div class="stg-modal-box">
+    <h3 style="margin:0 0 1rem;">Create New Metric</h3>
+    <div class="stg-form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name" class="stg-input"></div>
+    <div class="stg-form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit" class="stg-input"></div>
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+      <button type="button" id="modal-cancel" class="stg-btn">Cancel</button>
+      <button type="button" id="modal-create" class="stg-btn primary">Create</button>
     </div>
   </div>
 </div>
 
 <script>
-  // Theme toggle
+  // ── Navigation ─────────────────────────────────────────────
+  const navBtns = document.querySelectorAll('.stg-nav-btn');
+  const sections = document.querySelectorAll('.stg-section');
+
+  function switchSection(sectionId) {
+    navBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+    const btn = document.querySelector(`[data-section="${sectionId}"]`);
+    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
+    sections.forEach(s => s.classList.remove('active'));
+    const sec = document.getElementById('stg-section-' + sectionId);
+    if (sec) sec.classList.add('active');
+    localStorage.setItem('stg-active-section', sectionId);
+  }
+
+  navBtns.forEach(btn => {
+    btn.addEventListener('click', () => switchSection(btn.dataset.section));
+  });
+
+  // Sub-tabs (Data Sources)
+  const subBtns = document.querySelectorAll('.stg-subnav-btn');
+  const subContents = document.querySelectorAll('.sub-tab-content');
+  function switchSubTab(subId) {
+    subBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+    const btn = document.querySelector(`[data-subtab="${subId}"]`);
+    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
+    subContents.forEach(c => c.classList.remove('active'));
+    const content = document.getElementById('subtab-' + subId);
+    if (content) content.classList.add('active');
+    localStorage.setItem('stg-active-subtab', subId);
+  }
+  subBtns.forEach(btn => {
+    btn.addEventListener('click', () => switchSubTab(btn.dataset.subtab));
+  });
+
+  // Restore last section
+  const savedSection = localStorage.getItem('stg-active-section');
+  if (savedSection) switchSection(savedSection);
+  const savedSubtab = localStorage.getItem('stg-active-subtab');
+  if (savedSubtab) switchSubTab(savedSubtab);
+
+  // ── Dirty state tracking ──────────────────────────────────
+  const stgForm = document.getElementById('settings-form');
+  const saveStatusEl = document.getElementById('save-status');
+  const dirtyCount = document.getElementById('stg-dirty-count');
+  let dirtyFields = new Set();
+
+  stgForm.addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.name || el.id) {
+      dirtyFields.add(el.name || el.id);
+      dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
+      dirtyCount.classList.add('show');
+    }
+  });
+  stgForm.addEventListener('input', (e) => {
+    const el = e.target;
+    if ((el.name || el.id) && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+      dirtyFields.add(el.name || el.id);
+      dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
+      dirtyCount.classList.add('show');
+    }
+  });
+
+  // ── Save ──────────────────────────────────────────────────
+  const saveBtn = document.getElementById('stg-save-btn');
+  saveBtn.addEventListener('click', () => {
+    stgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  });
+
+  // Listen for save completion
+  const saveObserver = new MutationObserver(() => {
+    const txt = saveStatusEl.textContent || '';
+    if (txt.toLowerCase().includes('saved') || txt.toLowerCase().includes('success')) {
+      dirtyFields.clear();
+      dirtyCount.classList.remove('show');
+      saveStatusEl.className = 'stg-save-status ok';
+    } else if (txt.toLowerCase().includes('error') || txt.toLowerCase().includes('fail')) {
+      saveStatusEl.className = 'stg-save-status err';
+    }
+  });
+  saveObserver.observe(saveStatusEl, { characterData: true, subtree: true, childList: true });
+
+  // ── Metrics search ────────────────────────────────────────
+  const metricsSearch = document.getElementById('metrics-search');
+  if (metricsSearch) {
+    metricsSearch.addEventListener('input', () => {
+      const q = metricsSearch.value.toLowerCase();
+      const rows = document.querySelectorAll('#metrics-table-body tr');
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.classList.toggle('stg-row-hidden', q && !text.includes(q));
+      });
+    });
+  }
+
+  // ── Theme toggle ──────────────────────────────────────────
   function initTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const saved = localStorage.getItem('theme');
+    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const toggle = document.getElementById('theme-toggle');
-    if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      toggle.innerHTML = '<span class="theme-icon">☀️</span>';
+    if (saved === 'dark' || (!saved && sysDark)) {
+      document.documentElement.setAttribute('data-theme','dark');
+      if (toggle) toggle.innerHTML = '☀️';
     } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-      toggle.innerHTML = '<span class="theme-icon">🌙</span>';
+      document.documentElement.setAttribute('data-theme','light');
+      if (toggle) toggle.innerHTML = '🌙';
     }
   }
   function toggleTheme() {
@@ -519,70 +536,10 @@
     document.documentElement.setAttribute('data-theme', n);
     localStorage.setItem('theme', n);
     const toggle = document.getElementById('theme-toggle');
-    toggle.innerHTML = n === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
+    if (toggle) toggle.innerHTML = n === 'dark' ? '☀️' : '🌙';
   }
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
-
-  // Main tab switching
-  const mainTabs = document.querySelectorAll('.main-tab-btn');
-  const mainContents = document.querySelectorAll('.tab-content');
-  function switchMainTab(tabId) {
-    mainTabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-    const activeTab = document.querySelector(`.main-tab-btn[data-tab="${tabId}"]`);
-    if (activeTab) { activeTab.classList.add('active'); activeTab.setAttribute('aria-selected', 'true'); activeTab.focus(); }
-    mainContents.forEach(c => c.classList.remove('active'));
-    const activeContent = document.getElementById(`tab-${tabId}`);
-    if (activeContent) activeContent.classList.add('active');
-  }
-  mainTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const tabId = tab.getAttribute('data-tab');
-      switchMainTab(tabId);
-    });
-    tab.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const tabsArray = Array.from(mainTabs);
-        const currentIndex = tabsArray.indexOf(tab);
-        const direction = e.key === 'ArrowLeft' ? -1 : 1;
-        const nextIndex = (currentIndex + direction + tabsArray.length) % tabsArray.length;
-        const nextTab = tabsArray[nextIndex];
-        const nextTabId = nextTab.getAttribute('data-tab');
-        switchMainTab(nextTabId);
-      }
-    });
-  });
-
-  // Sub-tab switching (Data Sources)
-  const subTabs = document.querySelectorAll('.sub-tab-btn');
-  const subContents = document.querySelectorAll('.sub-tab-content');
-  function switchSubTab(subId) {
-    subTabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-    const activeSub = document.querySelector(`.sub-tab-btn[data-subtab="${subId}"]`);
-    if (activeSub) { activeSub.classList.add('active'); activeSub.setAttribute('aria-selected', 'true'); activeSub.focus(); }
-    subContents.forEach(c => c.classList.remove('active'));
-    const activeContent = document.getElementById(`subtab-${subId}`);
-    if (activeContent) activeContent.classList.add('active');
-  }
-  subTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const subId = tab.getAttribute('data-subtab');
-      switchSubTab(subId);
-    });
-    tab.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const tabsArray = Array.from(subTabs);
-        const currentIndex = tabsArray.indexOf(tab);
-        const direction = e.key === 'ArrowLeft' ? -1 : 1;
-        const nextIndex = (currentIndex + direction + tabsArray.length) % tabsArray.length;
-        const nextTab = tabsArray[nextIndex];
-        const nextSubId = nextTab.getAttribute('data-subtab');
-        switchSubTab(nextSubId);
-      }
-    });
-  });
 </script>
 <script src="settings.js"></script>
 </body>
