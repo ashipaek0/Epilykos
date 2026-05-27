@@ -1245,6 +1245,8 @@ function renderDashboardBlockEditor(dashboard) {
         <option value="gauge-card" ${block.type==='gauge-card'?'selected':''}>Gauge</option>
         <option value="half-gauge" ${block.type==='half-gauge'?'selected':''}>Half Gauge</option>
         <option value="half-gauge-2" ${block.type==='half-gauge-2'?'selected':''}>Half Gauge 2</option>
+        <option value="bar-gauge" ${block.type==='bar-gauge'?'selected':''}>Bar Gauge</option>
+        <option value="bar-gauge-retro" ${block.type==='bar-gauge-retro'?'selected':''}>Bar Gauge Retro</option>
         <option value="flow-card-square" ${block.type==='flow-card-square'?'selected':''}>Flow Card Sq</option>
         <option value="flow-card-square-2" ${block.type==='flow-card-square-2'?'selected':''}>Flow Card Sq 2</option>
         <option value="text-card" ${block.type==='text-card'?'selected':''}>Text</option>
@@ -1536,6 +1538,23 @@ function renderDashboardBlockEditor(dashboard) {
             <button type="button" class="remove-mv-btn" data-idx="${i}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>
           </div>`).join('');
         configPanel.innerHTML = `<h4>Metrics</h4><div id="mv-rows">${rows}</div><button type="button" class="add-mv-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Metric</button><button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
+      } else if (block.type === 'bar-gauge' || block.type === 'bar-gauge-retro') {
+        const isRetro = block.type === 'bar-gauge-retro';
+        const defaultRow = { label: '', metric: '', unit: '', min: 0, max: 100, color: '', segments: 10 };
+        const metrics = block.config?.metrics && block.config.metrics.length ? block.config.metrics : [defaultRow];
+        const rows = metrics.map((m, i) => `
+          <div style="display:flex;gap:0.25rem;margin-bottom:0.3rem;align-items:center;flex-wrap:wrap;" class="bg-row">
+            <input type="text" class="config-bg-label" data-idx="${i}" value="${escapeHtml(m.label||'')}" placeholder="Label" style="flex:1;min-width:80px;">
+            <select class="config-bg-metric" data-idx="${i}" style="flex:1;min-width:100px;">${generateMetricOptionsHtml(m.metric)}</select>
+            <input type="text" class="config-bg-unit" data-idx="${i}" value="${escapeHtml(m.unit||'')}" placeholder="Unit" style="width:45px;">
+            <input type="number" class="config-bg-min" data-idx="${i}" value="${m.min ?? 0}" placeholder="Min" style="width:50px;">
+            <input type="number" class="config-bg-max" data-idx="${i}" value="${m.max ?? 100}" placeholder="Max" style="width:55px;">
+            <input type="color" class="config-bg-color" data-idx="${i}" value="${escapeHtml(m.color||'')}" style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Bar color">
+            <input type="text" class="config-bg-gradient" data-idx="${i}" value="${escapeHtml(m.gradient||'')}" placeholder="Gradient e.g. #ef4444,#eab308,#22c55e" style="width:120px;font-size:0.65rem;" title="Comma-separated CSS colors for gradient">
+            ${isRetro ? `<input type="number" class="config-bg-segments" data-idx="${i}" value="${m.segments || 10}" placeholder="Segs" style="width:48px;font-size:0.65rem;" title="Number of LED segments" min="2" max="40">` : ''}
+            <button type="button" class="remove-bg-btn" data-idx="${i}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>
+          </div>`).join('');
+        configPanel.innerHTML = `<h4>${isRetro ? 'Retro ' : ''}Bar Gauge Rows</h4><div id="bg-rows">${rows}</div><button type="button" class="add-bg-btn fetch-btn" style="width:100%;margin-top:0.5rem;">+ Add Row</button><button class="fetch-btn save-config" style="margin-top:0.5rem;">Save</button>`;
       } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
         const currentMetrics = block.config?.metrics || {};
         const roles = [{ key: 'solar', label: 'Solar Power' }, { key: 'grid', label: 'Grid Import' }, { key: 'grid_export', label: 'Grid Export' }, { key: 'battery_power', label: 'Battery Power' }, { key: 'battery_discharge', label: 'Battery Discharge' }, { key: 'battery_soc', label: 'Battery SOC' }, { key: 'consumption', label: 'Consumption' }];
@@ -1636,6 +1655,25 @@ function renderDashboardBlockEditor(dashboard) {
               const m = configPanel.querySelector(`.config-mv-metric[data-idx="${i}"]`);
               const u = configPanel.querySelector(`.config-mv-unit[data-idx="${i}"]`);
               if (l && m) block.config.metrics.push({ label: l.value, metric: m.value, unit: u?.value || '' });
+            });
+          } else if (block.type === 'bar-gauge' || block.type === 'bar-gauge-retro') {
+            block.config.metrics = [];
+            configPanel.querySelectorAll('.config-bg-label').forEach(l => {
+              const i = parseInt(l.dataset.idx);
+              const m = configPanel.querySelector(`.config-bg-metric[data-idx="${i}"]`);
+              const u = configPanel.querySelector(`.config-bg-unit[data-idx="${i}"]`);
+              const minEl = configPanel.querySelector(`.config-bg-min[data-idx="${i}"]`);
+              const maxEl = configPanel.querySelector(`.config-bg-max[data-idx="${i}"]`);
+              const c = configPanel.querySelector(`.config-bg-color[data-idx="${i}"]`);
+              const g = configPanel.querySelector(`.config-bg-gradient[data-idx="${i}"]`);
+              const segEl = configPanel.querySelector(`.config-bg-segments[data-idx="${i}"]`);
+              if (l && m) {
+                const row = { label: l.value, metric: m.value, unit: u?.value || '',
+                  min: parseFloat(minEl?.value) || 0, max: parseFloat(maxEl?.value) || 100,
+                  color: c?.value || '', gradient: g?.value || '' };
+                if (segEl) row.segments = parseInt(segEl.value) || 10;
+                block.config.metrics.push(row);
+              }
             });
           } else if (block.type === 'flow-card-square' || block.type === 'flow-card-square-2') {
             block.config.inverter_image = configPanel.querySelector('.config-inverter-image')?.value || '';
@@ -1740,6 +1778,26 @@ function renderDashboardBlockEditor(dashboard) {
         }
         configPanel.querySelectorAll('.remove-mv-btn').forEach(btn => {
           btn.addEventListener('click', (e) => { btn.closest('.mv-row').remove(); });
+        });
+      }
+      // Attach add/remove row handlers for bar-gauge config panels
+      if (block.type === 'bar-gauge' || block.type === 'bar-gauge-retro') {
+        const isRetroAdd = block.type === 'bar-gauge-retro';
+        const addBtn = configPanel.querySelector('.add-bg-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const rows = configPanel.querySelectorAll('.bg-row');
+            const newIdx = rows.length;
+            const newRow = document.createElement('div');
+            newRow.className = 'bg-row';
+            newRow.style.cssText = 'display:flex;gap:0.25rem;margin-bottom:0.3rem;align-items:center;flex-wrap:wrap;';
+            newRow.innerHTML = `<input type="text" class="config-bg-label" data-idx="${newIdx}" placeholder="Label" style="flex:1;min-width:80px;"><select class="config-bg-metric" data-idx="${newIdx}" style="flex:1;min-width:100px;">${generateMetricOptionsHtml('')}</select><input type="text" class="config-bg-unit" data-idx="${newIdx}" placeholder="Unit" style="width:45px;"><input type="number" class="config-bg-min" data-idx="${newIdx}" value="0" placeholder="Min" style="width:50px;"><input type="number" class="config-bg-max" data-idx="${newIdx}" value="100" placeholder="Max" style="width:55px;"><input type="color" class="config-bg-color" data-idx="${newIdx}" value="" style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Bar color"><input type="text" class="config-bg-gradient" data-idx="${newIdx}" value="" placeholder="Gradient e.g. #ef4444,#eab308,#22c55e" style="width:120px;font-size:0.65rem;" title="Comma-separated CSS colors for gradient">${isRetroAdd ? `<input type="number" class="config-bg-segments" data-idx="${newIdx}" value="10" placeholder="Segs" style="width:48px;font-size:0.65rem;" title="Number of LED segments" min="2" max="40">` : ''}<button type="button" class="remove-bg-btn" data-idx="${newIdx}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>`;
+            newRow.querySelector('.remove-bg-btn').addEventListener('click', () => newRow.remove());
+            addBtn.before(newRow);
+          });
+        }
+        configPanel.querySelectorAll('.remove-bg-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => { btn.closest('.bg-row').remove(); });
         });
       }
       li.appendChild(configPanel);
