@@ -22,7 +22,7 @@
     .stg-back-link { color: var(--text-secondary); text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.35rem; }
     .stg-back-link:hover { color: var(--accent); }
 
-    .stg-main { flex: 1; min-width: 0; padding: 1.5rem 2rem 5rem; max-width: 1000px; }
+    .stg-main { flex: 1; min-width: 0; padding: 1.5rem 2rem 5rem; }
     .stg-section { display: none; }
     .stg-section.active { display: block; animation: stgFadeIn 0.2s ease; }
     .sub-tab-content { display: none; }
@@ -48,7 +48,12 @@
     .stg-subnav-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* ── Device Cards ──────────────────────────────────── */
-    .stg-device { background: var(--bg); border: 1px solid var(--border); border-radius: 0.6rem; margin-bottom: 0.5rem; overflow: hidden; }
+    .stg-device-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    @media (max-width: 800px) { .stg-device-grid { grid-template-columns: 1fr; } }
+    /* Auto-grid for device containers inside sub-tabs */
+    [id$="-devices-container"], #external-sources-container, #bms-devices-container, #dongle-devices-container { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    @media (max-width: 800px) { [id$="-devices-container"], #external-sources-container, #bms-devices-container, #dongle-devices-container { grid-template-columns: 1fr; } }
+    .stg-device { background: var(--bg); border: 1px solid var(--border); border-radius: 0.6rem; overflow: hidden; }
     .stg-device-bar { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.85rem; cursor: pointer; user-select: none; }
     .stg-device-bar:hover { background: var(--card-bg); }
     .stg-device-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -60,6 +65,12 @@
     .stg-device.open .stg-device-arrow { transform: rotate(180deg); }
     .stg-device-body { display: none; padding: 0 0.85rem 0.85rem; }
     .stg-device.open .stg-device-body { display: block; }
+
+    /* Narrow centered forms for simple sections */
+    .stg-section-narrow { max-width: 700px; }
+    /* Dashboard block cards 2-across */
+    .stg-dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    @media (max-width: 900px) { .stg-dash-grid { grid-template-columns: 1fr; } }
 
     /* ── Form elements ──────────────────────────────────── */
     .stg-form-group { margin-bottom: 1.2rem; }
@@ -131,6 +142,16 @@
     .status.success { background: #22c55e18; color: #22c55e; border: 1px solid #22c55e30; }
     .status.error { background: #ef444418; color: #ef4444; border: 1px solid #ef444430; }
     .status.info { background: #3b82f618; color: #3b82f6; border: 1px solid #3b82f630; }
+
+    /* Narrow centered forms for read-only sections */
+    #stg-section-solar .stg-card, #stg-section-savings .stg-card,
+    #stg-section-backup .stg-card, #stg-section-branding .stg-card,
+    #stg-section-help .stg-card, #stg-section-metrics .stg-card,
+    #stg-section-solar .stg-section-header, #stg-section-savings .stg-section-header,
+    #stg-section-backup .stg-section-header, #stg-section-branding .stg-section-header,
+    #stg-section-help .stg-section-header, #stg-section-metrics .stg-section-header {
+      max-width: 700px;
+    }
 
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {

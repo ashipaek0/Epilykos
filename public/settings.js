@@ -1215,7 +1215,7 @@ function renderDashboardBlockEditor(dashboard) {
   const container = document.getElementById('active-dashboard-editor');
   container.innerHTML = `<h4>Editing: ${escapeHtml(dashboard.name)}</h4>`;
   const blockList = document.createElement('div');
-  blockList.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;';
+  blockList.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;';
 
   dashboard.layout.forEach((block, idx) => {
     const currentSpan = block.colSpan ?? block.gridW ?? 12;
