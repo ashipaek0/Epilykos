@@ -33,7 +33,7 @@
     .stg-section-header p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; }
 
     /* ── Cards ─────────────────────────────────────────── */
-    .stg-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+    .stg-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius, 1rem); padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
     .stg-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
     .stg-card-title { font-weight: 600; font-size: 0.95rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
     .stg-card-title .stg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -112,7 +112,7 @@
     button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-btn:hover, button.test-modbus:hover, button[id*="test"]:hover { background: #2563eb; }
 
     /* ── Card save bar (moved into Branding card) ─────── */
-    .stg-card-savebar { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.65rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-radius: 0 0 0.75rem 0.75rem; }
+    .stg-card-savebar { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.65rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-radius: 0 0 var(--radius, 1rem) var(--radius, 1rem); }
     .stg-card-savebar .stg-dirty-count { font-size: 0.78rem; color: #f59e0b; font-weight: 600; display: none; }
     .stg-card-savebar .stg-dirty-count.show { display: block; }
     .stg-card-savebar .stg-save-status { font-size: 0.78rem; flex: 1; }
