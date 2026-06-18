@@ -167,8 +167,10 @@ function renderHaDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   card.querySelector('[data-action="remove-ha"]').addEventListener('click', () => {
-    card.remove();
-    reindexHa();
+    if (confirm('Remove this Home Assistant device and all its entity mappings?')) {
+      card.remove();
+      reindexHa();
+    }
   });
 
   card.querySelector('.fetch-ha-entities').addEventListener('click', async function() {
@@ -259,7 +261,9 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', () => row.remove());
+  removeBtn.addEventListener('click', () => {
+    if (confirm('Remove this metric mapping?')) row.remove();
+  });
   row.appendChild(metricSelect);
   row.appendChild(entitySelect);
   row.appendChild(removeBtn);
@@ -348,8 +352,10 @@ function renderMqttDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   card.querySelector('[data-action="remove-mqtt"]').addEventListener('click', () => {
-    card.remove();
-    reindexMqtt();
+    if (confirm('Remove this MQTT broker and all its topic mappings?')) {
+      card.remove();
+      reindexMqtt();
+    }
   });
 
   card.querySelector('.test-mqtt-broker').addEventListener('click', async function(e) {
@@ -436,7 +442,9 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', () => row.remove());
+  removeBtn.addEventListener('click', () => {
+    if (confirm('Remove this topic mapping?')) row.remove();
+  });
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
   row.appendChild(removeBtn);
@@ -537,8 +545,10 @@ function renderModbusDevice(device, idx) {
     });
   });
   card.querySelector('[data-action="remove-modbus"]').addEventListener('click', () => {
-    card.remove();
-    reindexModbus();
+    if (confirm('Remove this Modbus device and all its register mappings?')) {
+      card.remove();
+      reindexModbus();
+    }
   });
   card.querySelector('.test-modbus').addEventListener('click', async function() {
     const statusEl = document.createElement('span');
@@ -619,8 +629,10 @@ function renderExternalSource(source, idx) {
   `;
   container.appendChild(card);
   card.querySelector('[data-action="remove-external"]').addEventListener('click', () => {
-    card.remove();
-    reindexExternal();
+    if (confirm('Remove this external source and all its metric mappings?')) {
+      card.remove();
+      reindexExternal();
+    }
   });
   const mappingsList = card.querySelector('.mappings-list');
   renderExternalMappings(source.mappings || {}, idx, mappingsList);
@@ -666,7 +678,9 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') 
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', () => row.remove());
+  removeBtn.addEventListener('click', () => {
+    if (confirm('Remove this mapping?')) row.remove();
+  });
   row.appendChild(jsonPathInput);
   row.appendChild(metricSelect);
   row.appendChild(removeBtn);
@@ -717,8 +731,10 @@ function renderBmsDevice(device, idx) {
   `;
   container.appendChild(card);
   card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
-    card.remove();
-    reindexBms();
+    if (confirm('Remove this BMS device?')) {
+      card.remove();
+      reindexBms();
+    }
   });
 
   // Scan button – uses backend proxy to reach BMS bridge
@@ -884,8 +900,10 @@ function renderDongleDevice(device, idx) {
   });
 
   card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
-    card.remove();
-    reindexDongle();
+    if (confirm('Remove this dongle instance?')) {
+      card.remove();
+      reindexDongle();
+    }
   });
 
   card.querySelector('.test-dongle').addEventListener('click', async () => {
@@ -1216,6 +1234,7 @@ function buildDashboardEditor(config) {
       buildDashboardEditor(dashConfig);
     });
     row.querySelector('.delete-dash').addEventListener('click', () => {
+      if (!confirm(`Delete dashboard "${db.name}"? This cannot be undone.`)) return;
       dashConfig.dashboards = dashConfig.dashboards.filter(d => d.id !== db.id);
       if (dashConfig.activeDashboard === db.id) dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
       buildDashboardEditor(dashConfig);
@@ -1387,6 +1406,7 @@ function renderDashboardBlockEditor(dashboard) {
           const titleInput = cardRow.querySelector('.card-title');
           titleInput.addEventListener('change', (e) => { card.title = e.target.value; });
           cardRow.querySelector('.remove-card-btn').addEventListener('click', () => {
+            if (!confirm('Remove this metric card?')) return;
             block.cards.splice(cardIdx, 1);
             renderCards();
           });
@@ -1868,6 +1888,7 @@ function renderDashboardBlockEditor(dashboard) {
       dashboard.layout[idx].fontSize = e.target.value || '';
     });
     card.querySelector('.delete-block').addEventListener('click', () => {
+      if (!confirm('Remove this block from the dashboard?')) return;
       dashboard.layout.splice(idx, 1);
       renderDashboardBlockEditor(dashboard);
     });
