@@ -152,7 +152,13 @@ function renderHaDevice(device, idx) {
     </div>
     <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Entity Mappings</div>
     <div class="mappings-section" id="ha-mappings-${idx}">
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="ha-mappings-list-${idx}">
+      </div>
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
+      <div class="mappings-pagination" id="ha-mappings-more-${idx}" style="display:none;">
+        <button type="button" class="fetch-btn mappings-show-more" data-container="ha-mappings-list-${idx}" data-page="1">Show more (5+)</button>
+      </div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
         <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
@@ -337,7 +343,13 @@ function renderMqttDevice(device, idx) {
     </div>
     <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Topic Mappings</div>
     <div class="mappings-section">
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="mqtt-mappings-list-${idx}">
+      </div>
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
+      <div class="mappings-pagination" id="mqtt-mappings-more-${idx}" style="display:none;">
+        <button type="button" class="fetch-btn mappings-show-more" data-container="mqtt-mappings-list-${idx}" data-page="1">Show more (5+)</button>
+      </div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
         <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
@@ -618,7 +630,13 @@ function renderExternalSource(source, idx) {
     <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
     <div class="mappings-section">
       <div class="note" style="margin-bottom:0.5rem;">JSON path → metric name</div>
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="external-mappings-list-${idx}">
+      </div>
       <div class="mappings-list" id="external-mappings-list-${idx}"></div>
+      <div class="mappings-pagination" id="external-mappings-more-${idx}" style="display:none;">
+        <button type="button" class="fetch-btn mappings-show-more" data-container="external-mappings-list-${idx}" data-page="1">Show more (5+)</button>
+      </div>
       <button type="button" class="fetch-btn add-external-metric" data-device="${idx}">+ Add Mapping</button>
       <div class="test-row" style="margin-top:0.5rem;">
         <input type="text" class="test-jsonpath" placeholder="JSON path to test (e.g., data.temperature)">

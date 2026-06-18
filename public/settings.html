@@ -208,6 +208,11 @@
     .metric-row select, .metric-row .metric-name, .metric-row .entity-select { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .remove-metric { flex-shrink: 0; padding: 0.45rem 0.75rem; margin: 0; min-height: 34px; font-size: 0.8rem; font-weight: 600; }
     .mappings-list { margin-top: 0.25rem; }
+    .mappings-filter-bar { margin-bottom: 0.5rem; }
+    .mappings-filter-input { width: 100%; padding: 0.45rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; color: var(--text); font-size: 0.8rem; transition: border-color 0.15s; }
+    .mappings-filter-input:focus { outline: none; border-color: var(--accent); }
+    .mappings-filter-input::placeholder { color: var(--text-secondary); opacity: 0.5; }
+    .mappings-pagination { text-align: center; margin: 0.25rem 0 0.5rem; }
     button.fetch-btn { background: var(--text-secondary); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 0.5rem; }
     button.fetch-btn:hover { opacity: 0.9; }
     .test-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
@@ -576,6 +581,82 @@
   }
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+  // ── Mappings filter + pagination ──────────────────────────
+  const MAPPINGS_PAGE_SIZE = 5;
+  function applyMappingFilterAndPagination(containerId) {
+    const list = document.getElementById(containerId);
+    if (!list) return;
+    const rows = Array.from(list.querySelectorAll('.metric-row'));
+    const filterInput = document.querySelector(`.mappings-filter-input[data-container="${containerId}"]`);
+    const moreBtn = document.querySelector(`.mappings-show-more[data-container="${containerId}"]`);
+    const moreWrap = moreBtn ? moreBtn.closest('.mappings-pagination') : null;
+    const filterText = filterInput ? filterInput.value.toLowerCase().trim() : '';
+
+    // Filter
+    let visibleRows = rows;
+    if (filterText) {
+      visibleRows = rows.filter(row => row.textContent.toLowerCase().includes(filterText));
+      rows.forEach(row => { row.dataset.mfHidden = '1'; row.style.display = 'none'; });
+      visibleRows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
+    } else {
+      rows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
+    }
+
+    // Pagination
+    if (visibleRows.length > MAPPINGS_PAGE_SIZE && !filterText) {
+      let page = parseInt(moreBtn?.dataset.page || '1');
+      // Always show first page
+      const start = 0;
+      const end = MAPPINGS_PAGE_SIZE;
+      visibleRows.forEach((row, i) => {
+        row.style.display = i < end ? '' : 'none';
+      });
+      const remaining = visibleRows.length - end;
+      if (remaining > 0 && moreWrap) {
+        moreWrap.style.display = '';
+        if (moreBtn) {
+          moreBtn.textContent = `Show more (${remaining}+)`;
+          const newHandler = () => {
+            const curPage = parseInt(moreBtn.dataset.page || '1');
+            const nextEnd = MAPPINGS_PAGE_SIZE * (curPage + 1);
+            visibleRows.forEach((row, i) => {
+              row.style.display = i < nextEnd ? '' : 'none';
+            });
+            const stillRemaining = visibleRows.length - nextEnd;
+            if (stillRemaining <= 0) {
+              moreWrap.style.display = 'none';
+              moreBtn.textContent = 'All shown';
+            } else {
+              moreBtn.textContent = `Show more (${stillRemaining}+)`;
+            }
+            moreBtn.dataset.page = String(curPage + 1);
+          };
+          moreBtn.onclick = newHandler;
+        }
+      }
+    } else if (moreWrap) {
+      moreWrap.style.display = 'none';
+    }
+  }
+
+  // Event delegation for filter inputs
+  document.getElementById('settings-form').addEventListener('input', (e) => {
+    const input = e.target.closest('.mappings-filter-input');
+    if (input) {
+      const containerId = input.dataset.container;
+      applyMappingFilterAndPagination(containerId);
+    }
+  });
+
+  // Also trigger on dynamic "Add Metric Mapping" — need to re-run pagination after new rows
+  const paginationObserver = new MutationObserver(() => {
+    document.querySelectorAll('.mappings-filter-input').forEach(input => {
+      const containerId = input.dataset.container;
+      if (containerId) applyMappingFilterAndPagination(containerId);
+    });
+  });
+  paginationObserver.observe(document.getElementById('settings-form'), { childList: true, subtree: true });
 </script>
 <script src="settings.js"></script>
 </body>
