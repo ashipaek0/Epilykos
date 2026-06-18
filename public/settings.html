@@ -111,7 +111,16 @@
     button.test-dongle, button.test-mqtt-broker, button.test-mqtt-topic-btn, button.test-modbus, button[id*="test"] { background: #3b82f6; color: #fff; }
     button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-btn:hover, button.test-modbus:hover, button[id*="test"]:hover { background: #2563eb; }
 
-    /* ── Floating save bar ──────────────────────────────── */
+    /* ── Card save bar (moved into Branding card) ─────── */
+    .stg-card-savebar { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.65rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-radius: 0 0 0.75rem 0.75rem; }
+    .stg-card-savebar .stg-dirty-count { font-size: 0.78rem; color: #f59e0b; font-weight: 600; display: none; }
+    .stg-card-savebar .stg-dirty-count.show { display: block; }
+    .stg-card-savebar .stg-save-status { font-size: 0.78rem; flex: 1; }
+    .stg-card-savebar .stg-save-status.ok { color: #22c55e; }
+    .stg-card-savebar .stg-save-status.err { color: #ef4444; }
+    .stg-card-savebar button { margin-left: auto; }
+
+    /* ── Floating save bar (legacy, kept for compatibility) ── */
     .stg-savebar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 0.75rem 2rem; display: flex; align-items: center; gap: 1rem; z-index: 20; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
     .stg-savebar .stg-dirty-count { font-size: 0.8rem; color: #f59e0b; font-weight: 600; display: none; }
     .stg-savebar .stg-dirty-count.show { display: block; }
@@ -196,6 +205,7 @@
     .metric-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--border); }
     .metric-row:last-child { border-bottom: none; margin-bottom: 0; }
     .metric-row select, .metric-row input[type="text"] { width: auto; flex: 1; min-width: 100px; }
+    .metric-row select, .metric-row .metric-name, .metric-row .entity-select { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .remove-metric { flex-shrink: 0; padding: 0.45rem 0.75rem; margin: 0; min-height: 34px; font-size: 0.8rem; font-weight: 600; }
     .mappings-list { margin-top: 0.25rem; }
     button.fetch-btn { background: var(--text-secondary); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 0.5rem; }
@@ -406,10 +416,16 @@
       <!-- Branding -->
       <section class="stg-section" id="stg-section-branding">
         <div class="stg-section-header"><h2>Branding</h2><p>Customise the dashboard appearance</p></div>
-        <div class="stg-card">
-          <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos"></div>
-          <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo"></div>
-          <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon"></div>
+        <div class="stg-card" style="position:relative;padding-bottom:3.5rem;">
+          <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
+          <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
+          <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
+          <!-- Save bar inside card -->
+          <div class="stg-card-savebar">
+            <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
+            <span class="stg-save-status" id="save-status"></span>
+            <button type="button" id="stg-save-btn" class="stg-btn primary">💾 Save All Settings</button>
+          </div>
         </div>
       </section>
 
@@ -427,15 +443,8 @@
     </form>
   </main>
 
-  <!-- ── Floating Save Bar ──────────────────────────────────── -->
-  <div class="stg-savebar" id="stg-savebar">
-    <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
-    <span class="stg-save-status" id="save-status"></span>
-    <button type="button" id="stg-save-btn">Save All Settings</button>
-  </div>
+  <!-- ── Metric Modal ──────────────────────────────────── -->
 </div>
-
-<!-- Metric Modal -->
 <div class="stg-modal" id="metric-modal">
   <div class="stg-modal-box">
     <h3 style="margin:0 0 1rem;">Create New Metric</h3>
