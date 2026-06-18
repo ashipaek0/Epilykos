@@ -68,6 +68,7 @@ async function loadSettings() {
 function createMetricDropdown(selectedMetric = '') {
   const select = document.createElement('select');
   select.className = 'metric-name';
+  select.title = selectedMetric || 'Select a metric';
   const emptyOpt = document.createElement('option');
   emptyOpt.value = '';
   emptyOpt.textContent = '-- Select Metric --';
@@ -245,6 +246,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   const metricSelect = createMetricDropdown(metric);
   const entitySelect = document.createElement('select');
   entitySelect.className = 'entity-select';
+  entitySelect.title = entityId || 'Select entity';
   entitySelect.innerHTML = '<option value="">-- Select entity --</option>';
   if (entityId) {
     const opt = document.createElement('option');
