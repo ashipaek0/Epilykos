@@ -8,7 +8,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/irunmole/epilykos?style=flat&logo=github)](https://github.com/irunmole/epilykos)
 
-Connects directly to inverters, Home Assistant, MQTT, Modbus, and REST APIs.  
+Connects directly to inverters, Home Assistant, MQTT, Modbus, RS232 serial, and REST APIs.  
 Public display with no login required — settings are password-protected.
 
 </div>
@@ -23,6 +23,7 @@ Public display with no login required — settings are password-protected.
 - [Dashboard Editor](#dashboard-editor)
 - [Key Features](#key-features)
 - [Troubleshooting](#troubleshooting)
+
 - [License](#license)
 
 ---
@@ -56,6 +57,10 @@ services:
     volumes:
       - ./data:/app/data
       - ./.env:/app/.env
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
+    group_add:
+      - "dialout"                        # Serial port permissions
     restart: unless-stopped
 
   bms-bridge:           # optional — Bluetooth BMS only
@@ -97,6 +102,14 @@ Point Epilykos at any HTTP API that returns JSON. Map JSON field paths to dashbo
 ### Bluetooth BMS
 Requires the `bms-bridge` sidecar container. Scan for nearby devices and select the target MAC address.
 
+### RS232 Serial
+Connect inverters via USB-to-RS232/RS485 adapter. Supported protocols:
+- **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, Phocos, MUST, Sako (2400 8N1)
+- **Victron VE.Direct** — SmartSolar, BMV, MultiPlus via VE.Direct cable (19200 8N1, streaming)
+- **SolaX Pocket USB** — SolaX X1/X3 series via USB-to-TTL adapter (9600 8N1, binary AA55)
+
+Select your inverter's profile, pick the detected serial port, and save. The 30-second poll loop and WebSocket updates work identically to other data sources.
+
 ---
 
 ## Dashboard Editor
@@ -129,6 +142,8 @@ Multiple dashboards are supported, with automatic switching between desktop and 
 | **Settings page unavailable** | Confirm `SETTINGS_PASSWORD` is set correctly in `.env` |
 | **Inverter dongle timeout** | Ping the dongle IP from the server and verify the port is reachable |
 | **Charts are blank** | Open the browser console (`F12`) and check for JavaScript errors |
+| **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |
+| **RS232 permission denied** | `sudo usermod -a -G dialout $USER` then log out and back in |
 | **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |
 
 ---
