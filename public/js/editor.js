@@ -10,91 +10,135 @@ function hideLoading() { const o = document.getElementById('loading-overlay'); i
 
 async function persistLayout() {
   if (!grid) return;
-  const items = grid.getGridItems();
-  const layout = [];
-  items.forEach(el => {
-    const n = el.gridstackNode;
-    const block = { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true, config: {} };
-    const existing = dashboardConfig.dashboards.find(db => db.id === currentTabId)?.layout.find(b => b.id === el.dataset.blockId);
+  var items = grid.getGridItems();
+  var layout = [];
+  items.forEach(function(el) {
+    var n = el.gridstackNode;
+    var block = { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true, config: {} };
+    var existing = null;
+    var tabs = dashboardConfig.dashboards;
+    for (var ti = 0; ti < tabs.length; ti++) {
+      if (tabs[ti].id === currentTabId) {
+        for (var li = 0; li < tabs[ti].layout.length; li++) {
+          if (tabs[ti].layout[li].id === el.dataset.blockId) { existing = tabs[ti].layout[li]; break; }
+        }
+        break;
+      }
+    }
     if (existing) { block.config = existing.config; block.transparent = existing.transparent; block.bgColor = existing.bgColor; block.fontColor = existing.fontColor; block.fontSize = existing.fontSize; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
     layout.push(block);
   });
-  const tab = dashboardConfig.dashboards.find(db => db.id === currentTabId);
+  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
   if (tab) { tab.layout = layout; tab.name = document.getElementById('dash-name-input').value || tab.name; }
-  await saveDashboardConfig(dashboardConfig).catch(e => console.warn('Save failed:', e));
+  await saveDashboardConfig(dashboardConfig).catch(function(e) { console.warn('Save failed:', e); });
 }
 
 function refreshTabSelect() {
-  const ts = document.getElementById('tab-select');
+  var ts = document.getElementById('tab-select');
   ts.innerHTML = '';
-  dashboardConfig.dashboards.forEach(db => {
-    const o = document.createElement('option'); o.value = db.id; o.textContent = db.name; o.selected = db.id === currentTabId;
+  dashboardConfig.dashboards.forEach(function(db) {
+    var o = document.createElement('option'); o.value = db.id; o.textContent = db.name; o.selected = db.id === currentTabId;
     ts.appendChild(o);
   });
 }
 
+/**
+ * Build a single grid-stack-item DOM element for a block definition.
+ * @param {object} block - block config {id, type, gridX, gridY, gridW, gridH, ...}
+ * @returns {HTMLElement} the grid-stack-item element
+ */
+function buildGridItem(block) {
+  var builder = componentBuilders[block.type];
+  if (!builder) return null;
+  var content = builder(block);
+  if (!content) return null;
+
+  var item = document.createElement('div');
+  item.className = 'grid-stack-item';
+  item.dataset.blockId = block.id || ('b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
+  item.dataset.blockType = block.type;
+  item.setAttribute('gs-x', block.gridX ?? 0);
+  item.setAttribute('gs-y', block.gridY ?? 0);
+  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? 6);
+  item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / 50)));
+  item.setAttribute('gs-min-w', 2);
+  item.setAttribute('gs-min-h', 1);
+
+  var inner = document.createElement('div');
+  inner.className = 'grid-stack-item-content';
+  inner.style.padding = '0.5rem'; inner.style.fontSize = '0.8rem'; inner.style.position = 'relative';
+
+  var delBtn = document.createElement('button');
+  delBtn.textContent = '\u2715';
+  delBtn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:10;background:#ef4444;color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;';
+  delBtn.addEventListener('click', function(e) { e.stopPropagation(); grid.removeWidget(item); persistLayout(); markUnsaved(); });
+  inner.appendChild(delBtn);
+  inner.appendChild(content);
+  item.appendChild(inner);
+  return item;
+}
+
+/**
+ * Add a single block to the active dashboard without rebuilding the entire grid.
+ * @param {string} type - block type identifier
+ */
+function addBlockToGrid(type) {
+  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
+  if (!tab) return;
+  var newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
+  tab.layout.push(newBlock);
+  var item = buildGridItem(newBlock);
+  if (!item) return;
+
+  // Add via GridStack API — finds next available Y position
+  grid.addWidget(item);
+  markUnsaved();
+  persistLayout(); // auto-save after add
+}
+
 async function loadTab(tabId) {
-  const tab = dashboardConfig.dashboards.find(db => db.id === tabId);
+  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === tabId; });
   if (!tab) return;
   currentTabId = tabId;
   document.getElementById('dash-name-input').value = tab.name || '';
   refreshTabSelect();
 
-  const container = document.getElementById('grid');
+  var container = document.getElementById('grid');
   container.innerHTML = '';
   if (grid) { grid.destroy(false); grid = null; }
 
-  tab.layout.forEach(block => {
+  tab.layout.forEach(function(block) {
     if (block.enabled === false) return;
-    const builder = componentBuilders[block.type];
-    if (!builder) return;
-    const content = builder(block);
-    if (!content) return;
-
-    const item = document.createElement('div');
-    item.className = 'grid-stack-item';
-    item.dataset.blockId = block.id || ('b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
-    item.dataset.blockType = block.type;
-    item.setAttribute('gs-x', block.gridX ?? 0);
-    item.setAttribute('gs-y', block.gridY ?? 0);
-    item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? 6);
-    item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / 50)));
-    item.setAttribute('gs-min-w', 2);
-    item.setAttribute('gs-min-h', 1);
-
-    const inner = document.createElement('div');
-    inner.className = 'grid-stack-item-content';
-    inner.style.padding = '0.5rem'; inner.style.fontSize = '0.8rem'; inner.style.position = 'relative';
-
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
-    delBtn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:10;background:#ef4444;color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;';
-    delBtn.addEventListener('click', e => { e.stopPropagation(); grid.removeWidget(item); persistLayout(); markUnsaved(); });
-    inner.appendChild(delBtn);
-    inner.appendChild(content);
-    item.appendChild(inner);
-    container.appendChild(item);
+    var item = buildGridItem(block);
+    if (item) container.appendChild(item);
   });
 
   grid = GridStack.init({ column: 12, cellHeight: 50, float: false, animate: true, resizable: { handles: 'e, se, s, sw, w' }, minRow: 1 }, container);
-  grid.on('change', () => { markUnsaved(); });
-  grid.on('dragstop', () => { persistLayout(); });
-  grid.on('resizestop', () => { persistLayout(); });
+  grid.on('change', function() { markUnsaved(); });
+  grid.on('dragstop', function() { persistLayout(); });
+  grid.on('resizestop', function() { persistLayout(); });
 
   // Enable palette drops via GridStack's own drop handling
-  grid.opts.acceptWidgets = (el) => true;
-  const dropZone = container.closest('.editor-grid-wrapper') || container;
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-  dropZone.addEventListener('drop', e => {
+  grid.opts.acceptWidgets = function(el) { return true; };
+
+  var dropZone = container.closest('.editor-grid-wrapper') || container;
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
-    const type = e.dataTransfer.getData('blockType');
-    if (!type) return;
-    const tab = dashboardConfig.dashboards.find(db => db.id === currentTabId);
-    if (!tab) return;
-    const newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
-    tab.layout.push(newBlock);
-    loadTab(currentTabId).then(() => { persistLayout(); markUnsaved(); });
+    var type = e.dataTransfer.getData('blockType');
+    if (type) addBlockToGrid(type);
   });
+
+  // Auth check for header buttons
+  fetch('/api/auth/status')
+    .then(function(r) { return r.json(); })
+    .then(function(auth) {
+      if (!auth.authenticated) {
+        document.getElementById('save-btn').disabled = true;
+        dropZone.style.opacity = '0.5';
+        dropZone.style.pointerEvents = 'none';
+      }
+    }).catch(function() {});
 }
 
 async function initEditor() {
@@ -108,59 +152,55 @@ async function initEditor() {
     currentTabId = dashboardConfig.activeDashboard || dashboardConfig.dashboards[0].id;
 
     refreshTabSelect();
-    document.getElementById('tab-select').addEventListener('change', e => {
+    document.getElementById('tab-select').addEventListener('change', function(e) {
       if (unsaved) { persistLayout(); clearUnsaved(); }
       loadTab(e.target.value);
     });
-    document.getElementById('dash-name-input').addEventListener('change', () => { markUnsaved(); });
+    document.getElementById('dash-name-input').addEventListener('change', function() { markUnsaved(); });
 
     // New Dashboard
-    document.getElementById('new-dash-btn').addEventListener('click', () => {
-      const id = 'db_' + Date.now();
-      dashboardConfig.dashboards.push({ id, name: 'New Dashboard', layout: [] });
+    document.getElementById('new-dash-btn').addEventListener('click', function() {
+      var id = 'db_' + Date.now();
+      dashboardConfig.dashboards.push({ id: id, name: 'New Dashboard', layout: [] });
       dashboardConfig.activeDashboard = id;
       persistLayout(); clearUnsaved();
       loadTab(id);
     });
 
     // Delete Dashboard
-    document.getElementById('delete-dash-btn').addEventListener('click', () => {
+    document.getElementById('delete-dash-btn').addEventListener('click', function() {
       if (dashboardConfig.dashboards.length <= 1) { alert('Cannot delete the last dashboard.'); return; }
       if (!confirm('Delete this dashboard and all its blocks?')) return;
-      dashboardConfig.dashboards = dashboardConfig.dashboards.filter(db => db.id !== currentTabId);
+      dashboardConfig.dashboards = dashboardConfig.dashboards.filter(function(db) { return db.id !== currentTabId; });
       currentTabId = dashboardConfig.dashboards[0].id;
       dashboardConfig.activeDashboard = currentTabId;
-      saveDashboardConfig(dashboardConfig).catch(e => console.warn(e));
+      saveDashboardConfig(dashboardConfig).catch(function(e) { console.warn(e); });
       loadTab(currentTabId);
     });
 
-    // Palette
-    const palette = document.getElementById('available-blocks');
-    const names = { 'flow-card':'🔄 Flow Card','forecast-banner':'☀️ Forecast','metric-cards':'📊 Metric Cards','grid-card':'🔌 Grid Card','chart-power':'⚡ Power Chart','chart-energy':'📈 Energy Chart','savings-summary':'💰 Savings','data-table-daily':'📋 Daily Table','data-table-monthly':'📅 Monthly Table','weather-block':'🌤️ Weather','battery-block':'🔋 Battery','flow-card-2':'🔄 Flow Card 2','multi-value':'📊 Multi-Value','gauge-card':'🎯 Gauge','text-card':'📝 Text','iframe-card':'🌐 Embed' };
-    Object.entries(componentBuilders).forEach(([type]) => {
-      const item = document.createElement('div');
+    // Palette — use addBlockToGrid instead of loadTab rebuild
+    var palette = document.getElementById('available-blocks');
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','text-card':'\uD83D\uDCDD Text','iframe-card':'\uD83C\uDF10 Embed' };
+    Object.entries(componentBuilders).forEach(function(entry) {
+      var type = entry[0];
+      var item = document.createElement('div');
       item.className = 'block-item'; item.textContent = names[type] || type; item.draggable = true; item.dataset.blockType = type;
-      item.addEventListener('dragstart', e => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('blockType', type); });
-      item.addEventListener('click', () => {
-        const tab = dashboardConfig.dashboards.find(db => db.id === currentTabId);
-        if (!tab) return;
-        tab.layout.push({ id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type, enabled: true, colSpan: 6, rowSpan: 200, config: {} });
-        loadTab(currentTabId).then(() => { persistLayout(); markUnsaved(); });
-      });
+      item.addEventListener('dragstart', function(e) { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('blockType', type); });
+      item.addEventListener('click', function() { addBlockToGrid(type); });
       palette.appendChild(item);
     });
 
     // Export/Import
-    document.getElementById('export-btn').addEventListener('click', () => {
-      const json = JSON.stringify(dashboardConfig, null, 2);
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = 'dashboard-config.json'; a.click();
+    document.getElementById('export-btn').addEventListener('click', function() {
+      var json = JSON.stringify(dashboardConfig, null, 2);
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = 'dashboard-config.json'; a.click();
     });
-    document.getElementById('import-btn').addEventListener('click', () => {
-      const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
-      input.addEventListener('change', async e => {
-        const file = e.target.files[0]; if (!file) return;
+    document.getElementById('import-btn').addEventListener('click', function() {
+      var input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+      input.addEventListener('change', async function(e) {
+        var file = e.target.files[0]; if (!file) return;
         try {
-          const text = await file.text(); const imported = JSON.parse(text);
+          var text = await file.text(); var imported = JSON.parse(text);
           if (!imported.dashboards) throw new Error('Invalid format');
           dashboardConfig = imported;
           currentTabId = dashboardConfig.dashboards[0]?.id;
@@ -173,7 +213,7 @@ async function initEditor() {
     });
 
     await loadTab(currentTabId);
-    document.getElementById('save-btn').addEventListener('click', async () => { await persistLayout(); clearUnsaved(); const validTab = dashboardConfig.dashboards.find(db => db.id === currentTabId) ? currentTabId : dashboardConfig.dashboards[0]?.id || 'main'; window.location.href = '/?tab=' + encodeURIComponent(validTab); });
+    document.getElementById('save-btn').addEventListener('click', async function() { await persistLayout(); clearUnsaved(); var validTab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) ? currentTabId : dashboardConfig.dashboards[0]?.id || 'main'; window.location.href = '/?tab=' + encodeURIComponent(validTab); });
     hideLoading();
   } catch (e) { hideLoading(); alert('Editor failed: ' + e.message); }
 }
