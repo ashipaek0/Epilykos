@@ -245,17 +245,8 @@
       .editor-controls { justify-content: center; }
     }
   </style>
-  <script>
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options = {}) {
-      if (options.method && options.method.toUpperCase() !== 'GET') {
-        options.headers = options.headers || {};
-        if (options.headers instanceof Headers) options.headers.set('X-Requested-With', 'XMLHttpRequest');
-        else options.headers['X-Requested-With'] = 'XMLHttpRequest';
-      }
-      return originalFetch.call(this, url, options);
-    };
-  </script>
+  <!-- CSRF protection -->
+  <script defer src="js/csrf.js"></script>
 </head>
 <body>
 <div class="container">

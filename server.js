@@ -262,6 +262,7 @@ app.get('/api/public-config', async (req, res) => {
     config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
     config.savings_currency = config.savings_currency || '€';
     config.savings_rate = config.savings_rate || '0.30';
+    res.set('Cache-Control', 'public, max-age=300');
     res.json(config);
   } catch (err) {
     logger.error('Error in /api/public-config:', err);
@@ -276,6 +277,7 @@ app.get('/api/current', async (req, res) => {
     const rate = parseFloat(rateRow?.value) || 0.30;
     const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY date(timestamp, 'unixepoch'))`).get();
     const allTimeSavings = (allTimeSolar?.total || 0) * rate;
+    res.set('Cache-Control', 'public, max-age=10');
     if (latest) {
       const curr = getConfig('savings_currency') || '€';
       const dailySolarKwh = computeTodaySolar();

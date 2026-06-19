@@ -19,6 +19,7 @@ const { FelicityTcpTransport } = require('./dongle/felicityTcp');
 
 let pollIntervals = [];
 let growattServer = null;
+const profileCache = new Map();
 
 function startDonglePolling() {
   stopDonglePolling();
@@ -90,9 +91,14 @@ function writeMetrics(metrics, units) {
 }
 
 function loadProfile(profileId) {
+  if (profileCache.has(profileId)) {
+    return profileCache.get(profileId);
+  }
   const profilePath = path.join(__dirname, '..', 'profiles', 'dongles', `${profileId}.json`);
   try {
-    return JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    profileCache.set(profileId, profile);
+    return profile;
   } catch (e) {
     logger.error(`[dongle] Failed to load profile ${profileId}: ${e.message}`);
     return null;

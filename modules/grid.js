@@ -71,17 +71,19 @@ async function getCurrentGridStatus() {
     }
   }
 
-  const lastOn  = db.prepare('SELECT timestamp FROM grid_status WHERE state = 1 ORDER BY timestamp DESC LIMIT 1').get();
-  const lastOff = db.prepare('SELECT timestamp FROM grid_status WHERE state = 0 ORDER BY timestamp DESC LIMIT 1').get();
+  const row = db.prepare(`SELECT
+    (SELECT state FROM grid_status ORDER BY timestamp DESC LIMIT 1) AS last_change_state,
+    MAX(CASE WHEN state = 1 THEN timestamp END) AS last_on,
+    MAX(CASE WHEN state = 0 THEN timestamp END) AS last_off,
+    MAX(timestamp) AS last_change_ts
+  FROM grid_status`).get();
+
   return {
     configured: true,
     current: current === 1,
-    lastOn:  lastOn  ? lastOn.timestamp  * 1000 : null,
-    lastOff: lastOff ? lastOff.timestamp * 1000 : null,
-    lastChange: (() => {
-      const row = db.prepare('SELECT timestamp, state FROM grid_status ORDER BY timestamp DESC LIMIT 1').get();
-      return row ? { time: row.timestamp * 1000, state: row.state } : null;
-    })()
+    lastOn:  row.last_on  ? row.last_on  * 1000 : null,
+    lastOff: row.last_off ? row.last_off * 1000 : null,
+    lastChange: row.last_change_ts ? { time: row.last_change_ts * 1000, state: row.last_change_state } : null
   };
 }
 

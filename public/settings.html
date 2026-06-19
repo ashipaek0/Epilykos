@@ -218,37 +218,8 @@
     .test-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
     .backup-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; }
   </style>
-  <script>
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options = {}) {
-      let newOptions = { ...options };
-      if (newOptions.method && newOptions.method.toUpperCase() !== 'GET') {
-        newOptions.headers = newOptions.headers || {};
-        if (newOptions.headers instanceof Headers) {
-          newOptions.headers.set('X-Requested-With', 'XMLHttpRequest');
-        } else {
-          newOptions.headers['X-Requested-With'] = 'XMLHttpRequest';
-        }
-        if (typeof url === 'string' && url.endsWith('/api/settings') && newOptions.method.toUpperCase() === 'POST') {
-          if (newOptions.body && typeof newOptions.body === 'string') {
-            try {
-              let bodyObj = JSON.parse(newOptions.body);
-              let modified = false;
-              const arrayKeys = ['mqtt_devices', 'ha_devices', 'modbus_devices', 'external_sources', 'bms_devices', 'dongle_config', 'user_metrics'];
-              for (let key of arrayKeys) {
-                if (bodyObj.hasOwnProperty(key) && Array.isArray(bodyObj[key])) {
-                  bodyObj[key] = JSON.stringify(bodyObj[key]);
-                  modified = true;
-                }
-              }
-              if (modified) { newOptions.body = JSON.stringify(bodyObj); }
-            } catch(e) { console.warn('Failed to parse settings body', e); }
-          }
-        }
-      }
-      return originalFetch.call(this, url, newOptions);
-    };
-  </script>
+  <!-- CSRF protection -->
+  <script defer src="js/csrf.js"></script>
 </head>
 <body>
 <div class="stg-shell">
