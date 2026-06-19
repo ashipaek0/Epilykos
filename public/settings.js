@@ -28,7 +28,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -40,6 +40,7 @@ async function loadSettings() {
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
+    buildRs232DeviceList(JSON.parse(data.rs232_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
     buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
@@ -601,6 +602,161 @@ const addModbusBtn = document.getElementById('add-modbus-device');
 if (addModbusBtn) addModbusBtn.addEventListener('click', () => {
   const idx = modbusDeviceCounter;
   renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
+});
+
+// ======================== RS232 ========================
+let rs232DeviceCounter = 0;
+let availableRs232Ports = [];
+
+function buildRs232DeviceList(devices) {
+  const container = document.getElementById('rs232-devices-container');
+  if (!container) return;
+  container.innerHTML = '';
+  rs232DeviceCounter = 0;
+  fetch('/api/rs232/ports').then(r => r.json()).then(ports => {
+    availableRs232Ports = ports;
+    devices.forEach((dev, idx) => renderRs232Device(dev, idx));
+  }).catch(() => {
+    availableRs232Ports = [];
+    devices.forEach((dev, idx) => renderRs232Device(dev, idx));
+  });
+}
+
+function renderRs232Device(device, idx) {
+  const container = document.getElementById('rs232-devices-container');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="rs232_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label><input type="checkbox" name="rs232_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
+      <button type="button" class="remove-btn danger" data-action="remove-rs232">Remove</button>
+    </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="form-row">
+      <select name="rs232_devices[${idx}][serial_path]" class="rs232-port-select">
+        <option value="">-- Select serial port --</option>
+        ${availableRs232Ports.map(p =>
+          `<option value="${escapeHtml(p.path)}" ${p.path === device.serial_path ? 'selected' : ''}>${escapeHtml(p.friendlyName)}</option>`
+        ).join('')}
+        <option value="custom" ${device.serial_path && !availableRs232Ports.some(p => p.path === device.serial_path) ? 'selected' : ''}>Custom path...</option>
+      </select>
+    </div>
+    <div class="form-row rs232-custom-path" style="${device.serial_path && !availableRs232Ports.some(p => p.path === device.serial_path) ? '' : 'display:none;'}">
+      <input type="text" name="rs232_devices[${idx}][custom_path]" placeholder="/dev/ttyUSB0" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}">
+    </div>
+    <div class="form-row">
+      <select name="rs232_devices[${idx}][baud]">
+        ${[300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map(b =>
+          `<option value="${b}" ${(parseInt(device.baud) || 9600) == b ? 'selected' : ''}>${b} baud</option>`
+        ).join('')}
+      </select>
+      <select name="rs232_devices[${idx}][parity]">
+        <option value="none" ${(device.parity || 'none') === 'none' ? 'selected' : ''}>None</option>
+        <option value="even" ${device.parity === 'even' ? 'selected' : ''}>Even</option>
+        <option value="odd" ${device.parity === 'odd' ? 'selected' : ''}>Odd</option>
+      </select>
+      <select name="rs232_devices[${idx}][data_bits]">
+        <option value="7" ${parseInt(device.data_bits) === 7 ? 'selected' : ''}>7 bits</option>
+        <option value="8" ${(parseInt(device.data_bits) || 8) === 8 ? 'selected' : ''}>8 bits</option>
+      </select>
+      <select name="rs232_devices[${idx}][stop_bits]">
+        <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
+        <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
+      </select>
+    </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
+    <div class="form-row">
+      <select name="rs232_devices[${idx}][profile]" class="rs232-profile-select">
+        <option value="">-- Select profile --</option>
+      </select>
+      <input type="number" name="rs232_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;">
+      <button type="button" class="fetch-btn test-rs232">Test RS232</button>
+    </div>
+  `;
+  container.appendChild(card);
+
+  const portSelect = card.querySelector('.rs232-port-select');
+  const customPathDiv = card.querySelector('.rs232-custom-path');
+  portSelect.addEventListener('change', e => {
+    customPathDiv.style.display = e.target.value === 'custom' ? '' : 'none';
+  });
+
+  const profileSelect = card.querySelector('.rs232-profile-select');
+  fetch('/api/rs232/profiles').then(r => r.json()).then(profiles => {
+    profiles.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.protocol})`;
+      if (p.id === device.profile) opt.selected = true;
+      profileSelect.appendChild(opt);
+    });
+  });
+
+  card.querySelector('[data-action="remove-rs232"]').addEventListener('click', () => {
+    if (confirm('Remove this RS232 device?')) {
+      card.remove();
+      reindexRs232();
+    }
+  });
+
+  card.querySelector('.test-rs232').addEventListener('click', async function() {
+    const statusEl = document.createElement('span');
+    statusEl.className = 'test-status';
+    this.after(statusEl);
+    const dev = collectRs232Config(card);
+    try {
+      const res = await fetch('/api/test-rs232', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dev),
+      });
+      const data = await res.json();
+      if (res.ok) showStatus(statusEl, `OK: ${Object.keys(data.metrics || {}).length} metrics`, 'success');
+      else showStatus(statusEl, data.error, 'error');
+    } catch (err) {
+      showStatus(statusEl, err.message, 'error');
+    }
+  });
+
+  rs232DeviceCounter++;
+}
+
+function reindexRs232() {
+  const cards = document.querySelectorAll('#rs232-devices-container .device-card');
+  rs232DeviceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    rs232DeviceCounter++;
+  });
+}
+
+function collectRs232Config(card) {
+  const dev = {};
+  dev.name = card.querySelector('.device-header input[type="text"]').value;
+  dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+  const portSelect = card.querySelector('.rs232-port-select');
+  const customPath = card.querySelector('input[name$="[custom_path]"]')?.value;
+  dev.serial_path = portSelect.value === 'custom' ? (customPath || '/dev/ttyUSB0') : portSelect.value;
+  dev.baud = parseInt(card.querySelector('select[name$="[baud]"]').value) || 9600;
+  dev.parity = card.querySelector('select[name$="[parity]"]').value || 'none';
+  dev.data_bits = parseInt(card.querySelector('select[name$="[data_bits]"]').value) || 8;
+  dev.stop_bits = parseInt(card.querySelector('select[name$="[stop_bits]"]').value) || 1;
+  dev.profile = card.querySelector('.rs232-profile-select').value;
+  dev.timeout = parseInt(card.querySelector('input[name$="[timeout]"]').value) || 5000;
+  return dev;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const addBtn = document.getElementById('add-rs232-device');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    const idx = rs232DeviceCounter;
+    renderRs232Device({
+      name: '', serial_path: '', baud: 9600, data_bits: 8,
+      stop_bits: 1, parity: 'none', profile: '', timeout: 5000,
+      enabled: true,
+    }, idx);
+  });
 });
 
 // ======================== EXTERNAL REST SOURCES ========================
@@ -2021,6 +2177,9 @@ form.addEventListener('submit', async (e) => {
     dev.unit = card.querySelector('input[name$="[unit]"]')?.value || 1;
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]')?.value || 30;
     return dev;
+  });
+  payload.rs232_devices = collectDeviceArray('rs232-devices-container', (card) => {
+    return collectRs232Config(card);
   });
   payload.external_sources = collectDeviceArray('external-sources-container', (card) => {
     const src = {};
