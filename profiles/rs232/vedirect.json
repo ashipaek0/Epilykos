@@ -9,8 +9,8 @@
     "parity": "none"
   },
   "fields": [
-    { "label": "V",     "metric": "battery_voltage",   "scale": 0.001, "type": "millivolt", "unit": "V" },
-    { "label": "I",     "metric": "battery_current",   "scale": 0.001, "type": "milliamp",  "unit": "A" },
+    { "label": "V",     "metric": "battery_voltage",   "type": "millivolt", "unit": "V" },
+    { "label": "I",     "metric": "battery_current",   "type": "milliamp",  "unit": "A" },
     { "label": "VPV",   "metric": "solar_voltage",     "scale": 0.01,  "unit": "V" },
     { "label": "PPV",   "metric": "solar_power",       "scale": 1,     "unit": "W" },
     { "label": "SOC",   "metric": "battery_soc",       "scale": 0.1,   "unit": "%" },
