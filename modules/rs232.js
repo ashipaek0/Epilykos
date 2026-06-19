@@ -1,6 +1,6 @@
-const { SerialPort } = require('serialport');
-const { ReadlineParser } = require('@serialport/parser-readline');
-const { DelimiterParser } = require('@serialport/parser-delimiter');
+const SerialPort = require('serialport');
+const ReadlineParser = require('@serialport/parser-readline');
+const DelimiterParser = require('@serialport/parser-delimiter');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, getDb } = require('./database');
@@ -62,12 +62,32 @@ function loadRs232Profiles() {
         decoder: profile.decoder || null,
         frame_format: profile.frame_format || null,
         call_order: profile.call_order || null,
+        profile_file: profile.profile_file || null,
       });
     } catch (e) {
       logger.error(`Failed to parse RS232 profile ${file}:`, e.message);
     }
   }
   logger.info(`Loaded ${availableProfiles.length} RS232 profile(s).`);
+
+  // Second pass: resolve profile_file aliases (after all profiles are loaded)
+  resolveAliases();
+}
+
+function resolveAliases() {
+  for (const profile of availableProfiles) {
+    if (profile.profile_file) {
+      const targetId = profile.profile_file.replace('.json', '');
+      const target = availableProfiles.find(p => p.id === targetId);
+      if (target && target !== profile) {
+        profile.commands = target.commands;
+        profile.fields = target.fields;
+        profile.frame_format = target.frame_format;
+        profile.call_order = target.call_order;
+        profile.decoder = profile.decoder || target.decoder;
+      }
+    }
+  }
 }
 
 // ── Serial Port Helpers ─────────────────────────────────────────────────
@@ -286,9 +306,10 @@ async function pollQueryDevice(device, profile) {
       Object.assign(results, parsed);
     }
 
-    // Write to database
+    // Write to database — only numeric values
     const now = Math.floor(Date.now() / 1000);
     for (const [metric, value] of Object.entries(results)) {
+      if (typeof value !== 'number' || isNaN(value)) continue;
       getMetricInsert().run(now, metric, value);
       getLatestUpsert().run(metric, value, now);
     }
@@ -324,6 +345,7 @@ function setupStreamingConnection(device, profile) {
       if (Object.keys(metrics).length > 0) {
         const now = Math.floor(Date.now() / 1000);
         for (const [metric, val] of Object.entries(metrics)) {
+          if (typeof val !== 'number' || isNaN(val)) continue;
           getMetricInsert().run(now, metric, val);
           getLatestUpsert().run(metric, val, now);
         }
