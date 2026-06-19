@@ -33,7 +33,7 @@
     .stg-section-header p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; }
 
     /* ── Cards ─────────────────────────────────────────── */
-    .stg-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+    .stg-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius, 1rem); padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
     .stg-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
     .stg-card-title { font-weight: 600; font-size: 0.95rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
     .stg-card-title .stg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -46,6 +46,12 @@
     .stg-subnav-btn { padding: 0.4rem 0.85rem; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); border-radius: 99px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; font-weight: 500; }
     .stg-subnav-btn:hover { border-color: var(--accent); color: var(--text); }
     .stg-subnav-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── Section Dividers within Device Cards ─────────── */
+    .stg-section-divider { display: flex; align-items: center; gap: 0.5rem; margin: 0.85rem 0 0.75rem; font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+    .stg-section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .stg-section-divider .stg-divider-icon { font-size: 0.85rem; flex-shrink: 0; }
+    .stg-section-divider:first-child { margin-top: 0; }
 
     /* ── Device Cards ──────────────────────────────────── */
     .stg-device-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
@@ -105,7 +111,16 @@
     button.test-dongle, button.test-mqtt-broker, button.test-mqtt-topic-btn, button.test-modbus, button[id*="test"] { background: #3b82f6; color: #fff; }
     button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-btn:hover, button.test-modbus:hover, button[id*="test"]:hover { background: #2563eb; }
 
-    /* ── Floating save bar ──────────────────────────────── */
+    /* ── Card save bar (moved into Branding card) ─────── */
+    .stg-card-savebar { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.65rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-radius: 0 0 var(--radius, 1rem) var(--radius, 1rem); }
+    .stg-card-savebar .stg-dirty-count { font-size: 0.78rem; color: #f59e0b; font-weight: 600; display: none; }
+    .stg-card-savebar .stg-dirty-count.show { display: block; }
+    .stg-card-savebar .stg-save-status { font-size: 0.78rem; flex: 1; }
+    .stg-card-savebar .stg-save-status.ok { color: #22c55e; }
+    .stg-card-savebar .stg-save-status.err { color: #ef4444; }
+    .stg-card-savebar button { margin-left: auto; }
+
+    /* ── Floating save bar (legacy, kept for compatibility) ── */
     .stg-savebar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 0.75rem 2rem; display: flex; align-items: center; gap: 1rem; z-index: 20; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
     .stg-savebar .stg-dirty-count { font-size: 0.8rem; color: #f59e0b; font-weight: 600; display: none; }
     .stg-savebar .stg-dirty-count.show { display: block; }
@@ -190,8 +205,14 @@
     .metric-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--border); }
     .metric-row:last-child { border-bottom: none; margin-bottom: 0; }
     .metric-row select, .metric-row input[type="text"] { width: auto; flex: 1; min-width: 100px; }
+    .metric-row select, .metric-row .metric-name, .metric-row .entity-select { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .remove-metric { flex-shrink: 0; padding: 0.45rem 0.75rem; margin: 0; min-height: 34px; font-size: 0.8rem; font-weight: 600; }
     .mappings-list { margin-top: 0.25rem; }
+    .mappings-filter-bar { margin-bottom: 0.5rem; }
+    .mappings-filter-input { width: 100%; padding: 0.45rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; color: var(--text); font-size: 0.8rem; transition: border-color 0.15s; }
+    .mappings-filter-input:focus { outline: none; border-color: var(--accent); }
+    .mappings-filter-input::placeholder { color: var(--text-secondary); opacity: 0.5; }
+    .mappings-pagination { text-align: center; margin: 0.25rem 0 0.5rem; }
     button.fetch-btn { background: var(--text-secondary); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 0.5rem; }
     button.fetch-btn:hover { opacity: 0.9; }
     .test-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
@@ -400,10 +421,16 @@
       <!-- Branding -->
       <section class="stg-section" id="stg-section-branding">
         <div class="stg-section-header"><h2>Branding</h2><p>Customise the dashboard appearance</p></div>
-        <div class="stg-card">
-          <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos"></div>
-          <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo"></div>
-          <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon"></div>
+        <div class="stg-card" style="position:relative;padding-bottom:3.5rem;">
+          <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
+          <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
+          <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
+          <!-- Save bar inside card -->
+          <div class="stg-card-savebar">
+            <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
+            <span class="stg-save-status" id="save-status"></span>
+            <button type="button" id="stg-save-btn" class="stg-btn primary">💾 Save All Settings</button>
+          </div>
         </div>
       </section>
 
@@ -421,15 +448,8 @@
     </form>
   </main>
 
-  <!-- ── Floating Save Bar ──────────────────────────────────── -->
-  <div class="stg-savebar" id="stg-savebar">
-    <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
-    <span class="stg-save-status" id="save-status"></span>
-    <button type="button" id="stg-save-btn">Save All Settings</button>
-  </div>
+  <!-- ── Metric Modal ──────────────────────────────────── -->
 </div>
-
-<!-- Metric Modal -->
 <div class="stg-modal" id="metric-modal">
   <div class="stg-modal-box">
     <h3 style="margin:0 0 1rem;">Create New Metric</h3>
@@ -593,6 +613,81 @@
     });
   }
 
+  // ── Mappings filter + pagination ──────────────────────────
+  const MAPPINGS_PAGE_SIZE = 5;
+  function applyMappingFilterAndPagination(containerId) {
+    const list = document.getElementById(containerId);
+    if (!list) return;
+    const rows = Array.from(list.querySelectorAll('.metric-row'));
+    const filterInput = document.querySelector(`.mappings-filter-input[data-container="${containerId}"]`);
+    const moreBtn = document.querySelector(`.mappings-show-more[data-container="${containerId}"]`);
+    const moreWrap = moreBtn ? moreBtn.closest('.mappings-pagination') : null;
+    const filterText = filterInput ? filterInput.value.toLowerCase().trim() : '';
+
+    // Filter
+    let visibleRows = rows;
+    if (filterText) {
+      visibleRows = rows.filter(row => row.textContent.toLowerCase().includes(filterText));
+      rows.forEach(row => { row.dataset.mfHidden = '1'; row.style.display = 'none'; });
+      visibleRows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
+    } else {
+      rows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
+    }
+
+    // Pagination
+    if (visibleRows.length > MAPPINGS_PAGE_SIZE && !filterText) {
+      let page = parseInt(moreBtn?.dataset.page || '1');
+      // Always show first page
+      const start = 0;
+      const end = MAPPINGS_PAGE_SIZE;
+      visibleRows.forEach((row, i) => {
+        row.style.display = i < end ? '' : 'none';
+      });
+      const remaining = visibleRows.length - end;
+      if (remaining > 0 && moreWrap) {
+        moreWrap.style.display = '';
+        if (moreBtn) {
+          moreBtn.textContent = `Show more (${remaining}+)`;
+          const newHandler = () => {
+            const curPage = parseInt(moreBtn.dataset.page || '1');
+            const nextEnd = MAPPINGS_PAGE_SIZE * (curPage + 1);
+            visibleRows.forEach((row, i) => {
+              row.style.display = i < nextEnd ? '' : 'none';
+            });
+            const stillRemaining = visibleRows.length - nextEnd;
+            if (stillRemaining <= 0) {
+              moreWrap.style.display = 'none';
+              moreBtn.textContent = 'All shown';
+            } else {
+              moreBtn.textContent = `Show more (${stillRemaining}+)`;
+            }
+            moreBtn.dataset.page = String(curPage + 1);
+          };
+          moreBtn.onclick = newHandler;
+        }
+      }
+    } else if (moreWrap) {
+      moreWrap.style.display = 'none';
+    }
+  }
+
+  // Event delegation for filter inputs
+  document.getElementById('settings-form').addEventListener('input', (e) => {
+    const input = e.target.closest('.mappings-filter-input');
+    if (input) {
+      const containerId = input.dataset.container;
+      applyMappingFilterAndPagination(containerId);
+    }
+  });
+
+  // Also trigger on dynamic "Add Metric Mapping" — need to re-run pagination after new rows
+  const paginationObserver = new MutationObserver(() => {
+    document.querySelectorAll('.mappings-filter-input').forEach(input => {
+      const containerId = input.dataset.container;
+      if (containerId) applyMappingFilterAndPagination(containerId);
+    });
+  });
+  paginationObserver.observe(document.getElementById('settings-form'), { childList: true, subtree: true });
 </script>
 <script src="settings.js"></script>
 </body>

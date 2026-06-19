@@ -68,6 +68,7 @@ async function loadSettings() {
 function createMetricDropdown(selectedMetric = '') {
   const select = document.createElement('select');
   select.className = 'metric-name';
+  select.title = selectedMetric || 'Select a metric';
   const emptyOpt = document.createElement('option');
   emptyOpt.value = '';
   emptyOpt.textContent = '-- Select Metric --';
@@ -136,20 +137,28 @@ function renderHaDevice(device, idx) {
     <div class="device-header">
       <input type="text" name="ha_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
       <label style="margin:0 1rem;"><input type="checkbox" name="ha_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn" data-action="remove-ha">Remove</button>
+      <button type="button" class="remove-btn danger" data-action="remove-ha">Remove</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <input type="text" name="ha_devices[${idx}][url]" placeholder="http://homeassistant.local:8123" value="${escapeHtml(device.url || '')}">
       <input type="password" name="ha_devices[${idx}][token]" placeholder="Access Token" value="${escapeHtml(device.token || '')}">
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">⏱</span> Polling</div>
     <div class="form-row">
       <input type="number" name="ha_devices[${idx}][poll_interval]" placeholder="Poll Interval (s)" value="${device.poll_interval || 30}" style="width:120px;">
       <button type="button" class="fetch-btn fetch-ha-entities">Fetch Entities</button>
       <span class="test-status" id="ha-entities-status-${idx}"></span>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Entity Mappings</div>
     <div class="mappings-section" id="ha-mappings-${idx}">
-      <h4>Entity Mappings</h4>
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="ha-mappings-list-${idx}">
+      </div>
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
+      <div class="mappings-pagination" id="ha-mappings-more-${idx}" style="display:none;">
+        <button type="button" class="fetch-btn mappings-show-more" data-container="ha-mappings-list-${idx}" data-page="1">Show more (5+)</button>
+      </div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
         <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
@@ -164,8 +173,10 @@ function renderHaDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   card.querySelector('[data-action="remove-ha"]').addEventListener('click', () => {
-    card.remove();
-    reindexHa();
+    if (confirm('Remove this Home Assistant device and all its entity mappings?')) {
+      card.remove();
+      reindexHa();
+    }
   });
 
   card.querySelector('.fetch-ha-entities').addEventListener('click', async function() {
@@ -243,6 +254,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   const metricSelect = createMetricDropdown(metric);
   const entitySelect = document.createElement('select');
   entitySelect.className = 'entity-select';
+  entitySelect.title = entityId || 'Select entity';
   entitySelect.innerHTML = '<option value="">-- Select entity --</option>';
   if (entityId) {
     const opt = document.createElement('option');
@@ -255,7 +267,9 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', () => row.remove());
+  removeBtn.addEventListener('click', () => {
+    if (confirm('Remove this metric mapping?')) row.remove();
+  });
   row.appendChild(metricSelect);
   row.appendChild(entitySelect);
   row.appendChild(removeBtn);
@@ -307,8 +321,9 @@ function renderMqttDevice(device, idx) {
     <div class="device-header">
       <input type="text" name="mqtt_devices[${idx}][name]" placeholder="Broker Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
       <label style="margin:0 1rem;"><input type="checkbox" name="mqtt_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn" data-action="remove-mqtt">Remove</button>
+      <button type="button" class="remove-btn danger" data-action="remove-mqtt">Remove</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <input type="text" name="mqtt_devices[${idx}][broker]" placeholder="mqtt://broker.local:1883" value="${escapeHtml(device.broker || '')}">
     </div>
@@ -316,6 +331,7 @@ function renderMqttDevice(device, idx) {
       <input type="text" name="mqtt_devices[${idx}][username]" placeholder="Username" value="${escapeHtml(device.username || '')}">
       <input type="password" name="mqtt_devices[${idx}][password]" placeholder="Password" value="${escapeHtml(device.password || '')}">
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🧪</span> Test</div>
     <div class="test-row">
       <button type="button" class="fetch-btn test-mqtt-broker">Test Broker</button>
       <span class="test-status" id="mqtt-broker-status-${idx}"></span>
@@ -325,9 +341,15 @@ function renderMqttDevice(device, idx) {
       <button type="button" class="fetch-btn test-mqtt-topic-btn">Test Topic</button>
       <span class="test-status" id="mqtt-topic-status-${idx}"></span>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Topic Mappings</div>
     <div class="mappings-section">
-      <h4>Topic Mappings</h4>
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="mqtt-mappings-list-${idx}">
+      </div>
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
+      <div class="mappings-pagination" id="mqtt-mappings-more-${idx}" style="display:none;">
+        <button type="button" class="fetch-btn mappings-show-more" data-container="mqtt-mappings-list-${idx}" data-page="1">Show more (5+)</button>
+      </div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
         <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
@@ -342,8 +364,10 @@ function renderMqttDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   card.querySelector('[data-action="remove-mqtt"]').addEventListener('click', () => {
-    card.remove();
-    reindexMqtt();
+    if (confirm('Remove this MQTT broker and all its topic mappings?')) {
+      card.remove();
+      reindexMqtt();
+    }
   });
 
   card.querySelector('.test-mqtt-broker').addEventListener('click', async function(e) {
@@ -430,7 +454,9 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', () => row.remove());
+  removeBtn.addEventListener('click', () => {
+    if (confirm('Remove this topic mapping?')) row.remove();
+  });
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
   row.appendChild(removeBtn);
@@ -469,8 +495,9 @@ function renderModbusDevice(device, idx) {
     <div class="device-header">
       <input type="text" name="modbus_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
       <label><input type="checkbox" name="modbus_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn" data-action="remove-modbus">Remove</button>
+      <button type="button" class="remove-btn danger" data-action="remove-modbus">Remove</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <select name="modbus_devices[${idx}][transport]" class="modbus-transport-select">
         <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>TCP/IP</option>
@@ -498,9 +525,12 @@ function renderModbusDevice(device, idx) {
           <option value="even" ${device.serial_parity === 'even' ? 'selected' : ''}>Even</option>
           <option value="odd" ${device.serial_parity === 'odd' ? 'selected' : ''}>Odd</option>
         </select>
+      </div>
+      <div class="form-row">
         <input type="number" name="modbus_devices[${idx}][serial_stop_bits]" placeholder="Stop bits" value="${device.serial_stop_bits || 1}">
       </div>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
       <input type="number" name="modbus_devices[${idx}][unit]" placeholder="Unit ID" value="${device.unit || 1}">
       <input type="number" name="modbus_devices[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:120px;">
@@ -508,7 +538,6 @@ function renderModbusDevice(device, idx) {
     </div>
   `;
   container.appendChild(card);
-
   const transportSelect = card.querySelector('.modbus-transport-select');
   const tcpFields = card.querySelector('.modbus-tcp-fields');
   const serialFields = card.querySelector('.modbus-serial-fields');
@@ -528,8 +557,10 @@ function renderModbusDevice(device, idx) {
     });
   });
   card.querySelector('[data-action="remove-modbus"]').addEventListener('click', () => {
-    card.remove();
-    reindexModbus();
+    if (confirm('Remove this Modbus device and all its register mappings?')) {
+      card.remove();
+      reindexModbus();
+    }
   });
   card.querySelector('.test-modbus').addEventListener('click', async function() {
     const statusEl = document.createElement('span');
@@ -590,14 +621,22 @@ function renderExternalSource(source, idx) {
     <div class="device-header">
       <input type="text" name="external_sources[${idx}][name]" placeholder="Source Name" value="${escapeHtml(source.name || '')}" style="flex:1;">
       <label><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn" data-action="remove-external">Remove</button>
+      <button type="button" class="remove-btn danger" data-action="remove-external">Remove</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <input type="text" name="external_sources[${idx}][url]" placeholder="URL" value="${escapeHtml(source.url || '')}">
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
     <div class="mappings-section">
-      <h4>Metric Mappings (JSON path → metric name)</h4>
+      <div class="note" style="margin-bottom:0.5rem;">JSON path → metric name</div>
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="external-mappings-list-${idx}">
+      </div>
       <div class="mappings-list" id="external-mappings-list-${idx}"></div>
+      <div class="mappings-pagination" id="external-mappings-more-${idx}" style="display:none;">
+        <button type="button" class="fetch-btn mappings-show-more" data-container="external-mappings-list-${idx}" data-page="1">Show more (5+)</button>
+      </div>
       <button type="button" class="fetch-btn add-external-metric" data-device="${idx}">+ Add Mapping</button>
       <div class="test-row" style="margin-top:0.5rem;">
         <input type="text" class="test-jsonpath" placeholder="JSON path to test (e.g., data.temperature)">
@@ -608,8 +647,10 @@ function renderExternalSource(source, idx) {
   `;
   container.appendChild(card);
   card.querySelector('[data-action="remove-external"]').addEventListener('click', () => {
-    card.remove();
-    reindexExternal();
+    if (confirm('Remove this external source and all its metric mappings?')) {
+      card.remove();
+      reindexExternal();
+    }
   });
   const mappingsList = card.querySelector('.mappings-list');
   renderExternalMappings(source.mappings || {}, idx, mappingsList);
@@ -655,7 +696,9 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') 
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', () => row.remove());
+  removeBtn.addEventListener('click', () => {
+    if (confirm('Remove this mapping?')) row.remove();
+  });
   row.appendChild(jsonPathInput);
   row.appendChild(metricSelect);
   row.appendChild(removeBtn);
@@ -693,8 +736,9 @@ function renderBmsDevice(device, idx) {
     <div class="device-header">
       <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
       <label><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn" data-action="remove-bms">Remove</button>
+      <button type="button" class="remove-btn danger" data-action="remove-bms">Remove</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
       <button type="button" class="fetch-btn scan-bms" data-device="${idx}">🔍 Scan</button>
@@ -705,8 +749,10 @@ function renderBmsDevice(device, idx) {
   `;
   container.appendChild(card);
   card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
-    card.remove();
-    reindexBms();
+    if (confirm('Remove this BMS device?')) {
+      card.remove();
+      reindexBms();
+    }
   });
 
   // Scan button – uses backend proxy to reach BMS bridge
@@ -817,8 +863,9 @@ function renderDongleDevice(device, idx) {
     <div class="device-header">
       <input type="text" name="dongle_config[${idx}][name]" placeholder="Instance Name (e.g., SRNE Inverter)" value="${escapeHtml(device.name || '')}" style="flex:1;">
       <label><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn" data-action="remove-dongle">Remove</button>
+      <button type="button" class="remove-btn danger" data-action="remove-dongle">Remove</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <select name="dongle_config[${idx}][profile]" class="dongle-profile-select">
         <option value="">-- Select profile --</option>
@@ -829,6 +876,7 @@ function renderDongleDevice(device, idx) {
     <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
       <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
       <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
       <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:100px;">
@@ -870,8 +918,10 @@ function renderDongleDevice(device, idx) {
   });
 
   card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
-    card.remove();
-    reindexDongle();
+    if (confirm('Remove this dongle instance?')) {
+      card.remove();
+      reindexDongle();
+    }
   });
 
   card.querySelector('.test-dongle').addEventListener('click', async () => {
@@ -1202,6 +1252,7 @@ function buildDashboardEditor(config) {
       buildDashboardEditor(dashConfig);
     });
     row.querySelector('.delete-dash').addEventListener('click', () => {
+      if (!confirm(`Delete dashboard "${db.name}"? This cannot be undone.`)) return;
       dashConfig.dashboards = dashConfig.dashboards.filter(d => d.id !== db.id);
       if (dashConfig.activeDashboard === db.id) dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
       buildDashboardEditor(dashConfig);
@@ -1373,6 +1424,7 @@ function renderDashboardBlockEditor(dashboard) {
           const titleInput = cardRow.querySelector('.card-title');
           titleInput.addEventListener('change', (e) => { card.title = e.target.value; });
           cardRow.querySelector('.remove-card-btn').addEventListener('click', () => {
+            if (!confirm('Remove this metric card?')) return;
             block.cards.splice(cardIdx, 1);
             renderCards();
           });
@@ -1854,6 +1906,7 @@ function renderDashboardBlockEditor(dashboard) {
       dashboard.layout[idx].fontSize = e.target.value || '';
     });
     card.querySelector('.delete-block').addEventListener('click', () => {
+      if (!confirm('Remove this block from the dashboard?')) return;
       dashboard.layout.splice(idx, 1);
       renderDashboardBlockEditor(dashboard);
     });
