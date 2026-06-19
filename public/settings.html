@@ -336,18 +336,7 @@
     stgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
   });
 
-  // Listen for save completion
-  const saveObserver = new MutationObserver(() => {
-    const txt = saveStatusEl.textContent || '';
-    if (txt.toLowerCase().includes('saved') || txt.toLowerCase().includes('success')) {
-      dirtyFields.clear();
-      dirtyCount.classList.remove('show');
-      saveStatusEl.className = 'stg-save-status ok';
-    } else if (txt.toLowerCase().includes('error') || txt.toLowerCase().includes('fail')) {
-      saveStatusEl.className = 'stg-save-status err';
-    }
-  });
-  saveObserver.observe(saveStatusEl, { characterData: true, subtree: true, childList: true });
+  // Listen for save completion (handled by settings.js showStatus)
 
   // ── Metrics search ────────────────────────────────────────
   const metricsSearch = document.getElementById('metrics-search');
@@ -484,12 +473,16 @@
     }
   });
 
-  // Also trigger on dynamic "Add Metric Mapping" — need to re-run pagination after new rows
-  const paginationObserver = new MutationObserver(() => {
-    document.querySelectorAll('.mappings-filter-input').forEach(input => {
-      const containerId = input.dataset.container;
-      if (containerId) applyMappingFilterAndPagination(containerId);
-    });
+  // Also trigger on dynamic "Add Metric Mapping" - re-run pagination after new rows (debounced)
+  let paginationTimer = null;
+  const paginationObserver = new MutationObserver(function() {
+    if (paginationTimer) clearTimeout(paginationTimer);
+    paginationTimer = setTimeout(function() {
+      document.querySelectorAll('.mappings-filter-input').forEach(function(input) {
+        var containerId = input.dataset.container;
+        if (containerId) applyMappingFilterAndPagination(containerId);
+      });
+    }, 50);
   });
   paginationObserver.observe(document.getElementById('settings-form'), { childList: true, subtree: true });
 </script>
