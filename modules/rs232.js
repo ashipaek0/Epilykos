@@ -376,6 +376,33 @@ function handlePollError(device, err) {
   }
 }
 
+// ── Baud Rate Auto-Detection ────────────────────────────────────────────
+
+async function detectBaudRate(serialPath, profile) {
+  const FALLBACK_BAUDS = [2400, 4800, 9600, 19200, 38400, 57600, 115200];
+  for (const baud of FALLBACK_BAUDS) {
+    try {
+      const port = await openSerialPort({
+        serial_path: serialPath,
+        baud,
+        data_bits: profile.defaults?.dataBits || 8,
+        stop_bits: profile.defaults?.stopBits || 1,
+        parity: profile.defaults?.parity || 'none',
+      });
+      const cmd = profile.commands[0];
+      if (!cmd) { await closeSerialPort(port); continue; }
+      const query = typeof cmd.query === 'string' ? Buffer.from(cmd.query) : Buffer.from(cmd.query);
+      const response = await queryDevice(port, query, profile, 2000);
+      await closeSerialPort(port);
+      const parsed = decodeResponse(response, cmd, profile);
+      if (Object.keys(parsed).length > 0) {
+        return baud;
+      }
+    } catch (e) { /* try next baud */ }
+  }
+  throw new Error('Could not auto-detect baud rate for ' + serialPath);
+}
+
 // ── Test / Port Listing ─────────────────────────────────────────────────
 
 async function testRs232Connection(device) {
@@ -446,5 +473,6 @@ module.exports = {
   getAvailablePorts,
   shutdownRs232,
   restartRs232Streaming,
+  detectBaudRate,
   availableProfiles: availableProfiles, // getter — always up to date
 };
