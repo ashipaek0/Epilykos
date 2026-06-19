@@ -13,6 +13,7 @@
  */
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const session = require('express-session');
 const httpFetch = require('node-fetch');
 const crypto = require('crypto');
@@ -54,6 +55,9 @@ app.use(globalLimiter);
 // Morgan HTTP request logging (stream to winston)
 app.use(morgan('combined', { stream: logger.stream }));
 
+// Compression (gzip + brotli)
+app.use(compression());
+
 // Session middleware
 app.use(session({
   secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
@@ -84,7 +88,8 @@ const upload = multer({
 });
 
 // Middleware
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files with 1h browser cache
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable: true }));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
