@@ -7,7 +7,7 @@
 (function() {
   const originalFetch = window.fetch;
   window.fetch = function(url, options) {
-    var opts = options || {};
+    var opts = options !== undefined ? Object.assign({}, options) : {};
     if (opts.method && opts.method.toUpperCase() !== 'GET') {
       opts.headers = opts.headers || {};
       if (opts.headers instanceof Headers) {
