@@ -24,21 +24,22 @@ export async function updateAllComponents() {
 export function updateWithState(state) {
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
-  if (activeLayout.some(b => b.type === 'flow-card')) updateFlowCard(state);
-  if (activeLayout.some(b => b.type === 'flow-card-2')) updateSystemTopology(state);
-  if (activeLayout.some(b => b.type === 'multi-value')) updateMultiValueCard(state);
-  if (activeLayout.some(b => b.type === 'gauge-card')) updateGaugeCard(state);
-  if (activeLayout.some(b => b.type === 'half-gauge')) updateHalfGaugeCard(state);
-  if (activeLayout.some(b => b.type === 'half-gauge-2')) updateHalfGauge2Card(state);
-  if (activeLayout.some(b => b.type === 'bar-gauge')) updateBarGauge(state);
-  if (activeLayout.some(b => b.type === 'bar-gauge-retro')) updateBarGaugeRetro(state);
-  if (activeLayout.some(b => b.type === 'flow-card-square')) updateFlowCardSquare(state);
-  if (activeLayout.some(b => b.type === 'flow-card-square-2')) updateFlowCardSquare2(state);
-  if (activeLayout.some(b => b.type === 'metric-cards')) updateMetricCardsFromState(state);
-  if (activeLayout.some(b => b.type === 'grid-card')) updateGridCardFromState(state);
-  if (activeLayout.some(b => b.type === 'chart-power')) updatePowerChartFromState(state);
-  if (activeLayout.some(b => b.type === 'chart-energy')) updateEnergyChartFromState(state);
-  if (activeLayout.some(b => b.type === 'savings-summary')) updateSavingsFromState(state);
+  const blockTypes = new Set(activeLayout.map(b => b.type));
+  if (blockTypes.has('flow-card')) updateFlowCard(state);
+  if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
+  if (blockTypes.has('multi-value')) updateMultiValueCard(state);
+  if (blockTypes.has('gauge-card')) updateGaugeCard(state);
+  if (blockTypes.has('half-gauge')) updateHalfGaugeCard(state);
+  if (blockTypes.has('half-gauge-2')) updateHalfGauge2Card(state);
+  if (blockTypes.has('bar-gauge')) updateBarGauge(state);
+  if (blockTypes.has('bar-gauge-retro')) updateBarGaugeRetro(state);
+  if (blockTypes.has('flow-card-square')) updateFlowCardSquare(state);
+  if (blockTypes.has('flow-card-square-2')) updateFlowCardSquare2(state);
+  if (blockTypes.has('metric-cards')) updateMetricCardsFromState(state);
+  if (blockTypes.has('grid-card')) updateGridCardFromState(state);
+  if (blockTypes.has('chart-power')) updatePowerChartFromState(state);
+  if (blockTypes.has('chart-energy')) updateEnergyChartFromState(state);
+  if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
   updateForecast();
 
   // Update screen-reader announcement with key metrics (throttled — aria-live="polite")

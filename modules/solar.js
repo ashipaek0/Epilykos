@@ -3,7 +3,9 @@ const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 
 let forecastCache = { data: null, timestamp: 0 };
+let solarCache = { value: 0, timestamp: 0 };
 const FORECAST_CACHE_MS = 3 * 60 * 60 * 1000;
+const SOLAR_CACHE_MS = 30000; // 30s TTL
 
 function computeSolarForDate(dateStr) {
   const db = getDb();
@@ -27,54 +29,71 @@ function computeSolarForDate(dateStr) {
 
 function computeTodaySolar() {
   const db = getDb();
+  const nowMs = Date.now();
+  // Cache hit within 30s TTL (only if we have a real value)
+  if (solarCache.value > 0 && (nowMs - solarCache.timestamp) < SOLAR_CACHE_MS) {
+    return solarCache.value;
+  }
 
-  const now = new Date();
+  const now = new Date(nowMs);
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const startUnix = Math.floor(todayStart.getTime() / 1000);
-  const endUnix = Math.floor(now.getTime() / 1000);
+  const endUnix = Math.floor(nowMs / 1000);
+
+  var computed = 0;
+  var done = false;
 
   const configured = (getConfig('savings_solar_metric') || '').trim();
 
   // 1. User-configured metric — check latest_metrics (treat as cumulative kWh)
   if (configured) {
     const row = db.prepare('SELECT value FROM latest_metrics WHERE metric = ?').get(configured);
-    if (row && row.value > 0) return row.value;
-    // Not found as cumulative — try integrating from metrics table (treat as instantaneous W)
-    const rows = db.prepare(
-      'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-    ).all(configured, startUnix, endUnix);
-    if (rows.length >= 2) return integrateWattsToKwh(rows, endUnix);
-    return 0;
+    if (row && row.value > 0) { computed = row.value; done = true; }
+    if (!done) {
+      const rows = db.prepare(
+        'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
+      ).all(configured, startUnix, endUnix);
+      if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; }
+    }
   }
 
   // 2. Auto-detect: scan latest_metrics for any metric name containing solar + (gen|daily|cumulative)
-  const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
-  const dailyCandidates = allMetrics.filter(r => {
-    const n = r.metric.toLowerCase();
-    return (n.includes('solar') || n.includes('pv')) && (n.includes('gen') || n.includes('daily') || n.includes('today') || n.includes('cumulative'));
-  });
-  for (const c of dailyCandidates) {
-    if (c.value > 0) return c.value;
+  if (!done) {
+    const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
+    const dailyCandidates = allMetrics.filter(function(r) {
+      var n = r.metric.toLowerCase();
+      return (n.indexOf('solar') !== -1 || n.indexOf('pv') !== -1) && (n.indexOf('gen') !== -1 || n.indexOf('daily') !== -1 || n.indexOf('today') !== -1 || n.indexOf('cumulative') !== -1);
+    });
+    for (var i = 0; i < dailyCandidates.length; i++) {
+      if (dailyCandidates[i].value > 0) { computed = dailyCandidates[i].value; done = true; break; }
+    }
   }
 
   // 3. Auto-detect: integrate any metric whose name suggests solar power from the metrics table
-  const powerCandidates = allMetrics
-    .filter(r => { const n = r.metric.toLowerCase(); return n.includes('solar') && (n.includes('power') || n.includes('watts') || n.includes('kw')); })
-    .map(r => r.metric);
-  for (const name of powerCandidates) {
-    const rows = db.prepare(
-      'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-    ).all(name, startUnix, endUnix);
-    if (rows.length >= 2) return integrateWattsToKwh(rows, endUnix);
+  if (!done) {
+    const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
+    for (var i = 0; i < allMetrics.length; i++) {
+      var n = allMetrics[i].metric.toLowerCase();
+      if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
+        const rows = db.prepare(
+          'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
+        ).all(allMetrics[i].metric, startUnix, endUnix);
+        if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; break; }
+      }
+    }
   }
 
   // 4. Fall back to history table (HA/MQTT legacy path)
-  const histRows = db.prepare(
-    'SELECT timestamp, solar as value FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-  ).all(startUnix, endUnix);
-  if (histRows.length >= 2) return integrateWattsToKwh(histRows, endUnix);
+  if (!done) {
+    const histRows = db.prepare(
+      'SELECT timestamp, solar as value FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
+    ).all(startUnix, endUnix);
+    if (histRows.length >= 2) computed = integrateWattsToKwh(histRows, endUnix);
+  }
 
-  return 0;
+  // Write to cache
+  solarCache = { value: computed, timestamp: nowMs };
+  return computed;
 }
 
 /** Trapezoidal integration: timestamped wattage rows → kWh */
