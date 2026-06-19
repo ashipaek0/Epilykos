@@ -29,6 +29,7 @@ const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = requ
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
+const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
 const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules/solar');
@@ -65,6 +66,7 @@ app.use(session({
 initializeDatabase();
 const db = getDb();
 loadProfiles();
+loadRs232Profiles();  // RS232 serial inverter profiles
 setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
@@ -229,6 +231,7 @@ async function pollAllSources() {
   try {
     await pollHomeAssistant();
     await pollModbus();
+    await pollRs232();         // RS232 serial inverter polling
     await pollLegacyHistory();
     await pollGridStatus();
     // BMS polling is independent and runs on its own interval
@@ -637,6 +640,38 @@ app.post('/api/test-modbus', async (req, res) => {
   }
 });
 
+// ── RS232 API Endpoints ────────────────────────────────────────────────
+app.use('/api/rs232/profiles', isAuthenticated);
+app.get('/api/rs232/profiles', (req, res) => {
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol })));
+});
+
+app.use('/api/rs232/ports', isAuthenticated);
+app.get('/api/rs232/ports', async (req, res) => {
+  try {
+    const ports = await getAvailablePorts();
+    res.json(ports);
+  } catch (err) {
+    logger.error('RS232 port scan error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/test-rs232', isAuthenticated);
+app.post('/api/test-rs232', async (req, res) => {
+  const device = req.body;
+  if (!device) return res.status(400).json({ error: 'No device config provided' });
+  if (!device.serial_path) return res.status(400).json({ error: 'Serial path required' });
+  if (!device.profile) return res.status(400).json({ error: 'Profile required' });
+  try {
+    const result = await testRs232Connection(device);
+    res.json(result);
+  } catch (err) {
+    logger.error('RS232 test error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/dashboard-config', isAuthenticated, (req, res) => {
   try {
     saveDashboardConfig(req.body);
@@ -724,6 +759,7 @@ app.post('/api/settings', (req, res) => {
     if ('bms_devices' in updates) restartBmsPolling();
     if ('dongle_config' in updates) restartDonglePolling();
     if ('pvoutput_config' in updates) pvoutput.restart();
+    if ('rs232_devices' in updates) restartRs232Streaming();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -1016,3 +1052,15 @@ app.get('*', (req, res, next) => {
 
 // Start HTTP server with WebSocket support
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
+
+// ── Graceful Shutdown ──────────────────────────────────────────────────
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received — shutting down RS232 streaming connections');
+  await shutdownRs232();
+  process.exit(0);
+});
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received — shutting down RS232 streaming connections');
+  await shutdownRs232();
+  process.exit(0);
+});

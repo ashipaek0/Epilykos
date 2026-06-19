@@ -284,6 +284,7 @@
           <button class="stg-subnav-btn active" data-subtab="ha">Home Assistant</button>
           <button class="stg-subnav-btn" data-subtab="mqtt">MQTT</button>
           <button class="stg-subnav-btn" data-subtab="modbus">Modbus</button>
+          <button class="stg-subnav-btn" data-subtab="rs232">RS232</button>
           <button class="stg-subnav-btn" data-subtab="external">REST API</button>
           <button class="stg-subnav-btn" data-subtab="bms">BMS</button>
           <button class="stg-subnav-btn" data-subtab="dongle">Dongle</button>
@@ -301,6 +302,17 @@
         <div id="subtab-modbus" class="sub-tab-content">
           <div id="modbus-devices-container"></div>
           <button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button>
+        </div>
+        <div id="subtab-rs232" class="sub-tab-content">
+          <div id="rs232-devices-container"></div>
+          <button type="button" id="add-rs232-device" class="fetch-btn">+ Add RS232 Device</button>
+          <div class="stg-form-row" style="margin-top:1rem;">
+            <div class="stg-form-group">
+              <label for="rs232-poll-interval">Global Poll Interval (seconds)</label>
+              <input class="stg-input" id="rs232-poll-interval" name="rs232_poll_interval" value="30">
+            </div>
+          </div>
+          <div class="note">RS232 devices require a USB-to-serial adapter. Available ports are auto-detected. Supported profiles: Voltronic (covers Infinisolar, Phocos, MUST, Sako), Victron VE.Direct (streaming), SolaX Pocket USB (AA55 binary).</div>
         </div>
         <div id="subtab-external" class="sub-tab-content">
           <div id="external-sources-container"></div>
