@@ -69,17 +69,15 @@ function decodeResponse(buffer, cmd, profile) {
     throw new Error(`SolaX checksum mismatch: expected ${expectedChk.toString(16)}, got ${actualChk.toString(16)}`);
   }
 
-  // For register/request_serial responses, just acknowledge
+  // For register/request_serial responses, just acknowledge (no metric data)
   if (cmd.function <= 5) {
-    // Register dongle and serial requests echo the request or return ack
-    // No metric data in these responses
-    return { _command: cmd.name, _status: 'ok' };
+    return {};
   }
 
   // For request_data (0x0C), extract payload
   // Frame: AA 55 [size] [ctrl] [func] [payload...] [chk_lo] [chk_hi]
-  // Payload starts at offset 4 (AA 55 size ctrl func)
-  const payloadOffset = 4;
+  // Payload starts at offset 5 (AA=0, 55=1, size=2, ctrl=3, func=4)
+  const payloadOffset = 5;
   const payloadData = buffer.slice(payloadOffset, bodyEnd);
 
   const results = {};
