@@ -582,6 +582,37 @@
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
+  // ── Backup & Restore ─────────────────────────────────────
+  const backupBtn = document.getElementById('backup-btn');
+  const restoreBtn = document.getElementById('restore-btn');
+  const restoreFile = document.getElementById('restore-file');
+  const backupStatusEl = document.getElementById('backup-status');
+
+  if (backupBtn) backupBtn.addEventListener('click', () => {
+    window.location.href = '/api/backup';
+  });
+  if (restoreBtn && restoreFile) {
+    restoreBtn.addEventListener('click', () => restoreFile.click());
+    restoreFile.addEventListener('change', async function() {
+      if (!this.files || !this.files[0]) return;
+      const fd = new FormData();
+      fd.append('dbfile', this.files[0]);
+      try {
+        if (backupStatusEl) { backupStatusEl.textContent = 'Restoring...'; backupStatusEl.className = 'stg-status info'; }
+        const r = await fetch('/api/restore', { method: 'POST', body: fd });
+        if (r.ok) {
+          if (backupStatusEl) { backupStatusEl.textContent = 'Restored — reloading...'; backupStatusEl.className = 'stg-status ok'; }
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          if (backupStatusEl) { backupStatusEl.textContent = err.error || 'Restore failed'; backupStatusEl.className = 'stg-status err'; }
+        }
+      } catch(e) {
+        if (backupStatusEl) { backupStatusEl.textContent = e.message; backupStatusEl.className = 'stg-status err'; }
+      }
+    });
+  }
+
   // ── Mappings filter + pagination ──────────────────────────
   const MAPPINGS_PAGE_SIZE = 5;
   function applyMappingFilterAndPagination(containerId) {
