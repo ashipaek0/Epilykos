@@ -666,10 +666,10 @@ app.use('/api/rs232/ports', isAuthenticated);
 app.get('/api/rs232/ports', async (req, res) => {
   try {
     const ports = await getAvailablePorts();
-    res.json(ports);
+    res.json(Array.isArray(ports) ? ports : []);
   } catch (err) {
     logger.error('RS232 port scan error:', err);
-    res.status(500).json({ error: err.message });
+    res.json([]);
   }
 });
 
