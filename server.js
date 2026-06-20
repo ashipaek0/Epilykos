@@ -28,7 +28,7 @@ const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
-const { setupMqtt, restartMqtt } = require('./modules/mqtt');
+const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
@@ -39,9 +39,9 @@ const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
-const { startExternalPolling, restartExternalPolling } = require('./modules/external');
-const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
-const { startDonglePolling, restartDonglePolling } = require('./modules/dongle');
+const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
+const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
+const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
 
 const app = express();
@@ -109,7 +109,12 @@ function broadcastDashboardState(state) {
   const message = JSON.stringify({ type: 'dashboard-state', data: state });
   for (const client of wsClients) {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      client.send(message, err => {
+        if (err) {
+          wsClients.delete(client);
+          client.terminate();
+        }
+      });
     }
   }
 }
@@ -131,6 +136,10 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     wsClients.delete(ws);
     logger.info(`WebSocket client disconnected (${wsClients.size} remaining)`);
+  });
+  ws.on('error', () => {
+    wsClients.delete(ws);
+    ws.terminate();
   });
 });
 
@@ -249,7 +258,7 @@ async function pollAllSources() {
   }
 }
 pollAllSources();
-setInterval(pollAllSources, 30000);
+const pollInterval = setInterval(pollAllSources, 30000);
 
 // ---------- Public API (no auth) ----------
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -1062,12 +1071,28 @@ server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} 
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
 process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received — shutting down RS232 streaming connections');
+  logger.info('SIGTERM received — shutting down');
   await shutdownRs232();
-  process.exit(0);
+  clearInterval(pollInterval);
+  stopExternalPolling();
+  stopBmsPolling();
+  stopDonglePolling();
+  for (const client of mqttClients.values()) client.end(true);
+  mqttClients.clear();
+  wss.close(() => wsClients.clear());
+  db.close();
+  logger.info('Shutdown complete');
 });
 process.on('SIGINT', async () => {
-  logger.info('SIGINT received — shutting down RS232 streaming connections');
+  logger.info('SIGINT received — shutting down');
   await shutdownRs232();
-  process.exit(0);
+  clearInterval(pollInterval);
+  stopExternalPolling();
+  stopBmsPolling();
+  stopDonglePolling();
+  for (const client of mqttClients.values()) client.end(true);
+  mqttClients.clear();
+  wss.close(() => wsClients.clear());
+  db.close();
+  logger.info('Shutdown complete');
 });

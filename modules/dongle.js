@@ -130,6 +130,9 @@ async function pollInstance(instance, transport, profile) {
 
     for (const range of profile.poll_ranges) {
       const buf = await transport.readRegisters(range.start, range.count);
+      if (buf.length < range.count * 2) {
+        logger.warn(`[dongle] ${instance.name}: short buffer at range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
+      }
       for (let i = 0; i < range.count && i * 2 < buf.length; i++) {
         registerData[range.start + i] = buf.readUInt16BE(i * 2);
       }

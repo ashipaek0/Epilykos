@@ -52,7 +52,7 @@ class SolarmanV5Transport {
         }
       });
 
-      socket.on('error', (err) => { clearTimeout(timeout); reject(err); });
+      socket.on('error', (err) => { clearTimeout(timeout); socket.destroy(); reject(err); });
     });
   }
 

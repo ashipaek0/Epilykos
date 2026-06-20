@@ -50,4 +50,11 @@ function restartExternalPolling() {
   startExternalPolling();
 }
 
-module.exports = { startExternalPolling, restartExternalPolling, pollExternalSources };
+function stopExternalPolling() {
+  if (externalPollInterval) {
+    clearInterval(externalPollInterval);
+    externalPollInterval = null;
+  }
+}
+
+module.exports = { startExternalPolling, restartExternalPolling, pollExternalSources, stopExternalPolling };

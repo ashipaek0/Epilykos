@@ -321,7 +321,14 @@ async function pollQueryDevice(device, profile) {
 
 // ── Streaming Protocol Handling (Victron VE.Direct) ─────────────────────
 
+const streamingSetupInProgress = new Set();
+const streamingRetries = new Map();
+const MAX_STREAMING_RETRIES = 3;
+
 function setupStreamingConnection(device, profile) {
+  if (streamingSetupInProgress.has(device.name)) return;
+  streamingSetupInProgress.add(device.name);
+
   teardownStreamingConnection(device.name);
 
   const port = new SerialPort({
@@ -347,7 +354,7 @@ function setupStreamingConnection(device, profile) {
         for (const [metric, val] of Object.entries(metrics)) {
           if (typeof val !== 'number' || isNaN(val)) continue;
           getMetricInsert().run(now, metric, val);
-          getLatestUpsert().run(metric, val, now);
+          getLatestUpsert().run(now, metric, val);
         }
       }
       currentFrame = {};
@@ -358,17 +365,27 @@ function setupStreamingConnection(device, profile) {
 
   port.on('error', err => {
     logger.error(`RS232 streaming ${device.name} error: ${err.message}`);
-    setTimeout(() => setupStreamingConnection(device, profile), 10000);
+    streamingSetupInProgress.delete(device.name);
+    streamingConnections.delete(device.name);
+    const retries = streamingRetries.get(device.name) || 0;
+    if (retries < MAX_STREAMING_RETRIES) {
+      streamingRetries.set(device.name, retries + 1);
+      setTimeout(() => setupStreamingConnection(device, profile), 10000);
+    } else {
+      logger.error(`RS232 streaming ${device.name}: max retries (${MAX_STREAMING_RETRIES}) reached, giving up`);
+    }
   });
 
   port.on('close', () => {
     streamingConnections.delete(device.name);
+    streamingSetupInProgress.delete(device.name);
   });
 
   streamingConnections.set(device.name, { port, parser, device, profile });
 }
 
 function teardownStreamingConnection(name) {
+  streamingSetupInProgress.delete(name);
   const conn = streamingConnections.get(name);
   if (conn) {
     try { conn.port.close(); } catch (e) { /* ignore */ }
@@ -379,7 +396,9 @@ function teardownStreamingConnection(name) {
 function pollStreamingDevice(device, profile) {
   const conn = streamingConnections.get(device.name);
   if (!conn || !conn.port.isOpen) {
-    setupStreamingConnection(device, profile);
+    if (!streamingSetupInProgress.has(device.name)) {
+      setupStreamingConnection(device, profile);
+    }
   }
 }
 
