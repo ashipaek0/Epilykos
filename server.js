@@ -670,7 +670,7 @@ app.get('/api/mqtt-discover-topics', async (req, res) => {
       const sorted = [...topics].sort();
       res.json({ success: true, topics: sorted, count: sorted.length });
     }
-  }, 4000);
+  }, 15000);
   client.on('connect', () => {
     client.subscribe('#', (err) => {
       if (err) {
