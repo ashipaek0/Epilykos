@@ -1,0 +1,521 @@
+const SerialPort = require('serialport');
+const ReadlineParser = require('@serialport/parser-readline');
+const DelimiterParser = require('@serialport/parser-delimiter');
+const fs = require('fs');
+const path = require('path');
+const { getConfig, getDb } = require('./database');
+const { logger } = require('./logger');
+
+let availableProfiles = [];
+let metricInsertStmt = null;
+let latestUpsertStmt = null;
+
+// Streaming connections: device_name → { port, parser, device, profile }
+const streamingConnections = new Map();
+
+// Per-device consecutive failure counters
+const failCounts = new Map();
+
+// Global poll cycle counter for throttling
+let pollCycleCounter = 0;
+
+// ── DB Helpers (matches modbus.js pattern) ──────────────────────────────
+
+function getMetricInsert() {
+  if (!metricInsertStmt) {
+    const db = getDb();
+    metricInsertStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  }
+  return metricInsertStmt;
+}
+
+function getLatestUpsert() {
+  if (!latestUpsertStmt) {
+    const db = getDb();
+    latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  }
+  return latestUpsertStmt;
+}
+
+// ── Profile Loading ─────────────────────────────────────────────────────
+
+function loadRs232Profiles() {
+  const profilesDir = path.join(__dirname, '../profiles/rs232');
+  if (!fs.existsSync(profilesDir)) {
+    fs.mkdirSync(profilesDir, { recursive: true });
+    return;
+  }
+  const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
+  availableProfiles.length = 0;
+  for (const file of files) {
+    try {
+      const raw = fs.readFileSync(path.join(profilesDir, file), 'utf8');
+      const profile = JSON.parse(raw);
+      availableProfiles.push({
+        id: file.replace('.json', ''),
+        name: profile.name || file,
+        protocol: profile.protocol || 'unknown',
+        transport: profile.transport || 'rs232',
+        defaults: profile.defaults || { baud: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
+        commands: profile.commands || [],
+        fields: profile.fields || [],
+        decoder: profile.decoder || null,
+        frame_format: profile.frame_format || null,
+        call_order: profile.call_order || null,
+        profile_file: profile.profile_file || null,
+      });
+    } catch (e) {
+      logger.error(`Failed to parse RS232 profile ${file}:`, e.message);
+    }
+  }
+  logger.info(`Loaded ${availableProfiles.length} RS232 profile(s).`);
+
+  // Second pass: resolve profile_file aliases (after all profiles are loaded)
+  resolveAliases();
+}
+
+function resolveAliases() {
+  for (const profile of availableProfiles) {
+    if (profile.profile_file) {
+      const targetId = profile.profile_file.replace('.json', '');
+      const target = availableProfiles.find(p => p.id === targetId);
+      if (target && target !== profile) {
+        profile.commands = target.commands;
+        profile.fields = target.fields;
+        profile.frame_format = target.frame_format;
+        profile.call_order = target.call_order;
+        profile.decoder = profile.decoder || target.decoder;
+      }
+    }
+  }
+}
+
+// ── Serial Port Helpers ─────────────────────────────────────────────────
+
+async function openSerialPort(device) {
+  return new Promise((resolve, reject) => {
+    const port = new SerialPort({
+      path: device.serial_path || '/dev/ttyUSB0',
+      baudRate: parseInt(device.baud) || 9600,
+      dataBits: parseInt(device.data_bits) || 8,
+      stopBits: parseInt(device.stop_bits) || 1,
+      parity: device.parity || 'none',
+      autoOpen: false,
+    });
+
+    port.open(err => {
+      if (err) {
+        if (err.message.includes('EACCES')) {
+          reject(new Error(`Permission denied on ${device.serial_path}. Add user to 'dialout' group: sudo usermod -a -G dialout $USER`));
+        } else if (err.message.includes('ENOENT')) {
+          reject(new Error(`Port ${device.serial_path} not found. Check USB connection.`));
+        } else {
+          reject(err);
+        }
+      } else {
+        resolve(port);
+      }
+    });
+  });
+}
+
+async function closeSerialPort(port) {
+  return new Promise(resolve => {
+    if (!port || !port.isOpen) return resolve();
+    port.close(() => resolve());
+  });
+}
+
+// ── Default Frame Detection ─────────────────────────────────────────────
+
+function defaultFrameDetect(buffer, profile) {
+  if (buffer.length < 4) return false;
+  // Voltronic ASCII: response ends with \r
+  if (profile.protocol === 'voltronic-qpigs' || profile.protocol === 'voltronic-ascii') {
+    const text = buffer.toString('utf8');
+    return text.endsWith('\r');
+  }
+  // SolaX AA55 binary: frame[2] contains total length
+  if (profile.protocol === 'solax-aa55' && buffer.length >= 3) {
+    return buffer.length >= buffer[2] + 3; // header(2) + size(1) + payload + checksum(2)
+  }
+  return false;
+}
+
+// ── Query/Response Cycle (Poll-Based Protocols) ─────────────────────────
+
+async function queryDevice(port, query, profile, timeoutMs = 3000) {
+  // Clamp timeout to 100-30000ms to prevent resource abuse
+  const safeTimeout = Math.min(Math.max(parseInt(timeoutMs) || 3000, 100), 30000);
+  return new Promise((resolve, reject) => {
+    let buffer = Buffer.alloc(0);
+    const timer = setTimeout(() => {
+      port.removeAllListeners('data');
+      if (buffer.length > 0) {
+        resolve(buffer); // return partial buffer on timeout
+      } else {
+        reject(new Error('RS232 read timeout'));
+      }
+    }, safeTimeout);
+
+    port.on('data', chunk => {
+      buffer = Buffer.concat([buffer, chunk]);
+      const detectFn = profile.isCompleteFrame || defaultFrameDetect;
+      if (detectFn(buffer, profile)) {
+        clearTimeout(timer);
+        port.removeAllListeners('data');
+        resolve(buffer);
+      } else {
+        timer.refresh();
+      }
+    });
+
+    port.write(query, err => {
+      if (err) {
+        clearTimeout(timer);
+        port.removeAllListeners('data');
+        reject(err);
+      }
+    });
+  });
+}
+
+// ── Decoder Implementations ─────────────────────────────────────────────
+
+function decodeAsciiResponse(buffer, cmd) {
+  const text = buffer.toString('utf8').trim();
+  const prefix = cmd.response?.prefix || '';
+  let dataStr = text;
+  if (prefix && text.startsWith(prefix)) {
+    dataStr = text.slice(prefix.length);
+  }
+  const delimiter = cmd.response?.delimiter || '\t';
+  const fields = dataStr.split(delimiter);
+
+  const results = {};
+  for (const fieldDef of cmd.fields || []) {
+    const idx = fieldDef.index;
+    if (idx >= fields.length || idx < 0) continue;
+    let raw = parseFloat(fields[idx].trim());
+    if (isNaN(raw)) continue;
+    if (fieldDef.scale) raw *= fieldDef.scale;
+    results[fieldDef.metric] = raw;
+  }
+  return results;
+}
+
+function decodeVedirectFrame(frame, profile) {
+  const results = {};
+  for (const fieldDef of profile.fields || []) {
+    const raw = frame[fieldDef.label];
+    if (raw === undefined) continue;
+    let val = parseFloat(raw);
+    if (isNaN(val)) continue;
+    if (fieldDef.scale) val *= fieldDef.scale;
+    if (fieldDef.type === 'millivolt') val *= 0.001;
+    if (fieldDef.type === 'milliamp') val *= 0.001;
+    const metricName = fieldDef.metric_prefix
+      ? `${fieldDef.metric_prefix}_${fieldDef.metric}`
+      : fieldDef.metric;
+    results[metricName] = parseFloat(val.toFixed(3));
+  }
+  return results;
+}
+
+// ── Dispatch to decoder based on profile ────────────────────────────────
+
+function decodeResponse(rawResponse, cmd, profile) {
+  if (profile.protocol === 'vedirect-streaming') {
+    return decodeVedirectFrame(rawResponse, profile);
+  }
+  // Binary protocols (SolaX AA55) use a custom decoder
+  if (profile.decoder) {
+    try {
+      const decoderPath = path.join(__dirname, 'rs232-decoders', profile.decoder);
+      const decoder = require(decoderPath);
+      return decoder.decodeResponse(rawResponse, cmd, profile);
+    } catch (err) {
+      logger.error(`RS232 decoder '${profile.decoder}' error:`, err.message);
+      return {};
+    }
+  }
+  // Default: ASCII field-index decoder (Voltronic, Infinisolar, etc.)
+  return decodeAsciiResponse(rawResponse, cmd);
+}
+
+function encodeQuery(cmd, device, profile) {
+  if (profile.protocol === 'solax-aa55' && profile.decoder) {
+    try {
+      const decoderPath = path.join(__dirname, 'rs232-decoders', profile.decoder);
+      const decoder = require(decoderPath);
+      return decoder.encodeQuery(cmd, profile);
+    } catch (err) {
+      logger.error(`RS232 encoder '${profile.decoder}' error:`, err.message);
+      return Buffer.alloc(0);
+    }
+  }
+  // Default: send command string as-is (Voltronic ASCII)
+  return Buffer.from(cmd.query || '');
+}
+
+// ── Poll Orchestration ──────────────────────────────────────────────────
+
+async function pollRs232() {
+  const devices = JSON.parse(getConfig('rs232_devices') || '[]');
+  if (!devices.length) return;
+  pollCycleCounter++;
+
+  for (const device of devices) {
+    if (!device.enabled) continue;
+
+    const failCount = failCounts.get(device.name) || 0;
+    if (failCount >= 5 && (pollCycleCounter % 2) === 0) continue; // skip every other
+    if (failCount >= 10) continue; // stop trying
+
+    const profile = availableProfiles.find(p => p.id === device.profile);
+    if (!profile) {
+      logger.error(`RS232 profile '${device.profile}' not found`);
+      continue;
+    }
+
+    try {
+      if (profile.protocol === 'vedirect-streaming') {
+        await pollStreamingDevice(device, profile);
+      } else {
+        await pollQueryDevice(device, profile);
+      }
+      failCounts.set(device.name, 0);
+    } catch (err) {
+      handlePollError(device, err);
+    }
+  }
+}
+
+async function pollQueryDevice(device, profile) {
+  const port = await openSerialPort(device);
+  try {
+    const results = {};
+
+    // Determine command order
+    const order = profile.call_order || profile.commands.map(c => c.name);
+    for (const cmdName of order) {
+      const cmd = profile.commands.find(c => c.name === cmdName);
+      if (!cmd) continue;
+      const queryBuffer = encodeQuery(cmd, device, profile);
+      if (queryBuffer.length === 0) continue;
+      const rawResponse = await queryDevice(port, queryBuffer, profile, parseInt(device.timeout) || 5000);
+      const parsed = decodeResponse(rawResponse, cmd, profile);
+      Object.assign(results, parsed);
+    }
+
+    // Write to database — only numeric values
+    const now = Math.floor(Date.now() / 1000);
+    for (const [metric, value] of Object.entries(results)) {
+      if (typeof value !== 'number' || isNaN(value)) continue;
+      getMetricInsert().run(now, metric, value);
+      getLatestUpsert().run(metric, value, now);
+    }
+    logger.info(`RS232 poll ${device.name}: ${Object.keys(results).length} metrics`);
+  } finally {
+    await closeSerialPort(port);
+  }
+}
+
+// ── Streaming Protocol Handling (Victron VE.Direct) ─────────────────────
+
+const streamingSetupInProgress = new Set();
+const streamingRetries = new Map();
+const MAX_STREAMING_RETRIES = 3;
+
+function setupStreamingConnection(device, profile) {
+  if (streamingSetupInProgress.has(device.name)) return;
+  streamingSetupInProgress.add(device.name);
+
+  teardownStreamingConnection(device.name);
+
+  const port = new SerialPort({
+    path: device.serial_path,
+    baudRate: parseInt(device.baud) || 19200,
+    dataBits: 8, stopBits: 1, parity: 'none',
+  });
+
+  const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
+  let currentFrame = {};
+
+  parser.on('data', line => {
+    line = line.trim();
+    if (!line) return;
+
+    const [key, ...valParts] = line.split('\t');
+    const value = valParts.join('\t');
+
+    if (key === 'Checksum') {
+      const metrics = decodeVedirectFrame(currentFrame, profile);
+      if (Object.keys(metrics).length > 0) {
+        const now = Math.floor(Date.now() / 1000);
+        for (const [metric, val] of Object.entries(metrics)) {
+          if (typeof val !== 'number' || isNaN(val)) continue;
+          getMetricInsert().run(now, metric, val);
+          getLatestUpsert().run(now, metric, val);
+        }
+      }
+      currentFrame = {};
+    } else {
+      currentFrame[key] = value;
+    }
+  });
+
+  port.on('error', err => {
+    logger.error(`RS232 streaming ${device.name} error: ${err.message}`);
+    streamingSetupInProgress.delete(device.name);
+    streamingConnections.delete(device.name);
+    const retries = streamingRetries.get(device.name) || 0;
+    if (retries < MAX_STREAMING_RETRIES) {
+      streamingRetries.set(device.name, retries + 1);
+      setTimeout(() => setupStreamingConnection(device, profile), 10000);
+    } else {
+      logger.error(`RS232 streaming ${device.name}: max retries (${MAX_STREAMING_RETRIES}) reached, giving up`);
+    }
+  });
+
+  port.on('close', () => {
+    streamingConnections.delete(device.name);
+    streamingSetupInProgress.delete(device.name);
+  });
+
+  streamingConnections.set(device.name, { port, parser, device, profile });
+}
+
+function teardownStreamingConnection(name) {
+  streamingSetupInProgress.delete(name);
+  const conn = streamingConnections.get(name);
+  if (conn) {
+    try { conn.port.close(); } catch (e) { /* ignore */ }
+    streamingConnections.delete(name);
+  }
+}
+
+function pollStreamingDevice(device, profile) {
+  const conn = streamingConnections.get(device.name);
+  if (!conn || !conn.port.isOpen) {
+    if (!streamingSetupInProgress.has(device.name)) {
+      setupStreamingConnection(device, profile);
+    }
+  }
+}
+
+// ── Error Handling ──────────────────────────────────────────────────────
+
+function handlePollError(device, err) {
+  const count = (failCounts.get(device.name) || 0) + 1;
+  failCounts.set(device.name, count);
+
+  if (count >= 5) {
+    logger.error(`RS232 ${device.name}: ${count} consecutive failures, throttling — ${err.message}`);
+  } else if (count >= 3) {
+    logger.warn(`RS232 ${device.name}: ${count} consecutive failures — ${err.message}`);
+  } else {
+    logger.warn(`RS232 ${device.name}: poll failed — ${err.message}`);
+  }
+}
+
+// ── Baud Rate Auto-Detection ────────────────────────────────────────────
+
+async function detectBaudRate(serialPath, profile) {
+  const FALLBACK_BAUDS = [2400, 4800, 9600, 19200, 38400, 57600, 115200];
+  for (const baud of FALLBACK_BAUDS) {
+    try {
+      const port = await openSerialPort({
+        serial_path: serialPath,
+        baud,
+        data_bits: profile.defaults?.dataBits || 8,
+        stop_bits: profile.defaults?.stopBits || 1,
+        parity: profile.defaults?.parity || 'none',
+      });
+      const cmd = profile.commands[0];
+      if (!cmd) { await closeSerialPort(port); continue; }
+      const query = typeof cmd.query === 'string' ? Buffer.from(cmd.query) : Buffer.from(cmd.query);
+      const response = await queryDevice(port, query, profile, 2000);
+      await closeSerialPort(port);
+      const parsed = decodeResponse(response, cmd, profile);
+      if (Object.keys(parsed).length > 0) {
+        return baud;
+      }
+    } catch (e) { /* try next baud */ }
+  }
+  throw new Error('Could not auto-detect baud rate for ' + serialPath);
+}
+
+// ── Test / Port Listing ─────────────────────────────────────────────────
+
+async function testRs232Connection(device) {
+  const profile = availableProfiles.find(p => p.id === device.profile);
+  if (!profile) throw new Error(`Profile '${device.profile}' not found`);
+
+  if (profile.protocol === 'vedirect-streaming') {
+    const port = await openSerialPort(device);
+    await new Promise(r => setTimeout(r, 2000));
+    await closeSerialPort(port);
+    return { success: true, message: 'Port opened successfully' };
+  }
+
+  const port = await openSerialPort(device);
+  try {
+    const cmd = profile.commands[0];
+    if (!cmd) throw new Error('No commands defined in profile');
+    const query = encodeQuery(cmd, device, profile);
+    const raw = await queryDevice(port, query, profile, parseInt(device.timeout) || 5000);
+    const parsed = decodeResponse(raw, cmd, profile);
+    return { success: true, metrics: parsed };
+  } finally {
+    await closeSerialPort(port);
+  }
+}
+
+async function getAvailablePorts() {
+  const ports = await SerialPort.list();
+  return ports.map(p => ({
+    path: p.path,
+    manufacturer: p.manufacturer || 'Unknown',
+    vendorId: p.vendorId || '',
+    productId: p.productId || '',
+    friendlyName: `[${p.path}] ${p.manufacturer || 'Unknown adapter'}`,
+  }));
+}
+
+// ── Graceful Shutdown ───────────────────────────────────────────────────
+
+async function shutdownRs232() {
+  logger.info('RS232 shutdown: closing all streaming connections');
+  for (const [name, conn] of streamingConnections) {
+    try { conn.port.close(); } catch (e) { /* ignore */ }
+  }
+  streamingConnections.clear();
+  logger.info('RS232 shutdown complete');
+}
+
+// ── Restart Streaming (for settings save) ───────────────────────────────
+
+function restartRs232Streaming() {
+  const devices = JSON.parse(getConfig('rs232_devices') || '[]');
+  for (const device of devices) {
+    if (!device.enabled) continue;
+    const profile = availableProfiles.find(p => p.id === device.profile);
+    if (profile && profile.protocol === 'vedirect-streaming') {
+      setupStreamingConnection(device, profile);
+    }
+  }
+}
+
+// ── Exports (matching modbus.js pattern) ────────────────────────────────
+
+module.exports = {
+  loadRs232Profiles,
+  pollRs232,
+  testRs232Connection,
+  getAvailablePorts,
+  shutdownRs232,
+  restartRs232Streaming,
+  detectBaudRate,
+  availableProfiles: availableProfiles, // getter — always up to date
+};

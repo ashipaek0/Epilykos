@@ -1,0 +1,27 @@
+{
+  "name": "Victron VE.Direct",
+  "protocol": "vedirect-streaming",
+  "transport": "rs232",
+  "defaults": {
+    "baud": 19200,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "fields": [
+    { "label": "V",     "metric": "battery_voltage",   "type": "millivolt", "unit": "V" },
+    { "label": "I",     "metric": "battery_current",   "type": "milliamp",  "unit": "A" },
+    { "label": "VPV",   "metric": "solar_voltage",     "scale": 0.01,  "unit": "V" },
+    { "label": "PPV",   "metric": "solar_power",       "scale": 1,     "unit": "W" },
+    { "label": "SOC",   "metric": "battery_soc",       "scale": 0.1,   "unit": "%" },
+    { "label": "T",     "metric": "battery_temp",      "scale": 0.1,   "unit": "°C" },
+    { "label": "H1",    "metric": "daily_yield",       "scale": 0.01,  "unit": "kWh" },
+    { "label": "H2",    "metric": "daily_yield_load",  "scale": 0.01,  "unit": "kWh" },
+    { "label": "H5",    "metric": "total_yield",       "scale": 0.01,  "unit": "kWh" },
+    { "label": "H6",    "metric": "total_yield_load",  "scale": 0.01,  "unit": "kWh" },
+    { "label": "HSDS",  "metric": "day_sequence",      "scale": 1,     "unit": "" },
+    { "label": "MPPT",  "metric": "mppt_mode",         "scale": 1,     "unit": "", "type": "mode" },
+    { "label": "LOAD",  "metric": "load_state",        "scale": 1,     "unit": "", "type": "bool" },
+    { "label": "CS",    "metric": "charge_state",      "scale": 1,     "unit": "", "type": "mode" }
+  ]
+}

@@ -13,6 +13,7 @@
  */
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const session = require('express-session');
 const httpFetch = require('node-fetch');
 const crypto = require('crypto');
@@ -27,8 +28,9 @@ const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
-const { setupMqtt, restartMqtt } = require('./modules/mqtt');
+const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
+const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
 const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules/solar');
@@ -37,9 +39,9 @@ const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
-const { startExternalPolling, restartExternalPolling } = require('./modules/external');
-const { startBmsPolling, restartBmsPolling } = require('./modules/bms');
-const { startDonglePolling, restartDonglePolling } = require('./modules/dongle');
+const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
+const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
+const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
 
 const app = express();
@@ -53,6 +55,9 @@ app.use(globalLimiter);
 // Morgan HTTP request logging (stream to winston)
 app.use(morgan('combined', { stream: logger.stream }));
 
+// Compression (gzip + brotli)
+app.use(compression());
+
 // Session middleware
 app.use(session({
   secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
@@ -65,6 +70,7 @@ app.use(session({
 initializeDatabase();
 const db = getDb();
 loadProfiles();
+loadRs232Profiles();  // RS232 serial inverter profiles
 setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
@@ -82,7 +88,8 @@ const upload = multer({
 });
 
 // Middleware
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files with 1h browser cache
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable: true }));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
@@ -102,7 +109,12 @@ function broadcastDashboardState(state) {
   const message = JSON.stringify({ type: 'dashboard-state', data: state });
   for (const client of wsClients) {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      client.send(message, err => {
+        if (err) {
+          wsClients.delete(client);
+          client.terminate();
+        }
+      });
     }
   }
 }
@@ -124,6 +136,10 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     wsClients.delete(ws);
     logger.info(`WebSocket client disconnected (${wsClients.size} remaining)`);
+  });
+  ws.on('error', () => {
+    wsClients.delete(ws);
+    ws.terminate();
   });
 });
 
@@ -229,6 +245,7 @@ async function pollAllSources() {
   try {
     await pollHomeAssistant();
     await pollModbus();
+    await pollRs232();         // RS232 serial inverter polling
     await pollLegacyHistory();
     await pollGridStatus();
     // BMS polling is independent and runs on its own interval
@@ -241,7 +258,7 @@ async function pollAllSources() {
   }
 }
 pollAllSources();
-setInterval(pollAllSources, 30000);
+const pollInterval = setInterval(pollAllSources, 30000);
 
 // ---------- Public API (no auth) ----------
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -254,6 +271,7 @@ app.get('/api/public-config', async (req, res) => {
     config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
     config.savings_currency = config.savings_currency || '€';
     config.savings_rate = config.savings_rate || '0.30';
+    res.set('Cache-Control', 'public, max-age=300');
     res.json(config);
   } catch (err) {
     logger.error('Error in /api/public-config:', err);
@@ -268,6 +286,7 @@ app.get('/api/current', async (req, res) => {
     const rate = parseFloat(rateRow?.value) || 0.30;
     const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY date(timestamp, 'unixepoch'))`).get();
     const allTimeSavings = (allTimeSolar?.total || 0) * rate;
+    res.set('Cache-Control', 'public, max-age=10');
     if (latest) {
       const curr = getConfig('savings_currency') || '€';
       const dailySolarKwh = computeTodaySolar();
@@ -637,6 +656,38 @@ app.post('/api/test-modbus', async (req, res) => {
   }
 });
 
+// ── RS232 API Endpoints ────────────────────────────────────────────────
+app.use('/api/rs232/profiles', isAuthenticated);
+app.get('/api/rs232/profiles', (req, res) => {
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol })));
+});
+
+app.use('/api/rs232/ports', isAuthenticated);
+app.get('/api/rs232/ports', async (req, res) => {
+  try {
+    const ports = await getAvailablePorts();
+    res.json(Array.isArray(ports) ? ports : []);
+  } catch (err) {
+    logger.error('RS232 port scan error:', err);
+    res.json([]);
+  }
+});
+
+app.use('/api/test-rs232', isAuthenticated);
+app.post('/api/test-rs232', async (req, res) => {
+  const device = req.body;
+  if (!device) return res.status(400).json({ error: 'No device config provided' });
+  if (!device.serial_path) return res.status(400).json({ error: 'Serial path required' });
+  if (!device.profile) return res.status(400).json({ error: 'Profile required' });
+  try {
+    const result = await testRs232Connection(device);
+    res.json(result);
+  } catch (err) {
+    logger.error('RS232 test error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/dashboard-config', isAuthenticated, (req, res) => {
   try {
     saveDashboardConfig(req.body);
@@ -724,6 +775,7 @@ app.post('/api/settings', (req, res) => {
     if ('bms_devices' in updates) restartBmsPolling();
     if ('dongle_config' in updates) restartDonglePolling();
     if ('pvoutput_config' in updates) pvoutput.restart();
+    if ('rs232_devices' in updates) restartRs232Streaming();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
@@ -1016,3 +1068,31 @@ app.get('*', (req, res, next) => {
 
 // Start HTTP server with WebSocket support
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
+
+// ── Graceful Shutdown ──────────────────────────────────────────────────
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received — shutting down');
+  await shutdownRs232();
+  clearInterval(pollInterval);
+  stopExternalPolling();
+  stopBmsPolling();
+  stopDonglePolling();
+  for (const client of mqttClients.values()) client.end(true);
+  mqttClients.clear();
+  wss.close(() => wsClients.clear());
+  db.close();
+  logger.info('Shutdown complete');
+});
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received — shutting down');
+  await shutdownRs232();
+  clearInterval(pollInterval);
+  stopExternalPolling();
+  stopBmsPolling();
+  stopDonglePolling();
+  for (const client of mqttClients.values()) client.end(true);
+  mqttClients.clear();
+  wss.close(() => wsClients.clear());
+  db.close();
+  logger.info('Shutdown complete');
+});

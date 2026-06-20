@@ -128,6 +128,7 @@ async function backfillDateChunk(db, client, date, records) {
 
   // Mark as uploaded
   const ids = records.map(r => r.id);
+  if (ids.length === 0) return;
   db.prepare(`UPDATE pvoutput_upload_queue SET status = 'uploaded', uploaded_at = datetime('now') WHERE id IN (${ids.map(() => '?').join(',')})`).run(...ids);
 }
 
