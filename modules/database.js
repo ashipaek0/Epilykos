@@ -215,6 +215,46 @@ function initializeDatabase() {
     logger.info('Initialised default dashboard configuration');
   }
 
+  // Seed default metrics if none exist (user can delete/add freely)
+  if (!getConfig('user_metrics') || getConfig('user_metrics') === '[]') {
+    const defaultMetrics = [
+      { name: 'Battery Power', unit: 'W' },
+      { name: 'Battery Voltage', unit: 'V' },
+      { name: 'Battery Current', unit: 'A' },
+      { name: 'Battery Runtime', unit: 'h' },
+      { name: 'Battery Charge Power', unit: 'W' },
+      { name: 'Battery Discharge Power', unit: 'W' },
+      { name: 'Battery Energy (Capacity)', unit: 'kWh' },
+      { name: 'Battery Energy (Charge)', unit: 'kWh' },
+      { name: 'Battery Energy (Discharge)', unit: 'kWh' },
+      { name: 'Battery SOC', unit: '%' },
+      { name: 'Battery Cell Voltage (Lowest)', unit: 'V' },
+      { name: 'Battery Cell Voltage (Highest)', unit: 'V' },
+      { name: 'Battery Cell Voltage (Average)', unit: 'V' },
+      { name: 'Battery Temperature', unit: '°C' },
+      { name: 'Grid Voltage', unit: 'V' },
+      { name: 'Grid Power', unit: 'W' },
+      { name: 'Grid Current', unit: 'A' },
+      { name: 'Grid Energy Import', unit: 'kWh' },
+      { name: 'Grid Energy Export', unit: 'kWh' },
+      { name: 'Grid Status', unit: 'On/Off' },
+      { name: 'PV Power', unit: 'W' },
+      { name: 'PV Voltage', unit: 'V' },
+      { name: 'PV Energy Generated', unit: 'kWh' },
+      { name: 'PV Current', unit: 'A' },
+      { name: 'PV Forecast Energy', unit: 'kWh' },
+      { name: 'Load Power', unit: 'W' },
+      { name: 'Load Current', unit: 'A' },
+      { name: 'Load Energy Consumed', unit: 'kWh' },
+      { name: 'Load %', unit: '%' },
+      { name: 'Inverter Status', unit: '' },
+      { name: 'Inverter Temperature', unit: '°C' },
+      { name: 'Ambient Temperature', unit: '°C' }
+    ].map(m => ({ ...m, createdAt: Date.now() }));
+    setConfig('user_metrics', JSON.stringify(defaultMetrics));
+    logger.info(`Seeded ${defaultMetrics.length} default metrics`);
+  }
+
   logger.info('Database initialized');
 }
 
