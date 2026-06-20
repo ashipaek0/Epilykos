@@ -427,13 +427,12 @@
       rows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
     }
 
-    // Pagination
+    // Pagination — preserve current page from data-page attribute
     if (visibleRows.length > MAPPINGS_PAGE_SIZE && !filterText) {
-      let page = parseInt(moreBtn?.dataset.page || '1');
-      // Always show first page
-      const start = 0;
-      const end = MAPPINGS_PAGE_SIZE;
-      visibleRows.forEach((row, i) => {
+      var curPage = parseInt(moreBtn?.dataset.page || '1');
+      // Use data-page to determine how many rows to show
+      var end = MAPPINGS_PAGE_SIZE * curPage;
+      visibleRows.forEach(function(row, i) {
         row.style.display = i < end ? '' : 'none';
       });
       const remaining = visibleRows.length - end;
