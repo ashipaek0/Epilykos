@@ -66,7 +66,7 @@ async function loadSettings() {
 }
 
 // ---------- Helper: Create metric dropdown ----------
-function createMetricDropdown(selectedMetric = '') {
+function createMetricDropdown(selectedMetric = '', excludeMetrics = []) {
   const select = document.createElement('select');
   select.className = 'metric-name';
   select.title = selectedMetric || 'Select a metric';
@@ -75,6 +75,8 @@ function createMetricDropdown(selectedMetric = '') {
   emptyOpt.textContent = '-- Select Metric --';
   select.appendChild(emptyOpt);
   for (const metric of allMetrics) {
+    // Skip metrics already mapped elsewhere unless it's the current selection
+    if (excludeMetrics.includes(metric.name) && metric.name !== selectedMetric) continue;
     const opt = document.createElement('option');
     opt.value = metric.name;
     opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
@@ -82,6 +84,31 @@ function createMetricDropdown(selectedMetric = '') {
     select.appendChild(opt);
   }
   return select;
+}
+
+// Rebuild all metric dropdowns in a single MQTT/HA device card, respecting used metrics
+function refreshMqttDropdowns(card) {
+  const used = new Set();
+  card.querySelectorAll('.metric-row .metric-name').forEach(sel => {
+    if (sel.value) used.add(sel.value);
+  });
+  card.querySelectorAll('.metric-row .metric-name').forEach(sel => {
+    const currentVal = sel.value;
+    const excludeOthers = Array.from(used).filter(m => m !== currentVal);
+    sel.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select Metric --';
+    sel.appendChild(emptyOpt);
+    for (const metric of allMetrics) {
+      if (excludeOthers.includes(metric.name)) continue;
+      const opt = document.createElement('option');
+      opt.value = metric.name;
+      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+      if (metric.name === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
 }
 
 // Generate metric options as HTML string (for innerHTML-based config panels)
@@ -480,7 +507,9 @@ function renderMqttDevice(device, idx) {
   });
 
   card.querySelector('.add-mqtt-metric').addEventListener('click', () => {
-    addMqttMetricRow(device, idx);
+    const used = new Set();
+    card.querySelectorAll('.metric-row .metric-name').forEach(sel => { if (sel.value) used.add(sel.value); });
+    addMqttMetricRow(device, idx, mappingsList, '', '', Array.from(used));
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -509,18 +538,20 @@ function renderMqttDevice(device, idx) {
 
 function renderMqttMappings(topics, deviceIdx, container) {
   container.innerHTML = '';
+  const usedMetrics = Object.keys(topics);
   Object.entries(topics).forEach(([metric, topic]) => {
-    addMqttMetricRow({}, deviceIdx, container, metric, topic);
+    const excludeOthers = usedMetrics.filter(m => m !== metric);
+    addMqttMetricRow({}, deviceIdx, container, metric, topic, excludeOthers);
   });
   if (Object.keys(topics).length === 0) addMqttMetricRow({}, deviceIdx, container);
 }
 
-function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '') {
+function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '', excludeMetrics = []) {
   if (!container) container = document.getElementById(`mqtt-mappings-list-${deviceIdx}`);
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  const metricSelect = createMetricDropdown(metric);
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const topicInput = document.createElement('input');
   topicInput.type = 'text';
   topicInput.className = 'topic-input';
@@ -531,7 +562,15 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
-    if (confirm('Remove this topic mapping?')) row.remove();
+    row.remove();
+    // Refresh dropdowns in the parent card to re-add the freed metric
+    const card = row.closest('.device-card');
+    if (card) refreshMqttDropdowns(card);
+  });
+  // When the metric selection changes, refresh all dropdowns in the card
+  metricSelect.addEventListener('change', () => {
+    const card = row.closest('.device-card');
+    if (card) refreshMqttDropdowns(card);
   });
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
