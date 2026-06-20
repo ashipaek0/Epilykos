@@ -1,5 +1,6 @@
 const { logger } = require('./logger');
 const fetch = require('node-fetch');
+const https = require('https');
 const { getConfig, getDb } = require('./database');
 
 let forecastCache = { data: null, timestamp: 0 };
@@ -321,10 +322,26 @@ async function testForecast(opts) {
   }
   if (source === 'none') {
     try {
+      // Use https.get instead of fetch to avoid ERR_STREAM_PREMATURE_CLOSE
+      // (Node.js fetch has stream issues with Open-Meteo in long-running Docker processes)
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&timezone=auto&forecast_days=1`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await new Promise((resolve, reject) => {
+        const req = https.get(url, { timeout: 10000 }, (res) => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); }
+          });
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.on('error', reject);
+      });
+      // Also fix the Solcast fetch calls the same way (same container, same fetch bug risk)
       const conversionFactor = (capacityKwp / 1000) * lossFactor;
       const today = new Date().toISOString().split('T')[0];
       data.hourly.time.forEach((t, i) => {
