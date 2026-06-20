@@ -649,6 +649,45 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   });
 });
 
+// ── MQTT topic discovery ────────────────────────────────────────
+app.use('/api/mqtt-discover-topics', isAuthenticated);
+app.get('/api/mqtt-discover-topics', async (req, res) => {
+  const broker = req.query.broker;
+  const username = req.query.username || null;
+  const password = req.query.password || null;
+  if (!broker) return res.status(400).json({ error: 'Broker URL required' });
+  const options = {};
+  if (username) options.username = username;
+  if (password) options.password = password;
+  const mqtt = require('mqtt');
+  const client = mqtt.connect(broker, options);
+  let responded = false;
+  const topics = new Set();
+  const timeout = setTimeout(() => {
+    client.end();
+    if (!responded) {
+      responded = true;
+      const sorted = [...topics].sort();
+      res.json({ success: true, topics: sorted, count: sorted.length });
+    }
+  }, 4000);
+  client.on('connect', () => {
+    client.subscribe('#', (err) => {
+      if (err) {
+        clearTimeout(timeout);
+        client.end();
+        if (!responded) { responded = true; res.status(500).json({ error: 'Subscribe failed: ' + err.message }); }
+      }
+    });
+  });
+  client.on('message', (topic) => { topics.add(topic); });
+  client.on('error', (err) => {
+    clearTimeout(timeout);
+    client.end();
+    if (!responded) { responded = true; res.status(500).json({ error: err.message }); }
+  });
+});
+
 app.use('/api/modbus/profiles', isAuthenticated);
 app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
