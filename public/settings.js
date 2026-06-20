@@ -681,6 +681,13 @@ function renderModbusDevice(device, idx) {
       <input type="number" name="modbus_devices[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:120px;">
       <button type="button" class="fetch-btn test-modbus">Test Modbus</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="modbus-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-modbus-registers" data-device="${idx}">
+        📥 Load Profile Registers
+      </button>
+    </div>
   `;
   container.appendChild(card);
   const transportSelect = card.querySelector('.modbus-transport-select');
@@ -732,6 +739,26 @@ function renderModbusDevice(device, idx) {
     }
   });
   modbusDeviceCounter++;
+  // Profile change → auto-load register mappings
+  profileSelect.addEventListener('change', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    if (!mappingsList) return;
+    if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing register mappings. Continue?')) {
+      profileSelect.value = device.profile || '';
+      return;
+    }
+    loadModbusRegisterMappings(profileSelect.value, idx, mappingsList);
+  });
+  // Load button click
+  card.querySelector('.load-modbus-registers').addEventListener('click', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    loadModbusRegisterMappings(profileSelect.value, idx, mappingsList);
+  });
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderModbusMappings(profileSelect.value, device.mappings, mappingsList);
+  }
 }
 
 function reindexModbus() {
@@ -748,7 +775,82 @@ if (addModbusBtn) addModbusBtn.addEventListener('click', () => {
   renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
 });
 
-// ======================== RS232 ========================
+// ---------- Modbus register mapping helpers ----------
+async function loadModbusRegisterMappings(profileId, deviceIdx, container) {
+  container.innerHTML = '';
+  container.innerHTML = '<div class="note">Loading profile...</div>';
+  try {
+    const res = await fetch(`/api/modbus/profile/${encodeURIComponent(profileId)}`);
+    if (!res.ok) {
+      container.innerHTML = '<div class="note" style="color:var(--error);">Profile not found</div>';
+      return;
+    }
+    const profile = await res.json();
+    const mappings = {};
+    profile.registers.forEach(r => {
+      // Default to profile's metric name if present
+      mappings[String(r.address)] = r.metric || '';
+    });
+    renderModbusMappings(profileId, mappings, container);
+  } catch (e) {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load profile</div>';
+  }
+}
+
+function renderModbusMappings(profileId, mappings, container) {
+  container.innerHTML = '';
+  if (!mappings || Object.keys(mappings).length === 0) {
+    container.innerHTML = '<div class="note">No registers in this profile.</div>';
+    return;
+  }
+  // We need the profile registers for labels — fetch if not already loaded
+  fetch(`/api/modbus/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
+    const regMap = {};
+    profile.registers.forEach(r => { regMap[String(r.address)] = r; });
+
+    Object.entries(mappings).sort(([a], [b]) => parseInt(a) - parseInt(b)).forEach(([address, metricName]) => {
+      const reg = regMap[address];
+      const label = reg ? reg.label || `Register ${address}` : `Register ${address}`;
+      const typeInfo = reg ? `[${reg.type}, scale=${reg.scale}, ${reg.unit}]` : '';
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+      row.dataset.address = address;
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'register-desc';
+      descSpan.textContent = `${label} (Addr ${address}) ${typeInfo}`;
+      descSpan.style.flex = '1';
+      descSpan.style.fontSize = '0.85em';
+      descSpan.style.overflow = 'hidden';
+      descSpan.style.textOverflow = 'ellipsis';
+      descSpan.style.whiteSpace = 'nowrap';
+
+      const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
+      metricSelect.className = 'metric-name';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn remove-metric';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      metricSelect.addEventListener('change', () => {
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      row.appendChild(descSpan);
+      row.appendChild(metricSelect);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+    if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+  }).catch(() => {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load register details</div>';
+  });
+}
 let rs232DeviceCounter = 0;
 let availableRs232Ports = [];
 
@@ -2328,6 +2430,13 @@ form.addEventListener('submit', async (e) => {
     dev.serial_stop_bits = card.querySelector('input[name$="[serial_stop_bits]"]')?.value || '';
     dev.unit = card.querySelector('input[name$="[unit]"]')?.value || 1;
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]')?.value || 30;
+    // Collect register mappings
+    dev.mappings = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const address = row.dataset.address;
+      const metricName = row.querySelector('.metric-name').value;
+      if (address && metricName) dev.mappings[address] = metricName;
+    });
     return dev;
   });
   payload.rs232_devices = collectDeviceArray('rs232-devices-container', (card) => {
