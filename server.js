@@ -565,6 +565,19 @@ app.get('/api/test-forecast', async (req, res) => {
   }
 });
 
+app.use('/api/role-metrics', isAuthenticated);
+app.get('/api/role-metrics', (req, res) => {
+  const raw = getConfig('role_metrics');
+  res.json(raw ? JSON.parse(raw) : {});
+});
+app.post('/api/role-metrics', (req, res) => {
+  const mapping = req.body;
+  if (typeof mapping !== 'object' || mapping === null) return res.status(400).json({ error: 'Expected JSON object' });
+  setConfig('role_metrics', JSON.stringify(mapping));
+  logger.info('[role-metrics] Updated mapping:', mapping);
+  res.json({ success: true });
+});
+
 app.use('/api/ha-device-entities', isAuthenticated);
 app.get('/api/ha-device-entities', async (req, res) => {
   const { url, token } = req.query;
