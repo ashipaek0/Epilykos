@@ -63,6 +63,7 @@ async function loadSettings() {
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
   }
+  syncAllMetricDropdowns();
 }
 
 // ---------- Helper: Create metric dropdown ----------
@@ -86,10 +87,10 @@ function createMetricDropdown(selectedMetric = '', excludeMetrics = []) {
   return select;
 }
 
-// Helper: collect all currently-used metrics across all MQTT cards
-function getGlobalUsedMqttMetrics() {
+// Helper: collect all currently-used metrics across ALL source types (MQTT + HA + External/REST)
+function getAllUsedMetrics() {
   const used = new Set();
-  document.querySelectorAll('#mqtt-devices-container .device-card .metric-row .metric-name').forEach(sel => {
+  document.querySelectorAll('.device-card .metric-row .metric-name').forEach(sel => {
     if (sel.value) used.add(sel.value);
   });
   return used;
@@ -120,10 +121,10 @@ function refreshMqttDropdowns(card) {
   });
 }
 
-// Rebuild ALL metric dropdowns across all MQTT cards (global exclusion)
-function refreshMqttGlobalDropdowns() {
-  const used = getGlobalUsedMqttMetrics();
-  document.querySelectorAll('#mqtt-devices-container .device-card .metric-row .metric-name').forEach(sel => {
+// Rebuild ALL metric dropdowns across all source types (MQTT + HA + External) with global exclusion
+function syncAllMetricDropdowns() {
+  const used = getAllUsedMetrics();
+  document.querySelectorAll('.device-card .metric-row .metric-name').forEach(sel => {
     const currentVal = sel.value;
     const excludeOthers = Array.from(used).filter(m => m !== currentVal);
     sel.innerHTML = '';
@@ -160,22 +161,7 @@ async function refreshAllMetricDropdowns() {
     allMetrics = await res.json();
     allMetrics.sort((a,b) => a.name.localeCompare(b.name));
   }
-  const selects = document.querySelectorAll('.metric-name');
-  for (const select of selects) {
-    const currentVal = select.value;
-    select.innerHTML = '';
-    const emptyOpt = document.createElement('option');
-    emptyOpt.value = '';
-    emptyOpt.textContent = '-- Select Metric --';
-    select.appendChild(emptyOpt);
-    for (const metric of allMetrics) {
-      const opt = document.createElement('option');
-      opt.value = metric.name;
-      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
-      select.appendChild(opt);
-    }
-    if (currentVal && allMetrics.some(m => m.name === currentVal)) select.value = currentVal;
-  }
+  syncAllMetricDropdowns();
 }
 
 // ======================== HOME ASSISTANT ========================
@@ -185,6 +171,7 @@ function buildHaDeviceList(devices) {
   container.innerHTML = '';
   haDeviceCounter = 0;
   devices.forEach((dev, idx) => renderHaDevice(dev, idx));
+  refreshAllMetricDropdowns();
 }
 
 function renderHaDevice(device, idx) {
@@ -235,6 +222,7 @@ function renderHaDevice(device, idx) {
     if (confirm('Remove this Home Assistant device and all its entity mappings?')) {
       card.remove();
       reindexHa();
+      refreshAllMetricDropdowns();
     }
   });
 
@@ -270,7 +258,9 @@ function renderHaDevice(device, idx) {
   });
 
   card.querySelector('.add-ha-metric').addEventListener('click', () => {
-    addHaMetricRow(device, idx);
+    const used = getAllUsedMetrics();
+    addHaMetricRow(device, idx, '', '', Array.from(used));
+    refreshAllMetricDropdowns();
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -305,12 +295,12 @@ function renderHaMappings(entities, deviceIdx, container) {
   if (Object.keys(entities).length === 0) addHaMetricRow({}, deviceIdx, container);
 }
 
-function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = '') {
+function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = '', excludeMetrics = []) {
   if (!container) container = document.getElementById(`ha-mappings-list-${deviceIdx}`);
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  const metricSelect = createMetricDropdown(metric);
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const entitySelect = document.createElement('select');
   entitySelect.className = 'entity-select';
   entitySelect.title = entityId || 'Select entity';
@@ -327,7 +317,11 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
-    if (confirm('Remove this metric mapping?')) row.remove();
+    row.remove();
+    refreshAllMetricDropdowns();
+  });
+  metricSelect.addEventListener('change', () => {
+    refreshAllMetricDropdowns();
   });
   row.appendChild(metricSelect);
   row.appendChild(entitySelect);
@@ -369,7 +363,7 @@ function buildMqttDeviceList(devices) {
   container.innerHTML = '';
   mqttDeviceCounter = 0;
   devices.forEach((dev, idx) => renderMqttDevice(dev, idx));
-  refreshMqttGlobalDropdowns();
+  refreshAllMetricDropdowns();
 }
 
 function renderMqttDevice(device, idx) {
@@ -431,7 +425,7 @@ function renderMqttDevice(device, idx) {
     if (confirm('Remove this MQTT broker and all its topic mappings?')) {
       card.remove();
       reindexMqtt();
-      refreshMqttGlobalDropdowns();
+      refreshAllMetricDropdowns();
     }
   });
 
@@ -514,7 +508,7 @@ function renderMqttDevice(device, idx) {
         data.topics.forEach((topic, tIdx) => {
           const row = document.createElement('div');
           row.className = 'metric-row';
-          const globalUsed = getGlobalUsedMqttMetrics();
+          const globalUsed = getAllUsedMetrics();
           const metricSelect = createMetricDropdown('', Array.from(globalUsed));
           const topicInput = document.createElement('input');
           topicInput.type = 'text';
@@ -526,17 +520,17 @@ function renderMqttDevice(device, idx) {
           removeBtn.textContent = '✕';
           removeBtn.addEventListener('click', () => {
             row.remove();
-            refreshMqttGlobalDropdowns();
+            refreshAllMetricDropdowns();
           });
           metricSelect.addEventListener('change', () => {
-            refreshMqttGlobalDropdowns();
+            refreshAllMetricDropdowns();
           });
           row.appendChild(metricSelect);
           row.appendChild(topicInput);
           row.appendChild(removeBtn);
           mappingsContainer.appendChild(row);
         });
-        refreshMqttGlobalDropdowns();
+        refreshAllMetricDropdowns();
       } else if (res.ok) {
         showStatus(statusEl, 'No topics found on broker', 'info');
       } else {
@@ -548,9 +542,9 @@ function renderMqttDevice(device, idx) {
   });
 
   card.querySelector('.add-mqtt-metric').addEventListener('click', () => {
-    const used = getGlobalUsedMqttMetrics();
+    const used = getAllUsedMetrics();
     addMqttMetricRow(device, idx, mappingsList, '', '', Array.from(used));
-    refreshMqttGlobalDropdowns();
+    refreshAllMetricDropdowns();
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -602,11 +596,11 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '',
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
     row.remove();
-    refreshMqttGlobalDropdowns();
+    refreshAllMetricDropdowns();
   });
   // When the metric selection changes, refresh globally
   metricSelect.addEventListener('change', () => {
-    refreshMqttGlobalDropdowns();
+    refreshAllMetricDropdowns();
   });
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
@@ -917,6 +911,7 @@ function buildExternalSourceList(sources) {
   container.innerHTML = '';
   externalSourceCounter = 0;
   sources.forEach((src, idx) => renderExternalSource(src, idx));
+  refreshAllMetricDropdowns();
 }
 function renderExternalSource(source, idx) {
   const container = document.getElementById('external-sources-container');
@@ -956,12 +951,15 @@ function renderExternalSource(source, idx) {
     if (confirm('Remove this external source and all its metric mappings?')) {
       card.remove();
       reindexExternal();
+      refreshAllMetricDropdowns();
     }
   });
   const mappingsList = card.querySelector('.mappings-list');
   renderExternalMappings(source.mappings || {}, idx, mappingsList);
   card.querySelector('.add-external-metric').addEventListener('click', () => {
-    addExternalMetricRow(idx, mappingsList);
+    const used = getAllUsedMetrics();
+    addExternalMetricRow(idx, mappingsList, '', '', Array.from(used));
+    refreshAllMetricDropdowns();
   });
   const testBtn = card.querySelector('.test-external');
   const testPathInput = card.querySelector('.test-jsonpath');
@@ -989,7 +987,7 @@ function renderExternalMappings(mappings, deviceIdx, container) {
   });
   if (Object.keys(mappings).length === 0) addExternalMetricRow(deviceIdx, container);
 }
-function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') {
+function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '', excludeMetrics = []) {
   const row = document.createElement('div');
   row.className = 'metric-row';
   const jsonPathInput = document.createElement('input');
@@ -997,13 +995,17 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') 
   jsonPathInput.className = 'jsonpath';
   jsonPathInput.placeholder = 'JSON path (e.g., data.temperature)';
   jsonPathInput.value = jsonPath;
-  const metricSelect = createMetricDropdown(metric);
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
-    if (confirm('Remove this mapping?')) row.remove();
+    row.remove();
+    refreshAllMetricDropdowns();
+  });
+  metricSelect.addEventListener('change', () => {
+    refreshAllMetricDropdowns();
   });
   row.appendChild(jsonPathInput);
   row.appendChild(metricSelect);
