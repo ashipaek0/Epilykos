@@ -284,4 +284,4 @@ function getProfileById(id) {
   }
 }
 
-module.exports = { startDonglePolling, restartDonglePolling, getProfileById };
+module.exports = { startDonglePolling, stopDonglePolling, restartDonglePolling, getProfileById };
