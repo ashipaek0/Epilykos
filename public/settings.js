@@ -2119,21 +2119,10 @@ function renderDashboardBlockEditor(dashboard) {
           { field: 'grid_import_kwh', label: 'Grid used (kWh)' },
           { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }
         ];
-        const fieldOptions = [
-          { value: 'consumption_kwh', label: 'Load' },
-          { value: 'solar_kwh', label: 'Solar PV' },
-          { value: 'battery_charge_kwh', label: 'Battery charged' },
-          { value: 'battery_discharge_kwh', label: 'Battery discharged' },
-          { value: 'grid_import_kwh', label: 'Grid used' },
-          { value: 'grid_export_kwh', label: 'Grid exported' }
-        ];
-        const fieldSelectHtml = fieldOptions.map(f =>
-          `<option value="${f.value}">${f.label}</option>`
-        ).join('');
         const colRows = columns.map((col, i) => `
           <div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;">
             <input type="text" class="config-col-label" data-idx="${i}" value="${escapeHtml(col.label)}" style="flex:1;">
-            <select class="config-col-field" data-idx="${i}" style="flex:1;">${fieldSelectHtml.replace(`value="${col.field}"`, `value="${col.field}" selected`)}</select>
+            <select class="config-col-field" data-idx="${i}" style="flex:1;">${generateMetricOptionsHtml(col.field)}</select>
             <button type="button" class="remove-col-btn" data-idx="${i}" style="padding:0.3rem 0.5rem;">✕</button>
           </div>
         `).join('');
@@ -2393,22 +2382,11 @@ function renderDashboardBlockEditor(dashboard) {
           addBtn.addEventListener('click', () => {
             const existingRows = configPanel.querySelectorAll('.config-col-label');
             const newIdx = existingRows.length;
-            const fieldOptions = [
-              { value: 'consumption_kwh', label: 'Load' },
-              { value: 'solar_kwh', label: 'Solar PV' },
-              { value: 'battery_charge_kwh', label: 'Battery charged' },
-              { value: 'battery_discharge_kwh', label: 'Battery discharged' },
-              { value: 'grid_import_kwh', label: 'Grid used' },
-              { value: 'grid_export_kwh', label: 'Grid exported' }
-            ];
-            const fieldSelectHtml = fieldOptions.map(f =>
-              `<option value="${f.value}">${f.label}</option>`
-            ).join('');
             const newRow = document.createElement('div');
             newRow.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;';
             newRow.innerHTML = `
               <input type="text" class="config-col-label" data-idx="${newIdx}" value="New Column" style="flex:1;">
-              <select class="config-col-field" data-idx="${newIdx}" style="flex:1;">${fieldSelectHtml}</select>
+              <select class="config-col-field" data-idx="${newIdx}" style="flex:1;">${generateMetricOptionsHtml()}</select>
               <button type="button" class="remove-col-btn" data-idx="${newIdx}" style="padding:0.3rem 0.5rem;">✕</button>
             `;
             newRow.querySelector('.remove-col-btn').addEventListener('click', () => newRow.remove());
