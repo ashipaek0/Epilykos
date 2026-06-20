@@ -1,7 +1,10 @@
 const { logger } = require('./logger');
 const fs = require('fs');
+const path = require('path');
 const { getDb, DB_PATH, initializeDatabase } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
+
+const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
 
 /**
  * Checkpoint WAL so the main DB file is self-consistent.
@@ -152,4 +155,93 @@ async function restoreDatabase(filePath) {
   }
 }
 
-module.exports = { backupDatabase, restoreDatabase };
+// ── Daily Snapshot Scheduler ──────────────────────────────────────
+
+let snapshotInterval = null;
+const SNAPSHOT_CHECK_MS = 60 * 60 * 1000;  // check every hour
+const SNAPSHOT_RETAIN = 2;                  // keep last 2
+const SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000; // create one per day
+
+function getSnapshots() {
+  try {
+    if (!fs.existsSync(SNAPSHOT_DIR)) return [];
+    return fs.readdirSync(SNAPSHOT_DIR)
+      .filter(f => f.endsWith('.db'))
+      .map(f => ({
+        name: f,
+        path: path.join(SNAPSHOT_DIR, f),
+        time: fs.statSync(path.join(SNAPSHOT_DIR, f)).mtimeMs
+      }))
+      .sort((a, b) => b.time - a.time); // newest first
+  } catch (err) {
+    logger.error('Snapshot: failed to list snapshots:', err.message);
+    return [];
+  }
+}
+
+function pruneSnapshots() {
+  const snaps = getSnapshots();
+  if (snaps.length <= SNAPSHOT_RETAIN) return;
+  const toRemove = snaps.slice(SNAPSHOT_RETAIN);
+  for (const s of toRemove) {
+    try {
+      fs.unlinkSync(s.path);
+      logger.info(`Snapshot: pruned old snapshot ${s.name}`);
+    } catch (err) {
+      logger.warn(`Snapshot: failed to prune ${s.name}:`, err.message);
+    }
+  }
+}
+
+async function createSnapshot() {
+  const snapDir = SNAPSHOT_DIR;
+  try {
+    if (!fs.existsSync(snapDir)) fs.mkdirSync(snapDir, { recursive: true });
+  } catch (err) {
+    logger.error('Snapshot: cannot create snapshot directory:', err.message);
+    return;
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const snapPath = path.join(snapDir, `energy-snapshot-${stamp}.db`);
+
+  try {
+    createBackupSnapshot(snapPath);
+    logger.info(`Snapshot: created ${snapPath}`);
+    pruneSnapshots();
+  } catch (err) {
+    logger.error('Snapshot: creation failed:', err.message);
+  }
+}
+
+function getLatestSnapshotTime() {
+  const snaps = getSnapshots();
+  return snaps.length > 0 ? snaps[0].time : 0;
+}
+
+function snapshotTick() {
+  const latest = getLatestSnapshotTime();
+  const age = Date.now() - latest;
+  if (age >= SNAPSHOT_AGE_MS) {
+    createSnapshot();
+  }
+}
+
+function startSnapshotScheduler() {
+  if (snapshotInterval) return;
+  logger.info(`Snapshot scheduler started (daily, retain ${SNAPSHOT_RETAIN})`);
+  // Run once on startup if no recent snapshot
+  snapshotTick();
+  // Then check every hour
+  snapshotInterval = setInterval(snapshotTick, SNAPSHOT_CHECK_MS);
+}
+
+function stopSnapshotScheduler() {
+  if (snapshotInterval) {
+    clearInterval(snapshotInterval);
+    snapshotInterval = null;
+    logger.info('Snapshot scheduler stopped');
+  }
+}
+
+module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler };
