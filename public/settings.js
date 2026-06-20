@@ -1686,7 +1686,19 @@ if (forecastTestBtn) {
     btn.innerHTML = '<span class="spinner"></span> Testing...';
     showStatus(statusEl, 'Fetching forecast...', 'info');
     try {
-      const res = await fetch('/api/test-forecast');
+      // Send current form values so user can test before saving
+      const params = new URLSearchParams({
+        lat: document.getElementById('solar-latitude')?.value || '',
+        lon: document.getElementById('solar-longitude')?.value || '',
+        capacity: document.getElementById('solar-capacity')?.value || '',
+        tilt: document.getElementById('solar-tilt')?.value || '30',
+        azimuth: document.getElementById('solar-azimuth')?.value || '180',
+        loss: document.getElementById('solar-loss-factor')?.value || '0.9',
+        install_date: document.getElementById('solar-install-date')?.value || '2020-01-01',
+        api_key: document.getElementById('solcast-api-key')?.value || '',
+        resource_id: document.getElementById('solcast-resource-id')?.value || ''
+      });
+      const res = await fetch(`/api/test-forecast?${params.toString()}`);
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
       else showStatus(statusEl, `❌ ${data.error}`, 'error');
