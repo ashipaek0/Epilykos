@@ -614,7 +614,7 @@ function buildRs232DeviceList(devices) {
   container.innerHTML = '';
   rs232DeviceCounter = 0;
   fetch('/api/rs232/ports').then(r => r.json()).then(ports => {
-    availableRs232Ports = ports;
+    availableRs232Ports = Array.isArray(ports) ? ports : [];
     devices.forEach((dev, idx) => renderRs232Device(dev, idx));
   }).catch(() => {
     availableRs232Ports = [];
