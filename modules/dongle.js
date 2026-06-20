@@ -141,10 +141,27 @@ async function pollInstance(instance, transport, profile) {
     const metrics = {};
     const units = {};
     const prefix = instance.prefix || '';
+    const mappings = instance.mappings || null;
+
     for (const m of profile.metrics) {
       const addr = parseInt(m.register, 16);
       let raw = registerData[addr];
       if (raw === undefined) continue;
+
+      // Mapping override logic
+      let metricName;
+      if (mappings) {
+        const key = m.register; // e.g., "0x0065"
+        if (mappings[key] !== undefined) {
+          if (!mappings[key]) continue; // empty string = skip this metric
+          metricName = mappings[key];
+        } else {
+          // Key not in mappings at all — skip unmapped when mappings exist
+          continue;
+        }
+      } else {
+        metricName = prefix + m.name;
+      }
 
       if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
 
@@ -165,9 +182,8 @@ async function pollInstance(instance, transport, profile) {
       }
 
       const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
-      const name = prefix + m.name;
-      metrics[name] = value;
-      if (m.unit) units[name] = m.unit;
+      metrics[metricName] = value;
+      if (m.unit) units[metricName] = m.unit;
     }
 
     writeMetrics(metrics, units);
@@ -189,9 +205,25 @@ async function pollJsonInstance(instance, transport, profile) {
     const metrics = {};
     const units = {};
     const prefix = instance.prefix || '';
+    const mappings = instance.mappings || null;
+
     for (const field of profile.fields) {
       let raw = getByPath(data, field.path);
       if (raw === undefined || raw === null || (typeof raw === 'number' && isNaN(raw))) continue;
+
+      // Mapping override logic
+      let metricName;
+      if (mappings) {
+        const key = field.path; // e.g., "realtime.ACin[0][0]"
+        if (mappings[key] !== undefined) {
+          if (!mappings[key]) continue; // empty string = skip
+          metricName = mappings[key];
+        } else {
+          continue; // skip unmapped when mappings exist
+        }
+      } else {
+        metricName = prefix + field.name;
+      }
 
       if (typeof raw === 'string') {
         raw = parseInt(raw, 10);
@@ -199,9 +231,8 @@ async function pollJsonInstance(instance, transport, profile) {
       }
 
       const value = parseFloat((raw * (field.scale || 1)).toFixed(4));
-      const name = prefix + field.name;
-      metrics[name] = value;
-      if (field.unit) units[name] = field.unit;
+      metrics[metricName] = value;
+      if (field.unit) units[metricName] = field.unit;
     }
 
     writeMetrics(metrics, units);
@@ -241,4 +272,16 @@ function getByPath(obj, path) {
   return cur;
 }
 
-module.exports = { startDonglePolling, restartDonglePolling };
+function getProfileById(id) {
+  const profilePath = path.join(__dirname, '..', 'profiles', 'dongles', `${id}.json`);
+  try {
+    if (profileCache.has(id)) return profileCache.get(id);
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    profileCache.set(id, profile);
+    return profile;
+  } catch (e) {
+    return null;
+  }
+}
+
+module.exports = { startDonglePolling, restartDonglePolling, getProfileById };

@@ -722,6 +722,20 @@ app.get('/api/rs232/profiles', (req, res) => {
   res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol })));
 });
 
+app.use('/api/rs232/profile', isAuthenticated);
+app.get('/api/rs232/profile/:id', (req, res) => {
+  const profile = rs232Profiles.find(p => p.id === req.params.id);
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  // Resolve profile_file alias and return full profile with fields/commands
+  const profilePath = path.join(__dirname, 'profiles', 'rs232', `${req.params.id}.json`);
+  try {
+    const fullProfile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    res.json(fullProfile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use('/api/rs232/ports', isAuthenticated);
 app.get('/api/rs232/ports', async (req, res) => {
   try {
@@ -949,6 +963,19 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
     res.json(profiles);
   } catch (err) {
     logger.error('Error listing dongle profiles:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/dongle/profile', isAuthenticated);
+app.get('/api/dongle/profile/:id', (req, res) => {
+  try {
+    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${req.params.id}.json`);
+    if (!fs.existsSync(profilePath)) return res.status(404).json({ error: 'Profile not found' });
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    res.json(profile);
+  } catch (err) {
+    logger.error('Error loading dongle profile:', err);
     res.status(500).json({ error: err.message });
   }
 });

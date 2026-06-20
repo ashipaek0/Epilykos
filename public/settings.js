@@ -919,6 +919,13 @@ function renderRs232Device(device, idx) {
       <input type="number" name="rs232_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;">
       <button type="button" class="fetch-btn test-rs232">Test RS232</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Field Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="rs232-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-rs232-fields" data-device="${idx}">
+        📥 Load Profile Fields
+      </button>
+    </div>
   `;
   container.appendChild(card);
 
@@ -936,6 +943,16 @@ function renderRs232Device(device, idx) {
       opt.textContent = `${p.name} (${p.protocol})`;
       if (p.id === device.profile) opt.selected = true;
       profileSelect.appendChild(opt);
+    });
+    // Auto-load field mappings when profile changes
+    profileSelect.addEventListener('change', () => {
+      const mappingsList = card.querySelector('.mappings-list');
+      if (!mappingsList) return;
+      if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing field mappings. Continue?')) {
+        profileSelect.value = device.profile || '';
+        return;
+      }
+      loadRs232Mappings(profileSelect.value, idx, mappingsList);
     });
   });
 
@@ -966,6 +983,18 @@ function renderRs232Device(device, idx) {
   });
 
   rs232DeviceCounter++;
+
+  // Load button click
+  card.querySelector('.load-rs232-fields').addEventListener('click', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    loadRs232Mappings(profileSelect.value, idx, mappingsList);
+  });
+
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderRs232Mappings(profileSelect.value, device.mappings, mappingsList);
+  }
 }
 
 function reindexRs232() {
@@ -990,6 +1019,13 @@ function collectRs232Config(card) {
   dev.stop_bits = parseInt(card.querySelector('select[name$="[stop_bits]"]').value) || 1;
   dev.profile = card.querySelector('.rs232-profile-select').value;
   dev.timeout = parseInt(card.querySelector('input[name$="[timeout]"]').value) || 5000;
+  // Collect field mappings
+  dev.mappings = {};
+  card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+    const key = row.dataset.address;
+    const metricName = row.querySelector('.metric-name').value;
+    if (key && metricName) dev.mappings[key] = metricName;
+  });
   return dev;
 }
 
@@ -1295,6 +1331,13 @@ function renderDongleDevice(device, idx) {
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
     <input type="hidden" name="dongle_config[${idx}][transport]" value="${transport}">
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="dongle-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-dongle-registers" data-device="${idx}">
+        📥 Load Profile Registers
+      </button>
+    </div>
   `;
   container.appendChild(card);
 
@@ -1325,6 +1368,15 @@ function renderDongleDevice(device, idx) {
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
     unitIdInput.value = p.default_unit_id || 1;
     unitIdInput.style.display = (tx === 'felicity-tcp') ? 'none' : '';
+    // Auto-load register mappings when profile changes
+    const mappingsList = card.querySelector('.mappings-list');
+    if (mappingsList) {
+      if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing register mappings. Continue?')) {
+        profileSelect.value = device.profile || '';
+        return;
+      }
+      loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+    }
   });
 
   card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
@@ -1358,6 +1410,18 @@ function renderDongleDevice(device, idx) {
   });
 
   dongleDeviceCounter++;
+
+  // Load button click
+  card.querySelector('.load-dongle-registers').addEventListener('click', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+  });
+
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderDongleMappings(profileSelect.value, device.mappings, mappingsList);
+  }
 }
 function reindexDongle() {
   const cards = document.querySelectorAll('#dongle-devices-container .device-card');
@@ -1372,6 +1436,106 @@ if (addDongleBtn) addDongleBtn.addEventListener('click', () => {
   const idx = dongleDeviceCounter;
   renderDongleDevice({ name: '', host: '', port: '', serial_number: '', modbus_unit_id: 1, poll_interval: 30, transport: 'solarman-v5', profile: '', prefix: '', enabled: true }, idx);
 });
+
+// ---------- Dongle register/field mapping helpers ----------
+async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
+  container.innerHTML = '';
+  container.innerHTML = '<div class="note">Loading profile...</div>';
+  try {
+    const res = await fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`);
+    if (!res.ok) {
+      container.innerHTML = '<div class="note" style="color:var(--error);">Profile not found</div>';
+      return;
+    }
+    const profile = await res.json();
+    const mappings = {};
+    // metrics[] (Solarman/Modbus TCP) — key = register hex string
+    if (profile.metrics) {
+      profile.metrics.forEach(m => {
+        mappings[m.register] = m.name || '';
+      });
+    }
+    // fields[] (Felicity TCP) — key = path
+    if (profile.fields) {
+      profile.fields.forEach(f => {
+        mappings[f.path] = f.name || '';
+      });
+    }
+    renderDongleMappings(profileId, mappings, container);
+  } catch (e) {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load profile</div>';
+  }
+}
+
+function renderDongleMappings(profileId, mappings, container) {
+  container.innerHTML = '';
+  if (!mappings || Object.keys(mappings).length === 0) {
+    container.innerHTML = '<div class="note">No registers/fields in this profile.</div>';
+    return;
+  }
+  // Fetch profile for labels
+  fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
+    // Build lookup maps for labels
+    const regMap = {};   // keyed by register hex string
+    const fieldMap = {}; // keyed by path
+    if (profile.metrics) {
+      profile.metrics.forEach(m => {
+        regMap[m.register] = m.label || m.name;
+      });
+    }
+    if (profile.fields) {
+      profile.fields.forEach(f => {
+        fieldMap[f.path] = f.label || f.name;
+      });
+    }
+
+    Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([key, metricName]) => {
+      let label = regMap[key] || fieldMap[key] || key;
+      let desc;
+      if (regMap[key] !== undefined) {
+        desc = `${label} (Register ${key})`;
+      } else {
+        desc = `${label} (${key})`;
+      }
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+      row.dataset.address = key;
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'register-desc';
+      descSpan.textContent = desc;
+      descSpan.style.flex = '1';
+      descSpan.style.fontSize = '0.85em';
+      descSpan.style.overflow = 'hidden';
+      descSpan.style.textOverflow = 'ellipsis';
+      descSpan.style.whiteSpace = 'nowrap';
+
+      const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
+      metricSelect.className = 'metric-name';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn remove-metric';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      metricSelect.addEventListener('change', () => {
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      row.appendChild(descSpan);
+      row.appendChild(metricSelect);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+    if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+  }).catch(() => {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load register details</div>';
+  });
+}
 
 // ======================== PVOUTPUT ========================
 function buildPvoutputConfig(config) {
@@ -2474,6 +2638,13 @@ form.addEventListener('submit', async (e) => {
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
+    // Collect register mappings
+    dev.mappings = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const address = row.dataset.address;
+      const metricName = row.querySelector('.metric-name').value;
+      if (address && metricName) dev.mappings[address] = metricName;
+    });
     return dev;
   });
   payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
