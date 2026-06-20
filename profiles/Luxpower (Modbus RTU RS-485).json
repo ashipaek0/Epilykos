@@ -1,0 +1,24 @@
+{
+  "name": "Luxpower (Modbus RTU RS-485)",
+  "defaultUnitId": 1,
+  "registers": [
+    { "metric": "pv1_voltage",           "address": 1,    "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "pv2_voltage",           "address": 2,    "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "battery_voltage",       "address": 4,    "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "battery_soc",          "address": 5,    "type": "uint16", "scale": 1.0,   "unit": "%" },
+    { "metric": "pv1_power",             "address": 7,    "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "pv2_power",             "address": 8,    "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "battery_charge_power",  "address": 10,   "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "battery_discharge_power","address": 11,   "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "grid_voltage",          "address": 12,   "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "grid_frequency",        "address": 15,   "type": "uint16", "scale": 0.01,  "unit": "Hz" },
+    { "metric": "ac_charge_power",       "address": 17,   "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "eps_voltage",           "address": 20,   "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "eps_power",             "address": 24,   "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "grid_power",            "address": 27,   "type": "uint16", "scale": 1.0,   "unit": "W" },
+    { "metric": "pv1_today_energy",      "address": 28,   "type": "uint16", "scale": 0.1,   "unit": "kWh" },
+    { "metric": "pv2_today_energy",      "address": 29,   "type": "uint16", "scale": 0.1,   "unit": "kWh" },
+    { "metric": "battery_charge_today",  "address": 33,   "type": "uint16", "scale": 0.1,   "unit": "kWh" },
+    { "metric": "battery_discharge_today","address": 34,   "type": "uint16", "scale": 0.1,   "unit": "kWh" }
+  ]
+}

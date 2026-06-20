@@ -1,0 +1,49 @@
+{
+  "name": "Voltronic / Axpert (QPIGS ASCII)",
+  "protocol": "voltronic-qpigs",
+  "transport": "rs232",
+  "defaults": {
+    "baud": 2400,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "commands": [
+    {
+      "name": "QPIGS",
+      "query": "QPIGS\r\n",
+      "response": {
+        "type": "ascii-line",
+        "prefix": "(",
+        "delimiter": " "
+      },
+      "fields": [
+        { "index": 0,  "metric": "grid_voltage",            "scale": 1,    "unit": "V" },
+        { "index": 1,  "metric": "grid_frequency",           "scale": 0.01, "unit": "Hz" },
+        { "index": 2,  "metric": "ac_output_voltage",        "scale": 1,    "unit": "V" },
+        { "index": 3,  "metric": "ac_output_frequency",      "scale": 0.01, "unit": "Hz" },
+        { "index": 4,  "metric": "load_va",                  "scale": 1,    "unit": "VA" },
+        { "index": 5,  "metric": "load_power",               "scale": 1,    "unit": "W" },
+        { "index": 6,  "metric": "battery_voltage",          "scale": 0.1,  "unit": "V" },
+        { "index": 7,  "metric": "battery_charge_current",   "scale": 1,    "unit": "A" },
+        { "index": 8,  "metric": "battery_soc",              "scale": 1,    "unit": "%" },
+        { "index": 9,  "metric": "inverter_temp",            "scale": 1,    "unit": "°C" },
+        { "index": 10, "metric": "solar_current",            "scale": 1,    "unit": "A" },
+        { "index": 11, "metric": "solar_voltage",            "scale": 0.1,  "unit": "V" },
+        { "index": 12, "metric": "battery_scc_voltage",      "scale": 0.1,  "unit": "V" },
+        { "index": 13, "metric": "battery_discharge_current","scale": 1,    "unit": "A" }
+      ]
+    },
+    {
+      "name": "QMOD",
+      "query": "QMOD\r\n",
+      "response": {
+        "type": "ascii-char",
+        "prefix": "("
+      },
+      "fields": [
+        { "index": 0, "metric": "inverter_mode", "scale": 1, "unit": "", "type": "mode-char" }
+      ]
+    }
+  ]
+}

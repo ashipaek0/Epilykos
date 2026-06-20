@@ -3,6 +3,8 @@ const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 
 let externalPollInterval = null;
+let externalMetricInsert = null;
+let externalLatestUpsert = null;
 
 function getValueByPath(obj, path) {
   return path.split('.').reduce((current, key) => current?.[key], obj);
@@ -13,8 +15,8 @@ async function pollExternalSources() {
   if (!sources.length) return;
 
   const db = getDb();
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  if (!externalMetricInsert) externalMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  if (!externalLatestUpsert) externalLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
 
   for (const source of sources) {
     if (!source.enabled || !source.url) continue;
@@ -28,8 +30,8 @@ async function pollExternalSources() {
         if (value === undefined) continue;
         value = parseFloat(value);
         if (isNaN(value)) continue;
-        metricInsert.run(now, metric, value);
-        latestUpsert.run(metric, value, now);
+        externalMetricInsert.run(now, metric, value);
+        externalLatestUpsert.run(metric, value, now);
       }
     } catch (err) {
       logger.error(`External source ${source.name} error:`, err.message);
@@ -48,4 +50,11 @@ function restartExternalPolling() {
   startExternalPolling();
 }
 
-module.exports = { startExternalPolling, restartExternalPolling, pollExternalSources };
+function stopExternalPolling() {
+  if (externalPollInterval) {
+    clearInterval(externalPollInterval);
+    externalPollInterval = null;
+  }
+}
+
+module.exports = { startExternalPolling, restartExternalPolling, pollExternalSources, stopExternalPolling };

@@ -95,6 +95,16 @@ async function pollModbus() {
             const reg = sorted[i - count + j];
             let raw = resp.data[j];
             if (reg.type === 'int16' && raw > 0x7FFF) raw -= 0x10000;
+            if (reg.type === 'uint32') {
+              // Combine this register (high word) with next (low word) for 32-bit
+              if (j + 1 < resp.data.length) {
+                const nextReg = sorted[i - count + j + 1];
+                if (nextReg && nextReg.metric === reg.metric) {
+                  raw = (raw << 16) | resp.data[j + 1];
+                  j++; // skip the low word register
+                }
+              }
+            }
             const value = reg.scale ? raw * reg.scale : raw;
             results[reg.metric] = value;
           }

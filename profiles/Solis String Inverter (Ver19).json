@@ -1,0 +1,20 @@
+{
+  "name": "Solis String Inverter (Ver19)",
+  "defaultUnitId": 1,
+  "registers": [
+    { "metric": "active_power",          "address": 3004, "type": "uint32", "scale": 1.0,   "unit": "W" },
+    { "metric": "total_dc_power",        "address": 3006, "type": "uint32", "scale": 1.0,   "unit": "W" },
+    { "metric": "total_energy",          "address": 3008, "type": "uint32", "scale": 1.0,   "unit": "kWh" },
+    { "metric": "energy_today",          "address": 3014, "type": "uint16", "scale": 0.1,   "unit": "kWh" },
+    { "metric": "energy_yesterday",      "address": 3015, "type": "uint16", "scale": 0.1,   "unit": "kWh" },
+    { "metric": "dc_voltage_1",          "address": 3021, "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "dc_current_1",          "address": 3022, "type": "uint16", "scale": 0.1,   "unit": "A" },
+    { "metric": "dc_voltage_2",          "address": 3023, "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "dc_current_2",          "address": 3024, "type": "uint16", "scale": 0.1,   "unit": "A" },
+    { "metric": "ac_voltage",            "address": 3035, "type": "uint16", "scale": 0.1,   "unit": "V" },
+    { "metric": "inverter_temp",         "address": 3041, "type": "uint16", "scale": 1.0,   "unit": "°C" },
+    { "metric": "grid_frequency",        "address": 3042, "type": "uint16", "scale": 0.01,  "unit": "Hz" },
+    { "metric": "limit_output_power",    "address": 3051, "type": "uint16", "scale": 0.01,  "unit": "%" },
+    { "metric": "working_status",        "address": 3071, "type": "uint16", "scale": 1.0,   "unit": "" }
+  ]
+}
