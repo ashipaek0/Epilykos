@@ -374,9 +374,19 @@ function renderMqttDevice(device, idx) {
   card.querySelector('.test-mqtt-broker').addEventListener('click', async function(e) {
     e.preventDefault();
     const statusEl = document.getElementById(`mqtt-broker-status-${idx}`);
+    const broker = card.querySelector('[name^="mqtt_devices"][name$="[broker]"]').value.trim();
+    const username = card.querySelector('[name^="mqtt_devices"][name$="[username]"]').value.trim();
+    const password = card.querySelector('[name^="mqtt_devices"][name$="[password]"]').value.trim();
+    if (!broker) {
+      showStatus(statusEl, 'Enter a broker URL first', 'error');
+      return;
+    }
     showStatus(statusEl, 'Testing...', 'info');
     try {
-      const res = await fetch('/api/test-mqtt');
+      const params = new URLSearchParams({ broker });
+      if (username) params.set('username', username);
+      if (password) params.set('password', password);
+      const res = await fetch(`/api/test-mqtt?${params.toString()}`);
       const data = await res.json();
       if (res.ok) showStatus(statusEl, data.message, 'success');
       else showStatus(statusEl, data.error || 'Test failed', 'error');
@@ -393,9 +403,19 @@ function renderMqttDevice(device, idx) {
       showStatus(statusEl, 'Enter a topic', 'error');
       return;
     }
+    const broker = card.querySelector('[name^="mqtt_devices"][name$="[broker]"]').value.trim();
+    const username = card.querySelector('[name^="mqtt_devices"][name$="[username]"]').value.trim();
+    const password = card.querySelector('[name^="mqtt_devices"][name$="[password]"]').value.trim();
+    if (!broker) {
+      showStatus(statusEl, 'Enter a broker URL first', 'error');
+      return;
+    }
     showStatus(statusEl, 'Waiting for message...', 'info');
     try {
-      const res = await fetch(`/api/test-mqtt-topic?topic=${encodeURIComponent(topic)}`);
+      const params = new URLSearchParams({ topic, broker });
+      if (username) params.set('username', username);
+      if (password) params.set('password', password);
+      const res = await fetch(`/api/test-mqtt-topic?${params.toString()}`);
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `Received: ${data.value ?? data.raw}`, 'success');
       else showStatus(statusEl, data.error, 'error');
