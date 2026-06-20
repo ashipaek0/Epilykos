@@ -86,13 +86,44 @@ function createMetricDropdown(selectedMetric = '', excludeMetrics = []) {
   return select;
 }
 
-// Rebuild all metric dropdowns in a single MQTT/HA device card, respecting used metrics
+// Helper: collect all currently-used metrics across all MQTT cards
+function getGlobalUsedMqttMetrics() {
+  const used = new Set();
+  document.querySelectorAll('#mqtt-devices-container .device-card .metric-row .metric-name').forEach(sel => {
+    if (sel.value) used.add(sel.value);
+  });
+  return used;
+}
+
+// Rebuild all metric dropdowns in a single MQTT/HA device card, respecting used metrics (per-card scope)
 function refreshMqttDropdowns(card) {
   const used = new Set();
   card.querySelectorAll('.metric-row .metric-name').forEach(sel => {
     if (sel.value) used.add(sel.value);
   });
   card.querySelectorAll('.metric-row .metric-name').forEach(sel => {
+    const currentVal = sel.value;
+    const excludeOthers = Array.from(used).filter(m => m !== currentVal);
+    sel.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select Metric --';
+    sel.appendChild(emptyOpt);
+    for (const metric of allMetrics) {
+      if (excludeOthers.includes(metric.name)) continue;
+      const opt = document.createElement('option');
+      opt.value = metric.name;
+      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+      if (metric.name === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+// Rebuild ALL metric dropdowns across all MQTT cards (global exclusion)
+function refreshMqttGlobalDropdowns() {
+  const used = getGlobalUsedMqttMetrics();
+  document.querySelectorAll('#mqtt-devices-container .device-card .metric-row .metric-name').forEach(sel => {
     const currentVal = sel.value;
     const excludeOthers = Array.from(used).filter(m => m !== currentVal);
     sel.innerHTML = '';
@@ -338,6 +369,7 @@ function buildMqttDeviceList(devices) {
   container.innerHTML = '';
   mqttDeviceCounter = 0;
   devices.forEach((dev, idx) => renderMqttDevice(dev, idx));
+  refreshMqttGlobalDropdowns();
 }
 
 function renderMqttDevice(device, idx) {
@@ -399,6 +431,7 @@ function renderMqttDevice(device, idx) {
     if (confirm('Remove this MQTT broker and all its topic mappings?')) {
       card.remove();
       reindexMqtt();
+      refreshMqttGlobalDropdowns();
     }
   });
 
@@ -481,7 +514,8 @@ function renderMqttDevice(device, idx) {
         data.topics.forEach((topic, tIdx) => {
           const row = document.createElement('div');
           row.className = 'metric-row';
-          const metricSelect = createMetricDropdown();
+          const globalUsed = getGlobalUsedMqttMetrics();
+          const metricSelect = createMetricDropdown('', Array.from(globalUsed));
           const topicInput = document.createElement('input');
           topicInput.type = 'text';
           topicInput.className = 'topic-input';
@@ -490,12 +524,19 @@ function renderMqttDevice(device, idx) {
           removeBtn.type = 'button';
           removeBtn.className = 'remove-btn remove-metric danger';
           removeBtn.textContent = '✕';
-          removeBtn.addEventListener('click', () => row.remove());
+          removeBtn.addEventListener('click', () => {
+            row.remove();
+            refreshMqttGlobalDropdowns();
+          });
+          metricSelect.addEventListener('change', () => {
+            refreshMqttGlobalDropdowns();
+          });
           row.appendChild(metricSelect);
           row.appendChild(topicInput);
           row.appendChild(removeBtn);
           mappingsContainer.appendChild(row);
         });
+        refreshMqttGlobalDropdowns();
       } else if (res.ok) {
         showStatus(statusEl, 'No topics found on broker', 'info');
       } else {
@@ -507,9 +548,9 @@ function renderMqttDevice(device, idx) {
   });
 
   card.querySelector('.add-mqtt-metric').addEventListener('click', () => {
-    const used = new Set();
-    card.querySelectorAll('.metric-row .metric-name').forEach(sel => { if (sel.value) used.add(sel.value); });
+    const used = getGlobalUsedMqttMetrics();
     addMqttMetricRow(device, idx, mappingsList, '', '', Array.from(used));
+    refreshMqttGlobalDropdowns();
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -538,10 +579,8 @@ function renderMqttDevice(device, idx) {
 
 function renderMqttMappings(topics, deviceIdx, container) {
   container.innerHTML = '';
-  const usedMetrics = Object.keys(topics);
   Object.entries(topics).forEach(([metric, topic]) => {
-    const excludeOthers = usedMetrics.filter(m => m !== metric);
-    addMqttMetricRow({}, deviceIdx, container, metric, topic, excludeOthers);
+    addMqttMetricRow({}, deviceIdx, container, metric, topic, []);
   });
   if (Object.keys(topics).length === 0) addMqttMetricRow({}, deviceIdx, container);
 }
@@ -563,14 +602,11 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '',
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
     row.remove();
-    // Refresh dropdowns in the parent card to re-add the freed metric
-    const card = row.closest('.device-card');
-    if (card) refreshMqttDropdowns(card);
+    refreshMqttGlobalDropdowns();
   });
-  // When the metric selection changes, refresh all dropdowns in the card
+  // When the metric selection changes, refresh globally
   metricSelect.addEventListener('change', () => {
-    const card = row.closest('.device-card');
-    if (card) refreshMqttDropdowns(card);
+    refreshMqttGlobalDropdowns();
   });
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
