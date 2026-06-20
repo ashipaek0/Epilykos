@@ -558,7 +558,7 @@ app.get('/api/auth/status', (req, res) => {
 app.use('/api/test-forecast', isAuthenticated);
 app.get('/api/test-forecast', async (req, res) => {
   try {
-    res.json(await testForecast());
+    res.json(await testForecast(req.query));
   } catch (err) {
     logger.error('Error in test-forecast:', err);
     res.status(500).json({ error: err.message });

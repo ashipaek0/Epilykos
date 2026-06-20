@@ -279,16 +279,18 @@ async function getSolarForecast() {
   return result;
 }
 
-async function testForecast() {
-  const lat = parseFloat(getConfig('solar_latitude')), lon = parseFloat(getConfig('solar_longitude'));
-  const capacityKwp = parseFloat(getConfig('solar_capacity_kwp'));
+async function testForecast(opts) {
+  // Accept values directly (from form) or fall back to DB config
+  const lat = parseFloat(opts?.lat ?? getConfig('solar_latitude'));
+  const lon = parseFloat(opts?.lon ?? getConfig('solar_longitude'));
+  const capacityKwp = parseFloat(opts?.capacity ?? getConfig('solar_capacity_kwp'));
   if (isNaN(lat) || isNaN(lon) || isNaN(capacityKwp) || capacityKwp <= 0) throw new Error('Invalid location or capacity');
-  const solcastKey = getConfig('solcast_api_key');
-  const resourceId = getConfig('solcast_resource_id');
-  const tilt = parseFloat(getConfig('solar_tilt')) || 30;
-  const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
-  const lossFactor = parseFloat(getConfig('solar_loss_factor')) || 0.9;
-  const installDate = getConfig('solar_install_date') || '2020-01-01';
+  const solcastKey = opts?.api_key ?? getConfig('solcast_api_key');
+  const resourceId = opts?.resource_id ?? getConfig('solcast_resource_id');
+  const tilt = parseFloat(opts?.tilt ?? getConfig('solar_tilt')) || 30;
+  const azimuth = parseFloat(opts?.azimuth ?? getConfig('solar_azimuth')) || 180;
+  const lossFactor = parseFloat(opts?.loss ?? getConfig('solar_loss_factor')) || 0.9;
+  const installDate = (opts?.install_date ?? getConfig('solar_install_date')) || '2020-01-01';
   let source = 'none', dailyTotal = 0, peak = 0;
 
   if (solcastKey) {
