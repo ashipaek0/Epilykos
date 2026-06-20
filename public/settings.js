@@ -439,7 +439,7 @@ function renderMqttDevice(device, idx) {
       showStatus(statusEl, 'Enter a broker URL first', 'error');
       return;
     }
-    showStatus(statusEl, 'Listening for 4s...', 'info');
+    showStatus(statusEl, 'Listening for 15s...', 'info');
     try {
       const params = new URLSearchParams({ broker });
       if (username) params.set('username', username);
