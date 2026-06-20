@@ -244,4 +244,21 @@ function stopSnapshotScheduler() {
   }
 }
 
-module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler };
+// ── Snapshot API ──────────────────────────────────────────────────
+
+function listSnapshots() {
+  return getSnapshots().map(s => ({
+    name: s.name,
+    time: new Date(s.time).toISOString(),
+    size: fs.statSync(s.path).size
+  }));
+}
+
+async function restoreFromSnapshot(snapshotName) {
+  const snaps = getSnapshots();
+  const match = snaps.find(s => s.name === snapshotName);
+  if (!match) throw new Error(`Snapshot "${snapshotName}" not found`);
+  return restoreDatabase(match.path);
+}
+
+module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot };
