@@ -249,7 +249,10 @@ function initializeDatabase() {
       { name: 'Load %', unit: '%' },
       { name: 'Inverter Status', unit: '' },
       { name: 'Inverter Temperature', unit: '°C' },
-      { name: 'Ambient Temperature', unit: '°C' }
+      { name: 'Ambient Temperature', unit: '°C' },
+      { name: 'Load Voltage', unit: 'V' },
+      { name: 'Grid Frequency', unit: 'hz' },
+      { name: 'Load Frequency', unit: 'hz' }
     ].map(m => ({ ...m, createdAt: Date.now() }));
     setConfig('user_metrics', JSON.stringify(defaultMetrics));
     logger.info(`Seeded ${defaultMetrics.length} default metrics`);
