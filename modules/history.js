@@ -1,14 +1,17 @@
 /**
  * History Table Poll — maps metric names to canonical history columns.
  *
- * Every poll cycle, reads all latest_metrics rows and runs them through
- * a compiled set of mappings (regex → target column) to populate the
- * `history` table. Optimized to avoid 40+ individual regex tests per row.
+ * Every poll cycle, reads all latest_metrics rows and uses a configurable
+ * role-to-metric-name mapping (stored in config as `role_metrics`) to
+ * populate the `history` table. No regex guessing — exact name lookup only.
+ *
+ * If `role_metrics` is not configured, it auto-populates from the dashboard
+ * config's first flow-card/flow-card-2 block, or falls back to empty (zeros).
  *
  * @module history
  */
 const { logger } = require('./logger');
-const { getDb } = require('./database');
+const { getDb, getConfig, setConfig } = require('./database');
 
 let historyInsertStmt = null;
 
@@ -25,90 +28,135 @@ function getHistoryInsert() {
   return historyInsertStmt;
 }
 
-// ── Compiled Metric Mappings ─────────────────────────────────────────────
-//
-// Each entry: [regex, targetColumn, subPattern?]
-// Tests happen in order; first match wins for a given target column.
-// Patterns are precompiled once at module load, not on every poll.
-
-const METRIC_MAPPINGS = [
-  // === Instantaneous Power Metrics ===
-  // Accept both space and underscore separators; exclude qualifiers like "peak", "max", "minimum"
-  { re: /^(?:consumption|load)(?:[ _]?(?:power|watts))?$/i,        col: 'consumption' },
-  // Solar
-  { re: /^(?:solar|pv)(?:[ _]?(?:power|watts))?$/i,                col: 'solar' },
-  // Battery charge
-  { re: /^battery[ _](?:charge|charging)(?:[ _]?(?:power|watts))?$/i, col: 'battery_charge' },
-  // Battery discharge
-  { re: /^battery[ _](?:discharge|discharging)(?:[ _]?(?:power|watts))?$/i, col: 'battery_discharge' },
-  // Generic battery power — positive = charge, negative = discharge
-  { re: /^battery[ _](?:power|watts)$/i,                            col: 'battery_power_sign' },
-  // Grid import
-  { re: /^grid[ _]import(?:[ _]?(?:power|watts))?$/i,              col: 'grid_import' },
-  // Grid export
-  { re: /^grid[ _]export(?:[ _]?(?:power|watts))?$/i,              col: 'grid_export' },
-  // Generic grid power
-  { re: /^grid[ _](?:power|watts)$/i,                               col: 'grid_power_sign' },
-
-  // === Battery SOC ===
-  { re: /^battery[ _](?:soc|percentage|percent)$/i,                col: 'battery_soc' },
-
-  // === Daily Cumulative Energy Metrics ===
-  { re: /^(?:solar|pv).*(?:gen|daily|today|cumulative|energy)/i,         col: 'daily_solar' },
-  { re: /^daily_solar$/i,                                                  col: 'daily_solar' },
-  { re: /^(?:consumption|load).*(?:gen|daily|today|cumulative|energy)/i,  col: 'daily_consumption' },
-  { re: /^daily_consumption$/i,                                             col: 'daily_consumption' },
-  { re: /^battery[ _](?:charge|charging).*(?:gen|daily|today|cumulative|energy)/i, col: 'daily_battery_charge' },
-  { re: /^daily_battery_charge$/i,                                       col: 'daily_battery_charge' },
-  { re: /^battery[ _](?:discharge|discharging).*(?:gen|daily|today|cumulative|energy)/i, col: 'daily_battery_discharge' },
-  { re: /^daily_battery_discharge$/i,                                     col: 'daily_battery_discharge' },
-  { re: /^battery.*(?:gen|daily|today|cumulative|energy)/i,              col: 'daily_battery_charge' },
-  { re: /^grid[ _]import.*(?:gen|daily|today|cumulative|energy)/i,       col: 'daily_grid_import' },
-  { re: /^daily_grid_import$/i,                                            col: 'daily_grid_import' },
-  { re: /^grid[ _]export.*(?:gen|daily|today|cumulative|energy)/i,       col: 'daily_grid_export' },
-  { re: /^daily_grid_export$/i,                                            col: 'daily_grid_export' },
-  { re: /^grid.*(?:gen|daily|today|cumulative|energy)/i,                 col: 'daily_grid_import' },
+// ── Default role → metric name mapping ──────────────────────────────────
+// These are role keys used by the history table. Their values are the actual
+// metric names from latest_metrics (configurable per user).
+const DEFAULT_ROLES = [
+  // Instantaneous power
+  'solar', 'consumption', 'battery_charge', 'battery_discharge',
+  'grid_import', 'grid_export',
+  // Battery SOC
+  'battery_soc',
+  // Daily energy totals
+  'daily_solar', 'daily_consumption', 'daily_battery_charge',
+  'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export',
 ];
+
+const ROLE_TO_COL = {
+  solar: 'solar', consumption: 'consumption',
+  battery_charge: 'battery_charge', battery_discharge: 'battery_discharge',
+  grid_import: 'grid_import', grid_export: 'grid_export',
+  battery_soc: 'battery_soc',
+  daily_solar: 'daily_solar', daily_consumption: 'daily_consumption',
+  daily_battery_charge: 'daily_battery_charge', daily_battery_discharge: 'daily_battery_discharge',
+  daily_grid_import: 'daily_grid_import', daily_grid_export: 'daily_grid_export',
+};
+
+const ZERO_VALUES = {
+  consumption: 0, solar: 0, battery_charge: 0, battery_discharge: 0,
+  grid_import: 0, grid_export: 0, battery_soc: 0,
+  daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0,
+  daily_battery_discharge: 0, daily_grid_import: 0, daily_grid_export: 0,
+};
+
+/**
+ * Auto-populate `role_metrics` config from all dashboard blocks.
+ * Scans every block across all dashboards to build the most complete
+ * role → metric name mapping possible.
+ */
+function autoPopulateRoleMetrics() {
+  try {
+    const dcRaw = getConfig('dashboard_config');
+    if (!dcRaw) return;
+    const dc = JSON.parse(dcRaw);
+    const mapping = {};
+    // Map flow-card/flow-card-2 role keys to history role keys
+    const roleMap = {
+      solar: 'solar', consumption: 'consumption',
+      battery_power: 'battery_charge', battery_discharge: 'battery_discharge',
+      grid: 'grid_import', grid_export: 'grid_export',
+      battery_soc: 'battery_soc',
+    };
+    for (const dash of (dc.dashboards || [])) {
+      for (const block of (dash.layout || [])) {
+        const metrics = block.config?.metrics;
+        if (!metrics) continue;
+        for (const [roleKey, metricName] of Object.entries(metrics)) {
+          const historyRole = roleMap[roleKey];
+          if (historyRole && metricName && typeof metricName === 'string' && metricName.trim()) {
+            mapping[historyRole] = metricName.trim();
+          }
+        }
+        // Also capture actual_energy from forecast blocks → daily_solar
+        if (metrics.actual_energy && typeof metrics.actual_energy === 'string' && metrics.actual_energy.trim()) {
+          if (!mapping.daily_solar) mapping.daily_solar = metrics.actual_energy.trim();
+        }
+      }
+    }
+    if (Object.keys(mapping).length > 0) {
+      setConfig('role_metrics', JSON.stringify(mapping));
+      logger.info('[history] Auto-populated role_metrics:', mapping);
+    }
+  } catch (e) {
+    logger.warn('[history] Could not auto-populate role_metrics:', e.message);
+  }
+}
+
+/**
+ * Get the role → metric name mapping from config, auto-populating if empty.
+ */
+function getRoleMetrics() {
+  const raw = getConfig('role_metrics');
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) {} 
+  }
+  // Auto-populate on first call
+  autoPopulateRoleMetrics();
+  const retry = getConfig('role_metrics');
+  if (retry) {
+    try { return JSON.parse(retry); } catch (e) {}
+  }
+  return {};
+}
+
+/**
+ * Build a reverse lookup: metric name → role.
+ */
+function buildMetricToRole(roleMetrics) {
+  const map = {};
+  for (const [role, metricName] of Object.entries(roleMetrics)) {
+    if (metricName && typeof metricName === 'string') {
+      map[metricName.trim()] = role;
+    }
+  }
+  return map;
+}
 
 async function pollLegacyHistory() {
   const db = getDb();
   const latest = db.prepare('SELECT metric, value FROM latest_metrics').all();
+  const roleMetrics = getRoleMetrics();
+  const metricToRole = buildMetricToRole(roleMetrics);
 
-  // Pre-initialize with zeros
-  const values = {
-    consumption: 0, solar: 0, battery_charge: 0, battery_discharge: 0,
-    grid_import: 0, grid_export: 0, battery_soc: 0,
-    daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0,
-    daily_battery_discharge: 0, daily_grid_import: 0, daily_grid_export: 0
-  };
+  // Start all values at 0
+  const values = { ...ZERO_VALUES };
 
+  // Direct name lookup — no regex, no guessing
   for (const row of latest) {
-    let matched = false;
-    for (const mapping of METRIC_MAPPINGS) {
-      if (mapping.re.test(row.metric)) {
-        const col = mapping.col;
-        if (col === 'battery_power_sign') {
-          if (row.value > 0) values.battery_charge = row.value;
-          else values.battery_discharge = Math.abs(row.value);
-        } else if (col === 'grid_power_sign') {
-          if (row.value > 0) values.grid_import = row.value;
-          else values.grid_export = Math.abs(row.value);
-        } else {
-          values[col] = row.value;
-        }
-        matched = true;
-        break; // first match wins
+    const role = metricToRole[row.metric];
+    if (role && ROLE_TO_COL[role]) {
+      const col = ROLE_TO_COL[role];
+      // Handle sign-based battery/grid power with a single metric
+      if (role === 'battery_charge' && roleMetrics.battery_discharge && row.metric === roleMetrics.battery_discharge) {
+        // This row is for discharge, not charge
+        continue;
       }
     }
-    // If nothing matched, try the generic fallback patterns
-    // IMPORTANT: exclude "peak", "max", "minimum", "average" qualifiers so daily peaks don't override live values
-    if (!matched) {
-      const n = (row.metric || '').toLowerCase().replace(/[\s_-]+/g, '');
-      if (/^(peak|max|minimum|avg|average)/.test(n)) continue;
-      // Consumption power
-      if (/^(consumption|load)/.test(n) && /(power|watts)$/.test(n)) values.consumption = row.value;
-      // Solar power
-      else if (/(solar|pv)/.test(n) && /(power|watts)$/.test(n)) values.solar = row.value;
+    if (role) {
+      const col = ROLE_TO_COL[role];
+      if (col) {
+        values[col] = row.value;
+      }
     }
   }
 
