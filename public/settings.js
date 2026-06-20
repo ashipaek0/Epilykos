@@ -450,20 +450,23 @@ function renderMqttDevice(device, idx) {
         showStatus(statusEl, `Found ${data.count} topics`, 'success');
         // Clear existing topic rows
         mappingsContainer.innerHTML = '';
-        const metricSelect = document.getElementById('metrics-list');
         // Create a row for each discovered topic
         data.topics.forEach((topic, tIdx) => {
           const row = document.createElement('div');
           row.className = 'metric-row';
-          row.innerHTML = `
-            <select class="metric-name" style="flex:1;">
-              <option value="">— Select metric —</option>
-              ${metricSelect ? metricSelect.innerHTML : ''}
-            </select>
-            <input type="text" class="topic-input" value="${escapeHtml(topic)}" style="flex:1.5;">
-            <button type="button" class="remove-btn remove-metric danger">✕</button>
-          `;
-          row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
+          const metricSelect = createMetricDropdown();
+          const topicInput = document.createElement('input');
+          topicInput.type = 'text';
+          topicInput.className = 'topic-input';
+          topicInput.value = topic;
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'remove-btn remove-metric danger';
+          removeBtn.textContent = '✕';
+          removeBtn.addEventListener('click', () => row.remove());
+          row.appendChild(metricSelect);
+          row.appendChild(topicInput);
+          row.appendChild(removeBtn);
           mappingsContainer.appendChild(row);
         });
       } else if (res.ok) {
