@@ -12,7 +12,8 @@
       "type": "uint16",
       "scale": 1,
       "unit": "",
-      "field": "inverter_mode"
+      "field": "inverter_mode",
+      "label": "Inverter Mode"
     },
     {
       "name": "battery_voltage",
@@ -21,7 +22,8 @@
       "type": "uint16",
       "scale": 0.01,
       "unit": "V",
-      "field": "battery_voltage"
+      "field": "battery_voltage",
+      "label": "Battery Voltage"
     },
     {
       "name": "battery_current",
@@ -30,7 +32,8 @@
       "type": "int16",
       "scale": 1,
       "unit": "A",
-      "field": "battery_current"
+      "field": "battery_current",
+      "label": "Battery Current"
     },
     {
       "name": "battery_consumption",
@@ -39,7 +42,8 @@
       "type": "int16",
       "scale": 1,
       "unit": "W",
-      "field": "battery_consumption"
+      "field": "battery_consumption",
+      "label": "Battery Consumption"
     },
     {
       "name": "output_frequency",
@@ -48,7 +52,8 @@
       "type": "uint16",
       "scale": 0.01,
       "unit": "Hz",
-      "field": "output_frequency"
+      "field": "output_frequency",
+      "label": "Output Frequency"
     },
     {
       "name": "apparent_load",
@@ -57,7 +62,8 @@
       "type": "uint16",
       "scale": 1,
       "unit": "VA",
-      "field": "apparent_load"
+      "field": "apparent_load",
+      "label": "Apparent Load"
     },
     {
       "name": "output_voltage",
@@ -66,7 +72,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "V",
-      "field": "output_voltage"
+      "field": "output_voltage",
+      "label": "Output Voltage"
     },
     {
       "name": "output_current",
@@ -75,7 +82,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "A",
-      "field": "output_current"
+      "field": "output_current",
+      "label": "Output Current"
     },
     {
       "name": "input_voltage",
@@ -84,7 +92,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "V",
-      "field": "input_voltage"
+      "field": "input_voltage",
+      "label": "Input Voltage"
     },
     {
       "name": "input_current",
@@ -93,7 +102,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "A",
-      "field": "input_current"
+      "field": "input_current",
+      "label": "Input Current"
     },
     {
       "name": "input_frequency",
@@ -102,7 +112,8 @@
       "type": "uint16",
       "scale": 0.01,
       "unit": "Hz",
-      "field": "input_frequency"
+      "field": "input_frequency",
+      "label": "Input Frequency"
     },
     {
       "name": "real_load",
@@ -111,7 +122,8 @@
       "type": "int16",
       "scale": 1,
       "unit": "W",
-      "field": "real_load"
+      "field": "real_load",
+      "label": "Real Load"
     },
     {
       "name": "load_percentage",
@@ -120,7 +132,8 @@
       "type": "uint16",
       "scale": 1,
       "unit": "%",
-      "field": "load_percentage"
+      "field": "load_percentage",
+      "label": "Load Percentage"
     }
   ]
 }
