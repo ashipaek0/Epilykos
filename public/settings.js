@@ -460,10 +460,10 @@ function renderMqttDevice(device, idx) {
               <option value="">— Select metric —</option>
               ${metricSelect ? metricSelect.innerHTML : ''}
             </select>
-            <input type="text" class="topic-input" value="${topic}" readonly style="flex:1.5;background:var(--bg-secondary, #f5f5f5);">
-            <button type="button" class="remove-mapping danger">✕</button>
+            <input type="text" class="topic-input" value="${escapeHtml(topic)}" style="flex:1.5;">
+            <button type="button" class="remove-btn remove-metric danger">✕</button>
           `;
-          row.querySelector('.remove-mapping').addEventListener('click', () => row.remove());
+          row.querySelector('.remove-metric').addEventListener('click', () => row.remove());
           mappingsContainer.appendChild(row);
         });
       } else if (res.ok) {
