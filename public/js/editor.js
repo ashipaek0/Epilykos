@@ -49,7 +49,7 @@ function refreshTabSelect() {
  */
 function buildGridItem(block) {
   var builder = componentBuilders[block.type];
-  if (!builder) return null;
+  if (typeof builder !== 'function') return null;
   var content = builder(block);
   if (!content) return null;
 

@@ -145,6 +145,8 @@ function defaultFrameDetect(buffer, profile) {
 // ── Query/Response Cycle (Poll-Based Protocols) ─────────────────────────
 
 async function queryDevice(port, query, profile, timeoutMs = 3000) {
+  // Clamp timeout to 100-30000ms to prevent resource abuse
+  const safeTimeout = Math.min(Math.max(parseInt(timeoutMs) || 3000, 100), 30000);
   return new Promise((resolve, reject) => {
     let buffer = Buffer.alloc(0);
     const timer = setTimeout(() => {
@@ -154,7 +156,7 @@ async function queryDevice(port, query, profile, timeoutMs = 3000) {
       } else {
         reject(new Error('RS232 read timeout'));
       }
-    }, timeoutMs);
+    }, safeTimeout);
 
     port.on('data', chunk => {
       buffer = Buffer.concat([buffer, chunk]);
