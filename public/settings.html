@@ -383,10 +383,14 @@
   const backupStatusEl = document.getElementById('backup-status');
 
   if (backupBtn) backupBtn.addEventListener('click', () => {
+    if (backupStatusEl) { backupStatusEl.textContent = 'Downloading backup...'; backupStatusEl.className = 'stg-status info'; }
     window.location.href = '/api/backup';
   });
   if (restoreBtn && restoreFile) {
-    restoreBtn.addEventListener('click', () => restoreFile.click());
+    restoreBtn.addEventListener('click', () => {
+      if (!confirm('Restore will replace ALL current data with the uploaded backup. This cannot be undone. Continue?')) return;
+      restoreFile.click();
+    });
     restoreFile.addEventListener('change', async function() {
       if (!this.files || !this.files[0]) return;
       const fd = new FormData();
