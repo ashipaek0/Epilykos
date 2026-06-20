@@ -229,12 +229,6 @@
           <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
           <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
           <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
-          <!-- Save bar inside card -->
-          <div class="stg-card-savebar">
-            <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
-            <span class="stg-save-status" id="save-status"></span>
-            <button type="button" id="stg-save-btn" class="stg-btn primary">💾 Save All Settings</button>
-          </div>
         </div>
       </section>
 
@@ -248,6 +242,13 @@
         <div class="stg-card"><div class="stg-form-group"><label>5. Appearance</label><p class="note">Dashboard → Display: background colours, background image, transparent blocks, title, logo, favicon.</p></div></div>
         <div class="stg-card"><div class="stg-form-group"><label>Troubleshooting</label><p class="note"><strong>Dongle timeout:</strong> check IP reachable. <strong>Connection refused:</strong> port not open. <strong>Checksum mismatch:</strong> wrong serial number or profile. <strong>No data:</strong> check metric names match. Debug logs at <code>logs/energy-dashboard-*.log</code>. Set <code>LOG_LEVEL=debug</code> for verbose output.</p></div></div>
       </section>
+
+      <!-- Save Bar (persistent, visible across all sections) -->
+      <div class="stg-savebar" id="stg-savebar">
+        <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
+        <span class="stg-save-status" id="save-status"></span>
+        <button type="button" id="stg-save-btn" class="stg-btn primary">💾 Save All Settings</button>
+      </div>
 
     </form>
   </main>
