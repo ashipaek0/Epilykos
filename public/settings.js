@@ -286,11 +286,11 @@ function reindexHa() {
     if (nameInput) nameInput.name = `ha_devices[${i}][name]`;
     const enableCb = card.querySelector('.device-header input[type="checkbox"]');
     if (enableCb) enableCb.name = `ha_devices[${i}][enabled]`;
-    const urlInput = card.querySelector(`[name^="ha_devices["] [name$="[url]"]`);
+    const urlInput = card.querySelector(`input[name$="[url]"]`);
     if (urlInput) urlInput.name = `ha_devices[${i}][url]`;
-    const tokenInput = card.querySelector(`[name^="ha_devices["] [name$="[token]"]`);
+    const tokenInput = card.querySelector(`input[name$="[token]"]`);
     if (tokenInput) tokenInput.name = `ha_devices[${i}][token]`;
-    const pollInput = card.querySelector(`[name^="ha_devices["] [name$="[poll_interval]"]`);
+    const pollInput = card.querySelector(`input[name$="[poll_interval]"]`);
     if (pollInput) pollInput.name = `ha_devices[${i}][poll_interval]`;
     const addBtn = card.querySelector('.add-ha-metric');
     if (addBtn) addBtn.dataset.device = i;

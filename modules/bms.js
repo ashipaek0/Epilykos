@@ -3,15 +3,15 @@ const { getConfig, getDb } = require('./database');
 const { logger } = require('./logger');
 
 let bmsPollInterval = null;
+let bmsPollingActive = false;
 const BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8000';
 
 async function pollBMS() {
+  if (bmsPollingActive) return;
+  bmsPollingActive = true;
   const db = getDb();
   const devices = JSON.parse(getConfig('bms_devices') || '[]');
-  if (!devices.length) return;
-
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  if (!devices.length) { bmsPollingActive = false; return; }
 
   for (const device of devices) {
     if (!device.enabled || !device.address) continue;
@@ -27,8 +27,8 @@ async function pollBMS() {
         if (typeof val === 'number' && !isNaN(val)) {
           // Create a clean metric name: bms_<device_name>_<key>
           const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-          metricInsert.run(now, safeName, val);
-          latestUpsert.run(safeName, val, now);
+          getBmsMetricInsert(db).run(now, safeName, val);
+          getBmsLatestUpsert(db).run(safeName, val, now);
         }
       }
       logger.debug(`BMS ${device.name} polled successfully`);
@@ -36,6 +36,20 @@ async function pollBMS() {
       logger.error(`BMS poll error for ${device.name}: ${err.message}`);
     }
   }
+  bmsPollingActive = false;
+}
+
+let bmsMetricInsert = null;
+let bmsLatestUpsert = null;
+
+function getBmsMetricInsert(db) {
+  if (!bmsMetricInsert) bmsMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  return bmsMetricInsert;
+}
+
+function getBmsLatestUpsert(db) {
+  if (!bmsLatestUpsert) bmsLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  return bmsLatestUpsert;
 }
 
 function startBmsPolling() {
@@ -49,4 +63,12 @@ function restartBmsPolling() {
   startBmsPolling();
 }
 
-module.exports = { startBmsPolling, restartBmsPolling, pollBMS };
+function stopBmsPolling() {
+  if (bmsPollInterval) {
+    clearInterval(bmsPollInterval);
+    bmsPollInterval = null;
+  }
+  bmsPollingActive = false;
+}
+
+module.exports = { startBmsPolling, restartBmsPolling, pollBMS, stopBmsPolling };
