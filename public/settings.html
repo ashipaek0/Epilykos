@@ -343,6 +343,11 @@
     stgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
   });
 
+  // Listen for save completion — clear dirty state
+  document.addEventListener('stg-save-complete', () => {
+    dirtyFields.clear();
+  });
+
   // Listen for save completion (handled by settings.js showStatus)
 
   // ── Metrics search ────────────────────────────────────────

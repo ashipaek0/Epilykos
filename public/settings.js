@@ -342,6 +342,10 @@ function renderMqttDevice(device, idx) {
       <button type="button" class="fetch-btn test-mqtt-topic-btn">Test Topic</button>
       <span class="test-status" id="mqtt-topic-status-${idx}"></span>
     </div>
+    <div class="test-row">
+      <button type="button" class="fetch-btn discover-mqtt-topics">🔍 Discover Topics</button>
+      <span class="test-status" id="mqtt-discover-status-${idx}"></span>
+    </div>
     <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Topic Mappings</div>
     <div class="mappings-section">
       <div class="mappings-filter-bar">
@@ -419,6 +423,54 @@ function renderMqttDevice(device, idx) {
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `Received: ${data.value ?? data.raw}`, 'success');
       else showStatus(statusEl, data.error, 'error');
+    } catch (err) {
+      showStatus(statusEl, err.message, 'error');
+    }
+  });
+
+  card.querySelector('.discover-mqtt-topics').addEventListener('click', async function(e) {
+    e.preventDefault();
+    const statusEl = document.getElementById(`mqtt-discover-status-${idx}`);
+    const mappingsContainer = card.querySelector('.mappings-list');
+    const broker = card.querySelector('[name^="mqtt_devices"][name$="[broker]"]').value.trim();
+    const username = card.querySelector('[name^="mqtt_devices"][name$="[username]"]').value.trim();
+    const password = card.querySelector('[name^="mqtt_devices"][name$="[password]"]').value.trim();
+    if (!broker) {
+      showStatus(statusEl, 'Enter a broker URL first', 'error');
+      return;
+    }
+    showStatus(statusEl, 'Listening for 4s...', 'info');
+    try {
+      const params = new URLSearchParams({ broker });
+      if (username) params.set('username', username);
+      if (password) params.set('password', password);
+      const res = await fetch(`/api/mqtt-discover-topics?${params.toString()}`);
+      const data = await res.json();
+      if (res.ok && data.topics && data.topics.length) {
+        showStatus(statusEl, `Found ${data.count} topics`, 'success');
+        // Clear existing topic rows
+        mappingsContainer.innerHTML = '';
+        const metricSelect = document.getElementById('metrics-list');
+        // Create a row for each discovered topic
+        data.topics.forEach((topic, tIdx) => {
+          const row = document.createElement('div');
+          row.className = 'metric-row';
+          row.innerHTML = `
+            <select class="metric-name" style="flex:1;">
+              <option value="">— Select metric —</option>
+              ${metricSelect ? metricSelect.innerHTML : ''}
+            </select>
+            <input type="text" class="topic-input" value="${topic}" readonly style="flex:1.5;background:var(--bg-secondary, #f5f5f5);">
+            <button type="button" class="remove-mapping danger">✕</button>
+          `;
+          row.querySelector('.remove-mapping').addEventListener('click', () => row.remove());
+          mappingsContainer.appendChild(row);
+        });
+      } else if (res.ok) {
+        showStatus(statusEl, 'No topics found on broker', 'info');
+      } else {
+        showStatus(statusEl, data.error || 'Discovery failed', 'error');
+      }
     } catch (err) {
       showStatus(statusEl, err.message, 'error');
     }
@@ -2239,7 +2291,13 @@ form.addEventListener('submit', async (e) => {
   payload.dashboard_config = JSON.stringify(dashConfig);
   try {
     const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (res.ok) showStatus(saveStatus, 'Settings saved successfully!', 'success');
+    if (res.ok) {
+      showStatus(saveStatus, 'Settings saved successfully!', 'success');
+      // Clear the unsaved changes indicator
+      const dirtyCount = document.getElementById('stg-dirty-count');
+      if (dirtyCount) { dirtyCount.textContent = ''; dirtyCount.classList.remove('show'); }
+      document.dispatchEvent(new CustomEvent('stg-save-complete'));
+    }
     else { const err = await res.json().catch(() => ({})); showStatus(saveStatus, err.error || 'Failed to save', 'error'); }
   } catch (e) { showStatus(saveStatus, 'Error: ' + e.message, 'error'); }
 });
