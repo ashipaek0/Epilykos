@@ -579,13 +579,19 @@ app.get('/api/ha-device-entities', async (req, res) => {
 
 app.use('/api/test-mqtt', isAuthenticated);
 app.get('/api/test-mqtt', async (req, res) => {
-  const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
-  const device = devices.find(d => d.enabled);
-  if (!device || !device.broker) return res.status(400).json({ error: 'No MQTT broker configured' });
+  // Support pre-save testing: accept broker/username/password from query params
+  const broker = req.query.broker || (() => {
+    const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
+    const device = devices.find(d => d.enabled);
+    return device?.broker;
+  })();
+  const username = req.query.username || null;
+  const password = req.query.password || null;
+  if (!broker) return res.status(400).json({ error: 'No MQTT broker configured. Enter a broker URL first.' });
   const options = {};
-  if (device.username) options.username = device.username;
-  if (device.password) options.password = device.password;
-  const testClient = require('mqtt').connect(device.broker, options);
+  if (username) options.username = username;
+  if (password) options.password = password;
+  const testClient = require('mqtt').connect(broker, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
@@ -606,13 +612,19 @@ app.use('/api/test-mqtt-topic', isAuthenticated);
 app.get('/api/test-mqtt-topic', async (req, res) => {
   const topic = req.query.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
-  const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
-  const device = devices.find(d => d.enabled);
-  if (!device || !device.broker) return res.status(400).json({ error: 'No MQTT broker configured' });
+  // Support pre-save testing: accept broker/username/password from query params
+  const broker = req.query.broker || (() => {
+    const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
+    const device = devices.find(d => d.enabled);
+    return device?.broker;
+  })();
+  const username = req.query.username || null;
+  const password = req.query.password || null;
+  if (!broker) return res.status(400).json({ error: 'No MQTT broker configured' });
   const options = {};
-  if (device.username) options.username = device.username;
-  if (device.password) options.password = device.password;
-  const testClient = require('mqtt').connect(device.broker, options);
+  if (username) options.username = username;
+  if (password) options.password = password;
+  const testClient = require('mqtt').connect(broker, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
