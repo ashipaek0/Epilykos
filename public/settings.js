@@ -1711,6 +1711,78 @@ if (forecastTestBtn) {
   });
 }
 
+// ======================== ROLE METRICS ========================
+const ROLE_LABELS = {
+  solar: 'Solar Power',
+  consumption: 'Consumption / Load Power',
+  battery_charge: 'Battery Charge Power',
+  battery_discharge: 'Battery Discharge Power',
+  grid_import: 'Grid Import Power',
+  grid_export: 'Grid Export Power',
+  battery_soc: 'Battery SOC',
+  daily_solar: 'Daily Solar Energy (gen)',
+  daily_consumption: 'Daily Consumption Energy',
+  daily_battery_charge: 'Daily Battery Charge Energy',
+  daily_battery_discharge: 'Daily Battery Discharge Energy',
+  daily_grid_import: 'Daily Grid Import Energy',
+  daily_grid_export: 'Daily Grid Export Energy',
+};
+
+async function loadRoleMetrics() {
+  const container = document.getElementById('role-metrics-container');
+  if (!container) return;
+  try {
+    const [rolesRes, metricsRes] = await Promise.all([
+      fetch('/api/role-metrics'),
+      fetch('/api/metrics/list')
+    ]);
+    const roles = await rolesRes.json();
+    const metrics = await metricsRes.json();
+    const metricNames = Array.isArray(metrics) ? metrics : [];
+    container.innerHTML = Object.entries(ROLE_LABELS).map(([role, label]) => {
+      const current = roles[role] || '';
+      const options = ['<option value="">-- Not mapped --</option>',
+        ...metricNames.map(m => `<option value="${escapeHtml(m.name || m)}" ${(m.name || m) === current ? 'selected' : ''}>${escapeHtml(m.name || m)}</option>`)
+      ].join('');
+      return `<div class="stg-form-row" style="margin-bottom:0.4rem;"><div class="stg-form-group" style="flex:1;"><label style="font-size:0.8rem;">${escapeHtml(label)}</label><select class="role-metric-select" data-role="${role}" style="width:100%;">${options}</select></div></div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = `<p class="note" style="color:#ef4444;">Failed to load: ${e.message}</p>`;
+  }
+}
+
+// Role metrics save button
+const saveRoleMetricsBtn = document.getElementById('save-role-metrics');
+if (saveRoleMetricsBtn) {
+  saveRoleMetricsBtn.addEventListener('click', async () => {
+    const statusEl = document.getElementById('role-metrics-status');
+    const selects = document.querySelectorAll('.role-metric-select');
+    const mapping = {};
+    selects.forEach(sel => {
+      if (sel.value) mapping[sel.dataset.role] = sel.value;
+    });
+    try {
+      const res = await fetch('/api/role-metrics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mapping)
+      });
+      const data = await res.json();
+      showStatus(statusEl, data.success ? '✅ Saved' : '❌ ' + (data.error || 'Failed'), data.success ? 'success' : 'error');
+    } catch (e) {
+      showStatus(statusEl, '❌ Error: ' + e.message, 'error');
+    }
+  });
+}
+
+// Load role metrics when solar tab is shown
+const solarObserver = new MutationObserver(() => {
+  if (document.getElementById('stg-section-solar')?.classList.contains('active') && document.getElementById('role-metrics-container')?.innerHTML === '') {
+    loadRoleMetrics();
+  }
+});
+const stgSections = document.getElementById('stg-main');
+if (stgSections) solarObserver.observe(stgSections, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
 async function loadMetricsList() {
