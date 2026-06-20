@@ -53,6 +53,23 @@ function buildGridItem(block) {
   var content = builder(block);
   if (!content) return null;
 
+  // Forecast blocks start hidden (display:none) while waiting for data.
+  // In the editor, show a visible placeholder so users can see where blocks are placed.
+  var isForecastBlock = block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline' || block.type === 'weather-block';
+  if (isForecastBlock) {
+    content.style.display = '';
+    if (content.querySelector('.pv-days, .weather-section, .pv-sparkline-container, canvas')) {
+      // Has real content structure — just make visible with placeholder data
+      var pvValues = content.querySelectorAll('.pv-day-value, .fi-today-value');
+      pvValues.forEach(function(el) { if (el && (el.textContent === '0 kWh' || el.textContent === '--')) el.textContent = '-- kWh'; });
+      var weatherTemps = content.querySelectorAll('.weather-temp, .fi-weather-temp');
+      weatherTemps.forEach(function(el) { if (el && el.textContent === '--°') el.textContent = '25°C'; });
+    } else {
+      // Empty/minimal content — show a stub
+      content.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary, #94a3b8);font-size:0.9rem;gap:0.5rem;">☀️ ' + (block.type === 'forecast-banner' ? 'Solar Forecast Banner' : block.type === 'forecast-info' ? 'Solar Forecast Info' : 'Solar Forecast Sparkline') + '</div>';
+    }
+  }
+
   var item = document.createElement('div');
   item.className = 'grid-stack-item';
   item.dataset.blockId = block.id || ('b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));

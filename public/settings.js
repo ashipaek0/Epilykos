@@ -2170,25 +2170,23 @@ function renderDashboardBlockEditor(dashboard) {
         const currentMetrics = block.config?.metrics || {};
         configPanel.innerHTML = `<label>Actual Energy Field</label><select class="config-metric" data-role="actual_energy" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.actual_energy)}</select><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'forecast-info') {
-        configPanel.innerHTML = '<div class="note">No configurable options.</div>';
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `
+          <label>Actual Energy Metric</label>
+          <select class="config-metric" data-role="actual_energy" style="width:100%; margin-bottom:0.5rem;">
+            <option value="">-- Select --</option>
+            ${generateMetricOptionsHtml(currentMetrics.actual_energy)}
+          </select>
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'forecast-banner') {
         const currentMetrics = block.config?.metrics || {};
-        const fieldOptions = [
-          { value: 'solar_kw', label: 'Solar Power (kW)' },
-          { value: 'consumption_kw', label: 'Consumption (kW)' },
-          { value: 'battery_charge_kw', label: 'Battery Charge (kW)' },
-          { value: 'grid_import_kw', label: 'Grid Import (kW)' }
-        ];
-        const fieldSelectHtml = fieldOptions.map(f =>
-          `<option value="${f.value}" ${currentMetrics.actual_energy === f.value ? 'selected' : ''}>${f.label}</option>`
-        ).join('');
         configPanel.innerHTML = `
           <label>Actual Energy Metric for Sparkline</label>
           <select class="config-metric" data-role="actual_energy" style="width:100%; margin-bottom:0.5rem;">
             <option value="">-- Select --</option>
-            ${fieldSelectHtml}
+            ${generateMetricOptionsHtml(currentMetrics.actual_energy)}
           </select>
-          <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Default: Solar PV.</p>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Using actual metric names from the database.</p>
           <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'multi-value') {
         const metrics = block.config?.metrics || [{ label: '', metric: '', unit: '' }];
