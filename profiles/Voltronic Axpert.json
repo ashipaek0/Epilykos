@@ -1,0 +1,78 @@
+{
+  "name": "Voltronic Axpert / MPP Solar (P00\u2011P09)",
+  "defaultUnitId": 1,
+  "registers": [
+    {
+      "metric": "grid_voltage",
+      "address": 170,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage"
+    },
+    {
+      "metric": "grid_frequency",
+      "address": 171,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "Hz",
+      "label": "Grid Frequency"
+    },
+    {
+      "metric": "output_voltage",
+      "address": 172,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Output Voltage"
+    },
+    {
+      "metric": "output_frequency",
+      "address": 173,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "Hz",
+      "label": "Output Frequency"
+    },
+    {
+      "metric": "output_current",
+      "address": 174,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Output Current"
+    },
+    {
+      "metric": "load_percent",
+      "address": 175,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Load Percent"
+    },
+    {
+      "metric": "battery_voltage",
+      "address": 178,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "metric": "battery_soc",
+      "address": 191,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Battery SOC"
+    },
+    {
+      "metric": "inverter_temp",
+      "address": 180,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Inverter Temp"
+    }
+  ]
+}

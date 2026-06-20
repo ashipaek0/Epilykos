@@ -693,6 +693,14 @@ app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
 });
 
+app.use('/api/modbus/profile', isAuthenticated);
+app.get('/api/modbus/profile/:id', (req, res) => {
+  const { getProfileById } = require('./modules/modbus');
+  const profile = getProfileById(req.params.id);
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  res.json(profile);
+});
+
 app.use('/api/test-modbus', isAuthenticated);
 app.post('/api/test-modbus', async (req, res) => {
   const device = req.body;
