@@ -37,7 +37,7 @@ const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules
 const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
-const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler } = require('./modules/backup');
+const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
@@ -753,6 +753,26 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
     res.status(500).json({ error: 'Restore failed, original database restored. ' + err.message });
   } finally {
     try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(e) {}
+  }
+});
+
+// ── Snapshot API ──────────────────────────────────────────────
+
+app.use('/api/snapshots', isAuthenticated);
+app.get('/api/snapshots', (req, res) => {
+  try {
+    res.json(listSnapshots());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/snapshots/restore/:name', async (req, res) => {
+  try {
+    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

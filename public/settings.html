@@ -215,10 +215,16 @@
 
       <!-- Backup -->
       <section class="stg-section" id="stg-section-backup">
-        <div class="stg-section-header"><h2>Backup &amp; Restore</h2><p>Download or restore your database</p></div>
+        <div class="stg-section-header"><h2>Backup &amp; Restore</h2><p>Download, schedule snapshots, or restore your database</p></div>
         <div class="stg-card">
           <div class="backup-row"><button type="button" id="backup-btn" class="stg-btn primary">Download Backup</button><button type="button" id="restore-btn" class="stg-btn">Restore from File</button><input type="file" id="restore-file" accept=".db" style="display:none;"></div>
           <div id="backup-status" class="stg-status" style="margin-top:0.75rem;"></div>
+        </div>
+        <div class="stg-card">
+          <h4 style="margin:0 0 0.5rem 0;font-size:0.9rem;">📸 Automatic Snapshots</h4>
+          <p class="note" style="margin:0 0 0.75rem 0;">Created daily, last 2 retained. Click to restore.</p>
+          <div id="snapshot-list"><p class="note" style="margin:0;font-style:italic;">Loading snapshots...</p></div>
+          <div id="snapshot-status" class="stg-status" style="margin-top:0.5rem;"></div>
         </div>
       </section>
 
@@ -409,6 +415,63 @@
         if (backupStatusEl) { backupStatusEl.textContent = e.message; backupStatusEl.className = 'stg-status err'; }
       }
     });
+  }
+
+  // ── Snapshots UI ────────────────────────────────────────────
+  const snapList = document.getElementById('snapshot-list');
+  const snapStatus = document.getElementById('snapshot-status');
+  const snapSection = document.getElementById('stg-section-backup');
+
+  async function loadSnapshots() {
+    if (!snapList) return;
+    try {
+      const r = await fetch('/api/snapshots');
+      if (!r.ok) { snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">Failed to load snapshots</p>'; return; }
+      const snaps = await r.json();
+      if (!snaps.length) {
+        snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">No snapshots yet — first one created within 24h of startup.</p>';
+        return;
+      }
+      snapList.innerHTML = snaps.map(s => {
+        const date = new Date(s.time).toLocaleString();
+        const size = s.size > 1048576 ? (s.size / 1048576).toFixed(1) + ' MB' : s.size > 1024 ? (s.size / 1024).toFixed(1) + ' KB' : s.size + ' B';
+        return '<div class="backup-row" style="margin-bottom:0.4rem;">' +
+          '<span style="flex:1;">📅 ' + date + ' <span class="note">(' + size + ')</span></span>' +
+          '<button type="button" class="stg-btn snap-restore-btn" data-name="' + s.name.replace(/"/g, '&quot;') + '" style="font-size:0.8rem;padding:0.25rem 0.6rem;">Restore</button>' +
+          '</div>';
+      }).join('');
+      // Wire restore buttons
+      snapList.querySelectorAll('.snap-restore-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const name = this.dataset.name;
+          if (!confirm('Restore snapshot "' + name + '"? This will replace ALL current data. Cannot be undone.')) return;
+          if (snapStatus) { snapStatus.textContent = 'Restoring from snapshot...'; snapStatus.className = 'stg-status info'; }
+          try {
+            const r = await fetch('/api/snapshots/restore/' + encodeURIComponent(name), { method: 'POST' });
+            const data = await r.json();
+            if (r.ok) {
+              if (snapStatus) { snapStatus.textContent = 'Snapshot restored — reloading...'; snapStatus.className = 'stg-status ok'; }
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              if (snapStatus) { snapStatus.textContent = data.error || 'Restore failed'; snapStatus.className = 'stg-status err'; }
+            }
+          } catch(e) {
+            if (snapStatus) { snapStatus.textContent = e.message; snapStatus.className = 'stg-status err'; }
+          }
+        });
+      });
+    } catch(e) {
+      snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">Error: ' + e.message + '</p>';
+    }
+  }
+
+  loadSnapshots();
+  if (snapSection) {
+    // Refresh snapshot list whenever the backup section becomes visible (sidebar click)
+    const observer = new MutationObserver(() => {
+      if (snapSection.style.display !== 'none') loadSnapshots();
+    });
+    observer.observe(snapSection, { attributes: true, attributeFilter: ['style'] });
   }
 
   // ── Mappings filter + pagination ──────────────────────────
