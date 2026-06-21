@@ -130,9 +130,17 @@ const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
 
 async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,cloud_cover&timezone=auto&forecast_days=4`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Open-Meteo API error: ${response.status}`);
-  const data = await response.json();
+  const data = await new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 10000 }, (res) => {
+      if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.on('error', reject);
+  });
   const conversionFactor = (capacityKwp / 1000) * (lossFactor || 0.9);
   const hourly = data.hourly;
   const forecasts = hourly.time.map((t, i) => ({
@@ -222,10 +230,18 @@ async function getSolarForecast() {
   if (lat && lon) {
     try {
       const currentUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,apparent_temperature&timezone=auto&forecast_days=1`;
-      const currentRes = await fetch(currentUrl);
+      const currentData = await new Promise((resolve, reject) => {
+        const req = https.get(currentUrl, { timeout: 10000 }, (res) => {
+          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.on('error', reject);
+      });
       let temp = null, feelsLike = null, humidity = null, iconClass = DEFAULT_WEATHER.icon, weatherDesc = DEFAULT_WEATHER.desc;
-      if (currentRes.ok) {
-        const currentData = await currentRes.json();
         const cw = currentData.current_weather;
         temp = cw.temperature;
         const code = cw.weathercode;
@@ -240,12 +256,20 @@ async function getSolarForecast() {
             break;
           }
         }
-      }
       let forecastWeather = [];
       const dailyWeatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,relativehumidity_2m_mean&timezone=auto&forecast_days=3`;
-      const dailyWeatherRes = await fetch(dailyWeatherUrl);
-      if (dailyWeatherRes.ok) {
-        const dailyData = await dailyWeatherRes.json();
+      const dailyData = await new Promise((resolve, reject) => {
+        const req = https.get(dailyWeatherUrl, { timeout: 10000 }, (res) => {
+          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.on('error', reject);
+      });
+      if (dailyData.daily) {
         const dates = dailyData.daily.time;
         const codes = dailyData.daily.weathercode;
         const temps = dailyData.daily.temperature_2m_max;
