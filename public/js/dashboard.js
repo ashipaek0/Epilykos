@@ -49,6 +49,13 @@ export async function loadDashboardConfig() {
       dashboardConfig.activeDashboard = defTab;
     }
   }
+  // Set initial theme based on active dashboard
+  const activeDash = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
+  if (activeDash && activeDash.name === 'Light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (activeDash && activeDash.name === 'Default') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
   applyBranding(cfg);
 
   renderDashboard();
@@ -265,6 +272,13 @@ async function switchDashboard(id) {
   const url = new URL(window.location);
   url.searchParams.set('tab', id);
   window.history.pushState({}, '', url);
+  // Auto-switch theme: "Light" dashboard → light mode, others → dark mode
+  const dash = dashboardConfig.dashboards.find(db => db.id === id);
+  if (dash && dash.name === 'Light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (dash && dash.name === 'Default') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
   renderDashboard();
 }
 
