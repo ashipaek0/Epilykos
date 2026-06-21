@@ -182,7 +182,7 @@ async function queryDevice(port, query, profile, timeoutMs = 3000) {
 
 // ── Decoder Implementations ─────────────────────────────────────────────
 
-function decodeAsciiResponse(buffer, cmd) {
+function decodeAsciiResponse(buffer, cmd, mappings) {
   const text = buffer.toString('utf8').trim();
   const prefix = cmd.response?.prefix || '';
   let dataStr = text;
@@ -199,12 +199,23 @@ function decodeAsciiResponse(buffer, cmd) {
     let raw = parseFloat(fields[idx].trim());
     if (isNaN(raw)) continue;
     if (fieldDef.scale) raw *= fieldDef.scale;
-    results[fieldDef.metric] = raw;
+    // Mapping override logic
+    if (mappings) {
+      const key = `${cmd.name}:${idx}`;
+      if (mappings[key] !== undefined) {
+        if (!mappings[key]) continue; // empty string = skip
+        results[mappings[key]] = raw;
+      } else {
+        continue; // skip unmapped when mappings exist
+      }
+    } else {
+      results[fieldDef.metric] = raw;
+    }
   }
   return results;
 }
 
-function decodeVedirectFrame(frame, profile) {
+function decodeVedirectFrame(frame, profile, mappings) {
   const results = {};
   for (const fieldDef of profile.fields || []) {
     const raw = frame[fieldDef.label];
@@ -214,19 +225,30 @@ function decodeVedirectFrame(frame, profile) {
     if (fieldDef.scale) val *= fieldDef.scale;
     if (fieldDef.type === 'millivolt') val *= 0.001;
     if (fieldDef.type === 'milliamp') val *= 0.001;
-    const metricName = fieldDef.metric_prefix
-      ? `${fieldDef.metric_prefix}_${fieldDef.metric}`
-      : fieldDef.metric;
-    results[metricName] = parseFloat(val.toFixed(3));
+    // Mapping override logic
+    if (mappings) {
+      const key = fieldDef.label;
+      if (mappings[key] !== undefined) {
+        if (!mappings[key]) continue; // empty string = skip
+        results[mappings[key]] = parseFloat(val.toFixed(3));
+      } else {
+        continue; // skip unmapped when mappings exist
+      }
+    } else {
+      const metricName = fieldDef.metric_prefix
+        ? `${fieldDef.metric_prefix}_${fieldDef.metric}`
+        : fieldDef.metric;
+      results[metricName] = parseFloat(val.toFixed(3));
+    }
   }
   return results;
 }
 
 // ── Dispatch to decoder based on profile ────────────────────────────────
 
-function decodeResponse(rawResponse, cmd, profile) {
+function decodeResponse(rawResponse, cmd, profile, mappings) {
   if (profile.protocol === 'vedirect-streaming') {
-    return decodeVedirectFrame(rawResponse, profile);
+    return decodeVedirectFrame(rawResponse, profile, mappings);
   }
   // Binary protocols (SolaX AA55) use a custom decoder
   if (profile.decoder) {
@@ -240,7 +262,7 @@ function decodeResponse(rawResponse, cmd, profile) {
     }
   }
   // Default: ASCII field-index decoder (Voltronic, Infinisolar, etc.)
-  return decodeAsciiResponse(rawResponse, cmd);
+  return decodeAsciiResponse(rawResponse, cmd, mappings);
 }
 
 function encodeQuery(cmd, device, profile) {
@@ -304,7 +326,7 @@ async function pollQueryDevice(device, profile) {
       const queryBuffer = encodeQuery(cmd, device, profile);
       if (queryBuffer.length === 0) continue;
       const rawResponse = await queryDevice(port, queryBuffer, profile, parseInt(device.timeout) || 5000);
-      const parsed = decodeResponse(rawResponse, cmd, profile);
+      const parsed = decodeResponse(rawResponse, cmd, profile, device.mappings);
       Object.assign(results, parsed);
     }
 
@@ -350,7 +372,7 @@ function setupStreamingConnection(device, profile) {
     const value = valParts.join('\t');
 
     if (key === 'Checksum') {
-      const metrics = decodeVedirectFrame(currentFrame, profile);
+      const metrics = decodeVedirectFrame(currentFrame, profile, device.mappings);
       if (Object.keys(metrics).length > 0) {
         const now = Math.floor(Date.now() / 1000);
         for (const [metric, val] of Object.entries(metrics)) {
@@ -509,6 +531,10 @@ function restartRs232Streaming() {
 
 // ── Exports (matching modbus.js pattern) ────────────────────────────────
 
+function getProfileById(id) {
+  return availableProfiles.find(p => p.id === id) || null;
+}
+
 module.exports = {
   loadRs232Profiles,
   pollRs232,
@@ -517,5 +543,6 @@ module.exports = {
   shutdownRs232,
   restartRs232Streaming,
   detectBaudRate,
+  getProfileById,
   availableProfiles: availableProfiles, // getter — always up to date
 };

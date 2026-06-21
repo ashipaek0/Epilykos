@@ -49,6 +49,13 @@ export async function loadDashboardConfig() {
       dashboardConfig.activeDashboard = defTab;
     }
   }
+  // Set initial theme based on active dashboard
+  const activeDash = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
+  if (activeDash && activeDash.name === 'Light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (activeDash && activeDash.name === 'Default') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
   applyBranding(cfg);
 
   renderDashboard();
@@ -233,6 +240,8 @@ function renderDashboard() {
         if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) themeToggle.style.display = '';
 
         // Show tabs and tab toggle
         tabBar.style.display = '';
@@ -265,6 +274,13 @@ async function switchDashboard(id) {
   const url = new URL(window.location);
   url.searchParams.set('tab', id);
   window.history.pushState({}, '', url);
+  // Auto-switch theme: "Light" dashboard → light mode, others → dark mode
+  const dash = dashboardConfig.dashboards.find(db => db.id === id);
+  if (dash && dash.name === 'Light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (dash && dash.name === 'Default') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
   renderDashboard();
 }
 
@@ -291,8 +307,8 @@ function applyBranding(cfg) {
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
   document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
   // Store bg colors for theme-aware application
-  window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '';
-  window._bgDark = cfg.dashboard_bg_color_dark || '';
+  window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '#f8fafc';
+  window._bgDark = cfg.dashboard_bg_color_dark || '#0f172a';
   applyBodyBg();
   document.body.addEventListener('theme-changed', applyBodyBg);
   if (cfg.dashboard_bg_image) { document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }

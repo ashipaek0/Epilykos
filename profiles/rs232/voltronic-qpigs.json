@@ -18,20 +18,104 @@
         "delimiter": " "
       },
       "fields": [
-        { "index": 0,  "metric": "grid_voltage",            "scale": 1,    "unit": "V" },
-        { "index": 1,  "metric": "grid_frequency",           "scale": 0.01, "unit": "Hz" },
-        { "index": 2,  "metric": "ac_output_voltage",        "scale": 1,    "unit": "V" },
-        { "index": 3,  "metric": "ac_output_frequency",      "scale": 0.01, "unit": "Hz" },
-        { "index": 4,  "metric": "load_va",                  "scale": 1,    "unit": "VA" },
-        { "index": 5,  "metric": "load_power",               "scale": 1,    "unit": "W" },
-        { "index": 6,  "metric": "battery_voltage",          "scale": 0.1,  "unit": "V" },
-        { "index": 7,  "metric": "battery_charge_current",   "scale": 1,    "unit": "A" },
-        { "index": 8,  "metric": "battery_soc",              "scale": 1,    "unit": "%" },
-        { "index": 9,  "metric": "inverter_temp",            "scale": 1,    "unit": "°C" },
-        { "index": 10, "metric": "solar_current",            "scale": 1,    "unit": "A" },
-        { "index": 11, "metric": "solar_voltage",            "scale": 0.1,  "unit": "V" },
-        { "index": 12, "metric": "battery_scc_voltage",      "scale": 0.1,  "unit": "V" },
-        { "index": 13, "metric": "battery_discharge_current","scale": 1,    "unit": "A" }
+        {
+          "index": 0,
+          "metric": "grid_voltage",
+          "scale": 1,
+          "unit": "V",
+          "label": "Grid Voltage"
+        },
+        {
+          "index": 1,
+          "metric": "grid_frequency",
+          "scale": 0.01,
+          "unit": "Hz",
+          "label": "Grid Frequency"
+        },
+        {
+          "index": 2,
+          "metric": "ac_output_voltage",
+          "scale": 1,
+          "unit": "V",
+          "label": "AC Output Voltage"
+        },
+        {
+          "index": 3,
+          "metric": "ac_output_frequency",
+          "scale": 0.01,
+          "unit": "Hz",
+          "label": "AC Output Frequency"
+        },
+        {
+          "index": 4,
+          "metric": "load_va",
+          "scale": 1,
+          "unit": "VA",
+          "label": "Load Va"
+        },
+        {
+          "index": 5,
+          "metric": "load_power",
+          "scale": 1,
+          "unit": "W",
+          "label": "Load Power"
+        },
+        {
+          "index": 6,
+          "metric": "battery_voltage",
+          "scale": 0.1,
+          "unit": "V",
+          "label": "Battery Voltage"
+        },
+        {
+          "index": 7,
+          "metric": "battery_charge_current",
+          "scale": 1,
+          "unit": "A",
+          "label": "Battery Charge Current"
+        },
+        {
+          "index": 8,
+          "metric": "battery_soc",
+          "scale": 1,
+          "unit": "%",
+          "label": "Battery SOC"
+        },
+        {
+          "index": 9,
+          "metric": "inverter_temp",
+          "scale": 1,
+          "unit": "°C",
+          "label": "Inverter Temp"
+        },
+        {
+          "index": 10,
+          "metric": "solar_current",
+          "scale": 1,
+          "unit": "A",
+          "label": "Solar Current"
+        },
+        {
+          "index": 11,
+          "metric": "solar_voltage",
+          "scale": 0.1,
+          "unit": "V",
+          "label": "Solar Voltage"
+        },
+        {
+          "index": 12,
+          "metric": "battery_scc_voltage",
+          "scale": 0.1,
+          "unit": "V",
+          "label": "Battery SCC Voltage"
+        },
+        {
+          "index": 13,
+          "metric": "battery_discharge_current",
+          "scale": 1,
+          "unit": "A",
+          "label": "Battery Discharge Current"
+        }
       ]
     },
     {
@@ -42,7 +126,14 @@
         "prefix": "("
       },
       "fields": [
-        { "index": 0, "metric": "inverter_mode", "scale": 1, "unit": "", "type": "mode-char" }
+        {
+          "index": 0,
+          "metric": "inverter_mode",
+          "scale": 1,
+          "unit": "",
+          "type": "mode-char",
+          "label": "Inverter Mode"
+        }
       ]
     }
   ]

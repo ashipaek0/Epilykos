@@ -3,82 +3,453 @@
   "protocol": "felicity-tcp",
   "default_port": 53970,
   "fields": [
-    { "path": "realtime.workM", "name": "working_mode", "scale": 1, "unit": "" },
-    { "path": "realtime.warn", "name": "warning_code", "scale": 1, "unit": "" },
-    { "path": "realtime.fault", "name": "fault_code", "scale": 1, "unit": "" },
-    { "path": "realtime.lPerc", "name": "load_percentage", "scale": 0.1, "unit": "%" },
-    { "path": "realtime.pFlow", "name": "power_flow", "scale": 1, "unit": "" },
-    { "path": "realtime.BMSFlg", "name": "bms_flag", "scale": 1, "unit": "" },
-
-    { "path": "realtime.ACin[0][0]", "name": "grid_voltage", "scale": 0.1, "unit": "V" },
-    { "path": "realtime.ACin[1][0]", "name": "grid_current", "scale": 0.1, "unit": "A" },
-    { "path": "realtime.ACin[2][0]", "name": "grid_frequency", "scale": 0.01, "unit": "Hz" },
-    { "path": "realtime.ACin[3][0]", "name": "grid_active_power", "scale": 1, "unit": "W" },
-    { "path": "realtime.ACin[3][1]", "name": "grid_apparent_power", "scale": 1, "unit": "VA" },
-
-    { "path": "realtime.ACout[0][0]", "name": "ac_output_voltage", "scale": 0.1, "unit": "V" },
-    { "path": "realtime.ACout[1][0]", "name": "ac_output_current", "scale": 0.1, "unit": "A" },
-    { "path": "realtime.ACout[2][0]", "name": "ac_output_frequency", "scale": 0.01, "unit": "Hz" },
-    { "path": "realtime.ACout[3][0]", "name": "ac_output_active_power", "scale": 1, "unit": "W" },
-    { "path": "realtime.ACout[3][1]", "name": "ac_output_apparent_power", "scale": 1, "unit": "VA" },
-    { "path": "realtime.ACout[3][2]", "name": "ac_output_reactive_power", "scale": 1, "unit": "VAR" },
-
-    { "path": "realtime.PV[0][0]", "name": "pv1_voltage", "scale": 0.1, "unit": "V" },
-    { "path": "realtime.PV[0][1]", "name": "pv1_current", "scale": 0.1, "unit": "A" },
-    { "path": "realtime.PV[0][2]", "name": "pv1_power", "scale": 1, "unit": "W" },
-    { "path": "realtime.PV[1][0]", "name": "pv2_voltage", "scale": 0.1, "unit": "V" },
-    { "path": "realtime.PV[1][1]", "name": "pv2_current", "scale": 0.1, "unit": "A" },
-    { "path": "realtime.PV[1][2]", "name": "pv2_power", "scale": 1, "unit": "W" },
-    { "path": "realtime.PV[2][0]", "name": "pv3_voltage", "scale": 0.1, "unit": "V" },
-    { "path": "realtime.PV[2][1]", "name": "pv3_current", "scale": 0.1, "unit": "A" },
-    { "path": "realtime.PV[2][2]", "name": "pv3_power", "scale": 1, "unit": "W" },
-    { "path": "realtime.PV[3][0]", "name": "pv_total_power", "scale": 1, "unit": "W" },
-
-    { "path": "realtime.Batt[0][0]", "name": "battery_voltage", "scale": 0.001, "unit": "V" },
-    { "path": "realtime.Batsoc[0][0]", "name": "battery_soc", "scale": 0.01, "unit": "%" },
-
-    { "path": "realtime.Energy[0][1]", "name": "pv_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[0][2]", "name": "pv_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[0][3]", "name": "pv_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[0][4]", "name": "pv_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Energy[2][1]", "name": "grid_import_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[2][2]", "name": "grid_import_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[2][3]", "name": "grid_import_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[2][4]", "name": "grid_import_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Energy[3][1]", "name": "grid_export_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[3][2]", "name": "grid_export_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[3][3]", "name": "grid_export_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[3][4]", "name": "grid_export_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Energy[4][1]", "name": "battery_charge_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[4][2]", "name": "battery_charge_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[4][3]", "name": "battery_charge_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[4][4]", "name": "battery_charge_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Energy[5][1]", "name": "battery_discharge_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[5][2]", "name": "battery_discharge_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[5][3]", "name": "battery_discharge_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[5][4]", "name": "battery_discharge_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Energy[6][1]", "name": "home_load_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[6][2]", "name": "home_load_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[6][3]", "name": "home_load_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[6][4]", "name": "home_load_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Energy[7][1]", "name": "total_load_energy_total", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[7][2]", "name": "total_load_energy_today", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[7][3]", "name": "total_load_energy_month", "scale": 0.001, "unit": "kWh" },
-    { "path": "realtime.Energy[7][4]", "name": "total_load_energy_year", "scale": 0.001, "unit": "kWh" },
-
-    { "path": "realtime.Temp[0][0]", "name": "temperature_1", "scale": 0.1, "unit": "°C" },
-    { "path": "realtime.Temp[0][2]", "name": "temperature_2", "scale": 0.1, "unit": "°C" },
-    { "path": "realtime.Temp[0][3]", "name": "temperature_3", "scale": 0.1, "unit": "°C" },
-    { "path": "realtime.Temp[0][4]", "name": "temperature_4", "scale": 0.1, "unit": "°C" },
-
-    { "path": "basic.version", "name": "firmware_version", "scale": 1, "unit": "" },
-    { "path": "basic.Type", "name": "device_type", "scale": 1, "unit": "" },
-    { "path": "basic.SubType", "name": "device_subtype", "scale": 1, "unit": "" }
+    {
+      "path": "realtime.workM",
+      "name": "working_mode",
+      "scale": 1,
+      "unit": "",
+      "label": "Working Mode"
+    },
+    {
+      "path": "realtime.warn",
+      "name": "warning_code",
+      "scale": 1,
+      "unit": "",
+      "label": "Warning Code"
+    },
+    {
+      "path": "realtime.fault",
+      "name": "fault_code",
+      "scale": 1,
+      "unit": "",
+      "label": "Fault Code"
+    },
+    {
+      "path": "realtime.lPerc",
+      "name": "load_percentage",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Load Percentage"
+    },
+    {
+      "path": "realtime.pFlow",
+      "name": "power_flow",
+      "scale": 1,
+      "unit": "",
+      "label": "Power Flow"
+    },
+    {
+      "path": "realtime.BMSFlg",
+      "name": "bms_flag",
+      "scale": 1,
+      "unit": "",
+      "label": "BMS Flag"
+    },
+    {
+      "path": "realtime.ACin[0][0]",
+      "name": "grid_voltage",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage"
+    },
+    {
+      "path": "realtime.ACin[1][0]",
+      "name": "grid_current",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Grid Current"
+    },
+    {
+      "path": "realtime.ACin[2][0]",
+      "name": "grid_frequency",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Frequency"
+    },
+    {
+      "path": "realtime.ACin[3][0]",
+      "name": "grid_active_power",
+      "scale": 1,
+      "unit": "W",
+      "label": "Grid Active Power"
+    },
+    {
+      "path": "realtime.ACin[3][1]",
+      "name": "grid_apparent_power",
+      "scale": 1,
+      "unit": "VA",
+      "label": "Grid Apparent Power"
+    },
+    {
+      "path": "realtime.ACout[0][0]",
+      "name": "ac_output_voltage",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Output Voltage"
+    },
+    {
+      "path": "realtime.ACout[1][0]",
+      "name": "ac_output_current",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "AC Output Current"
+    },
+    {
+      "path": "realtime.ACout[2][0]",
+      "name": "ac_output_frequency",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "AC Output Frequency"
+    },
+    {
+      "path": "realtime.ACout[3][0]",
+      "name": "ac_output_active_power",
+      "scale": 1,
+      "unit": "W",
+      "label": "AC Output Active Power"
+    },
+    {
+      "path": "realtime.ACout[3][1]",
+      "name": "ac_output_apparent_power",
+      "scale": 1,
+      "unit": "VA",
+      "label": "AC Output Apparent Power"
+    },
+    {
+      "path": "realtime.ACout[3][2]",
+      "name": "ac_output_reactive_power",
+      "scale": 1,
+      "unit": "VAR",
+      "label": "AC Output Reactive Power"
+    },
+    {
+      "path": "realtime.PV[0][0]",
+      "name": "pv1_voltage",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV1 Voltage"
+    },
+    {
+      "path": "realtime.PV[0][1]",
+      "name": "pv1_current",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "PV1 Current"
+    },
+    {
+      "path": "realtime.PV[0][2]",
+      "name": "pv1_power",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV1 Power"
+    },
+    {
+      "path": "realtime.PV[1][0]",
+      "name": "pv2_voltage",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV2 Voltage"
+    },
+    {
+      "path": "realtime.PV[1][1]",
+      "name": "pv2_current",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "PV2 Current"
+    },
+    {
+      "path": "realtime.PV[1][2]",
+      "name": "pv2_power",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV2 Power"
+    },
+    {
+      "path": "realtime.PV[2][0]",
+      "name": "pv3_voltage",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Pv3 Voltage"
+    },
+    {
+      "path": "realtime.PV[2][1]",
+      "name": "pv3_current",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Pv3 Current"
+    },
+    {
+      "path": "realtime.PV[2][2]",
+      "name": "pv3_power",
+      "scale": 1,
+      "unit": "W",
+      "label": "Pv3 Power"
+    },
+    {
+      "path": "realtime.PV[3][0]",
+      "name": "pv_total_power",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV Total Power"
+    },
+    {
+      "path": "realtime.Batt[0][0]",
+      "name": "battery_voltage",
+      "scale": 0.001,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "path": "realtime.Batsoc[0][0]",
+      "name": "battery_soc",
+      "scale": 0.01,
+      "unit": "%",
+      "label": "Battery SOC"
+    },
+    {
+      "path": "realtime.Energy[0][1]",
+      "name": "pv_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Total"
+    },
+    {
+      "path": "realtime.Energy[0][2]",
+      "name": "pv_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Today"
+    },
+    {
+      "path": "realtime.Energy[0][3]",
+      "name": "pv_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Month"
+    },
+    {
+      "path": "realtime.Energy[0][4]",
+      "name": "pv_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Year"
+    },
+    {
+      "path": "realtime.Energy[2][1]",
+      "name": "grid_import_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Import Energy Total"
+    },
+    {
+      "path": "realtime.Energy[2][2]",
+      "name": "grid_import_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Import Energy Today"
+    },
+    {
+      "path": "realtime.Energy[2][3]",
+      "name": "grid_import_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Import Energy Month"
+    },
+    {
+      "path": "realtime.Energy[2][4]",
+      "name": "grid_import_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Import Energy Year"
+    },
+    {
+      "path": "realtime.Energy[3][1]",
+      "name": "grid_export_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Export Energy Total"
+    },
+    {
+      "path": "realtime.Energy[3][2]",
+      "name": "grid_export_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Export Energy Today"
+    },
+    {
+      "path": "realtime.Energy[3][3]",
+      "name": "grid_export_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Export Energy Month"
+    },
+    {
+      "path": "realtime.Energy[3][4]",
+      "name": "grid_export_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Export Energy Year"
+    },
+    {
+      "path": "realtime.Energy[4][1]",
+      "name": "battery_charge_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Charge Energy Total"
+    },
+    {
+      "path": "realtime.Energy[4][2]",
+      "name": "battery_charge_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Charge Energy Today"
+    },
+    {
+      "path": "realtime.Energy[4][3]",
+      "name": "battery_charge_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Charge Energy Month"
+    },
+    {
+      "path": "realtime.Energy[4][4]",
+      "name": "battery_charge_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Charge Energy Year"
+    },
+    {
+      "path": "realtime.Energy[5][1]",
+      "name": "battery_discharge_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Discharge Energy Total"
+    },
+    {
+      "path": "realtime.Energy[5][2]",
+      "name": "battery_discharge_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Discharge Energy Today"
+    },
+    {
+      "path": "realtime.Energy[5][3]",
+      "name": "battery_discharge_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Discharge Energy Month"
+    },
+    {
+      "path": "realtime.Energy[5][4]",
+      "name": "battery_discharge_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Discharge Energy Year"
+    },
+    {
+      "path": "realtime.Energy[6][1]",
+      "name": "home_load_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Home Load Energy Total"
+    },
+    {
+      "path": "realtime.Energy[6][2]",
+      "name": "home_load_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Home Load Energy Today"
+    },
+    {
+      "path": "realtime.Energy[6][3]",
+      "name": "home_load_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Home Load Energy Month"
+    },
+    {
+      "path": "realtime.Energy[6][4]",
+      "name": "home_load_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Home Load Energy Year"
+    },
+    {
+      "path": "realtime.Energy[7][1]",
+      "name": "total_load_energy_total",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Total Load Energy Total"
+    },
+    {
+      "path": "realtime.Energy[7][2]",
+      "name": "total_load_energy_today",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Total Load Energy Today"
+    },
+    {
+      "path": "realtime.Energy[7][3]",
+      "name": "total_load_energy_month",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Total Load Energy Month"
+    },
+    {
+      "path": "realtime.Energy[7][4]",
+      "name": "total_load_energy_year",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Total Load Energy Year"
+    },
+    {
+      "path": "realtime.Temp[0][0]",
+      "name": "temperature_1",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Temperature 1"
+    },
+    {
+      "path": "realtime.Temp[0][2]",
+      "name": "temperature_2",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Temperature 2"
+    },
+    {
+      "path": "realtime.Temp[0][3]",
+      "name": "temperature_3",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Temperature 3"
+    },
+    {
+      "path": "realtime.Temp[0][4]",
+      "name": "temperature_4",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Temperature 4"
+    },
+    {
+      "path": "basic.version",
+      "name": "firmware_version",
+      "scale": 1,
+      "unit": "",
+      "label": "Firmware Version"
+    },
+    {
+      "path": "basic.Type",
+      "name": "device_type",
+      "scale": 1,
+      "unit": "",
+      "label": "Device Type"
+    },
+    {
+      "path": "basic.SubType",
+      "name": "device_subtype",
+      "scale": 1,
+      "unit": "",
+      "label": "Device Subtype"
+    }
   ]
 }

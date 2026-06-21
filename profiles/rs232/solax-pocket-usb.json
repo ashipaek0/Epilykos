@@ -11,9 +11,22 @@
     "timeout": 5000
   },
   "commands": [
-    { "name": "register_dongle", "function": 1, "control": 2, "payload": "EPILYKOS01" },
-    { "name": "request_serial",  "function": 5, "control": 1 },
-    { "name": "request_data",    "function": 12, "control": 1 }
+    {
+      "name": "register_dongle",
+      "function": 1,
+      "control": 2,
+      "payload": "EPILYKOS01"
+    },
+    {
+      "name": "request_serial",
+      "function": 5,
+      "control": 1
+    },
+    {
+      "name": "request_data",
+      "function": 12,
+      "control": 1
+    }
   ],
   "frame_format": {
     "header": "AA55",
@@ -21,19 +34,107 @@
     "min_length": 7,
     "max_length": 255
   },
-  "call_order": ["register_dongle", "request_serial", "request_data"],
+  "call_order": [
+    "register_dongle",
+    "request_serial",
+    "request_data"
+  ],
   "fields": [
-    { "metric": "grid_voltage",     "offset": 0,  "type": "uint16", "scale": 0.1, "unit": "V" },
-    { "metric": "grid_current",     "offset": 2,  "type": "uint16", "scale": 0.1, "unit": "A" },
-    { "metric": "grid_power",       "offset": 4,  "type": "int16",  "scale": 1.0, "unit": "W" },
-    { "metric": "pv1_power",        "offset": 6,  "type": "uint16", "scale": 1.0, "unit": "W" },
-    { "metric": "pv2_power",        "offset": 8,  "type": "uint16", "scale": 1.0, "unit": "W" },
-    { "metric": "battery_voltage",  "offset": 10, "type": "uint16", "scale": 0.1, "unit": "V" },
-    { "metric": "battery_power",    "offset": 12, "type": "int16",  "scale": 1.0, "unit": "W" },
-    { "metric": "battery_soc",      "offset": 14, "type": "uint16", "scale": 1.0, "unit": "%" },
-    { "metric": "energy_today",     "offset": 16, "type": "uint16", "scale": 0.1, "unit": "kWh" },
-    { "metric": "energy_total",     "offset": 18, "type": "uint32", "scale": 0.1, "unit": "kWh" },
-    { "metric": "inverter_temp",    "offset": 22, "type": "int16",  "scale": 1.0, "unit": "°C" },
-    { "metric": "grid_frequency",   "offset": 24, "type": "uint16", "scale": 0.01, "unit": "Hz" }
+    {
+      "metric": "grid_voltage",
+      "offset": 0,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage"
+    },
+    {
+      "metric": "grid_current",
+      "offset": 2,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Grid Current"
+    },
+    {
+      "metric": "grid_power",
+      "offset": 4,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Grid Power"
+    },
+    {
+      "metric": "pv1_power",
+      "offset": 6,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV1 Power"
+    },
+    {
+      "metric": "pv2_power",
+      "offset": 8,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV2 Power"
+    },
+    {
+      "metric": "battery_voltage",
+      "offset": 10,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "metric": "battery_power",
+      "offset": 12,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Battery Power"
+    },
+    {
+      "metric": "battery_soc",
+      "offset": 14,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Battery SOC"
+    },
+    {
+      "metric": "energy_today",
+      "offset": 16,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Energy Today"
+    },
+    {
+      "metric": "energy_total",
+      "offset": 18,
+      "type": "uint32",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Energy Total"
+    },
+    {
+      "metric": "inverter_temp",
+      "offset": 22,
+      "type": "int16",
+      "scale": 1,
+      "unit": "°C",
+      "label": "Inverter Temp"
+    },
+    {
+      "metric": "grid_frequency",
+      "offset": 24,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Frequency"
+    }
   ]
 }

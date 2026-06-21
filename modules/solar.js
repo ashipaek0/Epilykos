@@ -1,5 +1,6 @@
 const { logger } = require('./logger');
 const fetch = require('node-fetch');
+const https = require('https');
 const { getConfig, getDb } = require('./database');
 
 let forecastCache = { data: null, timestamp: 0 };
@@ -129,9 +130,17 @@ const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
 
 async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,cloud_cover&timezone=auto&forecast_days=4`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Open-Meteo API error: ${response.status}`);
-  const data = await response.json();
+  const data = await new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 10000 }, (res) => {
+      if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.on('error', reject);
+  });
   const conversionFactor = (capacityKwp / 1000) * (lossFactor || 0.9);
   const hourly = data.hourly;
   const forecasts = hourly.time.map((t, i) => ({
@@ -221,10 +230,18 @@ async function getSolarForecast() {
   if (lat && lon) {
     try {
       const currentUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,apparent_temperature&timezone=auto&forecast_days=1`;
-      const currentRes = await fetch(currentUrl);
+      const currentData = await new Promise((resolve, reject) => {
+        const req = https.get(currentUrl, { timeout: 10000 }, (res) => {
+          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.on('error', reject);
+      });
       let temp = null, feelsLike = null, humidity = null, iconClass = DEFAULT_WEATHER.icon, weatherDesc = DEFAULT_WEATHER.desc;
-      if (currentRes.ok) {
-        const currentData = await currentRes.json();
         const cw = currentData.current_weather;
         temp = cw.temperature;
         const code = cw.weathercode;
@@ -239,12 +256,20 @@ async function getSolarForecast() {
             break;
           }
         }
-      }
       let forecastWeather = [];
       const dailyWeatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,relativehumidity_2m_mean&timezone=auto&forecast_days=3`;
-      const dailyWeatherRes = await fetch(dailyWeatherUrl);
-      if (dailyWeatherRes.ok) {
-        const dailyData = await dailyWeatherRes.json();
+      const dailyData = await new Promise((resolve, reject) => {
+        const req = https.get(dailyWeatherUrl, { timeout: 10000 }, (res) => {
+          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.on('error', reject);
+      });
+      if (dailyData.daily) {
         const dates = dailyData.daily.time;
         const codes = dailyData.daily.weathercode;
         const temps = dailyData.daily.temperature_2m_max;
@@ -279,16 +304,18 @@ async function getSolarForecast() {
   return result;
 }
 
-async function testForecast() {
-  const lat = parseFloat(getConfig('solar_latitude')), lon = parseFloat(getConfig('solar_longitude'));
-  const capacityKwp = parseFloat(getConfig('solar_capacity_kwp'));
+async function testForecast(opts) {
+  // Accept values directly (from form) or fall back to DB config
+  const lat = parseFloat(opts?.lat ?? getConfig('solar_latitude'));
+  const lon = parseFloat(opts?.lon ?? getConfig('solar_longitude'));
+  const capacityKwp = parseFloat(opts?.capacity ?? getConfig('solar_capacity_kwp'));
   if (isNaN(lat) || isNaN(lon) || isNaN(capacityKwp) || capacityKwp <= 0) throw new Error('Invalid location or capacity');
-  const solcastKey = getConfig('solcast_api_key');
-  const resourceId = getConfig('solcast_resource_id');
-  const tilt = parseFloat(getConfig('solar_tilt')) || 30;
-  const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
-  const lossFactor = parseFloat(getConfig('solar_loss_factor')) || 0.9;
-  const installDate = getConfig('solar_install_date') || '2020-01-01';
+  const solcastKey = opts?.api_key ?? getConfig('solcast_api_key');
+  const resourceId = opts?.resource_id ?? getConfig('solcast_resource_id');
+  const tilt = parseFloat(opts?.tilt ?? getConfig('solar_tilt')) || 30;
+  const azimuth = parseFloat(opts?.azimuth ?? getConfig('solar_azimuth')) || 180;
+  const lossFactor = parseFloat(opts?.loss ?? getConfig('solar_loss_factor')) || 0.9;
+  const installDate = (opts?.install_date ?? getConfig('solar_install_date')) || '2020-01-01';
   let source = 'none', dailyTotal = 0, peak = 0;
 
   if (solcastKey) {
@@ -319,10 +346,26 @@ async function testForecast() {
   }
   if (source === 'none') {
     try {
+      // Use https.get instead of fetch to avoid ERR_STREAM_PREMATURE_CLOSE
+      // (Node.js fetch has stream issues with Open-Meteo in long-running Docker processes)
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&timezone=auto&forecast_days=1`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await new Promise((resolve, reject) => {
+        const req = https.get(url, { timeout: 10000 }, (res) => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); }
+          });
+        });
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.on('error', reject);
+      });
+      // Also fix the Solcast fetch calls the same way (same container, same fetch bug risk)
       const conversionFactor = (capacityKwp / 1000) * lossFactor;
       const today = new Date().toISOString().split('T')[0];
       data.hourly.time.forEach((t, i) => {

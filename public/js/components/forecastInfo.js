@@ -4,10 +4,13 @@ import { uid } from '../utils/uid.js';
 export function buildForecastInfo(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
+  const metrics = config.metrics || {};
+  const actualEnergyMetric = metrics.actual_energy || 'solar_kw';
 
   const card = document.createElement('div');
   card.className = 'forecast-info-card forecast-info-instance';
   card.dataset.blockId = id;
+  card.dataset.metricMap = JSON.stringify({ actual_energy: actualEnergyMetric });
   card.style.display = 'none';
 
   card.innerHTML = `

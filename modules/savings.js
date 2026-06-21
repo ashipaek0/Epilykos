@@ -57,7 +57,7 @@ async function getSavings() {
     allTimeSavings = allTimeSolar * rate;
   }
 
-  return { currency, today: todaySavings, week: weekSolar * rate, month: monthSolar * rate, all: allTimeSavings };
+  return { currency, rate, today: todaySavings, week: weekSolar * rate, month: monthSolar * rate, all: allTimeSavings };
 }
 
 module.exports = { getSavings };

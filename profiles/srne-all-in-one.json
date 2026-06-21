@@ -1,18 +1,102 @@
 {
-  "name": "SRNE All‑in‑One Inverter (RS485)",
+  "name": "SRNE All\u2011in\u2011One Inverter (RS485)",
   "defaultUnitId": 1,
   "registers": [
-    { "metric": "battery_soc",         "address": 256,  "type": "uint16", "scale": 1.0,  "unit": "%" },
-    { "metric": "battery_voltage",     "address": 257,  "type": "uint16", "scale": 0.1,  "unit": "V" },
-    { "metric": "battery_current",     "address": 258,  "type": "int16",  "scale": 0.1,  "unit": "A" },
-    { "metric": "solar_voltage",       "address": 263,  "type": "uint16", "scale": 0.1,  "unit": "V" },
-    { "metric": "solar_power",         "address": 265,  "type": "uint16", "scale": 1.0,  "unit": "W" },
-    { "metric": "load_power",          "address": 262,  "type": "uint16", "scale": 1.0,  "unit": "W" },
-    { "metric": "grid_voltage",        "address": 275,  "type": "uint16", "scale": 0.1,  "unit": "V" },
-    { "metric": "inverter_temp",       "address": 259,  "type": "int16",  "scale": 0.1,  "unit": "°C" },
-    { "metric": "battery_charge_power","address": 265,  "type": "uint16", "scale": 1.0,  "unit": "W" },
-    { "metric": "battery_discharge_power","address": 266, "type": "uint16", "scale": 1.0, "unit": "W" },
-    { "metric": "grid_import_power",   "address": 267,  "type": "uint16", "scale": 1.0,  "unit": "W" },
-    { "metric": "grid_export_power",   "address": 268,  "type": "uint16", "scale": 1.0,  "unit": "W" }
+    {
+      "metric": "battery_soc",
+      "address": 256,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Battery SOC"
+    },
+    {
+      "metric": "battery_voltage",
+      "address": 257,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "metric": "battery_current",
+      "address": 258,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Battery Current"
+    },
+    {
+      "metric": "solar_voltage",
+      "address": 263,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Solar Voltage"
+    },
+    {
+      "metric": "solar_power",
+      "address": 265,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Solar Power"
+    },
+    {
+      "metric": "load_power",
+      "address": 262,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Load Power"
+    },
+    {
+      "metric": "grid_voltage",
+      "address": 275,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage"
+    },
+    {
+      "metric": "inverter_temp",
+      "address": 259,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Inverter Temp"
+    },
+    {
+      "metric": "battery_charge_power",
+      "address": 265,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Battery Charge Power"
+    },
+    {
+      "metric": "battery_discharge_power",
+      "address": 266,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Battery Discharge Power"
+    },
+    {
+      "metric": "grid_import_power",
+      "address": 267,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Grid Import Power"
+    },
+    {
+      "metric": "grid_export_power",
+      "address": 268,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Grid Export Power"
+    }
   ]
 }

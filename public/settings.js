@@ -63,10 +63,11 @@ async function loadSettings() {
   } catch (e) {
     showStatus(saveStatus, 'Failed to load settings', 'error');
   }
+  syncAllMetricDropdowns();
 }
 
 // ---------- Helper: Create metric dropdown ----------
-function createMetricDropdown(selectedMetric = '') {
+function createMetricDropdown(selectedMetric = '', excludeMetrics = []) {
   const select = document.createElement('select');
   select.className = 'metric-name';
   select.title = selectedMetric || 'Select a metric';
@@ -75,6 +76,8 @@ function createMetricDropdown(selectedMetric = '') {
   emptyOpt.textContent = '-- Select Metric --';
   select.appendChild(emptyOpt);
   for (const metric of allMetrics) {
+    // Skip metrics already mapped elsewhere unless it's the current selection
+    if (excludeMetrics.includes(metric.name) && metric.name !== selectedMetric) continue;
     const opt = document.createElement('option');
     opt.value = metric.name;
     opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
@@ -82,6 +85,62 @@ function createMetricDropdown(selectedMetric = '') {
     select.appendChild(opt);
   }
   return select;
+}
+
+// Helper: collect all currently-used metrics across ALL source types (MQTT + HA + External/REST)
+function getAllUsedMetrics() {
+  const used = new Set();
+  document.querySelectorAll('.device-card .metric-row .metric-name').forEach(sel => {
+    if (sel.value) used.add(sel.value);
+  });
+  return used;
+}
+
+// Rebuild all metric dropdowns in a single MQTT/HA device card, respecting used metrics (per-card scope)
+function refreshMqttDropdowns(card) {
+  const used = new Set();
+  card.querySelectorAll('.metric-row .metric-name').forEach(sel => {
+    if (sel.value) used.add(sel.value);
+  });
+  card.querySelectorAll('.metric-row .metric-name').forEach(sel => {
+    const currentVal = sel.value;
+    const excludeOthers = Array.from(used).filter(m => m !== currentVal);
+    sel.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select Metric --';
+    sel.appendChild(emptyOpt);
+    for (const metric of allMetrics) {
+      if (excludeOthers.includes(metric.name)) continue;
+      const opt = document.createElement('option');
+      opt.value = metric.name;
+      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+      if (metric.name === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+// Rebuild ALL metric dropdowns across all source types (MQTT + HA + External) with global exclusion
+function syncAllMetricDropdowns() {
+  const used = getAllUsedMetrics();
+  document.querySelectorAll('.device-card .metric-row .metric-name').forEach(sel => {
+    const currentVal = sel.value;
+    const excludeOthers = Array.from(used).filter(m => m !== currentVal);
+    sel.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select Metric --';
+    sel.appendChild(emptyOpt);
+    for (const metric of allMetrics) {
+      if (excludeOthers.includes(metric.name)) continue;
+      const opt = document.createElement('option');
+      opt.value = metric.name;
+      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
+      if (metric.name === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
 }
 
 // Generate metric options as HTML string (for innerHTML-based config panels)
@@ -102,22 +161,7 @@ async function refreshAllMetricDropdowns() {
     allMetrics = await res.json();
     allMetrics.sort((a,b) => a.name.localeCompare(b.name));
   }
-  const selects = document.querySelectorAll('.metric-name');
-  for (const select of selects) {
-    const currentVal = select.value;
-    select.innerHTML = '';
-    const emptyOpt = document.createElement('option');
-    emptyOpt.value = '';
-    emptyOpt.textContent = '-- Select Metric --';
-    select.appendChild(emptyOpt);
-    for (const metric of allMetrics) {
-      const opt = document.createElement('option');
-      opt.value = metric.name;
-      opt.textContent = metric.unit ? `${metric.name} (${metric.unit})` : metric.name;
-      select.appendChild(opt);
-    }
-    if (currentVal && allMetrics.some(m => m.name === currentVal)) select.value = currentVal;
-  }
+  syncAllMetricDropdowns();
 }
 
 // ======================== HOME ASSISTANT ========================
@@ -127,6 +171,7 @@ function buildHaDeviceList(devices) {
   container.innerHTML = '';
   haDeviceCounter = 0;
   devices.forEach((dev, idx) => renderHaDevice(dev, idx));
+  refreshAllMetricDropdowns();
 }
 
 function renderHaDevice(device, idx) {
@@ -177,6 +222,7 @@ function renderHaDevice(device, idx) {
     if (confirm('Remove this Home Assistant device and all its entity mappings?')) {
       card.remove();
       reindexHa();
+      refreshAllMetricDropdowns();
     }
   });
 
@@ -212,7 +258,9 @@ function renderHaDevice(device, idx) {
   });
 
   card.querySelector('.add-ha-metric').addEventListener('click', () => {
-    addHaMetricRow(device, idx);
+    const used = getAllUsedMetrics();
+    addHaMetricRow(device, idx, '', '', Array.from(used));
+    refreshAllMetricDropdowns();
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -247,12 +295,12 @@ function renderHaMappings(entities, deviceIdx, container) {
   if (Object.keys(entities).length === 0) addHaMetricRow({}, deviceIdx, container);
 }
 
-function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = '') {
+function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = '', excludeMetrics = []) {
   if (!container) container = document.getElementById(`ha-mappings-list-${deviceIdx}`);
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  const metricSelect = createMetricDropdown(metric);
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const entitySelect = document.createElement('select');
   entitySelect.className = 'entity-select';
   entitySelect.title = entityId || 'Select entity';
@@ -269,7 +317,11 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
-    if (confirm('Remove this metric mapping?')) row.remove();
+    row.remove();
+    refreshAllMetricDropdowns();
+  });
+  metricSelect.addEventListener('change', () => {
+    refreshAllMetricDropdowns();
   });
   row.appendChild(metricSelect);
   row.appendChild(entitySelect);
@@ -311,6 +363,7 @@ function buildMqttDeviceList(devices) {
   container.innerHTML = '';
   mqttDeviceCounter = 0;
   devices.forEach((dev, idx) => renderMqttDevice(dev, idx));
+  refreshAllMetricDropdowns();
 }
 
 function renderMqttDevice(device, idx) {
@@ -342,6 +395,10 @@ function renderMqttDevice(device, idx) {
       <button type="button" class="fetch-btn test-mqtt-topic-btn">Test Topic</button>
       <span class="test-status" id="mqtt-topic-status-${idx}"></span>
     </div>
+    <div class="test-row">
+      <button type="button" class="fetch-btn discover-mqtt-topics">🔍 Discover Topics</button>
+      <span class="test-status" id="mqtt-discover-status-${idx}"></span>
+    </div>
     <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Topic Mappings</div>
     <div class="mappings-section">
       <div class="mappings-filter-bar">
@@ -368,15 +425,26 @@ function renderMqttDevice(device, idx) {
     if (confirm('Remove this MQTT broker and all its topic mappings?')) {
       card.remove();
       reindexMqtt();
+      refreshAllMetricDropdowns();
     }
   });
 
   card.querySelector('.test-mqtt-broker').addEventListener('click', async function(e) {
     e.preventDefault();
     const statusEl = document.getElementById(`mqtt-broker-status-${idx}`);
+    const broker = card.querySelector('[name^="mqtt_devices"][name$="[broker]"]').value.trim();
+    const username = card.querySelector('[name^="mqtt_devices"][name$="[username]"]').value.trim();
+    const password = card.querySelector('[name^="mqtt_devices"][name$="[password]"]').value.trim();
+    if (!broker) {
+      showStatus(statusEl, 'Enter a broker URL first', 'error');
+      return;
+    }
     showStatus(statusEl, 'Testing...', 'info');
     try {
-      const res = await fetch('/api/test-mqtt');
+      const params = new URLSearchParams({ broker });
+      if (username) params.set('username', username);
+      if (password) params.set('password', password);
+      const res = await fetch(`/api/test-mqtt?${params.toString()}`);
       const data = await res.json();
       if (res.ok) showStatus(statusEl, data.message, 'success');
       else showStatus(statusEl, data.error || 'Test failed', 'error');
@@ -393,9 +461,19 @@ function renderMqttDevice(device, idx) {
       showStatus(statusEl, 'Enter a topic', 'error');
       return;
     }
+    const broker = card.querySelector('[name^="mqtt_devices"][name$="[broker]"]').value.trim();
+    const username = card.querySelector('[name^="mqtt_devices"][name$="[username]"]').value.trim();
+    const password = card.querySelector('[name^="mqtt_devices"][name$="[password]"]').value.trim();
+    if (!broker) {
+      showStatus(statusEl, 'Enter a broker URL first', 'error');
+      return;
+    }
     showStatus(statusEl, 'Waiting for message...', 'info');
     try {
-      const res = await fetch(`/api/test-mqtt-topic?topic=${encodeURIComponent(topic)}`);
+      const params = new URLSearchParams({ topic, broker });
+      if (username) params.set('username', username);
+      if (password) params.set('password', password);
+      const res = await fetch(`/api/test-mqtt-topic?${params.toString()}`);
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `Received: ${data.value ?? data.raw}`, 'success');
       else showStatus(statusEl, data.error, 'error');
@@ -404,8 +482,69 @@ function renderMqttDevice(device, idx) {
     }
   });
 
+  card.querySelector('.discover-mqtt-topics').addEventListener('click', async function(e) {
+    e.preventDefault();
+    const statusEl = document.getElementById(`mqtt-discover-status-${idx}`);
+    const mappingsContainer = card.querySelector('.mappings-list');
+    const broker = card.querySelector('[name^="mqtt_devices"][name$="[broker]"]').value.trim();
+    const username = card.querySelector('[name^="mqtt_devices"][name$="[username]"]').value.trim();
+    const password = card.querySelector('[name^="mqtt_devices"][name$="[password]"]').value.trim();
+    if (!broker) {
+      showStatus(statusEl, 'Enter a broker URL first', 'error');
+      return;
+    }
+    showStatus(statusEl, 'Listening for 15s...', 'info');
+    try {
+      const params = new URLSearchParams({ broker });
+      if (username) params.set('username', username);
+      if (password) params.set('password', password);
+      const res = await fetch(`/api/mqtt-discover-topics?${params.toString()}`);
+      const data = await res.json();
+      if (res.ok && data.topics && data.topics.length) {
+        showStatus(statusEl, `Found ${data.count} topics`, 'success');
+        // Clear existing topic rows
+        mappingsContainer.innerHTML = '';
+        // Create a row for each discovered topic
+        data.topics.forEach((topic, tIdx) => {
+          const row = document.createElement('div');
+          row.className = 'metric-row';
+          const globalUsed = getAllUsedMetrics();
+          const metricSelect = createMetricDropdown('', Array.from(globalUsed));
+          const topicInput = document.createElement('input');
+          topicInput.type = 'text';
+          topicInput.className = 'topic-input';
+          topicInput.value = topic;
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'remove-btn remove-metric danger';
+          removeBtn.textContent = '✕';
+          removeBtn.addEventListener('click', () => {
+            row.remove();
+            refreshAllMetricDropdowns();
+          });
+          metricSelect.addEventListener('change', () => {
+            refreshAllMetricDropdowns();
+          });
+          row.appendChild(metricSelect);
+          row.appendChild(topicInput);
+          row.appendChild(removeBtn);
+          mappingsContainer.appendChild(row);
+        });
+        refreshAllMetricDropdowns();
+      } else if (res.ok) {
+        showStatus(statusEl, 'No topics found on broker', 'info');
+      } else {
+        showStatus(statusEl, data.error || 'Discovery failed', 'error');
+      }
+    } catch (err) {
+      showStatus(statusEl, err.message, 'error');
+    }
+  });
+
   card.querySelector('.add-mqtt-metric').addEventListener('click', () => {
-    addMqttMetricRow(device, idx);
+    const used = getAllUsedMetrics();
+    addMqttMetricRow(device, idx, mappingsList, '', '', Array.from(used));
+    refreshAllMetricDropdowns();
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -435,17 +574,17 @@ function renderMqttDevice(device, idx) {
 function renderMqttMappings(topics, deviceIdx, container) {
   container.innerHTML = '';
   Object.entries(topics).forEach(([metric, topic]) => {
-    addMqttMetricRow({}, deviceIdx, container, metric, topic);
+    addMqttMetricRow({}, deviceIdx, container, metric, topic, []);
   });
   if (Object.keys(topics).length === 0) addMqttMetricRow({}, deviceIdx, container);
 }
 
-function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '') {
+function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '', excludeMetrics = []) {
   if (!container) container = document.getElementById(`mqtt-mappings-list-${deviceIdx}`);
   if (!container) return;
   const row = document.createElement('div');
   row.className = 'metric-row';
-  const metricSelect = createMetricDropdown(metric);
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const topicInput = document.createElement('input');
   topicInput.type = 'text';
   topicInput.className = 'topic-input';
@@ -456,7 +595,12 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '')
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
-    if (confirm('Remove this topic mapping?')) row.remove();
+    row.remove();
+    refreshAllMetricDropdowns();
+  });
+  // When the metric selection changes, refresh globally
+  metricSelect.addEventListener('change', () => {
+    refreshAllMetricDropdowns();
   });
   row.appendChild(metricSelect);
   row.appendChild(topicInput);
@@ -537,6 +681,13 @@ function renderModbusDevice(device, idx) {
       <input type="number" name="modbus_devices[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:120px;">
       <button type="button" class="fetch-btn test-modbus">Test Modbus</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="modbus-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-modbus-registers" data-device="${idx}">
+        📥 Load Profile Registers
+      </button>
+    </div>
   `;
   container.appendChild(card);
   const transportSelect = card.querySelector('.modbus-transport-select');
@@ -588,6 +739,26 @@ function renderModbusDevice(device, idx) {
     }
   });
   modbusDeviceCounter++;
+  // Profile change → auto-load register mappings
+  profileSelect.addEventListener('change', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    if (!mappingsList) return;
+    if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing register mappings. Continue?')) {
+      profileSelect.value = device.profile || '';
+      return;
+    }
+    loadModbusRegisterMappings(profileSelect.value, idx, mappingsList);
+  });
+  // Load button click
+  card.querySelector('.load-modbus-registers').addEventListener('click', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    loadModbusRegisterMappings(profileSelect.value, idx, mappingsList);
+  });
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderModbusMappings(profileSelect.value, device.mappings, mappingsList);
+  }
 }
 
 function reindexModbus() {
@@ -604,7 +775,82 @@ if (addModbusBtn) addModbusBtn.addEventListener('click', () => {
   renderModbusDevice({ name: '', host: '', port: 502, unit: 1, poll_interval: 30, enabled: true, profile: '', transport: 'tcp' }, idx);
 });
 
-// ======================== RS232 ========================
+// ---------- Modbus register mapping helpers ----------
+async function loadModbusRegisterMappings(profileId, deviceIdx, container) {
+  container.innerHTML = '';
+  container.innerHTML = '<div class="note">Loading profile...</div>';
+  try {
+    const res = await fetch(`/api/modbus/profile/${encodeURIComponent(profileId)}`);
+    if (!res.ok) {
+      container.innerHTML = '<div class="note" style="color:var(--error);">Profile not found</div>';
+      return;
+    }
+    const profile = await res.json();
+    const mappings = {};
+    profile.registers.forEach(r => {
+      // Default to profile's metric name if present
+      mappings[String(r.address)] = r.metric || '';
+    });
+    renderModbusMappings(profileId, mappings, container);
+  } catch (e) {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load profile</div>';
+  }
+}
+
+function renderModbusMappings(profileId, mappings, container) {
+  container.innerHTML = '';
+  if (!mappings || Object.keys(mappings).length === 0) {
+    container.innerHTML = '<div class="note">No registers in this profile.</div>';
+    return;
+  }
+  // We need the profile registers for labels — fetch if not already loaded
+  fetch(`/api/modbus/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
+    const regMap = {};
+    profile.registers.forEach(r => { regMap[String(r.address)] = r; });
+
+    Object.entries(mappings).sort(([a], [b]) => parseInt(a) - parseInt(b)).forEach(([address, metricName]) => {
+      const reg = regMap[address];
+      const label = reg ? reg.label || `Register ${address}` : `Register ${address}`;
+      const typeInfo = reg ? `[${reg.type}, scale=${reg.scale}, ${reg.unit}]` : '';
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+      row.dataset.address = address;
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'register-desc';
+      descSpan.textContent = `${label} (Addr ${address}) ${typeInfo}`;
+      descSpan.style.flex = '1';
+      descSpan.style.fontSize = '0.85em';
+      descSpan.style.overflow = 'hidden';
+      descSpan.style.textOverflow = 'ellipsis';
+      descSpan.style.whiteSpace = 'nowrap';
+
+      const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
+      metricSelect.className = 'metric-name';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn remove-metric';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      metricSelect.addEventListener('change', () => {
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      row.appendChild(descSpan);
+      row.appendChild(metricSelect);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+    if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+  }).catch(() => {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load register details</div>';
+  });
+}
 let rs232DeviceCounter = 0;
 let availableRs232Ports = [];
 
@@ -673,6 +919,13 @@ function renderRs232Device(device, idx) {
       <input type="number" name="rs232_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;">
       <button type="button" class="fetch-btn test-rs232">Test RS232</button>
     </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Field Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="rs232-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-rs232-fields" data-device="${idx}">
+        📥 Load Profile Fields
+      </button>
+    </div>
   `;
   container.appendChild(card);
 
@@ -690,6 +943,16 @@ function renderRs232Device(device, idx) {
       opt.textContent = `${p.name} (${p.protocol})`;
       if (p.id === device.profile) opt.selected = true;
       profileSelect.appendChild(opt);
+    });
+    // Auto-load field mappings when profile changes
+    profileSelect.addEventListener('change', () => {
+      const mappingsList = card.querySelector('.mappings-list');
+      if (!mappingsList) return;
+      if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing field mappings. Continue?')) {
+        profileSelect.value = device.profile || '';
+        return;
+      }
+      loadRs232Mappings(profileSelect.value, idx, mappingsList);
     });
   });
 
@@ -720,6 +983,18 @@ function renderRs232Device(device, idx) {
   });
 
   rs232DeviceCounter++;
+
+  // Load button click
+  card.querySelector('.load-rs232-fields').addEventListener('click', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    loadRs232Mappings(profileSelect.value, idx, mappingsList);
+  });
+
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderRs232Mappings(profileSelect.value, device.mappings, mappingsList);
+  }
 }
 
 function reindexRs232() {
@@ -744,6 +1019,13 @@ function collectRs232Config(card) {
   dev.stop_bits = parseInt(card.querySelector('select[name$="[stop_bits]"]').value) || 1;
   dev.profile = card.querySelector('.rs232-profile-select').value;
   dev.timeout = parseInt(card.querySelector('input[name$="[timeout]"]').value) || 5000;
+  // Collect field mappings
+  dev.mappings = {};
+  card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+    const key = row.dataset.address;
+    const metricName = row.querySelector('.metric-name').value;
+    if (key && metricName) dev.mappings[key] = metricName;
+  });
   return dev;
 }
 
@@ -767,6 +1049,7 @@ function buildExternalSourceList(sources) {
   container.innerHTML = '';
   externalSourceCounter = 0;
   sources.forEach((src, idx) => renderExternalSource(src, idx));
+  refreshAllMetricDropdowns();
 }
 function renderExternalSource(source, idx) {
   const container = document.getElementById('external-sources-container');
@@ -806,12 +1089,15 @@ function renderExternalSource(source, idx) {
     if (confirm('Remove this external source and all its metric mappings?')) {
       card.remove();
       reindexExternal();
+      refreshAllMetricDropdowns();
     }
   });
   const mappingsList = card.querySelector('.mappings-list');
   renderExternalMappings(source.mappings || {}, idx, mappingsList);
   card.querySelector('.add-external-metric').addEventListener('click', () => {
-    addExternalMetricRow(idx, mappingsList);
+    const used = getAllUsedMetrics();
+    addExternalMetricRow(idx, mappingsList, '', '', Array.from(used));
+    refreshAllMetricDropdowns();
   });
   const testBtn = card.querySelector('.test-external');
   const testPathInput = card.querySelector('.test-jsonpath');
@@ -839,7 +1125,7 @@ function renderExternalMappings(mappings, deviceIdx, container) {
   });
   if (Object.keys(mappings).length === 0) addExternalMetricRow(deviceIdx, container);
 }
-function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') {
+function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '', excludeMetrics = []) {
   const row = document.createElement('div');
   row.className = 'metric-row';
   const jsonPathInput = document.createElement('input');
@@ -847,13 +1133,17 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '') 
   jsonPathInput.className = 'jsonpath';
   jsonPathInput.placeholder = 'JSON path (e.g., data.temperature)';
   jsonPathInput.value = jsonPath;
-  const metricSelect = createMetricDropdown(metric);
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
   removeBtn.textContent = 'Remove';
   removeBtn.addEventListener('click', () => {
-    if (confirm('Remove this mapping?')) row.remove();
+    row.remove();
+    refreshAllMetricDropdowns();
+  });
+  metricSelect.addEventListener('change', () => {
+    refreshAllMetricDropdowns();
   });
   row.appendChild(jsonPathInput);
   row.appendChild(metricSelect);
@@ -1041,6 +1331,13 @@ function renderDongleDevice(device, idx) {
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
     <input type="hidden" name="dongle_config[${idx}][transport]" value="${transport}">
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="dongle-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-dongle-registers" data-device="${idx}">
+        📥 Load Profile Registers
+      </button>
+    </div>
   `;
   container.appendChild(card);
 
@@ -1071,6 +1368,15 @@ function renderDongleDevice(device, idx) {
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
     unitIdInput.value = p.default_unit_id || 1;
     unitIdInput.style.display = (tx === 'felicity-tcp') ? 'none' : '';
+    // Auto-load register mappings when profile changes
+    const mappingsList = card.querySelector('.mappings-list');
+    if (mappingsList) {
+      if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing register mappings. Continue?')) {
+        profileSelect.value = device.profile || '';
+        return;
+      }
+      loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+    }
   });
 
   card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
@@ -1104,6 +1410,18 @@ function renderDongleDevice(device, idx) {
   });
 
   dongleDeviceCounter++;
+
+  // Load button click
+  card.querySelector('.load-dongle-registers').addEventListener('click', () => {
+    const mappingsList = card.querySelector('.mappings-list');
+    loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+  });
+
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderDongleMappings(profileSelect.value, device.mappings, mappingsList);
+  }
 }
 function reindexDongle() {
   const cards = document.querySelectorAll('#dongle-devices-container .device-card');
@@ -1118,6 +1436,106 @@ if (addDongleBtn) addDongleBtn.addEventListener('click', () => {
   const idx = dongleDeviceCounter;
   renderDongleDevice({ name: '', host: '', port: '', serial_number: '', modbus_unit_id: 1, poll_interval: 30, transport: 'solarman-v5', profile: '', prefix: '', enabled: true }, idx);
 });
+
+// ---------- Dongle register/field mapping helpers ----------
+async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
+  container.innerHTML = '';
+  container.innerHTML = '<div class="note">Loading profile...</div>';
+  try {
+    const res = await fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`);
+    if (!res.ok) {
+      container.innerHTML = '<div class="note" style="color:var(--error);">Profile not found</div>';
+      return;
+    }
+    const profile = await res.json();
+    const mappings = {};
+    // metrics[] (Solarman/Modbus TCP) — key = register hex string
+    if (profile.metrics) {
+      profile.metrics.forEach(m => {
+        mappings[m.register] = m.name || '';
+      });
+    }
+    // fields[] (Felicity TCP) — key = path
+    if (profile.fields) {
+      profile.fields.forEach(f => {
+        mappings[f.path] = f.name || '';
+      });
+    }
+    renderDongleMappings(profileId, mappings, container);
+  } catch (e) {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load profile</div>';
+  }
+}
+
+function renderDongleMappings(profileId, mappings, container) {
+  container.innerHTML = '';
+  if (!mappings || Object.keys(mappings).length === 0) {
+    container.innerHTML = '<div class="note">No registers/fields in this profile.</div>';
+    return;
+  }
+  // Fetch profile for labels
+  fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
+    // Build lookup maps for labels
+    const regMap = {};   // keyed by register hex string
+    const fieldMap = {}; // keyed by path
+    if (profile.metrics) {
+      profile.metrics.forEach(m => {
+        regMap[m.register] = m.label || m.name;
+      });
+    }
+    if (profile.fields) {
+      profile.fields.forEach(f => {
+        fieldMap[f.path] = f.label || f.name;
+      });
+    }
+
+    Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([key, metricName]) => {
+      let label = regMap[key] || fieldMap[key] || key;
+      let desc;
+      if (regMap[key] !== undefined) {
+        desc = `${label} (Register ${key})`;
+      } else {
+        desc = `${label} (${key})`;
+      }
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+      row.dataset.address = key;
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'register-desc';
+      descSpan.textContent = desc;
+      descSpan.style.flex = '1';
+      descSpan.style.fontSize = '0.85em';
+      descSpan.style.overflow = 'hidden';
+      descSpan.style.textOverflow = 'ellipsis';
+      descSpan.style.whiteSpace = 'nowrap';
+
+      const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
+      metricSelect.className = 'metric-name';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn remove-metric';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      metricSelect.addEventListener('change', () => {
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      row.appendChild(descSpan);
+      row.appendChild(metricSelect);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+    if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+  }).catch(() => {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load register details</div>';
+  });
+}
 
 // ======================== PVOUTPUT ========================
 function buildPvoutputConfig(config) {
@@ -1268,7 +1686,19 @@ if (forecastTestBtn) {
     btn.innerHTML = '<span class="spinner"></span> Testing...';
     showStatus(statusEl, 'Fetching forecast...', 'info');
     try {
-      const res = await fetch('/api/test-forecast');
+      // Send current form values so user can test before saving
+      const params = new URLSearchParams({
+        lat: document.getElementById('solar-latitude')?.value || '',
+        lon: document.getElementById('solar-longitude')?.value || '',
+        capacity: document.getElementById('solar-capacity')?.value || '',
+        tilt: document.getElementById('solar-tilt')?.value || '30',
+        azimuth: document.getElementById('solar-azimuth')?.value || '180',
+        loss: document.getElementById('solar-loss-factor')?.value || '0.9',
+        install_date: document.getElementById('solar-install-date')?.value || '2020-01-01',
+        api_key: document.getElementById('solcast-api-key')?.value || '',
+        resource_id: document.getElementById('solcast-resource-id')?.value || ''
+      });
+      const res = await fetch(`/api/test-forecast?${params.toString()}`);
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
       else showStatus(statusEl, `❌ ${data.error}`, 'error');
@@ -1280,6 +1710,78 @@ if (forecastTestBtn) {
     }
   });
 }
+
+// ======================== ROLE METRICS ========================
+const ROLE_LABELS = {
+  solar: 'Solar Power',
+  consumption: 'Consumption / Load Power',
+  battery_charge: 'Battery Charge Power',
+  battery_discharge: 'Battery Discharge Power',
+  grid_import: 'Grid Import Power',
+  grid_export: 'Grid Export Power',
+  battery_soc: 'Battery SOC',
+  daily_solar: 'Daily Solar Energy (gen)',
+  daily_consumption: 'Daily Consumption Energy',
+  daily_battery_charge: 'Daily Battery Charge Energy',
+  daily_battery_discharge: 'Daily Battery Discharge Energy',
+  daily_grid_import: 'Daily Grid Import Energy',
+  daily_grid_export: 'Daily Grid Export Energy',
+};
+
+async function loadRoleMetrics() {
+  const container = document.getElementById('role-metrics-container');
+  if (!container) return;
+  try {
+    const [rolesRes, metricsRes] = await Promise.all([
+      fetch('/api/role-metrics'),
+      fetch('/api/metrics/list')
+    ]);
+    const roles = await rolesRes.json();
+    const metrics = await metricsRes.json();
+    const metricNames = Array.isArray(metrics) ? metrics : [];
+    container.innerHTML = Object.entries(ROLE_LABELS).map(([role, label]) => {
+      const current = roles[role] || '';
+      const options = ['<option value="">-- Not mapped --</option>',
+        ...metricNames.map(m => `<option value="${escapeHtml(m.name || m)}" ${(m.name || m) === current ? 'selected' : ''}>${escapeHtml(m.name || m)}</option>`)
+      ].join('');
+      return `<div class="stg-form-row" style="margin-bottom:0.4rem;"><div class="stg-form-group" style="flex:1;"><label style="font-size:0.8rem;">${escapeHtml(label)}</label><select class="role-metric-select" data-role="${role}" style="width:100%;">${options}</select></div></div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = `<p class="note" style="color:#ef4444;">Failed to load: ${e.message}</p>`;
+  }
+}
+
+// Role metrics save button
+const saveRoleMetricsBtn = document.getElementById('save-role-metrics');
+if (saveRoleMetricsBtn) {
+  saveRoleMetricsBtn.addEventListener('click', async () => {
+    const statusEl = document.getElementById('role-metrics-status');
+    const selects = document.querySelectorAll('.role-metric-select');
+    const mapping = {};
+    selects.forEach(sel => {
+      if (sel.value) mapping[sel.dataset.role] = sel.value;
+    });
+    try {
+      const res = await fetch('/api/role-metrics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mapping)
+      });
+      const data = await res.json();
+      showStatus(statusEl, data.success ? '✅ Saved' : '❌ ' + (data.error || 'Failed'), data.success ? 'success' : 'error');
+    } catch (e) {
+      showStatus(statusEl, '❌ Error: ' + e.message, 'error');
+    }
+  });
+}
+
+// Load role metrics when solar tab is shown
+const solarObserver = new MutationObserver(() => {
+  if (document.getElementById('stg-section-solar')?.classList.contains('active') && document.getElementById('role-metrics-container')?.innerHTML === '') {
+    loadRoleMetrics();
+  }
+});
+const stgSections = document.getElementById('stg-main');
+if (stgSections) solarObserver.observe(stgSections, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
@@ -1675,6 +2177,8 @@ function renderDashboardBlockEditor(dashboard) {
         configPanel.innerHTML = '<div class="note">Removed.</div>';
       } else if (block.type === 'savings-summary') {
         configPanel.innerHTML = `<label>Block Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
+          <label>Energy Metric</label>
+          <select class="config-savings-metric" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.savings_metric || '', 'Use default')}</select>
           <label><input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Show Today</label>
           <label><input type="checkbox" class="config-show-week" ${block.config?.showWeek !== false ? 'checked' : ''}> Show Week</label>
           <label><input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Show Month</label>
@@ -1689,21 +2193,10 @@ function renderDashboardBlockEditor(dashboard) {
           { field: 'grid_import_kwh', label: 'Grid used (kWh)' },
           { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }
         ];
-        const fieldOptions = [
-          { value: 'consumption_kwh', label: 'Load' },
-          { value: 'solar_kwh', label: 'Solar PV' },
-          { value: 'battery_charge_kwh', label: 'Battery charged' },
-          { value: 'battery_discharge_kwh', label: 'Battery discharged' },
-          { value: 'grid_import_kwh', label: 'Grid used' },
-          { value: 'grid_export_kwh', label: 'Grid exported' }
-        ];
-        const fieldSelectHtml = fieldOptions.map(f =>
-          `<option value="${f.value}">${f.label}</option>`
-        ).join('');
         const colRows = columns.map((col, i) => `
           <div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;">
             <input type="text" class="config-col-label" data-idx="${i}" value="${escapeHtml(col.label)}" style="flex:1;">
-            <select class="config-col-field" data-idx="${i}" style="flex:1;">${fieldSelectHtml.replace(`value="${col.field}"`, `value="${col.field}" selected`)}</select>
+            <select class="config-col-field" data-idx="${i}" style="flex:1;">${generateMetricOptionsHtml(col.field)}</select>
             <button type="button" class="remove-col-btn" data-idx="${i}" style="padding:0.3rem 0.5rem;">✕</button>
           </div>
         `).join('');
@@ -1740,25 +2233,23 @@ function renderDashboardBlockEditor(dashboard) {
         const currentMetrics = block.config?.metrics || {};
         configPanel.innerHTML = `<label>Actual Energy Field</label><select class="config-metric" data-role="actual_energy" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(currentMetrics.actual_energy)}</select><button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'forecast-info') {
-        configPanel.innerHTML = '<div class="note">No configurable options.</div>';
+        const currentMetrics = block.config?.metrics || {};
+        configPanel.innerHTML = `
+          <label>Actual Energy Metric</label>
+          <select class="config-metric" data-role="actual_energy" style="width:100%; margin-bottom:0.5rem;">
+            <option value="">-- Select --</option>
+            ${generateMetricOptionsHtml(currentMetrics.actual_energy)}
+          </select>
+          <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'forecast-banner') {
         const currentMetrics = block.config?.metrics || {};
-        const fieldOptions = [
-          { value: 'solar_kw', label: 'Solar Power (kW)' },
-          { value: 'consumption_kw', label: 'Consumption (kW)' },
-          { value: 'battery_charge_kw', label: 'Battery Charge (kW)' },
-          { value: 'grid_import_kw', label: 'Grid Import (kW)' }
-        ];
-        const fieldSelectHtml = fieldOptions.map(f =>
-          `<option value="${f.value}" ${currentMetrics.actual_energy === f.value ? 'selected' : ''}>${f.label}</option>`
-        ).join('');
         configPanel.innerHTML = `
           <label>Actual Energy Metric for Sparkline</label>
           <select class="config-metric" data-role="actual_energy" style="width:100%; margin-bottom:0.5rem;">
             <option value="">-- Select --</option>
-            ${fieldSelectHtml}
+            ${generateMetricOptionsHtml(currentMetrics.actual_energy)}
           </select>
-          <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Default: Solar PV.</p>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">Which history field to show as the "Actual" line in the sparkline. Using actual metric names from the database.</p>
           <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'multi-value') {
         const metrics = block.config?.metrics || [{ label: '', metric: '', unit: '' }];
@@ -1876,6 +2367,7 @@ function renderDashboardBlockEditor(dashboard) {
             // removed
           } else if (block.type === 'savings-summary') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.savings_metric = configPanel.querySelector('.config-savings-metric')?.value || '';
             block.config.showToday = configPanel.querySelector('.config-show-today')?.checked ?? true;
             block.config.showWeek = configPanel.querySelector('.config-show-week')?.checked ?? true;
             block.config.showMonth = configPanel.querySelector('.config-show-month')?.checked ?? true;
@@ -1965,22 +2457,11 @@ function renderDashboardBlockEditor(dashboard) {
           addBtn.addEventListener('click', () => {
             const existingRows = configPanel.querySelectorAll('.config-col-label');
             const newIdx = existingRows.length;
-            const fieldOptions = [
-              { value: 'consumption_kwh', label: 'Load' },
-              { value: 'solar_kwh', label: 'Solar PV' },
-              { value: 'battery_charge_kwh', label: 'Battery charged' },
-              { value: 'battery_discharge_kwh', label: 'Battery discharged' },
-              { value: 'grid_import_kwh', label: 'Grid used' },
-              { value: 'grid_export_kwh', label: 'Grid exported' }
-            ];
-            const fieldSelectHtml = fieldOptions.map(f =>
-              `<option value="${f.value}">${f.label}</option>`
-            ).join('');
             const newRow = document.createElement('div');
             newRow.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;';
             newRow.innerHTML = `
               <input type="text" class="config-col-label" data-idx="${newIdx}" value="New Column" style="flex:1;">
-              <select class="config-col-field" data-idx="${newIdx}" style="flex:1;">${fieldSelectHtml}</select>
+              <select class="config-col-field" data-idx="${newIdx}" style="flex:1;">${generateMetricOptionsHtml()}</select>
               <button type="button" class="remove-col-btn" data-idx="${newIdx}" style="padding:0.3rem 0.5rem;">✕</button>
             `;
             newRow.querySelector('.remove-col-btn').addEventListener('click', () => newRow.remove());
@@ -2176,6 +2657,13 @@ form.addEventListener('submit', async (e) => {
     dev.serial_stop_bits = card.querySelector('input[name$="[serial_stop_bits]"]')?.value || '';
     dev.unit = card.querySelector('input[name$="[unit]"]')?.value || 1;
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]')?.value || 30;
+    // Collect register mappings
+    dev.mappings = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const address = row.dataset.address;
+      const metricName = row.querySelector('.metric-name').value;
+      if (address && metricName) dev.mappings[address] = metricName;
+    });
     return dev;
   });
   payload.rs232_devices = collectDeviceArray('rs232-devices-container', (card) => {
@@ -2213,13 +2701,26 @@ form.addEventListener('submit', async (e) => {
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
+    // Collect register mappings
+    dev.mappings = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const address = row.dataset.address;
+      const metricName = row.querySelector('.metric-name').value;
+      if (address && metricName) dev.mappings[address] = metricName;
+    });
     return dev;
   });
   payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
   payload.dashboard_config = JSON.stringify(dashConfig);
   try {
     const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (res.ok) showStatus(saveStatus, 'Settings saved successfully!', 'success');
+    if (res.ok) {
+      showStatus(saveStatus, 'Settings saved successfully!', 'success');
+      // Clear the unsaved changes indicator
+      const dirtyCount = document.getElementById('stg-dirty-count');
+      if (dirtyCount) { dirtyCount.textContent = ''; dirtyCount.classList.remove('show'); }
+      document.dispatchEvent(new CustomEvent('stg-save-complete'));
+    }
     else { const err = await res.json().catch(() => ({})); showStatus(saveStatus, err.error || 'Failed to save', 'error'); }
   } catch (e) { showStatus(saveStatus, 'Error: ' + e.message, 'error'); }
 });
