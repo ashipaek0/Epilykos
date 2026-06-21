@@ -2177,6 +2177,8 @@ function renderDashboardBlockEditor(dashboard) {
         configPanel.innerHTML = '<div class="note">Removed.</div>';
       } else if (block.type === 'savings-summary') {
         configPanel.innerHTML = `<label>Block Title</label><input type="text" class="config-title" value="${escapeHtml(block.config?.title || 'Savings Summary')}">
+          <label>Energy Metric</label>
+          <select class="config-savings-metric" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.savings_metric || '', 'Use default')}</select>
           <label><input type="checkbox" class="config-show-today" ${block.config?.showToday !== false ? 'checked' : ''}> Show Today</label>
           <label><input type="checkbox" class="config-show-week" ${block.config?.showWeek !== false ? 'checked' : ''}> Show Week</label>
           <label><input type="checkbox" class="config-show-month" ${block.config?.showMonth !== false ? 'checked' : ''}> Show Month</label>
@@ -2365,6 +2367,7 @@ function renderDashboardBlockEditor(dashboard) {
             // removed
           } else if (block.type === 'savings-summary') {
             block.config.title = configPanel.querySelector('.config-title')?.value || '';
+            block.config.savings_metric = configPanel.querySelector('.config-savings-metric')?.value || '';
             block.config.showToday = configPanel.querySelector('.config-show-today')?.checked ?? true;
             block.config.showWeek = configPanel.querySelector('.config-show-week')?.checked ?? true;
             block.config.showMonth = configPanel.querySelector('.config-show-month')?.checked ?? true;

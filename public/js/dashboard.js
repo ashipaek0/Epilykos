@@ -291,8 +291,8 @@ function applyBranding(cfg) {
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
   document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
   // Store bg colors for theme-aware application
-  window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '';
-  window._bgDark = cfg.dashboard_bg_color_dark || '';
+  window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '#f8fafc';
+  window._bgDark = cfg.dashboard_bg_color_dark || '#0f172a';
   applyBodyBg();
   document.body.addEventListener('theme-changed', applyBodyBg);
   if (cfg.dashboard_bg_image) { document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
