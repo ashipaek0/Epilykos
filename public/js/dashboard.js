@@ -240,6 +240,8 @@ function renderDashboard() {
         if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) themeToggle.style.display = '';
 
         // Show tabs and tab toggle
         tabBar.style.display = '';
