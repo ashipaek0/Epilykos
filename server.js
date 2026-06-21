@@ -740,7 +740,8 @@ app.get('/api/rs232/profile/:id', (req, res) => {
   const profile = rs232Profiles.find(p => p.id === req.params.id);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
   // Resolve profile_file alias and return full profile with fields/commands
-  const profilePath = path.join(__dirname, 'profiles', 'rs232', `${req.params.id}.json`);
+  const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+  const profilePath = path.join(__dirname, 'profiles', 'rs232', `${safeId}.json`);
   try {
     const fullProfile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     res.json(fullProfile);
@@ -983,7 +984,8 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
 app.use('/api/dongle/profile', isAuthenticated);
 app.get('/api/dongle/profile/:id', (req, res) => {
   try {
-    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${req.params.id}.json`);
+    const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
     if (!fs.existsSync(profilePath)) return res.status(404).json({ error: 'Profile not found' });
     const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     res.json(profile);
