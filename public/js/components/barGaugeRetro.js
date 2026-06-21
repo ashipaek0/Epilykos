@@ -76,7 +76,7 @@ export function updateBarGaugeRetro(state) {
           seg.style.background = segColor;
           seg.style.boxShadow = `0 0 4px ${segColor}`;
         } else {
-          seg.style.background = 'var(--border)';
+          seg.style.background = 'transparent';
           seg.style.boxShadow = 'none';
         }
       }

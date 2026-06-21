@@ -63,6 +63,10 @@ async function connectModbus(device) {
   return client;
 }
 
+function getProfileById(id) {
+  return availableProfiles.find(p => p.id === id);
+}
+
 async function pollModbus() {
   const modbusDevices = JSON.parse(getConfig('modbus_devices') || '[]');
   if (!modbusDevices.length) return;
@@ -73,17 +77,30 @@ async function pollModbus() {
     if (device.transport === 'tcp' && !device.host) continue;
     if (device.transport === 'serial' && !device.serial_path) continue;
 
-    const profile = availableProfiles.find(p => p.id === device.profile);
+    const profile = getProfileById(device.profile);
     if (!profile) {
       logger.error(`Modbus profile '${device.profile}' not found.`);
       continue;
     }
+
+    // User-defined mappings override profile metric names
+    const userMappings = device.mappings || null;
+    // Filter registers to only those with a mapping (or all if no user mappings)
+    let registersToPoll = profile.registers;
+    if (userMappings) {
+      registersToPoll = profile.registers.filter(r => userMappings[String(r.address)] !== undefined);
+    }
+    if (!registersToPoll.length) {
+      console.log(`Modbus poll (${device.name || device.host || device.serial_path}): No mapped registers.`);
+      continue;
+    }
+
     let client;
     try {
       client = await connectModbus(device);
 
       const results = {};
-      const sorted = [...profile.registers].sort((a, b) => a.address - b.address);
+      const sorted = [...registersToPoll].sort((a, b) => a.address - b.address);
       let i = 0;
       while (i < sorted.length) {
         const startAddr = sorted[i].address;
@@ -99,14 +116,15 @@ async function pollModbus() {
               // Combine this register (high word) with next (low word) for 32-bit
               if (j + 1 < resp.data.length) {
                 const nextReg = sorted[i - count + j + 1];
-                if (nextReg && nextReg.metric === reg.metric) {
+                if (nextReg && (!userMappings || userMappings[String(nextReg.address)] === userMappings[String(reg.address)])) {
                   raw = (raw << 16) | resp.data[j + 1];
                   j++; // skip the low word register
                 }
               }
             }
             const value = reg.scale ? raw * reg.scale : raw;
-            results[reg.metric] = value;
+            const metricName = userMappings ? userMappings[String(reg.address)] : reg.metric;
+            if (metricName) results[metricName] = value;
           }
         } catch (err) { logger.error(`Modbus read error at ${startAddr}:`, err.message); }
       }
@@ -138,4 +156,4 @@ async function testModbusConnection(device) {
   }
 }
 
-module.exports = { loadProfiles, pollModbus, testModbusConnection, availableProfiles };
+module.exports = { loadProfiles, pollModbus, testModbusConnection, getProfileById, availableProfiles };

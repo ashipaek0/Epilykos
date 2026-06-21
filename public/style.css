@@ -313,7 +313,7 @@ h1, h2, h3, h4,
 }
 .bar-gauge-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
 .bar-gauge-label { font-size: clamp(1.2rem, 3.6vw, 1.5rem); color: var(--text-secondary); min-width: 60px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-gauge-track { flex: 1; height: clamp(20px, 5vw, 32px); background: var(--border); border-radius: 4px; overflow: hidden; }
+.bar-gauge-track { flex: 1; height: clamp(20px, 5vw, 32px); background: transparent; border-radius: 4px; overflow: hidden; }
 .bar-gauge-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 0; }
 .bar-gauge-value { font-size: clamp(1.3rem, 3.6vw, 1.6rem); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; white-space: nowrap; }
 

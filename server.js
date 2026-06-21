@@ -37,7 +37,7 @@ const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules
 const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
-const { backupDatabase, restoreDatabase } = require('./modules/backup');
+const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
@@ -76,6 +76,7 @@ startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
 startDonglePolling();
 pvoutput.start();     // Start PVOutput push/pull engines
+startSnapshotScheduler();
 
 // Multer for restore and import
 const upload = multer({
@@ -557,11 +558,24 @@ app.get('/api/auth/status', (req, res) => {
 app.use('/api/test-forecast', isAuthenticated);
 app.get('/api/test-forecast', async (req, res) => {
   try {
-    res.json(await testForecast());
+    res.json(await testForecast(req.query));
   } catch (err) {
     logger.error('Error in test-forecast:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.use('/api/role-metrics', isAuthenticated);
+app.get('/api/role-metrics', (req, res) => {
+  const raw = getConfig('role_metrics');
+  res.json(raw ? JSON.parse(raw) : {});
+});
+app.post('/api/role-metrics', (req, res) => {
+  const mapping = req.body;
+  if (typeof mapping !== 'object' || mapping === null) return res.status(400).json({ error: 'Expected JSON object' });
+  setConfig('role_metrics', JSON.stringify(mapping));
+  logger.info('[role-metrics] Updated mapping:', mapping);
+  res.json({ success: true });
 });
 
 app.use('/api/ha-device-entities', isAuthenticated);
@@ -578,13 +592,19 @@ app.get('/api/ha-device-entities', async (req, res) => {
 
 app.use('/api/test-mqtt', isAuthenticated);
 app.get('/api/test-mqtt', async (req, res) => {
-  const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
-  const device = devices.find(d => d.enabled);
-  if (!device || !device.broker) return res.status(400).json({ error: 'No MQTT broker configured' });
+  // Support pre-save testing: accept broker/username/password from query params
+  const broker = req.query.broker || (() => {
+    const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
+    const device = devices.find(d => d.enabled);
+    return device?.broker;
+  })();
+  const username = req.query.username || null;
+  const password = req.query.password || null;
+  if (!broker) return res.status(400).json({ error: 'No MQTT broker configured. Enter a broker URL first.' });
   const options = {};
-  if (device.username) options.username = device.username;
-  if (device.password) options.password = device.password;
-  const testClient = require('mqtt').connect(device.broker, options);
+  if (username) options.username = username;
+  if (password) options.password = password;
+  const testClient = require('mqtt').connect(broker, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
@@ -605,13 +625,19 @@ app.use('/api/test-mqtt-topic', isAuthenticated);
 app.get('/api/test-mqtt-topic', async (req, res) => {
   const topic = req.query.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
-  const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
-  const device = devices.find(d => d.enabled);
-  if (!device || !device.broker) return res.status(400).json({ error: 'No MQTT broker configured' });
+  // Support pre-save testing: accept broker/username/password from query params
+  const broker = req.query.broker || (() => {
+    const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
+    const device = devices.find(d => d.enabled);
+    return device?.broker;
+  })();
+  const username = req.query.username || null;
+  const password = req.query.password || null;
+  if (!broker) return res.status(400).json({ error: 'No MQTT broker configured' });
   const options = {};
-  if (device.username) options.username = device.username;
-  if (device.password) options.password = device.password;
-  const testClient = require('mqtt').connect(device.broker, options);
+  if (username) options.username = username;
+  if (password) options.password = password;
+  const testClient = require('mqtt').connect(broker, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
@@ -636,9 +662,56 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   });
 });
 
+// ── MQTT topic discovery ────────────────────────────────────────
+app.use('/api/mqtt-discover-topics', isAuthenticated);
+app.get('/api/mqtt-discover-topics', async (req, res) => {
+  const broker = req.query.broker;
+  const username = req.query.username || null;
+  const password = req.query.password || null;
+  if (!broker) return res.status(400).json({ error: 'Broker URL required' });
+  const options = {};
+  if (username) options.username = username;
+  if (password) options.password = password;
+  const mqtt = require('mqtt');
+  const client = mqtt.connect(broker, options);
+  let responded = false;
+  const topics = new Set();
+  const timeout = setTimeout(() => {
+    client.end();
+    if (!responded) {
+      responded = true;
+      const sorted = [...topics].sort();
+      res.json({ success: true, topics: sorted, count: sorted.length });
+    }
+  }, 15000);
+  client.on('connect', () => {
+    client.subscribe('#', (err) => {
+      if (err) {
+        clearTimeout(timeout);
+        client.end();
+        if (!responded) { responded = true; res.status(500).json({ error: 'Subscribe failed: ' + err.message }); }
+      }
+    });
+  });
+  client.on('message', (topic) => { topics.add(topic); });
+  client.on('error', (err) => {
+    clearTimeout(timeout);
+    client.end();
+    if (!responded) { responded = true; res.status(500).json({ error: err.message }); }
+  });
+});
+
 app.use('/api/modbus/profiles', isAuthenticated);
 app.get('/api/modbus/profiles', (req, res) => {
   res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
+});
+
+app.use('/api/modbus/profile', isAuthenticated);
+app.get('/api/modbus/profile/:id', (req, res) => {
+  const { getProfileById } = require('./modules/modbus');
+  const profile = getProfileById(req.params.id);
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  res.json(profile);
 });
 
 app.use('/api/test-modbus', isAuthenticated);
@@ -660,6 +733,21 @@ app.post('/api/test-modbus', async (req, res) => {
 app.use('/api/rs232/profiles', isAuthenticated);
 app.get('/api/rs232/profiles', (req, res) => {
   res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol })));
+});
+
+app.use('/api/rs232/profile', isAuthenticated);
+app.get('/api/rs232/profile/:id', (req, res) => {
+  const profile = rs232Profiles.find(p => p.id === req.params.id);
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  // Resolve profile_file alias and return full profile with fields/commands
+  const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+  const profilePath = path.join(__dirname, 'profiles', 'rs232', `${safeId}.json`);
+  try {
+    const fullProfile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    res.json(fullProfile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.use('/api/rs232/ports', isAuthenticated);
@@ -752,6 +840,26 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
     res.status(500).json({ error: 'Restore failed, original database restored. ' + err.message });
   } finally {
     try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(e) {}
+  }
+});
+
+// ── Snapshot API ──────────────────────────────────────────────
+
+app.use('/api/snapshots', isAuthenticated);
+app.get('/api/snapshots', (req, res) => {
+  try {
+    res.json(listSnapshots());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/snapshots/restore/:name', async (req, res) => {
+  try {
+    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -869,6 +977,20 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
     res.json(profiles);
   } catch (err) {
     logger.error('Error listing dongle profiles:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/dongle/profile', isAuthenticated);
+app.get('/api/dongle/profile/:id', (req, res) => {
+  try {
+    const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
+    if (!fs.existsSync(profilePath)) return res.status(404).json({ error: 'Profile not found' });
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    res.json(profile);
+  } catch (err) {
+    logger.error('Error loading dongle profile:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1077,6 +1199,7 @@ process.on('SIGTERM', async () => {
   stopExternalPolling();
   stopBmsPolling();
   stopDonglePolling();
+  stopSnapshotScheduler();
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
   wss.close(() => wsClients.clear());
@@ -1090,6 +1213,7 @@ process.on('SIGINT', async () => {
   stopExternalPolling();
   stopBmsPolling();
   stopDonglePolling();
+  stopSnapshotScheduler();
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
   wss.close(() => wsClients.clear());

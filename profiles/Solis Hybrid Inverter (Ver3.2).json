@@ -2,11 +2,53 @@
   "name": "Solis Hybrid Inverter (Ver3.2)",
   "defaultUnitId": 1,
   "registers": [
-    { "metric": "pv_total_energy",       "address": 33029, "type": "uint32", "scale": 1.0,   "unit": "kWh" },
-    { "metric": "pv_today_energy",       "address": 33035, "type": "uint16", "scale": 0.1,   "unit": "kWh" },
-    { "metric": "dc_voltage_1",          "address": 33049, "type": "uint16", "scale": 0.1,   "unit": "V" },
-    { "metric": "total_dc_power",        "address": 33057, "type": "uint32", "scale": 1.0,   "unit": "W" },
-    { "metric": "ac_voltage",            "address": 33073, "type": "uint16", "scale": 0.1,   "unit": "V" },
-    { "metric": "operation_status",      "address": 33121, "type": "uint16", "scale": 1.0,   "unit": "" }
+    {
+      "metric": "pv_total_energy",
+      "address": 33029,
+      "type": "uint32",
+      "scale": 1.0,
+      "unit": "kWh",
+      "label": "PV Total Energy"
+    },
+    {
+      "metric": "pv_today_energy",
+      "address": 33035,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "PV Today Energy"
+    },
+    {
+      "metric": "dc_voltage_1",
+      "address": 33049,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "DC Voltage 1"
+    },
+    {
+      "metric": "total_dc_power",
+      "address": 33057,
+      "type": "uint32",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Total DC Power"
+    },
+    {
+      "metric": "ac_voltage",
+      "address": 33073,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Voltage"
+    },
+    {
+      "metric": "operation_status",
+      "address": 33121,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Operation Status"
+    }
   ]
 }

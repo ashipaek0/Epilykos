@@ -12,7 +12,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "W",
-      "field": "solar_power"
+      "field": "solar_power",
+      "label": "Solar Power"
     },
     {
       "name": "solar_voltage",
@@ -21,7 +22,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "V",
-      "field": "solar_voltage"
+      "field": "solar_voltage",
+      "label": "Solar Voltage"
     },
     {
       "name": "grid_power",
@@ -30,7 +32,8 @@
       "type": "int16",
       "scale": 0.1,
       "unit": "W",
-      "field": "grid_power"
+      "field": "grid_power",
+      "label": "Grid Power"
     },
     {
       "name": "load_power",
@@ -39,7 +42,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "W",
-      "field": "load_power"
+      "field": "load_power",
+      "label": "Load Power"
     },
     {
       "name": "inverter_temperature",
@@ -47,8 +51,9 @@
       "count": 1,
       "type": "uint16",
       "scale": 0.1,
-      "unit": "°C",
-      "field": "inverter_temperature"
+      "unit": "\u00b0C",
+      "field": "inverter_temperature",
+      "label": "Inverter Temperature"
     },
     {
       "name": "battery_soc",
@@ -57,7 +62,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "%",
-      "field": "battery_soc"
+      "field": "battery_soc",
+      "label": "Battery SOC"
     },
     {
       "name": "battery_power",
@@ -66,7 +72,8 @@
       "type": "int16",
       "scale": 0.1,
       "unit": "W",
-      "field": "battery_power"
+      "field": "battery_power",
+      "label": "Battery Power"
     },
     {
       "name": "battery_voltage",
@@ -75,7 +82,8 @@
       "type": "uint16",
       "scale": 0.01,
       "unit": "V",
-      "field": "battery_voltage"
+      "field": "battery_voltage",
+      "label": "Battery Voltage"
     },
     {
       "name": "battery_current",
@@ -84,7 +92,8 @@
       "type": "int16",
       "scale": 0.01,
       "unit": "A",
-      "field": "battery_current"
+      "field": "battery_current",
+      "label": "Battery Current"
     },
     {
       "name": "daily_solar",
@@ -93,7 +102,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "kWh",
-      "field": "daily_solar"
+      "field": "daily_solar",
+      "label": "Daily Solar"
     },
     {
       "name": "daily_consumption",
@@ -102,7 +112,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "kWh",
-      "field": "daily_consumption"
+      "field": "daily_consumption",
+      "label": "Daily Consumption"
     },
     {
       "name": "daily_grid_import",
@@ -111,7 +122,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "kWh",
-      "field": "daily_grid_import"
+      "field": "daily_grid_import",
+      "label": "Daily Grid Import"
     },
     {
       "name": "daily_grid_export",
@@ -120,7 +132,8 @@
       "type": "uint16",
       "scale": 0.1,
       "unit": "kWh",
-      "field": "daily_grid_export"
+      "field": "daily_grid_export",
+      "label": "Daily Grid Export"
     }
   ]
 }
