@@ -28,9 +28,7 @@ export function updateSavingsFromState(state) {
     if (metric && metrics[metric] && metrics[metric].value > 0) {
       const val = metrics[metric].value;
       today = val * rate;
-      week = val * rate;
-      month = val * rate;
-      all = val * rate;
+      // Preserve server-computed week/month/all — only override today
     }
     const fmt = (v) => curr + ' ' + Math.round(v).toLocaleString();
     [['savings-today',today],['savings-week',week],['savings-month',month],['savings-all',all]].forEach(([k,v]) => { const e = document.getElementById(uid(k,id)); if (e) e.textContent = fmt(v); });
