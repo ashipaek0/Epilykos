@@ -15,16 +15,22 @@ function computeSolarForDate(dateStr) {
   const startUnix = Math.floor(startOfDay.getTime() / 1000);
   const endUnix = Math.floor(endOfDay.getTime() / 1000);
   const rows = db.prepare('SELECT timestamp, solar FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, endUnix);
-  if (rows.length < 2) return 0;
   let totalKwh = 0;
-  for (let i = 0; i < rows.length - 1; i++) {
-    const dtHours = (rows[i+1].timestamp - rows[i].timestamp) / 3600;
-    const avgKw = (rows[i].solar + rows[i+1].solar) / 2000;
-    totalKwh += avgKw * dtHours;
+  if (rows.length >= 2) {
+    for (let i = 0; i < rows.length - 1; i++) {
+      const dtHours = (rows[i+1].timestamp - rows[i].timestamp) / 3600;
+      const avgKw = (rows[i].solar + rows[i+1].solar) / 2000;
+      totalKwh += avgKw * dtHours;
+    }
+    const last = rows[rows.length-1];
+    const dtLastHours = (endUnix - last.timestamp) / 3600;
+    if (dtLastHours > 0 && last.timestamp < endUnix) totalKwh += (last.solar / 1000) * dtLastHours;
   }
-  const last = rows[rows.length-1];
-  const dtLastHours = (endUnix - last.timestamp) / 3600;
-  if (dtLastHours > 0 && last.timestamp < endUnix) totalKwh += (last.solar / 1000) * dtLastHours;
+  // Fallback: if integration returned nothing, use daily_solar from history
+  if (totalKwh <= 0) {
+    const ds = db.prepare('SELECT MAX(daily_solar) as max_kwh FROM history WHERE timestamp >= ? AND timestamp <= ?').get(startUnix, endUnix);
+    if (ds && ds.max_kwh && ds.max_kwh > 0) totalKwh = ds.max_kwh;
+  }
   return totalKwh;
 }
 
