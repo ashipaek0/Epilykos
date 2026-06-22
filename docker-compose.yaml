@@ -13,6 +13,10 @@ services:
       - BMS_BRIDGE_URL=http://bms-bridge:8020
     depends_on:
       - bms-bridge
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
+    group_add:
+      - "dialout"                        # Serial port permissions
     networks:
       - epilykos-net
 
@@ -25,7 +29,7 @@ services:
       - /var/run/dbus:/var/run/dbus
       - /dev:/dev:ro
     environment:
-      - LOG_LEVEL=info
+      - LOG_LEVEL=debug
     networks:
       - epilykos-net
 
