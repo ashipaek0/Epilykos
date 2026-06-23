@@ -28,6 +28,14 @@ Public display with no login required — settings are password-protected.
 
 ---
 
+<img width="1595" height="887" alt="Screenshot From 2026-06-23 10-14-54" src="https://github.com/user-attachments/assets/02b36266-d292-4471-affc-76c9280b9d82" />
+<img width="1595" height="920" alt="Screenshot From 2026-06-23 10-15-49" src="https://github.com/user-attachments/assets/5eddcb8d-41d0-4682-80b9-acf9658b0833" />
+<img width="1890" height="924" alt="Screenshot From 2026-06-23 10-16-33" src="https://github.com/user-attachments/assets/69853656-44ed-479f-9c01-0af5b58f068c" />
+<img width="1890" height="924" alt="Screenshot From 2026-06-23 10-16-46" src="https://github.com/user-attachments/assets/bce43b9f-2e33-4045-8e7e-b6c2d6ad1607" />
+<img width="1890" height="924" alt="Screenshot From 2026-06-23 10-17-02" src="https://github.com/user-attachments/assets/ed3ea019-d3e8-417b-a284-2efa1f582197" />
+
+---
+
 ## Quick Start
 
 ```bash
