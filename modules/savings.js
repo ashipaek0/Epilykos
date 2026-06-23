@@ -41,21 +41,15 @@ async function getSavings() {
     return total;
   })();
 
-  let allTimeSavings;
-  const overrideValStr = getConfig('all_time_pv_savings_override');
-  if (overrideValStr && !isNaN(parseFloat(overrideValStr))) {
-    allTimeSavings = parseFloat(overrideValStr);
-  } else {
-    const allTimeRows = db.prepare(`SELECT timestamp, daily_solar FROM history WHERE daily_solar IS NOT NULL ORDER BY timestamp ASC`).all();
-    const allDailyMax = {};
-    allTimeRows.forEach(row => {
-      const date = new Date(row.timestamp * 1000).toLocaleDateString('en-CA');
-      const val = row.daily_solar;
-      if (!allDailyMax[date] || val > allDailyMax[date]) allDailyMax[date] = val;
-    });
-    const allTimeSolar = Object.values(allDailyMax).reduce((sum, val) => sum + val, 0);
-    allTimeSavings = allTimeSolar * rate;
-  }
+  const allTimeRows = db.prepare(`SELECT timestamp, daily_solar FROM history WHERE daily_solar IS NOT NULL ORDER BY timestamp ASC`).all();
+  const allDailyMax = {};
+  allTimeRows.forEach(row => {
+    const date = new Date(row.timestamp * 1000).toLocaleDateString('en-CA');
+    const val = row.daily_solar;
+    if (!allDailyMax[date] || val > allDailyMax[date]) allDailyMax[date] = val;
+  });
+  const allTimeSolar = Object.values(allDailyMax).reduce((sum, val) => sum + val, 0);
+  const allTimeSavings = allTimeSolar * rate;
 
   return { currency, rate, today: todaySavings, week: weekSolar * rate, month: monthSolar * rate, all: allTimeSavings };
 }

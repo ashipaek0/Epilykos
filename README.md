@@ -23,8 +23,16 @@ Public display with no login required — settings are password-protected.
 - [Dashboard Editor](#dashboard-editor)
 - [Key Features](#key-features)
 - [Troubleshooting](#troubleshooting)
-
+- [Development](#development)
 - [License](#license)
+
+---
+
+<img width="1595" height="887" alt="Screenshot From 2026-06-23 10-14-54" src="https://github.com/user-attachments/assets/02b36266-d292-4471-affc-76c9280b9d82" />
+<img width="1595" height="920" alt="Screenshot From 2026-06-23 10-15-49" src="https://github.com/user-attachments/assets/5eddcb8d-41d0-4682-80b9-acf9658b0833" />
+<img width="1890" height="924" alt="Screenshot From 2026-06-23 10-16-33" src="https://github.com/user-attachments/assets/69853656-44ed-479f-9c01-0af5b58f068c" />
+<img width="1890" height="924" alt="Screenshot From 2026-06-23 10-16-46" src="https://github.com/user-attachments/assets/bce43b9f-2e33-4045-8e7e-b6c2d6ad1607" />
+<img width="1890" height="924" alt="Screenshot From 2026-06-23 10-17-02" src="https://github.com/user-attachments/assets/ed3ea019-d3e8-417b-a284-2efa1f582197" />
 
 ---
 
@@ -145,6 +153,12 @@ Multiple dashboards are supported, with automatic switching between desktop and 
 | **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |
 | **RS232 permission denied** | `sudo usermod -a -G dialout $USER` then log out and back in |
 | **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |
+
+---
+
+## Development
+
+For a complete walkthrough of the codebase architecture — adding new block types, integrating new data sources, settings UI patterns, performance best practices, deployment workflows, and common pitfalls — see the **[Development Guide](https://github.com/ashipaek0/Epilykos/wiki/Development-Guide)** on the wiki.
 
 ---
 
