@@ -23,7 +23,7 @@ Public display with no login required — settings are password-protected.
 - [Dashboard Editor](#dashboard-editor)
 - [Key Features](#key-features)
 - [Troubleshooting](#troubleshooting)
-
+- [Development](#development)
 - [License](#license)
 
 ---
@@ -145,6 +145,12 @@ Multiple dashboards are supported, with automatic switching between desktop and 
 | **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |
 | **RS232 permission denied** | `sudo usermod -a -G dialout $USER` then log out and back in |
 | **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |
+
+---
+
+## Development
+
+For a complete walkthrough of the codebase architecture — adding new block types, integrating new data sources, settings UI patterns, performance best practices, deployment workflows, and common pitfalls — see the **[Development Guide](https://github.com/ashipaek0/Epilykos/wiki/Development-Guide)** on the wiki.
 
 ---
 
