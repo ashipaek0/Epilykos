@@ -1,102 +1,39 @@
 {
-  "name": "SRNE All\u2011in\u2011One Inverter (RS485)",
+  "name": "SRNE All-in-One Inverter (Modbus RTU)",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "battery_soc",
-      "address": 256,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Battery SOC"
-    },
-    {
-      "metric": "battery_voltage",
-      "address": 257,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "battery_current",
-      "address": 258,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "A",
-      "label": "Battery Current"
-    },
-    {
-      "metric": "solar_voltage",
-      "address": 263,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Solar Voltage"
-    },
-    {
-      "metric": "solar_power",
-      "address": 265,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Solar Power"
-    },
-    {
-      "metric": "load_power",
-      "address": 262,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Load Power"
-    },
-    {
-      "metric": "grid_voltage",
-      "address": 275,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Grid Voltage"
-    },
-    {
-      "metric": "inverter_temp",
-      "address": 259,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "\u00b0C",
-      "label": "Inverter Temp"
-    },
-    {
-      "metric": "battery_charge_power",
-      "address": 265,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Battery Charge Power"
-    },
-    {
-      "metric": "battery_discharge_power",
-      "address": 266,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Battery Discharge Power"
-    },
-    {
-      "metric": "grid_import_power",
-      "address": 267,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Grid Import Power"
-    },
-    {
-      "metric": "grid_export_power",
-      "address": 268,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Grid Export Power"
-    }
+    {"metric": "battery_soc", "address": 256, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "battery_voltage", "address": 257, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_current", "address": 258, "type": "int16", "scale": 0.1, "unit": "A", "label": "Battery Current"},
+    {"metric": "battery_temp", "address": 259, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Battery Temperature"},
+
+    {"metric": "pv_voltage", "address": 263, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Voltage"},
+    {"metric": "pv_current", "address": 264, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV Current"},
+    {"metric": "pv_power", "address": 265, "type": "uint16", "scale": 1.0, "unit": "W", "label": "PV Power"},
+    {"metric": "pv_total_power", "address": 266, "type": "uint16", "scale": 1.0, "unit": "W", "label": "PV Total Power"},
+
+    {"metric": "battery_charge_power", "address": 270, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Battery Charge Power"},
+    {"metric": "load_power", "address": 262, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Load Power (Inverter)"},
+
+    {"metric": "grid_voltage", "address": 531, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},
+    {"metric": "grid_input_current", "address": 532, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Grid Input Current"},
+    {"metric": "grid_frequency", "address": 533, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "grid_battery_charge_current", "address": 542, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Grid Battery Charge Current"},
+
+    {"metric": "inverter_voltage", "address": 534, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Inverter Output Voltage"},
+    {"metric": "inverter_current", "address": 537, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Inverter Output Current"},
+    {"metric": "inverter_frequency", "address": 536, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Inverter Output Frequency"},
+    {"metric": "inverter_power", "address": 539, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Inverter Output Power"},
+
+    {"metric": "temp_dc", "address": 545, "type": "int16", "scale": 0.1, "unit": "°C", "label": "DC Temperature"},
+    {"metric": "temp_ac", "address": 546, "type": "int16", "scale": 0.1, "unit": "°C", "label": "AC Temperature"},
+    {"metric": "temp_transformer", "address": 547, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Transformer Temperature"},
+
+    {"metric": "battery_max_charge_current", "address": 57866, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Battery Max Charge Current"},
+    {"metric": "grid_charge_max_current", "address": 57861, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Grid Charge Max Current"},
+    {"metric": "battery_boost_charge_voltage", "address": 57352, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Boost Charge Voltage"},
+    {"metric": "battery_float_charge_voltage", "address": 57353, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Float Charge Voltage"},
+    {"metric": "battery_overdischarge_voltage", "address": 57357, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Over-Discharge Voltage"},
+    {"metric": "battery_boost_charge_time", "address": 57362, "type": "uint16", "scale": 1.0, "unit": "min", "label": "Battery Boost Charge Time"}
   ]
 }
