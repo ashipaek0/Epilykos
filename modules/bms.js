@@ -4,7 +4,7 @@ const { logger } = require('./logger');
 
 let bmsPollInterval = null;
 let bmsPollingActive = false;
-const BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8000';
+const BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
 
 async function pollBMS() {
   if (bmsPollingActive) return;
