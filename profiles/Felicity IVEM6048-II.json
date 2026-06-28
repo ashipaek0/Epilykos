@@ -1,5 +1,5 @@
 {
-  "name": "Felicity IVEM6048-II",
+  "name": "Felicity IVEM6048 Series (Modbus RTU)",
   "defaultUnitId": 1,
   "registers": [
     {
