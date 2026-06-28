@@ -1,94 +1,21 @@
 {
-  "name": "Generic MPPT Charge Controller (RS-485)",
+  "name": "Generic MPPT Charge Controller (EPever/Tracer/Renogy)",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "pv_voltage",
-      "address": 4096,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "PV Voltage"
-    },
-    {
-      "metric": "pv_current",
-      "address": 4097,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "A",
-      "label": "PV Current"
-    },
-    {
-      "metric": "pv_power",
-      "address": 4098,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "PV Power"
-    },
-    {
-      "metric": "battery_voltage",
-      "address": 4099,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "charging_current",
-      "address": 4100,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "A",
-      "label": "Charging Current"
-    },
-    {
-      "metric": "battery_temperature",
-      "address": 4101,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "\u00b0C",
-      "label": "Battery Temperature"
-    },
-    {
-      "metric": "controller_temperature",
-      "address": 4102,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "\u00b0C",
-      "label": "Controller Temperature"
-    },
-    {
-      "metric": "daily_energy",
-      "address": 4103,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "Daily Energy"
-    },
-    {
-      "metric": "total_energy_hi",
-      "address": 4104,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "kWh",
-      "label": "Total Energy (Hi)"
-    },
-    {
-      "metric": "total_energy_lo",
-      "address": 4105,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "kWh",
-      "label": "Total Energy (Lo)"
-    },
-    {
-      "metric": "device_status",
-      "address": 4106,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "",
-      "label": "Device Status"
-    }
+    {"metric": "pv_voltage", "address": 4096, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Voltage"},
+    {"metric": "pv_current", "address": 4097, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV Current"},
+    {"metric": "pv_power", "address": 4098, "type": "uint16", "scale": 1.0, "unit": "W", "label": "PV Power"},
+    {"metric": "battery_voltage", "address": 4099, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "charging_current", "address": 4100, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Charging Current"},
+    {"metric": "battery_temperature", "address": 4101, "type": "int16", "scale": 1.0, "unit": "°C", "label": "Battery Temperature"},
+    {"metric": "controller_temperature", "address": 4102, "type": "int16", "scale": 1.0, "unit": "°C", "label": "Controller Temperature"},
+    {"metric": "daily_energy", "address": 4103, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Daily Energy"},
+    {"metric": "total_energy", "address": 4104, "type": "uint32", "scale": 1.0, "unit": "kWh", "label": "Total Energy"},
+    {"metric": "device_status", "address": 4106, "type": "uint16", "scale": 1.0, "unit": "", "label": "Device Status"},
+    {"metric": "battery_soc", "address": 4107, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "load_voltage", "address": 4108, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Load Voltage"},
+    {"metric": "load_current", "address": 4109, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Load Current"},
+    {"metric": "load_power", "address": 4110, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Load Power"},
+    {"metric": "charging_state", "address": 4113, "type": "uint16", "scale": 1.0, "unit": "", "label": "Charging State"}
   ]
 }
