@@ -65,26 +65,40 @@ async def list_devices(force_scan: bool = False):
 
         def detection_callback(device, advertisement_data):
             """Filter for known BMS device names."""
-            if device.name:
-                # Add to all_devices list regardless
-                all_devices.append({
+            # Always add to all_devices list regardless of name
+            all_devices.append({
+                "address": device.address,
+                "name": device.name or f"Unknown ({device.address[:8]})",
+                "rssi": advertisement_data.rssi
+            })
+            # Add to BMS-specific list if name matches known BMS keywords
+            if device.name and any(keyword in device.name.lower() for keyword in ["bms", "jk", "jbd", "daly"]):
+                devices_found.append({
                     "address": device.address,
                     "name": device.name,
                     "rssi": advertisement_data.rssi
                 })
-                # Add to BMS-specific list if name matches
-                if any(keyword in device.name.lower() for keyword in ["bms", "jk", "jbd", "daly"]):
-                    devices_found.append({
-                        "address": device.address,
-                        "name": device.name,
-                        "rssi": advertisement_data.rssi
-                    })
 
         scanner = BleakScanner(detection_callback)
         await scanner.start()
         logger.info("Scan started, waiting 10 seconds...")
         await asyncio.sleep(10.0)  # Extended from 5s to 10s for slower devices
         await scanner.stop()
+        
+        # Deduplicate by address (keep highest RSSI)
+        deduped_all = {}
+        for d in all_devices:
+            addr = d["address"]
+            if addr not in deduped_all or d["rssi"] > deduped_all[addr]["rssi"]:
+                deduped_all[addr] = d
+        deduped_bms = {}
+        for d in devices_found:
+            addr = d["address"]
+            if addr not in deduped_bms or d["rssi"] > deduped_bms[addr]["rssi"]:
+                deduped_bms[addr] = d
+        
+        all_devices = list(deduped_all.values())
+        devices_found = list(deduped_bms.values())
         logger.info(f"Scan complete. Found {len(devices_found)} BMS devices, {len(all_devices)} total devices")
 
         # If no devices found with keyword filtering, return all devices
