@@ -83,12 +83,19 @@ async function pollModbus() {
       continue;
     }
 
-    // User-defined mappings override profile metric names
+    // User-defined mappings: { metricName → address } — flip to reverse lookup
     const userMappings = device.mappings || null;
+    let addrToMetric = null;
+    if (userMappings) {
+      addrToMetric = {};
+      for (const [metric, addrStr] of Object.entries(userMappings)) {
+        addrToMetric[addrStr] = metric;
+      }
+    }
     // Filter registers to only those with a mapping (or all if no user mappings)
     let registersToPoll = profile.registers;
-    if (userMappings) {
-      registersToPoll = profile.registers.filter(r => userMappings[String(r.address)] !== undefined);
+    if (addrToMetric) {
+      registersToPoll = profile.registers.filter(r => addrToMetric[String(r.address)] !== undefined);
     }
     if (!registersToPoll.length) {
       console.log(`Modbus poll (${device.name || device.host || device.serial_path}): No mapped registers.`);
@@ -116,14 +123,14 @@ async function pollModbus() {
               // Combine this register (high word) with next (low word) for 32-bit
               if (j + 1 < resp.data.length) {
                 const nextReg = sorted[i - count + j + 1];
-                if (nextReg && (!userMappings || userMappings[String(nextReg.address)] === userMappings[String(reg.address)])) {
+                if (nextReg && (!addrToMetric || addrToMetric[String(nextReg.address)] === addrToMetric[String(reg.address)])) {
                   raw = (raw << 16) | resp.data[j + 1];
                   j++; // skip the low word register
                 }
               }
             }
             const value = reg.scale ? raw * reg.scale : raw;
-            const metricName = userMappings ? userMappings[String(reg.address)] : reg.metric;
+            const metricName = addrToMetric ? addrToMetric[String(reg.address)] : reg.metric;
             if (metricName) results[metricName] = value;
           }
         } catch (err) { logger.error(`Modbus read error at ${startAddr}:`, err.message); }

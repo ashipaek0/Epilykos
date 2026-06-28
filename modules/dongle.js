@@ -142,6 +142,14 @@ async function pollInstance(instance, transport, profile) {
     const units = {};
     const prefix = instance.prefix || '';
     const mappings = instance.mappings || null;
+    // Build reverse lookup: register → metric name (mappings is { metricName → register })
+    let regToMetric = null;
+    if (mappings) {
+      regToMetric = {};
+      for (const [metric, reg] of Object.entries(mappings)) {
+        regToMetric[reg] = metric;
+      }
+    }
 
     for (const m of profile.metrics) {
       const addr = parseInt(m.register, 16);
@@ -150,11 +158,10 @@ async function pollInstance(instance, transport, profile) {
 
       // Mapping override logic
       let metricName;
-      if (mappings) {
+      if (regToMetric) {
         const key = m.register; // e.g., "0x0065"
-        if (mappings[key] !== undefined) {
-          if (!mappings[key]) continue; // empty string = skip this metric
-          metricName = mappings[key];
+        if (regToMetric[key] !== undefined) {
+          metricName = regToMetric[key];
         } else {
           // Key not in mappings at all — skip unmapped when mappings exist
           continue;
@@ -206,6 +213,14 @@ async function pollJsonInstance(instance, transport, profile) {
     const units = {};
     const prefix = instance.prefix || '';
     const mappings = instance.mappings || null;
+    // Build reverse lookup: path → metric name (mappings is { metricName → path })
+    let pathToMetric = null;
+    if (mappings) {
+      pathToMetric = {};
+      for (const [metric, key] of Object.entries(mappings)) {
+        pathToMetric[key] = metric;
+      }
+    }
 
     for (const field of profile.fields) {
       let raw = getByPath(data, field.path);
@@ -213,11 +228,10 @@ async function pollJsonInstance(instance, transport, profile) {
 
       // Mapping override logic
       let metricName;
-      if (mappings) {
+      if (pathToMetric) {
         const key = field.path; // e.g., "realtime.ACin[0][0]"
-        if (mappings[key] !== undefined) {
-          if (!mappings[key]) continue; // empty string = skip
-          metricName = mappings[key];
+        if (pathToMetric[key] !== undefined) {
+          metricName = pathToMetric[key];
         } else {
           continue; // skip unmapped when mappings exist
         }

@@ -2,61 +2,21 @@
   "name": "Victron CCGX / Venus OS (Modbus TCP)",
   "defaultUnitId": 100,
   "registers": [
-    {
-      "metric": "battery_voltage",
-      "address": 840,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "battery_current",
-      "address": 841,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "A",
-      "label": "Battery Current"
-    },
-    {
-      "metric": "battery_power",
-      "address": 842,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Battery Power"
-    },
-    {
-      "metric": "battery_soc",
-      "address": 843,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Battery SOC"
-    },
-    {
-      "metric": "solar_power",
-      "address": 850,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Solar Power"
-    },
-    {
-      "metric": "grid_import_power",
-      "address": 820,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Grid Import Power"
-    },
-    {
-      "metric": "load_power",
-      "address": 817,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Load Power"
-    }
+    {"metric": "load_power", "address": 817, "type": "uint16", "scale": 1.0, "unit": "W", "label": "AC Load Power"},
+    {"metric": "grid_power", "address": 820, "type": "int16", "scale": 1.0, "unit": "W", "label": "Grid Power"},
+    {"metric": "grid_voltage", "address": 821, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},
+    {"metric": "grid_frequency", "address": 822, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "ac_output_voltage", "address": 823, "type": "uint16", "scale": 0.1, "unit": "V", "label": "AC Output Voltage"},
+    {"metric": "ac_output_current", "address": 824, "type": "uint16", "scale": 0.1, "unit": "A", "label": "AC Output Current"},
+    {"metric": "battery_voltage", "address": 840, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_current", "address": 841, "type": "int16", "scale": 0.1, "unit": "A", "label": "Battery Current"},
+    {"metric": "battery_power", "address": 842, "type": "int16", "scale": 1.0, "unit": "W", "label": "Battery Power"},
+    {"metric": "battery_soc", "address": 843, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "battery_temp", "address": 845, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Battery Temperature"},
+    {"metric": "solar_power", "address": 850, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Solar Power"},
+    {"metric": "solar_voltage", "address": 851, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Solar Voltage"},
+    {"metric": "solar_current", "address": 852, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Solar Current"},
+    {"metric": "daily_solar_yield", "address": 870, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Daily Solar Yield"},
+    {"metric": "charge_state", "address": 846, "type": "uint16", "scale": 1.0, "unit": "", "label": "Charge State"}
   ]
 }

@@ -1,54 +1,32 @@
 {
-  "name": "Solis Hybrid Inverter (Ver3.2)",
+  "name": "Solis Hybrid Inverter (Ver3.2 / RHI Series)",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "pv_total_energy",
-      "address": 33029,
-      "type": "uint32",
-      "scale": 1.0,
-      "unit": "kWh",
-      "label": "PV Total Energy"
-    },
-    {
-      "metric": "pv_today_energy",
-      "address": 33035,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "PV Today Energy"
-    },
-    {
-      "metric": "dc_voltage_1",
-      "address": 33049,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "DC Voltage 1"
-    },
-    {
-      "metric": "total_dc_power",
-      "address": 33057,
-      "type": "uint32",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Total DC Power"
-    },
-    {
-      "metric": "ac_voltage",
-      "address": 33073,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "AC Voltage"
-    },
-    {
-      "metric": "operation_status",
-      "address": 33121,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "",
-      "label": "Operation Status"
-    }
+    {"metric": "inverter_temp", "address": 33022, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Inverter Temperature"},
+    {"metric": "pv_total_energy", "address": 33029, "type": "uint32", "scale": 1.0, "unit": "kWh", "label": "PV Total Energy"},
+    {"metric": "pv_today_energy", "address": 33035, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "PV Today Energy"},
+    {"metric": "pv_monthly_energy", "address": 33039, "type": "uint32", "scale": 1.0, "unit": "kWh", "label": "PV Monthly Energy"},
+    {"metric": "dc_voltage_1", "address": 33049, "type": "uint16", "scale": 0.1, "unit": "V", "label": "DC Voltage 1"},
+    {"metric": "dc_current_1", "address": 33051, "type": "uint16", "scale": 0.1, "unit": "A", "label": "DC Current 1"},
+    {"metric": "dc_voltage_2", "address": 33053, "type": "uint16", "scale": 0.1, "unit": "V", "label": "DC Voltage 2"},
+    {"metric": "dc_current_2", "address": 33055, "type": "uint16", "scale": 0.1, "unit": "A", "label": "DC Current 2"},
+    {"metric": "total_dc_power", "address": 33057, "type": "uint32", "scale": 1.0, "unit": "W", "label": "Total DC Power"},
+    {"metric": "ac_voltage_r", "address": 33073, "type": "uint16", "scale": 0.1, "unit": "V", "label": "AC Voltage (R phase)"},
+    {"metric": "ac_current_r", "address": 33076, "type": "uint16", "scale": 0.1, "unit": "A", "label": "AC Current (R phase)"},
+    {"metric": "grid_frequency", "address": 33079, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "total_ac_power", "address": 33081, "type": "int32", "scale": 1.0, "unit": "W", "label": "Total AC Active Power"},
+    {"metric": "battery_voltage", "address": 33100, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_current", "address": 33101, "type": "int16", "scale": 0.1, "unit": "A", "label": "Battery Current"},
+    {"metric": "battery_power", "address": 33103, "type": "int32", "scale": 1.0, "unit": "W", "label": "Battery Power"},
+    {"metric": "battery_soc", "address": 33107, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "battery_soh", "address": 33108, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOH"},
+    {"metric": "battery_charge_current_limit", "address": 33109, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Battery Charge Current Limit"},
+    {"metric": "battery_discharge_current_limit", "address": 33110, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Battery Discharge Current Limit"},
+    {"metric": "operation_status", "address": 33121, "type": "uint16", "scale": 1.0, "unit": "", "label": "Operation Status"},
+    {"metric": "total_load_power", "address": 33126, "type": "uint32", "scale": 1.0, "unit": "W", "label": "Total Load Power"},
+    {"metric": "total_grid_power", "address": 33129, "type": "int32", "scale": 1.0, "unit": "W", "label": "Total Grid Power"},
+    {"metric": "backup_load_power", "address": 33132, "type": "uint32", "scale": 1.0, "unit": "W", "label": "Backup Load Power"},
+    {"metric": "daily_import_energy", "address": 33135, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Daily Import Energy"},
+    {"metric": "daily_export_energy", "address": 33137, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Daily Export Energy"}
   ]
 }

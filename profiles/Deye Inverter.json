@@ -2,117 +2,29 @@
   "name": "Deye Hybrid Inverter",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "grid_voltage",
-      "address": 150,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Grid Voltage"
-    },
-    {
-      "metric": "grid_frequency",
-      "address": 192,
-      "type": "uint16",
-      "scale": 0.01,
-      "unit": "Hz",
-      "label": "Grid Frequency"
-    },
-    {
-      "metric": "grid_import_power",
-      "address": 169,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Grid Import Power"
-    },
-    {
-      "metric": "load_power",
-      "address": 175,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Load Power"
-    },
-    {
-      "metric": "solar_power",
-      "address": 186,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Solar Power"
-    },
-    {
-      "metric": "solar_voltage",
-      "address": 109,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Solar Voltage"
-    },
-    {
-      "metric": "battery_voltage",
-      "address": 183,
-      "type": "uint16",
-      "scale": 0.01,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "battery_current",
-      "address": 191,
-      "type": "int16",
-      "scale": 0.01,
-      "unit": "A",
-      "label": "Battery Current"
-    },
-    {
-      "metric": "battery_power",
-      "address": 190,
-      "type": "int16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Battery Power"
-    },
-    {
-      "metric": "battery_soc",
-      "address": 184,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Battery SOC"
-    },
-    {
-      "metric": "battery_temp",
-      "address": 182,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "\u00b0C",
-      "label": "Battery Temp"
-    },
-    {
-      "metric": "inverter_temp",
-      "address": 90,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "\u00b0C",
-      "label": "Inverter Temp"
-    },
-    {
-      "metric": "radiator_temp",
-      "address": 91,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "\u00b0C",
-      "label": "Radiator Temp"
-    },
-    {
-      "metric": "daily_energy",
-      "address": 108,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "Daily Energy"
-    }
+    {"metric": "inverter_temp", "address": 90, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Inverter Temperature"},
+    {"metric": "radiator_temp", "address": 91, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Radiator Temperature"},
+    {"metric": "dc_temp", "address": 92, "type": "int16", "scale": 0.1, "unit": "°C", "label": "DC Temperature"},
+    {"metric": "daily_energy", "address": 108, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Daily Energy"},
+    {"metric": "pv_voltage", "address": 109, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Voltage"},
+    {"metric": "pv_current", "address": 110, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV Current"},
+    {"metric": "pv2_voltage", "address": 111, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV2 Voltage"},
+    {"metric": "pv2_current", "address": 112, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV2 Current"},
+    {"metric": "grid_voltage", "address": 150, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},
+    {"metric": "grid_frequency", "address": 192, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "grid_import_power", "address": 169, "type": "int32", "scale": 1.0, "unit": "W", "label": "Grid Power"},
+    {"metric": "inverter_voltage", "address": 167, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Inverter Voltage"},
+    {"metric": "inverter_frequency", "address": 168, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Inverter Frequency"},
+    {"metric": "load_power", "address": 175, "type": "int32", "scale": 1.0, "unit": "W", "label": "Load Power"},
+    {"metric": "load_percent", "address": 176, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Load Percent"},
+    {"metric": "bus_voltage", "address": 177, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Bus Voltage"},
+    {"metric": "battery_temp", "address": 182, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Battery Temperature"},
+    {"metric": "battery_voltage", "address": 183, "type": "uint16", "scale": 0.01, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_soc", "address": 184, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "battery_soh", "address": 185, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOH"},
+    {"metric": "pv_power", "address": 186, "type": "uint32", "scale": 1.0, "unit": "W", "label": "PV Power"},
+    {"metric": "pv2_power", "address": 188, "type": "uint32", "scale": 1.0, "unit": "W", "label": "PV2 Power"},
+    {"metric": "battery_power", "address": 190, "type": "int32", "scale": 1.0, "unit": "W", "label": "Battery Power"},
+    {"metric": "battery_current", "address": 191, "type": "int16", "scale": 0.01, "unit": "A", "label": "Battery Current"}
   ]
 }
