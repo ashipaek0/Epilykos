@@ -788,8 +788,8 @@ async function loadModbusRegisterMappings(profileId, deviceIdx, container) {
     const profile = await res.json();
     const mappings = {};
     profile.registers.forEach(r => {
-      // Default to profile's metric name if present
-      mappings[String(r.address)] = r.metric || '';
+      // Metric-first: { metricName → address } (matches HA/MQTT pattern)
+      if (r.metric) mappings[r.metric] = String(r.address);
     });
     renderModbusMappings(profileId, mappings, container);
   } catch (e) {
@@ -808,7 +808,7 @@ function renderModbusMappings(profileId, mappings, container) {
     const regMap = {};
     profile.registers.forEach(r => { regMap[String(r.address)] = r; });
 
-    Object.entries(mappings).sort(([a], [b]) => parseInt(a) - parseInt(b)).forEach(([address, metricName]) => {
+    Object.entries(mappings).sort(([a], [b]) => parseInt(a) - parseInt(b) || a.localeCompare(b)).forEach(([metricName, address]) => {
       const reg = regMap[address];
       const label = reg ? reg.label || `Register ${address}` : `Register ${address}`;
       const typeInfo = reg ? `[${reg.type}, scale=${reg.scale}, ${reg.unit}]` : '';
@@ -841,8 +841,8 @@ function renderModbusMappings(profileId, mappings, container) {
         if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
       });
 
-      row.appendChild(descSpan);
       row.appendChild(metricSelect);
+      row.appendChild(descSpan);
       row.appendChild(removeBtn);
       container.appendChild(row);
     });
@@ -871,7 +871,7 @@ async function loadRs232Mappings(profileId, deviceIdx, container) {
       for (const cmd of profile.commands) {
         for (const field of (cmd.fields || [])) {
           const key = `${cmd.name}:${field.index}`;
-          mappings[key] = field.metric || '';
+          if (field.metric) mappings[field.metric] = key;
         }
       }
     }
@@ -883,7 +883,7 @@ async function loadRs232Mappings(profileId, deviceIdx, container) {
         const metricName = field.metric_prefix
           ? `${field.metric_prefix}_${field.metric}`
           : field.metric;
-        mappings[key] = metricName || '';
+        if (metricName) mappings[metricName] = key;
       }
     }
 
@@ -921,30 +921,29 @@ function renderRs232Mappings(profileId, savedMappings, container) {
       }
     }
 
-    // Sort keys: query profiles by cmd then index, streaming by label
-    const sortedKeys = Object.keys(savedMappings).sort((a, b) => {
-      const aCmd = a.includes(':') ? a.split(':')[0] : '';
-      const bCmd = b.includes(':') ? b.split(':')[0] : '';
+    // Sort by source key: query profiles by cmd then index, streaming by label
+    const entries = Object.entries(savedMappings).sort(([, a], [, b]) => {
+      const aCmd = a && a.includes(':') ? a.split(':')[0] : '';
+      const bCmd = b && b.includes(':') ? b.split(':')[0] : '';
       if (aCmd !== bCmd) return aCmd.localeCompare(bCmd);
-      const aIdx = a.includes(':') ? parseInt(a.split(':')[1]) : 0;
-      const bIdx = b.includes(':') ? parseInt(b.split(':')[1]) : 0;
+      const aIdx = a && a.includes(':') ? parseInt(a.split(':')[1]) : 0;
+      const bIdx = b && b.includes(':') ? parseInt(b.split(':')[1]) : 0;
       return aIdx - bIdx;
     });
 
-    sortedKeys.forEach(key => {
-      const info = fieldMap[key];
-      const metricName = savedMappings[key] || '';
-      const label = info ? info.label : key;
+    entries.forEach(([metricName, sourceKey]) => {
+      const info = fieldMap[sourceKey];
+      const label = info ? info.label : sourceKey;
       const typeInfo = info
         ? (info.type ? `[${info.type}, scale=${info.scale ?? 1}, ${info.unit || ''}]` : `[scale=${info.scale ?? 1}, ${info.unit || ''}]`)
         : '';
       const row = document.createElement('div');
       row.className = 'metric-row';
-      row.dataset.address = key;
+      row.dataset.address = sourceKey;
 
       const descSpan = document.createElement('span');
       descSpan.className = 'register-desc';
-      descSpan.textContent = `${label} (Key: ${key}) ${typeInfo}`;
+      descSpan.textContent = `${label} (Key: ${sourceKey}) ${typeInfo}`;
       descSpan.style.flex = '1';
       descSpan.style.fontSize = '0.85em';
       descSpan.style.overflow = 'hidden';
@@ -970,8 +969,8 @@ function renderRs232Mappings(profileId, savedMappings, container) {
         if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
       });
 
-      row.appendChild(descSpan);
       row.appendChild(metricSelect);
+      row.appendChild(descSpan);
       row.appendChild(removeBtn);
       container.appendChild(row);
     });
@@ -1155,7 +1154,7 @@ function collectRs232Config(card) {
   card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
     const key = row.dataset.address;
     const metricName = row.querySelector('.metric-name').value;
-    if (key && metricName) dev.mappings[key] = metricName;
+    if (key && metricName) dev.mappings[metricName] = key;
   });
   return dev;
 }
@@ -1251,20 +1250,20 @@ function renderExternalSource(source, idx) {
 }
 function renderExternalMappings(mappings, deviceIdx, container) {
   container.innerHTML = '';
-  Object.entries(mappings).forEach(([jsonPath, metric]) => {
-    addExternalMetricRow(deviceIdx, container, jsonPath, metric);
+  Object.entries(mappings).forEach(([metric, jsonPath]) => {
+    addExternalMetricRow(deviceIdx, container, metric, jsonPath);
   });
   if (Object.keys(mappings).length === 0) addExternalMetricRow(deviceIdx, container);
 }
-function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '', excludeMetrics = []) {
+function addExternalMetricRow(deviceIdx, container, metric = '', jsonPath = '', excludeMetrics = []) {
   const row = document.createElement('div');
   row.className = 'metric-row';
+  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const jsonPathInput = document.createElement('input');
   jsonPathInput.type = 'text';
   jsonPathInput.className = 'jsonpath';
   jsonPathInput.placeholder = 'JSON path (e.g., data.temperature)';
   jsonPathInput.value = jsonPath;
-  const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
@@ -1276,8 +1275,8 @@ function addExternalMetricRow(deviceIdx, container, jsonPath = '', metric = '', 
   metricSelect.addEventListener('change', () => {
     refreshAllMetricDropdowns();
   });
-  row.appendChild(jsonPathInput);
   row.appendChild(metricSelect);
+  row.appendChild(jsonPathInput);
   row.appendChild(removeBtn);
   container.appendChild(row);
 }
@@ -1580,16 +1579,16 @@ async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
     }
     const profile = await res.json();
     const mappings = {};
-    // metrics[] (Solarman/Modbus TCP) — key = register hex string
+    // metrics[] (Solarman/Modbus TCP) — key = register hex string, flipped: metricName → register
     if (profile.metrics) {
       profile.metrics.forEach(m => {
-        mappings[m.register] = m.name || '';
+        if (m.name) mappings[m.name] = m.register;
       });
     }
-    // fields[] (Felicity TCP) — key = path
+    // fields[] (Felicity TCP) — key = path, flipped: metricName → path
     if (profile.fields) {
       profile.fields.forEach(f => {
-        mappings[f.path] = f.name || '';
+        if (f.name) mappings[f.name] = f.path;
       });
     }
     renderDongleMappings(profileId, mappings, container);
@@ -1620,7 +1619,7 @@ function renderDongleMappings(profileId, mappings, container) {
       });
     }
 
-    Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([key, metricName]) => {
+    Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([metricName, key]) => {
       let label = regMap[key] || fieldMap[key] || key;
       let desc;
       if (regMap[key] !== undefined) {
@@ -1657,8 +1656,8 @@ function renderDongleMappings(profileId, mappings, container) {
         if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
       });
 
-      row.appendChild(descSpan);
       row.appendChild(metricSelect);
+      row.appendChild(descSpan);
       row.appendChild(removeBtn);
       container.appendChild(row);
     });
@@ -2788,12 +2787,12 @@ form.addEventListener('submit', async (e) => {
     dev.serial_stop_bits = card.querySelector('input[name$="[serial_stop_bits]"]')?.value || '';
     dev.unit = card.querySelector('input[name$="[unit]"]')?.value || 1;
     dev.poll_interval = card.querySelector('input[name$="[poll_interval]"]')?.value || 30;
-    // Collect register mappings
+    // Collect register mappings: { metricName → address }
     dev.mappings = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const address = row.dataset.address;
       const metricName = row.querySelector('.metric-name').value;
-      if (address && metricName) dev.mappings[address] = metricName;
+      if (address && metricName) dev.mappings[metricName] = address;
     });
     return dev;
   });
@@ -2809,7 +2808,7 @@ form.addEventListener('submit', async (e) => {
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const jsonPath = row.querySelector('.jsonpath').value.trim();
       const metricName = row.querySelector('.metric-name').value;
-      if (jsonPath && metricName) src.mappings[jsonPath] = metricName;
+      if (jsonPath && metricName) src.mappings[metricName] = jsonPath;
     });
     return src;
   });
@@ -2832,12 +2831,12 @@ form.addEventListener('submit', async (e) => {
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
-    // Collect register mappings
+    // Collect register mappings: { metricName → register }
     dev.mappings = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const address = row.dataset.address;
       const metricName = row.querySelector('.metric-name').value;
-      if (address && metricName) dev.mappings[address] = metricName;
+      if (address && metricName) dev.mappings[metricName] = address;
     });
     return dev;
   });

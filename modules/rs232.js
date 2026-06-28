@@ -199,15 +199,21 @@ function decodeAsciiResponse(buffer, cmd, mappings) {
     let raw = parseFloat(fields[idx].trim());
     if (isNaN(raw)) continue;
     if (fieldDef.scale) raw *= fieldDef.scale;
-    // Mapping override logic
+    // Build reverse lookup: key → metric name (mappings is { metricName → key })
+    let keyToMetric = null;
     if (mappings) {
-      const key = `${cmd.name}:${idx}`;
-      if (mappings[key] !== undefined) {
-        if (!mappings[key]) continue; // empty string = skip
-        results[mappings[key]] = raw;
-      } else {
-        continue; // skip unmapped when mappings exist
+      keyToMetric = {};
+      for (const [metric, key] of Object.entries(mappings)) {
+        keyToMetric[key] = metric;
       }
+    }
+    // Mapping override logic
+    if (keyToMetric) {
+      const key = `${cmd.name}:${idx}`;
+      if (keyToMetric[key] !== undefined) {
+        results[keyToMetric[key]] = raw;
+      }
+      // else: skip unmapped when mappings exist
     } else {
       results[fieldDef.metric] = raw;
     }
@@ -225,15 +231,21 @@ function decodeVedirectFrame(frame, profile, mappings) {
     if (fieldDef.scale) val *= fieldDef.scale;
     if (fieldDef.type === 'millivolt') val *= 0.001;
     if (fieldDef.type === 'milliamp') val *= 0.001;
-    // Mapping override logic
+    // Build reverse lookup: key → metric name (mappings is { metricName → label })
+    let keyToMetric = null;
     if (mappings) {
-      const key = fieldDef.label;
-      if (mappings[key] !== undefined) {
-        if (!mappings[key]) continue; // empty string = skip
-        results[mappings[key]] = parseFloat(val.toFixed(3));
-      } else {
-        continue; // skip unmapped when mappings exist
+      keyToMetric = {};
+      for (const [metric, key] of Object.entries(mappings)) {
+        keyToMetric[key] = metric;
       }
+    }
+    // Mapping override logic
+    if (keyToMetric) {
+      const key = fieldDef.label;
+      if (keyToMetric[key] !== undefined) {
+        results[keyToMetric[key]] = parseFloat(val.toFixed(3));
+      }
+      // else: skip unmapped when mappings exist
     } else {
       const metricName = fieldDef.metric_prefix
         ? `${fieldDef.metric_prefix}_${fieldDef.metric}`
