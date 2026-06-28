@@ -1,5 +1,5 @@
 {
-  "name": "Felicity IVEM6048-II",
+  "name": "Felicity IVEM6048 Series",
   "transport": "modbus-tcp",
   "requires_serial": false,
   "default_port": 502,

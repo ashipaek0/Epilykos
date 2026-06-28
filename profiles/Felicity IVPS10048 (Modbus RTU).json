@@ -1,0 +1,110 @@
+{
+  "name": "Felicity IVPS10048 (Modbus RTU) - 10kVA",
+  "defaultUnitId": 1,
+  "registers": [
+    {
+      "metric": "inverter_mode",
+      "address": 4353,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Inverter Mode"
+    },
+    {
+      "metric": "battery_voltage",
+      "address": 4360,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "metric": "battery_current",
+      "address": 4361,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "A",
+      "label": "Battery Current"
+    },
+    {
+      "metric": "battery_consumption",
+      "address": 4362,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Battery Consumption"
+    },
+    {
+      "metric": "output_frequency",
+      "address": 4366,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Output Frequency"
+    },
+    {
+      "metric": "apparent_load",
+      "address": 4368,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "VA",
+      "label": "Apparent Load"
+    },
+    {
+      "metric": "output_voltage",
+      "address": 4369,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Output Voltage"
+    },
+    {
+      "metric": "output_current",
+      "address": 4370,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Output Current"
+    },
+    {
+      "metric": "input_voltage",
+      "address": 4375,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Input Voltage"
+    },
+    {
+      "metric": "input_current",
+      "address": 4376,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Input Current"
+    },
+    {
+      "metric": "input_frequency",
+      "address": 4377,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Input Frequency"
+    },
+    {
+      "metric": "real_load",
+      "address": 4382,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Real Load"
+    },
+    {
+      "metric": "load_percentage",
+      "address": 4384,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Load Percentage"
+    }
+  ]
+}

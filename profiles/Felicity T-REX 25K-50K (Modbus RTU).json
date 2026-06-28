@@ -1,0 +1,742 @@
+{
+  "name": "Felicity T-REX 25K/50K (Modbus RTU) - HP3G01",
+  "defaultUnitId": 1,
+  "registers": [
+    {
+      "metric": "alarm_codes",
+      "address": 4361,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Alarm Codes"
+    },
+    {
+      "metric": "fault_codes",
+      "address": 4362,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Fault Codes"
+    },
+    {
+      "metric": "pv1_voltage",
+      "address": 4376,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV1 Voltage"
+    },
+    {
+      "metric": "pv2_voltage",
+      "address": 4377,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV2 Voltage"
+    },
+    {
+      "metric": "pv3_voltage",
+      "address": 4378,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Pv3 Voltage"
+    },
+    {
+      "metric": "pv4_voltage",
+      "address": 4379,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Pv4 Voltage"
+    },
+    {
+      "metric": "mppt1_current",
+      "address": 4380,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Mppt1 Current"
+    },
+    {
+      "metric": "mppt2_current",
+      "address": 4381,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Mppt2 Current"
+    },
+    {
+      "metric": "mppt3_current",
+      "address": 4382,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Mppt3 Current"
+    },
+    {
+      "metric": "mppt4_current",
+      "address": 4383,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Mppt4 Current"
+    },
+    {
+      "metric": "pv1_power",
+      "address": 4392,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "PV1 Power"
+    },
+    {
+      "metric": "pv2_power",
+      "address": 4393,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "PV2 Power"
+    },
+    {
+      "metric": "pv3_power",
+      "address": 4394,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Pv3 Power"
+    },
+    {
+      "metric": "pv4_power",
+      "address": 4395,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Pv4 Power"
+    },
+    {
+      "metric": "pv1_day_energy",
+      "address": 4529,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "PV1 Day Energy"
+    },
+    {
+      "metric": "pv2_day_energy",
+      "address": 4534,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "PV2 Day Energy"
+    },
+    {
+      "metric": "pv3_day_energy",
+      "address": 4539,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Pv3 Day Energy"
+    },
+    {
+      "metric": "pv4_day_energy",
+      "address": 4544,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Pv4 Day Energy"
+    },
+    {
+      "metric": "pv_total_energy",
+      "address": 4549,
+      "type": "uint32",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "PV Total Energy"
+    },
+    {
+      "metric": "grid_voltage_a",
+      "address": 4432,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage A"
+    },
+    {
+      "metric": "grid_voltage_b",
+      "address": 4433,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage B"
+    },
+    {
+      "metric": "grid_voltage_c",
+      "address": 4434,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage C"
+    },
+    {
+      "metric": "grid_current_a",
+      "address": 4444,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Grid Current A"
+    },
+    {
+      "metric": "grid_current_b",
+      "address": 4445,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Grid Current B"
+    },
+    {
+      "metric": "grid_current_c",
+      "address": 4446,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Grid Current C"
+    },
+    {
+      "metric": "grid_frequency",
+      "address": 4461,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Frequency"
+    },
+    {
+      "metric": "grid_power_a",
+      "address": 4467,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Grid Power A"
+    },
+    {
+      "metric": "grid_power_b",
+      "address": 4468,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Grid Power B"
+    },
+    {
+      "metric": "grid_power_c",
+      "address": 4469,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Grid Power C"
+    },
+    {
+      "metric": "total_grid_power",
+      "address": 4500,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Total Grid Power"
+    },
+    {
+      "metric": "grid_pf_a",
+      "address": 4485,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Grid Pf A"
+    },
+    {
+      "metric": "grid_pf_b",
+      "address": 4486,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Grid Pf B"
+    },
+    {
+      "metric": "grid_pf_c",
+      "address": 4487,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Grid Pf C"
+    },
+    {
+      "metric": "grid_day_import_energy",
+      "address": 4571,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Grid Day Import Energy"
+    },
+    {
+      "metric": "grid_day_export_energy",
+      "address": 4576,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Grid Day Export Energy"
+    },
+    {
+      "metric": "load_voltage_a",
+      "address": 4438,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Load Voltage A"
+    },
+    {
+      "metric": "load_voltage_b",
+      "address": 4439,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Load Voltage B"
+    },
+    {
+      "metric": "load_voltage_c",
+      "address": 4440,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Load Voltage C"
+    },
+    {
+      "metric": "load_power_a",
+      "address": 4473,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Load Power A"
+    },
+    {
+      "metric": "load_power_b",
+      "address": 4474,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Load Power B"
+    },
+    {
+      "metric": "load_power_c",
+      "address": 4475,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Load Power C"
+    },
+    {
+      "metric": "total_load_power",
+      "address": 4499,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Total Load Power"
+    },
+    {
+      "metric": "load_frequency",
+      "address": 4463,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Load Frequency"
+    },
+    {
+      "metric": "load_percentage_a",
+      "address": 4479,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Load Percentage A"
+    },
+    {
+      "metric": "load_percentage_b",
+      "address": 4480,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Load Percentage B"
+    },
+    {
+      "metric": "load_percentage_c",
+      "address": 4481,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Load Percentage C"
+    },
+    {
+      "metric": "inverter_voltage_a",
+      "address": 4435,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Inverter Voltage A"
+    },
+    {
+      "metric": "inverter_voltage_b",
+      "address": 4436,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Inverter Voltage B"
+    },
+    {
+      "metric": "inverter_voltage_c",
+      "address": 4437,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Inverter Voltage C"
+    },
+    {
+      "metric": "inverter_power_a",
+      "address": 4470,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Inverter Power A"
+    },
+    {
+      "metric": "inverter_power_b",
+      "address": 4471,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Inverter Power B"
+    },
+    {
+      "metric": "inverter_power_c",
+      "address": 4472,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Inverter Power C"
+    },
+    {
+      "metric": "inverter_frequency",
+      "address": 4462,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Inverter Frequency"
+    },
+    {
+      "metric": "bat1_voltage",
+      "address": 4396,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Bat1 Voltage"
+    },
+    {
+      "metric": "bat2_voltage",
+      "address": 4397,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Bat2 Voltage"
+    },
+    {
+      "metric": "bat1_current",
+      "address": 4400,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Bat1 Current"
+    },
+    {
+      "metric": "bat1_power",
+      "address": 4401,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Bat1 Power"
+    },
+    {
+      "metric": "bat2_current",
+      "address": 4402,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Bat2 Current"
+    },
+    {
+      "metric": "bat2_power",
+      "address": 4403,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Bat2 Power"
+    },
+    {
+      "metric": "bat1_soc",
+      "address": 4408,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Bat1 SOC"
+    },
+    {
+      "metric": "bat1_soh",
+      "address": 4409,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Bat1 SOH"
+    },
+    {
+      "metric": "bat1_capacity",
+      "address": 4410,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "Ah",
+      "label": "Bat1 Capacity"
+    },
+    {
+      "metric": "bat2_soc",
+      "address": 4411,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Bat2 SOC"
+    },
+    {
+      "metric": "bat2_soh",
+      "address": 4412,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Bat2 SOH"
+    },
+    {
+      "metric": "bat2_capacity",
+      "address": 4413,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "Ah",
+      "label": "Bat2 Capacity"
+    },
+    {
+      "metric": "bat1_day_charge_energy",
+      "address": 4551,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Bat1 Day Charge Energy"
+    },
+    {
+      "metric": "bat1_day_discharge_energy",
+      "address": 4556,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "label": "Bat1 Day Discharge Energy"
+    },
+    {
+      "metric": "bus_voltage",
+      "address": 4414,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Bus Voltage"
+    },
+    {
+      "metric": "bus_pos_voltage",
+      "address": 4415,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Bus Pos Voltage"
+    },
+    {
+      "metric": "bus_neg_voltage",
+      "address": 4416,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Bus Neg Voltage"
+    },
+    {
+      "metric": "balance_current",
+      "address": 4417,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Balance Current"
+    },
+    {
+      "metric": "bus_pos_insulation",
+      "address": 4418,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "K\u03a9",
+      "label": "Bus Pos Insulation"
+    },
+    {
+      "metric": "bus_neg_insulation",
+      "address": 4419,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "K\u03a9",
+      "label": "Bus Neg Insulation"
+    },
+    {
+      "metric": "boost_temperature",
+      "address": 4420,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "\u00b0C",
+      "label": "Boost Temperature"
+    },
+    {
+      "metric": "inverter_temperature",
+      "address": 4421,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "\u00b0C",
+      "label": "Inverter Temperature"
+    },
+    {
+      "metric": "ambient_temperature",
+      "address": 4422,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "\u00b0C",
+      "label": "Ambient Temperature"
+    },
+    {
+      "metric": "gen_current_a",
+      "address": 4426,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Gen Current A"
+    },
+    {
+      "metric": "gen_current_b",
+      "address": 4427,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Gen Current B"
+    },
+    {
+      "metric": "gen_current_c",
+      "address": 4428,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Gen Current C"
+    },
+    {
+      "metric": "gen_voltage_a",
+      "address": 4429,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Gen Voltage A"
+    },
+    {
+      "metric": "gen_voltage_b",
+      "address": 4430,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Gen Voltage B"
+    },
+    {
+      "metric": "gen_voltage_c",
+      "address": 4431,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Gen Voltage C"
+    },
+    {
+      "metric": "gen_frequency",
+      "address": 4460,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Gen Frequency"
+    },
+    {
+      "metric": "total_gen_power",
+      "address": 4498,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Total Gen Power"
+    },
+    {
+      "metric": "ct_power_a",
+      "address": 4482,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Ct Power A"
+    },
+    {
+      "metric": "ct_power_b",
+      "address": 4483,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Ct Power B"
+    },
+    {
+      "metric": "ct_power_c",
+      "address": 4484,
+      "type": "int16",
+      "scale": 0.01,
+      "unit": "kW",
+      "label": "Ct Power C"
+    },
+    {
+      "metric": "device_type",
+      "address": 63488,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Device Type"
+    },
+    {
+      "metric": "protocol_version",
+      "address": 63490,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "",
+      "label": "Protocol Version"
+    },
+    {
+      "metric": "dsp1_version",
+      "address": 63499,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "",
+      "label": "Dsp1 Version"
+    },
+    {
+      "metric": "dsp2_version",
+      "address": 63500,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "",
+      "label": "Dsp2 Version"
+    },
+    {
+      "metric": "display_sw_version",
+      "address": 63548,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Display Sw Version"
+    }
+  ]
+}
