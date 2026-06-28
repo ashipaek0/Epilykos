@@ -245,16 +245,462 @@
         </div>
       </section>
 
-      <!-- Help -->
       <section class="stg-section" id="stg-section-help">
-        <div class="stg-section-header"><h2>Help</h2><p>Setup guide &amp; troubleshooting</p></div>
-        <div class="stg-card"><div class="stg-form-group"><label>1. Add a Data Source</label><p class="note">Start in Data Sources — add Home Assistant, MQTT, Modbus, Dongle, BMS, or REST API. Map entities/topics/registers to metric names.</p></div></div>
-        <div class="stg-card"><div class="stg-form-group"><label>2. Create &amp; Map Metrics</label><p class="note">Metric names identify your data. Common names: <code>solar</code> <code>consumption</code> <code>battery_soc</code> <code>grid_import</code>. Binary sensors auto-convert to 1/0.</p></div></div>
-        <div class="stg-card"><div class="stg-form-group"><label>3. Build Your Dashboard</label><p class="note">Use the <a href="/editor" style="color:var(--accent);">Editor</a> for visual drag-and-drop layout. Each block has a Config button to pick which metrics feed it.</p></div></div>
-        <div class="stg-card"><div class="stg-form-group"><label>4. Solar Forecast</label><p class="note">Enable, enter lat/lng and kWp. Add Solcast API key for high accuracy, or leave blank for free Open-Meteo.</p></div></div>
-        <div class="stg-card"><div class="stg-form-group"><label>5. Appearance</label><p class="note">Dashboard → Display: background colours, background image, transparent blocks, title, logo, favicon.</p></div></div>
-        <div class="stg-card"><div class="stg-form-group"><label>Troubleshooting</label><p class="note"><strong>Dongle timeout:</strong> check IP reachable. <strong>Connection refused:</strong> port not open. <strong>Checksum mismatch:</strong> wrong serial number or profile. <strong>No data:</strong> check metric names match. Debug logs at <code>logs/energy-dashboard-*.log</code>. Set <code>LOG_LEVEL=debug</code> for verbose output.</p></div></div>
-      </section>
+  <div class="stg-section-header"><h2>Help</h2><p>Setup guides, conventions, and troubleshooting</p></div>
+
+  <!-- Search -->
+  <div class="stg-card" style="margin-bottom:0.75rem;">
+    <div class="help-search-wrap">
+      <input type="text" class="stg-input help-search" id="help-search" placeholder="🔍  Filter topics... (e.g. Modbus, forecast, troubleshooting)">
+    </div>
+  </div>
+
+  <!-- ── 1. Quick Start ──────────────────────────────────── -->
+  <details class="help-accordion" open>
+    <summary class="help-summary"><span class="help-icon">🚀</span> Quick Start — 5 minutes to your first dashboard</summary>
+    <div class="help-body">
+      <div class="help-steps">
+        <div class="help-step"><span class="help-step-num">1</span>
+          <div><strong>Add a data source</strong><br>
+          Go to <a href="javascript:switchSubTab('modbus')" class="help-link">Data Sources → Modbus</a> (or HA, MQTT, RS232, Dongle, BMS, REST). Enter connection details and pick a profile matching your hardware.</div>
+        </div>
+        <div class="help-step"><span class="help-step-num">2</span>
+          <div><strong>Map registers/fields to metric names</strong><br>
+          Click <em>Load Profile Fields</em>. Each row shows a device register — use the dropdown to pick a metric name (or keep the default). Save settings.</div>
+        </div>
+        <div class="help-step"><span class="help-step-num">3</span>
+          <div><strong>Build a dashboard</strong><br>
+          Open the <a href="/editor" class="help-link">Editor</a>. Drag a <strong>Flow Card</strong> onto the canvas. Click <em>Config</em> on the block, then select which metrics feed each role (solar, consumption, battery, grid).</div>
+        </div>
+        <div class="help-step"><span class="help-step-num">4</span>
+          <div><strong>See live data</strong><br>
+          Data polls every 30s by default. Values update automatically. The Power Chart shows 24h history — it populates as polling continues.</div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:0.75rem;">💡 <strong>Prerequisite:</strong> You need at least one connected device (inverter, sensor, or external API). Start with the data source that matches your hardware.</p>
+    </div>
+  </details>
+
+  <!-- ── 2. Data Source Guides ────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">📡</span> Data Source Guides — setup each type step by step</summary>
+    <div class="help-body">
+
+      <!-- HA -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">🏠 Home Assistant</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Pull sensor values from an existing Home Assistant instance over HTTP.</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> HA URL (e.g. <code>http://192.168.1.50:8123</code>)</div>
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Long-lived access token (HA → Profile → Security → Long-lived tokens)</div>
+            <div class="help-checklist-item"><span class="help-badge info">Note</span> Only <code>sensor.*</code> and <code>binary_sensor.*</code> entities are fetched</div>
+            <div class="help-checklist-item"><span class="help-badge info">Note</span> Binary sensors auto-convert <code>on</code>/<code>off</code> → 1/0</div>
+          </div>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('ha')" class="help-link">Data Sources → Home Assistant</a></li>
+            <li>Enter HA URL and token → click <em>Fetch Entities</em> to load your sensor list</li>
+            <li>Click <em>+ Add Metric Mapping</em> for each value you want</li>
+            <li>Pick a metric name (e.g. <code>grid_power</code>) and an entity (e.g. <code>sensor.shelly_em_grid_power</code>)</li>
+            <li>Set poll interval (30–60s recommended)</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- MQTT -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">📨 MQTT</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Subscribe to MQTT topics from any broker (Mosquitto, EMQX, Tasmota devices, etc.).</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>)</div>
+            <div class="help-checklist-item"><span class="help-badge opt">Optional</span> Username and password if broker requires auth</div>
+          </div>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('mqtt')" class="help-link">Data Sources → MQTT</a></li>
+            <li>Enter broker URL → click <em>Test Broker</em></li>
+            <li>Use <em>Discover Topics</em> to find available topics, or enter manually</li>
+            <li>Click <em>+ Add Metric Mapping</em> → pick a metric name, enter the topic</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- Modbus -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">🔌 Modbus (RTU / TCP)</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Direct serial (RS485/USB) or TCP connection to inverters and charge controllers.</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial: <code>/dev/ttyUSB0</code> (or similar), correct baud rate + unit ID</div>
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> TCP: IP address + port (usually 502)</div>
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Select the correct profile for your hardware</div>
+          </div>
+          <p><strong>Profile → hardware mapping:</strong></p>
+          <table class="help-table">
+            <thead><tr><th>Inverter Brand</th><th>Profile Name</th></tr></thead>
+            <tbody>
+              <tr><td>SRNE / PowMr / EASun</td><td><code>SRNE Inverter (V1.96)</code> or <code>SRNE All-in-One</code></td></tr>
+              <tr><td>Growatt SPF 3500–6000 ES</td><td><code>Growatt SPF Series (Modbus RTU)</code></td></tr>
+              <tr><td>Voltronic / Axpert / MPP Solar</td><td><code>Voltronic Axpert (P00-P09 Modbus)</code></td></tr>
+              <tr><td>Felicity IVEM6048</td><td><code>Felicity IVEM6048 Series (Modbus RTU)</code></td></tr>
+              <tr><td>Felicity T-REX 5K</td><td><code>Felicity T-REX 5K (Modbus RTU) - P1G01</code></td></tr>
+              <tr><td>Felicity T-REX 10K</td><td><code>Felicity T-REX 10K (Modbus RTU) - P3G01</code></td></tr>
+              <tr><td>Felicity T-REX 25K/50K</td><td><code>Felicity T-REX 25K/50K (Modbus RTU) - HP3G01</code></td></tr>
+              <tr><td>Felicity IVPS10048</td><td><code>Felicity IVPS10048 (Modbus RTU) - 10kVA</code></td></tr>
+              <tr><td>Deye Hybrid</td><td><code>Deye Hybrid Inverter</code></td></tr>
+              <tr><td>Luxpower</td><td><code>Luxpower (Modbus RTU RS-485)</code></td></tr>
+              <tr><td>Solis Hybrid</td><td><code>Solis Hybrid Inverter (Ver3.2)</code></td></tr>
+              <tr><td>Solis String</td><td><code>Solis String Inverter (Ver19)</code></td></tr>
+              <tr><td>Victron (GX device)</td><td><code>Victron CCGX / Venus OS (Modbus TCP)</code></td></tr>
+              <tr><td>Generic MPPT</td><td><code>Generic MPPT Charge Controller (RS-485)</code></td></tr>
+            </tbody>
+          </table>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('modbus')" class="help-link">Data Sources → Modbus</a></li>
+            <li>Select transport (TCP or Serial), enter connection details</li>
+            <li>Pick a profile from the dropdown matching your hardware</li>
+            <li>Click <em>Load Profile Fields</em> → map each register to a metric name</li>
+            <li>Click <em>Test Modbus</em> to verify the connection reads data</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- RS232 -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">🔌 RS232 (Serial ASCII / Binary)</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Direct serial connection to inverters using ASCII query/response or binary protocols.</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> USB-to-serial cable with correct driver (CH340, FTDI, CP2102)</div>
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> User must be in the <code>dialout</code> group: <code>sudo usermod -a -G dialout $USER</code></div>
+          </div>
+          <p><strong>Profile → baud rate defaults:</strong></p>
+          <table class="help-table">
+            <thead><tr><th>Protocol</th><th>Profile</th><th>Default Baud</th></tr></thead>
+            <tbody>
+              <tr><td>Voltronic QPIGS</td><td><code>Voltronic / Axpert (QPIGS ASCII)</code></td><td>2400</td></tr>
+              <tr><td>Infinisolar</td><td><code>Infinisolar (alias → QPIGS)</code></td><td>2400</td></tr>
+              <tr><td>SolaX AA55</td><td><code>SolaX Pocket / X1 (AA55 Binary)</code></td><td>9600</td></tr>
+              <tr><td>Victron VE.Direct</td><td><code>Victron VE.Direct</code></td><td>19200</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('rs232')" class="help-link">Data Sources → RS232</a></li>
+            <li>Select serial port and baud rate (match profile defaults above)</li>
+            <li>Pick a profile from the dropdown</li>
+            <li>Click <em>Load Profile Fields</em> → map each field to a metric name</li>
+            <li>Click <em>Test RS232</em> to verify</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- Dongle -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">📶 Dongle (WiFi Data Loggers)</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Inverters with built-in WiFi loggers (Solarman, Felicity TCP). Connects over your local network — no USB cable needed.</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger IP address on your local network</div>
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger serial number (printed on device or sticker)</div>
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Correct profile for your inverter model</div>
+          </div>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('dongle')" class="help-link">Data Sources → Dongle</a></li>
+            <li>Enter IP, port (default 8899 for Solarman, 502 for Felicity TCP), and serial number</li>
+            <li>Pick a profile matching your inverter</li>
+            <li>Click <em>Load Profile Registers</em> → map to metric names</li>
+            <li>Click <em>Test Connection</em> to verify</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- BMS -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">🔋 BMS (Battery Management System)</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Direct connection to a BMS over serial (RS485/USB) for battery-level data.</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial path and correct BMS address</div>
+            <div class="help-checklist-item"><span class="help-badge info">Note</span> Currently supports JBD / Xiaoxiang BMS protocol</div>
+          </div>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('bms')" class="help-link">Data Sources → BMS</a></li>
+            <li>Enter serial port path and BMS address</li>
+            <li>Enable the device and save</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- External / REST -->
+      <details class="help-sub">
+        <summary class="help-sub-summary">🌐 External / REST API</summary>
+        <div class="help-sub-body">
+          <p><strong>What it's for:</strong> Pull data from any HTTP JSON API (weather services, energy monitors, custom endpoints).</p>
+          <div class="help-checklist">
+            <div class="help-checklist-item"><span class="help-badge must">Required</span> URL returning JSON</div>
+            <div class="help-checklist-item"><span class="help-badge info">Note</span> Use dot notation for JSON paths: <code>data.power</code>, <code>results[0].temperature</code></div>
+          </div>
+          <p><strong>Example:</strong></p>
+          <div style="background:var(--surface);padding:0.5rem 0.75rem;border-radius:6px;font-size:0.8em;margin:0.5rem 0;">
+            <strong>URL:</strong> <code>https://api.weather.gov/stations/KNYC/observations/latest</code><br>
+            <strong>JSON path → Metric:</strong><br>
+            <code>properties.temperature.value</code> → <code>outdoor_temp</code><br>
+            <code>properties.relativeHumidity.value</code> → <code>outdoor_humidity</code>
+          </div>
+          <p><strong>Steps:</strong></p>
+          <ol>
+            <li>Go to <a href="javascript:switchSubTab('external')" class="help-link">Data Sources → External</a></li>
+            <li>Enter URL, click <em>+ Add Metric Mapping</em> for each value</li>
+            <li>Enter JSON path and pick a metric name</li>
+          </ol>
+        </div>
+      </details>
+
+    </div>
+  </details>
+
+  <!-- ── 3. Metric Naming ─────────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">🏷️</span> Metric Names — naming conventions and system roles</summary>
+    <div class="help-body">
+      <p>Metric names are the labels that identify your data throughout the system. Choose them carefully — they connect your hardware to the dashboard.</p>
+
+      <h4>Conventions</h4>
+      <ul>
+        <li>Use <strong>lowercase</strong> with <strong>underscores</strong>: <code>battery_voltage</code> not <code>BatteryVoltage</code></li>
+        <li>Be <strong>descriptive</strong>: <code>pv1_power</code> is better than <code>solar</code></li>
+        <li>Use <strong>consistent suffixes</strong>: <code>_power</code>, <code>_voltage</code>, <code>_current</code>, <code>_energy</code>, <code>_soc</code>, <code>_temp</code></li>
+        <li>Number multiple PV strings: <code>pv1_power</code>, <code>pv2_power</code></li>
+      </ul>
+
+      <h4>System Roles (auto-mapped to dashboard)</h4>
+      <p>The dashboard detects these metric names automatically. Using them lets blocks auto-connect without manual config:</p>
+      <table class="help-table">
+        <thead><tr><th>Role</th><th>Suggested Metric Name</th><th>Used By</th></tr></thead>
+        <tbody>
+          <tr><td>Solar Power</td><td><code>pv_power</code>, <code>pv_power_summary</code></td><td>Flow Card, Power Chart, Gauge</td></tr>
+          <tr><td>Load / Consumption</td><td><code>load_power</code>, <code>ac_output_power</code></td><td>Flow Card, Power Chart</td></tr>
+          <tr><td>Battery SOC</td><td><code>battery_soc</code></td><td>Flow Card, Battery Block</td></tr>
+          <tr><td>Battery Power</td><td><code>battery_power</code></td><td>Flow Card, Flow Card 2</td></tr>
+          <tr><td>Grid Import</td><td><code>grid_power</code>, <code>ac_input_power</code></td><td>Grid Card, Power Chart</td></tr>
+          <tr><td>Grid Export</td><td><code>grid_export</code></td><td>Grid Card</td></tr>
+          <tr><td>Battery Voltage</td><td><code>battery_voltage</code></td><td>Battery Block, Gauge</td></tr>
+          <tr><td>Battery Current</td><td><code>battery_current</code></td><td>Battery Block</td></tr>
+          <tr><td>Inverter Temp</td><td><code>inverter_temp</code>, <code>heatsink_temp_1</code></td><td>Gauge</td></tr>
+          <tr><td>Daily Solar Energy</td><td><code>pv_energy_day</code>, <code>daily_solar</code></td><td>Energy Chart, Savings</td></tr>
+          <tr><td>Daily Consumption</td><td><code>daily_consumption</code></td><td>Energy Chart</td></tr>
+        </tbody>
+      </table>
+
+      <h4>How role mapping works</h4>
+      <ol>
+        <li>Each dashboard block (e.g. Flow Card) specifies which <em>role</em> each metric plays: solar, consumption, battery, grid</li>
+        <li>The <code>role_metrics</code> config (auto-populated from your blocks) maps roles → actual metric names</li>
+        <li>The history system reads <code>latest_metrics</code> using this mapping to populate the history table and charts</li>
+        <li>You can override roles in <a href="javascript:switchSection('solar')" class="help-link">Settings → Solar → Metric Roles</a></li>
+      </ol>
+
+      <h4>All current metrics</h4>
+      <p>See <a href="javascript:switchSection('metrics')" class="help-link">Settings → Metrics</a> for a list of every metric name currently stored in the database with latest values and units.</p>
+    </div>
+  </details>
+
+  <!-- ── 4. Dashboard Builder ─────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">🧱</span> Dashboard Builder — block types and tips</summary>
+    <div class="help-body">
+      <p>Open the <a href="/editor" class="help-link">Editor</a> to build your dashboard. Each block type serves a different purpose:</p>
+
+      <table class="help-table">
+        <thead><tr><th>Block</th><th>Purpose</th><th>Metrics Needed</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Flow Card</strong></td><td>Solar → home → battery → grid energy flow diagram</td><td>solar, consumption, battery_charge, battery_discharge, battery_soc, grid_import, grid_export</td></tr>
+          <tr><td><strong>Flow Card 2</strong></td><td>System topology view with all paths</td><td>Same as Flow Card + inverter metrics</td></tr>
+          <tr><td><strong>Power Chart</strong></td><td>24-hour real-time line chart</td><td>solar, consumption, battery, grid</td></tr>
+          <tr><td><strong>Energy Chart</strong></td><td>7-day bar chart (daily totals)</td><td>Energy metrics auto-derived from power</td></tr>
+          <tr><td><strong>Gauge Card</strong></td><td>Single-value circular gauge</td><td>Any one metric</td></tr>
+          <tr><td><strong>Half Gauge</strong></td><td>Semi-circular gauge, 2 per row</td><td>Any one metric each</td></tr>
+          <tr><td><strong>Bar Gauge</strong></td><td>Horizontal bar with min/max</td><td>Any one metric</td></tr>
+          <tr><td><strong>Metric Cards</strong></td><td>Compact value cards (4–6 per row)</td><td>Any metric per card</td></tr>
+          <tr><td><strong>Grid Card</strong></td><td>Grid on/off indicator + daily hours</td><td>grid_import (detects on/off by value > 0)</td></tr>
+          <tr><td><strong>Battery Block</strong></td><td>Battery SOC ring + voltage/current</td><td>battery_soc, battery_voltage, battery_current</td></tr>
+          <tr><td><strong>Forecast Banner</strong></td><td>Today's solar forecast bar</td><td>actual_energy (optional — for comparison)</td></tr>
+          <tr><td><strong>Savings Summary</strong></td><td>Today's savings calculation</td><td>daily_solar × savings_rate</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Tips</h4>
+      <ul>
+        <li><strong>Drag between dashboards:</strong> In the editor, drag a block to a different dashboard tab in the sidebar</li>
+        <li><strong>Resize:</strong> Drag the bottom-right corner of any block</li>
+        <li><strong>Clone:</strong> Use the clone button to duplicate a configured block</li>
+        <li><strong>Multiple dashboards:</strong> Create separate views (e.g. "Overview", "Battery Detail", "TV Display")</li>
+        <li><strong>TV / large screen:</strong> Use large gauge blocks with transparent theme + dark background for a clean wall display</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- ── 5. Solar Forecast ────────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">☀️</span> Solar Forecast — setup and accuracy</summary>
+    <div class="help-body">
+      <p>Go to <a href="javascript:switchSection('solar')" class="help-link">Settings → Solar</a> to configure.</p>
+
+      <h4>Free vs Paid</h4>
+      <table class="help-table">
+        <thead><tr><th>Provider</th><th>Accuracy</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Open-Meteo</strong></td><td>Moderate (general area forecast)</td><td>Free — no key needed</td></tr>
+          <tr><td><strong>Solcast</strong></td><td>High (rooftop-level modeling)</td><td>Free tier: 10 calls/day<br>Paid: higher resolution</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Key Fields</h4>
+      <table class="help-table">
+        <thead><tr><th>Field</th><th>What It Is</th><th>How to Find</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Latitude / Longitude</strong></td><td>Your panel location</td><td>Google Maps → right-click → coordinates</td></tr>
+          <tr><td><strong>kWp</strong></td><td>Total panel capacity in kilowatts-peak</td><td>Sum of all panel ratings (e.g. 10 × 450W = 4.5 kWp)</td></tr>
+          <tr><td><strong>Tilt</strong></td><td>Panel angle from horizontal</td><td>0° = flat, 30° = typical roof</td></tr>
+          <tr><td><strong>Azimuth</strong></td><td>Panel direction</td><td>0° = North, 90° = East, 180° = South</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- ── 6. Appearance ────────────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">🎨</span> Appearance &amp; Theming</summary>
+    <div class="help-body">
+      <p>Go to <a href="javascript:switchSection('branding')" class="help-link">Settings → Dashboard → Display</a> for visual options.</p>
+      <ul>
+        <li><strong>Background:</strong> Solid color, gradient, or image URL</li>
+        <li><strong>Transparent blocks:</strong> Makes block backgrounds see-through for a cleaner look with background images</li>
+        <li><strong>Title &amp; Logo:</strong> Set a dashboard title and upload a logo (appears top-left)</li>
+        <li><strong>Favicon:</strong> Browser tab icon</li>
+        <li><strong>Dark/Light theme:</strong> Toggle with the ☀️/🌙 button in the sidebar</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- ── 7. Backup & Restore ──────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">💾</span> Backup &amp; Restore</summary>
+    <div class="help-body">
+      <p>Go to <a href="javascript:switchSection('backup')" class="help-link">Settings → Backup</a>.</p>
+      <ul>
+        <li><strong>Manual backup:</strong> Click <em>Download Backup</em> to save your entire database to a <code>.db</code> file</li>
+        <li><strong>Restore:</strong> Upload a backup file to replace all current data</li>
+        <li><strong>Snapshots:</strong> Auto-created every 24 hours. Keeps the last 7 days. Click <em>Restore</em> on any snapshot to roll back</li>
+        <li><strong>What's backed up:</strong> All config, metric history, dashboard layouts, and user-created metrics</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- ── 8. Troubleshooting ───────────────────────────────── -->
+  <details class="help-accordion">
+    <summary class="help-summary"><span class="help-icon">🔧</span> Troubleshooting — common issues and fixes</summary>
+    <div class="help-body">
+
+      <details class="help-sub">
+        <summary class="help-sub-summary">🔌 Modbus Issues</summary>
+        <div class="help-sub-body">
+          <table class="help-table">
+            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+            <tbody>
+              <tr><td>Connection refused</td><td>Wrong IP or port</td><td>Verify IP reachable: <code>ping &lt;ip&gt;</code>. Check port 502 open.</td></tr>
+              <tr><td>Timeout</td><td>Wrong unit ID</td><td>Most inverters use unit ID 1. Check your inverter manual.</td></tr>
+              <tr><td>No data on dashboard</td><td>Unmapped registers</td><td>Click <em>Load Profile Fields</em> and ensure each register has a metric name selected.</td></tr>
+              <tr><td>CRC / checksum errors</td><td>Baud rate mismatch</td><td>Match baud rate to your inverter (9600 for most, 2400 for Voltronic).</td></tr>
+              <tr><td>Port not found</td><td>USB disconnected or driver missing</td><td>Check <code>ls /dev/ttyUSB*</code>. Install CH340/FTDI driver if needed.</td></tr>
+              <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code> then log out and back in.</td></tr>
+              <tr><td>All values show 0</td><td>Wrong profile selected</td><td>Match profile to your exact inverter model. Felicity profiles are model-specific.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="help-sub">
+        <summary class="help-sub-summary">🔌 RS232 Issues</summary>
+        <div class="help-sub-body">
+          <table class="help-table">
+            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+            <tbody>
+              <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code></td></tr>
+              <tr><td>Port not found</td><td>USB cable disconnected</td><td>Check <code>ls /dev/ttyUSB*</code> and reseat the cable</td></tr>
+              <tr><td>Read timeout</td><td>Wrong baud rate</td><td>Match profile default: 2400 (Voltronic), 9600 (SolaX), 19200 (VE.Direct)</td></tr>
+              <tr><td>Partial / garbled data</td><td>Electrical noise or wrong wiring</td><td>Use short, shielded cable. Check RX/TX/GND connections</td></tr>
+              <tr><td>No response at all</td><td>Wrong protocol profile</td><td>Confirm your inverter protocol — Voltronic uses ASCII QPIGS, SolaX uses AA55 binary</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="help-sub">
+        <summary class="help-sub-summary">📶 Dongle Issues</summary>
+        <div class="help-sub-body">
+          <table class="help-table">
+            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+            <tbody>
+              <tr><td>Timeout</td><td>Logger not reachable</td><td>Check WiFi signal. Ping the logger IP. Check it's on the same subnet.</td></tr>
+              <tr><td>Checksum mismatch</td><td>Wrong serial number</td><td>Serial number is case-sensitive and must match the sticker exactly.</td></tr>
+              <tr><td>No data</td><td>Wrong profile</td><td>Match the profile to your inverter model — Solarman ≠ Felicity TCP.</td></tr>
+              <tr><td>Connection refused</td><td>Wrong port</td><td>Solarman loggers use port 8899. Felicity TCP uses port 502.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="help-sub">
+        <summary class="help-sub-summary">📨 MQTT Issues</summary>
+        <div class="help-sub-body">
+          <table class="help-table">
+            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+            <tbody>
+              <tr><td>Connection refused</td><td>Broker not running or wrong port</td><td>Check <code>systemctl status mosquitto</code>. Default port is 1883.</td></tr>
+              <tr><td>Auth failure</td><td>Wrong username/password</td><td>Verify credentials in your MQTT broker config</td></tr>
+              <tr><td>No data appearing</td><td>Topic not publishing</td><td>Use <code>mosquitto_sub -t "#" -v</code> to verify the topic is publishing values</td></tr>
+              <tr><td>Values not updating</td><td>Topic mapped wrong</td><td>Ensure the topic in settings exactly matches the MQTT topic (case-sensitive)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="help-sub">
+        <summary class="help-sub-summary">🔧 General Issues</summary>
+        <div class="help-sub-body">
+          <table class="help-table">
+            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+            <tbody>
+              <tr><td>Dashboard shows zeros or empty</td><td>Metric name mismatch</td><td>The metric name in the block config must exactly match what your data source writes. Check <em>Settings → Metrics</em> for all current names.</td></tr>
+              <tr><td>Charts are empty</td><td>History not populated yet</td><td>Wait 2–3 poll cycles (60–90s). Charts need history data to render.</td></tr>
+              <tr><td>Solar values negative at night</td><td>Inverter firmware quirk</td><td>Some inverters report small negative PV values overnight. This is cosmetic — the flow card shows 0 for negative values.</td></tr>
+              <tr><td>Settings not saving</td><td>Session expired</td><td>Log out and log back in. Settings save requires an active authenticated session.</td></tr>
+              <tr><td>Missing metrics dropdown options</td><td>No data sources polled yet</td><td>Metric names appear after at least one poll cycle from any source. Check your sources are enabled and connecting.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="help-sub">
+        <summary class="help-sub-summary">📋 Debug Logs</summary>
+        <div class="help-sub-body">
+          <p>Logs are at <code>logs/energy-dashboard-*.log</code> inside the Epilykos directory.</p>
+          <p>Set environment variable <code>LOG_LEVEL=debug</code> before starting for verbose output showing every Modbus/RS232 read, metric write, and poll cycle.</p>
+          <p><strong>Docker:</strong> <code>docker logs epilykos</code> shows stdout. Add <code>-e LOG_LEVEL=debug</code> to your docker run/compose for detailed logging.</p>
+        </div>
+      </details>
+
+    </div>
+  </details>
+
+</section>
 
       <!-- Save Bar (persistent, visible across all sections) -->
       <div class="stg-savebar" id="stg-savebar">
@@ -564,6 +1010,35 @@
     }, 50);
   });
   paginationObserver.observe(document.getElementById('settings-form'), { childList: true, subtree: true });
+
+  // ── Help Search Filter ────────────────────────────────────
+  (function() {
+    var searchInput = document.getElementById('help-search');
+    if (!searchInput) return;
+    searchInput.addEventListener('input', function() {
+      var q = this.value.toLowerCase().trim();
+      var accordions = document.querySelectorAll('#stg-section-help details.help-accordion');
+      var anyVisible = false;
+      accordions.forEach(function(acc) {
+        if (!q) { acc.classList.remove('help-hidden'); return; }
+        var text = (acc.textContent || '').toLowerCase();
+        var summary = (acc.querySelector('.help-summary')?.textContent || '').toLowerCase();
+        var visible = summary.includes(q) || text.includes(q);
+        acc.classList.toggle('help-hidden', !visible);
+        if (visible) {
+          anyVisible = true;
+          // Also expand matching sections
+          acc.open = true;
+          // Show sub-accordions that match
+          acc.querySelectorAll('details.help-sub').forEach(function(sub) {
+            var subText = (sub.textContent || '').toLowerCase();
+            sub.classList.toggle('help-hidden', !subText.includes(q));
+            if (subText.includes(q)) sub.open = true;
+          });
+        }
+      });
+    });
+  })();
 </script>
 <script src="settings.js"></script>
 </body>
