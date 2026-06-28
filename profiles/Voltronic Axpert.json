@@ -1,78 +1,25 @@
 {
-  "name": "Voltronic Axpert / MPP Solar (P00\u2011P09)",
+  "name": "Voltronic Axpert / MPP Solar (P00-P09 Modbus)",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "grid_voltage",
-      "address": 170,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Grid Voltage"
-    },
-    {
-      "metric": "grid_frequency",
-      "address": 171,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "Hz",
-      "label": "Grid Frequency"
-    },
-    {
-      "metric": "output_voltage",
-      "address": 172,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Output Voltage"
-    },
-    {
-      "metric": "output_frequency",
-      "address": 173,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "Hz",
-      "label": "Output Frequency"
-    },
-    {
-      "metric": "output_current",
-      "address": 174,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "A",
-      "label": "Output Current"
-    },
-    {
-      "metric": "load_percent",
-      "address": 175,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Load Percent"
-    },
-    {
-      "metric": "battery_voltage",
-      "address": 178,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "battery_soc",
-      "address": 191,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Battery SOC"
-    },
-    {
-      "metric": "inverter_temp",
-      "address": 180,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "\u00b0C",
-      "label": "Inverter Temp"
-    }
+    {"metric": "grid_voltage", "address": 170, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},
+    {"metric": "grid_frequency", "address": 171, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "output_voltage", "address": 172, "type": "uint16", "scale": 0.1, "unit": "V", "label": "AC Output Voltage"},
+    {"metric": "output_frequency", "address": 173, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "AC Output Frequency"},
+    {"metric": "output_va", "address": 174, "type": "uint16", "scale": 1.0, "unit": "VA", "label": "AC Output Apparent Power"},
+    {"metric": "output_power", "address": 175, "type": "uint16", "scale": 1.0, "unit": "W", "label": "AC Output Active Power"},
+    {"metric": "load_percent", "address": 176, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Output Load Percent"},
+    {"metric": "bus_voltage", "address": 177, "type": "uint16", "scale": 0.1, "unit": "V", "label": "DC Bus Voltage"},
+    {"metric": "battery_voltage", "address": 178, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_charge_current", "address": 179, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Battery Charging Current"},
+    {"metric": "battery_capacity", "address": 180, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery Capacity (MKS IV / VM III)"},
+    {"metric": "inverter_temp", "address": 181, "type": "uint16", "scale": 0.1, "unit": "°C", "label": "Inverter Heatsink Temperature"},
+    {"metric": "pv_current", "address": 182, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV Input Current"},
+    {"metric": "pv_voltage", "address": 183, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Input Voltage"},
+    {"metric": "battery_voltage_scc", "address": 184, "type": "uint16", "scale": 0.01, "unit": "V", "label": "Battery Voltage (SCC)"},
+    {"metric": "battery_discharge_current", "address": 185, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Battery Discharge Current"},
+    {"metric": "device_status", "address": 186, "type": "uint16", "scale": 1.0, "unit": "", "label": "Device Status Flags"},
+    {"metric": "battery_soc", "address": 188, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC (MKS II / older)"},
+    {"metric": "pv_power", "address": 70, "type": "uint32", "scale": 1.0, "unit": "W", "label": "PV Input Power"}
   ]
 }
