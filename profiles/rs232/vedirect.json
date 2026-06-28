@@ -9,92 +9,24 @@
     "parity": "none"
   },
   "fields": [
-    {
-      "label": "Battery Voltage",
-      "metric": "battery_voltage",
-      "type": "millivolt",
-      "unit": "V"
-    },
-    {
-      "label": "Battery Current",
-      "metric": "battery_current",
-      "type": "milliamp",
-      "unit": "A"
-    },
-    {
-      "label": "Solar Voltage",
-      "metric": "solar_voltage",
-      "scale": 0.01,
-      "unit": "V"
-    },
-    {
-      "label": "Solar Power",
-      "metric": "solar_power",
-      "scale": 1,
-      "unit": "W"
-    },
-    {
-      "label": "Battery SOC",
-      "metric": "battery_soc",
-      "scale": 0.1,
-      "unit": "%"
-    },
-    {
-      "label": "Battery Temp",
-      "metric": "battery_temp",
-      "scale": 0.1,
-      "unit": "°C"
-    },
-    {
-      "label": "Daily Yield",
-      "metric": "daily_yield",
-      "scale": 0.01,
-      "unit": "kWh"
-    },
-    {
-      "label": "Daily Yield Load",
-      "metric": "daily_yield_load",
-      "scale": 0.01,
-      "unit": "kWh"
-    },
-    {
-      "label": "Total Yield",
-      "metric": "total_yield",
-      "scale": 0.01,
-      "unit": "kWh"
-    },
-    {
-      "label": "Total Yield Load",
-      "metric": "total_yield_load",
-      "scale": 0.01,
-      "unit": "kWh"
-    },
-    {
-      "label": "Day Sequence",
-      "metric": "day_sequence",
-      "scale": 1,
-      "unit": ""
-    },
-    {
-      "label": "MPPT Mode",
-      "metric": "mppt_mode",
-      "scale": 1,
-      "unit": "",
-      "type": "mode"
-    },
-    {
-      "label": "Load State",
-      "metric": "load_state",
-      "scale": 1,
-      "unit": "",
-      "type": "bool"
-    },
-    {
-      "label": "Charge State",
-      "metric": "charge_state",
-      "scale": 1,
-      "unit": "",
-      "type": "mode"
-    }
+    {"label": "V", "metric": "battery_voltage", "type": "millivolt", "unit": "V"},
+    {"label": "I", "metric": "battery_current", "type": "milliamp", "unit": "A"},
+    {"label": "P", "metric": "battery_power", "scale": 1, "unit": "W"},
+    {"label": "VPV", "metric": "solar_voltage", "scale": 0.01, "unit": "V"},
+    {"label": "PPV", "metric": "solar_power", "scale": 1, "unit": "W"},
+    {"label": "SOC", "metric": "battery_soc", "scale": 0.1, "unit": "%"},
+    {"label": "T", "metric": "battery_temp", "scale": 0.01, "unit": "°C"},
+    {"label": "H19", "metric": "daily_yield", "scale": 0.01, "unit": "kWh"},
+    {"label": "H20", "metric": "daily_yield_load", "scale": 0.01, "unit": "kWh"},
+    {"label": "H21", "metric": "total_yield", "scale": 0.01, "unit": "kWh"},
+    {"label": "H22", "metric": "total_yield_load", "scale": 0.01, "unit": "kWh"},
+    {"label": "HSDS", "metric": "day_sequence", "scale": 1, "unit": ""},
+    {"label": "MPPT", "metric": "mppt_mode", "scale": 1, "unit": "", "type": "mode"},
+    {"label": "LOAD", "metric": "load_state", "scale": 1, "unit": "", "type": "bool"},
+    {"label": "CS", "metric": "charge_state", "scale": 1, "unit": "", "type": "mode"},
+    {"label": "ERR", "metric": "error_code", "scale": 1, "unit": ""},
+    {"label": "FW", "metric": "firmware", "scale": 1, "unit": ""},
+    {"label": "H4", "metric": "charge_cycles", "scale": 1, "unit": ""},
+    {"label": "H9", "metric": "seconds_since_full", "scale": 1, "unit": "s"}
   ]
 }
