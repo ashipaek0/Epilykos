@@ -1214,3 +1214,64 @@ button.fetch-btn { background: var(--text-secondary); color: #fff; border: none;
 button.fetch-btn:hover { opacity: 0.9; }
 .test-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
 .backup-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; }
+
+/* ── Help Section Accordions ─────────────────────────── */
+.help-search-wrap { max-width: 500px; }
+.help-search-wrap .help-search { width: 100%; padding: 0.6rem 0.9rem; font-size: 0.9rem; border-radius: 0.5rem; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.help-search-wrap .help-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-alpha, rgba(99,102,241,0.2)); }
+
+details.help-accordion { margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+details.help-accordion[open] { border-color: var(--accent); }
+.help-summary { padding: 0.75rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: var(--surface); user-select: none; display: flex; align-items: center; gap: 0.5rem; }
+.help-summary:hover { background: var(--border); }
+details.help-accordion[open] > .help-summary { background: var(--accent); color: #fff; }
+.help-summary::-webkit-details-marker { display: none; }
+.help-summary::before { content: '▶'; font-size: 0.7em; transition: transform 0.2s; margin-right: 0.25rem; flex-shrink: 0; }
+details.help-accordion[open] > .help-summary::before { transform: rotate(90deg); }
+.help-icon { font-size: 1.1em; flex-shrink: 0; }
+
+.help-body { padding: 0.75rem 1.25rem 1rem; background: var(--bg); }
+.help-body h4 { margin: 1rem 0 0.4rem; font-size: 0.9rem; color: var(--accent); }
+.help-body h4:first-child { margin-top: 0; }
+.help-body p, .help-body ul, .help-body ol { margin: 0.3rem 0 0.6rem; font-size: 0.88em; line-height: 1.55; }
+.help-body ul, .help-body ol { padding-left: 1.5rem; }
+.help-body li { margin-bottom: 0.25rem; }
+
+/* Sub-accordions inside help */
+details.help-sub { margin: 0.4rem 0; border: 1px solid var(--border); border-radius: 0.4rem; overflow: hidden; }
+.help-sub-summary { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.88em; background: var(--surface); font-weight: 500; }
+.help-sub-summary:hover { background: var(--border); }
+.help-sub-summary::-webkit-details-marker { display: none; }
+.help-sub-summary::before { content: '▸'; margin-right: 0.4rem; font-size: 0.75em; }
+details.help-sub[open] > .help-sub-summary::before { content: '▾'; }
+.help-sub-body { padding: 0.5rem 0.75rem 0.6rem 1.5rem; background: var(--bg); font-size: 0.85em; }
+
+/* Badges */
+.help-badge { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 0.25rem; font-size: 0.72em; font-weight: 600; margin-right: 0.4rem; vertical-align: middle; }
+.help-badge.must { background: #dc2626; color: #fff; }
+.help-badge.opt { background: var(--text-secondary); color: #fff; }
+.help-badge.info { background: var(--accent); color: #fff; }
+
+/* Checklist */
+.help-checklist { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.5rem 0; }
+.help-checklist-item { display: flex; align-items: flex-start; gap: 0.3rem; font-size: 0.85em; }
+
+/* Steps */
+.help-steps { display: flex; flex-direction: column; gap: 0.8rem; }
+.help-step { display: flex; gap: 0.75rem; align-items: flex-start; }
+.help-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85em; }
+
+/* Tables */
+.help-table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin: 0.5rem 0 0.75rem; }
+.help-table th { text-align: left; padding: 0.4rem 0.5rem; background: var(--surface); border-bottom: 2px solid var(--border); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; }
+.help-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border); }
+.help-table tr:last-child td { border-bottom: none; }
+.help-table code { font-size: 0.9em; background: var(--surface); padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
+
+/* Links */
+.help-link { color: var(--accent); text-decoration: underline; cursor: pointer; }
+.help-link:hover { opacity: 0.8; }
+
+/* Filtered-out state */
+.help-accordion.help-hidden { display: none; }
+details.help-sub.help-hidden { display: none; }
