@@ -11,3 +11,5 @@ __pycache__/
 .claude/
 # Plan/research docs (not tracked per project convention)
 RS232-*.md
+start-dev.sh
+start-with-pass.js
