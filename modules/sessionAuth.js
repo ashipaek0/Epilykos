@@ -13,7 +13,7 @@ function isAuthenticated(req, res, next) {
   if (req.session && req.session.authenticated) {
     return next();
   }
-  if (req.xhr || req.path.startsWith('/api/')) {
+  if (req.xhr || req.originalUrl.startsWith('/api/')) {
     res.status(401).json({ error: 'Authentication required' });
   } else {
     res.redirect('/login');
