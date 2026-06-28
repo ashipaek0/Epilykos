@@ -1,0 +1,518 @@
+{
+  "name": "Felicity T-REX 5K (Modbus RTU) - P1G01",
+  "defaultUnitId": 1,
+  "registers": [
+    {
+      "metric": "working_mode",
+      "address": 4353,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Working Mode"
+    },
+    {
+      "metric": "fault_code",
+      "address": 4360,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Fault Code"
+    },
+    {
+      "metric": "status_bit",
+      "address": 4498,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Status Bit"
+    },
+    {
+      "metric": "faultflag_lo",
+      "address": 4614,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Faultflag (Lo)"
+    },
+    {
+      "metric": "faultflag_hi",
+      "address": 4615,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "Faultflag (Hi)"
+    },
+    {
+      "metric": "pv1_voltage",
+      "address": 4375,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV1 Voltage"
+    },
+    {
+      "metric": "pv1_current",
+      "address": 4376,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "PV1 Current"
+    },
+    {
+      "metric": "pv1_power",
+      "address": 4377,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "PV1 Power"
+    },
+    {
+      "metric": "pv2_voltage",
+      "address": 4378,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV2 Voltage"
+    },
+    {
+      "metric": "pv2_current",
+      "address": 4379,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "PV2 Current"
+    },
+    {
+      "metric": "pv2_power",
+      "address": 4380,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "PV2 Power"
+    },
+    {
+      "metric": "grid_voltage",
+      "address": 4361,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage"
+    },
+    {
+      "metric": "grid_current",
+      "address": 4362,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Grid Current"
+    },
+    {
+      "metric": "grid_frequency",
+      "address": 4363,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Frequency"
+    },
+    {
+      "metric": "grid_power",
+      "address": 4364,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Grid Power"
+    },
+    {
+      "metric": "total_grid_power",
+      "address": 4392,
+      "type": "int32",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Total Grid Power"
+    },
+    {
+      "metric": "ac_output_voltage",
+      "address": 4369,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Output Voltage"
+    },
+    {
+      "metric": "ac_output_current",
+      "address": 4370,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "AC Output Current"
+    },
+    {
+      "metric": "ac_output_frequency",
+      "address": 4371,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "AC Output Frequency"
+    },
+    {
+      "metric": "ac_output_active_power",
+      "address": 4372,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "AC Output Active Power"
+    },
+    {
+      "metric": "ac_output_apparent_power",
+      "address": 4373,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "VA",
+      "label": "AC Output Apparent Power"
+    },
+    {
+      "metric": "load_percentage",
+      "address": 4374,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "%",
+      "label": "Load Percentage"
+    },
+    {
+      "metric": "total_output_active_power",
+      "address": 4404,
+      "type": "uint32",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Total Output Active Power"
+    },
+    {
+      "metric": "total_output_apparent_power",
+      "address": 4406,
+      "type": "uint32",
+      "scale": 1.0,
+      "unit": "VA",
+      "label": "Total Output Apparent Power"
+    },
+    {
+      "metric": "invert_voltage",
+      "address": 4408,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Invert Voltage"
+    },
+    {
+      "metric": "invert_current",
+      "address": 4409,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Invert Current"
+    },
+    {
+      "metric": "invert_active_power",
+      "address": 4410,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Invert Active Power"
+    },
+    {
+      "metric": "battery_voltage",
+      "address": 4365,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "metric": "battery_current",
+      "address": 4366,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Battery Current"
+    },
+    {
+      "metric": "battery_power",
+      "address": 4367,
+      "type": "int16",
+      "scale": 1.0,
+      "unit": "W",
+      "label": "Battery Power"
+    },
+    {
+      "metric": "battery_soc",
+      "address": 4368,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Battery SOC"
+    },
+    {
+      "metric": "p_bus_voltage_master",
+      "address": 4420,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "P Bus Voltage Master"
+    },
+    {
+      "metric": "n_bus_voltage_master",
+      "address": 4421,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "N Bus Voltage Master"
+    },
+    {
+      "metric": "p_dc_converter_voltage",
+      "address": 4422,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "P DC Converter Voltage"
+    },
+    {
+      "metric": "n_dc_converter_voltage",
+      "address": 4423,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "N DC Converter Voltage"
+    },
+    {
+      "metric": "p_dcdc_current",
+      "address": 4424,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "P Dcdc Current"
+    },
+    {
+      "metric": "n_dcdc_current",
+      "address": 4425,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "N Dcdc Current"
+    },
+    {
+      "metric": "inner_temp_1",
+      "address": 4426,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Inner Temp 1"
+    },
+    {
+      "metric": "inner_temp_2",
+      "address": 4427,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Inner Temp 2"
+    },
+    {
+      "metric": "heatsink_temp_1",
+      "address": 4428,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Heatsink Temp 1"
+    },
+    {
+      "metric": "heatsink_temp_2",
+      "address": 4429,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Heatsink Temp 2"
+    },
+    {
+      "metric": "heatsink_temp_3",
+      "address": 4430,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Heatsink Temp 3"
+    },
+    {
+      "metric": "heatsink_temp_4",
+      "address": 4431,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Heatsink Temp 4"
+    },
+    {
+      "metric": "bms_flag",
+      "address": 4607,
+      "type": "uint16",
+      "scale": 1.0,
+      "unit": "",
+      "label": "BMS Flag"
+    },
+    {
+      "metric": "charge_voltage_limit",
+      "address": 4608,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Charge Voltage Limit"
+    },
+    {
+      "metric": "discharge_voltage_limit",
+      "address": 4609,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Discharge Voltage Limit"
+    },
+    {
+      "metric": "charge_current_limit",
+      "address": 4610,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Charge Current Limit"
+    },
+    {
+      "metric": "discharge_current_limit",
+      "address": 4611,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "label": "Discharge Current Limit"
+    },
+    {
+      "metric": "pv_energy_total",
+      "address": 4438,
+      "type": "uint64",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Total"
+    },
+    {
+      "metric": "load_energy_total",
+      "address": 4448,
+      "type": "uint64",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Load Energy Total"
+    },
+    {
+      "metric": "grid_import_energy_total",
+      "address": 4458,
+      "type": "uint64",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Import Energy Total"
+    },
+    {
+      "metric": "grid_export_energy_total",
+      "address": 4468,
+      "type": "uint64",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Grid Export Energy Total"
+    },
+    {
+      "metric": "battery_charge_energy_total",
+      "address": 4478,
+      "type": "uint64",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Charge Energy Total"
+    },
+    {
+      "metric": "battery_discharge_energy_total",
+      "address": 4488,
+      "type": "uint64",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Discharge Energy Total"
+    },
+    {
+      "metric": "pv_energy_year",
+      "address": 4442,
+      "type": "uint32",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Year"
+    },
+    {
+      "metric": "pv_energy_month",
+      "address": 4444,
+      "type": "uint32",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Month"
+    },
+    {
+      "metric": "pv_energy_day",
+      "address": 4446,
+      "type": "uint32",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "PV Energy Day"
+    },
+    {
+      "metric": "battery_charge_energy_day",
+      "address": 4494,
+      "type": "uint32",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Charge Energy Day"
+    },
+    {
+      "metric": "battery_discharge_energy_day",
+      "address": 4502,
+      "type": "uint32",
+      "scale": 0.001,
+      "unit": "kWh",
+      "label": "Battery Discharge Energy Day"
+    },
+    {
+      "metric": "mcu1_version",
+      "address": 63549,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Mcu1 Version"
+    },
+    {
+      "metric": "mcu2_version",
+      "address": 63550,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Mcu2 Version"
+    },
+    {
+      "metric": "display_hw_version",
+      "address": 63551,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Display Hw Version"
+    },
+    {
+      "metric": "control_hw_version",
+      "address": 63552,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Control Hw Version"
+    },
+    {
+      "metric": "power_hw_version",
+      "address": 63553,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "",
+      "label": "Power Hw Version"
+    }
+  ]
+}

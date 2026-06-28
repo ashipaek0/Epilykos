@@ -1,102 +1,34 @@
 {
-  "name": "Growatt SPF 5000 (Off\u2011Grid)",
+  "name": "Growatt SPF Series (Modbus RTU)",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "solar_voltage",
-      "address": 1,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Solar Voltage"
-    },
-    {
-      "metric": "solar_power",
-      "address": 3,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Solar Power"
-    },
-    {
-      "metric": "battery_voltage",
-      "address": 17,
-      "type": "uint16",
-      "scale": 0.01,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "battery_soc",
-      "address": 18,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Battery SOC"
-    },
-    {
-      "metric": "grid_voltage",
-      "address": 20,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Grid Voltage"
-    },
-    {
-      "metric": "load_power",
-      "address": 9,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Load Power"
-    },
-    {
-      "metric": "load_power",
-      "address": 10,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Load Power"
-    },
-    {
-      "metric": "inverter_temp",
-      "address": 25,
-      "type": "int16",
-      "scale": 0.1,
-      "unit": "\u00b0C",
-      "label": "Inverter Temp"
-    },
-    {
-      "metric": "grid_import_power",
-      "address": 36,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Grid Import Power"
-    },
-    {
-      "metric": "grid_export_power",
-      "address": 38,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Grid Export Power"
-    },
-    {
-      "metric": "battery_charge_power",
-      "address": 13,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Battery Charge Power"
-    },
-    {
-      "metric": "battery_discharge_power",
-      "address": 73,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "W",
-      "label": "Battery Discharge Power"
-    }
+    {"metric": "pv_voltage", "address": 1, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Input Voltage"},
+    {"metric": "pv_current", "address": 2, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV Input Current"},
+    {"metric": "pv_power", "address": 3, "type": "uint16", "scale": 1.0, "unit": "W", "label": "PV Input Power"},
+
+    {"metric": "load_power", "address": 9, "type": "uint32", "scale": 0.1, "unit": "W", "label": "Load Power"},
+    {"metric": "load_percent", "address": 11, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Load Percent"},
+
+    {"metric": "output_voltage", "address": 12, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Output Voltage"},
+    {"metric": "output_frequency", "address": 13, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Output Frequency"},
+    {"metric": "output_current", "address": 23, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Output Current"},
+    {"metric": "output_power_va", "address": 24, "type": "uint16", "scale": 1.0, "unit": "VA", "label": "Output Power (VA)"},
+
+    {"metric": "battery_charge_current", "address": 14, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Battery Charge Current"},
+    {"metric": "battery_voltage", "address": 17, "type": "uint16", "scale": 0.01, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_soc", "address": 18, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "battery_temp", "address": 26, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Battery Temperature"},
+    {"metric": "battery_charge_power", "address": 72, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Battery Charge Power"},
+    {"metric": "battery_discharge_power", "address": 73, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Battery Discharge Power"},
+
+    {"metric": "bus_voltage", "address": 19, "type": "uint16", "scale": 0.1, "unit": "V", "label": "DC Bus Voltage"},
+
+    {"metric": "grid_voltage", "address": 20, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},
+    {"metric": "grid_frequency", "address": 21, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "grid_current", "address": 22, "type": "uint16", "scale": 0.1, "unit": "A", "label": "Grid Current"},
+    {"metric": "grid_import_power", "address": 36, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Grid Import Power"},
+    {"metric": "grid_export_power", "address": 38, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Grid Export Power"},
+
+    {"metric": "inverter_temp", "address": 25, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Inverter Temperature"}
   ]
 }

@@ -2,149 +2,29 @@
   "name": "Luxpower (Modbus RTU RS-485)",
   "defaultUnitId": 1,
   "registers": [
-    {
-      "metric": "pv1_voltage",
-      "address": 1,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "PV1 Voltage"
-    },
-    {
-      "metric": "pv2_voltage",
-      "address": 2,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "PV2 Voltage"
-    },
-    {
-      "metric": "battery_voltage",
-      "address": 4,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Battery Voltage"
-    },
-    {
-      "metric": "battery_soc",
-      "address": 5,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "%",
-      "label": "Battery SOC"
-    },
-    {
-      "metric": "pv1_power",
-      "address": 7,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "PV1 Power"
-    },
-    {
-      "metric": "pv2_power",
-      "address": 8,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "PV2 Power"
-    },
-    {
-      "metric": "battery_charge_power",
-      "address": 10,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Battery Charge Power"
-    },
-    {
-      "metric": "battery_discharge_power",
-      "address": 11,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Battery Discharge Power"
-    },
-    {
-      "metric": "grid_voltage",
-      "address": 12,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "Grid Voltage"
-    },
-    {
-      "metric": "grid_frequency",
-      "address": 15,
-      "type": "uint16",
-      "scale": 0.01,
-      "unit": "Hz",
-      "label": "Grid Frequency"
-    },
-    {
-      "metric": "ac_charge_power",
-      "address": 17,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "AC Charge Power"
-    },
-    {
-      "metric": "eps_voltage",
-      "address": 20,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "V",
-      "label": "EPS Voltage"
-    },
-    {
-      "metric": "eps_power",
-      "address": 24,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "EPS Power"
-    },
-    {
-      "metric": "grid_power",
-      "address": 27,
-      "type": "uint16",
-      "scale": 1.0,
-      "unit": "W",
-      "label": "Grid Power"
-    },
-    {
-      "metric": "pv1_today_energy",
-      "address": 28,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "PV1 Today Energy"
-    },
-    {
-      "metric": "pv2_today_energy",
-      "address": 29,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "PV2 Today Energy"
-    },
-    {
-      "metric": "battery_charge_today",
-      "address": 33,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "Battery Charge Today"
-    },
-    {
-      "metric": "battery_discharge_today",
-      "address": 34,
-      "type": "uint16",
-      "scale": 0.1,
-      "unit": "kWh",
-      "label": "Battery Discharge Today"
-    }
+    {"metric": "pv1_voltage", "address": 1, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV1 Voltage"},
+    {"metric": "pv2_voltage", "address": 2, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV2 Voltage"},
+    {"metric": "pv1_current", "address": 3, "type": "uint16", "scale": 0.1, "unit": "A", "label": "PV1 Current"},
+    {"metric": "battery_voltage", "address": 4, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Battery Voltage"},
+    {"metric": "battery_soc", "address": 5, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},
+    {"metric": "battery_current", "address": 6, "type": "int16", "scale": 0.1, "unit": "A", "label": "Battery Current"},
+    {"metric": "pv1_power", "address": 7, "type": "uint16", "scale": 1.0, "unit": "W", "label": "PV1 Power"},
+    {"metric": "pv2_power", "address": 8, "type": "uint16", "scale": 1.0, "unit": "W", "label": "PV2 Power"},
+    {"metric": "battery_charge_power", "address": 10, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Battery Charge Power"},
+    {"metric": "battery_discharge_power", "address": 11, "type": "uint16", "scale": 1.0, "unit": "W", "label": "Battery Discharge Power"},
+    {"metric": "grid_voltage", "address": 12, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},
+    {"metric": "grid_frequency", "address": 15, "type": "uint16", "scale": 0.01, "unit": "Hz", "label": "Grid Frequency"},
+    {"metric": "ac_charge_power", "address": 17, "type": "uint16", "scale": 1.0, "unit": "W", "label": "AC Charge Power"},
+    {"metric": "eps_voltage", "address": 20, "type": "uint16", "scale": 0.1, "unit": "V", "label": "EPS Voltage"},
+    {"metric": "eps_power", "address": 24, "type": "uint16", "scale": 1.0, "unit": "W", "label": "EPS Power"},
+    {"metric": "grid_power", "address": 27, "type": "int16", "scale": 1.0, "unit": "W", "label": "Grid Power"},
+    {"metric": "pv1_today_energy", "address": 28, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "PV1 Today Energy"},
+    {"metric": "pv2_today_energy", "address": 29, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "PV2 Today Energy"},
+    {"metric": "battery_charge_today", "address": 33, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Battery Charge Today"},
+    {"metric": "battery_discharge_today", "address": 34, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Battery Discharge Today"},
+    {"metric": "inverter_temp", "address": 35, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Inverter Temperature"},
+    {"metric": "pv_total_energy", "address": 36, "type": "uint32", "scale": 0.1, "unit": "kWh", "label": "PV Total Energy"},
+    {"metric": "grid_import_today", "address": 40, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Grid Import Today"},
+    {"metric": "grid_export_today", "address": 41, "type": "uint16", "scale": 0.1, "unit": "kWh", "label": "Grid Export Today"}
   ]
 }

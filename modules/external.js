@@ -25,7 +25,8 @@ async function pollExternalSources() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const now = Math.floor(Date.now() / 1000);
-      for (const [jsonPath, metric] of Object.entries(source.mappings || {})) {
+      // Mappings: { metricName → jsonPath } — iterate by metric name
+      for (const [metric, jsonPath] of Object.entries(source.mappings || {})) {
         let value = getValueByPath(data, jsonPath);
         if (value === undefined) continue;
         value = parseFloat(value);
