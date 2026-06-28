@@ -851,6 +851,137 @@ function renderModbusMappings(profileId, mappings, container) {
     container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load register details</div>';
   });
 }
+
+// ── RS232 Field Mapping Helpers ────────────────────────────────────────
+
+async function loadRs232Mappings(profileId, deviceIdx, container) {
+  container.innerHTML = '';
+  container.innerHTML = '<div class="note">Loading profile fields...</div>';
+  try {
+    const res = await fetch(`/api/rs232/profile/${encodeURIComponent(profileId)}`);
+    if (!res.ok) {
+      container.innerHTML = '<div class="note" style="color:var(--error);">Profile not found</div>';
+      return;
+    }
+    const profile = await res.json();
+    const mappings = {};
+
+    // Query/response profiles: fields nested inside commands[]
+    if (profile.commands && profile.commands.length > 0) {
+      for (const cmd of profile.commands) {
+        for (const field of (cmd.fields || [])) {
+          const key = `${cmd.name}:${field.index}`;
+          mappings[key] = field.metric || '';
+        }
+      }
+    }
+
+    // Streaming profiles (VE.Direct): fields at profile level, keyed by label
+    if (profile.fields && profile.fields.length > 0 && !profile.commands) {
+      for (const field of profile.fields) {
+        const key = field.label;
+        const metricName = field.metric_prefix
+          ? `${field.metric_prefix}_${field.metric}`
+          : field.metric;
+        mappings[key] = metricName || '';
+      }
+    }
+
+    renderRs232Mappings(profileId, mappings, container);
+  } catch (e) {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load RS232 profile</div>';
+  }
+}
+
+function renderRs232Mappings(profileId, savedMappings, container) {
+  container.innerHTML = '';
+  if (!savedMappings || Object.keys(savedMappings).length === 0) {
+    container.innerHTML = '<div class="note">No fields in this profile.</div>';
+    return;
+  }
+
+  // Fetch profile to get field details (label, scale, unit)
+  fetch(`/api/rs232/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
+    // Build reverse lookup: key → field info
+    const fieldMap = {};
+
+    if (profile.commands && profile.commands.length > 0) {
+      for (const cmd of profile.commands) {
+        for (const field of (cmd.fields || [])) {
+          const key = `${cmd.name}:${field.index}`;
+          fieldMap[key] = { label: field.label, scale: field.scale, unit: field.unit, cmdName: cmd.name };
+        }
+      }
+    }
+
+    if (profile.fields && profile.fields.length > 0 && !profile.commands) {
+      for (const field of profile.fields) {
+        const key = field.label;
+        fieldMap[key] = { label: field.label, scale: field.scale, unit: field.unit, type: field.type };
+      }
+    }
+
+    // Sort keys: query profiles by cmd then index, streaming by label
+    const sortedKeys = Object.keys(savedMappings).sort((a, b) => {
+      const aCmd = a.includes(':') ? a.split(':')[0] : '';
+      const bCmd = b.includes(':') ? b.split(':')[0] : '';
+      if (aCmd !== bCmd) return aCmd.localeCompare(bCmd);
+      const aIdx = a.includes(':') ? parseInt(a.split(':')[1]) : 0;
+      const bIdx = b.includes(':') ? parseInt(b.split(':')[1]) : 0;
+      return aIdx - bIdx;
+    });
+
+    sortedKeys.forEach(key => {
+      const info = fieldMap[key];
+      const metricName = savedMappings[key] || '';
+      const label = info ? info.label : key;
+      const typeInfo = info
+        ? (info.type ? `[${info.type}, scale=${info.scale ?? 1}, ${info.unit || ''}]` : `[scale=${info.scale ?? 1}, ${info.unit || ''}]`)
+        : '';
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+      row.dataset.address = key;
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'register-desc';
+      descSpan.textContent = `${label} (Key: ${key}) ${typeInfo}`;
+      descSpan.style.flex = '1';
+      descSpan.style.fontSize = '0.85em';
+      descSpan.style.overflow = 'hidden';
+      descSpan.style.textOverflow = 'ellipsis';
+      descSpan.style.whiteSpace = 'nowrap';
+
+      const metricSelect = createMetricDropdown(
+        metricName,
+        getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []
+      );
+      metricSelect.className = 'metric-name';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn remove-metric';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      metricSelect.addEventListener('change', () => {
+        if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      });
+
+      row.appendChild(descSpan);
+      row.appendChild(metricSelect);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+
+    if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+  }).catch(() => {
+    container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load RS232 field details</div>';
+  });
+}
+
 let rs232DeviceCounter = 0;
 let availableRs232Ports = [];
 
