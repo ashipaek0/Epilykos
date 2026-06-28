@@ -1,5 +1,5 @@
 {
-  "name": "Growatt SPF 5000 ES (Modbus RTU)",
+  "name": "Growatt SPF Series (Modbus RTU)",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "pv_voltage", "address": 1, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Input Voltage"},
