@@ -153,7 +153,7 @@ export function setupBackgroundSync() {
   });
 
   // Register periodic background sync if supported
-  if ('periodicSync' in self.registration) {
+  if (self.registration && 'periodicSync' in self.registration) {
     self.registration.periodicSync.register('refresh-metrics', {
       minInterval: 1 * 60 * 1000 // 1 minute
     }).then(() => {
