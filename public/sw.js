@@ -59,13 +59,20 @@ self.addEventListener('message', event => {
 // ── Fetch: route API calls through fastest available URL ───────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  
+
   // Only intercept API calls and same-origin requests
   const isSameOrigin = url.origin === self.location.origin;
   const isAPI = url.pathname.startsWith('/api/');
+
+  // IMPORTANT: Never intercept WebSocket connections — service workers
+  // cannot proxy WebSocket upgrades via fetch(). Attempting to do so
+  // immediately closes the connection (browser throws "WebSocket is closed
+  // before the connection is established"). WebSocket URLs must always
+  // pass through to the browser's native WebSocket stack.
   const isWS = url.pathname === '/ws';
-  
-  if (isSameOrigin && (isAPI || isWS) && localURL) {
+  if (isWS) return; // pass through — browser handles WebSocket natively
+
+  if (isSameOrigin && isAPI && localURL) {
     event.respondWith(tryLocalThenRemote(event.request, url));
     return;
   }
