@@ -1,9 +1,49 @@
 import { initTheme, toggleTheme } from './theme.js';
 import { loadDashboardConfig } from './dashboard.js';
 import { updateWithState } from './updater.js';
+import { connectWebSocket, loadInitialState, setupBackgroundSync } from './ws-manager.js';
 
-let ws = null;
-let reconnectTimer = null;
+// ── PWA Install prompt handler ────────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent the browser's default mini-infobar
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  deferredInstallPrompt = e;
+
+  // Show a custom install button in the top bar
+  const btn = document.createElement('button');
+  btn.id = 'pwa-install-btn';
+  btn.textContent = '⬇ Install';
+  btn.style.cssText = `
+    background: #3b82f6; color: white; border: none;
+    border-radius: 0.5rem; padding: 0.4rem 0.75rem;
+    font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap;
+  `;
+  btn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log(`[PWA] Install prompt: ${outcome}`);
+    deferredInstallPrompt = null;
+    btn.remove();
+  });
+
+  // Insert next to theme toggle
+  const toggle = document.getElementById('theme-toggle');
+  if (toggle?.parentNode) {
+    toggle.parentNode.insertBefore(btn, toggle);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] App installed successfully');
+  deferredInstallPrompt = null;
+  document.getElementById('pwa-install-btn')?.remove();
+});
+
 let configLoadAttempts = 0;
 const MAX_CONFIG_ATTEMPTS = 3;
 
@@ -11,18 +51,36 @@ async function loadConfigWithRetry() {
   try {
     await loadDashboardConfig();
     console.log('Dashboard config loaded successfully');
-    // Proceed with WebSocket and polling
-    connectWebSocket();
+
+    // 1. Load cached state instantly (from IndexedDB) — zero wait
+    const cached = await loadInitialState();
+    if (cached) {
+      console.log('Applying cached state from IndexedDB');
+      updateWithState(cached);
+    }
+
+    // 2. Connect WebSocket (with auto-reconnect and background handling)
+    connectWebSocket({
+      onMessage: (state) => updateWithState(state),
+      onOpen: async () => {
+        // Fetch fresh API data on connect
+        const { updateAllComponents } = await import('./updater.js');
+        updateAllComponents();
+      }
+    });
+
+    // 3. Setup background sync (SW periodic + visibility change)
+    setupBackgroundSync();
+
+    // 4. Fallback poll every 60s
     setInterval(async () => {
       const { updateAllComponents } = await import('./updater.js');
       updateAllComponents();
-      console.log('Fallback poll executed');
     }, 60000);
   } catch (err) {
     console.error(`Failed to load dashboard config (attempt ${configLoadAttempts + 1}/${MAX_CONFIG_ATTEMPTS}):`, err);
     configLoadAttempts++;
     if (configLoadAttempts < MAX_CONFIG_ATTEMPTS) {
-      // Retry after 2 seconds
       setTimeout(loadConfigWithRetry, 2000);
     } else {
       const container = document.getElementById('dashboard-container');
@@ -31,39 +89,6 @@ async function loadConfigWithRetry() {
       }
     }
   }
-}
-
-function connectWebSocket() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
-  ws = new WebSocket(wsUrl);
-
-  ws.onopen = () => {
-    console.log('WebSocket connected');
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    // Immediately fetch initial state since WebSocket push may take up to 30s
-    import('./updater.js').then(m => m.updateAllComponents());
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data);
-      if (message.type === 'dashboard-state') {
-        updateWithState(message.data);
-      }
-    } catch (err) {
-      console.error('WebSocket message error:', err);
-    }
-  };
-
-  ws.onerror = (err) => {
-    console.error('WebSocket error:', err);
-  };
-
-  ws.onclose = () => {
-    console.log('WebSocket disconnected, will reconnect');
-    reconnectTimer = setTimeout(connectWebSocket, 5000);
-  };
 }
 
 // Show loading indicator
