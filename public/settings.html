@@ -55,6 +55,7 @@
       <li><button class="stg-nav-btn" data-section="savings"><span class="stg-nav-icon">💰</span> Savings</button></li>
       <li><button class="stg-nav-btn" data-section="backup"><span class="stg-nav-icon">💾</span> Backup</button></li>
       <li><button class="stg-nav-btn" data-section="branding"><span class="stg-nav-icon">🎨</span> Branding</button></li>
+      <li><button class="stg-nav-btn" data-section="network"><span class="stg-nav-icon">🌐</span> Network</button></li>
       <li><button class="stg-nav-btn" data-section="help"><span class="stg-nav-icon">❓</span> Help</button></li>
     </ul>
     <div class="stg-sidebar-footer">
@@ -242,6 +243,25 @@
           <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
           <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
           <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
+        </div>
+      </section>
+
+      <section class="stg-section" id="stg-section-network">
+        <div class="stg-section-header"><h2>Network</h2><p>Configure LAN and remote URLs for auto-switching</p></div>
+        <div class="stg-card">
+          <div class="stg-form-group">
+            <label for="network-local-url">Local URL (LAN / WiFi)</label>
+            <input id="network-local-url" class="stg-input" name="network_local_url" placeholder="http://192.168.1.100:8095">
+            <span class="note">Used when your device is on the same home network. Direct, fast, no internet needed.</span>
+          </div>
+          <div class="stg-form-group">
+            <label for="network-remote-url">Remote URL (Internet)</label>
+            <input id="network-remote-url" class="stg-input" name="network_remote_url" placeholder="https://sapasolar.ashipaek0.com.ng">
+            <span class="note">Used when away from home. Routed through Cloudflare and reverse proxy.</span>
+          </div>
+          <div class="note" style="margin-top:1rem; background:var(--accent-light, #1e3a5f); padding:0.75rem; border-radius:0.5rem;">
+            💡 <strong>How it works:</strong> The PWA detects which network you're on and routes API calls through the fastest URL automatically. Save these settings, then install Epilykos to your home screen for the full app experience.
+          </div>
         </div>
       </section>
 

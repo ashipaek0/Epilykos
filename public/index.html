@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Epilykos – Energy Monitor</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="/manifest.json">
+  
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css"></noscript>
@@ -11,6 +18,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <!-- CSRF protection -->
   <script defer src="js/csrf.js"></script>
+  <!-- Network detection (sends URLs to Service Worker) -->
+  <script defer src="js/network-detect.js"></script>
 </head>
 <body>
   <div class="container">
@@ -34,6 +43,15 @@
     <!-- Screen-reader announcements for live data updates -->
     <div id="aria-live-region" class="sr-only" aria-live="polite" role="status"></div>
   </div>
+
+  <!-- Service Worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+        .catch(err => console.warn('[PWA] SW registration failed:', err));
+    }
+  </script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
