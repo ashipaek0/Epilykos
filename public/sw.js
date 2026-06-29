@@ -10,7 +10,7 @@
  *   navigator.serviceWorker.controller.postMessage({ type: 'network-config', localURL, remoteURL })
  */
 
-const CACHE_NAME = 'epilykos-v2';
+const CACHE_NAME = 'epilykos-v3';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
@@ -90,7 +90,9 @@ self.addEventListener('fetch', event => {
 // ── Routing strategy ──────────────────────────────────────────────────
 async function tryLocalThenRemote(request, url) {
   // Try local first (2s timeout — LAN is fast)
-  if (localURL) {
+  // Mixed content: HTTPS pages can't fetch HTTP resources
+  const isHTTPS = self.location.protocol === 'https:';
+  if (localURL && (!isHTTPS || localURL.startsWith('https://'))) {
     const localReq = new Request(request, {
       url: `${localURL}${url.pathname}${url.search}`
     });
@@ -167,14 +169,18 @@ async function refreshMetrics() {
 }
 
 async function resolveBaseURL() {
-  // Try local first
+  // Try local first — but skip if HTTPS page can't reach HTTP local
+  const isHTTPS = self.location.protocol === 'https:';
   if (localURL) {
-    try {
-      const res = await fetch(`${localURL}/manifest.json`, {
-        signal: AbortSignal.timeout(2000)
-      });
-      if (res.ok) return localURL;
-    } catch (e) { /* unreachable */ }
+    // Mixed content: HTTPS pages can't fetch HTTP resources
+    if (!isHTTPS || localURL.startsWith('https://')) {
+      try {
+        const res = await fetch(`${localURL}/manifest.json`, {
+          signal: AbortSignal.timeout(2000)
+        });
+        if (res.ok) return localURL;
+      } catch (e) { /* unreachable */ }
+    }
   }
   return remoteURL || self.location.origin;
 }
