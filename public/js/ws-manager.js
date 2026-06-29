@@ -155,7 +155,7 @@ export function setupBackgroundSync() {
   // Register periodic background sync if supported
   if ('periodicSync' in self.registration) {
     self.registration.periodicSync.register('refresh-metrics', {
-      minInterval: 5 * 60 * 1000 // 5 minutes
+      minInterval: 1 * 60 * 1000 // 1 minute
     }).then(() => {
       console.log('[WSManager] Periodic background sync registered');
     }).catch(err => {
