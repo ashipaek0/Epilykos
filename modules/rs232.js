@@ -507,14 +507,19 @@ async function testRs232Connection(device) {
 }
 
 async function getAvailablePorts() {
-  const ports = await SerialPort.list();
-  return ports.map(p => ({
-    path: p.path,
-    manufacturer: p.manufacturer || 'Unknown',
-    vendorId: p.vendorId || '',
-    productId: p.productId || '',
-    friendlyName: `[${p.path}] ${p.manufacturer || 'Unknown adapter'}`,
-  }));
+  try {
+    const ports = await SerialPort.list();
+    return ports.map(p => ({
+      path: p.path,
+      manufacturer: p.manufacturer || 'Unknown',
+      vendorId: p.vendorId || '',
+      productId: p.productId || '',
+      friendlyName: `[${p.path}] ${p.manufacturer || 'Unknown adapter'}`,
+    }));
+  } catch (err) {
+    logger.warn(`RS232 port scan failed (udevadm missing?): ${err.message}`);
+    return [];
+  }
 }
 
 // ── Graceful Shutdown ───────────────────────────────────────────────────

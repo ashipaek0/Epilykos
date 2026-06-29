@@ -1133,6 +1133,13 @@ app.get('/editor', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'editor.html'));
 });
 
+// ---------- Network config (public, read-only) ----------
+app.get('/api/network-config', (req, res) => {
+  const localURL = getConfig('network_local_url') || '';
+  const remoteURL = getConfig('network_remote_url') || '';
+  res.json({ localURL, remoteURL });
+});
+
 // ---------- Settings page (protected) ----------
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
