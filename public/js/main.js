@@ -3,6 +3,47 @@ import { loadDashboardConfig } from './dashboard.js';
 import { updateWithState } from './updater.js';
 import { connectWebSocket, loadInitialState, setupBackgroundSync } from './ws-manager.js';
 
+// ── PWA Install prompt handler ────────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent the browser's default mini-infobar
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  deferredInstallPrompt = e;
+
+  // Show a custom install button in the top bar
+  const btn = document.createElement('button');
+  btn.id = 'pwa-install-btn';
+  btn.textContent = '⬇ Install';
+  btn.style.cssText = `
+    background: #3b82f6; color: white; border: none;
+    border-radius: 0.5rem; padding: 0.4rem 0.75rem;
+    font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap;
+  `;
+  btn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log(`[PWA] Install prompt: ${outcome}`);
+    deferredInstallPrompt = null;
+    btn.remove();
+  });
+
+  // Insert next to theme toggle
+  const toggle = document.getElementById('theme-toggle');
+  if (toggle?.parentNode) {
+    toggle.parentNode.insertBefore(btn, toggle);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] App installed successfully');
+  deferredInstallPrompt = null;
+  document.getElementById('pwa-install-btn')?.remove();
+});
+
 let configLoadAttempts = 0;
 const MAX_CONFIG_ATTEMPTS = 3;
 
