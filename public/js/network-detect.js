@@ -47,12 +47,16 @@ async function loadNetworkConfig() {
 // ── Network indicator on dashboard ───────────────────────────────────
 async function checkLocalReachable(localURL) {
   if (!localURL) return false;
+  // Mixed content: HTTPS pages can't fetch HTTP resources
+  if (window.location.protocol === 'https:' && localURL.startsWith('http://')) {
+    return false;
+  }
   try {
     const controller = new AbortController();
     setTimeout(() => controller.abort(), 2000);
     const res = await fetch(`${localURL}/manifest.json`, {
       signal: controller.signal,
-      mode: 'no-cors' // Avoid CORS issues
+      mode: 'no-cors'
     });
     return true;
   } catch {
