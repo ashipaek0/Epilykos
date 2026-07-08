@@ -2660,9 +2660,12 @@ function renderDashboardBlockEditor(dashboard) {
     card.querySelector('.block-bg-color').addEventListener('change', (e) => {
       dashboard.layout[idx].bgColor = e.target.value;
     });
-    card.querySelector('.block-inner-bg-color').addEventListener('change', (e) => {
-      dashboard.layout[idx].innerBgColor = e.target.value;
-    });
+    const innerBgInput = card.querySelector('.block-inner-bg-color');
+    if (innerBgInput) {
+      innerBgInput.addEventListener('change', (e) => {
+        dashboard.layout[idx].innerBgColor = e.target.value;
+      });
+    }
     card.querySelector('.block-transparent').addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;
     });
