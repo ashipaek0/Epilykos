@@ -1275,3 +1275,69 @@ details.help-sub[open] > .help-sub-summary::before { content: '▾'; }
 /* Filtered-out state */
 .help-accordion.help-hidden { display: none; }
 details.help-sub.help-hidden { display: none; }
+
+/* ── Orientation: Landscape on phones ────────────────────────────────── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .container {
+    padding: 0.35rem;
+  }
+
+  header {
+    padding: 0.4rem 0.5rem;
+    min-height: auto;
+  }
+
+  header h1 {
+    font-size: 1rem;
+  }
+
+  #dashboard-container {
+    gap: 0.35rem;
+  }
+
+  .dashboard-block {
+    padding: 0.4rem;
+    min-height: auto;
+  }
+
+  .dashboard-block .block-title {
+    font-size: 0.7rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .block-value {
+    font-size: 1.2rem;
+  }
+
+  .block-unit {
+    font-size: 0.65rem;
+  }
+
+  .flow-card {
+    padding: 0.5rem;
+    gap: 0.3rem;
+  }
+
+  .flow-card .flow-number {
+    font-size: 1rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.1rem;
+  }
+
+  /* Use 2-column grid in landscape */
+  #dashboard-container {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  /* Shorter chart canvases */
+  canvas {
+    max-height: 180px !important;
+  }
+
+  /* Compact the topo/flow diagrams */
+  .topo-center .flow-number {
+    font-size: 1.4rem;
+  }
+}
