@@ -1578,11 +1578,27 @@ async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
       return;
     }
     const profile = await res.json();
+
+    // Auto-create any profile metrics not yet in the system
+    if (profile.metrics && allMetrics) {
+      const existingNames = new Set(allMetrics.map(m => m.name));
+      for (const m of profile.metrics) {
+        if (m.name && !existingNames.has(m.name)) {
+          await fetch('/api/metrics/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: m.name, unit: m.unit || '' })
+          }).catch(() => {});
+        }
+      }
+      await refreshAllMetricDropdowns();
+    }
+
     const mappings = {};
-    // metrics[] (Solarman/Modbus TCP) — key = register hex string, flipped: metricName → register
+    // metrics[] — key = register (Modbus) or field (TCP), flipped: metricName → key
     if (profile.metrics) {
       profile.metrics.forEach(m => {
-        if (m.name) mappings[m.name] = m.register;
+        if (m.name) mappings[m.name] = m.register || m.field || '';
       });
     }
     // fields[] (Felicity TCP) — key = path, flipped: metricName → path
@@ -1605,27 +1621,39 @@ function renderDongleMappings(profileId, mappings, container) {
   }
   // Fetch profile for labels
   fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
-    // Build lookup maps for labels
-    const regMap = {};   // keyed by register hex string
-    const fieldMap = {}; // keyed by path
+    // Build lookup maps: key → label, key → type (register|field)
+    const labelMap = {};   // keyed by register or field string
+    const typeMap = {};    // key → 'register' or 'field'
     if (profile.metrics) {
       profile.metrics.forEach(m => {
-        regMap[m.register] = m.label || m.name;
+        const key = m.register || m.field;
+        if (key) {
+          labelMap[key] = m.label || m.name;
+          typeMap[key] = m.register ? 'register' : 'field';
+        }
       });
     }
     if (profile.fields) {
       profile.fields.forEach(f => {
-        fieldMap[f.path] = f.label || f.name;
+        if (f.path) {
+          labelMap[f.path] = f.label || f.name;
+          typeMap[f.path] = 'field';
+        }
       });
     }
 
     Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([metricName, key]) => {
-      let label = regMap[key] || fieldMap[key] || key;
+      const label = labelMap[key] || key || metricName;
+      const type = typeMap[key];
       let desc;
-      if (regMap[key] !== undefined) {
+      if (key && type === 'field') {
+        desc = `${label} (Field: ${key})`;
+      } else if (key && type === 'register') {
         desc = `${label} (Register ${key})`;
-      } else {
+      } else if (key) {
         desc = `${label} (${key})`;
+      } else {
+        desc = label; // empty key = field-based, just show label
       }
       const row = document.createElement('div');
       row.className = 'metric-row';
