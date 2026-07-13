@@ -2645,37 +2645,54 @@ function renderDashboardBlockEditor(dashboard) {
       }
       card.appendChild(configPanel);
     });
-    card.querySelector('.block-type-select').addEventListener('change', (e) => {
+    // --- block type ---
+    const typeSelect = card.querySelector('.block-type-select');
+    if (typeSelect) typeSelect.addEventListener('change', (e) => {
       const newType = e.target.value;
       dashboard.layout[idx].type = newType;
       if (newType === 'metric-cards' && !dashboard.layout[idx].cards) dashboard.layout[idx].cards = [];
       renderDashboardBlockEditor(dashboard);
     });
-    card.querySelector('.block-width-select').addEventListener('change', (e) => {
+    // --- block width ---
+    const widthSelect = card.querySelector('.block-width-select');
+    if (widthSelect) widthSelect.addEventListener('change', (e) => {
       dashboard.layout[idx].colSpan = parseInt(e.target.value);
     });
-    card.querySelector('.block-height-select').addEventListener('change', (e) => {
+    // --- block height ---
+    const heightSelect = card.querySelector('.block-height-select');
+    if (heightSelect) heightSelect.addEventListener('change', (e) => {
       dashboard.layout[idx].rowSpan = parseInt(e.target.value) || 0;
     });
-    card.querySelector('.block-bg-color').addEventListener('change', (e) => {
+    // --- block bg color ---
+    const bgColorInput = card.querySelector('.block-bg-color');
+    if (bgColorInput) bgColorInput.addEventListener('change', (e) => {
       dashboard.layout[idx].bgColor = e.target.value;
     });
+    // --- block inner bg color ---
     const innerBgInput = card.querySelector('.block-inner-bg-color');
     if (innerBgInput) {
       innerBgInput.addEventListener('change', (e) => {
         dashboard.layout[idx].innerBgColor = e.target.value;
       });
     }
-    card.querySelector('.block-transparent').addEventListener('change', (e) => {
+    // --- block transparent ---
+    const transparentCheck = card.querySelector('.block-transparent');
+    if (transparentCheck) transparentCheck.addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;
     });
-    card.querySelector('.block-font-color').addEventListener('change', (e) => {
+    // --- block font color ---
+    const fontColorInput = card.querySelector('.block-font-color');
+    if (fontColorInput) fontColorInput.addEventListener('change', (e) => {
       dashboard.layout[idx].fontColor = e.target.value;
     });
-    card.querySelector('.block-font-size').addEventListener('change', (e) => {
+    // --- block font size ---
+    const fontSizeInput = card.querySelector('.block-font-size');
+    if (fontSizeInput) fontSizeInput.addEventListener('change', (e) => {
       dashboard.layout[idx].fontSize = e.target.value || '';
     });
-    card.querySelector('.delete-block').addEventListener('click', () => {
+    // --- delete block ---
+    const deleteBtn = card.querySelector('.delete-block');
+    if (deleteBtn) deleteBtn.addEventListener('click', () => {
       if (!confirm('Remove this block from the dashboard?')) return;
       dashboard.layout.splice(idx, 1);
       renderDashboardBlockEditor(dashboard);
