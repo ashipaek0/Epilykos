@@ -1188,30 +1188,29 @@ function renderExternalSource(source, idx) {
   card.dataset.index = idx;
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="external_sources[${idx}][name]" placeholder="Source Name" value="${escapeHtml(source.name || '')}" style="flex:1;">
+      <input type="text" name="external_sources[${idx}][name]" placeholder="Source Name (e.g., WeatherAPI)" value="${escapeHtml(source.name || '')}" style="flex:1;">
       <label><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}> Enabled</label>
       <button type="button" class="remove-btn danger" data-action="remove-external">Remove</button>
     </div>
-    <div class="stg-section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🌐</span> Endpoint</div>
     <div class="form-row">
-      <input type="text" name="external_sources[${idx}][url]" placeholder="URL" value="${escapeHtml(source.url || '')}">
+      <input type="text" name="external_sources[${idx}][url]" placeholder="https://api.example.com/v1/data?key=..." value="${escapeHtml(source.url || '')}" style="font-family:monospace;font-size:0.82em;">
     </div>
-    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Mappings <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— for each row: pick a metric, then enter the JSON path in the response to extract its value</span></div>
     <div class="mappings-section">
-      <div class="note" style="margin-bottom:0.5rem;">JSON path → metric name</div>
-      <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="external-mappings-list-${idx}">
+      <div class="mappings-filter-bar" style="display:flex;gap:0.5rem;align-items:center;">
+        <span style="font-size:0.75em;color:var(--text-muted);white-space:nowrap;">Metric</span>
+        <span style="flex:1;font-size:0.75em;color:var(--text-muted);">JSON path in response</span>
+        <span style="width:60px;"></span>
       </div>
       <div class="mappings-list" id="external-mappings-list-${idx}"></div>
-      <div class="mappings-pagination" id="external-mappings-more-${idx}" style="display:none;">
-        <button type="button" class="fetch-btn mappings-show-more" data-container="external-mappings-list-${idx}" data-page="1">Show more (5+)</button>
-      </div>
       <button type="button" class="fetch-btn add-external-metric" data-device="${idx}">+ Add Mapping</button>
-      <div class="test-row" style="margin-top:0.5rem;">
-        <input type="text" class="test-jsonpath" placeholder="JSON path to test (e.g., data.temperature)">
-        <button type="button" class="fetch-btn test-external">Test</button>
-        <span class="test-status" id="external-test-status-${idx}"></span>
-      </div>
+    </div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🧪</span> Test Path <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— enter a JSON path and test it against the URL above</span></div>
+    <div class="test-row" style="display:flex;gap:0.5rem;align-items:center;margin-top:0.3rem;">
+      <input type="text" class="test-jsonpath" placeholder="e.g. current.temp_c" style="flex:1;font-family:monospace;font-size:0.85em;">
+      <button type="button" class="fetch-btn test-external" style="white-space:nowrap;">Test Path</button>
+      <span class="test-status" id="external-test-status-${idx}"></span>
     </div>
   `;
   container.appendChild(card);
@@ -1240,8 +1239,18 @@ function renderExternalSource(source, idx) {
     try {
       const res = await fetch('/api/test-external', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, jsonPath }) });
       const data = await res.json();
-      if (res.ok) showStatus(testStatus, `Value: ${data.value}`, 'success');
-      else showStatus(testStatus, data.error, 'error');
+      if (res.ok) {
+        const val = data.value;
+        const isObj = typeof val === 'object' && val !== null;
+        if (isObj) {
+          const keys = Object.keys(val).slice(0, 5).join(', ');
+          showStatus(testStatus, `Path resolves to an object. Drill deeper — try adding .${keys.split(',')[0]} to your path`, 'warn');
+        } else {
+          showStatus(testStatus, `${jsonPath || '(root)'} = ${val}`, 'success');
+        }
+      } else {
+        showStatus(testStatus, data.error, 'error');
+      }
     } catch (err) {
       showStatus(testStatus, err.message, 'error');
     }
@@ -1262,7 +1271,7 @@ function addExternalMetricRow(deviceIdx, container, metric = '', jsonPath = '', 
   const jsonPathInput = document.createElement('input');
   jsonPathInput.type = 'text';
   jsonPathInput.className = 'jsonpath';
-  jsonPathInput.placeholder = 'JSON path (e.g., data.temperature)';
+  jsonPathInput.placeholder = 'e.g. current.temp_c';
   jsonPathInput.value = jsonPath;
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -1578,11 +1587,27 @@ async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
       return;
     }
     const profile = await res.json();
+
+    // Auto-create any profile metrics not yet in the system
+    if (profile.metrics && allMetrics) {
+      const existingNames = new Set(allMetrics.map(m => m.name));
+      for (const m of profile.metrics) {
+        if (m.name && !existingNames.has(m.name)) {
+          await fetch('/api/metrics/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: m.name, unit: m.unit || '' })
+          }).catch(() => {});
+        }
+      }
+      await refreshAllMetricDropdowns();
+    }
+
     const mappings = {};
-    // metrics[] (Solarman/Modbus TCP) — key = register hex string, flipped: metricName → register
+    // metrics[] — key = register (Modbus) or field (TCP), flipped: metricName → key
     if (profile.metrics) {
       profile.metrics.forEach(m => {
-        if (m.name) mappings[m.name] = m.register;
+        if (m.name) mappings[m.name] = m.register || m.field || '';
       });
     }
     // fields[] (Felicity TCP) — key = path, flipped: metricName → path
@@ -1605,27 +1630,39 @@ function renderDongleMappings(profileId, mappings, container) {
   }
   // Fetch profile for labels
   fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`).then(r => r.json()).then(profile => {
-    // Build lookup maps for labels
-    const regMap = {};   // keyed by register hex string
-    const fieldMap = {}; // keyed by path
+    // Build lookup maps: key → label, key → type (register|field)
+    const labelMap = {};   // keyed by register or field string
+    const typeMap = {};    // key → 'register' or 'field'
     if (profile.metrics) {
       profile.metrics.forEach(m => {
-        regMap[m.register] = m.label || m.name;
+        const key = m.register || m.field;
+        if (key) {
+          labelMap[key] = m.label || m.name;
+          typeMap[key] = m.register ? 'register' : 'field';
+        }
       });
     }
     if (profile.fields) {
       profile.fields.forEach(f => {
-        fieldMap[f.path] = f.label || f.name;
+        if (f.path) {
+          labelMap[f.path] = f.label || f.name;
+          typeMap[f.path] = 'field';
+        }
       });
     }
 
     Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([metricName, key]) => {
-      let label = regMap[key] || fieldMap[key] || key;
+      const label = labelMap[key] || key || metricName;
+      const type = typeMap[key];
       let desc;
-      if (regMap[key] !== undefined) {
+      if (key && type === 'field') {
+        desc = `${label} (Field: ${key})`;
+      } else if (key && type === 'register') {
         desc = `${label} (Register ${key})`;
-      } else {
+      } else if (key) {
         desc = `${label} (${key})`;
+      } else {
+        desc = label; // empty key = field-based, just show label
       }
       const row = document.createElement('div');
       row.className = 'metric-row';
@@ -2645,37 +2682,54 @@ function renderDashboardBlockEditor(dashboard) {
       }
       card.appendChild(configPanel);
     });
-    card.querySelector('.block-type-select').addEventListener('change', (e) => {
+    // --- block type ---
+    const typeSelect = card.querySelector('.block-type-select');
+    if (typeSelect) typeSelect.addEventListener('change', (e) => {
       const newType = e.target.value;
       dashboard.layout[idx].type = newType;
       if (newType === 'metric-cards' && !dashboard.layout[idx].cards) dashboard.layout[idx].cards = [];
       renderDashboardBlockEditor(dashboard);
     });
-    card.querySelector('.block-width-select').addEventListener('change', (e) => {
+    // --- block width ---
+    const widthSelect = card.querySelector('.block-width-select');
+    if (widthSelect) widthSelect.addEventListener('change', (e) => {
       dashboard.layout[idx].colSpan = parseInt(e.target.value);
     });
-    card.querySelector('.block-height-select').addEventListener('change', (e) => {
+    // --- block height ---
+    const heightSelect = card.querySelector('.block-height-select');
+    if (heightSelect) heightSelect.addEventListener('change', (e) => {
       dashboard.layout[idx].rowSpan = parseInt(e.target.value) || 0;
     });
-    card.querySelector('.block-bg-color').addEventListener('change', (e) => {
+    // --- block bg color ---
+    const bgColorInput = card.querySelector('.block-bg-color');
+    if (bgColorInput) bgColorInput.addEventListener('change', (e) => {
       dashboard.layout[idx].bgColor = e.target.value;
     });
+    // --- block inner bg color ---
     const innerBgInput = card.querySelector('.block-inner-bg-color');
     if (innerBgInput) {
       innerBgInput.addEventListener('change', (e) => {
         dashboard.layout[idx].innerBgColor = e.target.value;
       });
     }
-    card.querySelector('.block-transparent').addEventListener('change', (e) => {
+    // --- block transparent ---
+    const transparentCheck = card.querySelector('.block-transparent');
+    if (transparentCheck) transparentCheck.addEventListener('change', (e) => {
       dashboard.layout[idx].transparent = e.target.checked;
     });
-    card.querySelector('.block-font-color').addEventListener('change', (e) => {
+    // --- block font color ---
+    const fontColorInput = card.querySelector('.block-font-color');
+    if (fontColorInput) fontColorInput.addEventListener('change', (e) => {
       dashboard.layout[idx].fontColor = e.target.value;
     });
-    card.querySelector('.block-font-size').addEventListener('change', (e) => {
+    // --- block font size ---
+    const fontSizeInput = card.querySelector('.block-font-size');
+    if (fontSizeInput) fontSizeInput.addEventListener('change', (e) => {
       dashboard.layout[idx].fontSize = e.target.value || '';
     });
-    card.querySelector('.delete-block').addEventListener('click', () => {
+    // --- delete block ---
+    const deleteBtn = card.querySelector('.delete-block');
+    if (deleteBtn) deleteBtn.addEventListener('click', () => {
       if (!confirm('Remove this block from the dashboard?')) return;
       dashboard.layout.splice(idx, 1);
       renderDashboardBlockEditor(dashboard);
