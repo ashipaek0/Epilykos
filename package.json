@@ -15,7 +15,7 @@
     "express-session": "^1.18.0",
     "gridstack": "^12.6.0",
     "modbus-serial": "^7.1.1",
-    "morgan": "^1.10.0",
+    "morgan": "^1.11.0",
     "mqtt": "^5.9.0",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
