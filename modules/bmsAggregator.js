@@ -47,8 +47,8 @@ function readLatestBmsMetrics(deviceName) {
   const prefix = `bms_${deviceName}_`;
   const metrics = {};
 
-  // Use glob-safe LIKE — SQLite _ is single-char wildcard, so we escape it
-  const escapedPrefix = prefix.replace(/_/g, '\\_');
+  // Escape LIKE special chars: \ → \\, _ → \_, % → \%
+  const escapedPrefix = prefix.replace(/\\/g, '\\\\').replace(/_/g, '\\_').replace(/%/g, '\\%');
   const rows = db.prepare(
     `SELECT metric, value, timestamp FROM latest_metrics WHERE metric LIKE ? || '%' ESCAPE '\\'`
   ).all(escapedPrefix);
