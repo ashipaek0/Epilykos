@@ -1,15 +1,12 @@
 """
 Bluetooth BMS Bridge for Epilykos Dashboard
-Uses bleak for scanning (fallback to aiobmsble if available)
-Improved: Longer timeout, shows all devices, better logging
+Uses bleak for scanning, aiobmsble v0.25+ for reading.
 """
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import logging
 import time
-from contextlib import asynccontextmanager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bms-bridge")
@@ -17,6 +14,15 @@ logger = logging.getLogger("bms-bridge")
 discovered_cache = []
 cache_ttl = 60
 last_scan_time = 0
+_scan_results = {}  # {address: (BLEDevice, AdvertisementData)} from last scan
+_bms_plugins_loaded = False
+
+def _ensure_plugins():
+    global _bms_plugins_loaded
+    if not _bms_plugins_loaded:
+        from aiobmsble.utils import load_bms_plugins
+        load_bms_plugins()
+        _bms_plugins_loaded = True
 
 app = FastAPI()
 
@@ -34,45 +40,28 @@ async def health():
 
 @app.get("/devices")
 async def list_devices(force_scan: bool = False):
-    """Scan for BLE BMS devices."""
-    global discovered_cache, last_scan_time
+    """Scan for BLE BMS devices using bleak."""
+    global discovered_cache, last_scan_time, _scan_results
     now = time.time()
     if not force_scan and discovered_cache and (now - last_scan_time) < cache_ttl:
         logger.info(f"Returning cached {len(discovered_cache)} devices")
         return discovered_cache
 
     try:
-        # Try using aiobmsble first
-        from aiobmsble import scan
-        logger.info("Scanning for BMS devices using aiobmsble...")
-        devices = await asyncio.wait_for(scan(), timeout=10.0)
-        result = [{"address": d.address, "name": d.name or "Unknown", "rssi": d.rssi} for d in devices]
-        discovered_cache = result
-        last_scan_time = now
-        logger.info(f"Found {len(result)} devices via aiobmsble")
-        return result
-    except ImportError:
-        logger.warning("aiobmsble not available, falling back to bleak")
-    except Exception as e:
-        logger.warning(f"aiobmsble scan failed: {e}, falling back to bleak")
-
-    # Fallback to bleak
-    try:
         from bleak import BleakScanner
         logger.info("Scanning for BLE devices using bleak (10 second scan)...")
         devices_found = []
         all_devices = []
+        _scan_results = {}
 
         def detection_callback(device, advertisement_data):
-            """Filter for known BMS device names."""
-            # Always add to all_devices list regardless of name
             all_devices.append({
                 "address": device.address,
                 "name": device.name or f"Unknown ({device.address[:8]})",
                 "rssi": advertisement_data.rssi
             })
-            # Add to BMS-specific list if name matches known BMS keywords
-            if device.name and any(keyword in device.name.lower() for keyword in ["bms", "jk", "jbd", "daly"]):
+            _scan_results[device.address] = (device, advertisement_data)
+            if device.name and any(kw in device.name.lower() for kw in ["bms", "jk", "jbd", "daly"]):
                 devices_found.append({
                     "address": device.address,
                     "name": device.name,
@@ -82,9 +71,9 @@ async def list_devices(force_scan: bool = False):
         scanner = BleakScanner(detection_callback)
         await scanner.start()
         logger.info("Scan started, waiting 10 seconds...")
-        await asyncio.sleep(10.0)  # Extended from 5s to 10s for slower devices
+        await asyncio.sleep(10.0)
         await scanner.stop()
-        
+
         # Deduplicate by address (keep highest RSSI)
         deduped_all = {}
         for d in all_devices:
@@ -96,12 +85,11 @@ async def list_devices(force_scan: bool = False):
             addr = d["address"]
             if addr not in deduped_bms or d["rssi"] > deduped_bms[addr]["rssi"]:
                 deduped_bms[addr] = d
-        
+
         all_devices = list(deduped_all.values())
         devices_found = list(deduped_bms.values())
         logger.info(f"Scan complete. Found {len(devices_found)} BMS devices, {len(all_devices)} total devices")
 
-        # If no devices found with keyword filtering, return all devices
         if not devices_found and all_devices:
             logger.warning(f"No devices matched BMS keywords, returning all {len(all_devices)} devices")
             discovered_cache = all_devices
@@ -123,19 +111,35 @@ async def list_devices(force_scan: bool = False):
 
 @app.get("/device/{address}")
 async def get_device_data(address: str):
-    """Connect to a BMS and read its data."""
+    """Connect to a BMS and read its data using aiobmsble v0.25+."""
     try:
-        from aiobmsble import connect
-        logger.info(f"Attempting to connect to {address}...")
-        bms = await connect(address)
+        _ensure_plugins()
+        from aiobmsble.utils import bms_identify
+
+        # Get the stored ble_device and advertisement data from last scan
+        if address not in _scan_results:
+            raise HTTPException(status_code=404, detail=f"Device {address} not in scan cache. Run /devices first.")
+
+        ble_device, adv_data = _scan_results[address]
+
+        # Identify the BMS type from advertisement data
+        bms_cls = await bms_identify(adv_data, address)
+        if bms_cls is None:
+            raise HTTPException(status_code=501, detail=f"Cannot identify BMS type for {address}")
+
+        logger.info(f"Identified {address} as {bms_cls.__name__}, connecting...")
+        bms = bms_cls(ble_device)
         sample = await bms.async_update()
-        data = sample.as_dict() if hasattr(sample, "as_dict") else sample.__dict__
+        data = sample if isinstance(sample, dict) else (sample.as_dict() if hasattr(sample, "as_dict") else sample.__dict__)
         clean = {k: v for k, v in data.items() if isinstance(v, (int, float))}
         logger.info(f"Successfully read data from {address}")
         return clean
-    except ImportError:
-        logger.warning("aiobmsble not available for reading")
-        raise HTTPException(status_code=501, detail="Reading not supported without aiobmsble")
+
+    except HTTPException:
+        raise
+    except ImportError as e:
+        logger.warning(f"aiobmsble import error: {e}")
+        raise HTTPException(status_code=501, detail=f"Reading not supported: {e}")
     except Exception as e:
         logger.error(f"Error reading {address}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
