@@ -925,7 +925,9 @@ app.use('/api/bms', isAuthenticated);
 
 app.get('/api/bms/scan', async (req, res) => {
   try {
-    const r = await httpFetch(`${BMS_BRIDGE_URL}/devices`, { timeout: 15000 });
+    const force = req.query.force === '1';
+    const url = force ? `${BMS_BRIDGE_URL}/devices?force_scan=true` : `${BMS_BRIDGE_URL}/devices`;
+    const r = await httpFetch(url, { timeout: 20000 });
     if (!r.ok) {
       const text = await r.text();
       logger.error(`BMS scan bridge returned ${r.status}: ${text.slice(0,200)}`);
