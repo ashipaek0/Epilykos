@@ -67,7 +67,8 @@ function getBmsLatestUpsert(db) {
 
 function startBmsPolling() {
   if (bmsPollInterval) clearInterval(bmsPollInterval);
-  const intervalSec = 30; // could be made configurable
+  const intervalSec = parseInt(getConfig('bms_poll_interval')) || 30;
+  logger.info(`BMS polling started: interval=${intervalSec}s, stale_threshold=${intervalSec * 2}s`);
   bmsPollInterval = setInterval(pollBMS, intervalSec * 1000);
   pollBMS(); // immediate first run
 }

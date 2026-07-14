@@ -70,6 +70,12 @@ function readLatestBmsMetrics(deviceName) {
 
 /**
  * Determine whether a device's data is fresh.
+ *
+ * Uses the newest timestamp across ALL metrics for the device. This assumes
+ * all metrics are updated together in a single poll cycle — if the newest
+ * metric is fresh, the entire device is fresh. This holds for BMS bridge
+ * polling (one HTTP request returns all metrics atomically).
+ *
  * @param {Object<string,{value:number,timestamp:number}>} rawMetrics - from readLatestBmsMetrics
  * @param {number} stalenessThresholdSec - seconds before data is stale
  * @returns {boolean}
