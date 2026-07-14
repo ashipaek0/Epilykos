@@ -751,6 +751,25 @@
   </div>
 </div>
 
+<!-- ── BMS Scan Modal ──────────────────────────────────── -->
+<div class="stg-modal" id="bms-scan-modal">
+  <div class="stg-modal-box bms-scan-box">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+      <h3 style="margin:0;">BLE Device Scan</h3>
+      <button type="button" class="stg-btn bms-scan-close" style="padding:0.25rem 0.5rem;">✕</button>
+    </div>
+    <div id="bms-scan-status" class="note" style="margin-bottom:0.75rem;"></div>
+    <div id="bms-scan-list" style="max-height:320px; overflow-y:auto; margin-bottom:0.75rem;"></div>
+    <div style="display:flex; gap:0.75rem; justify-content:space-between; align-items:center;">
+      <div id="bms-scan-cache-badge" class="note" style="margin:0;"></div>
+      <div style="display:flex; gap:0.75rem;">
+        <button type="button" class="stg-btn bms-scan-refresh">🔄 Scan Again</button>
+        <button type="button" class="stg-btn bms-scan-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── Navigation ─────────────────────────────────────────────
   const navBtns = document.querySelectorAll('.stg-nav-btn');

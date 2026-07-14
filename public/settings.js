@@ -1313,6 +1313,119 @@ if (addExternalBtn) addExternalBtn.addEventListener('click', () => {
 
 // ======================== BLUETOOTH BMS (with scan button, dynamic bridge URL) ========================
 let bmsDeviceCounter = 0;
+
+// ── BMS Scan Modal ─────────────────────────────────────
+let bmsScanTargetIdx = -1;
+let bmsScanTimestamp = 0;
+
+const bmsScanModal = document.getElementById('bms-scan-modal');
+const bmsScanList = document.getElementById('bms-scan-list');
+const bmsScanStatus = document.getElementById('bms-scan-status');
+const bmsScanCacheBadge = document.getElementById('bms-scan-cache-badge');
+
+function closeBmsScanModal() {
+  bmsScanModal.style.display = 'none';
+  if (bmsScanTargetIdx >= 0) {
+    const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
+    if (statusEl && statusEl.textContent.includes('Scanning')) {
+      statusEl.innerHTML = '';
+      statusEl.className = 'test-status';
+    }
+  }
+}
+
+function openBmsScanModal(idx) {
+  bmsScanTargetIdx = idx;
+  bmsScanModal.style.display = 'flex';
+  bmsScanList.innerHTML = '';
+  bmsScanCacheBadge.textContent = '';
+  runBmsScan(true);
+}
+
+async function runBmsScan(force) {
+  bmsScanStatus.innerHTML = '<span class="bms-scan-spinner"></span>Scanning for BLE devices...';
+  bmsScanList.innerHTML = '';
+  bmsScanCacheBadge.textContent = '';
+
+  try {
+    const url = force ? '/api/bms/scan?force=1' : '/api/bms/scan';
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      bmsScanStatus.textContent = err.error || 'Scan failed';
+      bmsScanList.innerHTML = '<div class="bms-scan-empty">Scan failed — bridge may be unreachable</div>';
+      return;
+    }
+    const devices = await res.json();
+    bmsScanTimestamp = Date.now();
+
+    if (!devices.length) {
+      bmsScanStatus.textContent = 'No BLE devices found';
+      bmsScanList.innerHTML = '<div class="bms-scan-empty">No devices discovered in range.<br>Ensure Bluetooth is enabled on the server.</div>';
+      bmsScanCacheBadge.textContent = 'Scanned just now';
+      return;
+    }
+
+    bmsScanStatus.textContent = `Found ${devices.length} device${devices.length !== 1 ? 's' : ''}`;
+    bmsScanCacheBadge.textContent = 'Scanned just now';
+
+    // Sort by RSSI (strongest first)
+    devices.sort((a, b) => b.rssi - a.rssi);
+
+    bmsScanList.innerHTML = devices.map(d => {
+      const rssiPct = Math.min(100, Math.max(0, ((d.rssi + 100) / 60) * 100));
+      const strength = d.rssi > -60 ? 'strong' : d.rssi > -75 ? 'medium' : 'weak';
+      const isBms = d.name && /bms|jk|jbd|daly/i.test(d.name);
+      const bmsTag = isBms
+        ? '<span class="bms-scan-bms-tag match">BMS</span>'
+        : '<span class="bms-scan-bms-tag unknown">?</span>';
+      return `<div class="bms-scan-device" data-address="${escapeHtml(d.address)}">
+        <div class="bms-scan-rssi-bar"><div class="bms-scan-rssi-fill ${strength}" style="width:${rssiPct}%"></div></div>
+        <span class="bms-scan-rssi-db">${d.rssi} dB</span>
+        <span class="bms-scan-mac">${escapeHtml(d.address)}</span>
+        <span class="bms-scan-name">${escapeHtml(d.name || 'Unknown')}</span>
+        ${bmsTag}
+      </div>`;
+    }).join('');
+
+    // Click to select
+    bmsScanList.querySelectorAll('.bms-scan-device').forEach(row => {
+      row.addEventListener('click', () => selectBmsDevice(row.dataset.address));
+    });
+
+  } catch (err) {
+    bmsScanStatus.textContent = `Scan failed: ${err.message}`;
+    bmsScanList.innerHTML = '<div class="bms-scan-empty">Network error or timeout</div>';
+  }
+}
+
+function selectBmsDevice(address) {
+  if (bmsScanTargetIdx < 0) return;
+  const card = document.querySelector(`#bms-devices-container .device-card[data-index="${bmsScanTargetIdx}"]`);
+  if (card) {
+    const input = card.querySelector('input[name$="[address]"]');
+    if (input) input.value = address;
+  }
+  const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
+  if (statusEl) showStatus(statusEl, `Selected ${address}`, 'success');
+  closeBmsScanModal();
+}
+
+// Cache badge freshness ticker
+setInterval(() => {
+  if (bmsScanModal && bmsScanModal.style.display === 'flex' && bmsScanTimestamp) {
+    const age = Math.round((Date.now() - bmsScanTimestamp) / 1000);
+    bmsScanCacheBadge.textContent = `Scanned ${age}s ago`;
+  }
+}, 5000);
+
+// Modal event listeners (DOM is ready — settings.html loads before this script)
+if (bmsScanModal) {
+  bmsScanModal.querySelector('.bms-scan-close').addEventListener('click', closeBmsScanModal);
+  bmsScanModal.querySelector('.bms-scan-cancel').addEventListener('click', closeBmsScanModal);
+  bmsScanModal.querySelector('.bms-scan-refresh').addEventListener('click', () => runBmsScan(true));
+  bmsScanModal.addEventListener('click', (e) => { if (e.target === bmsScanModal) closeBmsScanModal(); });
+}
 function buildBmsDeviceList(devices) {
   const container = document.getElementById('bms-devices-container');
   if (!container) return;
@@ -1348,36 +1461,10 @@ function renderBmsDevice(device, idx) {
     }
   });
 
-  // Scan button – uses backend proxy to reach BMS bridge
-  card.querySelector('.scan-bms').addEventListener('click', async () => {
-    const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    showStatus(statusEl, 'Scanning for BLE devices...', 'info');
-    try {
-      const res = await fetch('/api/bms/scan', { timeout: 20000 });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        showStatus(statusEl, err.error || 'Scan failed', 'error');
-        return;
-      }
-      const devices = await res.json();
-      if (!devices.length) {
-        showStatus(statusEl, 'No BMS devices found', 'error');
-        return;
-      }
-      const deviceList = devices.map(d => `${d.address} (${d.name || 'Unknown'}, RSSI: ${d.rssi})`).join('\n');
-      const selected = prompt(`Select a device by entering its MAC address:\n${deviceList}`);
-      if (selected && selected.trim()) {
-        const macMatch = selected.match(/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/);
-        if (macMatch) {
-          card.querySelector('input[name$="[address]"]').value = macMatch[0];
-          showStatus(statusEl, `Selected ${macMatch[0]}`, 'success');
-        } else {
-          showStatus(statusEl, 'Invalid MAC address', 'error');
-        }
-      }
-    } catch (err) {
-      showStatus(statusEl, `Scan failed: ${err.message}`, 'error');
-    }
+  // Scan button – opens modal device picker
+  card.querySelector('.scan-bms').addEventListener('click', () => {
+    showStatus(document.getElementById(`bms-test-status-${idx}`), 'Scanning for BLE devices...', 'info');
+    openBmsScanModal(idx);
   });
 
   // Test connection button – uses backend proxy to reach BMS bridge
