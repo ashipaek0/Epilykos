@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 const { logger } = require('./logger');
+const { computeBankAggregates } = require('./bmsAggregator');
 
 let bmsPollInterval = null;
 let bmsPollingActive = false;
@@ -36,6 +37,18 @@ async function pollBMS() {
       logger.error(`BMS poll error for ${device.name}: ${err.message}`);
     }
   }
+
+  // Compute bank aggregates after all devices polled
+  try {
+    const banks = JSON.parse(getConfig('bms_banks') || '[]');
+    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
+    for (const bank of banks) {
+      await computeBankAggregates(bank, pollInterval);
+    }
+  } catch (err) {
+    logger.error(`BMS bank aggregation error: ${err.message}`);
+  }
+
   bmsPollingActive = false;
 }
 
@@ -54,7 +67,8 @@ function getBmsLatestUpsert(db) {
 
 function startBmsPolling() {
   if (bmsPollInterval) clearInterval(bmsPollInterval);
-  const intervalSec = 30; // could be made configurable
+  const intervalSec = parseInt(getConfig('bms_poll_interval')) || 30;
+  logger.info(`BMS polling started: interval=${intervalSec}s, stale_threshold=${intervalSec * 2}s`);
   bmsPollInterval = setInterval(pollBMS, intervalSec * 1000);
   pollBMS(); // immediate first run
 }

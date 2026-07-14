@@ -881,6 +881,24 @@ app.post('/api/settings', (req, res) => {
     if ('mqtt_devices' in updates) restartMqtt();
     if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
     if ('bms_devices' in updates) restartBmsPolling();
+    if ('bms_banks' in updates) {
+      // Orphan cleanup: diff old vs new, delete unreferenced bank_* metrics
+      const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
+      const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
+      const newBanks = JSON.parse(updates['bms_banks']);
+      cleanupOrphanedBankMetrics(oldBanks, newBanks);
+      // Auto-create bank metrics not yet in the system
+      const { createMetric } = require('./modules/metricsManager');
+      for (const bank of newBanks) {
+        const safeName = bank.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        for (const fn of (bank.functions || [])) {
+          try { createMetric(`bank_${fn.output}`, ''); } catch (_) { /* idempotent */ }
+        }
+        try { createMetric(`bank_${safeName}_devices_online`, ''); } catch (_) {}
+        try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
+      }
+      restartBmsPolling();
+    }
     if ('dongle_config' in updates) restartDonglePolling();
     if ('pvoutput_config' in updates) pvoutput.restart();
     if ('rs232_devices' in updates) restartRs232Streaming();
@@ -907,7 +925,9 @@ app.use('/api/bms', isAuthenticated);
 
 app.get('/api/bms/scan', async (req, res) => {
   try {
-    const r = await httpFetch(`${BMS_BRIDGE_URL}/devices`, { timeout: 15000 });
+    const force = req.query.force === '1';
+    const url = force ? `${BMS_BRIDGE_URL}/devices?force_scan=true` : `${BMS_BRIDGE_URL}/devices`;
+    const r = await httpFetch(url, { timeout: 20000 });
     if (!r.ok) {
       const text = await r.text();
       logger.error(`BMS scan bridge returned ${r.status}: ${text.slice(0,200)}`);
@@ -936,6 +956,124 @@ app.get('/api/bms/test', async (req, res) => {
   } catch (err) {
     logger.error('BMS test proxy error:', err.message);
     res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+  }
+});
+
+// BMS bank aggregation — test endpoint
+app.post('/api/bms/bank/test', async (req, res) => {
+  const bank = req.body;
+  if (!bank || !bank.devices || !bank.functions) {
+    return res.status(400).json({ error: 'Bank config with devices and functions required' });
+  }
+  try {
+    const { readLatestBmsMetrics, isDeviceFresh, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
+    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
+    const stalenessThreshold = pollInterval * 2;
+    const now = Math.floor(Date.now() / 1000);
+
+    // Gather raw data and freshness per device
+    const deviceStatuses = {};
+    const deviceData = {};
+    let freshCount = 0;
+    for (const device of (bank.devices || [])) {
+      const raw = readLatestBmsMetrics(device.name);
+      const fresh = isDeviceFresh(raw, stalenessThreshold);
+      const newestTs = Object.keys(raw).length > 0
+        ? Math.max(...Object.values(raw).map(m => m.timestamp))
+        : null;
+      deviceData[device.name] = { raw, fresh, device };
+      deviceStatuses[device.name] = {
+        status: fresh ? 'fresh' : 'stale',
+        age_s: newestTs ? now - newestTs : null
+      };
+      if (fresh) freshCount++;
+    }
+
+    const willPublish = (freshCount / (bank.devices.length || 1)) >= 0.5;
+    const results = {};
+    const warnings = [];
+
+    // Compute each function (preview only — don't write)
+    for (const fn of (bank.functions || [])) {
+      try {
+        const values = [];
+        const timestamps = [];
+        for (const device of bank.devices) {
+          const d = deviceData[device.name];
+          if (!d.fresh) { values.push(undefined); timestamps.push(undefined); continue; }
+          const src = d.raw[fn.source];
+          values.push(src ? src.value : undefined);
+          timestamps.push(src ? src.timestamp : undefined);
+        }
+
+        let weights = null;
+        if (fn.fn === 'weighted_soc' || fn.fn === 'sum_weighted') {
+          weights = [];
+          let capCount = 0;
+          for (const device of bank.devices) {
+            const d = deviceData[device.name];
+            if (!d.fresh) { weights.push(undefined); continue; }
+            const cap = resolveCapacity(device, d.raw);
+            if (cap == null) {
+              warnings.push(`${device.name}: design_capacity not reported, excluded from ${fn.fn}`);
+              weights.push(undefined);
+            } else {
+              weights.push(cap);
+              capCount++;
+            }
+          }
+          if (capCount < 2) {
+            warnings.push(`${fn.fn}(${fn.source}): only ${capCount} devices have valid capacity — skipped`);
+            continue;
+          }
+        }
+
+        if (fn.fn === 'sum_weighted') {
+          for (let i = 0; i < values.length; i++) {
+            if (values[i] != null) values[i] = values[i] / 100;
+          }
+        }
+
+        if (fn.fn === 'sum' && freshCount < bank.devices.length) {
+          warnings.push(`sum(${fn.source}): partial set (${freshCount}/${bank.devices.length} devices) — value undercounted`);
+        }
+
+        const result = computeFunction(fn.fn, values, weights, timestamps);
+        if (result != null) {
+          results[`bank_${fn.output}`] = Math.round(result * 100) / 100;
+        }
+      } catch (err) {
+        warnings.push(`${fn.output}: ${err.message}`);
+      }
+    }
+
+    res.json({
+      results,
+      devices: deviceStatuses,
+      summary: {
+        devices_total: bank.devices.length,
+        devices_fresh: freshCount,
+        will_publish: willPublish
+      },
+      warnings
+    });
+  } catch (err) {
+    logger.error('BMS bank test error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// BMS device source keys — for function row dropdown in UI
+app.get('/api/bms/device-metrics/:name', (req, res) => {
+  const name = req.params.name;
+  if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
+  try {
+    const { getAvailableSourceKeys } = require('./modules/bmsAggregator');
+    const keys = getAvailableSourceKeys(name);
+    res.json(keys);
+  } catch (err) {
+    logger.error('BMS device-metrics error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

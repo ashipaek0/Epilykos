@@ -116,6 +116,11 @@
           <div id="bms-devices-container"></div>
           <button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button>
           <div class="note">Requires the BMS bridge container to be running.</div>
+
+          <div class="stg-section-divider"><span class="stg-divider-icon">🔋</span> BMS Bank Aggregation</div>
+          <div id="bms-banks-container"></div>
+          <button type="button" id="add-bms-bank" class="fetch-btn">+ Add Bank</button>
+          <div class="note">Combine multiple BMS devices into a virtual battery bank with computed metrics (weighted SOC, total power, etc.).</div>
         </div>
         <div id="subtab-dongle" class="sub-tab-content">
           <div id="dongle-devices-container"></div>
@@ -742,6 +747,25 @@
     <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
       <button type="button" id="modal-cancel" class="stg-btn">Cancel</button>
       <button type="button" id="modal-create" class="stg-btn primary">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BMS Scan Modal ──────────────────────────────────── -->
+<div class="stg-modal" id="bms-scan-modal">
+  <div class="stg-modal-box bms-scan-box">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+      <h3 style="margin:0;">BLE Device Scan</h3>
+      <button type="button" class="stg-btn bms-scan-close" style="padding:0.25rem 0.5rem;">✕</button>
+    </div>
+    <div id="bms-scan-status" class="note" style="margin-bottom:0.75rem;"></div>
+    <div id="bms-scan-list" style="max-height:320px; overflow-y:auto; margin-bottom:0.75rem;"></div>
+    <div style="display:flex; gap:0.75rem; justify-content:space-between; align-items:center;">
+      <div id="bms-scan-cache-badge" class="note" style="margin:0;"></div>
+      <div style="display:flex; gap:0.75rem;">
+        <button type="button" class="stg-btn bms-scan-refresh">🔄 Scan Again</button>
+        <button type="button" class="stg-btn bms-scan-cancel">Cancel</button>
+      </div>
     </div>
   </div>
 </div>

@@ -12,6 +12,13 @@ function showStatus(element, msg, type) {
     setTimeout(() => { element.textContent = ''; element.className = 'status'; }, 5000);
   }
 }
+function showStatusHtml(element, msg, type) {
+  element.innerHTML = msg;
+  element.className = `status ${type}`;
+  if (type !== 'info') {
+    setTimeout(() => { element.innerHTML = ''; element.className = 'status'; }, 5000);
+  }
+}
 
 
 // ── Load existing settings ─────────────────────────────────────────────────
@@ -28,7 +35,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'bms_banks' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -40,6 +47,7 @@ async function loadSettings() {
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
+    buildBmsBankList(JSON.parse(data.bms_banks || '[]'));
     buildRs232DeviceList(JSON.parse(data.rs232_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
     buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
@@ -1305,6 +1313,119 @@ if (addExternalBtn) addExternalBtn.addEventListener('click', () => {
 
 // ======================== BLUETOOTH BMS (with scan button, dynamic bridge URL) ========================
 let bmsDeviceCounter = 0;
+
+// ── BMS Scan Modal ─────────────────────────────────────
+let bmsScanTargetIdx = -1;
+let bmsScanTimestamp = 0;
+
+const bmsScanModal = document.getElementById('bms-scan-modal');
+const bmsScanList = document.getElementById('bms-scan-list');
+const bmsScanStatus = document.getElementById('bms-scan-status');
+const bmsScanCacheBadge = document.getElementById('bms-scan-cache-badge');
+
+function closeBmsScanModal() {
+  bmsScanModal.style.display = 'none';
+  if (bmsScanTargetIdx >= 0) {
+    const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
+    if (statusEl && statusEl.textContent.includes('Scanning')) {
+      statusEl.innerHTML = '';
+      statusEl.className = 'test-status';
+    }
+  }
+}
+
+function openBmsScanModal(idx) {
+  bmsScanTargetIdx = idx;
+  bmsScanModal.style.display = 'flex';
+  bmsScanList.innerHTML = '';
+  bmsScanCacheBadge.textContent = '';
+  runBmsScan(true);
+}
+
+async function runBmsScan(force) {
+  bmsScanStatus.innerHTML = '<span class="bms-scan-spinner"></span>Scanning for BLE devices...';
+  bmsScanList.innerHTML = '';
+  bmsScanCacheBadge.textContent = '';
+
+  try {
+    const url = force ? '/api/bms/scan?force=1' : '/api/bms/scan';
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      bmsScanStatus.textContent = err.error || 'Scan failed';
+      bmsScanList.innerHTML = '<div class="bms-scan-empty">Scan failed — bridge may be unreachable</div>';
+      return;
+    }
+    const devices = await res.json();
+    bmsScanTimestamp = Date.now();
+
+    if (!devices.length) {
+      bmsScanStatus.textContent = 'No BLE devices found';
+      bmsScanList.innerHTML = '<div class="bms-scan-empty">No devices discovered in range.<br>Ensure Bluetooth is enabled on the server.</div>';
+      bmsScanCacheBadge.textContent = 'Scanned just now';
+      return;
+    }
+
+    bmsScanStatus.textContent = `Found ${devices.length} device${devices.length !== 1 ? 's' : ''}`;
+    bmsScanCacheBadge.textContent = 'Scanned just now';
+
+    // Sort by RSSI (strongest first)
+    devices.sort((a, b) => b.rssi - a.rssi);
+
+    bmsScanList.innerHTML = devices.map(d => {
+      const rssiPct = Math.min(100, Math.max(0, ((d.rssi + 100) / 60) * 100));
+      const strength = d.rssi > -60 ? 'strong' : d.rssi > -75 ? 'medium' : 'weak';
+      const isBms = d.name && /bms|jk|jbd|daly/i.test(d.name);
+      const bmsTag = isBms
+        ? '<span class="bms-scan-bms-tag match">BMS</span>'
+        : '<span class="bms-scan-bms-tag unknown">?</span>';
+      return `<div class="bms-scan-device" data-address="${escapeHtml(d.address)}">
+        <div class="bms-scan-rssi-bar"><div class="bms-scan-rssi-fill ${strength}" style="width:${rssiPct}%"></div></div>
+        <span class="bms-scan-rssi-db">${d.rssi} dB</span>
+        <span class="bms-scan-mac">${escapeHtml(d.address)}</span>
+        <span class="bms-scan-name">${escapeHtml(d.name || 'Unknown')}</span>
+        ${bmsTag}
+      </div>`;
+    }).join('');
+
+    // Click to select
+    bmsScanList.querySelectorAll('.bms-scan-device').forEach(row => {
+      row.addEventListener('click', () => selectBmsDevice(row.dataset.address));
+    });
+
+  } catch (err) {
+    bmsScanStatus.textContent = `Scan failed: ${err.message}`;
+    bmsScanList.innerHTML = '<div class="bms-scan-empty">Network error or timeout</div>';
+  }
+}
+
+function selectBmsDevice(address) {
+  if (bmsScanTargetIdx < 0) return;
+  const card = document.querySelector(`#bms-devices-container .device-card[data-index="${bmsScanTargetIdx}"]`);
+  if (card) {
+    const input = card.querySelector('input[name$="[address]"]');
+    if (input) input.value = address;
+  }
+  const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
+  if (statusEl) showStatus(statusEl, `Selected ${address}`, 'success');
+  closeBmsScanModal();
+}
+
+// Cache badge freshness ticker
+setInterval(() => {
+  if (bmsScanModal && bmsScanModal.style.display === 'flex' && bmsScanTimestamp) {
+    const age = Math.round((Date.now() - bmsScanTimestamp) / 1000);
+    bmsScanCacheBadge.textContent = `Scanned ${age}s ago`;
+  }
+}, 5000);
+
+// Modal event listeners (DOM is ready — settings.html loads before this script)
+if (bmsScanModal) {
+  bmsScanModal.querySelector('.bms-scan-close').addEventListener('click', closeBmsScanModal);
+  bmsScanModal.querySelector('.bms-scan-cancel').addEventListener('click', closeBmsScanModal);
+  bmsScanModal.querySelector('.bms-scan-refresh').addEventListener('click', () => runBmsScan(true));
+  bmsScanModal.addEventListener('click', (e) => { if (e.target === bmsScanModal) closeBmsScanModal(); });
+}
 function buildBmsDeviceList(devices) {
   const container = document.getElementById('bms-devices-container');
   if (!container) return;
@@ -1340,36 +1461,10 @@ function renderBmsDevice(device, idx) {
     }
   });
 
-  // Scan button – uses backend proxy to reach BMS bridge
-  card.querySelector('.scan-bms').addEventListener('click', async () => {
-    const statusEl = document.getElementById(`bms-test-status-${idx}`);
-    showStatus(statusEl, 'Scanning for BLE devices...', 'info');
-    try {
-      const res = await fetch('/api/bms/scan', { timeout: 20000 });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        showStatus(statusEl, err.error || 'Scan failed', 'error');
-        return;
-      }
-      const devices = await res.json();
-      if (!devices.length) {
-        showStatus(statusEl, 'No BMS devices found', 'error');
-        return;
-      }
-      const deviceList = devices.map(d => `${d.address} (${d.name || 'Unknown'}, RSSI: ${d.rssi})`).join('\n');
-      const selected = prompt(`Select a device by entering its MAC address:\n${deviceList}`);
-      if (selected && selected.trim()) {
-        const macMatch = selected.match(/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/);
-        if (macMatch) {
-          card.querySelector('input[name$="[address]"]').value = macMatch[0];
-          showStatus(statusEl, `Selected ${macMatch[0]}`, 'success');
-        } else {
-          showStatus(statusEl, 'Invalid MAC address', 'error');
-        }
-      }
-    } catch (err) {
-      showStatus(statusEl, `Scan failed: ${err.message}`, 'error');
-    }
+  // Scan button – opens modal device picker
+  card.querySelector('.scan-bms').addEventListener('click', () => {
+    showStatus(document.getElementById(`bms-test-status-${idx}`), 'Scanning for BLE devices...', 'info');
+    openBmsScanModal(idx);
   });
 
   // Test connection button – uses backend proxy to reach BMS bridge
@@ -1409,6 +1504,264 @@ const addBmsBtn = document.getElementById('add-bms-device');
 if (addBmsBtn) addBmsBtn.addEventListener('click', () => {
   const idx = bmsDeviceCounter;
   renderBmsDevice({ name: '', address: '', enabled: true }, idx);
+});
+
+// ======================== BMS BANK AGGREGATION ========================
+let bmsBankCounter = 0;
+const BANK_FUNCTIONS = ['sum', 'mean', 'min', 'max', 'weighted_soc', 'sum_weighted', 'last'];
+// Boolean functions (or, and) implemented server-side but hidden from UI for v1
+
+function buildBmsBankList(banks) {
+  const container = document.getElementById('bms-banks-container');
+  if (!container) return;
+  container.innerHTML = '';
+  bmsBankCounter = 0;
+  banks.forEach((bank, idx) => renderBmsBank(bank, idx));
+}
+
+function renderBmsBank(bank, idx) {
+  const container = document.getElementById('bms-banks-container');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+  card.dataset.bankIdx = idx;
+
+  const safeName = escapeHtml(bank.name || '');
+  const isSingleDevice = (bank.devices || []).length === 1;
+
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" class="bank-name" placeholder="Bank Name (e.g., House Bank)" value="${safeName}" style="flex:1;">
+      <label><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}> Enabled</label>
+      <button type="button" class="remove-btn danger" data-action="remove-bank">Remove</button>
+    </div>
+    ${isSingleDevice ? '<div class="note" style="margin:0 0 8px 0;">Single-device bank — aggregation is a passthrough. No computation applied.</div>' : ''}
+
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Devices</div>
+    <div class="bank-devices-list" id="bank-devices-${idx}"></div>
+
+    <div class="stg-section-divider"><span class="stg-divider-icon">📊</span> Computed Metrics</div>
+    <div class="bank-functions-list" id="bank-functions-${idx}"></div>
+    <button type="button" class="fetch-btn add-bank-function" data-bank="${idx}">+ Add Function</button>
+
+    <div style="margin-top:8px;">
+      <button type="button" class="fetch-btn test-bank" data-bank="${idx}">Test Aggregation</button>
+      <span class="test-status" id="bank-test-status-${idx}"></span>
+    </div>
+  `;
+  container.appendChild(card);
+
+  // Populate device checkboxes from configured BMS devices
+  populateBankDevices(card, idx, bank.devices || []);
+
+  // Render function rows
+  const fnContainer = card.querySelector(`#bank-functions-${idx}`);
+  (bank.functions || []).forEach((fn, fnIdx) => {
+    renderBankFunctionRow(fnContainer, idx, fnIdx, fn);
+  });
+
+  // Wire events
+  card.querySelector('[data-action="remove-bank"]').addEventListener('click', () => {
+    if (confirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
+      card.remove();
+      reindexBmsBanks();
+    }
+  });
+
+  card.querySelector('.add-bank-function').addEventListener('click', () => {
+    const fnIdx = card.querySelectorAll('.bank-function-row').length;
+    renderBankFunctionRow(fnContainer, idx, fnIdx, { output: '', fn: 'sum', source: '' });
+  });
+
+  card.querySelector('.test-bank').addEventListener('click', () => testBank(card, idx));
+
+  bmsBankCounter++;
+}
+
+function populateBankDevices(card, bankIdx, selectedDevices) {
+  const container = card.querySelector(`#bank-devices-${bankIdx}`);
+  // Get all configured BMS device names from the DOM
+  const bmsCards = document.querySelectorAll('#bms-devices-container .device-card');
+  const allDevices = [];
+  bmsCards.forEach(c => {
+    const nameInput = c.querySelector('.device-header input[type="text"]');
+    if (nameInput && nameInput.value.trim()) {
+      allDevices.push(nameInput.value.trim());
+    }
+  });
+
+  if (allDevices.length === 0) {
+    container.innerHTML = '<div class="note">No BMS devices configured. Add devices above first.</div>';
+    return;
+  }
+
+  const selectedNames = new Set((selectedDevices || []).map(d => typeof d === 'string' ? d : d.name));
+
+  container.innerHTML = allDevices.map(name => {
+    const checked = selectedNames.has(name) ? 'checked' : '';
+    // Find existing capacity_override if any
+    const existing = (selectedDevices || []).find(d => (typeof d === 'string' ? d : d.name) === name);
+    const capOverride = (existing && typeof existing === 'object' && existing.capacity_override) ? existing.capacity_override : '';
+    return `
+      <div class="form-row bank-device-row" style="align-items:center; gap:8px; margin-bottom:4px;">
+        <label style="display:flex; align-items:center; gap:4px; flex:1;">
+          <input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}>
+          <span>${escapeHtml(name)}</span>
+        </label>
+        <input type="number" class="bank-device-capacity" placeholder="Ah override" value="${capOverride}" style="width:100px; font-size:0.85em;" title="Manual capacity override. Leave blank to auto-detect from BMS design_capacity.">
+      </div>`;
+  }).join('');
+}
+
+function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
+  const row = document.createElement('div');
+  row.className = 'bank-function-row';
+  row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:4px;';
+
+  const outputName = fn.output || '';
+  const selectedFn = fn.fn || 'sum';
+  const selectedSource = fn.source || '';
+  const weightBy = fn.weight_by || '';
+
+  row.innerHTML = `
+    <input type="text" class="bank-fn-output" placeholder="output name" value="${escapeHtml(outputName)}" style="width:120px; font-size:0.85em;" title="Output metric name (e.g., 'soc'). Full metric: bank_<output>">
+    <span style="font-size:0.8em; color:var(--muted);">←</span>
+    <select class="bank-fn-type" style="width:130px; font-size:0.85em;">
+      ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${f}</option>`).join('')}
+    </select>
+    <span style="font-size:0.8em;">(</span>
+    <select class="bank-fn-source" style="width:140px; font-size:0.85em;">
+      <option value="">-- source --</option>
+    </select>
+    <span class="bank-fn-weight-wrap" style="display:${selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted' ? '' : 'none'};">
+      <span style="font-size:0.8em; color:var(--muted);">×</span>
+      <select class="bank-fn-weightby" style="width:140px; font-size:0.85em;">
+        <option value="">-- weight --</option>
+      </select>
+    </span>
+    <span style="font-size:0.8em;">)</span>
+    <button type="button" class="remove-btn remove-metric remove-bank-fn" style="font-size:0.8em; padding:2px 6px;">×</button>
+  `;
+  container.appendChild(row);
+
+  // Load source keys for the first device (representative)
+  const fnType = row.querySelector('.bank-fn-type');
+  const fnSource = row.querySelector('.bank-fn-source');
+  const fnWeightBy = row.querySelector('.bank-fn-weightby');
+  const weightWrap = row.querySelector('.bank-fn-weight-wrap');
+
+  // Get device names from the card
+  const card = container.closest('.device-card');
+  const firstDeviceCb = card.querySelector('.bank-device-cb:checked');
+  const firstDeviceName = firstDeviceCb ? firstDeviceCb.value : null;
+
+  async function loadSourceKeys(selectEl, selectedKey) {
+    if (!firstDeviceName) {
+      selectEl.innerHTML = '<option value="">-- add devices first --</option>';
+      return;
+    }
+    try {
+      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(firstDeviceName)}`);
+      if (!res.ok) throw new Error('failed');
+      const keys = await res.json();
+      selectEl.innerHTML = '<option value="">-- source --</option>' +
+        keys.map(k => `<option value="${k}" ${k === selectedKey ? 'selected' : ''}>${k}</option>`).join('');
+    } catch (_) {
+      selectEl.innerHTML = '<option value="">-- unavailable --</option>';
+    }
+  }
+
+  loadSourceKeys(fnSource, selectedSource);
+  if (selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted') {
+    loadSourceKeys(fnWeightBy, weightBy);
+  }
+
+  // Show/hide weight-by when function type changes
+  fnType.addEventListener('change', () => {
+    const needsWeight = fnType.value === 'weighted_soc' || fnType.value === 'sum_weighted';
+    weightWrap.style.display = needsWeight ? '' : 'none';
+    if (needsWeight) loadSourceKeys(fnWeightBy, weightBy);
+  });
+
+  // Remove button
+  row.querySelector('.remove-bank-fn').addEventListener('click', () => row.remove());
+}
+
+async function testBank(card, idx) {
+  const statusEl = document.getElementById(`bank-test-status-${idx}`);
+  showStatus(statusEl, 'Testing...', 'info');
+
+  // Collect bank config from the card
+  const bankName = card.querySelector('.bank-name').value.trim();
+  if (!bankName) { showStatus(statusEl, 'Bank name required', 'error'); return; }
+
+  const devices = [];
+  card.querySelectorAll('.bank-device-cb:checked').forEach(cb => {
+    const capInput = cb.closest('.bank-device-row').querySelector('.bank-device-capacity');
+    const dev = { name: cb.value };
+    const capVal = parseFloat(capInput.value);
+    if (!isNaN(capVal) && capVal > 0) dev.capacity_override = capVal;
+    devices.push(dev);
+  });
+  if (devices.length === 0) { showStatus(statusEl, 'Select at least one device', 'error'); return; }
+
+  const functions = [];
+  card.querySelectorAll('.bank-function-row').forEach(row => {
+    const output = row.querySelector('.bank-fn-output').value.trim();
+    const fn = row.querySelector('.bank-fn-type').value;
+    const source = row.querySelector('.bank-fn-source').value;
+    const weightBy = row.querySelector('.bank-fn-weightby')?.value || undefined;
+    if (output && source) {
+      functions.push({ output, fn, source, weight_by: weightBy || undefined });
+    }
+  });
+  if (functions.length === 0) { showStatus(statusEl, 'Add at least one function', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/bms/bank/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: bankName, devices, functions })
+    });
+    const data = await res.json();
+    if (!res.ok) { showStatus(statusEl, data.error || 'Test failed', 'error'); return; }
+
+    // Build result display
+    let html = '';
+    if (data.warnings && data.warnings.length > 0) {
+      html += '<div style="color:#f59e0b; margin-bottom:4px;">' + data.warnings.map(w => escapeHtml(w)).join('<br>') + '</div>';
+    }
+    html += `<span style="font-weight:bold; color:${data.summary.will_publish ? '#16a34a' : '#dc2626'};">`;
+    html += data.summary.will_publish ? '✅ Would publish' : '❌ Would be suppressed';
+    html += ` (${data.summary.devices_fresh}/${data.summary.devices_total} devices fresh)</span><br>`;
+
+    if (data.results && Object.keys(data.results).length > 0) {
+      html += '<table style="font-size:0.85em; margin-top:4px;">';
+      for (const [metric, val] of Object.entries(data.results)) {
+        html += `<tr><td style="padding-right:12px;"><code>${escapeHtml(metric)}</code></td><td>${val}</td></tr>`;
+      }
+      html += '</table>';
+    }
+    showStatusHtml(statusEl, html, data.summary.will_publish ? 'success' : 'error');
+  } catch (err) {
+    showStatus(statusEl, 'Error: ' + err.message, 'error');
+  }
+}
+
+function reindexBmsBanks() {
+  const cards = document.querySelectorAll('#bms-banks-container .device-card');
+  bmsBankCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    card.dataset.bankIdx = i;
+    bmsBankCounter++;
+  });
+}
+
+const addBankBtn = document.getElementById('add-bms-bank');
+if (addBankBtn) addBankBtn.addEventListener('click', () => {
+  const idx = bmsBankCounter;
+  renderBmsBank({ name: '', devices: [], functions: [], enabled: true }, idx);
 });
 
 // ======================== INVERTER DONGLE ========================
@@ -2795,7 +3148,7 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {};
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[') || el.name.startsWith('bms_devices[')) return;
+    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[') || el.name.startsWith('bms_devices[') || el.name.startsWith('bms_banks[')) return;
     if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
     else payload[el.name] = el.value;
   });
@@ -2875,6 +3228,30 @@ form.addEventListener('submit', async (e) => {
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
     dev.address = card.querySelector('input[name$="[address]"]').value;
     return dev;
+  });
+  payload.bms_banks = collectDeviceArray('bms-banks-container', (card) => {
+    const bank = {};
+    bank.name = card.querySelector('.bank-name').value;
+    bank.enabled = card.querySelector('.bank-enabled').checked;
+    bank.devices = [];
+    card.querySelectorAll('.bank-device-cb:checked').forEach(cb => {
+      const capInput = cb.closest('.bank-device-row').querySelector('.bank-device-capacity');
+      const dev = { name: cb.value };
+      const capVal = parseFloat(capInput.value);
+      if (!isNaN(capVal) && capVal > 0) dev.capacity_override = capVal;
+      bank.devices.push(dev);
+    });
+    bank.functions = [];
+    card.querySelectorAll('.bank-function-row').forEach(row => {
+      const output = row.querySelector('.bank-fn-output').value.trim();
+      const fn = row.querySelector('.bank-fn-type').value;
+      const source = row.querySelector('.bank-fn-source').value;
+      const weightBy = row.querySelector('.bank-fn-weightby')?.value || undefined;
+      if (output && source) {
+        bank.functions.push({ output, fn, source, weight_by: weightBy || undefined });
+      }
+    });
+    return bank;
   });
   payload.dongle_config = collectDeviceArray('dongle-devices-container', (card) => {
     const dev = {};
