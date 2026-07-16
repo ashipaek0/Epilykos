@@ -1452,10 +1452,17 @@ function renderBmsDevice(device, idx) {
       <span class="test-status" id="bms-test-status-${idx}"></span>
     </div>
     <div class="note">MAC address can be found by scanning with a phone BLE scanner or using the bridge's /devices endpoint.</div>
+    <div class="stg-section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list" id="bms-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn load-bms-metrics" data-device="${idx}" style="margin-top:0.25rem;">
+        📥 Load BMS Metrics
+      </button>
+    </div>
   `;
   container.appendChild(card);
   card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
-    if (confirm('Remove this BMS device?')) {
+    if (confirm('Remove this BMS device and all its metric mappings?')) {
       card.remove();
       reindexBms();
     }
@@ -1490,6 +1497,37 @@ function renderBmsDevice(device, idx) {
     }
   });
 
+  // Load BMS metrics for mapping
+  card.querySelector('.load-bms-metrics').addEventListener('click', async () => {
+    const nameInput = card.querySelector('input[name$="[name]"]');
+    const deviceName = nameInput ? nameInput.value.trim() : '';
+    if (!deviceName) {
+      alert('Enter a Device Name first');
+      return;
+    }
+    const mappingsList = card.querySelector('.mappings-list');
+    if (mappingsList.children.length > 0 && !confirm('Loading metrics will replace existing mappings. Continue?')) return;
+    try {
+      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`);
+      if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
+      const keys = await res.json();
+      if (!keys.length) { mappingsList.innerHTML = '<div class="note">No metrics found. Poll the device first or enter keys manually.</div>'; return; }
+      // Build initial mappings object — preselected if device already has mappings
+      const existing = device.mappings || {};
+      const mappings = {};
+      keys.forEach(k => { mappings[k] = existing[k] || ''; });
+      renderBmsMappings(idx, mappingsList, mappings);
+    } catch (err) {
+      mappingsList.innerHTML = `<div class="note" style="color:var(--error);">Error: ${err.message}</div>`;
+    }
+  });
+
+  // Restore saved mappings on initial load
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    const mappingsList = card.querySelector('.mappings-list');
+    renderBmsMappings(idx, mappingsList, device.mappings);
+  }
+
   bmsDeviceCounter++;
 }
 function reindexBms() {
@@ -1498,6 +1536,49 @@ function reindexBms() {
   cards.forEach((card, i) => {
     card.dataset.index = i;
     bmsDeviceCounter++;
+  });
+}
+
+// Render metric mapping rows for a BMS device
+function renderBmsMappings(deviceIdx, container, mappings) {
+  container.innerHTML = '';
+  if (!mappings || Object.keys(mappings).length === 0) {
+    container.innerHTML = '<div class="note">No mappings configured. Click "Load BMS Metrics" to get started.</div>';
+    return;
+  }
+  Object.entries(mappings).sort(([a], [b]) => a.localeCompare(b)).forEach(([bmsKey, metricName]) => {
+    const row = document.createElement('div');
+    row.className = 'metric-row';
+    row.dataset.bmsKey = bmsKey;
+
+    // BMS key label (read-only — shows what the BMS bridge returns)
+    const keyLabel = document.createElement('span');
+    keyLabel.className = 'register-desc';
+    keyLabel.textContent = bmsKey;
+    keyLabel.style.cssText = 'flex:0 0 180px; font-size:0.85em; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+
+    // Metric dropdown
+    const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
+    metricSelect.className = 'metric-name';
+
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-btn remove-metric';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      row.remove();
+      if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+    });
+
+    metricSelect.addEventListener('change', () => {
+      if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+    });
+
+    row.appendChild(keyLabel);
+    row.appendChild(metricSelect);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
   });
 }
 const addBmsBtn = document.getElementById('add-bms-device');
@@ -3227,6 +3308,13 @@ form.addEventListener('submit', async (e) => {
     dev.name = card.querySelector('.device-header input[type="text"]').value;
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
     dev.address = card.querySelector('input[name$="[address]"]').value;
+    // Collect metric mappings: { bmsKey → metricName }
+    dev.mappings = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const bmsKey = row.dataset.bmsKey;
+      const metricName = row.querySelector('.metric-name').value;
+      if (bmsKey && metricName) dev.mappings[bmsKey] = metricName;
+    });
     return dev;
   });
   payload.bms_banks = collectDeviceArray('bms-banks-container', (card) => {
