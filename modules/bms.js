@@ -24,12 +24,18 @@ async function pollBMS() {
       }
       const data = await res.json();
       const now = Math.floor(Date.now() / 1000);
+      const mappings = device.mappings || {};
+      const hasMappings = Object.keys(mappings).length > 0;
       for (const [key, val] of Object.entries(data)) {
-        if (typeof val === 'number' && !isNaN(val)) {
-          // Create a clean metric name: bms_<device_name>_<key>
-          const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-          getBmsMetricInsert(db).run(now, safeName, val);
-          getBmsLatestUpsert(db).run(safeName, val, now);
+        if (typeof val !== 'number' || isNaN(val)) continue;
+        // Always store raw metric: bms_<device_name>_<key> (aggregator needs this)
+        const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
+        getBmsMetricInsert(db).run(now, safeName, val);
+        getBmsLatestUpsert(db).run(safeName, val, now);
+        // If device has metric mappings, also publish under the mapped name
+        if (hasMappings && mappings[key]) {
+          getBmsMetricInsert(db).run(now, mappings[key], val);
+          getBmsLatestUpsert(db).run(mappings[key], val, now);
         }
       }
       logger.debug(`BMS ${device.name} polled successfully`);
