@@ -1,11 +1,27 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
+
+const PASSWORD_FILE = path.join(__dirname, '..', 'data', 'settings-password');
 
 let settingsPassword = process.env.SETTINGS_PASSWORD;
 if (!settingsPassword) {
-  settingsPassword = crypto.randomBytes(8).toString('hex');
+  try {
+    if (fs.existsSync(PASSWORD_FILE)) {
+      settingsPassword = fs.readFileSync(PASSWORD_FILE, 'utf8').trim();
+      if (!settingsPassword) throw new Error('Empty password file');
+    } else {
+      settingsPassword = crypto.randomBytes(8).toString('hex');
+      fs.mkdirSync(path.dirname(PASSWORD_FILE), { recursive: true });
+      fs.writeFileSync(PASSWORD_FILE, settingsPassword, { mode: 0o600 });
+    }
+  } catch (err) {
+    settingsPassword = crypto.randomBytes(8).toString('hex');
+    console.error('Failed to persist settings password:', err.message);
+  }
   console.warn('⚠️  WARNING: No SETTINGS_PASSWORD provided in environment.');
-  console.warn(`🔒  Using randomly generated password: ${settingsPassword}`);
+  console.warn('🔒  A random password has been generated and saved to data/settings-password');
 }
 
 // Middleware to check if user is authenticated

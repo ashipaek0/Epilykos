@@ -23,6 +23,29 @@ import { ensureBlockIds } from './utils/blockId.js';
 
 let dashboardConfig;
 
+/** Load a script dynamically and return a promise. */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+let chartJSLoading = null;
+/** Ensure Chart.js + adapter are loaded (idempotent). Returns a promise. */
+function ensureChartJS() {
+  if (typeof Chart !== 'undefined') return Promise.resolve();
+  if (chartJSLoading) return chartJSLoading;
+  chartJSLoading = Promise.all([
+    loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'),
+    loadScript('https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js')
+  ]);
+  return chartJSLoading;
+}
+
 /**
  * Fetch dashboard config from API, select active tab (honouring ?tab= param
  * and desktop/mobile defaults), apply branding, then render all blocks.
@@ -175,7 +198,15 @@ function renderDashboard() {
   let maxBottom = 0;
 
   positioned.forEach(({ block, x, w, h, _top }) => {
-    const content = componentBuilders[block.type](block);
+    let content;
+    try {
+      content = componentBuilders[block.type](block);
+    } catch (e) {
+      console.error('Block render failed:', block.type, block.id, e);
+      content = document.createElement('div');
+      content.className = 'dashboard-block block-error';
+      content.textContent = '⚠️ Block render error';
+    }
     if (!content) return;
 
     const wrapper = document.createElement('div');
@@ -257,8 +288,14 @@ function renderDashboard() {
       }
     }).catch(() => {});
 
-  if (active.layout.some(b => b.type === 'chart-power')) initPowerChart();
-  if (active.layout.some(b => b.type === 'chart-energy')) initEnergyChart();
+  const hasPower = active.layout.some(b => b.type === 'chart-power');
+  const hasEnergy = active.layout.some(b => b.type === 'chart-energy');
+  if (hasPower || hasEnergy) {
+    ensureChartJS().then(() => {
+      if (hasPower) initPowerChart();
+      if (hasEnergy) initEnergyChart();
+    }).catch(e => console.error('Chart.js load failed:', e));
+  }
 
   // Defer data fetches — WebSocket pushes initial state; tables and forecast load staggered
   setTimeout(() => {

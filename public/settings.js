@@ -69,6 +69,7 @@ async function loadSettings() {
       usedDashboardMetrics.sort();
     }
   } catch (e) {
+    console.error('Failed to load settings:', e);
     showStatus(saveStatus, 'Failed to load settings', 'error');
   }
   syncAllMetricDropdowns();
@@ -549,6 +550,8 @@ function renderMqttDevice(device, idx) {
     }
   });
 
+  const mappingsList = card.querySelector('.mappings-list');
+
   card.querySelector('.add-mqtt-metric').addEventListener('click', () => {
     const used = getAllUsedMetrics();
     addMqttMetricRow(device, idx, mappingsList, '', '', Array.from(used));
@@ -573,8 +576,6 @@ function renderMqttDevice(device, idx) {
       if (tooltip) tooltip.style.display = 'none';
     });
   }
-
-  const mappingsList = card.querySelector('.mappings-list');
   renderMqttMappings(device.topics || {}, idx, mappingsList);
   mqttDeviceCounter++;
 }
@@ -738,7 +739,7 @@ function renderModbusDevice(device, idx) {
       unit: card.querySelector('input[name$="[unit]"]')?.value,
     };
     try {
-      const res = await fetch('/api/test-modbus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dev) });
+      const res = await fetch('/api/test-modbus', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(dev) });
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `OK: ${data.value}`, 'success');
       else showStatus(statusEl, data.error, 'error');
@@ -1109,7 +1110,7 @@ function renderRs232Device(device, idx) {
     try {
       const res = await fetch('/api/test-rs232', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify(dev),
       });
       const data = await res.json();
@@ -1245,7 +1246,7 @@ function renderExternalSource(source, idx) {
     if (!url) { showStatus(testStatus, 'URL required', 'error'); return; }
     showStatus(testStatus, 'Testing...', 'info');
     try {
-      const res = await fetch('/api/test-external', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, jsonPath }) });
+      const res = await fetch('/api/test-external', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ url, jsonPath }) });
       const data = await res.json();
       if (res.ok) {
         const val = data.value;
@@ -1324,6 +1325,7 @@ const bmsScanStatus = document.getElementById('bms-scan-status');
 const bmsScanCacheBadge = document.getElementById('bms-scan-cache-badge');
 
 function closeBmsScanModal() {
+  if (!bmsScanModal) return;
   bmsScanModal.style.display = 'none';
   if (bmsScanTargetIdx >= 0) {
     const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
@@ -1801,7 +1803,7 @@ async function testBank(card, idx) {
   try {
     const res = await fetch('/api/bms/bank/test', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify({ name: bankName, devices, functions })
     });
     const data = await res.json();
@@ -1971,7 +1973,7 @@ function renderDongleDevice(device, idx) {
     try {
       const res = await fetch('/api/dongle/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, modbus_unit_id: parseInt(unitId) || 1, transport: tx })
       });
       const data = await res.json();
@@ -2029,7 +2031,7 @@ async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
         if (m.name && !existingNames.has(m.name)) {
           await fetch('/api/metrics/create', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ name: m.name, unit: m.unit || '' })
           }).catch(() => {});
         }
@@ -2231,7 +2233,7 @@ if (pvoutputTestBtn) {
     try {
       const res = await fetch('/api/pvoutput/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ api_key: apiKey, system_id: sysId })
       });
       const data = await res.json();
@@ -2256,7 +2258,7 @@ if (backfillBtn) {
     backfillBtn.disabled = true;
     backfillBtn.textContent = 'Running...';
     try {
-      const res = await fetch('/api/pvoutput/backfill', { method: 'POST' });
+      const res = await fetch('/api/pvoutput/backfill', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await res.json();
       showStatus(document.getElementById('pvoutput-test-status'), data.message || 'Backfill complete', 'success');
       refreshPvoutputQueue();
@@ -2364,7 +2366,7 @@ if (saveRoleMetricsBtn) {
     });
     try {
       const res = await fetch('/api/role-metrics', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify(mapping)
       });
       const data = await res.json();
@@ -2462,7 +2464,7 @@ if (modalCreate) {
     const unit = unitInput ? unitInput.value.trim() : '';
     if (!name) { alert('Metric name is required'); return; }
     try {
-      const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, unit }) });
+      const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ name, unit }) });
       if (res.ok) {
         if (modal) modal.style.display = 'none';
         await loadMetricsList();
@@ -2656,7 +2658,7 @@ function renderDashboardBlockEditor(dashboard) {
                   const unit = unitInput ? unitInput.value.trim() : '';
                   if (!name) { alert('Metric name is required'); return; }
                   try {
-                    const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, unit }) });
+                    const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ name, unit }) });
                     if (res.ok) {
                       if (modal) modal.style.display = 'none';
                       await loadMetricsList();
@@ -2692,6 +2694,7 @@ function renderDashboardBlockEditor(dashboard) {
       }
       renderCards();
       const addCardBtn = document.createElement('button');
+      addCardBtn.type = 'button';
       addCardBtn.textContent = '+ Add Card';
       addCardBtn.className = 'fetch-btn';
       addCardBtn.style.marginTop = '0.5rem';
@@ -2890,7 +2893,7 @@ function renderDashboardBlockEditor(dashboard) {
           <label>Metric</label><select class="config-metric" data-role="value" style="width:100%;margin-bottom:0.5rem;">${generateMetricOptionsHtml(block.config?.metric)}</select>
           <label>Min</label><input type="number" class="config-min" value="${block.config?.min ?? (isHalf ? -100 : 0)}" style="width:100%;margin-bottom:0.5rem;">
           <label>Max</label><input type="number" class="config-max" value="${block.config?.max ?? 100}" style="width:100%;margin-bottom:0.5rem;">
-          <label>Color</label><input type="color" class="config-color" value="${escapeHtml(block.config?.color||'#3b82f6')}" style="width:100%;margin-bottom:0.5rem;">
+          <label>Color</label><input type="color" class="config-color" value="${escapeHtml(block.config?.color||'#f59e0b')}" style="width:100%;margin-bottom:0.5rem;">
           <button class="fetch-btn save-config">Save</button>`;
       } else if (block.type === 'text-card') {
         configPanel.innerHTML = `<label>Content (HTML/Markdown)</label><textarea class="config-content" style="width:100%;height:150px;margin-bottom:0.5rem;">${escapeHtml(block.config?.content||'')}</textarea><button class="fetch-btn save-config">Save</button>`;
@@ -3010,7 +3013,7 @@ function renderDashboardBlockEditor(dashboard) {
             const minVal = parseFloat(configPanel.querySelector('.config-min')?.value);
             block.config.min = isNaN(minVal) ? (isHalf ? -100 : 0) : minVal;
             block.config.max = parseFloat(configPanel.querySelector('.config-max')?.value) || 100;
-            block.config.color = configPanel.querySelector('.config-color')?.value || '#3b82f6';
+            block.config.color = configPanel.querySelector('.config-color')?.value || '#f59e0b';
           } else if (block.type === 'text-card') {
             block.config.content = configPanel.querySelector('.config-content')?.value || '';
           } else if (block.type === 'iframe-card') {
@@ -3105,7 +3108,7 @@ function renderDashboardBlockEditor(dashboard) {
             const newRow = document.createElement('div');
             newRow.className = 'bg-row';
             newRow.style.cssText = 'display:flex;gap:0.25rem;margin-bottom:0.3rem;align-items:center;flex-wrap:wrap;';
-            newRow.innerHTML = `<input type="text" class="config-bg-label" data-idx="${newIdx}" placeholder="Label" style="flex:1;min-width:80px;"><select class="config-bg-metric" data-idx="${newIdx}" style="flex:1;min-width:100px;">${generateMetricOptionsHtml('')}</select><input type="text" class="config-bg-unit" data-idx="${newIdx}" placeholder="Unit" style="width:45px;"><input type="number" class="config-bg-min" data-idx="${newIdx}" value="0" placeholder="Min" style="width:50px;"><input type="number" class="config-bg-max" data-idx="${newIdx}" value="100" placeholder="Max" style="width:55px;"><input type="color" class="config-bg-color" data-idx="${newIdx}" value="#3b82f6" style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Bar color"><input type="text" class="config-bg-gradient" data-idx="${newIdx}" value="" placeholder="Gradient e.g. #ef4444,#eab308,#22c55e" style="width:120px;font-size:0.65rem;" title="Comma-separated CSS colors for gradient">${isRetroAdd ? `<input type="number" class="config-bg-segments" data-idx="${newIdx}" value="10" placeholder="Segs" style="width:48px;font-size:0.65rem;" title="Number of LED segments" min="2" max="40">` : ''}<button type="button" class="remove-bg-btn" data-idx="${newIdx}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>`;
+            newRow.innerHTML = `<input type="text" class="config-bg-label" data-idx="${newIdx}" placeholder="Label" style="flex:1;min-width:80px;"><select class="config-bg-metric" data-idx="${newIdx}" style="flex:1;min-width:100px;">${generateMetricOptionsHtml('')}</select><input type="text" class="config-bg-unit" data-idx="${newIdx}" placeholder="Unit" style="width:45px;"><input type="number" class="config-bg-min" data-idx="${newIdx}" value="0" placeholder="Min" style="width:50px;"><input type="number" class="config-bg-max" data-idx="${newIdx}" value="100" placeholder="Max" style="width:55px;"><input type="color" class="config-bg-color" data-idx="${newIdx}" value="#f59e0b" style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Bar color"><input type="text" class="config-bg-gradient" data-idx="${newIdx}" value="" placeholder="Gradient e.g. #ef4444,#eab308,#22c55e" style="width:120px;font-size:0.65rem;" title="Comma-separated CSS colors for gradient">${isRetroAdd ? `<input type="number" class="config-bg-segments" data-idx="${newIdx}" value="10" placeholder="Segs" style="width:48px;font-size:0.65rem;" title="Number of LED segments" min="2" max="40">` : ''}<button type="button" class="remove-bg-btn" data-idx="${newIdx}" style="padding:0.2rem 0.4rem;color:#ef4444;">✕</button>`;
             newRow.querySelector('.remove-bg-btn').addEventListener('click', () => newRow.remove());
             addBtn.before(newRow);
           });
@@ -3172,6 +3175,7 @@ function renderDashboardBlockEditor(dashboard) {
   });
   container.appendChild(blockList);
   const addBlockBtn = document.createElement('button');
+  addBlockBtn.type = 'button';
   addBlockBtn.textContent = '+ Add Block';
   addBlockBtn.className = 'fetch-btn add-btn';
   addBlockBtn.addEventListener('click', () => {
@@ -3208,7 +3212,7 @@ if (importLayoutBtn && importLayoutFile) {
     const formData = new FormData();
     formData.append('layout', file);
     try {
-      const res = await fetch('/api/dashboard-config/import?merge=true', { method: 'POST', body: formData });
+      const res = await fetch('/api/dashboard-config/import?merge=true', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData });
       const data = await res.json();
       if (res.ok) {
         showStatus(backupStatus, 'Layout imported successfully! Reloading...', 'success');
@@ -3365,7 +3369,7 @@ form.addEventListener('submit', async (e) => {
   payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
   payload.dashboard_config = JSON.stringify(dashConfig);
   try {
-    const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(payload) });
     if (res.ok) {
       showStatus(saveStatus, 'Settings saved successfully!', 'success');
       // Clear the unsaved changes indicator
@@ -3373,7 +3377,11 @@ form.addEventListener('submit', async (e) => {
       if (dirtyCount) { dirtyCount.textContent = ''; dirtyCount.classList.remove('show'); }
       document.dispatchEvent(new CustomEvent('stg-save-complete'));
     }
-    else { const err = await res.json().catch(() => ({})); showStatus(saveStatus, err.error || 'Failed to save', 'error'); }
+    else {
+      let msg = `Server error (${res.status})`;
+      try { const err = await res.json(); msg = err.error || msg; } catch {}
+      showStatus(saveStatus, msg, 'error');
+    }
   } catch (e) { showStatus(saveStatus, 'Error: ' + e.message, 'error'); }
 });
 

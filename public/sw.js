@@ -52,7 +52,7 @@ self.addEventListener('message', event => {
   if (event.data?.type === 'network-config') {
     localURL = event.data.localURL || '';
     remoteURL = event.data.remoteURL || '';
-    console.log('[SW] Network config updated:', { localURL, remoteURL });
+    console.debug('[SW] Network config updated:', { localURL, remoteURL });
   }
 });
 

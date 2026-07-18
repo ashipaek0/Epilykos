@@ -26,7 +26,16 @@ function getDb() {
 
 function initializeDatabase() {
   const dataDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (!fs.existsSync(dataDir)) {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch (err) {
+      logger.error(`Cannot create data directory ${dataDir}: ${err.message}. Falling back to in-memory database.`);
+      db = new Database(':memory:');
+      db.pragma('journal_mode = WAL');
+      return;
+    }
+  }
 
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -347,10 +356,6 @@ function getConfig(key) {
 function setConfig(key, value) {
   getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, String(value));
 }
-
-Object.defineProperty(module.exports, 'db', {
-  get: () => getDb()
-});
 
 module.exports = {
   initializeDatabase,

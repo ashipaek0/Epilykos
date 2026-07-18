@@ -8,7 +8,10 @@ let bmsPollingActive = false;
 const BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
 
 async function pollBMS() {
-  if (bmsPollingActive) return;
+  if (bmsPollingActive) {
+    logger.warn('BMS poll skipped — previous cycle still running');
+    return;
+  }
   bmsPollingActive = true;
   const db = getDb();
   const devices = JSON.parse(getConfig('bms_devices') || '[]');

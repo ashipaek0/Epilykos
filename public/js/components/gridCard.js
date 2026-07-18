@@ -77,7 +77,7 @@ export function updateGridCardFromState(state) {
         se.style.color = 'var(--text-secondary)';
       } else {
         se.textContent = current ? 'ON' : 'OFF';
-        se.style.color = current ? 'var(--battery)' : 'var(--grid)';
+        se.style.color = current ? 'var(--grid)' : 'var(--battery)';
       }
     }
     const si = document.getElementById(uid('grid-state-since', id));
@@ -86,10 +86,14 @@ export function updateGridCardFromState(state) {
     }
 
     // Hours
-    document.getElementById(uid('grid-hours-day', id)).textContent   = formatHoursToHM(gh.day || 0);
-    document.getElementById(uid('grid-hours-week', id)).textContent   = formatHoursToHM(gh.week || 0);
-    document.getElementById(uid('grid-hours-month', id)).textContent  = formatHoursToHM(gh.month || 0);
-    document.getElementById(uid('grid-hours-year', id)).textContent   = formatHoursToHM(gh.year || 0);
+    const hoursDayEl = document.getElementById(uid('grid-hours-day', id));
+    if (hoursDayEl) hoursDayEl.textContent = formatHoursToHM(gh.day || 0);
+    const hoursWeekEl = document.getElementById(uid('grid-hours-week', id));
+    if (hoursWeekEl) hoursWeekEl.textContent = formatHoursToHM(gh.week || 0);
+    const hoursMonthEl = document.getElementById(uid('grid-hours-month', id));
+    if (hoursMonthEl) hoursMonthEl.textContent = formatHoursToHM(gh.month || 0);
+    const hoursYearEl = document.getElementById(uid('grid-hours-year', id));
+    if (hoursYearEl) hoursYearEl.textContent = formatHoursToHM(gh.year || 0);
 
     // Date
     updateGridDate(id);

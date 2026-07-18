@@ -1,6 +1,8 @@
 const { logger } = require('./logger');
 const fetch = require('node-fetch');
+const dns = require('dns').promises;
 const { getConfig, getDb } = require('./database');
+const { isPrivateOrLocalIp, isValidHostname } = require('./utils');
 
 let externalPollInterval = null;
 let externalMetricInsert = null;
@@ -21,6 +23,34 @@ async function pollExternalSources() {
   for (const source of sources) {
     if (!source.enabled || !source.url) continue;
     try {
+      // SSRF protection: validate and resolve URL hostname before fetch
+      let parsedUrl;
+      try { parsedUrl = new URL(source.url); } catch { continue; }
+      const host = parsedUrl.hostname;
+      // Block literal private/local IPs
+      const ipVersion = require('net').isIP(host);
+      if (ipVersion) {
+        if (isPrivateOrLocalIp(host.toLowerCase())) {
+          logger.warn(`External source "${source.name}": blocked URL pointing to private/local IP (${host})`);
+          continue;
+        }
+      } else {
+        if (!isValidHostname(host) || host.toLowerCase() === 'localhost' || host.toLowerCase().endsWith('.local')) {
+          logger.warn(`External source "${source.name}": blocked URL with disallowed hostname (${host})`);
+          continue;
+        }
+        // Resolve hostname and check for private IP
+        try {
+          const addresses = await dns.resolve4(host);
+          if (addresses.some(addr => isPrivateOrLocalIp(addr))) {
+            logger.warn(`External source "${source.name}": blocked URL resolving to private IP (${host})`);
+            continue;
+          }
+        } catch (dnsErr) {
+          logger.warn(`External source "${source.name}": DNS resolution failed for ${host}: ${dnsErr.message}`);
+          continue;
+        }
+      }
       const res = await fetch(source.url, { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
