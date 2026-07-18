@@ -3,13 +3,14 @@
  * Zero at 12 o'clock (top centre). Positive fills clockwise to 3 o'clock (right).
  * Negative fills counter-clockwise to 9 o'clock (left).
  */
+import { escapeHtml } from '../utils.js';
 export function buildHalfGauge2Card(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const metric = config.metric || '';
   const min = config.min ?? -100;
   const max = config.max ?? 100;
-  const color = config.color || '#3b82f6';
+  const color = config.color || '#f59e0b';
 
   const container = document.createElement('div');
   container.className = 'half-gauge2-card stat-card';
@@ -30,8 +31,6 @@ export function buildHalfGauge2Card(block = {}) {
     </div>`;
   return container;
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-
 export function updateHalfGauge2Card(state) {
   document.querySelectorAll('.half-gauge2-card').forEach(container => {
     let cfg; try{cfg=JSON.parse(container.dataset.metricMap);}catch(e){return;}
@@ -42,7 +41,7 @@ export function updateHalfGauge2Card(state) {
     const pct = (v - min) / range;
     const arcLen = Math.PI * 80; // ≈ 251.3 — true semicircle arc length (radius=80)
     const midArc = arcLen / 2;    // ≈ 125.7 — position of 12 o'clock
-    const color = cfg.color || '#3b82f6';
+    const color = cfg.color || '#f59e0b';
     const negColor = '#ef4444';
     // 12 o'clock (top centre) is the neutral point
     // Positive: clockwise from 12 o'clock → 3 o'clock (right)

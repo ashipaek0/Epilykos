@@ -81,11 +81,11 @@ function doConnect() {
   }
 
   const wsUrl = getWsUrl();
-  console.log('[WSManager] Connecting to', wsUrl);
+  console.debug('[WSManager] Connecting to', wsUrl);
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    console.log('[WSManager] Connected');
+    console.debug('[WSManager] Connected');
     reconnectAttempt = 0;
     if (reconnectTimer) clearTimeout(reconnectTimer);
     if (onConnect) onConnect();
@@ -109,14 +109,14 @@ function doConnect() {
   };
 
   ws.onclose = () => {
-    console.log('[WSManager] Disconnected');
+    console.debug('[WSManager] Disconnected');
     scheduleReconnect();
   };
 }
 
 function scheduleReconnect() {
   const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
-  console.log(`[WSManager] Reconnecting in ${delay}ms (attempt ${reconnectAttempt + 1})`);
+  console.debug(`[WSManager] Reconnecting in ${delay}ms (attempt ${reconnectAttempt + 1})`);
   reconnectTimer = setTimeout(() => {
     reconnectAttempt++;
     doConnect();
@@ -127,7 +127,7 @@ function scheduleReconnect() {
 export async function loadInitialState() {
   const cached = await loadCachedState();
   if (cached) {
-    console.log('[WSManager] Loaded cached state from IndexedDB');
+    console.debug('[WSManager] Loaded cached state from IndexedDB');
     return cached;
   }
   return null;
@@ -138,7 +138,7 @@ export function setupBackgroundSync() {
   // Listen for background refresh data from service worker
   navigator.serviceWorker?.addEventListener('message', event => {
     if (event.data?.type === 'background-refresh' && onStateUpdate) {
-      console.log('[WSManager] Received background refresh from SW');
+      console.debug('[WSManager] Received background refresh from SW');
       onStateUpdate(event.data.data);
     }
   });
@@ -146,7 +146,7 @@ export function setupBackgroundSync() {
   // Handle visibility change — reconnect WS when app comes to foreground
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      console.log('[WSManager] App resumed — reconnecting WS');
+      console.debug('[WSManager] App resumed — reconnecting WS');
       reconnectAttempt = 0;
       doConnect();
     }
@@ -157,7 +157,7 @@ export function setupBackgroundSync() {
     self.registration.periodicSync.register('refresh-metrics', {
       minInterval: 1 * 60 * 1000 // 1 minute
     }).then(() => {
-      console.log('[WSManager] Periodic background sync registered');
+      console.debug('[WSManager] Periodic background sync registered');
     }).catch(err => {
       console.warn('[WSManager] Periodic sync not available:', err.message);
     });

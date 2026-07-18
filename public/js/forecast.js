@@ -31,7 +31,7 @@ function setWeatherIconColor(el, desc) {
   if (d.includes('clear') || d.includes('sunny')) el.style.color = '#f59e0b';
   else if (d.includes('partly cloudy')) el.style.color = '#eab308';
   else if (d.includes('cloudy') || d.includes('overcast')) el.style.color = '#9ca3af';
-  else if (d.includes('rain') || d.includes('drizzle')) el.style.color = '#3b82f6';
+  else if (d.includes('rain') || d.includes('drizzle')) el.style.color = '#87aec8';
   else if (d.includes('fog')) el.style.color = '#94a3b8';
   else el.style.color = 'var(--text)';
 }
@@ -64,7 +64,7 @@ export async function updateForecast() {
   const historyRes = await fetch('/api/history?days=1');
   const historyData = await historyRes.json();
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const actualColor = '#00E056', forecastColor = '#FFEA00';
+  const actualColor = '#f59e0b', forecastColor = '#d97706';
   const systemCapacityKwp = window.systemCapacityKwp || 2.1;
 
   for (const banner of banners) {

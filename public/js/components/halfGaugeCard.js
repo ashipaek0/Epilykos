@@ -2,13 +2,14 @@
  * Half Gauge Card — 180° semicircle gauge (9 o'clock to 3 o'clock).
  * Zero at bottom center. Positive fills right, negative fills left.
  */
+import { escapeHtml } from '../utils.js';
 export function buildHalfGaugeCard(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const metric = config.metric || '';
   const min = config.min ?? -100;
   const max = config.max ?? 100;
-  const color = config.color || '#3b82f6';
+  const color = config.color || '#f59e0b';
 
   const container = document.createElement('div');
   container.className = 'half-gauge-card stat-card';
@@ -29,8 +30,6 @@ export function buildHalfGaugeCard(block = {}) {
     </div>`;
   return container;
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-
 export function updateHalfGaugeCard(state) {
   document.querySelectorAll('.half-gauge-card').forEach(container => {
     let cfg; try{cfg=JSON.parse(container.dataset.metricMap);}catch(e){return;}
@@ -45,7 +44,7 @@ export function updateHalfGaugeCard(state) {
     const fillLen = Math.min(arcLen, Math.abs(pct - zeroPoint) * arcLen);
     // Above zero fills from 9 o'clock (left); below zero fills from 3 o'clock (right)
     const offset = pct >= zeroPoint ? 0 : arcLen - fillLen;
-    const color = cfg.color || '#3b82f6';
+    const color = cfg.color || '#f59e0b';
     const negColor = '#ef4444';
     const id = container.querySelector('[id^="hgauge-fill-"]')?.id?.replace('hgauge-fill-','');
     const fill = document.getElementById('hgauge-fill-' + id);

@@ -24,7 +24,7 @@ function sendConfigToSW(localURL, remoteURL) {
     localURL,
     remoteURL
   });
-  console.log('[Network] Sent config to SW:', { localURL, remoteURL });
+  console.debug('[Network] Sent config to SW:', { localURL, remoteURL });
 }
 
 // ── Load from server ─────────────────────────────────────────────────

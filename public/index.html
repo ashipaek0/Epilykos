@@ -15,18 +15,18 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css"></noscript>
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <!-- Chart.js loaded dynamically when chart blocks are present -->
   <!-- CSRF protection -->
   <script defer src="js/csrf.js"></script>
   <!-- Network detection (sends URLs to Service Worker) -->
   <script defer src="js/network-detect.js"></script>
 </head>
 <body>
+  <a href="#dashboard-container" class="skip-link" style="position:absolute;left:-9999px;top:0;z-index:9999;padding:0.5rem 1rem;background:var(--accent);color:#fff;border-radius:0 0 var(--radius) 0">Skip to dashboard</a>
   <div class="container">
     <header>
       <div class="header-left">
-        <img id="logo-img" src="" alt="Logo" style="height:40px; margin-right:1rem; display:none;">
+        <img id="logo-img" alt="Logo" style="height:40px; margin-right:1rem; display:none;">
         <h1 id="dashboard-title"></h1>
       </div>
       <div class="header-right">
@@ -34,7 +34,7 @@
         <a href="/api/logout" class="settings-link" id="signout-btn" title="Sign out" style="display:none;">Sign out</a>
         <a href="/settings" class="settings-link" id="settings-btn" style="display:none;">⚙️ Settings</a>
         <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode" style="display:none;">
-          <span class="theme-icon">🌙</span>
+          <span class="theme-icon">☾</span>
         </button>
       </div>
     </header>
@@ -49,7 +49,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+        .then(reg => console.debug('[PWA] Service Worker registered:', reg.scope))
         .catch(err => console.warn('[PWA] SW registration failed:', err));
     }
   </script>
