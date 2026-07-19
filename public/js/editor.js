@@ -823,7 +823,7 @@ function refreshGridItem(block) {
   var inner = el.querySelector('.grid-stack-item-content');
   if (!inner) return;
   // Keep delete and settings buttons, rebuild content
-  var delBtn = inner.querySelector('button');
+  var delBtn = inner.querySelector('.grid-item-delete');
   var settingsBtn = inner.querySelector('.grid-item-settings');
   // Clear inner
   inner.innerHTML = '';
@@ -939,16 +939,17 @@ function buildGridItem(block) {
   // Settings button (gear)
   var settingsBtn = document.createElement('button');
   settingsBtn.className = 'grid-item-settings';
-  settingsBtn.textContent = '\u2699';
-  settingsBtn.style.cssText = 'position:absolute;top:4px;right:30px;z-index:10;min-width:44px;min-height:44px;';
+  settingsBtn.innerHTML = '&#9881;';
+  settingsBtn.style.cssText = 'position:absolute;top:4px;right:42px;z-index:10;';
   settingsBtn.setAttribute('aria-label', 'Block settings');
   settingsBtn.addEventListener('click', function(e) { e.stopPropagation(); openSettingsModal(block); });
   inner.appendChild(settingsBtn);
 
   // Delete button
   var delBtn = document.createElement('button');
+  delBtn.className = 'grid-item-delete';
   delBtn.textContent = '\u2715';
-  delBtn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:10;background:#ef4444;color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;';
+  delBtn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:10;';
   delBtn.setAttribute('aria-label', 'Delete block');
   delBtn.addEventListener('click', function(e) { e.stopPropagation(); grid.removeWidget(item); persistLayout(); markUnsaved(); });
   inner.appendChild(delBtn);
