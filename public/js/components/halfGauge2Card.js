@@ -10,7 +10,7 @@ export function buildHalfGauge2Card(block = {}) {
   const metric = config.metric || '';
   const min = config.min ?? -100;
   const max = config.max ?? 100;
-  const color = config.color || '#f59e0b';
+  const color = config.color || 'var(--color-solar)';
 
   const container = document.createElement('div');
   container.className = 'half-gauge2-card stat-card';
@@ -41,7 +41,7 @@ export function updateHalfGauge2Card(state) {
     const pct = (v - min) / range;
     const arcLen = Math.PI * 80; // ≈ 251.3 — true semicircle arc length (radius=80)
     const midArc = arcLen / 2;    // ≈ 125.7 — position of 12 o'clock
-    const color = cfg.color || '#f59e0b';
+    const color = cfg.color || 'var(--color-solar)';
     const negColor = '#ef4444';
     // 12 o'clock (top centre) is the neutral point
     // Positive: clockwise from 12 o'clock → 3 o'clock (right)

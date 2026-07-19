@@ -9,7 +9,7 @@ export function buildHalfGaugeCard(block = {}) {
   const metric = config.metric || '';
   const min = config.min ?? -100;
   const max = config.max ?? 100;
-  const color = config.color || '#f59e0b';
+  const color = config.color || 'var(--color-solar)';
 
   const container = document.createElement('div');
   container.className = 'half-gauge-card stat-card';
@@ -44,7 +44,7 @@ export function updateHalfGaugeCard(state) {
     const fillLen = Math.min(arcLen, Math.abs(pct - zeroPoint) * arcLen);
     // Above zero fills from 9 o'clock (left); below zero fills from 3 o'clock (right)
     const offset = pct >= zeroPoint ? 0 : arcLen - fillLen;
-    const color = cfg.color || '#f59e0b';
+    const color = cfg.color || 'var(--color-solar)';
     const negColor = '#ef4444';
     const id = container.querySelector('[id^="hgauge-fill-"]')?.id?.replace('hgauge-fill-','');
     const fill = document.getElementById('hgauge-fill-' + id);
