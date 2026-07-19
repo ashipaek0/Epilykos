@@ -71,7 +71,7 @@ function metricSelect(selectedName, existingId) {
 function buildAppearanceFields(block) {
   var config = block.config || {};
   var bgColor = block.bgColor || config.bgColor || '';
-  var fontColor = block.fontColor || config.fontColor || '#000000';
+  var fontColor = block.fontColor || config.fontColor || '';
   var fontSize = block.fontSize || config.fontSize || '';
   var transparent = !!(block.transparent || config.transparent);
   return [
@@ -603,7 +603,9 @@ function readSettingsForm(block) {
   config.enabled = document.getElementById('modal-enabled')?.checked !== false;
   config.transparent = document.getElementById('modal-transparent')?.checked || false;
   config.bgColor = document.getElementById('modal-bgcolor')?.value || '';
+  if (config.bgColor === '#000000') config.bgColor = '';
   config.fontColor = document.getElementById('modal-fontcolor')?.value || '';
+  if (config.fontColor === '#000000') config.fontColor = '';
   config.fontSize = document.getElementById('modal-fontsize')?.value || '';
 
   // Apply common fields to block
