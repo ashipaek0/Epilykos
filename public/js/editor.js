@@ -70,7 +70,7 @@ function metricSelect(selectedName, existingId) {
 /** Build common appearance fields: enabled, transparent, bgColor, fontColor, fontSize */
 function buildAppearanceFields(block) {
   var config = block.config || {};
-  var bgColor = block.bgColor || config.bgColor || '#ffffff';
+  var bgColor = block.bgColor || config.bgColor || '';
   var fontColor = block.fontColor || config.fontColor || '#000000';
   var fontSize = block.fontSize || config.fontSize || '';
   var transparent = !!(block.transparent || config.transparent);
