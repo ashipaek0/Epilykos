@@ -875,6 +875,14 @@ async function handleSettingsSave() {
 }
 
 async function openSettingsModal(block) {
+  // Re-resolve from the current layout — the closure may hold a stale
+  // reference if persistLayout() replaced tab.layout after addBlockToGrid.
+  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
+  if (tab) {
+    var live = tab.layout.find(function(b) { return b.id === block.id; });
+    if (live) block = live;
+  }
+
   // Fetch available metrics for dropdowns
   try {
     var state = await fetchDashboardState();
