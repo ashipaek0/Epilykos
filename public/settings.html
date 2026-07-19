@@ -1,135 +1,294 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Settings - Epilykos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — Epilykos</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="settings-redesign.css">
 </head>
 <body>
-<div class="stg-shell">
-  <!-- ── Sidebar ──────────────────────────────────────────── -->
-  <nav class="stg-sidebar">
-    <div class="stg-logo">⚡ Epilykos</div>
-    <ul class="stg-nav" id="stg-nav">
-      <li><button class="stg-nav-btn active" data-section="data-sources"><span class="stg-nav-icon">📡</span> Data Sources</button></li>
-      <li><button class="stg-nav-btn" data-section="metrics"><span class="stg-nav-icon">📊</span> Metrics</button></li>
-      <li><button class="stg-nav-btn" data-section="solar"><span class="stg-nav-icon">☀️</span> Solar</button></li>
-      <li><button class="stg-nav-btn" data-section="dashboard"><span class="stg-nav-icon">🏠</span> Dashboard</button></li>
-      <li><button class="stg-nav-btn" data-section="savings"><span class="stg-nav-icon">💰</span> Savings</button></li>
-      <li><button class="stg-nav-btn" data-section="backup"><span class="stg-nav-icon">💾</span> Backup</button></li>
-      <li><button class="stg-nav-btn" data-section="branding"><span class="stg-nav-icon">🎨</span> Branding</button></li>
-      <li><button class="stg-nav-btn" data-section="network"><span class="stg-nav-icon">🌐</span> Network</button></li>
-      <li><button class="stg-nav-btn" data-section="help"><span class="stg-nav-icon">❓</span> Help</button></li>
-    </ul>
-    <div class="stg-sidebar-footer">
-      <div style="display:flex;align-items:center;gap:0.5rem;">
-        <a href="/" class="stg-back-link" style="flex:1;">← Dashboard</a>
-        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.5rem;border-radius:2rem;cursor:pointer;font-size:0.9rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">🌙</button>
+
+<div class="app-shell">
+
+  <!-- ── MOBILE HAMBURGER ──────────────────────────────── -->
+  <button class="hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+
+  <!-- ── MOBILE HEADER ─────────────────────────────────── -->
+  <div class="mobile-header" id="mobile-header">
+    Epilykos Settings
+    <button class="mobile-theme-toggle" id="mobile-theme-toggle" aria-label="Toggle theme">☾</button>
+  </div>
+
+  <!-- ── MOBILE OVERLAY ────────────────────────────────── -->
+  <div class="mobile-overlay" id="mobile-overlay"></div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- SIDEBAR                                             -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="/" class="sidebar-logo">
+        <span class="logo-icon">⚡</span>
+        Epilykos
+      </a>
+      <button class="sidebar-close" id="sidebar-close" aria-label="Close menu">&times;</button>
+    </div>
+
+    <div class="sidebar-search">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" id="global-search"
+               placeholder="Search settings..." autocomplete="off">
       </div>
+    </div>
+
+    <div class="sidebar-nav" id="sidebar-nav">
+      <!-- Group: Data & Sources -->
+      <div class="nav-group" data-group="connect">
+        <div class="nav-group-header" data-group-toggle="connect">
+          Data & Sources
+          <span class="group-arrow open">▶</span>
+        </div>
+        <div class="nav-group-items" data-group-items="connect">
+          <button class="nav-item active" data-section="data-sources">
+            <span class="nav-icon">⌁</span> Data Sources
+            <span class="nav-status ok"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Group: Dashboard & Display -->
+      <div class="nav-group" data-group="display">
+        <div class="nav-group-header" data-group-toggle="display">
+          Dashboard & Display
+          <span class="group-arrow open">▶</span>
+        </div>
+        <div class="nav-group-items" data-group-items="display">
+          <button class="nav-item" data-section="dashboard">
+            <span class="nav-icon">■</span> Dashboard Layout
+          </button>
+          <button class="nav-item" data-section="branding">
+            <span class="nav-icon">✎</span> Branding
+          </button>
+        </div>
+      </div>
+
+      <!-- Group: Monitoring -->
+      <div class="nav-group" data-group="monitoring">
+        <div class="nav-group-header" data-group-toggle="monitoring">
+          Monitoring
+          <span class="group-arrow open">▶</span>
+        </div>
+        <div class="nav-group-items" data-group-items="monitoring">
+          <button class="nav-item" data-section="metrics">
+            <span class="nav-icon">≡</span> Metrics
+            <span class="nav-badge" id="metrics-badge">0</span>
+          </button>
+          <button class="nav-item" data-section="solar">
+            <span class="nav-icon">☀</span> Solar Forecast
+          </button>
+          <button class="nav-item" data-section="savings">
+            <span class="nav-icon">¤</span> Savings
+          </button>
+        </div>
+      </div>
+
+      <!-- Group: System -->
+      <div class="nav-group" data-group="system">
+        <div class="nav-group-header" data-group-toggle="system">
+          System
+          <span class="group-arrow open">▶</span>
+        </div>
+        <div class="nav-group-items" data-group-items="system">
+          <button class="nav-item" data-section="backup">
+            <span class="nav-icon">⇩</span> Backup & Restore
+          </button>
+          <button class="nav-item" data-section="network">
+            <span class="nav-icon">⌀</span> Network
+          </button>
+          <button class="nav-item" data-section="help">
+            <span class="nav-icon">?</span> Help
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <a href="/" class="back-link">← Dashboard</a>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode">☾</button>
     </div>
   </nav>
 
-  <!-- ── Main Content ──────────────────────────────────────── -->
-  <main class="stg-main" id="stg-main">
-    <form id="settings-form" class="settings-form">
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- MAIN CONTENT                                        -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <main class="main-content" id="main-content">
+    <form id="settings-form">
 
-      <!-- Data Sources -->
-      <section class="stg-section active" id="stg-section-data-sources">
-        <div class="stg-section-header"><h2>Data Sources</h2><p>Configure where Epilykos reads metrics from</p></div>
-        <div class="stg-subnav" id="data-source-subtabs">
-          <button class="stg-subnav-btn active" data-subtab="ha">Home Assistant</button>
-          <button class="stg-subnav-btn" data-subtab="mqtt">MQTT</button>
-          <button class="stg-subnav-btn" data-subtab="modbus">Modbus</button>
-          <button class="stg-subnav-btn" data-subtab="rs232">RS232</button>
-          <button class="stg-subnav-btn" data-subtab="external">REST API</button>
-          <button class="stg-subnav-btn" data-subtab="bms">BMS</button>
-          <button class="stg-subnav-btn" data-subtab="dongle">Dongle</button>
-          <button class="stg-subnav-btn" data-subtab="pvoutput">PVOutput</button>
+      <!-- ================================================= -->
+      <!-- DATA SOURCES                                      -->
+      <!-- ================================================= -->
+      <section class="settings-section active" id="section-data-sources">
+        <div class="breadcrumb"><span>Data & Sources</span> / Data Sources</div>
+        <div class="section-header">
+          <h1>Data Sources</h1>
+          <p>Configure where Epilykos reads metrics from</p>
+        </div>
+        <div class="subnav" id="data-source-subnav">
+          <button class="subnav-btn active" data-subtab="ha">Home Assistant</button>
+          <button class="subnav-btn" data-subtab="mqtt">MQTT</button>
+          <button class="subnav-btn" data-subtab="modbus">Modbus</button>
+          <button class="subnav-btn" data-subtab="rs232">RS232</button>
+          <button class="subnav-btn" data-subtab="external">REST API</button>
+          <button class="subnav-btn" data-subtab="bms">BMS</button>
+          <button class="subnav-btn" data-subtab="dongle">Dongle</button>
+          <button class="subnav-btn" data-subtab="pvoutput">PVOutput</button>
         </div>
 
-        <div id="subtab-ha" class="sub-tab-content active">
+        <div id="subtab-ha" class="subtab-content active">
           <div id="ha-devices-container"></div>
-          <button type="button" id="add-ha-device" class="fetch-btn">+ Add HA Device</button>
+          <button type="button" id="add-ha-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add HA Device</button>
         </div>
-        <div id="subtab-mqtt" class="sub-tab-content">
+        <div id="subtab-mqtt" class="subtab-content">
           <div id="mqtt-devices-container"></div>
-          <button type="button" id="add-mqtt-device" class="fetch-btn">+ Add MQTT Broker</button>
+          <button type="button" id="add-mqtt-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add MQTT Broker</button>
         </div>
-        <div id="subtab-modbus" class="sub-tab-content">
+        <div id="subtab-modbus" class="subtab-content">
           <div id="modbus-devices-container"></div>
-          <button type="button" id="add-modbus-device" class="fetch-btn">+ Add Modbus Device</button>
+          <button type="button" id="add-modbus-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Modbus Device</button>
         </div>
-        <div id="subtab-rs232" class="sub-tab-content">
+        <div id="subtab-rs232" class="subtab-content">
           <div id="rs232-devices-container"></div>
-          <button type="button" id="add-rs232-device" class="fetch-btn">+ Add RS232 Device</button>
-          <div class="stg-form-row" style="margin-top:1rem;">
-            <div class="stg-form-group">
+          <button type="button" id="add-rs232-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add RS232 Device</button>
+          <div class="form-row" style="margin-top:1rem;">
+            <div class="form-group">
               <label for="rs232-poll-interval">Global Poll Interval (seconds)</label>
-              <input class="stg-input" id="rs232-poll-interval" name="rs232_poll_interval" value="30">
+              <input class="input" id="rs232-poll-interval" name="rs232_poll_interval" value="30">
             </div>
           </div>
-          <div class="note">RS232 devices require a USB-to-serial adapter. Available ports are auto-detected. Supported profiles: Voltronic (covers Infinisolar, Phocos, MUST, Sako), Victron VE.Direct (streaming), SolaX Pocket USB (AA55 binary).</div>
+          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">RS232 devices require a USB-to-serial adapter. Available ports are auto-detected. Supported profiles: Voltronic (covers Infinisolar, Phocos, MUST, Sako), Victron VE.Direct (streaming), SolaX Pocket USB (AA55 binary).</p>
         </div>
-        <div id="subtab-external" class="sub-tab-content">
+        <div id="subtab-external" class="subtab-content">
           <div id="external-sources-container"></div>
-          <button type="button" id="add-external-source" class="fetch-btn">+ Add External Source</button>
-          <div class="form-group" style="margin-top:1rem;"><label for="external-poll-interval">Global Poll Interval (seconds)</label><input class="stg-input" id="external-poll-interval" name="external_poll_interval" value="60"></div>
+          <button type="button" id="add-external-source" class="btn btn-sm" style="margin-top:0.75rem;">+ Add External Source</button>
+          <div class="form-group" style="margin-top:1rem;"><label for="external-poll-interval">Global Poll Interval (seconds)</label><input class="input" id="external-poll-interval" name="external_poll_interval" value="60"></div>
         </div>
-        <div id="subtab-bms" class="sub-tab-content">
+        <div id="subtab-bms" class="subtab-content">
           <div id="bms-devices-container"></div>
-          <button type="button" id="add-bms-device" class="fetch-btn">+ Add BMS Device</button>
-          <div class="note">Requires the BMS bridge container to be running.</div>
+          <button type="button" id="add-bms-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add BMS Device</button>
+          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Requires the BMS bridge container to be running.</p>
 
-          <div class="stg-section-divider"><span class="stg-divider-icon">🔋</span> BMS Bank Aggregation</div>
+          <div class="section-divider">🔋 BMS Bank Aggregation</div>
           <div id="bms-banks-container"></div>
-          <button type="button" id="add-bms-bank" class="fetch-btn">+ Add Bank</button>
-          <div class="note">Combine multiple BMS devices into a virtual battery bank with computed metrics (weighted SOC, total power, etc.).</div>
+          <button type="button" id="add-bms-bank" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Bank</button>
+          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Combine multiple BMS devices into a virtual battery bank with computed metrics (weighted SOC, total power, etc.).</p>
         </div>
-        <div id="subtab-dongle" class="sub-tab-content">
+        <div id="subtab-dongle" class="subtab-content">
           <div id="dongle-devices-container"></div>
-          <button type="button" id="add-dongle-device" class="fetch-btn">+ Add Dongle Instance</button>
-          <div class="note">Direct TCP connection to your inverter's WiFi module.</div>
+          <button type="button" id="add-dongle-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Dongle Instance</button>
+          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Direct TCP connection to your inverter's WiFi module.</p>
         </div>
-        <div id="subtab-pvoutput" class="sub-tab-content">
-          <div class="stg-card">
-            <div class="stg-card-header"><span class="stg-card-title">PVOutput.org Upload</span></div>
-            <div class="stg-toggle" style="margin-bottom:0.75rem;"><label for="pvoutput-enabled"><input type="checkbox" id="pvoutput-enabled"> Enable PVOutput Upload</label></div>
-            <div class="stg-form-row">
-              <div class="stg-form-group"><label for="pvoutput-api-key">API Key</label><input type="password" id="pvoutput-api-key" class="stg-input" placeholder="Your PVOutput API key"></div>
-              <div class="stg-form-group"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="stg-input" placeholder="12345"></div>
+        <div id="subtab-pvoutput" class="subtab-content">
+          <div class="card">
+            <div class="card-header"><span class="card-title">PVOutput.org Upload</span></div>
+            <div class="toggle-wrap" style="margin-bottom:0.75rem;">
+              <label class="toggle-switch"><input type="checkbox" id="pvoutput-enabled"><span class="slider"></span></label>
+              <label for="pvoutput-enabled">Enable PVOutput Upload</label>
             </div>
-            <div class="stg-form-row">
-              <div class="stg-form-group"><label for="pvoutput-timezone">Timezone</label><input type="text" id="pvoutput-timezone" class="stg-input" placeholder="e.g. Africa/Lagos"><div class="note">Auto-detected on test, or enter manually.</div></div>
-              <div class="stg-form-group"><label for="pvoutput-interval">Upload Interval (min)</label><select id="pvoutput-interval" class="stg-select"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div>
-              <div class="stg-form-group"><label for="pvoutput-system-size">System Size (W)</label><input type="number" id="pvoutput-system-size" class="stg-input" placeholder="5000"></div>
+            <div class="form-row">
+              <div class="form-group"><label for="pvoutput-api-key">API Key</label><input type="password" id="pvoutput-api-key" class="input" placeholder="Your PVOutput API key"></div>
+              <div class="form-group"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="input" placeholder="12345"></div>
             </div>
-            <div class="test-row"><button type="button" id="pvoutput-test-btn" class="fetch-btn">Test Connection</button><span id="pvoutput-test-status" class="test-status"></span></div>
-            <h4 style="margin-top:1.25rem;">Metric Mapping</h4>
-            <div class="stg-form-row" id="pvoutput-metrics-container"></div>
-            <h4 style="margin-top:1.25rem;">Upload Mode</h4>
+            <div class="form-row">
+              <div class="form-group"><label for="pvoutput-timezone">Timezone</label><input type="text" id="pvoutput-timezone" class="input" placeholder="e.g. Africa/Lagos"><span class="note">Auto-detected on test, or enter manually.</span></div>
+              <div class="form-group"><label for="pvoutput-interval">Upload Interval (min)</label><select id="pvoutput-interval" class="select-input"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div>
+            </div>
+            <div class="form-group"><label for="pvoutput-system-size">System Size (W)</label><input type="number" id="pvoutput-system-size" class="input" placeholder="5000"></div>
+            <div class="test-row"><button type="button" id="pvoutput-test-btn" class="btn btn-sm">Test Connection</button><span id="pvoutput-test-status" class="test-status"></span></div>
+            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Metric Mapping</h4>
+            <div class="form-row" id="pvoutput-metrics-container"></div>
+            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Upload Mode</h4>
             <label style="margin-right:1.5rem;font-size:0.9rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="cumulative" checked style="width:1.1rem;height:1.1rem;"> Cumulative (c1) — daily running totals</label>
-            <div class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</div>
+            <span class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</span>
             <label style="font-size:0.9rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="net" style="width:1.1rem;height:1.1rem;"> Net data (n) — v2/v4 are net export/import</label>
-            <h4 style="margin-top:1.25rem;">Upload Queue</h4>
+            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Upload Queue</h4>
             <div id="pvoutput-queue-status" style="font-size:0.85rem;"></div>
-            <div class="backup-row"><button type="button" id="pvoutput-backfill-btn" class="fetch-btn">Run Backfill</button><button type="button" id="pvoutput-view-queue-btn" class="fetch-btn">View Queue</button></div>
-            <h4 style="margin-top:1.25rem;">Notifications (optional)</h4>
-            <div class="stg-form-group"><label for="pvoutput-webhook-url">Webhook URL</label><input type="text" id="pvoutput-webhook-url" class="stg-input" placeholder="https://energy.yourdomain.com/api/pvoutput/webhook"><div class="note">Requires a public URL. Leave empty to skip.</div></div>
+            <div class="btn-group" style="margin-top:0.5rem;"><button type="button" id="pvoutput-backfill-btn" class="btn btn-sm">Run Backfill</button><button type="button" id="pvoutput-view-queue-btn" class="btn btn-sm">View Queue</button></div>
+            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Notifications (optional)</h4>
+            <div class="form-group"><label for="pvoutput-webhook-url">Webhook URL</label><input type="text" id="pvoutput-webhook-url" class="input" placeholder="https://energy.yourdomain.com/api/pvoutput/webhook"><span class="note">Requires a public URL. Leave empty to skip.</span></div>
           </div>
         </div>
       </section>
 
-      <!-- Metrics -->
-      <section class="stg-section" id="stg-section-metrics">
-        <div class="stg-section-header"><h2>Metrics</h2><p>Manage custom metrics and view current values</p></div>
-        <div class="stg-card">
-          <div class="stg-metrics-toolbar">
-            <input type="text" class="stg-search" id="metrics-search" placeholder="Filter metrics...">
-            <button type="button" id="create-metric-btn" class="stg-btn primary">+ New Metric</button>
+      <!-- ================================================= -->
+      <!-- DASHBOARD LAYOUT                                   -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-dashboard">
+        <div class="breadcrumb"><span>Dashboard & Display</span> / Dashboard Layout</div>
+        <div class="section-header">
+          <h1>Dashboard Layout</h1>
+          <p>Manage dashboards, defaults, and display settings</p>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Dashboards</span></div>
+          <div id="dashboards-list"></div>
+          <button type="button" id="add-dashboard-btn" class="btn btn-sm" style="margin-top:0.5rem;">+ New Dashboard</button>
+          <div class="form-row" style="margin-top:0.75rem;">
+            <div class="form-group"><label for="desktop-dashboard">Default for Desktop</label><select id="desktop-dashboard" class="select-input" name="desktop_dashboard"></select></div>
+            <div class="form-group"><label for="mobile-dashboard">Default for Mobile</label><select id="mobile-dashboard" class="select-input" name="mobile_dashboard"></select></div>
           </div>
-          <div class="stg-table-wrap">
-            <table class="stg-table" id="metrics-table">
+          <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
+          <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+            <h4 style="margin:0 0 0.75rem;color:var(--text);font-size:0.9rem;">Display</h4>
+            <div class="toggle-wrap" style="margin-bottom:0.5rem;">
+              <label class="toggle-switch"><input type="checkbox" name="transparent_blocks"><span class="slider"></span></label>
+              <label>Transparent blocks</label>
+            </div>
+            <div class="form-row"><div class="form-group"><label for="dashboard-bg-color-light">Background Colour (Light)</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color" value="#f8fafc" style="width:100%;height:36px;"></div><div class="form-group"><label for="dashboard-bg-color-dark">Background Colour (Dark)</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" value="#0f172a" style="width:100%;height:36px;"></div></div>
+            <div class="form-group"><label for="dashboard-bg-image">Background Image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" placeholder="https://..."></div>
+            <div class="form-group"><label for="grid-status-entity">Grid Status Metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" placeholder="e.g. grid_status"></div>
+            <p class="note">Visual layout: use the <a href="/editor" style="color:var(--accent);">Editor</a>.</p>
+          </div>
+        </div>
+        <div class="btn-group" style="margin-top:0.75rem;"><button type="button" id="export-layout-btn" class="btn">Export Layout</button><button type="button" id="import-layout-btn" class="btn">Import Layout</button><input type="file" id="import-layout-file" accept=".json" style="display:none;"></div>
+      </section>
+
+      <!-- ================================================= -->
+      <!-- BRANDING                                           -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-branding">
+        <div class="breadcrumb"><span>Dashboard & Display</span> / Branding</div>
+        <div class="section-header">
+          <h1>Branding</h1>
+          <p>Customise the dashboard appearance</p>
+        </div>
+        <div class="card">
+          <div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
+          <div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
+          <div class="form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
+        </div>
+      </section>
+
+      <!-- ================================================= -->
+      <!-- METRICS                                            -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-metrics">
+        <div class="breadcrumb"><span>Monitoring</span> / Metrics</div>
+        <div class="section-header">
+          <h1>Metrics</h1>
+          <p>Manage custom metrics and view current values</p>
+        </div>
+        <div class="card">
+          <div class="toolbar">
+            <input type="text" class="input" id="metrics-search" style="max-width:280px;" placeholder="Filter metrics...">
+            <span class="toolbar-spacer"></span>
+            <button type="button" id="create-metric-btn" class="btn btn-primary btn-sm">+ New Metric</button>
+          </div>
+          <div class="table-wrap">
+            <table class="mapping-table" id="metrics-table">
               <thead><tr><th>Metric Name</th><th>Current Value</th><th>Last Updated</th><th>Unit</th><th>Actions</th></tr></thead>
               <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics...</td></tr></tbody>
             </table>
@@ -137,660 +296,736 @@
         </div>
       </section>
 
-      <!-- Solar Forecast -->
-      <section class="stg-section" id="stg-section-solar">
-        <div class="stg-section-header"><h2>Solar Forecast</h2><p>Configure PV forecast via Solcast or Open-Meteo</p></div>
-        <div class="stg-card">
-          <div class="stg-toggle" style="margin-bottom:1rem;"><label for="forecast-enabled"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"> Enable Solar Forecast</label></div>
-          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" class="stg-input" name="solar_latitude"></div><div class="stg-form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" class="stg-input" name="solar_longitude"></div></div>
-          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-tilt">Panel Tilt (°)</label><input id="solar-tilt" class="stg-input" name="solar_tilt" value="30"></div><div class="stg-form-group"><label for="solar-azimuth">Panel Azimuth (°)</label><input id="solar-azimuth" class="stg-input" name="solar_azimuth" value="180"></div></div>
-          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-capacity">Capacity (kWp)</label><input id="solar-capacity" class="stg-input" name="solar_capacity_kwp"><div class="note">Peak power</div></div><div class="stg-form-group"><label for="solcast-api-key">Solcast API Key</label><input id="solcast-api-key" class="stg-input" type="password" name="solcast_api_key" autocomplete="off"></div></div>
-          <div class="stg-form-row"><div class="stg-form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" class="stg-input" name="solcast_resource_id"></div><div class="stg-form-group"><label for="solar-loss-factor">Loss Factor</label><input id="solar-loss-factor" class="stg-input" name="solar_loss_factor" value="0.9"></div></div>
-          <div class="stg-form-row"><div class="stg-form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" class="stg-input" name="solar_install_date" placeholder="2020-01-01"></div></div>
-          <div class="test-row"><button type="button" id="test-forecast" class="fetch-btn">Test Forecast</button><span id="forecast-test-status" class="test-status"></span></div>
+      <!-- ================================================= -->
+      <!-- SOLAR FORECAST                                     -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-solar">
+        <div class="breadcrumb"><span>Monitoring</span> / Solar Forecast</div>
+        <div class="section-header">
+          <h1>Solar Forecast</h1>
+          <p>Configure PV forecast via Solcast or Open-Meteo</p>
         </div>
-        <div class="stg-card">
-          <div class="stg-card-header"><span class="stg-card-title">📊 Metric Roles</span></div>
+        <div class="card">
+          <div class="toggle-wrap" style="margin-bottom:1rem;">
+            <label class="toggle-switch"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"><span class="slider"></span></label>
+            <label for="forecast-enabled">Enable Solar Forecast</label>
+          </div>
+          <div class="form-row"><div class="form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" class="input" name="solar_latitude"></div><div class="form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" class="input" name="solar_longitude"></div></div>
+          <div class="form-row"><div class="form-group"><label for="solar-tilt">Panel Tilt (°)</label><input id="solar-tilt" class="input" name="solar_tilt" value="30"></div><div class="form-group"><label for="solar-azimuth">Panel Azimuth (°)</label><input id="solar-azimuth" class="input" name="solar_azimuth" value="180"></div></div>
+          <div class="form-row"><div class="form-group"><label for="solar-capacity">Capacity (kWp)</label><input id="solar-capacity" class="input" name="solar_capacity_kwp"><span class="note">Peak power</span></div><div class="form-group"><label for="solcast-api-key">Solcast API Key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div></div>
+          <div class="form-row"><div class="form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"></div><div class="form-group"><label for="solar-loss-factor">Loss Factor</label><input id="solar-loss-factor" class="input" name="solar_loss_factor" value="0.9"></div></div>
+          <div class="form-row"><div class="form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" class="input" name="solar_install_date" placeholder="2020-01-01"></div></div>
+          <div class="test-row"><button type="button" id="test-forecast" class="btn btn-sm">Test Forecast</button><span id="forecast-test-status" class="test-status"></span></div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-header"><span class="card-title">📊 Metric Roles</span></div>
           <p class="note" style="margin:0 0 0.75rem;">Map your metric names to system roles (used by power chart, history, dashboard blocks).</p>
           <div id="role-metrics-container"></div>
-          <button type="button" id="save-role-metrics" class="fetch-btn" style="margin-top:0.75rem;">Save Metric Roles</button>
+          <button type="button" id="save-role-metrics" class="btn btn-sm" style="margin-top:0.75rem;">Save Metric Roles</button>
           <span id="role-metrics-status" class="test-status"></span>
         </div>
       </section>
 
-      <!-- Dashboard -->
-      <section class="stg-section" id="stg-section-dashboard">
-        <div class="stg-section-header"><h2>Dashboard</h2><p>Layout, display &amp; defaults</p></div>
-        <div class="stg-card">
-          <div id="dashboards-list"></div>
-          <button type="button" id="add-dashboard-btn" class="fetch-btn">+ New Dashboard</button>
-          <div class="stg-form-row" style="margin-top:0.75rem;">
-            <div class="stg-form-group"><label for="desktop-dashboard">Default for Desktop</label><select id="desktop-dashboard" class="stg-select" name="desktop_dashboard"></select></div>
-            <div class="stg-form-group"><label for="mobile-dashboard">Default for Mobile</label><select id="mobile-dashboard" class="stg-select" name="mobile_dashboard"></select></div>
-          </div>
-          <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
-          <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
-            <h4 style="margin:0 0 0.75rem;color:var(--text);font-size:0.9rem;">Display</h4>
-            <div class="stg-form-group"><label class="stg-toggle"><input type="checkbox" name="transparent_blocks"> Transparent blocks</label></div>
-            <div class="stg-form-row"><div class="stg-form-group"><label for="dashboard-bg-color-light">Background Colour (Light)</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color" value="#f8fafc" style="width:100%;height:36px;"></div><div class="stg-form-group"><label for="dashboard-bg-color-dark">Background Colour (Dark)</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" value="#0f172a" style="width:100%;height:36px;"></div></div>
-            <div class="stg-form-group"><label for="dashboard-bg-image">Background Image URL</label><input id="dashboard-bg-image" class="stg-input" name="dashboard_bg_image" placeholder="https://..."></div>
-            <div class="stg-form-group"><label for="grid-status-entity">Grid Status Metric</label><input id="grid-status-entity" class="stg-input" name="grid_status_entity" placeholder="e.g. grid_status"></div>
-            <p style="color:var(--text-secondary);font-size:0.8rem;">Visual layout: use the <a href="/editor" style="color:var(--accent);">Editor</a>.</p>
-          </div>
+      <!-- ================================================= -->
+      <!-- SAVINGS                                            -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-savings">
+        <div class="breadcrumb"><span>Monitoring</span> / Savings</div>
+        <div class="section-header">
+          <h1>Savings</h1>
+          <p>Calculate cost savings from solar generation</p>
         </div>
-        <div class="backup-row"><button type="button" id="export-layout-btn" class="stg-btn">Export Layout</button><button type="button" id="import-layout-btn" class="stg-btn">Import Layout</button><input type="file" id="import-layout-file" accept=".json" style="display:none;"></div>
-      </section>
-
-      <!-- Savings -->
-      <section class="stg-section" id="stg-section-savings">
-        <div class="stg-section-header"><h2>Savings</h2><p>Calculate cost savings from solar generation</p></div>
-        <div class="stg-card">
-          <div class="stg-form-row"><div class="stg-form-group"><label for="savings-currency">Currency</label><input id="savings-currency" class="stg-input" name="savings_currency" value="€"></div><div class="stg-form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" class="stg-input" name="savings_rate" value="0.30"></div></div>
-          <div class="stg-form-group"><label for="savings-solar-metric">Solar Metric</label><input id="savings-solar-metric" class="stg-input" name="savings_solar_metric" placeholder="e.g. Solar Gen Today"><div class="note">Which metric tracks solar generation for savings. Leave empty to auto-detect.</div></div>
+        <div class="card">
+          <div class="form-row"><div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" class="input" name="savings_currency" value="€"></div><div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" class="input" name="savings_rate" value="0.30"></div></div>
+          <div class="form-group"><label for="savings-solar-metric">Solar Metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" placeholder="e.g. Solar Gen Today"><span class="note">Which metric tracks solar generation for savings. Leave empty to auto-detect.</span></div>
         </div>
       </section>
 
-      <!-- Backup -->
-      <section class="stg-section" id="stg-section-backup">
-        <div class="stg-section-header"><h2>Backup &amp; Restore</h2><p>Download, schedule snapshots, or restore your database</p></div>
-        <div class="stg-card">
-          <div class="backup-row"><button type="button" id="backup-btn" class="stg-btn primary">Download Backup</button><button type="button" id="restore-btn" class="stg-btn">Restore from File</button><input type="file" id="restore-file" accept=".db" style="display:none;"></div>
-          <div id="backup-status" class="stg-status" style="margin-top:0.75rem;"></div>
+      <!-- ================================================= -->
+      <!-- BACKUP & RESTORE                                   -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-backup">
+        <div class="breadcrumb"><span>System</span> / Backup & Restore</div>
+        <div class="section-header">
+          <h1>Backup &amp; Restore</h1>
+          <p>Download, schedule snapshots, or restore your database</p>
         </div>
-        <div class="stg-card">
-          <h4 style="margin:0 0 0.5rem 0;font-size:0.9rem;">📸 Automatic Snapshots</h4>
-          <p class="note" style="margin:0 0 0.75rem 0;">Created daily, last 2 retained. Click to restore.</p>
+        <div class="card">
+          <div class="btn-group"><button type="button" id="backup-btn" class="btn btn-primary">Download Backup</button><button type="button" id="restore-btn" class="btn">Restore from File</button><input type="file" id="restore-file" accept=".db" style="display:none;"></div>
+          <div id="backup-status" class="test-status" style="margin-top:0.75rem;"></div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-header"><span class="card-title">📸 Automatic Snapshots</span></div>
+          <p class="note" style="margin:0 0 0.75rem;">Created daily, last 2 retained. Click to restore.</p>
           <div id="snapshot-list"><p class="note" style="margin:0;font-style:italic;">Loading snapshots...</p></div>
-          <div id="snapshot-status" class="stg-status" style="margin-top:0.5rem;"></div>
+          <div id="snapshot-status" class="test-status" style="margin-top:0.5rem;"></div>
         </div>
       </section>
 
-      <!-- Branding -->
-      <section class="stg-section" id="stg-section-branding">
-        <div class="stg-section-header"><h2>Branding</h2><p>Customise the dashboard appearance</p></div>
-        <div class="stg-card" style="position:relative;padding-bottom:3.5rem;">
-          <div class="stg-form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="stg-input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
-          <div class="stg-form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="stg-input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
-          <div class="stg-form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="stg-input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
+      <!-- ================================================= -->
+      <!-- NETWORK                                            -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-network">
+        <div class="breadcrumb"><span>System</span> / Network</div>
+        <div class="section-header">
+          <h1>Network</h1>
+          <p>Configure LAN and remote URLs for auto-switching</p>
         </div>
-      </section>
-
-      <section class="stg-section" id="stg-section-network">
-        <div class="stg-section-header"><h2>Network</h2><p>Configure LAN and remote URLs for auto-switching</p></div>
-        <div class="stg-card">
-          <div class="stg-form-group">
+        <div class="card">
+          <div class="form-group">
             <label for="network-local-url">Local URL (LAN / WiFi)</label>
-            <input id="network-local-url" class="stg-input" name="network_local_url" placeholder="http://local-ip:port">
+            <input id="network-local-url" class="input" name="network_local_url" placeholder="http://local-ip:port">
             <span class="note">Used when your device is on the same home network. Direct, fast, no internet needed.</span>
           </div>
-          <div class="stg-form-group">
+          <div class="form-group">
             <label for="network-remote-url">Remote URL (Internet)</label>
-            <input id="network-remote-url" class="stg-input" name="network_remote_url" placeholder="https://domain-name.tld">
+            <input id="network-remote-url" class="input" name="network_remote_url" placeholder="https://domain-name.tld">
             <span class="note">Used when away from home.</span>
           </div>
-          <div class="note" style="margin-top:1rem; background:var(--accent-light, #1e3a5f); padding:0.75rem; border-radius:0.5rem;">
+          <div class="info-banner">
             💡 <strong>How it works:</strong> The PWA detects which network you're on and routes API calls through the fastest URL automatically. Save these settings, then install Epilykos to your home screen for the full app experience.
           </div>
         </div>
       </section>
 
-      <section class="stg-section" id="stg-section-help">
-  <div class="stg-section-header"><h2>Help</h2><p>Setup guides, conventions, and troubleshooting</p></div>
-
-  <!-- Search -->
-  <div class="stg-card" style="margin-bottom:0.75rem;">
-    <div class="help-search-wrap">
-      <input type="text" class="stg-input help-search" id="help-search" placeholder="🔍  Filter topics... (e.g. Modbus, forecast, troubleshooting)">
-    </div>
-  </div>
-
-  <!-- ── 1. Quick Start ──────────────────────────────────── -->
-  <details class="help-accordion" open>
-    <summary class="help-summary"><span class="help-icon">🚀</span> Quick Start — 5 minutes to your first dashboard</summary>
-    <div class="help-body">
-      <div class="help-steps">
-        <div class="help-step"><span class="help-step-num">1</span>
-          <div><strong>Add a data source</strong><br>
-          Go to <a href="javascript:switchSubTab('modbus')" class="help-link">Data Sources → Modbus</a> (or HA, MQTT, RS232, Dongle, BMS, REST). Enter connection details and pick a profile matching your hardware.</div>
+      <!-- ================================================= -->
+      <!-- HELP                                               -->
+      <!-- ================================================= -->
+      <section class="settings-section" id="section-help">
+        <div class="breadcrumb"><span>System</span> / Help</div>
+        <div class="section-header">
+          <h1>Help</h1>
+          <p>Setup guides, conventions, and troubleshooting</p>
         </div>
-        <div class="help-step"><span class="help-step-num">2</span>
-          <div><strong>Map registers/fields to metric names</strong><br>
-          Click <em>Load Profile Fields</em>. Each row shows a device register — use the dropdown to pick a metric name (or keep the default). Save settings.</div>
-        </div>
-        <div class="help-step"><span class="help-step-num">3</span>
-          <div><strong>Build a dashboard</strong><br>
-          Open the <a href="/editor" class="help-link">Editor</a>. Drag a <strong>Flow Card</strong> onto the canvas. Click <em>Config</em> on the block, then select which metrics feed each role (solar, consumption, battery, grid).</div>
-        </div>
-        <div class="help-step"><span class="help-step-num">4</span>
-          <div><strong>See live data</strong><br>
-          Data polls every 30s by default. Values update automatically. The Power Chart shows 24h history — it populates as polling continues.</div>
-        </div>
-      </div>
-      <p class="note" style="margin-top:0.75rem;">💡 <strong>Prerequisite:</strong> You need at least one connected device (inverter, sensor, or external API). Start with the data source that matches your hardware.</p>
-    </div>
-  </details>
 
-  <!-- ── 2. Data Source Guides ────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">📡</span> Data Source Guides — setup each type step by step</summary>
-    <div class="help-body">
+        <!-- Search -->
+        <div class="search-wrap" style="margin-bottom:0.75rem;max-width:420px;">
+          <span class="search-icon">⌕</span>
+          <input type="text" class="search-input" id="help-search" placeholder="Filter topics... (e.g. Modbus, forecast, troubleshooting)" style="width:100%;">
+        </div>
 
-      <!-- HA -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">🏠 Home Assistant</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Pull sensor values from an existing Home Assistant instance over HTTP.</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> HA URL (e.g. <code>http://192.168.1.50:8123</code>)</div>
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Long-lived access token (HA → Profile → Security → Long-lived tokens)</div>
-            <div class="help-checklist-item"><span class="help-badge info">Note</span> Only <code>sensor.*</code> and <code>binary_sensor.*</code> entities are fetched</div>
-            <div class="help-checklist-item"><span class="help-badge info">Note</span> Binary sensors auto-convert <code>on</code>/<code>off</code> → 1/0</div>
+        <!-- ── 1. Quick Start ──────────────────────────────── -->
+        <details class="help-accordion" open>
+          <summary class="help-summary"><span class="help-icon">🚀</span> Quick Start — 5 minutes to your first dashboard</summary>
+          <div class="help-body">
+            <div class="help-steps">
+              <div class="help-step"><span class="help-step-num">1</span>
+                <div><strong>Add a data source</strong><br>
+                Go to <span class="help-link" onclick="navigateTo('data-sources','modbus')">Data Sources → Modbus</span> (or HA, MQTT, RS232, Dongle, BMS, REST). Enter connection details and pick a profile matching your hardware.</div>
+              </div>
+              <div class="help-step"><span class="help-step-num">2</span>
+                <div><strong>Map registers/fields to metric names</strong><br>
+                Click <em>Load Profile Fields</em>. Each row shows a device register — use the dropdown to pick a metric name (or keep the default). Save settings.</div>
+              </div>
+              <div class="help-step"><span class="help-step-num">3</span>
+                <div><strong>Build a dashboard</strong><br>
+                Open the <a href="/editor" class="help-link">Editor</a>. Drag a <strong>Flow Card</strong> onto the canvas. Click <em>Config</em> on the block, then select which metrics feed each role (solar, consumption, battery, grid).</div>
+              </div>
+              <div class="help-step"><span class="help-step-num">4</span>
+                <div><strong>See live data</strong><br>
+                Data polls every 30s by default. Values update automatically. The Power Chart shows 24h history — it populates as polling continues.</div>
+              </div>
+            </div>
+            <p class="note" style="margin-top:0.75rem;">💡 <strong>Prerequisite:</strong> You need at least one connected device (inverter, sensor, or external API). Start with the data source that matches your hardware.</p>
           </div>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('ha')" class="help-link">Data Sources → Home Assistant</a></li>
-            <li>Enter HA URL and token → click <em>Fetch Entities</em> to load your sensor list</li>
-            <li>Click <em>+ Add Metric Mapping</em> for each value you want</li>
-            <li>Pick a metric name (e.g. <code>grid_power</code>) and an entity (e.g. <code>sensor.shelly_em_grid_power</code>)</li>
-            <li>Set poll interval (30–60s recommended)</li>
-          </ol>
-        </div>
-      </details>
+        </details>
 
-      <!-- MQTT -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">📨 MQTT</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Subscribe to MQTT topics from any broker (Mosquitto, EMQX, Tasmota devices, etc.).</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>)</div>
-            <div class="help-checklist-item"><span class="help-badge opt">Optional</span> Username and password if broker requires auth</div>
+        <!-- ── 2. Data Source Guides ────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">📡</span> Data Source Guides — setup each type step by step</summary>
+          <div class="help-body">
+            <!-- HA -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">🏠 Home Assistant</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Pull sensor values from an existing Home Assistant instance over HTTP.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> HA URL (e.g. <code>http://192.168.1.50:8123</code>)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Long-lived access token (HA → Profile → Security → Long-lived tokens)</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Only <code>sensor.*</code> and <code>binary_sensor.*</code> entities are fetched</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Binary sensors auto-convert <code>on</code>/<code>off</code> → 1/0</div>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','ha')">Data Sources → Home Assistant</span></li>
+                  <li>Enter HA URL and token → click <em>Fetch Entities</em> to load your sensor list</li>
+                  <li>Click <em>+ Add Metric Mapping</em> for each value you want</li>
+                  <li>Pick a metric name (e.g. <code>grid_power</code>) and an entity (e.g. <code>sensor.shelly_em_grid_power</code>)</li>
+                  <li>Set poll interval (30–60s recommended)</li>
+                </ol>
+              </div>
+            </details>
+            <!-- MQTT -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">📨 MQTT</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Subscribe to MQTT topics from any broker (Mosquitto, EMQX, Tasmota devices, etc.).</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>)</div>
+                  <div class="help-checklist-item"><span class="help-badge opt">Optional</span> Username and password if broker requires auth</div>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','mqtt')">Data Sources → MQTT</span></li>
+                  <li>Enter broker URL → click <em>Test Broker</em></li>
+                  <li>Use <em>Discover Topics</em> to find available topics, or enter manually</li>
+                  <li>Click <em>+ Add Metric Mapping</em> → pick a metric name, enter the topic</li>
+                </ol>
+              </div>
+            </details>
+            <!-- Modbus -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">🔌 Modbus (RTU / TCP)</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Direct serial (RS485/USB) or TCP connection to inverters and charge controllers.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial: <code>/dev/ttyUSB0</code> (or similar), correct baud rate + unit ID</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> TCP: IP address + port (usually 502)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Select the correct profile for your hardware</div>
+                </div>
+                <p><strong>Profile → hardware mapping:</strong></p>
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Inverter Brand</th><th>Profile Name</th></tr></thead>
+                  <tbody>
+                    <tr><td>SRNE / PowMr / EASun</td><td><code>SRNE Inverter (V1.96)</code> or <code>SRNE All-in-One</code></td></tr>
+                    <tr><td>Growatt SPF 3500–6000 ES</td><td><code>Growatt SPF Series (Modbus RTU)</code></td></tr>
+                    <tr><td>Voltronic / Axpert / MPP Solar</td><td><code>Voltronic Axpert (P00-P09 Modbus)</code></td></tr>
+                    <tr><td>Felicity IVEM6048</td><td><code>Felicity IVEM6048 Series (Modbus RTU)</code></td></tr>
+                    <tr><td>Felicity T-REX 5K</td><td><code>Felicity T-REX 5K (Modbus RTU) - P1G01</code></td></tr>
+                    <tr><td>Felicity T-REX 10K</td><td><code>Felicity T-REX 10K (Modbus RTU) - P3G01</code></td></tr>
+                    <tr><td>Felicity T-REX 25K/50K</td><td><code>Felicity T-REX 25K/50K (Modbus RTU) - HP3G01</code></td></tr>
+                    <tr><td>Felicity IVPS10048</td><td><code>Felicity IVPS10048 (Modbus RTU) - 10kVA</code></td></tr>
+                    <tr><td>Deye Hybrid</td><td><code>Deye Hybrid Inverter</code></td></tr>
+                    <tr><td>Luxpower</td><td><code>Luxpower (Modbus RTU RS-485)</code></td></tr>
+                    <tr><td>Solis Hybrid</td><td><code>Solis Hybrid Inverter (Ver3.2)</code></td></tr>
+                    <tr><td>Solis String</td><td><code>Solis String Inverter (Ver19)</code></td></tr>
+                    <tr><td>Victron (GX device)</td><td><code>Victron CCGX / Venus OS (Modbus TCP)</code></td></tr>
+                    <tr><td>Generic MPPT</td><td><code>Generic MPPT Charge Controller (RS-485)</code></td></tr>
+                  </tbody>
+                </table>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','modbus')">Data Sources → Modbus</span></li>
+                  <li>Select transport (TCP or Serial), enter connection details</li>
+                  <li>Pick a profile from the dropdown matching your hardware</li>
+                  <li>Click <em>Load Profile Fields</em> → map each register to a metric name</li>
+                  <li>Click <em>Test Modbus</em> to verify the connection reads data</li>
+                </ol>
+              </div>
+            </details>
+            <!-- RS232 -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">🔌 RS232 (Serial ASCII / Binary)</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Direct serial connection to inverters using ASCII query/response or binary protocols.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> USB-to-serial cable with correct driver (CH340, FTDI, CP2102)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> User must be in the <code>dialout</code> group: <code>sudo usermod -a -G dialout $USER</code></div>
+                </div>
+                <p><strong>Profile → baud rate defaults:</strong></p>
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Protocol</th><th>Profile</th><th>Default Baud</th></tr></thead>
+                  <tbody>
+                    <tr><td>Voltronic QPIGS</td><td><code>Voltronic / Axpert (QPIGS ASCII)</code></td><td>2400</td></tr>
+                    <tr><td>Infinisolar</td><td><code>Infinisolar (alias → QPIGS)</code></td><td>2400</td></tr>
+                    <tr><td>SolaX AA55</td><td><code>SolaX Pocket / X1 (AA55 Binary)</code></td><td>9600</td></tr>
+                    <tr><td>Victron VE.Direct</td><td><code>Victron VE.Direct</code></td><td>19200</td></tr>
+                  </tbody>
+                </table>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','rs232')">Data Sources → RS232</span></li>
+                  <li>Select serial port and baud rate (match profile defaults above)</li>
+                  <li>Pick a profile from the dropdown</li>
+                  <li>Click <em>Load Profile Fields</em> → map each field to a metric name</li>
+                  <li>Click <em>Test RS232</em> to verify</li>
+                </ol>
+              </div>
+            </details>
+            <!-- Dongle -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">📶 Dongle (WiFi Data Loggers)</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Inverters with built-in WiFi loggers (Solarman, Felicity TCP). Connects over your local network — no USB cable needed.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger IP address on your local network</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger serial number (printed on device or sticker)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Correct profile for your inverter model</div>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','dongle')">Data Sources → Dongle</span></li>
+                  <li>Enter IP, port (default 8899 for Solarman, 502 for Felicity TCP), and serial number</li>
+                  <li>Pick a profile matching your inverter</li>
+                  <li>Click <em>Load Profile Registers</em> → map to metric names</li>
+                  <li>Click <em>Test Connection</em> to verify</li>
+                </ol>
+              </div>
+            </details>
+            <!-- BMS -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">🔋 BMS (Battery Management System)</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Direct connection to a BMS over serial (RS485/USB) for battery-level data.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial path and correct BMS address</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Currently supports JBD / Xiaoxiang BMS protocol</div>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','bms')">Data Sources → BMS</span></li>
+                  <li>Enter serial port path and BMS address</li>
+                  <li>Enable the device and save</li>
+                </ol>
+              </div>
+            </details>
+            <!-- External / REST -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">🌐 External / REST API</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Pull data from any HTTP JSON API (weather services, energy monitors, custom endpoints).</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> URL returning JSON</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Use dot notation for JSON paths: <code>data.power</code>, <code>results[0].temperature</code></div>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','external')">Data Sources → External</span></li>
+                  <li>Enter URL, click <em>+ Add Metric Mapping</em> for each value</li>
+                  <li>Enter JSON path and pick a metric name</li>
+                </ol>
+              </div>
+            </details>
           </div>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('mqtt')" class="help-link">Data Sources → MQTT</a></li>
-            <li>Enter broker URL → click <em>Test Broker</em></li>
-            <li>Use <em>Discover Topics</em> to find available topics, or enter manually</li>
-            <li>Click <em>+ Add Metric Mapping</em> → pick a metric name, enter the topic</li>
-          </ol>
-        </div>
-      </details>
+        </details>
 
-      <!-- Modbus -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">🔌 Modbus (RTU / TCP)</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Direct serial (RS485/USB) or TCP connection to inverters and charge controllers.</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial: <code>/dev/ttyUSB0</code> (or similar), correct baud rate + unit ID</div>
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> TCP: IP address + port (usually 502)</div>
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Select the correct profile for your hardware</div>
+        <!-- ── 3. Metric Naming ─────────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">🏷️</span> Metric Names — naming conventions and system roles</summary>
+          <div class="help-body">
+            <p>Metric names are the labels that identify your data throughout the system. Choose them carefully — they connect your hardware to the dashboard.</p>
+            <h4>Conventions</h4>
+            <ul>
+              <li>Use <strong>lowercase</strong> with <strong>underscores</strong>: <code>battery_voltage</code> not <code>BatteryVoltage</code></li>
+              <li>Be <strong>descriptive</strong>: <code>pv1_power</code> is better than <code>solar</code></li>
+              <li>Use <strong>consistent suffixes</strong>: <code>_power</code>, <code>_voltage</code>, <code>_current</code>, <code>_energy</code>, <code>_soc</code>, <code>_temp</code></li>
+              <li>Number multiple PV strings: <code>pv1_power</code>, <code>pv2_power</code></li>
+            </ul>
+            <h4>System Roles (auto-mapped to dashboard)</h4>
+            <div class="table-wrap">
+            <table class="help-table">
+              <thead><tr><th>Role</th><th>Suggested Metric Name</th><th>Used By</th></tr></thead>
+              <tbody>
+                <tr><td>Solar Power</td><td><code>pv_power</code>, <code>pv_power_summary</code></td><td>Flow Card, Power Chart, Gauge</td></tr>
+                <tr><td>Load / Consumption</td><td><code>load_power</code>, <code>ac_output_power</code></td><td>Flow Card, Power Chart</td></tr>
+                <tr><td>Battery SOC</td><td><code>battery_soc</code></td><td>Flow Card, Battery Block</td></tr>
+                <tr><td>Battery Power</td><td><code>battery_power</code></td><td>Flow Card, Flow Card 2</td></tr>
+                <tr><td>Grid Import</td><td><code>grid_power</code>, <code>ac_input_power</code></td><td>Grid Card, Power Chart</td></tr>
+                <tr><td>Grid Export</td><td><code>grid_export</code></td><td>Grid Card</td></tr>
+                <tr><td>Battery Voltage</td><td><code>battery_voltage</code></td><td>Battery Block, Gauge</td></tr>
+                <tr><td>Battery Current</td><td><code>battery_current</code></td><td>Battery Block</td></tr>
+                <tr><td>Inverter Temp</td><td><code>inverter_temp</code>, <code>heatsink_temp_1</code></td><td>Gauge</td></tr>
+                <tr><td>Daily Solar Energy</td><td><code>pv_energy_day</code>, <code>daily_solar</code></td><td>Energy Chart, Savings</td></tr>
+                <tr><td>Daily Consumption</td><td><code>daily_consumption</code></td><td>Energy Chart</td></tr>
+              </tbody>
+            </table>
+            </div>
           </div>
-          <p><strong>Profile → hardware mapping:</strong></p>
-          <table class="help-table">
-            <thead><tr><th>Inverter Brand</th><th>Profile Name</th></tr></thead>
-            <tbody>
-              <tr><td>SRNE / PowMr / EASun</td><td><code>SRNE Inverter (V1.96)</code> or <code>SRNE All-in-One</code></td></tr>
-              <tr><td>Growatt SPF 3500–6000 ES</td><td><code>Growatt SPF Series (Modbus RTU)</code></td></tr>
-              <tr><td>Voltronic / Axpert / MPP Solar</td><td><code>Voltronic Axpert (P00-P09 Modbus)</code></td></tr>
-              <tr><td>Felicity IVEM6048</td><td><code>Felicity IVEM6048 Series (Modbus RTU)</code></td></tr>
-              <tr><td>Felicity T-REX 5K</td><td><code>Felicity T-REX 5K (Modbus RTU) - P1G01</code></td></tr>
-              <tr><td>Felicity T-REX 10K</td><td><code>Felicity T-REX 10K (Modbus RTU) - P3G01</code></td></tr>
-              <tr><td>Felicity T-REX 25K/50K</td><td><code>Felicity T-REX 25K/50K (Modbus RTU) - HP3G01</code></td></tr>
-              <tr><td>Felicity IVPS10048</td><td><code>Felicity IVPS10048 (Modbus RTU) - 10kVA</code></td></tr>
-              <tr><td>Deye Hybrid</td><td><code>Deye Hybrid Inverter</code></td></tr>
-              <tr><td>Luxpower</td><td><code>Luxpower (Modbus RTU RS-485)</code></td></tr>
-              <tr><td>Solis Hybrid</td><td><code>Solis Hybrid Inverter (Ver3.2)</code></td></tr>
-              <tr><td>Solis String</td><td><code>Solis String Inverter (Ver19)</code></td></tr>
-              <tr><td>Victron (GX device)</td><td><code>Victron CCGX / Venus OS (Modbus TCP)</code></td></tr>
-              <tr><td>Generic MPPT</td><td><code>Generic MPPT Charge Controller (RS-485)</code></td></tr>
-            </tbody>
-          </table>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('modbus')" class="help-link">Data Sources → Modbus</a></li>
-            <li>Select transport (TCP or Serial), enter connection details</li>
-            <li>Pick a profile from the dropdown matching your hardware</li>
-            <li>Click <em>Load Profile Fields</em> → map each register to a metric name</li>
-            <li>Click <em>Test Modbus</em> to verify the connection reads data</li>
-          </ol>
-        </div>
-      </details>
+        </details>
 
-      <!-- RS232 -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">🔌 RS232 (Serial ASCII / Binary)</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Direct serial connection to inverters using ASCII query/response or binary protocols.</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> USB-to-serial cable with correct driver (CH340, FTDI, CP2102)</div>
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> User must be in the <code>dialout</code> group: <code>sudo usermod -a -G dialout $USER</code></div>
+        <!-- ── 4. Dashboard Builder ─────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">🧱</span> Dashboard Builder — block types and tips</summary>
+          <div class="help-body">
+            <p>Open the <a href="/editor" class="help-link">Editor</a> to build your dashboard. Each block type serves a different purpose:</p>
+            <div class="table-wrap">
+            <table class="help-table">
+              <thead><tr><th>Block</th><th>Purpose</th><th>Metrics Needed</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Flow Card</strong></td><td>Solar → home → battery → grid energy flow diagram</td><td>solar, consumption, battery_charge, battery_discharge, battery_soc, grid_import, grid_export</td></tr>
+                <tr><td><strong>Flow Card 2</strong></td><td>System topology view with all paths</td><td>Same as Flow Card + inverter metrics</td></tr>
+                <tr><td><strong>Power Chart</strong></td><td>24-hour real-time line chart</td><td>solar, consumption, battery, grid</td></tr>
+                <tr><td><strong>Energy Chart</strong></td><td>7-day bar chart (daily totals)</td><td>Energy metrics auto-derived from power</td></tr>
+                <tr><td><strong>Gauge Card</strong></td><td>Single-value circular gauge</td><td>Any one metric</td></tr>
+                <tr><td><strong>Half Gauge</strong></td><td>Semi-circular gauge, 2 per row</td><td>Any one metric each</td></tr>
+                <tr><td><strong>Bar Gauge</strong></td><td>Horizontal bar with min/max</td><td>Any one metric</td></tr>
+                <tr><td><strong>Metric Cards</strong></td><td>Compact value cards (4–6 per row)</td><td>Any metric per card</td></tr>
+                <tr><td><strong>Grid Card</strong></td><td>Grid on/off indicator + daily hours</td><td>grid_import (detects on/off by value > 0)</td></tr>
+                <tr><td><strong>Battery Block</strong></td><td>Battery SOC ring + voltage/current</td><td>battery_soc, battery_voltage, battery_current</td></tr>
+                <tr><td><strong>Forecast Banner</strong></td><td>Today's solar forecast bar</td><td>actual_energy (optional — for comparison)</td></tr>
+                <tr><td><strong>Savings Summary</strong></td><td>Today's savings calculation</td><td>daily_solar × savings_rate</td></tr>
+              </tbody>
+            </table>
+            </div>
+            <h4>Tips</h4>
+            <ul>
+              <li><strong>Drag between dashboards:</strong> In the editor, drag a block to a different dashboard tab in the sidebar</li>
+              <li><strong>Resize:</strong> Drag the bottom-right corner of any block</li>
+              <li><strong>Clone:</strong> Use the clone button to duplicate a configured block</li>
+              <li><strong>Multiple dashboards:</strong> Create separate views (e.g. "Overview", "Battery Detail", "TV Display")</li>
+            </ul>
           </div>
-          <p><strong>Profile → baud rate defaults:</strong></p>
-          <table class="help-table">
-            <thead><tr><th>Protocol</th><th>Profile</th><th>Default Baud</th></tr></thead>
-            <tbody>
-              <tr><td>Voltronic QPIGS</td><td><code>Voltronic / Axpert (QPIGS ASCII)</code></td><td>2400</td></tr>
-              <tr><td>Infinisolar</td><td><code>Infinisolar (alias → QPIGS)</code></td><td>2400</td></tr>
-              <tr><td>SolaX AA55</td><td><code>SolaX Pocket / X1 (AA55 Binary)</code></td><td>9600</td></tr>
-              <tr><td>Victron VE.Direct</td><td><code>Victron VE.Direct</code></td><td>19200</td></tr>
-            </tbody>
-          </table>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('rs232')" class="help-link">Data Sources → RS232</a></li>
-            <li>Select serial port and baud rate (match profile defaults above)</li>
-            <li>Pick a profile from the dropdown</li>
-            <li>Click <em>Load Profile Fields</em> → map each field to a metric name</li>
-            <li>Click <em>Test RS232</em> to verify</li>
-          </ol>
-        </div>
-      </details>
+        </details>
 
-      <!-- Dongle -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">📶 Dongle (WiFi Data Loggers)</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Inverters with built-in WiFi loggers (Solarman, Felicity TCP). Connects over your local network — no USB cable needed.</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger IP address on your local network</div>
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger serial number (printed on device or sticker)</div>
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Correct profile for your inverter model</div>
+        <!-- ── 5. Solar Forecast ────────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">☀️</span> Solar Forecast — setup and accuracy</summary>
+          <div class="help-body">
+            <p>Go to <span class="help-link" onclick="navigateTo('solar')">Settings → Solar</span> to configure.</p>
+            <h4>Free vs Paid</h4>
+            <div class="table-wrap">
+            <table class="help-table">
+              <thead><tr><th>Provider</th><th>Accuracy</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Open-Meteo</strong></td><td>Moderate (general area forecast)</td><td>Free — no key needed</td></tr>
+                <tr><td><strong>Solcast</strong></td><td>High (rooftop-level modeling)</td><td>Free tier: 10 calls/day<br>Paid: higher resolution</td></tr>
+              </tbody>
+            </table>
+            </div>
           </div>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('dongle')" class="help-link">Data Sources → Dongle</a></li>
-            <li>Enter IP, port (default 8899 for Solarman, 502 for Felicity TCP), and serial number</li>
-            <li>Pick a profile matching your inverter</li>
-            <li>Click <em>Load Profile Registers</em> → map to metric names</li>
-            <li>Click <em>Test Connection</em> to verify</li>
-          </ol>
-        </div>
-      </details>
+        </details>
 
-      <!-- BMS -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">🔋 BMS (Battery Management System)</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Direct connection to a BMS over serial (RS485/USB) for battery-level data.</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial path and correct BMS address</div>
-            <div class="help-checklist-item"><span class="help-badge info">Note</span> Currently supports JBD / Xiaoxiang BMS protocol</div>
+        <!-- ── 6. Appearance ────────────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">🎨</span> Appearance &amp; Theming</summary>
+          <div class="help-body">
+            <p>Go to <span class="help-link" onclick="navigateTo('branding')">Settings → Branding</span> for visual options.</p>
+            <ul>
+              <li><strong>Background:</strong> Solid color, gradient, or image URL</li>
+              <li><strong>Transparent blocks:</strong> Makes block backgrounds see-through for a cleaner look with background images</li>
+              <li><strong>Title &amp; Logo:</strong> Set a dashboard title and upload a logo (appears top-left)</li>
+              <li><strong>Favicon:</strong> Browser tab icon</li>
+              <li><strong>Dark/Light theme:</strong> Toggle with the ☀/☾ button in the sidebar</li>
+            </ul>
           </div>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('bms')" class="help-link">Data Sources → BMS</a></li>
-            <li>Enter serial port path and BMS address</li>
-            <li>Enable the device and save</li>
-          </ol>
-        </div>
-      </details>
+        </details>
 
-      <!-- External / REST -->
-      <details class="help-sub">
-        <summary class="help-sub-summary">🌐 External / REST API</summary>
-        <div class="help-sub-body">
-          <p><strong>What it's for:</strong> Pull data from any HTTP JSON API (weather services, energy monitors, custom endpoints).</p>
-          <div class="help-checklist">
-            <div class="help-checklist-item"><span class="help-badge must">Required</span> URL returning JSON</div>
-            <div class="help-checklist-item"><span class="help-badge info">Note</span> Use dot notation for JSON paths: <code>data.power</code>, <code>results[0].temperature</code></div>
+        <!-- ── 7. Backup & Restore ──────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">💾</span> Backup &amp; Restore</summary>
+          <div class="help-body">
+            <p>Go to <span class="help-link" onclick="navigateTo('backup')">Settings → Backup</span>.</p>
+            <ul>
+              <li><strong>Manual backup:</strong> Click <em>Download Backup</em> to save your entire database to a <code>.db</code> file</li>
+              <li><strong>Restore:</strong> Upload a backup file to replace all current data</li>
+              <li><strong>Snapshots:</strong> Auto-created every 24 hours. Keeps the last 2. Click <em>Restore</em> on any snapshot to roll back</li>
+            </ul>
           </div>
-          <p><strong>Example:</strong></p>
-          <div style="background:var(--surface);padding:0.5rem 0.75rem;border-radius:6px;font-size:0.8em;margin:0.5rem 0;">
-            <strong>URL:</strong> <code>https://api.weather.gov/stations/KNYC/observations/latest</code><br>
-            <strong>JSON path → Metric:</strong><br>
-            <code>properties.temperature.value</code> → <code>outdoor_temp</code><br>
-            <code>properties.relativeHumidity.value</code> → <code>outdoor_humidity</code>
+        </details>
+
+        <!-- ── 8. Troubleshooting ───────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary"><span class="help-icon">🔧</span> Troubleshooting — common issues and fixes</summary>
+          <div class="help-body">
+            <details class="help-sub">
+              <summary class="help-sub-summary">🔌 Modbus Issues</summary>
+              <div class="help-sub-body">
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <tbody>
+                    <tr><td>Connection refused</td><td>Wrong IP or port</td><td>Verify IP reachable: <code>ping &lt;ip&gt;</code>. Check port 502 open.</td></tr>
+                    <tr><td>Timeout</td><td>Wrong unit ID</td><td>Most inverters use unit ID 1. Check your inverter manual.</td></tr>
+                    <tr><td>No data on dashboard</td><td>Unmapped registers</td><td>Click <em>Load Profile Fields</em> and ensure each register has a metric name selected.</td></tr>
+                    <tr><td>CRC / checksum errors</td><td>Baud rate mismatch</td><td>Match baud rate to your inverter (9600 for most, 2400 for Voltronic).</td></tr>
+                    <tr><td>Port not found</td><td>USB disconnected or driver missing</td><td>Check <code>ls /dev/ttyUSB*</code>. Install CH340/FTDI driver if needed.</td></tr>
+                    <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code> then log out and back in.</td></tr>
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            </details>
+            <details class="help-sub">
+              <summary class="help-sub-summary">🔌 RS232 Issues</summary>
+              <div class="help-sub-body">
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <tbody>
+                    <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code></td></tr>
+                    <tr><td>Port not found</td><td>USB cable disconnected</td><td>Check <code>ls /dev/ttyUSB*</code> and reseat the cable</td></tr>
+                    <tr><td>Read timeout</td><td>Wrong baud rate</td><td>Match profile default: 2400 (Voltronic), 9600 (SolaX), 19200 (VE.Direct)</td></tr>
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            </details>
+            <details class="help-sub">
+              <summary class="help-sub-summary">📶 Dongle Issues</summary>
+              <div class="help-sub-body">
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <tbody>
+                    <tr><td>Timeout</td><td>Logger not reachable</td><td>Check WiFi signal. Ping the logger IP.</td></tr>
+                    <tr><td>Checksum mismatch</td><td>Wrong serial number</td><td>Serial number is case-sensitive and must match the sticker exactly.</td></tr>
+                    <tr><td>No data</td><td>Wrong profile</td><td>Match the profile to your inverter model — Solarman ≠ Felicity TCP.</td></tr>
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            </details>
+            <details class="help-sub">
+              <summary class="help-sub-summary">📨 MQTT Issues</summary>
+              <div class="help-sub-body">
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <tbody>
+                    <tr><td>Connection refused</td><td>Broker not running or wrong port</td><td>Check <code>systemctl status mosquitto</code>. Default port is 1883.</td></tr>
+                    <tr><td>Auth failure</td><td>Wrong username/password</td><td>Verify credentials in your MQTT broker config</td></tr>
+                    <tr><td>No data appearing</td><td>Topic not publishing</td><td>Use <code>mosquitto_sub -t "#" -v</code> to verify the topic is publishing values</td></tr>
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            </details>
+            <details class="help-sub">
+              <summary class="help-sub-summary">🔧 General Issues</summary>
+              <div class="help-sub-body">
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <tbody>
+                    <tr><td>Dashboard shows zeros or empty</td><td>Metric name mismatch</td><td>The metric name in the block config must exactly match what your data source writes.</td></tr>
+                    <tr><td>Charts are empty</td><td>History not populated yet</td><td>Wait 2–3 poll cycles (60–90s).</td></tr>
+                    <tr><td>Settings not saving</td><td>Session expired</td><td>Log out and log back in.</td></tr>
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            </details>
           </div>
-          <p><strong>Steps:</strong></p>
-          <ol>
-            <li>Go to <a href="javascript:switchSubTab('external')" class="help-link">Data Sources → External</a></li>
-            <li>Enter URL, click <em>+ Add Metric Mapping</em> for each value</li>
-            <li>Enter JSON path and pick a metric name</li>
-          </ol>
-        </div>
-      </details>
+        </details>
+      </section>
 
-    </div>
-  </details>
-
-  <!-- ── 3. Metric Naming ─────────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">🏷️</span> Metric Names — naming conventions and system roles</summary>
-    <div class="help-body">
-      <p>Metric names are the labels that identify your data throughout the system. Choose them carefully — they connect your hardware to the dashboard.</p>
-
-      <h4>Conventions</h4>
-      <ul>
-        <li>Use <strong>lowercase</strong> with <strong>underscores</strong>: <code>battery_voltage</code> not <code>BatteryVoltage</code></li>
-        <li>Be <strong>descriptive</strong>: <code>pv1_power</code> is better than <code>solar</code></li>
-        <li>Use <strong>consistent suffixes</strong>: <code>_power</code>, <code>_voltage</code>, <code>_current</code>, <code>_energy</code>, <code>_soc</code>, <code>_temp</code></li>
-        <li>Number multiple PV strings: <code>pv1_power</code>, <code>pv2_power</code></li>
-      </ul>
-
-      <h4>System Roles (auto-mapped to dashboard)</h4>
-      <p>The dashboard detects these metric names automatically. Using them lets blocks auto-connect without manual config:</p>
-      <table class="help-table">
-        <thead><tr><th>Role</th><th>Suggested Metric Name</th><th>Used By</th></tr></thead>
-        <tbody>
-          <tr><td>Solar Power</td><td><code>pv_power</code>, <code>pv_power_summary</code></td><td>Flow Card, Power Chart, Gauge</td></tr>
-          <tr><td>Load / Consumption</td><td><code>load_power</code>, <code>ac_output_power</code></td><td>Flow Card, Power Chart</td></tr>
-          <tr><td>Battery SOC</td><td><code>battery_soc</code></td><td>Flow Card, Battery Block</td></tr>
-          <tr><td>Battery Power</td><td><code>battery_power</code></td><td>Flow Card, Flow Card 2</td></tr>
-          <tr><td>Grid Import</td><td><code>grid_power</code>, <code>ac_input_power</code></td><td>Grid Card, Power Chart</td></tr>
-          <tr><td>Grid Export</td><td><code>grid_export</code></td><td>Grid Card</td></tr>
-          <tr><td>Battery Voltage</td><td><code>battery_voltage</code></td><td>Battery Block, Gauge</td></tr>
-          <tr><td>Battery Current</td><td><code>battery_current</code></td><td>Battery Block</td></tr>
-          <tr><td>Inverter Temp</td><td><code>inverter_temp</code>, <code>heatsink_temp_1</code></td><td>Gauge</td></tr>
-          <tr><td>Daily Solar Energy</td><td><code>pv_energy_day</code>, <code>daily_solar</code></td><td>Energy Chart, Savings</td></tr>
-          <tr><td>Daily Consumption</td><td><code>daily_consumption</code></td><td>Energy Chart</td></tr>
-        </tbody>
-      </table>
-
-      <h4>How role mapping works</h4>
-      <ol>
-        <li>Each dashboard block (e.g. Flow Card) specifies which <em>role</em> each metric plays: solar, consumption, battery, grid</li>
-        <li>The <code>role_metrics</code> config (auto-populated from your blocks) maps roles → actual metric names</li>
-        <li>The history system reads <code>latest_metrics</code> using this mapping to populate the history table and charts</li>
-        <li>You can override roles in <a href="javascript:switchSection('solar')" class="help-link">Settings → Solar → Metric Roles</a></li>
-      </ol>
-
-      <h4>All current metrics</h4>
-      <p>See <a href="javascript:switchSection('metrics')" class="help-link">Settings → Metrics</a> for a list of every metric name currently stored in the database with latest values and units.</p>
-    </div>
-  </details>
-
-  <!-- ── 4. Dashboard Builder ─────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">🧱</span> Dashboard Builder — block types and tips</summary>
-    <div class="help-body">
-      <p>Open the <a href="/editor" class="help-link">Editor</a> to build your dashboard. Each block type serves a different purpose:</p>
-
-      <table class="help-table">
-        <thead><tr><th>Block</th><th>Purpose</th><th>Metrics Needed</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Flow Card</strong></td><td>Solar → home → battery → grid energy flow diagram</td><td>solar, consumption, battery_charge, battery_discharge, battery_soc, grid_import, grid_export</td></tr>
-          <tr><td><strong>Flow Card 2</strong></td><td>System topology view with all paths</td><td>Same as Flow Card + inverter metrics</td></tr>
-          <tr><td><strong>Power Chart</strong></td><td>24-hour real-time line chart</td><td>solar, consumption, battery, grid</td></tr>
-          <tr><td><strong>Energy Chart</strong></td><td>7-day bar chart (daily totals)</td><td>Energy metrics auto-derived from power</td></tr>
-          <tr><td><strong>Gauge Card</strong></td><td>Single-value circular gauge</td><td>Any one metric</td></tr>
-          <tr><td><strong>Half Gauge</strong></td><td>Semi-circular gauge, 2 per row</td><td>Any one metric each</td></tr>
-          <tr><td><strong>Bar Gauge</strong></td><td>Horizontal bar with min/max</td><td>Any one metric</td></tr>
-          <tr><td><strong>Metric Cards</strong></td><td>Compact value cards (4–6 per row)</td><td>Any metric per card</td></tr>
-          <tr><td><strong>Grid Card</strong></td><td>Grid on/off indicator + daily hours</td><td>grid_import (detects on/off by value > 0)</td></tr>
-          <tr><td><strong>Battery Block</strong></td><td>Battery SOC ring + voltage/current</td><td>battery_soc, battery_voltage, battery_current</td></tr>
-          <tr><td><strong>Forecast Banner</strong></td><td>Today's solar forecast bar</td><td>actual_energy (optional — for comparison)</td></tr>
-          <tr><td><strong>Savings Summary</strong></td><td>Today's savings calculation</td><td>daily_solar × savings_rate</td></tr>
-        </tbody>
-      </table>
-
-      <h4>Tips</h4>
-      <ul>
-        <li><strong>Drag between dashboards:</strong> In the editor, drag a block to a different dashboard tab in the sidebar</li>
-        <li><strong>Resize:</strong> Drag the bottom-right corner of any block</li>
-        <li><strong>Clone:</strong> Use the clone button to duplicate a configured block</li>
-        <li><strong>Multiple dashboards:</strong> Create separate views (e.g. "Overview", "Battery Detail", "TV Display")</li>
-        <li><strong>TV / large screen:</strong> Use large gauge blocks with transparent theme + dark background for a clean wall display</li>
-      </ul>
-    </div>
-  </details>
-
-  <!-- ── 5. Solar Forecast ────────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">☀️</span> Solar Forecast — setup and accuracy</summary>
-    <div class="help-body">
-      <p>Go to <a href="javascript:switchSection('solar')" class="help-link">Settings → Solar</a> to configure.</p>
-
-      <h4>Free vs Paid</h4>
-      <table class="help-table">
-        <thead><tr><th>Provider</th><th>Accuracy</th><th>Cost</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Open-Meteo</strong></td><td>Moderate (general area forecast)</td><td>Free — no key needed</td></tr>
-          <tr><td><strong>Solcast</strong></td><td>High (rooftop-level modeling)</td><td>Free tier: 10 calls/day<br>Paid: higher resolution</td></tr>
-        </tbody>
-      </table>
-
-      <h4>Key Fields</h4>
-      <table class="help-table">
-        <thead><tr><th>Field</th><th>What It Is</th><th>How to Find</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Latitude / Longitude</strong></td><td>Your panel location</td><td>Google Maps → right-click → coordinates</td></tr>
-          <tr><td><strong>kWp</strong></td><td>Total panel capacity in kilowatts-peak</td><td>Sum of all panel ratings (e.g. 10 × 450W = 4.5 kWp)</td></tr>
-          <tr><td><strong>Tilt</strong></td><td>Panel angle from horizontal</td><td>0° = flat, 30° = typical roof</td></tr>
-          <tr><td><strong>Azimuth</strong></td><td>Panel direction</td><td>0° = North, 90° = East, 180° = South</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </details>
-
-  <!-- ── 6. Appearance ────────────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">🎨</span> Appearance &amp; Theming</summary>
-    <div class="help-body">
-      <p>Go to <a href="javascript:switchSection('branding')" class="help-link">Settings → Dashboard → Display</a> for visual options.</p>
-      <ul>
-        <li><strong>Background:</strong> Solid color, gradient, or image URL</li>
-        <li><strong>Transparent blocks:</strong> Makes block backgrounds see-through for a cleaner look with background images</li>
-        <li><strong>Title &amp; Logo:</strong> Set a dashboard title and upload a logo (appears top-left)</li>
-        <li><strong>Favicon:</strong> Browser tab icon</li>
-        <li><strong>Dark/Light theme:</strong> Toggle with the ☀️/🌙 button in the sidebar</li>
-      </ul>
-    </div>
-  </details>
-
-  <!-- ── 7. Backup & Restore ──────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">💾</span> Backup &amp; Restore</summary>
-    <div class="help-body">
-      <p>Go to <a href="javascript:switchSection('backup')" class="help-link">Settings → Backup</a>.</p>
-      <ul>
-        <li><strong>Manual backup:</strong> Click <em>Download Backup</em> to save your entire database to a <code>.db</code> file</li>
-        <li><strong>Restore:</strong> Upload a backup file to replace all current data</li>
-        <li><strong>Snapshots:</strong> Auto-created every 24 hours. Keeps the last 7 days. Click <em>Restore</em> on any snapshot to roll back</li>
-        <li><strong>What's backed up:</strong> All config, metric history, dashboard layouts, and user-created metrics</li>
-      </ul>
-    </div>
-  </details>
-
-  <!-- ── 8. Troubleshooting ───────────────────────────────── -->
-  <details class="help-accordion">
-    <summary class="help-summary"><span class="help-icon">🔧</span> Troubleshooting — common issues and fixes</summary>
-    <div class="help-body">
-
-      <details class="help-sub">
-        <summary class="help-sub-summary">🔌 Modbus Issues</summary>
-        <div class="help-sub-body">
-          <table class="help-table">
-            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
-            <tbody>
-              <tr><td>Connection refused</td><td>Wrong IP or port</td><td>Verify IP reachable: <code>ping &lt;ip&gt;</code>. Check port 502 open.</td></tr>
-              <tr><td>Timeout</td><td>Wrong unit ID</td><td>Most inverters use unit ID 1. Check your inverter manual.</td></tr>
-              <tr><td>No data on dashboard</td><td>Unmapped registers</td><td>Click <em>Load Profile Fields</em> and ensure each register has a metric name selected.</td></tr>
-              <tr><td>CRC / checksum errors</td><td>Baud rate mismatch</td><td>Match baud rate to your inverter (9600 for most, 2400 for Voltronic).</td></tr>
-              <tr><td>Port not found</td><td>USB disconnected or driver missing</td><td>Check <code>ls /dev/ttyUSB*</code>. Install CH340/FTDI driver if needed.</td></tr>
-              <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code> then log out and back in.</td></tr>
-              <tr><td>All values show 0</td><td>Wrong profile selected</td><td>Match profile to your exact inverter model. Felicity profiles are model-specific.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <details class="help-sub">
-        <summary class="help-sub-summary">🔌 RS232 Issues</summary>
-        <div class="help-sub-body">
-          <table class="help-table">
-            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
-            <tbody>
-              <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code></td></tr>
-              <tr><td>Port not found</td><td>USB cable disconnected</td><td>Check <code>ls /dev/ttyUSB*</code> and reseat the cable</td></tr>
-              <tr><td>Read timeout</td><td>Wrong baud rate</td><td>Match profile default: 2400 (Voltronic), 9600 (SolaX), 19200 (VE.Direct)</td></tr>
-              <tr><td>Partial / garbled data</td><td>Electrical noise or wrong wiring</td><td>Use short, shielded cable. Check RX/TX/GND connections</td></tr>
-              <tr><td>No response at all</td><td>Wrong protocol profile</td><td>Confirm your inverter protocol — Voltronic uses ASCII QPIGS, SolaX uses AA55 binary</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <details class="help-sub">
-        <summary class="help-sub-summary">📶 Dongle Issues</summary>
-        <div class="help-sub-body">
-          <table class="help-table">
-            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
-            <tbody>
-              <tr><td>Timeout</td><td>Logger not reachable</td><td>Check WiFi signal. Ping the logger IP. Check it's on the same subnet.</td></tr>
-              <tr><td>Checksum mismatch</td><td>Wrong serial number</td><td>Serial number is case-sensitive and must match the sticker exactly.</td></tr>
-              <tr><td>No data</td><td>Wrong profile</td><td>Match the profile to your inverter model — Solarman ≠ Felicity TCP.</td></tr>
-              <tr><td>Connection refused</td><td>Wrong port</td><td>Solarman loggers use port 8899. Felicity TCP uses port 502.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <details class="help-sub">
-        <summary class="help-sub-summary">📨 MQTT Issues</summary>
-        <div class="help-sub-body">
-          <table class="help-table">
-            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
-            <tbody>
-              <tr><td>Connection refused</td><td>Broker not running or wrong port</td><td>Check <code>systemctl status mosquitto</code>. Default port is 1883.</td></tr>
-              <tr><td>Auth failure</td><td>Wrong username/password</td><td>Verify credentials in your MQTT broker config</td></tr>
-              <tr><td>No data appearing</td><td>Topic not publishing</td><td>Use <code>mosquitto_sub -t "#" -v</code> to verify the topic is publishing values</td></tr>
-              <tr><td>Values not updating</td><td>Topic mapped wrong</td><td>Ensure the topic in settings exactly matches the MQTT topic (case-sensitive)</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <details class="help-sub">
-        <summary class="help-sub-summary">🔧 General Issues</summary>
-        <div class="help-sub-body">
-          <table class="help-table">
-            <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
-            <tbody>
-              <tr><td>Dashboard shows zeros or empty</td><td>Metric name mismatch</td><td>The metric name in the block config must exactly match what your data source writes. Check <em>Settings → Metrics</em> for all current names.</td></tr>
-              <tr><td>Charts are empty</td><td>History not populated yet</td><td>Wait 2–3 poll cycles (60–90s). Charts need history data to render.</td></tr>
-              <tr><td>Solar values negative at night</td><td>Inverter firmware quirk</td><td>Some inverters report small negative PV values overnight. This is cosmetic — the flow card shows 0 for negative values.</td></tr>
-              <tr><td>Settings not saving</td><td>Session expired</td><td>Log out and log back in. Settings save requires an active authenticated session.</td></tr>
-              <tr><td>Missing metrics dropdown options</td><td>No data sources polled yet</td><td>Metric names appear after at least one poll cycle from any source. Check your sources are enabled and connecting.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <details class="help-sub">
-        <summary class="help-sub-summary">📋 Debug Logs</summary>
-        <div class="help-sub-body">
-          <p>Logs are at <code>logs/energy-dashboard-*.log</code> inside the Epilykos directory.</p>
-          <p>Set environment variable <code>LOG_LEVEL=debug</code> before starting for verbose output showing every Modbus/RS232 read, metric write, and poll cycle.</p>
-          <p><strong>Docker:</strong> <code>docker logs epilykos</code> shows stdout. Add <code>-e LOG_LEVEL=debug</code> to your docker run/compose for detailed logging.</p>
-        </div>
-      </details>
-
-    </div>
-  </details>
-
-</section>
-
-      <!-- Save Bar (persistent, visible across all sections) -->
+      <!-- ── Save Bar ──────────────────────────────────────── -->
       <div class="stg-savebar" id="stg-savebar">
         <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
         <span class="stg-save-status" id="save-status"></span>
-        <button type="button" id="stg-save-btn" class="stg-btn primary">💾 Save All Settings</button>
+        <button type="button" id="stg-save-btn" class="btn btn-primary">💾 Save All Settings</button>
       </div>
 
     </form>
   </main>
 
   <!-- ── Metric Modal ──────────────────────────────────── -->
-</div>
-<div class="stg-modal" id="metric-modal">
-  <div class="stg-modal-box">
-    <h3 style="margin:0 0 1rem;">Create New Metric</h3>
-    <div class="stg-form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name" class="stg-input"></div>
-    <div class="stg-form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit" class="stg-input"></div>
-    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
-      <button type="button" id="modal-cancel" class="stg-btn">Cancel</button>
-      <button type="button" id="modal-create" class="stg-btn primary">Create</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── BMS Scan Modal ──────────────────────────────────── -->
-<div class="stg-modal" id="bms-scan-modal">
-  <div class="stg-modal-box bms-scan-box">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-      <h3 style="margin:0;">BLE Device Scan</h3>
-      <button type="button" class="stg-btn bms-scan-close" style="padding:0.25rem 0.5rem;">✕</button>
-    </div>
-    <div id="bms-scan-status" class="note" style="margin-bottom:0.75rem;"></div>
-    <div id="bms-scan-list" style="max-height:320px; overflow-y:auto; margin-bottom:0.75rem;"></div>
-    <div style="display:flex; gap:0.75rem; justify-content:space-between; align-items:center;">
-      <div id="bms-scan-cache-badge" class="note" style="margin:0;"></div>
-      <div style="display:flex; gap:0.75rem;">
-        <button type="button" class="stg-btn bms-scan-refresh">🔄 Scan Again</button>
-        <button type="button" class="stg-btn bms-scan-cancel">Cancel</button>
+  <div class="stg-modal" id="metric-modal">
+    <div class="stg-modal-box">
+      <h3 style="margin:0 0 1rem;">Create New Metric</h3>
+      <div class="form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name" class="input"></div>
+      <div class="form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit" class="input"></div>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+        <button type="button" id="modal-cancel" class="btn">Cancel</button>
+        <button type="button" id="modal-create" class="btn btn-primary">Create</button>
       </div>
     </div>
   </div>
+
+  <!-- ── BMS Scan Modal ──────────────────────────────────── -->
+  <div class="stg-modal" id="bms-scan-modal">
+    <div class="stg-modal-box bms-scan-box">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+        <h3 style="margin:0;">BLE Device Scan</h3>
+        <button type="button" class="btn bms-scan-close" style="padding:0.25rem 0.5rem;">✕</button>
+      </div>
+      <div id="bms-scan-status" class="note" style="margin-bottom:0.75rem;"></div>
+      <div id="bms-scan-list" style="max-height:320px; overflow-y:auto; margin-bottom:0.75rem;"></div>
+      <div style="display:flex; gap:0.75rem; justify-content:space-between; align-items:center;">
+        <div id="bms-scan-cache-badge" class="note" style="margin:0;"></div>
+        <div style="display:flex; gap:0.75rem;">
+          <button type="button" class="btn bms-scan-refresh">🔄 Scan Again</button>
+          <button type="button" class="btn bms-scan-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- INLINE JAVASCRIPT                                       -->
+<!-- ═══════════════════════════════════════════════════════ -->
 <script>
-  // ── Navigation ─────────────────────────────────────────────
-  const navBtns = document.querySelectorAll('.stg-nav-btn');
-  const sections = document.querySelectorAll('.stg-section');
+(function() {
+  // ── DOM refs ──────────────────────────────────────────
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('mobile-overlay');
+  var hamburger = document.getElementById('hamburger');
+  var searchInput = document.getElementById('global-search');
+  var themeToggle = document.getElementById('theme-toggle');
+  var mobileThemeToggle = document.getElementById('mobile-theme-toggle');
+  var html = document.documentElement;
 
-  function switchSection(sectionId) {
-    navBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-    const btn = document.querySelector(`[data-section="${sectionId}"]`);
-    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
-    sections.forEach(s => s.classList.remove('active'));
-    const sec = document.getElementById('stg-section-' + sectionId);
-    if (sec) sec.classList.add('active');
-    localStorage.setItem('stg-active-section', sectionId);
-  }
-
-  navBtns.forEach(btn => {
-    btn.addEventListener('click', () => switchSection(btn.dataset.section));
+  // ── Mobile sidebar toggle ─────────────────────────────
+  function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+  function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+  hamburger.addEventListener('click', function(e) {
+    e.stopPropagation();
+    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+  });
+  overlay.addEventListener('click', closeSidebar);
+  var sidebarClose = document.getElementById('sidebar-close');
+  if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
+  sidebar.addEventListener('click', function(e) {
+    if (e.target.closest('.nav-item') && window.innerWidth <= 768) {
+      closeSidebar();
+    }
   });
 
-  // Sub-tabs (Data Sources)
-  const subBtns = document.querySelectorAll('.stg-subnav-btn');
-  const subContents = document.querySelectorAll('.sub-tab-content');
-  function switchSubTab(subId) {
-    subBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-    const btn = document.querySelector(`[data-subtab="${subId}"]`);
-    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
-    subContents.forEach(c => c.classList.remove('active'));
-    const content = document.getElementById('subtab-' + subId);
+  // ── Theme toggle (with localStorage migration) ────────
+  function setTheme(theme) {
+    html.setAttribute('data-theme', theme);
+    localStorage.setItem('epilykos-theme', theme);
+    // Also update old key for backward compat
+    try { localStorage.setItem('theme', theme); } catch(e) {}
+    var icon = theme === 'dark' ? '☀' : '☾';
+    themeToggle.textContent = icon;
+    if (mobileThemeToggle) mobileThemeToggle.textContent = icon;
+  }
+  // Migration: read old key if new key not set
+  var saved = localStorage.getItem('epilykos-theme');
+  if (!saved) {
+    saved = localStorage.getItem('theme');
+    if (!saved) {
+      saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  }
+  setTheme(saved);
+  themeToggle.addEventListener('click', function() {
+    setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+  if (mobileThemeToggle) {
+    mobileThemeToggle.addEventListener('click', function() {
+      setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+  }
+
+  // ── Navigation ─────────────────────────────────────────
+  var navItems = document.querySelectorAll('.nav-item');
+  var sections = document.querySelectorAll('.settings-section');
+  var activeSection = 'data-sources';
+
+  function navigateTo(sectionId, subtabId) {
+    activateSection(sectionId);
+    if (subtabId) activateSubtab(subtabId);
+  }
+
+  function activateSection(sectionId) {
+    activeSection = sectionId;
+    sections.forEach(function(s) { s.classList.remove('active'); });
+    navItems.forEach(function(n) { n.classList.remove('active'); });
+
+    var section = document.getElementById('section-' + sectionId);
+    if (section) section.classList.add('active');
+
+    var navBtn = document.querySelector('[data-section="' + sectionId + '"]');
+    if (navBtn) navBtn.classList.add('active');
+
+    try { localStorage.setItem('epilykos-settings-section', sectionId); } catch(e) {}
+  }
+
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      activateSection(this.getAttribute('data-section'));
+      if (this.getAttribute('data-section') === 'data-sources') {
+        activateSubtab('ha');
+      }
+    });
+  });
+
+  // ── Sub-tabs (Data Sources) ────────────────────────────
+  var subnavBtns = document.querySelectorAll('.subnav-btn');
+  var subtabContents = document.querySelectorAll('.subtab-content');
+
+  function activateSubtab(subtabId) {
+    subnavBtns.forEach(function(b) { b.classList.remove('active'); });
+    subtabContents.forEach(function(s) { s.classList.remove('active'); });
+    var btn = document.querySelector('[data-subtab="' + subtabId + '"]');
+    if (btn) btn.classList.add('active');
+    var content = document.getElementById('subtab-' + subtabId);
     if (content) content.classList.add('active');
-    localStorage.setItem('stg-active-subtab', subId);
+    try { localStorage.setItem('stg-active-subtab', subtabId); } catch(e) {}
   }
-  subBtns.forEach(btn => {
-    btn.addEventListener('click', () => switchSubTab(btn.dataset.subtab));
+
+  subnavBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activateSubtab(this.getAttribute('data-subtab'));
+    });
   });
 
-  // Restore last section
-  const savedSection = localStorage.getItem('stg-active-section');
-  if (savedSection) switchSection(savedSection);
-  const savedSubtab = localStorage.getItem('stg-active-subtab');
-  if (savedSubtab) switchSubTab(savedSubtab);
+  // ── Restore last section ──────────────────────────────
+  var savedSection = localStorage.getItem('epilykos-settings-section');
+  if (!savedSection) savedSection = localStorage.getItem('stg-active-section');
+  if (savedSection) activateSection(savedSection);
+  var savedSubtab = localStorage.getItem('stg-active-subtab');
+  if (savedSubtab) activateSubtab(savedSubtab);
 
-  // ── Dirty state tracking ──────────────────────────────────
-  const stgForm = document.getElementById('settings-form');
-  const saveStatusEl = document.getElementById('save-status');
-  const dirtyCount = document.getElementById('stg-dirty-count');
-  let dirtyFields = new Set();
+  // ── Global search ──────────────────────────────────────
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      var query = this.value.toLowerCase().trim();
+      navItems.forEach(function(item) {
+        var text = item.textContent.toLowerCase();
+        if (!query || text.indexOf(query) !== -1) {
+          item.classList.remove('hidden-by-search');
+        } else {
+          item.classList.add('hidden-by-search');
+        }
+      });
+      document.querySelectorAll('.nav-group').forEach(function(group) {
+        var visibleItems = group.querySelectorAll('.nav-item:not(.hidden-by-search)');
+        if (visibleItems.length === 0 && query) {
+          group.classList.add('hidden-by-search');
+        } else {
+          group.classList.remove('hidden-by-search');
+        }
+      });
+    });
+  }
 
-  stgForm.addEventListener('change', (e) => {
-    const el = e.target;
+  // ── Group collapse/expand ──────────────────────────────
+  document.querySelectorAll('[data-group-toggle]').forEach(function(header) {
+    header.addEventListener('click', function() {
+      var groupName = this.getAttribute('data-group-toggle');
+      var items = document.querySelector('[data-group-items="' + groupName + '"]');
+      var arrow = this.querySelector('.group-arrow');
+      if (items) {
+        items.classList.toggle('collapsed');
+        arrow.classList.toggle('open');
+      }
+    });
+  });
+
+  // ── Device card expand (delegated) ─────────────────────
+  document.addEventListener('click', function(e) {
+    var header = e.target.closest('.device-card-header');
+    if (header) {
+      var card = header.closest('.device-card');
+      if (card) card.classList.toggle('open');
+    }
+  });
+
+  // ── Dirty state tracking ───────────────────────────────
+  var stgForm = document.getElementById('settings-form');
+  var saveStatusEl = document.getElementById('save-status');
+  var dirtyCount = document.getElementById('stg-dirty-count');
+  var dirtyFields = new Set();
+
+  stgForm.addEventListener('change', function(e) {
+    var el = e.target;
     if (el.name || el.id) {
       dirtyFields.add(el.name || el.id);
       dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
       dirtyCount.classList.add('show');
     }
   });
-  stgForm.addEventListener('input', (e) => {
-    const el = e.target;
+  stgForm.addEventListener('input', function(e) {
+    var el = e.target;
     if ((el.name || el.id) && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
       dirtyFields.add(el.name || el.id);
       dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
@@ -798,131 +1033,104 @@
     }
   });
 
-  // ── Save ──────────────────────────────────────────────────
-  const saveBtn = document.getElementById('stg-save-btn');
-  saveBtn.addEventListener('click', () => {
-    stgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-  });
-
-  // Listen for save completion — clear dirty state
-  document.addEventListener('stg-save-complete', () => {
+  // ── Save button ────────────────────────────────────────
+  var saveBtn = document.getElementById('stg-save-btn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function() {
+      stgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    });
+  }
+  document.addEventListener('stg-save-complete', function() {
     dirtyFields.clear();
   });
 
-  // Listen for save completion (handled by settings.js showStatus)
-
-  // ── Metrics search ────────────────────────────────────────
-  const metricsSearch = document.getElementById('metrics-search');
+  // ── Metrics search ────────────────────────────────────
+  var metricsSearch = document.getElementById('metrics-search');
   if (metricsSearch) {
-    metricsSearch.addEventListener('input', () => {
-      const q = metricsSearch.value.toLowerCase();
-      const rows = document.querySelectorAll('#metrics-table-body tr');
-      rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
+    metricsSearch.addEventListener('input', function() {
+      var q = this.value.toLowerCase();
+      var rows = document.querySelectorAll('#metrics-table-body tr');
+      rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
         row.classList.toggle('stg-row-hidden', q && !text.includes(q));
       });
     });
   }
 
-  // ── Theme toggle ──────────────────────────────────────────
-  function initTheme() {
-    const saved = localStorage.getItem('theme');
-    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const toggle = document.getElementById('theme-toggle');
-    if (saved === 'dark' || (!saved && sysDark)) {
-      document.documentElement.setAttribute('data-theme','dark');
-      if (toggle) toggle.innerHTML = '☀️';
-    } else {
-      document.documentElement.setAttribute('data-theme','light');
-      if (toggle) toggle.innerHTML = '🌙';
-    }
-  }
-  function toggleTheme() {
-    const cur = document.documentElement.getAttribute('data-theme');
-    const n = cur === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', n);
-    localStorage.setItem('theme', n);
-    const toggle = document.getElementById('theme-toggle');
-    if (toggle) toggle.innerHTML = n === 'dark' ? '☀️' : '🌙';
-  }
-  initTheme();
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  // ── Backup & Restore ──────────────────────────────────
+  var backupBtn = document.getElementById('backup-btn');
+  var restoreBtn = document.getElementById('restore-btn');
+  var restoreFile = document.getElementById('restore-file');
+  var backupStatusEl = document.getElementById('backup-status');
 
-  // ── Backup & Restore ─────────────────────────────────────
-  const backupBtn = document.getElementById('backup-btn');
-  const restoreBtn = document.getElementById('restore-btn');
-  const restoreFile = document.getElementById('restore-file');
-  const backupStatusEl = document.getElementById('backup-status');
-
-  if (backupBtn) backupBtn.addEventListener('click', () => {
-    if (backupStatusEl) { backupStatusEl.textContent = 'Downloading backup...'; backupStatusEl.className = 'stg-status info'; }
+  if (backupBtn) backupBtn.addEventListener('click', function() {
+    if (backupStatusEl) { backupStatusEl.textContent = 'Downloading backup...'; backupStatusEl.className = 'test-status'; }
     window.location.href = '/api/backup';
   });
   if (restoreBtn && restoreFile) {
-    restoreBtn.addEventListener('click', () => {
+    restoreBtn.addEventListener('click', function() {
       if (!confirm('Restore will replace ALL current data with the uploaded backup. This cannot be undone. Continue?')) return;
       restoreFile.click();
     });
     restoreFile.addEventListener('change', async function() {
       if (!this.files || !this.files[0]) return;
-      const fd = new FormData();
+      var fd = new FormData();
       fd.append('dbfile', this.files[0]);
       try {
-        if (backupStatusEl) { backupStatusEl.textContent = 'Restoring...'; backupStatusEl.className = 'stg-status info'; }
-        const r = await fetch('/api/restore', { method: 'POST', body: fd });
+        if (backupStatusEl) { backupStatusEl.textContent = 'Restoring...'; backupStatusEl.className = 'test-status'; }
+        var r = await fetch('/api/restore', { method: 'POST', body: fd });
         if (r.ok) {
-          if (backupStatusEl) { backupStatusEl.textContent = 'Restored — reloading...'; backupStatusEl.className = 'stg-status ok'; }
-          setTimeout(() => location.reload(), 1500);
+          if (backupStatusEl) { backupStatusEl.textContent = 'Restored — reloading...'; backupStatusEl.className = 'test-status success'; }
+          setTimeout(function() { location.reload(); }, 1500);
         } else {
-          const err = await r.json().catch(() => ({}));
-          if (backupStatusEl) { backupStatusEl.textContent = err.error || 'Restore failed'; backupStatusEl.className = 'stg-status err'; }
+          var err = await r.json().catch(function() { return {}; });
+          if (backupStatusEl) { backupStatusEl.textContent = err.error || 'Restore failed'; backupStatusEl.className = 'test-status error'; }
         }
       } catch(e) {
-        if (backupStatusEl) { backupStatusEl.textContent = e.message; backupStatusEl.className = 'stg-status err'; }
+        if (backupStatusEl) { backupStatusEl.textContent = e.message; backupStatusEl.className = 'test-status error'; }
       }
     });
   }
 
-  // ── Snapshots UI ────────────────────────────────────────────
-  const snapList = document.getElementById('snapshot-list');
-  const snapStatus = document.getElementById('snapshot-status');
-  const snapSection = document.getElementById('stg-section-backup');
+  // ── Snapshots UI ──────────────────────────────────────
+  var snapList = document.getElementById('snapshot-list');
+  var snapStatus = document.getElementById('snapshot-status');
+  var snapSection = document.getElementById('section-backup');
 
   async function loadSnapshots() {
     if (!snapList) return;
     try {
-      const r = await fetch('/api/snapshots');
+      var r = await fetch('/api/snapshots');
       if (!r.ok) { snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">Failed to load snapshots</p>'; return; }
-      const snaps = await r.json();
+      var snaps = await r.json();
       if (!snaps.length) {
         snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">No snapshots yet — first one created within 24h of startup.</p>';
         return;
       }
-      snapList.innerHTML = snaps.map(s => {
-        const date = new Date(s.time).toLocaleString();
-        const size = s.size > 1048576 ? (s.size / 1048576).toFixed(1) + ' MB' : s.size > 1024 ? (s.size / 1024).toFixed(1) + ' KB' : s.size + ' B';
-        return '<div class="backup-row" style="margin-bottom:0.4rem;">' +
-          '<span style="flex:1;">📅 ' + date + ' <span class="note">(' + size + ')</span></span>' +
-          '<button type="button" class="stg-btn snap-restore-btn" data-name="' + s.name.replace(/"/g, '&quot;') + '" style="font-size:0.8rem;padding:0.25rem 0.6rem;">Restore</button>' +
+      snapList.innerHTML = snaps.map(function(s) {
+        var date = new Date(s.time).toLocaleString();
+        var size = s.size > 1048576 ? (s.size / 1048576).toFixed(1) + ' MB' : s.size > 1024 ? (s.size / 1024).toFixed(1) + ' KB' : s.size + ' B';
+        return '<div class="snapshot-item">' +
+          '<div><strong style="font-size:0.85rem;">' + date + '</strong><span class="note" style="margin-left:0.75rem;font-size:0.75rem;">(' + size + ')</span></div>' +
+          '<button type="button" class="btn btn-sm snap-restore-btn" data-name="' + s.name.replace(/"/g, '&quot;') + '">Restore</button>' +
           '</div>';
       }).join('');
-      // Wire restore buttons
-      snapList.querySelectorAll('.snap-restore-btn').forEach(btn => {
+      snapList.querySelectorAll('.snap-restore-btn').forEach(function(btn) {
         btn.addEventListener('click', async function() {
-          const name = this.dataset.name;
+          var name = this.dataset.name;
           if (!confirm('Restore snapshot "' + name + '"? This will replace ALL current data. Cannot be undone.')) return;
-          if (snapStatus) { snapStatus.textContent = 'Restoring from snapshot...'; snapStatus.className = 'stg-status info'; }
+          if (snapStatus) { snapStatus.textContent = 'Restoring from snapshot...'; snapStatus.className = 'test-status'; }
           try {
-            const r = await fetch('/api/snapshots/restore/' + encodeURIComponent(name), { method: 'POST' });
-            const data = await r.json();
+            var r = await fetch('/api/snapshots/restore/' + encodeURIComponent(name), { method: 'POST' });
+            var data = await r.json();
             if (r.ok) {
-              if (snapStatus) { snapStatus.textContent = 'Snapshot restored — reloading...'; snapStatus.className = 'stg-status ok'; }
-              setTimeout(() => location.reload(), 1500);
+              if (snapStatus) { snapStatus.textContent = 'Snapshot restored — reloading...'; snapStatus.className = 'test-status success'; }
+              setTimeout(function() { location.reload(); }, 1500);
             } else {
-              if (snapStatus) { snapStatus.textContent = data.error || 'Restore failed'; snapStatus.className = 'stg-status err'; }
+              if (snapStatus) { snapStatus.textContent = data.error || 'Restore failed'; snapStatus.className = 'test-status error'; }
             }
           } catch(e) {
-            if (snapStatus) { snapStatus.textContent = e.message; snapStatus.className = 'stg-status err'; }
+            if (snapStatus) { snapStatus.textContent = e.message; snapStatus.className = 'test-status error'; }
           }
         });
       });
@@ -933,59 +1141,53 @@
 
   loadSnapshots();
   if (snapSection) {
-    // Refresh snapshot list whenever the backup section becomes visible (sidebar click)
-    const observer = new MutationObserver(() => {
+    var observer = new MutationObserver(function() {
       if (snapSection.style.display !== 'none') loadSnapshots();
     });
     observer.observe(snapSection, { attributes: true, attributeFilter: ['style'] });
   }
 
-  // ── Mappings filter + pagination ──────────────────────────
-  const MAPPINGS_PAGE_SIZE = 5;
+  // ── Mappings filter + pagination ──────────────────────
+  var MAPPINGS_PAGE_SIZE = 5;
   function applyMappingFilterAndPagination(containerId) {
-    const list = document.getElementById(containerId);
+    var list = document.getElementById(containerId);
     if (!list) return;
-    const rows = Array.from(list.querySelectorAll('.metric-row'));
-    const filterInput = document.querySelector(`.mappings-filter-input[data-container="${containerId}"]`);
-    const moreBtn = document.querySelector(`.mappings-show-more[data-container="${containerId}"]`);
-    const moreWrap = moreBtn ? moreBtn.closest('.mappings-pagination') : null;
-    const filterText = filterInput ? filterInput.value.toLowerCase().trim() : '';
-
-    // Filter
-    let visibleRows = rows;
+    var rows = Array.from(list.querySelectorAll('.metric-row'));
+    var filterInput = document.querySelector('.mappings-filter-input[data-container="' + containerId + '"]');
+    var moreBtn = document.querySelector('.mappings-show-more[data-container="' + containerId + '"]');
+    var moreWrap = moreBtn ? moreBtn.closest('.mappings-pagination') : null;
+    var filterText = filterInput ? filterInput.value.toLowerCase().trim() : '';
+    var visibleRows = rows;
     if (filterText) {
-      visibleRows = rows.filter(row => row.textContent.toLowerCase().includes(filterText));
-      rows.forEach(row => { row.dataset.mfHidden = '1'; row.style.display = 'none'; });
-      visibleRows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
+      visibleRows = rows.filter(function(row) { return row.textContent.toLowerCase().includes(filterText); });
+      rows.forEach(function(row) { row.dataset.mfHidden = '1'; row.style.display = 'none'; });
+      visibleRows.forEach(function(row) { delete row.dataset.mfHidden; row.style.display = ''; });
     } else {
-      rows.forEach(row => { delete row.dataset.mfHidden; row.style.display = ''; });
+      rows.forEach(function(row) { delete row.dataset.mfHidden; row.style.display = ''; });
     }
-
-    // Pagination — preserve current page from data-page attribute
     if (visibleRows.length > MAPPINGS_PAGE_SIZE && !filterText) {
       var curPage = parseInt(moreBtn?.dataset.page || '1');
-      // Use data-page to determine how many rows to show
       var end = MAPPINGS_PAGE_SIZE * curPage;
       visibleRows.forEach(function(row, i) {
         row.style.display = i < end ? '' : 'none';
       });
-      const remaining = visibleRows.length - end;
+      var remaining = visibleRows.length - end;
       if (remaining > 0 && moreWrap) {
         moreWrap.style.display = '';
         if (moreBtn) {
-          moreBtn.textContent = `Show more (${remaining}+)`;
-          const newHandler = () => {
-            const curPage = parseInt(moreBtn.dataset.page || '1');
-            const nextEnd = MAPPINGS_PAGE_SIZE * (curPage + 1);
-            visibleRows.forEach((row, i) => {
+          moreBtn.textContent = 'Show more (' + remaining + '+)';
+          var newHandler = function() {
+            var curPage = parseInt(moreBtn.dataset.page || '1');
+            var nextEnd = MAPPINGS_PAGE_SIZE * (curPage + 1);
+            visibleRows.forEach(function(row, i) {
               row.style.display = i < nextEnd ? '' : 'none';
             });
-            const stillRemaining = visibleRows.length - nextEnd;
+            var stillRemaining = visibleRows.length - nextEnd;
             if (stillRemaining <= 0) {
               moreWrap.style.display = 'none';
               moreBtn.textContent = 'All shown';
             } else {
-              moreBtn.textContent = `Show more (${stillRemaining}+)`;
+              moreBtn.textContent = 'Show more (' + stillRemaining + '+)';
             }
             moreBtn.dataset.page = String(curPage + 1);
           };
@@ -998,17 +1200,16 @@
   }
 
   // Event delegation for filter inputs
-  document.getElementById('settings-form').addEventListener('input', (e) => {
-    const input = e.target.closest('.mappings-filter-input');
+  document.getElementById('settings-form').addEventListener('input', function(e) {
+    var input = e.target.closest('.mappings-filter-input');
     if (input) {
-      const containerId = input.dataset.container;
+      var containerId = input.dataset.container;
       applyMappingFilterAndPagination(containerId);
     }
   });
 
-  // Also trigger on dynamic "Add Metric Mapping" - re-run pagination after new rows (debounced)
-  let paginationTimer = null;
-  const paginationObserver = new MutationObserver(function() {
+  var paginationTimer = null;
+  var paginationObserver = new MutationObserver(function() {
     if (paginationTimer) clearTimeout(paginationTimer);
     paginationTimer = setTimeout(function() {
       document.querySelectorAll('.mappings-filter-input').forEach(function(input) {
@@ -1019,14 +1220,13 @@
   });
   paginationObserver.observe(document.getElementById('settings-form'), { childList: true, subtree: true });
 
-  // ── Help Search Filter ────────────────────────────────────
+  // ── Help Search Filter ────────────────────────────────
   (function() {
-    var searchInput = document.getElementById('help-search');
-    if (!searchInput) return;
-    searchInput.addEventListener('input', function() {
+    var helpSearchInput = document.getElementById('help-search');
+    if (!helpSearchInput) return;
+    helpSearchInput.addEventListener('input', function() {
       var q = this.value.toLowerCase().trim();
-      var accordions = document.querySelectorAll('#stg-section-help details.help-accordion');
-      var anyVisible = false;
+      var accordions = document.querySelectorAll('#section-help details.help-accordion');
       accordions.forEach(function(acc) {
         if (!q) { acc.classList.remove('help-hidden'); return; }
         var text = (acc.textContent || '').toLowerCase();
@@ -1034,10 +1234,7 @@
         var visible = summary.includes(q) || text.includes(q);
         acc.classList.toggle('help-hidden', !visible);
         if (visible) {
-          anyVisible = true;
-          // Also expand matching sections
           acc.open = true;
-          // Show sub-accordions that match
           acc.querySelectorAll('details.help-sub').forEach(function(sub) {
             var subText = (sub.textContent || '').toLowerCase();
             sub.classList.toggle('help-hidden', !subText.includes(q));
@@ -1047,6 +1244,8 @@
       });
     });
   })();
+
+})();
 </script>
 <script src="/js/csrf.js"></script>
 <script src="settings.js"></script>
