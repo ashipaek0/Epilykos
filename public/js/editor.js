@@ -989,8 +989,8 @@ function addBlockToGrid(type) {
   var item = buildGridItem(newBlock);
   if (!item) return;
 
-  // Add via GridStack API — finds next available Y position
-  grid.addWidget(item);
+  // GridStack v11+ requires makeWidget() for HTMLElements
+  grid.makeWidget(item);
   markUnsaved();
   persistLayout(); // auto-save after add
 }
