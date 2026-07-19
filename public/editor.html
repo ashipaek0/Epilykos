@@ -296,6 +296,21 @@
   <div id="unsaved-indicator" class="unsaved-indicator">⚠️ You have unsaved changes</div>
 </div>
 
+<!-- Settings Modal -->
+<div id="settings-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:5000;align-items:center;justify-content:center;">
+  <div id="settings-modal" style="background:var(--card-bg);border-radius:var(--radius);padding:0;width:min(560px, 95vw);max-height:85vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative;display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card-bg);z-index:1;">
+      <h3 style="margin:0;font-size:1.1rem;">⚙ Block Settings</h3>
+      <button id="settings-modal-close" style="background:transparent;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-secondary);padding:0.25rem 0.5rem;border-radius:0.3rem;min-width:44px;min-height:44px;" aria-label="Close">✕</button>
+    </div>
+    <div id="settings-modal-body" style="padding:1rem 1.25rem;flex:1;overflow-y:auto;"></div>
+    <div style="display:flex;gap:0.5rem;padding:1rem 1.25rem;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--card-bg);">
+      <button id="settings-modal-save" style="background:var(--accent);color:white;border:none;padding:0.6rem 1.5rem;border-radius:0.5rem;cursor:pointer;font-size:0.95rem;min-height:44px;min-width:44px;">💾 Save</button>
+      <button id="settings-modal-cancel" style="background:var(--border);color:var(--text);border:none;padding:0.6rem 1.5rem;border-radius:0.5rem;cursor:pointer;font-size:0.95rem;min-height:44px;min-width:44px;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="js/editor.js"></script>
 </body>
 </html>
