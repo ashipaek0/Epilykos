@@ -171,6 +171,28 @@
     .grid-item-delete { color: #ef4444; }
     .grid-item-delete:hover { background: #ef444420; }
 
+    /* Settings modal row remove buttons */
+    .row-remove-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--danger, #ef4444);
+      cursor: pointer;
+      border-radius: 0.4rem;
+      font-size: 0.85rem;
+      min-width: 44px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      transition: all 0.15s;
+      font-family: var(--font, inherit);
+    }
+    .row-remove-btn:hover {
+      background: #ef444415;
+      border-color: #ef4444;
+    }
+
     .grid-item-preview { flex: 1; overflow: auto; min-height: 100px; }
 
     /* Drag handle for grid items */
