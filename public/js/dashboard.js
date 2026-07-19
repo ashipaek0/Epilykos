@@ -218,10 +218,10 @@ function renderDashboard() {
     wrapper.style.width = `calc(${((w / 12) * 100)}% - ${GAP * 2}px)`;
     wrapper.style.height = (h * ROW_HEIGHT - GAP * 2) + 'px';
 
-    if (block.bgColor) {
+    if (block.bgColor && block.bgColor !== '#ffffff') {
       content.style.setProperty('background-color', block.bgColor, 'important');
     }
-    if (block.innerBgColor) {
+    if (block.innerBgColor && block.innerBgColor !== '#ffffff') {
       content.style.setProperty('--card-bg', block.innerBgColor, 'important');
       content.style.setProperty('--bg', block.innerBgColor, 'important');
     }
