@@ -154,7 +154,7 @@ function renderMultiValueRows(container) {
     html += '<input type="text" class="mv-label" value="' + (r.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(r.metric || '', 'mv-metric-' + i);
     html += '<input type="text" class="mv-unit" value="' + (r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<button type="button" class="mv-remove" data-idx="' + i + '" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;min-width:44px;min-height:44px;" aria-label="Remove row">✕</button>';
+    html += '<button type="button" class="mv-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove row">✕</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -214,7 +214,7 @@ function renderBarGaugeRows(container) {
     html += '<input type="number" class="bg-max" value="' + (r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bg-color" value="' + (r.color || '').replace(/"/g,'&quot;') + '" style="width:36px;height:24px;"></label>';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bg-gradient" value="' + (r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
-    html += '<button type="button" class="bg-remove" data-idx="' + i + '" style="grid-column:1/-1;background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:0.85rem;min-height:36px;text-align:left;">✕ Remove</button>';
+    html += '<button type="button" class="bg-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -273,7 +273,7 @@ function renderBarGaugeRetroRows(container) {
     html += '<input type="number" class="bgr-segments" value="' + (r.segments || 10) + '" placeholder="Segments" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">C <input type="color" class="bgr-color" value="' + (r.color || '').replace(/"/g,'&quot;') + '" style="width:36px;height:24px;"></label>';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bgr-gradient" value="' + (r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
-    html += '<button type="button" class="bgr-remove" data-idx="' + i + '" style="grid-column:1/-1;background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:0.85rem;min-height:36px;text-align:left;">✕ Remove</button>';
+    html += '<button type="button" class="bgr-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -344,7 +344,7 @@ function renderMetricCardsRows(container) {
     html += '<input type="text" class="mc-title" value="' + (c.title || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(c.metric || '', 'mc-metric-' + i);
     html += '<input type="text" class="mc-unit" value="' + (c.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<button type="button" class="mc-remove" data-idx="' + i + '" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;min-width:44px;min-height:44px;" aria-label="Remove">✕</button>';
+    html += '<button type="button" class="mc-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -476,7 +476,7 @@ function renderChartRows(container) {
     html += '<input type="text" class="chart-label" value="' + (d.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(d.metric || '', 'chart-metric-' + i);
     html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + (d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
-    html += '<button type="button" class="chart-remove" data-idx="' + i + '" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;min-width:44px;min-height:44px;" aria-label="Remove">✕</button>';
+    html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
