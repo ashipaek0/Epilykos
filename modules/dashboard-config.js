@@ -39,11 +39,32 @@ const DEFAULT_CONFIG = {
   activeDashboard: 'main'
 };
 
+/**
+ * Read dashboard config using new granular keys first, falling back to
+ * the legacy dashboard_config blob. Always returns the same shape:
+ * { dashboards: [...], activeDashboard: '...' }
+ */
 function getDashboardConfig() {
   try {
-    let configStr = getConfig('dashboard_config');
+    // Try new granular keys first
+    const layoutsStr = getConfig('dashboard_layouts');
+    const activeDash = getConfig('dashboard_active');
+
+    if (layoutsStr && layoutsStr.trim() !== '' && layoutsStr !== 'null') {
+      const dashboards = JSON.parse(layoutsStr);
+      if (Array.isArray(dashboards) && dashboards.length > 0) {
+        return {
+          dashboards,
+          activeDashboard: activeDash || 'main'
+        };
+      }
+    }
+
+    // Fall back to old dashboard_config blob
+    const configStr = getConfig('dashboard_config');
     if (!configStr || configStr.trim() === '' || configStr === 'null') {
-      setConfig('dashboard_config', JSON.stringify(DEFAULT_CONFIG));
+      setConfig('dashboard_layouts', JSON.stringify(DEFAULT_CONFIG.dashboards));
+      setConfig('dashboard_active', DEFAULT_CONFIG.activeDashboard);
       return DEFAULT_CONFIG;
     }
     const parsed = JSON.parse(configStr);
@@ -53,12 +74,26 @@ function getDashboardConfig() {
     return parsed;
   } catch (err) {
     logger.error('Error parsing dashboard config, using default:', err.message);
-    setConfig('dashboard_config', JSON.stringify(DEFAULT_CONFIG));
+    setConfig('dashboard_layouts', JSON.stringify(DEFAULT_CONFIG.dashboards));
+    setConfig('dashboard_active', DEFAULT_CONFIG.activeDashboard);
     return DEFAULT_CONFIG;
   }
 }
 
+/**
+ * Save dashboard config to new granular keys (dashboard_layouts + dashboard_active).
+ * Also updates the legacy dashboard_config blob for backward compatibility.
+ */
 function saveDashboardConfig(config) {
+  // Save to new granular keys
+  if (config.dashboards) {
+    setConfig('dashboard_layouts', JSON.stringify(config.dashboards));
+  }
+  if (config.activeDashboard) {
+    setConfig('dashboard_active', config.activeDashboard);
+  }
+
+  // Also save to legacy blob for backward compat
   setConfig('dashboard_config', JSON.stringify(config));
 }
 

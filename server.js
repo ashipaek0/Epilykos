@@ -956,6 +956,190 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
+// ── Per-section save API ─────────────────────────────────────────
+
+const sensitivePattern = /_token$|_password$|_secret$/i;
+
+/**
+ * Helper: save a whitelist of config keys from req.body.
+ * Applies the sensitive-key filter, writes to DB, returns saved key list.
+ * @param {string[]} allowedKeys - keys to accept
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @returns {{ saved: string[] }}
+ */
+function saveConfigKeys(allowedKeys, req, res) {
+  const updates = req.body;
+  const filtered = {};
+  for (const key of allowedKeys) {
+    if (key in updates) {
+      if (sensitivePattern.test(key)) {
+        logger.warn(`[Settings] Rejected sensitive key: ${key}`);
+        continue;
+      }
+      filtered[key] = updates[key];
+    }
+  }
+  const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
+  const saved = [];
+  for (const [key, value] of Object.entries(filtered)) {
+    stmt.run(key, String(value));
+    saved.push(key);
+  }
+  return { saved };
+}
+
+// Data sources: ha_devices, mqtt_devices, modbus_devices, rs232_devices,
+// external_sources, bms_devices, bms_banks, dongle_config, pvoutput_config
+app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'ha_devices', 'mqtt_devices', 'modbus_devices', 'rs232_devices',
+      'external_sources', 'external_poll_interval',
+      'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+
+    if ('mqtt_devices' in req.body) restartMqtt();
+    if ('external_sources' in req.body || 'external_poll_interval' in req.body) restartExternalPolling();
+    if ('bms_devices' in req.body) restartBmsPolling();
+    if ('bms_banks' in req.body) {
+      const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
+      const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
+      const newBanks = JSON.parse(req.body['bms_banks']);
+      cleanupOrphanedBankMetrics(oldBanks, newBanks);
+      const { createMetric } = require('./modules/metricsManager');
+      for (const bank of newBanks) {
+        const safeName = bank.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        for (const fn of (bank.functions || [])) {
+          try { createMetric(`bank_${fn.output}`, ''); } catch (_) { /* idempotent */ }
+        }
+        try { createMetric(`bank_${safeName}_devices_online`, ''); } catch (_) {}
+        try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
+      }
+      restartBmsPolling();
+    }
+    if ('dongle_config' in req.body) restartDonglePolling();
+    if ('pvoutput_config' in req.body) pvoutput.restart();
+    if ('rs232_devices' in req.body) restartRs232Streaming();
+
+    logger.info(`[Settings/data-sources] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/data-sources] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Metrics: user_metrics only
+app.post('/api/settings/metrics', isAuthenticated, (req, res) => {
+  try {
+    const allowed = ['user_metrics'];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/metrics] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/metrics] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Dashboard: layouts, active, and display keys
+app.post('/api/settings/dashboard', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'dashboard_layouts', 'dashboard_active',
+      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks',
+      'dashboard_bg_color_light', 'dashboard_bg_color_dark',
+      'dashboard_bg_image', 'grid_status_entity'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+
+    // If saving dashboard_layouts, also update the legacy dashboard_config blob
+    if ('dashboard_layouts' in req.body || 'dashboard_active' in req.body) {
+      try {
+        const layoutsStr = getConfig('dashboard_layouts');
+        const active = getConfig('dashboard_active');
+        const dashboards = JSON.parse(layoutsStr || '[]');
+        const legacyBlob = JSON.parse(getConfig('dashboard_config') || '{}');
+        legacyBlob.dashboards = dashboards;
+        legacyBlob.activeDashboard = active;
+        setConfig('dashboard_config', JSON.stringify(legacyBlob));
+      } catch (_) { /* best-effort */ }
+    }
+
+    logger.info(`[Settings/dashboard] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/dashboard] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Solar: forecast keys + role_metrics
+app.post('/api/settings/solar', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
+      'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
+      'solar_loss_factor', 'solar_install_date', 'role_metrics'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/solar] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/solar] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Savings: savings_* keys
+app.post('/api/settings/savings', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'savings_currency', 'savings_rate', 'savings_solar_metric',
+      'all_time_pv_savings_override'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/savings] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/savings] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Branding: dashboard appearance
+app.post('/api/settings/branding', isAuthenticated, (req, res) => {
+  try {
+    const allowed = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon'];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/branding] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/branding] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Network: network_* keys
+app.post('/api/settings/network', isAuthenticated, (req, res) => {
+  try {
+    const allowed = ['network_local_url', 'network_remote_url'];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/network] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/network] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Backup: no-op (backup is action-based, not config)
+app.post('/api/settings/backup', isAuthenticated, (req, res) => {
+  res.json({ ok: true, saved: [] });
+});
+
 // BMS bridge proxy – browser can't reach bms-bridge directly
 const BMS_BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
 
