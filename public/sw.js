@@ -10,7 +10,7 @@
  *   navigator.serviceWorker.controller.postMessage({ type: 'network-config', localURL, remoteURL })
  */
 
-const CACHE_NAME = 'epilykos-v13';
+const CACHE_NAME = 'epilykos-v14';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
@@ -18,6 +18,7 @@ const STATIC_ASSETS = [
   '/js/dashboard.js',
   '/js/charts.js',
   '/js/updater.js',
+  '/js/editor.js',
   '/js/csrf.js',
   '/js/theme.js',
   '/manifest.json',
@@ -72,6 +73,11 @@ self.addEventListener('fetch', event => {
   const isWS = url.pathname === '/ws';
   if (isWS) return; // pass through — browser handles WebSocket natively
 
+  // Never intercept cross-origin requests — service workers cannot
+  // meaningfully proxy third-party fetches (fonts, CDN scripts, APIs).
+  // Let the browser handle them natively.
+  if (!isSameOrigin) return;
+
   if (isSameOrigin && isAPI && localURL) {
     event.respondWith(tryLocalThenRemote(event.request, url));
     return;
@@ -83,7 +89,7 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Everything else: pass through
+  // Same-origin API without localURL: pass through
   event.respondWith(fetch(event.request));
 });
 
