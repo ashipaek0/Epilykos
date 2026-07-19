@@ -186,12 +186,17 @@ export async function updatePvToday(forecastData) {
     const ctx = canvas.getContext('2d');
     try {
     if (!pvTodayCharts[canvasId]) {
+      // Adapt chart colors based on theme
+      var generatedColor = isDark ? '#fbbf24' : '#f59e0b';
+      var predictedColor = isDark ? '#f59e0b' : '#d97706';
+      var cloudColor = isDark ? 'rgba(160,170,195,0.7)' : 'rgba(180,185,210,0.7)';
+      var cloudFill = isDark ? 'rgba(160,170,195,0.15)' : 'rgba(180,185,210,0.15)';
       pvTodayCharts[canvasId] = new Chart(ctx, {
         type: 'line',
         data: { datasets: [
-          { label: 'Generated', data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
-          { label: 'Predicted', data: [], borderColor: '#d97706', backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 4 },
-          { label: 'Cloud Cover', data: [], borderColor: 'rgba(180,185,210,0.7)', backgroundColor: 'rgba(180,185,210,0.15)', borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 0 }
+          { label: 'Generated', data: [], borderColor: generatedColor, backgroundColor: isDark ? 'rgba(251,191,36,0.12)' : 'rgba(245,158,11,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
+          { label: 'Predicted', data: [], borderColor: predictedColor, backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 4 },
+          { label: 'Cloud Cover', data: [], borderColor: cloudColor, backgroundColor: cloudFill, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 0 }
         ]},
         options: {
           responsive: true, maintainAspectRatio: false,

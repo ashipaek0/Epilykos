@@ -3,8 +3,15 @@ import { escapeHtml } from '../utils.js';
 
 
 function normalizeDatasets(datasets) {
-  if (!datasets || !datasets.length) return [{ label: 'Solar Generated', metric: 'daily_solar', color: '#f59e0b' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#87aec8' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#44403c' }];
-  if (typeof datasets[0] === 'string') { const lm = { solar: { label: 'Solar Generated', color: '#f59e0b' }, grid_import: { label: 'Grid Imported', color: '#87aec8' }, consumption: { label: 'Energy Consumed', color: '#44403c' }, battery_charge: { label: 'Battery Charge', color: '#84a45a' }, battery_discharge: { label: 'Battery Discharge', color: '#84a45a' }, grid_export: { label: 'Grid Export', color: '#d97706' } }; return datasets.map(ds => { const b = lm[ds] || { label: ds, color: '#888' }; return { label: b.label, metric: ds, color: b.color }; }); }
+  // Read CSS variable colors for dark/light mode adaptation
+  var style = getComputedStyle(document.documentElement);
+  var cSolar = style.getPropertyValue('--color-solar').trim() || '#f59e0b';
+  var cGrid = style.getPropertyValue('--color-grid').trim() || '#c44a3e';
+  var cLoad = style.getPropertyValue('--color-home').trim() || '#44403c';
+  var cBatt = style.getPropertyValue('--color-battery').trim() || '#84a45a';
+  var cExport = style.getPropertyValue('--accent').trim() || '#d97706';
+  if (!datasets || !datasets.length) return [{ label: 'Solar Generated', metric: 'daily_solar', color: cSolar }, { label: 'Grid Imported', metric: 'daily_grid_import', color: cGrid }, { label: 'Energy Consumed', metric: 'daily_consumption', color: cLoad }];
+  if (typeof datasets[0] === 'string') { const lm = { solar: { label: 'Solar Generated', color: cSolar }, grid_import: { label: 'Grid Imported', color: cGrid }, consumption: { label: 'Energy Consumed', color: cLoad }, battery_charge: { label: 'Battery Charge', color: cBatt }, battery_discharge: { label: 'Battery Discharge', color: cBatt }, grid_export: { label: 'Grid Export', color: cExport } }; return datasets.map(ds => { const b = lm[ds] || { label: ds, color: '#888' }; return { label: b.label, metric: ds, color: b.color }; }); }
   return datasets.map(ds => ({ label: ds.label || ds.metric || 'Unknown', metric: ds.metric || '', color: ds.color || '#888' }));
 }
 
