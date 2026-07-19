@@ -1,74 +1,66 @@
 /* ============================================================
    EPILYKOS SETTINGS REDESIGN v2 — Standalone CSS
-   Two-Panel Master-Detail | Warm Residential Palette
+   Two-Panel Master-Detail | Olive Forward Palette
    Compatible with existing style.css (no .stg-* conflicts)
    ============================================================ */
 
 /* ─────────────────────────────────────────────────────────
-   1. DESIGN TOKENS — Warm Residential Palette
-   Stone, Amber, Olive, Sky — No blue, no gradients, no glow
+   1. DESIGN TOKENS — Olive Forward (Grounded Utility)
+   Green-primary, calming, nature-informed. Warm stone backdrop.
+   No blue, no gradients, no glow. Quiet competence.
    ───────────────────────────────────────────────────────── */
 :root {
-  /* ── Raw palette ───────────────────────────────────── */
-  --stone-50:  #faf7f4;
-  --stone-100: #f5f0eb;
-  --stone-200: #e8e0d5;
-  --stone-300: #d4c9b8;
-  --stone-400: #b8a99a;
-  --stone-500: #9c8b7a;
-  --stone-600: #7d6e5f;
-  --stone-700: #65584c;
-  --stone-800: #544a40;
-  --stone-900: #3d3630;
+  /* ── Raw palette: Warm stone background ───────────── */
+  --stone-50:  #f6f5f2;
+  --stone-100: #f0efe9;
+  --stone-200: #e4e1d5;
+  --stone-300: #c4c0b2;
+  --stone-400: #9c9888;
+  --stone-500: #6e6b60;
+  --stone-600: #555248;
+  --stone-700: #3d3a33;
+  --stone-800: #2a2823;
+  --stone-900: #1c1b17;
 
-  --amber-50:  #fffbeb;
-  --amber-100: #fef3c7;
-  --amber-200: #fde68a;
-  --amber-300: #fcd34d;
-  --amber-400: #fbbf24;
-  --amber-500: #f59e0b;
-  --amber-600: #d97706;
-  --amber-700: #b45309;
-
+  /* Raw palette: Olive green accent ──────────────────── */
   --olive-50:  #f4f7f0;
-  --olive-100: #e6ede0;
-  --olive-200: #c8d9bc;
-  --olive-300: #a3c08e;
-  --olive-400: #7ea763;
-  --olive-500: #4a6741;
-  --olive-600: #3d5636;
-  --olive-700: #31452b;
+  --olive-100: #e8f0e0;
+  --olive-200: #c8d9b8;
+  --olive-300: #9bc46a;
+  --olive-400: #86b054;
+  --olive-500: #5c7a3e;
+  --olive-600: #4d6633;
+  --olive-700: #3a4f26;
 
-  --sky-50:  #f0f4f8;
-  --sky-100: #dce6f0;
-  --sky-200: #b8cee0;
-  --sky-300: #87aec8;
-  --sky-400: #6a9ab8;
-  --sky-500: #4d7e9e;
-  --sky-600: #3d657f;
-
-  --red-500: #dc2626;
+  /* Raw palette: Status colors ──────────────────────── */
+  --green-500: #4a7c59;
+  --green-500-bright: #6ba878;
+  --green-600: #3a6347;
+  --red-500:    #c44a3e;
+  --red-500-bright: #e86255;
+  --amber-500:  #8a7040;
+  --amber-400:  #b89450;
 
   /* ── Semantic tokens (light theme) ──────────────────── */
-  --bg:              var(--stone-100);
-  --card-bg:         #ffffff;
+  --bg:              var(--stone-50);
+  --card-bg:         #fcfbf9;
   --border:          var(--stone-200);
   --text:            var(--stone-900);
   --text-secondary:  var(--stone-500);
   --text-tertiary:   var(--stone-400);
-  --accent:          var(--amber-500);
-  --accent-hover:    var(--amber-600);
-  --accent-light:    var(--amber-100);
-  --success:         var(--olive-500);
-  --success-light:   var(--olive-100);
-  --info:            var(--sky-400);
-  --info-light:      var(--sky-50);
+  --accent:          var(--olive-500);
+  --accent-hover:    var(--olive-600);
+  --accent-light:    var(--olive-100);
+  --success:         var(--green-500);
+  --success-light:   #e6f0e9;
+  --info:            var(--amber-400);
+  --info-light:      var(--olive-50);
   --danger:          var(--red-500);
 
   /* ── Physical-object shadows (no glow) ──────────────── */
-  --shadow-sm: 0 1px 2px rgba(61,54,48,0.06);
-  --shadow:    0 1px 3px rgba(61,54,48,0.08), 0 1px 2px rgba(61,54,48,0.06);
-  --shadow-md: 0 4px 6px rgba(61,54,48,0.07), 0 2px 4px rgba(61,54,48,0.06);
+  --shadow-sm: 0 1px 2px rgba(28,27,23,0.04);
+  --shadow:    0 1px 3px rgba(28,27,23,0.06), 0 1px 2px rgba(28,27,23,0.04);
+  --shadow-md: 0 4px 6px rgba(28,27,23,0.05), 0 2px 4px rgba(28,27,23,0.03);
 
   /* ── Shape — 14px max radius per spec ──────────────── */
   --radius:    8px;
@@ -83,25 +75,26 @@
 }
 
 /* ─────────────────────────────────────────────────────────
-   2. DARK THEME OVERRIDES
+   2. DARK THEME OVERRIDES — Deep Green + Warm Stone
+   Text ~13:1 AAA, accent ~6.8:1 AA. No cold blacks.
    ───────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --bg:              #1e1b18;
-  --card-bg:         #282520;
-  --border:          #3a3530;
-  --text:            #e8e0d5;
-  --text-secondary:  #9c8b7a;
-  --text-tertiary:   #7d6e5f;
-  --accent:          var(--amber-500);
-  --accent-hover:    var(--amber-400);
-  --accent-light:    rgba(245,158,11,0.12);
-  --success:         #7ea763;
-  --success-light:   rgba(74,103,65,0.2);
-  --info:            var(--sky-400);
-  --info-light:      rgba(135,174,200,0.12);
-  --shadow-sm:       0 1px 2px rgba(0,0,0,0.2);
-  --shadow:          0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
-  --shadow-md:       0 4px 6px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
+  --bg:              #191a17;
+  --card-bg:         #232420;
+  --border:          #333128;
+  --text:            #ebeaE3;
+  --text-secondary:  #9c9988;
+  --text-tertiary:   #6e6b60;
+  --accent:          var(--olive-400);
+  --accent-hover:    var(--olive-300);
+  --accent-light:    rgba(134,176,84,0.12);
+  --success:         var(--green-500-bright);
+  --success-light:   rgba(107,168,120,0.15);
+  --info:            var(--amber-400);
+  --info-light:      rgba(184,148,80,0.12);
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.3);
+  --shadow:          0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-md:       0 4px 6px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
 }
 
 /* ─────────────────────────────────────────────────────────
