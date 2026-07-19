@@ -903,7 +903,7 @@ app.post('/api/settings', (req, res) => {
   const updates = req.body;
   try {
     // Reject keys matching sensitive patterns (token, password, secret, key, etc.)
-    const sensitivePattern = /token|password|secret|key|auth|credential/i;
+    const sensitivePattern = /_token$|_password$|_secret$/i;
     const filteredUpdates = {};
     for (const [key, value] of Object.entries(updates)) {
       if (sensitivePattern.test(key)) {
