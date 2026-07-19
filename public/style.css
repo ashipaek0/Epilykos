@@ -52,7 +52,7 @@
   --color-battery: var(--olive-500);
   --color-battery-r: var(--olive-600);
   --color-home:    var(--stone-700);
-  --color-grid:    var(--sky-500);
+  --color-grid:    #c44a3e;
 
   /* Dark mode */
   --dark-bg:        #1c1917;
@@ -99,6 +99,7 @@
   --battery: var(--color-battery);
   --grid: var(--color-grid);
   --home: var(--color-home);
+  --color-grid: #e86255;
 }
 
 :focus-visible {
