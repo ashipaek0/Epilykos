@@ -10,7 +10,7 @@
  *   navigator.serviceWorker.controller.postMessage({ type: 'network-config', localURL, remoteURL })
  */
 
-const CACHE_NAME = 'epilykos-v14';
+const CACHE_NAME = 'epilykos-v15';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
@@ -84,13 +84,14 @@ self.addEventListener('fetch', event => {
   }
   
   // Static assets: cache-first
-  if (isSameOrigin && !isAPI) {
+  if (!isAPI) {
     event.respondWith(cacheFirst(event.request));
     return;
   }
   
-  // Same-origin API without localURL: pass through
-  event.respondWith(fetch(event.request));
+  // Same-origin API without localURL — let browser handle natively.
+  // Don't call event.respondWith(). The browser's native fetch stack
+  // handles retries, credentials, and error recovery better than we can.
 });
 
 // ── Routing strategy ──────────────────────────────────────────────────
