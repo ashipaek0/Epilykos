@@ -4,29 +4,30 @@
    DESIGN TOKENS — Single source of truth
    Palette: Stone/Amber/Olive/Sky  |  Type: Inter, tabular-nums
    Radius: 14px max  |  No gradients, no glow, no blue
+   Dark: AMOLED black (#000000)  |  Light: Pure white (#ffffff)
    ═══════════════════════════════════════════════════════════ */
 :root {
-  /* Neutral palette — warm stone */
-  --stone-50:  #fafaf9;
-  --stone-100: #f5f4f0;
+  /* Neutral palette — warm stone (light mode) */
+  --stone-50:  #ffffff;
+  --stone-100: #f7f7f7;
   --stone-200: #e7e5e0;
   --stone-300: #d6d3cc;
-  --stone-500: #787670;
-  --stone-700: #44403c;
-  --stone-900: #1c1917;
+  --stone-500: #555555;
+  --stone-700: #333333;
+  --stone-900: #111111;
 
-  /* Accent palette */
+  /* Accent palette — darkened for AA contrast on white (≥4.5:1) */
   --amber-50:  #fffbeb;
   --amber-100: #fef3c7;
   --amber-400: #f59e0b;
-  --amber-500: #d97706;
+  --amber-500: #b45309;
   --olive-500: #84a45a;
-  --olive-600: #6b8e42;
+  --olive-600: #4a6a2e;
   --sky-500:  #87aec8;
 
-  /* Semantic tokens */
+  /* Semantic tokens (light mode) */
   --surface:         var(--stone-50);
-  --surface-raised:  #ffffff;
+  --surface-raised:  #f5f5f5;
   --text-primary:    var(--stone-900);
   --text-secondary:  var(--stone-500);
   --border:          var(--stone-200);
@@ -46,21 +47,21 @@
   --shadow-card: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
   --shadow-icon: 0 1px 2px rgba(0,0,0,.03);
 
-  /* Semantic colors per domain */
+  /* Semantic colors per domain (light mode — darkened for contrast) */
   --color-solar:   var(--amber-400);
   --color-solar-r: var(--amber-500);
-  --color-battery: var(--olive-500);
+  --color-battery: var(--olive-600);
   --color-battery-r: var(--olive-600);
   --color-home:    var(--stone-700);
-  --color-grid:    #c44a3e;
+  --color-grid:    #b33a2e;
 
   /* Dark mode */
-  --dark-bg:        #1c1917;
-  --dark-surface:   #292524;
-  --dark-raised:    #44403c;
-  --dark-text:      #fafaf9;
-  --dark-text-2:    #a8a29e;
-  --dark-border:    #44403c;
+  --dark-bg:        #000000;
+  --dark-surface:   #111111;
+  --dark-raised:    #1a1a1a;
+  --dark-text:      #f0f0f0;
+  --dark-text-2:    #999999;
+  --dark-border:    #2a2a2a;
 
   /* Keep legacy variable names for backward compatibility */
   --bg: var(--surface);
@@ -85,7 +86,7 @@
   --text-primary:   var(--dark-text);
   --text-secondary: var(--dark-text-2);
   --border:         var(--dark-border);
-  --shadow-card:    0 1px 3px rgba(0,0,0,.2), 0 8px 24px rgba(0,0,0,.3);
+  --shadow-card:    0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
   --shadow-icon:    none;
   /* Propagate to legacy vars */
   --bg: var(--surface);
@@ -100,6 +101,9 @@
   --grid: var(--color-grid);
   --home: var(--color-home);
   --color-grid: #e86255;
+  /* Explicit home and battery colors for dark — light-mode values would be too dim on #000000 */
+  --color-home: #a8a29e;
+  --color-battery: #84a45a;
 }
 
 :focus-visible {
@@ -334,7 +338,7 @@ h1, h2, h3, h4,
 .pvt-label { font-size: 0.6rem; color: var(--text-secondary); }
 .pvt-progress-wrap { flex: 1; display: flex; align-items: center; }
 .pvt-progress-bar { width: 100%; height: 18px; background: var(--bg); border-radius: 3px; overflow: hidden; }
-.pvt-progress-fill { height: 100%; background: #f59e0b; border-radius: 3px; transition: width 0.6s ease; }
+.pvt-progress-fill { height: 100%; background: var(--amber-400); border-radius: 3px; transition: width 0.6s ease; }
 .pv-today-timeline { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 0 0.25rem; }
 .pvt-timeline-icon { font-size: clamp(1rem, 2.5vw, 1.5rem); cursor: default; }
 .pvt-timeline-icons { display: flex; justify-content: space-around; padding: 0 0.1rem; margin-bottom: 0.5rem; }
@@ -532,7 +536,7 @@ h1, h2, h3, h4,
 }
 
 .tl-segment.on  { background: var(--grid); }
-.tl-segment.off { background: #9B9B9B; }
+.tl-segment.off { background: var(--text-tertiary, #999); }
 
 .tl-labels {
   position: relative;
@@ -1092,7 +1096,7 @@ button, .fetch-btn, .toggle-btn, .sub-tab-btn, .main-tab-btn {
 .stg-nav-btn.active { background: var(--accent); color: #fff; }
 .stg-nav-icon { font-size: 1.1rem; width: 1.3rem; text-align: center; flex-shrink: 0; }
 .stg-nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 99px; font-weight: 600; min-width: 1.2rem; text-align: center; display: none; }
-.stg-nav-badge.dirty { display: block; background: #f59e0b; }
+.stg-nav-badge.dirty { display: block; background: var(--accent); }
 .stg-sidebar-footer { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
 .stg-back-link { color: var(--text-secondary); text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.35rem; }
 .stg-back-link:hover { color: var(--accent); }
@@ -1188,7 +1192,7 @@ button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-
 
 /* ── Card save bar (moved into Branding card) ─────── */
 .stg-card-savebar { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.65rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-radius: 0 0 var(--radius) var(--radius); }
-.stg-card-savebar .stg-dirty-count { font-size: 0.78rem; color: #f59e0b; font-weight: 600; display: none; }
+.stg-card-savebar .stg-dirty-count { font-size: 0.78rem; color: var(--accent); font-weight: 600; display: none; }
 .stg-card-savebar .stg-dirty-count.show { display: block; }
 .stg-card-savebar .stg-save-status { font-size: 0.78rem; flex: 1; }
 .stg-card-savebar .stg-save-status.ok { color: #22c55e; }
@@ -1197,7 +1201,7 @@ button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-
 
 /* ── Floating save bar (legacy, kept for compatibility) ── */
 .stg-savebar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 0.75rem 2rem; display: flex; align-items: center; gap: 1rem; z-index: 20; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
-.stg-savebar .stg-dirty-count { font-size: 0.8rem; color: #f59e0b; font-weight: 600; display: none; }
+.stg-savebar .stg-dirty-count { font-size: 0.8rem; color: var(--accent); font-weight: 600; display: none; }
 .stg-savebar .stg-dirty-count.show { display: block; }
 .stg-savebar .stg-save-status { font-size: 0.8rem; flex: 1; }
 .stg-savebar .stg-save-status.ok { color: #22c55e; }

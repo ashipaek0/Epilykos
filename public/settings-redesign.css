@@ -6,44 +6,45 @@
 
 /* ─────────────────────────────────────────────────────────
    1. DESIGN TOKENS — Olive Forward (Grounded Utility)
-   Green-primary, calming, nature-informed. Warm stone backdrop.
+   Green-primary, calming, nature-informed. Pure contrasts.
    No blue, no gradients, no glow. Quiet competence.
+   Dark: AMOLED black (#000000)  |  Light: Pure white (#ffffff)
    ───────────────────────────────────────────────────────── */
 :root {
-  /* ── Raw palette: Warm stone background ───────────── */
-  --stone-50:  #f6f5f2;
-  --stone-100: #f0efe9;
-  --stone-200: #e4e1d5;
-  --stone-300: #c4c0b2;
-  --stone-400: #9c9888;
-  --stone-500: #6e6b60;
-  --stone-600: #555248;
-  --stone-700: #3d3a33;
-  --stone-800: #2a2823;
-  --stone-900: #1c1b17;
+  /* ── Raw palette: Pure white background ──────────── */
+  --stone-50:  #ffffff;
+  --stone-100: #f7f7f7;
+  --stone-200: #e8e8e8;
+  --stone-300: #d0d0d0;
+  --stone-400: #999999;
+  --stone-500: #666666;
+  --stone-600: #444444;
+  --stone-700: #333333;
+  --stone-800: #1a1a1a;
+  --stone-900: #111111;
 
-  /* Raw palette: Olive green accent ──────────────────── */
+  /* Raw palette: Olive green accent (darkened for white bg) ─ */
   --olive-50:  #f4f7f0;
   --olive-100: #e8f0e0;
   --olive-200: #c8d9b8;
   --olive-300: #9bc46a;
   --olive-400: #86b054;
-  --olive-500: #5c7a3e;
-  --olive-600: #4d6633;
-  --olive-700: #3a4f26;
+  --olive-500: #4a6a2e;
+  --olive-600: #3d5725;
+  --olive-700: #2d411b;
 
   /* Raw palette: Status colors ──────────────────────── */
-  --green-500: #4a7c59;
-  --green-500-bright: #6ba878;
-  --green-600: #3a6347;
-  --red-500:    #c44a3e;
-  --red-500-bright: #e86255;
-  --amber-500:  #8a7040;
-  --amber-400:  #b89450;
+  --green-500: #3a8c4f;
+  --green-500-bright: #4da863;
+  --green-600: #2e6e3e;
+  --red-500:    #b33a2e;
+  --red-500-bright: #d94a3a;
+  --amber-500:  #8a6a30;
+  --amber-400:  #b89040;
 
   /* ── Semantic tokens (light theme) ──────────────────── */
   --bg:              var(--stone-50);
-  --card-bg:         #fcfbf9;
+  --card-bg:         #f5f5f5;
   --border:          var(--stone-200);
   --text:            var(--stone-900);
   --text-secondary:  var(--stone-500);
@@ -52,7 +53,7 @@
   --accent-hover:    var(--olive-600);
   --accent-light:    var(--olive-100);
   --success:         var(--green-500);
-  --success-light:   #e6f0e9;
+  --success-light:   #e6f5ea;
   --info:            var(--amber-400);
   --info-light:      var(--olive-50);
   --danger:          var(--red-500);
@@ -75,26 +76,26 @@
 }
 
 /* ─────────────────────────────────────────────────────────
-   2. DARK THEME OVERRIDES — Deep Green + Warm Stone
-   Text ~13:1 AAA, accent ~6.8:1 AA. No cold blacks.
+   2. DARK THEME OVERRIDES — AMOLED Black
+   Text ~15:1 AAA, accent ~7.5:1 AA. Pure black background.
    ───────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --bg:              #191a17;
-  --card-bg:         #232420;
-  --border:          #333128;
-  --text:            #ebeaE3;
-  --text-secondary:  #9c9988;
-  --text-tertiary:   #6e6b60;
+  --bg:              #000000;
+  --card-bg:         #0d0d0d;
+  --border:          #1a1a1a;
+  --text:            #f0f0f0;
+  --text-secondary:  #999999;
+  --text-tertiary:   #666666;
   --accent:          var(--olive-400);
   --accent-hover:    var(--olive-300);
   --accent-light:    rgba(134,176,84,0.12);
   --success:         var(--green-500-bright);
-  --success-light:   rgba(107,168,120,0.15);
+  --success-light:   rgba(77,168,99,0.15);
   --info:            var(--amber-400);
-  --info-light:      rgba(184,148,80,0.12);
-  --shadow-sm:       0 1px 2px rgba(0,0,0,0.3);
-  --shadow:          0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
-  --shadow-md:       0 4px 6px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
+  --info-light:      rgba(184,144,64,0.12);
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.5);
+  --shadow:          0 1px 3px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md:       0 4px 6px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.5);
 }
 
 /* ─────────────────────────────────────────────────────────
