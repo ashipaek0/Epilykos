@@ -1213,7 +1213,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
     return res.status(400).json({ error: 'Bank config with devices and functions required' });
   }
   try {
-    const { readLatestBmsMetrics, isDeviceFresh, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
+    const { readLatestBmsMetrics, isDeviceFresh, resolveSource, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
     const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
     const stalenessThreshold = pollInterval * 2;
     const now = Math.floor(Date.now() / 1000);
@@ -1248,7 +1248,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
         for (const device of bank.devices) {
           const d = deviceData[device.name];
           if (!d.fresh) { values.push(undefined); timestamps.push(undefined); continue; }
-          const src = d.raw[fn.source];
+          const src = d.raw[resolveSource(fn, device.name)];
           values.push(src ? src.value : undefined);
           timestamps.push(src ? src.timestamp : undefined);
         }
