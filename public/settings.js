@@ -1351,7 +1351,7 @@ async function runBmsScan(force) {
 
   try {
     const url = force ? '/api/bms/scan?force=1' : '/api/bms/scan';
-    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000), credentials: 'include' });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       bmsScanStatus.textContent = err.error || 'Scan failed';
@@ -1489,7 +1489,7 @@ function renderBmsDevice(device, idx) {
     }
     showStatus(statusEl, 'Testing connection...', 'info');
     try {
-      const res = await fetch(`/api/bms/test?address=${encodeURIComponent(address)}`, { timeout: 15000 });
+      const res = await fetch(`/api/bms/test?address=${encodeURIComponent(address)}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
@@ -1519,7 +1519,7 @@ function renderBmsDevice(device, idx) {
     const mappingsList = card.querySelector('.mappings-list');
     if (mappingsList.children.length > 0 && !confirm('Loading metrics will replace existing mappings. Continue?')) return;
     try {
-      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`);
+      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`, { credentials: 'include' });
       if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
       const keys = await res.json();
       if (!keys.length) { mappingsList.innerHTML = '<div class="note">No metrics found. Poll the device first or enter keys manually.</div>'; return; }
@@ -1797,11 +1797,14 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
       return;
     }
     try {
-      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(firstDeviceName)}`);
+      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(firstDeviceName)}`, { credentials: 'include' });
       if (!res.ok) throw new Error('failed');
-      const keys = await res.json();
+      const items = await res.json();
       selectEl.innerHTML = '<option value="">-- source --</option>' +
-        keys.map(k => `<option value="${k}" ${k === selectedKey ? 'selected' : ''}>${k}</option>`).join('');
+        items.map(item => {
+          const k = typeof item === 'string' ? item : item.key;
+          return `<option value="${escapeHtml(k)}" ${k === selectedKey ? 'selected' : ''}>${escapeHtml(k)}</option>`;
+        }).join('');
     } catch (_) {
       selectEl.innerHTML = '<option value="">-- unavailable --</option>';
     }
