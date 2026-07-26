@@ -3,6 +3,7 @@
  * Each row: label | [▮▮▮▮▯▯▯▯▯▯] | value+unit
  * Lit segments determined by value position between min and max.
  */
+import { escapeHtml } from '../utils.js';
 export function buildBarGaugeRetro(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
@@ -33,8 +34,6 @@ export function buildBarGaugeRetro(block = {}) {
   container.innerHTML = html;
   return container;
 }
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
 export function updateBarGaugeRetro(state) {
   document.querySelectorAll('.bar-gauge-retro-card').forEach(container => {
     let rows;

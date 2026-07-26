@@ -10,7 +10,7 @@
  *   navigator.serviceWorker.controller.postMessage({ type: 'network-config', localURL, remoteURL })
  */
 
-const CACHE_NAME = 'epilykos-v10';
+const CACHE_NAME = 'epilykos-v17';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
@@ -18,6 +18,7 @@ const STATIC_ASSETS = [
   '/js/dashboard.js',
   '/js/charts.js',
   '/js/updater.js',
+  '/js/editor.js',
   '/js/csrf.js',
   '/js/theme.js',
   '/manifest.json',
@@ -52,7 +53,7 @@ self.addEventListener('message', event => {
   if (event.data?.type === 'network-config') {
     localURL = event.data.localURL || '';
     remoteURL = event.data.remoteURL || '';
-    console.log('[SW] Network config updated:', { localURL, remoteURL });
+    console.debug('[SW] Network config updated:', { localURL, remoteURL });
   }
 });
 
@@ -72,19 +73,25 @@ self.addEventListener('fetch', event => {
   const isWS = url.pathname === '/ws';
   if (isWS) return; // pass through — browser handles WebSocket natively
 
+  // Never intercept cross-origin requests — service workers cannot
+  // meaningfully proxy third-party fetches (fonts, CDN scripts, APIs).
+  // Let the browser handle them natively.
+  if (!isSameOrigin) return;
+
   if (isSameOrigin && isAPI && localURL) {
     event.respondWith(tryLocalThenRemote(event.request, url));
     return;
   }
   
   // Static assets: cache-first
-  if (isSameOrigin && !isAPI) {
+  if (!isAPI) {
     event.respondWith(cacheFirst(event.request));
     return;
   }
   
-  // Everything else: pass through
-  event.respondWith(fetch(event.request));
+  // Same-origin API without localURL — let browser handle natively.
+  // Don't call event.respondWith(). The browser's native fetch stack
+  // handles retries, credentials, and error recovery better than we can.
 });
 
 // ── Routing strategy ──────────────────────────────────────────────────

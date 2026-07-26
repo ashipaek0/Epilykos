@@ -58,9 +58,32 @@ app.use(morgan('combined', { stream: logger.stream }));
 // Compression (gzip + brotli)
 app.use(compression());
 
+// Session secret — persist across restarts so sessions survive
+const SESSION_SECRET_FILE = path.join(__dirname, 'data', 'session-secret');
+let sessionSecret = process.env.SESSION_SECRET;
+if (sessionSecret) {
+  logger.info('Using SESSION_SECRET from environment variable');
+} else {
+  logger.warn('⚠️  SESSION_SECRET env var not set — using persistent file-based secret');
+  try {
+    if (fs.existsSync(SESSION_SECRET_FILE)) {
+      sessionSecret = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim();
+      if (!sessionSecret) throw new Error('Empty secret file');
+    } else {
+      sessionSecret = crypto.randomBytes(32).toString('hex');
+      fs.mkdirSync(path.dirname(SESSION_SECRET_FILE), { recursive: true });
+      fs.writeFileSync(SESSION_SECRET_FILE, sessionSecret, { mode: 0o600 });
+      logger.info('Generated new session secret and saved to data/session-secret');
+    }
+  } catch (err) {
+    logger.error('Failed to read/write session secret file, falling back to ephemeral:', err.message);
+    sessionSecret = crypto.randomBytes(32).toString('hex');
+  }
+}
+
 // Session middleware
 app.use(session({
-  secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
@@ -108,7 +131,7 @@ const wsClients = new Set();
  */
 function broadcastDashboardState(state) {
   const message = JSON.stringify({ type: 'dashboard-state', data: state });
-  for (const client of wsClients) {
+  wsClients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message, err => {
         if (err) {
@@ -117,7 +140,7 @@ function broadcastDashboardState(state) {
         }
       });
     }
-  }
+  });
 }
 
 // WebSocket connection handler
@@ -179,18 +202,39 @@ async function buildDashboardState() {
       timestamp: latest.timestamp * 1000
     };
   }
-  const metrics = getCurrentMetrics();
-  const savings = await getSavings();
-  const gridStatus = await getCurrentGridStatus();
-  const gridHours = {
-    day: gridStatus.configured ? await getGridHours('day') : 0,
-    week: gridStatus.configured ? await getGridHours('week') : 0,
-    month: gridStatus.configured ? await getGridHours('month') : 0,
-    year: gridStatus.configured ? await getGridHours('year') : 0
-  };
-  const gridTimeline = gridStatus.configured ? await getGridTimeline('24h') : { configured: false, segments: [], windowStart: 0, windowEnd: 0 };
+  // Parallelize independent DB/cache calls to avoid N+1 waterfall
   const historySince = Math.floor(Date.now() / 1000) - 24 * 3600;
-  const historyRows = db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince);
+  const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+  const [metrics, savings, gridStatus, historyRows, barRows] = await Promise.all([
+    getCurrentMetrics(),
+    getSavings(),
+    getCurrentGridStatus(),
+    db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince),
+    db.prepare(`
+      SELECT date(timestamp, 'unixepoch') as day,
+        MAX(daily_solar) as solar_kwh,
+        MAX(daily_consumption) as consumption_kwh,
+        MAX(daily_battery_charge) as battery_charge_kwh,
+        MAX(daily_battery_discharge) as battery_discharge_kwh,
+        MAX(daily_grid_import) as grid_import_kwh,
+        MAX(daily_grid_export) as grid_export_kwh
+      FROM history WHERE timestamp >= ?
+      GROUP BY day ORDER BY day ASC
+    `).all(barSince)
+  ]);
+  // Parallelize all grid queries — 4 periods + timeline
+  const [gridHoursDay, gridHoursWeek, gridHoursMonth, gridHoursYear, gridTimeline] = gridStatus.configured
+    ? await Promise.all([
+        getGridHours('day'), getGridHours('week'), getGridHours('month'), getGridHours('year'),
+        getGridTimeline('24h')
+      ])
+    : [0, 0, 0, 0, { configured: false, segments: [], windowStart: 0, windowEnd: 0 }];
+  const gridHours = {
+    day: gridHoursDay,
+    week: gridHoursWeek,
+    month: gridHoursMonth,
+    year: gridHoursYear
+  };
   const powerHistory = historyRows.map(r => ({
     timestamp: r.timestamp * 1000,
     consumption_kw: r.consumption / 1000,
@@ -200,18 +244,6 @@ async function buildDashboardState() {
     grid_import_kw: r.grid_import / 1000,
     grid_export_kw: r.grid_export / 1000
   }));
-  const barSince = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-  const barRows = db.prepare(`
-    SELECT date(timestamp, 'unixepoch') as day,
-      MAX(daily_solar) as solar_kwh,
-      MAX(daily_consumption) as consumption_kwh,
-      MAX(daily_battery_charge) as battery_charge_kwh,
-      MAX(daily_battery_discharge) as battery_discharge_kwh,
-      MAX(daily_grid_import) as grid_import_kwh,
-      MAX(daily_grid_export) as grid_export_kwh
-    FROM history WHERE timestamp >= ?
-    GROUP BY day ORDER BY day ASC
-  `).all(barSince);
   const dailyEnergyBar = barRows.map(r => ({
     day: r.day,
     solar_kwh: r.solar_kwh,
@@ -250,8 +282,10 @@ async function pollAllSources() {
     await pollLegacyHistory();
     await pollGridStatus();
     // BMS polling is independent and runs on its own interval
-    const state = await buildDashboardState();
-    broadcastDashboardState(state);
+    if (wsClients.size > 0) {
+      const state = await buildDashboardState();
+      broadcastDashboardState(state);
+    }
     const elapsed = Date.now() - start;
     logger.info(`Polling cycle completed in ${elapsed}ms`);
   } catch (err) {
@@ -276,7 +310,7 @@ app.get('/api/public-config', async (req, res) => {
     res.json(config);
   } catch (err) {
     logger.error('Error in /api/public-config:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -316,7 +350,7 @@ app.get('/api/current', async (req, res) => {
     }
   } catch (err) {
     logger.error('Error in /api/current:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -339,7 +373,7 @@ app.get('/api/history', async (req, res) => {
     })));
   } catch (err) {
     logger.error('Error in /api/history:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -387,7 +421,7 @@ app.get('/api/daily', async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -440,7 +474,7 @@ app.get('/api/monthly', async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/monthly:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -449,7 +483,7 @@ app.get('/api/grid/status', async (req, res) => {
     res.json(await getCurrentGridStatus());
   } catch (err) {
     logger.error('Error in /api/grid/status:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -459,7 +493,7 @@ app.get('/api/grid/hours', async (req, res) => {
     res.json({ period: req.query.period || 'day', hours });
   } catch (err) {
     logger.error('Error in /api/grid/hours:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -468,7 +502,7 @@ app.get('/api/grid/timeline', async (req, res) => {
     res.json(await getGridTimeline(req.query.period || '24h'));
   } catch (err) {
     logger.error('Error in /api/grid/timeline:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -477,7 +511,7 @@ app.get('/api/savings', async (req, res) => {
     res.json(await getSavings());
   } catch (err) {
     logger.error('Error in /api/savings:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -486,7 +520,7 @@ app.get('/api/solar-forecast', async (req, res) => {
     res.json(await getSolarForecast());
   } catch (err) {
     logger.error('Error in /api/solar-forecast:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -501,7 +535,7 @@ app.get('/api/solar/intraday', async (req, res) => {
     res.json(rows.map(r => ({ timestamp: r.timestamp, watts: r.watts, daily_solar: r.daily_solar })));
   } catch (err) {
     logger.error('Error in /api/solar/intraday:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -511,7 +545,7 @@ app.get('/api/dashboard-state', async (req, res) => {
     res.json(state);
   } catch (err) {
     logger.error('Aggregated state error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -561,7 +595,7 @@ app.get('/api/test-forecast', async (req, res) => {
     res.json(await testForecast(req.query));
   } catch (err) {
     logger.error('Error in test-forecast:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -586,7 +620,7 @@ app.get('/api/ha-device-entities', async (req, res) => {
     res.json(await fetchHAEntities(url, token));
   } catch (err) {
     logger.error('Error fetching HA entities:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -617,7 +651,7 @@ app.get('/api/test-mqtt', async (req, res) => {
   testClient.on('error', (err) => {
     clearTimeout(timeout);
     testClient.end();
-    if (!responded) { responded = true; res.status(500).json({ error: err.message }); }
+    if (!responded) { responded = true; logger.error('MQTT test connection error:', err.message); res.status(500).json({ error: 'Internal server error' }); }
   });
 });
 
@@ -658,7 +692,7 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   testClient.on('error', (err) => {
     clearTimeout(timeout);
     testClient.end();
-    if (!responded) { responded = true; res.status(500).json({ error: err.message }); }
+    if (!responded) { responded = true; logger.error('MQTT topic test error:', err.message); res.status(500).json({ error: 'Internal server error' }); }
   });
 });
 
@@ -689,7 +723,7 @@ app.get('/api/mqtt-discover-topics', async (req, res) => {
       if (err) {
         clearTimeout(timeout);
         client.end();
-        if (!responded) { responded = true; res.status(500).json({ error: 'Subscribe failed: ' + err.message }); }
+        if (!responded) { responded = true; logger.error('MQTT subscribe error:', err.message); res.status(500).json({ error: 'Internal server error' }); }
       }
     });
   });
@@ -697,7 +731,7 @@ app.get('/api/mqtt-discover-topics', async (req, res) => {
   client.on('error', (err) => {
     clearTimeout(timeout);
     client.end();
-    if (!responded) { responded = true; res.status(500).json({ error: err.message }); }
+    if (!responded) { responded = true; logger.error('MQTT discover error:', err.message); res.status(500).json({ error: 'Internal server error' }); }
   });
 });
 
@@ -725,7 +759,7 @@ app.post('/api/test-modbus', async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('Modbus test error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -746,7 +780,7 @@ app.get('/api/rs232/profile/:id', (req, res) => {
     const fullProfile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     res.json(fullProfile);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -772,7 +806,7 @@ app.post('/api/test-rs232', async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('RS232 test error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -782,7 +816,7 @@ app.post('/api/dashboard-config', isAuthenticated, (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error('Error saving dashboard config:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -822,7 +856,7 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
   } catch (err) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     logger.error('Error importing dashboard config:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -837,7 +871,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
     logger.error('Restore error:', err);
-    res.status(500).json({ error: 'Restore failed, original database restored. ' + err.message });
+    res.status(500).json({ error: 'Restore failed, original database restored.' });
   } finally {
     try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(e) {}
   }
@@ -850,7 +884,7 @@ app.get('/api/snapshots', (req, res) => {
   try {
     res.json(listSnapshots());
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -859,7 +893,7 @@ app.post('/api/snapshots/restore/:name', async (req, res) => {
     const result = await restoreFromSnapshot(decodeURIComponent(req.params.name));
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -874,18 +908,28 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   const updates = req.body;
   try {
-    const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
+    // Reject keys matching sensitive patterns (token, password, secret, key, etc.)
+    const sensitivePattern = /_token$|_password$|_secret$/i;
+    const filteredUpdates = {};
     for (const [key, value] of Object.entries(updates)) {
+      if (sensitivePattern.test(key)) {
+        logger.warn(`[Settings] Rejected sensitive key: ${key}`);
+        continue;
+      }
+      filteredUpdates[key] = value;
+    }
+    const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
+    for (const [key, value] of Object.entries(filteredUpdates)) {
       stmt.run(key, String(value));
     }
-    if ('mqtt_devices' in updates) restartMqtt();
-    if ('external_sources' in updates || 'external_poll_interval' in updates) restartExternalPolling();
-    if ('bms_devices' in updates) restartBmsPolling();
-    if ('bms_banks' in updates) {
+    if ('mqtt_devices' in filteredUpdates) restartMqtt();
+    if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
+    if ('bms_devices' in filteredUpdates) restartBmsPolling();
+    if ('bms_banks' in filteredUpdates) {
       // Orphan cleanup: diff old vs new, delete unreferenced bank_* metrics
       const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
       const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
-      const newBanks = JSON.parse(updates['bms_banks']);
+      const newBanks = JSON.parse(filteredUpdates['bms_banks']);
       cleanupOrphanedBankMetrics(oldBanks, newBanks);
       // Auto-create bank metrics not yet in the system
       const { createMetric } = require('./modules/metricsManager');
@@ -899,23 +943,207 @@ app.post('/api/settings', (req, res) => {
       }
       restartBmsPolling();
     }
-    if ('dongle_config' in updates) restartDonglePolling();
-    if ('pvoutput_config' in updates) pvoutput.restart();
-    if ('rs232_devices' in updates) restartRs232Streaming();
+    if ('dongle_config' in filteredUpdates) restartDonglePolling();
+    if ('pvoutput_config' in filteredUpdates) pvoutput.restart();
+    if ('rs232_devices' in filteredUpdates) restartRs232Streaming();
     const forecastKeys = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
       'solar_loss_factor', 'solar_install_date'
     ];
-    if (Object.keys(updates).some(k => forecastKeys.includes(k))) {
+    if (Object.keys(filteredUpdates).some(k => forecastKeys.includes(k))) {
       // Force cache reset
     }
     logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
     logger.error('[Settings] Save error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ── Per-section save API ─────────────────────────────────────────
+
+const sensitivePattern = /_token$|_password$|_secret$/i;
+
+/**
+ * Helper: save a whitelist of config keys from req.body.
+ * Applies the sensitive-key filter, writes to DB, returns saved key list.
+ * @param {string[]} allowedKeys - keys to accept
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @returns {{ saved: string[] }}
+ */
+function saveConfigKeys(allowedKeys, req, res) {
+  const updates = req.body;
+  const filtered = {};
+  for (const key of allowedKeys) {
+    if (key in updates) {
+      if (sensitivePattern.test(key)) {
+        logger.warn(`[Settings] Rejected sensitive key: ${key}`);
+        continue;
+      }
+      filtered[key] = updates[key];
+    }
+  }
+  const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
+  const saved = [];
+  for (const [key, value] of Object.entries(filtered)) {
+    stmt.run(key, String(value));
+    saved.push(key);
+  }
+  return { saved };
+}
+
+// Data sources: ha_devices, mqtt_devices, modbus_devices, rs232_devices,
+// external_sources, bms_devices, bms_banks, dongle_config, pvoutput_config
+app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'ha_devices', 'mqtt_devices', 'modbus_devices', 'rs232_devices',
+      'external_sources', 'external_poll_interval',
+      'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+
+    if ('mqtt_devices' in req.body) restartMqtt();
+    if ('external_sources' in req.body || 'external_poll_interval' in req.body) restartExternalPolling();
+    if ('bms_devices' in req.body) restartBmsPolling();
+    if ('bms_banks' in req.body) {
+      const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
+      const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
+      const newBanks = JSON.parse(req.body['bms_banks']);
+      cleanupOrphanedBankMetrics(oldBanks, newBanks);
+      const { createMetric } = require('./modules/metricsManager');
+      for (const bank of newBanks) {
+        const safeName = bank.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        for (const fn of (bank.functions || [])) {
+          try { createMetric(`bank_${fn.output}`, ''); } catch (_) { /* idempotent */ }
+        }
+        try { createMetric(`bank_${safeName}_devices_online`, ''); } catch (_) {}
+        try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
+      }
+      restartBmsPolling();
+    }
+    if ('dongle_config' in req.body) restartDonglePolling();
+    if ('pvoutput_config' in req.body) pvoutput.restart();
+    if ('rs232_devices' in req.body) restartRs232Streaming();
+
+    logger.info(`[Settings/data-sources] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/data-sources] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Metrics: user_metrics only
+app.post('/api/settings/metrics', isAuthenticated, (req, res) => {
+  try {
+    const allowed = ['user_metrics'];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/metrics] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/metrics] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Dashboard: layouts, active, and display keys
+app.post('/api/settings/dashboard', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'dashboard_layouts', 'dashboard_active',
+      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks',
+      'dashboard_bg_color_light', 'dashboard_bg_color_dark',
+      'dashboard_bg_image', 'grid_status_entity'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+
+    // If saving dashboard_layouts, also update the legacy dashboard_config blob
+    if ('dashboard_layouts' in req.body || 'dashboard_active' in req.body) {
+      try {
+        const layoutsStr = getConfig('dashboard_layouts');
+        const active = getConfig('dashboard_active');
+        const dashboards = JSON.parse(layoutsStr || '[]');
+        const legacyBlob = JSON.parse(getConfig('dashboard_config') || '{}');
+        legacyBlob.dashboards = dashboards;
+        legacyBlob.activeDashboard = active;
+        setConfig('dashboard_config', JSON.stringify(legacyBlob));
+      } catch (_) { /* best-effort */ }
+    }
+
+    logger.info(`[Settings/dashboard] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/dashboard] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Solar: forecast keys + role_metrics
+app.post('/api/settings/solar', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
+      'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
+      'solar_loss_factor', 'solar_install_date', 'role_metrics'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/solar] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/solar] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Savings: savings_* keys
+app.post('/api/settings/savings', isAuthenticated, (req, res) => {
+  try {
+    const allowed = [
+      'savings_currency', 'savings_rate', 'savings_solar_metric',
+      'all_time_pv_savings_override'
+    ];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/savings] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/savings] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Branding: dashboard appearance
+app.post('/api/settings/branding', isAuthenticated, (req, res) => {
+  try {
+    const allowed = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon'];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/branding] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/branding] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Network: network_* keys
+app.post('/api/settings/network', isAuthenticated, (req, res) => {
+  try {
+    const allowed = ['network_local_url', 'network_remote_url'];
+    const { saved } = saveConfigKeys(allowed, req, res);
+    logger.info(`[Settings/network] Saved: ${saved.join(', ')}`);
+    res.json({ ok: true, saved });
+  } catch (err) {
+    logger.error('[Settings/network] Save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Backup: no-op (backup is action-based, not config)
+app.post('/api/settings/backup', isAuthenticated, (req, res) => {
+  res.json({ ok: true, saved: [] });
 });
 
 // BMS bridge proxy – browser can't reach bms-bridge directly
@@ -1043,7 +1271,8 @@ app.post('/api/bms/bank/test', async (req, res) => {
           results[`bank_${fn.output}`] = Math.round(result * 100) / 100;
         }
       } catch (err) {
-        warnings.push(`${fn.output}: ${err.message}`);
+        logger.error(`BMS bank compute error for ${fn.output}:`, err.message);
+        warnings.push(`${fn.output}: computation failed`);
       }
     }
 
@@ -1059,7 +1288,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
     });
   } catch (err) {
     logger.error('BMS bank test error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1073,7 +1302,7 @@ app.get('/api/bms/device-metrics/:name', (req, res) => {
     res.json(keys);
   } catch (err) {
     logger.error('BMS device-metrics error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1098,7 +1327,7 @@ app.post('/api/test-external', async (req, res) => {
     res.json({ success: true, value: isNaN(num) ? value : num });
   } catch (err) {
     logger.error('Error testing external source:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1115,7 +1344,7 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
     res.json(profiles);
   } catch (err) {
     logger.error('Error listing dongle profiles:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1129,7 +1358,7 @@ app.get('/api/dongle/profile/:id', (req, res) => {
     res.json(profile);
   } catch (err) {
     logger.error('Error loading dongle profile:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1199,7 +1428,7 @@ app.post('/api/dongle/test', async (req, res) => {
     res.json({ success: true, raw: data.readUInt16BE(0) });
   } catch (err) {
     logger.warn(`[dongle] test connection failed to ${safeHost}: ${err.message}`);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1218,7 +1447,7 @@ app.get('/api/dongle/status', (req, res) => {
     }));
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1236,7 +1465,7 @@ app.get('/api/metrics/list', isAuthenticated, (req, res) => {
     res.json(metrics);
   } catch (err) {
     logger.error('Error fetching metrics list:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1261,7 +1490,7 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error('Error deleting metric:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1299,7 +1528,7 @@ app.get('/api/metrics/current', async (req, res) => {
     res.json(getCurrentMetrics());
   } catch (err) {
     logger.error('Error in /api/metrics/current:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1310,7 +1539,7 @@ app.get('/api/metrics/history', async (req, res) => {
     res.json(getMetricHistory(metric, hours));
   } catch (err) {
     logger.error('Error in /api/metrics/history:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1321,7 +1550,7 @@ app.get('/api/metrics/names', async (req, res) => {
     res.json(names);
   } catch (err) {
     logger.error('Error in /api/metrics/names:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

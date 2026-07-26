@@ -1,5 +1,12 @@
+import { escapeHtml } from '../utils.js';
 export function buildMetricCards(block) {
-  if (!block.cards || !block.cards.length) return document.createElement('div');
+  if (!block.cards || !block.cards.length) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'dashboard-block';
+    placeholder.style.cssText = 'padding:1rem;color:var(--text-secondary);text-align:center;font-style:italic';
+    placeholder.textContent = 'Configure metrics in Settings → Dashboard';
+    return placeholder;
+  }
   const grid = document.createElement('div');
   grid.className = 'stats-grid';
   grid.dataset.blockId = block.id || '';
@@ -12,12 +19,6 @@ export function buildMetricCards(block) {
     grid.appendChild(cardEl);
   });
   return grid;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 export function updateMetricCardsFromState(state) {

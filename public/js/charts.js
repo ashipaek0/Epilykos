@@ -51,10 +51,10 @@ function resolveEnergyField(metricName) {
 }
 
 function getDatasets(c) { if (c && c.dataset.chartDatasets) { try { return JSON.parse(c.dataset.chartDatasets); } catch (e) {} } return null; }
-function defaultPower() { return [{ label: 'Load', metric: 'consumption', color: '#0062FF' }, { label: 'Solar', metric: 'solar', color: '#FFEA00' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#00E056' }, { label: 'Grid Import', metric: 'grid_import', color: '#FF4255' }]; }
-function defaultEnergy() { return [{ label: 'Solar Generated', metric: 'daily_solar', color: '#FFEA00' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#FF4255' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#0062FF' }]; }
+function defaultPower() { return [{ label: 'Load', metric: 'consumption', color: '#44403c' }, { label: 'Solar', metric: 'solar', color: '#f59e0b' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#84a45a' }, { label: 'Grid Import', metric: 'grid_import', color: '#87aec8' }]; }
+function defaultEnergy() { return [{ label: 'Solar Generated', metric: 'daily_solar', color: '#f59e0b' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#87aec8' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#44403c' }]; }
 
-const zonePlugin = { id: 'zonePlugin', beforeDraw(chart) { const { ctx, chartArea, scales } = chart; if (!chartArea) return; const zy = scales.y.getPixelForValue(0); if (zy > chartArea.top) { const g = ctx.createLinearGradient(0, chartArea.top, 0, zy); g.addColorStop(0, 'rgba(0,224,86,0.12)'); g.addColorStop(0.6, 'rgba(0,224,86,0.04)'); g.addColorStop(1, 'rgba(0,224,86,0)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, zy - chartArea.top); } if (zy < chartArea.bottom) { const g = ctx.createLinearGradient(0, zy, 0, chartArea.bottom); g.addColorStop(0, 'rgba(255,66,85,0)'); g.addColorStop(0.4, 'rgba(255,66,85,0.08)'); g.addColorStop(1, 'rgba(255,66,85,0.18)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, zy, chartArea.right - chartArea.left, chartArea.bottom - zy); } } };
+const zonePlugin = { id: 'zonePlugin', beforeDraw(chart) { const { ctx, chartArea, scales } = chart; if (!chartArea) return; const zy = scales.y.getPixelForValue(0); if (zy > chartArea.top) { const g = ctx.createLinearGradient(0, chartArea.top, 0, zy); g.addColorStop(0, 'rgba(245,158,11,0.12)'); g.addColorStop(0.6, 'rgba(245,158,11,0.04)'); g.addColorStop(1, 'rgba(245,158,11,0)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, zy - chartArea.top); } if (zy < chartArea.bottom) { const g = ctx.createLinearGradient(0, zy, 0, chartArea.bottom); g.addColorStop(0, 'rgba(135,174,200,0)'); g.addColorStop(0.4, 'rgba(135,174,200,0.08)'); g.addColorStop(1, 'rgba(135,174,200,0.18)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, zy, chartArea.right - chartArea.left, chartArea.bottom - zy); } } };
 
 export function destroyCharts() { Object.values(powerCharts).forEach(c => c.destroy()); Object.values(energyCharts).forEach(c => c.destroy()); for (const k in powerCharts) delete powerCharts[k]; for (const k in energyCharts) delete energyCharts[k]; }
 
@@ -62,6 +62,11 @@ export function initPowerChart() {
   document.querySelectorAll('.chart-container canvas[id]').forEach(canvas => {
     if (!canvas.id.startsWith('powerChart')) return;
     if (powerCharts[canvas.id]) return;
+    // Show canvas and remove loading indicator
+    const container = canvas.closest('.chart-container');
+    const loadingEl = container?.querySelector('.chart-loading');
+    if (loadingEl) loadingEl.remove();
+    canvas.style.display = '';
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a';
     powerCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: [] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index' }, elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0, hoverRadius: 4 } }, scales: { x: { type: 'time', time: { unit: 'hour' }, grid: { color: gc } }, y: { title: { display: true, text: 'Power (kW)', color: tc }, grid: { color: gc }, grace: '5%' } }, plugins: { tooltip: { mode: 'index' }, legend: { labels: { color: tc } } } }, plugins: [zonePlugin] });
@@ -73,6 +78,11 @@ export function initEnergyChart() {
   document.querySelectorAll('.chart-container canvas[id]').forEach(canvas => {
     if (!canvas.id.startsWith('energyBarChart')) return;
     if (energyCharts[canvas.id]) return;
+    // Show canvas and remove loading indicator
+    const container = canvas.closest('.chart-container');
+    const loadingEl = container?.querySelector('.chart-loading');
+    if (loadingEl) loadingEl.remove();
+    canvas.style.display = '';
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a';
     const ds = getDatasets(canvas.closest('.chart-container')) || defaultEnergy();

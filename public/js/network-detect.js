@@ -24,7 +24,7 @@ function sendConfigToSW(localURL, remoteURL) {
     localURL,
     remoteURL
   });
-  console.log('[Network] Sent config to SW:', { localURL, remoteURL });
+  console.debug('[Network] Sent config to SW:', { localURL, remoteURL });
 }
 
 // ── Load from server ─────────────────────────────────────────────────
@@ -45,23 +45,19 @@ async function loadNetworkConfig() {
 }
 
 // ── Network indicator on dashboard ───────────────────────────────────
-async function checkLocalReachable(localURL) {
-  if (!localURL) return false;
-  // Mixed content: HTTPS pages can't fetch HTTP resources
-  if (window.location.protocol === 'https:' && localURL.startsWith('http://')) {
-    return false;
-  }
-  try {
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), 2000);
-    const res = await fetch(`${localURL}/manifest.json`, {
-      signal: controller.signal,
-      mode: 'no-cors'
-    });
-    return true;
-  } catch {
-    return false;
-  }
+// Uses an image ping instead of fetch — images bypass mixed-content
+// blocking, so this works even from HTTPS pages.
+function checkLocalReachable(localURL) {
+  if (!localURL) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const img = new Image();
+    const timeout = setTimeout(() => { img.src = ''; resolve(false); }, 2000);
+    img.onload = () => { clearTimeout(timeout); resolve(true); };
+    img.onerror = () => { clearTimeout(timeout); resolve(false); };
+    // Use favicon or any small static asset — 404/200 doesn't matter,
+    // we just need the TCP connection to succeed
+    img.src = `${localURL}/icons/icon-192.png?${Date.now()}`;
+  });
 }
 
 async function showNetworkBanner(localURL) {

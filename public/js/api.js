@@ -16,7 +16,7 @@ export async function fetchDashboardConfig() {
 export async function saveDashboardConfig(config) {
   await fetch('/api/dashboard-config', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     body: JSON.stringify(config)
   });
 }

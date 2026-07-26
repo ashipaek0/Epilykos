@@ -1,6 +1,7 @@
 /**
  * PV Today Card — solar monitoring block with summary bar, weather timeline, and chart.
  */
+import { escapeHtml } from '../utils.js';
 import { uid } from '../utils/uid.js';
 
 const pvTodayCharts = {};
@@ -69,7 +70,7 @@ export function buildPvToday(block = {}) {
   return card;
 }
 
-const DEBUG_PVTODAY = true; // Set to false to silence diagnostic logs
+const DEBUG_PVTODAY = false; // Set to false to silence diagnostic logs
 
 export async function updatePvToday(forecastData) {
   const cards = document.querySelectorAll('.pv-today-instance');
@@ -185,12 +186,17 @@ export async function updatePvToday(forecastData) {
     const ctx = canvas.getContext('2d');
     try {
     if (!pvTodayCharts[canvasId]) {
+      // Adapt chart colors based on theme
+      var generatedColor = isDark ? '#fbbf24' : '#f59e0b';
+      var predictedColor = isDark ? '#f59e0b' : '#d97706';
+      var cloudColor = isDark ? 'rgba(160,170,195,0.7)' : 'rgba(180,185,210,0.7)';
+      var cloudFill = isDark ? 'rgba(160,170,195,0.15)' : 'rgba(180,185,210,0.15)';
       pvTodayCharts[canvasId] = new Chart(ctx, {
         type: 'line',
         data: { datasets: [
-          { label: 'Generated', data: [], borderColor: '#FFEA00', backgroundColor: 'rgba(255,234,0,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
-          { label: 'Predicted', data: [], borderColor: '#FFEA00', backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 4 },
-          { label: 'Cloud Cover', data: [], borderColor: 'rgba(180,185,210,0.7)', backgroundColor: 'rgba(180,185,210,0.15)', borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 0 }
+          { label: 'Generated', data: [], borderColor: generatedColor, backgroundColor: isDark ? 'rgba(251,191,36,0.12)' : 'rgba(245,158,11,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
+          { label: 'Predicted', data: [], borderColor: predictedColor, backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 4 },
+          { label: 'Cloud Cover', data: [], borderColor: cloudColor, backgroundColor: cloudFill, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 0 }
         ]},
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -285,21 +291,16 @@ function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
     return { hour: h, cloud: entry ? entry.cloud : null };
   });
   DEBUG_PVTODAY && console.log('[pvToday] timelineData:', timelineData, 'hourly count:', hourly.length);
+  // Weather timeline: bars only (emoji icons removed per design spec)
   iconsEl.innerHTML = timelineData.map(d => {
-    let icon = '☀️';
-    if (d.cloud != null) {
-      if (d.cloud > 80) icon = '🌧️';
-      else if (d.cloud > 50) icon = '☁️';
-      else if (d.cloud > 20) icon = '⛅';
-    }
-    return `<span class="pvt-timeline-icon" title="${d.hour}:00">${icon}</span>`;
+    return `<span class="pvt-timeline-icon" title="${d.hour}:00"></span>`;
   }).join('');
   const colors = timelineData.map(d => {
     if (d.cloud == null) return isDark ? '#475569' : '#c8cada';
     if (d.cloud > 80) return '#7b84a0';
     if (d.cloud > 50) return '#9ca3af';
     if (d.cloud > 20) return '#ffe870';
-    return '#FFEA00';
+    return '#f59e0b';
   });
   barEl.innerHTML = colors.map(c =>
     `<div class="pvt-timeline-seg" style="background:${c};flex:1;height:3px;border-radius:1px;margin:0 1px;"></div>`
@@ -309,10 +310,4 @@ function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
 function getHourTimestamp(hour) {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, 0, 0).getTime();
-}
-
-function escapeHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
 }

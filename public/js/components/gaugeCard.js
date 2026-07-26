@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils.js';
 export function buildGaugeCard(block = {}) {
   const config = block.config || {};
   const metric = config.metric || '';
@@ -19,8 +20,6 @@ export function buildGaugeCard(block = {}) {
     </div>`;
   return container;
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-
 export function updateGaugeCard(state) {
   document.querySelectorAll('.gauge-card').forEach(container => {
     let cfg; try{cfg=JSON.parse(container.dataset.metricMap);}catch(e){return;}

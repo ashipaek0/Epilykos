@@ -1,13 +1,18 @@
 export function initTheme() {
   const savedTheme = localStorage.getItem('theme');
-  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const toggle = document.getElementById('theme-toggle');
-  if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  } else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
     document.documentElement.setAttribute('data-theme', 'dark');
-    if (toggle) toggle.innerHTML = '<span class="theme-icon">☀️</span>';
   } else {
     document.documentElement.setAttribute('data-theme', 'light');
-    if (toggle) toggle.innerHTML = '<span class="theme-icon">🌙</span>';
+  }
+  if (toggle) {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    toggle.innerHTML = currentTheme === 'dark'
+      ? '<span class="theme-icon">☀</span>'
+      : '<span class="theme-icon">☾</span>';
   }
 }
 
@@ -21,13 +26,9 @@ export function toggleTheme() {
   document.documentElement.setAttribute('data-theme', newTheme);
   localStorage.setItem('theme', newTheme);
   const toggle = document.getElementById('theme-toggle');
-  if (toggle) toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀️</span>' : '<span class="theme-icon">🌙</span>';
+  if (toggle) toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀</span>' : '<span class="theme-icon">☾</span>';
   dispatchThemeEvent();
   updateChartColors();
-  import('./charts.js').then(module => {
-    module.updateChartColors();
-    if (window.powerChart) module.applyGradientFills(window.powerChart);
-  });
   import('./forecast.js').then(m => m.updateForecast());
 }
 

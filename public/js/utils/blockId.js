@@ -3,7 +3,7 @@
  * @returns {string} Unique identifier
  */
 export function generateBlockId() {
-  return `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `block_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 /**

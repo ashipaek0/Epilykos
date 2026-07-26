@@ -1,4 +1,6 @@
 import { uid } from '../utils/uid.js';
+import { escapeHtml } from '../utils.js';
+
 
 export function buildDataTableMonthly(block = {}) {
   const id = block.id || '';
@@ -12,4 +14,3 @@ export function buildDataTableMonthly(block = {}) {
   container.querySelector('.toggle-btn').addEventListener('click', function(){ const c = this.closest('.daily-breakdown-container').querySelector('.daily-breakdown-content'); const coll = c.classList.toggle('collapsed'); this.textContent = coll ? '▼' : '▲'; });
   return container;
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
