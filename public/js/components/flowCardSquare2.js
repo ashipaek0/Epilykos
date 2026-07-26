@@ -5,7 +5,7 @@ import { escapeHtml } from '../utils.js';
 export function buildFlowCardSquare2(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
-  const metrics = config.metrics || { solar: 'solar', grid: 'grid_import', battery_power: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
+  const metrics = config.metrics || { solar: 'solar', grid_import: 'grid_import', battery_charge: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
 
   const card = document.createElement('div');
   card.className = 'flow-card-square2';
@@ -26,7 +26,7 @@ export function buildFlowCardSquare2(block = {}) {
         <div class="fcs2-info">
           <span class="fcs2-label">Battery</span>
           <span class="fcs2-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('fcs2-battery-soc',id)}">0%</span>
-          <span class="fcs2-sub" data-metric="${escapeHtml(metrics.battery_power)}" id="${uid('fcs2-battery-power',id)}">0 W</span>
+          <span class="fcs2-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('fcs2-battery-power',id)}">0 W</span>
         </div>
       </div>
       <div class="fcs2-cell" id="${uid('fcs2-inverter',id)}">
@@ -40,7 +40,7 @@ export function buildFlowCardSquare2(block = {}) {
         <i id="${uid('fcs2-icon-grid',id)}" class="fi fi-sr-bolt fcs2-icon"></i>
         <div class="fcs2-info">
           <span class="fcs2-label">Grid</span>
-          <span class="fcs2-value" data-metric="${escapeHtml(metrics.grid)}">0 W</span>
+          <span class="fcs2-value" data-metric="${escapeHtml(metrics.grid_import)}">0 W</span>
         </div>
       </div>
       <div class="fcs2-line fcs2-line-top"></div>
@@ -56,7 +56,7 @@ export function updateFlowCardSquare2(state) {
     let mm; try{mm=JSON.parse(card.dataset.metricMap);}catch(e){return;}
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
-    const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
+    const solar = gv('solar'), grid = gv('grid_import'), battPower = gv('battery_charge'), battSoc = gv('battery_soc'), consumption = gv('consumption');
     const battDischarge = gv('battery_discharge') || (battPower < 0 ? Math.abs(battPower) : 0);
     const gridExport = gv('grid_export');
     const battIsSource = battDischarge > 50;
