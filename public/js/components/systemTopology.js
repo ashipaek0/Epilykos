@@ -20,7 +20,7 @@ import { uid } from '../utils/uid.js';
 export function buildSystemTopology(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
-  const metrics = config.metrics || { solar: 'solar', grid: 'grid_import', battery_power: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
+  const metrics = config.metrics || { solar: 'solar', grid_import: 'grid_import', battery_charge: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
   const container = document.createElement('div');
   container.className = 'flow-card-2';
   container.dataset.metricMap = JSON.stringify(metrics);
@@ -33,7 +33,7 @@ export function buildSystemTopology(block = {}) {
         <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
       </div>
       <div class="topo-node topo-grid-node" id="${uid('topo-grid-node',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">0 W</span></div>
         <span class="topo-label">Grid</span>
       </div>
       <div class="topo-center" id="${uid('topo-center',id)}"><div class="topo-hub">${config.inverter_image?`<img src="${escapeHtml(config.inverter_image)}" alt="Inverter" class="topo-hub-img">`:'INV'}</div></div>
@@ -42,7 +42,7 @@ export function buildSystemTopology(block = {}) {
         <span class="topo-label">Home</span>
       </div>
       <div class="topo-node topo-battery" id="${uid('topo-battery',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_power)}" id="${uid('topo-battery-power',id)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">0 W</span></div>
         <span class="topo-label">Battery</span>
       </div>
       <div class="topo-line topo-line-solar"></div><div class="topo-line topo-line-grid"></div><div class="topo-line topo-line-home"></div><div class="topo-line topo-line-battery"></div>
@@ -55,7 +55,7 @@ export function updateSystemTopology(state) {
     let mm; try{mm=JSON.parse(container.dataset.metricMap);}catch(e){return;}
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
-    const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
+    const solar = gv('solar'), grid = gv('grid_import'), battPower = gv('battery_charge'), battSoc = gv('battery_soc'), consumption = gv('consumption');
     const battDischarge = gv('battery_discharge') || (battPower < 0 ? Math.abs(battPower) : 0);
     const gridExport = gv('grid_export');
     const battIsSource = battDischarge > 50;
