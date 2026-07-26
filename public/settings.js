@@ -1619,7 +1619,7 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
 async function refreshBmsDeviceStatus(deviceName, dotEl) {
   if (!deviceName) return;
   try {
-    const res = await fetch(`/api/bms/device-status?name=${encodeURIComponent(deviceName)}`);
+    const res = await fetch(`/api/bms/device-status?name=${encodeURIComponent(deviceName)}`, { credentials: 'include' });
     if (!res.ok) throw new Error('API error');
     const status = await res.json();
     if (status.connected) {
