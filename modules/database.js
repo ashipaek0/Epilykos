@@ -26,7 +26,16 @@ function getDb() {
 
 function initializeDatabase() {
   const dataDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (!fs.existsSync(dataDir)) {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch (err) {
+      logger.error(`Cannot create data directory ${dataDir}: ${err.message}. Falling back to in-memory database.`);
+      db = new Database(':memory:');
+      db.pragma('journal_mode = WAL');
+      return;
+    }
+  }
 
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -159,7 +168,11 @@ function initializeDatabase() {
     'savings_currency', 'savings_rate', 'savings_solar_metric', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard',
     'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
     'user_metrics', 'bms_devices', 'dongle_config', 'pvoutput_config', 'pvoutput_stats_cache', 'pvoutput_rate_limit_state',
-    'rs232_devices'
+    'rs232_devices',
+    // Dashboard blob split: new granular keys
+    'dashboard_layouts', 'dashboard_active',
+    // Network
+    'network_local_url', 'network_remote_url'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
@@ -181,7 +194,59 @@ function initializeDatabase() {
   // Legacy migration
   migrateLegacyConfig();
 
-  // Ensure dashboard_config exists with valid JSON
+  // Dashboard blob split migration (must run before default init)
+  migrateDashboardConfigBlob();
+
+  // Ensure dashboard_layouts exists with valid JSON (post-migration)
+  const dashLayouts = getConfig('dashboard_layouts');
+  if (!dashLayouts || dashLayouts === '' || dashLayouts === 'null') {
+    const defaultLayouts = [
+      {
+        id: 'main',
+        name: 'Default',
+        layout: [
+          { id: 'b_flow2', type: 'flow-card-2', gridX: 0, gridY: 0, gridW: 4, gridH: 12, enabled: true, transparent: false, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { title: ' ', inverter_image: 'https://i.postimg.cc/0y66sKCR/srne.png', metrics: { solar: 'PV Power', grid: 'Grid Power', consumption: 'Load Power', battery_power: 'Battery Charge Power', battery_discharge: 'Battery Discharge Power', battery_soc: 'Battery SOC' } } },
+          { id: 'b_forecast', type: 'forecast-pvtoday', gridX: 4, gridY: 0, gridW: 8, gridH: 7, enabled: true, transparent: false, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { location_name: '', metrics: { generated: 'PV Power' } } },
+          { id: 'b_grid', type: 'grid-card', gridX: 4, gridY: 7, gridW: 8, gridH: 5, enabled: true, transparent: false, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { showTimeline: true, metrics: { grid_status: 'Grid Status' } } },
+          { id: 'b_bars', type: 'bar-gauge', gridX: 0, gridY: 12, gridW: 4, gridH: 4, enabled: true, transparent: false, bgColor: '#0f172a', innerBgColor: '#0f172a', fontSize: '0.85rem', config: { metrics: [{ label: 'Solar', metric: 'PV Energy Generated', unit: 'kWh', min: 0, max: 15, color: '#0f172a', gradient: '#FFEA00' }, { label: 'Grid', metric: 'Grid Energy Import', unit: 'kWh', min: 0, max: 15, color: '#0f172a', gradient: '#FF4255' }, { label: 'Batt', metric: 'Battery Energy (Discharge)', unit: 'kWh', min: 0, max: 13, color: '#000000', gradient: '#00E056 ' }, { label: 'Load', metric: 'Load Energy Consumed', unit: 'kWh', min: 0, max: 15, color: '#000000', gradient: '#0062FF' }] } },
+          { id: 'b_savings', type: 'savings-summary', gridX: 4, gridY: 12, gridW: 3, gridH: 4, enabled: true, transparent: false, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { title: ' ', showToday: true, showWeek: true, showMonth: true, showAll: true, savings_metric: 'PV Energy Generated' } },
+          { id: 'b_mv1', type: 'multi-value', gridX: 7, gridY: 12, gridW: 5, gridH: 2, enabled: true, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { metrics: [{ label: 'PV Voltage', metric: 'PV Voltage', unit: 'V' }, { label: 'PV Current', metric: 'PV Current', unit: 'V' }, { label: 'Peak PV', metric: 'Peak PV Power', unit: '' }] } },
+          { id: 'b_mv2', type: 'multi-value', gridX: 7, gridY: 14, gridW: 5, gridH: 2, enabled: true, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { metrics: [{ label: 'Batt Voltage', metric: 'Battery Voltage', unit: 'V' }, { label: 'Batt Current', metric: 'Battery Current', unit: 'A' }, { label: 'Batt Runtime', metric: 'Battery Runtime', unit: 'h' }] } },
+          { id: 'b_energy', type: 'chart-energy', gridX: 0, gridY: 16, gridW: 12, gridH: 10, enabled: true, transparent: false, bgColor: '#0f172a', innerBgColor: '#0f172a', config: { title: ' ', datasets: [{ label: 'Solar Generated', metric: 'PV Energy Generated', color: '#ffea00' }, { label: 'Grid Imported', metric: 'Grid Energy Import', color: '#ff4255' }, { label: 'Energy Consumed', metric: 'Load Energy Consumed', color: '#0062ff' }] } },
+          { id: 'b_daily', type: 'data-table-daily', gridX: 0, gridY: 26, gridW: 12, gridH: 8, enabled: true, bgColor: '#0f172a', innerBgColor: '#0f172a', config: {} },
+          { id: 'b_monthly', type: 'data-table-monthly', gridX: 0, gridY: 34, gridW: 12, gridH: 8, enabled: true, bgColor: '#0f172a', innerBgColor: '#0f172a', config: {} }
+        ]
+      },
+      {
+        id: 'light',
+        name: 'Light',
+        layout: [
+          { id: 'b_flow2', type: 'flow-card-2', gridX: 0, gridY: 0, gridW: 4, gridH: 12, enabled: true, transparent: false, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { title: ' ', inverter_image: 'https://i.postimg.cc/0y66sKCR/srne.png', metrics: { solar: 'PV Power', grid: 'Grid Power', consumption: 'Load Power', battery_power: 'Battery Charge Power', battery_discharge: 'Battery Discharge Power', battery_soc: 'Battery SOC' } } },
+          { id: 'b_forecast', type: 'forecast-pvtoday', gridX: 4, gridY: 0, gridW: 8, gridH: 7, enabled: true, transparent: false, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { location_name: '', metrics: { generated: 'PV Power' } } },
+          { id: 'b_grid', type: 'grid-card', gridX: 4, gridY: 7, gridW: 8, gridH: 5, enabled: true, transparent: false, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { showTimeline: true, metrics: { grid_status: 'Grid Status' } } },
+          { id: 'b_bars', type: 'bar-gauge', gridX: 0, gridY: 12, gridW: 4, gridH: 4, enabled: true, transparent: false, bgColor: '#f8fafc', innerBgColor: '#f8fafc', fontSize: '0.85rem', config: { metrics: [{ label: 'Solar', metric: 'PV Energy Generated', unit: 'kWh', min: 0, max: 15, color: '#f8fafc', gradient: '#FFEA00' }, { label: 'Grid', metric: 'Grid Energy Import', unit: 'kWh', min: 0, max: 15, color: '#f8fafc', gradient: '#FF4255' }, { label: 'Batt', metric: 'Battery Energy (Discharge)', unit: 'kWh', min: 0, max: 13, color: '#f8fafc', gradient: '#00E056 ' }, { label: 'Load', metric: 'Load Energy Consumed', unit: 'kWh', min: 0, max: 15, color: '#f8fafc', gradient: '#0062FF' }] } },
+          { id: 'b_savings', type: 'savings-summary', gridX: 4, gridY: 12, gridW: 3, gridH: 4, enabled: true, transparent: false, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { title: ' ', showToday: true, showWeek: true, showMonth: true, showAll: true, savings_metric: 'PV Energy Generated' } },
+          { id: 'b_mv1', type: 'multi-value', gridX: 7, gridY: 12, gridW: 5, gridH: 2, enabled: true, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { metrics: [{ label: 'PV Voltage', metric: 'PV Voltage', unit: 'V' }, { label: 'PV Current', metric: 'PV Current', unit: 'V' }, { label: 'Peak PV', metric: 'Peak PV Power', unit: '' }] } },
+          { id: 'b_mv2', type: 'multi-value', gridX: 7, gridY: 14, gridW: 5, gridH: 2, enabled: true, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { metrics: [{ label: 'Batt Voltage', metric: 'Battery Voltage', unit: 'V' }, { label: 'Batt Current', metric: 'Battery Current', unit: 'A' }, { label: 'Batt Runtime', metric: 'Battery Runtime', unit: 'h' }] } },
+          { id: 'b_energy', type: 'chart-energy', gridX: 0, gridY: 16, gridW: 12, gridH: 10, enabled: true, transparent: false, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: { title: ' ', datasets: [{ label: 'Solar Generated', metric: 'PV Energy Generated', color: '#ffea00' }, { label: 'Grid Imported', metric: 'Grid Energy Import', color: '#ff4255' }, { label: 'Energy Consumed', metric: 'Load Energy Consumed', color: '#0062ff' }] } },
+          { id: 'b_daily', type: 'data-table-daily', gridX: 0, gridY: 26, gridW: 12, gridH: 8, enabled: true, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: {} },
+          { id: 'b_monthly', type: 'data-table-monthly', gridX: 0, gridY: 34, gridW: 12, gridH: 8, enabled: true, bgColor: '#f8fafc', innerBgColor: '#f8fafc', config: {} }
+        ]
+      }
+    ];
+    setConfig('dashboard_layouts', JSON.stringify(defaultLayouts));
+    setConfig('dashboard_active', 'main');
+    logger.info('Initialised default dashboard layouts');
+  }
+
+  // Ensure dashboard_active exists
+  const activeDash = getConfig('dashboard_active');
+  if (!activeDash || activeDash === '') {
+    setConfig('dashboard_active', 'main');
+  }
+
+  // Also keep dashboard_config for backward compatibility with old code
+  // (seeded after migration so existing installs keep their old blob)
   const dashConfig = getConfig('dashboard_config');
   if (!dashConfig || dashConfig === '' || dashConfig === 'null') {
     const defaultConfig = {
@@ -222,7 +287,7 @@ function initializeDatabase() {
       activeDashboard: 'main'
     };
     setConfig('dashboard_config', JSON.stringify(defaultConfig));
-    logger.info('Initialised default dashboard configuration');
+    logger.info('Initialised default dashboard configuration (legacy blob)');
   }
 
   // Seed default metrics if none exist (user can delete/add freely)
@@ -333,9 +398,63 @@ function migrateLegacyConfig() {
         topics
       };
       setConfig('mqtt_devices', JSON.stringify([device]));
-      db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled')").run();
+      db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled'").run();
       logger.info('Migrated legacy MQTT config to mqtt_devices array.');
     }
+  }
+}
+
+/**
+ * Migrate dashboard_config blob to granular keys.
+ * Extracts: dashboards→dashboard_layouts, activeDashboard→dashboard_active,
+ * and individual flat keys: desktop_dashboard, mobile_dashboard,
+ * transparent_blocks, dashboard_bg_color_light, dashboard_bg_color_dark,
+ * dashboard_bg_image, grid_status_entity.
+ * Old dashboard_config is kept as fallback (dual-read).
+ */
+function migrateDashboardConfigBlob() {
+  const oldBlob = getConfig('dashboard_config');
+  if (!oldBlob || oldBlob === '' || oldBlob === 'null') return;
+
+  try {
+    const parsed = JSON.parse(oldBlob);
+    if (!parsed || typeof parsed !== 'object') return;
+
+    // Only migrate if the new keys are empty (first-run migration)
+    const existingLayouts = getConfig('dashboard_layouts');
+    if (existingLayouts && existingLayouts !== '' && existingLayouts !== 'null') {
+      // Already migrated — skip
+      return;
+    }
+
+    // Extract dashboards array
+    if (parsed.dashboards && Array.isArray(parsed.dashboards)) {
+      setConfig('dashboard_layouts', JSON.stringify(parsed.dashboards));
+    }
+
+    // Extract activeDashboard
+    if (parsed.activeDashboard) {
+      setConfig('dashboard_active', parsed.activeDashboard);
+    }
+
+    // Extract flat keys from the blob (only if not already set)
+    const flatKeys = [
+      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks',
+      'dashboard_bg_color_light', 'dashboard_bg_color_dark',
+      'dashboard_bg_image', 'grid_status_entity'
+    ];
+    for (const key of flatKeys) {
+      if (parsed[key] !== undefined && parsed[key] !== null) {
+        const existing = getConfig(key);
+        if (!existing || existing === '') {
+          setConfig(key, String(parsed[key]));
+        }
+      }
+    }
+
+    logger.info('Migrated dashboard_config blob to granular keys (old blob preserved for fallback)');
+  } catch (err) {
+    logger.warn('Failed to migrate dashboard_config blob:', err.message);
   }
 }
 
@@ -347,10 +466,6 @@ function getConfig(key) {
 function setConfig(key, value) {
   getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, String(value));
 }
-
-Object.defineProperty(module.exports, 'db', {
-  get: () => getDb()
-});
 
 module.exports = {
   initializeDatabase,

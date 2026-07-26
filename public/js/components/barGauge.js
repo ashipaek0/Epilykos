@@ -2,6 +2,7 @@
  * Bar Gauge Card — multi-row horizontal bar visualization for any metric.
  * Each row: label | bar (min→max fill) | value+unit.
  */
+import { escapeHtml } from '../utils.js';
 export function buildBarGauge(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
@@ -29,8 +30,6 @@ export function buildBarGauge(block = {}) {
   container.innerHTML = html;
   return container;
 }
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
 export function updateBarGauge(state) {
   document.querySelectorAll('.bar-gauge-card').forEach(container => {
     let rows;

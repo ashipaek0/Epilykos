@@ -17,7 +17,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   btn.id = 'pwa-install-btn';
   btn.textContent = '⬇ Install';
   btn.style.cssText = `
-    background: #3b82f6; color: white; border: none;
+    background: #f59e0b; color: white; border: none;
     border-radius: 0.5rem; padding: 0.4rem 0.75rem;
     font-size: 0.8rem; font-weight: 600; cursor: pointer;
     white-space: nowrap;
@@ -26,7 +26,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if (!deferredInstallPrompt) return;
     deferredInstallPrompt.prompt();
     const { outcome } = await deferredInstallPrompt.userChoice;
-    console.log(`[PWA] Install prompt: ${outcome}`);
+    console.debug(`[PWA] Install prompt: ${outcome}`);
     deferredInstallPrompt = null;
     btn.remove();
   });
@@ -39,7 +39,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA] App installed successfully');
+  console.debug('[PWA] App installed successfully');
   deferredInstallPrompt = null;
   document.getElementById('pwa-install-btn')?.remove();
 });
@@ -50,12 +50,12 @@ const MAX_CONFIG_ATTEMPTS = 3;
 async function loadConfigWithRetry() {
   try {
     await loadDashboardConfig();
-    console.log('Dashboard config loaded successfully');
+    console.debug('Dashboard config loaded successfully');
 
     // 1. Load cached state instantly (from IndexedDB) — zero wait
     const cached = await loadInitialState();
     if (cached) {
-      console.log('Applying cached state from IndexedDB');
+      console.debug('Applying cached state from IndexedDB');
       updateWithState(cached);
     }
 
@@ -99,4 +99,5 @@ if (container) {
 
 initTheme();
 loadConfigWithRetry();
-document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+const themeToggle = document.getElementById('theme-toggle');
+if (themeToggle) themeToggle.addEventListener('click', toggleTheme);

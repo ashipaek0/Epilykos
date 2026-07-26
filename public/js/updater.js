@@ -16,12 +16,14 @@ import { updateGridCardFromState } from './components/gridCard.js';
 import { updatePowerChartFromState, updateEnergyChartFromState } from './charts.js';
 import { updateSavingsFromState } from './components/savingsSummary.js';
 import { updateForecast } from './forecast.js';
+import { updateWeatherBlock } from './components/weatherBlock.js';
 
 export async function updateAllComponents() {
   try { const state = await fetchDashboardState(); updateWithState(state); } catch (e) { console.error(e); }
 }
 
 export function updateWithState(state) {
+  if (!dashboardConfig?.dashboards) return;
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
   const blockTypes = new Set(activeLayout.map(b => b.type));
@@ -40,7 +42,10 @@ export function updateWithState(state) {
   if (blockTypes.has('chart-power')) updatePowerChartFromState(state);
   if (blockTypes.has('chart-energy')) updateEnergyChartFromState(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
-  updateForecast();
+  const forecastTypes = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'pv-today', 'weather-block'];
+  const hasForecast = forecastTypes.some(t => blockTypes.has(t));
+  if (hasForecast) updateForecast();
+  if (blockTypes.has('weather-block')) updateWeatherBlock(state);
 
   // Update screen-reader announcement with key metrics (throttled — aria-live="polite")
   const ariaEl = document.getElementById('aria-live-region');

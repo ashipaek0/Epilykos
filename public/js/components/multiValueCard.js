@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils.js';
 export function buildMultiValueCard(block = {}) {
   const config = block.config || {};
   const metrics = config.metrics || [];
@@ -17,8 +18,6 @@ export function buildMultiValueCard(block = {}) {
   });
   return container;
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-
 export function updateMultiValueCard(state) {
   document.querySelectorAll('.multi-value-card').forEach(container => {
     let metrics; try{metrics=JSON.parse(container.dataset.metricMap);}catch(e){return;}

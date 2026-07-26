@@ -1,4 +1,6 @@
 import { uid } from '../utils/uid.js';
+import { escapeHtml } from '../utils.js';
+
 
 export function buildFlowCardSquare(block = {}) {
   const id = block.id || '';
@@ -45,8 +47,6 @@ export function buildFlowCardSquare(block = {}) {
     </div>`;
   return card;
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-
 export function updateFlowCardSquare(state) {
   document.querySelectorAll('.flow-card-square').forEach(card => {
     const id = card.dataset.blockId || '';
@@ -91,7 +91,7 @@ export function updateFlowCardSquare(state) {
     const gi = el('fcs-icon-grid');
     if (gi) {
       if (grid > 50) gi.style.color = 'var(--grid)';
-      else if (gridExport > 50) gi.style.color = '#3b82f6';
+      else if (gridExport > 50) gi.style.color = '#f59e0b';
       else gi.style.color = 'var(--text-secondary)';
     }
 

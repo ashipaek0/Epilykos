@@ -26,6 +26,7 @@ export function buildWeatherBlock(block = {}) {
   return container;
 }
 
+// Local copy; refactor to import when this file becomes a module
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
