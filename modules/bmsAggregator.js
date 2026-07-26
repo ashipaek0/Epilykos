@@ -410,9 +410,8 @@ function getAvailableSourceKeys(deviceName) {
     logger.info(`bmsAggregator: no metrics found for '${deviceName}', using fallback key list`);
     return COMMON_BMS_KEYS.map(k => ({ key: k, value: null }));
   }
-  // Filter to numeric-only keys, sorted alphabetically, return with values
+  // Return all keys with their values, sorted alphabetically
   return keys
-    .filter(k => typeof raw[k].value === 'number')
     .sort()
     .map(k => ({ key: k, value: raw[k].value }));
 }
