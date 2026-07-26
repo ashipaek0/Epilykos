@@ -1180,6 +1180,25 @@ app.get('/api/bms/test', async (req, res) => {
       return res.status(502).json({ error: `Bridge returned ${r.status}` });
     }
     const data = await r.json();
+
+    // Store test data in latest_metrics so getAvailableSourceKeys can find it
+    try {
+      const devices = JSON.parse(getConfig('bms_devices') || '[]');
+      const device = devices.find(d => d.address === address);
+      if (device && device.name) {
+        const db = getDb();
+        const now = Math.floor(Date.now() / 1000);
+        const stmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+        for (const [key, val] of Object.entries(data)) {
+          if (typeof val !== 'number' || isNaN(val)) continue;
+          const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
+          stmt.run(safeName, val, now);
+        }
+      }
+    } catch (storeErr) {
+      logger.warn('Failed to store BMS test data:', storeErr.message);
+    }
+
     res.json(data);
   } catch (err) {
     logger.error('BMS test proxy error:', err.message);
