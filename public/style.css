@@ -1218,6 +1218,7 @@ button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-
 .stg-table th { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--border); color: var(--text-secondary); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .stg-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); }
 .stg-table tr:hover td { background: var(--bg); }
+.stg-row-hidden { display: none; }
 .stg-table .stg-row-hidden { display: none; }
 
 /* ── Status messages ────────────────────────────────── */
