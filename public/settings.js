@@ -1520,7 +1520,9 @@ function renderBmsDevice(device, idx) {
       keys.forEach(k => { mappings[k] = existing[k] || ''; });
       renderBmsMappings(idx, mappingsList, mappings);
     } catch (err) {
-      mappingsList.innerHTML = `<div class="note" style="color:var(--error);">Error: ${err.message}</div>`;
+      mappingsList.textContent = 'Error: ' + err.message;
+      mappingsList.className = 'note';
+      mappingsList.style.color = 'var(--error)';
     }
   });
 

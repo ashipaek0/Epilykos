@@ -1,6 +1,8 @@
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
 
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 let grid = null, dashboardConfig = null, currentTabId = null, unsaved = false;
 let currentEditingBlock = null;  // block being edited in settings modal
 let availableMetrics = [];       // metric names from dashboard state
@@ -123,7 +125,7 @@ function buildSystemTopologyForm(block) {
     html += '<div style="flex:1;">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
     html += '</div>';
   }
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + (cfg.inverter_image || '') + '" placeholder="https://..." style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="https://..." style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -151,9 +153,9 @@ function renderMultiValueRows(container) {
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
     html += '<div class="mv-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="mv-label" value="' + (r.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="mv-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(r.metric || '', 'mv-metric-' + i);
-    html += '<input type="text" class="mv-unit" value="' + (r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="mv-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<button type="button" class="mv-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove row">✕</button>';
     html += '</div>';
   }
@@ -205,15 +207,15 @@ function renderBarGaugeRows(container) {
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
     html += '<div class="bg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--border);border-radius:0.3rem;">';
-    html += '<input type="text" class="bg-label" value="' + (r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
+    html += '<input type="text" class="bg-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
     html += '<div style="grid-column:1/-1;display:flex;gap:0.25rem;">';
     html += metricSelect(r.metric || '', 'bg-metric-' + i);
-    html += '<input type="text" class="bg-unit" value="' + (r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="bg-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '</div>';
     html += '<input type="number" class="bg-min" value="' + (r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<input type="number" class="bg-max" value="' + (r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bg-color" value="' + (r.color || '').replace(/"/g,'&quot;') + '" style="width:36px;height:24px;"></label>';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bg-gradient" value="' + (r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
+    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bg-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
     html += '<button type="button" class="bg-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
   }
@@ -263,16 +265,16 @@ function renderBarGaugeRetroRows(container) {
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
     html += '<div class="bgr-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.25rem;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--border);border-radius:0.3rem;">';
-    html += '<input type="text" class="bgr-label" value="' + (r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
+    html += '<input type="text" class="bgr-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
     html += '<div style="grid-column:1/-1;display:flex;gap:0.25rem;">';
     html += metricSelect(r.metric || '', 'bgr-metric-' + i);
-    html += '<input type="text" class="bgr-unit" value="' + (r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="bgr-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '</div>';
     html += '<input type="number" class="bgr-min" value="' + (r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<input type="number" class="bgr-max" value="' + (r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<input type="number" class="bgr-segments" value="' + (r.segments || 10) + '" placeholder="Segments" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">C <input type="color" class="bgr-color" value="' + (r.color || '').replace(/"/g,'&quot;') + '" style="width:36px;height:24px;"></label>';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bgr-gradient" value="' + (r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
+    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bgr-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
     html += '<button type="button" class="bgr-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
   }
@@ -308,7 +310,7 @@ function buildGaugeForm(block) {
   html += '<span style="width:60px;font-size:0.85rem;">Metric</span>';
   html += '<div style="flex:1;">' + metricSelect(cfg.metric || '', 'modal-metric-gauge') + '</div>';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-gauge-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-gauge-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;">';
   html += '<label style="font-size:0.85rem;">Min <input type="number" id="modal-gauge-min" value="' + (cfg.min ?? 0) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '<label style="font-size:0.85rem;">Max <input type="number" id="modal-gauge-max" value="' + (cfg.max ?? 100) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
@@ -341,9 +343,9 @@ function renderMetricCardsRows(container) {
   for (var i = 0; i < cards.length; i++) {
     var c = cards[i] || {};
     html += '<div class="mc-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="mc-title" value="' + (c.title || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="mc-title" value="' + escHtml(c.title || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(c.metric || '', 'mc-metric-' + i);
-    html += '<input type="text" class="mc-unit" value="' + (c.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="mc-unit" value="' + escHtml(c.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '<button type="button" class="mc-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
@@ -384,7 +386,7 @@ function buildDataTableForm(block) {
   }
   var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
   html += '<legend style="font-weight:600;font-size:0.9rem;">Columns</legend>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-table-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-table-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;">';
   for (var i = 0; i < allColFields.length; i++) {
     var f = allColFields[i];
@@ -399,7 +401,7 @@ function buildTextCardForm(block) {
   var cfg = block.config || {};
   var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
   html += '<legend style="font-weight:600;font-size:0.9rem;">Content</legend>';
-  html += '<textarea id="modal-text-content" style="width:100%;min-height:120px;padding:0.5rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);font-size:0.85rem;resize:vertical;">' + (cfg.content || '') + '</textarea>';
+  html += '<textarea id="modal-text-content" style="width:100%;min-height:120px;padding:0.5rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);font-size:0.85rem;resize:vertical;">' + escHtml(cfg.content || '') + '</textarea>';
   html += '</fieldset>';
   return html;
 }
@@ -409,7 +411,7 @@ function buildIframeCardForm(block) {
   var cfg = block.config || {};
   var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
   html += '<legend style="font-weight:600;font-size:0.9rem;">Embed URL</legend>';
-  html += '<label style="font-size:0.85rem;">URL <input type="text" id="modal-iframe-url" value="' + (cfg.url || '') + '" placeholder="https://..." style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;">URL <input type="text" id="modal-iframe-url" value="' + escHtml(cfg.url || '') + '" placeholder="https://..." style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -429,7 +431,7 @@ function buildBatteryBlockForm(block) {
     html += '<div style="flex:1;">' + metricSelect(metrics[s] || '', 'modal-metric-batt-' + s) + '</div>';
     html += '</div>';
   }
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-batt-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-batt-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -457,7 +459,7 @@ function buildChartForm(block) {
   html += '<legend style="font-weight:600;font-size:0.9rem;">Datasets</legend>';
   html += '<div id="chart-rows"></div>';
   html += '<button type="button" id="chart-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Dataset</button>';
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-chart-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</fieldset>';
   html += '<script id="chart-data" type="application/json">' + JSON.stringify(datasets) + '</script>';
   return html;
@@ -473,7 +475,7 @@ function renderChartRows(container) {
   for (var i = 0; i < datasets.length; i++) {
     var d = datasets[i] || {};
     html += '<div class="chart-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="chart-label" value="' + (d.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(d.metric || '', 'chart-metric-' + i);
     html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + (d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
     html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
@@ -509,23 +511,23 @@ function buildSimpleForm(block) {
   html += '<legend style="font-weight:600;font-size:0.9rem;">Config</legend>';
 
   if (block.type === 'savings-summary') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
     html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
     html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
     html += '<div style="flex:1;">' + metricSelect(cfg.savings_metric || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
   } else if (block.type === 'forecast-pvtoday') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Location Name <input type="text" id="modal-simple-title" value="' + (cfg.location_name || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Location Name <input type="text" id="modal-simple-title" value="' + escHtml(cfg.location_name || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
     html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
     html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
     html += '<div style="flex:1;">' + metricSelect((cfg.metrics || {}).generated || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
   } else if (block.type === 'weather-block') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   } else if (block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   } else {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + (cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   }
 
   html += '</fieldset>';
