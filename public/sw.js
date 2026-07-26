@@ -10,7 +10,7 @@
  *   navigator.serviceWorker.controller.postMessage({ type: 'network-config', localURL, remoteURL })
  */
 
-const CACHE_NAME = 'epilykos-v24';
+const CACHE_NAME = 'epilykos-v25';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
