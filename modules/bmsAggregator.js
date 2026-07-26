@@ -10,7 +10,8 @@
  * @typedef {Object} BankFunction
  * @property {string} output - Output metric name (e.g. "bank_voltage")
  * @property {'sum'|'mean'|'min'|'max'|'weighted_soc'|'sum_weighted'|'last'|'or'|'and'} fn
- * @property {string} source - Raw metric key (e.g. "voltage", "current")
+ * @property {string} [source] - Raw metric key (e.g. "voltage") — legacy single-source
+ * @property {Object<string,string>} [sources] - Per-device source map (e.g. {"300Ah":"voltage"})
  * @property {string} [weight_by] - Key for weight source (only weighted_soc / sum_weighted)
  *
  * @typedef {Object} Bank
@@ -213,6 +214,14 @@ function computeFunction(fn, values, weights, timestamps) {
 // Main aggregation entry point
 // ---------------------------------------------------------------------------
 
+// Resolve per-device source key (supports both legacy fn.source and new fn.sources map)
+function resolveSource(fn, deviceName) {
+  if (fn.sources && typeof fn.sources === 'object') {
+    return fn.sources[deviceName] || Object.values(fn.sources)[0] || fn.source;
+  }
+  return fn.source;
+}
+
 /**
  * Compute all aggregate metrics for a bank. Called after every BMS poll cycle.
  *
@@ -287,7 +296,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
           timestamps.push(undefined);
           continue;
         }
-        const src = d.raw[fn.source];
+        const src = d.raw[resolveSource(fn, device.name)];
         values.push(src ? src.value : undefined);
         timestamps.push(src ? src.timestamp : undefined);
       }
@@ -407,8 +416,8 @@ function getAvailableSourceKeys(deviceName) {
   const raw = readLatestBmsMetrics(deviceName);
   const keys = Object.keys(raw);
   if (keys.length === 0) {
-    logger.info(`bmsAggregator: no metrics found for '${deviceName}', using fallback key list`);
-    return COMMON_BMS_KEYS.map(k => ({ key: k, value: null }));
+    logger.info(`bmsAggregator: no metrics found for '${deviceName}' — test connection or wait for next poll`);
+    return [];
   }
   // Return all keys with their values, sorted alphabetically
   return keys
@@ -420,6 +429,7 @@ module.exports = {
   computeBankAggregates,
   computeFunction,
   readLatestBmsMetrics,
+  resolveSource,
   resolveCapacity,
   isDeviceFresh,
   cleanupOrphanedBankMetrics,

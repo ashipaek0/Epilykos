@@ -1706,7 +1706,7 @@ function renderBmsBank(bank, idx) {
 
   card.querySelector('.add-bank-function').addEventListener('click', () => {
     const fnIdx = card.querySelectorAll('.bank-function-row').length;
-    renderBankFunctionRow(fnContainer, idx, fnIdx, { output: '', fn: 'sum', source: '' });
+    renderBankFunctionRow(fnContainer, idx, fnIdx, { output: '', fn: 'sum', sources: {} });
   });
 
   card.querySelector('.test-bank').addEventListener('click', () => testBank(card, idx));
@@ -1752,23 +1752,41 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
 function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   const row = document.createElement('div');
   row.className = 'bank-function-row';
-  row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:4px;';
+  row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap;';
 
   const outputName = fn.output || '';
   const selectedFn = fn.fn || 'sum';
-  const selectedSource = fn.source || '';
+  // Backward compat: fn.source → fn.sources (legacy single-source)
+  const sources = fn.sources || (fn.source ? { _single: fn.source } : {});
   const weightBy = fn.weight_by || '';
 
-  row.innerHTML = `
+  // Get checked devices from the card
+  const card = container.closest('.device-card');
+  const checkedCbs = card.querySelectorAll('.bank-device-cb:checked');
+  const checkedDevices = Array.from(checkedCbs).map(cb => cb.value);
+
+  let html = `
     <input type="text" class="bank-fn-output" placeholder="output name" value="${escapeHtml(outputName)}" style="width:120px; font-size:0.85em;" title="Output metric name (e.g., 'soc'). Full metric: bank_<output>">
     <span style="font-size:0.8em; color:var(--muted);">←</span>
     <select class="bank-fn-type" style="width:130px; font-size:0.85em;">
       ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${f}</option>`).join('')}
     </select>
-    <span style="font-size:0.8em;">(</span>
-    <select class="bank-fn-source" style="width:140px; font-size:0.85em;">
-      <option value="">-- source --</option>
-    </select>
+    <span style="font-size:0.8em;">(</span>`;
+
+  // One source dropdown per checked BMS device, labeled with device name
+  if (checkedDevices.length === 0) {
+    html += `<span style="font-size:0.8em; color:var(--muted);">check devices above</span>`;
+  } else {
+    for (const devName of checkedDevices) {
+      const selKey = sources[devName] || '';
+      html += `<span style="font-size:0.75em; color:var(--muted);">${escapeHtml(devName)}:</span>`;
+      html += `<select class="bank-fn-source" data-device="${escapeHtml(devName)}" style="width:130px; font-size:0.85em;">
+        <option value="">-- source --</option>
+      </select>`;
+    }
+  }
+
+  html += `
     <span class="bank-fn-weight-wrap" style="display:${selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted' ? '' : 'none'};">
       <span style="font-size:0.8em; color:var(--muted);">×</span>
       <select class="bank-fn-weightby" style="width:140px; font-size:0.85em;">
@@ -1778,28 +1796,27 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
     <span style="font-size:0.8em;">)</span>
     <button type="button" class="remove-btn remove-metric remove-bank-fn" style="font-size:0.8em; padding:2px 6px;">×</button>
   `;
+  row.innerHTML = html;
   container.appendChild(row);
 
-  // Load source keys for the first device (representative)
   const fnType = row.querySelector('.bank-fn-type');
-  const fnSource = row.querySelector('.bank-fn-source');
   const fnWeightBy = row.querySelector('.bank-fn-weightby');
   const weightWrap = row.querySelector('.bank-fn-weight-wrap');
 
-  // Get device names from the card
-  const card = container.closest('.device-card');
-  const firstDeviceCb = card.querySelector('.bank-device-cb:checked');
-  const firstDeviceName = firstDeviceCb ? firstDeviceCb.value : null;
-
-  async function loadSourceKeys(selectEl, selectedKey) {
-    if (!firstDeviceName) {
+  // Helper: load metrics for a specific device into a select element
+  async function loadSourceKeysForDevice(selectEl, deviceName, selectedKey) {
+    if (!deviceName) {
       selectEl.innerHTML = '<option value="">-- add devices first --</option>';
       return;
     }
     try {
-      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(firstDeviceName)}`, { credentials: 'include' });
+      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`, { credentials: 'include' });
       if (!res.ok) throw new Error('failed');
       const items = await res.json();
+      if (!items || items.length === 0) {
+        selectEl.innerHTML = '<option value="">-- test connection first --</option>';
+        return;
+      }
       selectEl.innerHTML = '<option value="">-- source --</option>' +
         items.map(item => {
           const k = typeof item === 'string' ? item : item.key;
@@ -1810,16 +1827,26 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
     }
   }
 
-  loadSourceKeys(fnSource, selectedSource);
+  // Load each device source dropdown from its own metrics
+  row.querySelectorAll('.bank-fn-source').forEach(sel => {
+    const devName = sel.dataset.device;
+    const selKey = sources[devName] || '';
+    loadSourceKeysForDevice(sel, devName, selKey);
+  });
+
+  // Weight dropdown loads from first checked device's metrics
   if (selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted') {
-    loadSourceKeys(fnWeightBy, weightBy);
+    loadSourceKeysForDevice(fnWeightBy, checkedDevices[0] || '', weightBy);
   }
 
-  // Show/hide weight-by when function type changes
+  // Show/hide weight when function type changes
   fnType.addEventListener('change', () => {
     const needsWeight = fnType.value === 'weighted_soc' || fnType.value === 'sum_weighted';
     weightWrap.style.display = needsWeight ? '' : 'none';
-    if (needsWeight) loadSourceKeys(fnWeightBy, weightBy);
+    if (needsWeight) {
+      const firstDev = Array.from(card.querySelectorAll('.bank-device-cb:checked')).map(cb => cb.value)[0] || '';
+      loadSourceKeysForDevice(fnWeightBy, firstDev, weightBy);
+    }
   });
 
   // Remove button
@@ -1848,10 +1875,15 @@ async function testBank(card, idx) {
   card.querySelectorAll('.bank-function-row').forEach(row => {
     const output = row.querySelector('.bank-fn-output').value.trim();
     const fn = row.querySelector('.bank-fn-type').value;
-    const source = row.querySelector('.bank-fn-source').value;
+    // Collect per-device sources from all source dropdowns in this row
+    const sources = {};
+    row.querySelectorAll('.bank-fn-source').forEach(sel => {
+      const dev = sel.dataset.device;
+      if (dev && sel.value) sources[dev] = sel.value;
+    });
     const weightBy = row.querySelector('.bank-fn-weightby')?.value || undefined;
-    if (output && source) {
-      functions.push({ output, fn, source, weight_by: weightBy || undefined });
+    if (output && Object.keys(sources).length > 0) {
+      functions.push({ output, fn, sources, weight_by: weightBy || undefined });
     }
   });
   if (functions.length === 0) { showStatus(statusEl, 'Add at least one function', 'error'); return; }
@@ -2765,10 +2797,14 @@ form.addEventListener('submit', async (e) => {
     card.querySelectorAll('.bank-function-row').forEach(row => {
       const output = row.querySelector('.bank-fn-output').value.trim();
       const fn = row.querySelector('.bank-fn-type').value;
-      const source = row.querySelector('.bank-fn-source').value;
+      const sources = {};
+      row.querySelectorAll('.bank-fn-source').forEach(sel => {
+        const dev = sel.dataset.device;
+        if (dev && sel.value) sources[dev] = sel.value;
+      });
       const weightBy = row.querySelector('.bank-fn-weightby')?.value || undefined;
-      if (output && source) {
-        bank.functions.push({ output, fn, source, weight_by: weightBy || undefined });
+      if (output && Object.keys(sources).length > 0) {
+        bank.functions.push({ output, fn, sources, weight_by: weightBy || undefined });
       }
     });
     return bank;
