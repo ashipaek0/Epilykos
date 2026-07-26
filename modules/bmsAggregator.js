@@ -408,12 +408,13 @@ function getAvailableSourceKeys(deviceName) {
   const keys = Object.keys(raw);
   if (keys.length === 0) {
     logger.info(`bmsAggregator: no metrics found for '${deviceName}', using fallback key list`);
-    return COMMON_BMS_KEYS;
+    return COMMON_BMS_KEYS.map(k => ({ key: k, value: null }));
   }
-  // Filter to numeric-only keys, sorted alphabetically
+  // Filter to numeric-only keys, sorted alphabetically, return with values
   return keys
     .filter(k => typeof raw[k].value === 'number')
-    .sort();
+    .sort()
+    .map(k => ({ key: k, value: raw[k].value }));
 }
 
 module.exports = {

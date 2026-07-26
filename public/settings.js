@@ -1517,8 +1517,13 @@ function renderBmsDevice(device, idx) {
       // Build initial mappings object — preselected if device already has mappings
       const existing = device.mappings || {};
       const mappings = {};
-      keys.forEach(k => { mappings[k] = existing[k] || ''; });
-      renderBmsMappings(idx, mappingsList, mappings);
+      const values = {};
+      keys.forEach(item => {
+        const k = typeof item === 'string' ? item : item.key;
+        mappings[k] = existing[k] || '';
+        values[k] = (typeof item === 'object' && item.value != null) ? item.value : null;
+      });
+      renderBmsMappings(idx, mappingsList, mappings, values);
     } catch (err) {
       mappingsList.textContent = 'Error: ' + err.message;
       mappingsList.className = 'note';
@@ -1526,10 +1531,10 @@ function renderBmsDevice(device, idx) {
     }
   });
 
-  // Restore saved mappings on initial load
+  // Restore saved mappings on initial load (values unavailable until re-polled)
   if (device.mappings && Object.keys(device.mappings).length > 0) {
     const mappingsList = card.querySelector('.mappings-list');
-    renderBmsMappings(idx, mappingsList, device.mappings);
+    renderBmsMappings(idx, mappingsList, device.mappings, {});
   }
 
   bmsDeviceCounter++;
@@ -1544,7 +1549,8 @@ function reindexBms() {
 }
 
 // Render metric mapping rows for a BMS device
-function renderBmsMappings(deviceIdx, container, mappings) {
+function renderBmsMappings(deviceIdx, container, mappings, values) {
+  values = values || {};
   container.innerHTML = '';
   if (!mappings || Object.keys(mappings).length === 0) {
     container.innerHTML = '<div class="note">No mappings configured. Click "Load BMS Metrics" to get started.</div>';
@@ -1555,11 +1561,16 @@ function renderBmsMappings(deviceIdx, container, mappings) {
     row.className = 'metric-row';
     row.dataset.bmsKey = bmsKey;
 
-    // BMS key label (read-only — shows what the BMS bridge returns)
+    // BMS key label with optional value
     const keyLabel = document.createElement('span');
     keyLabel.className = 'register-desc';
-    keyLabel.textContent = bmsKey;
-    keyLabel.style.cssText = 'flex:0 0 180px; font-size:0.85em; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+    const val = values[bmsKey];
+    if (val != null && typeof val === 'number') {
+      keyLabel.textContent = `${bmsKey}: ${Number.isInteger(val) ? val : val.toFixed(2)}`;
+    } else {
+      keyLabel.textContent = bmsKey;
+    }
+    keyLabel.style.cssText = 'flex:0 0 220px; font-size:0.85em; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
 
     // Metric dropdown
     const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
