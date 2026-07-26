@@ -1443,6 +1443,7 @@ function renderBmsDevice(device, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <span class="bms-status-dot" id="bms-status-${idx}" title="Checking..."></span>
       <label><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
       <button type="button" class="remove-btn danger" data-action="remove-bms">Remove</button>
     </div>
@@ -1490,6 +1491,12 @@ function renderBmsDevice(device, idx) {
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
+        // Refresh connection status dot
+        const dotEl = card.querySelector(`#bms-status-${idx}`);
+        const nameInput = card.querySelector(`input[name="bms_devices[${idx}][name]"]`);
+        if (dotEl && nameInput && nameInput.value.trim()) {
+          refreshBmsDeviceStatus(nameInput.value.trim(), dotEl);
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         showStatus(statusEl, err.error || `Error`, 'error');
@@ -1538,6 +1545,11 @@ function renderBmsDevice(device, idx) {
   }
 
   bmsDeviceCounter++;
+
+  // Initial status check
+  const statusDot = card.querySelector(`#bms-status-${idx}`);
+  const deviceName = card.querySelector(`input[name="bms_devices[${idx}][name]"]`).value;
+  if (deviceName) refreshBmsDeviceStatus(deviceName, statusDot);
 }
 function reindexBms() {
   const cards = document.querySelectorAll('#bms-devices-container .device-card');
@@ -1599,6 +1611,28 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     row.appendChild(removeBtn);
     container.appendChild(row);
   });
+}
+
+// Poll BMS connection status and update indicator dots
+async function refreshBmsDeviceStatus(deviceName, dotEl) {
+  if (!deviceName) return;
+  try {
+    const res = await fetch(`/api/bms/device-status?name=${encodeURIComponent(deviceName)}`);
+    if (!res.ok) throw new Error('API error');
+    const status = await res.json();
+    if (status.connected) {
+      dotEl.style.backgroundColor = '#22c55e';
+      dotEl.title = `Connected — ${status.metricCount} metrics, last seen ${status.lastSeen ? new Date(status.lastSeen * 1000).toLocaleTimeString() : 'unknown'}`;
+    } else {
+      dotEl.style.backgroundColor = '#ef4444';
+      dotEl.title = status.metricCount > 0
+        ? `Disconnected — ${status.metricCount} metrics (stale), last seen ${status.lastSeen ? new Date(status.lastSeen * 1000).toLocaleTimeString() : 'unknown'}`
+        : 'Disconnected — no data';
+    }
+  } catch {
+    dotEl.style.backgroundColor = '#6b7280';
+    dotEl.title = 'Status unknown — bridge may be offline';
+  }
 }
 const addBmsBtn = document.getElementById('add-bms-device');
 if (addBmsBtn) addBmsBtn.addEventListener('click', () => {
