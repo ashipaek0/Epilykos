@@ -41,13 +41,10 @@ async function getSavings() {
     return total;
   })();
 
-  const allTimeRows = db.prepare(`SELECT timestamp, daily_solar FROM history WHERE daily_solar IS NOT NULL ORDER BY timestamp ASC`).all();
+  // Aggregate in SQL instead of pulling 100K+ rows into JS
+  const dayRows = db.prepare(`SELECT date(timestamp, 'unixepoch') AS day, MAX(daily_solar) AS max_solar FROM history WHERE daily_solar IS NOT NULL GROUP BY day ORDER BY day ASC`).all();
   const allDailyMax = {};
-  allTimeRows.forEach(row => {
-    const date = new Date(row.timestamp * 1000).toLocaleDateString('en-CA');
-    const val = row.daily_solar;
-    if (!allDailyMax[date] || val > allDailyMax[date]) allDailyMax[date] = val;
-  });
+  dayRows.forEach(row => { allDailyMax[row.day] = row.max_solar; });
   const allTimeSolar = Object.values(allDailyMax).reduce((sum, val) => sum + val, 0);
   const allTimeSavings = allTimeSolar * rate;
 

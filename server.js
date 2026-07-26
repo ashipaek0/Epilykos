@@ -222,13 +222,19 @@ async function buildDashboardState() {
       GROUP BY day ORDER BY day ASC
     `).all(barSince)
   ]);
+  // Parallelize all grid queries — 4 periods + timeline
+  const [gridHoursDay, gridHoursWeek, gridHoursMonth, gridHoursYear, gridTimeline] = gridStatus.configured
+    ? await Promise.all([
+        getGridHours('day'), getGridHours('week'), getGridHours('month'), getGridHours('year'),
+        getGridTimeline('24h')
+      ])
+    : [0, 0, 0, 0, { configured: false, segments: [], windowStart: 0, windowEnd: 0 }];
   const gridHours = {
-    day: gridStatus.configured ? await getGridHours('day') : 0,
-    week: gridStatus.configured ? await getGridHours('week') : 0,
-    month: gridStatus.configured ? await getGridHours('month') : 0,
-    year: gridStatus.configured ? await getGridHours('year') : 0
+    day: gridHoursDay,
+    week: gridHoursWeek,
+    month: gridHoursMonth,
+    year: gridHoursYear
   };
-  const gridTimeline = gridStatus.configured ? await getGridTimeline('24h') : { configured: false, segments: [], windowStart: 0, windowEnd: 0 };
   const powerHistory = historyRows.map(r => ({
     timestamp: r.timestamp * 1000,
     consumption_kw: r.consumption / 1000,
