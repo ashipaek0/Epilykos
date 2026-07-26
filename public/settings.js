@@ -1565,8 +1565,12 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     const keyLabel = document.createElement('span');
     keyLabel.className = 'register-desc';
     const val = values[bmsKey];
-    if (val != null && typeof val === 'number') {
-      keyLabel.textContent = `${bmsKey}: ${Number.isInteger(val) ? val : val.toFixed(2)}`;
+    if (val != null) {
+      if (typeof val === 'number') {
+        keyLabel.textContent = `${bmsKey}: ${Number.isInteger(val) ? val : val.toFixed(2)}`;
+      } else {
+        keyLabel.textContent = `${bmsKey}: ${String(val)}`;
+      }
     } else {
       keyLabel.textContent = bmsKey;
     }
