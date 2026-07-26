@@ -1449,9 +1449,11 @@ function renderBmsDevice(device, idx) {
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
-      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
-      <button type="button" class="fetch-btn scan-bms" data-device="${idx}">🔍 Scan</button>
-      <button type="button" class="fetch-btn test-bms">Test Connection</button>
+      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="width:100%;">
+    </div>
+    <div class="form-row" style="gap:0.5rem;">
+      <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">🔍 Scan</button>
+      <button type="button" class="fetch-btn test-bms" style="flex:1;">Test Connection</button>
       <span class="test-status" id="bms-test-status-${idx}"></span>
     </div>
     <div class="note">MAC address can be found by scanning with a phone BLE scanner or using the bridge's /devices endpoint.</div>
