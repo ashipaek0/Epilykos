@@ -1306,6 +1306,30 @@ app.get('/api/bms/device-metrics/:name', (req, res) => {
   }
 });
 
+// BMS device connection status — for live indicator dot in settings UI
+app.get('/api/bms/device-status', (req, res) => {
+  const name = req.query.name;
+  if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
+  try {
+    const { readLatestBmsMetrics, isDeviceFresh } = require('./modules/bmsAggregator');
+    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
+    const raw = readLatestBmsMetrics(name);
+    const connected = isDeviceFresh(raw, pollInterval * 2);
+    const newestTs = Object.keys(raw).length > 0
+      ? Math.max(...Object.values(raw).map(m => m.timestamp))
+      : null;
+    res.json({
+      name,
+      connected,
+      metricCount: Object.keys(raw).length,
+      lastSeen: newestTs
+    });
+  } catch (err) {
+    logger.error('BMS device-status error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.use('/api/test-external', isAuthenticated);
 app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;

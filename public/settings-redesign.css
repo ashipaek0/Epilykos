@@ -849,6 +849,17 @@ table tr:hover td {
 .device-card-status.on  { background: var(--success); }
 .device-card-status.off { background: var(--text-tertiary); }
 
+/* BMS device connection status dot in settings */
+.bms-status-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #6b7280;
+  margin: 0 0.4rem;
+  cursor: help;
+}
+
 .device-card-name {
   font-weight: 600;
   font-size: 0.85rem;
