@@ -26,22 +26,22 @@ export function updateFlowCard(state) {
     const el = (s) => document.getElementById(uid(s, id));
     const sf = el('flow-solar'); if (sf) sf.textContent = sw + ' W';
     const so = el('flow-battery-soc'); if (so) so.textContent = Math.round(bs) + '%';
-    const bn = bc - bd, bSign = bn >= 0 ? '↑' : '↓', bCol = bn >= 0 ? 'var(--battery)' : '#f59e0b';
+    const bn = bc - bd, bSign = bn >= 0 ? '↑' : '↓', bCol = bn >= 0 ? 'var(--battery)' : 'var(--discharge)';
     const be = el('flow-battery-power'); if (be) { be.innerHTML = ''; const s = document.createElement('span'); s.style.color = bCol; s.textContent = `${bSign} ${Math.abs(bn)} W`; be.appendChild(s); }
     const he = el('flow-home'); if (he) he.textContent = cw + ' W';
-    const gn = gi - ge, gDir = gn >= 0 ? 'Import' : 'Export', gCol = gn >= 0 ? 'var(--grid)' : '#f59e0b';
+    const gn = gi - ge, gDir = gn >= 0 ? 'Import' : 'Export', gCol = gn >= 0 ? 'var(--grid)' : 'var(--export)';
     const ge2 = el('flow-grid'); if (ge2) { ge2.innerHTML = ''; const s = document.createElement('span'); s.style.color = gCol; s.textContent = Math.abs(gn) + ' W'; ge2.appendChild(s); }
     const gd = el('flow-grid-direction'); if (gd) gd.textContent = gDir;
-    [['icon-solar', sw > 0 ? 'var(--solar)' : 'var(--text)'], ['icon-home', cw > 0 ? 'var(--home)' : 'var(--text)'], ['icon-grid', gn > 0 ? 'var(--grid)' : gn < 0 ? '#f59e0b' : 'var(--text)']].forEach(([k, v]) => { const e = el(k); if (e) e.style.color = v; });
+    [['icon-solar', sw > 0 ? 'var(--solar)' : 'var(--text)'], ['icon-home', cw > 0 ? 'var(--home)' : 'var(--text)'], ['icon-grid', gn > 0 ? 'var(--grid)' : gn < 0 ? 'var(--export)' : 'var(--text)']].forEach(([k, v]) => { const e = el(k); if (e) e.style.color = v; });
     const bi = el('icon-battery'); if (bi) {
       let cl = 'fi fi-sr-battery-empty';
       if (bs >= 76) cl = 'fi fi-sr-battery-full'; else if (bs >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (bs >= 26) cl = 'fi fi-sr-battery-half'; else if (bs >= 1) cl = 'fi fi-sr-battery-quarter';
-      bi.className = cl; bi.style.color = bn > 0 ? 'var(--battery)' : bn < 0 ? '#f59e0b' : 'var(--text)';
+      bi.className = cl; bi.style.color = bn > 0 ? 'var(--battery)' : bn < 0 ? 'var(--discharge)' : 'var(--text)';
     }
     const sa = card.querySelector('.flow-arrow.solar-home'); if (sa) { sa.style.color = sw > 0 ? 'var(--solar)' : 'var(--text-secondary)'; sa.classList.toggle('flowing', sw > 0); sa.textContent = '→'; }
     const isCharging = bc > bd, isDischarging = bd > bc, isGridChargingBattery = gi > 0 && isCharging;
-    const ba = card.querySelector('.flow-arrow.battery'); if (ba) { if (isDischarging) { ba.style.color = '#f59e0b'; ba.textContent = '→'; } else if (isCharging) { ba.style.color = isGridChargingBattery ? 'var(--grid)' : 'var(--solar)'; ba.textContent = isGridChargingBattery ? '←' : '→'; } else { ba.style.color = 'var(--text-secondary)'; ba.textContent = '⇄'; } }
-    const ga = card.querySelector('.flow-arrow.grid'); if (ga) { if (gi > ge) { ga.style.color = 'var(--grid)'; ga.textContent = '←'; } else if (ge > gi) { ga.style.color = '#f59e0b'; ga.textContent = '→'; } else { ga.style.color = 'var(--text-secondary)'; ga.textContent = '⇄'; } }
+    const ba = card.querySelector('.flow-arrow.battery'); if (ba) { if (isDischarging) { ba.style.color = 'var(--discharge)'; ba.textContent = '→'; } else if (isCharging) { ba.style.color = isGridChargingBattery ? 'var(--grid)' : 'var(--solar)'; ba.textContent = isGridChargingBattery ? '←' : '→'; } else { ba.style.color = 'var(--text-secondary)'; ba.textContent = '⇄'; } }
+    const ga = card.querySelector('.flow-arrow.grid'); if (ga) { if (gi > ge) { ga.style.color = 'var(--grid)'; ga.textContent = '←'; } else if (ge > gi) { ga.style.color = 'var(--export)'; ga.textContent = '→'; } else { ga.style.color = 'var(--text-secondary)'; ga.textContent = '⇄'; } }
     const gf = el('gauge-bar-fill'), gp = el('gauge-percent'); if (gf && gp && window.systemCapacityKwp) { const pct = Math.min(100, (sw / (window.systemCapacityKwp * 1000)) * 100); gf.style.width = pct + '%'; gp.textContent = pct.toFixed(0) + '%'; }
   });
 }

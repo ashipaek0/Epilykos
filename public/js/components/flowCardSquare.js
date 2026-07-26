@@ -76,7 +76,7 @@ export function updateFlowCardSquare(state) {
     const bi = el('fcs-icon-battery');
     if (bi) {
       if (battPower > 50) bi.style.color = 'var(--battery)';
-      else if (battDischarge > 50) bi.style.color = '#f59e0b';
+      else if (battDischarge > 50) bi.style.color = 'var(--discharge)';
       else bi.style.color = 'var(--text-secondary)';
       let cl = 'fi fi-sr-battery-empty';
       if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter';
@@ -91,7 +91,7 @@ export function updateFlowCardSquare(state) {
     const gi = el('fcs-icon-grid');
     if (gi) {
       if (grid > 50) gi.style.color = 'var(--grid)';
-      else if (gridExport > 50) gi.style.color = '#f59e0b';
+      else if (gridExport > 50) gi.style.color = 'var(--export)';
       else gi.style.color = 'var(--text-secondary)';
     }
 
@@ -100,7 +100,7 @@ export function updateFlowCardSquare(state) {
     if (im) {
       if (solar > 100) { im.textContent = 'Solar'; im.style.color = 'var(--solar)'; }
       else if (battPower > 50) { im.textContent = 'Charging'; im.style.color = 'var(--battery)'; }
-      else if (battDischarge > 50) { im.textContent = 'Battery'; im.style.color = '#f59e0b'; }
+      else if (battDischarge > 50) { im.textContent = 'Battery'; im.style.color = 'var(--discharge)'; }
       else if (grid > 50) { im.textContent = 'Grid'; im.style.color = 'var(--grid)'; }
       else { im.textContent = 'Idle'; im.style.color = 'var(--text-secondary)'; }
     }

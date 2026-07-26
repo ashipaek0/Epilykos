@@ -54,6 +54,8 @@
   --color-battery-r: var(--olive-600);
   --color-home:    var(--stone-700);
   --color-grid:    #b33a2e;
+  --color-export:     var(--amber-400);
+  --color-discharge:  var(--amber-400);
 
   /* Dark mode */
   --dark-bg:        #000000;
@@ -71,6 +73,8 @@
   --battery: var(--color-battery);
   --grid: var(--color-grid);
   --home: var(--color-home);
+  --export: var(--color-export);
+  --discharge: var(--color-discharge);
   --shadow: var(--shadow-card);
   --grid-color: var(--border);
   --fs-small: 0.85rem;
@@ -100,6 +104,8 @@
   --battery: var(--color-battery);
   --grid: var(--color-grid);
   --home: var(--color-home);
+  --export: var(--color-export);
+  --discharge: var(--color-discharge);
   --color-grid: #e86255;
   /* Explicit home and battery colors for dark — light-mode values would be too dim on #000000 */
   --color-home: #a8a29e;

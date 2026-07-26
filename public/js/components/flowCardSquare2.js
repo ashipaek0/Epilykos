@@ -69,9 +69,9 @@ export function updateFlowCardSquare2(state) {
     const so = el('fcs2-battery-soc'); if (so) so.textContent = Math.round(battSoc) + '%';
     const bp = el('fcs2-battery-power'); if (bp) { if (battPower > 50) bp.textContent = '↑ ' + Math.round(battPower) + ' W'; else if (battDischarge > 50) bp.textContent = '↓ ' + Math.round(battDischarge) + ' W'; else bp.textContent = '0 W'; }
     const si = el('fcs2-icon-solar'); if (si) si.style.color = solar > 50 ? 'var(--solar)' : 'var(--text-secondary)';
-    const gi = el('fcs2-icon-grid'); if (gi) { if (grid > 50) gi.style.color = 'var(--grid)'; else if (gridExport > 50) gi.style.color = '#f59e0b'; else gi.style.color = 'var(--text-secondary)'; }
-    const bi = el('fcs2-icon-battery'); if (bi) { if (battPower > 50) bi.style.color = 'var(--battery)'; else if (battDischarge > 50) bi.style.color = '#f59e0b'; else bi.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; bi.className = cl + ' fcs2-icon'; }
-    const im = el('fcs2-inverter-mode'); if (im) { if (solar > 100) { im.textContent = 'Solar'; im.style.color = 'var(--solar)'; } else if (battIsSource) { im.textContent = 'Battery'; im.style.color = '#f59e0b'; } else if (grid > 50) { im.textContent = 'Grid'; im.style.color = 'var(--grid)'; } else { im.textContent = 'Idle'; im.style.color = 'var(--text-secondary)'; } }
+    const gi = el('fcs2-icon-grid'); if (gi) { if (grid > 50) gi.style.color = 'var(--grid)'; else if (gridExport > 50) gi.style.color = 'var(--export)'; else gi.style.color = 'var(--text-secondary)'; }
+    const bi = el('fcs2-icon-battery'); if (bi) { if (battPower > 50) bi.style.color = 'var(--battery)'; else if (battDischarge > 50) bi.style.color = 'var(--discharge)'; else bi.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; bi.className = cl + ' fcs2-icon';
+    const im = el('fcs2-inverter-mode'); if (im) { if (solar > 100) { im.textContent = 'Solar'; im.style.color = 'var(--solar)'; } else if (battIsSource) { im.textContent = 'Battery'; im.style.color = 'var(--discharge)'; } else if (grid > 50) { im.textContent = 'Grid'; im.style.color = 'var(--grid)'; } else { im.textContent = 'Idle'; im.style.color = 'var(--text-secondary)'; } }
 
     // Flow lines
     card.querySelectorAll('.fcs2-line').forEach(l => { l.classList.remove('active','reverse'); l.style.background = ''; });
@@ -80,9 +80,9 @@ export function updateFlowCardSquare2(state) {
     if (solar > 100) setLine('.fcs2-line-top', true, 'var(--solar)', false);
     // Bottom: grid ↔ inverter (default direction: inverter → grid, left to right)
     if (grid > 50) setLine('.fcs2-line-bottom', true, 'var(--grid)', true);              // grid→inverter = right→left = reverse
-    else if (gridExport > 50) setLine('.fcs2-line-bottom', true, '#f59e0b', false); // inverter→grid = left→right = forward
+    else if (gridExport > 50) setLine('.fcs2-line-bottom', true, 'var(--export)', false); // inverter→grid = left→right = forward
     // Left: solar ↔ inverter
-    if (solar > 100 || battIsSource) setLine('.fcs2-line-left', true, solar > 100 ? 'var(--solar)' : '#f59e0b', false);
+    if (solar > 100 || battIsSource) setLine('.fcs2-line-left', true, solar > 100 ? 'var(--solar)' : 'var(--discharge)', false);
     // Right: grid → battery (charging only, never battery→grid)
     if (grid > 50 && battPower > 50) setLine('.fcs2-line-right', true, 'var(--grid)', true);
   });
