@@ -17,6 +17,14 @@ async function pollBMS() {
   const devices = JSON.parse(getConfig('bms_devices') || '[]');
   if (!devices.length) { bmsPollingActive = false; return; }
 
+  // Trigger a scan to populate the bridge's BLE cache
+  // The bridge only serves /device/<MAC> for devices in its scan cache.
+  try {
+    await fetch(`${BRIDGE_URL}/devices?force_scan=true`, { timeout: 15000 });
+  } catch (err) {
+    logger.warn(`BMS pre-scan failed: ${err.message} — devices may return 404`);
+  }
+
   for (const device of devices) {
     if (!device.enabled || !device.address) continue;
     try {

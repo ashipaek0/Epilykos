@@ -849,6 +849,17 @@ table tr:hover td {
 .device-card-status.on  { background: var(--success); }
 .device-card-status.off { background: var(--text-tertiary); }
 
+/* BMS device connection status dot in settings */
+.bms-status-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #6b7280;
+  margin: 0 0.4rem;
+  cursor: help;
+}
+
 .device-card-name {
   font-weight: 600;
   font-size: 0.85rem;
@@ -969,6 +980,45 @@ table tr:hover td {
 
 .mapping-table .remove-btn:hover {
   background: rgba(220,38,38,0.08);
+}
+
+/* Metrics table rows */
+#metrics-table tbody tr {
+  transition: background 0.12s;
+}
+#metrics-table tbody tr:hover {
+  background: rgba(128,128,128,0.04);
+}
+#metrics-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--border);
+}
+#metrics-table td {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+#metrics-table .delete-metric-btn {
+  opacity: 0.5;
+  transition: opacity 0.12s, background 0.12s;
+}
+#metrics-table tbody tr:hover .delete-metric-btn {
+  opacity: 1;
+}
+
+/* Toolbar polish */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.toolbar-spacer {
+  flex: 1;
 }
 
 /* Snapshot list */

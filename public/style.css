@@ -54,6 +54,8 @@
   --color-battery-r: var(--olive-600);
   --color-home:    var(--stone-700);
   --color-grid:    #b33a2e;
+  --color-export:     var(--amber-400);
+  --color-discharge:  var(--amber-400);
 
   /* Dark mode */
   --dark-bg:        #000000;
@@ -71,6 +73,8 @@
   --battery: var(--color-battery);
   --grid: var(--color-grid);
   --home: var(--color-home);
+  --export: var(--color-export);
+  --discharge: var(--color-discharge);
   --shadow: var(--shadow-card);
   --grid-color: var(--border);
   --fs-small: 0.85rem;
@@ -100,6 +104,8 @@
   --battery: var(--color-battery);
   --grid: var(--color-grid);
   --home: var(--color-home);
+  --export: var(--color-export);
+  --discharge: var(--color-discharge);
   --color-grid: #e86255;
   /* Explicit home and battery colors for dark — light-mode values would be too dim on #000000 */
   --color-home: #a8a29e;
@@ -1185,8 +1191,8 @@ button.fetch-btn:hover { opacity: 0.9; }
 button.fetch-btn:active { transform: scale(0.97); }
 button.fetch-btn.add-btn, button[id^="add-"] { background: #22c55e; color: #fff; }
 button.fetch-btn.add-btn:hover, button[id^="add-"]:hover { background: #16a34a; }
-button.remove-btn, button[data-action*="remove"] { background: #dc6b4a !important; color: #fff !important; border: none; padding: 0.45rem 0.85rem; border-radius: 0.4rem; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
-button.remove-btn:hover, button[data-action*="remove"]:hover { background: #c2410c !important; }
+button.remove-btn, button[data-action*="remove"] { background: #dc6b4a; color: #fff; border: none; padding: 0.45rem 0.85rem; border-radius: 0.4rem; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: background 0.15s; }
+button.remove-btn:hover, button[data-action*="remove"]:hover { background: #c2410c; }
 button.test-dongle, button.test-mqtt-broker, button.test-mqtt-topic-btn, button.test-modbus, button[id*="test"] { background: #f59e0b; color: #fff; }
 button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-btn:hover, button.test-modbus:hover, button[id*="test"]:hover { background: #d97706; }
 
@@ -1218,6 +1224,7 @@ button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-
 .stg-table th { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--border); color: var(--text-secondary); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .stg-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); }
 .stg-table tr:hover td { background: var(--bg); }
+.stg-row-hidden { display: none; }
 .stg-table .stg-row-hidden { display: none; }
 
 /* ── Status messages ────────────────────────────────── */

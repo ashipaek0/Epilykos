@@ -20,7 +20,7 @@ import { uid } from '../utils/uid.js';
 export function buildSystemTopology(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
-  const metrics = config.metrics || { solar: 'solar', grid: 'grid_import', battery_power: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
+  const metrics = config.metrics || { solar: 'solar', grid_import: 'grid_import', battery_charge: 'battery_charge', battery_soc: 'battery_soc', consumption: 'consumption', battery_discharge: 'battery_discharge', grid_export: 'grid_export' };
   const container = document.createElement('div');
   container.className = 'flow-card-2';
   container.dataset.metricMap = JSON.stringify(metrics);
@@ -33,7 +33,7 @@ export function buildSystemTopology(block = {}) {
         <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
       </div>
       <div class="topo-node topo-grid-node" id="${uid('topo-grid-node',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">0 W</span></div>
         <span class="topo-label">Grid</span>
       </div>
       <div class="topo-center" id="${uid('topo-center',id)}"><div class="topo-hub">${config.inverter_image?`<img src="${escapeHtml(config.inverter_image)}" alt="Inverter" class="topo-hub-img">`:'INV'}</div></div>
@@ -42,7 +42,7 @@ export function buildSystemTopology(block = {}) {
         <span class="topo-label">Home</span>
       </div>
       <div class="topo-node topo-battery" id="${uid('topo-battery',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_power)}" id="${uid('topo-battery-power',id)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">0 W</span></div>
         <span class="topo-label">Battery</span>
       </div>
       <div class="topo-line topo-line-solar"></div><div class="topo-line topo-line-grid"></div><div class="topo-line topo-line-home"></div><div class="topo-line topo-line-battery"></div>
@@ -55,7 +55,7 @@ export function updateSystemTopology(state) {
     let mm; try{mm=JSON.parse(container.dataset.metricMap);}catch(e){return;}
     const m = state.metrics || {};
     const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
-    const solar = gv('solar'), grid = gv('grid'), battPower = gv('battery_power'), battSoc = gv('battery_soc'), consumption = gv('consumption');
+    const solar = gv('solar'), grid = gv('grid_import'), battPower = gv('battery_charge'), battSoc = gv('battery_soc'), consumption = gv('consumption');
     const battDischarge = gv('battery_discharge') || (battPower < 0 ? Math.abs(battPower) : 0);
     const gridExport = gv('grid_export');
     const battIsSource = battDischarge > 50;
@@ -67,9 +67,9 @@ export function updateSystemTopology(state) {
     const so = el('topo-battery-soc'); if (so) so.textContent = Math.round(battSoc) + '%';
     const bp = el('topo-battery-power'); if (bp) { if (battPower > 50) bp.textContent = '↑ ' + Math.round(battPower) + ' W'; else if (battDischarge > 50) bp.textContent = '↓ ' + Math.round(battDischarge) + ' W'; else bp.textContent = '0 W'; }
     [['topo-icon-solar', solar > 50 ? 'var(--solar)' : 'var(--text-secondary)']].forEach(([k, v]) => { const e = el(k); if (e) e.style.color = v; });
-    const ih = el('topo-icon-home'); if (ih) { if (solar > 100) ih.style.color = 'var(--solar)'; else if (battIsSource) ih.style.color = '#f59e0b'; else if (grid > 50) ih.style.color = 'var(--grid)'; else ih.style.color = 'var(--text-secondary)'; }
-    const ig = el('topo-icon-grid'); if (ig) { if (gridExport > 50) ig.style.color = '#f59e0b'; else if (grid > 50) ig.style.color = 'var(--grid)'; else ig.style.color = 'var(--text-secondary)'; }
-    const ib = el('topo-icon-battery'); if (ib) { if (battPower > 50) ib.style.color = 'var(--battery)'; else if (battDischarge > 50) ib.style.color = '#f59e0b'; else ib.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; ib.className = cl; }
+    const ih = el('topo-icon-home'); if (ih) { if (solar > 100) ih.style.color = 'var(--solar)'; else if (battIsSource) ih.style.color = 'var(--discharge)'; else if (grid > 50) ih.style.color = 'var(--grid)'; else ih.style.color = 'var(--text-secondary)'; }
+    const ig = el('topo-icon-grid'); if (ig) { if (gridExport > 50) ig.style.color = 'var(--export)'; else if (grid > 50) ig.style.color = 'var(--grid)'; else ig.style.color = 'var(--text-secondary)'; }
+    const ib = el('topo-icon-battery'); if (ib) { if (battPower > 50) ib.style.color = 'var(--battery)'; else if (battDischarge > 50) ib.style.color = 'var(--discharge)'; else ib.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; ib.className = cl; }
     // Circle borders — proportional when multiple sources feed a node
     const solarCircle = container.querySelector('.topo-solar-circle');
     applyCircleBorder(solarCircle, [{ color: 'var(--solar)', watts: solar }], 50);
@@ -77,7 +77,7 @@ export function updateSystemTopology(state) {
     const gridCircle = container.querySelector('.topo-grid-node .topo-node-circle');
     applyCircleBorder(gridCircle, [
       { color: 'var(--grid)', watts: grid },
-      { color: '#f59e0b', watts: gridExport }
+      { color: 'var(--export)', watts: gridExport }
     ], 50);
 
     // Battery: can charge from solar + grid simultaneously
@@ -88,7 +88,7 @@ export function updateSystemTopology(state) {
         { color: 'var(--grid)', watts: grid }
       ], 50);
     } else if (battDischarge > 50) {
-      applyCircleBorder(battCircle, [{ color: '#f59e0b', watts: battDischarge }], 50);
+      applyCircleBorder(battCircle, [{ color: 'var(--discharge)', watts: battDischarge }], 50);
     } else {
       battCircle.style.borderColor = 'var(--border)';
       battCircle.style.background = 'var(--card-bg)';
@@ -98,21 +98,21 @@ export function updateSystemTopology(state) {
     const homeCircle = container.querySelector('.topo-home .topo-node-circle');
     applyCircleBorder(homeCircle, [
       { color: 'var(--solar)', watts: solar },
-      { color: '#f59e0b', watts: battIsSource ? battDischarge : 0 },
+      { color: 'var(--discharge)', watts: battIsSource ? battDischarge : 0 },
       { color: 'var(--grid)', watts: grid }
     ], 50);
-    const hub = container.querySelector('.topo-hub'); if (hub) { if (solar > 100) hub.style.background = 'var(--solar)'; else if (battIsSource) hub.style.background = '#f59e0b'; else if (grid > 50) hub.style.background = 'var(--grid)'; else hub.style.background = 'var(--accent)'; }
+    const hub = container.querySelector('.topo-hub'); if (hub) { if (solar > 100) hub.style.background = 'var(--solar)'; else if (battIsSource) hub.style.background = 'var(--discharge)'; else if (grid > 50) hub.style.background = 'var(--grid)'; else hub.style.background = 'var(--accent)'; }
     container.querySelectorAll('.topo-line').forEach(l => { l.classList.remove('active', 'reverse'); l.style.background = ''; });
     const setLine = (cls, active, bg, rev) => { const l = container.querySelector(cls); if (l && active) { l.classList.add('active'); if (rev) l.classList.add('reverse'); l.style.background = bg; } };
     setLine('.topo-line-solar', solar > 100, 'var(--solar)', false);
     setLine('.topo-line-grid', grid > 50, 'var(--grid)', false);
-    if (gridExport > 50) setLine('.topo-line-grid', true, '#f59e0b', true);
+    if (gridExport > 50) setLine('.topo-line-grid', true, 'var(--export)', true);
 
     // Home line: pick dominant source by wattage, not priority order
     if (consumption > 50) {
       const homeSources = [
         { color: 'var(--solar)', watts: solar },
-        { color: '#f59e0b', watts: battIsSource ? battDischarge : 0 },
+        { color: 'var(--discharge)', watts: battIsSource ? battDischarge : 0 },
         { color: 'var(--grid)', watts: grid }
       ].filter(s => s.watts > 50);
       if (homeSources.length > 0) {
@@ -132,7 +132,7 @@ export function updateSystemTopology(state) {
       const src = chargeSources.length > 0 ? chargeSources[0].color : 'var(--battery)';
       setLine('.topo-line-battery', true, src, false);
     }
-    setLine('.topo-line-battery', battDischarge > 50, '#f59e0b', true);
+    setLine('.topo-line-battery', battDischarge > 50, 'var(--discharge)', true);
   });
 }
 
