@@ -590,21 +590,27 @@ body {
 .select-input {
   width: 100%;
   height: var(--touch-target);
-  padding: 0 0.75rem;
-  border: 1px solid var(--border);
+  padding: 0 0.85rem;
+  border: 2px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.input:hover,
+.select-input:hover {
+  background: var(--card-bg);
 }
 
 .input:focus,
 .select-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
+  background: var(--card-bg);
 }
 
 .input::placeholder {
@@ -948,19 +954,6 @@ table tr:hover td {
 .mapping-table td {
   padding: 0.4rem 0.5rem;
   vertical-align: middle;
-}
-
-.mapping-table select,
-.mapping-table input {
-  height: 36px;
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 0.8rem;
-  padding: 0 0.5rem;
 }
 
 .mapping-table .remove-btn {
