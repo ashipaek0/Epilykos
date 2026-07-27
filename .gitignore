@@ -17,8 +17,6 @@ start-with-pass.js
 # Design mockups and plans (stay local)
 *.md
 !readme.md
-*.txt
-!BMS_AGGREGATION_PLAN.txt
 .env.dev
 settings.db
 ui-*.html
