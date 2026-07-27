@@ -2504,7 +2504,7 @@ function renderMetricsTable() {
       <td>${metric.value !== null ? metric.value : '-'}</td>
       <td>${lastUpdated}</td>
       <td>${escapeHtml(metric.unit || '-')}</td>
-      <td><button class="delete-metric-btn remove-btn" data-name="${escapeHtml(metric.name)}">Delete</button></td>
+      <td><button class="delete-metric-btn remove-btn" data-name="${escapeHtml(metric.name)}" title="Delete">✕</button></td>
     `;
     tbody.appendChild(row);
   });
