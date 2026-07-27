@@ -1327,7 +1327,8 @@ app.get('/api/bms/device-metrics/:name', (req, res) => {
 
 // BMS device connection status — for live indicator dot in settings UI
 app.get('/api/bms/device-status', (req, res) => {
-  const name = req.query.name;
+  const rawName = req.query.name;
+  const name = Array.isArray(rawName) ? rawName[0] : rawName;
   if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
   try {
     const { readLatestBmsMetrics, isDeviceFresh } = require('./modules/bmsAggregator');
