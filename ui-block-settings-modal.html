@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Block Settings Modal — Epilykos Dashboard Editor</title>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       DESIGN TOKENS — matching style.css
+       Palette: Stone/Amber/Olive  |  No blue, no gradients, no glow
+       ═══════════════════════════════════════════════════════════ */
+    :root {
+      --stone-50:  #fafaf9;
+      --stone-100: #f5f4f0;
+      --stone-200: #e7e5e0;
+      --stone-300: #d6d3cc;
+      --stone-500: #787670;
+      --stone-700: #44403c;
+      --stone-900: #1c1917;
+      --amber-50:  #fffbeb;
+      --amber-100: #fef3c7;
+      --amber-400: #f59e0b;
+      --amber-500: #d97706;
+      --olive-500: #84a45a;
+      --olive-600: #6b8e42;
+
+      --surface:         var(--stone-50);
+      --surface-raised:  #ffffff;
+      --text-primary:    var(--stone-900);
+      --text-secondary:  var(--stone-500);
+      --border:          var(--stone-200);
+      --accent:          var(--amber-400);
+      --accent-strong:   var(--amber-500);
+
+      --radius:   14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --shadow-card: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+
+      --bg: var(--surface);
+      --card-bg: var(--surface-raised);
+      --text: var(--text-primary);
+      --shadow: var(--shadow-card);
+    }
+
+    [data-theme="dark"] {
+      --surface:        #1c1917;
+      --surface-raised: #292524;
+      --text-primary:   #fafaf9;
+      --text-secondary: #a8a29e;
+      --border:         #44403c;
+      --shadow-card:    0 1px 3px rgba(0,0,0,.2), 0 8px 24px rgba(0,0,0,.3);
+      --accent:         var(--amber-400);
+      --accent-strong:  var(--amber-500);
+      --bg: var(--surface);
+      --card-bg: var(--surface-raised);
+      --text: var(--text-primary);
+      --shadow: var(--shadow-card);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    /* ── Page scaffolding ── */
+    .demo-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .demo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .demo-header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .demo-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .demo-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-family: var(--font);
+      transition: background 0.2s;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .demo-btn:hover { background: var(--accent-strong); }
+    .demo-btn.secondary {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .demo-btn.secondary:hover { background: var(--border); }
+
+    .block-type-select {
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 0.95rem;
+      min-height: 44px;
+      font-family: var(--font);
+      background: var(--card-bg);
+      color: var(--text);
+    }
+
+    /* ═════════════════════════════════════════════════════════
+       MODAL OVERLAY
+       ═════════════════════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 1rem;
+      opacity: 1;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-width: 640px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Modal header ── */
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-xs);
+      transition: background 0.2s;
+      line-height: 1;
+    }
+    .modal-close:hover { background: var(--border); }
+
+    /* ── Modal body (scrollable) ── */
+    .modal-body {
+      padding: 1.25rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* ── Section headings ── */
+    .settings-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .settings-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Form controls ── */
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      min-height: 44px;
+    }
+
+    .form-row.inline {
+      flex-wrap: wrap;
+    }
+
+    .form-row label {
+      font-weight: 500;
+      color: var(--text);
+      font-size: 0.9rem;
+      min-width: 100px;
+      flex-shrink: 0;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      font-weight: 500;
+      color: var(--text);
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    /* Inputs & selects */
+    input[type="text"],
+    input[type="number"],
+    input[type="url"],
+    select,
+    textarea {
+      padding: 0.5rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: var(--font);
+      transition: border-color 0.2s;
+      min-height: 44px;
+    }
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      width: 100%;
+    }
+    select {
+      cursor: pointer;
+    }
+
+    /* Color picker */
+    input[type="color"] {
+      width: 44px;
+      height: 44px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      background: var(--card-bg);
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 4px;
+    }
+
+    /* Toggle switch */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-height: 44px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--border);
+      border-radius: 28px;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: "";
+      position: absolute;
+      height: 22px;
+      width: 22px;
+      left: 3px;
+      bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--accent);
+    }
+
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(20px);
+    }
+
+    .toggle-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    /* ── Metric row (multiValue / barGauge) ── */
+    .metric-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      background: var(--bg);
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .metric-row input[type="text"],
+    .metric-row input[type="number"],
+    .metric-row select {
+      min-height: 40px;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .metric-row .sm-input {
+      width: 100px;
+      min-width: 70px;
+    }
+
+    .metric-row .xs-input {
+      width: 70px;
+      min-width: 60px;
+    }
+
+    .metric-row .lg-input {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .metric-row .md-input {
+      width: 140px;
+      min-width: 100px;
+    }
+
+    .row-remove-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: #ef4444;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .row-remove-btn:hover {
+      background: #ef444420;
+    }
+
+    .add-row-btn {
+      background: none;
+      border: 1px dashed var(--border);
+      color: var(--accent-strong);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      min-height: 44px;
+      font-family: var(--font);
+    }
+    .add-row-btn:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ── Column toggles (data tables) ── */
+    .column-toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .column-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 0.85rem;
+      min-height: 44px;
+      transition: background 0.15s;
+      font-family: var(--font);
+      color: var(--text);
+    }
+    .column-toggle:hover { background: var(--border); }
+    .column-toggle.selected {
+      border-color: var(--accent);
+      background: var(--amber-100);
+    }
+    [data-theme="dark"] .column-toggle.selected {
+      background: rgba(245,158,11,.15);
+    }
+
+    .column-toggle input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    /* ── Modal footer ── */
+    .modal-footer {
+      display: flex;
+      gap: 0.5rem;
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border);
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    .btn-cancel,
+    .btn-save {
+      padding: 0.6rem 1.2rem;
+      border-radius: var(--radius-xs);
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background 0.2s;
+      font-family: var(--font);
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .btn-cancel {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-cancel:hover { background: var(--border); }
+
+    .btn-save {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-save:hover { background: var(--accent-strong); }
+
+    /* ── Metric sections in body ── */
+    .metric-section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      background: var(--bg);
+    }
+
+    .metric-section-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── Flow card metric grid ── */
+    .flow-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .flow-metric-item label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .flow-metric-item select {
+      width: 100%;
+    }
+
+    /* ── Empty state ── */
+    .metric-empty {
+      text-align: center;
+      padding: 1rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    /* ── Toast notification ── */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius-xs);
+      font-weight: 500;
+      font-size: 0.9rem;
+      z-index: 3000;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      box-shadow: var(--shadow);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      body { padding: 0.5rem; }
+      .modal { max-width: 100%; max-height: 95vh; }
+      .modal-body { padding: 0.75rem; }
+      .form-row { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+      .form-row label { min-width: auto; }
+      .metric-row { flex-direction: column; align-items: stretch; }
+      .metric-row .sm-input,
+      .metric-row .xs-input,
+      .metric-row .md-input { width: 100%; }
+    }
+  </style>
+</head>
+<body data-theme="light">
+
+<div class="demo-container">
+  <!-- ── Demo Header ── -->
+  <div class="demo-header">
+    <h1>⚡ Block Settings Modal</h1>
+    <div class="demo-controls">
+      <select class="block-type-select" id="demo-block-type">
+        <option value="flowCard">Flow Card</option>
+        <option value="multiValueCard">Multi-Value Card</option>
+        <option value="barGauge">Bar Gauge</option>
+        <option value="gaugeCard">Gauge Card</option>
+        <option value="metricCards">Metric Cards</option>
+        <option value="halfGaugeCard">Half Gauge</option>
+        <option value="dataTable">Daily Data Table</option>
+        <option value="dataTableMonthly">Monthly Data Table</option>
+        <option value="textCard">Text Card</option>
+        <option value="iframeCard">Iframe Card</option>
+      </select>
+      <button class="demo-btn" id="open-modal-btn">⚙️ Open Settings</button>
+      <button class="demo-btn secondary" id="theme-toggle-btn" onclick="toggleTheme()">🌓</button>
+    </div>
+  </div>
+
+  <p style="color:var(--text-secondary); text-align:center; margin-top:3rem;">
+    Select a block type and click "Open Settings" to preview the modal.
+  </p>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════
+     MODAL OVERLAY
+     ═════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal" id="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h2 id="modal-title">⚙️ <span id="modal-block-type-name">Flow Card</span> Settings</h2>
+      <button class="modal-close" id="modal-close-btn" aria-label="Close">&times;</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body" id="modal-body">
+      <!-- Dynamically filled by JS -->
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modal-cancel-btn">Cancel</button>
+      <button class="btn-save" id="modal-save-btn">💾 Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   MOCK DATA
+   ════════════════════════════════════════════════════════ */
+
+// Fake available metrics from the server
+const AVAILABLE_METRICS = [
+  { key: 'solar',            label: 'Solar Power (W)' },
+  { key: 'solar_today_kwh',  label: 'Solar Today (kWh)' },
+  { key: 'solar_total_kwh',  label: 'Solar Total (kWh)' },
+  { key: 'battery_soc',      label: 'Battery SOC (%)' },
+  { key: 'battery_charge',   label: 'Battery Charge (W)' },
+  { key: 'battery_discharge',label: 'Battery Discharge (W)' },
+  { key: 'battery_voltage',  label: 'Battery Voltage (V)' },
+  { key: 'battery_temp',     label: 'Battery Temp (°C)' },
+  { key: 'consumption',      label: 'Consumption (W)' },
+  { key: 'consumption_today_kwh', label: 'Consumption Today (kWh)' },
+  { key: 'grid_import',      label: 'Grid Import (W)' },
+  { key: 'grid_export',      label: 'Grid Export (W)' },
+  { key: 'grid_voltage',     label: 'Grid Voltage (V)' },
+  { key: 'grid_frequency',   label: 'Grid Frequency (Hz)' },
+  { key: 'inverter_temp',    label: 'Inverter Temp (°C)' },
+  { key: 'inverter_power',   label: 'Inverter Power (W)' },
+  { key: 'inverter_runtime', label: 'Inverter Runtime (h)' },
+  { key: 'pv_voltage',       label: 'PV Voltage (V)' },
+  { key: 'pv_current',       label: 'PV Current (A)' },
+  { key: 'load_power',       label: 'Load Power (W)' },
+  { key: 'load_energy_kwh',  label: 'Load Energy (kWh)' },
+  { key: 'export_today_kwh', label: 'Export Today (kWh)' },
+  { key: 'import_today_kwh', label: 'Import Today (kWh)' },
+];
+
+const TABLE_COLUMNS = [
+  { key: 'solar_kwh', label: 'Solar' },
+  { key: 'consumption_kwh', label: 'Consumption' },
+  { key: 'grid_import_kwh', label: 'Grid Import' },
+  { key: 'grid_export_kwh', label: 'Grid Export' },
+  { key: 'battery_charge_kwh', label: 'Batt. Charge' },
+  { key: 'battery_discharge_kwh', label: 'Batt. Discharge' },
+  { key: 'self_consumption_kwh', label: 'Self-Cons.' },
+  { key: 'autonomy_pct', label: 'Autonomy %' },
+];
+
+// Default configs per block type
+const DEFAULT_CONFIGS = {
+  flowCard: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    metrics: {
+      solar: 'solar', battery_soc: 'battery_soc',
+      battery_charge: 'battery_charge', battery_discharge: 'battery_discharge',
+      consumption: 'consumption', grid_import: 'grid_import', grid_export: 'grid_export'
+    }
+  },
+  multiValueCard: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    metrics: [
+      { label: 'Solar', metric: 'solar', unit: 'W' },
+      { label: 'Battery', metric: 'battery_soc', unit: '%' },
+      { label: 'Consumption', metric: 'consumption', unit: 'W' }
+    ]
+  },
+  barGauge: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    metrics: [
+      { label: 'SOC', metric: 'battery_soc', unit: '%', min: 0, max: 100, color: '#84a45a', gradient: '' },
+      { label: 'Temp', metric: 'battery_temp', unit: '°C', min: 0, max: 60, color: '#f59e0b', gradient: '' },
+    ]
+  },
+  gaugeCard: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    metric: 'solar', label: 'Solar Power', unit: 'W', min: 0, max: 10000, color: '#f59e0b'
+  },
+  metricCards: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    metric: 'solar', label: 'Solar Power', unit: 'W'
+  },
+  halfGaugeCard: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    metric: 'battery_soc', label: 'Battery', unit: '%', min: 0, max: 100, color: '#84a45a'
+  },
+  dataTable: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    columns: ['solar_kwh', 'consumption_kwh', 'grid_import_kwh', 'grid_export_kwh', 'battery_charge_kwh', 'battery_discharge_kwh']
+  },
+  dataTableMonthly: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    columns: ['solar_kwh', 'consumption_kwh', 'grid_import_kwh', 'grid_export_kwh']
+  },
+  textCard: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    content: ''
+  },
+  iframeCard: {
+    enabled: true,
+    bgColor: '#ffffff',
+    fontColor: '#1c1917',
+    fontSize: '14',
+    transparent: false,
+    url: ''
+  }
+};
+
+const BLOCK_TYPE_NAMES = {
+  flowCard: 'Flow Card',
+  multiValueCard: 'Multi-Value Card',
+  barGauge: 'Bar Gauge',
+  gaugeCard: 'Gauge Card',
+  metricCards: 'Metric Cards',
+  halfGaugeCard: 'Half Gauge',
+  dataTable: 'Daily Data Table',
+  dataTableMonthly: 'Monthly Data Table',
+  textCard: 'Text Card',
+  iframeCard: 'Iframe Card'
+};
+
+/* ════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════ */
+
+let currentBlockType = 'flowCard';
+let currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIGS.flowCard));
+
+/* ════════════════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════════════════ */
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function buildMetricOption(value, selectedKey) {
+  return `<option value="${escapeHtml(value.key)}" ${value.key === selectedKey ? 'selected' : ''}>${escapeHtml(value.label)}</option>`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+/* ── Read current appearance values from DOM ── */
+function readAppearanceConfig() {
+  return {
+    enabled: document.getElementById('cfg-enabled')?.checked ?? true,
+    bgColor: document.getElementById('cfg-bgColor')?.value ?? '#ffffff',
+    fontColor: document.getElementById('cfg-fontColor')?.value ?? '#1c1917',
+    fontSize: document.getElementById('cfg-fontSize')?.value ?? '14',
+    transparent: document.getElementById('cfg-transparent')?.checked ?? false,
+  };
+}
+
+/* ════════════════════════════════════════════════════════
+   BUILDERS — each renders the metric-specific section
+   ════════════════════════════════════════════════════════ */
+
+function buildFlowCardMetrics(cfg) {
+  const slots = [
+    { key: 'solar', label: 'Solar' },
+    { key: 'battery_soc', label: 'Battery SOC' },
+    { key: 'battery_charge', label: 'Battery Charge' },
+    { key: 'battery_discharge', label: 'Battery Discharge' },
+    { key: 'consumption', label: 'Consumption' },
+    { key: 'grid_import', label: 'Grid Import' },
+    { key: 'grid_export', label: 'Grid Export' },
+  ];
+
+  let html = '<div class="flow-metrics-grid">';
+  slots.forEach(s => {
+    html += `<div class="flow-metric-item">
+      <label>${s.label}</label>
+      <select id="cfg-flow-${s.key}">
+        ${AVAILABLE_METRICS.map(v => buildMetricOption(v, cfg.metrics[s.key] || '')).join('')}
+      </select>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function readFlowCardMetrics() {
+  const metrics = {};
+  ['solar','battery_soc','battery_charge','battery_discharge','consumption','grid_import','grid_export'].forEach(k => {
+    metrics[k] = document.getElementById('cfg-flow-' + k)?.value || k;
+  });
+  return metrics;
+}
+
+function buildMultiValueMetrics(cfg) {
+  const rows = cfg.metrics || [];
+  let html = '';
+  rows.forEach((row, i) => {
+    html += buildMultiValueRow(row, i);
+  });
+  html += `<button class="add-row-btn" onclick="addMultiValueRow()" type="button">+ Add Metric</button>`;
+  return html;
+}
+
+function buildMultiValueRow(row, i) {
+  return `
+    <div class="metric-row" data-mvidx="${i}">
+      <input type="text" class="md-input" placeholder="Label" value="${escapeHtml(row.label || '')}" data-field="label">
+      <select class="lg-input" data-field="metric">
+        <option value="">-- Select metric --</option>
+        ${AVAILABLE_METRICS.map(v => `<option value="${escapeHtml(v.key)}" ${v.key === row.metric ? 'selected' : ''}>${escapeHtml(v.label)}</option>`).join('')}
+      </select>
+      <input type="text" class="sm-input" placeholder="Unit" value="${escapeHtml(row.unit || '')}" data-field="unit">
+      <button class="row-remove-btn" onclick="removeMultiValueRow(${i})" type="button" title="Remove row">&times;</button>
+    </div>`;
+}
+
+function addMultiValueRow() {
+  const container = document.getElementById('mv-rows-container');
+  const idx = container.querySelectorAll('.metric-row').length;
+  const temp = document.createElement('div');
+  temp.innerHTML = buildMultiValueRow({ label: '', metric: '', unit: '' }, idx);
+  const addBtn = container.querySelector('.add-row-btn');
+  container.insertBefore(temp.firstElementChild, addBtn);
+}
+
+function removeMultiValueRow(idx) {
+  const container = document.getElementById('mv-rows-container');
+  const rows = container.querySelectorAll('.metric-row');
+  if (rows.length <= 1) {
+    showToast('Need at least one metric row');
+    return;
+  }
+  const row = container.querySelector(`[data-mvidx="${idx}"]`);
+  if (row) row.remove();
+}
+
+function readMultiValueMetrics() {
+  const rows = [];
+  document.querySelectorAll('#mv-rows-container .metric-row').forEach(row => {
+    rows.push({
+      label: row.querySelector('[data-field="label"]')?.value || '',
+      metric: row.querySelector('[data-field="metric"]')?.value || '',
+      unit: row.querySelector('[data-field="unit"]')?.value || ''
+    });
+  });
+  return rows;
+}
+
+function buildBarGaugeMetrics(cfg) {
+  const rows = cfg.metrics || [];
+  let html = '';
+  rows.forEach((row, i) => {
+    html += buildBarGaugeRow(row, i);
+  });
+  html += `<button class="add-row-btn" onclick="addBarGaugeRow()" type="button">+ Add Gauge</button>`;
+  return html;
+}
+
+function buildBarGaugeRow(row, i) {
+  return `
+    <div class="metric-row" data-bgidx="${i}">
+      <input type="text" class="md-input" placeholder="Label" value="${escapeHtml(row.label || '')}" data-field="label">
+      <select class="lg-input" data-field="metric">
+        <option value="">-- Select metric --</option>
+        ${AVAILABLE_METRICS.map(v => `<option value="${escapeHtml(v.key)}" ${v.key === row.metric ? 'selected' : ''}>${escapeHtml(v.label)}</option>`).join('')}
+      </select>
+      <input type="text" class="xs-input" placeholder="Unit" value="${escapeHtml(row.unit || '')}" data-field="unit">
+      <input type="number" class="xs-input" placeholder="Min" value="${row.min ?? 0}" data-field="min" step="any">
+      <input type="number" class="xs-input" placeholder="Max" value="${row.max ?? 100}" data-field="max" step="any">
+      <input type="color" value="${row.color || '#f59e0b'}" data-field="color" title="Bar color">
+      <input type="text" class="sm-input" placeholder="Gradient (opt.)" value="${escapeHtml(row.gradient || '')}" data-field="gradient">
+      <button class="row-remove-btn" onclick="removeBarGaugeRow(${i})" type="button" title="Remove row">&times;</button>
+    </div>`;
+}
+
+function addBarGaugeRow() {
+  const container = document.getElementById('bg-rows-container');
+  const idx = container.querySelectorAll('.metric-row').length;
+  const temp = document.createElement('div');
+  temp.innerHTML = buildBarGaugeRow({ label: '', metric: '', unit: '', min: 0, max: 100, color: '#f59e0b', gradient: '' }, idx);
+  const addBtn = container.querySelector('.add-row-btn');
+  container.insertBefore(temp.firstElementChild, addBtn);
+}
+
+function removeBarGaugeRow(idx) {
+  const container = document.getElementById('bg-rows-container');
+  const rows = container.querySelectorAll('.metric-row');
+  if (rows.length <= 1) {
+    showToast('Need at least one gauge row');
+    return;
+  }
+  const row = container.querySelector(`[data-bgidx="${idx}"]`);
+  if (row) row.remove();
+}
+
+function readBarGaugeMetrics() {
+  const rows = [];
+  document.querySelectorAll('#bg-rows-container .metric-row').forEach(row => {
+    rows.push({
+      label: row.querySelector('[data-field="label"]')?.value || '',
+      metric: row.querySelector('[data-field="metric"]')?.value || '',
+      unit: row.querySelector('[data-field="unit"]')?.value || '',
+      min: parseFloat(row.querySelector('[data-field="min"]')?.value) || 0,
+      max: parseFloat(row.querySelector('[data-field="max"]')?.value) || 100,
+      color: row.querySelector('[data-field="color"]')?.value || '#f59e0b',
+      gradient: row.querySelector('[data-field="gradient"]')?.value || ''
+    });
+  });
+  return rows;
+}
+
+function buildSingleMetric(cfg, prefix) {
+  return `
+    <div class="form-group">
+      <label for="${prefix}-metric">Metric</label>
+      <select id="${prefix}-metric" style="width:100%;">
+        <option value="">-- Select metric --</option>
+        ${AVAILABLE_METRICS.map(v => `<option value="${escapeHtml(v.key)}" ${v.key === (cfg.metric || '') ? 'selected' : ''}>${escapeHtml(v.label)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="${prefix}-label">Label</label>
+      <input type="text" id="${prefix}-label" style="width:100%;" placeholder="Display label" value="${escapeHtml(cfg.label || '')}">
+    </div>
+    <div class="form-group">
+      <label for="${prefix}-unit">Unit</label>
+      <input type="text" id="${prefix}-unit" style="width:100%;" placeholder="W, kWh, %, etc." value="${escapeHtml(cfg.unit || '')}">
+    </div>`;
+}
+
+function readSingleMetric(prefix) {
+  return {
+    metric: document.getElementById(prefix + '-metric')?.value || '',
+    label: document.getElementById(prefix + '-label')?.value || '',
+    unit: document.getElementById(prefix + '-unit')?.value || ''
+  };
+}
+
+function buildGaugeCardMetrics(cfg) {
+  return `
+    <div class="form-group">
+      <label for="gauge-metric">Metric</label>
+      <select id="gauge-metric" style="width:100%;">
+        <option value="">-- Select metric --</option>
+        ${AVAILABLE_METRICS.map(v => `<option value="${escapeHtml(v.key)}" ${v.key === (cfg.metric || '') ? 'selected' : ''}>${escapeHtml(v.label)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="gauge-label">Label</label>
+      <input type="text" id="gauge-label" style="width:100%;" placeholder="Display label" value="${escapeHtml(cfg.label || '')}">
+    </div>
+    <div class="form-group">
+      <label for="gauge-unit">Unit</label>
+      <input type="text" id="gauge-unit" style="width:100%;" placeholder="Unit" value="${escapeHtml(cfg.unit || '')}">
+    </div>
+    <div class="form-row inline">
+      <label>Min</label>
+      <input type="number" id="gauge-min" class="sm-input" value="${cfg.min ?? 0}" step="any">
+      <label>Max</label>
+      <input type="number" id="gauge-max" class="sm-input" value="${cfg.max ?? 100}" step="any">
+      <label>Color</label>
+      <input type="color" id="gauge-color" value="${cfg.color || '#f59e0b'}">
+    </div>`;
+}
+
+function readGaugeCardMetrics() {
+  return {
+    metric: document.getElementById('gauge-metric')?.value || '',
+    label: document.getElementById('gauge-label')?.value || '',
+    unit: document.getElementById('gauge-unit')?.value || '',
+    min: parseFloat(document.getElementById('gauge-min')?.value) || 0,
+    max: parseFloat(document.getElementById('gauge-max')?.value) || 100,
+    color: document.getElementById('gauge-color')?.value || '#f59e0b'
+  };
+}
+
+function buildDataTableMetrics(cfg) {
+  const selected = cfg.columns || [];
+  let html = '<div class="column-toggles">';
+  TABLE_COLUMNS.forEach(col => {
+    const isSelected = selected.includes(col.key);
+    html += `
+      <label class="column-toggle ${isSelected ? 'selected' : ''}" data-col="${col.key}" onclick="toggleColumnToggle(this)">
+        <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleColumnToggle(this.parentElement)" tabindex="-1">
+        ${escapeHtml(col.label)}
+      </label>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function readDataTableColumns() {
+  const columns = [];
+  document.querySelectorAll('.column-toggle.selected').forEach(el => {
+    columns.push(el.dataset.col);
+  });
+  return columns;
+}
+
+function toggleColumnToggle(el) {
+  const cb = el.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+  el.classList.toggle('selected', cb.checked);
+}
+
+function buildTextCardMetrics(cfg) {
+  return `
+    <div class="form-group">
+      <label for="text-content">Text Content</label>
+      <textarea id="text-content" placeholder="Enter text content for the card...">${escapeHtml(cfg.content || '')}</textarea>
+    </div>`;
+}
+
+function readTextCardContent() {
+  return document.getElementById('text-content')?.value || '';
+}
+
+function buildIframeCardMetrics(cfg) {
+  return `
+    <div class="form-group">
+      <label for="iframe-url">URL</label>
+      <input type="url" id="iframe-url" style="width:100%;" placeholder="https://..." value="${escapeHtml(cfg.url || '')}">
+    </div>
+    <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.5rem;">
+      ⚠️ Embedded content must support iframe embedding.
+    </p>`;
+}
+
+function readIframeCardUrl() {
+  return document.getElementById('iframe-url')?.value || '';
+}
+
+/* ════════════════════════════════════════════════════════
+   RENDER MODAL BODY
+   ════════════════════════════════════════════════════════ */
+
+function renderModal() {
+  const cfg = currentConfig;
+  const type = currentBlockType;
+  const body = document.getElementById('modal-body');
+  const titleSpan = document.getElementById('modal-block-type-name');
+  titleSpan.textContent = BLOCK_TYPE_NAMES[type] || 'Block';
+
+  let metricHtml = '';
+
+  switch (type) {
+    case 'flowCard':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">🔌 Metric Mapping</div>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem;">Select which server metric each slot reads from.</p>
+          ${buildFlowCardMetrics(cfg)}
+        </div>`;
+      break;
+
+    case 'multiValueCard':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">📊 Metrics</div>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem;">Add one or more metric cards. Each shows a label and live value.</p>
+          <div id="mv-rows-container">
+            ${buildMultiValueMetrics(cfg)}
+          </div>
+        </div>`;
+      break;
+
+    case 'barGauge':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">📏 Bar Gauges</div>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem;">Each row renders a horizontal bar gauge with min/max range.</p>
+          <div id="bg-rows-container">
+            ${buildBarGaugeMetrics(cfg)}
+          </div>
+        </div>`;
+      break;
+
+    case 'gaugeCard':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">🎯 Gauge Settings</div>
+          ${buildGaugeCardMetrics(cfg)}
+        </div>`;
+      break;
+
+    case 'metricCards':
+    case 'halfGaugeCard':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">📈 ${type === 'halfGaugeCard' ? 'Half Gauge' : 'Metric Card'} Settings</div>
+          ${buildSingleMetric(cfg, 'single')}
+          ${type === 'halfGaugeCard' ? `
+            <div class="form-row inline">
+              <label>Min</label>
+              <input type="number" id="single-min" class="sm-input" value="${cfg.min ?? 0}" step="any">
+              <label>Max</label>
+              <input type="number" id="single-max" class="sm-input" value="${cfg.max ?? 100}" step="any">
+              <label>Color</label>
+              <input type="color" id="single-color" value="${cfg.color || '#f59e0b'}">
+            </div>` : ''}
+        </div>`;
+      break;
+
+    case 'dataTable':
+    case 'dataTableMonthly':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">📋 Column Visibility</div>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem;">Toggle which columns appear in the ${type === 'dataTableMonthly' ? 'monthly' : 'daily'} table.</p>
+          ${buildDataTableMetrics(cfg)}
+        </div>`;
+      break;
+
+    case 'textCard':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">📝 Content</div>
+          ${buildTextCardMetrics(cfg)}
+        </div>`;
+      break;
+
+    case 'iframeCard':
+      metricHtml = `
+        <div class="metric-section">
+          <div class="metric-section-label">🌐 Embedded Content</div>
+          ${buildIframeCardMetrics(cfg)}
+        </div>`;
+      break;
+  }
+
+  body.innerHTML = `
+    <!-- ── Appearance Section ── -->
+    <div class="settings-section">
+      <div class="section-title">🎨 Appearance</div>
+
+      <div class="toggle-wrap">
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg-enabled" ${cfg.enabled !== false ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">Enabled</span>
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-bgColor">Background</label>
+        <input type="color" id="cfg-bgColor" value="${cfg.bgColor || '#ffffff'}">
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-fontColor">Font Color</label>
+        <input type="color" id="cfg-fontColor" value="${cfg.fontColor || '#1c1917'}">
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-fontSize">Font Size</label>
+        <select id="cfg-fontSize">
+          <option value="12" ${cfg.fontSize === '12' ? 'selected' : ''}>12px</option>
+          <option value="13" ${cfg.fontSize === '13' ? 'selected' : ''}>13px</option>
+          <option value="14" ${cfg.fontSize === '14' || !cfg.fontSize ? 'selected' : ''}>14px (default)</option>
+          <option value="16" ${cfg.fontSize === '16' ? 'selected' : ''}>16px</option>
+          <option value="18" ${cfg.fontSize === '18' ? 'selected' : ''}>18px</option>
+          <option value="20" ${cfg.fontSize === '20' ? 'selected' : ''}>20px</option>
+        </select>
+      </div>
+
+      <div class="toggle-wrap">
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg-transparent" ${cfg.transparent ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">Transparent Background</span>
+      </div>
+    </div>
+
+    <!-- ── Block-Specific Metrics ── -->
+    ${metricHtml ? `
+    <div class="settings-section">
+      <div class="section-title">📊 Block Configuration</div>
+      ${metricHtml}
+    </div>` : ''}
+  `;
+}
+
+/* ════════════════════════════════════════════════════════
+   SAVE
+   ════════════════════════════════════════════════════════ */
+
+function saveSettings() {
+  const appearance = readAppearanceConfig();
+  let blockConfig = { ...appearance };
+
+  switch (currentBlockType) {
+    case 'flowCard':
+      blockConfig.metrics = readFlowCardMetrics();
+      break;
+    case 'multiValueCard':
+      blockConfig.metrics = readMultiValueMetrics();
+      break;
+    case 'barGauge':
+      blockConfig.metrics = readBarGaugeMetrics();
+      break;
+    case 'gaugeCard':
+      Object.assign(blockConfig, readGaugeCardMetrics());
+      break;
+    case 'metricCards':
+    case 'halfGaugeCard':
+      Object.assign(blockConfig, readSingleMetric('single'));
+      if (currentBlockType === 'halfGaugeCard') {
+        blockConfig.min = parseFloat(document.getElementById('single-min')?.value) || 0;
+        blockConfig.max = parseFloat(document.getElementById('single-max')?.value) || 100;
+        blockConfig.color = document.getElementById('single-color')?.value || '#f59e0b';
+      }
+      break;
+    case 'dataTable':
+    case 'dataTableMonthly':
+      blockConfig.columns = readDataTableColumns();
+      break;
+    case 'textCard':
+      blockConfig.content = readTextCardContent();
+      break;
+    case 'iframeCard':
+      blockConfig.url = readIframeCardUrl();
+      break;
+  }
+
+  // Update currentConfig and show feedback
+  currentConfig = blockConfig;
+
+  // In the real editor, this would call:
+  //   block.config = blockConfig;
+  //   window.persistLayout();
+
+  showToast('✅ Settings saved! (block.config updated, persistLayout called)');
+
+  // Log the config that would be saved
+  console.log('%c[Settings Saved] %cblock.config =',
+    'font-weight:bold;color:var(--accent);', 'color:inherit;', blockConfig);
+
+  closeModal();
+}
+
+/* ════════════════════════════════════════════════════════
+   MODAL OPEN / CLOSE
+   ════════════════════════════════════════════════════════ */
+
+function openModal() {
+  const type = document.getElementById('demo-block-type').value;
+  currentBlockType = type;
+  currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIGS[type]));
+  renderModal();
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('modal-close-btn').focus();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+/* ════════════════════════════════════════════════════════
+   EVENT LISTENERS
+   ════════════════════════════════════════════════════════ */
+
+document.getElementById('open-modal-btn').addEventListener('click', openModal);
+document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
+document.getElementById('modal-save-btn').addEventListener('click', saveSettings);
+
+// Close on overlay click
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ESC to close
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('modal-overlay');
+    if (!overlay.classList.contains('hidden')) closeModal();
+  }
+});
+
+// Trap focus inside modal
+document.getElementById('modal').addEventListener('keydown', function(e) {
+  if (e.key !== 'Tab') return;
+  const focusable = this.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  );
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+});
+
+// Demo: allow block-type switching while modal is open
+document.getElementById('demo-block-type').addEventListener('change', function() {
+  const type = this.value;
+  currentBlockType = type;
+  currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIGS[type]));
+  // Only re-render if modal is open
+  if (!document.getElementById('modal-overlay').classList.contains('hidden')) {
+    renderModal();
+  }
+});
+
+/* ════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════ */
+
+console.log('%cEpilykos Block Settings Modal%c — Mockup ready',
+  'font-size:1.1em;font-weight:bold;', '');
+console.log('Select a block type and open the modal to preview.');
+console.log('All interactions are functional: add/remove rows, color pickers, toggles, save.');
+console.log('On save, config is logged to console (in production it calls persistLayout).');
+</script>
+</body>
+</html>

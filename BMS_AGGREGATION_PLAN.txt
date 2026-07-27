@@ -1,0 +1,554 @@
+# Epilykos BMS Bank Aggregation — Implementation Plan
+# 2026-07-14 — Revision 2 (incorporating design review feedback)
+
+## Overview
+Add a "Bank Aggregator" that combines multiple BMS devices into computed
+virtual metrics (weighted SOC, total power, etc.) — replicating what HA's
+min_max + template helpers do, but correctly for packs of different capacities.
+
+## 1. Data Model
+
+New config key: `bms_banks` — stored in `config` table alongside `bms_devices`.
+
+### Config Schema (canonical)
+```json
+[
+  {
+    "name": "House Bank",
+    "enabled": true,
+    "devices": [
+      { "name": "135Ah", "capacity_override": 135 },
+      { "name": "300Ah" }
+    ],
+    "functions": [
+      { "output": "voltage",       "fn": "mean",   "source": "voltage" },
+      { "output": "current",       "fn": "sum",    "source": "current" },
+      { "output": "power",         "fn": "sum",    "source": "power" },
+      { "output": "soc",           "fn": "weighted_soc", "source": "battery_level" },
+      { "output": "temperature",   "fn": "max",    "source": "temperature" },
+      { "output": "cycles",        "fn": "max",    "source": "cycles" },
+      { "output": "remaining_ah",  "fn": "sum_weighted", "source": "battery_level", "weight_by": "design_capacity" },
+      { "output": "total_ah",      "fn": "sum",    "source": "design_capacity" },
+      { "output": "runtime",       "fn": "min",    "source": "runtime" },
+      { "output": "cell_delta",    "fn": "max",    "source": "delta_cell_voltage" }
+    ]
+  }
+]
+```
+
+### Devices Array
+Each device is an object: `{ "name": "<bms_device_name>", "capacity_override": <Ah> }`
+- `name` — must match a device name in bms_devices config
+- `capacity_override` — optional manual Ah capacity. When absent, auto-detected from
+  the BMS `design_capacity` metric. Used as weight in weighted_soc and sum_weighted.
+
+### Metric Naming Conventions
+- Raw BMS metrics: `bms_<device>_<key>`   (e.g. bms_135Ah_voltage)
+- Bank metrics:     `bank_<output>`         (e.g. bank_voltage)
+- Companion metrics: auto-generated per bank — `bank_<name>_devices_online` (count)
+  and `bank_<name>_last_update` (epoch seconds, oldest source timestamp)
+
+## 2. Functions Catalog
+
+### Numeric Functions
+
+| Function       | Math                                    | Use for                                          |
+|----------------|-----------------------------------------|--------------------------------------------------|
+| sum            | Σ(valueᵢ)                               | current, power, stored energy, cycles            |
+| mean           | Σ(valueᵢ) / n                           | voltage (all packs on same bus)                  |
+| min            | min(valueᵢ)                             | runtime (bank dies when smallest pack drains)    |
+| max            | max(valueᵢ)                             | temperature (safety), cell delta, cycles         |
+| weighted_soc   | Σ(socᵢ × capacityᵢ) / Σ(capacityᵢ)     | true bank SOC — different capacity packs         |
+| sum_weighted   | Σ(valueᵢ × weightᵢ)                     | remaining Ah = Σ(socᵢ × design_capacityᵢ)        |
+| last           | value from device with newest timestamp | voltage fallback, any single-source metric       |
+
+### Guards on Weighted Functions
+- If a device lacks capacity (design_capacity is null/zero/absent AND no
+  capacity_override), skip it with a logged warning.
+- If fewer than 2 devices have valid capacity after filtering, return null
+  (bank metric not written for that cycle).
+- Partial-bank publication (# devices with valid capacity < total): always log a
+  warning so it's visible in server output.
+
+### Boolean Functions (UI: hidden in v1 — implemented but not exposed)
+- or:  1 if any device has value > 0
+- and: 0 if any device has value = 0
+These are supported in computeFunction() from Phase 1 but filtered from the
+function dropdown in the UI. Easily exposed later.
+
+### last Function Semantics
+For each device, get the timestamp from latest_metrics for fn.source.
+Return the value from whichever device has the highest (newest) timestamp.
+This is the only function that inspects timestamps rather than just values.
+
+### sum Function on Partial Sets
+If only a subset of devices are fresh, sum undercounts current/power.
+A warning is logged server-side. The companion metric bank_devices_online
+lets dashboards detect this — if online < total, the sum value is partial.
+
+## 3. Availability & Staleness Policy
+
+### Staleness Threshold
+A device's reading is "stale" if: now - latest_metrics.timestamp > 2× poll_interval.
+Default poll_interval for BMS is 30s, so threshold is 60s.
+poll_interval must be accessible by bmsAggregator.js — read it from the
+bms_devices config or pass it as a parameter from bms.js.
+
+### Publication Threshold
+A bank publishes metrics only if ≥50% of its devices have fresh data.
+Examples:
+- 2-device bank, 1 fresh → PUBLISH (with warning, bank_devices_online=1)
+- 2-device bank, 0 fresh → SKIP (no bank metrics written this cycle)
+- 3-device bank, 1 fresh → SKIP (33% < 50%)
+- 1-device bank, 1 fresh → PUBLISH (100%; passthrough)
+
+### Companion Metrics (auto-generated per bank)
+- `bank_<name>_devices_online` — int, count of fresh devices
+- `bank_<name>_last_update`   — epoch seconds, oldest source timestamp
+These are created on save alongside user-defined bank metrics (not lazily on
+first aggregation run). Creation is idempotent via /api/metrics/create.
+Orphan cleanup covers them when a bank is deleted or renamed.
+
+## 4. Backend: modules/bmsAggregator.js
+
+### JSDoc Schema (placeholder in the module header)
+```
+/**
+ * @typedef {Object} BankDevice
+ * @property {string} name - BMS device name (matches bms_devices config)
+ * @property {number} [capacity_override] - Manual Ah override
+ *
+ * @typedef {Object} BankFunction
+ * @property {string} output - Output metric name (e.g. "bank_voltage")
+ * @property {'sum'|'mean'|'min'|'max'|'weighted_soc'|'sum_weighted'|'last'} fn
+ * @property {string} source - Raw metric key (e.g. "voltage", "current")
+ * @property {string} [weight_by] - Key for weight source (only weighted_soc / sum_weighted)
+ *
+ * @typedef {Object} Bank
+ * @property {string} name
+ * @property {boolean} enabled
+ * @property {BankDevice[]} devices
+ * @property {BankFunction[]} functions
+ */
+```
+
+### Core Logic
+
+```
+readLatestBmsMetrics(deviceName):
+    SELECT metric, value, timestamp FROM latest_metrics
+    WHERE metric LIKE 'bms_<deviceName>_%'
+    Returns { key: { value, timestamp } }  (key = "voltage", "current", etc.)
+
+computeFunction(fn, values[], weights[]):
+    switch fn:
+        sum:   Σ(values)
+        mean:  Σ(values) / values.length
+        min:   Math.min(...values)
+        max:   Math.max(...values)
+        weighted_soc: Σ(values[i] × weights[i]) / Σ(weights[i])
+        sum_weighted:  Σ(values[i] × weights[i])
+        last:
+            // "Most recently updated across all devices"
+            // Uses per-device timestamps from readLatestBmsMetrics
+            pick device with max(timestamp), return its value
+
+computeBankAggregates(bank, pollInterval=30):
+    // 1. Determine freshness
+    staleThreshold = pollInterval * 2
+    freshDevices = devices.filter(now - ts <= staleThreshold)
+    if freshDevices.length / devices.length < 0.5 → return (skip)
+
+    // 2. Write companion metrics
+    writeMetric(`bank_${bank.name}_devices_online`, freshDevices.length)
+    writeMetric(`bank_${bank.name}_last_update`, oldest_ts_among_fresh)
+
+    // 3. Compute each function
+    for fn in bank.functions:
+        values  = freshDevices.map(d => raw[d].get(fn.source)?.value)
+        weights = fn.weight_by ? freshDevices.map(d => raw[d].get(fn.weight_by)?.value) : null
+
+        // Guard: weighted_soc / sum_weighted — skip devices without valid capacity
+        if fn.fn in ('weighted_soc', 'sum_weighted'):
+            valid = devices_with_capacity >= 2 ? compute : null
+            if null: log warning, continue
+
+        // Guard: sum on partial set — log warning
+        if fn.fn == 'sum' and freshDevices.length < devices.length:
+            logger.warn(`bank ${bank.name}: sum(${fn.source}) on partial set — undercount`)
+
+        result = computeFunction(fn.fn, values, weights)
+        if result !== null:
+            write bank_<fn.output> to latest_metrics and metrics
+```
+
+### Invocation
+Called at the end of each BMS poll cycle (bms.js): after all devices polled,
+call computeBankAggregates for each enabled bank.
+
+### Capacity Resolution Order
+1. device.capacity_override (from bank config)
+2. device's design_capacity from latest_metrics (BMS-reported)
+3. null → device excluded from weighted functions with warning
+
+## 5. API Routes
+
+### POST /api/bms/bank/test
+Preview aggregation against current latest_metrics.
+Request body: a Bank object (same shape as stored in bms_banks).
+
+Response:
+```json
+{
+  "results": {
+    "bank_voltage": 26.1,
+    "bank_power": -582
+  },
+  "devices": {
+    "135Ah": { "status": "fresh", "age_s": 12 },
+    "300Ah": { "status": "stale", "age_s": 180 }
+  },
+  "summary": {
+    "devices_total": 2,
+    "devices_fresh": 1,
+    "will_publish": true
+  },
+  "warnings": ["300Ah: design_capacity not reported, excluded from weighted_soc"]
+}
+```
+
+The `summary.will_publish` flag means the UI can display a clear pass/fail
+without reimplementing the 50% rule.
+
+### GET /api/bms/device-metrics/:name
+List available source keys for a BMS device (for function row dropdown).
+
+Response: `["voltage", "current", "power", "battery_level", ...]`
+
+## 6. DB Changes
+
+None. Aggregation writes to existing latest_metrics and metrics tables.
+bms_banks config stored in config table (same pattern as bms_devices).
+No schema migration needed.
+
+## 7. Settings UI
+
+New section below the BMS device list: "BMS Bank Aggregation."
+
+### Bank Card
+- Bank name (editable)
+- Enabled toggle (checkbox)
+- Device list — checkboxes from configured bms_devices.
+  Each device row: name (label), optional capacity_override input (number, Ah).
+- Function rows — each has:
+    * Output metric name (editable)
+    * Function dropdown: sum, mean, min, max, weighted_soc, sum_weighted, last
+      (boolean functions or/and NOT in dropdown — UI: hidden, code: implemented)
+    * Source metric key (dropdown — populated from GET /api/bms/device-metrics/:name)
+    * Weight-by field (visible only when fn = weighted_soc or sum_weighted)
+    * Remove button
+- [+ Add Function] button — adds a row with defaults
+- [Test Aggregation] button — calls POST /api/bms/bank/test, renders the response
+  as a table showing: metric → computed value, warnings, device statuses,
+  and a green/red "Would publish / Would be suppressed" badge from summary.will_publish.
+- Remove bank button (with confirmation)
+
+### On Save
+1. Auto-create missing bank_* and companion metrics via /api/metrics/create (idempotent)
+2. Diff old vs new bank config:
+   - Delete orphaned bank_* metrics from latest_metrics (stop writing, don't touch history)
+   - Covers user-defined outputs AND companion metrics (_devices_online, _last_update)
+3. If bank was renamed: old-name metrics become orphans, new-name metrics are created fresh.
+   UI shows a note: "Renaming a bank orphans historical metrics under the old name."
+
+### Single-Device Bank
+Allowed (valid for metric aliasing/renaming).
+UI shows a subtle note: "Single-device bank — aggregation is a passthrough."
+No computation is skipped; functions still run but all produce identity results
+(mean of 1 value = the value, sum of 1 = the value, etc.).
+
+## 8. Implementation Order
+
+### Phase 1 — Backend core (2-3 hours)
+1. Create modules/bmsAggregator.js
+   - readLatestBmsMetrics(deviceName) — reads bms_<device>_* from latest_metrics
+   - isDeviceFresh(deviceRawData, stalenessThreshold) — freshness check
+   - resolveCapacity(device, rawMetrics) — override → BMS-reported → null
+   - computeFunction(fn, values, weights) — implements all 7 numeric functions
+     + 2 boolean (UI: hidden, marked with comment)
+   - computeBankAggregates(bank, pollInterval) — full orchestration
+   - JSDoc typedef at module top
+2. Wire into modules/bms.js — call aggregator after poll cycle, pass poll_interval
+
+### Phase 2 — API (1 hour)
+3. POST /api/bms/bank/test — preview aggregation (full response format with summary)
+4. GET /api/bms/device-metrics/:name — list available source keys
+5. Save/load bms_banks through existing settings API
+6. On save: auto-create bank + companion metrics, orphan cleanup
+
+### Phase 3 — Settings UI (3-4 hours)
+7. New section in public/settings.html — bank card template
+8. buildBmsBankList(), renderBmsBank(), reindexBmsBanks() in public/settings.js
+9. Device checkbox list with optional capacity_override input per device
+10. Function rows — add/remove with source key dropdown (hide boolean fns from list)
+11. Test button — full response rendering with device status, warnings, publish badge
+12. Rename warning note in UI
+13. Single-device bank passthrough note
+
+### Phase 4 — Polish (1 hour)
+14. Edge case handling:
+    - All devices stale → skip bank, log
+    - Partial set with sum → log warning
+    - Weighted functions with insufficient capacity data → skip function, log
+    - Bank with 0 functions → skip (no-op)
+15. Bump PWA cache version
+16. Commit + PR
+
+## 9. Key Design Decisions
+
+| Decision                                    | Rationale                                            |
+|---------------------------------------------|------------------------------------------------------|
+| Aggregation runs after raw poll, not during | Raw data must be fresh. Poll all devices first.      |
+| Bank metrics use `bank_` prefix            | Avoids collision with raw `bms_<device>_<key>`.      |
+| Config stored as JSON in config table       | Same pattern as bms_devices, dongle_config, etc.     |
+| Devices are objects with capacity_override  | Cleaner than flat array + separate capacity map.      |
+|                                          | Settled during design review — canonical from start. |
+| Capacity resolution: override → BMS → null  | Covers missing design_capacity gracefully.           |
+| No DB schema changes                        | Metrics table is key-value. Aggregation produces     |
+|                                          | same format as raw polling.                          |
+| Companion metrics auto-created on save      | Avoids lazy-creation edge case on first poll.        |
+| 50% publication threshold                   | Conservative: don't publish with mostly-stale data.  |
+| Test endpoint returns will_publish flag     | UI doesn't need to reimplement threshold logic.      |
+| Orphan cleanup on save (latest_metrics only)| History preserved, config stays clean over time.     |
+
+## 10. Implementation Account — What Was Built (2026-07-14)
+
+### Files Changed (6 files, +869 lines)
+
+| File | Lines | Status |
+|------|-------|--------|
+| `modules/bmsAggregator.js` | +422 | New — entire aggregation engine |
+| `modules/bms.js` | +13 | Wired aggregator after poll cycle |
+| `server.js` | +136 | Two new API routes + save handler |
+| `public/settings.html` | +5 | Bank aggregation section in BMS subtab |
+| `public/settings.js` | +294 | Full bank card UI (rendering, events, test, collection) |
+| `public/sw.js` | ±1 | Cache bumped: epilykos-v8 → epilykos-v9 |
+
+### modules/bmsAggregator.js — Aggregation Engine (422 lines)
+
+The core module. All functions are synchronous (no I/O in compute paths) to avoid
+blocking the poll cycle.
+
+**readLatestBmsMetrics(deviceName)**
+- Queries `latest_metrics` with `LIKE 'bms_<name>_%'`
+- SQLite `_` is a wildcard — uses `ESCAPE '\'` to prevent false matches
+- Strips `bms_<deviceName>_` prefix to return short keys: `voltage`, `current`, etc.
+- Guard: if a metric doesn't start with the expected prefix (ambiguous device name),
+  logs a warning and skips it
+
+**isDeviceFresh(rawMetrics, stalenessThresholdSec)**
+- Takes the newest timestamp among all metrics for a device
+- Fresh if `now - newestTs <= stalenessThreshold`
+
+**resolveCapacity(device, rawMetrics)**
+- Resolution order: `capacity_override` → `design_capacity` from BMS → null
+- Returns null if neither source has a valid positive value
+
+**computeFunction(fn, values, weights, timestamps)**
+- 7 numeric functions: sum, mean, min, max, weighted_soc, sum_weighted, last
+- 2 boolean functions: or, and (implemented, hidden from UI for v1)
+- Filters out undefined/null/NaN values before computing
+- `weighted_soc`: Σ(socᵢ × capacityᵢ) / Σ(capacityᵢ). SOC is percentage (0-100)
+  but cancels out in the ratio — no normalisation needed.
+- `sum_weighted`: Σ(valueᵢ × weightᵢ). Caller must normalise SOC (÷100) before
+  calling. This is done in computeBankAggregates, not here, to keep the function
+  pure.
+- `last`: returns the value from the device with the newest timestamp. Uses a
+  parallel timestamps array — this is the only function that inspects time.
+- `or`: returns 1 if any device has value > 0, else 0
+- `and`: returns 0 if any device has value = 0, else 1
+
+**computeBankAggregates(bank, pollIntervalSec)**
+- Full pipeline per poll cycle:
+  1. Read raw metrics for all devices via readLatestBmsMetrics
+  2. Determine freshness per device (2× pollInterval threshold)
+  3. 50% publication threshold — skip if fewer than half are fresh
+  4. Write companion metrics: `bank_<safeName>_devices_online`, `bank_<safeName>_last_update`
+  5. For each function:
+     - Gather values/timestamps from fresh devices
+     - Resolve weights (capacity) for weighted_soc / sum_weighted
+     - Guard: skip if fewer than 2 devices have valid capacity
+     - Normalise SOC (÷100) for sum_weighted
+     - Guard: log warning for sum on partial sets
+     - Compute and write bank metric
+- Bank name sanitised: `replace(/[^a-zA-Z0-9_]/g, '_')` — prevents spaces in
+  metric names like `bank_House Bank_devices_online`
+
+**cleanupOrphanedBankMetrics(oldBanks, newBanks)**
+- Diffs old vs new bank config
+- Deletes any `bank_*` metrics from `latest_metrics` that existed in old config
+  but not in new config
+- Does NOT touch history (`metrics` table)
+- Covers both user-defined function outputs and companion metrics
+- Uses sanitised bank names for companion metric lookup
+
+**getAvailableSourceKeys(deviceName)**
+- Returns actual keys from `latest_metrics` if data exists
+- Falls back to `COMMON_BMS_KEYS` (14 common BMS metric keys) for cold-start
+  when no data has been polled yet
+- Filters to numeric-only keys, sorted alphabetically
+
+### modules/bms.js — Wiring (13 lines added)
+
+- Requires `computeBankAggregates` from bmsAggregator
+- After all devices are polled (end of pollBMS loop), reads `bms_banks` config
+  and `bms_poll_interval` config (default 30s)
+- Calls `computeBankAggregates(bank, pollInterval)` for each enabled bank
+- Wrapped in try/catch — aggregation errors don't crash the poll cycle
+
+### server.js — API & Save Handler (136 lines added)
+
+**POST /api/bms/bank/test**
+- Accepts a bank config object (same shape as stored in bms_banks)
+- Runs the full aggregation pipeline against current `latest_metrics` data
+- Does NOT write anything — preview only
+- Response includes:
+  - `results`: computed metric values (rounded to 2 decimal places)
+  - `devices`: per-device status (fresh/stale) with age in seconds
+  - `summary`: devices_total, devices_fresh, will_publish (boolean)
+  - `warnings`: array of warning strings (missing capacity, partial sum, etc.)
+- Replicates the logic from computeBankAggregates rather than calling it,
+  because the test endpoint must not write to the database
+
+**GET /api/bms/device-metrics/:name**
+- Returns array of available source keys for a BMS device
+- Validates name length (max 64 chars)
+- Delegates to getAvailableSourceKeys from bmsAggregator
+
+**Settings save handler (PATCH to existing POST /api/settings)**
+- When `bms_banks` is in the update payload:
+  1. Reads old bms_banks config before overwriting (snapshot)
+  2. Parses new config from the update
+  3. Calls cleanupOrphanedBankMetrics(oldBanks, newBanks)
+  4. Auto-creates missing bank metrics via createMetric (idempotent)
+  5. Auto-creates companion metrics: _devices_online, _last_update
+  6. Calls restartBmsPolling() to pick up the new config
+
+### public/settings.html — HTML Template (5 lines added)
+
+Added inside the BMS subtab (`#subtab-bms`), after the existing device list:
+- Section divider with battery icon: "🔋 BMS Bank Aggregation"
+- Container div: `#bms-banks-container`
+- Add button: `#add-bms-bank` with "+ Add Bank" label
+- Help note explaining the feature
+
+### public/settings.js — UI Logic (294 lines added)
+
+**Global state:**
+- `bmsBankCounter` — tracks bank indices for DOM naming
+- `BANK_FUNCTIONS` — array of 7 function names (boolean fns excluded)
+
+**buildBmsBankList(banks)**
+- Clears container, renders each bank via renderBmsBank
+- Called from loadSettings with parsed `bms_banks` config
+
+**renderBmsBank(bank, idx)**
+- Creates a `.device-card` with:
+  - Header: bank name input, enabled checkbox, remove button
+  - Single-device passthrough note (shown when only 1 device selected)
+  - Devices section: checkboxes populated from configured BMS devices
+  - Functions section: rendered function rows
+  - [+ Add Function] button
+  - [Test Aggregation] button with status span
+- Wires:
+  - Remove button → confirm dialog with data retention note, then reindex
+  - Add Function button → renders a new empty function row
+  - Test button → calls testBank()
+
+**populateBankDevices(card, bankIdx, selectedDevices)**
+- Reads BMS device names from the DOM (from configured bms_devices cards)
+- If no devices configured, shows a note
+- Renders each device as a checkbox row with optional `capacity_override` input
+- Pre-checks devices that are in the bank config
+- Restores existing capacity_override values
+
+**renderBankFunctionRow(container, bankIdx, fnIdx, fn)**
+- Renders a single function row with:
+  - Output name input (placeholder: "output name", title explains bank_<output>)
+  - Function type dropdown (7 options)
+  - Source key dropdown (populated via API)
+  - Weight-by dropdown (shown conditionally for weighted_soc/sum_weighted)
+  - Remove button (×)
+- Loads source keys from `GET /api/bms/device-metrics/:name` using the first
+  checked device as the representative
+- Shows/hides weight-by field when function type changes via event listener
+
+**testBank(card, idx)**
+- Collects bank config from the DOM (name, devices with capacity overrides,
+  function definitions)
+- Validates: name required, at least 1 device, at least 1 function
+- Calls `POST /api/bms/bank/test` with the collected config
+- Renders response:
+  - Warnings in amber
+  - Green/red badge: "✅ Would publish" or "❌ Would be suppressed"
+  - Fresh device count
+  - Results table with metric names and values
+- Uses `showStatusHtml` (not `showStatus`) because the result is rich HTML
+
+**showStatusHtml(element, msg, type)** — new helper
+- Like showStatus but sets `innerHTML` instead of `textContent`
+- Auto-clears after 5 seconds (except info type)
+
+**reindexBmsBanks()**
+- Reindexes bank cards after removal — updates dataset.index and dataset.bankIdx
+
+**"Add Bank" button handler**
+- Renders an empty bank card
+
+**Settings form integration:**
+- `bms_banks` added to the skip list in both loadSettings (line 31) and submit
+  handler (line 3054) so it's not treated as a flat config key
+- `collectDeviceArray('bms-banks-container', ...)` added to submit handler —
+  serialises each bank card to JSON with name, enabled, devices (with
+  capacity_override), and functions (with output, fn, source, weight_by)
+
+### public/sw.js — Cache Version
+- `CACHE_NAME` bumped from `epilykos-v8` to `epilykos-v9`
+- Ensures browsers fetch the new `settings.js` after deploy
+
+### Deviations from Plan During Implementation
+
+| Plan | Actual | Reason |
+|------|--------|--------|
+| `output: "bank_voltage"` in example config | `output: "voltage"` (suffix only) | Code prepends `bank_` — double prefix would produce `bank_bank_voltage`. Cleaner to use suffix-only. |
+| `bank.name` used directly for companion metrics | `safeBankName = bank.name.replace(/[^a-zA-Z0-9_]/g, '_')` | Bank names with spaces (e.g., "House Bank") produce invalid metric names. Sanitised everywhere: aggregator, orphan cleanup, save handler. |
+| `showStatus` for test results | Added `showStatusHtml` helper | `showStatus` sets `textContent` which escapes HTML. Test results include rich HTML (badges, tables). |
+| Test endpoint reuses computeBankAggregates | Test endpoint has its own pipeline | computeBankAggregates writes to DB. Test endpoint must be read-only. Logic is replicated (not DRY) for safety. |
+| SQLite `LIKE 'bms_%'` for prefix matching | `LIKE 'bms\_%' ESCAPE '\'` | SQLite `_` is a single-character wildcard. Device names with underscores would produce false matches. |
+
+### Verification Results
+
+All functions tested against simulated BMS data matching real readings:
+
+| Function | Input | Expected | Actual | Status |
+|----------|-------|----------|--------|--------|
+| mean | 26.05V, 26.2V (135Ah, 300Ah) | 26.125V | 26.13V | ✓ |
+| sum (current) | -11.12A, -22.2A | -33.32A | -33.32A | ✓ |
+| sum (power) | -289.68W, -582W | -871.68W | -871.68W | ✓ |
+| weighted_soc | 56%@135Ah, 43%@300Ah | 47.03% | 47.03% | ✓ |
+| max (temp) | 31.0°C, 29.1°C | 31.0°C | 31°C | ✓ |
+| max (cycles) | 578, 400 | 578 | 578 | ✓ |
+| min (runtime) | 24,500h, 19,800h | 19,800h | 19,800h | ✓ |
+| sum_weighted | 56%@135, 43%@300 → remaining Ah | 204.6Ah | 204.6Ah | ✓ |
+| sum (capacity) | 135Ah, 300Ah | 435Ah | 435Ah | ✓ |
+
+Additional verification:
+- Orphan cleanup: reduced bank from 9 functions to 3 → 6 bank_* metrics correctly
+  deleted from latest_metrics, companions preserved ✓
+- Cold-start source keys: device with no data → returns 14-key fallback list ✓
+- Capacity resolution: override=200 → returns 200; no override, has design_capacity
+  → returns BMS value; neither → returns null ✓
+- Freshness: data at now-0s with 60s threshold → fresh; data at now-0s with 1s
+  threshold → stale ✓
+- Bank name sanitisation: "House Bank" → "House_Bank" in companion metric names ✓
+- JS syntax: `node --check` passes ✓

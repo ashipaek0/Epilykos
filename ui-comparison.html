@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epilykos UI — Current vs Modern</title>
+<link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0b1120;
+  color: #e2e8f0;
+  min-height: 100vh;
+  padding: 2rem;
+}
+h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+} 
+.panel {
+  background: #111827;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid #1e293b;
+}
+.label {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  margin-bottom: 1.25rem;
+}
+.label.old { background: #334155; color: #94a3b8; }
+.label.new { background: #1d4ed8; color: #dbeafe; }
+
+/* ============ CURRENT EPILYKOS STYLES (approximation) ============ */
+.flow-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #1a2332;
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.flow-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+  padding: 0.5rem;
+  background: #1e293b;
+  border-radius: 8px;
+}
+.flow-icon { font-size: 1.3rem; margin-bottom: 0.25rem; }
+.flow-label { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+.flow-value { font-size: 1rem; font-weight: 700; }
+.flow-sub { font-size: 0.7rem; color: #94a3b8; }
+.flow-arrow { font-size: 1.2rem; color: #475569; }
+.solar-now-gauge { margin-top: 0.35rem; width: 100%; text-align: center; }
+.gauge-bar-bg { width: 100%; height: 4px; background: #334155; border-radius: 2px; margin-bottom: 2px; }
+.gauge-bar-fill { height: 4px; background: #f59e0b; border-radius: 2px; width: 42%; }
+.gauge-percent { font-size: 0.6rem; color: #94a3b8; }
+
+/* metric cards — current style */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.stat-card {
+  background: #1a2332;
+  border-radius: 10px;
+  padding: 1rem 0.75rem;
+  text-align: center;
+}
+.stat-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; }
+.stat-value { font-size: 1.3rem; font-weight: 700; }
+
+/* ============ MODERN (React + Tailwind/shadcn aesthetic) ============ */
+.modern-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 14px;
+  border: 1px solid #1e3a5f;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.15);
+}
+.modern-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0.85rem;
+  background: #0f172a;
+  border-radius: 12px;
+  border: 1px solid #1e3a5f;
+  min-width: 80px;
+  position: relative;
+  transition: border-color 0.2s;
+}
+.modern-node:hover { border-color: #3b82f6; }
+.modern-node .node-icon {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  background: #1e293b;
+  border-radius: 8px;
+  margin-bottom: 0.4rem;
+  font-size: 1rem;
+}
+.modern-node .node-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+.modern-node .node-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.modern-node .node-sub {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 0.1rem;
+}
+.modern-arrow {
+  font-size: 1rem;
+  color: #334155;
+  font-weight: 600;
+  transition: color 0.3s;
+}
+.modern-arrow.active { color: #f59e0b; }
+.modern-gauge {
+  margin-top: 0.4rem;
+  width: 100%;
+}
+.modern-gauge-track { 
+  width: 100%; height: 5px; 
+  background: #1e293b; 
+  border-radius: 3px;
+  overflow: hidden;
+}
+.modern-gauge-fill { 
+  height: 5px; 
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  border-radius: 3px; 
+  width: 42%;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.modern-gauge-label {
+  font-size: 0.6rem;
+  color: #64748b;
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* modern metric cards */
+.modern-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.modern-metric {
+  background: #0f172a;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.modern-metric:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.15);
+}
+.modern-metric .metric-icon {
+  width: 28px; height: 28px;
+  background: #1e293b;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 0.5rem;
+  font-size: 0.85rem;
+}
+.modern-metric .metric-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+.modern-metric .metric-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* accent colors */
+.c-solar { color: #f59e0b; }
+.c-battery { color: #10b981; }
+.c-home { color: #3b82f6; }
+.c-grid { color: #8b5cf6; }
+
+/* motion hints */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.live-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  margin-left: 4px;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+</style>
+</head>
+<body>
+
+<div class="compare">
+  <!-- CURRENT -->
+  <div>
+    <h2>Current</h2>
+
+    <div class="panel">
+      <span class="label old">DOM strings + innerHTML</span>
+
+      <!-- Flow Card -->
+      <div class="flow-card">
+        <div class="flow-item solar">
+          <div class="flow-icon"><i class="fi fi-sr-solar-panel" style="color:#f59e0b"></i></div>
+          <div class="flow-label">Solar</div>
+          <div class="flow-value">2,847 W</div>
+          <div class="solar-now-gauge">
+            <div class="gauge-bar-bg"><div class="gauge-bar-fill"></div></div>
+            <span class="gauge-percent">42%</span>
+          </div>
+        </div>
+        <div class="flow-arrow" style="color:#f59e0b">→</div>
+        <div class="flow-item battery">
+          <div class="flow-icon"><i class="fi fi-sr-battery-full" style="color:#10b981"></i></div>
+          <div class="flow-label">Battery</div>
+          <div class="flow-value">78%</div>
+          <div class="flow-sub">⚡ 1,240 W</div>
+        </div>
+        <div class="flow-arrow battery" style="color:#f59e0b">⇄</div>
+        <div class="flow-item home">
+          <div class="flow-icon"><i class="fi fi-sr-home" style="color:#3b82f6"></i></div>
+          <div class="flow-label">Home</div>
+          <div class="flow-value">1,607 W</div>
+        </div>
+        <div class="flow-arrow grid" style="color:#8b5cf6">⇄</div>
+        <div class="flow-item grid">
+          <div class="flow-icon">
+            <svg viewBox="0 0 512 512" width="1.3em" height="1.3em" fill="#8b5cf6"><path d="M426.5 480h-341l34.3-113.3h272.4L426.5 480zM144.8 334.7l34.3-113.4h153.8l34.3 113.4H144.8zM256 92.2l76.3 99.1h-152.6L256 92.2zM32 32h448v40H32z"/></svg>
+          </div>
+          <div class="flow-label">Grid</div>
+          <div class="flow-value" style="color:#8b5cf6">0 W</div>
+          <div class="flow-sub">Export</div>
+        </div>
+      </div>
+
+      <!-- Metric Cards -->
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">PV Power</div><div class="stat-value">2.8 kW</div></div>
+        <div class="stat-card"><div class="stat-label">Load Power</div><div class="stat-value">1.6 kW</div></div>
+        <div class="stat-card"><div class="stat-label">Battery SOC</div><div class="stat-value">78%</div></div>
+      </div>
+    </div>
+
+    <p style="font-size:0.7rem;color:#64748b;margin-top:0.75rem;">
+      Raw DOM strings. No hot reload. CSS variables only. FlatIcon CDN icons.
+    </p>
+  </div>
+
+  <!-- MODERN -->
+  <div>
+    <h2>Modern — React + shadcn/ui + Tailwind</h2>
+
+    <div class="panel">
+      <span class="label new">React components + Tailwind CSS</span>
+
+      <!-- Modern Flow -->
+      <div class="modern-flow">
+        <div class="modern-node">
+          <div class="node-icon"><i class="fi fi-sr-solar-panel c-solar"></i></div>
+          <div class="node-label">Solar<span class="live-dot"></span></div>
+          <div class="node-value c-solar">2,847 W</div>
+          <div class="modern-gauge">
+            <div class="modern-gauge-track"><div class="modern-gauge-fill"></div></div>
+            <div class="modern-gauge-label">42% of 6.8 kWp</div>
+          </div>
+        </div>
+        <div class="modern-arrow active">→</div>
+        <div class="modern-node">
+          <div class="node-icon"><i class="fi fi-sr-battery-full c-battery"></i></div>
+          <div class="node-label">Battery</div>
+          <div class="node-value c-battery">78%</div>
+          <div class="node-sub">↑ 1,240 W charging</div>
+        </div>
+        <div class="modern-arrow active">→</div>
+        <div class="modern-node">
+          <div class="node-icon"><i class="fi fi-sr-home c-home"></i></div>
+          <div class="node-label">Home</div>
+          <div class="node-value c-home">1,607 W</div>
+        </div>
+        <div class="modern-arrow">→</div>
+        <div class="modern-node">
+          <div class="node-icon"><svg viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" style="color:#8b5cf6"><path d="M426.5 480h-341l34.3-113.3h272.4L426.5 480zM144.8 334.7l34.3-113.4h153.8l34.3 113.4H144.8zM256 92.2l76.3 99.1h-152.6L256 92.2zM32 32h448v40H32z"/></svg></div>
+          <div class="node-label">Grid</div>
+          <div class="node-value c-grid">0 W</div>
+          <div class="node-sub">Exporting</div>
+        </div>
+      </div>
+
+      <!-- Modern Metric Cards -->
+      <div class="modern-metrics">
+        <div class="modern-metric">
+          <div class="metric-icon"><i class="fi fi-sr-solar-panel c-solar"></i></div>
+          <div class="metric-label">PV Power</div>
+          <div class="metric-value c-solar">2.8 kW</div>
+        </div>
+        <div class="modern-metric">
+          <div class="metric-icon"><i class="fi fi-sr-home c-home"></i></div>
+          <div class="metric-label">Load Power</div>
+          <div class="metric-value c-home">1.6 kW</div>
+        </div>
+        <div class="modern-metric">
+          <div class="metric-icon"><i class="fi fi-sr-battery-full c-battery"></i></div>
+          <div class="metric-label">Battery SOC</div>
+          <div class="metric-value c-battery">78%</div>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;padding:0.75rem;background:#0f172a;border-radius:8px;border:1px solid #1e3a5f;">
+        <p style="font-size:0.7rem;color:#64748b;margin-bottom:0.5rem;">Settings form — current vs modern</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <!-- current setting -->
+          <div style="padding:0.5rem;background:#1a2332;border-radius:6px;">
+            <label style="font-size:0.6rem;color:#94a3b8;">Inverter Port (current)</label>
+            <input disabled style="width:100%;margin-top:3px;padding:4px 6px;background:#0f172a;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:0.7rem;" value="/dev/ttyUSB0">
+          </div>
+          <!-- modern setting -->
+          <div style="padding:0.5rem;background:#0f172a;border-radius:6px;border:1px solid #1e3a5f;">
+            <label style="font-size:0.6rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Inverter Port</label>
+            <input disabled style="width:100%;margin-top:4px;padding:6px 8px;background:#0f172a;border:1px solid #3b82f6;border-radius:6px;color:#e2e8f0;font-size:0.75rem;outline:none;" value="/dev/ttyUSB0">
+            <p style="font-size:0.55rem;color:#64748b;margin-top:3px;">USB RS485 adapter — detected</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:0.7rem;color:#64748b;margin-top:0.75rem;">
+      Component-based. Hot reload. Tabular-nums. Hover states. Focus rings. Animated transitions. Proper form validation. Accessibility built in.
+    </p>
+  </div>
+</div>
+
+</body>
+</html>
