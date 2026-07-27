@@ -39,10 +39,8 @@ let chartJSLoading = null;
 function ensureChartJS() {
   if (typeof Chart !== 'undefined') return Promise.resolve();
   if (chartJSLoading) return chartJSLoading;
-  chartJSLoading = Promise.all([
-    loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'),
-    loadScript('https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js')
-  ]);
+  chartJSLoading = loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js')
+    .then(() => loadScript('https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'));
   return chartJSLoading;
 }
 
