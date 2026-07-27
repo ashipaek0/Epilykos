@@ -1180,6 +1180,25 @@ app.get('/api/bms/test', async (req, res) => {
       return res.status(502).json({ error: `Bridge returned ${r.status}` });
     }
     const data = await r.json();
+
+    // Store test data in latest_metrics so getAvailableSourceKeys can find it
+    try {
+      const devices = JSON.parse(getConfig('bms_devices') || '[]');
+      const device = devices.find(d => d.address === address);
+      if (device && device.name) {
+        const db = getDb();
+        const now = Math.floor(Date.now() / 1000);
+        const stmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+        for (const [key, val] of Object.entries(data)) {
+          if (typeof val !== 'number' || isNaN(val)) continue;
+          const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
+          stmt.run(safeName, val, now);
+        }
+      }
+    } catch (storeErr) {
+      logger.warn('Failed to store BMS test data:', storeErr.message);
+    }
+
     res.json(data);
   } catch (err) {
     logger.error('BMS test proxy error:', err.message);
@@ -1194,7 +1213,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
     return res.status(400).json({ error: 'Bank config with devices and functions required' });
   }
   try {
-    const { readLatestBmsMetrics, isDeviceFresh, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
+    const { readLatestBmsMetrics, isDeviceFresh, resolveSource, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
     const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
     const stalenessThreshold = pollInterval * 2;
     const now = Math.floor(Date.now() / 1000);
@@ -1229,7 +1248,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
         for (const device of bank.devices) {
           const d = deviceData[device.name];
           if (!d.fresh) { values.push(undefined); timestamps.push(undefined); continue; }
-          const src = d.raw[fn.source];
+          const src = d.raw[resolveSource(fn, device.name)];
           values.push(src ? src.value : undefined);
           timestamps.push(src ? src.timestamp : undefined);
         }
@@ -1302,6 +1321,31 @@ app.get('/api/bms/device-metrics/:name', (req, res) => {
     res.json(keys);
   } catch (err) {
     logger.error('BMS device-metrics error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// BMS device connection status — for live indicator dot in settings UI
+app.get('/api/bms/device-status', (req, res) => {
+  const rawName = req.query.name;
+  const name = Array.isArray(rawName) ? rawName[0] : rawName;
+  if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
+  try {
+    const { readLatestBmsMetrics, isDeviceFresh } = require('./modules/bmsAggregator');
+    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
+    const raw = readLatestBmsMetrics(name);
+    const connected = isDeviceFresh(raw, pollInterval * 2);
+    const newestTs = Object.keys(raw).length > 0
+      ? Math.max(...Object.values(raw).map(m => m.timestamp))
+      : null;
+    res.json({
+      name,
+      connected,
+      metricCount: Object.keys(raw).length,
+      lastSeen: newestTs
+    });
+  } catch (err) {
+    logger.error('BMS device-status error:', err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
