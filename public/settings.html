@@ -85,7 +85,6 @@
         <div class="nav-group-items" data-group-items="monitoring">
           <button class="nav-item" data-section="metrics">
             <span class="nav-icon">≡</span> Metrics
-            <span class="nav-badge" id="metrics-badge">0</span>
           </button>
           <button class="nav-item" data-section="solar">
             <span class="nav-icon">☀</span> Solar Forecast
@@ -132,7 +131,6 @@
       <!-- DATA SOURCES                                      -->
       <!-- ================================================= -->
       <section class="settings-section active" id="section-data-sources">
-        <div class="breadcrumb"><span>Data & Sources</span> / Data Sources</div>
         <div class="section-header">
           <h1>Data Sources</h1>
           <p>Configure where Epilykos reads metrics from</p>
@@ -211,9 +209,15 @@
             <h4 style="margin-top:1.25rem;font-size:0.9rem;">Metric Mapping</h4>
             <div class="form-row" id="pvoutput-metrics-container"></div>
             <h4 style="margin-top:1.25rem;font-size:0.9rem;">Upload Mode</h4>
-            <label style="margin-right:1.5rem;font-size:0.9rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="cumulative" checked style="width:1.1rem;height:1.1rem;"> Cumulative (c1) — daily running totals</label>
+            <div class="toggle-wrap">
+              <label class="toggle-switch"><input type="radio" name="pvoutput-mode" value="cumulative" checked><span class="slider"></span></label>
+              <label>Cumulative (c1) — daily running totals</label>
+            </div>
             <span class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</span>
-            <label style="font-size:0.9rem;display:inline-flex;align-items:center;gap:0.3rem;"><input type="radio" name="pvoutput-mode" value="net" style="width:1.1rem;height:1.1rem;"> Net data (n) — v2/v4 are net export/import</label>
+            <div class="toggle-wrap">
+              <label class="toggle-switch"><input type="radio" name="pvoutput-mode" value="net"><span class="slider"></span></label>
+              <label>Net data (n) — v2/v4 are net export/import</label>
+            </div>
             <h4 style="margin-top:1.25rem;font-size:0.9rem;">Upload Queue</h4>
             <div id="pvoutput-queue-status" style="font-size:0.85rem;"></div>
             <div class="btn-group" style="margin-top:0.5rem;"><button type="button" id="pvoutput-backfill-btn" class="btn btn-sm">Run Backfill</button><button type="button" id="pvoutput-view-queue-btn" class="btn btn-sm">View Queue</button></div>
@@ -227,7 +231,6 @@
       <!-- DASHBOARD LAYOUT                                   -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-dashboard">
-        <div class="breadcrumb"><span>Dashboard & Display</span> / Dashboard Layout</div>
         <div class="section-header">
           <h1>Dashboard Layout</h1>
           <p>Manage dashboards, defaults, and display settings</p>
@@ -260,7 +263,6 @@
       <!-- BRANDING                                           -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-branding">
-        <div class="breadcrumb"><span>Dashboard & Display</span> / Branding</div>
         <div class="section-header">
           <h1>Branding</h1>
           <p>Customise the dashboard appearance</p>
@@ -276,7 +278,6 @@
       <!-- METRICS                                            -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-metrics">
-        <div class="breadcrumb"><span>Monitoring</span> / Metrics</div>
         <div class="section-header">
           <h1>Metrics</h1>
           <p>Manage custom metrics and view current values</p>
@@ -300,7 +301,6 @@
       <!-- SOLAR FORECAST                                     -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-solar">
-        <div class="breadcrumb"><span>Monitoring</span> / Solar Forecast</div>
         <div class="section-header">
           <h1>Solar Forecast</h1>
           <p>Configure PV forecast via Solcast or Open-Meteo</p>
@@ -330,7 +330,6 @@
       <!-- SAVINGS                                            -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-savings">
-        <div class="breadcrumb"><span>Monitoring</span> / Savings</div>
         <div class="section-header">
           <h1>Savings</h1>
           <p>Calculate cost savings from solar generation</p>
@@ -345,7 +344,6 @@
       <!-- BACKUP & RESTORE                                   -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-backup">
-        <div class="breadcrumb"><span>System</span> / Backup & Restore</div>
         <div class="section-header">
           <h1>Backup &amp; Restore</h1>
           <p>Download, schedule snapshots, or restore your database</p>
@@ -366,7 +364,6 @@
       <!-- NETWORK                                            -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-network">
-        <div class="breadcrumb"><span>System</span> / Network</div>
         <div class="section-header">
           <h1>Network</h1>
           <p>Configure LAN and remote URLs for auto-switching</p>
@@ -392,7 +389,6 @@
       <!-- HELP                                               -->
       <!-- ================================================= -->
       <section class="settings-section" id="section-help">
-        <div class="breadcrumb"><span>System</span> / Help</div>
         <div class="section-header">
           <h1>Help</h1>
           <p>Setup guides, conventions, and troubleshooting</p>

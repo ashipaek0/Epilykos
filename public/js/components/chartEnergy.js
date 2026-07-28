@@ -22,7 +22,7 @@ export function buildChartEnergy(block = {}) {
   if (!block.config) block.config = {};
   block.config.datasets = datasets;
   const container = document.createElement('div');
-  container.className = 'chart-container'; container.dataset.chartDatasets = JSON.stringify(datasets); container.dataset.blockId = id;
+  container.className = 'chart-container'; container.dataset.chartDatasets = JSON.stringify(datasets); container.dataset.chartConfig = JSON.stringify(config || {}); container.dataset.blockId = id;
   container.innerHTML = `<div class="chart-header"><h3>${escapeHtml(config.title||'Daily Energy')}</h3><div class="chart-controls" id="${uid('energy-chart-controls',id)}"><button data-range="7d" class="active">7d</button><button data-range="30d">30d</button><button data-range="90d">90d</button></div></div><div class="chart-loading" id="${uid('energyBarChart-loading',id)}">Loading chart\u2026</div><canvas id="${uid('energyBarChart',id)}" style="display:none;"></canvas>`;
   container.querySelector('#'+uid('energy-chart-controls',id)).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const r = b.dataset.range; if (r) { container.querySelectorAll('button').forEach(x => x.classList.remove('active')); b.classList.add('active'); import('../charts.js').then(m => m.setEnergyRange(r)); } });
   return container;

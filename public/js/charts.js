@@ -54,6 +54,12 @@ function getDatasets(c) { if (c && c.dataset.chartDatasets) { try { return JSON.
 function defaultPower() { return [{ label: 'Load', metric: 'consumption', color: '#44403c' }, { label: 'Solar', metric: 'solar', color: '#f59e0b' }, { label: 'Battery Charge', metric: 'battery_charge', color: '#84a45a' }, { label: 'Grid Import', metric: 'grid_import', color: '#87aec8' }]; }
 function defaultEnergy() { return [{ label: 'Solar Generated', metric: 'daily_solar', color: '#f59e0b' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#87aec8' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#44403c' }]; }
 
+/** Read chart config from the container's data attribute. */
+function getChartConfig(container) {
+  if (!container) return {};
+  try { return JSON.parse(container.dataset.chartConfig || '{}'); } catch (e) { return {}; }
+}
+
 const zonePlugin = { id: 'zonePlugin', beforeDraw(chart) { const { ctx, chartArea, scales } = chart; if (!chartArea) return; const zy = scales.y.getPixelForValue(0); if (zy > chartArea.top) { const g = ctx.createLinearGradient(0, chartArea.top, 0, zy); g.addColorStop(0, 'rgba(245,158,11,0.12)'); g.addColorStop(0.6, 'rgba(245,158,11,0.04)'); g.addColorStop(1, 'rgba(245,158,11,0)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, zy - chartArea.top); } if (zy < chartArea.bottom) { const g = ctx.createLinearGradient(0, zy, 0, chartArea.bottom); g.addColorStop(0, 'rgba(135,174,200,0)'); g.addColorStop(0.4, 'rgba(135,174,200,0.08)'); g.addColorStop(1, 'rgba(135,174,200,0.18)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, zy, chartArea.right - chartArea.left, chartArea.bottom - zy); } } };
 
 export function destroyCharts() { Object.values(powerCharts).forEach(c => c.destroy()); Object.values(energyCharts).forEach(c => c.destroy()); for (const k in powerCharts) delete powerCharts[k]; for (const k in energyCharts) delete energyCharts[k]; }
@@ -64,12 +70,13 @@ export function initPowerChart() {
     if (powerCharts[canvas.id]) return;
     // Show canvas and remove loading indicator
     const container = canvas.closest('.chart-container');
+    const cfg = getChartConfig(container);
     const loadingEl = container?.querySelector('.chart-loading');
     if (loadingEl) loadingEl.remove();
     canvas.style.display = '';
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a';
-    powerCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: [] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index' }, elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0, hoverRadius: 4 } }, scales: { x: { type: 'time', time: { unit: 'hour' }, grid: { color: gc } }, y: { title: { display: true, text: 'Power (kW)', color: tc }, grid: { color: gc }, grace: '5%' } }, plugins: { tooltip: { mode: 'index' }, legend: { labels: { color: tc } } } }, plugins: [zonePlugin] });
+    powerCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: [] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index' }, elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0, hoverRadius: 4 } }, scales: { x: { type: 'time', time: { unit: 'hour' }, grid: { color: gc, display: !cfg.hideGrid } }, y: { title: { display: true, text: 'Power (kW)', color: tc }, grid: { color: gc, display: !cfg.hideGrid }, grace: '5%' } }, plugins: { tooltip: { mode: 'index' }, legend: { labels: { color: tc, display: !cfg.hideGrid } } } }, plugins: cfg.hideGrid ? [] : [zonePlugin] });
     // Data filled by updatePowerChartFromState when WebSocket connects
   });
 }
@@ -80,13 +87,14 @@ export function initEnergyChart() {
     if (energyCharts[canvas.id]) return;
     // Show canvas and remove loading indicator
     const container = canvas.closest('.chart-container');
+    const cfg = getChartConfig(container);
     const loadingEl = container?.querySelector('.chart-loading');
     if (loadingEl) loadingEl.remove();
     canvas.style.display = '';
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a';
     const ds = getDatasets(canvas.closest('.chart-container')) || defaultEnergy();
-    energyCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: [], datasets: ds.map(d => ({ label: d.label, backgroundColor: d.color || '#888', data: [] })) }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { color: gc } }, y: { title: { display: true, text: 'Energy (kWh)', color: tc }, grid: { color: gc }, beginAtZero: true } }, plugins: { legend: { labels: { color: tc } }, tooltip: { mode: 'index' } } } });
+    energyCharts[canvas.id] = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: [], datasets: ds.map(d => ({ label: d.label, backgroundColor: d.color || '#888', data: [] })) }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { color: gc, display: !cfg.hideGrid } }, y: { title: { display: true, text: 'Energy (kWh)', color: tc }, grid: { color: gc, display: !cfg.hideGrid }, beginAtZero: true } }, plugins: { legend: { labels: { color: tc } }, tooltip: { mode: 'index' } } } });
     // Data filled by updateEnergyChartFromState when WebSocket connects
   });
 }
@@ -95,13 +103,13 @@ function resolveColor(color) { if (!color) return '#ccc'; if (color.startsWith('
 
 export function applyGradientFills(chart) { if (!chart || !chart.ctx) return; requestAnimationFrame(() => { const ctx = chart.ctx, ca = chart.chartArea; if (!ca) { setTimeout(() => applyGradientFills(chart), 50); return; } chart.data.datasets.forEach((ds, i) => { if (!chart.getDatasetMeta(i).hidden && ds.data.length) { const g = ctx.createLinearGradient(0, ca.bottom, 0, ca.top), hx = resolveColor(ds.borderColor || '#ccc'), r = parseInt(hx.slice(1, 3), 16), gv = parseInt(hx.slice(3, 5), 16), b = parseInt(hx.slice(5, 7), 16); g.addColorStop(0, `rgba(${r},${gv},${b},0.03)`); g.addColorStop(0.5, `rgba(${r},${gv},${b},0.06)`); g.addColorStop(1, `rgba(${r},${gv},${b},0.1)`); ds.backgroundColor = g; } }); chart.update(); }); }
 
-export function updateChartColors() { const isDark = document.documentElement.getAttribute('data-theme') === 'dark', gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a'; Object.values(powerCharts).forEach(c => { c.options.scales.x.grid.color = gc; c.options.scales.y.grid.color = gc; c.options.plugins.legend.labels.color = tc; c.update(); applyGradientFills(c); }); Object.values(energyCharts).forEach(c => { c.options.scales.x.grid.color = gc; c.options.scales.y.grid.color = gc; c.options.plugins.legend.labels.color = tc; c.update(); }); }
+export function updateChartColors() { const isDark = document.documentElement.getAttribute('data-theme') === 'dark', gc = isDark ? '#334155' : '#cbd5e1', tc = isDark ? '#f8fafc' : '#0f172a'; Object.values(powerCharts).forEach(c => { const ct = c.canvas?.closest?.('.chart-container'); const cfg = getChartConfig(ct); c.options.scales.x.grid.color = gc; c.options.scales.y.grid.color = gc; c.options.scales.x.grid.display = !cfg.hideGrid; c.options.scales.y.grid.display = !cfg.hideGrid; c.options.plugins.legend.labels.color = tc; c.update(); if (cfg.fill !== false) applyGradientFills(c); }); Object.values(energyCharts).forEach(c => { const ct = c.canvas?.closest?.('.chart-container'); const cfg = getChartConfig(ct); c.options.scales.x.grid.color = gc; c.options.scales.y.grid.color = gc; c.options.scales.x.grid.display = !cfg.hideGrid; c.options.scales.y.grid.display = !cfg.hideGrid; c.options.plugins.legend.labels.color = tc; c.update(); }); }
 
 async function refreshPowerChartFor(cid) { const chart = powerCharts[cid]; if (!chart) return; let data; if (currentPowerRange === '24h') { const s = await fetchDashboardState(); data = s.powerHistory; } else if (currentPowerRange === '3d') { const r = await fetch('/api/history?days=3'); const hd = await r.json(); data = hd.map(d => ({ timestamp: d.timestamp, consumption_kw: d.consumption_kw ?? 0, solar_kw: d.solar_kw ?? 0, battery_charge_kw: d.battery_charge_kw ?? 0, battery_discharge_kw: d.battery_discharge_kw ?? 0, grid_import_kw: d.grid_import_kw ?? 0, grid_export_kw: d.grid_export_kw ?? 0 })); } else { const s = await fetchDashboardState(); data = s.powerHistory; } updatePowerChartData(chart, cid, data); }
 
 export async function refreshPowerChart() { for (const cid of Object.keys(powerCharts)) await refreshPowerChartFor(cid); }
 
-function updatePowerChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const ds = getDatasets(ct) || defaultPower(); const existing = chart.data.datasets; ds.forEach((d, i) => { const f = resolvePowerField(d.metric); const pts = data.map(p => ({ x: p.timestamp, y: f ? (p[f] ?? 0) : 0 })); if (i < existing.length) { existing[i].label = d.label; existing[i].data = pts; existing[i].borderColor = resolveColor(d.color); existing[i].fill = true; } else { existing.push({ label: d.label, data: pts, borderColor: resolveColor(d.color), fill: true, tension: 0.4, borderWidth: 2 });} }); while (existing.length > ds.length) existing.pop(); chart.update(); applyGradientFills(chart); }
+function updatePowerChartData(chart, cid, data) { if (!data || !data.length) return; const ct = document.getElementById(cid)?.closest('.chart-container'); const cfg = getChartConfig(ct); const ds = getDatasets(ct) || defaultPower(); const existing = chart.data.datasets; ds.forEach((d, i) => { const f = resolvePowerField(d.metric); const pts = data.map(p => ({ x: p.timestamp, y: f ? (p[f] ?? 0) : 0 })); if (i < existing.length) { existing[i].label = d.label; existing[i].data = pts; existing[i].borderColor = resolveColor(d.color); existing[i].fill = cfg.fill !== false; } else { existing.push({ label: d.label, data: pts, borderColor: resolveColor(d.color), fill: cfg.fill !== false, tension: 0.4, borderWidth: 2 });} }); while (existing.length > ds.length) existing.pop(); chart.update(); if (cfg.fill !== false) applyGradientFills(chart); }
 
 export function setPowerRange(range, datasets) { currentPowerRange = range; if (datasets) { document.querySelectorAll('.chart-container').forEach(c => { if (c.querySelector('canvas[id^="powerChart"]')) c.dataset.chartDatasets = JSON.stringify(datasets); }); } refreshPowerChart(); }
 
