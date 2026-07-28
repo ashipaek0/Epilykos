@@ -191,8 +191,8 @@ function renderHaDevice(device, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="ha_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
-      <label style="margin:0 1rem;"><input type="checkbox" name="ha_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-ha">Remove</button>
+      <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="ha_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-ha">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
@@ -324,7 +324,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
-  removeBtn.textContent = 'Remove';
+  removeBtn.textContent = '✕';
   removeBtn.addEventListener('click', () => {
     row.remove();
     refreshAllMetricDropdowns();
@@ -383,8 +383,8 @@ function renderMqttDevice(device, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="mqtt_devices[${idx}][name]" placeholder="Broker Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
-      <label style="margin:0 1rem;"><input type="checkbox" name="mqtt_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-mqtt">Remove</button>
+      <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="mqtt_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-mqtt">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
@@ -602,7 +602,7 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '',
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
-  removeBtn.textContent = 'Remove';
+  removeBtn.textContent = '✕';
   removeBtn.addEventListener('click', () => {
     row.remove();
     refreshAllMetricDropdowns();
@@ -648,8 +648,8 @@ function renderModbusDevice(device, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="modbus_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
-      <label><input type="checkbox" name="modbus_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-modbus">Remove</button>
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="modbus_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-modbus">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
@@ -840,7 +840,7 @@ function renderModbusMappings(profileId, mappings, container) {
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'remove-btn remove-metric';
-      removeBtn.textContent = 'Remove';
+      removeBtn.textContent = '✕';
       removeBtn.addEventListener('click', () => {
         row.remove();
         if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
@@ -968,7 +968,7 @@ function renderRs232Mappings(profileId, savedMappings, container) {
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'remove-btn remove-metric';
-      removeBtn.textContent = 'Remove';
+      removeBtn.textContent = '✕';
       removeBtn.addEventListener('click', () => {
         row.remove();
         if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
@@ -1014,8 +1014,8 @@ function renderRs232Device(device, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="rs232_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
-      <label><input type="checkbox" name="rs232_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-rs232">Remove</button>
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="rs232_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-rs232">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
@@ -1198,8 +1198,8 @@ function renderExternalSource(source, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="external_sources[${idx}][name]" placeholder="Source Name (e.g., WeatherAPI)" value="${escapeHtml(source.name || '')}" style="flex:1;">
-      <label><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-external">Remove</button>
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-external">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🌐</span> Endpoint</div>
     <div class="form-row">
@@ -1285,7 +1285,7 @@ function addExternalMetricRow(deviceIdx, container, metric = '', jsonPath = '', 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
-  removeBtn.textContent = 'Remove';
+  removeBtn.textContent = '✕';
   removeBtn.addEventListener('click', () => {
     row.remove();
     refreshAllMetricDropdowns();
@@ -1444,8 +1444,8 @@ function renderBmsDevice(device, idx) {
     <div class="device-header">
       <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
       <span class="bms-status-dot" id="bms-status-${idx}" title="Checking..."></span>
-      <label><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-bms">Remove</button>
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-bms">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
@@ -1594,11 +1594,11 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     const metricSelect = createMetricDropdown(metricName || '', getAllUsedMetrics ? Array.from(getAllUsedMetrics()) : []);
     metricSelect.className = 'metric-name';
 
-    // Remove button
+    // ✕ button
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'remove-btn remove-metric';
-    removeBtn.textContent = 'Remove';
+    removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
       row.remove();
       if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
@@ -1668,8 +1668,8 @@ function renderBmsBank(bank, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" class="bank-name" placeholder="Bank Name (e.g., House Bank)" value="${safeName}" style="flex:1;">
-      <label><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-bank">Remove</button>
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-bank">✕</button>
     </div>
     ${isSingleDevice ? '<div class="note" style="margin:0 0 8px 0;">Single-device bank — aggregation is a passthrough. No computation applied.</div>' : ''}
 
@@ -1740,10 +1740,10 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
     const capOverride = (existing && typeof existing === 'object' && existing.capacity_override) ? existing.capacity_override : '';
     return `
       <div class="form-row bank-device-row" style="align-items:center; gap:8px; margin-bottom:4px;">
-        <label style="display:flex; align-items:center; gap:4px; flex:1;">
-          <input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}>
-          <span>${escapeHtml(name)}</span>
-        </label>
+        <span class="toggle-wrap" style="flex:1;">
+          <label class="toggle-switch"><input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}><span class="slider"></span></label>
+          <label style="cursor:pointer;">${escapeHtml(name)}</label>
+        </span>
         <input type="number" class="bank-device-capacity" placeholder="Ah override" value="${capOverride}" style="width:100px; font-size:0.85em;" title="Manual capacity override. Leave blank to auto-detect from BMS design_capacity.">
       </div>`;
   }).join('');
@@ -1849,7 +1849,7 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
     }
   });
 
-  // Remove button
+  // ✕ button
   row.querySelector('.remove-bank-fn').addEventListener('click', () => row.remove());
 }
 
@@ -1971,8 +1971,8 @@ function renderDongleDevice(device, idx) {
   card.innerHTML = `
     <div class="device-header">
       <input type="text" name="dongle_config[${idx}][name]" placeholder="Instance Name (e.g., SRNE Inverter)" value="${escapeHtml(device.name || '')}" style="flex:1;">
-      <label><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}> Enabled</label>
-      <button type="button" class="remove-btn danger" data-action="remove-dongle">Remove</button>
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-dongle">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
@@ -2207,7 +2207,7 @@ function renderDongleMappings(profileId, mappings, container) {
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'remove-btn remove-metric';
-      removeBtn.textContent = 'Remove';
+      removeBtn.textContent = '✕';
       removeBtn.addEventListener('click', () => {
         row.remove();
         if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
@@ -2593,7 +2593,7 @@ function buildDashboardEditor(config) {
     row.innerHTML = `
       <input type="text" value="${escapeHtml(db.name)}" data-db-id="${db.id}" class="dash-name">
       <button type="button" class="fetch-btn set-active" data-id="${db.id}">${db.id === activeId ? '★ Active' : 'Set Active'}</button>
-      <button type="button" class="remove-btn delete-dash" data-id="${db.id}">Del</button>
+      <button type="button" class="remove-btn delete-dash" data-id="${db.id}">✕</button>
     `;
     listEl.appendChild(row);
     row.querySelector('.set-active').addEventListener('click', () => {

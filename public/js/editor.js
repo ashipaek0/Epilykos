@@ -80,8 +80,8 @@ function buildAppearanceFields(block) {
     '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">',
     '<legend style="font-weight:600;font-size:0.9rem;">Appearance</legend>',
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">',
-    '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;"><input type="checkbox" id="modal-enabled"' + (block.enabled !== false ? ' checked' : '') + '> Enabled</label>',
-    '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;"><input type="checkbox" id="modal-transparent"' + (transparent ? ' checked' : '') + '> Transparent</label>',
+    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-enabled"' + (block.enabled !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-enabled">Enabled</label></span>',
+    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-transparent"' + (transparent ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-transparent">Transparent</label></span>',
     '<label style="font-size:0.85rem;">Bg Color <input type="color" id="modal-bgcolor" value="' + bgColor + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
     '<label style="font-size:0.85rem;">Font Color <input type="color" id="modal-fontcolor" value="' + fontColor + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
     '</div>',
@@ -105,7 +105,7 @@ function buildFlowCardForm(block) {
     html += '<div style="flex:1;">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
     html += '</div>';
   }
-  html += '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;margin-top:0.4rem;"><input type="checkbox" id="modal-showgauge"' + (cfg.showGauge !== false ? ' checked' : '') + '> Show solar gauge</label>';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-showgauge"' + (cfg.showGauge !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-showgauge">Show solar gauge</label></span>';
   html += '</fieldset>';
   return html;
 }
@@ -390,7 +390,7 @@ function buildDataTableForm(block) {
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;">';
   for (var i = 0; i < allColFields.length; i++) {
     var f = allColFields[i];
-    html += '<label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;min-height:36px;"><input type="checkbox" class="col-toggle" data-field="' + f + '"' + (enabledFields[f] ? ' checked' : '') + '> ' + colLabels[f] + '</label>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="col-toggle" data-field="' + f + '"' + (enabledFields[f] ? ' checked' : '') + '><span class="slider"></span></label><label style="font-size:0.85rem;cursor:pointer;">' + colLabels[f] + '</label></span>';
   }
   html += '</div></fieldset>';
   return html;
@@ -446,16 +446,24 @@ function buildGridCardForm(block) {
   html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
   html += '<div style="flex:1;">' + metricSelect(metrics.grid_status || '', 'modal-metric-grid-status') + '</div>';
   html += '</div>';
-  html += '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;margin-top:0.4rem;"><input type="checkbox" id="modal-showtimeline"' + (cfg.showTimeline !== false ? ' checked' : '') + '> Show timeline</label>';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-showtimeline"' + (cfg.showTimeline !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-showtimeline">Show timeline</label></span>';
   html += '</fieldset>';
   return html;
 }
 
 /** Chart Power / Chart Energy: datasets */
-function buildChartForm(block) {
+function buildChartForm(block, showFill) {
   var cfg = block.config || {};
   var datasets = cfg.datasets || [];
   var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Options</legend>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-chart-hidegrid"' + (cfg.hideGrid ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-chart-hidegrid">Hide Grid</label></span>';
+  if (showFill) {
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-chart-fill"' + (cfg.fill !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-chart-fill">Fill Gradient</label></span>';
+  }
+  html += '</div></fieldset>';
+  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
   html += '<legend style="font-weight:600;font-size:0.9rem;">Datasets</legend>';
   html += '<div id="chart-rows"></div>';
   html += '<button type="button" id="chart-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Dataset</button>';
@@ -586,8 +594,10 @@ function buildSettingsForm(block) {
       html += buildGridCardForm(block);
       break;
     case 'chart-power':
+      html += buildChartForm(block, true);
+      break;
     case 'chart-energy':
-      html += buildChartForm(block);
+      html += buildChartForm(block, false);
       break;
     default:
       // forecast-*, weather-block, savings-summary, forecast-pvtoday etc.
@@ -797,6 +807,8 @@ function readSettingsForm(block) {
     }
     case 'chart-power':
     case 'chart-energy': {
+      config.hideGrid = document.getElementById('modal-chart-hidegrid')?.checked || false;
+      config.fill = document.getElementById('modal-chart-fill')?.checked !== false;
       var chData = document.getElementById('chart-data');
       var chRows = [];
       try { chRows = JSON.parse(chData.textContent); } catch(e) {}

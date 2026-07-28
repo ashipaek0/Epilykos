@@ -1,12 +1,12 @@
 /* ============================================================
    EPILYKOS SETTINGS REDESIGN v2 — Standalone CSS
-   Two-Panel Master-Detail | Olive Forward Palette
+   Two-Panel Master-Detail | Amber Accent Palette
    Compatible with existing style.css (no .stg-* conflicts)
    ============================================================ */
 
 /* ─────────────────────────────────────────────────────────
-   1. DESIGN TOKENS — Olive Forward (Grounded Utility)
-   Green-primary, calming, nature-informed. Pure contrasts.
+   1. DESIGN TOKENS — Amber Accent (Warm Utility)
+   Amber-primary, warm, grounded. Pure contrasts.
    No blue, no gradients, no glow. Quiet competence.
    Dark: AMOLED black (#000000)  |  Light: Warm stone (#f5f5f0)
    ───────────────────────────────────────────────────────── */
@@ -23,15 +23,15 @@
   --stone-800: #1a1a1a;
   --stone-900: #1a1a18;
 
-  /* Raw palette: Olive green accent (darkened for white bg) ─ */
-  --olive-50:  #f4f7f0;
-  --olive-100: #e8f0e0;
-  --olive-200: #c8d9b8;
-  --olive-300: #9bc46a;
-  --olive-400: #86b054;
-  --olive-500: #4a6a2e;
-  --olive-600: #3d5725;
-  --olive-700: #2d411b;
+  /* ── Raw palette: Orange accent ────────────────── */
+  --orange-50:  #fff5f0;
+  --orange-100: #ffede0;
+  --orange-200: #ffd5b8;
+  --orange-300: #ffb080;
+  --orange-400: #ff8a40;
+  --orange-500: #d65a00;
+  --orange-600: #b84a00;
+  --orange-700: #8a3800;
 
   /* Raw palette: Status colors ──────────────────────── */
   --green-500: #3a8c4f;
@@ -39,8 +39,6 @@
   --green-600: #2e6e3e;
   --red-500:    #b33a2e;
   --red-500-bright: #d94a3a;
-  --amber-500:  #8a6a30;
-  --amber-400:  #b89040;
 
   /* ── Semantic tokens (light theme) ──────────────────── */
   --bg:              var(--stone-50);
@@ -49,14 +47,16 @@
   --text:            var(--stone-900);
   --text-secondary:  var(--stone-500);
   --text-tertiary:   var(--stone-400);
-  --accent:          var(--olive-500);
-  --accent-hover:    var(--olive-600);
-  --accent-light:    var(--olive-100);
+  --accent:          var(--orange-500);
+  --accent-hover:    var(--orange-600);
+  --accent-light:    var(--orange-100);
+  --input-bg:        #f0eee8;
   --success:         var(--green-500);
   --success-light:   #e6f5ea;
-  --info:            var(--amber-400);
-  --info-light:      var(--olive-50);
+  --info:            var(--orange-400);
+  --info-light:      var(--orange-50);
   --danger:          var(--red-500);
+  --toggle-off:      #c27a20;
 
   /* ── Physical-object shadows (no glow) ──────────────── */
   --shadow-sm: 0 1px 2px rgba(28,27,23,0.04);
@@ -83,17 +83,19 @@
   --bg:              #000000;
   --card-bg:         #111111;
   --border:          #2a2a2a;
+  --input-bg:        #1c1c1a;
   --text:            #f0f0f0;
   --text-secondary:  #b0b0b0;
   --text-tertiary:   #707070;
-  --accent:          var(--olive-400);
-  --accent-hover:    var(--olive-300);
-  --accent-light:    rgba(134,176,84,0.12);
+  --accent:          var(--orange-400);
+  --accent-hover:    var(--orange-300);
+  --accent-light:    rgba(255,138,64,0.12);
   --success:         var(--green-500-bright);
   --success-light:   rgba(77,168,99,0.15);
-  --info:            var(--amber-400);
-  --info-light:      rgba(184,144,64,0.12);
+  --info:            var(--orange-400);
+  --info-light:      rgba(255,138,64,0.12);
   --danger:          #dc2626;
+  --toggle-off:      #d48a28;
   --shadow-sm:       0 1px 2px rgba(0,0,0,0.5);
   --shadow:          0 1px 3px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.5);
   --shadow-md:       0 4px 6px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.5);
@@ -105,7 +107,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
-  font-size: 16px;
+  font-size: 17px;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -113,9 +115,11 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  line-height: 1.5;
+  line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
            env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -573,36 +577,115 @@ body {
   margin-top: 0.25rem;
 }
 
+/* Device card headers — name, toggle, and delete X in a row */
+.device-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.device-header .remove-btn {
+  margin-left: auto;
+}
+
 /* Inputs */
 .input,
 .select-input {
   width: 100%;
-  height: var(--touch-target);
-  padding: 0 0.85rem;
-  border: 2px solid var(--border);
+  height: 48px;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:hover,
 .select-input:hover {
-  background: var(--card-bg);
+  border-color: var(--accent);
 }
 
 .input:focus,
 .select-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
-  background: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--input-bg);
 }
 
 .input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* Apply same styling to all bare inputs inside settings cards */
+#settings-form input[type="text"],
+#settings-form input[type="number"],
+#settings-form input[type="password"],
+#settings-form input[type="url"] {
+  width: 100%;
+  height: 48px;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#settings-form input[type="text"]:hover,
+#settings-form input[type="number"]:hover,
+#settings-form input[type="password"]:hover,
+#settings-form input[type="url"]:hover {
+  border-color: var(--accent);
+}
+#settings-form input[type="text"]:focus,
+#settings-form input[type="number"]:focus,
+#settings-form input[type="password"]:focus,
+#settings-form input[type="url"]:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--input-bg);
+}
+#settings-form input[type="text"]::placeholder,
+#settings-form input[type="number"]::placeholder,
+#settings-form input[type="password"]::placeholder,
+#settings-form input[type="url"]::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Make all select elements match the Savings section input styling */
+#settings-form select {
+  width: 100%;
+  height: 48px;
+  padding: 0 2.25rem 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c8b7a' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#settings-form select:hover {
+  border-color: var(--accent);
+}
+#settings-form select:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--input-bg);
 }
 
 .select-input {
@@ -657,7 +740,7 @@ input[type="password"] {
 .toggle-switch .slider {
   position: absolute;
   inset: 0;
-  background: var(--border);
+  background: var(--toggle-off);
   border-radius: 13px;
   cursor: pointer;
   transition: background 0.2s;
@@ -685,6 +768,56 @@ input[type="password"] {
 /* ─────────────────────────────────────────────────────────
    12. BUTTONS
    ───────────────────────────────────────────────────────── */
+
+/* Unified remove/delete button — bold red X */
+.remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* Override style.css burnt orange styling */
+button.remove-btn {
+  background: transparent;
+  color: var(--danger);
+  border: none;
+  padding: 0;
+  font-weight: 700;
+  font-size: 1.25rem;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: all 0.12s;
+}
+button.remove-btn:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+}
+button[data-action*="remove"] {
+  background: transparent;
+  color: var(--danger);
+  border: none;
+  padding: 0;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -945,22 +1078,25 @@ table tr:hover td {
 }
 
 .mapping-table .remove-btn {
-  background: none;
+  background: transparent;
   border: none;
   color: var(--danger);
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
   padding: 0.25rem;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  display: flex;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
+  transition: all 0.12s;
 }
 
 .mapping-table .remove-btn:hover {
-  background: rgba(220,38,38,0.08);
+  background: rgba(220,38,38,0.1);
 }
 
 /* Metrics table rows */
@@ -1369,6 +1505,10 @@ details[open] > .help-sub-summary::before {
 
   .mobile-header {
     display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     padding: 0 0.75rem;
     justify-content: space-between;
   }
@@ -1408,6 +1548,7 @@ details[open] > .help-sub-summary::before {
 
   .main-content {
     padding: 0.75rem 1rem 3rem;
+    padding-top: 56px;
   }
 
   .section-header h1 {
