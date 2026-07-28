@@ -417,21 +417,8 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────
-   7. BREADCRUMB & SECTION HEADER
+   7. SECTION HEADER
    ───────────────────────────────────────────────────────── */
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  margin-bottom: 0.25rem;
-}
-
-.breadcrumb span {
-  color: var(--text-secondary);
-}
-
 .section-header {
   margin-bottom: 1.25rem;
 }
