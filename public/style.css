@@ -1,16 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 
 /* ═══════════════════════════════════════════════════════════
    DESIGN TOKENS — Single source of truth
-   Palette: Stone/Amber/Olive/Sky  |  Type: Inter, tabular-nums
+   Palette: Stone/Amber/Olive/Sky  |  Type: Manrope, tabular-nums
    Radius: 14px max  |  No gradients, no glow, no blue
-   Dark: AMOLED black (#000000)  |  Light: Pure white (#ffffff)
+   Dark: AMOLED black (#000000)  |  Light: Warm stone (#f5f5f0)
    ═══════════════════════════════════════════════════════════ */
 :root {
   /* Neutral palette — warm stone (light mode) */
-  --stone-50:  #ffffff;
+  --stone-50:  #f5f5f0;
   --stone-100: #f7f7f7;
-  --stone-200: #e7e5e0;
+  --stone-200: #d4d2cc;
   --stone-300: #d6d3cc;
   --stone-500: #555555;
   --stone-700: #333333;
@@ -41,7 +41,7 @@
   --radius-xs: 8px;
 
   /* Typography */
-  --font: 'Inter', system-ui, sans-serif;
+  --font: 'Manrope', system-ui, sans-serif;
 
   /* Shadow — physical, barely-there */
   --shadow-card: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);

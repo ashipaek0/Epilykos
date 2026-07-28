@@ -8,9 +8,13 @@
  *
  * URLs are NOT hardcoded. They're received via postMessage from the settings page:
  *   navigator.serviceWorker.controller.postMessage({ type: 'network-config', localURL, remoteURL })
+ *
+ * CACHE STRATEGY: Network-first for static assets.
+ * Always fetches from network, falls back to cache only on failure.
+ * No version bumps needed — the cache is a fresh-first offline fallback, never stale.
  */
 
-const CACHE_NAME = 'epilykos-v32';
+const CACHE_NAME = 'epilykos-shell';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
@@ -83,9 +87,9 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Static assets: cache-first
+  // Static assets: network-first — always fresh, cache as offline fallback
   if (!isAPI) {
-    event.respondWith(cacheFirst(event.request));
+    event.respondWith(networkFirst(event.request));
     return;
   }
   
@@ -125,11 +129,8 @@ async function tryLocalThenRemote(request, url) {
   return fetch(request);
 }
 
-// ── Cache-first for static assets ──────────────────────────────────────
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  
+// ── Network-first for static assets ──────────────────────────────────────
+async function networkFirst(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -138,7 +139,9 @@ async function cacheFirst(request) {
     }
     return response;
   } catch (e) {
-    // Offline — return cached shell
+    // Offline — serve from cache
+    const cached = await caches.match(request);
+    if (cached) return cached;
     return caches.match('/') || new Response('Offline', { status: 503 });
   }
 }
