@@ -81,6 +81,10 @@
   --fs-medium: 1.1rem;
   --fs-large: 1.5rem;
 
+  /* Toggle switch colors */
+  --success:    #3a8c4f;
+  --toggle-off: #c27a20;
+
   font-variant-numeric: tabular-nums;
 }
 
@@ -110,6 +114,10 @@
   /* Explicit home and battery colors for dark — light-mode values would be too dim on #000000 */
   --color-home: #a8a29e;
   --color-battery: #84a45a;
+
+  /* Toggle switch dark overrides */
+  --success:    #4da863;
+  --toggle-off: #d48a28;
 }
 
 :focus-visible {
@@ -664,7 +672,7 @@ h1, h2, h3, h4,
 .form-group input[type="text"],
 .form-group input[type="number"] {
   padding: 0.5rem;
-  background: var(--bg);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   color: var(--text);
@@ -673,6 +681,53 @@ h1, h2, h3, h4,
   width: 20px;
   height: 20px;
   cursor: pointer;
+}
+
+/* Toggle switches (shared across settings and editor) */
+.toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: var(--touch-target);
+  flex-shrink: 0;
+}
+.toggle-wrap label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+.toggle-switch {
+  position: relative;
+  width: 44px; height: 26px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0; width: 0; height: 0;
+}
+.toggle-switch .slider {
+  position: absolute;
+  inset: 0;
+  background: var(--toggle-off);
+  border-radius: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-switch .slider::before {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  left: 3px; top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.toggle-switch input:checked + .slider {
+  background: var(--success);
+}
+.toggle-switch input:checked + .slider::before {
+  transform: translateX(18px);
 }
 .config-modal-footer {
   display: flex;
@@ -767,19 +822,22 @@ h1, h2, h3, h4,
   z-index: 1;
 }
 .topo-hub {
-  width: 70px; height: 110px;
-  border-radius: 10px;
+  width: 50px; height: 78px;
+  border-radius: 8px;
   background: var(--accent);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 0.8rem; font-weight: 700;
   letter-spacing: 0.05em;
-  transition: background 0.5s;
+  transition: background 0.5s, background-color 0.5s;
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  position: relative;
 }
 .topo-hub-img {
-  width: 100%; height: 100%;
-  object-fit: cover;
+  display: none;
 }
 
 /* Grid positions: 3x3 */
@@ -792,8 +850,12 @@ h1, h2, h3, h4,
 /* ── Flow lines ── */
 .topo-line {
   position: absolute; z-index: 0;
-  background: transparent;
-  transition: background 0.3s;
+  background: var(--border);
+  opacity: 0.15;
+  transition: opacity 0.3s, background 0.3s;
+}
+.topo-line.active {
+  opacity: 1;
 }
 .topo-line::before {
   content: '';
@@ -855,28 +917,28 @@ h1, h2, h3, h4,
 .topo-line-solar {
   left: 50%; top: 10%;
   width: 3px;
-  height: calc(50% - 55px - 10%);
+  height: calc(50% - 39px - 10%);
   transform: translateX(-50%);
 }
 /* Vertical line: hub → battery circle */
 .topo-line-battery {
-  left: 50%; top: calc(50% + 55px);
+  left: 50%; top: calc(50% + 39px);
   width: 3px;
-  height: calc(50% - 55px - 10%);
+  height: calc(50% - 39px - 10%);
   transform: translateX(-50%);
 }
 /* Horizontal line: grid circle → hub */
 .topo-line-grid {
   top: 50%; left: 14%;
   height: 3px;
-  width: calc(50% - 35px - 14%);
+  width: calc(50% - 25px - 14%);
   transform: translateY(-50%);
 }
 /* Horizontal line: hub → home circle */
 .topo-line-home {
-  top: 50%; left: calc(50% + 35px);
+  top: 50%; left: calc(50% + 25px);
   height: 3px;
-  width: calc(50% - 35px - 14%);
+  width: calc(50% - 25px - 14%);
   transform: translateY(-50%);
 }
 
