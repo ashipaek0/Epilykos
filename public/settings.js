@@ -267,6 +267,12 @@ function renderHaDevice(device, idx) {
     const used = getAllUsedMetrics();
     addHaMetricRow(device, idx, '', '', Array.from(used));
     refreshAllMetricDropdowns();
+    // Defensive: strip comma-containing options that may have leaked into entity selects
+    setTimeout(() => {
+      card.querySelectorAll('.mappings-list select.entity-select option').forEach(o => {
+        if (o.value && o.value.includes(',')) o.remove();
+      });
+    }, 100);
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -318,6 +324,10 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
     opt.selected = true;
     entitySelect.appendChild(opt);
   }
+  // Defensive: strip any options containing commas (pollution from dead data-tooltip etc.)
+  entitySelect.querySelectorAll('option').forEach(o => {
+    if (o.value && o.value.includes(',')) o.remove();
+  });
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
