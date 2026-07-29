@@ -875,6 +875,28 @@ function refreshGridItem(block) {
         }
       }
       inner.appendChild(content);
+
+      // Apply block styling (mirrors dashboard.js render loop)
+      if (block.bgColor && block.bgColor !== '#ffffff' && block.bgColor !== '#000000') {
+        content.style.setProperty('background-color', block.bgColor, 'important');
+      }
+      if (block.innerBgColor && block.innerBgColor !== '#ffffff' && block.innerBgColor !== '#000000') {
+        content.style.setProperty('--card-bg', block.innerBgColor, 'important');
+        content.style.setProperty('--bg', block.innerBgColor, 'important');
+      }
+      if (block.fontColor && block.fontColor !== '#000000') {
+        content.style.setProperty('color', block.fontColor, 'important');
+      }
+      if (block.fontSize) {
+        content.style.fontSize = block.fontSize;
+      }
+      if (block.transparent) {
+        content.style.background = 'transparent';
+        content.style.borderColor = 'transparent';
+        content.style.boxShadow = 'none';
+        content.style.setProperty('--card-bg', 'transparent');
+        content.style.setProperty('--bg', 'transparent');
+      }
     }
   }
 }
