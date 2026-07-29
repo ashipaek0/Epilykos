@@ -136,7 +136,89 @@ export function updateSystemTopology(state) {
       setLine('.topo-line-battery', true, src, false);
     }
     setLine('.topo-line-battery', battDischarge > 20, 'var(--discharge)', true);
+
+    // Position flow lines edge-to-edge
+    positionFlowLines(container);
   });
+}
+
+/**
+ * Position flow lines from the edge of each circle to the edge of the hub.
+ * Uses getBoundingClientRect for pixel-perfect edge-to-edge connections,
+ * regardless of container size or responsive scaling.
+ */
+function positionFlowLines(container) {
+  const grid = container.querySelector('.topo-grid');
+  if (!grid) return;
+  const gridRect = grid.getBoundingClientRect();
+
+  const hub = container.querySelector('.topo-hub');
+  const solarCircle = container.querySelector('.topo-solar .topo-node-circle');
+  const gridCircle = container.querySelector('.topo-grid-node .topo-node-circle');
+  const homeCircle = container.querySelector('.topo-home .topo-node-circle');
+  const battCircle = container.querySelector('.topo-battery .topo-node-circle');
+
+  if (!hub || !solarCircle || !gridCircle || !homeCircle || !battCircle) return;
+
+  const hubR = hub.getBoundingClientRect();
+  const solarR = solarCircle.getBoundingClientRect();
+  const gridR = gridCircle.getBoundingClientRect();
+  const homeR = homeCircle.getBoundingClientRect();
+  const battR = battCircle.getBoundingClientRect();
+
+  const lineW = 3; // line thickness
+
+  // Solar → Hub (vertical: solar bottom-center to hub top-center)
+  const solarLine = container.querySelector('.topo-line-solar');
+  if (solarLine) {
+    const cx = (solarR.left + solarR.right) / 2 - gridRect.left;
+    const y1 = solarR.bottom - gridRect.top;
+    const y2 = hubR.top - gridRect.top;
+    Object.assign(solarLine.style, {
+      left: (cx - lineW / 2) + 'px', top: y1 + 'px',
+      width: lineW + 'px', height: Math.max(0, y2 - y1) + 'px',
+      transform: 'none'
+    });
+  }
+
+  // Hub → Battery (vertical: hub bottom-center to battery top-center)
+  const battLine = container.querySelector('.topo-line-battery');
+  if (battLine) {
+    const cx = (hubR.left + hubR.right) / 2 - gridRect.left;
+    const y1 = hubR.bottom - gridRect.top;
+    const y2 = battR.top - gridRect.top;
+    Object.assign(battLine.style, {
+      left: (cx - lineW / 2) + 'px', top: y1 + 'px',
+      width: lineW + 'px', height: Math.max(0, y2 - y1) + 'px',
+      transform: 'none'
+    });
+  }
+
+  // Grid → Hub (horizontal: grid right-center to hub left-center)
+  const gridLine = container.querySelector('.topo-line-grid');
+  if (gridLine) {
+    const cy = (gridR.top + gridR.bottom) / 2 - gridRect.top;
+    const x1 = gridR.right - gridRect.left;
+    const x2 = hubR.left - gridRect.left;
+    Object.assign(gridLine.style, {
+      left: x1 + 'px', top: (cy - lineW / 2) + 'px',
+      width: Math.max(0, x2 - x1) + 'px', height: lineW + 'px',
+      transform: 'none'
+    });
+  }
+
+  // Hub → Home (horizontal: hub right-center to home left-center)
+  const homeLine = container.querySelector('.topo-line-home');
+  if (homeLine) {
+    const cy = (homeR.top + homeR.bottom) / 2 - gridRect.top;
+    const x1 = hubR.right - gridRect.left;
+    const x2 = homeR.left - gridRect.left;
+    Object.assign(homeLine.style, {
+      left: x1 + 'px', top: (cy - lineW / 2) + 'px',
+      width: Math.max(0, x2 - x1) + 'px', height: lineW + 'px',
+      transform: 'none'
+    });
+  }
 }
 
 /**
