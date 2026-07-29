@@ -514,31 +514,22 @@ function renderMqttDevice(device, idx) {
       const res = await fetch(`/api/mqtt-discover-topics?${params.toString()}`);
       const data = await res.json();
       if (res.ok && data.topics && data.topics.length) {
-        showStatus(statusEl, `Found ${data.count} topics`, 'success');
         // Collect existing topic→metric mappings before modifying DOM
         const existingRows = mappingsContainer.querySelectorAll('.metric-row');
-        const existingMappings = new Map(); // topic → {metric, rowElement}
+        const existingTopics = new Set();
         existingRows.forEach(row => {
           const ti = row.querySelector('.topic-input');
-          const ms = row.querySelector('.metric-name');
-          if (ti && ti.value) {
-            existingMappings.set(ti.value, { metric: ms ? ms.value : '', row: row });
-          }
+          if (ti && ti.value) existingTopics.add(ti.value);
         });
-        const discoveredTopics = new Set(data.topics);
-        // Remove orphaned rows (in UI but no longer on broker)
-        existingMappings.forEach((entry, topic) => {
-          if (!discoveredTopics.has(topic)) entry.row.remove();
-        });
-        // Add rows for newly discovered topics
+        // Add rows for newly discovered topics (never remove existing ones)
         let added = 0;
         data.topics.forEach(topic => {
-          if (existingMappings.has(topic)) return; // already mapped — keep
+          if (existingTopics.has(topic)) return; // already mapped — keep
           const globalUsed = getAllUsedMetrics();
           addMqttMetricRow({}, idx, mappingsContainer, '', topic, Array.from(globalUsed));
           added++;
         });
-        showStatus(statusEl, `Found ${data.count} topics` + (added ? ` (${added} new)` : ''), 'success');
+        showStatus(statusEl, `Found ${data.count} topics` + (added ? ` (${added} new)` : ' — all already mapped'), 'success');
         refreshAllMetricDropdowns();
       } else if (res.ok) {
         showStatus(statusEl, 'No topics found on broker', 'info');
