@@ -59,6 +59,7 @@ export function updateSystemTopology(state) {
     const battDischarge = gv('battery_discharge') || (battPower < 0 ? Math.abs(battPower) : 0);
     const gridExport = gv('grid_export');
     const battIsSource = battDischarge > 20;
+    const transparent = container.style.getPropertyValue('--card-bg') === 'transparent';
     const el = (s) => document.getElementById(uid(s, id));
     const sv = container.querySelector('.topo-solar .topo-value'); if (sv) sv.textContent = Math.round(solar) + ' W';
     const sp = el('topo-solar-pct'); if (sp) { const cap = window.systemCapacityKwp || 2.1; const pct = Math.min(100, Math.round((solar / (cap * 1000)) * 100)); sp.textContent = pct + '%'; }
@@ -71,6 +72,7 @@ export function updateSystemTopology(state) {
     const ig = el('topo-icon-grid'); if (ig) { if (gridExport > 20) ig.style.color = 'var(--export)'; else if (grid > 20) ig.style.color = 'var(--grid)'; else ig.style.color = 'var(--text-secondary)'; }
     const ib = el('topo-icon-battery'); if (ib) { if (battPower > 20) ib.style.color = 'var(--battery)'; else if (battDischarge > 20) ib.style.color = 'var(--discharge)'; else ib.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; ib.className = cl; }
     // Circle borders — proportional when multiple sources feed a node
+    if (!transparent) {
     const solarCircle = container.querySelector('.topo-solar-circle');
     applyCircleBorder(solarCircle, [{ color: 'var(--solar)', watts: solar }], 20);
 
@@ -102,6 +104,7 @@ export function updateSystemTopology(state) {
       { color: 'var(--grid)', watts: grid }
     ], 20);
     const hub = container.querySelector('.topo-hub'); if (hub) { if (solar > 20) hub.style.backgroundColor = 'var(--solar)'; else if (battIsSource) hub.style.backgroundColor = 'var(--discharge)'; else if (grid > 20) hub.style.backgroundColor = 'var(--grid)'; else hub.style.backgroundColor = 'var(--accent)'; }
+    }
     container.querySelectorAll('.topo-line').forEach(l => { l.classList.remove('active', 'reverse'); l.style.background = ''; });
     const setLine = (cls, active, bg, rev) => { const l = container.querySelector(cls); if (l && active) { l.classList.add('active'); if (rev) l.classList.add('reverse'); l.style.background = bg; } };
     setLine('.topo-line-solar', solar > 20, 'var(--solar)', false);
