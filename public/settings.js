@@ -213,7 +213,7 @@ function renderHaDevice(device, idx) {
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon">?</span>
       </button>
     </div>
   `;
@@ -413,7 +413,7 @@ function renderMqttDevice(device, idx) {
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon">?</span>
       </button>
     </div>
   `;
