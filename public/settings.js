@@ -211,9 +211,6 @@ function renderHaDevice(device, idx) {
         <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="ha-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
-      <div class="mappings-pagination" id="ha-mappings-more-${idx}" style="display:none;">
-        <button type="button" class="fetch-btn mappings-show-more" data-container="ha-mappings-list-${idx}" data-page="1">Show more (5+)</button>
-      </div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
         <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
@@ -414,9 +411,6 @@ function renderMqttDevice(device, idx) {
         <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="mqtt-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
-      <div class="mappings-pagination" id="mqtt-mappings-more-${idx}" style="display:none;">
-        <button type="button" class="fetch-btn mappings-show-more" data-container="mqtt-mappings-list-${idx}" data-page="1">Show more (5+)</button>
-      </div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
         <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
