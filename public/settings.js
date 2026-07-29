@@ -515,34 +515,30 @@ function renderMqttDevice(device, idx) {
       const data = await res.json();
       if (res.ok && data.topics && data.topics.length) {
         showStatus(statusEl, `Found ${data.count} topics`, 'success');
-        // Clear existing topic rows
-        mappingsContainer.innerHTML = '';
-        // Create a row for each discovered topic
-        data.topics.forEach((topic, tIdx) => {
-          const row = document.createElement('div');
-          row.className = 'metric-row';
-          const globalUsed = getAllUsedMetrics();
-          const metricSelect = createMetricDropdown('', Array.from(globalUsed));
-          const topicInput = document.createElement('input');
-          topicInput.type = 'text';
-          topicInput.className = 'topic-input';
-          topicInput.value = topic;
-          const removeBtn = document.createElement('button');
-          removeBtn.type = 'button';
-          removeBtn.className = 'remove-btn remove-metric danger';
-          removeBtn.textContent = '✕';
-          removeBtn.addEventListener('click', () => {
-            row.remove();
-            refreshAllMetricDropdowns();
-          });
-          metricSelect.addEventListener('change', () => {
-            refreshAllMetricDropdowns();
-          });
-          row.appendChild(metricSelect);
-          row.appendChild(topicInput);
-          row.appendChild(removeBtn);
-          mappingsContainer.appendChild(row);
+        // Collect existing topic→metric mappings before modifying DOM
+        const existingRows = mappingsContainer.querySelectorAll('.metric-row');
+        const existingMappings = new Map(); // topic → {metric, rowElement}
+        existingRows.forEach(row => {
+          const ti = row.querySelector('.topic-input');
+          const ms = row.querySelector('.metric-name');
+          if (ti && ti.value) {
+            existingMappings.set(ti.value, { metric: ms ? ms.value : '', row: row });
+          }
         });
+        const discoveredTopics = new Set(data.topics);
+        // Remove orphaned rows (in UI but no longer on broker)
+        existingMappings.forEach((entry, topic) => {
+          if (!discoveredTopics.has(topic)) entry.row.remove();
+        });
+        // Add rows for newly discovered topics
+        let added = 0;
+        data.topics.forEach(topic => {
+          if (existingMappings.has(topic)) return; // already mapped — keep
+          const globalUsed = getAllUsedMetrics();
+          addMqttMetricRow({}, idx, mappingsContainer, '', topic, Array.from(globalUsed));
+          added++;
+        });
+        showStatus(statusEl, `Found ${data.count} topics` + (added ? ` (${added} new)` : ''), 'success');
         refreshAllMetricDropdowns();
       } else if (res.ok) {
         showStatus(statusEl, 'No topics found on broker', 'info');
