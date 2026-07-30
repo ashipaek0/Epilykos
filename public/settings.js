@@ -35,7 +35,7 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'bms_banks' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
+      if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key.startsWith('tuya_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'bms_banks' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
@@ -51,6 +51,20 @@ async function loadSettings() {
     buildRs232DeviceList(JSON.parse(data.rs232_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
     buildPvoutputConfig(data.pvoutput_config ? JSON.parse(data.pvoutput_config) : {});
+    if (data.tuya_cloud) {
+      try {
+        const cloud = JSON.parse(data.tuya_cloud);
+        const regionEl = document.getElementById('tuya-cloud-region');
+        if (regionEl && cloud.region) regionEl.value = cloud.region;
+        const accessIdEl = document.getElementById('tuya-cloud-access-id');
+        if (accessIdEl) accessIdEl.value = cloud.access_id || '';
+        const accessSecretEl = document.getElementById('tuya-cloud-access-secret');
+        if (accessSecretEl) accessSecretEl.value = cloud.access_secret || '';
+        const deviceIdEl = document.getElementById('tuya-cloud-device-id');
+        if (deviceIdEl) deviceIdEl.value = cloud.device_id || '';
+      } catch {}
+    }
+    buildTuyaDeviceList(JSON.parse(data.tuya_devices || '[]'));
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
     populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard);
@@ -2679,12 +2693,368 @@ if (importLayoutBtn && importLayoutFile) {
   });
 }
 
+// ======================== TUYA ========================
+let tuyaDeviceCounter = 0;
+function buildTuyaDeviceList(devices) {
+  const container = document.getElementById('tuya-devices-container');
+  if (!container) return;
+  container.innerHTML = '';
+  tuyaDeviceCounter = 0;
+  devices.forEach((dev, idx) => renderTuyaDevice(dev, idx));
+  refreshAllMetricDropdowns();
+}
+
+function renderTuyaDevice(device, idx) {
+  const container = document.getElementById('tuya-devices-container');
+  if (!container) return;
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+  const versionOptions = ['3.1','3.2','3.3','3.4','3.5'];
+  const versionOptsHtml = versionOptions.map(v =>
+    `<option value="${v}"${(device.version || '3.3') === v ? ' selected' : ''}>v${v}</option>`
+  ).join('');
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="tuya_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="tuya_devices[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-tuya">✕</button>
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="form-row">
+      <input type="text" name="tuya_devices[${idx}][dev_id]" placeholder="Device ID" value="${escapeHtml(device.dev_id || '')}" readonly style="background:var(--bg-tertiary);cursor:not-allowed;">
+      <input type="text" name="tuya_devices[${idx}][address]" placeholder="IP Address" value="${escapeHtml(device.address || '')}">
+    </div>
+    <div class="form-row">
+      <input type="password" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
+      <select name="tuya_devices[${idx}][version]" style="width:120px;flex:0 0 auto;">${versionOptsHtml}</select>
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">🧪</span> Discovery &amp; Test</div>
+    <div class="test-row">
+      <button type="button" class="fetch-btn tuya-scan-lan-card">Scan LAN</button>
+      <button type="button" class="fetch-btn tuya-test-connection">Test Connection</button>
+      <span class="test-status" id="tuya-status-${idx}"></span>
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">⏱</span> Polling</div>
+    <div class="form-row">
+      <input type="number" name="tuya_devices[${idx}][poll_interval]" placeholder="Poll Interval (s)" value="${device.poll_interval || 30}" style="width:120px;">
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">🔗</span> DP Mappings</div>
+    <div class="mappings-section" id="tuya-mappings-${idx}">
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="tuya-mappings-list-${idx}">
+      </div>
+      <div class="mappings-list" id="tuya-mappings-list-${idx}"></div>
+      <button type="button" class="fetch-btn add-tuya-dp" data-device="${idx}">
+        + Add DP Mapping
+      </button>
+    </div>
+  `;
+  container.appendChild(card);
+
+  // Remove button handler
+  card.querySelector('[data-action="remove-tuya"]').addEventListener('click', () => {
+    if (confirm('Remove this Tuya device and all its DP mappings?')) {
+      card.remove();
+      reindexTuya();
+      refreshAllMetricDropdowns();
+    }
+  });
+
+  // Per-card Scan LAN button
+  card.querySelector('.tuya-scan-lan-card').addEventListener('click', async function() {
+    const statusEl = document.getElementById(`tuya-status-${idx}`);
+    showStatus(statusEl, 'Scanning LAN... (~18s)', 'info');
+    try {
+      const res = await fetch('/api/tuya-discover', { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Discovery failed');
+      if (!data.devices || data.devices.length === 0) {
+        showStatus(statusEl, 'No Tuya devices found on LAN', 'info');
+        return;
+      }
+      // Auto-fill this card with first device found
+      const dev = data.devices[0];
+      card.querySelector('input[name$="[dev_id]"]').value = dev.dev_id || '';
+      card.querySelector('input[name$="[address]"]').value = dev.ip || '';
+      const verSel = card.querySelector('select[name$="[version]"]');
+      if (verSel && dev.version) {
+        for (const opt of verSel.options) { if (opt.value === dev.version) { opt.selected = true; break; } }
+      }
+      showStatus(statusEl, `Found ${data.devices.length} device(s). Filled from first.`, 'success');
+    } catch (e) {
+      showStatus(statusEl, e.message, 'error');
+    }
+  });
+
+  // Test Connection button
+  card.querySelector('.tuya-test-connection').addEventListener('click', async function() {
+    const statusEl = document.getElementById(`tuya-status-${idx}`);
+    const devId = card.querySelector('input[name$="[dev_id]"]').value.trim();
+    const address = card.querySelector('input[name$="[address]"]').value.trim();
+    const localKey = card.querySelector('input[name$="[local_key]"]').value.trim();
+    const version = card.querySelector('select[name$="[version]"]').value;
+    if (!devId || !address || !localKey) {
+      showStatus(statusEl, 'Device ID, IP, and Local Key required', 'error');
+      return;
+    }
+    showStatus(statusEl, 'Testing connection...', 'info');
+    try {
+      const res = await fetch('/api/test-tuya', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'include',
+        body: JSON.stringify({ dev_id: devId, address, local_key: localKey, version })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const dpCount = data.dps ? Object.keys(data.dps).length : 0;
+        showStatus(statusEl, `Connected! ${dpCount} DPs found`, 'success');
+      } else {
+        showStatus(statusEl, data.error || 'Connection failed', 'error');
+      }
+    } catch (e) {
+      showStatus(statusEl, e.message, 'error');
+    }
+  });
+
+  // Add DP Mapping button
+  card.querySelector('.add-tuya-dp').addEventListener('click', () => {
+    addTuyaDpRow(card, idx, '', '');
+    refreshAllMetricDropdowns();
+  });
+
+  // Render existing DP mappings
+  const mappingsList = card.querySelector('.mappings-list');
+  if (device.dps && typeof device.dps === 'object') {
+    // Check if this is a cloud-fetched device with dpNames
+    if (device.dpNames && typeof device.dpNames === 'object') {
+      // Cloud-fetched: dpNames is { label: dpNumber }
+      card.dataset.cloudFetched = 'true';
+      Object.entries(device.dpNames).forEach(([label, dpNum]) => {
+        const metricName = Object.keys(device.dps || {}).find(k => device.dps[k] === String(dpNum)) || '';
+        addTuyaDpRow(card, idx, metricName, String(dpNum), label);
+      });
+    } else {
+      // Manual: dps is { metricName: dpNumber }
+      Object.entries(device.dps).forEach(([metricName, dpNum]) => {
+        addTuyaDpRow(card, idx, metricName, String(dpNum), null);
+      });
+    }
+  }
+  if (mappingsList.children.length === 0) {
+    addTuyaDpRow(card, idx, '', '', null);
+  }
+
+  tuyaDeviceCounter++;
+}
+
+function addTuyaDpRow(card, deviceIdx, metricName, dpNumber, dpLabel) {
+  const mappingsList = card.querySelector('.mappings-list');
+  if (!mappingsList) return;
+  const used = getAllUsedMetrics();
+  const excludeOthers = Array.from(used).filter(m => m !== metricName);
+
+  const row = document.createElement('div');
+  row.className = 'metric-row';
+
+  const isCloudFetched = dpLabel !== null && dpLabel !== undefined;
+  if (isCloudFetched) {
+    // Cloud-fetched: read-only label
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'dp-label';
+    labelSpan.innerHTML = `${escapeHtml(dpLabel)} <code>DP ${escapeHtml(dpNumber)}</code>`;
+    labelSpan.style.cssText = 'min-width:180px;display:flex;align-items:center;gap:0.5rem;';
+    labelSpan.dataset.dp = dpNumber;
+    row.appendChild(labelSpan);
+  } else {
+    // Manual: editable DP number input
+    const dpInput = document.createElement('input');
+    dpInput.type = 'number';
+    dpInput.className = 'dp-input';
+    dpInput.placeholder = 'DP #';
+    dpInput.min = 1;
+    dpInput.max = 255;
+    dpInput.value = dpNumber || '';
+    dpInput.style.width = '80px';
+    dpInput.style.flex = '0 0 auto';
+    row.appendChild(dpInput);
+  }
+
+  const metricSelect = createMetricDropdown(metricName, excludeOthers);
+  row.appendChild(metricSelect);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', () => {
+    row.remove();
+    refreshAllMetricDropdowns();
+  });
+  row.appendChild(removeBtn);
+
+  metricSelect.addEventListener('change', () => {
+    refreshAllMetricDropdowns();
+  });
+
+  mappingsList.appendChild(row);
+}
+
+function reindexTuya() {
+  const cards = document.querySelectorAll('#tuya-devices-container .device-card');
+  tuyaDeviceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    const nameInput = card.querySelector('.device-header input[type="text"]');
+    if (nameInput) nameInput.name = `tuya_devices[${i}][name]`;
+    const enableCb = card.querySelector('.device-header input[type="checkbox"]');
+    if (enableCb) enableCb.name = `tuya_devices[${i}][enabled]`;
+    const devIdInput = card.querySelector('input[name$="[dev_id]"]');
+    if (devIdInput) devIdInput.name = `tuya_devices[${i}][dev_id]`;
+    const addrInput = card.querySelector('input[name$="[address]"]');
+    if (addrInput) addrInput.name = `tuya_devices[${i}][address]`;
+    const keyInput = card.querySelector('input[name$="[local_key]"]');
+    if (keyInput) keyInput.name = `tuya_devices[${i}][local_key]`;
+    const verSel = card.querySelector('select[name$="[version]"]');
+    if (verSel) verSel.name = `tuya_devices[${i}][version]`;
+    const pollInput = card.querySelector('input[name$="[poll_interval]"]');
+    if (pollInput) pollInput.name = `tuya_devices[${i}][poll_interval]`;
+    const addBtn = card.querySelector('.add-tuya-dp');
+    if (addBtn) addBtn.dataset.device = i;
+    // Update test status span id
+    const statusSpan = card.querySelector('.test-status');
+    if (statusSpan) statusSpan.id = `tuya-status-${i}`;
+    tuyaDeviceCounter++;
+  });
+}
+
+function populateTuyaDevicesFromCloud(devices) {
+  if (!Array.isArray(devices)) return;
+  const container = document.getElementById('tuya-devices-container');
+  if (!container) return;
+  // Collect existing dev_ids
+  const existingIds = new Set();
+  container.querySelectorAll('.device-card input[name$="[dev_id]"]').forEach(inp => {
+    if (inp.value) existingIds.add(inp.value);
+  });
+  devices.forEach(dev => {
+    const devId = dev.id || dev.dev_id || '';
+    if (existingIds.has(devId)) return; // skip duplicates
+    const config = {
+      name: dev.name || dev.product_name || '',
+      enabled: true,
+      dev_id: devId,
+      address: dev.ip || '',
+      local_key: dev.key || '',
+      version: dev.version || '3.3',
+      poll_interval: 30,
+      dps: {},
+      dpNames: {}
+    };
+    // Invert cloud mapping: {"19":"Power", "20":"Voltage"} → dpNames{"Power":"19"}, dps{"Power":"19"}
+    if (dev.mapping && typeof dev.mapping === 'object') {
+      Object.entries(dev.mapping).forEach(([dpNum, label]) => {
+        config.dpNames[label] = dpNum;
+        config.dps[label] = dpNum;
+      });
+    }
+    renderTuyaDevice(config, tuyaDeviceCounter++);
+  });
+  refreshAllMetricDropdowns();
+}
+
+// Top-level LAN scan button
+const tuyaLanScanBtn = document.getElementById('tuya-lan-scan-btn');
+if (tuyaLanScanBtn) {
+  tuyaLanScanBtn.addEventListener('click', async function() {
+    const statusEl = document.getElementById('tuya-lan-status');
+    const resultsTable = document.getElementById('tuya-lan-results');
+    const resultsBody = document.getElementById('tuya-lan-results-body');
+    showStatus(statusEl, 'Scanning LAN... (~18s)', 'info');
+    if (resultsTable) resultsTable.style.display = 'none';
+    try {
+      const res = await fetch('/api/tuya-discover', { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Discovery failed');
+      if (!data.devices || data.devices.length === 0) {
+        showStatus(statusEl, 'No Tuya devices found on LAN', 'info');
+        return;
+      }
+      if (resultsBody) {
+        resultsBody.innerHTML = data.devices.map(d =>
+          `<tr><td style="font-family:monospace;">${escapeHtml(d.dev_id || '')}</td><td>${escapeHtml(d.ip || '')}</td><td>${escapeHtml(d.version || '')}</td><td><button type="button" class="copy-device-id-btn" data-device-id="${escapeHtml(d.dev_id || '')}">📋 Copy ID</button></td></tr>`
+        ).join('');
+        // Wire copy buttons
+        resultsBody.querySelectorAll('.copy-device-id-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const deviceIdInput = document.getElementById('tuya-cloud-device-id');
+            if (deviceIdInput) {
+              deviceIdInput.value = btn.dataset.deviceId;
+              btn.textContent = '✓ Copied';
+              setTimeout(() => { btn.textContent = '📋 Copy ID'; }, 1500);
+            }
+          });
+        });
+      }
+      if (resultsTable) resultsTable.style.display = '';
+      showStatus(statusEl, `Found ${data.devices.length} device(s)`, 'success');
+    } catch (e) {
+      showStatus(statusEl, e.message, 'error');
+    }
+  });
+}
+
+// Cloud fetch button
+const tuyaCloudFetchBtn = document.getElementById('tuya-cloud-fetch-btn');
+if (tuyaCloudFetchBtn) {
+  tuyaCloudFetchBtn.addEventListener('click', async function() {
+    const statusEl = document.getElementById('tuya-cloud-status');
+    const region = document.getElementById('tuya-cloud-region').value;
+    const accessId = document.getElementById('tuya-cloud-access-id').value.trim();
+    const accessSecret = document.getElementById('tuya-cloud-access-secret').value.trim();
+    const deviceId = document.getElementById('tuya-cloud-device-id').value.trim();
+    if (!region || !accessId || !accessSecret || !deviceId) {
+      showStatus(statusEl, 'All four fields required (region, access ID, secret, device ID)', 'error');
+      return;
+    }
+    showStatus(statusEl, 'Fetching devices from Tuya Cloud...', 'info');
+    try {
+      const res = await fetch('/api/tuya-cloud-fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'include',
+        body: JSON.stringify({ region, access_id: accessId, access_secret: accessSecret, device_id: deviceId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Cloud fetch failed');
+      if (data.devices && data.devices.length > 0) {
+        populateTuyaDevicesFromCloud(data.devices);
+        showStatus(statusEl, `Fetched ${data.devices.length} device(s)`, 'success');
+      } else {
+        showStatus(statusEl, 'No devices returned from cloud', 'info');
+      }
+    } catch (e) {
+      showStatus(statusEl, e.message, 'error');
+    }
+  });
+}
+
+// Add Manual Tuya Device button
+const addTuyaBtn = document.getElementById('add-tuya-device');
+if (addTuyaBtn) {
+  addTuyaBtn.addEventListener('click', () => {
+    const idx = tuyaDeviceCounter;
+    renderTuyaDevice({ name: '', enabled: true, dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: 30, dps: {} }, idx);
+  });
+}
+
 // ======================== SAVE ========================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {};
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[') || el.name.startsWith('bms_devices[') || el.name.startsWith('bms_banks[')) return;
+    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name.startsWith('tuya_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[') || el.name.startsWith('bms_devices[') || el.name.startsWith('bms_banks[')) return;
     if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
     else payload[el.name] = el.value;
   });
@@ -2821,8 +3191,56 @@ form.addEventListener('submit', async (e) => {
     });
     return dev;
   });
+  payload.tuya_devices = collectDeviceArray('tuya-devices-container', (card) => {
+    const dev = {};
+    dev.name = card.querySelector('.device-header input[type="text"]').value;
+    dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+    dev.dev_id = card.querySelector('input[name$="[dev_id]"]')?.value || '';
+    dev.address = card.querySelector('input[name$="[address]"]')?.value || '';
+    dev.local_key = card.querySelector('input[name$="[local_key]"]')?.value || '';
+    dev.version = card.querySelector('select[name$="[version]"]')?.value || '3.3';
+    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]')?.value) || 30;
+    dev.dps = {};
+    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+      const metricName = row.querySelector('.metric-name')?.value;
+      if (!metricName) return;
+      // Try cloud-fetched DP label first
+      const dpLabel = row.querySelector('.dp-label');
+      if (dpLabel) {
+        const dp = dpLabel.dataset.dp;
+        if (dp) dev.dps[metricName] = dp;
+      } else {
+        // Manual DP input
+        const dpInput = row.querySelector('.dp-input');
+        if (dpInput && dpInput.value) dev.dps[metricName] = dpInput.value;
+      }
+    });
+    // Preserve dpNames if present (for cloud-fetched devices round-tripping)
+    if (card.dataset.cloudFetched === 'true') {
+      dev.dpNames = {};
+      card.querySelectorAll('.dp-label').forEach(label => {
+        const codeEl = label.querySelector('code');
+        if (codeEl) {
+          const dp = label.dataset.dp;
+          const name = label.textContent.replace(codeEl.textContent, '').trim();
+          if (dp && name) dev.dpNames[name] = dp;
+        }
+      });
+    }
+    return dev;
+  });
   payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
   payload.dashboard_config = JSON.stringify(dashConfig);
+  // Collect tuya_cloud credentials
+  const tuyaCloud = {
+    region: document.getElementById('tuya-cloud-region')?.value || 'eu',
+    access_id: document.getElementById('tuya-cloud-access-id')?.value?.trim() || '',
+    access_secret: document.getElementById('tuya-cloud-access-secret')?.value?.trim() || '',
+    device_id: document.getElementById('tuya-cloud-device-id')?.value?.trim() || ''
+  };
+  if (tuyaCloud.access_id || tuyaCloud.access_secret || tuyaCloud.device_id) {
+    payload.tuya_cloud = JSON.stringify(tuyaCloud);
+  }
   try {
     const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(payload) });
     if (res.ok) {
