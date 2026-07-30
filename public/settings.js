@@ -2986,19 +2986,8 @@ if (tuyaLanScanBtn) {
       }
       if (resultsBody) {
         resultsBody.innerHTML = data.devices.map(d =>
-          `<tr><td style="font-family:monospace;">${escapeHtml(d.dev_id || '')}</td><td>${escapeHtml(d.ip || '')}</td><td>${escapeHtml(d.version || '')}</td><td><button type="button" class="copy-device-id-btn" data-device-id="${escapeHtml(d.dev_id || '')}">📋 Copy ID</button></td></tr>`
+          `<tr><td style="font-family:monospace;">${escapeHtml(d.ip || '')}</td><td>${escapeHtml(d.version || '')}</td><td>✅</td></tr>`
         ).join('');
-        // Wire copy buttons
-        resultsBody.querySelectorAll('.copy-device-id-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const deviceIdInput = document.getElementById('tuya-cloud-device-id');
-            if (deviceIdInput) {
-              deviceIdInput.value = btn.dataset.deviceId;
-              btn.textContent = '✓ Copied';
-              setTimeout(() => { btn.textContent = '📋 Copy ID'; }, 1500);
-            }
-          });
-        });
       }
       if (resultsTable) resultsTable.style.display = '';
       showStatus(statusEl, `Found ${data.devices.length} device(s)`, 'success');

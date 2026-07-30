@@ -192,65 +192,73 @@
         </div>
         <div id="subtab-tuya" class="subtab-content">
 
-          <!-- Step 1: LAN Discovery -->
-          <div id="tuya-lan-section">
-            <div class="section-divider"><span class="stg-divider-icon">🔍</span> Step 1 — LAN Discovery</div>
-            <p class="note" style="font-size:0.8rem;color:var(--text-tertiary);margin-bottom:0.75rem;">
-              Scan your local network for Tuya devices. No credentials needed. Copy a device ID for Step 2.
-            </p>
-            <div class="form-row" style="margin-bottom:0.5rem;">
-              <input type="text" id="tuya-scan-subnet" placeholder="Subnet (e.g. 192.168.0.0/24) — leave empty for auto-detect" style="flex:1;font-size:0.85rem;">
+          <!-- EXPLANATORY HEADER -->
+          <div class="tuya-intro" style="margin-bottom:1.25rem;padding:0.85rem 1rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:0.825rem;color:var(--text-secondary);line-height:1.65;">
+            <strong style="color:var(--text);">All-Local LAN Protocol</strong> — Tuya devices are polled directly on your network via encrypted TCP (port 6668). No cloud dependency for runtime data.<br>
+            <strong>One-time setup:</strong> Devices encrypt their IDs and AES keys — you fetch these <em>once</em> from the Tuya Cloud using API credentials. After that, everything runs locally.<br>
+            <span style="color:var(--accent);font-weight:600;">① Verify</span> devices are reachable on your LAN &nbsp;→&nbsp; <span style="color:var(--accent);font-weight:600;">② Pull</span> IDs + keys from cloud &nbsp;→&nbsp; <span style="color:var(--accent);font-weight:600;">③</span> Cards populate below — 100% local from there.
+          </div>
+
+          <!-- SIDE-BY-SIDE: LOCAL VERIFY | CLOUD PULL -->
+          <div class="tuya-top-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem;">
+
+            <!-- LEFT: Local Verification -->
+            <div class="tuya-panel">
+              <div class="section-divider"><span class="stg-divider-icon">🔍</span> Verify Local Access</div>
+              <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.5rem;">
+                Confirms Epilykos can reach Tuya devices on your network. No credentials needed. Run this first.
+              </p>
+              <input type="text" id="tuya-scan-subnet" placeholder="Subnet (e.g. 192.168.0.0/24) — leave empty for auto-detect"
+                     style="width:100%;margin-bottom:0.5rem;font-size:0.85rem;">
+              <div class="test-row">
+                <button type="button" id="tuya-lan-scan-btn" class="fetch-btn">🔍 Scan LAN</button>
+                <span class="test-status" id="tuya-lan-status"></span>
+              </div>
+              <div id="tuya-lan-results" style="display:none;margin-top:0.5rem;">
+                <table style="width:100%;font-size:0.8rem;border-collapse:collapse;">
+                  <thead><tr style="color:var(--text-tertiary);text-align:left;">
+                    <th>IP</th><th>Version</th><th>Reachable</th>
+                  </tr></thead>
+                  <tbody id="tuya-lan-results-body"></tbody>
+                </table>
+              </div>
             </div>
-            <div class="test-row">
-              <button type="button" id="tuya-lan-scan-btn" class="fetch-btn">🔍 Scan LAN for Tuya Devices</button>
-              <span class="test-status" id="tuya-lan-status"></span>
-            </div>
-            <div id="tuya-lan-results" style="display:none;margin-top:0.5rem;">
-              <table style="width:100%;font-size:0.8rem;border-collapse:collapse;">
-                <thead><tr style="color:var(--text-tertiary);text-align:left;">
-                  <th>Device ID</th><th>IP</th><th>Version</th><th></th>
-                </tr></thead>
-                <tbody id="tuya-lan-results-body"></tbody>
-              </table>
+
+            <!-- RIGHT: Cloud Key Retrieval -->
+            <div class="tuya-panel">
+              <div class="section-divider"><span class="stg-divider-icon">☁️</span> Get IDs &amp; Keys</div>
+              <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.5rem;">
+                One-time fetch. Get these from <a href="https://iot.tuya.com" target="_blank" style="color:var(--accent);">iot.tuya.com</a> → Cloud → API Access. Stores locally — never sent anywhere else.
+              </p>
+              <div class="form-row" style="margin-bottom:0.5rem;">
+                <select id="tuya-cloud-region" style="width:100px;flex:0 0 auto;">
+                  <option value="eu">EU</option>
+                  <option value="us">US</option>
+                  <option value="us-e">US East</option>
+                  <option value="eu-w">EU West</option>
+                  <option value="cn">China</option>
+                  <option value="in">India</option>
+                  <option value="sg">Singapore</option>
+                </select>
+                <input type="text" id="tuya-cloud-access-id" placeholder="Access ID / Client ID" style="flex:1;">
+              </div>
+              <div class="form-row" style="margin-bottom:0.5rem;">
+                <input type="password" id="tuya-cloud-access-secret" placeholder="Access Secret / Client Secret" style="flex:1;">
+                <input type="text" id="tuya-cloud-device-id" placeholder="Any device ID from your account" style="flex:1;font-size:0.8rem;">
+              </div>
+              <div class="test-row">
+                <button type="button" id="tuya-cloud-fetch-btn" class="fetch-btn">🔗 Fetch All Devices</button>
+                <span class="test-status" id="tuya-cloud-status"></span>
+              </div>
             </div>
           </div>
 
-          <!-- Step 2: Cloud Key Retrieval -->
-          <div id="tuya-cloud-section" style="margin-top:1.5rem;">
-            <div class="section-divider"><span class="stg-divider-icon">☁️</span> Step 2 — Fetch Keys from Tuya Cloud</div>
-            <p class="note" style="font-size:0.8rem;color:var(--text-tertiary);margin-bottom:1rem;">
-              Paste a Device ID from Step 1 and enter your Tuya IoT Platform credentials.
-              Get these from <a href="https://iot.tuya.com" target="_blank" style="color:var(--accent);">iot.tuya.com</a> → Cloud → API Access.
-            </p>
-            <div class="form-row">
-              <select id="tuya-cloud-region" style="width:150px;flex:0 0 auto;">
-                <option value="eu">Europe (eu)</option>
-                <option value="us">Americas (us)</option>
-                <option value="us-e">US East (us-e)</option>
-                <option value="eu-w">EU West (eu-w)</option>
-                <option value="cn">China (cn)</option>
-                <option value="in">India (in)</option>
-                <option value="sg">Singapore (sg)</option>
-              </select>
-              <input type="text" id="tuya-cloud-access-id" placeholder="Access ID / Client ID" style="flex:1;">
-            </div>
-            <div class="form-row">
-              <input type="password" id="tuya-cloud-access-secret" placeholder="Access Secret / Client Secret" style="flex:1;">
-              <input type="text" id="tuya-cloud-device-id" placeholder="Device ID (copy from LAN scan above)" style="flex:1;">
-            </div>
-            <div class="test-row">
-              <button type="button" id="tuya-cloud-fetch-btn" class="fetch-btn">🔗 Fetch Devices from Tuya Cloud</button>
-              <span class="test-status" id="tuya-cloud-status"></span>
-            </div>
-          </div>
-
-          <!-- Device Cards Section -->
-          <div class="section-divider" style="margin-top:1.5rem;"><span class="stg-divider-icon">📡</span> Tuya Devices</div>
-          <div id="tuya-devices-container"></div>
+          <!-- DEVICE CARDS (2–3 across) -->
+          <div class="section-divider"><span class="stg-divider-icon">📡</span> Tuya Devices</div>
+          <div id="tuya-devices-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:1rem;"></div>
           <button type="button" id="add-tuya-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Tuya Device Manually</button>
           <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-top:0.5rem;">
-            Devices use local LAN polling (encrypted TCP on port 6668). No cloud dependency after initial key retrieval.
-            Requires <code>tinytuya</code> Python package installed in the Epilykos container.
+            All communication is 100% local (encrypted TCP on port 6668) after initial cloud key retrieval.
           </p>
         </div>
         <div id="subtab-pvoutput" class="subtab-content">
