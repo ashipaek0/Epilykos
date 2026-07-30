@@ -24,7 +24,7 @@ def fetch_devices(region, access_id, access_secret, user_id):
     )
 
     # Call the Home API: /v1.0/users/{uid}/devices
-    uri = "users/%s/devices" % user_id
+    uri = "/v1.0/users/%s/devices" % user_id
     result = c.cloudrequest(uri)
 
     if not result or not result.get("success"):
