@@ -195,7 +195,7 @@
           <!-- EXPLANATORY HEADER -->
           <div class="tuya-intro" style="margin-bottom:1.25rem;padding:0.85rem 1rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:0.825rem;color:var(--text-secondary);line-height:1.65;">
             <strong style="color:var(--text);">All-Local LAN Protocol</strong> — Tuya devices are polled directly on your network via encrypted TCP (port 6668). No cloud dependency for runtime data.<br>
-            <strong>Two ways to get device IDs &amp; keys:</strong> <span style="color:var(--accent);">Import from HA</span> (instant, if already configured) or <span style="color:var(--accent);">Fetch from Tuya Cloud</span> (one-time, needs Smart Life UID + API credentials).
+            <strong>One-time setup:</strong> Devices encrypt their IDs and AES keys — fetch them <em>once</em> from the Tuya Cloud using your Smart Life UID + API credentials. After that, everything runs locally.
           </div>
 
           <!-- SIDE-BY-SIDE: LOCAL VERIFY | IMPORT + CLOUD -->
@@ -223,20 +223,9 @@
               </div>
             </div>
 
-            <!-- RIGHT: Import from HA + Cloud Fetch -->
+            <!-- RIGHT: Cloud Fetch -->
             <div class="tuya-panel">
-              <!-- Import from HA -->
-              <div class="section-divider"><span class="stg-divider-icon">📥</span> Import from Home Assistant</div>
-              <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.5rem;">
-                Instantly imports devices already configured in HA's <code>tuya_local</code> integration — with IDs, keys, and IPs.
-              </p>
-              <div class="test-row" style="margin-bottom:1rem;">
-                <button type="button" id="tuya-ha-import-btn" class="fetch-btn">📥 Import from HA</button>
-                <span class="test-status" id="tuya-ha-import-status"></span>
-              </div>
-
-              <!-- Cloud Fetch -->
-              <div class="section-divider" style="margin-top:0;"><span class="stg-divider-icon">☁️</span> Fetch from Tuya Cloud</div>
+              <div class="section-divider"><span class="stg-divider-icon">☁️</span> Fetch from Tuya Cloud</div>
               <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.5rem;">
                 For devices not in HA. Get your <strong>UID</strong> from the Smart Life app (Me → Settings → Account).
                 API credentials from <a href="https://iot.tuya.com" target="_blank" style="color:var(--accent);">iot.tuya.com</a> → Cloud.

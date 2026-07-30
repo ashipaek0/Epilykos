@@ -66,42 +66,31 @@ def discover_subnet(subnet):
 
     found = []
 
-    def probe(ip):
-        """Quick TCP probe to port 6668 — Tuya devices always listen here."""
-        ip_str = str(ip)
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
-            result = sock.connect_ex((ip_str, 6668))
-            sock.close()
-            if result == 0:
-                # Port is open — try to get device ID via tinytuya
-                try:
-                    from tinytuya import Device
-                    d = Device("", ip_str, "", "3.3")
-                    d.set_socketTimeout(3)
-                    info = d.status()
-                    dps = info.get("dps", {})
-                    return {
-                        "dev_id": info.get("gwId", ""),
-                        "ip": ip_str,
-                        "version": info.get("version", "3.3"),
-                        "dps_count": len(dps)
-                    }
-                except Exception:
-                    # Couldn't get full info, but port is open — return basic
-                    return {"dev_id": "", "ip": ip_str, "version": "3.3", "dps_count": 0}
-        except Exception:
-            pass
-        return None
-
-    # Scan with up to 50 concurrent probes
-    with ThreadPoolExecutor(max_workers=50) as executor:
-        futures = {executor.submit(probe, ip): ip for ip in hosts}
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                found.append(result)
+    # Use tinytuya's built-in scanner with forcescan to probe the entire subnet
+    # in a single call — tinytuya handles threading internally.
+    try:
+        from tinytuya.scanner import devices as scan_devices
+        # Build list of all IP strings in the subnet
+        ip_list = [str(ip) for ip in hosts]
+        result = scan_devices(
+            verbose=False,
+            scantime=8,           # seconds to wait for responses
+            poll=False,           # don't try to query DPs (needs keys)
+            discover=False,       # don't listen for unsolicited broadcasts
+            forcescan=ip_list,    # force-scan every IP in the subnet
+            assume_yes=True
+        )
+        if result:
+            for dev in result.values():
+                found.append({
+                    "dev_id": dev.get("gwId", ""),
+                    "ip": dev.get("ip", ""),
+                    "version": dev.get("version", "3.3"),
+                    "dps_count": 0
+                })
+    except Exception as e:
+        print(json.dumps({"error": f"Scan failed: {e}"}))
+        sys.exit(1)
 
     # Sort by IP
     found.sort(key=lambda d: [int(o) for o in d["ip"].split(".")])
