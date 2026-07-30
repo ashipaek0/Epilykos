@@ -130,10 +130,9 @@ async function pollTuyaDevices() {
  * @param {string} deviceId     - any device ID on the account (used to select the API project)
  * @returns {Promise<Array<{name, id, key, ip, version, mapping}>>}
  */
-async function fetchCloudDevices(region, accessId, accessSecret, deviceId) {
+async function fetchCloudDevices(region, accessId, accessSecret, userId) {
   const scriptPath = path.join(__dirname, 'tuya_cloud.py');
-  const args = ['fetch-devices', region, accessId, accessSecret];
-  if (deviceId) args.push(deviceId);
+  const args = ['fetch-devices', region, accessId, accessSecret, userId];
   return runBridge(scriptPath, args);
 }
 
@@ -273,4 +272,9 @@ async function testTuyaDevice({ dev_id, address, local_key, version } = {}) {
   }
 }
 
-module.exports = { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice };
+async function importTuyaFromHA() {
+  const scriptPath = path.join(__dirname, 'tuya_import_ha.py');
+  return runBridge(scriptPath, []);
+}
+
+module.exports = { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice, importTuyaFromHA };
