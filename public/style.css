@@ -531,10 +531,11 @@ h1, h2, h3, h4,
 .tl-bar {
   display: flex;
   height: 36px;
-  background: var(--border);
+  background: var(--card-bg);
   border-radius: var(--radius);
   overflow: hidden;
   margin-bottom: 0.8rem;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
 }
 
 .tl-segment {
@@ -550,7 +551,7 @@ h1, h2, h3, h4,
 }
 
 .tl-segment.on  { background: var(--grid); }
-.tl-segment.off { background: var(--text-tertiary, #999); }
+.tl-segment.off { background: transparent; }
 
 .tl-labels {
   position: relative;
