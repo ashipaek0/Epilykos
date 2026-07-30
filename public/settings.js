@@ -3005,9 +3005,13 @@ if (tuyaCloudFetchBtn) {
     const region = document.getElementById('tuya-cloud-region').value;
     const accessId = document.getElementById('tuya-cloud-access-id').value.trim();
     const accessSecret = document.getElementById('tuya-cloud-access-secret').value.trim();
-    const deviceId = document.getElementById('tuya-cloud-device-id').value.trim();
+    const userId = document.getElementById('tuya-cloud-user-id').value.trim();
     if (!region || !accessId || !accessSecret) {
       showStatus(statusEl, 'Region, Access ID, and Access Secret are required', 'error');
+      return;
+    }
+    if (!userId) {
+      showStatus(statusEl, 'Smart Life UID is required (find in app: Me → Settings → Account)', 'error');
       return;
     }
     showStatus(statusEl, 'Fetching devices from Tuya Cloud...', 'info');
@@ -3016,7 +3020,7 @@ if (tuyaCloudFetchBtn) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         credentials: 'include',
-        body: JSON.stringify({ region, access_id: accessId, access_secret: accessSecret, device_id: deviceId })
+        body: JSON.stringify({ region, access_id: accessId, access_secret: accessSecret, user_id: userId })
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Cloud fetch failed');
@@ -3025,6 +3029,32 @@ if (tuyaCloudFetchBtn) {
         showStatus(statusEl, `Fetched ${data.devices.length} device(s)`, 'success');
       } else {
         showStatus(statusEl, 'No devices returned from cloud', 'info');
+      }
+    } catch (e) {
+      showStatus(statusEl, e.message, 'error');
+    }
+  });
+}
+
+// HA Import button
+const tuyaHAImportBtn = document.getElementById('tuya-ha-import-btn');
+if (tuyaHAImportBtn) {
+  tuyaHAImportBtn.addEventListener('click', async function() {
+    const statusEl = document.getElementById('tuya-ha-import-status');
+    showStatus(statusEl, 'Importing devices from Home Assistant...', 'info');
+    try {
+      const res = await fetch('/api/tuya-import-ha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'HA import failed');
+      if (data.devices && data.devices.length > 0) {
+        populateTuyaDevicesFromCloud(data.devices);
+        showStatus(statusEl, `Imported ${data.devices.length} device(s) from HA`, 'success');
+      } else {
+        showStatus(statusEl, 'No tuya_local devices found in HA', 'info');
       }
     } catch (e) {
       showStatus(statusEl, e.message, 'error');

@@ -30,7 +30,7 @@ const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = requ
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
-const { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice } = require('./modules/tuya');
+const { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice, importTuyaFromHA } = require('./modules/tuya');
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
@@ -1371,12 +1371,23 @@ app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
 
 app.post('/api/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
   try {
-    const { region, access_id, access_secret, device_id } = req.body;
-    const devices = await fetchCloudDevices(region, access_id, access_secret, device_id);
+    const { region, access_id, access_secret, user_id } = req.body;
+    const devices = await fetchCloudDevices(region, access_id, access_secret, user_id);
     res.json({ success: true, devices });
   } catch (err) {
     logger.error('[Tuya] Cloud fetch error:', err.message);
     res.status(500).json({ error: err.message || 'Cloud fetch failed' });
+  }
+});
+
+// Import Tuya devices from Home Assistant
+app.post('/api/tuya-import-ha', isAuthenticated, async (req, res) => {
+  try {
+    const devices = await importTuyaFromHA();
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] HA import error:', err.message);
+    res.status(500).json({ error: err.message || 'HA import failed' });
   }
 });
 
