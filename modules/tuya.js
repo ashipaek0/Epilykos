@@ -272,9 +272,4 @@ async function testTuyaDevice({ dev_id, address, local_key, version } = {}) {
   }
 }
 
-async function importTuyaFromHA() {
-  const scriptPath = path.join(__dirname, 'tuya_import_ha.py');
-  return runBridge(scriptPath, []);
-}
-
-module.exports = { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice, importTuyaFromHA };
+module.exports = { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice };
