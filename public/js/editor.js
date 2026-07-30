@@ -896,7 +896,7 @@ function refreshGridItem(block) {
         content.style.boxShadow = 'none';
         content.style.setProperty('--card-bg', 'transparent');
         content.style.setProperty('--bg', 'transparent');
-        content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .topo-hub, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
+        content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
           el.style.background = 'transparent';
           el.style.borderColor = 'transparent';
           el.style.boxShadow = 'none';
