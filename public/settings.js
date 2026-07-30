@@ -3006,8 +3006,8 @@ if (tuyaCloudFetchBtn) {
     const accessId = document.getElementById('tuya-cloud-access-id').value.trim();
     const accessSecret = document.getElementById('tuya-cloud-access-secret').value.trim();
     const deviceId = document.getElementById('tuya-cloud-device-id').value.trim();
-    if (!region || !accessId || !accessSecret || !deviceId) {
-      showStatus(statusEl, 'All four fields required (region, access ID, secret, device ID)', 'error');
+    if (!region || !accessId || !accessSecret) {
+      showStatus(statusEl, 'Region, Access ID, and Access Secret are required', 'error');
       return;
     }
     showStatus(statusEl, 'Fetching devices from Tuya Cloud...', 'info');

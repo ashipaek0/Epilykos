@@ -132,7 +132,9 @@ async function pollTuyaDevices() {
  */
 async function fetchCloudDevices(region, accessId, accessSecret, deviceId) {
   const scriptPath = path.join(__dirname, 'tuya_cloud.py');
-  return runBridge(scriptPath, ['fetch-devices', region, accessId, accessSecret, deviceId]);
+  const args = ['fetch-devices', region, accessId, accessSecret];
+  if (deviceId) args.push(deviceId);
+  return runBridge(scriptPath, args);
 }
 
 /**
