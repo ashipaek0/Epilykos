@@ -48,13 +48,14 @@ def main():
         print(json.dumps({"error": f"Unknown action: {action}"}))
         sys.exit(1)
 
-    if len(sys.argv) != 6:
+    if len(sys.argv) < 5:
         print(json.dumps({
-            "error": "Usage: tuya_cloud.py fetch-devices <region> <access_id> <access_secret> <device_id>"
+            "error": "Usage: tuya_cloud.py fetch-devices <region> <access_id> <access_secret> [device_id]"
         }))
         sys.exit(1)
 
-    region, access_id, access_secret, device_id = sys.argv[2:6]
+    region, access_id, access_secret = sys.argv[2:5]
+    device_id = sys.argv[5] if len(sys.argv) > 5 else None
 
     try:
         fetch_devices(region, access_id, access_secret, device_id)
