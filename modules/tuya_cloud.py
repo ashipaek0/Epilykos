@@ -87,6 +87,12 @@ def fetch_devices_oauth(token_info_json):
             return result
         manager.customer_api.get = _patched_get
         
+        # Skip per-device API calls — we only need basic info (name, id, key, IP, function)
+        # Each device triggers 3 extra API calls (spec/strategy/report) — 60 requests total
+        manager.device_repository.update_device_specification = lambda d: None
+        manager.device_repository.update_device_strategy_info = lambda d: None
+        manager.device_repository.update_device_report_type = lambda d: None
+        
         manager.update_device_cache()
     except Exception as e:
         print(f"[tuya_cloud ERROR] update_device_cache failed: {e}", file=sys.stderr)
@@ -114,9 +120,10 @@ def fetch_devices_oauth(token_info_json):
         # Build DP name mapping from device.function
         if device.function:
             for dp_id, fn in device.function.items():
-                name = fn.name or fn.code or ""
-                if name:
-                    obj["mapping"][str(dp_id)] = name
+                # DeviceFunction may use name/code/desc depending on version
+                label = getattr(fn, 'name', None) or getattr(fn, 'code', '') or getattr(fn, 'desc', '')
+                if label:
+                    obj["mapping"][str(dp_id)] = label
         devices.append(obj)
 
     print(json.dumps(devices))
