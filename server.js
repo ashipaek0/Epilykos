@@ -30,7 +30,7 @@ const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = requ
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
-const { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice } = require('./modules/tuya');
+const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice } = require('./modules/tuya');
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
@@ -1377,6 +1377,43 @@ app.post('/api/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
   } catch (err) {
     logger.error('[Tuya] Cloud fetch error:', err.message);
     res.status(500).json({ error: err.message || 'Cloud fetch failed' });
+  }
+});
+
+// Smart Life OAuth flow — QR code login (replaces the IoT API credential flow)
+app.post('/api/tuya-generate-qr', isAuthenticated, async (req, res) => {
+  try {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'UID is required' });
+    const result = await generateQrCode(uid);
+    res.json(result);
+  } catch (err) {
+    logger.error('[Tuya] QR generate error:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to generate QR code' });
+  }
+});
+
+app.post('/api/tuya-poll-login', isAuthenticated, async (req, res) => {
+  try {
+    const { qr_token, uid } = req.body;
+    if (!qr_token || !uid) return res.status(400).json({ error: 'qr_token and uid are required' });
+    const result = await pollQrLogin(qr_token, uid);
+    res.json(result);
+  } catch (err) {
+    logger.error('[Tuya] Poll login error:', err.message);
+    res.status(500).json({ error: err.message || 'Login poll failed' });
+  }
+});
+
+app.post('/api/tuya-fetch-oauth', isAuthenticated, async (req, res) => {
+  try {
+    const { token_info } = req.body;
+    if (!token_info) return res.status(400).json({ error: 'token_info is required' });
+    const devices = await fetchDevicesOAuth(token_info);
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] OAuth fetch error:', err.message);
+    res.status(500).json({ error: err.message || 'OAuth device fetch failed' });
   }
 });
 

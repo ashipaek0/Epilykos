@@ -3,15 +3,13 @@
 Tuya LAN device bridge — called by Epilykos (Node.js) via child_process.execFile.
 Polls DP values, tests connectivity, and discovers devices on a subnet.
 """
-
 import json
+import struct
 import sys
 
 
 def _make_device(dev_id, address, local_key, version):
-    """Create and configure a tinytuya Device instance."""
-    from tinytuya import Device  # noqa: E402 — lazy import for error handling
-
+    from tinytuya import Device
     d = Device(dev_id, address, local_key)
     d.set_version(float(version))
     d.set_socketTimeout(5)
@@ -38,14 +36,13 @@ def test_device(dev_id, address, local_key, version):
 
 def discover_subnet(subnet):
     """
-    Discover Tuya devices by scanning every IP in a subnet range.
-    Works across routed subnets — no broadcast required.
-
-    Uses tinytuya's device discovery on port 6668 (TCP) for each IP.
-    Only needs an IP — no local_key or dev_id.
+    Quick TCP port-6668 scan of a subnet. Connects and immediately sends RST
+    — no recv(), no banner. Just checks which IPs accept TCP on the Tuya port.
+    Safe for cross-subnet use: 15 workers, 0.3s timeout, RST cleanup.
     """
     import ipaddress
     import socket
+    import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     try:
@@ -54,44 +51,47 @@ def discover_subnet(subnet):
         print(json.dumps({"error": f"Invalid subnet: {e}"}))
         sys.exit(1)
 
-    # Limit to /24 or smaller to avoid massive scans
-    if network.prefixlen < 16:
-        print(json.dumps({"error": "Subnet too large — use /16 or smaller"}))
-        sys.exit(1)
-
     hosts = list(network.hosts())
     if len(hosts) > 1024:
-        print(json.dumps({"error": f"Subnet has {len(hosts)} hosts — max 1024 for scanning"}))
+        print(json.dumps({"error": f"Subnet has {len(hosts)} hosts — max 1024"}))
         sys.exit(1)
+
+    def probe_ip(ip_str):
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                            struct.pack('ii', 1, 0))
+            sock.settimeout(0.3)
+            sock.connect((ip_str, 6668))
+            # Connected — Tuya device present. RST immediately (SO_LINGER).
+            sock.close()
+            return ip_str
+        except Exception:
+            if sock:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+            return None
 
     found = []
-
-    # Use tinytuya's built-in scanner with wantips (directed TCP probe).
-    # wantips works without any keys — just checks if a Tuya device responds on each IP.
-    try:
-        from tinytuya.scanner import devices as scan_devices
-        ip_list = [str(ip) for ip in hosts]
-        result = scan_devices(
-            verbose=False,
-            scantime=8,
-            poll=False,
-            wantips=ip_list,        # probe specific IPs (works without keys)
-            discover=False,          # don't listen for UDP broadcasts
-            assume_yes=True
-        )
-        if result:
-            for dev in result.values():
+    with ThreadPoolExecutor(max_workers=15) as ex:
+        futures = {}
+        for i, ip in enumerate(hosts):
+            futures[ex.submit(probe_ip, str(ip))] = str(ip)
+            if i % 10 == 9:
+                time.sleep(0.05)
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
                 found.append({
-                    "dev_id": dev.get("gwId", ""),
-                    "ip": dev.get("ip", ""),
-                    "version": dev.get("version", "3.3"),
-                    "dps_count": 0
+                    "dev_id": "",
+                    "ip": result,
+                    "version": "?",
+                    "dps_count": 0,
                 })
-    except Exception as e:
-        print(json.dumps({"error": f"Scan failed: {e}"}))
-        sys.exit(1)
 
-    # Sort by IP
     found.sort(key=lambda d: [int(o) for o in d["ip"].split(".")])
     print(json.dumps(found))
 

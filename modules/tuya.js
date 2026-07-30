@@ -31,7 +31,8 @@ function getLatestUpsert() {
  */
 function runBridge(script, args) {
   return new Promise((resolve, reject) => {
-    execFile('python3', [script, ...args], { timeout: 25000 }, (err, stdout, stderr) => {
+    logger.debug(`runBridge: python3 -u ${script} ${args[0]} (${args[1] ? args[1].substring(0,20) : ''}...)`);
+    execFile('python3', ['-u', script, ...args], { timeout: 60000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
         // Many bridge scripts print structured JSON errors on stdout/stderr.
         const raw = (stdout || stderr || '').trim();
@@ -39,7 +40,8 @@ function runBridge(script, args) {
           const parsed = JSON.parse(raw);
           if (parsed.error) return reject(new Error(parsed.error));
         } catch (_) { /* not JSON — fall through to generic message */ }
-        return reject(new Error(err.message || 'Bridge process failed'));
+        const detail = [err.message, stderr?.trim(), stdout?.trim()].filter(Boolean).join(' | ');
+        return reject(new Error(detail || 'Bridge process failed'));
       }
       try {
         resolve(JSON.parse(stdout.trim()));
@@ -134,6 +136,37 @@ async function fetchCloudDevices(region, accessId, accessSecret, userId) {
   const scriptPath = path.join(__dirname, 'tuya_cloud.py');
   const args = ['fetch-devices', region, accessId, accessSecret, userId];
   return runBridge(scriptPath, args);
+}
+
+/**
+ * Generate a QR code token for Smart Life app scan login.
+ * @param {string} uid - Smart Life User ID (e.g. "BaTuCAf")
+ * @returns {Promise<{qr_token: string, qr_url: string}>}
+ */
+async function generateQrCode(uid) {
+  const scriptPath = path.join(__dirname, 'tuya_cloud.py');
+  return runBridge(scriptPath, ['generate-qr', uid]);
+}
+
+/**
+ * Poll for Smart Life app scan result.
+ * @param {string} qrToken - QR code token from generateQrCode
+ * @param {string} uid - Smart Life User ID
+ * @returns {Promise<{status: string, access_token?: string, ...}>}
+ */
+async function pollQrLogin(qrToken, uid) {
+  const scriptPath = path.join(__dirname, 'tuya_cloud.py');
+  return runBridge(scriptPath, ['poll-login', qrToken, uid]);
+}
+
+/**
+ * Fetch devices using OAuth token from Smart Life login.
+ * @param {object} tokenInfo - token info object from pollQrLogin
+ * @returns {Promise<Array>}
+ */
+async function fetchDevicesOAuth(tokenInfo) {
+  const scriptPath = path.join(__dirname, 'tuya_cloud.py');
+  return runBridge(scriptPath, ['fetch-devices-oauth', JSON.stringify(tokenInfo)]);
 }
 
 /**
@@ -272,4 +305,4 @@ async function testTuyaDevice({ dev_id, address, local_key, version } = {}) {
   }
 }
 
-module.exports = { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice };
+module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice };
