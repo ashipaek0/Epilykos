@@ -76,7 +76,7 @@ async function loadConfigWithRetry() {
     setInterval(async () => {
       const { updateAllComponents } = await import('./updater.js');
       updateAllComponents();
-    }, 60000);
+    }, 30000);
   } catch (err) {
     console.error(`Failed to load dashboard config (attempt ${configLoadAttempts + 1}/${MAX_CONFIG_ATTEMPTS}):`, err);
     configLoadAttempts++;
