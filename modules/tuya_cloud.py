@@ -120,8 +120,8 @@ def fetch_devices_oauth(token_info_json):
         # Build DP name mapping from device.function
         if device.function:
             for dp_id, fn in device.function.items():
-                # DeviceFunction may use name/code/desc depending on version
-                label = getattr(fn, 'name', None) or getattr(fn, 'code', '') or getattr(fn, 'desc', '')
+                # DeviceFunction fields: desc (human-readable), name, code — pick best
+                label = getattr(fn, 'desc', None) or getattr(fn, 'name', None) or getattr(fn, 'code', '') or ''
                 if label:
                     obj["mapping"][str(dp_id)] = label
         devices.append(obj)

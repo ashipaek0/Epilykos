@@ -2773,10 +2773,14 @@ function renderTuyaDevice(device, idx) {
         showStatus(statusEl, 'No Tuya devices found on LAN', 'info');
         return;
       }
-      // Auto-fill this card with first device found
-      const dev = data.devices[0];
-      card.querySelector('input[name$="[dev_id]"]').value = dev.dev_id || '';
+      // Find the device matching this card's device ID
+      const cardDevId = card.querySelector('input[name$="[dev_id]"]').value.trim();
+      const match = cardDevId
+        ? data.devices.find(d => d.dev_id === cardDevId)
+        : data.devices[0];
+      const dev = match || data.devices[0];
       card.querySelector('input[name$="[address]"]').value = dev.ip || '';
+      card.querySelector('input[name$="[dev_id]"]').value = dev.dev_id || '';
       const verSel = card.querySelector('select[name$="[version]"]');
       if (verSel && dev.version) {
         for (const opt of verSel.options) { if (opt.value === dev.version) { opt.selected = true; break; } }
@@ -2945,7 +2949,7 @@ function populateTuyaDevicesFromCloud(devices) {
       name: dev.name || dev.product_name || '',
       enabled: true,
       dev_id: devId,
-      address: dev.ip || '',
+      address: '',   // cloud IP is public/WAN — user must scan LAN for local IP
       local_key: dev.key || '',
       version: dev.version || '3.3',
       poll_interval: 30,
