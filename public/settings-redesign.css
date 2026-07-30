@@ -946,6 +946,15 @@ table tr:hover td {
   gap: 0.75rem;
 }
 
+/* Tuya device grid — max 3 per row, responsive */
+.tuya-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 1100px) { .tuya-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { .tuya-grid { grid-template-columns: 1fr; } }
+
 .device-card {
   background: var(--bg);
   border: 1px solid var(--border);
