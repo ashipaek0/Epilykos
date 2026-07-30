@@ -42,7 +42,7 @@ export function updateWithState(state) {
   if (blockTypes.has('chart-power')) updatePowerChartFromState(state);
   if (blockTypes.has('chart-energy')) updateEnergyChartFromState(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
-  const forecastTypes = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'pv-today', 'weather-block'];
+  const forecastTypes = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
   const hasForecast = forecastTypes.some(t => blockTypes.has(t));
   if (hasForecast) updateForecast();
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
