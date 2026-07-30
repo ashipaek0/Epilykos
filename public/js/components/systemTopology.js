@@ -17,6 +17,18 @@
 import { escapeHtml } from '../utils.js';
 import { uid } from '../utils/uid.js';
 
+const flowLineObservers = new Map();
+let flowLineResizePending = new Set();
+
+function scheduleFlowLineReposition(container) {
+  if (flowLineResizePending.has(container)) return;
+  flowLineResizePending.add(container);
+  requestAnimationFrame(() => {
+    flowLineResizePending.delete(container);
+    positionFlowLines(container);
+  });
+}
+
 export function buildSystemTopology(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
@@ -47,6 +59,18 @@ export function buildSystemTopology(block = {}) {
       </div>
       <div class="topo-line topo-line-solar"></div><div class="topo-line topo-line-grid"></div><div class="topo-line topo-line-home"></div><div class="topo-line topo-line-battery"></div>
     </div>`;
+
+  // ResizeObserver: reposition flow lines when card size changes
+  if (id) {
+    if (flowLineObservers.has(id)) flowLineObservers.get(id).disconnect();
+    const observer = new ResizeObserver(() => scheduleFlowLineReposition(container));
+    requestAnimationFrame(() => {
+      const grid = container.querySelector('.topo-grid');
+      if (grid) observer.observe(grid);
+    });
+    flowLineObservers.set(id, observer);
+  }
+
   return container;
 }
 export function updateSystemTopology(state) {
