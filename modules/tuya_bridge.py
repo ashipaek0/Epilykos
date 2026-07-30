@@ -66,18 +66,17 @@ def discover_subnet(subnet):
 
     found = []
 
-    # Use tinytuya's built-in scanner with forcescan to probe the entire subnet
-    # in a single call — tinytuya handles threading internally.
+    # Use tinytuya's built-in scanner with wantips (directed TCP probe).
+    # wantips works without any keys — just checks if a Tuya device responds on each IP.
     try:
         from tinytuya.scanner import devices as scan_devices
-        # Build list of all IP strings in the subnet
         ip_list = [str(ip) for ip in hosts]
         result = scan_devices(
             verbose=False,
-            scantime=8,           # seconds to wait for responses
-            poll=False,           # don't try to query DPs (needs keys)
-            discover=False,       # don't listen for unsolicited broadcasts
-            forcescan=ip_list,    # force-scan every IP in the subnet
+            scantime=8,
+            poll=False,
+            wantips=ip_list,        # probe specific IPs (works without keys)
+            discover=False,          # don't listen for UDP broadcasts
             assume_yes=True
         )
         if result:
