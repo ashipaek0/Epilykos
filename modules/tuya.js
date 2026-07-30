@@ -183,7 +183,23 @@ function parseScanOutput(stdout) {
  *
  * @returns {Promise<Array<{dev_id: string, ip: string, version: string}>>}
  */
-async function discoverTuyaDevices() {
+/**
+ * Discover Tuya devices on the LAN.
+ *
+ * @param {string} [subnet] - Optional subnet in CIDR notation (e.g. "192.168.0.0/24").
+ *   When provided, scans every IP in the subnet via TCP probe to port 6668.
+ *   When omitted, does a UDP broadcast scan (same-subnet only).
+ * @returns {Promise<Array<{dev_id: string, ip: string, version: string}>>}
+ */
+async function discoverTuyaDevices(subnet) {
+  if (subnet) {
+    // Directed scan — probes every IP in the subnet via TCP 6668.
+    // Works across routed subnets. Uses tuya_bridge.py discover action.
+    const script = path.join(__dirname, 'tuya_bridge.py');
+    return runBridge(script, ['discover', subnet]);
+  }
+
+  // UDP broadcast scan (original behaviour, same-subnet only)
   return new Promise((resolve, reject) => {
     const child = execFile('python3', ['-m', 'tinytuya', 'scan'], { timeout: 30000 });
 
@@ -195,7 +211,6 @@ async function discoverTuyaDevices() {
       if (settled) return;
       settled = true;
       child.kill('SIGTERM');
-      // If we got partial output, try to parse it before giving up
       if (stdout.trim()) {
         try {
           const devices = parseScanOutput(stdout);

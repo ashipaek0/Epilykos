@@ -198,6 +198,9 @@
             <p class="note" style="font-size:0.8rem;color:var(--text-tertiary);margin-bottom:0.75rem;">
               Scan your local network for Tuya devices. No credentials needed. Copy a device ID for Step 2.
             </p>
+            <div class="form-row" style="margin-bottom:0.5rem;">
+              <input type="text" id="tuya-scan-subnet" placeholder="Subnet (e.g. 192.168.0.0/24) — leave empty for auto-detect" style="flex:1;font-size:0.85rem;">
+            </div>
             <div class="test-row">
               <button type="button" id="tuya-lan-scan-btn" class="fetch-btn">🔍 Scan LAN for Tuya Devices</button>
               <span class="test-status" id="tuya-lan-status"></span>

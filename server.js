@@ -1358,7 +1358,10 @@ app.get('/api/bms/device-status', (req, res) => {
 
 app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
   try {
-    const devices = await discoverTuyaDevices();
+    // Accept optional ?subnet=192.168.0.0/24 for cross-subnet directed scan
+    const rawSubnet = req.query.subnet;
+    const subnet = Array.isArray(rawSubnet) ? rawSubnet[0] : (rawSubnet || '');
+    const devices = await discoverTuyaDevices(subnet || undefined);
     res.json({ success: true, devices });
   } catch (err) {
     logger.error('[Tuya] Discover error:', err.message);
