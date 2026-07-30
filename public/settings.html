@@ -1143,59 +1143,21 @@
     observer.observe(snapSection, { attributes: true, attributeFilter: ['style'] });
   }
 
-  // ── Mappings filter + pagination ──────────────────────
-  var MAPPINGS_PAGE_SIZE = 5;
+  // ── Mappings filter ──────────────────────
   function applyMappingFilterAndPagination(containerId) {
     var list = document.getElementById(containerId);
     if (!list) return;
     var rows = Array.from(list.querySelectorAll('.metric-row'));
-    var filterInput = document.querySelector('.mappings-filter-input[data-container="' + containerId + '"]');
-    var moreBtn = document.querySelector('.mappings-show-more[data-container="' + containerId + '"]');
-    var moreWrap = moreBtn ? moreBtn.closest('.mappings-pagination') : null;
+    var filterInput = document.querySelector('.mappings-filter-input[data-container=' + containerId + ']');
     var filterText = filterInput ? filterInput.value.toLowerCase().trim() : '';
-    var visibleRows = rows;
     if (filterText) {
-      visibleRows = rows.filter(function(row) { return row.textContent.toLowerCase().includes(filterText); });
-      rows.forEach(function(row) { row.dataset.mfHidden = '1'; row.style.display = 'none'; });
-      visibleRows.forEach(function(row) { delete row.dataset.mfHidden; row.style.display = ''; });
-    } else {
-      rows.forEach(function(row) { delete row.dataset.mfHidden; row.style.display = ''; });
-    }
-    if (visibleRows.length > MAPPINGS_PAGE_SIZE && !filterText) {
-      var curPage = parseInt(moreBtn?.dataset.page || '1');
-      var end = MAPPINGS_PAGE_SIZE * curPage;
-      visibleRows.forEach(function(row, i) {
-        row.style.display = i < end ? '' : 'none';
+      rows.forEach(function(row) {
+        row.style.display = row.textContent.toLowerCase().includes(filterText) ? '' : 'none';
       });
-      var remaining = visibleRows.length - end;
-      if (remaining > 0 && moreWrap) {
-        moreWrap.style.display = '';
-        if (moreBtn) {
-          moreBtn.textContent = 'Show more (' + remaining + '+)';
-          var newHandler = function() {
-            var curPage = parseInt(moreBtn.dataset.page || '1');
-            var nextEnd = MAPPINGS_PAGE_SIZE * (curPage + 1);
-            visibleRows.forEach(function(row, i) {
-              row.style.display = i < nextEnd ? '' : 'none';
-            });
-            var stillRemaining = visibleRows.length - nextEnd;
-            if (stillRemaining <= 0) {
-              moreWrap.style.display = 'none';
-              moreBtn.textContent = 'All shown';
-            } else {
-              moreBtn.textContent = 'Show more (' + stillRemaining + '+)';
-            }
-            moreBtn.dataset.page = String(curPage + 1);
-          };
-          moreBtn.onclick = newHandler;
-        }
-      }
-    } else if (moreWrap) {
-      moreWrap.style.display = 'none';
+    } else {
+      rows.forEach(function(row) { row.style.display = ''; });
     }
   }
-
-  // Event delegation for filter inputs
   document.getElementById('settings-form').addEventListener('input', function(e) {
     var input = e.target.closest('.mappings-filter-input');
     if (input) {
@@ -1244,6 +1206,6 @@
 })();
 </script>
 <script src="/js/csrf.js"></script>
-<script src="settings.js"></script>
+<script src="settings.js?v=6"></script>
 </body>
 </html>

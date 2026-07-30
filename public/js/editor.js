@@ -82,8 +82,8 @@ function buildAppearanceFields(block) {
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">',
     '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-enabled"' + (block.enabled !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-enabled">Enabled</label></span>',
     '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-transparent"' + (transparent ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-transparent">Transparent</label></span>',
-    '<label style="font-size:0.85rem;">Bg Color <input type="color" id="modal-bgcolor" value="' + bgColor + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
-    '<label style="font-size:0.85rem;">Font Color <input type="color" id="modal-fontcolor" value="' + fontColor + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
+    '<label style="font-size:0.85rem;">Bg Color <input type="color" id="modal-bgcolor" value="' + bgColor + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
+    '<label style="font-size:0.85rem;">Font Color <input type="color" id="modal-fontcolor" value="' + fontColor + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
     '</div>',
     '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Font Size <input type="text" id="modal-fontsize" value="' + fontSize + '" placeholder="e.g. 0.9rem" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>',
     '</fieldset>'
@@ -615,9 +615,9 @@ function readSettingsForm(block) {
   config.enabled = document.getElementById('modal-enabled')?.checked !== false;
   config.transparent = document.getElementById('modal-transparent')?.checked || false;
   config.bgColor = document.getElementById('modal-bgcolor')?.value || '';
-  if (config.bgColor === '#000000') config.bgColor = '';
+  if (config.bgColor === '#000000' && document.getElementById('modal-bgcolor')?.dataset.dirty !== 'true') config.bgColor = '';
   config.fontColor = document.getElementById('modal-fontcolor')?.value || '';
-  if (config.fontColor === '#000000') config.fontColor = '';
+  if (config.fontColor === '#000000' && document.getElementById('modal-fontcolor')?.dataset.dirty !== 'true') config.fontColor = '';
   config.fontSize = document.getElementById('modal-fontsize')?.value || '';
 
   // Apply common fields to block
@@ -875,6 +875,33 @@ function refreshGridItem(block) {
         }
       }
       inner.appendChild(content);
+
+      // Apply block styling (mirrors dashboard.js render loop)
+      if (block.bgColor && block.bgColor !== '#ffffff') {
+        content.style.setProperty('background-color', block.bgColor, 'important');
+      }
+      if (block.innerBgColor && block.innerBgColor !== '#ffffff') {
+        content.style.setProperty('--card-bg', block.innerBgColor, 'important');
+        content.style.setProperty('--bg', block.innerBgColor, 'important');
+      }
+      if (block.fontColor && block.fontColor !== '#000000') {
+        content.style.setProperty('color', block.fontColor, 'important');
+      }
+      if (block.fontSize) {
+        content.style.fontSize = block.fontSize;
+      }
+      if (block.transparent) {
+        content.style.background = 'transparent';
+        content.style.borderColor = 'transparent';
+        content.style.boxShadow = 'none';
+        content.style.setProperty('--card-bg', 'transparent');
+        content.style.setProperty('--bg', 'transparent');
+        content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
+          el.style.background = 'transparent';
+          el.style.borderColor = 'transparent';
+          el.style.boxShadow = 'none';
+        });
+      }
     }
   }
 }
@@ -910,6 +937,12 @@ async function openSettingsModal(block) {
   var body = document.getElementById('settings-modal-body');
   body.innerHTML = buildSettingsForm(block);
   showSettingsModal();
+
+  // Mark color inputs as dirty when user interacts with them
+  var bgInput = document.getElementById('modal-bgcolor');
+  var fgInput = document.getElementById('modal-fontcolor');
+  if (bgInput) bgInput.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
+  if (fgInput) fgInput.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
 
   // Initialize dynamic row renderers after DOM is populated
   switch (block.type) {

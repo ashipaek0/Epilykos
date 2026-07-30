@@ -211,12 +211,9 @@ function renderHaDevice(device, idx) {
         <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="ha-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
-      <div class="mappings-pagination" id="ha-mappings-more-${idx}" style="display:none;">
-        <button type="button" class="fetch-btn mappings-show-more" data-container="ha-mappings-list-${idx}" data-page="1">Show more (5+)</button>
-      </div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon">?</span>
       </button>
     </div>
   `;
@@ -270,6 +267,12 @@ function renderHaDevice(device, idx) {
     const used = getAllUsedMetrics();
     addHaMetricRow(device, idx, '', '', Array.from(used));
     refreshAllMetricDropdowns();
+    // Defensive: strip comma-containing options that may have leaked into entity selects
+    setTimeout(() => {
+      card.querySelectorAll('.mappings-list select.entity-select option').forEach(o => {
+        if (o.value && o.value.includes(',')) o.remove();
+      });
+    }, 100);
   });
 
   const helpIcon = card.querySelector('.metric-help-icon');
@@ -321,6 +324,10 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
     opt.selected = true;
     entitySelect.appendChild(opt);
   }
+  // Defensive: strip any options containing commas (pollution from dead data-tooltip etc.)
+  entitySelect.querySelectorAll('option').forEach(o => {
+    if (o.value && o.value.includes(',')) o.remove();
+  });
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
@@ -414,12 +421,9 @@ function renderMqttDevice(device, idx) {
         <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="mqtt-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
-      <div class="mappings-pagination" id="mqtt-mappings-more-${idx}" style="display:none;">
-        <button type="button" class="fetch-btn mappings-show-more" data-container="mqtt-mappings-list-${idx}" data-page="1">Show more (5+)</button>
-      </div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
         + Add Metric Mapping
-        <span class="metric-help-icon" data-tooltip="${escapeHtml(allMetrics.map(m => m.name).join(', ') || 'none yet')}">?</span>
+        <span class="metric-help-icon">?</span>
       </button>
     </div>
   `;
@@ -510,35 +514,22 @@ function renderMqttDevice(device, idx) {
       const res = await fetch(`/api/mqtt-discover-topics?${params.toString()}`);
       const data = await res.json();
       if (res.ok && data.topics && data.topics.length) {
-        showStatus(statusEl, `Found ${data.count} topics`, 'success');
-        // Clear existing topic rows
-        mappingsContainer.innerHTML = '';
-        // Create a row for each discovered topic
-        data.topics.forEach((topic, tIdx) => {
-          const row = document.createElement('div');
-          row.className = 'metric-row';
-          const globalUsed = getAllUsedMetrics();
-          const metricSelect = createMetricDropdown('', Array.from(globalUsed));
-          const topicInput = document.createElement('input');
-          topicInput.type = 'text';
-          topicInput.className = 'topic-input';
-          topicInput.value = topic;
-          const removeBtn = document.createElement('button');
-          removeBtn.type = 'button';
-          removeBtn.className = 'remove-btn remove-metric danger';
-          removeBtn.textContent = '✕';
-          removeBtn.addEventListener('click', () => {
-            row.remove();
-            refreshAllMetricDropdowns();
-          });
-          metricSelect.addEventListener('change', () => {
-            refreshAllMetricDropdowns();
-          });
-          row.appendChild(metricSelect);
-          row.appendChild(topicInput);
-          row.appendChild(removeBtn);
-          mappingsContainer.appendChild(row);
+        // Collect existing topic→metric mappings before modifying DOM
+        const existingRows = mappingsContainer.querySelectorAll('.metric-row');
+        const existingTopics = new Set();
+        existingRows.forEach(row => {
+          const ti = row.querySelector('.topic-input');
+          if (ti && ti.value) existingTopics.add(ti.value);
         });
+        // Add rows for newly discovered topics (never remove existing ones)
+        let added = 0;
+        data.topics.forEach(topic => {
+          if (existingTopics.has(topic)) return; // already mapped — keep
+          const globalUsed = getAllUsedMetrics();
+          addMqttMetricRow({}, idx, mappingsContainer, '', topic, Array.from(globalUsed));
+          added++;
+        });
+        showStatus(statusEl, `Found ${data.count} topics` + (added ? ` (${added} new)` : ' — all already mapped'), 'success');
         refreshAllMetricDropdowns();
       } else if (res.ok) {
         showStatus(statusEl, 'No topics found on broker', 'info');
