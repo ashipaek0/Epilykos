@@ -2997,43 +2997,118 @@ if (tuyaLanScanBtn) {
   });
 }
 
-// Cloud fetch button
-const tuyaCloudFetchBtn = document.getElementById('tuya-cloud-fetch-btn');
-if (tuyaCloudFetchBtn) {
-  tuyaCloudFetchBtn.addEventListener('click', async function() {
-    const statusEl = document.getElementById('tuya-cloud-status');
-    const region = document.getElementById('tuya-cloud-region').value;
-    const accessId = document.getElementById('tuya-cloud-access-id').value.trim();
-    const accessSecret = document.getElementById('tuya-cloud-access-secret').value.trim();
-    const userId = document.getElementById('tuya-cloud-user-id').value.trim();
-    if (!region || !accessId || !accessSecret) {
-      showStatus(statusEl, 'Region, Access ID, and Access Secret are required', 'error');
+// QR Code OAuth flow
+const tuyaGenerateQrBtn = document.getElementById('tuya-generate-qr-btn');
+const tuyaQrContainer = document.getElementById('tuya-qr-container');
+const tuyaQrCanvas = document.getElementById('tuya-qr-canvas');
+const tuyaOauthStatus = document.getElementById('tuya-oauth-status');
+let oauthTokenInfo = null;
+let pollTimer = null;
+
+if (tuyaGenerateQrBtn) {
+  tuyaGenerateQrBtn.addEventListener('click', async function() {
+    const uid = document.getElementById('tuya-uid').value.trim();
+    if (!uid) {
+      showStatus(tuyaOauthStatus, 'Enter your Smart Life UID first', 'error');
       return;
     }
-    if (!userId) {
-      showStatus(statusEl, 'Smart Life UID is required (find in app: Me → Settings → Account)', 'error');
-      return;
-    }
-    showStatus(statusEl, 'Fetching devices from Tuya Cloud...', 'info');
+    showStatus(tuyaOauthStatus, 'Generating QR code...', 'info');
     try {
-      const res = await fetch('/api/tuya-cloud-fetch', {
+      const res = await fetch('/api/tuya-generate-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         credentials: 'include',
-        body: JSON.stringify({ region, access_id: accessId, access_secret: accessSecret, user_id: userId })
+        body: JSON.stringify({ uid })
       });
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Cloud fetch failed');
-      if (data.devices && data.devices.length > 0) {
-        populateTuyaDevicesFromCloud(data.devices);
-        showStatus(statusEl, `Fetched ${data.devices.length} device(s)`, 'success');
-      } else {
-        showStatus(statusEl, 'No devices returned from cloud', 'info');
-      }
+      if (!res.ok || data.error) throw new Error(data.error || 'Failed');
+      
+      // Generate QR code on canvas
+      const qrUrl = data.qr_url;
+      drawQrCode(tuyaQrCanvas, qrUrl);
+      tuyaQrContainer.style.display = 'block';
+      showStatus(tuyaOauthStatus, 'Scan QR code with Smart Life app...', 'info');
+      
+      // Start polling
+      startLoginPoll(data.qr_token, uid);
     } catch (e) {
-      showStatus(statusEl, e.message, 'error');
+      showStatus(tuyaOauthStatus, e.message, 'error');
     }
   });
+}
+
+function drawQrCode(canvas, text) {
+  // Simple QR code drawing using a data URL from a quick API
+  // We'll generate via a URL-based QR API or inline
+  const size = 200;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  
+  // Generate QR code using Google Charts API (lightweight, no deps)
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, size, size);
+  };
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+}
+
+async function startLoginPoll(qrToken, uid) {
+  if (pollTimer) clearInterval(pollTimer);
+  
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch('/api/tuya-poll-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'include',
+        body: JSON.stringify({ qr_token: qrToken, uid })
+      });
+      const data = await res.json();
+      
+      if (data.status === 'ok') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showStatus(tuyaOauthStatus, 'Login successful! Fetching devices...', 'success');
+        oauthTokenInfo = data;
+        await fetchDevicesWithOAuth(data);
+      } else if (data.status === 'expired') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showStatus(tuyaOauthStatus, 'QR code expired — generate a new one', 'error');
+      } else if (data.status === 'error') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showStatus(tuyaOauthStatus, data.error || 'Login failed', 'error');
+      }
+      // 'waiting' — keep polling
+    } catch (e) {
+      // Silently retry on network errors
+    }
+  }, 3000);
+}
+
+async function fetchDevicesWithOAuth(tokenInfo) {
+  try {
+    const res = await fetch('/api/tuya-fetch-oauth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'include',
+      body: JSON.stringify({ token_info: tokenInfo })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Device fetch failed');
+    if (data.devices && data.devices.length > 0) {
+      populateTuyaDevicesFromCloud(data.devices);
+      showStatus(tuyaOauthStatus, `Fetched ${data.devices.length} device(s)`, 'success');
+    } else {
+      showStatus(tuyaOauthStatus, 'No devices found on account', 'info');
+    }
+  } catch (e) {
+    showStatus(tuyaOauthStatus, e.message, 'error');
+  }
 }
 
 // Add Manual Tuya Device button

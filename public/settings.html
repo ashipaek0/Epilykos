@@ -223,27 +223,22 @@
               </div>
             </div>
 
-            <!-- RIGHT: Cloud Fetch -->
+            <!-- RIGHT: QR Code Login -->
             <div class="tuya-panel">
-              <div class="section-divider"><span class="stg-divider-icon">☁️</span> Fetch from Tuya Cloud</div>
-              <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.5rem;">
-                For devices not in HA. Get your <strong>UID</strong> from the Smart Life app (Me → Settings → Account).
-                API credentials from <a href="https://iot.tuya.com" target="_blank" style="color:var(--accent);">iot.tuya.com</a> → Cloud.
+              <div class="section-divider"><span class="stg-divider-icon">🔐</span> Smart Life Login</div>
+              <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.75rem;">
+                Enter your <strong>Smart Life UID</strong> (find it in Smart Life app → Me → ⚙ → Account → User ID).<br>
+                Scan the QR code with the Smart Life app to log in.
               </p>
-              <div class="form-row" style="margin-bottom:0.5rem;">
-                <select id="tuya-cloud-region" style="width:100px;flex:0 0 auto;">
-                  <option value="eu">EU</option><option value="us">US</option><option value="cn">China</option><option value="in">India</option>
-                </select>
-                <input type="text" id="tuya-cloud-access-id" placeholder="Access ID / Client ID" style="flex:1;">
+              <div class="form-row" style="margin-bottom:0.75rem;">
+                <input type="text" id="tuya-uid" placeholder="Smart Life UID" style="flex:1;">
+                <button type="button" id="tuya-generate-qr-btn" class="btn btn-sm">Generate QR Code</button>
               </div>
-              <div class="form-row" style="margin-bottom:0.5rem;">
-                <input type="password" id="tuya-cloud-access-secret" placeholder="Access Secret / Client Secret" style="flex:1;">
-                <input type="text" id="tuya-cloud-user-id" placeholder="Smart Life UID" style="flex:1;font-size:0.8rem;">
+              <div id="tuya-qr-container" style="display:none;text-align:center;margin:1rem 0;">
+                <canvas id="tuya-qr-canvas" style="border:8px solid #fff;border-radius:8px;"></canvas>
+                <p class="note" style="margin-top:0.5rem;color:var(--accent);">Scan with Smart Life app → Me → + → Scan QR Code</p>
               </div>
-              <div class="test-row">
-                <button type="button" id="tuya-cloud-fetch-btn" class="fetch-btn">🔗 Fetch from Cloud</button>
-                <span class="test-status" id="tuya-cloud-status"></span>
-              </div>
+              <div id="tuya-oauth-status" class="test-status"></div>
             </div>
           </div>
 
