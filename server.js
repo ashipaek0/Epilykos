@@ -30,6 +30,7 @@ const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = requ
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
+const { pollTuyaDevices, fetchCloudDevices, discoverTuyaDevices, testTuyaDevice } = require('./modules/tuya');
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
@@ -278,6 +279,7 @@ async function pollAllSources() {
   try {
     await pollHomeAssistant();
     await pollModbus();
+    await pollTuyaDevices();
     await pollRs232();         // RS232 serial inverter polling
     await pollLegacyHistory();
     await pollGridStatus();
@@ -910,9 +912,10 @@ app.post('/api/settings', (req, res) => {
   try {
     // Reject keys matching sensitive patterns (token, password, secret, key, etc.)
     const sensitivePattern = /_token$|_password$|_secret$/i;
+    const sensitiveKeyExempt = ['tuya_cloud'];
     const filteredUpdates = {};
     for (const [key, value] of Object.entries(updates)) {
-      if (sensitivePattern.test(key)) {
+      if (sensitivePattern.test(key) && !sensitiveKeyExempt.includes(key)) {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
         continue;
       }
@@ -1002,7 +1005,8 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
     const allowed = [
       'ha_devices', 'mqtt_devices', 'modbus_devices', 'rs232_devices',
       'external_sources', 'external_poll_interval',
-      'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config'
+      'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
+      'tuya_devices', 'tuya_cloud'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
 
@@ -1347,6 +1351,40 @@ app.get('/api/bms/device-status', (req, res) => {
   } catch (err) {
     logger.error('BMS device-status error:', err.message);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Tuya API routes ─────────────────────────────────────────────
+
+app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
+  try {
+    const devices = await discoverTuyaDevices();
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] Discover error:', err.message);
+    res.status(500).json({ error: err.message || 'Discovery failed' });
+  }
+});
+
+app.post('/api/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
+  try {
+    const { region, access_id, access_secret, device_id } = req.body;
+    const devices = await fetchCloudDevices(region, access_id, access_secret, device_id);
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] Cloud fetch error:', err.message);
+    res.status(500).json({ error: err.message || 'Cloud fetch failed' });
+  }
+});
+
+app.post('/api/test-tuya', isAuthenticated, async (req, res) => {
+  try {
+    const { dev_id, address, local_key, version } = req.body;
+    const result = await testTuyaDevice({ dev_id, address, local_key, version });
+    res.json(result);
+  } catch (err) {
+    logger.error('[Tuya] Test error:', err.message);
+    res.status(500).json({ error: err.message || 'Test failed' });
   }
 });
 

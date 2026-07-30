@@ -169,6 +169,8 @@ function initializeDatabase() {
     'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
     'user_metrics', 'bms_devices', 'dongle_config', 'pvoutput_config', 'pvoutput_stats_cache', 'pvoutput_rate_limit_state',
     'rs232_devices',
+    'tuya_devices',
+    'tuya_cloud',
     // Dashboard blob split: new granular keys
     'dashboard_layouts', 'dashboard_active',
     // Network
