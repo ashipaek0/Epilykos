@@ -2971,10 +2971,13 @@ if (tuyaLanScanBtn) {
     const statusEl = document.getElementById('tuya-lan-status');
     const resultsTable = document.getElementById('tuya-lan-results');
     const resultsBody = document.getElementById('tuya-lan-results-body');
-    showStatus(statusEl, 'Scanning LAN... (~18s)', 'info');
+    const subnetInput = document.getElementById('tuya-scan-subnet');
+    const subnet = subnetInput ? subnetInput.value.trim() : '';
+    const url = subnet ? `/api/tuya-discover?subnet=${encodeURIComponent(subnet)}` : '/api/tuya-discover';
+    showStatus(statusEl, subnet ? `Scanning ${subnet}...` : 'Scanning LAN... (~18s)', 'info');
     if (resultsTable) resultsTable.style.display = 'none';
     try {
-      const res = await fetch('/api/tuya-discover', { credentials: 'include' });
+      const res = await fetch(url, { credentials: 'include' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Discovery failed');
       if (!data.devices || data.devices.length === 0) {
