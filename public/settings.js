@@ -2777,7 +2777,7 @@ function renderTuyaDevice(device, idx) {
       const cardDevId = card.querySelector('input[name$="[dev_id]"]').value.trim();
       const match = cardDevId
         ? data.devices.find(d => d.dev_id === cardDevId)
-        : data.devices[0];
+        : null;
       const dev = match || data.devices[0];
       card.querySelector('input[name$="[address]"]').value = dev.ip || '';
       card.querySelector('input[name$="[dev_id]"]').value = dev.dev_id || '';
@@ -2785,7 +2785,13 @@ function renderTuyaDevice(device, idx) {
       if (verSel && dev.version) {
         for (const opt of verSel.options) { if (opt.value === dev.version) { opt.selected = true; break; } }
       }
-      showStatus(statusEl, `Found ${data.devices.length} device(s). Filled from first.`, 'success');
+      if (match) {
+        showStatus(statusEl, `Matched device at ${dev.ip}`, 'success');
+      } else if (cardDevId) {
+        showStatus(statusEl, `No match for ${cardDevId} — filled from first device at ${dev.ip}`, 'warning');
+      } else {
+        showStatus(statusEl, `No device ID set — filled from first device at ${dev.ip}`, 'info');
+      }
     } catch (e) {
       showStatus(statusEl, e.message, 'error');
     }
