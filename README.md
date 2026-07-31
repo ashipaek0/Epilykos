@@ -99,6 +99,14 @@ Enter your broker URL and map MQTT topics to the metrics you want to display.
 Supported profiles: **SRNE**, **Deye**, **Growatt**, **Victron**, **Voltronic/Axpert**, **Solis**, **Luxpower**, **Felicity**, **Generic MPPT**.  
 Connects via TCP or serial interface. All profiles are validated against official manufacturer register maps.
 
+### Tuya (Smart Life)
+
+Connect Tuya-compatible smart devices directly on your LAN — no cloud dependency for runtime data. Epilykos polls devices locally via encrypted TCP (port 6668).
+
+**One-time setup:** Enter your Smart Life UID, scan a QR code to authenticate, and all devices are automatically populated with their local keys and DP (Data Point) labels fetched from the cloud. After that, everything runs locally.
+
+**Manual setup:** For devices not discovered via the cloud flow, enter the Device ID, Local Key, and IP Address directly.
+
 ### External REST API
 Point Epilykos at any HTTP API that returns JSON. Map JSON field paths to dashboard metrics.
 
