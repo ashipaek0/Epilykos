@@ -2726,7 +2726,7 @@ function renderTuyaDevice(device, idx) {
       <input type="text" name="tuya_devices[${idx}][address]" placeholder="IP Address" value="${escapeHtml(device.address || '')}">
     </div>
     <div class="form-row">
-      <input type="password" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
+      <input type="text" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
       <select name="tuya_devices[${idx}][version]" style="width:120px;flex:0 0 auto;">${versionOptsHtml}</select>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🧪</span> Discovery &amp; Test</div>
@@ -2818,8 +2818,22 @@ function renderTuyaDevice(device, idx) {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        const dpCount = data.dps ? Object.keys(data.dps).length : 0;
+        const dpKeys = data.dps ? Object.keys(data.dps) : [];
+        const dpCount = dpKeys.length;
         showStatus(statusEl, `Connected! ${dpCount} DPs found`, 'success');
+        // Auto-populate DP mapping rows from returned DPs
+        if (dpCount > 0) {
+          const mappingsList = card.querySelector('.mappings-list');
+          if (mappingsList) {
+            // Clear existing rows before populating
+            mappingsList.innerHTML = '';
+            // Create a mapping row for each DP number (manual mode, no cloud label)
+            dpKeys.sort((a, b) => parseInt(a) - parseInt(b)).forEach(dpNum => {
+              addTuyaDpRow(card, idx, '', String(dpNum), null);
+            });
+            refreshAllMetricDropdowns();
+          }
+        }
       } else {
         showStatus(statusEl, data.error || 'Connection failed', 'error');
       }
