@@ -30,7 +30,7 @@ const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = requ
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
-const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice } = require('./modules/tuya');
+const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
@@ -1425,6 +1425,22 @@ app.post('/api/test-tuya', isAuthenticated, async (req, res) => {
   } catch (err) {
     logger.error('[Tuya] Test error:', err.message);
     res.status(500).json({ error: err.message || 'Test failed' });
+  }
+});
+
+app.post('/api/tuya-verify-all', isAuthenticated, async (req, res) => {
+  try {
+    const { devices } = req.body;
+    if (!Array.isArray(devices) || devices.length === 0) {
+      return res.status(400).json({ error: 'devices array is required' });
+    }
+    const results = await verifyAllTuyaDevices(devices);
+    const successCount = results.filter(r => r.success).length;
+    const totalCount = results.length;
+    res.json({ success: true, results, summary: `${successCount}/${totalCount} devices connected` });
+  } catch (err) {
+    logger.error('[Tuya] Verify all error:', err.message);
+    res.status(500).json({ error: err.message || 'Verify all failed' });
   }
 });
 

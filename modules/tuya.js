@@ -305,4 +305,28 @@ async function testTuyaDevice({ dev_id, address, local_key, version } = {}) {
   }
 }
 
-module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice };
+/**
+ * Batch-verify all Tuya device connections.
+ * Tests each device's LAN connectivity and reports success/failure per device.
+ *
+ * @param {Array<{dev_id: string, address: string, local_key: string, version?: string, name?: string}>} devices
+ * @returns {Promise<Array<{name: string, dev_id: string, success: boolean, dps?: object, error?: string}>>}
+ */
+async function verifyAllTuyaDevices(devices) {
+  const results = [];
+  for (const device of devices) {
+    if (!device.dev_id || !device.address || !device.local_key) {
+      results.push({ name: device.name || device.dev_id || 'unknown', dev_id: device.dev_id, success: false, error: 'Missing dev_id/address/local_key' });
+      continue;
+    }
+    try {
+      const res = await testTuyaDevice(device);
+      results.push({ name: device.name || device.dev_id, dev_id: device.dev_id, ...res });
+    } catch (e) {
+      results.push({ name: device.name || device.dev_id, dev_id: device.dev_id, success: false, error: e.message });
+    }
+  }
+  return results;
+}
+
+module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices };
