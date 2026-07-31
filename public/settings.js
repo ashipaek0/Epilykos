@@ -2821,15 +2821,54 @@ function renderTuyaDevice(device, idx) {
         const dpKeys = data.dps ? Object.keys(data.dps) : [];
         const dpCount = dpKeys.length;
         showStatus(statusEl, `Connected! ${dpCount} DPs found`, 'success');
+        // Store test DPs on the card for future dropdown use
+        card._tuyaTestDps = data.dps;
+        // Build reverse label lookup from cloud dpNames (label→dpNum → dpNum→label)
+        const dpLabelMap = {};
+        if (card.dataset.cloudFetched === 'true') {
+          // dpNames is { label: dpNum } — invert to { dpNum: label }
+          const rows = card.querySelectorAll('.dp-label');
+          rows.forEach(row => {
+            const dp = row.dataset.dp;
+            const codeEl = row.querySelector('code');
+            if (dp && codeEl) {
+              const label = row.textContent.replace(codeEl.textContent, '').trim();
+              if (label) dpLabelMap[dp] = label;
+            }
+          });
+          // Also check device.dpNames from initial render
+          // (dpNames stored as data-dp-names on card for persistence)
+          if (card.dataset.dpNames) {
+            try {
+              const dpNames = JSON.parse(card.dataset.dpNames);
+              Object.entries(dpNames).forEach(([label, dpNum]) => {
+                if (!dpLabelMap[dpNum]) dpLabelMap[dpNum] = label;
+              });
+            } catch (e) { /* ignore parse errors */ }
+          }
+        }
         // Auto-populate DP mapping rows from returned DPs
         if (dpCount > 0) {
           const mappingsList = card.querySelector('.mappings-list');
           if (mappingsList) {
+            // Preserve existing metricName→dpNumber mappings before clearing
+            const existingMappings = {};
+            mappingsList.querySelectorAll('.metric-row').forEach(row => {
+              const metricSel = row.querySelector('.metric-name');
+              const dpLabel = row.querySelector('.dp-label');
+              const dpInput = row.querySelector('.dp-input');
+              const dp = dpLabel ? dpLabel.dataset.dp : (dpInput ? dpInput.value : '');
+              if (metricSel && metricSel.value && dp) {
+                existingMappings[dp] = metricSel.value;
+              }
+            });
             // Clear existing rows before populating
             mappingsList.innerHTML = '';
-            // Create a mapping row for each DP number (manual mode, no cloud label)
+            // Create a mapping row for each DP number with cloud label if available
             dpKeys.sort((a, b) => parseInt(a) - parseInt(b)).forEach(dpNum => {
-              addTuyaDpRow(card, idx, '', String(dpNum), null);
+              const label = dpLabelMap[dpNum] || null;
+              const metricName = existingMappings[dpNum] || '';
+              addTuyaDpRow(card, idx, metricName, String(dpNum), label);
             });
             refreshAllMetricDropdowns();
           }
@@ -2842,10 +2881,24 @@ function renderTuyaDevice(device, idx) {
     }
   });
 
-  // Add DP Mapping button
+  // Add DP Mapping button — show DP dropdown if Test Connection data available
   card.querySelector('.add-tuya-dp').addEventListener('click', () => {
-    addTuyaDpRow(card, idx, '', '');
-    refreshAllMetricDropdowns();
+    const testDps = card._tuyaTestDps;
+    if (testDps && typeof testDps === 'object' && Object.keys(testDps).length > 0) {
+      // Build label lookup from dpNames on card
+      const labelMap = {};
+      if (card.dataset.dpNames) {
+        try {
+          const dpNames = JSON.parse(card.dataset.dpNames);
+          Object.entries(dpNames).forEach(([label, dpNum]) => { labelMap[dpNum] = label; });
+        } catch (e) { /* ignore */ }
+      }
+      // Show DP selection dropdown
+      showDpSelectionPopup(card, idx, testDps, labelMap);
+    } else {
+      addTuyaDpRow(card, idx, '', '');
+      refreshAllMetricDropdowns();
+    }
   });
 
   // Render existing DP mappings
@@ -2855,6 +2908,8 @@ function renderTuyaDevice(device, idx) {
     if (device.dpNames && typeof device.dpNames === 'object') {
       // Cloud-fetched: dpNames is { label: dpNumber }
       card.dataset.cloudFetched = 'true';
+      // Store dpNames on card for Test Connection label lookup
+      card.dataset.dpNames = JSON.stringify(device.dpNames);
       Object.entries(device.dpNames).forEach(([label, dpNum]) => {
         const metricName = Object.keys(device.dps || {}).find(k => device.dps[k] === String(dpNum)) || '';
         addTuyaDpRow(card, idx, metricName, String(dpNum), label);
@@ -2882,28 +2937,28 @@ function addTuyaDpRow(card, deviceIdx, metricName, dpNumber, dpLabel) {
   const row = document.createElement('div');
   row.className = 'metric-row';
 
-  const isCloudFetched = dpLabel !== null && dpLabel !== undefined;
-  if (isCloudFetched) {
-    // Cloud-fetched: read-only label
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'dp-label';
-    labelSpan.innerHTML = `${escapeHtml(dpLabel)} <code>DP ${escapeHtml(dpNumber)}</code>`;
-    labelSpan.style.cssText = 'min-width:180px;display:flex;align-items:center;gap:0.5rem;';
-    labelSpan.dataset.dp = dpNumber;
-    row.appendChild(labelSpan);
+  const hasLabel = dpLabel !== null && dpLabel !== undefined && dpLabel !== '';
+
+  // DP number display (always visible, read-only for consistency)
+  const dpSpan = document.createElement('span');
+  dpSpan.className = 'dp-label';
+  dpSpan.dataset.dp = dpNumber;
+  if (hasLabel) {
+    dpSpan.innerHTML = `<code>DP ${escapeHtml(dpNumber)}</code>`;
   } else {
-    // Manual: editable DP number input
-    const dpInput = document.createElement('input');
-    dpInput.type = 'number';
-    dpInput.className = 'dp-input';
-    dpInput.placeholder = 'DP #';
-    dpInput.min = 1;
-    dpInput.max = 255;
-    dpInput.value = dpNumber || '';
-    dpInput.style.width = '80px';
-    dpInput.style.flex = '0 0 auto';
-    row.appendChild(dpInput);
+    dpSpan.innerHTML = `<code>DP ${escapeHtml(dpNumber || '?')}</code>`;
   }
+  dpSpan.style.cssText = 'min-width:70px;display:flex;align-items:center;font-weight:600;';
+  row.appendChild(dpSpan);
+
+  // Editable label input — prefilled from cloud or empty
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.className = 'dp-label-input';
+  labelInput.placeholder = 'Label (e.g. Switch)';
+  labelInput.value = dpLabel || '';
+  labelInput.style.cssText = 'width:140px;flex:0 0 auto;';
+  row.appendChild(labelInput);
 
   const metricSelect = createMetricDropdown(metricName, excludeOthers);
   row.appendChild(metricSelect);
@@ -2923,6 +2978,137 @@ function addTuyaDpRow(card, deviceIdx, metricName, dpNumber, dpLabel) {
   });
 
   mappingsList.appendChild(row);
+}
+
+/**
+ * Show a popup/modal to select a DP from the Test Connection results.
+ * Each DP is shown with its label (if available) and current value.
+ * User can click to select a DP or type a custom DP number.
+ */
+function showDpSelectionPopup(card, deviceIdx, testDps, labelMap) {
+  // Remove any existing popup + backdrop
+  const existing = document.querySelector('.dp-selection-popup');
+  if (existing) existing.remove();
+  const existingBackdrop = document.querySelector('.dp-selection-backdrop');
+  if (existingBackdrop) existingBackdrop.remove();
+
+  // Shared cleanup
+  let popup, backdrop;
+  function closePopup() {
+    if (popup) popup.remove();
+    if (backdrop) backdrop.remove();
+  }
+
+  popup = document.createElement('div');
+  popup.className = 'dp-selection-popup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:1rem;max-height:70vh;overflow-y:auto;min-width:320px;max-width:450px;box-shadow:0 8px 32px rgba(0,0,0,0.3);';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;';
+  header.innerHTML = '<strong>Select DP to Map</strong>';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-secondary);';
+  closeBtn.addEventListener('click', closePopup);
+  header.appendChild(closeBtn);
+  popup.appendChild(header);
+
+  // Filter bar
+  const filterInput = document.createElement('input');
+  filterInput.type = 'text';
+  filterInput.placeholder = '🔍 Filter DPs...';
+  filterInput.style.cssText = 'width:100%;margin-bottom:0.75rem;padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg-tertiary);color:var(--text);';
+  popup.appendChild(filterInput);
+
+  const listContainer = document.createElement('div');
+  listContainer.style.cssText = 'max-height:50vh;overflow-y:auto;';
+  popup.appendChild(listContainer);
+
+  // Custom DP entry
+  const customRow = document.createElement('div');
+  customRow.style.cssText = 'display:flex;gap:0.5rem;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);';
+  const customInput = document.createElement('input');
+  customInput.type = 'number';
+  customInput.placeholder = 'Custom DP #';
+  customInput.min = 1;
+  customInput.max = 255;
+  customInput.style.cssText = 'width:100px;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-tertiary);color:var(--text);';
+  const customBtn = document.createElement('button');
+  customBtn.type = 'button';
+  customBtn.textContent = 'Add Custom DP';
+  customBtn.className = 'fetch-btn';
+  customBtn.style.cssText = 'font-size:0.8rem;padding:0.3rem 0.6rem;';
+  customBtn.addEventListener('click', () => {
+    const dpNum = customInput.value.trim();
+    if (dpNum && parseInt(dpNum) >= 1 && parseInt(dpNum) <= 255) {
+      const label = labelMap[dpNum] || null;
+      addTuyaDpRow(card, deviceIdx, '', String(dpNum), label);
+      refreshAllMetricDropdowns();
+      closePopup();
+    }
+  });
+  customRow.appendChild(customInput);
+  customRow.appendChild(customBtn);
+  popup.appendChild(customRow);
+
+  // Build DP list
+  function renderDpList(filterText) {
+    listContainer.innerHTML = '';
+    const filter = (filterText || '').toLowerCase();
+    const dpEntries = Object.entries(testDps).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+    let shown = 0;
+    dpEntries.forEach(([dpNum, value]) => {
+      const label = labelMap[dpNum] || '';
+      const searchText = `dp ${dpNum} ${label} ${value}`.toLowerCase();
+      if (filter && !searchText.includes(filter)) return;
+      shown++;
+
+      const item = document.createElement('div');
+      item.style.cssText = 'padding:0.5rem 0.75rem;cursor:pointer;border-radius:6px;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;';
+      item.addEventListener('mouseenter', () => { item.style.background = 'var(--bg-tertiary)'; });
+      item.addEventListener('mouseleave', () => { item.style.background = ''; });
+      item.addEventListener('click', () => {
+        addTuyaDpRow(card, deviceIdx, '', String(dpNum), label || null);
+        refreshAllMetricDropdowns();
+        closePopup();
+      });
+
+      const left = document.createElement('span');
+      if (label) {
+        left.innerHTML = `<code style="font-weight:600;">DP ${escapeHtml(dpNum)}</code> — ${escapeHtml(label)}`;
+      } else {
+        left.innerHTML = `<code style="font-weight:600;">DP ${escapeHtml(dpNum)}</code>`;
+      }
+
+      const right = document.createElement('span');
+      right.style.cssText = 'color:var(--text-secondary);font-size:0.85rem;margin-left:1rem;white-space:nowrap;';
+      right.textContent = String(value);
+
+      item.appendChild(left);
+      item.appendChild(right);
+      listContainer.appendChild(item);
+    });
+
+    if (shown === 0) {
+      listContainer.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-secondary);">No matching DPs</div>';
+    }
+  }
+
+  renderDpList('');
+  filterInput.addEventListener('input', () => renderDpList(filterInput.value));
+
+  // Backdrop to close on outside click
+  backdrop = document.createElement('div');
+  backdrop.className = 'dp-selection-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.3);';
+  backdrop.addEventListener('click', closePopup);
+  document.body.appendChild(backdrop);
+  document.body.appendChild(popup);
+
+  // Focus filter
+  setTimeout(() => filterInput.focus(), 50);
 }
 
 function reindexTuya() {
@@ -3299,25 +3485,22 @@ form.addEventListener('submit', async (e) => {
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const metricName = row.querySelector('.metric-name')?.value;
       if (!metricName) return;
-      // Try cloud-fetched DP label first
-      const dpLabel = row.querySelector('.dp-label');
-      if (dpLabel) {
-        const dp = dpLabel.dataset.dp;
+      // Read DP number from the dp-label span's data-dp attribute
+      const dpSpan = row.querySelector('.dp-label');
+      if (dpSpan) {
+        const dp = dpSpan.dataset.dp;
         if (dp) dev.dps[metricName] = dp;
-      } else {
-        // Manual DP input
-        const dpInput = row.querySelector('.dp-input');
-        if (dpInput && dpInput.value) dev.dps[metricName] = dpInput.value;
       }
     });
-    // Preserve dpNames if present (for cloud-fetched devices round-tripping)
+    // Preserve dpNames from editable label inputs (for cloud-fetched devices round-tripping)
     if (card.dataset.cloudFetched === 'true') {
       dev.dpNames = {};
-      card.querySelectorAll('.dp-label').forEach(label => {
-        const codeEl = label.querySelector('code');
-        if (codeEl) {
-          const dp = label.dataset.dp;
-          const name = label.textContent.replace(codeEl.textContent, '').trim();
+      card.querySelectorAll('.metric-row').forEach(row => {
+        const dpSpan = row.querySelector('.dp-label');
+        const labelInput = row.querySelector('.dp-label-input');
+        if (dpSpan && labelInput) {
+          const dp = dpSpan.dataset.dp;
+          const name = labelInput.value.trim();
           if (dp && name) dev.dpNames[name] = dp;
         }
       });
