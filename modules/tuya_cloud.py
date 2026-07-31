@@ -83,22 +83,22 @@ def fetch_devices_oauth(token_info_json):
         def _patched_get(path, params=None):
             result = orig_get(path, params=params)
             if 'homes' in path:
-                print(f"[tuya_cloud DEBUG] RAW homes response: {json.dumps(result)[:500]}", file=sys.stderr)
+                print(f"[tuya_cloud DEBUG] RAW homes response: {json.dumps(result)[:3000]}", file=sys.stderr)
             return result
         manager.customer_api.get = _patched_get
         
         # Fetch full device specifications to get DP labels (device.function)
-        # device.function is already in the initial homes response — per-device
-        # spec calls are slow and unnecessary for DP labels
-        manager.device_repository.update_device_specification = lambda d: None
-        manager.device_repository.update_device_strategy_info = lambda d: None
-        manager.device_repository.update_device_report_type = lambda d: None
-        
+        # device.function is NOT in the initial homes response — per-device
+        # spec calls ARE required for DP labels
         manager.update_device_cache()
     except Exception as e:
         print(f"[tuya_cloud ERROR] update_device_cache failed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         print(json.dumps({"error": str(e)}))
         sys.exit(1)
+
+    print(f"[tuya_cloud DEBUG] homes found: {len(manager.user_homes)}", file=sys.stderr)
 
     print(f"[tuya_cloud DEBUG] homes found: {len(manager.user_homes)}", file=sys.stderr)
     for h in manager.user_homes:
@@ -125,6 +125,7 @@ def fetch_devices_oauth(token_info_json):
                 label = getattr(fn, 'desc', None) or getattr(fn, 'name', None) or getattr(fn, 'code', '') or ''
                 if label:
                     obj["mapping"][str(dp_id)] = label
+        print(f"[tuya_cloud DEBUG] device: {device.name} | mapping keys: {len(obj['mapping'])}", file=sys.stderr)
         devices.append(obj)
 
     print(json.dumps(devices))
