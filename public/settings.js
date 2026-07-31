@@ -2909,7 +2909,51 @@ async function populateTuyaDevicesFromCloud(devices) {
   });
   devices.forEach(dev => {
     const devId = dev.id || dev.dev_id || '';
-    if (existingIds.has(devId)) return; // skip duplicates
+    if (!devId) return;
+
+    // Update existing device: refresh local_key + dpNames from cloud
+    if (existingIds.has(devId)) {
+      const card = Array.from(container.querySelectorAll('.device-card')).find(c => {
+        const inp = c.querySelector('input[name$="[dev_id]"]');
+        return inp && inp.value.trim() === devId;
+      });
+      if (card) {
+        // Update local_key
+        const keyInput = card.querySelector('input[name$="[local_key]"]');
+        if (keyInput && dev.key) keyInput.value = dev.key;
+        // Update dpNames (rebuild DP rows with labels)
+        if (dev.mapping && typeof dev.mapping === 'object') {
+          const mappingsList = card.querySelector('.mappings-list');
+          const nameInput = card.querySelector('input[name$="[name]"]');
+          // Store dpNames on card
+          const dpNames = {};
+          Object.entries(dev.mapping).forEach(([dpNum, label]) => { dpNames[label] = dpNum; });
+          card.dataset.dpNames = JSON.stringify(dpNames);
+          card.dataset.cloudFetched = 'true';
+          // Rebuild DP rows with cloud labels
+          if (mappingsList) {
+            // Preserve existing metric→DP mappings
+            const existingMappings = {};
+            mappingsList.querySelectorAll('.metric-row').forEach(row => {
+              const metricSel = row.querySelector('.metric-name');
+              const dpSpan = row.querySelector('.dp-label');
+              if (metricSel && metricSel.value && dpSpan && dpSpan.dataset.dp) {
+                existingMappings[dpSpan.dataset.dp] = metricSel.value;
+              }
+            });
+            mappingsList.innerHTML = '';
+            Object.entries(dev.mapping).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).forEach(([dpNum, label]) => {
+              const metricName = existingMappings[dpNum] || '';
+              addTuyaDpRow(card, parseInt(card.dataset.index || '0'), metricName, dpNum, label);
+            });
+          }
+        }
+        // Update address if cloud has IP
+        const addrInput = card.querySelector('input[name$="[address]"]');
+        if (addrInput && dev.ip && !addrInput.value.trim()) addrInput.value = dev.ip;
+      }
+      return;
+    }
     const config = {
       name: dev.name || dev.product_name || '',
       enabled: true,
