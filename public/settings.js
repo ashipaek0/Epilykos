@@ -65,6 +65,8 @@ async function loadSettings() {
       } catch {}
     }
     buildTuyaDeviceList(JSON.parse(data.tuya_devices || '[]'));
+    // Auto-match LAN IPs for existing devices
+    autoMatchTuyaLanIps();
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
     buildDashboardEditor(dashConfig);
     populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard);
@@ -2855,6 +2857,47 @@ function reindexTuya() {
   });
 }
 
+async function autoMatchTuyaLanIps() {
+  const container = document.getElementById('tuya-devices-container');
+  if (!container) return;
+  const cards = container.querySelectorAll('.device-card');
+  if (!cards.length) return;
+
+  try {
+    const res = await fetch('/api/tuya-discover', { credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok || !data.success || !data.devices || !data.devices.length) return;
+
+    let matched = 0;
+    cards.forEach(card => {
+      const devIdInput = card.querySelector('input[name$="[dev_id]"]');
+      const addrInput = card.querySelector('input[name$="[address]"]');
+      if (!devIdInput || !addrInput) return;
+      const cardDevId = devIdInput.value.trim();
+      if (!cardDevId) return;
+      // Only fill if address is empty
+      if (addrInput.value.trim()) return;
+      const match = data.devices.find(d => d.dev_id === cardDevId);
+      if (match) {
+        addrInput.value = match.ip || '';
+        const verSel = card.querySelector('select[name$="[version]"]');
+        if (verSel && match.version) {
+          for (const opt of verSel.options) {
+            if (opt.value === match.version) { opt.selected = true; break; }
+          }
+        }
+        matched++;
+      }
+    });
+    if (matched > 0) {
+      const statusEl = document.getElementById('tuya-lan-status');
+      if (statusEl) showStatus(statusEl, `${matched} device(s) matched to LAN IPs`, 'success');
+    }
+  } catch (e) {
+    // Silent — LAN scan is best-effort
+  }
+}
+
 async function populateTuyaDevicesFromCloud(devices) {
   if (!Array.isArray(devices)) return;
   const container = document.getElementById('tuya-devices-container');
@@ -2890,39 +2933,9 @@ async function populateTuyaDevicesFromCloud(devices) {
   refreshAllMetricDropdowns();
 
   // Auto-run LAN scan to match dev_ids to local IPs
-  if (devices.length > 0) {
-    const statusEl = document.getElementById('tuya-oauth-status');
-    try {
-      const res = await fetch('/api/tuya-discover', { credentials: 'include' });
-      const data = await res.json();
-      if (res.ok && data.success && data.devices && data.devices.length > 0) {
-        let matched = 0;
-        container.querySelectorAll('.device-card').forEach(card => {
-          const devIdInput = card.querySelector('input[name$="[dev_id]"]');
-          const addrInput = card.querySelector('input[name$="[address]"]');
-          if (!devIdInput || !addrInput) return;
-          const cardDevId = devIdInput.value.trim();
-          if (!cardDevId) return;
-          const match = data.devices.find(d => d.dev_id === cardDevId);
-          if (match) {
-            addrInput.value = match.ip || '';
-            const verSel = card.querySelector('select[name$="[version]"]');
-            if (verSel && match.version) {
-              for (const opt of verSel.options) {
-                if (opt.value === match.version) { opt.selected = true; break; }
-              }
-            }
-            matched++;
-          }
-        });
-        showStatus(statusEl, `Fetched ${devices.length} device(s) — ${matched} matched to LAN IP(s)`, 'success');
-      } else {
-        showStatus(statusEl, `Fetched ${devices.length} device(s) — no LAN devices found for IP matching`, 'info');
-      }
-    } catch (e) {
-      showStatus(statusEl, `Fetched ${devices.length} device(s) — LAN scan failed: ${e.message}`, 'info');
-    }
-  }
+  await autoMatchTuyaLanIps();
+  const statusEl = document.getElementById('tuya-oauth-status');
+  showStatus(statusEl, `Fetched ${devices.length} device(s)`, 'success');
 }
 
 // Verify All button — batch-tests all device connections
