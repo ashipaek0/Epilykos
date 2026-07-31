@@ -87,9 +87,8 @@ def fetch_devices_oauth(token_info_json):
             return result
         manager.customer_api.get = _patched_get
         
-        # Skip per-device API calls — we only need basic info (name, id, key, IP, function)
-        # Each device triggers 3 extra API calls (spec/strategy/report) — 60 requests total
-        manager.device_repository.update_device_specification = lambda d: None
+        # Fetch full device specifications to get DP labels (device.function)
+        # We still skip strategy/report API calls because those aren't needed
         manager.device_repository.update_device_strategy_info = lambda d: None
         manager.device_repository.update_device_report_type = lambda d: None
         
