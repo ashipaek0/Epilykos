@@ -88,7 +88,9 @@ def fetch_devices_oauth(token_info_json):
         manager.customer_api.get = _patched_get
         
         # Fetch full device specifications to get DP labels (device.function)
-        # We still skip strategy/report API calls because those aren't needed
+        # device.function is already in the initial homes response — per-device
+        # spec calls are slow and unnecessary for DP labels
+        manager.device_repository.update_device_specification = lambda d: None
         manager.device_repository.update_device_strategy_info = lambda d: None
         manager.device_repository.update_device_report_type = lambda d: None
         
