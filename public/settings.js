@@ -2948,9 +2948,7 @@ async function populateTuyaDevicesFromCloud(devices) {
             });
           }
         }
-        // Update address if cloud has IP
-        const addrInput = card.querySelector('input[name$="[address]"]');
-        if (addrInput && dev.ip && !addrInput.value.trim()) addrInput.value = dev.ip;
+        // LAN IPs come from auto-match, not cloud
       }
       return;
     }
