@@ -1341,6 +1341,8 @@ button.test-dongle:hover, button.test-mqtt-broker:hover, button.test-mqtt-topic-
 .status.success { background: #22c55e18; color: #22c55e; border: 1px solid #22c55e30; }
 .status.error { background: #dc6b4a18; color: #dc6b4a; border: 1px solid #dc6b4a30; }
 .status.info { background: #f59e0b18; color: #f59e0b; border: 1px solid #f59e0b30; }
+.status.warning { background: #d9770618; color: #d97706; border: 1px solid #d9770630; }
+.status.warn { background: #d9770618; color: #d97706; border: 1px solid #d9770630; }
 
 /* Narrow centered forms for read-only sections */
 #stg-section-solar .stg-card, #stg-section-savings .stg-card,
@@ -1447,6 +1449,7 @@ details.help-sub[open] > .help-sub-summary::before { content: '▾'; }
 .help-steps { display: flex; flex-direction: column; gap: 0.8rem; }
 .help-step { display: flex; gap: 0.75rem; align-items: flex-start; }
 .help-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85em; }
+.tuya-guide-step { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.35rem; }
 
 /* Tables */
 .help-table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin: 0.5rem 0 0.75rem; }
