@@ -2902,6 +2902,11 @@ async function populateTuyaDevicesFromCloud(devices) {
   if (!Array.isArray(devices)) return;
   const container = document.getElementById('tuya-devices-container');
   if (!container) return;
+  console.log('[populateTuyaDevicesFromCloud] received', devices.length, 'devices');
+  // Log first device's mapping for debugging
+  if (devices.length > 0) {
+    console.log('[populateTuyaDevicesFromCloud] first device:', devices[0].name, 'mapping keys:', Object.keys(devices[0].mapping || {}).length);
+  }
   // Collect existing dev_ids
   const existingIds = new Set();
   container.querySelectorAll('.device-card input[name$="[dev_id]"]').forEach(inp => {
@@ -2913,6 +2918,7 @@ async function populateTuyaDevicesFromCloud(devices) {
 
     // Update existing device: refresh local_key + dpNames from cloud
     if (existingIds.has(devId)) {
+      console.log('[populateTuyaDevicesFromCloud] updating existing device:', dev.name || devId, 'mapping keys:', Object.keys(dev.mapping || {}).length);
       const card = Array.from(container.querySelectorAll('.device-card')).find(c => {
         const inp = c.querySelector('input[name$="[dev_id]"]');
         return inp && inp.value.trim() === devId;
@@ -2942,7 +2948,9 @@ async function populateTuyaDevicesFromCloud(devices) {
               }
             });
             mappingsList.innerHTML = '';
-            Object.entries(dev.mapping).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).forEach(([dpNum, label]) => {
+            const dpEntries = Object.entries(dev.mapping).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+            console.log('[populateTuyaDevicesFromCloud] rebuilding', dpEntries.length, 'DP rows for', dev.name || devId);
+            dpEntries.forEach(([dpNum, label]) => {
               const metricName = existingMappings[dpNum] || '';
               addTuyaDpRow(card, parseInt(card.dataset.index || '0'), metricName, dpNum, label);
             });
@@ -2952,6 +2960,7 @@ async function populateTuyaDevicesFromCloud(devices) {
       }
       return;
     }
+    console.log('[populateTuyaDevicesFromCloud] creating new device:', dev.name || devId, 'mapping keys:', Object.keys(dev.mapping || {}).length);
     const config = {
       name: dev.name || dev.product_name || '',
       enabled: true,
@@ -2973,6 +2982,7 @@ async function populateTuyaDevicesFromCloud(devices) {
     renderTuyaDevice(config, tuyaDeviceCounter++);
   });
   refreshAllMetricDropdowns();
+  console.log('[populateTuyaDevicesFromCloud] done —', devices.length, 'devices processed');
 
   // Auto-run LAN scan to match dev_ids to local IPs
   await autoMatchTuyaLanIps();
@@ -3305,7 +3315,9 @@ form.addEventListener('submit', async (e) => {
     dev.version = card.querySelector('select[name$="[version]"]')?.value || '3.3';
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]')?.value) || 30;
     dev.dps = {};
-    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+    const metricRows = card.querySelectorAll('.mappings-list .metric-row');
+    console.log('[save] device:', dev.name, 'metricRows:', metricRows.length, 'cloudFetched:', card.dataset.cloudFetched);
+    metricRows.forEach(row => {
       const metricName = row.querySelector('.metric-name')?.value;
       if (!metricName) return;
       // Read DP number from the dp-label span's data-dp attribute

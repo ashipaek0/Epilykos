@@ -43,6 +43,10 @@ function runBridge(script, args) {
         const detail = [err.message, stderr?.trim(), stdout?.trim()].filter(Boolean).join(' | ');
         return reject(new Error(detail || 'Bridge process failed'));
       }
+      // Log stderr for diagnostics (Python debug goes to stderr)
+      if (stderr && stderr.trim()) {
+        logger.debug(`Bridge stderr (${args[0]}): ${stderr.trim().slice(0, 10000)}`);
+      }
       try {
         resolve(JSON.parse(stdout.trim()));
       } catch (parseErr) {
@@ -195,7 +199,7 @@ function parseScanOutput(stdout) {
   const lines = stdout.split('\n');
 
   for (const line of lines) {
-    const idMatch  = line.match(/(?:Device\s*ID|ID|device_id|dev_id)[:=\s]+([a-fA-F0-9]{10,})/i);
+    const idMatch  = line.match(/(?:Device\s*ID|ID|device_id|dev_id)[:=\s]+([a-zA-Z0-9]{10,})/i);
     const ipMatch  = line.match(/(?:IP|ip|address)[:=\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
 
     if (idMatch && ipMatch) {
