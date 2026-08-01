@@ -31,6 +31,6 @@ export async function updateMonthlyTable() {
     const cols = getColumns(c);
     tbody.innerHTML = '';
     if (!data || !data.length) { tbody.innerHTML = `<tr><td colspan="${1+cols.length}" style="text-align:center;">No data available</td></tr>`; continue; }
-    data.reverse().forEach(row => { const cells = cols.map(col => `<td>${(row[col.field] || 0).toFixed(1)} kWh</td>`).join(''); tbody.insertAdjacentHTML('beforeend', `<tr><td>${row.month||'--'}</td>${cells}</tr>`); });
+    data.reverse().forEach(row => { const monthEsc = document.createElement('div'); monthEsc.textContent = row.month||'--'; const cells = cols.map(col => `<td>${(row[col.field] || 0).toFixed(1)} kWh</td>`).join(''); tbody.insertAdjacentHTML('beforeend', `<tr><td>${monthEsc.innerHTML}</td>${cells}</tr>`); });
   }
 }
