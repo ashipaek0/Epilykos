@@ -20,6 +20,11 @@ function showStatusHtml(element, msg, type) {
   }
 }
 
+// ── Utility helpers ────────────────────────────────────────────────────
+function showConfirm(message) {
+  // Centralized confirm() wrapper — replace body with custom modal later
+  return confirm(message);
+}
 
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
@@ -240,8 +245,9 @@ function renderHaDevice(device, idx) {
   tooltipEl.style.display = 'none';
   card.appendChild(tooltipEl);
 
-  card.querySelector('[data-action="remove-ha"]').addEventListener('click', () => {
-    if (confirm('Remove this Home Assistant device and all its entity mappings?')) {
+  const removeHaBtn = card.querySelector('[data-action="remove-ha"]');
+  if (removeHaBtn) removeHaBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this Home Assistant device and all its entity mappings?')) {
       card.remove();
       reindexHa();
       refreshAllMetricDropdowns();
@@ -450,8 +456,9 @@ function renderMqttDevice(device, idx) {
   tooltipEl.style.display = 'none';
   card.appendChild(tooltipEl);
 
-  card.querySelector('[data-action="remove-mqtt"]').addEventListener('click', () => {
-    if (confirm('Remove this MQTT broker and all its topic mappings?')) {
+  const removeMqttBtn = card.querySelector('[data-action="remove-mqtt"]');
+  if (removeMqttBtn) removeMqttBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this MQTT broker and all its topic mappings?')) {
       card.remove();
       reindexMqtt();
       refreshAllMetricDropdowns();
@@ -724,8 +731,9 @@ function renderModbusDevice(device, idx) {
       profileSelect.appendChild(opt);
     });
   });
-  card.querySelector('[data-action="remove-modbus"]').addEventListener('click', () => {
-    if (confirm('Remove this Modbus device and all its register mappings?')) {
+  const removeModbusBtn = card.querySelector('[data-action="remove-modbus"]');
+  if (removeModbusBtn) removeModbusBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this Modbus device and all its register mappings?')) {
       card.remove();
       reindexModbus();
     }
@@ -759,7 +767,7 @@ function renderModbusDevice(device, idx) {
   profileSelect.addEventListener('change', () => {
     const mappingsList = card.querySelector('.mappings-list');
     if (!mappingsList) return;
-    if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing register mappings. Continue?')) {
+    if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
       profileSelect.value = device.profile || '';
       return;
     }
@@ -1094,7 +1102,7 @@ function renderRs232Device(device, idx) {
     profileSelect.addEventListener('change', () => {
       const mappingsList = card.querySelector('.mappings-list');
       if (!mappingsList) return;
-      if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing field mappings. Continue?')) {
+      if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing field mappings. Continue?')) {
         profileSelect.value = device.profile || '';
         return;
       }
@@ -1102,8 +1110,9 @@ function renderRs232Device(device, idx) {
     });
   });
 
-  card.querySelector('[data-action="remove-rs232"]').addEventListener('click', () => {
-    if (confirm('Remove this RS232 device?')) {
+  const removeRs232Btn = card.querySelector('[data-action="remove-rs232"]');
+  if (removeRs232Btn) removeRs232Btn.addEventListener('click', () => {
+    if (showConfirm('Remove this RS232 device?')) {
       card.remove();
       reindexRs232();
     }
@@ -1230,8 +1239,9 @@ function renderExternalSource(source, idx) {
     </div>
   `;
   container.appendChild(card);
-  card.querySelector('[data-action="remove-external"]').addEventListener('click', () => {
-    if (confirm('Remove this external source and all its metric mappings?')) {
+  const removeExtBtn = card.querySelector('[data-action="remove-external"]');
+  if (removeExtBtn) removeExtBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this external source and all its metric mappings?')) {
       card.remove();
       reindexExternal();
       refreshAllMetricDropdowns();
@@ -1325,6 +1335,7 @@ let bmsDeviceCounter = 0;
 // ── BMS Scan Modal ─────────────────────────────────────
 let bmsScanTargetIdx = -1;
 let bmsScanTimestamp = 0;
+let bmsScanInterval = null;
 
 const bmsScanModal = document.getElementById('bms-scan-modal');
 const bmsScanList = document.getElementById('bms-scan-list');
@@ -1421,7 +1432,7 @@ function selectBmsDevice(address) {
 }
 
 // Cache badge freshness ticker
-setInterval(() => {
+bmsScanInterval = setInterval(() => {
   if (bmsScanModal && bmsScanModal.style.display === 'flex' && bmsScanTimestamp) {
     const age = Math.round((Date.now() - bmsScanTimestamp) / 1000);
     bmsScanCacheBadge.textContent = `Scanned ${age}s ago`;
@@ -1440,6 +1451,7 @@ function buildBmsDeviceList(devices) {
   if (!container) return;
   container.innerHTML = '';
   bmsDeviceCounter = 0;
+  if (bmsScanInterval) { clearInterval(bmsScanInterval); bmsScanInterval = null; }
   devices.forEach((dev, idx) => renderBmsDevice(dev, idx));
 }
 function renderBmsDevice(device, idx) {
@@ -1473,8 +1485,9 @@ function renderBmsDevice(device, idx) {
     </div>
   `;
   container.appendChild(card);
-  card.querySelector('[data-action="remove-bms"]').addEventListener('click', () => {
-    if (confirm('Remove this BMS device and all its metric mappings?')) {
+  const removeBmsBtn = card.querySelector('[data-action="remove-bms"]');
+  if (removeBmsBtn) removeBmsBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this BMS device and all its metric mappings?')) {
       card.remove();
       reindexBms();
     }
@@ -1520,11 +1533,12 @@ function renderBmsDevice(device, idx) {
     const nameInput = card.querySelector('input[name$="[name]"]');
     const deviceName = nameInput ? nameInput.value.trim() : '';
     if (!deviceName) {
-      alert('Enter a Device Name first');
+      const statusEl = document.getElementById(`bms-test-status-${idx}`);
+      showStatus(statusEl, 'Enter a Device Name first', 'error');
       return;
     }
     const mappingsList = card.querySelector('.mappings-list');
-    if (mappingsList.children.length > 0 && !confirm('Loading metrics will replace existing mappings. Continue?')) return;
+    if (mappingsList.children.length > 0 && !showConfirm('Loading metrics will replace existing mappings. Continue?')) return;
     try {
       const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`, { credentials: 'include' });
       if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
@@ -1704,8 +1718,9 @@ function renderBmsBank(bank, idx) {
   });
 
   // Wire events
-  card.querySelector('[data-action="remove-bank"]').addEventListener('click', () => {
-    if (confirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
+  const removeBankBtn = card.querySelector('[data-action="remove-bank"]');
+  if (removeBankBtn) removeBankBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
       card.remove();
       reindexBmsBanks();
     }
@@ -2041,7 +2056,7 @@ function renderDongleDevice(device, idx) {
     // Auto-load register mappings when profile changes
     const mappingsList = card.querySelector('.mappings-list');
     if (mappingsList) {
-      if (mappingsList.children.length > 0 && !confirm('Changing profile will replace existing register mappings. Continue?')) {
+      if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
         profileSelect.value = device.profile || '';
         return;
       }
@@ -2049,8 +2064,9 @@ function renderDongleDevice(device, idx) {
     }
   });
 
-  card.querySelector('[data-action="remove-dongle"]').addEventListener('click', () => {
-    if (confirm('Remove this dongle instance?')) {
+  const removeDongleBtn = card.querySelector('[data-action="remove-dongle"]');
+  if (removeDongleBtn) removeDongleBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this dongle instance?')) {
       card.remove();
       reindexDongle();
     }
@@ -2480,6 +2496,7 @@ const solarObserver = new MutationObserver(() => {
 });
 const stgSections = document.getElementById('stg-main');
 if (stgSections) solarObserver.observe(stgSections, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+window.addEventListener('beforeunload', () => { solarObserver.disconnect(); if (bmsScanInterval) clearInterval(bmsScanInterval); });
 
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
@@ -2518,7 +2535,7 @@ function renderMetricsTable() {
   document.querySelectorAll('.delete-metric-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const name = btn.dataset.name;
-      if (confirm(`Delete metric "${name}"? This will remove it from all mappings and cannot be undone.`)) {
+      if (showConfirm(`Delete metric "${name}"? This will remove it from all mappings and cannot be undone.`)) {
         try {
           const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
           if (res.ok) {
@@ -2557,7 +2574,7 @@ if (modalCreate) {
     const unitInput = document.getElementById('new-metric-unit');
     const name = nameInput ? nameInput.value.trim() : '';
     const unit = unitInput ? unitInput.value.trim() : '';
-    if (!name) { alert('Metric name is required'); return; }
+    if (!name) { showStatus(backupStatus, 'Metric name is required', 'error'); return; }
     try {
       const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ name, unit }) });
       if (res.ok) {
@@ -2567,9 +2584,9 @@ if (modalCreate) {
         showStatus(backupStatus, `Metric "${name}" created`, 'success');
       } else {
         const err = await res.json();
-        alert(err.error || 'Creation failed');
+        showStatus(backupStatus, err.error || 'Creation failed', 'error');
       }
-    } catch (err) { alert(err.message); }
+    } catch (err) { showStatus(backupStatus, err.message, 'error'); }
   });
 }
 window.addEventListener('click', (e) => { if (modal && e.target === modal) modal.style.display = 'none'; });
@@ -2608,7 +2625,7 @@ function buildDashboardEditor(config) {
       buildDashboardEditor(dashConfig);
     });
     row.querySelector('.delete-dash').addEventListener('click', () => {
-      if (!confirm(`Delete dashboard "${db.name}"? This cannot be undone.`)) return;
+      if (!showConfirm(`Delete dashboard "${db.name}"? This cannot be undone.`)) return;
       dashConfig.dashboards = dashConfig.dashboards.filter(d => d.id !== db.id);
       if (dashConfig.activeDashboard === db.id) dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
       buildDashboardEditor(dashConfig);
@@ -2749,8 +2766,9 @@ function renderTuyaDevice(device, idx) {
   container.appendChild(card);
 
   // Remove button handler
-  card.querySelector('[data-action="remove-tuya"]').addEventListener('click', () => {
-    if (confirm('Remove this Tuya device and all its DP mappings?')) {
+  const removeTuyaBtn = card.querySelector('[data-action="remove-tuya"]');
+  if (removeTuyaBtn) removeTuyaBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this Tuya device and all its DP mappings?')) {
       card.remove();
       reindexTuya();
       refreshAllMetricDropdowns();
@@ -3164,7 +3182,7 @@ if (addTuyaBtn) {
 }
 
 // ======================== SAVE ========================
-form.addEventListener('submit', async (e) => {
+if (form) form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {};
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
