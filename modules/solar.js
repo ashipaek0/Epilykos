@@ -64,9 +64,10 @@ function computeTodaySolar() {
     }
   }
 
-  // 2. Auto-detect: scan latest_metrics for any metric name containing solar + (gen|daily|cumulative)
+  // 2. Auto-detect: scan latest_metrics once for both daily-energy and power metrics
   if (!done) {
     const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
+    // 2a. Daily energy candidates: metric name containing solar/pv + (gen|daily|today|cumulative)
     const dailyCandidates = allMetrics.filter(function(r) {
       var n = r.metric.toLowerCase();
       return (n.indexOf('solar') !== -1 || n.indexOf('pv') !== -1) && (n.indexOf('gen') !== -1 || n.indexOf('daily') !== -1 || n.indexOf('today') !== -1 || n.indexOf('cumulative') !== -1);
@@ -74,18 +75,17 @@ function computeTodaySolar() {
     for (var i = 0; i < dailyCandidates.length; i++) {
       if (dailyCandidates[i].value > 0) { computed = dailyCandidates[i].value; done = true; break; }
     }
-  }
 
-  // 3. Auto-detect: integrate any metric whose name suggests solar power from the metrics table
-  if (!done) {
-    const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
-    for (var i = 0; i < allMetrics.length; i++) {
-      var n = allMetrics[i].metric.toLowerCase();
-      if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
-        const rows = db.prepare(
-          'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-        ).all(allMetrics[i].metric, startUnix, endUnix);
-        if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; break; }
+    // 2b. Power candidates: integrate any metric whose name suggests solar power
+    if (!done) {
+      for (var i = 0; i < allMetrics.length; i++) {
+        var n = allMetrics[i].metric.toLowerCase();
+        if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
+          const rows = db.prepare(
+            'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
+          ).all(allMetrics[i].metric, startUnix, endUnix);
+          if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; break; }
+        }
       }
     }
   }
