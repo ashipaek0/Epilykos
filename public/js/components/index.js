@@ -21,6 +21,7 @@ import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.j
 import { buildPvToday } from './pvToday.js';
 import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
+import { buildWeatherBlock } from './weatherBlock.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -45,5 +46,6 @@ export const componentBuilders = {
   'iframe-card': buildIframeCard,
   'forecast-pvtoday': buildPvToday,
   'bar-gauge': buildBarGauge,
-  'bar-gauge-retro': buildBarGaugeRetro
+  'bar-gauge-retro': buildBarGaugeRetro,
+  'weather-block': buildWeatherBlock
 };
