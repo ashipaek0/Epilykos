@@ -261,4 +261,4 @@ async function restoreFromSnapshot(snapshotName) {
   return restoreDatabase(match.path);
 }
 
-module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot };
+module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal };

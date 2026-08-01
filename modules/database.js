@@ -65,6 +65,7 @@ function initializeDatabase() {
       timestamp INTEGER PRIMARY KEY,
       state INTEGER
     );
+    CREATE INDEX IF NOT EXISTS idx_grid_status_state ON grid_status(state);
   `);
 
   db.exec(`
@@ -81,6 +82,7 @@ function initializeDatabase() {
       value REAL,
       PRIMARY KEY (timestamp, metric)
     );
+    CREATE INDEX IF NOT EXISTS idx_metrics_metric_ts ON metrics(metric, timestamp);
     CREATE TABLE IF NOT EXISTS latest_metrics (
       metric TEXT PRIMARY KEY,
       value REAL,
@@ -178,20 +180,23 @@ function initializeDatabase() {
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');
-  for (const key of essentialKeys) insertConfig.run(key, '');
-
-  // Default values
-  const defaults = {
-    forecast_enabled: 'false',
-    dashboard_title: '⚡ Epilykos',
-    savings_currency: '€',
-    savings_rate: '0.30',
-    solar_loss_factor: '0.9',
-    solar_install_date: new Date().toISOString().split('T')[0],
-    external_poll_interval: '60'
-  };
   const updateConfig = db.prepare('UPDATE config SET value = ? WHERE key = ? AND value = ?');
-  for (const [key, val] of Object.entries(defaults)) updateConfig.run(val, key, '');
+
+  const seedTransaction = db.transaction(() => {
+    for (const key of essentialKeys) insertConfig.run(key, '');
+    // Default values
+    const defaults = {
+      forecast_enabled: 'false',
+      dashboard_title: '⚡ Epilykos',
+      savings_currency: '€',
+      savings_rate: '0.30',
+      solar_loss_factor: '0.9',
+      solar_install_date: new Date().toISOString().split('T')[0],
+      external_poll_interval: '60'
+    };
+    for (const [key, val] of Object.entries(defaults)) updateConfig.run(val, key, '');
+  });
+  seedTransaction();
 
   // Legacy migration
   migrateLegacyConfig();

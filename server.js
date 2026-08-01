@@ -38,7 +38,7 @@ const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules
 const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
-const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot } = require('./modules/backup');
+const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
@@ -101,6 +101,12 @@ startBmsPolling();   // Start BMS bridge polling
 startDonglePolling();
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
+
+// Periodic WAL checkpoint — prevents unbounded WAL file growth
+// Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
+setInterval(() => {
+  try { checkpointWal(); } catch (e) { logger.warn('Periodic WAL checkpoint failed:', e.message); }
+}, 60 * 60 * 1000);
 
 // Multer for restore and import
 const upload = multer({
