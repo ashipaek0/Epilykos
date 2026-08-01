@@ -138,6 +138,11 @@ const wsClients = new Set();
  */
 function broadcastDashboardState(state) {
   const message = JSON.stringify({ type: 'dashboard-state', data: state });
+  const MAX_MESSAGE_SIZE = 64 * 1024; // 64 KB
+  if (Buffer.byteLength(message, 'utf8') > MAX_MESSAGE_SIZE) {
+    logger.warn(`WebSocket broadcast blocked: message size ${Buffer.byteLength(message, 'utf8')} exceeds 64KB limit`);
+    return;
+  }
   wsClients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message, err => {
@@ -363,7 +368,8 @@ app.get('/api/current', async (req, res) => {
 });
 
 app.get('/api/history', async (req, res) => {
-  const requestedDays = parseInt(req.query.days) || 1;
+  const requestedDays = parseInt(req.query.days);
+  if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-7)' });
   const days = Math.min(requestedDays, 7);
   const now = Math.floor(Date.now() / 1000);
   const since = now - (days * 24 * 3600);
@@ -386,7 +392,8 @@ app.get('/api/history', async (req, res) => {
 });
 
 app.get('/api/daily', async (req, res) => {
-  const requestedDays = parseInt(req.query.days) || 30;
+  const requestedDays = parseInt(req.query.days);
+  if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-365)' });
   const days = Math.min(requestedDays, 365);
   const now = new Date();
   const dateArray = [];
@@ -497,8 +504,11 @@ app.get('/api/grid/status', async (req, res) => {
 
 app.get('/api/grid/hours', async (req, res) => {
   try {
-    const hours = await getGridHours(req.query.period || 'day');
-    res.json({ period: req.query.period || 'day', hours });
+    const period = req.query.period || 'day';
+    const validPeriods = ['day', 'week', 'month', 'year'];
+    if (!validPeriods.includes(period)) return res.status(400).json({ error: `Invalid period. Allowed: ${validPeriods.join(', ')}` });
+    const hours = await getGridHours(period);
+    res.json({ period, hours });
   } catch (err) {
     logger.error('Error in /api/grid/hours:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -507,7 +517,10 @@ app.get('/api/grid/hours', async (req, res) => {
 
 app.get('/api/grid/timeline', async (req, res) => {
   try {
-    res.json(await getGridTimeline(req.query.period || '24h'));
+    const period = req.query.period || '24h';
+    const validPeriods = ['24h', '7d', '30d'];
+    if (!validPeriods.includes(period)) return res.status(400).json({ error: `Invalid period. Allowed: ${validPeriods.join(', ')}` });
+    res.json(await getGridTimeline(period));
   } catch (err) {
     logger.error('Error in /api/grid/timeline:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -929,7 +942,10 @@ app.post('/api/settings', (req, res) => {
     }
     const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
     for (const [key, value] of Object.entries(filteredUpdates)) {
-      stmt.run(key, String(value));
+      // Reject undefined values; coerce null to empty string
+      if (value === undefined) continue;
+      const safeValue = value === null ? '' : String(value);
+      stmt.run(key, safeValue);
     }
     if ('mqtt_devices' in filteredUpdates) restartMqtt();
     if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
@@ -992,13 +1008,18 @@ function saveConfigKeys(allowedKeys, req, res) {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
         continue;
       }
-      filtered[key] = updates[key];
+      const raw = updates[key];
+      // Reject undefined values (missing/unset) to avoid "undefined" strings in DB
+      if (raw === undefined) continue;
+      // Coerce null to empty string instead of "null"
+      const value = raw === null ? '' : String(raw);
+      filtered[key] = value;
     }
   }
   const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
   const saved = [];
   for (const [key, value] of Object.entries(filtered)) {
-    stmt.run(key, String(value));
+    stmt.run(key, value);
     saved.push(key);
   }
   return { saved };
@@ -1678,7 +1699,9 @@ app.get('/api/metrics/current', async (req, res) => {
 
 app.get('/api/metrics/history', async (req, res) => {
   const metric = req.query.metric;
+  if (!metric || typeof metric !== 'string' || metric.length > 128) return res.status(400).json({ error: 'metric is required (max 128 chars)' });
   const hours = parseInt(req.query.hours) || 24;
+  if (isNaN(hours) || hours < 1 || hours > 8760) return res.status(400).json({ error: 'hours must be 1-8760' });
   try {
     res.json(getMetricHistory(metric, hours));
   } catch (err) {
@@ -1710,6 +1733,9 @@ app.get('*', (req, res, next) => {
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
+});
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received — shutting down');
   await shutdownRs232();

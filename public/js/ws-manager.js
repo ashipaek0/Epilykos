@@ -13,6 +13,7 @@ const DB_NAME = 'epilykos-cache';
 const DB_VERSION = 1;
 const STORE_NAME = 'state';
 const RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000]; // exponential-ish
+const MAX_RECONNECT_ATTEMPTS = 30; // stop retrying after 30 attempts (~15 min)
 
 let ws = null;
 let reconnectAttempt = 0;
@@ -115,8 +116,14 @@ function doConnect() {
 }
 
 function scheduleReconnect() {
-  const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
-  console.debug(`[WSManager] Reconnecting in ${delay}ms (attempt ${reconnectAttempt + 1})`);
+  if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+    console.warn(`[WSManager] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached — giving up`);
+    return;
+  }
+  const baseDelay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
+  const jitter = Math.floor(Math.random() * baseDelay * 0.3); // ±30% jitter
+  const delay = baseDelay + jitter;
+  console.debug(`[WSManager] Reconnecting in ${delay}ms (attempt ${reconnectAttempt + 1}/${MAX_RECONNECT_ATTEMPTS})`);
   reconnectTimer = setTimeout(() => {
     reconnectAttempt++;
     doConnect();
