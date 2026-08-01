@@ -45,7 +45,7 @@ export function updateHalfGaugeCard(state) {
     // Above zero fills from 9 o'clock (left); below zero fills from 3 o'clock (right)
     const offset = pct >= zeroPoint ? 0 : arcLen - fillLen;
     const color = cfg.color || 'var(--color-solar)';
-    const negColor = '#ef4444';
+    const negColor = getComputedStyle(document.documentElement).getPropertyValue('--color-negative').trim();
     const id = container.querySelector('[id^="hgauge-fill-"]')?.id?.replace('hgauge-fill-','');
     const fill = document.getElementById('hgauge-fill-' + id);
     if (fill) {
