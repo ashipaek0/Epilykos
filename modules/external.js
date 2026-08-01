@@ -74,7 +74,7 @@ function startExternalPolling() {
   if (externalPollInterval) clearInterval(externalPollInterval);
   const intervalSec = parseInt(getConfig('external_poll_interval')) || 60;
   externalPollInterval = setInterval(pollExternalSources, intervalSec * 1000);
-  pollExternalSources(); // immediate first run
+  pollExternalSources().catch(err => logger.error('External sources initial poll failed:', err.message)); // immediate first run
 }
 
 function restartExternalPolling() {

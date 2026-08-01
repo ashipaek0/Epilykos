@@ -186,24 +186,24 @@ async function getSolarForecast() {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
         }
-      } catch (e) {}
+      } catch (e) { logger.warn(`Solcast rooftop forecast unavailable: ${e.message}`); }
     }
     if (!forecastData && lat && lon) {
       try {
         const tilt = parseFloat(getConfig('solar_tilt')) || 30;
         const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
         const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
         }
-      } catch (e) {}
+      } catch (e) { logger.warn(`Solcast world PV power forecast unavailable: ${e.message}`); }
     }
   }
 
@@ -328,26 +328,26 @@ async function testForecast(opts) {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           const today = new Date().toISOString().split('T')[0];
           (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
-      } catch (e) {}
+      } catch (e) { logger.debug(`Solcast rooftop test unavailable: ${e.message}`); }
     }
     if (source === 'none') {
       try {
         const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           const today = new Date().toISOString().split('T')[0];
           (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
-      } catch (e) {}
+      } catch (e) { logger.debug(`Solcast world PV test unavailable: ${e.message}`); }
     }
   }
   if (source === 'none') {

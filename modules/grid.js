@@ -33,7 +33,7 @@ async function pollGridStatus() {
           headers: { 'Authorization': `Bearer ${haDevice.token}` }, timeout: 5000
         });
         if (res.ok) state = parseGridState((await res.json()).state);
-      } catch (e) { /* silent */ }
+      } catch (e) { logger.debug(`Grid poll HA fetch failed for ${gridMetric}: ${e.message}`); }
     }
   }
 
@@ -67,7 +67,7 @@ async function getCurrentGridStatus() {
           headers: { 'Authorization': `Bearer ${haDevice.token}` }, timeout: 5000
         }).then(r => r.json()).then(d => d.state).catch(() => 0);
         current = parseGridState(raw);
-      } catch { return { configured: false }; }
+      } catch (e) { logger.debug(`Grid status HA fetch failed for ${gridMetric}: ${e.message}`); return { configured: false }; }
     }
   }
 
