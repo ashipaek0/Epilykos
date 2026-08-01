@@ -1,3 +1,5 @@
+import { escapeHtml } from "../utils.js";
+
 export function buildBatteryBlock(block = {}) {
   const config = block.config || {};
   const metrics = config.metrics || { soc: 'battery_soc', voltage: 'battery_voltage', current: 'battery_current', power: 'battery_power', temperature: 'battery_temp' };
@@ -8,8 +10,6 @@ export function buildBatteryBlock(block = {}) {
   container.innerHTML = `<div class="battery-block-header" style="display:flex;justify-content:space-between;margin-bottom:0.5rem;"><h3 style="margin:0;">${escapeHtml(config.title||'Battery')}</h3></div><div class="battery-soc-display" style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;"><div class="battery-soc-big" data-metric="${escapeHtml(metrics.soc)}" style="font-size:2rem;font-weight:bold;">--%</div><div class="battery-soc-bar" style="flex:1;height:1rem;background:var(--border);border-radius:0.5rem;overflow:hidden;"><div class="battery-soc-fill" style="width:0%;height:100%;background:var(--battery);transition:width 0.3s;"></div></div></div><div class="battery-details" style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;font-size:0.85rem;"><div>Voltage: <span data-metric="${escapeHtml(metrics.voltage)}">-- V</span></div><div>Current: <span data-metric="${escapeHtml(metrics.current)}">-- A</span></div><div>Power: <span data-metric="${escapeHtml(metrics.power)}">-- W</span></div><div>Temperature: <span data-metric="${escapeHtml(metrics.temperature)}">-- °C</span></div></div>`;
   return container;
 }
-// Local copy; refactor to import when this file becomes a module
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 export function updateBatteryBlock(state) {
   document.querySelectorAll('.battery-block').forEach(container => {

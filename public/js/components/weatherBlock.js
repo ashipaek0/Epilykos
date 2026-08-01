@@ -1,3 +1,5 @@
+import { escapeHtml } from "../utils.js";
+
 export function buildWeatherBlock(block = {}) {
   const config = block.config || {};
   const container = document.createElement('div');
@@ -24,13 +26,6 @@ export function buildWeatherBlock(block = {}) {
     </div>
   `;
   return container;
-}
-
-// Local copy; refactor to import when this file becomes a module
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 export async function updateWeatherBlock(state) {
@@ -60,10 +55,10 @@ export async function updateWeatherBlock(state) {
       dayDiv.style.textAlign = 'center';
       dayDiv.style.minWidth = '80px';
       dayDiv.innerHTML = `
-        <div class="forecast-day-name" style="font-weight:bold;">${day.day_name}</div>
-        <div class="forecast-icon"><i class="${day.icon_class}"></i></div>
+        <div class="forecast-day-name" style="font-weight:bold;">${escapeHtml(day.day_name)}</div>
+        <div class="forecast-icon"><i class="${escapeHtml(day.icon_class)}"></i></div>
         <div class="forecast-temp">${day.temp.toFixed(0)}°C</div>
-        <div class="forecast-desc" style="font-size:0.7rem;">${day.desc}</div>
+        <div class="forecast-desc" style="font-size:0.7rem;">${escapeHtml(day.desc)}</div>
       `;
       forecastContainer.appendChild(dayDiv);
     });

@@ -4,9 +4,10 @@ Tuya Cloud API bridge — Smart Life OAuth flow via tuya_sharing.Manager.
 No IoT Platform API keys needed — just scan a QR code with the Smart Life app.
 """
 import json
+import os
 import sys
 
-CLIENT_ID = "HA_3y9q4ak7g4ephrvke"
+CLIENT_ID = os.getenv("TUYA_CLIENT_ID", "HA_3y9q4ak7g4ephrvke")
 SCHEMA = "smartlife"
 
 
@@ -51,6 +52,7 @@ def poll_login(qr_token, uid):
 
 def fetch_devices_oauth(token_info_json):
     """Use tuya_sharing.Manager to fetch all devices — the correct API for OAuth tokens."""
+    import asyncio
     from tuya_sharing import Manager, SharingTokenListener
 
     token_info = json.loads(token_info_json)
@@ -79,6 +81,7 @@ def fetch_devices_oauth(token_info_json):
 
     try:
         # Monkey-patch to dump raw homes response
+        DEVICE_CACHE_TIMEOUT = int(os.getenv("TUYA_DEVICE_CACHE_TIMEOUT", "30"))  # seconds
         orig_get = manager.customer_api.get
         def _patched_get(path, params=None):
             result = orig_get(path, params=params)
@@ -99,14 +102,16 @@ def fetch_devices_oauth(token_info_json):
         sys.exit(1)
 
     print(f"[tuya_cloud DEBUG] homes found: {len(manager.user_homes)}", file=sys.stderr)
-
-    print(f"[tuya_cloud DEBUG] homes found: {len(manager.user_homes)}", file=sys.stderr)
     for h in manager.user_homes:
         print(f"[tuya_cloud DEBUG]   home: id={h.id} name={h.name}", file=sys.stderr)
     print(f"[tuya_cloud DEBUG] devices in map: {len(manager.device_map)}", file=sys.stderr)
 
+    MAX_DEVICES = int(os.getenv("TUYA_MAX_DEVICES", "200"))
     devices = []
-    for device_id, device in manager.device_map.items():
+    for i, (device_id, device) in enumerate(manager.device_map.items()):
+        if i >= MAX_DEVICES:
+            print(f"[tuya_cloud WARNING] Capping device output at {MAX_DEVICES} (total: {len(manager.device_map)})", file=sys.stderr)
+            break
         obj = {
             "name": device.name,
             "id": device.id,

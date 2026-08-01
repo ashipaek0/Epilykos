@@ -4,17 +4,25 @@ Uses bleak for scanning, aiobmsble v0.25+ for reading.
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 import asyncio
 import logging
+import os
 import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bms-bridge")
 
+BMS_ALLOW_ORIGINS = os.getenv("BMS_ALLOW_ORIGINS", "https://epilykos.nousresearch.com")
+BLE_SCAN_TIMEOUT = float(os.getenv("BLE_SCAN_TIMEOUT", "10.0"))
+MAX_RESPONSE_BYTES = int(os.getenv("BMS_MAX_RESPONSE_BYTES", str(1024 * 1024)))  # 1 MB
+
 discovered_cache = []
 cache_ttl = 60
 last_scan_time = 0
 _scan_results = {}  # {address: (BLEDevice, AdvertisementData)} from last scan
+_state_lock = asyncio.Lock()
 _bms_plugins_loaded = False
 
 def _ensure_plugins():
@@ -28,31 +36,59 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in BMS_ALLOW_ORIGINS.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+class ResponseSizeLimitMiddleware(BaseHTTPMiddleware):
+    """Cap JSON response body size to prevent memory exhaustion."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if hasattr(response, "body") and response.body:
+            body_length = len(response.body)
+            if body_length > MAX_RESPONSE_BYTES:
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": f"Response too large ({body_length} bytes)", "max": MAX_RESPONSE_BYTES},
+                )
+        return response
+
+app.add_middleware(ResponseSizeLimitMiddleware)
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "bms-bridge"}
+    result = {"status": "ok", "service": "bms-bridge"}
+    try:
+        from bleak import BleakScanner
+        # Quick probe: list available adapters without starting a scan
+        adapters = await BleakScanner.discover(timeout=1.0, return_adv=False)
+        result["ble_adapters"] = len(adapters)
+        result["ble_available"] = True
+    except Exception as e:
+        result["ble_available"] = False
+        result["ble_error"] = str(e)
+        logger.warning(f"BLE adapter check failed: {e}")
+    return result
 
 @app.get("/devices")
 async def list_devices(force_scan: bool = False):
     """Scan for BLE BMS devices using bleak."""
     global discovered_cache, last_scan_time, _scan_results
-    now = time.time()
-    if not force_scan and discovered_cache and (now - last_scan_time) < cache_ttl:
-        logger.info(f"Returning cached {len(discovered_cache)} devices")
-        return discovered_cache
+    async with _state_lock:
+        now = time.time()
+        if not force_scan and discovered_cache and (now - last_scan_time) < cache_ttl:
+            logger.info(f"Returning cached {len(discovered_cache)} devices")
+            return discovered_cache
 
+    scanner = None
     try:
         from bleak import BleakScanner
-        logger.info("Scanning for BLE devices using bleak (10 second scan)...")
+        logger.info(f"Scanning for BLE devices using bleak ({BLE_SCAN_TIMEOUT}s scan)...")
         devices_found = []
         all_devices = []
-        _scan_results = {}
+        local_scan_results = {}
 
         def detection_callback(device, advertisement_data):
             all_devices.append({
@@ -60,7 +96,7 @@ async def list_devices(force_scan: bool = False):
                 "name": device.name or f"Unknown ({device.address[:8]})",
                 "rssi": advertisement_data.rssi
             })
-            _scan_results[device.address] = (device, advertisement_data)
+            local_scan_results[device.address] = (device, advertisement_data)
             if device.name and any(kw in device.name.lower() for kw in ["bms", "jk", "jbd", "daly"]):
                 devices_found.append({
                     "address": device.address,
@@ -70,10 +106,27 @@ async def list_devices(force_scan: bool = False):
 
         scanner = BleakScanner(detection_callback)
         await scanner.start()
-        logger.info("Scan started, waiting 10 seconds...")
-        await asyncio.sleep(10.0)
-        await scanner.stop()
+        logger.info(f"Scan started, waiting {BLE_SCAN_TIMEOUT}s...")
+        await asyncio.sleep(BLE_SCAN_TIMEOUT)
+    except ImportError:
+        logger.error("bleak not installed")
+        raise HTTPException(status_code=500, detail="No BLE scanning library available")
+    except OSError as e:
+        logger.error(f"Bluetooth adapter error: {e}")
+        raise HTTPException(status_code=500, detail=f"Bluetooth not accessible: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error during scan: {e}")
+        raise HTTPException(status_code=500, detail=f"Scan error: {e}")
+    finally:
+        if scanner is not None:
+            try:
+                await scanner.stop()
+                logger.info("Scanner stopped")
+            except Exception as e:
+                logger.warning(f"Error stopping scanner: {e}")
 
+    # Post-scan: update global state under lock
+    async with _state_lock:
         # Deduplicate by address (keep highest RSSI)
         deduped_all = {}
         for d in all_devices:
@@ -96,18 +149,10 @@ async def list_devices(force_scan: bool = False):
         else:
             discovered_cache = devices_found
 
+        _scan_results = local_scan_results
         last_scan_time = now
-        return discovered_cache
 
-    except ImportError:
-        logger.error("bleak not installed")
-        raise HTTPException(status_code=500, detail="No BLE scanning library available")
-    except OSError as e:
-        logger.error(f"Bluetooth adapter error: {e}")
-        raise HTTPException(status_code=500, detail=f"Bluetooth not accessible: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error during scan: {e}")
-        raise HTTPException(status_code=500, detail=f"Scan error: {e}")
+    return discovered_cache
 
 @app.get("/device/{address}")
 async def get_device_data(address: str):

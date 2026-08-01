@@ -4,29 +4,38 @@ Tuya LAN device bridge — called by Epilykos (Node.js) via child_process.execFi
 Polls DP values, tests connectivity, and discovers devices on a subnet.
 """
 import json
+import os
 import struct
 import sys
+
+DEFAULT_TIMEOUT = int(os.getenv("TUYA_LAN_TIMEOUT", "5"))
 
 
 def _make_device(dev_id, address, local_key, version):
     from tinytuya import Device
     d = Device(dev_id, address, local_key)
     d.set_version(float(version))
-    d.set_socketTimeout(5)
+    d.set_socketTimeout(DEFAULT_TIMEOUT)
     return d
 
 
 def poll_device(dev_id, address, local_key, version):
     """Return raw DP → value map (e.g. {"1": 85, "2": 230})."""
     d = _make_device(dev_id, address, local_key, version)
-    dps = d.status().get("dps", {})
-    print(json.dumps(dps))
+    d.set_socketTimeout(DEFAULT_TIMEOUT)
+    try:
+        dps = d.status().get("dps", {})
+        print(json.dumps(dps))
+    except Exception as e:
+        print(json.dumps({"error": str(e)}))
+        sys.exit(1)
 
 
 def test_device(dev_id, address, local_key, version):
     """Probe a device and return success + DPs or an error."""
     try:
         d = _make_device(dev_id, address, local_key, version)
+        d.set_socketTimeout(DEFAULT_TIMEOUT)
         result = d.status()
         dps = result.get("dps", {})
         print(json.dumps({"success": True, "dps": dps}))
@@ -55,6 +64,8 @@ def discover_subnet(subnet):
     if len(hosts) > 1024:
         print(json.dumps({"error": f"Subnet has {len(hosts)} hosts — max 1024"}))
         sys.exit(1)
+
+    MAX_DISCOVER_RESULTS = int(os.getenv("TUYA_MAX_DISCOVER_RESULTS", "100"))
 
     def probe_ip(ip_str):
         sock = None
@@ -91,6 +102,8 @@ def discover_subnet(subnet):
                     "version": "?",
                     "dps_count": 0,
                 })
+            if len(found) >= MAX_DISCOVER_RESULTS:
+                break
 
     found.sort(key=lambda d: [int(o) for o in d["ip"].split(".")])
     print(json.dumps(found))
