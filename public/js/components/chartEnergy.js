@@ -5,14 +5,15 @@ import { escapeHtml } from '../utils.js';
 function normalizeDatasets(datasets) {
   // Read CSS variable colors for dark/light mode adaptation
   var style = getComputedStyle(document.documentElement);
-  var cSolar = style.getPropertyValue('--color-solar').trim() || '#f59e0b';
-  var cGrid = style.getPropertyValue('--color-grid').trim() || '#b33a2e';
-  var cLoad = style.getPropertyValue('--color-home').trim() || '#333333';
-  var cBatt = style.getPropertyValue('--color-battery').trim() || '#4a6a2e';
-  var cExport = style.getPropertyValue('--color-export').trim() || '#f59e0b';
+  var cSolar = style.getPropertyValue('--color-solar').trim();
+  var cGrid = style.getPropertyValue('--color-grid').trim();
+  var cLoad = style.getPropertyValue('--color-home').trim();
+  var cBatt = style.getPropertyValue('--color-battery').trim();
+  var cExport = style.getPropertyValue('--color-export').trim();
+  var cFallback = style.getPropertyValue('--text-secondary').trim();
   if (!datasets || !datasets.length) return [{ label: 'Solar Generated', metric: 'daily_solar', color: cSolar }, { label: 'Grid Imported', metric: 'daily_grid_import', color: cGrid }, { label: 'Energy Consumed', metric: 'daily_consumption', color: cLoad }];
-  if (typeof datasets[0] === 'string') { const lm = { solar: { label: 'Solar Generated', color: cSolar }, grid_import: { label: 'Grid Imported', color: cGrid }, consumption: { label: 'Energy Consumed', color: cLoad }, battery_charge: { label: 'Battery Charge', color: cBatt }, battery_discharge: { label: 'Battery Discharge', color: cBatt }, grid_export: { label: 'Grid Export', color: cExport } }; return datasets.map(ds => { const b = lm[ds] || { label: ds, color: '#888' }; return { label: b.label, metric: ds, color: b.color }; }); }
-  return datasets.map(ds => ({ label: ds.label || ds.metric || 'Unknown', metric: ds.metric || '', color: ds.color || '#888' }));
+  if (typeof datasets[0] === 'string') { const lm = { solar: { label: 'Solar Generated', color: cSolar }, grid_import: { label: 'Grid Imported', color: cGrid }, consumption: { label: 'Energy Consumed', color: cLoad }, battery_charge: { label: 'Battery Charge', color: cBatt }, battery_discharge: { label: 'Battery Discharge', color: cBatt }, grid_export: { label: 'Grid Export', color: cExport } }; return datasets.map(ds => { const b = lm[ds] || { label: ds, color: cFallback }; return { label: b.label, metric: ds, color: b.color }; }); }
+  return datasets.map(ds => ({ label: ds.label || ds.metric || 'Unknown', metric: ds.metric || '', color: ds.color || cFallback }));
 }
 
 export function buildChartEnergy(block = {}) {

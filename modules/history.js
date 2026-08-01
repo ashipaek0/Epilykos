@@ -73,8 +73,8 @@ function autoPopulateRoleMetrics() {
     // Map flow-card/flow-card-2 role keys to history role keys
     const roleMap = {
       solar: 'solar', consumption: 'consumption',
-      battery_power: 'battery_charge', battery_discharge: 'battery_discharge',
-      grid: 'grid_import', grid_export: 'grid_export',
+      battery_power: 'battery_charge', battery_charge: 'battery_charge', battery_discharge: 'battery_discharge',
+      grid: 'grid_import', grid_import: 'grid_import', grid_export: 'grid_export',
       battery_soc: 'battery_soc',
     };
     for (const dash of (dc.dashboards || [])) {
@@ -107,7 +107,7 @@ function autoPopulateRoleMetrics() {
  */
 function getRoleMetrics() {
   const raw = getConfig('role_metrics');
-  if (raw) {
+  if (raw && raw !== '{}') {
     try { return JSON.parse(raw); } catch (e) {} 
   }
   // Auto-populate on first call

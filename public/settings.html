@@ -143,6 +143,7 @@
           <button class="subnav-btn" data-subtab="external">REST API</button>
           <button class="subnav-btn" data-subtab="bms">BMS</button>
           <button class="subnav-btn" data-subtab="dongle">Dongle</button>
+          <button class="subnav-btn" data-subtab="tuya">Tuya</button>
           <button class="subnav-btn" data-subtab="pvoutput">PVOutput</button>
         </div>
 
@@ -188,6 +189,54 @@
           <div id="dongle-devices-container"></div>
           <button type="button" id="add-dongle-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Dongle Instance</button>
           <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Direct TCP connection to your inverter's WiFi module.</p>
+        </div>
+        <div id="subtab-tuya" class="subtab-content">
+
+          <!-- EXPLANATORY HEADER -->
+          <div class="tuya-intro" style="margin-bottom:1.25rem;padding:0.85rem 1rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:0.825rem;color:var(--text-secondary);line-height:1.65;">
+            <strong style="color:var(--text);">All-Local LAN Protocol</strong> — Tuya devices are polled directly on your network via encrypted TCP (port 6668). No cloud dependency for runtime data.<br>
+            <strong>One-time setup:</strong> Devices encrypt their IDs and AES keys — fetch them <em>once</em> from the Tuya Cloud using your Smart Life UID + API credentials. After that, everything runs locally.
+          </div>
+
+          <!-- STEP-BY-STEP GUIDE -->
+          <div class="tuya-guide" style="margin-bottom:1.25rem;padding:1rem 1.25rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:0.825rem;color:var(--text-secondary);line-height:1.8;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:0.5rem;">Setup Workflow</div>
+            <div class="tuya-guide-step"><span class="help-step-num">1</span> Enter your <strong>Smart Life UID</strong>, generate QR code and scan with the Smart Life app</div>
+            <div class="tuya-guide-step"><span class="help-step-num">2</span> Devices are populated automatically — local keys, DP labels, and LAN IPs are matched</div>
+            <div class="tuya-guide-step"><span class="help-step-num">3</span> Map DP rows to metric names using the dropdowns</div>
+            <div class="tuya-guide-step"><span class="help-step-num">4</span> Click <strong>Verify All</strong> to test connectivity for all devices at once</div>
+            <div class="tuya-guide-step"><span class="help-step-num">5</span> Click <strong>Save</strong> at the bottom of the page</div>
+          </div>
+
+          <!-- QR Code Login (centered, full-width) -->
+          <div class="tuya-panel" style="margin-bottom:1.5rem;">
+            <div class="section-divider"><span class="stg-divider-icon">🔐</span> Smart Life Login</div>
+            <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.75rem;">
+              Enter your <strong>Smart Life UID</strong> (find it in Smart Life app → Me → ⚙ → Account → User ID).<br>
+              Scan the QR code with the Smart Life app to log in. Devices, local keys, and DP labels are fetched automatically.
+            </p>
+            <div class="form-row" style="margin-bottom:0.75rem;">
+              <input type="text" id="tuya-uid" placeholder="" style="flex:1;" autocomplete="off">
+              <button type="button" id="tuya-generate-qr-btn" class="btn btn-sm">Generate QR Code</button>
+            </div>
+            <div id="tuya-qr-container" style="display:none;text-align:center;margin:1rem 0;">
+              <canvas id="tuya-qr-canvas" style="border:8px solid #fff;border-radius:8px;"></canvas>
+              <p class="note" style="margin-top:0.5rem;color:var(--accent);">Scan with Smart Life app → Me → + → Scan QR Code</p>
+            </div>
+            <div id="tuya-oauth-status" class="test-status"></div>
+          </div>
+
+          <!-- DEVICE CARDS (2–3 across) -->
+          <div class="section-divider"><span class="stg-divider-icon">📡</span> Tuya Devices</div>
+          <div class="test-row" style="margin-bottom:0.75rem;">
+            <button type="button" id="tuya-verify-all-btn" class="btn btn-sm">🔍 Verify All</button>
+            <span class="test-status" id="tuya-verify-all-status"></span>
+          </div>
+          <div id="tuya-devices-container" class="tuya-grid"></div>
+          <button type="button" id="add-tuya-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Tuya Device Manually</button>
+          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-top:0.5rem;">
+            All communication is 100% local (encrypted TCP on port 6668) after initial cloud key retrieval.
+          </p>
         </div>
         <div id="subtab-pvoutput" class="subtab-content">
           <div class="card">

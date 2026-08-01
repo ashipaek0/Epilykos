@@ -58,6 +58,10 @@
   --danger:          var(--red-500);
   --toggle-off:      #c27a20;
 
+  /* Text on accent-colored backgrounds */
+  --color-text-on-accent: #fff;
+  --color-neutral:  #6b7280;
+
   /* ── Physical-object shadows (no glow) ──────────────── */
   --shadow-sm: 0 1px 2px rgba(28,27,23,0.04);
   --shadow:    0 1px 3px rgba(28,27,23,0.06), 0 1px 2px rgba(28,27,23,0.04);
@@ -176,7 +180,7 @@ body {
 .sidebar-logo .logo-icon {
   width: 32px; height: 32px;
   background: var(--accent);
-  color: #fff;
+  color: var(--color-text-on-accent);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -303,7 +307,7 @@ body {
 
 .nav-item.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--color-text-on-accent);
   font-weight: 600;
 }
 
@@ -326,7 +330,7 @@ body {
 
 .nav-item.active .nav-badge {
   background: rgba(255,255,255,0.25);
-  color: #fff;
+  color: var(--color-text-on-accent);
 }
 
 .nav-item .nav-status {
@@ -476,7 +480,7 @@ body {
 
 .subnav-btn.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--color-text-on-accent);
   border-color: var(--accent);
   font-weight: 600;
 }
@@ -751,12 +755,11 @@ input[type="password"] {
   position: absolute;
   width: 20px; height: 20px;
   left: 3px; top: 3px;
-  background: #fff;
+  background: var(--color-text-on-accent);
   border-radius: 50%;
   transition: transform 0.2s;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
-
 .toggle-switch input:checked + .slider {
   background: var(--success);
 }
@@ -845,7 +848,7 @@ button[data-action*="remove"] {
 
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--color-text-on-accent);
   border-color: var(--accent);
 }
 
@@ -856,7 +859,7 @@ button[data-action*="remove"] {
 
 .btn-success {
   background: var(--success);
-  color: #fff;
+  color: var(--color-text-on-accent);
   border-color: var(--success);
 }
 
@@ -866,7 +869,7 @@ button[data-action*="remove"] {
 
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--color-text-on-accent);
   border-color: var(--danger);
 }
 
@@ -946,6 +949,15 @@ table tr:hover td {
   gap: 0.75rem;
 }
 
+/* Tuya device grid — max 3 per row, responsive */
+.tuya-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 1100px) { .tuya-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { .tuya-grid { grid-template-columns: 1fr; } }
+
 .device-card {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -982,7 +994,7 @@ table tr:hover td {
   width: 10px; height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #6b7280;
+  background: var(--color-neutral);
   margin: 0 0.4rem;
   cursor: help;
 }
@@ -1065,6 +1077,14 @@ table tr:hover td {
 
 .test-status.success { color: var(--success); }
 .test-status.error   { color: var(--danger); }
+.test-status.warning { color: var(--accent); }
+
+/* Status message banners — compatible with settings.js */
+.status { padding: 0.5rem 0.75rem; border-radius: 0.4rem; font-size: 0.8rem; margin-top: 0.5rem; }
+.status.success { background: var(--success-light, #e6f5ea); color: var(--success); border: 1px solid var(--success); }
+.status.error   { background: rgba(220,38,38,0.1); color: var(--danger); border: 1px solid var(--danger); }
+.status.info    { background: var(--info-light); color: var(--info); border: 1px solid var(--info); }
+.status.warning { background: var(--accent-light); color: var(--accent-hover, var(--orange-600)); border: 1px solid var(--accent); }
 
 /* Metric mapping table */
 .mapping-table {
@@ -1312,7 +1332,7 @@ details[open] > .help-summary::before {
   width: 28px; height: 28px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--color-text-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1385,7 +1405,7 @@ details[open] > .help-sub-summary::before {
   flex-shrink: 0;
 }
 
-.help-badge.must { background: var(--danger); color: #fff; }
+.help-badge.must { background: var(--danger); color: var(--color-text-on-accent); }
 .help-badge.opt  { background: var(--info-light); color: var(--info); }
 .help-badge.info { background: var(--accent-light); color: var(--accent-hover); }
 

@@ -64,9 +64,10 @@ function computeTodaySolar() {
     }
   }
 
-  // 2. Auto-detect: scan latest_metrics for any metric name containing solar + (gen|daily|cumulative)
+  // 2. Auto-detect: scan latest_metrics once for both daily-energy and power metrics
   if (!done) {
     const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
+    // 2a. Daily energy candidates: metric name containing solar/pv + (gen|daily|today|cumulative)
     const dailyCandidates = allMetrics.filter(function(r) {
       var n = r.metric.toLowerCase();
       return (n.indexOf('solar') !== -1 || n.indexOf('pv') !== -1) && (n.indexOf('gen') !== -1 || n.indexOf('daily') !== -1 || n.indexOf('today') !== -1 || n.indexOf('cumulative') !== -1);
@@ -74,18 +75,17 @@ function computeTodaySolar() {
     for (var i = 0; i < dailyCandidates.length; i++) {
       if (dailyCandidates[i].value > 0) { computed = dailyCandidates[i].value; done = true; break; }
     }
-  }
 
-  // 3. Auto-detect: integrate any metric whose name suggests solar power from the metrics table
-  if (!done) {
-    const allMetrics = db.prepare('SELECT metric, value FROM latest_metrics').all();
-    for (var i = 0; i < allMetrics.length; i++) {
-      var n = allMetrics[i].metric.toLowerCase();
-      if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
-        const rows = db.prepare(
-          'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-        ).all(allMetrics[i].metric, startUnix, endUnix);
-        if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; break; }
+    // 2b. Power candidates: integrate any metric whose name suggests solar power
+    if (!done) {
+      for (var i = 0; i < allMetrics.length; i++) {
+        var n = allMetrics[i].metric.toLowerCase();
+        if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
+          const rows = db.prepare(
+            'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
+          ).all(allMetrics[i].metric, startUnix, endUnix);
+          if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; break; }
+        }
       }
     }
   }
@@ -186,24 +186,24 @@ async function getSolarForecast() {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
         }
-      } catch (e) {}
+      } catch (e) { logger.warn(`Solcast rooftop forecast unavailable: ${e.message}`); }
     }
     if (!forecastData && lat && lon) {
       try {
         const tilt = parseFloat(getConfig('solar_tilt')) || 30;
         const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
         const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
         }
-      } catch (e) {}
+      } catch (e) { logger.warn(`Solcast world PV power forecast unavailable: ${e.message}`); }
     }
   }
 
@@ -328,26 +328,26 @@ async function testForecast(opts) {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           const today = new Date().toISOString().split('T')[0];
           (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
-      } catch (e) {}
+      } catch (e) { logger.debug(`Solcast rooftop test unavailable: ${e.message}`); }
     }
     if (source === 'none') {
       try {
         const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { timeout: 10000 });
         if (res.ok) {
           const data = await res.json();
           const today = new Date().toISOString().split('T')[0];
           (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
-      } catch (e) {}
+      } catch (e) { logger.debug(`Solcast world PV test unavailable: ${e.message}`); }
     }
   }
   if (source === 'none') {

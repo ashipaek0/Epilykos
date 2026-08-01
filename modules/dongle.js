@@ -48,7 +48,7 @@ function startDonglePolling() {
       const intervalMs = (inst.poll_interval || 30) * 1000;
       const id = setInterval(() => pollJsonInstance(inst, transport, profile), intervalMs);
       pollIntervals.push(id);
-      pollJsonInstance(inst, transport, profile);
+      pollJsonInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
       continue;
     }
 
@@ -60,7 +60,7 @@ function startDonglePolling() {
     const intervalMs = (inst.poll_interval || 30) * 1000;
     const id = setInterval(() => pollInstance(inst, transport, profile), intervalMs);
     pollIntervals.push(id);
-    pollInstance(inst, transport, profile);
+    pollInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
   }
 
   if (growattInstances.length > 0) {

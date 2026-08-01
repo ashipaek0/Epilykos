@@ -30,6 +30,7 @@ const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = requ
 const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
+const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
@@ -37,7 +38,7 @@ const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules
 const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
-const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot } = require('./modules/backup');
+const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
 const { parseGridState } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
@@ -101,6 +102,12 @@ startDonglePolling();
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
 
+// Periodic WAL checkpoint — prevents unbounded WAL file growth
+// Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
+setInterval(() => {
+  try { checkpointWal(); } catch (e) { logger.warn('Periodic WAL checkpoint failed:', e.message); }
+}, 60 * 60 * 1000);
+
 // Multer for restore and import
 const upload = multer({
   dest: '/tmp/',
@@ -131,6 +138,11 @@ const wsClients = new Set();
  */
 function broadcastDashboardState(state) {
   const message = JSON.stringify({ type: 'dashboard-state', data: state });
+  const MAX_MESSAGE_SIZE = 64 * 1024; // 64 KB
+  if (Buffer.byteLength(message, 'utf8') > MAX_MESSAGE_SIZE) {
+    logger.warn(`WebSocket broadcast blocked: message size ${Buffer.byteLength(message, 'utf8')} exceeds 64KB limit`);
+    return;
+  }
   wsClients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message, err => {
@@ -278,6 +290,7 @@ async function pollAllSources() {
   try {
     await pollHomeAssistant();
     await pollModbus();
+    await pollTuyaDevices();
     await pollRs232();         // RS232 serial inverter polling
     await pollLegacyHistory();
     await pollGridStatus();
@@ -355,7 +368,8 @@ app.get('/api/current', async (req, res) => {
 });
 
 app.get('/api/history', async (req, res) => {
-  const requestedDays = parseInt(req.query.days) || 1;
+  const requestedDays = parseInt(req.query.days);
+  if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-7)' });
   const days = Math.min(requestedDays, 7);
   const now = Math.floor(Date.now() / 1000);
   const since = now - (days * 24 * 3600);
@@ -378,7 +392,8 @@ app.get('/api/history', async (req, res) => {
 });
 
 app.get('/api/daily', async (req, res) => {
-  const requestedDays = parseInt(req.query.days) || 30;
+  const requestedDays = parseInt(req.query.days);
+  if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-365)' });
   const days = Math.min(requestedDays, 365);
   const now = new Date();
   const dateArray = [];
@@ -489,8 +504,11 @@ app.get('/api/grid/status', async (req, res) => {
 
 app.get('/api/grid/hours', async (req, res) => {
   try {
-    const hours = await getGridHours(req.query.period || 'day');
-    res.json({ period: req.query.period || 'day', hours });
+    const period = req.query.period || 'day';
+    const validPeriods = ['day', 'week', 'month', 'year'];
+    if (!validPeriods.includes(period)) return res.status(400).json({ error: `Invalid period. Allowed: ${validPeriods.join(', ')}` });
+    const hours = await getGridHours(period);
+    res.json({ period, hours });
   } catch (err) {
     logger.error('Error in /api/grid/hours:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -499,7 +517,10 @@ app.get('/api/grid/hours', async (req, res) => {
 
 app.get('/api/grid/timeline', async (req, res) => {
   try {
-    res.json(await getGridTimeline(req.query.period || '24h'));
+    const period = req.query.period || '24h';
+    const validPeriods = ['24h', '7d', '30d'];
+    if (!validPeriods.includes(period)) return res.status(400).json({ error: `Invalid period. Allowed: ${validPeriods.join(', ')}` });
+    res.json(await getGridTimeline(period));
   } catch (err) {
     logger.error('Error in /api/grid/timeline:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -910,9 +931,10 @@ app.post('/api/settings', (req, res) => {
   try {
     // Reject keys matching sensitive patterns (token, password, secret, key, etc.)
     const sensitivePattern = /_token$|_password$|_secret$/i;
+    const sensitiveKeyExempt = ['tuya_cloud'];
     const filteredUpdates = {};
     for (const [key, value] of Object.entries(updates)) {
-      if (sensitivePattern.test(key)) {
+      if (sensitivePattern.test(key) && !sensitiveKeyExempt.includes(key)) {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
         continue;
       }
@@ -920,7 +942,10 @@ app.post('/api/settings', (req, res) => {
     }
     const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
     for (const [key, value] of Object.entries(filteredUpdates)) {
-      stmt.run(key, String(value));
+      // Reject undefined values; coerce null to empty string
+      if (value === undefined) continue;
+      const safeValue = value === null ? '' : String(value);
+      stmt.run(key, safeValue);
     }
     if ('mqtt_devices' in filteredUpdates) restartMqtt();
     if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
@@ -983,13 +1008,18 @@ function saveConfigKeys(allowedKeys, req, res) {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
         continue;
       }
-      filtered[key] = updates[key];
+      const raw = updates[key];
+      // Reject undefined values (missing/unset) to avoid "undefined" strings in DB
+      if (raw === undefined) continue;
+      // Coerce null to empty string instead of "null"
+      const value = raw === null ? '' : String(raw);
+      filtered[key] = value;
     }
   }
   const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
   const saved = [];
   for (const [key, value] of Object.entries(filtered)) {
-    stmt.run(key, String(value));
+    stmt.run(key, value);
     saved.push(key);
   }
   return { saved };
@@ -1002,7 +1032,8 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
     const allowed = [
       'ha_devices', 'mqtt_devices', 'modbus_devices', 'rs232_devices',
       'external_sources', 'external_poll_interval',
-      'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config'
+      'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
+      'tuya_devices', 'tuya_cloud'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
 
@@ -1350,6 +1381,96 @@ app.get('/api/bms/device-status', (req, res) => {
   }
 });
 
+// ── Tuya API routes ─────────────────────────────────────────────
+
+app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
+  try {
+    // Accept optional ?subnet=192.168.0.0/24 for cross-subnet directed scan
+    const rawSubnet = req.query.subnet;
+    const subnet = Array.isArray(rawSubnet) ? rawSubnet[0] : (rawSubnet || '');
+    const devices = await discoverTuyaDevices(subnet || undefined);
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] Discover error:', err.message);
+    res.status(500).json({ error: err.message || 'Discovery failed' });
+  }
+});
+
+app.post('/api/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
+  try {
+    const { region, access_id, access_secret, user_id } = req.body;
+    const devices = await fetchCloudDevices(region, access_id, access_secret, user_id);
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] Cloud fetch error:', err.message);
+    res.status(500).json({ error: err.message || 'Cloud fetch failed' });
+  }
+});
+
+// Smart Life OAuth flow — QR code login (replaces the IoT API credential flow)
+app.post('/api/tuya-generate-qr', isAuthenticated, async (req, res) => {
+  try {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'UID is required' });
+    const result = await generateQrCode(uid);
+    res.json(result);
+  } catch (err) {
+    logger.error('[Tuya] QR generate error:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to generate QR code' });
+  }
+});
+
+app.post('/api/tuya-poll-login', isAuthenticated, async (req, res) => {
+  try {
+    const { qr_token, uid } = req.body;
+    if (!qr_token || !uid) return res.status(400).json({ error: 'qr_token and uid are required' });
+    const result = await pollQrLogin(qr_token, uid);
+    res.json(result);
+  } catch (err) {
+    logger.error('[Tuya] Poll login error:', err.message);
+    res.status(500).json({ error: err.message || 'Login poll failed' });
+  }
+});
+
+app.post('/api/tuya-fetch-oauth', isAuthenticated, async (req, res) => {
+  try {
+    const { token_info } = req.body;
+    if (!token_info) return res.status(400).json({ error: 'token_info is required' });
+    const devices = await fetchDevicesOAuth(token_info);
+    res.json({ success: true, devices });
+  } catch (err) {
+    logger.error('[Tuya] OAuth fetch error:', err.message);
+    res.status(500).json({ error: err.message || 'OAuth device fetch failed' });
+  }
+});
+
+app.post('/api/test-tuya', isAuthenticated, async (req, res) => {
+  try {
+    const { dev_id, address, local_key, version } = req.body;
+    const result = await testTuyaDevice({ dev_id, address, local_key, version });
+    res.json(result);
+  } catch (err) {
+    logger.error('[Tuya] Test error:', err.message);
+    res.status(500).json({ error: err.message || 'Test failed' });
+  }
+});
+
+app.post('/api/tuya-verify-all', isAuthenticated, async (req, res) => {
+  try {
+    const { devices } = req.body;
+    if (!Array.isArray(devices) || devices.length === 0) {
+      return res.status(400).json({ error: 'devices array is required' });
+    }
+    const results = await verifyAllTuyaDevices(devices);
+    const successCount = results.filter(r => r.success).length;
+    const totalCount = results.length;
+    res.json({ success: true, results, summary: `${successCount}/${totalCount} devices connected` });
+  } catch (err) {
+    logger.error('[Tuya] Verify all error:', err.message);
+    res.status(500).json({ error: err.message || 'Verify all failed' });
+  }
+});
+
 app.use('/api/test-external', isAuthenticated);
 app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;
@@ -1578,7 +1699,9 @@ app.get('/api/metrics/current', async (req, res) => {
 
 app.get('/api/metrics/history', async (req, res) => {
   const metric = req.query.metric;
+  if (!metric || typeof metric !== 'string' || metric.length > 128) return res.status(400).json({ error: 'metric is required (max 128 chars)' });
   const hours = parseInt(req.query.hours) || 24;
+  if (isNaN(hours) || hours < 1 || hours > 8760) return res.status(400).json({ error: 'hours must be 1-8760' });
   try {
     res.json(getMetricHistory(metric, hours));
   } catch (err) {
@@ -1610,6 +1733,9 @@ app.get('*', (req, res, next) => {
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
+});
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received — shutting down');
   await shutdownRs232();

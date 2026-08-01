@@ -164,7 +164,7 @@ export async function updatePvToday(forecastData) {
     if (fillEl) fillEl.style.width = progPct + '%';
 
     // Weather timeline strip
-    renderTimeline(el('pvt-icons'), el('pvt-timeline-bar'), todayHourly, now, isDark);
+    renderTimeline(el('pvt-icons'), el('pvt-timeline-bar'), todayHourly, now);
 
     // Chart — sized by CSS + Chart.js responsive; resize handled by observer in builder
     if (!canvas) continue;
@@ -180,21 +180,29 @@ export async function updatePvToday(forecastData) {
 
     if (typeof Chart === 'undefined') { DEBUG_PVTODAY && console.error('[pvToday] Chart.js not loaded!'); continue; }
 
-    const mutedColor = isDark ? '#94a3b8' : '#666666';
+    const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim();
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
     const ctx = canvas.getContext('2d');
     try {
     if (!pvTodayCharts[canvasId]) {
-      // Adapt chart colors based on theme
-      var generatedColor = isDark ? '#fbbf24' : '#f59e0b';
-      var predictedColor = isDark ? '#f59e0b' : '#d97706';
-      var cloudColor = isDark ? 'rgba(160,170,195,0.7)' : 'rgba(180,185,210,0.7)';
-      var cloudFill = isDark ? 'rgba(160,170,195,0.15)' : 'rgba(180,185,210,0.15)';
+      // Adapt chart colors based on theme via CSS variables
+      var style = getComputedStyle(document.documentElement);
+      var generatedColor = style.getPropertyValue('--color-solar').trim();
+      var predictedColor = style.getPropertyValue('--color-solar-r').trim();
+      var cloudColor = style.getPropertyValue('--color-cloud-moderate').trim();
+      // Compute rgba fill from cloud color with low alpha
+      var cloudFill = cloudColor.replace(')', ',0.15)').replace('rgb', 'rgba');
+      if (cloudFill === cloudColor) cloudFill = 'rgba(180,185,210,0.15)'; // fallback
+      var nowLineColor = style.getPropertyValue('--color-negative').trim();
+      var axisColor = style.getPropertyValue('--text-secondary').trim();
+      // Compute rgba from resolved solar color for fill
+      var genFill = generatedColor.replace(')', ',0.12)').replace('rgb', 'rgba');
+      if (genFill === generatedColor) genFill = 'rgba(245,158,11,0.12)'; // fallback
       pvTodayCharts[canvasId] = new Chart(ctx, {
         type: 'line',
         data: { datasets: [
-          { label: 'Generated', data: [], borderColor: generatedColor, backgroundColor: isDark ? 'rgba(251,191,36,0.12)' : 'rgba(245,158,11,0.12)', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
+          { label: 'Generated', data: [], borderColor: generatedColor, backgroundColor: genFill, borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y', order: 2 },
           { label: 'Predicted', data: [], borderColor: predictedColor, backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 4], tension: 0.4, pointRadius: 0, fill: false, yAxisID: 'y', order: 4 },
           { label: 'Cloud Cover', data: [], borderColor: cloudColor, backgroundColor: cloudFill, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true, yAxisID: 'y1', order: 0 }
         ]},
@@ -207,7 +215,7 @@ export async function updatePvToday(forecastData) {
           scales: {
             x: { type: 'linear', min: getHourTimestamp(7), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
             y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
-            y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: '#7d869e', font: { size: 8 } }, grid: { display: false } }
+            y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: axisColor, font: { size: 8 } }, grid: { display: false } }
           }
         },
         plugins: [{
@@ -217,7 +225,7 @@ export async function updatePvToday(forecastData) {
             const nowX = Date.now();
             if (nowX < scales.x.min || nowX > scales.x.max) return;
             const x = scales.x.getPixelForValue(nowX);
-            ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.strokeStyle = '#d94141'; ctx.lineWidth = 1;
+            ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.strokeStyle = nowLineColor; ctx.lineWidth = 1;
             ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke(); ctx.restore();
           }
         }]
@@ -279,7 +287,7 @@ function bucketIntradayByDailySolar(data, now) {
   return result;
 }
 
-function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
+function renderTimeline(iconsEl, barEl, hourly, now) {
   if (!iconsEl || !barEl) { DEBUG_PVTODAY && console.log('[pvToday] renderTimeline skipped — iconsEl:', !!iconsEl, 'barEl:', !!barEl); return; }
   const slots = [7, 10, 13, 16, 19];
   const timelineData = slots.map(h => {
@@ -295,12 +303,19 @@ function renderTimeline(iconsEl, barEl, hourly, now, isDark) {
   iconsEl.innerHTML = timelineData.map(d => {
     return `<span class="pvt-timeline-icon" title="${d.hour}:00"></span>`;
   }).join('');
+  // Read CSS variable colors for cloud coverage bars
+  const style = getComputedStyle(document.documentElement);
+  const cloudNoData = style.getPropertyValue('--border').trim();
+  const cloudHeavy = style.getPropertyValue('--color-cloud-heavy').trim();
+  const cloudModerate = style.getPropertyValue('--color-cloud-moderate').trim();
+  const cloudLight = style.getPropertyValue('--color-cloud-light').trim();
+  const cloudClear = style.getPropertyValue('--color-cloud-clear').trim();
   const colors = timelineData.map(d => {
-    if (d.cloud == null) return isDark ? '#475569' : '#c8cada';
-    if (d.cloud > 80) return '#7b84a0';
-    if (d.cloud > 50) return '#9ca3af';
-    if (d.cloud > 20) return '#ffe870';
-    return '#f59e0b';
+    if (d.cloud == null) return cloudNoData;
+    if (d.cloud > 80) return cloudHeavy;
+    if (d.cloud > 50) return cloudModerate;
+    if (d.cloud > 20) return cloudLight;
+    return cloudClear;
   });
   barEl.innerHTML = colors.map(c =>
     `<div class="pvt-timeline-seg" style="background:${c};flex:1;height:3px;border-radius:1px;margin:0 1px;"></div>`
