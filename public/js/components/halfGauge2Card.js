@@ -42,7 +42,7 @@ export function updateHalfGauge2Card(state) {
     const arcLen = Math.PI * 80; // ≈ 251.3 — true semicircle arc length (radius=80)
     const midArc = arcLen / 2;    // ≈ 125.7 — position of 12 o'clock
     const color = cfg.color || 'var(--color-solar)';
-    const negColor = '#ef4444';
+    const negColor = getComputedStyle(document.documentElement).getPropertyValue('--color-negative').trim();
     // 12 o'clock (top centre) is the neutral point
     // Positive: clockwise from 12 o'clock → 3 o'clock (right)
     // Negative: counter-clockwise from 12 o'clock → 9 o'clock (left)
