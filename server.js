@@ -1177,6 +1177,35 @@ app.post('/api/settings/backup', isAuthenticated, (req, res) => {
   res.json({ ok: true, saved: [] });
 });
 
+app.post('/api/action', isAuthenticated, async (req, res) => {
+  const { source, device, action, entity, params } = req.body;
+  
+  if (!source || !device || !action) {
+    return res.status(400).json({ error: 'source, device, and action are required' });
+  }
+  
+  try {
+    let result;
+    switch (source) {
+      case 'ha':
+        const { executeHAAction } = require('./modules/ha');
+        result = await executeHAAction(device, entity, action, params || {});
+        break;
+      // Future sources: mqtt, tuya, modbus, rs232, dongle
+      default:
+        return res.status(400).json({ error: `Unknown source: ${source}` });
+    }
+    
+    if (result.error) {
+      return res.status(502).json(result);
+    }
+    res.json(result);
+  } catch (e) {
+    logger.error(`Action error: ${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // BMS bridge proxy – browser can't reach bms-bridge directly
 const BMS_BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
 
