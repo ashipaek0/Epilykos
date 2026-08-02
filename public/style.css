@@ -783,6 +783,26 @@ h1, h2, h3, h4,
 .toggle-switch input:checked + .slider::before {
   transform: translateX(18px);
 }
+
+/* Switch Block */
+.switch-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.switch-label { font-size: var(--fs-base, 1rem); font-weight: 500; color: var(--text); }
+.switch-control { display: flex; align-items: center; gap: 0.75rem; }
+.switch-state { font-size: var(--fs-small); color: var(--text-secondary); min-width: 2.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Action toggle (green=on, amber=off) */
+.toggle-switch.action-toggle { width: 52px; height: 30px; }
+.toggle-switch.action-toggle input:checked + .slider { background: #00b354; }
+.toggle-switch.action-toggle .slider { background: #d29922; }
+
 .config-modal-footer {
   display: flex;
   gap: 0.5rem;

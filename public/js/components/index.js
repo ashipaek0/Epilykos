@@ -22,6 +22,7 @@ import { buildPvToday } from './pvToday.js';
 import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
 import { buildWeatherBlock } from './weatherBlock.js';
+import { buildSwitchBlock, updateSwitchBlockFromState } from './switchBlock.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -47,5 +48,6 @@ export const componentBuilders = {
   'forecast-pvtoday': buildPvToday,
   'bar-gauge': buildBarGauge,
   'bar-gauge-retro': buildBarGaugeRetro,
-  'weather-block': buildWeatherBlock
+  'weather-block': buildWeatherBlock,
+  'switch-block': { build: buildSwitchBlock, update: updateSwitchBlockFromState }
 };
