@@ -9,6 +9,8 @@ const { logger } = require('./logger');
 let availableProfiles = [];
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
+let metricInsertTextStmt = null;
+let latestUpsertTextStmt = null;
 
 // Streaming connections: device_name → { port, parser, device, profile }
 const streamingConnections = new Map();
@@ -35,6 +37,39 @@ function getLatestUpsert() {
     latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   }
   return latestUpsertStmt;
+}
+
+function getMetricInsertText() {
+  if (!metricInsertTextStmt) {
+    const db = getDb();
+    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  }
+  return metricInsertTextStmt;
+}
+
+function getLatestUpsertText() {
+  if (!latestUpsertTextStmt) {
+    const db = getDb();
+    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  }
+  return latestUpsertTextStmt;
+}
+
+function saveMetric(metricName, rawValue, timestamp) {
+  if (rawValue === null || rawValue === undefined) return;
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+    getLatestUpsert().run(metricName, num, timestamp);
+    getMetricInsert().run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
+    getMetricInsertText().run(timestamp, metricName, displayVal, type);
+  }
 }
 
 // ── Profile Loading ─────────────────────────────────────────────────────
@@ -342,12 +377,10 @@ async function pollQueryDevice(device, profile) {
       Object.assign(results, parsed);
     }
 
-    // Write to database — only numeric values
+    // Write to database — use type detection
     const now = Math.floor(Date.now() / 1000);
     for (const [metric, value] of Object.entries(results)) {
-      if (typeof value !== 'number' || isNaN(value)) continue;
-      getMetricInsert().run(now, metric, value);
-      getLatestUpsert().run(metric, value, now);
+      saveMetric(metric, value, now);
     }
     logger.info(`RS232 poll ${device.name}: ${Object.keys(results).length} metrics`);
   } finally {
@@ -388,9 +421,7 @@ function setupStreamingConnection(device, profile) {
       if (Object.keys(metrics).length > 0) {
         const now = Math.floor(Date.now() / 1000);
         for (const [metric, val] of Object.entries(metrics)) {
-          if (typeof val !== 'number' || isNaN(val)) continue;
-          getMetricInsert().run(now, metric, val);
-          getLatestUpsert().run(now, metric, val);
+          saveMetric(metric, val, now);
         }
       }
       currentFrame = {};

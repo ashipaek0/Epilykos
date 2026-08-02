@@ -82,10 +82,22 @@ function writeMetrics(metrics, units) {
   const now = Math.floor(Date.now() / 1000);
   const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
   const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)');
-  for (const [name, value] of Object.entries(metrics)) {
-    if (value !== undefined && !isNaN(value)) {
-      metricInsert.run(now, name, value);
-      latestUpsert.run(name, value, now, (units && units[name]) || null);
+  const metricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  const latestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp, unit) VALUES (?, ?, ?, ?, ?)');
+  for (const [name, rawValue] of Object.entries(metrics)) {
+    if (rawValue === undefined || rawValue === null) continue;
+    const num = parseFloat(rawValue);
+    if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+      metricInsert.run(now, name, num);
+      latestUpsert.run(name, num, now, (units && units[name]) || null);
+    } else {
+      const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+      const lower = strVal.toLowerCase();
+      const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+      const type = isBool ? 'boolean' : 'string';
+      const displayVal = isBool ? lower : strVal;
+      metricInsertText.run(now, name, displayVal, type);
+      latestUpsertText.run(name, displayVal, type, now, (units && units[name]) || null);
     }
   }
 }
