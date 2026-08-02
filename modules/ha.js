@@ -91,7 +91,44 @@ async function fetchHAEntities(url, token) {
   });
   if (!response.ok) throw new Error(`HA error ${response.status}`);
   const data = await response.json();
-  return data.filter(e => e.entity_id.startsWith('sensor.') || e.entity_id.startsWith('binary_sensor.')).map(e => e.entity_id);
+  return data.filter(e => 
+    e.entity_id.startsWith('sensor.') || 
+    e.entity_id.startsWith('binary_sensor.') ||
+    e.entity_id.startsWith('switch.') ||
+    e.entity_id.startsWith('light.') ||
+    e.entity_id.startsWith('climate.') ||
+    e.entity_id.startsWith('fan.') ||
+    e.entity_id.startsWith('cover.') ||
+    e.entity_id.startsWith('input_boolean.')
+  ).map(e => e.entity_id);
 }
 
-module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues };
+async function executeHAAction(deviceName, entityId, service, data = {}) {
+  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+  const device = haDevices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'Device not found or disabled' };
+  if (!device.url || !device.token) return { error: 'Device URL or token missing' };
+  
+  const [domain, serviceName] = service.split('.');
+  if (!domain || !serviceName) return { error: 'Invalid service format (domain.service)' };
+  
+  try {
+    const res = await fetch(`${device.url}/api/services/${domain}/${serviceName}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${device.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: entityId, ...data }),
+      timeout: 5000
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { error: `HA returned ${res.status}: ${errText}` };
+    }
+    const result = await res.json();
+    return { success: true, result };
+  } catch (e) {
+    logger.error(`HA action error for ${deviceName}/${entityId}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues, executeHAAction };
