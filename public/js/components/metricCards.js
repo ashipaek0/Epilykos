@@ -41,6 +41,11 @@ export function updateMetricCardsFromState(state) {
               const valEl = cards[i].querySelector('.stat-value');
               if (valEl) valEl.textContent = `${data.value.toFixed(1)} ${card.unit || ''}`;
             }
+          } else if (data && data.value != null) {
+            if (cards[i]) {
+              const valEl = cards[i].querySelector('.stat-value');
+              if (valEl) valEl.textContent = String(data.value) + (card.unit ? ' ' + card.unit : '');
+            }
           }
         });
       });

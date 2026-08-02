@@ -42,6 +42,6 @@ export function updateFlowCard(state) {
     const isCharging = bc > bd, isDischarging = bd > bc, isGridChargingBattery = gi > 0 && isCharging;
     const ba = card.querySelector('.flow-arrow.battery'); if (ba) { if (isDischarging) { ba.style.color = 'var(--discharge)'; ba.textContent = '→'; } else if (isCharging) { ba.style.color = isGridChargingBattery ? 'var(--grid)' : 'var(--solar)'; ba.textContent = isGridChargingBattery ? '←' : '→'; } else { ba.style.color = 'var(--text-secondary)'; ba.textContent = '⇄'; } }
     const ga = card.querySelector('.flow-arrow.grid'); if (ga) { if (gi > ge) { ga.style.color = 'var(--grid)'; ga.textContent = '←'; } else if (ge > gi) { ga.style.color = 'var(--export)'; ga.textContent = '→'; } else { ga.style.color = 'var(--text-secondary)'; ga.textContent = '⇄'; } }
-    const gf = el('gauge-bar-fill'), gp = el('gauge-percent'); if (gf && gp && window.systemCapacityKwp) { const pct = Math.min(100, (sw / (window.systemCapacityKwp * 1000)) * 100); gf.style.width = pct + '%'; gp.textContent = pct.toFixed(0) + '%'; }
+    const gf = el('gauge-bar-fill'), gp = el('gauge-percent'); if (gf && gp && window.systemCapacityKwp) { const swVal = typeof sw === 'number' ? sw : 0; const pct = Math.min(100, (swVal / (window.systemCapacityKwp * 1000)) * 100); gf.style.width = pct + '%'; gp.textContent = pct.toFixed(0) + '%'; }
   });
 }
