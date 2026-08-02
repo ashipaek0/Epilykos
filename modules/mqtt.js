@@ -97,4 +97,18 @@ function setupMqtt() {
 
 function restartMqtt() { setupMqtt(); }
 
-module.exports = { setupMqtt, restartMqtt, mqttClients };
+function executeMqttAction(brokerName, topic, payload) {
+  const client = mqttClients?.[brokerName];
+  if (!client) return { error: `MQTT broker "${brokerName}" not connected` };
+
+  try {
+    client.publish(topic, String(payload ?? ''));
+    logger.debug(`MQTT published to ${brokerName}/${topic}: ${payload}`);
+    return { success: true };
+  } catch (e) {
+    logger.error(`MQTT action error for ${brokerName}/${topic}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { setupMqtt, restartMqtt, mqttClients, executeMqttAction };
