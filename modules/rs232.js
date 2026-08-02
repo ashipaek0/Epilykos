@@ -58,7 +58,7 @@ function getLatestUpsertText() {
 function saveMetric(metricName, rawValue, timestamp) {
   if (rawValue === null || rawValue === undefined) return;
   const num = parseFloat(rawValue);
-  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+  if (!isNaN(num) && num === Number(rawValue)) {
     getLatestUpsert().run(metricName, num, timestamp);
     getMetricInsert().run(timestamp, metricName, num);
   } else {

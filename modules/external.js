@@ -17,7 +17,7 @@ function getValueByPath(obj, path) {
 function saveExternalMetric(metricName, rawValue, timestamp) {
   if (rawValue === null || rawValue === undefined) return;
   const num = parseFloat(rawValue);
-  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+  if (!isNaN(num) && num === Number(rawValue)) {
     externalMetricInsert.run(timestamp, metricName, num);
     externalLatestUpsert.run(metricName, num, timestamp);
   } else {
