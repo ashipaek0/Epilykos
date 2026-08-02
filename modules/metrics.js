@@ -3,9 +3,16 @@ const { getDb } = require('./database');
 
 function getCurrentMetrics() {
   const db = getDb();
-  const rows = db.prepare('SELECT metric, value, timestamp, unit FROM latest_metrics').all();
+  const rows = db.prepare('SELECT metric, value, value_text, value_type, timestamp, unit FROM latest_metrics').all();
   const result = {};
-  rows.forEach(r => { result[r.metric] = { value: r.value, timestamp: r.timestamp * 1000, unit: r.unit || null }; });
+  rows.forEach(r => { 
+    result[r.metric] = { 
+      value: r.value_text != null ? r.value_text : r.value, 
+      type: r.value_type || 'number',
+      timestamp: r.timestamp * 1000, 
+      unit: r.unit || null 
+    }; 
+  });
   return result;
 }
 
