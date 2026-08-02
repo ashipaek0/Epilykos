@@ -6,6 +6,8 @@ const path = require('path');
 // Module-level cached prepared statements (same pattern as ha.js / mqtt.js / modbus.js)
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
+let metricInsertTextStmt = null;
+let latestUpsertTextStmt = null;
 
 function getMetricInsert() {
   if (!metricInsertStmt) {
@@ -21,6 +23,39 @@ function getLatestUpsert() {
     latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   }
   return latestUpsertStmt;
+}
+
+function getMetricInsertText() {
+  if (!metricInsertTextStmt) {
+    const db = getDb();
+    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  }
+  return metricInsertTextStmt;
+}
+
+function getLatestUpsertText() {
+  if (!latestUpsertTextStmt) {
+    const db = getDb();
+    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  }
+  return latestUpsertTextStmt;
+}
+
+function saveMetric(metricName, rawValue, timestamp) {
+  if (rawValue === null || rawValue === undefined) return;
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+    getLatestUpsert().run(metricName, num, timestamp);
+    getMetricInsert().run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
+    getMetricInsertText().run(timestamp, metricName, displayVal, type);
+  }
 }
 
 /**
@@ -110,11 +145,7 @@ async function pollTuyaDevices() {
       for (const [metricName, dpNumber] of Object.entries(dpsConfig)) {
         const dpKey = String(dpNumber);
         if (dps[dpKey] === undefined || dps[dpKey] === null) continue;
-        let val = parseFloat(dps[dpKey]);
-        if (isNaN(val)) continue;
-
-        getMetricInsert().run(now, metricName, val);
-        getLatestUpsert().run(metricName, val, now);
+        saveMetric(metricName, dps[dpKey], now);
         written++;
       }
 

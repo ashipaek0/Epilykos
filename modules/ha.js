@@ -4,6 +4,8 @@ const { getConfig, getDb } = require('./database');
 
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
+let metricInsertTextStmt = null;
+let latestUpsertTextStmt = null;
 
 function getMetricInsert() {
   if (!metricInsertStmt) {
@@ -19,6 +21,38 @@ function getLatestUpsert() {
     latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   }
   return latestUpsertStmt;
+}
+
+function getMetricInsertText() {
+  if (!metricInsertTextStmt) {
+    const db = getDb();
+    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  }
+  return metricInsertTextStmt;
+}
+
+function getLatestUpsertText() {
+  if (!latestUpsertTextStmt) {
+    const db = getDb();
+    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  }
+  return latestUpsertTextStmt;
+}
+
+function saveMetric(metricName, rawValue, timestamp) {
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+    getLatestUpsert().run(metricName, num, timestamp);
+    getMetricInsert().run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
+    getMetricInsertText().run(timestamp, metricName, displayVal, type);
+  }
 }
 
 let mqttValues = {};
@@ -38,17 +72,11 @@ async function pollHomeAssistant() {
         });
         if (!res.ok) continue;
         const data = await res.json();
-        let val = parseFloat(data.state);
-        if (isNaN(val)) {
-          // Handle binary sensors returning on/off strings
-          if (data.state === 'on') val = 1;
-          else if (data.state === 'off') val = 0;
-          else continue;
-        }
         const now = Math.floor(Date.now() / 1000);
-        getMetricInsert().run(now, metric, val);
-        getLatestUpsert().run(metric, val, now);
-        mqttValues[metric] = val;
+        saveMetric(metric, data.state, now);
+        // Store numeric representation for mqttValues compatibility
+        const num = parseFloat(data.state);
+        mqttValues[metric] = !isNaN(num) ? num : (data.state === 'on' || data.state === 'true' ? 1 : (data.state === 'off' || data.state === 'false' ? 0 : undefined));
       } catch (e) {
         logger.warn(`HA poll error for ${device.name} - ${metric}: ${e.message}`);
       }

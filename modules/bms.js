@@ -45,15 +45,14 @@ async function pollBMS() {
         const mappings = device.mappings || {};
         const hasMappings = Object.keys(mappings).length > 0;
         for (const [key, val] of Object.entries(data)) {
-          if (typeof val !== 'number' || isNaN(val)) continue;
+          if (val === null || val === undefined) continue;
+          if (typeof val === 'object' && !Array.isArray(val)) continue;
           // Always store raw metric: bms_<device_name>_<key> (aggregator needs this)
           const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-          getBmsMetricInsert(db).run(now, safeName, val);
-          getBmsLatestUpsert(db).run(safeName, val, now);
+          saveBmsMetric(db, safeName, val, now);
           // If device has metric mappings, also publish under the mapped name
           if (hasMappings && mappings[key]) {
-            getBmsMetricInsert(db).run(now, mappings[key], val);
-            getBmsLatestUpsert(db).run(mappings[key], val, now);
+            saveBmsMetric(db, mappings[key], val, now);
           }
         }
         logger.debug(`BMS ${device.name} polled successfully`);
@@ -85,6 +84,8 @@ async function pollBMS() {
 
 let bmsMetricInsert = null;
 let bmsLatestUpsert = null;
+let bmsMetricInsertText = null;
+let bmsLatestUpsertText = null;
 
 function getBmsMetricInsert(db) {
   if (!bmsMetricInsert) bmsMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
@@ -94,6 +95,34 @@ function getBmsMetricInsert(db) {
 function getBmsLatestUpsert(db) {
   if (!bmsLatestUpsert) bmsLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   return bmsLatestUpsert;
+}
+
+function getBmsMetricInsertText(db) {
+  if (!bmsMetricInsertText) bmsMetricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  return bmsMetricInsertText;
+}
+
+function getBmsLatestUpsertText(db) {
+  if (!bmsLatestUpsertText) bmsLatestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  return bmsLatestUpsertText;
+}
+
+function saveBmsMetric(db, metricName, rawValue, timestamp) {
+  if (rawValue === null || rawValue === undefined) return;
+  if (typeof rawValue === 'object' && !Array.isArray(rawValue)) return;
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+    getBmsLatestUpsert(db).run(metricName, num, timestamp);
+    getBmsMetricInsert(db).run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getBmsLatestUpsertText(db).run(metricName, displayVal, type, timestamp);
+    getBmsMetricInsertText(db).run(timestamp, metricName, displayVal, type);
+  }
 }
 
 function startBmsPolling() {

@@ -273,11 +273,24 @@ async function computeBankAggregates(bank, pollIntervalSec) {
 
   const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
   const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  const metricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  const latestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
 
-  const writeMetric = (metricName, value) => {
-    if (isNaN(value) || value == null) return;
-    metricInsert.run(now, metricName, value);
-    latestUpsert.run(metricName, value, now);
+  const writeMetric = (metricName, rawValue) => {
+    if (rawValue === null || rawValue === undefined) return;
+    const num = parseFloat(rawValue);
+    if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+      metricInsert.run(now, metricName, num);
+      latestUpsert.run(metricName, num, now);
+    } else {
+      const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+      const lower = strVal.toLowerCase();
+      const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+      const type = isBool ? 'boolean' : 'string';
+      const displayVal = isBool ? lower : strVal;
+      metricInsertText.run(now, metricName, displayVal, type);
+      latestUpsertText.run(metricName, displayVal, type, now);
+    }
   };
 
   writeMetric(companionOnline, freshCount);
