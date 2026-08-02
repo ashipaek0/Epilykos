@@ -93,6 +93,12 @@ function initializeDatabase() {
   // Migration: add unit column to existing installs
   try { db.exec('ALTER TABLE latest_metrics ADD COLUMN unit TEXT'); } catch (e) { /* already exists */ }
 
+  // Phase 0: add value_text and value_type columns for text metrics support
+  try { db.exec('ALTER TABLE latest_metrics ADD COLUMN value_text TEXT'); } catch (e) { /* already exists */ }
+  try { db.exec('ALTER TABLE latest_metrics ADD COLUMN value_type TEXT DEFAULT \'number\''); } catch (e) { /* already exists */ }
+  try { db.exec('ALTER TABLE metrics ADD COLUMN value_text TEXT'); } catch (e) { /* already exists */ }
+  try { db.exec('ALTER TABLE metrics ADD COLUMN value_type TEXT DEFAULT \'number\''); } catch (e) { /* already exists */ }
+
   // PVOutput integration tables
   db.exec(`
     CREATE TABLE IF NOT EXISTS pvoutput_upload_queue (
