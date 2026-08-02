@@ -87,7 +87,7 @@ function writeMetrics(metrics, units) {
   for (const [name, rawValue] of Object.entries(metrics)) {
     if (rawValue === undefined || rawValue === null) continue;
     const num = parseFloat(rawValue);
-    if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+    if (!isNaN(num) && num === Number(rawValue)) {
       metricInsert.run(now, name, num);
       latestUpsert.run(name, num, now, (units && units[name]) || null);
     } else {

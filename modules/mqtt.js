@@ -43,7 +43,7 @@ function getMetricInsertText() {
 
 function saveMetric(metricName, rawValue, timestamp) {
   const num = parseFloat(rawValue);
-  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+  if (!isNaN(num) && num === Number(rawValue)) {
     getLatestUpsert().run(metricName, num, timestamp);
     getMetricInsert().run(timestamp, metricName, num);
   } else {

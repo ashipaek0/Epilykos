@@ -111,7 +111,7 @@ function saveBmsMetric(db, metricName, rawValue, timestamp) {
   if (rawValue === null || rawValue === undefined) return;
   if (typeof rawValue === 'object' && !Array.isArray(rawValue)) return;
   const num = parseFloat(rawValue);
-  if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+  if (!isNaN(num) && num === Number(rawValue)) {
     getBmsLatestUpsert(db).run(metricName, num, timestamp);
     getBmsMetricInsert(db).run(timestamp, metricName, num);
   } else {

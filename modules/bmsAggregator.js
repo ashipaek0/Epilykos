@@ -279,7 +279,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
   const writeMetric = (metricName, rawValue) => {
     if (rawValue === null || rawValue === undefined) return;
     const num = parseFloat(rawValue);
-    if (!isNaN(num) && String(num) === String(rawValue).trim()) {
+    if (!isNaN(num) && num === Number(rawValue)) {
       metricInsert.run(now, metricName, num);
       latestUpsert.run(metricName, num, now);
     } else {
