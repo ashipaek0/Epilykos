@@ -1199,6 +1199,18 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
         const { executeTuyaAction } = require('./modules/tuya');
         result = await executeTuyaAction(device, parseInt(action), params?.value);
         break;
+      case 'modbus':
+        const { executeModbusAction } = require('./modules/modbus');
+        result = await executeModbusAction(device, action, params?.value);
+        break;
+      case 'rs232':
+        const { executeRS232Action } = require('./modules/rs232');
+        result = await executeRS232Action(device, action, params?.value);
+        break;
+      case 'dongle':
+        const { executeDongleAction } = require('./modules/dongle');
+        result = await executeDongleAction(device, action, params?.value);
+        break;
       default:
         return res.status(400).json({ error: `Unknown source: ${source}` });
     }

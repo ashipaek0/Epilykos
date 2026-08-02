@@ -310,4 +310,19 @@ function getProfileById(id) {
   }
 }
 
-module.exports = { startDonglePolling, stopDonglePolling, restartDonglePolling, getProfileById };
+async function executeDongleAction(deviceName, registerAddr, value) {
+  const devices = JSON.parse(getConfig('dongle_config') || '[]');
+  const device = devices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'Dongle device not found or disabled' };
+
+  try {
+    const ModbusTCP = require('./dongle/modbusTcp');
+    await ModbusTCP.writeRegister(device.ip, device.port || 502, parseInt(registerAddr), parseInt(value) || 0);
+    return { success: true };
+  } catch (e) {
+    logger.error(`Dongle write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { startDonglePolling, stopDonglePolling, restartDonglePolling, executeDongleAction, getProfileById };

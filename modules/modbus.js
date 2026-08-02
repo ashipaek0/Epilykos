@@ -196,4 +196,26 @@ async function testModbusConnection(device) {
   }
 }
 
-module.exports = { loadProfiles, pollModbus, testModbusConnection, getProfileById, availableProfiles };
+async function executeModbusAction(deviceName, registerAddr, value) {
+  const devices = JSON.parse(getConfig('modbus_devices') || '[]');
+  const device = devices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'Modbus device not found or disabled' };
+
+  try {
+    const client = await connectModbus(device);
+    if (isNaN(parseInt(registerAddr))) {
+      return { error: 'Invalid register address' };
+    }
+    const addr = parseInt(registerAddr);
+    const val = parseInt(value) || 0;
+
+    await client.writeSingleRegister(addr, val);
+    await client.close();
+    return { success: true };
+  } catch (e) {
+    logger.error(`Modbus write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { loadProfiles, pollModbus, testModbusConnection, executeModbusAction, getProfileById, availableProfiles };
