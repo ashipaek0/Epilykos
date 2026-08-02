@@ -131,4 +131,33 @@ async function executeHAAction(deviceName, entityId, service, data = {}) {
   }
 }
 
-module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues, executeHAAction };
+const DOMAIN_ACTIONS = {
+  'switch': [{ service: 'switch.toggle', label: 'Toggle', type: 'toggle' }],
+  'light': [
+    { service: 'light.toggle', label: 'Toggle', type: 'toggle' },
+    { service: 'light.turn_on', label: 'Turn On', type: 'set_brightness', param: 'brightness_pct' }
+  ],
+  'climate': [
+    { service: 'climate.set_hvac_mode', label: 'Set Mode', type: 'select', param: 'hvac_mode' },
+    { service: 'climate.set_temperature', label: 'Set Temperature', type: 'number', param: 'temperature' }
+  ],
+  'fan': [
+    { service: 'fan.toggle', label: 'Toggle', type: 'toggle' },
+    { service: 'fan.set_preset_mode', label: 'Set Speed', type: 'select', param: 'preset_mode' }
+  ],
+  'cover': [
+    { service: 'cover.open_cover', label: 'Open', type: 'button' },
+    { service: 'cover.close_cover', label: 'Close', type: 'button' },
+    { service: 'cover.stop_cover', label: 'Stop', type: 'button' }
+  ],
+  'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }]
+};
+
+function getEntityActions(entityId) {
+  const dotIndex = entityId.indexOf('.');
+  if (dotIndex === -1) return [];
+  const domain = entityId.substring(0, dotIndex);
+  return DOMAIN_ACTIONS[domain] || [];
+}
+
+module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues, executeHAAction, getEntityActions };

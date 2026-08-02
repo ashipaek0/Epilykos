@@ -27,7 +27,7 @@ const net = require('net');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
-const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
+const { pollHomeAssistant, fetchHAEntities, getEntityActions } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
 const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
@@ -643,6 +643,15 @@ app.get('/api/ha-device-entities', async (req, res) => {
     logger.error('Error fetching HA entities:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+app.use('/api/entity-actions', isAuthenticated);
+app.get('/api/entity-actions', (req, res) => {
+  const { entity } = req.query;
+  if (!entity || typeof entity !== 'string' || entity.length > 128) {
+    return res.status(400).json({ error: 'Valid entity ID required' });
+  }
+  res.json({ actions: getEntityActions(entity) });
 });
 
 app.use('/api/test-mqtt', isAuthenticated);

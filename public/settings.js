@@ -350,6 +350,29 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   entitySelect.querySelectorAll('option').forEach(o => {
     if (o.value && o.value.includes(',')) o.remove();
   });
+  const actionsEl = document.createElement('div');
+  actionsEl.className = 'ha-entity-actions';
+  actionsEl.style.cssText = 'font-size:0.75rem;color:var(--text-secondary);margin-top:0.25rem;';
+  if (entityId) {
+    actionsEl.dataset.entityId = entityId;
+  }
+  entitySelect.addEventListener('change', function() {
+    const entityId = this.value;
+    if (actionsEl && entityId) {
+      fetch(`/api/entity-actions?entity=${encodeURIComponent(entityId)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.actions && data.actions.length) {
+            actionsEl.textContent = 'Actions: ' + data.actions.map(a => a.label).join(', ');
+          } else {
+            actionsEl.textContent = '';
+          }
+        })
+        .catch(() => { actionsEl.textContent = ''; });
+    } else {
+      actionsEl.textContent = '';
+    }
+  });
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'remove-btn remove-metric';
@@ -363,6 +386,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   });
   row.appendChild(metricSelect);
   row.appendChild(entitySelect);
+  row.appendChild(actionsEl);
   row.appendChild(removeBtn);
   container.appendChild(row);
 }
