@@ -583,6 +583,48 @@ function getProfileById(id) {
   return availableProfiles.find(p => p.id === id) || null;
 }
 
+function loadProfile(id) {
+  return availableProfiles.find(p => p.id === id) || null;
+}
+
+function executeRS232Action(deviceName, commandName, value) {
+  const devices = JSON.parse(getConfig('rs232_devices') || '[]');
+  const device = devices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'RS232 device not found or disabled' };
+
+  const profile = loadProfile(device.profile);
+  const cmd = profile?.commands?.find(c => c.name === commandName);
+  if (!cmd) return { error: `Command "${commandName}" not found in profile` };
+
+  try {
+    const SerialPort = require('serialport');
+    const port = new SerialPort(device.serial_path || '/dev/ttyUSB0', {
+      baudRate: parseInt(device.baud) || 9600,
+      dataBits: parseInt(device.data_bits) || 8,
+      stopBits: parseInt(device.stop_bits) || 1,
+      parity: device.parity || 'none',
+    });
+
+    const bytes = buildWriteCommand(cmd, value);
+    port.write(bytes);
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        port.close();
+        resolve({ success: true });
+      }, 500);
+    });
+  } catch (e) {
+    logger.error(`RS232 write error for ${deviceName}/${commandName}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+function buildWriteCommand(cmd, value) {
+  const hex = cmd.template.replace('{value}', value.toString(16).padStart(2, '0'));
+  return Buffer.from(hex.replace(/\s/g, ''), 'hex');
+}
+
 module.exports = {
   loadRs232Profiles,
   pollRs232,
@@ -591,6 +633,7 @@ module.exports = {
   shutdownRs232,
   restartRs232Streaming,
   detectBaudRate,
+  executeRS232Action,
   getProfileById,
   availableProfiles: availableProfiles, // getter — always up to date
 };
