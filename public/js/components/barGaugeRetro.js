@@ -50,7 +50,7 @@ export function updateBarGaugeRetro(state) {
       const min = cfg.min ?? 0;
       const max = cfg.max ?? 100;
       const range = max - min;
-      const pct = range > 0 ? Math.min(1, Math.max(0, (v - min) / range)) : 0;
+      const pct = (typeof v === 'number' && range > 0) ? Math.min(1, Math.max(0, (v - min) / range)) : 0;
       const segs = cfg.segments || 10;
       const litCount = Math.round(pct * segs);
       const color = cfg.color || 'var(--accent)';
@@ -83,7 +83,8 @@ export function updateBarGaugeRetro(state) {
       const val = document.getElementById(`bg-retro-val-${id}-${i}`);
       if (val) {
         const unit = cfg.unit || entry.unit || inferUnit(cfg.metric);
-        val.textContent = Number(v).toFixed(1) + (unit ? ' ' + unit : '');
+        if (typeof v === 'number') val.textContent = v.toFixed(1) + (unit ? ' ' + unit : '');
+        else val.textContent = String(v != null ? v : '--') + (unit ? ' ' + unit : '');
       }
     });
   });

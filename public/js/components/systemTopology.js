@@ -78,7 +78,7 @@ export function updateSystemTopology(state) {
     const id = container.dataset.blockId || '';
     let mm; try{mm=JSON.parse(container.dataset.metricMap);}catch(e){return;}
     const m = state.metrics || {};
-    const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value || 0) : 0; };
+    const gv = (r) => { const n = mm[r]; return n ? (m[n]?.value ?? 0) : 0; };
     const solar = gv('solar'), grid = gv('grid_import'), battPower = gv('battery_charge'), battSoc = gv('battery_soc'), consumption = gv('consumption');
     const battDischarge = gv('battery_discharge') || (battPower < 0 ? Math.abs(battPower) : 0);
     const gridExport = gv('grid_export');
