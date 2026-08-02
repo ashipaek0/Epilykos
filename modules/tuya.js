@@ -364,4 +364,19 @@ async function verifyAllTuyaDevices(devices) {
   return results;
 }
 
-module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices };
+async function executeTuyaAction(deviceId, dpId, value) {
+  const devices = JSON.parse(getConfig('tuya_devices') || '[]');
+  const device = devices.find(d => d.dev_id === deviceId);
+  if (!device || !device.enabled) return { error: 'Tuya device not found or disabled' };
+  if (!device.local_key || !device.address) return { error: 'Tuya device missing local_key or IP' };
+
+  try {
+    const result = await runBridge(path.join(__dirname, 'tuya_bridge.py'), ['set', deviceId, device.local_key, device.address, String(dpId), String(value)]);
+    return result;
+  } catch (e) {
+    logger.error(`Tuya action error for ${deviceId}/DP${dpId}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices, executeTuyaAction };

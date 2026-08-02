@@ -1191,7 +1191,14 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
         const { executeHAAction } = require('./modules/ha');
         result = await executeHAAction(device, entity, action, params || {});
         break;
-      // Future sources: mqtt, tuya, modbus, rs232, dongle
+      case 'mqtt':
+        const { executeMqttAction } = require('./modules/mqtt');
+        result = await executeMqttAction(device, action, params?.payload);
+        break;
+      case 'tuya':
+        const { executeTuyaAction } = require('./modules/tuya');
+        result = await executeTuyaAction(device, parseInt(action), params?.value);
+        break;
       default:
         return res.status(400).json({ error: `Unknown source: ${source}` });
     }
