@@ -23,6 +23,7 @@ import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock, updateSwitchBlockFromState } from './switchBlock.js';
+import { buildStateSelectBlock, updateStateSelectBlockFromState } from './stateSelectBlock.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -49,5 +50,6 @@ export const componentBuilders = {
   'bar-gauge': buildBarGauge,
   'bar-gauge-retro': buildBarGaugeRetro,
   'weather-block': buildWeatherBlock,
-  'switch-block': { build: buildSwitchBlock, update: updateSwitchBlockFromState }
+  'switch-block': { build: buildSwitchBlock, update: updateSwitchBlockFromState },
+  'state-select': { build: buildStateSelectBlock, update: updateStateSelectBlockFromState }
 };
