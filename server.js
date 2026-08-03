@@ -240,12 +240,16 @@ async function buildDashboardState() {
         getGridHours('day'), getGridHours('week'), getGridHours('month'), getGridHours('year'),
         getGridTimeline('24h')
       ])
-    : [0, 0, 0, 0, { configured: false, segments: [], windowStart: 0, windowEnd: 0 }];
+    : [0, 0, 0, 0, { configured: false, available: false, segments: [], windowStart: 0, windowEnd: 0 }];
   const gridHours = {
     day: gridHoursDay,
     week: gridHoursWeek,
     month: gridHoursMonth,
-    year: gridHoursYear
+    year: gridHoursYear,
+    // Pass through flags so the frontend can distinguish real 00:00 (measured
+    // zero, available=true) from no-data (not configured / unresolvable) — D1.
+    configured: gridStatus.configured,
+    available: gridStatus.available
   };
   const powerHistory = historyRows.map(r => ({
     timestamp: r.timestamp * 1000,
