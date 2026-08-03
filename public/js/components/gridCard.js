@@ -62,7 +62,12 @@ export function updateGridCardFromState(state) {
     // Determine current state
     let current = null, lastChange = null;
     if (gsm && state.metrics?.[gsm] !== undefined) {
-      current = (state.metrics[gsm]?.value) > 0;
+      const m = state.metrics[gsm];
+      let rawState = m?.value;
+      if (rawState === null || rawState === undefined) rawState = m?.value_text;
+      const s = String(rawState).toLowerCase().trim();
+      current = (s === 'on' || s === 'true' || s === '1' || s === 'open' || s === 'unlocked' || (rawState != null && !isNaN(Number(rawState)) && Number(rawState) > 0));
+      if (rawState === null || rawState === undefined || s === '' || s === 'unavailable' || s === 'unknown') current = null;
       lastChange = current ? gs.lastOn : gs.lastOff;
     } else if (gs.configured) {
       current = gs.current;
@@ -87,13 +92,29 @@ export function updateGridCardFromState(state) {
 
     // Hours
     const hoursDayEl = document.getElementById(uid('grid-hours-day', id));
-    if (hoursDayEl) hoursDayEl.textContent = formatHoursToHM(gh.day || 0);
+    if (hoursDayEl) {
+      if (gh.configured === false) hoursDayEl.textContent = 'Not configured';
+      else if (gh.available === false) hoursDayEl.textContent = 'No data';
+      else hoursDayEl.textContent = formatHoursToHM(gh.day || 0);
+    }
     const hoursWeekEl = document.getElementById(uid('grid-hours-week', id));
-    if (hoursWeekEl) hoursWeekEl.textContent = formatHoursToHM(gh.week || 0);
+    if (hoursWeekEl) {
+      if (gh.configured === false) hoursWeekEl.textContent = 'Not configured';
+      else if (gh.available === false) hoursWeekEl.textContent = 'No data';
+      else hoursWeekEl.textContent = formatHoursToHM(gh.week || 0);
+    }
     const hoursMonthEl = document.getElementById(uid('grid-hours-month', id));
-    if (hoursMonthEl) hoursMonthEl.textContent = formatHoursToHM(gh.month || 0);
+    if (hoursMonthEl) {
+      if (gh.configured === false) hoursMonthEl.textContent = 'Not configured';
+      else if (gh.available === false) hoursMonthEl.textContent = 'No data';
+      else hoursMonthEl.textContent = formatHoursToHM(gh.month || 0);
+    }
     const hoursYearEl = document.getElementById(uid('grid-hours-year', id));
-    if (hoursYearEl) hoursYearEl.textContent = formatHoursToHM(gh.year || 0);
+    if (hoursYearEl) {
+      if (gh.configured === false) hoursYearEl.textContent = 'Not configured';
+      else if (gh.available === false) hoursYearEl.textContent = 'No data';
+      else hoursYearEl.textContent = formatHoursToHM(gh.year || 0);
+    }
 
     // Date
     updateGridDate(id);
