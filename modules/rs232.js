@@ -625,6 +625,75 @@ function buildWriteCommand(cmd, value) {
   return Buffer.from(hex.replace(/\s/g, ''), 'hex');
 }
 
+/**
+ * Spec-compliant raw-byte RS232 action.
+ * Writes `commandBytes` verbatim to the device port (fire-and-forget),
+ * closes the port after the write completes.
+ *
+ * @param {string} deviceId — device name in the rs232_devices config
+ * @param {string|number[]|Buffer} commandBytes — hex string like '0102' or byte array [0x01, 0x02]
+ * @returns {Promise<{success: true}|{error: string}>}
+ */
+function executeRs232Action(deviceId, commandBytes) {
+  return new Promise((resolve) => {
+    try {
+      const devices = JSON.parse(getConfig('rs232_devices') || '[]');
+      const device = devices.find(d => d.name === deviceId);
+      if (!device || !device.enabled) {
+        return resolve({ error: 'RS232 device not found or disabled' });
+      }
+      if (commandBytes === undefined || commandBytes === null || commandBytes === '') {
+        return resolve({ error: 'No command bytes provided' });
+      }
+
+      let buf;
+      if (Buffer.isBuffer(commandBytes)) {
+        buf = commandBytes;
+      } else if (Array.isArray(commandBytes)) {
+        buf = Buffer.from(commandBytes);
+      } else if (typeof commandBytes === 'string') {
+        const hex = commandBytes.replace(/\s/g, '');
+        if (!/^[0-9a-fA-F]*$/.test(hex) || hex.length % 2 !== 0) {
+          return resolve({ error: 'Invalid hex string' });
+        }
+        buf = Buffer.from(hex, 'hex');
+      } else {
+        return resolve({ error: 'commandBytes must be a hex string, byte array, or Buffer' });
+      }
+
+      const SerialPort = require('serialport');
+      const port = new SerialPort(device.serial_path || '/dev/ttyUSB0', {
+        baudRate: parseInt(device.baud) || 9600,
+        dataBits: parseInt(device.data_bits) || 8,
+        stopBits: parseInt(device.stop_bits) || 1,
+        parity: device.parity || 'none',
+      });
+
+      port.on('error', (err) => {
+        logger.error(`RS232 raw write error for ${deviceId}: ${err.message}`);
+        resolve({ error: err.message });
+      });
+
+      port.write(buf, (err) => {
+        if (err) {
+          logger.error(`RS232 raw write error for ${deviceId}: ${err.message}`);
+          try { port.close(); } catch (e) { /* ignore */ }
+          return resolve({ error: err.message });
+        }
+        port.close();
+        resolve({ success: true });
+      });
+    } catch (e) {
+      logger.error(`RS232 raw write error for ${deviceId}: ${e.message}`);
+      resolve({ error: e.message });
+    }
+  });
+}
+
+// Alias for the legacy profile-template based action — kept for clarity alongside
+// the spec-compliant raw-byte executeRs232Action above.
+const executeRs232ProfileAction = executeRS232Action;
+
 module.exports = {
   loadRs232Profiles,
   pollRs232,
@@ -634,6 +703,8 @@ module.exports = {
   restartRs232Streaming,
   detectBaudRate,
   executeRS232Action,
+  executeRs232Action,
+  executeRs232ProfileAction,
   getProfileById,
   availableProfiles: availableProfiles, // getter — always up to date
 };

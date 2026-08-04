@@ -24,10 +24,11 @@ const morgan = require('morgan');
 const WebSocket = require('ws');
 const http = require('http');
 const net = require('net');
+const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
-const { pollHomeAssistant, fetchHAEntities, getEntityActions } = require('./modules/ha');
+const { pollHomeAssistant, fetchHAEntities, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
 const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
@@ -39,7 +40,7 @@ const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
-const { parseGridState } = require('./modules/utils');
+const { parseGridState, assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
@@ -641,13 +642,39 @@ app.use('/api/ha-device-entities', isAuthenticated);
 app.get('/api/ha-device-entities', async (req, res) => {
   const { url, token } = req.query;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
+  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!ok) return res.status(400).json({ error });
   try {
-    res.json(await fetchHAEntities(url, token));
+    res.json(await fetchHAEntities(safeUrl, token));
   } catch (err) {
     logger.error('Error fetching HA entities:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Resolve the last-known state of an entity from the latest_metrics table via
+// the ha_devices mapping (used when the request does not carry url/token).
+function findLatestStateForEntity(entityId) {
+  try {
+    const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+    for (const device of haDevices) {
+      for (const [metric, mapping] of Object.entries(device.entities || {})) {
+        // Mapping value is either a plain entity_id string or an object
+        // { entityId, actions: [...] } carrying action metadata (AC-1.4).
+        const eid = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
+        if (eid === entityId) {
+          const row = db.prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(metric);
+          if (row) {
+            return { entity_id: entityId, state: row.value_type ? row.value_text : row.value };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('findLatestStateForEntity error:', err.message);
+  }
+  return null;
+}
 
 app.use('/api/entity-actions', isAuthenticated);
 app.get('/api/entity-actions', (req, res) => {
@@ -656,6 +683,69 @@ app.get('/api/entity-actions', (req, res) => {
     return res.status(400).json({ error: 'Valid entity ID required' });
   }
   res.json({ actions: getEntityActions(entity) });
+});
+
+// Spec AC-7.4 — auto-discovery: actions + modes + current state for one entity.
+// Auth: isAuthenticated (session). CSRF: the global /api csrfProtection requires
+// X-Requested-With on POSTs — settings.js sends it.
+app.use('/api/ha/entity-actions', isAuthenticated);
+app.post('/api/ha/entity-actions', async (req, res) => {
+  const { device: deviceRef, entityId } = req.body || {};
+  if (!entityId || typeof entityId !== 'string') {
+    return res.status(400).json({ error: 'Valid entity ID required' });
+  }
+  const trimmed = entityId.trim();
+  if (trimmed.length > 128 || !/^[a-z0-9_]+\.[a-z0-9_]+$/i.test(trimmed)) {
+    return res.status(400).json({ error: 'Valid entity ID required (domain.entity)' });
+  }
+  // SSRF guard: resolve the HA device from server-side config only — never
+  // trust client-supplied url/token. Mirrors executeHAAction lookup.
+  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+  let device = null;
+  if (typeof deviceRef === 'string' && deviceRef !== '') {
+    device = haDevices.find(d => d && d.name === deviceRef);
+    if (!device && /^\d+$/.test(deviceRef)) {
+      device = haDevices[Number(deviceRef)];
+    }
+  }
+  if (device && !device.enabled) device = null;
+  if (typeof deviceRef === 'string' && deviceRef !== '' && !device) {
+    return res.status(404).json({ error: 'HA device not found' });
+  }
+  const url = device?.url;
+  const token = device?.token;
+  const entityIdOk = trimmed;
+  if (device && (!url || !token)) {
+    return res.status(400).json({ error: 'Configured HA device is missing url/token' });
+  }
+  try {
+    const actions = getActionsForEntity(entityIdOk);
+    let modes = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+    let currentState = null;
+    if (url && token) {
+      const [modeData, stateRes] = await Promise.all([
+        getEntityModes(url, token, entityIdOk),
+        httpFetch(`${url}/api/states/${entityIdOk}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          timeout: 5000
+        }).catch(() => null)
+      ]);
+      modes = modeData;
+      if (stateRes && stateRes.ok) {
+        const st = await stateRes.json().catch(() => null);
+        if (st && st.entity_id) {
+          currentState = { entity_id: st.entity_id, state: st.state, attributes: st.attributes || {} };
+        }
+      }
+    } else {
+      // No device context: DB-only fallback — never fetch with client data.
+      currentState = findLatestStateForEntity(entityIdOk);
+    }
+    res.json({ actions, modes, currentState });
+  } catch (err) {
+    logger.error('Error in /api/ha/entity-actions:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.use('/api/test-mqtt', isAuthenticated);
@@ -672,7 +762,9 @@ app.get('/api/test-mqtt', async (req, res) => {
   const options = {};
   if (username) options.username = username;
   if (password) options.password = password;
-  const testClient = require('mqtt').connect(broker, options);
+  const safe = assertSafeBrokerUrl(broker);
+  if (!safe.ok) return res.status(400).json({ error: safe.error });
+  const testClient = require('mqtt').connect(safe.url, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
@@ -705,7 +797,9 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   const options = {};
   if (username) options.username = username;
   if (password) options.password = password;
-  const testClient = require('mqtt').connect(broker, options);
+  const safe = assertSafeBrokerUrl(broker);
+  if (!safe.ok) return res.status(400).json({ error: safe.error });
+  const testClient = require('mqtt').connect(safe.url, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
@@ -737,11 +831,13 @@ app.get('/api/mqtt-discover-topics', async (req, res) => {
   const username = req.query.username || null;
   const password = req.query.password || null;
   if (!broker) return res.status(400).json({ error: 'Broker URL required' });
+  const safe = assertSafeBrokerUrl(broker);
+  if (!safe.ok) return res.status(400).json({ error: safe.error });
   const options = {};
   if (username) options.username = username;
   if (password) options.password = password;
   const mqtt = require('mqtt');
-  const client = mqtt.connect(broker, options);
+  const client = mqtt.connect(safe.url, options);
   let responded = false;
   const topics = new Set();
   const timeout = setTimeout(() => {
@@ -1194,7 +1290,7 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
   const { source, device, action, entity, params } = req.body;
   
   if (!source || !device || !action) {
-    return res.status(400).json({ error: 'source, device, and action are required' });
+    return res.status(400).json({ success: false, error: 'source, device, and action are required' });
   }
   
   try {
@@ -1202,39 +1298,80 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
     switch (source) {
       case 'ha':
         const { executeHAAction } = require('./modules/ha');
-        result = await executeHAAction(device, entity, action, params || {});
+        // Route form of the spec signature: (deviceId, action, entityId, params);
+        // `action` may be a dotted string 'domain.service' or an object {domain, service}.
+        result = await executeHAAction(device, action, entity, params || {});
         break;
-      case 'mqtt':
+      case 'mqtt': {
         const { executeMqttAction } = require('./modules/mqtt');
-        result = await executeMqttAction(device, action, params?.payload);
+        // Topic is the entity; payload comes from params.payload or is inferred from the action.
+        let payload = params?.payload;
+        if (payload === undefined || payload === null) {
+          if (action === 'turn_on') payload = 'ON';
+          else if (action === 'turn_off') payload = 'OFF';
+          else if (action === 'toggle') {
+            // Flip the entity's current state; default to 'ON' when unknown.
+            const cur = getCurrentMetrics()[entity]?.value;
+            const isOn = cur === 'on' || cur === 'ON' || cur === 'true' || cur === '1' || cur === 1 || cur === true;
+            payload = isOn ? 'OFF' : 'ON';
+          } else {
+            payload = '';
+          }
+        }
+        result = await executeMqttAction(device, entity, payload);
         break;
-      case 'tuya':
+      }
+      case 'tuya': {
         const { executeTuyaAction } = require('./modules/tuya');
-        result = await executeTuyaAction(device, parseInt(action), params?.value);
+        // Resolve the device by NAME or dev_id from the tuya_devices config
+        const tuyaDevices = JSON.parse(getConfig('tuya_devices') || '[]');
+        const tuyaDevice = tuyaDevices.find(d => d && (d.name === device || d.dev_id === device));
+        if (!tuyaDevice || !tuyaDevice.enabled) {
+          result = { success: false, error: 'Tuya device not found or disabled' };
+          break;
+        }
+        // Map entity → DP number via the device's dps config (dps: { metricName: dpNumber })
+        const dpMap = tuyaDevice.dps || {};
+        let dpNumber;
+        for (const [dpName, dpNum] of Object.entries(dpMap)) {
+          if (dpName === entity) { dpNumber = dpNum; break; }
+        }
+        if (dpNumber === undefined || dpNumber === null) {
+          result = { success: false, error: 'DP not found' };
+          break;
+        }
+        // Toggles send true when no explicit value is given — never the literal 'undefined'
+        const actionValue = (params?.value === undefined || params?.value === null) ? true : params.value;
+        result = await executeTuyaAction(device, dpNumber, actionValue);
         break;
+      }
       case 'modbus':
         const { executeModbusAction } = require('./modules/modbus');
-        result = await executeModbusAction(device, action, params?.value);
+        // (deviceName, registerAddr, value, type) — register = entity, type='coil' for coils
+        result = await executeModbusAction(device, entity, params?.value, params?.type);
         break;
       case 'rs232':
-        const { executeRS232Action } = require('./modules/rs232');
-        result = await executeRS232Action(device, action, params?.value);
+        const { executeRs232ProfileAction } = require('./modules/rs232');
+        // Profile form (deviceName, commandName, value) — the switch/stateSelect
+        // components send action = command name and params.value = value.
+        result = await executeRs232ProfileAction(device, action, params?.value);
         break;
       case 'dongle':
         const { executeDongleAction } = require('./modules/dongle');
-        result = await executeDongleAction(device, action, params?.value);
+        // (deviceName, registerAddr, value) — register = entity
+        result = await executeDongleAction(device, entity, params?.value);
         break;
       default:
-        return res.status(400).json({ error: `Unknown source: ${source}` });
+        return res.status(501).json({ success: false, error: 'Source not yet supported' });
     }
     
-    if (result.error) {
-      return res.status(502).json(result);
+    if (result?.error) {
+      return res.status(502).json({ success: false, ...result });
     }
     res.json(result);
   } catch (e) {
-    logger.error(`Action error: ${e.message}`);
-    res.status(500).json({ error: e.message });
+    logger.error('Action error:', e);
+    res.status(500).json({ success: false, error: 'Action failed' });
   }
 });
 
@@ -1449,11 +1586,23 @@ app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
     // Accept optional ?subnet=192.168.0.0/24 for cross-subnet directed scan
     const rawSubnet = req.query.subnet;
     const subnet = Array.isArray(rawSubnet) ? rawSubnet[0] : (rawSubnet || '');
+    if (subnet) {
+      // SSRF guard (#71): the directed scan TCP-probes every IP in the subnet
+      // from this host, so it must be a valid IPv4 CIDR AND an RFC1918 network.
+      const cidrMatch = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(subnet);
+      if (!cidrMatch) return res.status(400).json({ error: 'Invalid subnet (expected CIDR like 192.168.0.0/24)' });
+      const octets = cidrMatch.slice(1, 5).map(Number);
+      const prefix = Number(cidrMatch[5]);
+      const invalidOctet = octets.some(o => o > 255);
+      const invalidPrefix = prefix > 32;
+      const inRfc1918 = (octets[0] === 10) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) || (octets[0] === 192 && octets[1] === 168);
+      if (invalidOctet || invalidPrefix || !inRfc1918) return res.status(400).json({ error: 'Subnet must be a private RFC1918 network' });
+    }
     const devices = await discoverTuyaDevices(subnet || undefined);
     res.json({ success: true, devices });
   } catch (err) {
-    logger.error('[Tuya] Discover error:', err.message);
-    res.status(500).json({ error: err.message || 'Discovery failed' });
+    logger.error('[Tuya] Discover error:', err);
+    res.status(500).json({ error: 'Discovery failed' });
   }
 });
 
@@ -1463,8 +1612,8 @@ app.post('/api/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
     const devices = await fetchCloudDevices(region, access_id, access_secret, user_id);
     res.json({ success: true, devices });
   } catch (err) {
-    logger.error('[Tuya] Cloud fetch error:', err.message);
-    res.status(500).json({ error: err.message || 'Cloud fetch failed' });
+    logger.error('[Tuya] Cloud fetch error:', err);
+    res.status(500).json({ error: 'Cloud fetch failed' });
   }
 });
 
@@ -1476,8 +1625,8 @@ app.post('/api/tuya-generate-qr', isAuthenticated, async (req, res) => {
     const result = await generateQrCode(uid);
     res.json(result);
   } catch (err) {
-    logger.error('[Tuya] QR generate error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to generate QR code' });
+    logger.error('[Tuya] QR generate error:', err);
+    res.status(500).json({ error: 'Failed to generate QR code' });
   }
 });
 
@@ -1488,8 +1637,8 @@ app.post('/api/tuya-poll-login', isAuthenticated, async (req, res) => {
     const result = await pollQrLogin(qr_token, uid);
     res.json(result);
   } catch (err) {
-    logger.error('[Tuya] Poll login error:', err.message);
-    res.status(500).json({ error: err.message || 'Login poll failed' });
+    logger.error('[Tuya] Poll login error:', err);
+    res.status(500).json({ error: 'Login poll failed' });
   }
 });
 
@@ -1500,8 +1649,8 @@ app.post('/api/tuya-fetch-oauth', isAuthenticated, async (req, res) => {
     const devices = await fetchDevicesOAuth(token_info);
     res.json({ success: true, devices });
   } catch (err) {
-    logger.error('[Tuya] OAuth fetch error:', err.message);
-    res.status(500).json({ error: err.message || 'OAuth device fetch failed' });
+    logger.error('[Tuya] OAuth fetch error:', err);
+    res.status(500).json({ error: 'OAuth device fetch failed' });
   }
 });
 
@@ -1511,8 +1660,8 @@ app.post('/api/test-tuya', isAuthenticated, async (req, res) => {
     const result = await testTuyaDevice({ dev_id, address, local_key, version });
     res.json(result);
   } catch (err) {
-    logger.error('[Tuya] Test error:', err.message);
-    res.status(500).json({ error: err.message || 'Test failed' });
+    logger.error('[Tuya] Test error:', err);
+    res.status(500).json({ error: 'Test failed' });
   }
 });
 
@@ -1527,8 +1676,8 @@ app.post('/api/tuya-verify-all', isAuthenticated, async (req, res) => {
     const totalCount = results.length;
     res.json({ success: true, results, summary: `${successCount}/${totalCount} devices connected` });
   } catch (err) {
-    logger.error('[Tuya] Verify all error:', err.message);
-    res.status(500).json({ error: err.message || 'Verify all failed' });
+    logger.error('[Tuya] Verify all error:', err);
+    res.status(500).json({ error: 'Verify all failed' });
   }
 });
 
@@ -1536,8 +1685,10 @@ app.use('/api/test-external', isAuthenticated);
 app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
+  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!ok) return res.status(400).json({ error });
   try {
-    const response = await fetch(url, { timeout: 5000 });
+    const response = await fetch(safeUrl, { timeout: 5000 });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     let value = null;
@@ -1634,7 +1785,28 @@ app.post('/api/dongle/test', async (req, res) => {
   if (port !== undefined && port !== null && port !== '' && safePort === null) {
     return res.status(400).json({ error: 'Invalid port' });
   }
-  const safeHost = rawHost;
+  // SSRF guard (#71): resolve hostnames up front and dial the RESOLVED IP so a
+  // DNS-rebinding swap between validation and connect() cannot redirect the TCP
+  // dial to a private/loopback/link-local address. Every A/AAAA record must be
+  // a public address (isBlockedIp with allowPrivate:false blocks RFC1918, ULA,
+  // loopback, link-local/metadata, unspecified). Literal IPs are already vetted
+  // by the string-level block above.
+  let safeHost = rawHost;
+  if (!net.isIP(rawHost)) {
+    let addrs;
+    try {
+      addrs = await dns.promises.lookup(rawHost, { all: true, verbatim: true });
+    } catch (_) {
+      return res.status(400).json({ error: 'Invalid host' });
+    }
+    if (!addrs || addrs.length === 0) return res.status(400).json({ error: 'Invalid host' });
+    for (const a of addrs) {
+      if (isBlockedIp(a.address, false)) {
+        return res.status(400).json({ error: 'Host is not allowed' });
+      }
+    }
+    safeHost = addrs[0].address;
+  }
 
   try {
     let transportObj;
@@ -1704,7 +1876,7 @@ app.post('/api/metrics/create', isAuthenticated, (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error('Error creating metric:', err);
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'Failed to create metric' });
   }
 });
 

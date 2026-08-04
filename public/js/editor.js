@@ -63,7 +63,7 @@ function metricSelect(selectedName, existingId) {
   sel += '<option value="">-- select --</option>';
   for (var i = 0; i < availableMetrics.length; i++) {
     var m = availableMetrics[i];
-    sel += '<option value="' + m + '"' + (m === selectedName ? ' selected' : '') + '>' + m + '</option>';
+    sel += '<option value="' + escHtml(m) + '"' + (m === selectedName ? ' selected' : '') + '>' + escHtml(m) + '</option>';
   }
   sel += '</select>';
   return sel;
@@ -82,10 +82,10 @@ function buildAppearanceFields(block) {
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">',
     '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-enabled"' + (block.enabled !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-enabled">Enabled</label></span>',
     '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-transparent"' + (transparent ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-transparent">Transparent</label></span>',
-    '<label style="font-size:0.85rem;">Bg Color <input type="color" id="modal-bgcolor" value="' + bgColor + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
-    '<label style="font-size:0.85rem;">Font Color <input type="color" id="modal-fontcolor" value="' + fontColor + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
+    '<label style="font-size:0.85rem;">Bg Color <input type="color" id="modal-bgcolor" value="' + escHtml(bgColor) + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
+    '<label style="font-size:0.85rem;">Font Color <input type="color" id="modal-fontcolor" value="' + escHtml(fontColor) + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
     '</div>',
-    '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Font Size <input type="text" id="modal-fontsize" value="' + fontSize + '" placeholder="e.g. 0.9rem" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>',
+    '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Font Size <input type="text" id="modal-fontsize" value="' + escHtml(fontSize) + '" placeholder="e.g. 0.9rem" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>',
     '</fieldset>'
   ].join('\n');
 }
@@ -139,7 +139,7 @@ function buildMultiValueForm(block) {
   html += '<div id="mv-rows"></div>';
   html += '<button type="button" id="mv-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Row</button>';
   html += '</fieldset>';
-  html += '<script id="mv-data" type="application/json">' + JSON.stringify(metrics) + '</script>';
+  html += '<script id="mv-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
 }
 
@@ -193,7 +193,7 @@ function buildBarGaugeForm(block) {
   html += '<div id="bg-rows"></div>';
   html += '<button type="button" id="bg-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Row</button>';
   html += '</fieldset>';
-  html += '<script id="bg-data" type="application/json">' + JSON.stringify(metrics) + '</script>';
+  html += '<script id="bg-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
 }
 
@@ -212,9 +212,9 @@ function renderBarGaugeRows(container) {
     html += metricSelect(r.metric || '', 'bg-metric-' + i);
     html += '<input type="text" class="bg-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '</div>';
-    html += '<input type="number" class="bg-min" value="' + (r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="number" class="bg-max" value="' + (r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bg-color" value="' + (r.color || '').replace(/"/g,'&quot;') + '" style="width:36px;height:24px;"></label>';
+    html += '<input type="number" class="bg-min" value="' + escHtml(r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="number" class="bg-max" value="' + escHtml(r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bg-color" value="' + escHtml(r.color || '') + '" style="width:36px;height:24px;"></label>';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bg-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
     html += '<button type="button" class="bg-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
@@ -251,7 +251,7 @@ function buildBarGaugeRetroForm(block) {
   html += '<div id="bgr-rows"></div>';
   html += '<button type="button" id="bgr-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Row</button>';
   html += '</fieldset>';
-  html += '<script id="bgr-data" type="application/json">' + JSON.stringify(metrics) + '</script>';
+  html += '<script id="bgr-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
 }
 
@@ -270,10 +270,10 @@ function renderBarGaugeRetroRows(container) {
     html += metricSelect(r.metric || '', 'bgr-metric-' + i);
     html += '<input type="text" class="bgr-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += '</div>';
-    html += '<input type="number" class="bgr-min" value="' + (r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="number" class="bgr-max" value="' + (r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="number" class="bgr-segments" value="' + (r.segments || 10) + '" placeholder="Segments" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">C <input type="color" class="bgr-color" value="' + (r.color || '').replace(/"/g,'&quot;') + '" style="width:36px;height:24px;"></label>';
+    html += '<input type="number" class="bgr-min" value="' + escHtml(r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="number" class="bgr-max" value="' + escHtml(r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="number" class="bgr-segments" value="' + escHtml(r.segments || 10) + '" placeholder="Segments" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">C <input type="color" class="bgr-color" value="' + escHtml(r.color || '') + '" style="width:36px;height:24px;"></label>';
     html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bgr-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
     html += '<button type="button" class="bgr-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
@@ -312,10 +312,10 @@ function buildGaugeForm(block) {
   html += '</div>';
   html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-gauge-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;">';
-  html += '<label style="font-size:0.85rem;">Min <input type="number" id="modal-gauge-min" value="' + (cfg.min ?? 0) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<label style="font-size:0.85rem;">Max <input type="number" id="modal-gauge-max" value="' + (cfg.max ?? 100) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;">Min <input type="number" id="modal-gauge-min" value="' + escHtml(cfg.min ?? 0) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;">Max <input type="number" id="modal-gauge-max" value="' + escHtml(cfg.max ?? 100) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.35rem;">Color <input type="color" id="modal-gauge-color" value="' + (cfg.color || '#f59e0b') + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-top:0.35rem;">Color <input type="color" id="modal-gauge-color" value="' + escHtml(cfg.color || '#f59e0b') + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -329,7 +329,7 @@ function buildMetricCardsForm(block) {
   html += '<div id="mc-rows"></div>';
   html += '<button type="button" id="mc-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Card</button>';
   html += '</fieldset>';
-  html += '<script id="mc-data" type="application/json">' + JSON.stringify(cards) + '</script>';
+  html += '<script id="mc-data" type="application/json">' + JSON.stringify(cards).replace(/</g, '\\u003c') + '</script>';
   return html;
 }
 
@@ -469,7 +469,7 @@ function buildChartForm(block, showFill) {
   html += '<button type="button" id="chart-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Dataset</button>';
   html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</fieldset>';
-  html += '<script id="chart-data" type="application/json">' + JSON.stringify(datasets) + '</script>';
+  html += '<script id="chart-data" type="application/json">' + JSON.stringify(datasets).replace(/</g, '\\u003c') + '</script>';
   return html;
 }
 
@@ -485,7 +485,7 @@ function renderChartRows(container) {
     html += '<div class="chart-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
     html += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(d.metric || '', 'chart-metric-' + i);
-    html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + (d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
+    html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
     html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
@@ -540,6 +540,116 @@ function buildSimpleForm(block) {
 
   html += '</fieldset>';
   return html;
+}
+
+/** Switch Block: entity metric, source, label, action, on/off icons + colors */
+function buildSwitchBlockForm(block) {
+  var cfg = block.config || {};
+  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Toggle Switch Config</legend>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Entity</span>';
+  html += '<div style="flex:1;">' + metricSelect(cfg.entity || '', 'modal-switch-entity') + '</div>';
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Source</span>';
+  html += '<input type="text" id="modal-switch-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '</div>';
+  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  html += '<label style="font-size:0.85rem;">On Color <input type="color" id="modal-switch-oncolor" value="' + escHtml(cfg.onColor || '') + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
+  html += '<label style="font-size:0.85rem;">Off Color <input type="color" id="modal-switch-offcolor" value="' + escHtml(cfg.offColor || '') + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
+  html += '<label style="font-size:0.85rem;">On Icon <input type="text" id="modal-switch-onicon" value="' + escHtml(cfg.onIcon || '') + '" placeholder="🔆" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;">Off Icon <input type="text" id="modal-switch-officon" value="' + escHtml(cfg.offIcon || '') + '" placeholder="🔅" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '</div>';
+  html += '</fieldset>';
+  return html;
+}
+
+/** State Select Block: entity, source, label, action, display style, state-list editor */
+function buildStateSelectForm(block) {
+  var cfg = block.config || {};
+  var states = Array.isArray(cfg.states) ? cfg.states : [];
+  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">State Select Config</legend>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Entity</span>';
+  html += '<div style="flex:1;">' + metricSelect(cfg.entity || '', 'modal-state-entity') + '</div>';
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Source</span>';
+  html += '<input type="text" id="modal-state-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '</div>';
+  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Label <input type="text" id="modal-state-label" value="' + escHtml(cfg.label || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Action</span>';
+  html += '<input type="text" id="modal-state-action" value="' + escHtml(cfg.action || 'select.select_option') + '" placeholder="select.select_option" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Display</span>';
+  html += '<select id="modal-state-displaystyle" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '<option value="buttons"' + (cfg.displayStyle !== 'dropdown' ? ' selected' : '') + '>Button group</option>';
+  html += '<option value="dropdown"' + (cfg.displayStyle === 'dropdown' ? ' selected' : '') + '>Dropdown</option>';
+  html += '</select>';
+  html += '</div>';
+  html += '</fieldset>';
+  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">States</legend>';
+  html += '<div id="state-rows"></div>';
+  html += '<button type="button" id="state-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add State</button>';
+  html += '</fieldset>';
+  html += '<script id="state-data" type="application/json">' + JSON.stringify(states).replace(/</g, '\\u003c') + '</script>';
+  return html;
+}
+
+function renderStateSelectRows(container) {
+  var dataEl = container.querySelector('#state-data');
+  var states = [];
+  try { states = JSON.parse(dataEl.textContent); } catch(e) {}
+  var rowsEl = container.querySelector('#state-rows');
+  if (!rowsEl) return;
+  var html = '';
+  for (var i = 0; i < states.length; i++) {
+    var st = states[i];
+    var val = (st && typeof st === 'object') ? (st.value ?? '') : (st ?? '');
+    var lbl = (st && typeof st === 'object' && st.label != null) ? st.label : val;
+    var col = (st && typeof st === 'object' && st.color) ? st.color : '';
+    html += '<div class="state-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
+    html += '<input type="text" class="state-value" value="' + escHtml(String(val)) + '" placeholder="value" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="state-label" value="' + escHtml(String(lbl)) + '" placeholder="label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="state-color" value="' + escHtml(col || '#888888') + '" data-dirty="false" style="width:30px;height:20px;"></label>';
+    html += '<button type="button" class="state-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
+    html += '</div>';
+  }
+  rowsEl.innerHTML = html;
+
+  // Only persist a color if the user actually changed it
+  rowsEl.querySelectorAll('.state-color').forEach(function(c) {
+    c.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
+  });
+
+  rowsEl.querySelectorAll('.state-remove').forEach(function(btn) {
+    btn.onclick = function() {
+      var idx = parseInt(btn.dataset.idx);
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      current.splice(idx, 1);
+      dataEl.textContent = JSON.stringify(current);
+      renderStateSelectRows(container);
+    };
+  });
+
+  var addBtn = container.querySelector('#state-add-row');
+  if (addBtn) {
+    addBtn.onclick = function() {
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      current.push({ value: '', label: '' });
+      dataEl.textContent = JSON.stringify(current);
+      renderStateSelectRows(container);
+    };
+  }
 }
 
 /** Main entry: build the settings form for a given block type */
@@ -598,6 +708,12 @@ function buildSettingsForm(block) {
       break;
     case 'chart-energy':
       html += buildChartForm(block, false);
+      break;
+    case 'switch-block':
+      html += buildSwitchBlockForm(block);
+      break;
+    case 'state-select':
+      html += buildStateSelectForm(block);
       break;
     default:
       // forecast-*, weather-block, savings-summary, forecast-pvtoday etc.
@@ -826,6 +942,48 @@ function readSettingsForm(block) {
       config.title = document.getElementById('modal-chart-title')?.value || '';
       break;
     }
+    case 'switch-block': {
+      config.entity = document.getElementById('modal-switch-entity')?.value || '';
+      config.source = document.getElementById('modal-switch-source')?.value || 'ha';
+      config.label = document.getElementById('modal-switch-label')?.value || '';
+      config.action = document.getElementById('modal-switch-action')?.value || 'switch.toggle';
+      var ocEl = document.getElementById('modal-switch-oncolor');
+      config.onColor = ocEl?.value || '';
+      if (config.onColor === '#000000' && ocEl?.dataset.dirty !== 'true') config.onColor = '';
+      var ofEl = document.getElementById('modal-switch-offcolor');
+      config.offColor = ofEl?.value || '';
+      if (config.offColor === '#000000' && ofEl?.dataset.dirty !== 'true') config.offColor = '';
+      config.onIcon = document.getElementById('modal-switch-onicon')?.value || '';
+      config.offIcon = document.getElementById('modal-switch-officon')?.value || '';
+      break;
+    }
+    case 'state-select': {
+      config.entity = document.getElementById('modal-state-entity')?.value || '';
+      config.source = document.getElementById('modal-state-source')?.value || 'ha';
+      config.label = document.getElementById('modal-state-label')?.value || '';
+      config.action = document.getElementById('modal-state-action')?.value || '';
+      config.displayStyle = document.getElementById('modal-state-displaystyle')?.value || 'buttons';
+      var stData = document.getElementById('state-data');
+      var stRows = [];
+      try { stRows = JSON.parse(stData.textContent); } catch(e) {}
+      var allVals = document.querySelectorAll('.state-value');
+      var allLbls = document.querySelectorAll('.state-label');
+      var allCols = document.querySelectorAll('.state-color');
+      var outStates = [];
+      for (var s = 0; s < stRows.length; s++) {
+        var vEl = allVals[s];
+        if (!vEl) continue;
+        var rowVal = vEl.value;
+        var rowLbl = allLbls[s] ? allLbls[s].value : rowVal;
+        if (!rowVal && !rowLbl) continue;
+        var out = { value: rowVal, label: rowLbl };
+        var colEl = allCols[s];
+        if (colEl && colEl.dataset.dirty === 'true' && colEl.value) out.color = colEl.value;
+        outStates.push(out);
+      }
+      config.states = outStates;
+      break;
+    }
     default: {
       // Simple blocks: forecast, savings, weather, pv today
       var titleEl = document.getElementById('modal-simple-title');
@@ -943,6 +1101,10 @@ async function openSettingsModal(block) {
   var fgInput = document.getElementById('modal-fontcolor');
   if (bgInput) bgInput.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
   if (fgInput) fgInput.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
+  ['modal-switch-oncolor', 'modal-switch-offcolor'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
+  });
 
   // Initialize dynamic row renderers after DOM is populated
   switch (block.type) {
@@ -961,6 +1123,9 @@ async function openSettingsModal(block) {
     case 'chart-power':
     case 'chart-energy':
       renderChartRows(body);
+      break;
+    case 'state-select':
+      renderStateSelectRows(body);
       break;
   }
 }
@@ -1134,7 +1299,7 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');
