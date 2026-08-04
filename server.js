@@ -221,7 +221,7 @@ async function buildDashboardState() {
     getCurrentMetrics(),
     getSavings(),
     getCurrentGridStatus(),
-    db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC LIMIT 300').all(historySince),
+    db.prepare('SELECT * FROM (SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT 300) ORDER BY timestamp ASC').all(historySince),
     db.prepare(`
       SELECT date(timestamp, 'unixepoch') as day,
         MAX(daily_solar) as solar_kwh,
