@@ -23,8 +23,18 @@ const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 const { parseGridState } = require('./utils');
 
-// Rate-limit unresolvable-state warnings (poller runs every 30s; don't flood logs)
-let lastUnresolvableWarn = 0;
+// Rate-limit unresolvable-state warnings per entity (poller runs every 30s; don't flood logs)
+const lastUnresolvableWarns = new Map(); // gridMetric -> last warn timestamp
+const UNRESOLVABLE_WARN_WINDOW = 5 * 60 * 1000;
+
+/** Warn (rate-limited per entity, once per 5-min window) about an unresolvable grid state. */
+function warnRateLimited(key, message) {
+  const now = Date.now();
+  if (now - (lastUnresolvableWarns.get(key) || 0) > UNRESOLVABLE_WARN_WINDOW) {
+    logger.warn(message);
+    lastUnresolvableWarns.set(key, now);
+  }
+}
 
 /**
  * Read the grid state from latest_metrics, text-aware.
@@ -37,12 +47,12 @@ function readLatestGridState(gridMetric) {
   if (!row) return null;
   const raw = row.value != null ? row.value : row.value_text;
   if (raw === null || raw === undefined) {
-    logger.warn(`Grid: metric '${gridMetric}' in latest_metrics has neither value nor value_text`);
+    warnRateLimited(gridMetric, `Grid: metric '${gridMetric}' in latest_metrics has neither value nor value_text`);
     return null;
   }
-  const state = parseGridState(raw);
+  const state = parseGridState(raw, gridMetric, warnRateLimited);
   if (state === null) {
-    logger.warn(`Grid: metric '${gridMetric}' state '${raw}' (type=${row.value_type}) is unresolvable`);
+    warnRateLimited(gridMetric, `Grid: metric '${gridMetric}' state '${raw}' (type=${row.value_type}) is unresolvable`);
   }
   return state;
 }
@@ -78,7 +88,7 @@ function resolveGridEntityHost(gridMetric) {
 async function fetchGridStateFromHA(gridMetric) {
   const host = resolveGridEntityHost(gridMetric);
   if (!host) {
-    logger.warn(`Grid: entity '${gridMetric}' not in latest_metrics and not hosted by any enabled HA device`);
+    warnRateLimited(gridMetric, `Grid: entity '${gridMetric}' not in latest_metrics and not hosted by any enabled HA device`);
     return null;
   }
   const { device, entityId } = host;
@@ -88,17 +98,17 @@ async function fetchGridStateFromHA(gridMetric) {
       timeout: 5000
     });
     if (!res.ok) {
-      logger.warn(`Grid: HA fetch for '${entityId}' on '${device.name}' returned HTTP ${res.status}`);
+      warnRateLimited(gridMetric, `Grid: HA fetch for '${entityId}' on '${device.name}' returned HTTP ${res.status}`);
       return null;
     }
     const data = await res.json();
-    const state = parseGridState(data.state);
+    const state = parseGridState(data.state, gridMetric, warnRateLimited);
     if (state === null) {
-      logger.warn(`Grid: HA state '${data.state}' for '${entityId}' on '${device.name}' is unresolvable`);
+      warnRateLimited(gridMetric, `Grid: HA state '${data.state}' for '${entityId}' on '${device.name}' is unresolvable`);
     }
     return state;
   } catch (e) {
-    logger.warn(`Grid: HA fetch failed for '${entityId}' on '${device.name}': ${e.message}`);
+    warnRateLimited(gridMetric, `Grid: HA fetch failed for '${entityId}' on '${device.name}': ${e.message}`);
     return null;
   }
 }
@@ -119,13 +129,9 @@ async function resolveGridState(gridMetric) {
   return fetchGridStateFromHA(gridMetric);
 }
 
-/** Warn (rate-limited) about an unresolvable grid state. */
+/** Warn (rate-limited per entity) about an unresolvable grid state. */
 function warnUnresolvable(gridMetric) {
-  const now = Date.now();
-  if (now - lastUnresolvableWarn > 5 * 60 * 1000) {
-    logger.warn(`Grid: state for '${gridMetric}' unresolvable; no transition recorded this cycle`);
-    lastUnresolvableWarn = now;
-  }
+  warnRateLimited(gridMetric, `Grid: state for '${gridMetric}' unresolvable; no transition recorded this cycle`);
 }
 
 /** Poll binary grid metric, record state changes with 60s debounce. */
