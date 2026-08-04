@@ -66,10 +66,10 @@ async def health():
         adapters = await BleakScanner.discover(timeout=1.0, return_adv=False)
         result["ble_adapters"] = len(adapters)
         result["ble_available"] = True
-    except Exception as e:
+    except Exception:
         result["ble_available"] = False
-        result["ble_error"] = str(e)
-        logger.warning(f"BLE adapter check failed: {e}")
+        result["ble_error"] = "BLE adapter check failed"
+        logger.exception("BLE adapter check failed", exc_info=True)
     return result
 
 @app.get("/devices")
@@ -111,19 +111,19 @@ async def list_devices(force_scan: bool = False):
     except ImportError:
         logger.error("bleak not installed")
         raise HTTPException(status_code=500, detail="No BLE scanning library available")
-    except OSError as e:
-        logger.error(f"Bluetooth adapter error: {e}")
-        raise HTTPException(status_code=500, detail=f"Bluetooth not accessible: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error during scan: {e}")
-        raise HTTPException(status_code=500, detail=f"Scan error: {e}")
+    except OSError:
+        logger.exception("Bluetooth adapter error", exc_info=True)
+        raise HTTPException(status_code=500, detail="Bluetooth not accessible")
+    except Exception:
+        logger.exception("Unexpected error during scan", exc_info=True)
+        raise HTTPException(status_code=500, detail="Device scan failed")
     finally:
         if scanner is not None:
             try:
                 await scanner.stop()
                 logger.info("Scanner stopped")
-            except Exception as e:
-                logger.warning(f"Error stopping scanner: {e}")
+            except Exception:
+                logger.exception("Error stopping scanner", exc_info=True)
 
     # Post-scan: update global state under lock
     async with _state_lock:
@@ -182,12 +182,12 @@ async def get_device_data(address: str):
 
     except HTTPException:
         raise
-    except ImportError as e:
-        logger.warning(f"aiobmsble import error: {e}")
-        raise HTTPException(status_code=501, detail=f"Reading not supported: {e}")
-    except Exception as e:
-        logger.error(f"Error reading {address}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except ImportError:
+        logger.exception("aiobmsble import error", exc_info=True)
+        raise HTTPException(status_code=501, detail="Reading not supported for this device")
+    except Exception:
+        logger.exception(f"Error reading {address}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Device read failed")
 
 @app.post("/scan")
 async def force_scan():

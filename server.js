@@ -1370,8 +1370,8 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
     }
     res.json(result);
   } catch (e) {
-    logger.error(`Action error: ${e.message}`);
-    res.status(500).json({ success: false, error: e.message });
+    logger.error('Action error:', e);
+    res.status(500).json({ success: false, error: 'Action failed' });
   }
 });
 
