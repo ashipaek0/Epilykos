@@ -27,7 +27,7 @@ const net = require('net');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
-const { pollHomeAssistant, fetchHAEntities, getEntityActions } = require('./modules/ha');
+const { pollHomeAssistant, fetchHAEntities, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
 const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
@@ -649,6 +649,30 @@ app.get('/api/ha-device-entities', async (req, res) => {
   }
 });
 
+// Resolve the last-known state of an entity from the latest_metrics table via
+// the ha_devices mapping (used when the request does not carry url/token).
+function findLatestStateForEntity(entityId) {
+  try {
+    const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+    for (const device of haDevices) {
+      for (const [metric, mapping] of Object.entries(device.entities || {})) {
+        // Mapping value is either a plain entity_id string or an object
+        // { entityId, actions: [...] } carrying action metadata (AC-1.4).
+        const eid = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
+        if (eid === entityId) {
+          const row = db.prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(metric);
+          if (row) {
+            return { entity_id: entityId, state: row.value_type ? row.value_text : row.value };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('findLatestStateForEntity error:', err.message);
+  }
+  return null;
+}
+
 app.use('/api/entity-actions', isAuthenticated);
 app.get('/api/entity-actions', (req, res) => {
   const { entity } = req.query;
@@ -656,6 +680,44 @@ app.get('/api/entity-actions', (req, res) => {
     return res.status(400).json({ error: 'Valid entity ID required' });
   }
   res.json({ actions: getEntityActions(entity) });
+});
+
+// Spec AC-7.4 — auto-discovery: actions + modes + current state for one entity.
+// Auth: isAuthenticated (session). CSRF: the global /api csrfProtection requires
+// X-Requested-With on POSTs — settings.js sends it.
+app.use('/api/ha/entity-actions', isAuthenticated);
+app.post('/api/ha/entity-actions', async (req, res) => {
+  const { url, token, entityId } = req.body || {};
+  if (!entityId || typeof entityId !== 'string' || entityId.length > 128) {
+    return res.status(400).json({ error: 'Valid entity ID required' });
+  }
+  try {
+    const actions = getActionsForEntity(entityId);
+    let modes = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+    let currentState = null;
+    if (url && token) {
+      const [modeData, stateRes] = await Promise.all([
+        getEntityModes(url, token, entityId),
+        httpFetch(`${url}/api/states/${entityId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          timeout: 5000
+        }).catch(() => null)
+      ]);
+      modes = modeData;
+      if (stateRes && stateRes.ok) {
+        const st = await stateRes.json().catch(() => null);
+        if (st && st.entity_id) {
+          currentState = { entity_id: st.entity_id, state: st.state, attributes: st.attributes || {} };
+        }
+      }
+    } else {
+      currentState = findLatestStateForEntity(entityId);
+    }
+    res.json({ actions, modes, currentState });
+  } catch (err) {
+    logger.error('Error in /api/ha/entity-actions:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.use('/api/test-mqtt', isAuthenticated);
@@ -1194,7 +1256,7 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
   const { source, device, action, entity, params } = req.body;
   
   if (!source || !device || !action) {
-    return res.status(400).json({ error: 'source, device, and action are required' });
+    return res.status(400).json({ success: false, error: 'source, device, and action are required' });
   }
   
   try {
@@ -1202,39 +1264,80 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
     switch (source) {
       case 'ha':
         const { executeHAAction } = require('./modules/ha');
-        result = await executeHAAction(device, entity, action, params || {});
+        // Route form of the spec signature: (deviceId, action, entityId, params);
+        // `action` may be a dotted string 'domain.service' or an object {domain, service}.
+        result = await executeHAAction(device, action, entity, params || {});
         break;
-      case 'mqtt':
+      case 'mqtt': {
         const { executeMqttAction } = require('./modules/mqtt');
-        result = await executeMqttAction(device, action, params?.payload);
+        // Topic is the entity; payload comes from params.payload or is inferred from the action.
+        let payload = params?.payload;
+        if (payload === undefined || payload === null) {
+          if (action === 'turn_on') payload = 'ON';
+          else if (action === 'turn_off') payload = 'OFF';
+          else if (action === 'toggle') {
+            // Flip the entity's current state; default to 'ON' when unknown.
+            const cur = getCurrentMetrics()[entity]?.value;
+            const isOn = cur === 'on' || cur === 'ON' || cur === 'true' || cur === '1' || cur === 1 || cur === true;
+            payload = isOn ? 'OFF' : 'ON';
+          } else {
+            payload = '';
+          }
+        }
+        result = await executeMqttAction(device, entity, payload);
         break;
-      case 'tuya':
+      }
+      case 'tuya': {
         const { executeTuyaAction } = require('./modules/tuya');
-        result = await executeTuyaAction(device, parseInt(action), params?.value);
+        // Resolve the device by NAME or dev_id from the tuya_devices config
+        const tuyaDevices = JSON.parse(getConfig('tuya_devices') || '[]');
+        const tuyaDevice = tuyaDevices.find(d => d && (d.name === device || d.dev_id === device));
+        if (!tuyaDevice || !tuyaDevice.enabled) {
+          result = { success: false, error: 'Tuya device not found or disabled' };
+          break;
+        }
+        // Map entity → DP number via the device's dps config (dps: { metricName: dpNumber })
+        const dpMap = tuyaDevice.dps || {};
+        let dpNumber;
+        for (const [dpName, dpNum] of Object.entries(dpMap)) {
+          if (dpName === entity) { dpNumber = dpNum; break; }
+        }
+        if (dpNumber === undefined || dpNumber === null) {
+          result = { success: false, error: 'DP not found' };
+          break;
+        }
+        // Toggles send true when no explicit value is given — never the literal 'undefined'
+        const actionValue = (params?.value === undefined || params?.value === null) ? true : params.value;
+        result = await executeTuyaAction(device, dpNumber, actionValue);
         break;
+      }
       case 'modbus':
         const { executeModbusAction } = require('./modules/modbus');
-        result = await executeModbusAction(device, action, params?.value);
+        // (deviceName, registerAddr, value, type) — register = entity, type='coil' for coils
+        result = await executeModbusAction(device, entity, params?.value, params?.type);
         break;
       case 'rs232':
-        const { executeRS232Action } = require('./modules/rs232');
-        result = await executeRS232Action(device, action, params?.value);
+        const { executeRs232ProfileAction } = require('./modules/rs232');
+        // Profile form (deviceName, commandName, value) — the switch/stateSelect
+        // components send action = command name and params.value = value.
+        result = await executeRs232ProfileAction(device, action, params?.value);
         break;
       case 'dongle':
         const { executeDongleAction } = require('./modules/dongle');
-        result = await executeDongleAction(device, action, params?.value);
+        // (deviceName, registerAddr, value) — register = entity
+        result = await executeDongleAction(device, entity, params?.value);
         break;
       default:
-        return res.status(400).json({ error: `Unknown source: ${source}` });
+        return res.status(501).json({ success: false, error: 'Source not yet supported' });
     }
     
-    if (result.error) {
-      return res.status(502).json(result);
+    if (result?.error) {
+      return res.status(502).json({ success: false, ...result });
     }
     res.json(result);
   } catch (e) {
     logger.error(`Action error: ${e.message}`);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

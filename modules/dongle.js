@@ -315,9 +315,49 @@ async function executeDongleAction(deviceName, registerAddr, value) {
   const device = devices.find(d => d.name === deviceName);
   if (!device || !device.enabled) return { error: 'Dongle device not found or disabled' };
 
+  const transportType = device.transport || 'modbus-tcp';
+
+  // Growatt dongles are push-only (inbound TCP server) — writes are not supported.
+  if (transportType === 'growatt') {
+    return { error: 'Growatt not supported — push-only, write actions are not available' };
+  }
+
+  // Felicity inverters speak a proprietary JSON API, not Modbus registers.
+  const profile = getProfileById(device.profile);
+  if (transportType === 'felicity-tcp' || profile?.protocol === 'felicity-tcp') {
+    return { error: 'felicity-tcp dongles use a proprietary JSON API and do not support Modbus register writes' };
+  }
+
+  if (isNaN(parseInt(registerAddr))) {
+    return { error: 'Invalid register address' };
+  }
+  const addr = parseInt(registerAddr);
+  const val = parseInt(value) || 0;
+
   try {
-    const ModbusTCP = require('./dongle/modbusTcp');
-    await ModbusTCP.writeRegister(device.ip, device.port || 502, parseInt(registerAddr), parseInt(value) || 0);
+    if (transportType === 'solarman-v5') {
+      if (!device.serial_number) {
+        return { error: 'solarman-v5 write requires serial_number in dongle config' };
+      }
+      const { SolarmanV5Transport } = require('./dongle/solarmanV5');
+      const transport = new SolarmanV5Transport({
+        host: device.host || device.ip,
+        port: device.port || 8899,
+        serial_number: device.serial_number,
+        modbus_unit_id: device.modbus_unit_id || 1
+      });
+      await transport.writeRegister(addr, val);
+      return { success: true };
+    }
+
+    // Default: plain Modbus TCP (transport 'modbus-tcp' or unset)
+    const { ModbusTcpTransport } = require('./dongle/modbusTcp');
+    const transport = new ModbusTcpTransport({
+      host: device.host || device.ip,
+      port: device.port || 502,
+      modbus_unit_id: device.modbus_unit_id || 1
+    });
+    await transport.writeRegister(addr, val);
     return { success: true };
   } catch (e) {
     logger.error(`Dongle write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
