@@ -1601,8 +1601,8 @@ app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
     const devices = await discoverTuyaDevices(subnet || undefined);
     res.json({ success: true, devices });
   } catch (err) {
-    logger.error('[Tuya] Discover error:', err.message);
-    res.status(500).json({ error: err.message || 'Discovery failed' });
+    logger.error('[Tuya] Discover error:', err);
+    res.status(500).json({ error: 'Discovery failed' });
   }
 });
 
@@ -1612,8 +1612,8 @@ app.post('/api/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
     const devices = await fetchCloudDevices(region, access_id, access_secret, user_id);
     res.json({ success: true, devices });
   } catch (err) {
-    logger.error('[Tuya] Cloud fetch error:', err.message);
-    res.status(500).json({ error: err.message || 'Cloud fetch failed' });
+    logger.error('[Tuya] Cloud fetch error:', err);
+    res.status(500).json({ error: 'Cloud fetch failed' });
   }
 });
 
@@ -1625,8 +1625,8 @@ app.post('/api/tuya-generate-qr', isAuthenticated, async (req, res) => {
     const result = await generateQrCode(uid);
     res.json(result);
   } catch (err) {
-    logger.error('[Tuya] QR generate error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to generate QR code' });
+    logger.error('[Tuya] QR generate error:', err);
+    res.status(500).json({ error: 'Failed to generate QR code' });
   }
 });
 
@@ -1637,8 +1637,8 @@ app.post('/api/tuya-poll-login', isAuthenticated, async (req, res) => {
     const result = await pollQrLogin(qr_token, uid);
     res.json(result);
   } catch (err) {
-    logger.error('[Tuya] Poll login error:', err.message);
-    res.status(500).json({ error: err.message || 'Login poll failed' });
+    logger.error('[Tuya] Poll login error:', err);
+    res.status(500).json({ error: 'Login poll failed' });
   }
 });
 
@@ -1649,8 +1649,8 @@ app.post('/api/tuya-fetch-oauth', isAuthenticated, async (req, res) => {
     const devices = await fetchDevicesOAuth(token_info);
     res.json({ success: true, devices });
   } catch (err) {
-    logger.error('[Tuya] OAuth fetch error:', err.message);
-    res.status(500).json({ error: err.message || 'OAuth device fetch failed' });
+    logger.error('[Tuya] OAuth fetch error:', err);
+    res.status(500).json({ error: 'OAuth device fetch failed' });
   }
 });
 
@@ -1660,8 +1660,8 @@ app.post('/api/test-tuya', isAuthenticated, async (req, res) => {
     const result = await testTuyaDevice({ dev_id, address, local_key, version });
     res.json(result);
   } catch (err) {
-    logger.error('[Tuya] Test error:', err.message);
-    res.status(500).json({ error: err.message || 'Test failed' });
+    logger.error('[Tuya] Test error:', err);
+    res.status(500).json({ error: 'Test failed' });
   }
 });
 
@@ -1676,8 +1676,8 @@ app.post('/api/tuya-verify-all', isAuthenticated, async (req, res) => {
     const totalCount = results.length;
     res.json({ success: true, results, summary: `${successCount}/${totalCount} devices connected` });
   } catch (err) {
-    logger.error('[Tuya] Verify all error:', err.message);
-    res.status(500).json({ error: err.message || 'Verify all failed' });
+    logger.error('[Tuya] Verify all error:', err);
+    res.status(500).json({ error: 'Verify all failed' });
   }
 });
 
@@ -1876,7 +1876,7 @@ app.post('/api/metrics/create', isAuthenticated, (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error('Error creating metric:', err);
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'Failed to create metric' });
   }
 });
 
