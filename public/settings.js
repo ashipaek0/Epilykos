@@ -451,11 +451,12 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
       setTimeout(() => warn.remove(), 3000);
       return;
     }
-    const url = card ? card.querySelector('input[name$="[url]"]').value : '';
-    const token = card ? card.querySelector('input[name$="[token]"]').value : '';
-    if (!url || !token) {
+    // SSRF guard (#69): send the device name, not url/token — the server
+    // resolves the device from its own config.
+    const device = card ? card.querySelector('input[name$="[name]"]')?.value || card.dataset.index : '';
+    if (!device) {
       const warn = document.createElement('span');
-      warn.textContent = 'URL and token required';
+      warn.textContent = 'Device name required';
       warn.style.cssText = 'color:#f66;font-size:0.7rem;';
       actionsEl.appendChild(warn);
       setTimeout(() => warn.remove(), 3000);
@@ -470,7 +471,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
       const res = await fetch('/api/ha/entity-actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ url, token, entityId })
+        body: JSON.stringify({ device, entityId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load actions');
