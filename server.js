@@ -24,6 +24,7 @@ const morgan = require('morgan');
 const WebSocket = require('ws');
 const http = require('http');
 const net = require('net');
+const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
@@ -39,7 +40,7 @@ const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
-const { parseGridState } = require('./modules/utils');
+const { parseGridState, assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
@@ -641,8 +642,10 @@ app.use('/api/ha-device-entities', isAuthenticated);
 app.get('/api/ha-device-entities', async (req, res) => {
   const { url, token } = req.query;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
+  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!ok) return res.status(400).json({ error });
   try {
-    res.json(await fetchHAEntities(url, token));
+    res.json(await fetchHAEntities(safeUrl, token));
   } catch (err) {
     logger.error('Error fetching HA entities:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -759,7 +762,9 @@ app.get('/api/test-mqtt', async (req, res) => {
   const options = {};
   if (username) options.username = username;
   if (password) options.password = password;
-  const testClient = require('mqtt').connect(broker, options);
+  const safe = assertSafeBrokerUrl(broker);
+  if (!safe.ok) return res.status(400).json({ error: safe.error });
+  const testClient = require('mqtt').connect(safe.url, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
@@ -792,7 +797,9 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   const options = {};
   if (username) options.username = username;
   if (password) options.password = password;
-  const testClient = require('mqtt').connect(broker, options);
+  const safe = assertSafeBrokerUrl(broker);
+  if (!safe.ok) return res.status(400).json({ error: safe.error });
+  const testClient = require('mqtt').connect(safe.url, options);
   let responded = false;
   const timeout = setTimeout(() => {
     if (!responded) { testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
@@ -824,11 +831,13 @@ app.get('/api/mqtt-discover-topics', async (req, res) => {
   const username = req.query.username || null;
   const password = req.query.password || null;
   if (!broker) return res.status(400).json({ error: 'Broker URL required' });
+  const safe = assertSafeBrokerUrl(broker);
+  if (!safe.ok) return res.status(400).json({ error: safe.error });
   const options = {};
   if (username) options.username = username;
   if (password) options.password = password;
   const mqtt = require('mqtt');
-  const client = mqtt.connect(broker, options);
+  const client = mqtt.connect(safe.url, options);
   let responded = false;
   const topics = new Set();
   const timeout = setTimeout(() => {
@@ -1577,6 +1586,18 @@ app.get('/api/tuya-discover', isAuthenticated, async (req, res) => {
     // Accept optional ?subnet=192.168.0.0/24 for cross-subnet directed scan
     const rawSubnet = req.query.subnet;
     const subnet = Array.isArray(rawSubnet) ? rawSubnet[0] : (rawSubnet || '');
+    if (subnet) {
+      // SSRF guard (#71): the directed scan TCP-probes every IP in the subnet
+      // from this host, so it must be a valid IPv4 CIDR AND an RFC1918 network.
+      const cidrMatch = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(subnet);
+      if (!cidrMatch) return res.status(400).json({ error: 'Invalid subnet (expected CIDR like 192.168.0.0/24)' });
+      const octets = cidrMatch.slice(1, 5).map(Number);
+      const prefix = Number(cidrMatch[5]);
+      const invalidOctet = octets.some(o => o > 255);
+      const invalidPrefix = prefix > 32;
+      const inRfc1918 = (octets[0] === 10) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) || (octets[0] === 192 && octets[1] === 168);
+      if (invalidOctet || invalidPrefix || !inRfc1918) return res.status(400).json({ error: 'Subnet must be a private RFC1918 network' });
+    }
     const devices = await discoverTuyaDevices(subnet || undefined);
     res.json({ success: true, devices });
   } catch (err) {
@@ -1664,8 +1685,10 @@ app.use('/api/test-external', isAuthenticated);
 app.post('/api/test-external', async (req, res) => {
   const { url, jsonPath } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
+  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!ok) return res.status(400).json({ error });
   try {
-    const response = await fetch(url, { timeout: 5000 });
+    const response = await fetch(safeUrl, { timeout: 5000 });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     let value = null;
@@ -1762,7 +1785,28 @@ app.post('/api/dongle/test', async (req, res) => {
   if (port !== undefined && port !== null && port !== '' && safePort === null) {
     return res.status(400).json({ error: 'Invalid port' });
   }
-  const safeHost = rawHost;
+  // SSRF guard (#71): resolve hostnames up front and dial the RESOLVED IP so a
+  // DNS-rebinding swap between validation and connect() cannot redirect the TCP
+  // dial to a private/loopback/link-local address. Every A/AAAA record must be
+  // a public address (isBlockedIp with allowPrivate:false blocks RFC1918, ULA,
+  // loopback, link-local/metadata, unspecified). Literal IPs are already vetted
+  // by the string-level block above.
+  let safeHost = rawHost;
+  if (!net.isIP(rawHost)) {
+    let addrs;
+    try {
+      addrs = await dns.promises.lookup(rawHost, { all: true, verbatim: true });
+    } catch (_) {
+      return res.status(400).json({ error: 'Invalid host' });
+    }
+    if (!addrs || addrs.length === 0) return res.status(400).json({ error: 'Invalid host' });
+    for (const a of addrs) {
+      if (isBlockedIp(a.address, false)) {
+        return res.status(400).json({ error: 'Host is not allowed' });
+      }
+    }
+    safeHost = addrs[0].address;
+  }
 
   try {
     let transportObj;
