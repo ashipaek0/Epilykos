@@ -687,18 +687,42 @@ app.get('/api/entity-actions', (req, res) => {
 // X-Requested-With on POSTs — settings.js sends it.
 app.use('/api/ha/entity-actions', isAuthenticated);
 app.post('/api/ha/entity-actions', async (req, res) => {
-  const { url, token, entityId } = req.body || {};
-  if (!entityId || typeof entityId !== 'string' || entityId.length > 128) {
+  const { device: deviceRef, entityId } = req.body || {};
+  if (!entityId || typeof entityId !== 'string') {
     return res.status(400).json({ error: 'Valid entity ID required' });
   }
+  const trimmed = entityId.trim();
+  if (trimmed.length > 128 || !/^[a-z0-9_]+\.[a-z0-9_]+$/i.test(trimmed)) {
+    return res.status(400).json({ error: 'Valid entity ID required (domain.entity)' });
+  }
+  // SSRF guard: resolve the HA device from server-side config only — never
+  // trust client-supplied url/token. Mirrors executeHAAction lookup.
+  const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
+  let device = null;
+  if (typeof deviceRef === 'string' && deviceRef !== '') {
+    device = haDevices.find(d => d && d.name === deviceRef);
+    if (!device && /^\d+$/.test(deviceRef)) {
+      device = haDevices[Number(deviceRef)];
+    }
+  }
+  if (device && !device.enabled) device = null;
+  if (typeof deviceRef === 'string' && deviceRef !== '' && !device) {
+    return res.status(404).json({ error: 'HA device not found' });
+  }
+  const url = device?.url;
+  const token = device?.token;
+  const entityIdOk = trimmed;
+  if (device && (!url || !token)) {
+    return res.status(400).json({ error: 'Configured HA device is missing url/token' });
+  }
   try {
-    const actions = getActionsForEntity(entityId);
+    const actions = getActionsForEntity(entityIdOk);
     let modes = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
     let currentState = null;
     if (url && token) {
       const [modeData, stateRes] = await Promise.all([
-        getEntityModes(url, token, entityId),
-        httpFetch(`${url}/api/states/${entityId}`, {
+        getEntityModes(url, token, entityIdOk),
+        httpFetch(`${url}/api/states/${entityIdOk}`, {
           headers: { 'Authorization': `Bearer ${token}` },
           timeout: 5000
         }).catch(() => null)
@@ -711,7 +735,8 @@ app.post('/api/ha/entity-actions', async (req, res) => {
         }
       }
     } else {
-      currentState = findLatestStateForEntity(entityId);
+      // No device context: DB-only fallback — never fetch with client data.
+      currentState = findLatestStateForEntity(entityIdOk);
     }
     res.json({ actions, modes, currentState });
   } catch (err) {
