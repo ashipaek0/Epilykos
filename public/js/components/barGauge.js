@@ -46,7 +46,7 @@ export function updateBarGauge(state) {
       const min = cfg.min ?? 0;
       const max = cfg.max ?? 100;
       const range = max - min;
-      const pct = range > 0 ? Math.min(100, Math.max(0, ((v - min) / range) * 100)) : 0;
+      const pct = (typeof v === 'number' && range > 0) ? Math.min(100, Math.max(0, ((v - min) / range) * 100)) : 0;
 
       const fill = document.getElementById(`bg-fill-${id}-${i}`);
       if (fill) fill.style.width = pct + '%';
@@ -54,7 +54,8 @@ export function updateBarGauge(state) {
       const val = document.getElementById(`bg-val-${id}-${i}`);
       if (val) {
         const unit = cfg.unit || entry.unit || inferBarUnit(cfg.metric);
-        val.textContent = Number(v).toFixed(1) + (unit ? ' ' + unit : '');
+        if (typeof v === 'number') val.textContent = v.toFixed(1) + (unit ? ' ' + unit : '');
+        else val.textContent = String(v != null ? v : '--') + (unit ? ' ' + unit : '');
       }
     });
   });

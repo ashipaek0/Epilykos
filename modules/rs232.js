@@ -9,6 +9,8 @@ const { logger } = require('./logger');
 let availableProfiles = [];
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
+let metricInsertTextStmt = null;
+let latestUpsertTextStmt = null;
 
 // Streaming connections: device_name → { port, parser, device, profile }
 const streamingConnections = new Map();
@@ -35,6 +37,39 @@ function getLatestUpsert() {
     latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   }
   return latestUpsertStmt;
+}
+
+function getMetricInsertText() {
+  if (!metricInsertTextStmt) {
+    const db = getDb();
+    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  }
+  return metricInsertTextStmt;
+}
+
+function getLatestUpsertText() {
+  if (!latestUpsertTextStmt) {
+    const db = getDb();
+    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  }
+  return latestUpsertTextStmt;
+}
+
+function saveMetric(metricName, rawValue, timestamp) {
+  if (rawValue === null || rawValue === undefined) return;
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && num === Number(rawValue)) {
+    getLatestUpsert().run(metricName, num, timestamp);
+    getMetricInsert().run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
+    getMetricInsertText().run(timestamp, metricName, displayVal, type);
+  }
 }
 
 // ── Profile Loading ─────────────────────────────────────────────────────
@@ -342,12 +377,10 @@ async function pollQueryDevice(device, profile) {
       Object.assign(results, parsed);
     }
 
-    // Write to database — only numeric values
+    // Write to database — use type detection
     const now = Math.floor(Date.now() / 1000);
     for (const [metric, value] of Object.entries(results)) {
-      if (typeof value !== 'number' || isNaN(value)) continue;
-      getMetricInsert().run(now, metric, value);
-      getLatestUpsert().run(metric, value, now);
+      saveMetric(metric, value, now);
     }
     logger.info(`RS232 poll ${device.name}: ${Object.keys(results).length} metrics`);
   } finally {
@@ -388,9 +421,7 @@ function setupStreamingConnection(device, profile) {
       if (Object.keys(metrics).length > 0) {
         const now = Math.floor(Date.now() / 1000);
         for (const [metric, val] of Object.entries(metrics)) {
-          if (typeof val !== 'number' || isNaN(val)) continue;
-          getMetricInsert().run(now, metric, val);
-          getLatestUpsert().run(now, metric, val);
+          saveMetric(metric, val, now);
         }
       }
       currentFrame = {};
@@ -552,6 +583,48 @@ function getProfileById(id) {
   return availableProfiles.find(p => p.id === id) || null;
 }
 
+function loadProfile(id) {
+  return availableProfiles.find(p => p.id === id) || null;
+}
+
+function executeRS232Action(deviceName, commandName, value) {
+  const devices = JSON.parse(getConfig('rs232_devices') || '[]');
+  const device = devices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'RS232 device not found or disabled' };
+
+  const profile = loadProfile(device.profile);
+  const cmd = profile?.commands?.find(c => c.name === commandName);
+  if (!cmd) return { error: `Command "${commandName}" not found in profile` };
+
+  try {
+    const SerialPort = require('serialport');
+    const port = new SerialPort(device.serial_path || '/dev/ttyUSB0', {
+      baudRate: parseInt(device.baud) || 9600,
+      dataBits: parseInt(device.data_bits) || 8,
+      stopBits: parseInt(device.stop_bits) || 1,
+      parity: device.parity || 'none',
+    });
+
+    const bytes = buildWriteCommand(cmd, value);
+    port.write(bytes);
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        port.close();
+        resolve({ success: true });
+      }, 500);
+    });
+  } catch (e) {
+    logger.error(`RS232 write error for ${deviceName}/${commandName}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+function buildWriteCommand(cmd, value) {
+  const hex = cmd.template.replace('{value}', value.toString(16).padStart(2, '0'));
+  return Buffer.from(hex.replace(/\s/g, ''), 'hex');
+}
+
 module.exports = {
   loadRs232Profiles,
   pollRs232,
@@ -560,6 +633,7 @@ module.exports = {
   shutdownRs232,
   restartRs232Streaming,
   detectBaudRate,
+  executeRS232Action,
   getProfileById,
   availableProfiles: availableProfiles, // getter — always up to date
 };

@@ -25,14 +25,16 @@ export function updateGaugeCard(state) {
     let cfg; try{cfg=JSON.parse(container.dataset.metricMap);}catch(e){return;}
     const v = state.metrics?.[cfg.value]?.value;
     if (v === undefined || v === null) return;
-    const pct = Math.min(100, Math.max(0, ((v - cfg.min) / (cfg.max - cfg.min)) * 100));
     const id = container.querySelector('[id^="gauge-fill-"]')?.id?.replace('gauge-fill-','');
-    const fill = document.getElementById('gauge-fill-' + id);
-    if (fill) fill.setAttribute('stroke-dasharray', `${(pct/100)*314} 314`);
     const val = document.getElementById('gauge-val-' + id);
-    if (val) {
-      const unit = state.metrics?.[cfg.value]?.unit || inferUnit(cfg.value);
-      val.textContent = Math.round(v) + (unit ? ' ' + unit : '');
+    const unit = state.metrics?.[cfg.value]?.unit || inferUnit(cfg.value);
+    if (typeof v === 'number') {
+      const pct = Math.min(100, Math.max(0, ((v - cfg.min) / (cfg.max - cfg.min)) * 100));
+      const fill = document.getElementById('gauge-fill-' + id);
+      if (fill) fill.setAttribute('stroke-dasharray', `${(pct/100)*314} 314`);
+      if (val) val.textContent = Math.round(v) + (unit ? ' ' + unit : '');
+    } else {
+      if (val) val.textContent = String(v) + (unit ? ' ' + unit : '');
     }
   });
 }

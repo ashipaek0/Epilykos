@@ -29,7 +29,10 @@ export function updateMultiValueCard(state) {
       if (v === undefined || v === null) return;
       if (cards[i]) {
         const valEl = cards[i].querySelector('.stat-value');
-        if (valEl) valEl.textContent = `${Number(v).toFixed(1)} ${cfg.unit||''}`;
+        if (valEl) {
+          if (typeof v === 'number') valEl.textContent = `${v.toFixed(1)} ${cfg.unit||''}`;
+          else valEl.textContent = String(v != null ? v : '--') + (cfg.unit ? ' ' + cfg.unit : '');
+        }
       }
     });
   });

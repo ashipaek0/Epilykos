@@ -36,29 +36,34 @@ export function updateHalfGauge2Card(state) {
     let cfg; try{cfg=JSON.parse(container.dataset.metricMap);}catch(e){return;}
     const v = state.metrics?.[cfg.value]?.value;
     if (v === undefined || v === null) return;
-    const min = cfg.min ?? -100, max = cfg.max ?? 100;
-    const range = max - min;
-    const pct = (v - min) / range;
-    const arcLen = Math.PI * 80; // ≈ 251.3 — true semicircle arc length (radius=80)
-    const midArc = arcLen / 2;    // ≈ 125.7 — position of 12 o'clock
-    const color = cfg.color || 'var(--color-solar)';
-    const negColor = getComputedStyle(document.documentElement).getPropertyValue('--color-negative').trim();
-    // 12 o'clock (top centre) is the neutral point
-    // Positive: clockwise from 12 o'clock → 3 o'clock (right)
-    // Negative: counter-clockwise from 12 o'clock → 9 o'clock (left)
-    const zeroPoint = Math.max(0, Math.min(1, (0 - min) / range));
-    const maxDist = Math.max(zeroPoint, 1 - zeroPoint);
-    const fillLen = Math.min(midArc, (Math.abs(pct - zeroPoint) / maxDist) * midArc);
-    const offset = pct >= zeroPoint ? -midArc : fillLen - midArc;
     const id = container.querySelector('[id^="hg2-fill-"]')?.id?.replace('hg2-fill-','');
-    const fill = document.getElementById('hg2-fill-' + id);
-    if (fill) {
-      fill.setAttribute('stroke-dasharray', `${fillLen} ${arcLen}`);
-      fill.setAttribute('stroke-dashoffset', offset);
-      fill.setAttribute('stroke', pct >= zeroPoint ? color : negColor);
-    }
     const val = document.getElementById('hg2-val-' + id);
-    if (val) { const unit = state.metrics?.[cfg.value]?.unit || inferHalf2Unit(cfg.value); val.textContent = Math.round(v) + (unit ? ' ' + unit : ''); }
+    const unit = state.metrics?.[cfg.value]?.unit || inferHalf2Unit(cfg.value);
+    if (typeof v === 'number') {
+      const min = cfg.min ?? -100, max = cfg.max ?? 100;
+      const range = max - min;
+      const pct = (v - min) / range;
+      const arcLen = Math.PI * 80; // ≈ 251.3 — true semicircle arc length (radius=80)
+      const midArc = arcLen / 2;    // ≈ 125.7 — position of 12 o'clock
+      const color = cfg.color || 'var(--color-solar)';
+      const negColor = getComputedStyle(document.documentElement).getPropertyValue('--color-negative').trim();
+      // 12 o'clock (top centre) is the neutral point
+      // Positive: clockwise from 12 o'clock → 3 o'clock (right)
+      // Negative: counter-clockwise from 12 o'clock → 9 o'clock (left)
+      const zeroPoint = Math.max(0, Math.min(1, (0 - min) / range));
+      const maxDist = Math.max(zeroPoint, 1 - zeroPoint);
+      const fillLen = Math.min(midArc, (Math.abs(pct - zeroPoint) / maxDist) * midArc);
+      const offset = pct >= zeroPoint ? -midArc : fillLen - midArc;
+      const fill = document.getElementById('hg2-fill-' + id);
+      if (fill) {
+        fill.setAttribute('stroke-dasharray', `${fillLen} ${arcLen}`);
+        fill.setAttribute('stroke-dashoffset', offset);
+        fill.setAttribute('stroke', pct >= zeroPoint ? color : negColor);
+      }
+      if (val) val.textContent = Math.round(v) + (unit ? ' ' + unit : '');
+    } else {
+      if (val) val.textContent = String(v) + (unit ? ' ' + unit : '');
+    }
   });
 }
 function inferHalf2Unit(n){n=(n||"").toLowerCase();if(/soc|percentage|percent/.test(n))return"%";if(/temp/.test(n))return"°C";if(/volt/.test(n))return"V";if(/current|amp/.test(n))return"A";if(/power|watt/.test(n))return"W";if(/energy|kwh|wh/.test(n))return"kWh";if(/freq|hz/.test(n))return"Hz";if(/runtime/.test(n))return"h";return"";}

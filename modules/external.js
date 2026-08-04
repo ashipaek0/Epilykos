@@ -7,9 +7,28 @@ const { isPrivateOrLocalIp, isValidHostname } = require('./utils');
 let externalPollInterval = null;
 let externalMetricInsert = null;
 let externalLatestUpsert = null;
+let externalMetricInsertText = null;
+let externalLatestUpsertText = null;
 
 function getValueByPath(obj, path) {
   return path.split('.').reduce((current, key) => current?.[key], obj);
+}
+
+function saveExternalMetric(metricName, rawValue, timestamp) {
+  if (rawValue === null || rawValue === undefined) return;
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && num === Number(rawValue)) {
+    externalMetricInsert.run(timestamp, metricName, num);
+    externalLatestUpsert.run(metricName, num, timestamp);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    externalMetricInsertText.run(timestamp, metricName, displayVal, type);
+    externalLatestUpsertText.run(metricName, displayVal, type, timestamp);
+  }
 }
 
 async function pollExternalSources() {
@@ -19,6 +38,8 @@ async function pollExternalSources() {
   const db = getDb();
   if (!externalMetricInsert) externalMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
   if (!externalLatestUpsert) externalLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  if (!externalMetricInsertText) externalMetricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  if (!externalLatestUpsertText) externalLatestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
 
   for (const source of sources) {
     if (!source.enabled || !source.url) continue;
@@ -59,10 +80,7 @@ async function pollExternalSources() {
       for (const [metric, jsonPath] of Object.entries(source.mappings || {})) {
         let value = getValueByPath(data, jsonPath);
         if (value === undefined) continue;
-        value = parseFloat(value);
-        if (isNaN(value)) continue;
-        externalMetricInsert.run(now, metric, value);
-        externalLatestUpsert.run(metric, value, now);
+        saveExternalMetric(metric, value, now);
       }
     } catch (err) {
       logger.error(`External source ${source.name} error:`, err.message);

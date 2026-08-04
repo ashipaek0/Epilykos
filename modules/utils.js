@@ -1,11 +1,29 @@
 const net = require('net');
+const { logger } = require('./logger');
 
+/**
+ * Parse a grid state value into a binary state.
+ * @param {*} state - numeric (0/1/2.5) or text ('on'/'off', 'true'/'false',
+ *                    '1'/'0', 'open'/'closed', 'unlocked'/'locked')
+ * @returns {number|null} 1 = ON, 0 = OFF, null = unresolvable.
+ *   'unavailable'/'unknown'/null/undefined/unrecognized → null (NOT a phantom
+ *   OFF), so callers can distinguish "measured zero" from "no data".
+ */
 function parseGridState(state) {
-  if (state === null || state === undefined) return 0;
+  if (state === null || state === undefined) {
+    logger.warn('parseGridState: null/undefined state treated as unresolvable');
+    return null;
+  }
   if (typeof state === 'number') return state > 0 ? 1 : 0;
   const str = String(state).toLowerCase().trim();
+  if (str === '' || str === 'unavailable' || str === 'unknown') {
+    logger.warn(`parseGridState: state '${str || String(state)}' is unresolvable (not OFF/ON)`);
+    return null;
+  }
   if (str === 'on' || str === 'true' || str === '1' || str === 'open' || str === 'unlocked') return 1;
-  return 0;
+  if (str === 'off' || str === 'false' || str === '0' || str === 'closed' || str === 'locked') return 0;
+  logger.warn(`parseGridState: unrecognized state '${str}' treated as unresolvable`);
+  return null;
 }
 
 /**

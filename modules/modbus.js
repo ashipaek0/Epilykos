@@ -7,6 +7,8 @@ const { getConfig, getDb } = require('./database');
 let availableProfiles = [];
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
+let metricInsertTextStmt = null;
+let latestUpsertTextStmt = null;
 
 function getMetricInsert() {
   if (!metricInsertStmt) {
@@ -22,6 +24,38 @@ function getLatestUpsert() {
     latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   }
   return latestUpsertStmt;
+}
+
+function getMetricInsertText() {
+  if (!metricInsertTextStmt) {
+    const db = getDb();
+    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  }
+  return metricInsertTextStmt;
+}
+
+function getLatestUpsertText() {
+  if (!latestUpsertTextStmt) {
+    const db = getDb();
+    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  }
+  return latestUpsertTextStmt;
+}
+
+function saveMetric(metricName, rawValue, timestamp) {
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && num === Number(rawValue)) {
+    getLatestUpsert().run(metricName, num, timestamp);
+    getMetricInsert().run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
+    getMetricInsertText().run(timestamp, metricName, displayVal, type);
+  }
 }
 
 function loadProfiles() {
@@ -139,8 +173,7 @@ async function pollModbus() {
 
       const now = Math.floor(Date.now() / 1000);
       for (const [metric, value] of Object.entries(results)) {
-        getMetricInsert().run(now, metric, value);
-        getLatestUpsert().run(metric, value, now);
+        saveMetric(metric, value, now);
       }
       console.log(`Modbus poll (${device.name || device.host || device.serial_path}): ${Object.keys(results).length} metrics.`);
     } catch (err) {
@@ -163,4 +196,26 @@ async function testModbusConnection(device) {
   }
 }
 
-module.exports = { loadProfiles, pollModbus, testModbusConnection, getProfileById, availableProfiles };
+async function executeModbusAction(deviceName, registerAddr, value) {
+  const devices = JSON.parse(getConfig('modbus_devices') || '[]');
+  const device = devices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'Modbus device not found or disabled' };
+
+  try {
+    const client = await connectModbus(device);
+    if (isNaN(parseInt(registerAddr))) {
+      return { error: 'Invalid register address' };
+    }
+    const addr = parseInt(registerAddr);
+    const val = parseInt(value) || 0;
+
+    await client.writeSingleRegister(addr, val);
+    await client.close();
+    return { success: true };
+  } catch (e) {
+    logger.error(`Modbus write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { loadProfiles, pollModbus, testModbusConnection, executeModbusAction, getProfileById, availableProfiles };

@@ -129,6 +129,30 @@ def main():
             sys.exit(1)
         return
 
+    if action == "set":
+        # Usage: python3 -u tuya_bridge.py set <devId> <localKey> <ip> <dpId> <value>
+        if len(sys.argv) != 7:
+            print(json.dumps({"error": "Usage: tuya_bridge.py set <dev_id> <local_key> <ip> <dp_id> <value>"}))
+            sys.exit(1)
+        dev_id = sys.argv[2]
+        local_key = sys.argv[3]
+        ip = sys.argv[4]
+        dp_id = int(sys.argv[5])
+        value = sys.argv[6]
+
+        import tinytuya
+        d = tinytuya.OutletDevice(dev_id, ip, local_key)
+        d.set_socketTimeout(5)
+        d.set_version(3.3)
+
+        try:
+            result = d.set_value(dp_id, value)
+            print(json.dumps({"success": True, "result": result}))
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+            sys.exit(1)
+        return
+
     if action not in ("poll", "test"):
         print(json.dumps({"error": f"Unknown action: {action}"}))
         sys.exit(1)

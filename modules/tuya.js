@@ -6,6 +6,8 @@ const path = require('path');
 // Module-level cached prepared statements (same pattern as ha.js / mqtt.js / modbus.js)
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
+let metricInsertTextStmt = null;
+let latestUpsertTextStmt = null;
 
 function getMetricInsert() {
   if (!metricInsertStmt) {
@@ -21,6 +23,39 @@ function getLatestUpsert() {
     latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
   }
   return latestUpsertStmt;
+}
+
+function getMetricInsertText() {
+  if (!metricInsertTextStmt) {
+    const db = getDb();
+    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  }
+  return metricInsertTextStmt;
+}
+
+function getLatestUpsertText() {
+  if (!latestUpsertTextStmt) {
+    const db = getDb();
+    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  }
+  return latestUpsertTextStmt;
+}
+
+function saveMetric(metricName, rawValue, timestamp) {
+  if (rawValue === null || rawValue === undefined) return;
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && num === Number(rawValue)) {
+    getLatestUpsert().run(metricName, num, timestamp);
+    getMetricInsert().run(timestamp, metricName, num);
+  } else {
+    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+    const lower = strVal.toLowerCase();
+    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+    const type = isBool ? 'boolean' : 'string';
+    const displayVal = isBool ? lower : strVal;
+    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
+    getMetricInsertText().run(timestamp, metricName, displayVal, type);
+  }
 }
 
 /**
@@ -110,11 +145,7 @@ async function pollTuyaDevices() {
       for (const [metricName, dpNumber] of Object.entries(dpsConfig)) {
         const dpKey = String(dpNumber);
         if (dps[dpKey] === undefined || dps[dpKey] === null) continue;
-        let val = parseFloat(dps[dpKey]);
-        if (isNaN(val)) continue;
-
-        getMetricInsert().run(now, metricName, val);
-        getLatestUpsert().run(metricName, val, now);
+        saveMetric(metricName, dps[dpKey], now);
         written++;
       }
 
@@ -333,4 +364,19 @@ async function verifyAllTuyaDevices(devices) {
   return results;
 }
 
-module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices };
+async function executeTuyaAction(deviceId, dpId, value) {
+  const devices = JSON.parse(getConfig('tuya_devices') || '[]');
+  const device = devices.find(d => d.dev_id === deviceId);
+  if (!device || !device.enabled) return { error: 'Tuya device not found or disabled' };
+  if (!device.local_key || !device.address) return { error: 'Tuya device missing local_key or IP' };
+
+  try {
+    const result = await runBridge(path.join(__dirname, 'tuya_bridge.py'), ['set', deviceId, device.local_key, device.address, String(dpId), String(value)]);
+    return result;
+  } catch (e) {
+    logger.error(`Tuya action error for ${deviceId}/DP${dpId}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices, executeTuyaAction };

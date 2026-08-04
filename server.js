@@ -27,7 +27,7 @@ const net = require('net');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
 const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
-const { pollHomeAssistant, fetchHAEntities } = require('./modules/ha');
+const { pollHomeAssistant, fetchHAEntities, getEntityActions } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
 const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
@@ -221,7 +221,7 @@ async function buildDashboardState() {
     getCurrentMetrics(),
     getSavings(),
     getCurrentGridStatus(),
-    db.prepare('SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC').all(historySince),
+    db.prepare('SELECT * FROM (SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT 300) ORDER BY timestamp ASC').all(historySince),
     db.prepare(`
       SELECT date(timestamp, 'unixepoch') as day,
         MAX(daily_solar) as solar_kwh,
@@ -240,12 +240,16 @@ async function buildDashboardState() {
         getGridHours('day'), getGridHours('week'), getGridHours('month'), getGridHours('year'),
         getGridTimeline('24h')
       ])
-    : [0, 0, 0, 0, { configured: false, segments: [], windowStart: 0, windowEnd: 0 }];
+    : [0, 0, 0, 0, { configured: false, available: false, segments: [], windowStart: 0, windowEnd: 0 }];
   const gridHours = {
     day: gridHoursDay,
     week: gridHoursWeek,
     month: gridHoursMonth,
-    year: gridHoursYear
+    year: gridHoursYear,
+    // Pass through flags so the frontend can distinguish real 00:00 (measured
+    // zero, available=true) from no-data (not configured / unresolvable) — D1.
+    configured: gridStatus.configured,
+    available: gridStatus.available
   };
   const powerHistory = historyRows.map(r => ({
     timestamp: r.timestamp * 1000,
@@ -643,6 +647,15 @@ app.get('/api/ha-device-entities', async (req, res) => {
     logger.error('Error fetching HA entities:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+app.use('/api/entity-actions', isAuthenticated);
+app.get('/api/entity-actions', (req, res) => {
+  const { entity } = req.query;
+  if (!entity || typeof entity !== 'string' || entity.length > 128) {
+    return res.status(400).json({ error: 'Valid entity ID required' });
+  }
+  res.json({ actions: getEntityActions(entity) });
 });
 
 app.use('/api/test-mqtt', isAuthenticated);
@@ -1175,6 +1188,54 @@ app.post('/api/settings/network', isAuthenticated, (req, res) => {
 // Backup: no-op (backup is action-based, not config)
 app.post('/api/settings/backup', isAuthenticated, (req, res) => {
   res.json({ ok: true, saved: [] });
+});
+
+app.post('/api/action', isAuthenticated, async (req, res) => {
+  const { source, device, action, entity, params } = req.body;
+  
+  if (!source || !device || !action) {
+    return res.status(400).json({ error: 'source, device, and action are required' });
+  }
+  
+  try {
+    let result;
+    switch (source) {
+      case 'ha':
+        const { executeHAAction } = require('./modules/ha');
+        result = await executeHAAction(device, entity, action, params || {});
+        break;
+      case 'mqtt':
+        const { executeMqttAction } = require('./modules/mqtt');
+        result = await executeMqttAction(device, action, params?.payload);
+        break;
+      case 'tuya':
+        const { executeTuyaAction } = require('./modules/tuya');
+        result = await executeTuyaAction(device, parseInt(action), params?.value);
+        break;
+      case 'modbus':
+        const { executeModbusAction } = require('./modules/modbus');
+        result = await executeModbusAction(device, action, params?.value);
+        break;
+      case 'rs232':
+        const { executeRS232Action } = require('./modules/rs232');
+        result = await executeRS232Action(device, action, params?.value);
+        break;
+      case 'dongle':
+        const { executeDongleAction } = require('./modules/dongle');
+        result = await executeDongleAction(device, action, params?.value);
+        break;
+      default:
+        return res.status(400).json({ error: `Unknown source: ${source}` });
+    }
+    
+    if (result.error) {
+      return res.status(502).json(result);
+    }
+    res.json(result);
+  } catch (e) {
+    logger.error(`Action error: ${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // BMS bridge proxy – browser can't reach bms-bridge directly

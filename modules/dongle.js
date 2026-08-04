@@ -82,10 +82,22 @@ function writeMetrics(metrics, units) {
   const now = Math.floor(Date.now() / 1000);
   const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
   const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)');
-  for (const [name, value] of Object.entries(metrics)) {
-    if (value !== undefined && !isNaN(value)) {
-      metricInsert.run(now, name, value);
-      latestUpsert.run(name, value, now, (units && units[name]) || null);
+  const metricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  const latestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp, unit) VALUES (?, ?, ?, ?, ?)');
+  for (const [name, rawValue] of Object.entries(metrics)) {
+    if (rawValue === undefined || rawValue === null) continue;
+    const num = parseFloat(rawValue);
+    if (!isNaN(num) && num === Number(rawValue)) {
+      metricInsert.run(now, name, num);
+      latestUpsert.run(name, num, now, (units && units[name]) || null);
+    } else {
+      const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+      const lower = strVal.toLowerCase();
+      const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
+      const type = isBool ? 'boolean' : 'string';
+      const displayVal = isBool ? lower : strVal;
+      metricInsertText.run(now, name, displayVal, type);
+      latestUpsertText.run(name, displayVal, type, now, (units && units[name]) || null);
     }
   }
 }
@@ -298,4 +310,19 @@ function getProfileById(id) {
   }
 }
 
-module.exports = { startDonglePolling, stopDonglePolling, restartDonglePolling, getProfileById };
+async function executeDongleAction(deviceName, registerAddr, value) {
+  const devices = JSON.parse(getConfig('dongle_config') || '[]');
+  const device = devices.find(d => d.name === deviceName);
+  if (!device || !device.enabled) return { error: 'Dongle device not found or disabled' };
+
+  try {
+    const ModbusTCP = require('./dongle/modbusTcp');
+    await ModbusTCP.writeRegister(device.ip, device.port || 502, parseInt(registerAddr), parseInt(value) || 0);
+    return { success: true };
+  } catch (e) {
+    logger.error(`Dongle write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+module.exports = { startDonglePolling, stopDonglePolling, restartDonglePolling, executeDongleAction, getProfileById };
