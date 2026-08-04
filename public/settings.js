@@ -329,11 +329,93 @@ function renderHaMappings(entities, deviceIdx, container) {
   if (Object.keys(entities).length === 0) addHaMetricRow({}, deviceIdx, container);
 }
 
+// ── Entity action configuration (AC-7.3) ──────────────────────────────
+function actionLabel(name) {
+  const labels = {
+    toggle: 'Toggle', turn_on: 'Turn On', turn_off: 'Turn Off', brightness: 'Brightness',
+    set_temperature: 'Set Temperature', set_mode: 'Set Mode', set_fan_mode: 'Set Fan Mode',
+    open_cover: 'Open', close_cover: 'Close', stop_cover: 'Stop', set_speed: 'Set Speed'
+  };
+  return labels[name] || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function updateActionsSummary(row) {
+  const summaryEl = row.querySelector('.ha-actions-summary');
+  if (!summaryEl) return;
+  let actions = [];
+  try { actions = row.dataset.actions ? JSON.parse(row.dataset.actions) : []; } catch { actions = []; }
+  summaryEl.textContent = actions.length ? 'Actions: ' + actions.map(actionLabel).join(', ') : '';
+}
+
+// Render the Configure Actions panel (checkboxes + modes/state metadata).
+function renderActionsPanel(actionsEl, row, data, selected) {
+  const panel = document.createElement('div');
+  panel.className = 'ha-actions-panel';
+  panel.style.cssText = 'margin-top:0.4rem;padding:0.5rem 0.6rem;border:1px solid #444;border-radius:6px;background:rgba(0,0,0,0.25);min-width:220px;';
+  const title = document.createElement('div');
+  title.style.cssText = 'font-weight:600;margin-bottom:0.35rem;';
+  title.textContent = 'Actions for ' + (row.querySelector('.entity-select').value || 'entity');
+  panel.appendChild(title);
+  const actionNames = data.actions || [];
+  if (actionNames.length) {
+    actionNames.forEach(name => {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;margin:0.2rem 0;cursor:pointer;';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = name;
+      cb.className = 'ha-action-cb';
+      cb.checked = selected.includes(name);
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(actionLabel(name)));
+      panel.appendChild(label);
+    });
+  } else {
+    const none = document.createElement('div');
+    none.style.cssText = 'font-size:0.75rem;color:var(--text-secondary);';
+    none.textContent = 'No actions available for this entity.';
+    panel.appendChild(none);
+  }
+  const meta = [];
+  const m = data.modes || {};
+  if (m.hvac_modes && m.hvac_modes.length) meta.push('HVAC: ' + m.hvac_modes.join(', '));
+  if (m.fan_modes && m.fan_modes.length) meta.push('Fan: ' + m.fan_modes.join(', '));
+  if (m.min_temp != null && m.max_temp != null) meta.push('Temp: ' + m.min_temp + '–' + m.max_temp);
+  if (data.currentState && data.currentState.state !== undefined && data.currentState.state !== null) meta.push('State: ' + data.currentState.state);
+  if (meta.length) {
+    const metaEl = document.createElement('div');
+    metaEl.style.cssText = 'font-size:0.7rem;color:var(--text-secondary);margin-top:0.4rem;';
+    metaEl.textContent = meta.join(' · ');
+    panel.appendChild(metaEl);
+  }
+  const doneBtn = document.createElement('button');
+  doneBtn.type = 'button';
+  doneBtn.className = 'fetch-btn';
+  doneBtn.textContent = '✓ Apply';
+  doneBtn.style.cssText = 'margin-top:0.5rem;font-size:0.75rem;padding:0.2rem 0.6rem;';
+  doneBtn.addEventListener('click', () => {
+    const chosen = Array.from(panel.querySelectorAll('.ha-action-cb:checked')).map(cb => cb.value);
+    row.dataset.actions = chosen.length ? JSON.stringify(chosen) : '';
+    updateActionsSummary(row);
+    panel.remove();
+  });
+  panel.appendChild(doneBtn);
+  actionsEl.appendChild(panel);
+}
+
 function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = '', excludeMetrics = []) {
   if (!container) container = document.getElementById(`ha-mappings-list-${deviceIdx}`);
   if (!container) return;
+  // Mapping values may be a plain entity_id string (backward compat) or an
+  // object { entityId, actions: [...] } carrying configured actions (AC-7.3).
+  let initialActions = [];
+  if (entityId && typeof entityId === 'object' && !Array.isArray(entityId)) {
+    initialActions = Array.isArray(entityId.actions) ? entityId.actions : [];
+    entityId = entityId.entityId || '';
+  }
   const row = document.createElement('div');
   row.className = 'metric-row';
+  if (initialActions.length) row.dataset.actions = JSON.stringify(initialActions);
   const metricSelect = createMetricDropdown(metric, excludeMetrics);
   const entitySelect = document.createElement('select');
   entitySelect.className = 'entity-select';
@@ -352,26 +434,71 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   });
   const actionsEl = document.createElement('div');
   actionsEl.className = 'ha-entity-actions';
-  actionsEl.style.cssText = 'font-size:0.75rem;color:var(--text-secondary);margin-top:0.25rem;';
-  if (entityId) {
-    actionsEl.dataset.entityId = entityId;
-  }
-  entitySelect.addEventListener('change', function() {
-    const entityId = this.value;
-    if (actionsEl && entityId) {
-      fetch(`/api/entity-actions?entity=${encodeURIComponent(entityId)}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.actions && data.actions.length) {
-            actionsEl.textContent = 'Actions: ' + data.actions.map(a => a.label).join(', ');
-          } else {
-            actionsEl.textContent = '';
-          }
-        })
-        .catch(() => { actionsEl.textContent = ''; });
-    } else {
-      actionsEl.textContent = '';
+  actionsEl.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:0.35rem;margin-top:0.25rem;';
+  const cfgBtn = document.createElement('button');
+  cfgBtn.type = 'button';
+  cfgBtn.className = 'fetch-btn configure-actions-btn';
+  cfgBtn.textContent = '⚙ Configure Actions';
+  cfgBtn.style.cssText = 'font-size:0.7rem;padding:0.15rem 0.5rem;';
+  cfgBtn.addEventListener('click', async () => {
+    const entityId = entitySelect.value;
+    const card = row.closest('.device-card');
+    if (!entityId) {
+      const warn = document.createElement('span');
+      warn.textContent = 'Select an entity first';
+      warn.style.cssText = 'color:#f66;font-size:0.7rem;';
+      actionsEl.appendChild(warn);
+      setTimeout(() => warn.remove(), 3000);
+      return;
     }
+    const url = card ? card.querySelector('input[name$="[url]"]').value : '';
+    const token = card ? card.querySelector('input[name$="[token]"]').value : '';
+    if (!url || !token) {
+      const warn = document.createElement('span');
+      warn.textContent = 'URL and token required';
+      warn.style.cssText = 'color:#f66;font-size:0.7rem;';
+      actionsEl.appendChild(warn);
+      setTimeout(() => warn.remove(), 3000);
+      return;
+    }
+    const oldPanel = actionsEl.querySelector('.ha-actions-panel');
+    if (oldPanel) oldPanel.remove();
+    cfgBtn.disabled = true;
+    cfgBtn.textContent = 'Loading…';
+    try {
+      // POST /api/ha/entity-actions (AC-7.4) — CSRF header required for POSTs.
+      const res = await fetch('/api/ha/entity-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ url, token, entityId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load actions');
+      let selected = [];
+      try { selected = row.dataset.actions ? JSON.parse(row.dataset.actions) : []; } catch { selected = []; }
+      renderActionsPanel(actionsEl, row, data, selected);
+    } catch (e) {
+      const err = document.createElement('span');
+      err.textContent = e.message;
+      err.style.cssText = 'color:#f66;font-size:0.7rem;';
+      actionsEl.appendChild(err);
+      setTimeout(() => err.remove(), 4000);
+    } finally {
+      cfgBtn.disabled = false;
+      cfgBtn.textContent = '⚙ Configure Actions';
+    }
+  });
+  actionsEl.appendChild(cfgBtn);
+  const summaryEl = document.createElement('span');
+  summaryEl.className = 'ha-actions-summary';
+  summaryEl.style.cssText = 'font-size:0.7rem;color:var(--text-secondary);';
+  actionsEl.appendChild(summaryEl);
+  entitySelect.addEventListener('change', function() {
+    // Actions are per-entity: reset them when the entity changes.
+    row.dataset.actions = '';
+    const panel = actionsEl.querySelector('.ha-actions-panel');
+    if (panel) panel.remove();
+    updateActionsSummary(row);
   });
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -389,6 +516,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   row.appendChild(actionsEl);
   row.appendChild(removeBtn);
   container.appendChild(row);
+  updateActionsSummary(row);
 }
 
 function reindexHa() {
@@ -3225,7 +3353,17 @@ if (form) form.addEventListener('submit', async (e) => {
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const metricName = row.querySelector('.metric-name').value; // from dropdown
       const entityId = row.querySelector('.entity-select').value;
-      if (metricName && entityId) dev.entities[metricName] = entityId;
+      if (metricName && entityId) {
+        let actions = [];
+        try { actions = row.dataset.actions ? JSON.parse(row.dataset.actions) : []; } catch { actions = []; }
+        if (Array.isArray(actions) && actions.length) {
+          // Persist configured actions as { entityId, actions } (AC-7.3).
+          dev.entities[metricName] = { entityId, actions };
+        } else {
+          // Backward compat: plain entity_id string when no actions configured.
+          dev.entities[metricName] = entityId;
+        }
+      }
     });
     return dev;
   });

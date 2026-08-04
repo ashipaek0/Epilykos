@@ -17,6 +17,8 @@ import { updatePowerChartFromState, updateEnergyChartFromState } from './charts.
 import { updateSavingsFromState } from './components/savingsSummary.js';
 import { updateForecast } from './forecast.js';
 import { updateWeatherBlock } from './components/weatherBlock.js';
+import { updateSwitchBlockFromState } from './components/switchBlock.js';
+import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 
 export async function updateAllComponents() {
   try { const state = await fetchDashboardState(); updateWithState(state); } catch (e) { console.error(e); }
@@ -46,6 +48,8 @@ export function updateWithState(state) {
   const hasForecast = forecastTypes.some(t => blockTypes.has(t));
   if (hasForecast) updateForecast();
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
+  if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);
+  if (blockTypes.has('state-select')) updateStateSelectBlockFromState(state);
 
   // Update screen-reader announcement with key metrics (throttled — aria-live="polite")
   const ariaEl = document.getElementById('aria-live-region');

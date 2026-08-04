@@ -9,7 +9,7 @@
  * @module dongle/solarmanV5
  */
 const net = require('net');
-const { buildModbusReadRequest, parseModbusReadResponse } = require('./crc');
+const { buildModbusReadRequest, parseModbusReadResponse, buildModbusWriteRequest, parseModbusWriteResponse } = require('./crc');
 
 class SolarmanV5Transport {
   /**
@@ -54,6 +54,59 @@ class SolarmanV5Transport {
 
       socket.on('error', (err) => { clearTimeout(timeout); socket.destroy(); reject(err); });
     });
+  }
+
+  /**
+   * Write a single holding register to the dongle (Modbus FC 0x06 wrapped in V5).
+   * @param {number} startAddr — register address (decimal)
+   * @param {number} value — 16-bit value to write
+   * @returns {Promise<{address: number, value: number}>}
+   */
+  writeRegister(startAddr, value) {
+    return new Promise((resolve, reject) => {
+      const socket = new net.Socket();
+      let responseBuffer = Buffer.alloc(0);
+      const timeout = setTimeout(() => { socket.destroy(); reject(new Error('timeout')); }, 8000);
+
+      socket.connect(this.port, this.host, () => {
+        const modbusFrame = buildModbusWriteRequest(this.unitId, startAddr, value);
+        const v5Frame = this._buildV5Frame(modbusFrame);
+        socket.write(v5Frame);
+      });
+
+      socket.on('data', (chunk) => {
+        responseBuffer = Buffer.concat([responseBuffer, chunk]);
+        if (responseBuffer.length >= 13 && responseBuffer[responseBuffer.length - 1] === 0x15) {
+          clearTimeout(timeout);
+          socket.destroy();
+          try { resolve(this._parseV5WriteResponse(responseBuffer)); }
+          catch (e) { reject(e); }
+        }
+      });
+
+      socket.on('error', (err) => { clearTimeout(timeout); socket.destroy(); reject(err); });
+    });
+  }
+
+  /** Parse Solarman V5 response for a register write, extract Modbus RTU payload */
+  _parseV5WriteResponse(buf) {
+    if (buf[0] !== 0xA5) throw new Error('missing start marker');
+    if (buf[buf.length - 1] !== 0x15) throw new Error('missing end marker');
+    const expected = this._v5Checksum(buf);
+    if (buf[buf.length - 2] !== expected) throw new Error('checksum mismatch');
+
+    const controlCode = buf.readUInt16LE(3);
+    if (controlCode !== 0x1510) throw new Error(`unexpected control code: 0x${controlCode.toString(16)}`);
+
+    const payloadLen = buf.readUInt16LE(1);
+    let modbusData = buf.slice(25, 11 + payloadLen);
+
+    // Detect and strip Deye double-CRC (two spurious 0x00 bytes appended after valid CRC)
+    if (modbusData.length > 8 && modbusData[modbusData.length - 1] === 0x00 && modbusData[modbusData.length - 2] === 0x00) {
+      modbusData = modbusData.slice(0, -2);
+    }
+
+    return parseModbusWriteResponse(modbusData);
   }
 
   /** Wrap a Modbus RTU frame in a Solarman V5 frame */

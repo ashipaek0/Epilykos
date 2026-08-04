@@ -366,12 +366,20 @@ async function verifyAllTuyaDevices(devices) {
 
 async function executeTuyaAction(deviceId, dpId, value) {
   const devices = JSON.parse(getConfig('tuya_devices') || '[]');
-  const device = devices.find(d => d.dev_id === deviceId);
+  // Lookup by NAME or dev_id (spec T4.x)
+  const device = devices.find(d => d && (d.name === deviceId || d.dev_id === deviceId));
   if (!device || !device.enabled) return { error: 'Tuya device not found or disabled' };
   if (!device.local_key || !device.address) return { error: 'Tuya device missing local_key or IP' };
 
+  // Never send the literal string 'undefined' — default to true (toggle) when missing
+  const actionValue = (value === undefined || value === null) ? true : value;
+  const version = device.version || '3.3';
+
   try {
-    const result = await runBridge(path.join(__dirname, 'tuya_bridge.py'), ['set', deviceId, device.local_key, device.address, String(dpId), String(value)]);
+    // Spec arg order: set <dev_id> <address> <local_key> <version> <dp_number> <value>
+    const result = await runBridge(path.join(__dirname, 'tuya_bridge.py'), [
+      'set', device.dev_id, device.address, device.local_key, version, String(dpId), String(actionValue)
+    ]);
     return result;
   } catch (e) {
     logger.error(`Tuya action error for ${deviceId}/DP${dpId}: ${e.message}`);

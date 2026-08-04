@@ -130,20 +130,28 @@ def main():
         return
 
     if action == "set":
-        # Usage: python3 -u tuya_bridge.py set <devId> <localKey> <ip> <dpId> <value>
-        if len(sys.argv) != 7:
-            print(json.dumps({"error": "Usage: tuya_bridge.py set <dev_id> <local_key> <ip> <dp_id> <value>"}))
+        # Usage: python3 -u tuya_bridge.py set <dev_id> <address> <local_key> <version> <dp_number> <value>
+        if len(sys.argv) != 8:
+            print(json.dumps({"error": "Usage: tuya_bridge.py set <dev_id> <address> <local_key> <version> <dp_number> <value>"}))
             sys.exit(1)
         dev_id = sys.argv[2]
-        local_key = sys.argv[3]
-        ip = sys.argv[4]
-        dp_id = int(sys.argv[5])
-        value = sys.argv[6]
+        address = sys.argv[3]
+        local_key = sys.argv[4]
+        version = sys.argv[5]
+        dp_id = int(sys.argv[6])
+        raw_value = sys.argv[7]
 
-        import tinytuya
-        d = tinytuya.OutletDevice(dev_id, ip, local_key)
-        d.set_socketTimeout(5)
-        d.set_version(3.3)
+        # Value-type auto-detection (spec AC-4.1):
+        # 'true'/'false' → boolean, integer strings → int, everything else → string.
+        if raw_value.lower() in ("true", "false"):
+            value = raw_value.lower() == "true"
+        else:
+            try:
+                value = int(raw_value)
+            except ValueError:
+                value = raw_value
+
+        d = _make_device(dev_id, address, local_key, version)
 
         try:
             result = d.set_value(dp_id, value)

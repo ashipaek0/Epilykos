@@ -28,6 +28,18 @@ function buildModbusReadRequest(unitId, funcCode, startAddr, count) {
   return buf;
 }
 
+/** Build a Modbus RTU write single register request frame with CRC (FC 0x06) */
+function buildModbusWriteRequest(unitId, startAddr, value) {
+  const buf = Buffer.alloc(8);
+  buf[0] = unitId;
+  buf[1] = 0x06;
+  buf.writeUInt16BE(startAddr, 2);
+  buf.writeUInt16BE(value & 0xFFFF, 4);
+  const crc = modbusCrc16(buf.slice(0, 6));
+  buf.writeUInt16LE(crc, 6);
+  return buf;
+}
+
 /**
  * Parse a Modbus RTU read response.
  * @returns {Buffer} register data (2 bytes per register)
@@ -44,4 +56,18 @@ function parseModbusReadResponse(buf) {
   return buf.slice(3, 3 + byteCount);
 }
 
-module.exports = { modbusCrc16, buildModbusReadRequest, parseModbusReadResponse };
+/**
+ * Parse a Modbus RTU write single register response.
+ * @returns {{address: number, value: number}}
+ * @throws on exception code, CRC mismatch, or incomplete response
+ */
+function parseModbusWriteResponse(buf) {
+  if (buf.length < 8) throw new Error('response too short');
+  if (buf[1] & 0x80) throw new Error(`Modbus exception ${buf[2]}`);
+  const expectedCrc = modbusCrc16(buf.slice(0, 6));
+  const actualCrc = buf.readUInt16LE(6);
+  if (expectedCrc !== actualCrc) throw new Error('CRC mismatch');
+  return { address: buf.readUInt16BE(2), value: buf.readUInt16BE(4) };
+}
+
+module.exports = { modbusCrc16, buildModbusReadRequest, parseModbusReadResponse, buildModbusWriteRequest, parseModbusWriteResponse };

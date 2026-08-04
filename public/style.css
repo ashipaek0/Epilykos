@@ -800,8 +800,20 @@ h1, h2, h3, h4,
 
 /* Action toggle (green=on, amber=off) */
 .toggle-switch.action-toggle { width: 52px; height: 30px; }
-.toggle-switch.action-toggle input:checked + .slider { background: #00b354; }
-.toggle-switch.action-toggle .slider { background: #d29922; }
+.toggle-switch.action-toggle input:checked + .slider { background: var(--switch-on-color, #00b354); }
+.toggle-switch.action-toggle .slider { background: var(--switch-off-color, #d29922); }
+
+/* Switch error state: red flash + shake */
+.switch-block.switch-error .toggle-switch .slider { background: var(--color-danger, #dc2626); box-shadow: 0 0 0 2px var(--color-danger, #dc2626); }
+.switch-block.switch-error { animation: switch-shake 0.4s ease; }
+.switch-block.switch-error .switch-state { color: var(--color-danger, #dc2626); }
+@keyframes switch-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
 
 /* State Select Block */
 .state-select-block {
@@ -823,7 +835,28 @@ h1, h2, h3, h4,
   transition: all 0.15s;
 }
 .state-btn:hover { background: var(--accent-focus); color: var(--text); }
-.state-btn.active { background: var(--accent); color: var(--color-text-on-accent, #fff); border-color: var(--accent); }
+.state-btn.active { background: var(--state-color, var(--accent)); color: var(--color-text-on-accent, #fff); border-color: var(--state-color, var(--accent)); }
+.state-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.state-select-dropdown {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--fs-base, 1rem);
+  min-height: 38px;
+  cursor: pointer;
+}
+.state-select-dropdown:disabled { opacity: 0.55; cursor: not-allowed; }
+.state-select-empty {
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  text-align: center;
+}
 .state-select-status { font-size: var(--fs-tiny, 0.75rem); color: var(--color-danger, #dc2626); margin-top: 0.25rem; min-height: 1rem; }
 
 .config-modal-footer {

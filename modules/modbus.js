@@ -196,7 +196,7 @@ async function testModbusConnection(device) {
   }
 }
 
-async function executeModbusAction(deviceName, registerAddr, value) {
+async function executeModbusAction(deviceName, registerAddr, value, type) {
   const devices = JSON.parse(getConfig('modbus_devices') || '[]');
   const device = devices.find(d => d.name === deviceName);
   if (!device || !device.enabled) return { error: 'Modbus device not found or disabled' };
@@ -204,12 +204,17 @@ async function executeModbusAction(deviceName, registerAddr, value) {
   try {
     const client = await connectModbus(device);
     if (isNaN(parseInt(registerAddr))) {
+      await client.close();
       return { error: 'Invalid register address' };
     }
     const addr = parseInt(registerAddr);
-    const val = parseInt(value) || 0;
 
-    await client.writeSingleRegister(addr, val);
+    if (type === 'coil') {
+      await client.writeSingleCoil(addr, value ? 1 : 0);
+    } else {
+      const val = parseInt(value) || 0;
+      await client.writeSingleRegister(addr, val);
+    }
     await client.close();
     return { success: true };
   } catch (e) {

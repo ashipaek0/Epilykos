@@ -63,7 +63,10 @@ async function pollHomeAssistant() {
 
   for (const device of haDevices) {
     if (!device.enabled || !device.url || !device.token) continue;
-    for (const [metric, entityId] of Object.entries(device.entities)) {
+    for (const [metric, mapping] of Object.entries(device.entities || {})) {
+      // Entity mapping value is either a plain entity_id string or an object
+      // { entityId, actions: [...] } carrying optional action metadata (AC-1.4).
+      const entityId = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
       if (!entityId) continue;
       try {
         const res = await fetch(`${device.url}/api/states/${entityId}`, {
@@ -103,56 +106,150 @@ async function fetchHAEntities(url, token) {
   ).map(e => e.entity_id);
 }
 
-async function executeHAAction(deviceName, entityId, service, data = {}) {
+/**
+ * Execute a Home Assistant service call (AC-1.2).
+ * Spec signature: executeHAAction(deviceId, domain, service, entityId, params)
+ *
+ * Backwards-compatible with the route, which passes the whole action spec in the
+ * `domain` slot as either a dotted string 'domain.service' or an object
+ * { domain, service }, followed by (entityId, params) — i.e. the 4-arg form
+ * executeHAAction(deviceId, action, entityId, params) is also accepted.
+ */
+async function executeHAAction(deviceId, domain, service, entityId, params = {}) {
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
-  const device = haDevices.find(d => d.name === deviceName);
-  if (!device || !device.enabled) return { error: 'Device not found or disabled' };
-  if (!device.url || !device.token) return { error: 'Device URL or token missing' };
-  
-  const [domain, serviceName] = service.split('.');
-  if (!domain || !serviceName) return { error: 'Invalid service format (domain.service)' };
-  
+
+  // Resolve the device by name or by array index.
+  let device = haDevices.find(d => d && d.name === deviceId);
+  if (!device) {
+    const idx = Number(deviceId);
+    if (Number.isInteger(idx) && idx >= 0 && idx < haDevices.length) {
+      device = haDevices[idx];
+    }
+  }
+  if (!device || !device.enabled) return { success: false, error: 'Device not found or disabled' };
+  if (!device.url || !device.token) return { success: false, error: 'Device URL or token missing' };
+
+  // Resolve domain/service. The `domain` slot may hold:
+  //   - a plain domain string 'switch'   (spec 5-arg form, service in next slot)
+  //   - a dotted string 'switch.toggle'  (route form)
+  //   - an object { domain, service }    (route form / spec T1.2)
+  const originalService = service;
+  const originalEntitySlot = entityId;
+  let expanded = false;
+  if (domain && typeof domain === 'object') {
+    if (typeof domain.domain !== 'string' || !domain.domain ||
+        typeof domain.service !== 'string' || !domain.service) {
+      return { success: false, error: 'Invalid action object (domain and service are required)' };
+    }
+    service = domain.service;
+    domain = domain.domain;
+    expanded = true;
+  } else if (typeof domain === 'string' && domain.includes('.')) {
+    const parts = domain.split('.');
+    domain = parts[0];
+    service = parts.slice(1).join('.');
+    expanded = true;
+  }
+  if (expanded && originalService !== undefined) {
+    // Route form call: executeHAAction(deviceId, action, entityId, params) —
+    // the entity_id was passed in the `service` slot and params in the `entityId` slot.
+    entityId = originalService;
+    params = (originalEntitySlot && typeof originalEntitySlot === 'object') ? originalEntitySlot : {};
+  }
+  if (typeof domain !== 'string' || !domain || typeof service !== 'string' || !service) {
+    return { success: false, error: 'Invalid service format (domain.service)' };
+  }
+
   try {
-    const res = await fetch(`${device.url}/api/services/${domain}/${serviceName}`, {
+    const res = await fetch(`${device.url}/api/services/${domain}/${service}`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${device.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entity_id: entityId, ...data }),
+      body: JSON.stringify({ entity_id: entityId, ...params }),
       timeout: 5000
     });
     if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      return { error: `HA returned ${res.status}: ${errText}` };
+      let errText = '';
+      try { errText = await res.text(); } catch (_) { /* non-text body */ }
+      let body = null;
+      try { body = JSON.parse(errText); } catch (_) { body = errText || null; }
+      return {
+        success: false,
+        error: `HA returned ${res.status}: ${errText || 'unknown error'}`,
+        status: res.status,
+        body
+      };
     }
-    const result = await res.json();
+    let result = null;
+    try { result = await res.json(); } catch (_) { /* empty 2xx body */ }
     return { success: true, result };
   } catch (e) {
-    logger.error(`HA action error for ${deviceName}/${entityId}: ${e.message}`);
-    return { error: e.message };
+    logger.error(`HA action error for ${deviceId}/${entityId}: ${e.message}`);
+    return { success: false, error: e.message };
   }
 }
 
 const DOMAIN_ACTIONS = {
-  'switch': [{ service: 'switch.toggle', label: 'Toggle', type: 'toggle' }],
+  'switch': [
+    { service: 'switch.toggle', label: 'Toggle', type: 'toggle' },
+    { service: 'switch.turn_on', label: 'Turn On', type: 'button' },
+    { service: 'switch.turn_off', label: 'Turn Off', type: 'button' }
+  ],
   'light': [
     { service: 'light.toggle', label: 'Toggle', type: 'toggle' },
-    { service: 'light.turn_on', label: 'Turn On', type: 'set_brightness', param: 'brightness_pct' }
+    { service: 'light.turn_on', label: 'Turn On', type: 'button' },
+    { service: 'light.turn_off', label: 'Turn Off', type: 'button' },
+    { service: 'light.turn_on', label: 'Brightness', type: 'set_brightness', param: 'brightness_pct' }
   ],
   'climate': [
+    { service: 'climate.set_temperature', label: 'Set Temperature', type: 'number', param: 'temperature' },
     { service: 'climate.set_hvac_mode', label: 'Set Mode', type: 'select', param: 'hvac_mode' },
-    { service: 'climate.set_temperature', label: 'Set Temperature', type: 'number', param: 'temperature' }
+    { service: 'climate.set_fan_mode', label: 'Set Fan Mode', type: 'select', param: 'fan_mode' },
+    { service: 'climate.turn_on', label: 'Turn On', type: 'button' },
+    { service: 'climate.turn_off', label: 'Turn Off', type: 'button' }
   ],
   'fan': [
     { service: 'fan.toggle', label: 'Toggle', type: 'toggle' },
-    { service: 'fan.set_preset_mode', label: 'Set Speed', type: 'select', param: 'preset_mode' }
+    { service: 'fan.turn_on', label: 'Turn On', type: 'button' },
+    { service: 'fan.turn_off', label: 'Turn Off', type: 'button' },
+    { service: 'fan.set_speed', label: 'Set Speed', type: 'select', param: 'percentage' }
   ],
   'cover': [
     { service: 'cover.open_cover', label: 'Open', type: 'button' },
     { service: 'cover.close_cover', label: 'Close', type: 'button' },
-    { service: 'cover.stop_cover', label: 'Stop', type: 'button' }
+    { service: 'cover.stop_cover', label: 'Stop', type: 'button' },
+    { service: 'cover.toggle', label: 'Toggle', type: 'toggle' }
   ],
   'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }]
 };
 
+// Spec AC-7.1: flat action names per domain, exactly as asserted by the spec tests.
+const SPEC_DOMAIN_ACTIONS = {
+  'switch': ['toggle', 'turn_on', 'turn_off'],
+  'light': ['toggle', 'turn_on', 'turn_off', 'brightness'],
+  'climate': ['set_temperature', 'set_mode', 'set_fan_mode', 'turn_on', 'turn_off'],
+  'fan': ['toggle', 'turn_on', 'turn_off', 'set_speed'],
+  'cover': ['open_cover', 'close_cover', 'stop_cover', 'toggle'],
+  'input_boolean': ['toggle']
+};
+
+/**
+ * Spec AC-7.1 — return the flat list of action names supported for an entity.
+ * @param {string} entityId e.g. 'light.kitchen'
+ * @returns {string[]} e.g. ['toggle', 'turn_on', 'turn_off', 'brightness']
+ */
+function getActionsForEntity(entityId) {
+  const dotIndex = entityId.indexOf('.');
+  if (dotIndex === -1) return [];
+  const domain = entityId.substring(0, dotIndex);
+  return SPEC_DOMAIN_ACTIONS[domain] || [];
+}
+
+/**
+ * Rich action descriptors ({service, label, type, param}) for UI rendering.
+ * Kept alongside the spec getActionsForEntity for backwards compatibility.
+ * @param {string} entityId e.g. 'light.kitchen'
+ * @returns {object[]}
+ */
 function getEntityActions(entityId) {
   const dotIndex = entityId.indexOf('.');
   if (dotIndex === -1) return [];
@@ -160,4 +257,47 @@ function getEntityActions(entityId) {
   return DOMAIN_ACTIONS[domain] || [];
 }
 
-module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues, executeHAAction, getEntityActions };
+// Per-entity modes cache (AC-7.2): key `${url}|${entityId}` → { data, ts }.
+const entityModesCache = new Map();
+const ENTITY_MODES_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Spec AC-7.2 — fetch HVAC/fan modes and temperature bounds from the entity's
+ * HA attributes, cached per entity with a 5-minute TTL.
+ * @param {string} url HA base URL
+ * @param {string} token HA long-lived access token
+ * @param {string} entityId e.g. 'climate.living_room'
+ * @returns {Promise<{hvac_modes: string[], fan_modes: string[], min_temp: number|null, max_temp: number|null}>}
+ */
+async function getEntityModes(url, token, entityId) {
+  const empty = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+  if (!url || !token || !entityId) return empty;
+  const key = `${url}|${entityId}`;
+  const cached = entityModesCache.get(key);
+  if (cached && Date.now() - cached.ts < ENTITY_MODES_TTL_MS) {
+    return cached.data;
+  }
+  let data = empty;
+  try {
+    const res = await fetch(`${url}/api/states/${entityId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 5000
+    });
+    if (res.ok) {
+      const state = await res.json();
+      const attrs = state.attributes || {};
+      data = {
+        hvac_modes: Array.isArray(attrs.hvac_modes) ? attrs.hvac_modes : [],
+        fan_modes: Array.isArray(attrs.fan_modes) ? attrs.fan_modes : [],
+        min_temp: (attrs.min_temp !== undefined && attrs.min_temp !== null) ? attrs.min_temp : null,
+        max_temp: (attrs.max_temp !== undefined && attrs.max_temp !== null) ? attrs.max_temp : null
+      };
+    }
+  } catch (e) {
+    logger.warn(`getEntityModes error for ${entityId}: ${e.message}`);
+  }
+  entityModesCache.set(key, { data, ts: Date.now() });
+  return data;
+}
+
+module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues, executeHAAction, getActionsForEntity, getEntityActions, getEntityModes };
