@@ -66,8 +66,8 @@ function buildStatusPayload(metrics, config, date = new Date()) {
   }
 
   // Temperature & voltage
-  if (map.v5 && metrics[map.v5] != null) payload.v5 = +metrics[map.v5].toFixed(1);
-  if (map.v6 && metrics[map.v6] != null) payload.v6 = +metrics[map.v6].toFixed(1);
+  if (map.v5 && metrics[map.v5] != null && Number.isFinite(Number(metrics[map.v5])) && String(metrics[map.v5]).trim() !== '') payload.v5 = +Number(metrics[map.v5]).toFixed(1);
+  if (map.v6 && metrics[map.v6] != null && Number.isFinite(Number(metrics[map.v6])) && String(metrics[map.v6]).trim() !== '') payload.v6 = +Number(metrics[map.v6]).toFixed(1);
 
   // Battery
   if (config.battery_enabled && map.b1 && metrics[map.b1] != null) {
@@ -84,7 +84,7 @@ function buildStatusPayload(metrics, config, date = new Date()) {
   if (config.donation_mode) {
     for (let i = 7; i <= 12; i++) {
       const m = map[`v${i}`];
-      if (m && metrics[m] != null) payload[`v${i}`] = +metrics[m].toFixed(2);
+      if (m && metrics[m] != null && Number.isFinite(Number(metrics[m])) && String(metrics[m]).trim() !== '') payload[`v${i}`] = +Number(metrics[m]).toFixed(2);
     }
   }
 
