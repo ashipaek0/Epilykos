@@ -14,9 +14,14 @@ export async function fetchDashboardConfig() {
 }
 
 export async function saveDashboardConfig(config) {
-  await fetch('/api/dashboard-config', {
+  const res = await fetch('/api/dashboard-config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     body: JSON.stringify(config)
   });
+  if (!res.ok) {
+    let msg = `Save failed (${res.status})`;
+    try { const err = await res.json(); if (err.error) msg = err.error + ` (${res.status})`; } catch (e) {}
+    throw new Error(msg);
+  }
 }

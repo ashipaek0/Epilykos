@@ -34,7 +34,13 @@ async function persistLayout() {
   });
   var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
   if (tab) { tab.layout = layout; tab.name = document.getElementById('dash-name-input').value || tab.name; }
-  await saveDashboardConfig(dashboardConfig).catch(function(e) { console.warn('Save failed:', e); });
+  try {
+    await saveDashboardConfig(dashboardConfig);
+    return true;
+  } catch (e) {
+    console.warn('Save failed:', e);
+    return false;
+  }
 }
 
 function refreshTabSelect() {
@@ -1066,8 +1072,15 @@ function refreshGridItem(block) {
 
 async function handleSettingsSave() {
   if (!currentEditingBlock) return;
+  var statusEl = document.getElementById('settings-modal-status');
+  if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
   readSettingsForm(currentEditingBlock);
-  await persistLayout();
+  var saved = await persistLayout();
+  if (!saved) {
+    console.error('Save failed — layout not persisted');
+    if (statusEl) { statusEl.textContent = 'Save failed — your session may have expired. Please sign in and try again.'; statusEl.style.display = 'block'; }
+    return;  // keep modal open
+  }
   refreshGridItem(currentEditingBlock);
   markUnsaved();
   hideSettingsModal();
