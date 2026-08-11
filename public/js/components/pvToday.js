@@ -238,6 +238,8 @@ export async function updatePvToday(forecastData) {
     chart.data.datasets[2].data = cloudByHour;
     chart.options.scales.x.ticks.color = mutedColor;
     chart.options.scales.y.ticks.color = mutedColor;
+    chart.options.scales.x.grid.color = gridColor;
+    chart.options.scales.y.grid.color = gridColor;
     chart.update('none');
     } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] chart error:', e); }
     } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] card processing error:', e); }
@@ -325,4 +327,15 @@ function renderTimeline(iconsEl, barEl, hourly, now) {
 function getHourTimestamp(hour) {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, 0, 0).getTime();
+}
+
+export function destroyPvTodayCharts() {
+  for (const key in pvTodayCharts) {
+    try { pvTodayCharts[key].destroy(); } catch (e) {}
+    delete pvTodayCharts[key];
+  }
+  for (const key in pvTodayObservers) {
+    try { pvTodayObservers[key].disconnect(); } catch (e) {}
+    delete pvTodayObservers[key];
+  }
 }

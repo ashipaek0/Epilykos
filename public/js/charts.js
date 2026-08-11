@@ -12,6 +12,7 @@
  * @module charts
  */
 import { fetchDashboardState } from './api.js';
+import { destroyPvTodayCharts } from './components/pvToday.js';
 
 const powerCharts = {}, energyCharts = {};
 let currentPowerRange = '24h', currentEnergyRange = '7d';
@@ -62,7 +63,7 @@ function getChartConfig(container) {
 
 const zonePlugin = { id: 'zonePlugin', beforeDraw(chart) { const { ctx, chartArea, scales } = chart; if (!chartArea) return; const zy = scales.y.getPixelForValue(0); if (zy > chartArea.top) { const g = ctx.createLinearGradient(0, chartArea.top, 0, zy); g.addColorStop(0, 'rgba(245,158,11,0.12)'); g.addColorStop(0.6, 'rgba(245,158,11,0.04)'); g.addColorStop(1, 'rgba(245,158,11,0)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, zy - chartArea.top); } if (zy < chartArea.bottom) { const g = ctx.createLinearGradient(0, zy, 0, chartArea.bottom); g.addColorStop(0, 'rgba(135,174,200,0)'); g.addColorStop(0.4, 'rgba(135,174,200,0.08)'); g.addColorStop(1, 'rgba(135,174,200,0.18)'); ctx.fillStyle = g; ctx.fillRect(chartArea.left, zy, chartArea.right - chartArea.left, chartArea.bottom - zy); } } };
 
-export function destroyCharts() { Object.values(powerCharts).forEach(c => c.destroy()); Object.values(energyCharts).forEach(c => c.destroy()); for (const k in powerCharts) delete powerCharts[k]; for (const k in energyCharts) delete energyCharts[k]; }
+export function destroyCharts() { Object.values(powerCharts).forEach(c => c.destroy()); Object.values(energyCharts).forEach(c => c.destroy()); for (const k in powerCharts) delete powerCharts[k]; for (const k in energyCharts) delete energyCharts[k]; destroyPvTodayCharts(); }
 
 export function initPowerChart() {
   document.querySelectorAll('.chart-container canvas[id]').forEach(canvas => {

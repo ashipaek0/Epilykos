@@ -242,8 +242,15 @@ function renderDashboard() {
       content.style.setProperty('--card-bg', 'transparent');
       content.style.setProperty('--bg', 'transparent');
       // Also clear inner cards, circles, and chart containers
-      content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .topo-hub, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
+      content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
         el.style.background = 'transparent';
+        el.style.borderColor = 'transparent';
+        el.style.boxShadow = 'none';
+      });
+      // .topo-hub carries the inverter image via background-image (inline, from config) —
+      // clear backgroundColor only so the shorthand doesn't wipe the image
+      content.querySelectorAll('.topo-hub').forEach(el => {
+        el.style.backgroundColor = 'transparent';
         el.style.borderColor = 'transparent';
         el.style.boxShadow = 'none';
       });

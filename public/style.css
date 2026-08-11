@@ -507,7 +507,6 @@ h1, h2, h3, h4,
   background: transparent; border: none; color: var(--text); font-size: var(--fs-medium);
   cursor: pointer; padding: 0.5rem; transition: transform 0.2s;
 }
-.toggle-btn.collapsed { transform: rotate(-90deg); }
 .daily-breakdown-content { flex: 1 1 0; min-height: 0; margin-top: 0.5rem; overflow: hidden; display: flex; flex-direction: column; }
 .daily-breakdown-content.collapsed { flex: 0 0 0; min-height: 0; margin-top: 0; }
 .daily-table-wrapper { overflow: auto; flex: 1 1 0; min-height: 0; }
