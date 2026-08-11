@@ -2655,6 +2655,11 @@ window.addEventListener('beforeunload', () => { solarObserver.disconnect(); if (
 let metricsList = [];
 async function loadMetricsList() {
   try {
+    const authRes = await fetch('/api/auth/status');
+    const auth = await authRes.json();
+    if (!auth.authenticated) return; // silently defer — page reloads after login
+  } catch (e) { return; }
+  try {
     const res = await fetch('/api/metrics/list');
     if (!res.ok) throw new Error('Failed to fetch metrics');
     metricsList = await res.json();
@@ -3527,6 +3532,8 @@ if (form) form.addEventListener('submit', async (e) => {
   });
   payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
   payload.dashboard_config = JSON.stringify(dashConfig);
+  payload.dashboard_layouts = JSON.stringify(dashConfig.dashboards || []);
+  payload.dashboard_active = dashConfig.activeDashboard || 'main';
   // Collect tuya_cloud credentials
   const tuyaCloud = {
     region: document.getElementById('tuya-cloud-region')?.value || 'eu',

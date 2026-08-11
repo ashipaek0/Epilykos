@@ -44,7 +44,7 @@ export async function updateForecast() {
   if (!banners.length && !infoCards.length && !sparkCards.length && !pvTodayCards.length) return;
   let forecastData;
   try { const r = await fetch('/api/solar-forecast'); forecastData = await r.json(); }
-  catch (e) { banners.forEach(b => b.style.display = 'none'); return; }
+  catch (e) { banners.forEach(b => b.style.display = 'none'); updatePvToday({ error: true }); return; }
   const data = forecastData;
   const source = data.source || 'unknown';
   document.querySelectorAll('.forecast-source').forEach(el => { el.textContent = source === 'solcast' ? 'Solcast' : source === 'open-meteo' ? 'Open-Meteo' : ''; });
@@ -53,6 +53,7 @@ export async function updateForecast() {
     banners.forEach(b => b.style.display = 'none');
     infoCards.forEach(b => b.style.display = 'none');
     sparkCards.forEach(b => b.style.display = 'none');
+    updatePvToday(data);
     return;
   }
 
