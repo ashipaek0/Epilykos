@@ -120,6 +120,8 @@ const upload = multer({
 });
 
 // Middleware
+// Redirect raw editor.html to the protected /editor route (auth gate — issue #87)
+app.get('/editor.html', (req, res) => res.redirect('/editor'));
 // Serve static files with 1h browser cache
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable: true }));
 app.use(express.json());
