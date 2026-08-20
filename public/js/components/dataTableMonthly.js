@@ -10,7 +10,7 @@ export function buildDataTableMonthly(block = {}) {
   container.className = 'daily-breakdown-container';
   container.dataset.tableConfig = JSON.stringify({ columns }); container.dataset.blockId = id;
   const thHtml = columns.map(c => `<th>${escapeHtml(c.label)}</th>`).join('');
-  container.innerHTML = `<div class="daily-breakdown-header"><h3>${escapeHtml(config.title||'Last 12 Months')}</h3><button class="toggle-btn">▲</button></div><div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Month</th>${thHtml}</tr></thead><tbody id="${uid('monthly-table-body',id)}"></tbody></table></div></div>`;
-  container.querySelector('.toggle-btn').addEventListener('click', function(){ const c = this.closest('.daily-breakdown-container').querySelector('.daily-breakdown-content'); const coll = c.classList.toggle('collapsed'); this.textContent = coll ? '▼' : '▲'; });
+  container.innerHTML = `<div class="daily-breakdown-header"><h3>${escapeHtml(config.title||'Last 12 Months')}</h3><button class="toggle-btn">▼</button></div><div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Month</th>${thHtml}</tr></thead><tbody id="${uid('monthly-table-body',id)}"></tbody></table></div></div>`;
+  container.querySelector('.toggle-btn').addEventListener('click', function(){ const c = this.closest('.daily-breakdown-container').querySelector('.daily-breakdown-content'); const coll = c.classList.toggle('collapsed'); this.textContent = coll ? '▲' : '▼'; });
   return container;
 }
