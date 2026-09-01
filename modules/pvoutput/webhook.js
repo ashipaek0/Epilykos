@@ -16,7 +16,7 @@ function createRouter(db, getConfigFn) {
   // S5: aggressive rate limiting on the public webhook endpoint
   const webhookLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 10,
+    limit: 10,
     message: { error: 'Too many requests' }
   });
 
