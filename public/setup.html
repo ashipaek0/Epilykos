@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111111">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Setup — Epilykos</title>
+
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <div class="wizard-shell">
+
+    <!-- ── HEADER ─────────────────────────────────────────── -->
+    <header class="wizard-header">
+      <div class="wizard-brand">
+        <span class="logo-icon">⚡</span>
+        <span class="brand-name">Epilykos</span>
+      </div>
+      <div class="wizard-tagline">First-run setup</div>
+    </header>
+
+    <!-- ── BOOT / STATE SCREENS ───────────────────────────── -->
+    <div id="boot-screen" class="wizard-state">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="state-note">Loading setup…</p>
+    </div>
+
+    <div id="fatal-screen" class="wizard-state" hidden>
+      <div class="state-card">
+        <h2>⚠️ Setup unavailable</h2>
+        <p>Could not reach the Epilykos server. Please refresh and try again.</p>
+        <a href="/" class="btn btn-primary">Back to Home</a>
+      </div>
+    </div>
+
+    <div id="already-setup" class="wizard-state" hidden>
+      <div class="state-card">
+        <h2>✅ Epilykos is already set up</h2>
+        <p>Your workspace is configured. Head to Settings to adjust data sources, metric mappings, or the dashboard.</p>
+        <div class="btn-group">
+          <a href="/" class="btn btn-primary">Open Dashboard</a>
+          <a href="/settings" class="btn">Go to Settings</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WIZARD FLOW ────────────────────────────────────── -->
+    <div id="wizard" hidden>
+
+      <!-- Attempt boot error banner (server reachable, but a call failed) -->
+      <div id="wizard-global-error" class="alert alert-error" hidden></div>
+
+      <!-- STEP INDICATOR -->
+      <ol class="stepper" id="wizard-steps" aria-label="Setup progress"></ol>
+
+      <!-- STEP PANELS -->
+      <div class="wizard-panels">
+
+        <section class="wizard-panel" data-step="1" id="panel-1" aria-labelledby="t1">
+          <div class="panel-head">
+            <h2 id="t1">Secure your workspace</h2>
+            <p>Set an admin password for Epilykos. It protects settings and the REST API, and is used for interactive login.</p>
+          </div>
+          <div class="panel-body" id="step-1-body"></div>
+        </section>
+
+        <section class="wizard-panel" data-step="2" id="panel-2" aria-labelledby="t2">
+          <div class="panel-head">
+            <h2 id="t2">Connect data sources</h2>
+            <p>Select at least one source and configure it. Test each connection before moving on — a failed test is not a blocker.</p>
+          </div>
+          <div class="panel-body" id="step-2-body"></div>
+        </section>
+
+        <section class="wizard-panel" data-step="3" id="panel-3" aria-labelledby="t3">
+          <div class="panel-head">
+            <h2 id="t3">Map metrics</h2>
+            <p>Tell Epilykos which reading feeds each role. Suggestions come from your tested sources. Leave a role blank to skip it.</p>
+          </div>
+          <div class="panel-body" id="step-3-body"></div>
+        </section>
+
+        <section class="wizard-panel" data-step="4" id="panel-4" aria-labelledby="t4">
+          <div class="panel-head">
+            <h2 id="t4">Choose a dashboard starter</h2>
+            <p>Pick how much of the seeded “Main” dashboard to include. You can fine-tune it later in the editor.</p>
+          </div>
+          <div class="panel-body" id="step-4-body"></div>
+        </section>
+
+        <section class="wizard-panel" data-step="5" id="panel-5" aria-labelledby="t5">
+          <div class="panel-head">
+            <h2 id="t5">Set your basics</h2>
+            <p>A few housekeeping values and your preferred theme.</p>
+          </div>
+          <div class="panel-body" id="step-5-body"></div>
+        </section>
+
+        <section class="wizard-panel" data-step="6" id="panel-6" aria-labelledby="t6">
+          <div class="panel-head">
+            <h2 id="t6">You’re all set</h2>
+            <p>Everything is in place. Finish to enable your dashboard.</p>
+          </div>
+          <div class="panel-body" id="step-6-body"></div>
+        </section>
+
+      </div>
+
+      <!-- NAVIGATION -->
+      <div class="wizard-nav" id="wizard-nav">
+        <div class="nav-left">
+          <button class="btn" id="back-btn" type="button">← Back</button>
+        </div>
+        <div class="nav-right">
+          <span id="nav-hint" class="nav-hint"></span>
+          <button class="btn btn-primary" id="next-btn" type="button">Next →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Shared CSRF header injection + fetch override -->
+  <script src="js/csrf.js"></script>
+  <script src="js/setup.js"></script>
+</body>
+</html>
