@@ -19,7 +19,6 @@
     "morgan": "^1.11.0",
     "mqtt": "^5.9.0",
     "multer": "^2.3.0",
-    "node-fetch": "^2.7.0",
     "serialport": "^13.0.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
