@@ -19,7 +19,6 @@
  * @module grid
  */
 const { logger } = require('./logger');
-const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 const { parseGridState } = require('./utils');
 
@@ -95,7 +94,7 @@ async function fetchGridStateFromHA(gridMetric) {
   try {
     const res = await fetch(`${device.url}/api/states/${entityId}`, {
       headers: { 'Authorization': `Bearer ${device.token}` },
-      timeout: 5000
+      signal: AbortSignal.timeout(5000)
     });
     if (!res.ok) {
       warnRateLimited(gridMetric, `Grid: HA fetch for '${entityId}' on '${device.name}' returned HTTP ${res.status}`);

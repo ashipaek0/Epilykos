@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 const { logger } = require('./logger');
 const { computeBankAggregates } = require('./bmsAggregator');
@@ -27,7 +26,7 @@ async function pollBMS() {
     // Trigger a scan to populate the bridge's BLE cache
     // The bridge only serves /device/<MAC> for devices in its scan cache.
     try {
-      await fetch(`${BRIDGE_URL}/devices?force_scan=true`, { timeout: 15000 });
+      await fetch(`${BRIDGE_URL}/devices?force_scan=true`, { signal: AbortSignal.timeout(15000) });
     } catch (err) {
       logger.warn(`BMS pre-scan failed: ${err.message} — devices may return 404`);
     }
@@ -35,7 +34,7 @@ async function pollBMS() {
     for (const device of devices) {
       if (!device.enabled || !device.address) continue;
       try {
-        const res = await fetch(`${BRIDGE_URL}/device/${device.address}`, { timeout: 10000 });
+        const res = await fetch(`${BRIDGE_URL}/device/${device.address}`, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) {
           logger.warn(`BMS ${device.name} returned ${res.status}`);
           continue;

@@ -1,5 +1,4 @@
 const { logger } = require('./logger');
-const fetch = require('node-fetch');
 const { getConfig, getDb } = require('./database');
 
 let metricInsertStmt = null;
@@ -71,7 +70,7 @@ async function pollHomeAssistant() {
       try {
         const res = await fetch(`${device.url}/api/states/${entityId}`, {
           headers: { 'Authorization': `Bearer ${device.token}` },
-          timeout: 5000
+          signal: AbortSignal.timeout(5000)
         });
         if (!res.ok) continue;
         const data = await res.json();
@@ -90,7 +89,7 @@ async function pollHomeAssistant() {
 async function fetchHAEntities(url, token) {
   const response = await fetch(`${url}/api/states`, {
     headers: { 'Authorization': `Bearer ${token}` },
-    timeout: 5000
+    signal: AbortSignal.timeout(5000)
   });
   if (!response.ok) throw new Error(`HA error ${response.status}`);
   const data = await response.json();
@@ -165,7 +164,7 @@ async function executeHAAction(deviceId, domain, service, entityId, params = {})
       method: 'POST',
       headers: { 'Authorization': `Bearer ${device.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ entity_id: entityId, ...params }),
-      timeout: 5000
+      signal: AbortSignal.timeout(5000)
     });
     if (!res.ok) {
       let errText = '';
@@ -281,7 +280,7 @@ async function getEntityModes(url, token, entityId) {
   try {
     const res = await fetch(`${url}/api/states/${entityId}`, {
       headers: { 'Authorization': `Bearer ${token}` },
-      timeout: 5000
+      signal: AbortSignal.timeout(5000)
     });
     if (res.ok) {
       const state = await res.json();

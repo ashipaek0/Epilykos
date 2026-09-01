@@ -1,5 +1,4 @@
 const { logger } = require('./logger');
-const fetch = require('node-fetch');
 const https = require('https');
 const { getConfig, getDb } = require('./database');
 
@@ -186,7 +185,7 @@ async function getSolarForecast() {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { timeout: 10000 });
+        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
           if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
@@ -198,7 +197,7 @@ async function getSolarForecast() {
         const tilt = parseFloat(getConfig('solar_tilt')) || 30;
         const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
         const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { timeout: 10000 });
+        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
           if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
@@ -328,7 +327,7 @@ async function testForecast(opts) {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { timeout: 10000 });
+        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
           const today = new Date().toISOString().split('T')[0];
@@ -340,7 +339,7 @@ async function testForecast(opts) {
     if (source === 'none') {
       try {
         const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { timeout: 10000 });
+        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
           const today = new Date().toISOString().split('T')[0];
