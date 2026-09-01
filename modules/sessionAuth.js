@@ -39,7 +39,7 @@ function isAuthenticated(req, res, next) {
 // Rate limiter for login attempts only (10 per minute)
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  limit: 10,
   message: { error: 'Too many login attempts, please try again later' }
 });
 
