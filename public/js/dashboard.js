@@ -276,6 +276,8 @@ function renderDashboard() {
         if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
+        const setupLink = document.getElementById('setup-link');
+        if (setupLink) setupLink.style.display = '';
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) themeToggle.style.display = '';
 
@@ -292,6 +294,29 @@ function renderDashboard() {
         tabBar.appendChild(editorLink);
       }
     }).catch(() => {});
+
+  // First-run setup detection: show banner + auto-open the wizard once per browser session
+  fetch('/api/wizard/status')
+    .then(r => r.json())
+    .then(w => {
+      const banner = document.getElementById('setup-banner');
+      if (w && !w.hasDataSource) {
+        if (banner) banner.style.display = '';
+        if (w.needsSetup && !sessionStorage.getItem('epilykos_wizard_opened')) {
+          sessionStorage.setItem('epilykos_wizard_opened', '1');
+          window.location.href = '/setup';
+        }
+      } else if (banner) {
+        banner.style.display = 'none';
+      }
+    }).catch(() => {});
+  const bannerDismiss = document.getElementById('setup-banner-dismiss');
+  if (bannerDismiss) {
+    bannerDismiss.addEventListener('click', () => {
+      const b = document.getElementById('setup-banner');
+      if (b) b.style.display = 'none';
+    });
+  }
 
   const hasPower = active.layout.some(b => b.type === 'chart-power');
   const hasEnergy = active.layout.some(b => b.type === 'chart-energy');

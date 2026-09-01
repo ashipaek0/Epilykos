@@ -2634,6 +2634,7 @@ const ROLE_LABELS = {
   grid_import: 'Grid Import Power',
   grid_export: 'Grid Export Power',
   battery_soc: 'Battery SOC',
+  solar_voltage: 'Solar Voltage',
   daily_solar: 'Daily Solar Energy (gen)',
   daily_consumption: 'Daily Consumption Energy',
   daily_battery_charge: 'Daily Battery Charge Energy',

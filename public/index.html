@@ -33,11 +33,19 @@
         <a href="/login" class="settings-link" id="signin-btn">Sign in</a>
         <a href="/api/logout" class="settings-link" id="signout-btn" title="Sign out" style="display:none;">Sign out</a>
         <a href="/settings" class="settings-link" id="settings-btn" style="display:none;">⚙️ Settings</a>
+        <a href="/setup" class="settings-link" id="setup-link" style="display:none;">⚙️ Setup wizard</a>
         <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode" style="display:none;">
           <span class="theme-icon">☾</span>
         </button>
       </div>
     </header>
+
+    <!-- First-run setup banner (shown when setup_wizard_completed is unset) -->
+    <div id="setup-banner" class="setup-banner" style="display:none;">
+      <span>👋 Welcome to Epilykos — get your data flowing in a few steps.</span>
+      <a href="/setup" class="setup-banner-btn">Get started</a>
+      <button id="setup-banner-dismiss" class="setup-banner-dismiss" aria-label="Dismiss">✕</button>
+    </div>
 
     <!-- Empty container for modular dashboard blocks -->
     <div id="dashboard-container"></div>

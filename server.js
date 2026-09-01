@@ -26,7 +26,7 @@ const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
-const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
+const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword, passwordEnvManaged, getSettingsPassword, setSettingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
@@ -602,7 +602,7 @@ app.get('/api/dashboard-config', async (req, res) => {
 // ---------- Authentication endpoints ----------
 app.post('/api/login', loginLimiter, (req, res) => {
   const { password } = req.body;
-  if (password && password === settingsPassword) {
+  if (password && password === getSettingsPassword()) {
     req.session.authenticated = true;
     logger.info('User logged in successfully');
     return res.json({ success: true });
@@ -620,6 +620,71 @@ app.get('/api/logout', (req, res) => {
 // Auth status endpoint (public, but indicates session state)
 app.get('/api/auth/status', (req, res) => {
   res.json({ authenticated: !!(req.session && req.session.authenticated) });
+});
+
+// ---------- Setup wizard ----------
+// Public page (pre-auth; setup.js gates sources behind login)
+app.get('/setup', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'setup.html'));
+});
+
+// Public status (no session needed)
+app.get('/api/wizard/status', (req, res) => {
+  try {
+    const completed = getConfig('setup_wizard_completed') === 'true';
+    const keys = ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices'];
+    let hasDataSource = false;
+    for (const k of keys) {
+      const v = JSON.parse(getConfig(k) || '[]');
+      if (Array.isArray(v) && v.length > 0) { hasDataSource = true; break; }
+    }
+    res.json({ needsSetup: !completed, completed, hasDataSource, passwordEnvManaged });
+  } catch (err) {
+    logger.error('Error in /api/wizard/status:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reveal the current password ONLY when not env-managed and not yet completed
+app.get('/api/wizard/password', (req, res) => {
+  if (!passwordEnvManaged && getConfig('setup_wizard_completed') !== 'true') {
+    return res.json({ password: getSettingsPassword() });
+  }
+  res.status(403).json({ error: 'Password is managed by environment or setup already complete' });
+});
+
+// Set the admin password (pre-auth, CSRF-exempt). Auto-login on first-run set (D2).
+app.post('/api/wizard/password', (req, res) => {
+  const { password } = req.body;
+  if (passwordEnvManaged) {
+    return res.status(403).json({ error: 'Password is managed by environment' });
+  }
+  if (typeof password !== 'string' || password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+  try {
+    setSettingsPassword(password);
+    if (req.session) req.session.authenticated = true;
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(403).json({ error: err.message });
+  }
+});
+
+// Mark setup complete (isAuthenticated)
+app.post('/api/wizard/complete', isAuthenticated, (req, res) => {
+  setConfig('setup_wizard_completed', 'true');
+  res.json({ success: true });
+});
+
+// "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
+app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
+  for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices']) {
+    setConfig(k, '[]');
+  }
+  setConfig('role_metrics', '{}');
+  setConfig('setup_wizard_completed', '');
+  res.json({ success: true });
 });
 
 // ---------- Protected API (session + CSRF) – no rate limit ----------
@@ -1964,7 +2029,7 @@ app.get('/api/metrics/names', async (req, res) => {
 
 // ---------- Catch-all for SPA ----------
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
