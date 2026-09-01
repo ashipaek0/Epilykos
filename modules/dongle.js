@@ -16,6 +16,7 @@ const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
+const { ModbusRtuTransport } = require('./dongle/modbusRtu');
 
 let pollIntervals = [];
 let growattServer = null;
@@ -54,7 +55,9 @@ function startDonglePolling() {
 
     profile.poll_ranges = buildPollRanges(profile.metrics);
 
-    const Transport = inst.transport === 'solarman-v5' ? SolarmanV5Transport : ModbusTcpTransport;
+    let Transport = ModbusTcpTransport;
+    if (inst.transport === 'solarman-v5') Transport = SolarmanV5Transport;
+    else if (inst.transport === 'modbus-rtu') Transport = ModbusRtuTransport;
     const transport = new Transport(inst);
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
@@ -145,8 +148,11 @@ async function pollInstance(instance, transport, profile) {
       if (buf.length < range.count * 2) {
         logger.warn(`[dongle] ${instance.name}: short buffer at range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
       }
+      const leSwap = profile.byte_order === 'le';
       for (let i = 0; i < range.count && i * 2 < buf.length; i++) {
-        registerData[range.start + i] = buf.readUInt16BE(i * 2);
+        let v = buf.readUInt16BE(i * 2);
+        if (leSwap) v = ((v & 0xFF) << 8) | (v >> 8);
+        registerData[range.start + i] = v;
       }
     }
 
@@ -345,6 +351,20 @@ async function executeDongleAction(deviceName, registerAddr, value) {
         port: device.port || 8899,
         serial_number: device.serial_number,
         modbus_unit_id: device.modbus_unit_id || 1
+      });
+      await transport.writeRegister(addr, val);
+      return { success: true };
+    }
+
+    if (transportType === 'modbus-rtu') {
+      if (!device.serial_path) {
+        return { error: 'modbus-rtu write requires serial_path in dongle config' };
+      }
+      const { ModbusRtuTransport } = require('./dongle/modbusRtu');
+      const transport = new ModbusRtuTransport({
+        serial_path: device.serial_path,
+        baud: parseInt(device.baud) || 2400,
+        modbus_unit_id: device.modbus_unit_id || 5
       });
       await transport.writeRegister(addr, val);
       return { success: true };
