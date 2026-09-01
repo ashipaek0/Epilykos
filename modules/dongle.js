@@ -16,7 +16,6 @@ const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
-const { ModbusRtuTransport } = require('./dongle/modbusRtu');
 
 let pollIntervals = [];
 let growattServer = null;
@@ -57,7 +56,6 @@ function startDonglePolling() {
 
     let Transport = ModbusTcpTransport;
     if (inst.transport === 'solarman-v5') Transport = SolarmanV5Transport;
-    else if (inst.transport === 'modbus-rtu') Transport = ModbusRtuTransport;
     const transport = new Transport(inst);
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
@@ -357,17 +355,7 @@ async function executeDongleAction(deviceName, registerAddr, value) {
     }
 
     if (transportType === 'modbus-rtu') {
-      if (!device.serial_path) {
-        return { error: 'modbus-rtu write requires serial_path in dongle config' };
-      }
-      const { ModbusRtuTransport } = require('./dongle/modbusRtu');
-      const transport = new ModbusRtuTransport({
-        serial_path: device.serial_path,
-        baud: parseInt(device.baud) || 2400,
-        modbus_unit_id: device.modbus_unit_id || 5
-      });
-      await transport.writeRegister(addr, val);
-      return { success: true };
+      return { error: 'modbus-rtu has moved to the RS232 path; use rs232_devices + executeRs232Action for register writes' };
     }
 
     // Default: plain Modbus TCP (transport 'modbus-tcp' or unset)

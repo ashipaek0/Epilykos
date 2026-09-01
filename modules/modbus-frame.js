@@ -1,6 +1,12 @@
 /**
- * Shared CRC and Modbus frame utilities for dongle transports.
- * @module dongle/crc
+ * Shared Modbus frame + CRC16 helpers.
+ *
+ * This is the single home for Modbus RTU framing/CRC utilities used by BOTH the
+ * dongle transports (modbusTcp, solarmanV5) and the RS232 serial engine. It is
+ * intentionally top-level (modules/) so the serial engine never has to import
+ * from modules/dongle/.
+ *
+ * @module modbus-frame
  */
 
 /** Modbus CRC-16 (polynomial 0xA001) */
@@ -16,7 +22,7 @@ function modbusCrc16(buf) {
   return crc;
 }
 
-/** Build a Modbus RTU read holding registers request frame with CRC */
+/** Build a Modbus RTU read holding registers request frame (FC 0x03) with CRC */
 function buildModbusReadRequest(unitId, funcCode, startAddr, count) {
   const buf = Buffer.alloc(8);
   buf[0] = unitId;
@@ -28,7 +34,7 @@ function buildModbusReadRequest(unitId, funcCode, startAddr, count) {
   return buf;
 }
 
-/** Build a Modbus RTU write single register request frame with CRC (FC 0x06) */
+/** Build a Modbus RTU write single register request frame (FC 0x06) with CRC */
 function buildModbusWriteRequest(unitId, startAddr, value) {
   const buf = Buffer.alloc(8);
   buf[0] = unitId;
@@ -41,7 +47,17 @@ function buildModbusWriteRequest(unitId, startAddr, value) {
 }
 
 /**
+ * Total Modbus-RTU frame length for a (partial) response buffer.
+ * Layout: slave(1) + func(1) + byteCount(1) + data(byteCount) + crcLo(1) + crcHi(1).
+ * Returns 3 + buf[2] + 2.
+ */
+function frameByteCount(buf) {
+  return 3 + buf[2] + 2;
+}
+
+/**
  * Parse a Modbus RTU read response.
+ * @param {Buffer} buf — a complete frame read off the wire (may be sliced).
  * @returns {Buffer} register data (2 bytes per register)
  * @throws on exception code, CRC mismatch, or incomplete response
  */
@@ -70,4 +86,37 @@ function parseModbusWriteResponse(buf) {
   return { address: buf.readUInt16BE(2), value: buf.readUInt16BE(4) };
 }
 
-module.exports = { modbusCrc16, buildModbusReadRequest, parseModbusReadResponse, buildModbusWriteRequest, parseModbusWriteResponse };
+/**
+ * Group a list of register metrics ([{register: '0x1196', count: 1|2}] with
+ * registers as hex strings) into contiguous poll ranges. Registers within a
+ * gap of 4 (plus their own count) are merged; otherwise a new range starts.
+ * @param {Array<{register: string, count?: number}>} metrics
+ * @returns {Array<{start: number, count: number}>}
+ */
+function buildPollRanges(metrics) {
+  const addresses = metrics
+    .map(m => ({ addr: parseInt(m.register, 16), count: m.count || 1 }))
+    .sort((a, b) => a.addr - b.addr);
+
+  const ranges = [];
+  for (const item of addresses) {
+    const last = ranges[ranges.length - 1];
+    if (last && item.addr <= last.start + last.count + 4) {
+      const newEnd = Math.max(last.start + last.count, item.addr + item.count);
+      last.count = newEnd - last.start;
+    } else {
+      ranges.push({ start: item.addr, count: item.count });
+    }
+  }
+  return ranges;
+}
+
+module.exports = {
+  modbusCrc16,
+  buildModbusReadRequest,
+  buildModbusWriteRequest,
+  parseModbusReadResponse,
+  parseModbusWriteResponse,
+  frameByteCount,
+  buildPollRanges,
+};

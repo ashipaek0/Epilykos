@@ -1,10 +1,15 @@
 {
   "name": "Anern EVO4200L (24V Hybrid, Modbus RTU)",
-  "transport": "modbus-rtu",
-  "requires_serial": true,
-  "default_port": 502,
+  "protocol": "modbus-rtu",
+  "transport": "rs232",
   "default_unit_id": 5,
   "byte_order": "le",
+  "defaults": {
+    "baud": 2400,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
   "metrics": [
     { "name": "solar_power", "register": "0x1199", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "solar_power", "label": "Solar Power" },
     { "name": "solar_voltage", "register": "0x1198", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "solar_voltage", "label": "Solar Voltage" },

@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, getDb } = require('./database');
 const { logger } = require('./logger');
+const { buildModbusReadRequest, buildPollRanges, parseModbusReadResponse, frameByteCount } = require('./modbus-frame');
 
 let availableProfiles = [];
 let metricInsertStmt = null;
@@ -94,6 +95,9 @@ function loadRs232Profiles() {
         defaults: profile.defaults || { baud: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
         commands: profile.commands || [],
         fields: profile.fields || [],
+        metrics: profile.metrics || [],
+        byte_order: profile.byte_order || null,
+        default_unit_id: profile.default_unit_id || null,
         decoder: profile.decoder || null,
         frame_format: profile.frame_format || null,
         call_order: profile.call_order || null,
@@ -173,6 +177,10 @@ function defaultFrameDetect(buffer, profile) {
   // SolaX AA55 binary: frame[2] contains total length
   if (profile.protocol === 'solax-aa55' && buffer.length >= 3) {
     return buffer.length >= buffer[2] + 3; // header(2) + size(1) + payload + checksum(2)
+  }
+  // Modbus RTU: total frame len = 3 + byteCount(buf[2]) + 2
+  if (profile.protocol === 'modbus-rtu' && buffer.length >= 3) {
+    return buffer.length >= frameByteCount(buffer);
   }
   return false;
 }
@@ -350,6 +358,8 @@ async function pollRs232() {
     try {
       if (profile.protocol === 'vedirect-streaming') {
         await pollStreamingDevice(device, profile);
+      } else if (profile.protocol === 'modbus-rtu') {
+        await pollModbusRtuDevice(device, profile);
       } else {
         await pollQueryDevice(device, profile);
       }
@@ -383,6 +393,128 @@ async function pollQueryDevice(device, profile) {
       saveMetric(metric, value, now);
     }
     logger.info(`RS232 poll ${device.name}: ${Object.keys(results).length} metrics`);
+  } finally {
+    await closeSerialPort(port);
+  }
+}
+
+// ── Modbus-RTU Register Poll (Profile protocol 'modbus-rtu') ───────────────
+
+/**
+ * Write a Modbus-RTU frame to the port and read a single complete response frame.
+ * Uses frameByteCount() to detect the full frame (3 + byteCount + 2).
+ * @param {import('serialport').SerialPort} port
+ * @param {Buffer} frame — a complete request frame (incl. CRC)
+ * @param {number} timeoutMs
+ * @returns {Promise<Buffer>} the complete response frame
+ */
+async function readModbusRtuFrame(port, frame, timeoutMs = 5000) {
+  const safeTimeout = Math.min(Math.max(parseInt(timeoutMs) || 5000, 100), 30000);
+  return new Promise((resolve, reject) => {
+    let buffer = Buffer.alloc(0);
+    const timer = setTimeout(() => {
+      port.removeAllListeners('data');
+      reject(new Error('Modbus-RTU read timeout'));
+    }, safeTimeout);
+
+    port.on('data', chunk => {
+      buffer = Buffer.concat([buffer, chunk]);
+      if (buffer.length >= 3) {
+        const total = frameByteCount(buffer);
+        if (total > 0 && buffer.length >= total) {
+          clearTimeout(timer);
+          port.removeAllListeners('data');
+          resolve(buffer.slice(0, total));
+          return;
+        }
+      }
+      timer.refresh();
+    });
+
+    port.write(frame, err => {
+      if (err) {
+        clearTimeout(timer);
+        port.removeAllListeners('data');
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * Poll a Modbus-RTU device: build FC 0x03 read requests for each poll range,
+ * decode the 16-bit (optionally word-swapped) registers, apply metric type +
+ * scale, and write metrics to the RS232 metrics path.
+ */
+async function pollModbusRtuDevice(device, profile) {
+  const port = await openSerialPort(device);
+  try {
+    const unitId = device.modbus_unit_id || profile.default_unit_id || 5;
+    const ranges = buildPollRanges(profile.metrics);
+    const registerData = {};
+
+    for (const range of ranges) {
+      const frame = buildModbusReadRequest(unitId, 0x03, range.start, range.count);
+      const resp = await readModbusRtuFrame(port, frame, parseInt(device.timeout) || 5000);
+      const buf = parseModbusReadResponse(resp);
+      if (buf.length < range.count * 2) {
+        logger.warn(`[rs232] ${device.name}: short buffer at range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
+      }
+      const leSwap = profile.byte_order === 'le';
+      for (let i = 0; i < range.count && i * 2 < buf.length; i++) {
+        let v = buf.readUInt16BE(i * 2);
+        if (leSwap) v = ((v & 0xFF) << 8) | (v >> 8);
+        registerData[range.start + i] = v;
+      }
+    }
+
+    const metrics = {};
+    const units = {};
+    const prefix = device.prefix || '';
+    const mappings = device.mappings || null;
+    let regToMetric = null;
+    if (mappings) {
+      regToMetric = {};
+      for (const [metric, reg] of Object.entries(mappings)) regToMetric[reg] = metric;
+    }
+
+    for (const m of profile.metrics) {
+      const addr = parseInt(m.register, 16);
+      let raw = registerData[addr];
+      if (raw === undefined) continue;
+
+      let metricName;
+      if (regToMetric) {
+        const key = m.register;
+        if (regToMetric[key] !== undefined) metricName = regToMetric[key];
+        else continue;
+      } else {
+        metricName = prefix + m.name;
+      }
+
+      if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
+      if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
+      if (m.type === 'uint32' || m.type === 'int32') {
+        const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
+        const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
+        raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
+        if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
+      }
+      if (m.type === 'uint64') {
+        raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
+            + ((registerData[addr + 2] || 0) * 0x100000000)
+            + ((registerData[addr + 1] || 0) << 16)
+            + (registerData[addr] || 0);
+      }
+
+      const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
+      metrics[metricName] = value;
+      if (m.unit) units[metricName] = m.unit;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    for (const [name, val] of Object.entries(metrics)) saveMetric(name, val, now);
+    logger.info(`RS232 Modbus-RTU poll ${device.name}: ${Object.keys(metrics).length} metrics`);
   } finally {
     await closeSerialPort(port);
   }
@@ -522,6 +654,36 @@ async function testRs232Connection(device) {
     await new Promise(r => setTimeout(r, 2000));
     await closeSerialPort(port);
     return { success: true, message: 'Port opened successfully' };
+  }
+
+  if (profile.protocol === 'modbus-rtu') {
+    const port = await openSerialPort(device);
+    try {
+      const unitId = device.modbus_unit_id || profile.default_unit_id || 5;
+      const ranges = buildPollRanges(profile.metrics);
+      if (!ranges.length) throw new Error('No poll ranges defined in profile');
+      const frame = buildModbusReadRequest(unitId, 0x03, ranges[0].start, ranges[0].count);
+      const resp = await readModbusRtuFrame(port, frame, parseInt(device.timeout) || 5000);
+      const buf = parseModbusReadResponse(resp);
+      const leSwap = profile.byte_order === 'le';
+      const registerData = {};
+      for (let i = 0; i < ranges[0].count && i * 2 < buf.length; i++) {
+        let v = buf.readUInt16BE(i * 2);
+        if (leSwap) v = ((v & 0xFF) << 8) | (v >> 8);
+        registerData[ranges[0].start + i] = v;
+      }
+      const metrics = {};
+      for (const m of profile.metrics) {
+        const addr = parseInt(m.register, 16);
+        let raw = registerData[addr];
+        if (raw === undefined) continue;
+        if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
+        metrics[m.name] = parseFloat((raw * (m.scale || 1)).toFixed(4));
+      }
+      return { success: true, metrics };
+    } finally {
+      await closeSerialPort(port);
+    }
   }
 
   const port = await openSerialPort(device);
