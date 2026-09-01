@@ -127,6 +127,13 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable
 app.use(express.json());
 app.use('/api', csrfProtection);
 
+// Normalize req.body: Express 5 leaves req.body undefined when no parser matched
+// (Express 4 defaulted to {}). Restores the v4 default globally.
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
+
 // Create HTTP server and attach WebSocket server
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -1972,7 +1979,7 @@ app.get('/api/metrics/names', async (req, res) => {
 });
 
 // ---------- Catch-all for SPA ----------
-app.get('*', (req, res, next) => {
+app.use((req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
