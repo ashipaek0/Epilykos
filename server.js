@@ -11,11 +11,10 @@
  *
  * @module server
  */
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const compression = require('compression');
 const session = require('express-session');
-const httpFetch = require('node-fetch');
 const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
@@ -51,7 +50,7 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Global rate limiter — 200 requests per 15 min per IP
-const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, max: 2000, standardHeaders: true, legacyHeaders: false });
+const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false });
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
@@ -126,6 +125,13 @@ app.get('/editor.html', (req, res) => res.redirect('/editor'));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable: true }));
 app.use(express.json());
 app.use('/api', csrfProtection);
+
+// Normalize req.body: Express 5 leaves req.body undefined when no parser matched
+// (Express 4 defaulted to {}). Restores the v4 default globally.
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 
 // Create HTTP server and attach WebSocket server
 const server = http.createServer(app);
@@ -727,9 +733,9 @@ app.post('/api/ha/entity-actions', async (req, res) => {
     if (url && token) {
       const [modeData, stateRes] = await Promise.all([
         getEntityModes(url, token, entityIdOk),
-        httpFetch(`${url}/api/states/${entityIdOk}`, {
+        fetch(`${url}/api/states/${entityIdOk}`, {
           headers: { 'Authorization': `Bearer ${token}` },
-          timeout: 5000
+          signal: AbortSignal.timeout(5000)
         }).catch(() => null)
       ]);
       modes = modeData;
@@ -1386,7 +1392,7 @@ app.get('/api/bms/scan', async (req, res) => {
   try {
     const force = req.query.force === '1';
     const url = force ? `${BMS_BRIDGE_URL}/devices?force_scan=true` : `${BMS_BRIDGE_URL}/devices`;
-    const r = await httpFetch(url, { timeout: 20000 });
+    const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!r.ok) {
       const text = await r.text();
       logger.error(`BMS scan bridge returned ${r.status}: ${text.slice(0,200)}`);
@@ -1404,7 +1410,7 @@ app.get('/api/bms/test', async (req, res) => {
   const address = req.query.address;
   if (!address) return res.status(400).json({ error: 'MAC address required' });
   try {
-    const r = await httpFetch(`${BMS_BRIDGE_URL}/device/${encodeURIComponent(address)}`, { timeout: 10000 });
+    const r = await fetch(`${BMS_BRIDGE_URL}/device/${encodeURIComponent(address)}`, { signal: AbortSignal.timeout(10000) });
     if (!r.ok) {
       const text = await r.text();
       logger.error(`BMS test bridge returned ${r.status}: ${text.slice(0,200)}`);
@@ -1690,7 +1696,7 @@ app.post('/api/test-external', async (req, res) => {
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
   try {
-    const response = await fetch(safeUrl, { timeout: 5000 });
+    const response = await fetch(safeUrl, { signal: AbortSignal.timeout(5000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     let value = null;
@@ -1957,7 +1963,7 @@ app.get('/api/metrics/names', async (req, res) => {
 });
 
 // ---------- Catch-all for SPA ----------
-app.get('*', (req, res, next) => {
+app.use((req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }

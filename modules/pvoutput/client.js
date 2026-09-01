@@ -1,5 +1,5 @@
 /**
- * PVOutput HTTP Client — wraps node-fetch with auth headers and form encoding.
+ * PVOutput HTTP Client — uses the native global fetch with auth headers and form encoding.
  *
  * Every request includes X-Pvoutput-Apikey and X-Pvoutput-SystemId headers.
  * POST bodies are application/x-www-form-urlencoded (PVOutput does not accept JSON).
@@ -7,7 +7,6 @@
  *
  * @module pvoutput/client
  */
-const fetch = require('node-fetch');
 const { URLSearchParams } = require('url');
 const { updateFromHeaders } = require('./rateLimiter');
 
@@ -36,7 +35,7 @@ class PVOutputClient {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
     });
-    const res = await fetch(url.toString(), { headers: this._headers(), timeout: 15000 });
+    const res = await fetch(url.toString(), { headers: this._headers(), signal: AbortSignal.timeout(15000) });
     this._updateRateLimit(res.headers, pool);
     const text = await res.text();
     if (!res.ok) throw new Error(`PVOutput ${res.status}: ${text.slice(0, 200)}`);
@@ -54,7 +53,7 @@ class PVOutputClient {
       method: 'POST',
       headers: this._headers(),
       body: body.toString(),
-      timeout: 15000
+      signal: AbortSignal.timeout(15000)
     });
     this._updateRateLimit(res.headers, pool);
     const text = await res.text();

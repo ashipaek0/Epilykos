@@ -54,7 +54,8 @@ function startDonglePolling() {
 
     profile.poll_ranges = buildPollRanges(profile.metrics);
 
-    const Transport = inst.transport === 'solarman-v5' ? SolarmanV5Transport : ModbusTcpTransport;
+    let Transport = ModbusTcpTransport;
+    if (inst.transport === 'solarman-v5') Transport = SolarmanV5Transport;
     const transport = new Transport(inst);
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
@@ -145,8 +146,11 @@ async function pollInstance(instance, transport, profile) {
       if (buf.length < range.count * 2) {
         logger.warn(`[dongle] ${instance.name}: short buffer at range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
       }
+      const leSwap = profile.byte_order === 'le';
       for (let i = 0; i < range.count && i * 2 < buf.length; i++) {
-        registerData[range.start + i] = buf.readUInt16BE(i * 2);
+        let v = buf.readUInt16BE(i * 2);
+        if (leSwap) v = ((v & 0xFF) << 8) | (v >> 8);
+        registerData[range.start + i] = v;
       }
     }
 
@@ -348,6 +352,10 @@ async function executeDongleAction(deviceName, registerAddr, value) {
       });
       await transport.writeRegister(addr, val);
       return { success: true };
+    }
+
+    if (transportType === 'modbus-rtu') {
+      return { error: 'modbus-rtu has moved to the RS232 path; use rs232_devices + executeRs232Action for register writes' };
     }
 
     // Default: plain Modbus TCP (transport 'modbus-tcp' or unset)

@@ -1217,6 +1217,7 @@ function renderRs232Device(device, idx) {
         <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
         <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
       </select>
+      <input type="number" name="rs232_devices[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 5}" style="width:120px;" title="Modbus Unit ID">
     </div>
     <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
@@ -1259,7 +1260,27 @@ function renderRs232Device(device, idx) {
         profileSelect.value = device.profile || '';
         return;
       }
-      loadRs232Mappings(profileSelect.value, idx, mappingsList);
+      // Apply profile defaults (serial params + modbus unit id) so e.g. the
+      // Anern renders at its 2400 baud / unit id 5 without manual tuning.
+      fetch(`/api/rs232/profile/${encodeURIComponent(profileSelect.value)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(profile => {
+          if (profile && profile.defaults) {
+            const d = profile.defaults;
+            const baudSelect = card.querySelector('select[name$="[baud]"]');
+            if (baudSelect && d.baud != null) baudSelect.value = String(d.baud);
+            const dataBits = card.querySelector('select[name$="[data_bits]"]');
+            if (dataBits && d.dataBits != null) dataBits.value = String(d.dataBits);
+            const stopBits = card.querySelector('select[name$="[stop_bits]"]');
+            if (stopBits && d.stopBits != null) stopBits.value = String(d.stopBits);
+            const parity = card.querySelector('select[name$="[parity]"]');
+            if (parity && d.parity != null) parity.value = d.parity;
+          }
+          const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
+          if (unitIdInput && profile && profile.default_unit_id != null) unitIdInput.value = profile.default_unit_id;
+        })
+        .catch(() => {})
+        .finally(() => loadRs232Mappings(profileSelect.value, idx, mappingsList));
     });
   });
 
@@ -1322,6 +1343,7 @@ function collectRs232Config(card) {
   const customPath = card.querySelector('input[name$="[custom_path]"]')?.value;
   dev.serial_path = portSelect.value === 'custom' ? (customPath || '/dev/ttyUSB0') : portSelect.value;
   dev.baud = parseInt(card.querySelector('select[name$="[baud]"]').value) || 9600;
+  dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]')?.value) || 5;
   dev.parity = card.querySelector('select[name$="[parity]"]').value || 'none';
   dev.data_bits = parseInt(card.querySelector('select[name$="[data_bits]"]').value) || 8;
   dev.stop_bits = parseInt(card.querySelector('select[name$="[stop_bits]"]').value) || 1;
@@ -2135,6 +2157,24 @@ function getTransportForProfile(profileId) {
   return p.transport || 'solarman-v5';
 }
 
+function updateDongleTransportUI(card) {
+  const transportSelect = card.querySelector('select[name$="[transport]"]');
+  if (!transportSelect) return;
+  const tx = transportSelect.value;
+  const serialRow = card.querySelector('.dongle-serial-row');
+  const hostInput = card.querySelector('input[name$="[host]"]');
+  const portInput = card.querySelector('input[name$="[port]"]');
+  if (tx === 'modbus-tcp') {
+    if (serialRow) serialRow.style.display = 'none';
+    if (hostInput) hostInput.style.display = '';
+    if (portInput) portInput.style.display = '';
+  } else {
+    if (serialRow) serialRow.style.display = (tx === 'felicity-tcp') ? 'none' : '';
+    if (hostInput) hostInput.style.display = '';
+    if (portInput) portInput.style.display = '';
+  }
+}
+
 function renderDongleDevice(device, idx) {
   const container = document.getElementById('dongle-devices-container');
   const card = document.createElement('div');
@@ -2168,7 +2208,12 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
-    <input type="hidden" name="dongle_config[${idx}][transport]" value="${transport}">
+    <select name="dongle_config[${idx}][transport]" class="dongle-transport-select">
+      <option value="modbus-tcp" ${transport === 'modbus-tcp' ? 'selected' : ''}>TCP/IP</option>
+      <option value="solarman-v5" ${transport === 'solarman-v5' ? 'selected' : ''}>Solarman v5</option>
+      <option value="felicity-tcp" ${transport === 'felicity-tcp' ? 'selected' : ''}>Felicity TCP</option>
+      <option value="growatt" ${transport === 'growatt' ? 'selected' : ''}>Growatt</option>
+    </select>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list" id="dongle-mappings-list-${idx}"></div>
@@ -2179,8 +2224,7 @@ function renderDongleDevice(device, idx) {
   `;
   container.appendChild(card);
 
-  const serialRow = card.querySelector('.dongle-serial-row');
-  const transportHidden = card.querySelector('input[name$="[transport]"]');
+  const transportSelect = card.querySelector('select[name$="[transport]"]');
 
   const profileSelect = card.querySelector('.dongle-profile-select');
   (dongleProfilesCache.length ? Promise.resolve(dongleProfilesCache) : fetch('/api/dongle/profiles').then(r => r.json()))
@@ -2199,8 +2243,8 @@ function renderDongleDevice(device, idx) {
     const p = getProfileById(profileSelect.value);
     if (!p) return;
     const tx = p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport;
-    transportHidden.value = tx;
-    serialRow.style.display = (tx === 'felicity-tcp' || tx === 'modbus-tcp') ? 'none' : '';
+    transportSelect.value = tx;
+    updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
     portInput.value = p.default_port || '';
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
@@ -2217,6 +2261,9 @@ function renderDongleDevice(device, idx) {
     }
   });
 
+  transportSelect.addEventListener('change', () => updateDongleTransportUI(card));
+  updateDongleTransportUI(card);
+
   const removeDongleBtn = card.querySelector('[data-action="remove-dongle"]');
   if (removeDongleBtn) removeDongleBtn.addEventListener('click', () => {
     if (showConfirm('Remove this dongle instance?')) {
@@ -2227,11 +2274,11 @@ function renderDongleDevice(device, idx) {
 
   card.querySelector('.test-dongle').addEventListener('click', async () => {
     const statusEl = document.getElementById(`dongle-test-status-${idx}`);
-    const host = card.querySelector('input[name$="[host]"]').value.trim();
-    const port = card.querySelector('input[name$="[port]"]').value;
+    const host = card.querySelector('input[name$="[host]"]')?.value.trim() || '';
+    const port = card.querySelector('input[name$="[port]"]')?.value;
     const serial = card.querySelector('input[name$="[serial_number]"]')?.value || '';
-    const unitId = card.querySelector('input[name$="[modbus_unit_id]"]').value;
-    const tx = transportHidden.value;
+    const unitId = card.querySelector('input[name$="[modbus_unit_id]"]')?.value;
+    const tx = transportSelect.value;
     if (!host) { showStatus(statusEl, 'Host required', 'error'); return; }
     showStatus(statusEl, 'Testing...', 'info');
     try {
@@ -3475,7 +3522,7 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.name = card.querySelector('.device-header input[type="text"]').value;
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
     dev.profile = card.querySelector('.dongle-profile-select').value;
-    dev.transport = card.querySelector('input[name$="[transport]"]').value;
+    dev.transport = card.querySelector('select[name$="[transport]"]')?.value || 'solarman-v5';
     dev.host = card.querySelector('input[name$="[host]"]').value;
     dev.port = parseInt(card.querySelector('input[name$="[port]"]').value) || undefined;
     dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';

@@ -1,5 +1,4 @@
 const { logger } = require('./logger');
-const fetch = require('node-fetch');
 const dns = require('dns').promises;
 const { getConfig, getDb } = require('./database');
 const { isPrivateOrLocalIp, isValidHostname } = require('./utils');
@@ -72,7 +71,7 @@ async function pollExternalSources() {
           continue;
         }
       }
-      const res = await fetch(source.url, { timeout: 10000 });
+      const res = await fetch(source.url, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const now = Math.floor(Date.now() / 1000);

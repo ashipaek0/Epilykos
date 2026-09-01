@@ -9,7 +9,7 @@
  * @module dongle/solarmanV5
  */
 const net = require('net');
-const { buildModbusReadRequest, parseModbusReadResponse, buildModbusWriteRequest, parseModbusWriteResponse } = require('./crc');
+const { buildModbusReadRequest, parseModbusReadResponse, buildModbusWriteRequest, parseModbusWriteResponse } = require('../modbus-frame');
 
 class SolarmanV5Transport {
   /**
