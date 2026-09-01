@@ -1,0 +1,20 @@
+{
+  "name": "Anern EVO4200L (24V Hybrid, Modbus RTU)",
+  "transport": "modbus-rtu",
+  "requires_serial": true,
+  "default_port": 502,
+  "default_unit_id": 5,
+  "byte_order": "le",
+  "metrics": [
+    { "name": "solar_power", "register": "0x1199", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "solar_power", "label": "Solar Power" },
+    { "name": "solar_voltage", "register": "0x1198", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "solar_voltage", "label": "Solar Voltage" },
+    { "name": "battery_soc", "register": "0x119B", "count": 1, "type": "uint16", "scale": 1, "unit": "%", "field": "battery_soc", "label": "Battery SoC" },
+    { "name": "battery_voltage", "register": "0x119A", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "battery_voltage", "label": "Battery Voltage" },
+    { "name": "load_power", "register": "0x11A0", "count": 1, "type": "uint16", "scale": 1, "unit": "W", "field": "load_power", "label": "Load Power" },
+    { "name": "grid_voltage", "register": "0x1196", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "grid_voltage", "label": "Grid Voltage" },
+    { "name": "grid_frequency", "register": "0x1197", "count": 1, "type": "uint16", "scale": 0.1, "unit": "Hz", "field": "grid_frequency", "label": "Grid Frequency" },
+    { "name": "inverter_temperature", "register": "0x11CD", "count": 1, "type": "uint16", "scale": 0.1, "unit": "DegC", "field": "inverter_temperature", "label": "Inverter Temperature" },
+    { "name": "battery_charge_current", "register": "0x119C", "count": 1, "type": "uint16", "scale": 1, "unit": "A", "field": "battery_charge_current", "label": "Battery Charge Current" },
+    { "name": "battery_discharge_current", "register": "0x119D", "count": 1, "type": "uint16", "scale": 1, "unit": "A", "field": "battery_discharge_current", "label": "Battery Discharge Current" }
+  ]
+}

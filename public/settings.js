@@ -2135,6 +2135,32 @@ function getTransportForProfile(profileId) {
   return p.transport || 'solarman-v5';
 }
 
+function updateDongleTransportUI(card) {
+  const transportSelect = card.querySelector('select[name$="[transport]"]');
+  if (!transportSelect) return;
+  const tx = transportSelect.value;
+  const serialRow = card.querySelector('.dongle-serial-row');
+  const rtuRow = card.querySelector('.dongle-serial-rtu-row');
+  const hostInput = card.querySelector('input[name$="[host]"]');
+  const portInput = card.querySelector('input[name$="[port]"]');
+  if (tx === 'modbus-rtu') {
+    if (rtuRow) rtuRow.style.display = '';
+    if (serialRow) serialRow.style.display = 'none';
+    if (hostInput) hostInput.style.display = 'none';
+    if (portInput) portInput.style.display = 'none';
+  } else if (tx === 'modbus-tcp') {
+    if (rtuRow) rtuRow.style.display = 'none';
+    if (serialRow) serialRow.style.display = 'none';
+    if (hostInput) hostInput.style.display = '';
+    if (portInput) portInput.style.display = '';
+  } else {
+    if (rtuRow) rtuRow.style.display = 'none';
+    if (serialRow) serialRow.style.display = (tx === 'felicity-tcp') ? 'none' : '';
+    if (hostInput) hostInput.style.display = '';
+    if (portInput) portInput.style.display = '';
+  }
+}
+
 function renderDongleDevice(device, idx) {
   const container = document.getElementById('dongle-devices-container');
   const card = document.createElement('div');
@@ -2160,6 +2186,10 @@ function renderDongleDevice(device, idx) {
     <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
       <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
     </div>
+    <div class="form-row dongle-serial-rtu-row" style="${transport !== 'modbus-rtu' ? 'display:none;' : ''}">
+      <input type="text" name="dongle_config[${idx}][serial_path]" placeholder="Serial path (e.g., /dev/ttyUSB0)" value="${escapeHtml(device.serial_path || '')}">
+      <input type="number" name="dongle_config[${idx}][baud]" placeholder="Baud" value="${device.baud || 2400}">
+    </div>
     <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
       <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
@@ -2168,7 +2198,13 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
-    <input type="hidden" name="dongle_config[${idx}][transport]" value="${transport}">
+    <select name="dongle_config[${idx}][transport]" class="dongle-transport-select">
+      <option value="modbus-tcp" ${transport === 'modbus-tcp' ? 'selected' : ''}>TCP/IP</option>
+      <option value="modbus-rtu" ${transport === 'modbus-rtu' ? 'selected' : ''}>Serial RTU</option>
+      <option value="solarman-v5" ${transport === 'solarman-v5' ? 'selected' : ''}>Solarman v5</option>
+      <option value="felicity-tcp" ${transport === 'felicity-tcp' ? 'selected' : ''}>Felicity TCP</option>
+      <option value="growatt" ${transport === 'growatt' ? 'selected' : ''}>Growatt</option>
+    </select>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list" id="dongle-mappings-list-${idx}"></div>
@@ -2179,8 +2215,7 @@ function renderDongleDevice(device, idx) {
   `;
   container.appendChild(card);
 
-  const serialRow = card.querySelector('.dongle-serial-row');
-  const transportHidden = card.querySelector('input[name$="[transport]"]');
+  const transportSelect = card.querySelector('select[name$="[transport]"]');
 
   const profileSelect = card.querySelector('.dongle-profile-select');
   (dongleProfilesCache.length ? Promise.resolve(dongleProfilesCache) : fetch('/api/dongle/profiles').then(r => r.json()))
@@ -2199,8 +2234,8 @@ function renderDongleDevice(device, idx) {
     const p = getProfileById(profileSelect.value);
     if (!p) return;
     const tx = p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport;
-    transportHidden.value = tx;
-    serialRow.style.display = (tx === 'felicity-tcp' || tx === 'modbus-tcp') ? 'none' : '';
+    transportSelect.value = tx;
+    updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
     portInput.value = p.default_port || '';
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
@@ -2217,6 +2252,9 @@ function renderDongleDevice(device, idx) {
     }
   });
 
+  transportSelect.addEventListener('change', () => updateDongleTransportUI(card));
+  updateDongleTransportUI(card);
+
   const removeDongleBtn = card.querySelector('[data-action="remove-dongle"]');
   if (removeDongleBtn) removeDongleBtn.addEventListener('click', () => {
     if (showConfirm('Remove this dongle instance?')) {
@@ -2227,11 +2265,30 @@ function renderDongleDevice(device, idx) {
 
   card.querySelector('.test-dongle').addEventListener('click', async () => {
     const statusEl = document.getElementById(`dongle-test-status-${idx}`);
-    const host = card.querySelector('input[name$="[host]"]').value.trim();
-    const port = card.querySelector('input[name$="[port]"]').value;
+    const host = card.querySelector('input[name$="[host]"]')?.value.trim() || '';
+    const port = card.querySelector('input[name$="[port]"]')?.value;
     const serial = card.querySelector('input[name$="[serial_number]"]')?.value || '';
-    const unitId = card.querySelector('input[name$="[modbus_unit_id]"]').value;
-    const tx = transportHidden.value;
+    const unitId = card.querySelector('input[name$="[modbus_unit_id]"]')?.value;
+    const tx = transportSelect.value;
+    if (tx === 'modbus-rtu') {
+      const serialPath = card.querySelector('input[name$="[serial_path]"]')?.value.trim() || '';
+      const baud = card.querySelector('input[name$="[baud]"]')?.value;
+      if (!serialPath) { showStatus(statusEl, 'Serial path required', 'error'); return; }
+      showStatus(statusEl, 'Testing...', 'info');
+      try {
+        const res = await fetch('/api/dongle/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ serial_path: serialPath, baud: parseInt(baud) || 2400, modbus_unit_id: parseInt(unitId) || 1, transport: 'modbus-rtu' })
+        });
+        const data = await res.json();
+        if (res.ok) showStatus(statusEl, `OK — Register 0x0100 = ${data.raw}`, 'success');
+        else showStatus(statusEl, data.error, 'error');
+      } catch (err) {
+        showStatus(statusEl, err.message, 'error');
+      }
+      return;
+    }
     if (!host) { showStatus(statusEl, 'Host required', 'error'); return; }
     showStatus(statusEl, 'Testing...', 'info');
     try {
@@ -3475,10 +3532,12 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.name = card.querySelector('.device-header input[type="text"]').value;
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
     dev.profile = card.querySelector('.dongle-profile-select').value;
-    dev.transport = card.querySelector('input[name$="[transport]"]').value;
+    dev.transport = card.querySelector('select[name$="[transport]"]')?.value || 'solarman-v5';
     dev.host = card.querySelector('input[name$="[host]"]').value;
     dev.port = parseInt(card.querySelector('input[name$="[port]"]').value) || undefined;
     dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    dev.serial_path = card.querySelector('input[name$="[serial_path]"]')?.value || '';
+    dev.baud = parseInt(card.querySelector('input[name$="[baud]"]')?.value) || 2400;
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
