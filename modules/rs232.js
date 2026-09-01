@@ -1,6 +1,6 @@
-const SerialPort = require('serialport');
-const ReadlineParser = require('@serialport/parser-readline');
-const DelimiterParser = require('@serialport/parser-delimiter');
+const { SerialPort } = require('serialport');
+const { ReadlineParser } = require('@serialport/parser-readline');
+const { DelimiterParser } = require('@serialport/parser-delimiter');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, getDb } = require('./database');
@@ -597,8 +597,8 @@ function executeRS232Action(deviceName, commandName, value) {
   if (!cmd) return { error: `Command "${commandName}" not found in profile` };
 
   try {
-    const SerialPort = require('serialport');
-    const port = new SerialPort(device.serial_path || '/dev/ttyUSB0', {
+    const { SerialPort } = require('serialport');
+    const port = new SerialPort({ path: device.serial_path || '/dev/ttyUSB0',
       baudRate: parseInt(device.baud) || 9600,
       dataBits: parseInt(device.data_bits) || 8,
       stopBits: parseInt(device.stop_bits) || 1,
@@ -661,8 +661,8 @@ function executeRs232Action(deviceId, commandBytes) {
         return resolve({ error: 'commandBytes must be a hex string, byte array, or Buffer' });
       }
 
-      const SerialPort = require('serialport');
-      const port = new SerialPort(device.serial_path || '/dev/ttyUSB0', {
+      const { SerialPort } = require('serialport');
+      const port = new SerialPort({ path: device.serial_path || '/dev/ttyUSB0',
         baudRate: parseInt(device.baud) || 9600,
         dataBits: parseInt(device.data_bits) || 8,
         stopBits: parseInt(device.stop_bits) || 1,
