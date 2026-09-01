@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * test/dongle-anern.test.js
- * Machiner validation fixture for the Anern EVO4200L (24V Hybrid, Modbus RTU) dongle.
+ * Machiner validation fixture for the Anern EVO4200L (24V Hybrid, Modbus RTU).
  * No live hardware register reads are performed — this is a pure structural /
- * transform / decode-consistency check against profiles/dongles/anern-evo4200l.json.
+ * transform / decode-consistency check against profiles/rs232/anern-evo4200l.json.
  *
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
@@ -13,7 +13,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const PROFILE_PATH = path.join(__dirname, '..', 'profiles', 'dongles', 'anern-evo4200l.json');
+const PROFILE_PATH = path.join(__dirname, '..', 'profiles', 'rs232', 'anern-evo4200l.json');
 
 if (!fs.existsSync(PROFILE_PATH)) {
   console.error(`FATAL: profile not found: ${PROFILE_PATH}`);
@@ -43,7 +43,8 @@ function decodeLE(lo, hi, scale) {
 // ---------------------------------------------------------------------------
 // 1) Profile coherence
 // ---------------------------------------------------------------------------
-assert.strictEqual(profile.transport, 'modbus-rtu', 'profile.transport should be modbus-rtu');
+assert.strictEqual(profile.protocol, 'modbus-rtu', 'profile.protocol should be modbus-rtu');
+assert.strictEqual(profile.transport, 'rs232', 'profile.transport should be rs232');
 assert.strictEqual(profile.byte_order, 'le', 'profile.byte_order should be le');
 assert.ok(Array.isArray(profile.metrics), 'profile.metrics should be an array');
 assert.strictEqual(profile.metrics.length, 10, `expected 10 metrics, got ${profile.metrics.length}`);
@@ -108,7 +109,7 @@ assert.ok(gf >= 49.0 && gf <= 51.0, `grid_frequency ${gf}Hz not sane (~50Hz)`);
 
 // ---------------------------------------------------------------------------
 console.log('PASS: Anern EVO4200L profile coherence + LE byte-swap + 24V-range decode sanity');
-console.log(`  transport=${profile.transport} byte_order=${profile.byte_order} metrics=${profile.metrics.length}`);
+console.log(`  protocol=${profile.protocol} transport=${profile.transport} byte_order=${profile.byte_order} metrics=${profile.metrics.length}`);
 console.log(`  swap(0xE600)=${swap(0xE600)} swap(0x1801)=${swap(0x1801)} swap(0x4A00)=${swap(0x4A00)}`);
 console.log(`  battery_voltage=${bv}V battery_soc=${soc}% grid_frequency=${gf}Hz`);
 process.exitCode = 0;

@@ -1749,22 +1749,7 @@ app.get('/api/dongle/profile/:id', (req, res) => {
 
 app.use('/api/dongle/test', isAuthenticated);
 app.post('/api/dongle/test', async (req, res) => {
-  const { host, port, serial_number, modbus_unit_id, transport, serial_path, baud } = req.body;
-  if (transport === 'modbus-rtu') {
-    if (!serial_path) return res.status(400).json({ error: 'Serial path required' });
-    try {
-      const { ModbusRtuTransport } = require('./modules/dongle/modbusRtu');
-      const t = new ModbusRtuTransport({ serial_path, baud: parseInt(baud) || 2400, modbus_unit_id: modbus_unit_id || 5 });
-      const data = await t.readRegisters(0x1195, 1);
-      let raw = data.readUInt16BE(0);
-      raw = ((raw & 0xFF) << 8) | (raw >> 8); // Anern LE byte-swap for display
-      res.json({ success: true, raw });
-    } catch (err) {
-      logger.warn(`[dongle] modbus-rtu test connection failed: ${err.message}`);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-    return;
-  }
+  const { host, port, serial_number, modbus_unit_id, transport } = req.body;
   if (!host) return res.status(400).json({ error: 'Host required' });
 
   const rawHost = String(host).trim();
