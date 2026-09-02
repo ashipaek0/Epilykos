@@ -512,7 +512,11 @@
 
   function submitPassword() {
     var envManaged = state.status && state.status.passwordEnvManaged;
-    if (envManaged) { afterPasswordDone(); return; }
+    if (envManaged) {
+      // Establish the auto-login session (env-managed first-run) before continuing.
+      api('/api/wizard/password', { method: 'POST', body: JSON.stringify({}) }).then(function () { afterPasswordDone(); }).catch(function () { afterPasswordDone(); });
+      return;
+    }
     var p = state.password;
     if (!validNewPassword()) {
       var err = $('#pw-new-err');
