@@ -127,7 +127,9 @@ async function pollHomeAssistant() {
 }
 
 async function fetchHAEntities(url, token) {
-  const base = safeHaBaseUrl(url); // scheme allowlist -> CodeQL-recognized sanitizer
+  const safe = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!safe.ok) throw new Error(safe.error);
+  const base = safeHaBaseUrl(safe.url); // safe.url is the recognized-sanitized URL
   const response = await fetch(haApiUrl(base, 'states'), {
     headers: { 'Authorization': `Bearer ${token}` },
     signal: AbortSignal.timeout(5000)
