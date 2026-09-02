@@ -473,14 +473,9 @@ body {
   align-items: center;
 }
 
-.subnav-btn:hover:not(:disabled) {
+.subnav-btn:hover {
   border-color: var(--accent);
   color: var(--text);
-}
-
-.subnav-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .subnav-btn.active {
