@@ -1257,6 +1257,7 @@ function renderRs232Device(device, idx) {
   const profileSelect = card.querySelector('.rs232-profile-select');
   fetch('/api/rs232/profiles').then(r => r.json()).then(profiles => {
     profiles.forEach(p => {
+      if (!/bms/i.test(String(p.id) + ' ' + String(p.name))) return;
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = `${p.name} (${p.protocol})`;

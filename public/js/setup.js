@@ -977,6 +977,8 @@
       if (sel) {
         var html = '<option value="">Select a profile…</option>';
         res.data.forEach(function (p) {
+          var hay = String(p.name || '') + ' ' + String(p.id || '');
+          if (hay.toLowerCase().indexOf('bms') !== -1) return;
           var v = p.name;
           html += '<option value="' + esc(v) + '"' + (state.sources.rs232.profile === v ? ' selected' : '') + '>' + esc(v) + '</option>';
         });
