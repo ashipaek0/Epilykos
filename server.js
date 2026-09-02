@@ -42,6 +42,7 @@ const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotSch
 const { parseGridState, assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
+const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
 
@@ -98,6 +99,7 @@ loadRs232Profiles();  // RS232 serial inverter profiles
 setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
+startBmsWiredPolling();   // Start BMS wired (Modbus-RTU serial) polling
 startDonglePolling();
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
@@ -1131,7 +1133,10 @@ app.post('/api/settings', (req, res) => {
     }
     if ('mqtt_devices' in filteredUpdates) restartMqtt();
     if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
-    if ('bms_devices' in filteredUpdates) restartBmsPolling();
+    if ('bms_devices' in filteredUpdates) {
+      restartBmsPolling();
+      restartBmsWiredPolling();
+    }
     if ('bms_banks' in filteredUpdates) {
       // Orphan cleanup: diff old vs new, delete unreferenced bank_* metrics
       const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
@@ -1149,6 +1154,7 @@ app.post('/api/settings', (req, res) => {
         try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
       }
       restartBmsPolling();
+      restartBmsWiredPolling();
     }
     if ('dongle_config' in filteredUpdates) restartDonglePolling();
     if ('pvoutput_config' in filteredUpdates) pvoutput.restart();
@@ -1221,7 +1227,10 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
 
     if ('mqtt_devices' in req.body) restartMqtt();
     if ('external_sources' in req.body || 'external_poll_interval' in req.body) restartExternalPolling();
-    if ('bms_devices' in req.body) restartBmsPolling();
+    if ('bms_devices' in req.body) {
+      restartBmsPolling();
+      restartBmsWiredPolling();
+    }
     if ('bms_banks' in req.body) {
       const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
       const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
@@ -1237,6 +1246,7 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
         try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
       }
       restartBmsPolling();
+      restartBmsWiredPolling();
     }
     if ('dongle_config' in req.body) restartDonglePolling();
     if ('pvoutput_config' in req.body) pvoutput.restart();
@@ -1505,6 +1515,35 @@ app.get('/api/bms/test', async (req, res) => {
   } catch (err) {
     logger.error('BMS test proxy error:', err.message);
     res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+  }
+});
+
+// BMS wired (Modbus-RTU serial) — test + fields
+app.use('/api/bms-wired', isAuthenticated);
+
+// List the metric descriptors (field/label/unit) for a wired BMS profile.
+app.get('/api/bms-wired/fields/:profileId', async (req, res) => {
+  try {
+    const fields = await getBmsWiredFields(req.params.profileId);
+    res.json(fields);
+  } catch (e) {
+    logger.error('BMS-wired fields error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Open a one-off connection and read registers (no DB write).
+app.post('/api/bms-wired/test', async (req, res) => {
+  const device = req.body;
+  if (!device) return res.status(400).json({ error: 'No device config provided' });
+  if (!device.serial_path) return res.status(400).json({ error: 'Serial path required' });
+  if (!device.profile) return res.status(400).json({ error: 'Profile required' });
+  try {
+    const result = await testBmsWiredConnection(device);
+    res.json(result);
+  } catch (e) {
+    logger.error('BMS-wired test error:', e.message);
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -2048,6 +2087,7 @@ process.on('SIGTERM', async () => {
   clearInterval(pollInterval);
   stopExternalPolling();
   stopBmsPolling();
+  stopBmsWiredPolling();
   stopDonglePolling();
   stopSnapshotScheduler();
   for (const client of mqttClients.values()) client.end(true);
@@ -2062,6 +2102,7 @@ process.on('SIGINT', async () => {
   clearInterval(pollInterval);
   stopExternalPolling();
   stopBmsPolling();
+  stopBmsWiredPolling();
   stopDonglePolling();
   stopSnapshotScheduler();
   for (const client of mqttClients.values()) client.end(true);
