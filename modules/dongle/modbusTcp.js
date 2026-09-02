@@ -1,8 +1,8 @@
 /**
  * Plain Modbus TCP Transport — TCP client for polling inverters with standard Modbus TCP.
  *
- * Used for Sofar LSE-3 (port 8899), Voltronic/Axpert (port 502), and any inverter
- * that speaks plain Modbus TCP without a proprietary wrapper protocol.
+ * Used for any inverter that speaks plain Modbus TCP without a proprietary
+ * wrapper protocol.
  *
  * Opens a fresh TCP connection per poll.
  *
