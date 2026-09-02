@@ -1215,7 +1215,7 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
       'ha_devices', 'mqtt_devices', 'modbus_devices', 'rs232_devices',
       'external_sources', 'external_poll_interval',
       'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
-      'tuya_devices', 'tuya_cloud'
+      'tuya_devices', 'tuya_cloud', 'setup_probe_cache'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
 

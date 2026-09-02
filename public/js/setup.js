@@ -189,6 +189,20 @@
     var rs = asArray(bySrc.rs232)[0]; if (rs) {
       Object.assign(state.sources.rs232, { selected: true, name: rs.name || 'Inverter (RS232)', portChoice: rs.serial_path || '', profile: rs.profile || '', baud: rs.baud || '', data_bits: rs.data_bits || '', stop_bits: rs.stop_bits || '', parity: rs.parity || '', modbus_unit_id: rs.modbus_unit_id || '', timeout: String(rs.timeout || 5) });
     }
+    // Re-seed wizard discovery results (HA entities, MQTT selectedTopics,
+    // dongle/RS232 mappings) so the metrics step has candidates without
+    // re-probing. Stored in the wizard-owned setup_probe_cache key.
+    if (cfg.setup_probe_cache) {
+      var cache = null;
+      if (typeof cfg.setup_probe_cache === 'string') { try { cache = JSON.parse(cfg.setup_probe_cache); } catch (e) { cache = null; } }
+      else if (cfg.setup_probe_cache && typeof cfg.setup_probe_cache === 'object') { cache = cfg.setup_probe_cache; }
+      if (cache && typeof cache === 'object') {
+        if (Array.isArray(cache.ha)) state.sources.ha.entities = cache.ha;
+        if (cache.mqtt && typeof cache.mqtt === 'object') state.sources.mqtt.selectedTopics = cache.mqtt;
+        if (cache.dongle && typeof cache.dongle === 'object') state.sources.dongle.mappings = cache.dongle;
+        if (cache.rs232 && typeof cache.rs232 === 'object') state.sources.rs232.mappings = cache.rs232;
+      }
+    }
   }
   function prefillRoleMetrics(cfg) {
     var rm = cfg.role_metrics;
@@ -365,8 +379,9 @@
       + '<div class="card-header"><span class="card-title">🔑 Admin password</span></div>';
 
     if (envManaged) {
-      html += '<div class="alert alert-info">🔒 Managed by the environment — the <code>SETTINGS_PASSWORD</code> variable is active. No change needed.</div>'
-        + '<p class="note" style="color:var(--text-tertiary);font-size:0.78rem;">You can still continue. This password is configured server-side and cannot be edited here.</p>';
+      // Env-managed: replace the default intro, hide manual password fields,
+      // keep the Next/continue control enabled.
+      html += '<div class="alert alert-info">Password has been set via environment variable server-side. Click next to continue.</div>';
     } else {
       // Show current password (pre-auth public endpoint)
       html += '<div class="form-group">'
@@ -926,9 +941,21 @@
     return [buildRS232Device()];
   }
 
+  // Wizard-owned cache of discovery results so the metrics step (step 3) can
+  // offer candidates on re-entry without re-probing sources. Never used by
+  // Settings' metric→entity map; that stays in ha_devices[0].entities.
+  function buildProbeCache() {
+    return JSON.stringify({
+      ha: state.sources.ha.entities || [],
+      mqtt: state.sources.mqtt.selectedTopics || {},
+      dongle: state.sources.dongle.mappings || {},
+      rs232: state.sources.rs232.mappings || {}
+    });
+  }
+
   function saveSources() {
     if (!validateSources()) return Promise.resolve(false);
-    var body = { ha_devices: JSON.stringify(buildHADevices()), mqtt_devices: JSON.stringify(buildMQTTDevices()), dongle_config: JSON.stringify(buildDongleConfig()), rs232_devices: JSON.stringify(buildRS232Devices()) };
+    var body = { ha_devices: JSON.stringify(buildHADevices()), mqtt_devices: JSON.stringify(buildMQTTDevices()), dongle_config: JSON.stringify(buildDongleConfig()), rs232_devices: JSON.stringify(buildRS232Devices()), setup_probe_cache: buildProbeCache() };
     return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
       if (res.ok && res.data && (res.data.ok || res.data.success)) {
         hideSourcesError();
@@ -1069,9 +1096,9 @@
 
     var note = '<div class="alert alert-info" id="metrics-info">';
     if (!hasEntities && !hasTopics && !hasInv) {
-      note += 'No source data yet. Values come from your tested sources — or you can type the metric name you expect your source to publish.';
+      note += 'No source data yet — type the metric name you expect.';
     } else {
-      note += 'Suggestions are pulled from your tested sources. Type or pick from the dropdown.';
+      note += 'Suggestions are pulled from your tested sources.';
     }
     note += '</div>';
 
