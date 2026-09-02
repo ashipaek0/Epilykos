@@ -16,8 +16,18 @@
     });
   }
 
+  // Reject path segments that could mutate or read the object prototype chain
+  // (CWE-1321). Guards apply to BOTH setPath and getPath so the property-chain
+  // walk in each is provably safe.
+  function isSafeKey(k) {
+    return k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
+  }
+
   function setPath(obj, path, val) {
     var parts = path.split('.');
+    for (var i = 0; i < parts.length; i++) {
+      if (!isSafeKey(parts[i])) return; // refuse to walk/assign onto polluted keys
+    }
     var cur = obj;
     for (var i = 0; i < parts.length - 1; i++) { cur = cur[parts[i]]; }
     cur[parts[parts.length - 1]] = val;
@@ -27,6 +37,7 @@
     var cur = obj;
     for (var i = 0; i < parts.length; i++) {
       if (cur == null) return undefined;
+      if (!isSafeKey(parts[i])) return undefined; // refuse to read dangerous chains
       cur = cur[parts[i]];
     }
     return cur;

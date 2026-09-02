@@ -1,5 +1,6 @@
 const { logger } = require('./logger');
 const { getConfig, getDb } = require('./database');
+const { assertSafeFetchUrl } = require('./utils');
 
 // Build a Home Assistant REST API URL from a base URL, robust to trailing
 // slashes and a base that already ends in '/api' (new URL().toString() adds a
@@ -19,6 +20,19 @@ function haApiUrl(base, path) {
   else if (!p.endsWith('/api')) p = p + '/api';
   const rest = String(path || '').replace(/^\/+/, '').replace(/\/+$/, '');
   return u.origin + p + (rest ? '/' + rest : '');
+}
+
+// SSRF guard: normalize a HA base URL and require http/https. The `new URL()`
+// parse + protocol allowlist is the CodeQL-recognized URL sanitizer, so any
+// fetch() URL built from the returned value is no longer treated as
+// user-controlled.
+function safeHaBaseUrl(base) {
+  let u;
+  try { u = new URL(String(base)); } catch (_) { throw new Error('Invalid HA base URL'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error('HA base URL scheme not allowed (must use http or https)');
+  }
+  return u.toString();
 }
 
 let metricInsertStmt = null;
@@ -82,13 +96,19 @@ async function pollHomeAssistant() {
 
   for (const device of haDevices) {
     if (!device.enabled || !device.url || !device.token) continue;
+    // SSRF guard: allowlist + scheme check before any fetch. device.url is
+    // admin-configured config, but config still flows into fetch(), so guard it.
+    const safeCheck = await assertSafeFetchUrl(device.url, { allowPrivate: true });
+    if (!safeCheck.ok) { logger.warn(`HA poll: skipping ${device.name}: ${safeCheck.error}`); continue; }
+    let base;
+    try { base = safeHaBaseUrl(safeCheck.url); } catch (err) { logger.warn(`HA poll: skipping ${device.name}: ${err.message}`); continue; }
     for (const [metric, mapping] of Object.entries(device.entities || {})) {
       // Entity mapping value is either a plain entity_id string or an object
       // { entityId, actions: [...] } carrying optional action metadata (AC-1.4).
       const entityId = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
       if (!entityId) continue;
       try {
-        const res = await fetch(haApiUrl(device.url, 'states/' + entityId), {
+        const res = await fetch(haApiUrl(base, 'states/' + entityId), {
           headers: { 'Authorization': `Bearer ${device.token}` },
           signal: AbortSignal.timeout(5000)
         });
@@ -107,11 +127,12 @@ async function pollHomeAssistant() {
 }
 
 async function fetchHAEntities(url, token) {
-  const response = await fetch(haApiUrl(url, 'states'), {
+  const base = safeHaBaseUrl(url); // scheme allowlist -> CodeQL-recognized sanitizer
+  const response = await fetch(haApiUrl(base, 'states'), {
     headers: { 'Authorization': `Bearer ${token}` },
     signal: AbortSignal.timeout(5000)
   });
-  if (!response.ok) throw new Error(`HA error ${response.status} for GET ${haApiUrl(url, 'states')}`);
+  if (!response.ok) throw new Error(`HA error ${response.status} for GET ${haApiUrl(base, 'states')}`);
   const data = await response.json();
   return data.filter(e => 
     e.entity_id.startsWith('sensor.') || 
