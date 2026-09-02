@@ -1385,7 +1385,7 @@
   function buildHADevices() {
     if (!state.sources.ha.selected) return [];
     var s = state.sources.ha;
-    return [{ name: s.name || 'Home Assistant', url: s.url, token: s.token, enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, entities: carryForwardMap(state.existing, 'ha_devices', 'entities', s.name || 'Home Assistant') }];
+    return [{ name: s.name || 'Home Assistant', url: s.url, token: s.token, enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, entities: carryForwardMap(state.existing, 'ha_devices', 'entities', '') }];
   }
   function buildMQTTDevices() {
     if (!state.sources.mqtt.selected) return [];
@@ -1395,11 +1395,11 @@
   function buildDongleConfig() {
     if (!state.sources.dongle.selected) return [];
     var d = state.sources.dongle;
-    return [{ name: d.name || 'Inverter (TCP)', enabled: true, profile: d.profile, transport: d.transport, host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: carryForwardMap(state.existing, 'dongle_config', 'mappings', d.name || 'Inverter (TCP)') }];
+    return [{ name: d.name || 'Inverter (TCP)', enabled: true, profile: d.profile, transport: d.transport, host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: carryForwardMap(state.existing, 'dongle_config', 'mappings', '') }];
   }
   function buildRS232Device(opts) {
     var r = state.sources.rs232;
-    var dev = { name: r.name || 'Inverter (RS232)', serial_path: resolveSerialPath(r), baud: r.baud, modbus_unit_id: r.modbus_unit_id, parity: r.parity, data_bits: r.data_bits, stop_bits: r.stop_bits, profile: r.profile, timeout: r.timeout ? parseInt(r.timeout, 10) : 5, enabled: r.enabled, mappings: (r && r.mappings && typeof r.mappings === 'object' && Object.keys(r.mappings).length) ? r.mappings : carryForwardMap(state.existing, 'rs232_devices', 'mappings', r.name || 'Inverter (RS232)') };
+    var dev = { name: r.name || 'Inverter (RS232)', serial_path: resolveSerialPath(r), baud: r.baud, modbus_unit_id: r.modbus_unit_id, parity: r.parity, data_bits: r.data_bits, stop_bits: r.stop_bits, profile: r.profile, timeout: r.timeout ? parseInt(r.timeout, 10) : 5, enabled: r.enabled, mappings: (r && r.mappings && typeof r.mappings === 'object' && Object.keys(r.mappings).length) ? r.mappings : carryForwardMap(state.existing, 'rs232_devices', 'mappings', '') };
     return dev;
   }
   function buildRS232Devices() {
