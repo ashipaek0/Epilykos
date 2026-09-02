@@ -558,6 +558,7 @@
 
   // ── STEP 2: SOURCES ───────────────────────────────────────
   function renderStep2() {
+    var g = (window.EPILYKOS_LABELS && window.EPILYKOS_LABELS.groups) || {};
     var body = $('#step-2-body');
 
     function tile(t) {
@@ -581,7 +582,7 @@
     var html = '';
 
     // 1 · Inverter — Wired
-    html += section('Inverter — Wired', 'Connect over a direct cable to the inverter.',
+    html += section(g.inverterWired, 'Connect over a direct cable to the inverter.',
       grid([
         { key: 'modbusSerial', icon: '🔌', label: 'RS485 (Modbus-RTU)', sub: 'USB / RS485 adapter' },
         { key: 'rs232', icon: '📟', label: 'RS232 (direct serial)', sub: '9-pin serial' }
@@ -589,21 +590,21 @@
       sourceCardModbusSerial() + sourceCardRS232());
 
     // 2 · Inverter — Wireless (TCP/IP)
-    html += section('Inverter — Wireless (TCP/IP)', 'Connect over your local network.',
+    html += section(g.inverterWireless, 'Connect over your local network.',
       grid([
         { key: 'modbusTcp', icon: '🌐', label: 'Modbus-TCP', sub: 'Modbus over TCP/IP' }
       ]),
       sourceCardModbusTcp());
 
     // 3 · Inverter — Dongle
-    html += section('Inverter — Dongle', 'Built-in logger / WiFi dongle on the inverter.',
+    html += section(g.inverterDongle, 'Built-in logger / WiFi dongle on the inverter.',
       grid([
         { key: 'dongle', icon: '🔌', label: 'Inverter dongle', sub: 'Solarman / Felicity / Growatt' }
       ]),
       sourceCardDongle());
 
     // 4 · BMS — Bluetooth
-    html += section('BMS — Bluetooth', 'Battery BMS over Bluetooth, via the BLE bridge.',
+    html += section(g.bmsBluetooth, 'Battery BMS over Bluetooth, via the BLE bridge.',
       grid([
         { key: 'bms', icon: '🔋', label: 'BMS (BLE bridge)', sub: 'MAC address + bridge' }
       ]),
@@ -611,27 +612,27 @@
 
     // 5 · BMS — Wired (placeholder — added in a later phase)
     html += '<div class="setup-section">'
-      + '<div class="setup-section-head"><h3>BMS — Wired</h3><p>Read your BMS over a direct wired connection.</p></div>'
+      + '<div class="setup-section-head"><h3>' + g.bmsWired + '</h3><p>Read your BMS over a direct wired connection.</p></div>'
       + '<div class="source-coming"><span class="source-coming-note">🚧 Wired BMS is coming in a later phase — no configuration needed here yet.</span></div>'
       + '</div>';
 
     // 6 · Home Assistant
-    html += section('Home Assistant', 'A running Home Assistant instance.',
+    html += section(g.ha, 'A running Home Assistant instance.',
       grid([{ key: 'ha', icon: '🏠', label: 'Home Assistant', sub: 'Base URL + token' }]),
       sourceCardHA());
 
     // 7 · MQTT
-    html += section('MQTT', 'An MQTT broker to subscribe to.',
+    html += section(g.mqtt, 'An MQTT broker to subscribe to.',
       grid([{ key: 'mqtt', icon: '📡', label: 'MQTT', sub: 'Broker + optional topic list' }]),
       sourceCardMQTT());
 
     // 8 · REST API
-    html += section('REST API', 'Pull readings from any JSON endpoint.',
+    html += section(g.rest, 'Pull readings from any JSON endpoint.',
       grid([{ key: 'rest', icon: '🌐', label: 'REST API', sub: 'URL + JSON path' }]),
       sourceCardREST());
 
     // 9 · Tuya
-    html += section('Tuya', 'Tuya devices scanned over local-LAN.',
+    html += section(g.tuya, 'Tuya devices scanned over local-LAN.',
       grid([{ key: 'tuya', icon: '📶', label: 'Tuya', sub: 'Local-LAN on port 6668' }]),
       sourceCardTuya());
 

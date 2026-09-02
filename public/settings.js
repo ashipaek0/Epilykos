@@ -1,4 +1,13 @@
 // settings.js – fixed to use /api/metrics/list for immediate dropdown updates
+// Apply source subnav labels from the shared module (single source of truth) — corrects any HTML drift.
+(function () {
+  if (!window.EPILYKOS_LABELS || !window.EPILYKOS_LABELS.subnav) return;
+  var labels = window.EPILYKOS_LABELS.subnav;
+  document.querySelectorAll('.subnav-btn').forEach(function (btn) {
+    var id = btn.getAttribute('data-subtab');
+    if (id && labels[id]) btn.textContent = labels[id];
+  });
+})();
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
@@ -809,6 +818,7 @@ function buildModbusDeviceList(devices) {
 }
 
 function renderModbusDevice(device, idx) {
+  const modbusTransportLabels = (window.EPILYKOS_LABELS && window.EPILYKOS_LABELS.transportModbus) || { tcp: 'TCP (Modbus-TCP)', serial: 'Serial (RS485 / Modbus-RTU)' };
   const container = document.getElementById('modbus-devices-container');
   const card = document.createElement('div');
   card.className = 'device-card';
@@ -821,8 +831,8 @@ function renderModbusDevice(device, idx) {
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <select name="modbus_devices[${idx}][transport]" class="modbus-transport-select">
-        <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>TCP/IP</option>
-        <option value="serial" ${device.transport === 'serial' ? 'selected' : ''}>Serial (USB/RS485)</option>
+        <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>${modbusTransportLabels.tcp}</option>
+        <option value="serial" ${device.transport === 'serial' ? 'selected' : ''}>${modbusTransportLabels.serial}</option>
       </select>
       <select name="modbus_devices[${idx}][profile]" class="modbus-profile-select">
         <option value="">-- Select profile --</option>

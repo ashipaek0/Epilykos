@@ -139,11 +139,12 @@
         <div class="subnav" id="data-source-subnav">
           <button class="subnav-btn active" data-subtab="ha">Home Assistant</button>
           <button class="subnav-btn" data-subtab="mqtt">MQTT</button>
-          <button class="subnav-btn" data-subtab="modbus">Modbus</button>
-          <button class="subnav-btn" data-subtab="rs232">RS232</button>
+          <button class="subnav-btn" data-subtab="modbus">Modbus (RS485 / TCP)</button>
+          <button class="subnav-btn" data-subtab="rs232">RS232 (direct serial)</button>
           <button class="subnav-btn" data-subtab="external">REST API</button>
-          <button class="subnav-btn" data-subtab="bms">BMS</button>
-          <button class="subnav-btn" data-subtab="dongle">Dongle</button>
+          <button class="subnav-btn" data-subtab="bms">BMS — Bluetooth</button>
+          <button class="subnav-btn" disabled aria-disabled="true">BMS — Wired (coming soon)</button>
+          <button class="subnav-btn" data-subtab="dongle">Inverter — Dongle</button>
           <button class="subnav-btn" data-subtab="tuya">Tuya</button>
           <button class="subnav-btn" data-subtab="pvoutput">PVOutput</button>
         </div>
@@ -1000,7 +1001,9 @@
 
   subnavBtns.forEach(function(btn) {
     btn.addEventListener('click', function() {
-      activateSubtab(this.getAttribute('data-subtab'));
+      var id = this.getAttribute('data-subtab');
+      if (!id) return;
+      activateSubtab(id);
     });
   });
 
@@ -1256,6 +1259,7 @@
 })();
 </script>
 <script src="/js/csrf.js"></script>
+<script src="js/source-labels.js"></script>
 <script src="settings.js?v=6"></script>
 </body>
 </html>
