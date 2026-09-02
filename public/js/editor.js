@@ -479,7 +479,7 @@ function buildChartForm(block, showFill) {
   return html;
 }
 
-function renderChartRows(container) {
+function renderChartRows(container, showUnit) {
   var dataEl = container.querySelector('#chart-data');
   var datasets = [];
   try { datasets = JSON.parse(dataEl.textContent); } catch(e) {}
@@ -491,6 +491,10 @@ function renderChartRows(container) {
     html += '<div class="chart-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
     html += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
     html += metricSelect(d.metric || '', 'chart-metric-' + i);
+    if (showUnit) {
+      html += '<input type="text" class="chart-unit" value="' + escHtml(d.unit || '') + '" placeholder="Unit" title="Measurement unit (e.g. %, kWh, kW, V, hours)" style="width:4rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
+      html += '<input type="number" step="any" class="chart-scale" value="' + String(d.scale != null ? d.scale : 1) + '" placeholder="Scale" title="Multiply values by this factor (e.g. 0.001 for W->kW)" style="width:4.5rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
+    }
     html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
     html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
@@ -503,7 +507,7 @@ function renderChartRows(container) {
       try { current = JSON.parse(dataEl.textContent); } catch(e) {}
       current.push({ label: '', metric: '', color: '#888888' });
       dataEl.textContent = JSON.stringify(current);
-      renderChartRows(container);
+      renderChartRows(container, showUnit);
     };
   }
   container.querySelectorAll('.chart-remove').forEach(function(btn) {
@@ -513,7 +517,7 @@ function renderChartRows(container) {
       try { current = JSON.parse(dataEl.textContent); } catch(e) {}
       current.splice(idx, 1);
       dataEl.textContent = JSON.stringify(current);
-      renderChartRows(container);
+      renderChartRows(container, showUnit);
     };
   });
 }
@@ -710,6 +714,9 @@ function buildSettingsForm(block) {
       html += buildGridCardForm(block);
       break;
     case 'chart-power':
+      html += buildChartForm(block, true);
+      break;
+    case 'chart-metric':
       html += buildChartForm(block, true);
       break;
     case 'chart-energy':
@@ -928,7 +935,8 @@ function readSettingsForm(block) {
       break;
     }
     case 'chart-power':
-    case 'chart-energy': {
+    case 'chart-energy':
+    case 'chart-metric': {
       config.hideGrid = document.getElementById('modal-chart-hidegrid')?.checked || false;
       config.fill = document.getElementById('modal-chart-fill')?.checked !== false;
       var chData = document.getElementById('chart-data');
@@ -943,6 +951,8 @@ function readSettingsForm(block) {
         if (cmel) chRows[c].metric = cmel.value;
         var ccel = allChartColors[c];
         if (ccel) chRows[c].color = ccel.value;
+        var uels = document.querySelectorAll('.chart-unit'); if (uels[c]) chRows[c].unit = uels[c].value;
+        var sels = document.querySelectorAll('.chart-scale'); if (sels[c]) chRows[c].scale = parseFloat(sels[c].value);
       }
       config.datasets = chRows;
       config.title = document.getElementById('modal-chart-title')?.value || '';
@@ -1137,6 +1147,9 @@ async function openSettingsModal(block) {
     case 'chart-energy':
       renderChartRows(body);
       break;
+    case 'chart-metric':
+      renderChartRows(body, true);
+      break;
     case 'state-select':
       renderStateSelectRows(body);
       break;
@@ -1312,7 +1325,7 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');

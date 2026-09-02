@@ -1,4 +1,13 @@
 // settings.js – fixed to use /api/metrics/list for immediate dropdown updates
+// Apply source subnav labels from the shared module (single source of truth) — corrects any HTML drift.
+(function () {
+  if (!window.EPILYKOS_LABELS || !window.EPILYKOS_LABELS.subnav) return;
+  var labels = window.EPILYKOS_LABELS.subnav;
+  document.querySelectorAll('.subnav-btn').forEach(function (btn) {
+    var id = btn.getAttribute('data-subtab');
+    if (id && labels[id]) btn.textContent = labels[id];
+  });
+})();
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
@@ -52,6 +61,7 @@ async function loadSettings() {
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
     buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
+    buildBmsWiredDeviceList(JSON.parse(data.bms_devices || '[]'));
     buildBmsBankList(JSON.parse(data.bms_banks || '[]'));
     buildRs232DeviceList(JSON.parse(data.rs232_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
@@ -809,6 +819,7 @@ function buildModbusDeviceList(devices) {
 }
 
 function renderModbusDevice(device, idx) {
+  const modbusTransportLabels = (window.EPILYKOS_LABELS && window.EPILYKOS_LABELS.transportModbus) || { tcp: 'TCP (Modbus-TCP)', serial: 'Serial (RS485 / Modbus-RTU)' };
   const container = document.getElementById('modbus-devices-container');
   const card = document.createElement('div');
   card.className = 'device-card';
@@ -821,8 +832,8 @@ function renderModbusDevice(device, idx) {
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
       <select name="modbus_devices[${idx}][transport]" class="modbus-transport-select">
-        <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>TCP/IP</option>
-        <option value="serial" ${device.transport === 'serial' ? 'selected' : ''}>Serial (USB/RS485)</option>
+        <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>${modbusTransportLabels.tcp}</option>
+        <option value="serial" ${device.transport === 'serial' ? 'selected' : ''}>${modbusTransportLabels.serial}</option>
       </select>
       <select name="modbus_devices[${idx}][profile]" class="modbus-profile-select">
         <option value="">-- Select profile --</option>
@@ -1246,6 +1257,7 @@ function renderRs232Device(device, idx) {
   const profileSelect = card.querySelector('.rs232-profile-select');
   fetch('/api/rs232/profiles').then(r => r.json()).then(profiles => {
     profiles.forEach(p => {
+      if (!/bms/i.test(String(p.id) + ' ' + String(p.name))) return;
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = `${p.name} (${p.protocol})`;
@@ -1758,6 +1770,254 @@ function reindexBms() {
   });
 }
 
+// ======================== WIRED BMS (RS485/RS232) ========================
+let bmsWiredDeviceCounter = 0;
+let availableBmsWiredPorts = [];
+
+function buildBmsWiredDeviceList(devices) {
+  const container = document.getElementById('bms-wired-devices-container');
+  if (!container) return;
+  container.innerHTML = '';
+  bmsWiredDeviceCounter = 0;
+  fetch('/api/rs232/ports').then(r => r.json()).then(ports => {
+    availableBmsWiredPorts = Array.isArray(ports) ? ports : [];
+    devices.forEach((dev, idx) => renderBmsWiredDevice(dev, idx));
+  }).catch(() => {
+    availableBmsWiredPorts = [];
+    devices.forEach((dev, idx) => renderBmsWiredDevice(dev, idx));
+  });
+}
+
+function renderBmsWiredDevice(device, idx) {
+  const container = document.getElementById('bms-wired-devices-container');
+  if (!container) return;
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.dataset.index = idx;
+
+  const isCustomPort = !!device.serial_path && !availableBmsWiredPorts.some(p => p.path === device.serial_path);
+  const inputPath = isCustomPort ? device.serial_path : (device.serial_path || '');
+  const pathIsCustom = (device.serial_path || '') === 'custom' || isCustomPort;
+
+  card.innerHTML = `
+    <div class="device-header">
+      <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
+      <button type="button" class="remove-btn danger" data-action="remove-bms-wired">✕</button>
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="form-row">
+      <select name="bms_devices[${idx}][serial_path]" class="bms-wired-port-select" style="flex:1;">
+        <option value="">-- Select or type port --</option>
+        ${availableBmsWiredPorts.map(p =>
+          `<option value="${escapeHtml(p.path)}" ${p.path === device.serial_path ? 'selected' : ''}>${escapeHtml(p.friendlyName || p.path)}</option>`
+        ).join('')}
+        <option value="custom" ${pathIsCustom ? 'selected' : ''}>Custom path...</option>
+      </select>
+      <input type="number" name="bms_devices[${idx}][baud]" placeholder="Baud" value="${device.baud || 9600}" style="width:130px;" title="Baud rate">
+    </div>
+    <div class="form-row bms-wired-custom-path" style="gap:0.5rem;display:${pathIsCustom ? '' : 'none'};">
+      <input type="text" name="bms_devices[${idx}][custom_path]" placeholder="/dev/ttyUSB0" value="${escapeHtml(inputPath || '/dev/ttyUSB0')}" style="flex:1;">
+    </div>
+    <div class="form-row">
+      <select name="bms_devices[${idx}][data_bits]">
+        <option value="8" ${(parseInt(device.data_bits) || 8) === 8 ? 'selected' : ''}>8 bits</option>
+        <option value="7" ${parseInt(device.data_bits) === 7 ? 'selected' : ''}>7 bits</option>
+        <option value="6" ${parseInt(device.data_bits) === 6 ? 'selected' : ''}>6 bits</option>
+        <option value="5" ${parseInt(device.data_bits) === 5 ? 'selected' : ''}>5 bits</option>
+      </select>
+      <select name="bms_devices[${idx}][parity]">
+        <option value="none" ${(device.parity || 'none') === 'none' ? 'selected' : ''}>None</option>
+        <option value="even" ${device.parity === 'even' ? 'selected' : ''}>Even</option>
+        <option value="odd" ${device.parity === 'odd' ? 'selected' : ''}>Odd</option>
+      </select>
+      <select name="bms_devices[${idx}][stop_bits]">
+        <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
+        <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
+      </select>
+      <input type="number" name="bms_devices[${idx}][modbus_unit_id]" placeholder="Unit ID" value="${device.modbus_unit_id || 1}" style="width:110px;" title="Modbus Unit ID">
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
+    <div class="form-row">
+      <select name="bms_devices[${idx}][profile]" class="bms-wired-profile-select" style="flex:1;">
+        <option value="">-- Select profile --</option>
+      </select>
+      <input type="number" name="bms_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;" title="Timeout in milliseconds">
+      <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
+      <span class="test-status"></span>
+    </div>
+    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
+    <div class="mappings-section">
+      <div class="mappings-list"></div>
+      <button type="button" class="fetch-btn load-bms-wired-metrics" style="margin-top:0.25rem;">
+        📥 Load BMS Metrics
+      </button>
+    </div>
+  `;
+  container.appendChild(card);
+
+  const portSelect = card.querySelector('.bms-wired-port-select');
+  const customPathDiv = card.querySelector('.bms-wired-custom-path');
+  if (portSelect) portSelect.addEventListener('change', e => {
+    customPathDiv.style.display = e.target.value === 'custom' ? '' : 'none';
+  });
+
+  const profileSelect = card.querySelector('.bms-wired-profile-select');
+  fetch('/api/rs232/profiles').then(r => r.json()).then(profiles => {
+    (profiles || []).forEach(p => {
+      const idStr = String(p.id);
+      const nameStr = String(p.name || '');
+      if (!/bms/i.test(`${idStr} ${nameStr}`)) return;
+      const opt = document.createElement('option');
+      opt.value = idStr;
+      opt.textContent = p.name;
+      if (String(device.profile) === idStr) opt.selected = true;
+      profileSelect.appendChild(opt);
+    });
+  }).catch(() => {});
+
+  const removeBtn = card.querySelector('[data-action="remove-bms-wired"]');
+  if (removeBtn) removeBtn.addEventListener('click', () => {
+    if (showConfirm('Remove this wired BMS device and all its metric mappings?')) {
+      card.remove();
+      reindexBmsWired();
+    }
+  });
+
+  card.querySelector('.test-bms-wired').addEventListener('click', async () => {
+    const statusEl = card.querySelector('.test-status');
+    const cfg = collectBmsWiredConfig(card);
+    showStatus(statusEl, 'Testing connection...', 'info');
+    try {
+      const res = await fetch('/api/bms-wired/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'include',
+        body: JSON.stringify(cfg),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        let n = 0;
+        if (data && data.metrics && typeof data.metrics === 'object') n = Object.keys(data.metrics).length;
+        else if (data && data.metricCount != null) n = data.metricCount;
+        else if (data && typeof data === 'object') n = Object.keys(data).length;
+        showStatus(statusEl, `OK - ${n} metrics`, 'success');
+      } else {
+        showStatus(statusEl, data.error || 'Error', 'error');
+      }
+    } catch (err) {
+      showStatus(statusEl, `Failed: ${err.message}`, 'error');
+    }
+  });
+
+  card.querySelector('.load-bms-wired-metrics').addEventListener('click', async () => {
+    const profileValue = profileSelect ? profileSelect.value : '';
+    const statusEl = card.querySelector('.test-status');
+    if (!profileValue) {
+      showStatus(statusEl, 'Select a profile first', 'error');
+      return;
+    }
+    const mappingsList = card.querySelector('.mappings-list');
+    if (mappingsList.children.length > 0 && !showConfirm('Loading metrics will replace existing mappings. Continue?')) return;
+    try {
+      const res = await fetch(`/api/bms-wired/fields/${encodeURIComponent(profileValue)}`, { credentials: 'include' });
+      if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
+      const fields = await res.json();
+      if (!Array.isArray(fields) || fields.length === 0) { mappingsList.innerHTML = '<div class="note">No fields found for this profile.</div>'; return; }
+      const existing = device.mappings || {};
+      const mappings = {};
+      fields.forEach(f => { if (f.field != null) mappings[String(f.field)] = existing[String(f.field)] || ''; });
+      renderBmsWiredMappings(idx, mappingsList, mappings, fields);
+    } catch (err) {
+      mappingsList.textContent = 'Error: ' + err.message;
+      mappingsList.className = 'note';
+      mappingsList.style.color = 'var(--error)';
+    }
+  });
+
+  if (device.mappings && Object.keys(device.mappings).length > 0) {
+    renderBmsWiredMappings(idx, card.querySelector('.mappings-list'), device.mappings, []);
+  }
+
+  bmsWiredDeviceCounter++;
+}
+
+function reindexBmsWired() {
+  const cards = document.querySelectorAll('#bms-wired-devices-container .device-card');
+  bmsWiredDeviceCounter = 0;
+  cards.forEach((card, i) => {
+    card.dataset.index = i;
+    bmsWiredDeviceCounter++;
+  });
+}
+
+function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
+  const infoMap = {};
+  (fieldsInfo || []).forEach(f => { if (f && f.field != null) infoMap[String(f.field)] = f; });
+  container.innerHTML = '';
+  const entries = Object.entries(mappings || {});
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="note">No mappings configured. Click "Load BMS Metrics" to get started.</div>';
+    return;
+  }
+  entries.sort(([a], [b]) => String(a).localeCompare(String(b))).forEach(([bmsKey, metricName]) => {
+    const info = infoMap[String(bmsKey)] || {};
+    const row = document.createElement('div');
+    row.className = 'metric-row';
+    row.dataset.bmsKey = String(bmsKey);
+
+    const keyLabel = document.createElement('span');
+    keyLabel.className = 'register-desc';
+    const label = info.label ? info.label : String(bmsKey);
+    keyLabel.textContent = info.unit ? `${label} (${info.unit})` : label;
+    keyLabel.style.cssText = 'flex:0 0 220px; font-size:0.85em; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+
+    const metricSelect = createMetricDropdown(metricName || '', Array.from(getAllUsedMetrics()));
+    metricSelect.className = 'metric-name';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-btn remove-metric';
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', () => {
+      row.remove();
+      if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+    });
+
+    metricSelect.addEventListener('change', () => {
+      if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+    });
+
+    row.appendChild(keyLabel);
+    row.appendChild(metricSelect);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+  });
+}
+
+function collectBmsWiredConfig(card) {
+  const dev = {};
+  dev.name = card.querySelector('.device-header input[type="text"]').value;
+  dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+  const portSelect = card.querySelector('.bms-wired-port-select');
+  const customPath = card.querySelector('input[name$="[custom_path]"]')?.value;
+  dev.serial_path = portSelect && portSelect.value === 'custom' ? (customPath || '/dev/ttyUSB0') : (portSelect ? portSelect.value : '');
+  dev.baud = parseInt(card.querySelector('input[name$="[baud]"]').value) || 9600;
+  dev.data_bits = parseInt(card.querySelector('select[name$="[data_bits]"]').value) || 8;
+  dev.parity = card.querySelector('select[name$="[parity]"]').value || 'none';
+  dev.stop_bits = parseInt(card.querySelector('select[name$="[stop_bits]"]').value) || 1;
+  dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]')?.value) || 1;
+  dev.profile = card.querySelector('.bms-wired-profile-select').value;
+  dev.timeout = parseInt(card.querySelector('input[name$="[timeout]"]').value) || 5000;
+  dev.mappings = {};
+  card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+    const bmsKey = row.dataset.bmsKey;
+    const metricName = row.querySelector('.metric-name').value;
+    if (bmsKey && metricName) dev.mappings[bmsKey] = metricName;
+  });
+  return dev;
+}
+
 // Render metric mapping rows for a BMS device
 function renderBmsMappings(deviceIdx, container, mappings, values) {
   values = values || {};
@@ -1836,6 +2096,16 @@ const addBmsBtn = document.getElementById('add-bms-device');
 if (addBmsBtn) addBmsBtn.addEventListener('click', () => {
   const idx = bmsDeviceCounter;
   renderBmsDevice({ name: '', address: '', enabled: true }, idx);
+});
+
+const addBmsWiredBtn = document.getElementById('add-bms-wired-device');
+if (addBmsWiredBtn) addBmsWiredBtn.addEventListener('click', () => {
+  const idx = bmsWiredDeviceCounter;
+  renderBmsWiredDevice({
+    name: '', enabled: true, transport: 'wired',
+    serial_path: '', baud: 9600, data_bits: 8, parity: 'none',
+    stop_bits: 1, modbus_unit_id: 1, profile: '', timeout: 5000,
+  }, idx);
 });
 
 // ======================== BMS BANK AGGREGATION ========================
@@ -2634,6 +2904,7 @@ const ROLE_LABELS = {
   grid_import: 'Grid Import Power',
   grid_export: 'Grid Export Power',
   battery_soc: 'Battery SOC',
+  solar_voltage: 'Solar Voltage',
   daily_solar: 'Daily Solar Energy (gen)',
   daily_consumption: 'Daily Consumption Energy',
   daily_battery_charge: 'Daily Battery Charge Energy',
@@ -3475,20 +3746,28 @@ if (form) form.addEventListener('submit', async (e) => {
     });
     return src;
   });
-  payload.bms_devices = collectDeviceArray('bms-devices-container', (card) => {
-    const dev = {};
-    dev.name = card.querySelector('.device-header input[type="text"]').value;
-    dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
-    dev.address = card.querySelector('input[name$="[address]"]').value;
-    // Collect metric mappings: { bmsKey → metricName }
-    dev.mappings = {};
-    card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
-      const bmsKey = row.dataset.bmsKey;
-      const metricName = row.querySelector('.metric-name').value;
-      if (bmsKey && metricName) dev.mappings[bmsKey] = metricName;
-    });
-    return dev;
-  });
+  payload.bms_devices = JSON.stringify([
+    ...JSON.parse(collectDeviceArray('bms-devices-container', (card) => {
+      const dev = {};
+      dev.name = card.querySelector('.device-header input[type="text"]').value;
+      dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
+      dev.address = card.querySelector('input[name$="[address]"]').value;
+      dev.transport = 'bluetooth';
+      // Collect metric mappings: { bmsKey → metricName }
+      dev.mappings = {};
+      card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
+        const bmsKey = row.dataset.bmsKey;
+        const metricName = row.querySelector('.metric-name').value;
+        if (bmsKey && metricName) dev.mappings[bmsKey] = metricName;
+      });
+      return dev;
+    })),
+    ...JSON.parse(collectDeviceArray('bms-wired-devices-container', (card) => {
+      const dev = collectBmsWiredConfig(card);
+      dev.transport = 'wired';
+      return dev;
+    })),
+  ]);
   payload.bms_banks = collectDeviceArray('bms-banks-container', (card) => {
     const bank = {};
     bank.name = card.querySelector('.bank-name').value;

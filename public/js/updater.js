@@ -13,7 +13,7 @@ import { updateFlowCardSquare2 } from './components/flowCardSquare2.js';
 import { updatePvToday } from './components/pvToday.js';
 import { updateMetricCardsFromState } from './components/metricCards.js';
 import { updateGridCardFromState } from './components/gridCard.js';
-import { updatePowerChartFromState, updateEnergyChartFromState } from './charts.js';
+import { updatePowerChartFromState, updateEnergyChartFromState, updateMetricChartFromState } from './charts.js';
 import { updateSavingsFromState } from './components/savingsSummary.js';
 import { updateForecast } from './forecast.js';
 import { updateWeatherBlock } from './components/weatherBlock.js';
@@ -43,6 +43,7 @@ export function updateWithState(state) {
   if (blockTypes.has('grid-card')) updateGridCardFromState(state);
   if (blockTypes.has('chart-power')) updatePowerChartFromState(state);
   if (blockTypes.has('chart-energy')) updateEnergyChartFromState(state);
+  if (blockTypes.has('chart-metric')) updateMetricChartFromState(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
   const forecastTypes = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
   const hasForecast = forecastTypes.some(t => blockTypes.has(t));

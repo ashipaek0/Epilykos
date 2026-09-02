@@ -134,15 +134,16 @@
         <div class="section-header">
           <h1>Data Sources</h1>
           <p>Configure where Epilykos reads metrics from</p>
+          <a href="/setup" class="setup-wizard-entry">⚙️ Setup wizard</a>
         </div>
         <div class="subnav" id="data-source-subnav">
           <button class="subnav-btn active" data-subtab="ha">Home Assistant</button>
           <button class="subnav-btn" data-subtab="mqtt">MQTT</button>
-          <button class="subnav-btn" data-subtab="modbus">Modbus</button>
-          <button class="subnav-btn" data-subtab="rs232">RS232</button>
+          <button class="subnav-btn" data-subtab="modbus">Modbus (RS485 / TCP)</button>
+          <button class="subnav-btn" data-subtab="rs232">RS232 (direct serial)</button>
           <button class="subnav-btn" data-subtab="external">REST API</button>
           <button class="subnav-btn" data-subtab="bms">BMS</button>
-          <button class="subnav-btn" data-subtab="dongle">Dongle</button>
+          <button class="subnav-btn" data-subtab="dongle">Inverter — Dongle</button>
           <button class="subnav-btn" data-subtab="tuya">Tuya</button>
           <button class="subnav-btn" data-subtab="pvoutput">PVOutput</button>
         </div>
@@ -179,6 +180,10 @@
           <div id="bms-devices-container"></div>
           <button type="button" id="add-bms-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add BMS Device</button>
           <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Requires the BMS bridge container to be running.</p>
+          <div class="section-divider">🔌 BMS — Wired</div>
+          <div id="bms-wired-devices-container"></div>
+          <button type="button" id="add-bms-wired-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Wired BMS</button>
+          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Wired BMS devices connect over RS485/RS232 (Modbus-RTU). Select the serial port, profile, and Modbus unit ID.</p>
 
           <div class="section-divider">🔋 BMS Bank Aggregation</div>
           <div id="bms-banks-container"></div>
@@ -999,7 +1004,9 @@
 
   subnavBtns.forEach(function(btn) {
     btn.addEventListener('click', function() {
-      activateSubtab(this.getAttribute('data-subtab'));
+      var id = this.getAttribute('data-subtab');
+      if (!id) return;
+      activateSubtab(id);
     });
   });
 
@@ -1255,6 +1262,7 @@
 })();
 </script>
 <script src="/js/csrf.js"></script>
+<script src="js/source-labels.js"></script>
 <script src="settings.js?v=6"></script>
 </body>
 </html>

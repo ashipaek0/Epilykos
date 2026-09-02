@@ -4,6 +4,7 @@ import { buildMetricCards } from './metricCards.js';
 import { buildGridCard } from './gridCard.js';
 import { buildChartPower } from './chartPower.js';
 import { buildChartEnergy } from './chartEnergy.js';
+import { buildChartMetric } from './chartMetric.js';
 import { buildSavingsSummary } from './savingsSummary.js';
 import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
@@ -34,6 +35,7 @@ export const componentBuilders = {
   'grid-card': buildGridCard,
   'chart-power': buildChartPower,
   'chart-energy': buildChartEnergy,
+  'chart-metric': buildChartMetric,
   'savings-summary': buildSavingsSummary,
   'data-table-daily': buildDataTableDaily,
   'data-table-monthly': buildDataTableMonthly,

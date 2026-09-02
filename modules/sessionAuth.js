@@ -24,6 +24,24 @@ if (!settingsPassword) {
   console.warn('🔒  A random password has been generated and saved to data/settings-password');
 }
 
+const passwordEnvManaged = !!process.env.SETTINGS_PASSWORD;
+
+function getSettingsPassword() {
+  return settingsPassword;
+}
+
+function setSettingsPassword(pw) {
+  if (passwordEnvManaged) {
+    const err = new Error('Password is managed by environment');
+    err.status = 403;
+    throw err;
+  }
+  fs.mkdirSync(path.dirname(PASSWORD_FILE), { recursive: true });
+  fs.writeFileSync(PASSWORD_FILE, String(pw), { mode: 0o600 });
+  settingsPassword = String(pw);
+  return true;
+}
+
 // Middleware to check if user is authenticated
 function isAuthenticated(req, res, next) {
   if (req.session && req.session.authenticated) {
@@ -46,7 +64,7 @@ const loginLimiter = rateLimit({
 // CSRF protection (skip for login endpoint)
 const csrfProtection = (req, res, next) => {
   // Skip CSRF for login endpoint and PVOutput webhook (called by external servers)
-  if (req.originalUrl === '/api/login' || req.originalUrl.startsWith('/api/pvoutput/webhook')) {
+  if (req.originalUrl === '/api/login' || req.originalUrl.startsWith('/api/pvoutput/webhook') || req.originalUrl === '/api/wizard/password') {
     return next();
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
@@ -57,4 +75,4 @@ const csrfProtection = (req, res, next) => {
   next();
 };
 
-module.exports = { isAuthenticated, loginLimiter, csrfProtection, settingsPassword };
+module.exports = { isAuthenticated, loginLimiter, csrfProtection, settingsPassword, passwordEnvManaged, getSettingsPassword, setSettingsPassword };

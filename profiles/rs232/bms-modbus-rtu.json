@@ -1,0 +1,27 @@
+{
+  "name": "BMS Modbus-RTU (Wired) — PLACEHOLDER / [HUMAN] VERIFY REGISTER MAP",
+  "description": "GENERIC BMS Modbus-RTU profile for wired (RS-485/USB) BMS devices. The register addresses, scales and data types below are a COMMONLY DOCUMENTED starting point and are PLACEHOLDERS — a [HUMAN] MUST verify every address, type and scale against the REAL BMS datasheet/manual before relying on these values. Use this profile as a skeleton: keep the field/label/unit structure, correct the registers.",
+  "protocol": "modbus-rtu",
+  "transport": "rs232",
+  "default_unit_id": 1,
+  "byte_order": "le",
+  "defaults": {
+    "baud": 9600,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "metrics": [
+    { "name": "battery_voltage", "register": "0x0000", "count": 1, "type": "uint16", "scale": 0.1, "unit": "V", "field": "battery_voltage", "label": "Battery Voltage" },
+    { "name": "battery_current", "register": "0x0001", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "battery_current", "label": "Battery Current (signed, +charge/-discharge)" },
+    { "name": "battery_power", "register": "0x0002", "count": 2, "type": "int32", "scale": 1, "unit": "W", "field": "battery_power", "label": "Battery Power" },
+    { "name": "battery_temperature", "register": "0x0004", "count": 1, "type": "int16", "scale": 0.1, "unit": "DegC", "field": "battery_temperature", "label": "Battery Temperature" },
+    { "name": "battery_soc", "register": "0x0005", "count": 1, "type": "uint16", "scale": 1, "unit": "%", "field": "battery_soc", "label": "Battery State of Charge" },
+    { "name": "battery_remaining_capacity", "register": "0x0006", "count": 1, "type": "uint16", "scale": 1, "unit": "Ah", "field": "battery_remaining_capacity", "label": "Battery Remaining Capacity" },
+    { "name": "battery_charge_current", "register": "0x0007", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "battery_charge_current", "label": "Battery Charge Current" },
+    { "name": "battery_discharge_current", "register": "0x0008", "count": 1, "type": "int16", "scale": 0.1, "unit": "A", "field": "battery_discharge_current", "label": "Battery Discharge Current" },
+    { "name": "cell_max_voltage", "register": "0x0009", "count": 1, "type": "uint16", "scale": 0.001, "unit": "V", "field": "cell_max_voltage", "label": "Highest Cell Voltage" },
+    { "name": "cell_min_voltage", "register": "0x000A", "count": 1, "type": "uint16", "scale": 0.001, "unit": "V", "field": "cell_min_voltage", "label": "Lowest Cell Voltage" },
+    { "name": "cell_count", "register": "0x000B", "count": 1, "type": "uint16", "scale": 1, "unit": "cells", "field": "cell_count", "label": "Cell Count" }
+  ]
+}

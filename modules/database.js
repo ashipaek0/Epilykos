@@ -182,7 +182,9 @@ function initializeDatabase() {
     // Dashboard blob split: new granular keys
     'dashboard_layouts', 'dashboard_active',
     // Network
-    'network_local_url', 'network_remote_url'
+    'network_local_url', 'network_remote_url',
+    // Setup wizard
+    'setup_wizard_completed'
   ];
 
   const insertConfig = db.prepare('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)');

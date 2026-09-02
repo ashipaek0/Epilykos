@@ -1665,3 +1665,29 @@ details.help-sub.help-hidden { display: none; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* First-run setup banner + setup wizard entry */
+.setup-banner {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  margin: 0.75rem 0; padding: 0.75rem 1rem;
+  background: var(--accent-light, #ffede0); color: inherit;
+  border: 1px solid var(--border, #d4d2cc); border-radius: var(--radius, 12px);
+  font-size: 0.95rem;
+}
+.setup-banner-btn {
+  margin-left: auto; padding: 0.4rem 0.9rem;
+  background: var(--accent, #d65a00); color: #fff;
+  border-radius: 8px; text-decoration: none; font-weight: 600;
+}
+.setup-banner-btn:hover { background: var(--accent-hover, #b84a00); }
+.setup-banner-dismiss {
+  background: transparent; border: 0; cursor: pointer;
+  font-size: 1rem; line-height: 1; color: inherit; opacity: 0.7;
+}
+.setup-banner-dismiss:hover { opacity: 1; }
+.setup-wizard-entry {
+  display: inline-block; margin-top: 0.5rem; padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border, #d4d2cc); border-radius: 8px;
+  text-decoration: none; font-weight: 600; color: inherit;
+}
+.setup-wizard-entry:hover { background: var(--accent-light, #ffede0); }

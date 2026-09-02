@@ -26,7 +26,7 @@ const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
-const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword } = require('./modules/sessionAuth');
+const { isAuthenticated, loginLimiter, csrfProtection, settingsPassword, passwordEnvManaged, getSettingsPassword, setSettingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
@@ -42,6 +42,7 @@ const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotSch
 const { parseGridState, assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
+const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
 
@@ -98,6 +99,7 @@ loadRs232Profiles();  // RS232 serial inverter profiles
 setupMqtt();
 startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
+startBmsWiredPolling();   // Start BMS wired (Modbus-RTU serial) polling
 startDonglePolling();
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
@@ -602,7 +604,7 @@ app.get('/api/dashboard-config', async (req, res) => {
 // ---------- Authentication endpoints ----------
 app.post('/api/login', loginLimiter, (req, res) => {
   const { password } = req.body;
-  if (password && password === settingsPassword) {
+  if (password && password === getSettingsPassword()) {
     req.session.authenticated = true;
     logger.info('User logged in successfully');
     return res.json({ success: true });
@@ -620,6 +622,78 @@ app.get('/api/logout', (req, res) => {
 // Auth status endpoint (public, but indicates session state)
 app.get('/api/auth/status', (req, res) => {
   res.json({ authenticated: !!(req.session && req.session.authenticated) });
+});
+
+// ---------- Setup wizard ----------
+// Public page (pre-auth; setup.js gates sources behind login)
+app.get('/setup', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'setup.html'));
+});
+
+// Public status (no session needed)
+app.get('/api/wizard/status', (req, res) => {
+  try {
+    const completed = getConfig('setup_wizard_completed') === 'true';
+    const keys = ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices'];
+    let hasDataSource = false;
+    for (const k of keys) {
+      const v = JSON.parse(getConfig(k) || '[]');
+      if (Array.isArray(v) && v.length > 0) { hasDataSource = true; break; }
+    }
+    res.json({ needsSetup: !completed, completed, hasDataSource, passwordEnvManaged });
+  } catch (err) {
+    logger.error('Error in /api/wizard/status:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reveal the current password ONLY when not env-managed and not yet completed
+app.get('/api/wizard/password', (req, res) => {
+  if (!passwordEnvManaged && getConfig('setup_wizard_completed') !== 'true') {
+    return res.json({ password: getSettingsPassword() });
+  }
+  res.status(403).json({ error: 'Password is managed by environment or setup already complete' });
+});
+
+// Set the admin password (pre-auth, CSRF-exempt). Auto-login on first-run set (D2).
+app.post('/api/wizard/password', (req, res) => {
+  const { password } = req.body;
+  if (passwordEnvManaged) {
+    // Env-managed first-run: the password is fixed by SETTINGS_PASSWORD, so the
+    // operator is auto-authenticated (D2 auto-login extension). Only while setup
+    // is incomplete; once completed the normal auth flow applies.
+    if (getConfig('setup_wizard_completed') === 'true') {
+      return res.status(403).json({ error: 'Password is managed by environment' });
+    }
+    if (req.session) req.session.authenticated = true;
+    return res.json({ success: true });
+  }
+  if (typeof password !== 'string' || password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+  try {
+    setSettingsPassword(password);
+    if (req.session) req.session.authenticated = true;
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(403).json({ error: err.message });
+  }
+});
+
+// Mark setup complete (isAuthenticated)
+app.post('/api/wizard/complete', isAuthenticated, (req, res) => {
+  setConfig('setup_wizard_completed', 'true');
+  res.json({ success: true });
+});
+
+// "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
+app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
+  for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices']) {
+    setConfig(k, '[]');
+  }
+  setConfig('role_metrics', '{}');
+  setConfig('setup_wizard_completed', '');
+  res.json({ success: true });
 });
 
 // ---------- Protected API (session + CSRF) – no rate limit ----------
@@ -1066,7 +1140,10 @@ app.post('/api/settings', (req, res) => {
     }
     if ('mqtt_devices' in filteredUpdates) restartMqtt();
     if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
-    if ('bms_devices' in filteredUpdates) restartBmsPolling();
+    if ('bms_devices' in filteredUpdates) {
+      restartBmsPolling();
+      restartBmsWiredPolling();
+    }
     if ('bms_banks' in filteredUpdates) {
       // Orphan cleanup: diff old vs new, delete unreferenced bank_* metrics
       const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
@@ -1084,6 +1161,7 @@ app.post('/api/settings', (req, res) => {
         try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
       }
       restartBmsPolling();
+      restartBmsWiredPolling();
     }
     if ('dongle_config' in filteredUpdates) restartDonglePolling();
     if ('pvoutput_config' in filteredUpdates) pvoutput.restart();
@@ -1150,13 +1228,16 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
       'ha_devices', 'mqtt_devices', 'modbus_devices', 'rs232_devices',
       'external_sources', 'external_poll_interval',
       'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
-      'tuya_devices', 'tuya_cloud'
+      'tuya_devices', 'tuya_cloud', 'setup_probe_cache'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
 
     if ('mqtt_devices' in req.body) restartMqtt();
     if ('external_sources' in req.body || 'external_poll_interval' in req.body) restartExternalPolling();
-    if ('bms_devices' in req.body) restartBmsPolling();
+    if ('bms_devices' in req.body) {
+      restartBmsPolling();
+      restartBmsWiredPolling();
+    }
     if ('bms_banks' in req.body) {
       const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
       const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
@@ -1172,6 +1253,7 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
         try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
       }
       restartBmsPolling();
+      restartBmsWiredPolling();
     }
     if ('dongle_config' in req.body) restartDonglePolling();
     if ('pvoutput_config' in req.body) pvoutput.restart();
@@ -1440,6 +1522,35 @@ app.get('/api/bms/test', async (req, res) => {
   } catch (err) {
     logger.error('BMS test proxy error:', err.message);
     res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+  }
+});
+
+// BMS wired (Modbus-RTU serial) — test + fields
+app.use('/api/bms-wired', isAuthenticated);
+
+// List the metric descriptors (field/label/unit) for a wired BMS profile.
+app.get('/api/bms-wired/fields/:profileId', async (req, res) => {
+  try {
+    const fields = await getBmsWiredFields(req.params.profileId);
+    res.json(fields);
+  } catch (e) {
+    logger.error('BMS-wired fields error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Open a one-off connection and read registers (no DB write).
+app.post('/api/bms-wired/test', async (req, res) => {
+  const device = req.body;
+  if (!device) return res.status(400).json({ error: 'No device config provided' });
+  if (!device.serial_path) return res.status(400).json({ error: 'Serial path required' });
+  if (!device.profile) return res.status(400).json({ error: 'Profile required' });
+  try {
+    const result = await testBmsWiredConnection(device);
+    res.json(result);
+  } catch (e) {
+    logger.error('BMS-wired test error:', e.message);
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -1913,6 +2024,9 @@ app.get('/api/network-config', (req, res) => {
   res.json({ localURL, remoteURL });
 });
 
+// ---------- Health probe (public, no auth) ----------
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
 // ---------- Settings page (protected) ----------
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
@@ -1964,7 +2078,7 @@ app.get('/api/metrics/names', async (req, res) => {
 
 // ---------- Catch-all for SPA ----------
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1983,6 +2097,7 @@ process.on('SIGTERM', async () => {
   clearInterval(pollInterval);
   stopExternalPolling();
   stopBmsPolling();
+  stopBmsWiredPolling();
   stopDonglePolling();
   stopSnapshotScheduler();
   for (const client of mqttClients.values()) client.end(true);
@@ -1997,6 +2112,7 @@ process.on('SIGINT', async () => {
   clearInterval(pollInterval);
   stopExternalPolling();
   stopBmsPolling();
+  stopBmsWiredPolling();
   stopDonglePolling();
   stopSnapshotScheduler();
   for (const client of mqttClients.values()) client.end(true);
