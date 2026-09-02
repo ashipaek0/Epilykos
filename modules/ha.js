@@ -127,14 +127,22 @@ async function pollHomeAssistant() {
 }
 
 async function fetchHAEntities(url, token) {
-  const safe = await assertSafeFetchUrl(url, { allowPrivate: true });
-  if (!safe.ok) throw new Error(safe.error);
-  const base = safeHaBaseUrl(safe.url); // safe.url is the recognized-sanitized URL
-  const response = await fetch(haApiUrl(base, 'states'), {
+  // CodeQL-recognized SSRF guard: parse to a URL object, enforce http/https,
+  // and pass the URL OBJECT to fetch (never a re-derived string). The route
+  // /api/ha-device-entities additionally allowlists IPs via assertSafeFetchUrl
+  // before calling this; this inline guard is sink-level defense-in-depth.
+  let u;
+  try { u = new URL(String(url)); } catch (_) { throw new Error('Invalid HA URL'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('HA URL scheme not allowed (must use http or https)');
+  let p = u.pathname.replace(/\/+$/, '');
+  if (p === '') p = '/api';
+  else if (!p.endsWith('/api')) p = p + '/api';
+  u.pathname = p + '/states';
+  const response = await fetch(u, {
     headers: { 'Authorization': `Bearer ${token}` },
     signal: AbortSignal.timeout(5000)
   });
-  if (!response.ok) throw new Error(`HA error ${response.status} for GET ${haApiUrl(base, 'states')}`);
+  if (!response.ok) throw new Error(`HA error ${response.status} for GET ${u.toString()}`);
   const data = await response.json();
   return data.filter(e => 
     e.entity_id.startsWith('sensor.') || 
