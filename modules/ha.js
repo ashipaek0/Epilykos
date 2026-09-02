@@ -1,6 +1,26 @@
 const { logger } = require('./logger');
 const { getConfig, getDb } = require('./database');
 
+// Build a Home Assistant REST API URL from a base URL, robust to trailing
+// slashes and a base that already ends in '/api' (new URL().toString() adds a
+// trailing slash, which previously double-formed /api/states -> 404).
+function haApiUrl(base, path) {
+  let u;
+  try {
+    u = new URL(base);
+  } catch (_) {
+    // Never crash URL construction — fall back to an un-normalized concatenation.
+    return String(base).replace(/\/+$/, '') + (path ? '/' + String(path).replace(/^\/+/, '') : '');
+  }
+  // u.pathname always starts with '/' (e.g. '/', '/api', '/base'). Strip only the
+  // trailing slash that new URL().toString() adds, then ensure it ends in '/api'.
+  let p = u.pathname.replace(/\/+$/, '');
+  if (p === '') p = '/api';
+  else if (!p.endsWith('/api')) p = p + '/api';
+  const rest = String(path || '').replace(/^\/+/, '').replace(/\/+$/, '');
+  return u.origin + p + (rest ? '/' + rest : '');
+}
+
 let metricInsertStmt = null;
 let latestUpsertStmt = null;
 let metricInsertTextStmt = null;
@@ -68,7 +88,7 @@ async function pollHomeAssistant() {
       const entityId = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
       if (!entityId) continue;
       try {
-        const res = await fetch(`${device.url}/api/states/${entityId}`, {
+        const res = await fetch(haApiUrl(device.url, 'states/' + entityId), {
           headers: { 'Authorization': `Bearer ${device.token}` },
           signal: AbortSignal.timeout(5000)
         });
@@ -87,11 +107,11 @@ async function pollHomeAssistant() {
 }
 
 async function fetchHAEntities(url, token) {
-  const response = await fetch(`${url}/api/states`, {
+  const response = await fetch(haApiUrl(url, 'states'), {
     headers: { 'Authorization': `Bearer ${token}` },
     signal: AbortSignal.timeout(5000)
   });
-  if (!response.ok) throw new Error(`HA error ${response.status}`);
+  if (!response.ok) throw new Error(`HA error ${response.status} for GET ${haApiUrl(url, 'states')}`);
   const data = await response.json();
   return data.filter(e => 
     e.entity_id.startsWith('sensor.') || 
@@ -160,7 +180,7 @@ async function executeHAAction(deviceId, domain, service, entityId, params = {})
   }
 
   try {
-    const res = await fetch(`${device.url}/api/services/${domain}/${service}`, {
+    const res = await fetch(haApiUrl(device.url, 'services/' + domain + '/' + service), {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${device.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ entity_id: entityId, ...params }),
@@ -278,7 +298,7 @@ async function getEntityModes(url, token, entityId) {
   }
   let data = empty;
   try {
-    const res = await fetch(`${url}/api/states/${entityId}`, {
+    const res = await fetch(haApiUrl(url, 'states/' + entityId), {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: AbortSignal.timeout(5000)
     });
