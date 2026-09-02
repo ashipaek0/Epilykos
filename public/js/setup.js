@@ -196,9 +196,9 @@
     function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return []; } } return []; }
     var ha = asArray(bySrc.ha)[0]; if (ha) { Object.assign(state.sources.ha, { selected: true, name: ha.name || 'Home Assistant', url: ha.url || '', token: ha.token || '', poll_interval: String(ha.poll_interval || 30), entities: Object.keys(ha.entities || {}) }); }
     var mq = asArray(bySrc.mqtt)[0]; if (mq) { Object.assign(state.sources.mqtt, { selected: true, name: mq.name || 'MQTT Broker', broker: mq.broker || '', username: mq.username || '', password: mq.password || '', poll_interval: String(mq.poll_interval || 30), selectedTopics: mq.topics || {}, topics: mq.topics || {} }); }
-    var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (TCP)', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', modbus_unit_id: dg.modbus_unit_id || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '' }); }
+    var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (TCP)', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', modbus_unit_id: dg.modbus_unit_id || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '', mappings: dg.mappings || {} }); }
     var rs = asArray(bySrc.rs232)[0]; if (rs) {
-      Object.assign(state.sources.rs232, { selected: true, name: rs.name || 'Inverter (RS232)', portChoice: rs.serial_path || '', profile: rs.profile || '', baud: rs.baud || '', data_bits: rs.data_bits || '', stop_bits: rs.stop_bits || '', parity: rs.parity || '', modbus_unit_id: rs.modbus_unit_id || '', timeout: String(rs.timeout || 5) });
+      Object.assign(state.sources.rs232, { selected: true, name: rs.name || 'Inverter (RS232)', portChoice: rs.serial_path || '', profile: rs.profile || '', baud: rs.baud || '', data_bits: rs.data_bits || '', stop_bits: rs.stop_bits || '', parity: rs.parity || '', modbus_unit_id: rs.modbus_unit_id || '', timeout: String(rs.timeout || 5), mappings: rs.mappings || {} });
     }
     // Modbus: split saved entries by transport into the serial / tcp wizard slots.
     asArray(bySrc.modbus).forEach(function (mb) {
@@ -1361,10 +1361,31 @@
   }
 
   // ── Build devices + save sources ──────────────────────────
+  // Preserve a Settings-owned metric/mapping map across a wizard re-save.
+  // existing = state.existing (wizard's loaded config) or undefined.
+  // configKey = 'ha_devices'|'dongle_config'|'rs232_devices'; mapKey = 'entities'|'mappings'.
+  // deviceName: optional match by device name; if falsy, use the first slot for single-slot sources.
+  function carryForwardMap(existing, configKey, mapKey, deviceName) {
+    var out = {};
+    try {
+      var raw = existing ? existing[configKey] : null;
+      if (!raw) return out;
+      var arr = Array.isArray(raw) ? raw : JSON.parse(raw);
+      if (!Array.isArray(arr)) return out;
+      var hit = null;
+      for (var i = 0; i < arr.length; i++) {
+        var d = arr[i] || {};
+        if (deviceName) { if (d.name === deviceName) { hit = d; break; } }
+        else { hit = d; break; }
+      }
+      if (hit && hit[mapKey] && typeof hit[mapKey] === 'object') out = hit[mapKey];
+    } catch (e) { out = {}; }
+    try { return JSON.parse(JSON.stringify(out)); } catch (e) { return {}; }
+  }
   function buildHADevices() {
     if (!state.sources.ha.selected) return [];
     var s = state.sources.ha;
-    return [{ name: s.name || 'Home Assistant', url: s.url, token: s.token, enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, entities: {} }];
+    return [{ name: s.name || 'Home Assistant', url: s.url, token: s.token, enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, entities: carryForwardMap(state.existing, 'ha_devices', 'entities', s.name || 'Home Assistant') }];
   }
   function buildMQTTDevices() {
     if (!state.sources.mqtt.selected) return [];
@@ -1374,11 +1395,11 @@
   function buildDongleConfig() {
     if (!state.sources.dongle.selected) return [];
     var d = state.sources.dongle;
-    return [{ name: d.name || 'Inverter (TCP)', enabled: true, profile: d.profile, transport: d.transport, host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: {} }];
+    return [{ name: d.name || 'Inverter (TCP)', enabled: true, profile: d.profile, transport: d.transport, host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: carryForwardMap(state.existing, 'dongle_config', 'mappings', d.name || 'Inverter (TCP)') }];
   }
   function buildRS232Device(opts) {
     var r = state.sources.rs232;
-    var dev = { name: r.name || 'Inverter (RS232)', serial_path: resolveSerialPath(r), baud: r.baud, modbus_unit_id: r.modbus_unit_id, parity: r.parity, data_bits: r.data_bits, stop_bits: r.stop_bits, profile: r.profile, timeout: r.timeout ? parseInt(r.timeout, 10) : 5, enabled: r.enabled, mappings: r.mappings || {} };
+    var dev = { name: r.name || 'Inverter (RS232)', serial_path: resolveSerialPath(r), baud: r.baud, modbus_unit_id: r.modbus_unit_id, parity: r.parity, data_bits: r.data_bits, stop_bits: r.stop_bits, profile: r.profile, timeout: r.timeout ? parseInt(r.timeout, 10) : 5, enabled: r.enabled, mappings: (r && r.mappings && typeof r.mappings === 'object' && Object.keys(r.mappings).length) ? r.mappings : carryForwardMap(state.existing, 'rs232_devices', 'mappings', r.name || 'Inverter (RS232)') };
     return dev;
   }
   function buildRS232Devices() {
