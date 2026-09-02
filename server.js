@@ -659,7 +659,14 @@ app.get('/api/wizard/password', (req, res) => {
 app.post('/api/wizard/password', (req, res) => {
   const { password } = req.body;
   if (passwordEnvManaged) {
-    return res.status(403).json({ error: 'Password is managed by environment' });
+    // Env-managed first-run: the password is fixed by SETTINGS_PASSWORD, so the
+    // operator is auto-authenticated (D2 auto-login extension). Only while setup
+    // is incomplete; once completed the normal auth flow applies.
+    if (getConfig('setup_wizard_completed') === 'true') {
+      return res.status(403).json({ error: 'Password is managed by environment' });
+    }
+    if (req.session) req.session.authenticated = true;
+    return res.json({ success: true });
   }
   if (typeof password !== 'string' || password.length < 4) {
     return res.status(400).json({ error: 'Password must be at least 4 characters' });
