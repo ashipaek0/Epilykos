@@ -71,8 +71,8 @@
   }
 
   // ── Constants ─────────────────────────────────────────────
-  var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232'];
-  var STEP_LABELS = ['Password', 'Sources', 'Metrics', 'Dashboard', 'Basics', 'Finish'];
+  var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232', 'modbusSerial', 'modbusTcp', 'bms', 'rest', 'tuya'];
+  var STEP_LABELS = ['Password', 'Sources', 'Metrics', 'Dashboard', 'Basics', 'Optional', 'Finish'];
   var ROLES = [
     { key: 'solar',              label: 'Solar Power',       unit: 'W' },
     { key: 'consumption',        label: 'Home Consumption',   unit: 'W' },
@@ -105,11 +105,21 @@
       ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
       mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
       dongle:  { selected: false, name: 'Inverter (TCP)', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null }
+      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
+      modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
+      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
+      bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
+      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} },
+      tuya:    { selected: false, name: 'Tuya (LAN)', dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: '30', enabled: true, dps: {}, tuya_cloud: {} }
     },
     roleMetrics: {},       // role -> metric name
     dashboard: { choice: 'full', layoutMap: {}, mainBlocks: [], blockCount: 0 },
-    basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar' }
+    basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar' },
+    optional: {
+      pvoutput: { enabled: false, api_key: '', system_id: '', timezone: '', upload_interval_minutes: '5', system_size_w: '0', net_mode: false, webhook_url: '' },
+      forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', capacity_kwp: '', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
+      network: { local_url: '', remote_url: '' }
+    }
   };
 
   // ── Theme (client-side only) ──────────────────────────────
@@ -177,17 +187,34 @@
       prefillRoleMetrics(res.data);
       prefillDashboard(res.data);
       prefillBasics(res.data);
+      prefillOptional(res.data);
     }).catch(function () {});
   }
 
   function prefillSources(cfg) {
-    var bySrc = { ha: cfg.ha_devices, mqtt: cfg.mqtt_devices, dongle: cfg.dongle_config, rs232: cfg.rs232_devices };
+    var bySrc = { ha: cfg.ha_devices, mqtt: cfg.mqtt_devices, dongle: cfg.dongle_config, rs232: cfg.rs232_devices, modbus: cfg.modbus_devices, bms: cfg.bms_devices, rest: cfg.external_sources, tuya: cfg.tuya_devices };
     function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return []; } } return []; }
     var ha = asArray(bySrc.ha)[0]; if (ha) { Object.assign(state.sources.ha, { selected: true, name: ha.name || 'Home Assistant', url: ha.url || '', token: ha.token || '', poll_interval: String(ha.poll_interval || 30), entities: Object.keys(ha.entities || {}) }); }
     var mq = asArray(bySrc.mqtt)[0]; if (mq) { Object.assign(state.sources.mqtt, { selected: true, name: mq.name || 'MQTT Broker', broker: mq.broker || '', username: mq.username || '', password: mq.password || '', poll_interval: String(mq.poll_interval || 30), selectedTopics: mq.topics || {}, topics: mq.topics || {} }); }
     var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (TCP)', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', modbus_unit_id: dg.modbus_unit_id || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '' }); }
     var rs = asArray(bySrc.rs232)[0]; if (rs) {
       Object.assign(state.sources.rs232, { selected: true, name: rs.name || 'Inverter (RS232)', portChoice: rs.serial_path || '', profile: rs.profile || '', baud: rs.baud || '', data_bits: rs.data_bits || '', stop_bits: rs.stop_bits || '', parity: rs.parity || '', modbus_unit_id: rs.modbus_unit_id || '', timeout: String(rs.timeout || 5) });
+    }
+    // Modbus: split saved entries by transport into the serial / tcp wizard slots.
+    asArray(bySrc.modbus).forEach(function (mb) {
+      if (!mb) return;
+      if (mb.transport === 'serial') {
+        Object.assign(state.sources.modbusSerial, { selected: true, name: mb.name || 'Inverter (RS485)', profile: mb.profile || '', serial_path: mb.serial_path || '', serial_baud: mb.serial_baud || '9600', serial_data_bits: mb.serial_data_bits || '8', serial_parity: mb.serial_parity || 'none', serial_stop_bits: mb.serial_stop_bits || '1', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
+      } else {
+        Object.assign(state.sources.modbusTcp, { selected: true, name: mb.name || 'Inverter (Modbus-TCP)', profile: mb.profile || '', host: mb.host || '', port: mb.port || '502', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
+      }
+    });
+    var bm = asArray(bySrc.bms)[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (BLE bridge)', address: bm.address || '', bridge_url: bm.bridge_url || state.sources.bms.bridge_url, poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
+    var rx = asArray(bySrc.rest)[0]; if (rx) { Object.assign(state.sources.rest, { selected: true, name: rx.name || 'REST API', url: rx.url || '', mappings: rx.mappings || {} }); }
+    var ty = asArray(bySrc.tuya)[0]; if (ty) { Object.assign(state.sources.tuya, { selected: true, name: ty.name || 'Tuya (LAN)', dev_id: ty.dev_id || '', address: ty.address || '', local_key: ty.local_key || '', version: ty.version || '3.3', poll_interval: String(ty.poll_interval || 30), dps: ty.dps || {} }); }
+    if (cfg.tuya_cloud) {
+      var tc = (typeof cfg.tuya_cloud === 'string') ? (function () { try { return JSON.parse(cfg.tuya_cloud); } catch (e) { return null; } })() : cfg.tuya_cloud;
+      if (tc && typeof tc === 'object') state.sources.tuya.tuya_cloud = tc;
     }
     // Re-seed wizard discovery results (HA entities, MQTT selectedTopics,
     // dongle/RS232 mappings) so the metrics step has candidates without
@@ -222,6 +249,53 @@
     if (cfg.savings_currency != null) state.basics.savings_currency = cfg.savings_currency;
     if (cfg.solar_capacity_kwp != null) state.basics.solar_capacity_kwp = String(cfg.solar_capacity_kwp);
     if (cfg.dashboard_title != null) state.basics.dashboard_title = cfg.dashboard_title;
+  }
+  function prefillOptional(cfg) {
+    // Defensive: this must never throw, even on malformed / partial config.
+    if (!cfg || typeof cfg !== 'object') return;
+    var present = function (v) { return v !== undefined && v !== null && v !== ''; };
+
+    // PVOutput — cfg.pvoutput_config is a JSON STRING (see settings.js JSON.stringify/JSON.parse).
+    if (present(cfg.pvoutput_config)) {
+      var pv = null;
+      if (typeof cfg.pvoutput_config === 'string') {
+        try { pv = JSON.parse(cfg.pvoutput_config); } catch (e) { pv = null; }
+      } else {
+        pv = cfg.pvoutput_config;
+      }
+      if (pv && typeof pv === 'object') {
+        var pvPatch = {};
+        ['enabled', 'api_key', 'system_id', 'timezone', 'upload_interval_minutes', 'system_size_w', 'net_mode', 'webhook_url'].forEach(function (k) {
+          if (present(pv[k])) pvPatch[k] = pv[k];
+        });
+        if (pvPatch.enabled !== undefined) pvPatch.enabled = !!pvPatch.enabled;
+        Object.assign(state.optional.pvoutput, pvPatch);
+      }
+    }
+
+    // Forecast — individual solar_* / solcast_* keys.
+    var fg = state.optional.forecast;
+    [
+      ['forecast_enabled', 'enabled'],
+      ['solar_latitude', 'latitude'],
+      ['solar_longitude', 'longitude'],
+      ['solar_tilt', 'tilt'],
+      ['solar_azimuth', 'azimuth'],
+      ['solar_capacity_kwp', 'capacity_kwp'],
+      ['solcast_api_key', 'solcast_api_key'],
+      ['solcast_resource_id', 'solcast_resource_id'],
+      ['solar_loss_factor', 'loss_factor'],
+      ['solar_install_date', 'install_date']
+    ].forEach(function (pair) {
+      var v = cfg[pair[0]];
+      if (present(v)) fg[pair[1]] = v;
+    });
+    if (fg.enabled !== undefined) fg.enabled = !!fg.enabled;
+
+    // Network
+    var net = state.optional.network;
+    if (present(cfg.network_local_url)) net.local_url = cfg.network_local_url;
+    if (present(cfg.network_remote_url)) net.remote_url = cfg.network_remote_url;
   }
 
   function normalizeLayouts(raw) {
@@ -295,7 +369,7 @@
   // ── Step navigation ───────────────────────────────────────
   function gotoStep(n) {
     if (n < 1) n = 1;
-    if (n > 6) n = 6;
+    if (n > 7) n = 7;
     state.currentStep = n;
     if (n > 1) state.progressAtLeast = n;
     renderStepper();
@@ -315,7 +389,8 @@
     else if (n === 3) renderStep3();
     else if (n === 4) renderStep4();
     else if (n === 5) renderStep5();
-    else if (n === 6) renderStep6();
+    else if (n === 6) renderStepOptional();
+    else if (n === 7) renderStep6();
   }
 
   // ── VALIDATION ────────────────────────────────────────────
@@ -337,7 +412,8 @@
     if (step === 3) return true;
     if (step === 4) return true;
     if (step === 5) return basicsValid();
-    if (step === 6) return true;
+    if (step === 6) return true;   // Optional — always skippable / non-blocking
+    if (step === 7) return true;   // Finish
     return false;
   }
   function unassignedCount() {
@@ -358,11 +434,12 @@
     back.style.display = (state.currentStep > firstVisible) ? '' : 'none';
     if (next) {
       if (!state.busy) next.disabled = !canGoNext(state.currentStep);
-      next.textContent = (state.currentStep === 6) ? (state.completed ? 'Done' : 'Finish') : 'Next →';
+      next.textContent = (state.currentStep === 7) ? (state.completed ? 'Done' : 'Finish') : 'Next →';
     }
     var hint = '';
     if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Select at least one source.';
     else if (state.currentStep === 3) hint = roleCountLabel();
+    else if (state.currentStep === 6) hint = 'All optional — leave blank to skip.';
     var hintEl = $('#nav-hint');
     if (hintEl) hintEl.textContent = hint;
   }
@@ -482,39 +559,91 @@
   // ── STEP 2: SOURCES ───────────────────────────────────────
   function renderStep2() {
     var body = $('#step-2-body');
-    var tiles = [
-      { key: 'ha', icon: '🏠', label: 'Home Assistant', sub: 'Base URL + token' },
-      { key: 'mqtt', icon: '📡', label: 'MQTT', sub: 'Broker + optional topic list' },
-      { key: 'dongle', icon: '🔌', label: 'Inverter (TCP / dongle)', sub: 'Modbus over TCP' },
-      { key: 'rs232', icon: '📟', label: 'Inverter (RS232 / serial)', sub: 'Modbus over serial' }
-    ];
-    var tileHtml = '<div class="source-grid">';
-    tiles.forEach(function (t) {
+
+    function tile(t) {
       var on = state.sources[t.key].selected;
-      tileHtml += '<div class="source-tile' + (on ? ' selected' : '') + '" data-action="toggle-source" data-source="' + t.key + '" role="button" tabindex="0">'
+      return '<div class="source-tile' + (on ? ' selected' : '') + '" data-action="toggle-source" data-source="' + t.key + '" role="button" tabindex="0">'
         + '<span class="tile-icon">' + t.icon + '</span>'
         + '<span class="tile-block"><span class="tile-label">' + esc(t.label) + '</span><br><span class="tile-sub">' + esc(t.sub) + '</span></span>'
         + '<span class="tile-check">✓</span>'
         + '</div>';
-    });
-    tileHtml += '</div>';
+    }
+    function grid(tiles) {
+      return '<div class="source-grid">' + tiles.map(tile).join('') + '</div>';
+    }
+    function section(label, sub, tilesHtml, cardsHtml) {
+      return '<div class="setup-section">'
+        + '<div class="setup-section-head"><h3>' + esc(label) + '</h3>' + (sub ? '<p>' + esc(sub) + '</p>' : '') + '</div>'
+        + tilesHtml + cardsHtml
+        + '</div>';
+    }
 
-    // Config cards
-    var configs = '<div class="section-divider">Source configuration</div>';
-    configs += sourceCardHA();
-    configs += sourceCardMQTT();
-    configs += sourceCardDongle();
-    configs += sourceCardRS232();
+    var html = '';
+
+    // 1 · Inverter — Wired
+    html += section('Inverter — Wired', 'Connect over a direct cable to the inverter.',
+      grid([
+        { key: 'modbusSerial', icon: '🔌', label: 'RS485 (Modbus-RTU)', sub: 'USB / RS485 adapter' },
+        { key: 'rs232', icon: '📟', label: 'RS232 (direct serial)', sub: '9-pin serial' }
+      ]),
+      sourceCardModbusSerial() + sourceCardRS232());
+
+    // 2 · Inverter — Wireless (TCP/IP)
+    html += section('Inverter — Wireless (TCP/IP)', 'Connect over your local network.',
+      grid([
+        { key: 'modbusTcp', icon: '🌐', label: 'Modbus-TCP', sub: 'Modbus over TCP/IP' }
+      ]),
+      sourceCardModbusTcp());
+
+    // 3 · Inverter — Dongle
+    html += section('Inverter — Dongle', 'Built-in logger / WiFi dongle on the inverter.',
+      grid([
+        { key: 'dongle', icon: '🔌', label: 'Inverter dongle', sub: 'Solarman / Felicity / Growatt' }
+      ]),
+      sourceCardDongle());
+
+    // 4 · BMS — Bluetooth
+    html += section('BMS — Bluetooth', 'Battery BMS over Bluetooth, via the BLE bridge.',
+      grid([
+        { key: 'bms', icon: '🔋', label: 'BMS (BLE bridge)', sub: 'MAC address + bridge' }
+      ]),
+      sourceCardBMS());
+
+    // 5 · BMS — Wired (placeholder — added in a later phase)
+    html += '<div class="setup-section">'
+      + '<div class="setup-section-head"><h3>BMS — Wired</h3><p>Read your BMS over a direct wired connection.</p></div>'
+      + '<div class="source-coming"><span class="source-coming-note">🚧 Wired BMS is coming in a later phase — no configuration needed here yet.</span></div>'
+      + '</div>';
+
+    // 6 · Home Assistant
+    html += section('Home Assistant', 'A running Home Assistant instance.',
+      grid([{ key: 'ha', icon: '🏠', label: 'Home Assistant', sub: 'Base URL + token' }]),
+      sourceCardHA());
+
+    // 7 · MQTT
+    html += section('MQTT', 'An MQTT broker to subscribe to.',
+      grid([{ key: 'mqtt', icon: '📡', label: 'MQTT', sub: 'Broker + optional topic list' }]),
+      sourceCardMQTT());
+
+    // 8 · REST API
+    html += section('REST API', 'Pull readings from any JSON endpoint.',
+      grid([{ key: 'rest', icon: '🌐', label: 'REST API', sub: 'URL + JSON path' }]),
+      sourceCardREST());
+
+    // 9 · Tuya
+    html += section('Tuya', 'Tuya devices scanned over local-LAN.',
+      grid([{ key: 'tuya', icon: '📶', label: 'Tuya', sub: 'Local-LAN on port 6668' }]),
+      sourceCardTuya());
 
     // Footer actions: Next is the single save+advance; Start fresh is the destructive reset (behind confirm).
-    configs += '<div class="test-row">'
+    html += '<div class="test-row">'
       + '<span class="spacer"></span>'
       + '<button class="btn" type="button" data-action="reset-sources">Start fresh</button>'
       + '</div>'
       + '<div class="alert alert-info" id="reset-sources-note" hidden></div>'
       + '<div class="alert alert-error" id="sources-error" hidden></div>';
 
-    body.innerHTML = tileHtml + configs;
+    body.innerHTML = html;
     syncSourceCardVisibility();
     updateTestButtons();
     loadSourceCatalog();
@@ -621,6 +750,139 @@
       + '</div>';
   }
 
+  function modbusParityOptions(sel) {
+    var opts = [['none', 'None'], ['even', 'Even'], ['odd', 'Odd']];
+    return opts.map(function (o) { return '<option value="' + o[0] + '"' + (sel === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+  }
+  function modbusVersionOptions(sel) {
+    var opts = ['3.1', '3.2', '3.3', '3.4', '3.5'];
+    return opts.map(function (v) { return '<option value="' + v + '"' + ((sel || '3.3') === v ? ' selected' : '') + '>v' + v + '</option>'; }).join('');
+  }
+  function modbusProfileSelect(id, kind) {
+    var s = cfg(kind);
+    return '<select class="select-input" data-field="sources.' + kind + '.profile" id="' + id + '"><option value="">Loading…</option></select>';
+  }
+
+  function sourceCardModbusSerial() {
+    var s = cfg('modbusSerial');
+    return '<div class="source-config card" data-source="modbusSerial">'
+      + '<div class="card-header"><span class="card-title">RS485 (Modbus-RTU)</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.modbusSerial.name" value="' + esc(s.name) + '"></div>'
+      + '<div class="form-group"><label>Profile</label>' + modbusProfileSelect('modbus-serial-profile', 'modbusSerial') + '</div>'
+      + '</div>'
+      + '<div class="form-group"><label>Serial path</label><input class="input" data-field="sources.modbusSerial.serial_path" placeholder="/dev/ttyUSB0" value="' + esc(s.serial_path) + '"></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.modbusSerial.serial_baud" value="' + esc(s.serial_baud) + '"></div>'
+      + '<div class="form-group"><label>Data bits</label><input class="input" type="number" data-field="sources.modbusSerial.serial_data_bits" value="' + esc(s.serial_data_bits) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Parity</label><select class="select-input" data-field="sources.modbusSerial.serial_parity">' + modbusParityOptions(s.serial_parity) + '</select></div>'
+      + '<div class="form-group"><label>Stop bits</label><input class="input" type="number" data-field="sources.modbusSerial.serial_stop_bits" value="' + esc(s.serial_stop_bits) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Unit id</label><input class="input" type="number" data-field="sources.modbusSerial.unit" value="' + esc(s.unit) + '"></div>'
+      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.modbusSerial.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
+      + '</div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="modbusSerial" data-test="modbus">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="modbusSerial">Not tested</span>'
+      + '</div>'
+      + '<div data-error="modbusSerial"></div>'
+      + '</div>';
+  }
+  function sourceCardModbusTcp() {
+    var s = cfg('modbusTcp');
+    return '<div class="source-config card" data-source="modbusTcp">'
+      + '<div class="card-header"><span class="card-title">Modbus-TCP</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.modbusTcp.name" value="' + esc(s.name) + '"></div>'
+      + '<div class="form-group"><label>Profile</label>' + modbusProfileSelect('modbus-tcp-profile', 'modbusTcp') + '</div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Host</label><input class="input" data-field="sources.modbusTcp.host" placeholder="192.168.1.50" value="' + esc(s.host) + '"></div>'
+      + '<div class="form-group"><label>Port</label><input class="input" type="number" data-field="sources.modbusTcp.port" placeholder="502" value="' + esc(s.port) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Unit id</label><input class="input" type="number" data-field="sources.modbusTcp.unit" value="' + esc(s.unit) + '"></div>'
+      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.modbusTcp.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
+      + '</div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="modbusTcp" data-test="modbus">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="modbusTcp">Not tested</span>'
+      + '</div>'
+      + '<div data-error="modbusTcp"></div>'
+      + '</div>';
+  }
+  function sourceCardBMS() {
+    var s = cfg('bms');
+    return '<div class="source-config card" data-source="bms">'
+      + '<div class="card-header"><span class="card-title">BMS (BLE bridge)</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.bms.name" value="' + esc(s.name) + '"></div>'
+      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bms.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
+      + '</div>'
+      + '<div class="form-group"><label>MAC address</label><input class="input" data-field="sources.bms.address" placeholder="AA:BB:CC:DD:EE:FF" value="' + esc(s.address) + '"></div>'
+      + '<div class="form-group"><label>BMS bridge URL</label><input class="input" data-field="sources.bms.bridge_url" value="' + esc(s.bridge_url) + '">'
+      + '<span class="note">The BLE bridge container. Only change this if the bridge runs on another host.</span></div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="bms" data-test="bms">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="bms">Not tested</span>'
+      + '</div>'
+      + '<div data-error="bms"></div>'
+      + '</div>';
+  }
+  function sourceCardREST() {
+    var s = cfg('rest');
+    return '<div class="source-config card" data-source="rest">'
+      + '<div class="card-header"><span class="card-title">REST API</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.rest.name" value="' + esc(s.name) + '"></div>'
+      + '</div>'
+      + '<div class="form-group"><label>Endpoint URL</label><input class="input" data-field="sources.rest.url" placeholder="https://api.example.com/v1/data?key=..." value="' + esc(s.url) + '"></div>'
+      + '<div class="form-group"><label>Test JSON path</label><input class="input" id="rest-test-jsonpath" placeholder="e.g. current.temp_c">'
+      + '<span class="note">Optional — test the URL above with a JSON path. Metric mappings are configured in Settings after setup.</span></div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="rest" data-test="rest">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="rest">Not tested</span>'
+      + '</div>'
+      + '<div data-error="rest"></div>'
+      + '</div>';
+  }
+  function sourceCardTuya() {
+    var s = cfg('tuya');
+    var tc = s.tuya_cloud || {};
+    return '<div class="source-config card" data-source="tuya">'
+      + '<div class="card-header"><span class="card-title">Tuya</span></div>'
+      + '<div class="alert alert-info">🔒 Twice-only cloud fetch for keys; runs fully local on port 6668.</div>'
+      + '<div class="section-subhead">Cloud credentials <span class="note">(optional — used once to fetch local keys)</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Region</label><input class="input" data-field="sources.tuya.tuya_cloud.region" value="' + esc(tc.region || 'eu') + '"></div>'
+      + '<div class="form-group"><label>Device ID (cloud)</label><input class="input" data-field="sources.tuya.tuya_cloud.device_id" value="' + esc(tc.device_id || '') + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Access ID</label><input class="input" data-field="sources.tuya.tuya_cloud.access_id" value="' + esc(tc.access_id || '') + '"></div>'
+      + '<div class="form-group"><label>Access Secret</label><input class="input" type="password" data-field="sources.tuya.tuya_cloud.access_secret" value="' + esc(tc.access_secret || '') + '"></div>'
+      + '</div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="tuya-cloud-fetch-key">☁️ Fetch keys from cloud</button>'
+      + '<span class="test-badge pending" data-badge-src="tuya-cloud">Not fetched</span>'
+      + '</div>'
+      + '<div class="section-subhead">Local-LAN credentials</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Device ID</label><input class="input" data-field="sources.tuya.dev_id" readonly value="' + esc(s.dev_id) + '"></div>'
+      + '<div class="form-group"><label>IP address</label><input class="input" data-field="sources.tuya.address" placeholder="192.168.1.100" value="' + esc(s.address) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Local key</label><input class="input" type="password" data-field="sources.tuya.local_key" value="' + esc(s.local_key) + '"></div>'
+      + '<div class="form-group"><label>Protocol version</label><select class="select-input" data-field="sources.tuya.version">' + modbusVersionOptions(s.version) + '</select></div>'
+      + '</div>'
+      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.tuya.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
+      + '<span class="note">DP mappings (which metric maps to which Tuya DP) are configured in Settings after setup.</span>'
+      + '<div data-error="tuya"></div>'
+      + '</div>';
+  }
+
   function syncSourceCardVisibility() {
     $$('.source-config').forEach(function (card) {
       var key = card.getAttribute('data-source');
@@ -634,7 +896,32 @@
     if (state.sources.dongle.selected && !state.sources.dongle.profilesLoaded) loadDongleProfiles();
     if (state.sources.rs232.selected && !state.sources.rs232.profilesLoaded) loadRs232Ports();
     if (state.sources.rs232.selected && !state.sources.rs232.profilesLoaded) loadRs232Profiles();
+    if (state.sources.modbusSerial.selected && !state.sources.modbusSerial.profilesLoaded) loadModbusProfiles('modbusSerial', 'modbus-serial-profile');
+    if (state.sources.modbusTcp.selected && !state.sources.modbusTcp.profilesLoaded) loadModbusProfiles('modbusTcp', 'modbus-tcp-profile');
   }
+
+  function loadModbusProfiles(kind, selId) {
+    state.sources[kind].profilesLoaded = true;
+    api('/api/modbus/profiles').then(function (res) {
+      var sel = docById(selId);
+      if (!res.ok || !Array.isArray(res.data)) {
+        if (sel) sel.innerHTML = '<option value="">(unavailable)</option>';
+        return;
+      }
+      state.sources[kind].profiles = res.data;
+      if (!sel) return;
+      var html = '<option value="">Select a profile…</option>';
+      res.data.forEach(function (p) {
+        var v = p.id;
+        html += '<option value="' + esc(v) + '"' + (state.sources[kind].profile === v ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      });
+      sel.innerHTML = html;
+    }).catch(function () {
+      var sel = docById(selId);
+      if (sel) sel.innerHTML = '<option value="">(unavailable)</option>';
+    });
+  }
+  function docById(id) { return document.getElementById(id); }
 
   function loadDongleProfiles() {
     state.sources.dongle.profilesLoaded = true;
@@ -787,6 +1074,11 @@
     if (kind === 'mqtt') return !!s.broker;
     if (kind === 'dongle') return !!(s.host && s.port && s.profile);
     if (kind === 'rs232') return !!(resolveSerialPath(s) && s.profile);
+    if (kind === 'modbusSerial') return !!(s.serial_path && s.transport === 'serial');
+    if (kind === 'modbusTcp') return !!(s.host && s.port && s.transport === 'tcp');
+    if (kind === 'bms') return !!s.address;
+    if (kind === 'rest') return !!s.url;
+    if (kind === 'tuya') return !!(s.address && s.local_key);
     return false;
   }
   function resolveSerialPath(s) {
@@ -817,7 +1109,17 @@
       p = api('/api/dongle/test', { method: 'POST', body: JSON.stringify(body) });
     } else if (kind === 'rs232') {
       p = api('/api/test-rs232', { method: 'POST', body: JSON.stringify(buildRS232Device()) });
+    } else if (kind === 'modbusSerial' || kind === 'modbusTcp') {
+      var mb = modbusTestBody(kind);
+      p = api('/api/test-modbus', { method: 'POST', body: JSON.stringify(mb) });
+    } else if (kind === 'bms') {
+      p = api('/api/bms/test' + encodeQuery({ address: s.address }));
+    } else if (kind === 'rest') {
+      var jpEl = document.getElementById('rest-test-jsonpath');
+      var jsonPath = jpEl ? jpEl.value : '';
+      p = api('/api/test-external', { method: 'POST', body: JSON.stringify({ url: s.url, jsonPath: jsonPath }) });
     }
+    if (!p) return;
     p.then(function (res) {
       if (kind === 'ha') {
         if (res.ok && Array.isArray(res.data)) {
@@ -850,11 +1152,43 @@
           setBadge('rs232', 'fail', '✖ Failed');
           setError('rs232', apiErrMsg(res, 'RS232'));
         }
+      } else if (kind === 'modbusSerial' || kind === 'modbusTcp') {
+        if (res.ok && res.data && res.data.success !== false) {
+          setBadge(kind, 'ok', '✔ Connected');
+        } else {
+          setBadge(kind, 'fail', '✖ Failed');
+          setError(kind, apiErrMsg(res, 'Modbus'));
+        }
+      } else if (kind === 'bms') {
+        if (res.ok && res.data && (res.data.success || res.data.metrics || Object.keys(res.data || {}).length)) {
+          setBadge('bms', 'ok', '✔ Connected');
+        } else if (res.ok && res.data && res.data.success === false) {
+          setBadge('bms', 'fail', '✖ Failed');
+          setError('bms', apiErrMsg(res, 'BMS'));
+        } else {
+          setBadge('bms', 'ok', '✔ Connected');
+        }
+      } else if (kind === 'rest') {
+        if (res.ok) {
+          setBadge('rest', 'ok', '✔ OK');
+        } else {
+          setBadge('rest', 'fail', '✖ Failed');
+          setError('rest', apiErrMsg(res, 'REST'));
+        }
       }
     }).catch(function (e) {
       setBadge(kind, 'fail', '✖ Error');
       setError(kind, 'Network error during test.');
     });
+  }
+
+  function modbusTestBody(kind) {
+    if (kind === 'modbusTcp') {
+      var t = state.sources.modbusTcp;
+      return { transport: 'tcp', profile: t.profile, host: t.host, port: t.port, unit: t.unit };
+    }
+    var s = state.sources.modbusSerial;
+    return { transport: 'serial', profile: s.profile, serial_path: s.serial_path, serial_baud: s.serial_baud, serial_data_bits: s.serial_data_bits, serial_parity: s.serial_parity, serial_stop_bits: s.serial_stop_bits, unit: s.unit };
   }
 
   function apiErrMsg(res, label) {
@@ -915,6 +1249,50 @@
     else { s.selectedTopics[t] = true; btn.classList.add('on'); var tick2 = btn.querySelector('.tick'); if (tick2) tick2.textContent = '✓'; }
   }
 
+  function fetchTuyaCloudKeys() {
+    var t = state.sources.tuya;
+    var tc = t.tuya_cloud || {};
+    var badge = document.querySelector('[data-badge-src="tuya-cloud"]');
+    if (!tc.access_id || !tc.access_secret) {
+      if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'Add Access ID + Secret first'; }
+      return;
+    }
+    if (badge) { badge.className = 'test-badge pending'; badge.textContent = 'Fetching…'; }
+    api('/api/tuya-cloud-fetch', { method: 'POST', body: JSON.stringify({
+      region: tc.region || 'eu',
+      access_id: tc.access_id,
+      access_secret: tc.access_secret,
+      user_id: tc.device_id || ''
+    }) }).then(function (res) {
+      if (!res.ok || !res.data || !res.data.success || !Array.isArray(res.data.devices)) {
+        if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'Fetch failed'; }
+        setError('tuya', apiErrMsg(res, 'Tuya cloud fetch'));
+        return;
+      }
+      var devices = res.data.devices;
+      if (!devices.length) {
+        if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'No devices returned'; }
+        return;
+      }
+      var wanted = tc.device_id;
+      var dev = null;
+      for (var i = 0; i < devices.length; i++) {
+        if (wanted && (devices[i].dev_id === wanted || devices[i].id === wanted)) { dev = devices[i]; break; }
+      }
+      if (!dev) dev = devices[0];
+      t.dev_id = dev.dev_id || dev.id || t.dev_id;
+      t.address = dev.address || dev.ip || t.address;
+      t.local_key = dev.local_key || t.local_key;
+      var idEl = document.querySelector('[data-field="sources.tuya.dev_id"]'); if (idEl) idEl.value = t.dev_id;
+      var addrEl = document.querySelector('[data-field="sources.tuya.address"]'); if (addrEl) addrEl.value = t.address;
+      var keyEl = document.querySelector('[data-field="sources.tuya.local_key"]'); if (keyEl) keyEl.value = t.local_key;
+      if (badge) { badge.className = 'test-badge ok'; badge.textContent = '✔ Keys fetched'; }
+      clearError('tuya');
+    }).catch(function () {
+      if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'Error fetching keys'; }
+    });
+  }
+
   // ── Build devices + save sources ──────────────────────────
   function buildHADevices() {
     if (!state.sources.ha.selected) return [];
@@ -940,6 +1318,33 @@
     if (!state.sources.rs232.selected) return [];
     return [buildRS232Device()];
   }
+  function buildModbusDevices() {
+    var out = [];
+    var ms = state.sources.modbusSerial;
+    if (ms.selected) {
+      out.push({ name: ms.name || 'Inverter (RS485)', enabled: true, transport: 'serial', profile: ms.profile || '', serial_path: ms.serial_path || '', serial_baud: parseInt(ms.serial_baud, 10) || 9600, serial_data_bits: parseInt(ms.serial_data_bits, 10) || 8, serial_parity: ms.serial_parity || 'none', serial_stop_bits: parseInt(ms.serial_stop_bits, 10) || 1, unit: parseInt(ms.unit, 10) || 1, poll_interval: parseInt(ms.poll_interval, 10) || 30, mappings: ms.mappings || {} });
+    }
+    var mt = state.sources.modbusTcp;
+    if (mt.selected) {
+      out.push({ name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: mt.mappings || {} });
+    }
+    return out;
+  }
+  function buildBmsDevices() {
+    if (!state.sources.bms.selected) return [];
+    var b = state.sources.bms;
+    return [{ name: b.name || 'BMS (BLE bridge)', enabled: true, address: b.address || '', bridge_url: b.bridge_url || 'http://bms-bridge:8020', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} }];
+  }
+  function buildRestDevices() {
+    if (!state.sources.rest.selected) return [];
+    var r = state.sources.rest;
+    return [{ name: r.name || 'REST API', enabled: true, url: r.url || '', mappings: r.mappings || {} }];
+  }
+  function buildTuyaDevices() {
+    if (!state.sources.tuya.selected) return [];
+    var t = state.sources.tuya;
+    return [{ name: t.name || 'Tuya (LAN)', enabled: true, dev_id: t.dev_id || '', address: t.address || '', local_key: t.local_key || '', version: t.version || '3.3', poll_interval: parseInt(t.poll_interval, 10) || 30, dps: t.dps || {} }];
+  }
 
   // Wizard-owned cache of discovery results so the metrics step (step 3) can
   // offer candidates on re-entry without re-probing sources. Never used by
@@ -949,13 +1354,26 @@
       ha: state.sources.ha.entities || [],
       mqtt: state.sources.mqtt.selectedTopics || {},
       dongle: state.sources.dongle.mappings || {},
-      rs232: state.sources.rs232.mappings || {}
+      rs232: state.sources.rs232.mappings || {},
+      modbus: state.sources.modbusSerial.mappings || state.sources.modbusTcp.mappings || {}
     });
   }
 
   function saveSources() {
     if (!validateSources()) return Promise.resolve(false);
-    var body = { ha_devices: JSON.stringify(buildHADevices()), mqtt_devices: JSON.stringify(buildMQTTDevices()), dongle_config: JSON.stringify(buildDongleConfig()), rs232_devices: JSON.stringify(buildRS232Devices()), setup_probe_cache: buildProbeCache() };
+    var body = {
+      ha_devices: JSON.stringify(buildHADevices()),
+      mqtt_devices: JSON.stringify(buildMQTTDevices()),
+      dongle_config: JSON.stringify(buildDongleConfig()),
+      rs232_devices: JSON.stringify(buildRS232Devices()),
+      modbus_devices: JSON.stringify(buildModbusDevices()),
+      external_sources: JSON.stringify(buildRestDevices()),
+      bms_devices: JSON.stringify(buildBmsDevices()),
+      tuya_devices: JSON.stringify(buildTuyaDevices()),
+      setup_probe_cache: buildProbeCache()
+    };
+    var tc = state.sources.tuya.tuya_cloud;
+    if (tc && typeof tc === 'object' && (tc.access_id || tc.access_secret)) body.tuya_cloud = JSON.stringify(tc);
     return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
       if (res.ok && res.data && (res.data.ok || res.data.success)) {
         hideSourcesError();
@@ -983,6 +1401,11 @@
       else if (k === 'mqtt' && !s.broker) errors.mqtt = 'Broker URL is required.';
       else if (k === 'dongle' && !(s.host && s.port && s.profile)) errors.dongle = 'Host, port and profile are required.';
       else if (k === 'rs232' && !(resolveSerialPath(s) && s.profile)) errors.rs232 = 'Serial port and profile are required.';
+      else if (k === 'modbusSerial' && !s.serial_path) errors.modbusSerial = 'Serial path is required.';
+      else if (k === 'modbusTcp' && !(s.host && s.port)) errors.modbusTcp = 'Host and port are required.';
+      else if (k === 'bms' && !s.address) errors.bms = 'MAC address is required.';
+      else if (k === 'rest' && !s.url) errors.rest = 'Endpoint URL is required.';
+      else if (k === 'tuya' && !(s.address && s.local_key)) errors.tuya = 'IP address and local key are required.';
     });
     return errors;
   }
@@ -1037,10 +1460,20 @@
       ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
       mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
       dongle:  { selected: false, name: 'Inverter (TCP)', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null }
+      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
+      modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
+      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
+      bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
+      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} },
+      tuya:    { selected: false, name: 'Tuya (LAN)', dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: '30', enabled: true, dps: {}, tuya_cloud: {} }
     };
     state.roleMetrics = {};
     state.dashboard.choice = 'full';
+    state.optional = {
+      pvoutput: { enabled: false, api_key: '', system_id: '', timezone: '', upload_interval_minutes: '5', system_size_w: '0', net_mode: false, webhook_url: '' },
+      forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', capacity_kwp: '', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
+      network: { local_url: '', remote_url: '' }
+    };
   }
 
   // ── STEP 3: METRICS ───────────────────────────────────────
@@ -1236,9 +1669,104 @@
     });
   }
 
-  // ── STEP 6: FINISH ────────────────────────────────────────
-  function renderStep6() {
+  // ── STEP 6: OPTIONAL (skippable) ──────────────────────────
+  function renderStepOptional() {
     var body = $('#step-6-body');
+    var o = state.optional;
+    var pv = o.pvoutput, fc = o.forecast, nw = o.network;
+    var html = '<div class="alert alert-info">All optional — fill any of these or leave them blank and skip. Nothing here blocks finishing.</div>';
+
+    // PVOutput
+    html += '<div class="card">'
+      + '<div class="card-header"><span class="card-title">📤 PVOutput upload</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Enabled</label><select class="select-input" data-field="optional.pvoutput.enabled"><option value="false"' + (pv.enabled ? '' : ' selected') + '>No</option><option value="true"' + (pv.enabled ? ' selected' : '') + '>Yes</option></select></div>'
+      + '<div class="form-group"><label>System ID</label><input class="input" data-field="optional.pvoutput.system_id" placeholder="12345" value="' + esc(pv.system_id) + '"></div>'
+      + '</div>'
+      + '<div class="form-group"><label>API key</label><input class="input" type="password" data-field="optional.pvoutput.api_key" placeholder="PVOutput API key" value="' + esc(pv.api_key) + '"></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Timezone</label><input class="input" data-field="optional.pvoutput.timezone" placeholder="e.g. Africa/Lagos" value="' + esc(pv.timezone) + '"></div>'
+      + '<div class="form-group"><label>Upload interval (min)</label><select class="select-input" data-field="optional.pvoutput.upload_interval_minutes">' + [[5,'5'],[10,'10'],[15,'15']].map(function (x) { return '<option value="' + x[0] + '"' + (String(pv.upload_interval_minutes) === String(x[0]) ? ' selected' : '') + '>' + x[0] + '</option>'; }).join('') + '</select></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>System size (W)</label><input class="input" type="number" data-field="optional.pvoutput.system_size_w" value="' + esc(pv.system_size_w) + '"></div>'
+      + '<div class="form-group"><label>Webhook URL <span class="note">(optional)</span></label><input class="input" data-field="optional.pvoutput.webhook_url" value="' + esc(pv.webhook_url) + '"></div>'
+      + '</div>'
+      + '</div>';
+
+    // Solar Forecast
+    html += '<div class="card">'
+      + '<div class="card-header"><span class="card-title">☀️ Solar forecast</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Enabled</label><select class="select-input" data-field="optional.forecast.enabled"><option value="false"' + (fc.enabled ? '' : ' selected') + '>No</option><option value="true"' + (fc.enabled ? ' selected' : '') + '>Yes</option></select></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Latitude</label><input class="input" data-field="optional.forecast.latitude" value="' + esc(fc.latitude) + '"></div>'
+      + '<div class="form-group"><label>Longitude</label><input class="input" data-field="optional.forecast.longitude" value="' + esc(fc.longitude) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Panel tilt (°)</label><input class="input" type="number" data-field="optional.forecast.tilt" value="' + esc(fc.tilt) + '"></div>'
+      + '<div class="form-group"><label>Panel azimuth (°)</label><input class="input" type="number" data-field="optional.forecast.azimuth" value="' + esc(fc.azimuth) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Capacity (kWp)</label><input class="input" data-field="optional.forecast.capacity_kwp" value="' + esc(fc.capacity_kwp) + '"></div>'
+      + '<div class="form-group"><label>Solcast API key</label><input class="input" type="password" data-field="optional.forecast.solcast_api_key" value="' + esc(fc.solcast_api_key) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Solcast resource ID</label><input class="input" data-field="optional.forecast.solcast_resource_id" value="' + esc(fc.solcast_resource_id) + '"></div>'
+      + '<div class="form-group"><label>Loss factor</label><input class="input" data-field="optional.forecast.loss_factor" value="' + esc(fc.loss_factor) + '"></div>'
+      + '</div>'
+      + '</div>';
+
+    // Network URLs
+    html += '<div class="card">'
+      + '<div class="card-header"><span class="card-title">🌐 Network URLs</span></div>'
+      + '<div class="form-group"><label>Local URL (LAN / WiFi)</label><input class="input" data-field="optional.network.local_url" placeholder="http://local-ip:port" value="' + esc(nw.local_url) + '"></div>'
+      + '<div class="form-group"><label>Remote URL (Internet)</label><input class="input" data-field="optional.network.remote_url" placeholder="https://domain-name.tld" value="' + esc(nw.remote_url) + '"></div>'
+      + '<span class="note">The PWA picks the fastest URL for your current network automatically.</span>'
+      + '</div>';
+
+    body.innerHTML = html;
+  }
+
+  function truthy(v) { return v === true || v === 'true' || v === '1'; }
+
+  function saveOptional() {
+    var o = state.optional;
+    var pv = o.pvoutput, fc = o.forecast, nw = o.network;
+    var payload = {
+      network_local_url: nw.local_url,
+      network_remote_url: nw.remote_url,
+      forecast_enabled: truthy(fc.enabled) ? 'true' : 'false',
+      solar_latitude: fc.latitude,
+      solar_longitude: fc.longitude,
+      solar_tilt: fc.tilt,
+      solar_azimuth: fc.azimuth,
+      solar_capacity_kwp: fc.capacity_kwp,
+      solcast_api_key: fc.solcast_api_key,
+      solcast_resource_id: fc.solcast_resource_id,
+      solar_loss_factor: fc.loss_factor
+    };
+    // Best-effort; a failure must never block the wizard.
+    return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function () {
+      return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify({
+        pvoutput_config: JSON.stringify({
+          enabled: truthy(pv.enabled),
+          api_key: pv.api_key,
+          system_id: pv.system_id,
+          timezone: pv.timezone,
+          upload_interval_minutes: parseInt(pv.upload_interval_minutes, 10) || 5,
+          system_size_w: parseInt(pv.system_size_w, 10) || 0,
+          net_mode: truthy(pv.net_mode),
+          webhook_url: pv.webhook_url
+        })
+      }) });
+    }).then(function () { return true; }).catch(function () { return true; });
+  }
+
+  // ── STEP 7: FINISH ────────────────────────────────────────
+  function renderStep6() {
+    var body = $('#step-7-body');
     if (state.completed) {
       body.innerHTML = finishHero(true);
     } else {
@@ -1269,7 +1797,7 @@
         state.completed = true;
         state.status.completed = true;
         renderStep6();
-        var el = $('#step-6-body'); if (el) el.innerHTML = finishHero(true);
+        var el = $('#step-7-body'); if (el) el.innerHTML = finishHero(true);
         var next = $('#next-btn'); if (next) next.textContent = 'Done';
         setGlobalError(null);
       } else {
@@ -1342,6 +1870,7 @@
       else if (action === 'choose-dashboard') chooseDashboard(el);
       else if (action === 'toggle-theme') toggleTheme();
       else if (action === 'reset-sources') resetSources();
+      else if (action === 'tuya-cloud-fetch-key') fetchTuyaCloudKeys();
     });
 
     $('#back-btn').addEventListener('click', function () { if (!state.busy) gotoStep(state.currentStep - 1); });
@@ -1392,7 +1921,7 @@
     if (state.busy) return;
     var step = state.currentStep;
     if (step === 1) { submitPassword(); return; }
-    if (step === 6) { completeWizard(); return; }
+    if (step === 7) { completeWizard(); return; }
 
     setBusy(true);
     var proceed = function () { setBusy(false); gotoStep(step + 1); };
@@ -1404,6 +1933,9 @@
       saveDashboard().then(function (ok) { if (ok) proceed(); else setBusy(false); });
     } else if (step === 5) {
       saveBasics().then(function (ok) { if (ok) proceed(); else setBusy(false); });
+    } else if (step === 6) {
+      // Optional: never blocks, never forces a test. Best-effort save.
+      saveOptional().then(function () { proceed(); });
     } else {
       proceed();
     }
