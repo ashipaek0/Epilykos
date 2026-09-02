@@ -8,7 +8,7 @@
       modbus: 'Modbus (RS485 / TCP)',
       rs232: 'RS232 (direct serial)',
       external: 'REST API',
-      bms: 'BMS — Bluetooth',
+      bms: 'BMS',
       dongle: 'Inverter — Dongle',
       tuya: 'Tuya',
       pvoutput: 'PVOutput'
