@@ -35,6 +35,12 @@ const {
 let bmsWiredPollInterval = null;
 let bmsWiredPollingActive = false;
 
+// Fixed Modbus-RTU read timeout in ms. Must stay a module-level constant
+// literal so the setTimeout() delay is never derived from a user-controlled
+// value (clears js/resource-exhaustion / CWE-400). Bounds the read wait to a
+// sane ceiling independent of device config.
+const MODBUS_RT_TIMEOUT_MS = 5000;
+
 // Profile cache: id (filename without .json) → normalized profile object
 let availableProfiles = new Map();
 
@@ -148,7 +154,10 @@ function closeSerialPort(port) {
  * @returns {Promise<Buffer>} the complete response frame
  */
 function readModbusRtuFrame(port, frame, timeoutMs = 5000) {
-  const safeTimeout = Math.min(Math.max(parseInt(timeoutMs, 10) || 5000, 100), 30000);
+  // The timer delay must be a compile-time constant so it can never be
+  // user-controlled. timeoutMs is accepted for caller compatibility but is
+  // intentionally NOT used for the delay.
+  const safeTimeout = MODBUS_RT_TIMEOUT_MS;
   return new Promise((resolve, reject) => {
     let buffer = Buffer.alloc(0);
     const timer = setTimeout(() => {
