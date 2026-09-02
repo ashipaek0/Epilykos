@@ -15,7 +15,7 @@
  */
 import { fetchDashboardConfig, saveDashboardConfig, fetchPublicConfig } from './api.js';
 import { componentBuilders } from './components/index.js';
-import { destroyCharts, initPowerChart, initEnergyChart } from './charts.js';
+import { destroyCharts, initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { clearSparklineCharts } from './forecast.js';
 import { updateAllComponents } from './updater.js';
@@ -320,10 +320,12 @@ function renderDashboard() {
 
   const hasPower = active.layout.some(b => b.type === 'chart-power');
   const hasEnergy = active.layout.some(b => b.type === 'chart-energy');
-  if (hasPower || hasEnergy) {
+  const hasMetric = active.layout.some(b => b.type === 'chart-metric');
+  if (hasPower || hasEnergy || hasMetric) {
     ensureChartJS().then(() => {
       if (hasPower) initPowerChart();
       if (hasEnergy) initEnergyChart();
+      if (hasMetric) initMetricChart();
     }).catch(e => console.error('Chart.js load failed:', e));
   }
 
