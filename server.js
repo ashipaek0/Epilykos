@@ -2017,6 +2017,9 @@ app.get('/api/network-config', (req, res) => {
   res.json({ localURL, remoteURL });
 });
 
+// ---------- Health probe (public, no auth) ----------
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
 // ---------- Settings page (protected) ----------
 app.get('/settings', isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
