@@ -71,7 +71,7 @@
   }
 
   // ── Constants ─────────────────────────────────────────────
-  var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232', 'modbusSerial', 'modbusTcp', 'bms', 'rest', 'tuya'];
+  var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232', 'modbusSerial', 'modbusTcp', 'bms', 'bmsWired', 'rest', 'tuya'];
   var STEP_LABELS = ['Password', 'Sources', 'Metrics', 'Dashboard', 'Basics', 'Optional', 'Finish'];
   var ROLES = [
     { key: 'solar',              label: 'Solar Power',       unit: 'W' },
@@ -109,6 +109,7 @@
       modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
+      bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
       rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} },
       tuya:    { selected: false, name: 'Tuya (LAN)', dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: '30', enabled: true, dps: {}, tuya_cloud: {} }
     },
@@ -210,6 +211,7 @@
       }
     });
     var bm = asArray(bySrc.bms)[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (BLE bridge)', address: bm.address || '', bridge_url: bm.bridge_url || state.sources.bms.bridge_url, poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
+    var bw = (asArray(bySrc.bms) || []).find(function (d) { return d && d.transport === 'wired'; }); if (bw) { Object.assign(state.sources.bmsWired, { selected: true, name: bw.name || 'BMS (RS485/RS232)', serial_path: bw.serial_path || '', baud: String(bw.baud || 9600), data_bits: String(bw.data_bits || 8), parity: bw.parity || 'none', stop_bits: String(bw.stop_bits || 1), modbus_unit_id: String(bw.modbus_unit_id || 1), profile: bw.profile || '', timeout: String(bw.timeout || 5000), poll_interval: String(bw.poll_interval || 30), mappings: bw.mappings || {} }); }
     var rx = asArray(bySrc.rest)[0]; if (rx) { Object.assign(state.sources.rest, { selected: true, name: rx.name || 'REST API', url: rx.url || '', mappings: rx.mappings || {} }); }
     var ty = asArray(bySrc.tuya)[0]; if (ty) { Object.assign(state.sources.tuya, { selected: true, name: ty.name || 'Tuya (LAN)', dev_id: ty.dev_id || '', address: ty.address || '', local_key: ty.local_key || '', version: ty.version || '3.3', poll_interval: String(ty.poll_interval || 30), dps: ty.dps || {} }); }
     if (cfg.tuya_cloud) {
@@ -610,11 +612,10 @@
       ]),
       sourceCardBMS());
 
-    // 5 · BMS — Wired (placeholder — added in a later phase)
-    html += '<div class="setup-section">'
-      + '<div class="setup-section-head"><h3>' + g.bmsWired + '</h3><p>Read your BMS over a direct wired connection.</p></div>'
-      + '<div class="source-coming"><span class="source-coming-note">🚧 Wired BMS is coming in a later phase — no configuration needed here yet.</span></div>'
-      + '</div>';
+    // 5 · BMS — Wired (real source)
+    html += section(g.bmsWired, 'Read your BMS over a direct wired connection (RS485/RS232, Modbus-RTU).',
+      grid([{ key: 'bmsWired', icon: '🔌', label: 'BMS (RS485/RS232)', sub: 'Modbus-RTU over serial' }]),
+      sourceCardBmsWired());
 
     // 6 · Home Assistant
     html += section(g.ha, 'A running Home Assistant instance.',
@@ -833,6 +834,35 @@
       + '<div data-error="bms"></div>'
       + '</div>';
   }
+  function sourceCardBmsWired() {
+    var s = cfg('bmsWired');
+    return '<div class="source-config card" data-source="bmsWired">'
+      + '<div class="card-header"><span class="card-title">BMS (RS485/RS232)</span></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.bmsWired.name" value="' + esc(s.name) + '"></div>'
+      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bmsWired.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
+      + '</div>'
+      + '<div class="form-group"><label>Serial port</label><select class="input" data-field="sources.bmsWired.serial_path" id="bms-wired-port"><option value="">Loading…</option></select></div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.bmsWired.baud" value="' + esc(s.baud) + '"></div>'
+      + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Data bits</label><select class="select-input" data-field="sources.bmsWired.data_bits">' + [[8,'8'],[7,'7'],[6,'6'],[5,'5']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.data_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
+      + '<div class="form-group"><label>Parity</label><select class="select-input" data-field="sources.bmsWired.parity">' + [['none','None'],['even','Even'],['odd','Odd']].map(function (x) { return '<option value="' + x[0] + '"' + (String(s.parity) === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group"><label>Stop bits</label><select class="select-input" data-field="sources.bmsWired.stop_bits">' + [['1','1'],['2','2']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.stop_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
+      + '<div class="form-group"><label>Timeout (ms)</label><input class="input" type="number" data-field="sources.bmsWired.timeout" value="' + esc(s.timeout) + '"></div>'
+      + '</div>'
+      + '<div class="form-group"><label>Profile</label><select class="input" data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select></div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="bmsWired" data-test="bmsWired">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="bmsWired">Not tested</span>'
+      + '</div>'
+      + '<div data-error="bmsWired"></div>'
+      + '</div>';
+  }
   function sourceCardREST() {
     var s = cfg('rest');
     return '<div class="source-config card" data-source="rest">'
@@ -899,6 +929,7 @@
     if (state.sources.rs232.selected && !state.sources.rs232.profilesLoaded) loadRs232Profiles();
     if (state.sources.modbusSerial.selected && !state.sources.modbusSerial.profilesLoaded) loadModbusProfiles('modbusSerial', 'modbus-serial-profile');
     if (state.sources.modbusTcp.selected && !state.sources.modbusTcp.profilesLoaded) loadModbusProfiles('modbusTcp', 'modbus-tcp-profile');
+    if (state.sources.bmsWired.selected) { loadBmsWiredPorts(); loadBmsWiredProfiles(); }
   }
 
   function loadModbusProfiles(kind, selId) {
@@ -995,6 +1026,53 @@
     });
   }
 
+  function loadBmsWiredPorts() {
+    api('/api/rs232/ports').then(function (res) {
+      var sel = $('#bms-wired-port');
+      if (!sel) return;
+      if (!res.ok || !Array.isArray(res.data)) {
+        sel.innerHTML = '<option value="">Ports unavailable</option>';
+        return;
+      }
+      var html = '<option value="">-- Select port --</option>';
+      res.data.forEach(function (p) {
+        var v = p.path;
+        var label = p.friendlyName ? (p.friendlyName + ' (' + p.path + ')') : p.path;
+        html += '<option value="' + esc(v) + '"' + (state.sources.bmsWired.serial_path === v ? ' selected' : '') + '>' + esc(label) + '</option>';
+      });
+      sel.innerHTML = html;
+    }).catch(function () {
+      var sel = $('#bms-wired-port');
+      if (sel) sel.innerHTML = '<option value="">Ports unavailable</option>';
+    });
+  }
+
+  function loadBmsWiredProfiles() {
+    api('/api/rs232/profiles').then(function (res) {
+      var sel = $('#bms-wired-profile');
+      if (!sel) return;
+      if (!res.ok || !Array.isArray(res.data)) {
+        sel.innerHTML = '<option value="">Profiles unavailable</option>';
+        return;
+      }
+      var html = '<option value="">Select a profile…</option>';
+      var found = false;
+      res.data.forEach(function (p) {
+        var id = p.id !== undefined && p.id !== null ? p.id : p.name;
+        var name = p.name || id;
+        var hay = String(name).toLowerCase() + ' ' + String(id).toLowerCase();
+        if (hay.indexOf('bms') === -1) return;
+        found = true;
+        html += '<option value="' + esc(id) + '"' + (state.sources.bmsWired.profile === id ? ' selected' : '') + '>' + esc(name) + '</option>';
+      });
+      if (!found) html = '<option value="">No BMS profiles found</option>';
+      sel.innerHTML = html;
+    }).catch(function () {
+      var sel = $('#bms-wired-profile');
+      if (sel) sel.innerHTML = '<option value="">Profiles unavailable</option>';
+    });
+  }
+
   function syncCustomGroup() {
     var g = $('#rs232-custom-group');
     if (g) g.style.display = (state.sources.rs232.portChoice === '__custom') ? '' : 'none';
@@ -1078,6 +1156,7 @@
     if (kind === 'modbusSerial') return !!(s.serial_path && s.transport === 'serial');
     if (kind === 'modbusTcp') return !!(s.host && s.port && s.transport === 'tcp');
     if (kind === 'bms') return !!s.address;
+    if (kind === 'bmsWired') return !!(s.serial_path && s.profile && s.modbus_unit_id);
     if (kind === 'rest') return !!s.url;
     if (kind === 'tuya') return !!(s.address && s.local_key);
     return false;
@@ -1115,6 +1194,8 @@
       p = api('/api/test-modbus', { method: 'POST', body: JSON.stringify(mb) });
     } else if (kind === 'bms') {
       p = api('/api/bms/test' + encodeQuery({ address: s.address }));
+    } else if (kind === 'bmsWired') {
+      p = api('/api/bms-wired/test', { method: 'POST', body: JSON.stringify({ serial_path: s.serial_path, baud: s.baud, data_bits: s.data_bits, parity: s.parity, stop_bits: s.stop_bits, modbus_unit_id: s.modbus_unit_id, profile: s.profile, timeout: s.timeout }) });
     } else if (kind === 'rest') {
       var jpEl = document.getElementById('rest-test-jsonpath');
       var jsonPath = jpEl ? jpEl.value : '';
@@ -1168,6 +1249,13 @@
           setError('bms', apiErrMsg(res, 'BMS'));
         } else {
           setBadge('bms', 'ok', '✔ Connected');
+        }
+      } else if (kind === 'bmsWired') {
+        if (res.ok && res.data && Object.keys(res.data || {}).length) {
+          setBadge('bmsWired', 'ok', '✔ ' + Object.keys(res.data).length + ' metrics');
+        } else {
+          setBadge('bmsWired', 'fail', '✖ Failed');
+          setError('bmsWired', apiErrMsg(res, 'Wired BMS'));
         }
       } else if (kind === 'rest') {
         if (res.ok) {
@@ -1332,9 +1420,16 @@
     return out;
   }
   function buildBmsDevices() {
-    if (!state.sources.bms.selected) return [];
-    var b = state.sources.bms;
-    return [{ name: b.name || 'BMS (BLE bridge)', enabled: true, address: b.address || '', bridge_url: b.bridge_url || 'http://bms-bridge:8020', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} }];
+    var out = [];
+    if (state.sources.bms.selected) {
+      var b = state.sources.bms;
+      out.push({ name: b.name || 'BMS (BLE bridge)', enabled: true, transport: 'bluetooth', address: b.address || '', bridge_url: b.bridge_url || 'http://bms-bridge:8020', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} });
+    }
+    if (state.sources.bmsWired.selected) {
+      var w = state.sources.bmsWired;
+      out.push({ name: w.name || 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: w.serial_path || '', baud: parseInt(w.baud, 10) || 9600, data_bits: parseInt(w.data_bits, 10) || 8, parity: w.parity || 'none', stop_bits: parseInt(w.stop_bits, 10) || 1, modbus_unit_id: parseInt(w.modbus_unit_id, 10) || 1, profile: w.profile || '', timeout: parseInt(w.timeout, 10) || 5000, poll_interval: parseInt(w.poll_interval, 10) || 30, mappings: w.mappings || {} });
+    }
+    return out;
   }
   function buildRestDevices() {
     if (!state.sources.rest.selected) return [];
@@ -1405,6 +1500,7 @@
       else if (k === 'modbusSerial' && !s.serial_path) errors.modbusSerial = 'Serial path is required.';
       else if (k === 'modbusTcp' && !(s.host && s.port)) errors.modbusTcp = 'Host and port are required.';
       else if (k === 'bms' && !s.address) errors.bms = 'MAC address is required.';
+      else if (k === 'bmsWired' && !(s.serial_path && s.profile && s.modbus_unit_id)) errors.bmsWired = 'Serial port, profile and Modbus unit ID are required.';
       else if (k === 'rest' && !s.url) errors.rest = 'Endpoint URL is required.';
       else if (k === 'tuya' && !(s.address && s.local_key)) errors.tuya = 'IP address and local key are required.';
     });
@@ -1465,6 +1561,7 @@
       modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
+      bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
       rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} },
       tuya:    { selected: false, name: 'Tuya (LAN)', dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: '30', enabled: true, dps: {}, tuya_cloud: {} }
     };
