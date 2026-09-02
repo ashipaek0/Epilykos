@@ -1130,6 +1130,8 @@
   function updateTestButtons() {
     $$('[data-action="test"]').forEach(function (btn) {
       var src = btn.getAttribute('data-source');
+      // Optional-step test buttons (pvoutput/forecast/network) are always enabled.
+      if (!state.sources[src]) { btn.disabled = false; return; }
       btn.disabled = !state.sources[src].selected || !hasMinimal(src);
     });
     var browse = $('[data-action="browse-topics"]');
@@ -1161,6 +1163,14 @@
       var jpEl = document.getElementById('rest-test-jsonpath');
       var jsonPath = jpEl ? jpEl.value : '';
       p = api('/api/test-external', { method: 'POST', body: JSON.stringify({ url: s.url, jsonPath: jsonPath }) });
+    } else if (kind === 'pvoutput') {
+      var pvo = state.optional.pvoutput;
+      p = api('/api/pvoutput/test', { method: 'POST', body: JSON.stringify({ api_key: pvo.api_key, system_id: pvo.system_id }) });
+    } else if (kind === 'forecast') {
+      var fo = state.optional.forecast;
+      p = api('/api/test-forecast' + encodeQuery({ lat: fo.latitude, lon: fo.longitude, capacity: fo.capacity_kwp, api_key: fo.solcast_api_key, resource_id: fo.solcast_resource_id, tilt: fo.tilt, azimuth: fo.azimuth, loss: fo.loss_factor }));
+    } else if (kind === 'network') {
+      p = testNetworkUrls();
     }
     if (!p) return;
     p.then(function (res) {
@@ -1225,10 +1235,59 @@
           setBadge('rest', 'fail', '✖ Failed');
           setError('rest', apiErrMsg(res, 'REST'));
         }
+      } else if (kind === 'pvoutput') {
+        if (res.ok && res.data && res.data.success) {
+          setBadge('pvoutput', 'ok', '✔ Connected');
+        } else {
+          setBadge('pvoutput', 'fail', '✖ Failed');
+          setError('pvoutput', apiErrMsg(res, 'PVOutput'));
+        }
+      } else if (kind === 'forecast') {
+        if (res.ok && res.data && res.data.source) {
+          setBadge('forecast', 'ok', '✔ ' + res.data.source + ' · ' + res.data.today_estimate_kwh + ' kWh');
+        } else {
+          setBadge('forecast', 'fail', '✖ Failed');
+          setError('forecast', apiErrMsg(res, 'Forecast'));
+        }
+      } else if (kind === 'network') {
+        if (res.ok && res.data) {
+          var lr = res.data.localReachable;
+          var rr = res.data.remoteReachable;
+          setBadge('network', (lr || rr) ? 'ok' : 'fail',
+            (lr ? '✔ Local' : '✖ Local') + ' · ' + (rr ? '✔ Remote' : '✖ Remote'));
+          if (!lr && !rr) setError('network', 'None of the configured URLs were reachable.');
+        } else {
+          setBadge('network', 'fail', '✖ Failed');
+          setError('network', apiErrMsg(res, 'Network'));
+        }
       }
     }).catch(function (e) {
       setBadge(kind, 'fail', '✖ Error');
       setError(kind, 'Network error during test.');
+    });
+  }
+
+  // Probe whether a base URL is reachable, without CORS/status concerns.
+  // Mirrors public/js/network-detect.js checkLocalReachable(): a small static
+  // asset is enough — a reachable server that answers must set onload.
+  function probeUrl(baseURL) {
+    if (!baseURL) return Promise.resolve(false);
+    return new Promise(function (resolve) {
+      var img = new Image();
+      var timer = setTimeout(function () { img.src = ''; resolve(false); }, 4000);
+      img.onload = function () { clearTimeout(timer); resolve(true); };
+      img.onerror = function () { clearTimeout(timer); resolve(false); };
+      img.src = baseURL.replace(/\/+$/, '') + '/icons/icon-192.png?' + Date.now();
+    });
+  }
+
+  function testNetworkUrls() {
+    var nw = state.optional.network;
+    if (!nw.local_url && !nw.remote_url) {
+      return Promise.resolve({ ok: false, status: 0, data: { localReachable: false, remoteReachable: false } });
+    }
+    return Promise.all([probeUrl(nw.local_url), probeUrl(nw.remote_url)]).then(function (r) {
+      return { ok: true, status: 200, data: { localReachable: r[0], remoteReachable: r[1] } };
     });
   }
 
@@ -1696,6 +1755,13 @@
       + '<div class="form-group"><label>System size (W)</label><input class="input" type="number" data-field="optional.pvoutput.system_size_w" value="' + esc(pv.system_size_w) + '"></div>'
       + '<div class="form-group"><label>Webhook URL <span class="note">(optional)</span></label><input class="input" data-field="optional.pvoutput.webhook_url" value="' + esc(pv.webhook_url) + '"></div>'
       + '</div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="save-optional" data-source="pvoutput">💾 Save</button>'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="pvoutput">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="pvoutput">Not tested</span>'
+      + '<span class="spacer"></span>'
+      + '</div>'
+      + '<div data-error="pvoutput"></div>'
       + '</div>';
 
     // Solar Forecast
@@ -1720,6 +1786,13 @@
       + '<div class="form-group"><label>Solcast resource ID</label><input class="input" data-field="optional.forecast.solcast_resource_id" value="' + esc(fc.solcast_resource_id) + '"></div>'
       + '<div class="form-group"><label>Loss factor</label><input class="input" data-field="optional.forecast.loss_factor" value="' + esc(fc.loss_factor) + '"></div>'
       + '</div>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="save-optional" data-source="forecast">💾 Save</button>'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="forecast">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="forecast">Not tested</span>'
+      + '<span class="spacer"></span>'
+      + '</div>'
+      + '<div data-error="forecast"></div>'
       + '</div>';
 
     // Network URLs
@@ -1728,6 +1801,13 @@
       + '<div class="form-group"><label>Local URL (LAN / WiFi)</label><input class="input" data-field="optional.network.local_url" placeholder="http://local-ip:port" value="' + esc(nw.local_url) + '"></div>'
       + '<div class="form-group"><label>Remote URL (Internet)</label><input class="input" data-field="optional.network.remote_url" placeholder="https://domain-name.tld" value="' + esc(nw.remote_url) + '"></div>'
       + '<span class="note">The PWA picks the fastest URL for your current network automatically.</span>'
+      + '<div class="test-row">'
+      + '<button class="btn btn-sm" type="button" data-action="save-optional" data-source="network">💾 Save</button>'
+      + '<button class="btn btn-sm" type="button" data-action="test" data-source="network">Test connection</button>'
+      + '<span class="test-badge pending" data-badge-src="network">Not tested</span>'
+      + '<span class="spacer"></span>'
+      + '</div>'
+      + '<div data-error="network"></div>'
       + '</div>';
 
     body.innerHTML = html;
@@ -1766,6 +1846,81 @@
         })
       }) });
     }).then(function () { return true; }).catch(function () { return true; });
+  }
+
+  function saveOptionalCard(src) {
+    if (src === 'pvoutput') return saveOptionalPvOutput();
+    if (src === 'forecast') return saveOptionalForecast();
+    if (src === 'network') return saveOptionalNetwork();
+    return Promise.resolve(false);
+  }
+
+  function saveOptionalPvOutput() {
+    var pv = state.optional.pvoutput;
+    setBadge('pvoutput', 'pending', 'Saving…');
+    return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify({
+      pvoutput_config: JSON.stringify({
+        enabled: truthy(pv.enabled),
+        api_key: pv.api_key,
+        system_id: pv.system_id,
+        timezone: pv.timezone,
+        upload_interval_minutes: parseInt(pv.upload_interval_minutes, 10) || 5,
+        system_size_w: parseInt(pv.system_size_w, 10) || 0,
+        net_mode: truthy(pv.net_mode),
+        webhook_url: pv.webhook_url
+      })
+    }) }).then(function (res) {
+      if (res.ok) { setBadge('pvoutput', 'ok', '✔ Saved'); return true; }
+      setBadge('pvoutput', 'fail', '✖ Failed');
+      setError('pvoutput', 'Could not save PVOutput (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'PVOutput'));
+      return false;
+    }).catch(function () {
+      setBadge('pvoutput', 'fail', '✖ Failed');
+      setError('pvoutput', 'Network error saving PVOutput.');
+      return false;
+    });
+  }
+
+  function saveOptionalForecast() {
+    var fc = state.optional.forecast;
+    setBadge('forecast', 'pending', 'Saving…');
+    var payload = {
+      forecast_enabled: truthy(fc.enabled) ? 'true' : 'false',
+      solar_latitude: fc.latitude,
+      solar_longitude: fc.longitude,
+      solar_tilt: fc.tilt,
+      solar_azimuth: fc.azimuth,
+      solar_capacity_kwp: fc.capacity_kwp,
+      solcast_api_key: fc.solcast_api_key,
+      solcast_resource_id: fc.solcast_resource_id,
+      solar_loss_factor: fc.loss_factor
+    };
+    return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
+      if (res.ok) { setBadge('forecast', 'ok', '✔ Saved'); return true; }
+      setBadge('forecast', 'fail', '✖ Failed');
+      setError('forecast', 'Could not save forecast (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Forecast'));
+      return false;
+    }).catch(function () {
+      setBadge('forecast', 'fail', '✖ Failed');
+      setError('forecast', 'Network error saving forecast.');
+      return false;
+    });
+  }
+
+  function saveOptionalNetwork() {
+    var nw = state.optional.network;
+    setBadge('network', 'pending', 'Saving…');
+    var payload = { network_local_url: nw.local_url, network_remote_url: nw.remote_url };
+    return api('/api/settings/network', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
+      if (res.ok) { setBadge('network', 'ok', '✔ Saved'); return true; }
+      setBadge('network', 'fail', '✖ Failed');
+      setError('network', 'Could not save network URLs (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Network'));
+      return false;
+    }).catch(function () {
+      setBadge('network', 'fail', '✖ Failed');
+      setError('network', 'Network error saving network URLs.');
+      return false;
+    });
   }
 
   // ── STEP 7: FINISH ────────────────────────────────────────
@@ -1866,6 +2021,7 @@
       var action = el.getAttribute('data-action');
       if (action === 'toggle-source') toggleSource(el);
       else if (action === 'test') runTest(el.getAttribute('data-source'));
+      else if (action === 'save-optional') saveOptionalCard(el.getAttribute('data-source'));
       else if (action === 'browse-topics') runBrowseTopics();
       else if (action === 'toggle-topic') toggleTopic(el);
       else if (action === 'regenerate') regeneratePassword();
