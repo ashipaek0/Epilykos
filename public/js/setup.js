@@ -71,7 +71,7 @@
   }
 
   // ── Constants ─────────────────────────────────────────────
-  var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232', 'modbusSerial', 'modbusTcp', 'bms', 'bmsWired', 'rest', 'tuya'];
+  var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232', 'modbusSerial', 'modbusTcp', 'bms', 'bmsWired', 'rest'];
   var STEP_LABELS = ['Password', 'Sources', 'Metrics', 'Dashboard', 'Basics', 'Optional', 'Finish'];
   var ROLES = [
     { key: 'solar',              label: 'Solar Power',       unit: 'W' },
@@ -110,8 +110,7 @@
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
       bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
-      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} },
-      tuya:    { selected: false, name: 'Tuya (LAN)', dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: '30', enabled: true, dps: {}, tuya_cloud: {} }
+      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
     },
     roleMetrics: {},       // role -> metric name
     dashboard: { choice: 'full', layoutMap: {}, mainBlocks: [], blockCount: 0 },
@@ -193,7 +192,7 @@
   }
 
   function prefillSources(cfg) {
-    var bySrc = { ha: cfg.ha_devices, mqtt: cfg.mqtt_devices, dongle: cfg.dongle_config, rs232: cfg.rs232_devices, modbus: cfg.modbus_devices, bms: cfg.bms_devices, rest: cfg.external_sources, tuya: cfg.tuya_devices };
+    var bySrc = { ha: cfg.ha_devices, mqtt: cfg.mqtt_devices, dongle: cfg.dongle_config, rs232: cfg.rs232_devices, modbus: cfg.modbus_devices, bms: cfg.bms_devices, rest: cfg.external_sources };
     function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return []; } } return []; }
     var ha = asArray(bySrc.ha)[0]; if (ha) { Object.assign(state.sources.ha, { selected: true, name: ha.name || 'Home Assistant', url: ha.url || '', token: ha.token || '', poll_interval: String(ha.poll_interval || 30), entities: Object.keys(ha.entities || {}) }); }
     var mq = asArray(bySrc.mqtt)[0]; if (mq) { Object.assign(state.sources.mqtt, { selected: true, name: mq.name || 'MQTT Broker', broker: mq.broker || '', username: mq.username || '', password: mq.password || '', poll_interval: String(mq.poll_interval || 30), selectedTopics: mq.topics || {}, topics: mq.topics || {} }); }
@@ -213,11 +212,6 @@
     var bm = asArray(bySrc.bms)[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (BLE bridge)', address: bm.address || '', bridge_url: bm.bridge_url || state.sources.bms.bridge_url, poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
     var bw = (asArray(bySrc.bms) || []).find(function (d) { return d && d.transport === 'wired'; }); if (bw) { Object.assign(state.sources.bmsWired, { selected: true, name: bw.name || 'BMS (RS485/RS232)', serial_path: bw.serial_path || '', baud: String(bw.baud || 9600), data_bits: String(bw.data_bits || 8), parity: bw.parity || 'none', stop_bits: String(bw.stop_bits || 1), modbus_unit_id: String(bw.modbus_unit_id || 1), profile: bw.profile || '', timeout: String(bw.timeout || 5000), poll_interval: String(bw.poll_interval || 30), mappings: bw.mappings || {} }); }
     var rx = asArray(bySrc.rest)[0]; if (rx) { Object.assign(state.sources.rest, { selected: true, name: rx.name || 'REST API', url: rx.url || '', mappings: rx.mappings || {} }); }
-    var ty = asArray(bySrc.tuya)[0]; if (ty) { Object.assign(state.sources.tuya, { selected: true, name: ty.name || 'Tuya (LAN)', dev_id: ty.dev_id || '', address: ty.address || '', local_key: ty.local_key || '', version: ty.version || '3.3', poll_interval: String(ty.poll_interval || 30), dps: ty.dps || {} }); }
-    if (cfg.tuya_cloud) {
-      var tc = (typeof cfg.tuya_cloud === 'string') ? (function () { try { return JSON.parse(cfg.tuya_cloud); } catch (e) { return null; } })() : cfg.tuya_cloud;
-      if (tc && typeof tc === 'object') state.sources.tuya.tuya_cloud = tc;
-    }
     // Re-seed wizard discovery results (HA entities, MQTT selectedTopics,
     // dongle/RS232 mappings) so the metrics step has candidates without
     // re-probing. Stored in the wizard-owned setup_probe_cache key.
@@ -632,10 +626,8 @@
       grid([{ key: 'rest', icon: '🌐', label: 'REST API', sub: 'URL + JSON path' }]),
       sourceCardREST());
 
-    // 9 · Tuya
-    html += section(g.tuya, 'Tuya devices scanned over local-LAN.',
-      grid([{ key: 'tuya', icon: '📶', label: 'Tuya', sub: 'Local-LAN on port 6668' }]),
-      sourceCardTuya());
+    // Tuya is configured in Settings, not the wizard.
+    html += '<div class="source-coming"><span class="source-coming-note">Tuya devices are configurable in the Settings page.</span></div>';
 
     // Footer actions: Next is the single save+advance; Start fresh is the destructive reset (behind confirm).
     html += '<div class="test-row">'
@@ -880,40 +872,6 @@
       + '<div data-error="rest"></div>'
       + '</div>';
   }
-  function sourceCardTuya() {
-    var s = cfg('tuya');
-    var tc = s.tuya_cloud || {};
-    return '<div class="source-config card" data-source="tuya">'
-      + '<div class="card-header"><span class="card-title">Tuya</span></div>'
-      + '<div class="alert alert-info">🔒 Twice-only cloud fetch for keys; runs fully local on port 6668.</div>'
-      + '<div class="section-subhead">Cloud credentials <span class="note">(optional — used once to fetch local keys)</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Region</label><input class="input" data-field="sources.tuya.tuya_cloud.region" value="' + esc(tc.region || 'eu') + '"></div>'
-      + '<div class="form-group"><label>Device ID (cloud)</label><input class="input" data-field="sources.tuya.tuya_cloud.device_id" value="' + esc(tc.device_id || '') + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Access ID</label><input class="input" data-field="sources.tuya.tuya_cloud.access_id" value="' + esc(tc.access_id || '') + '"></div>'
-      + '<div class="form-group"><label>Access Secret</label><input class="input" type="password" data-field="sources.tuya.tuya_cloud.access_secret" value="' + esc(tc.access_secret || '') + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="tuya-cloud-fetch-key">☁️ Fetch keys from cloud</button>'
-      + '<span class="test-badge pending" data-badge-src="tuya-cloud">Not fetched</span>'
-      + '</div>'
-      + '<div class="section-subhead">Local-LAN credentials</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Device ID</label><input class="input" data-field="sources.tuya.dev_id" readonly value="' + esc(s.dev_id) + '"></div>'
-      + '<div class="form-group"><label>IP address</label><input class="input" data-field="sources.tuya.address" placeholder="192.168.1.100" value="' + esc(s.address) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Local key</label><input class="input" type="password" data-field="sources.tuya.local_key" value="' + esc(s.local_key) + '"></div>'
-      + '<div class="form-group"><label>Protocol version</label><select class="select-input" data-field="sources.tuya.version">' + modbusVersionOptions(s.version) + '</select></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.tuya.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '<span class="note">DP mappings (which metric maps to which Tuya DP) are configured in Settings after setup.</span>'
-      + '<div data-error="tuya"></div>'
-      + '</div>';
-  }
-
   function syncSourceCardVisibility() {
     $$('.source-config').forEach(function (card) {
       var key = card.getAttribute('data-source');
@@ -1158,7 +1116,6 @@
     if (kind === 'bms') return !!s.address;
     if (kind === 'bmsWired') return !!(s.serial_path && s.profile && s.modbus_unit_id);
     if (kind === 'rest') return !!s.url;
-    if (kind === 'tuya') return !!(s.address && s.local_key);
     return false;
   }
   function resolveSerialPath(s) {
@@ -1338,50 +1295,6 @@
     else { s.selectedTopics[t] = true; btn.classList.add('on'); var tick2 = btn.querySelector('.tick'); if (tick2) tick2.textContent = '✓'; }
   }
 
-  function fetchTuyaCloudKeys() {
-    var t = state.sources.tuya;
-    var tc = t.tuya_cloud || {};
-    var badge = document.querySelector('[data-badge-src="tuya-cloud"]');
-    if (!tc.access_id || !tc.access_secret) {
-      if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'Add Access ID + Secret first'; }
-      return;
-    }
-    if (badge) { badge.className = 'test-badge pending'; badge.textContent = 'Fetching…'; }
-    api('/api/tuya-cloud-fetch', { method: 'POST', body: JSON.stringify({
-      region: tc.region || 'eu',
-      access_id: tc.access_id,
-      access_secret: tc.access_secret,
-      user_id: tc.device_id || ''
-    }) }).then(function (res) {
-      if (!res.ok || !res.data || !res.data.success || !Array.isArray(res.data.devices)) {
-        if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'Fetch failed'; }
-        setError('tuya', apiErrMsg(res, 'Tuya cloud fetch'));
-        return;
-      }
-      var devices = res.data.devices;
-      if (!devices.length) {
-        if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'No devices returned'; }
-        return;
-      }
-      var wanted = tc.device_id;
-      var dev = null;
-      for (var i = 0; i < devices.length; i++) {
-        if (wanted && (devices[i].dev_id === wanted || devices[i].id === wanted)) { dev = devices[i]; break; }
-      }
-      if (!dev) dev = devices[0];
-      t.dev_id = dev.dev_id || dev.id || t.dev_id;
-      t.address = dev.address || dev.ip || t.address;
-      t.local_key = dev.local_key || t.local_key;
-      var idEl = document.querySelector('[data-field="sources.tuya.dev_id"]'); if (idEl) idEl.value = t.dev_id;
-      var addrEl = document.querySelector('[data-field="sources.tuya.address"]'); if (addrEl) addrEl.value = t.address;
-      var keyEl = document.querySelector('[data-field="sources.tuya.local_key"]'); if (keyEl) keyEl.value = t.local_key;
-      if (badge) { badge.className = 'test-badge ok'; badge.textContent = '✔ Keys fetched'; }
-      clearError('tuya');
-    }).catch(function () {
-      if (badge) { badge.className = 'test-badge fail'; badge.textContent = 'Error fetching keys'; }
-    });
-  }
-
   // ── Build devices + save sources ──────────────────────────
   function buildHADevices() {
     if (!state.sources.ha.selected) return [];
@@ -1436,12 +1349,6 @@
     var r = state.sources.rest;
     return [{ name: r.name || 'REST API', enabled: true, url: r.url || '', mappings: r.mappings || {} }];
   }
-  function buildTuyaDevices() {
-    if (!state.sources.tuya.selected) return [];
-    var t = state.sources.tuya;
-    return [{ name: t.name || 'Tuya (LAN)', enabled: true, dev_id: t.dev_id || '', address: t.address || '', local_key: t.local_key || '', version: t.version || '3.3', poll_interval: parseInt(t.poll_interval, 10) || 30, dps: t.dps || {} }];
-  }
-
   // Wizard-owned cache of discovery results so the metrics step (step 3) can
   // offer candidates on re-entry without re-probing sources. Never used by
   // Settings' metric→entity map; that stays in ha_devices[0].entities.
@@ -1465,11 +1372,8 @@
       modbus_devices: JSON.stringify(buildModbusDevices()),
       external_sources: JSON.stringify(buildRestDevices()),
       bms_devices: JSON.stringify(buildBmsDevices()),
-      tuya_devices: JSON.stringify(buildTuyaDevices()),
       setup_probe_cache: buildProbeCache()
     };
-    var tc = state.sources.tuya.tuya_cloud;
-    if (tc && typeof tc === 'object' && (tc.access_id || tc.access_secret)) body.tuya_cloud = JSON.stringify(tc);
     return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
       if (res.ok && res.data && (res.data.ok || res.data.success)) {
         hideSourcesError();
@@ -1502,7 +1406,6 @@
       else if (k === 'bms' && !s.address) errors.bms = 'MAC address is required.';
       else if (k === 'bmsWired' && !(s.serial_path && s.profile && s.modbus_unit_id)) errors.bmsWired = 'Serial port, profile and Modbus unit ID are required.';
       else if (k === 'rest' && !s.url) errors.rest = 'Endpoint URL is required.';
-      else if (k === 'tuya' && !(s.address && s.local_key)) errors.tuya = 'IP address and local key are required.';
     });
     return errors;
   }
@@ -1562,8 +1465,7 @@
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
       bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
-      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} },
-      tuya:    { selected: false, name: 'Tuya (LAN)', dev_id: '', address: '', local_key: '', version: '3.3', poll_interval: '30', enabled: true, dps: {}, tuya_cloud: {} }
+      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
     };
     state.roleMetrics = {};
     state.dashboard.choice = 'full';
@@ -1968,7 +1870,6 @@
       else if (action === 'choose-dashboard') chooseDashboard(el);
       else if (action === 'toggle-theme') toggleTheme();
       else if (action === 'reset-sources') resetSources();
-      else if (action === 'tuya-cloud-fetch-key') fetchTuyaCloudKeys();
     });
 
     $('#back-btn').addEventListener('click', function () { if (!state.busy) gotoStep(state.currentStep - 1); });
