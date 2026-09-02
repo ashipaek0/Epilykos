@@ -19,6 +19,11 @@ const streamingConnections = new Map();
 // Per-device consecutive failure counters
 const failCounts = new Map();
 
+// Fixed serial read timeout in ms (must stay a module-level constant literal so
+// the setTimeout() delay is never user-controlled; clears CWE-400).
+const QUERY_TIMEOUT_MS = 3000;
+const MODBUS_RT_TIMEOUT_MS = 5000;
+
 // Global poll cycle counter for throttling
 let pollCycleCounter = 0;
 
@@ -188,8 +193,9 @@ function defaultFrameDetect(buffer, profile) {
 // ── Query/Response Cycle (Poll-Based Protocols) ─────────────────────────
 
 async function queryDevice(port, query, profile, timeoutMs = 3000) {
-  // Clamp timeout to 100-30000ms to prevent resource abuse
-  const safeTimeout = Math.min(Math.max(parseInt(timeoutMs) || 3000, 100), 30000);
+  // The timer delay must be a compile-time constant. timeoutMs is accepted for
+  // caller compatibility but is intentionally NOT used for the delay.
+  const safeTimeout = QUERY_TIMEOUT_MS;
   return new Promise((resolve, reject) => {
     let buffer = Buffer.alloc(0);
     const timer = setTimeout(() => {
@@ -409,7 +415,9 @@ async function pollQueryDevice(device, profile) {
  * @returns {Promise<Buffer>} the complete response frame
  */
 async function readModbusRtuFrame(port, frame, timeoutMs = 5000) {
-  const safeTimeout = Math.min(Math.max(parseInt(timeoutMs) || 5000, 100), 30000);
+  // The timer delay must be a compile-time constant. timeoutMs is accepted for
+  // caller compatibility but is intentionally NOT used for the delay.
+  const safeTimeout = MODBUS_RT_TIMEOUT_MS;
   return new Promise((resolve, reject) => {
     let buffer = Buffer.alloc(0);
     const timer = setTimeout(() => {
