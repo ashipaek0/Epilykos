@@ -2424,6 +2424,7 @@ function getTransportForProfile(profileId) {
   const p = getProfileById(profileId);
   if (!p) return 'solarman-v5';
   if (p.protocol === 'felicity-tcp') return 'felicity-tcp';
+  if (p.protocol === 'luxpower-tcp') return 'luxpower-tcp';
   return p.transport || 'solarman-v5';
 }
 
@@ -2431,18 +2432,22 @@ function updateDongleTransportUI(card) {
   const transportSelect = card.querySelector('select[name$="[transport]"]');
   if (!transportSelect) return;
   const tx = transportSelect.value;
+  const isLux = tx === 'luxpower-tcp';
   const serialRow = card.querySelector('.dongle-serial-row');
   const hostInput = card.querySelector('input[name$="[host]"]');
   const portInput = card.querySelector('input[name$="[port]"]');
-  if (tx === 'modbus-tcp') {
-    if (serialRow) serialRow.style.display = 'none';
-    if (hostInput) hostInput.style.display = '';
-    if (portInput) portInput.style.display = '';
-  } else {
-    if (serialRow) serialRow.style.display = (tx === 'felicity-tcp') ? 'none' : '';
-    if (hostInput) hostInput.style.display = '';
-    if (portInput) portInput.style.display = '';
-  }
+  const serialInput = card.querySelector('input[name$="[serial_number]"]');
+  const dongleSerialInput = card.querySelector('input[name$="[dongle_serial]"]');
+  const inverterSerialInput = card.querySelector('input[name$="[inverter_serial]"]');
+  const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
+  if (serialRow) serialRow.style.display = (tx === 'modbus-tcp' || tx === 'felicity-tcp') ? 'none' : '';
+  if (hostInput) hostInput.style.display = '';
+  if (portInput) portInput.style.display = '';
+  if (serialInput) serialInput.style.display = isLux ? 'none' : '';
+  if (dongleSerialInput) dongleSerialInput.style.display = isLux ? '' : 'none';
+  if (inverterSerialInput) inverterSerialInput.style.display = isLux ? '' : 'none';
+  if (unitIdInput) unitIdInput.style.display = isLux ? 'none' : '';
+  if (isLux && portInput && !portInput.value) portInput.value = 8000;
 }
 
 function renderDongleDevice(device, idx) {
@@ -2469,11 +2474,13 @@ function renderDongleDevice(device, idx) {
     </div>
     <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
       <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
+      <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial (e.g. LXP0000001)" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
+      <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial (e.g. LXP0000002)" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
     </div>
     <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
       <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
-      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:100px;">
+      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : 30)}" style="width:100px;">
       <input type="text" name="dongle_config[${idx}][prefix]" placeholder="Metric Prefix (optional)" value="${escapeHtml(device.prefix || '')}" style="width:150px;">
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
@@ -2483,6 +2490,7 @@ function renderDongleDevice(device, idx) {
       <option value="solarman-v5" ${transport === 'solarman-v5' ? 'selected' : ''}>Solarman v5</option>
       <option value="felicity-tcp" ${transport === 'felicity-tcp' ? 'selected' : ''}>Felicity TCP</option>
       <option value="growatt" ${transport === 'growatt' ? 'selected' : ''}>Growatt</option>
+      <option value="luxpower-tcp" ${transport === 'luxpower-tcp' ? 'selected' : ''}>LuxPower Local TCP</option>
     </select>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
     <div class="mappings-section">
@@ -2547,6 +2555,8 @@ function renderDongleDevice(device, idx) {
     const host = card.querySelector('input[name$="[host]"]')?.value.trim() || '';
     const port = card.querySelector('input[name$="[port]"]')?.value;
     const serial = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    const dongleSerial = card.querySelector('input[name$="[dongle_serial]"]')?.value || '';
+    const inverterSerial = card.querySelector('input[name$="[inverter_serial]"]')?.value || '';
     const unitId = card.querySelector('input[name$="[modbus_unit_id]"]')?.value;
     const tx = transportSelect.value;
     if (!host) { showStatus(statusEl, 'Host required', 'error'); return; }
@@ -2555,10 +2565,13 @@ function renderDongleDevice(device, idx) {
       const res = await fetch('/api/dongle/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, modbus_unit_id: parseInt(unitId) || 1, transport: tx })
+        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx })
       });
       const data = await res.json();
-      if (res.ok) showStatus(statusEl, `OK — Register 0x0100 = ${data.raw}`, 'success');
+      if (res.ok) {
+        const label = (tx === 'luxpower-tcp') ? 'OK — Operational State (reg 0x0000) =' : 'OK — Register 0x0100 =';
+        showStatus(statusEl, `${label} ${data.raw}`, 'success');
+      }
       else showStatus(statusEl, data.error, 'error');
     } catch (err) {
       showStatus(statusEl, err.message, 'error');
@@ -3801,12 +3814,15 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.name = card.querySelector('.device-header input[type="text"]').value;
     dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
     dev.profile = card.querySelector('.dongle-profile-select').value;
-    dev.transport = card.querySelector('select[name$="[transport]"]')?.value || 'solarman-v5';
+    const txSel = card.querySelector('select[name$="[transport]"]')?.value || 'solarman-v5';
+    dev.transport = txSel;
     dev.host = card.querySelector('input[name$="[host]"]').value;
     dev.port = parseInt(card.querySelector('input[name$="[port]"]').value) || undefined;
     dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';
+    dev.dongle_serial = card.querySelector('input[name$="[dongle_serial]"]')?.value?.trim() || '';
+    dev.inverter_serial = card.querySelector('input[name$="[inverter_serial]"]')?.value?.trim() || '';
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
-    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || 30;
+    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || (txSel === 'luxpower-tcp' ? 5 : 30);
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
     // Collect register mappings: { metricName → register }
     dev.mappings = {};

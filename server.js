@@ -1936,6 +1936,34 @@ app.post('/api/dongle/test', async (req, res) => {
       res.json({ success: true, raw: `JSON OK — ${count} realtime keys` });
       return;
     }
+    if (transport === 'luxpower-tcp') {
+      const dongleSerial = String(req.body.dongle_serial || '').trim();
+      const inverterSerial = String(req.body.inverter_serial || req.body.serial_number || '').trim();
+      if (!dongleSerial || !inverterSerial) {
+        return res.status(400).json({ error: 'Dongle serial and inverter serial are required for luxpower-tcp' });
+      }
+      const LuxpowerTcpTransport = require('./modules/dongle/luxpowerTcp').LuxpowerTcpTransport;
+      try {
+        transportObj = new LuxpowerTcpTransport({
+          host: safeHost,
+          port: safePort || 8000,
+          dongle_serial: dongleSerial,
+          inverter_serial: inverterSerial,
+          timeout_ms: 3000
+        });
+      } catch (e) {
+        return res.status(400).json({ error: e.message });
+      }
+      try {
+        // Real read cycle: input register 0x0000 (operational state); values
+        // are little-endian words on the wire (see luxpower-geta profile).
+        const data = await transportObj.readRegisters(0, 1, 0x04);
+        res.json({ success: true, raw: data.readUInt16LE(0) });
+      } finally {
+        transportObj.stop();
+      }
+      return;
+    }
     if (transport === 'solarman-v5') {
       transportObj = new (require('./modules/dongle/solarmanV5').SolarmanV5Transport)({ host: safeHost, port: safePort || 8899, serial_number, modbus_unit_id: modbus_unit_id || 1 });
     } else {

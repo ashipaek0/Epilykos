@@ -1,0 +1,142 @@
+{
+  "name": "LuxPower GETA Hybrid (Local TCP)",
+  "protocol": "luxpower-tcp",
+  "transport": "luxpower-tcp",
+  "default_port": 8000,
+  "byte_order": "le",
+  "capabilities": {
+    "write": false
+  },
+  "metrics": [
+    {
+      "name": "operational_state",
+      "register": "0x0000",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Operational State"
+    },
+    {
+      "name": "pv1_voltage",
+      "register": "0x0001",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV1 Voltage"
+    },
+    {
+      "name": "pv2_voltage",
+      "register": "0x0002",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV2 Voltage"
+    },
+    {
+      "name": "pv3_voltage",
+      "register": "0x0003",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV3 Voltage"
+    },
+    {
+      "name": "battery_voltage",
+      "register": "0x0004",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Voltage"
+    },
+    {
+      "name": "battery_soc",
+      "register": "0x0005",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Battery SOC"
+    },
+    {
+      "name": "pv1_power",
+      "register": "0x0007",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV1 Power"
+    },
+    {
+      "name": "pv2_power",
+      "register": "0x0008",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV2 Power"
+    },
+    {
+      "name": "pv3_or_total_power",
+      "register": "0x0009",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "PV3 / Total Power"
+    },
+    {
+      "name": "battery_charge_power",
+      "register": "0x000A",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Battery Charge Power"
+    },
+    {
+      "name": "battery_discharge_power",
+      "register": "0x000B",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Battery Discharge Power"
+    },
+    {
+      "name": "grid_voltage",
+      "register": "0x000C",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Voltage"
+    },
+    {
+      "name": "grid_frequency",
+      "register": "0x000F",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Frequency"
+    }
+  ]
+}

@@ -16,9 +16,11 @@ const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
+const { LuxpowerTcpTransport } = require('./dongle/luxpowerTcp');
 
 let pollIntervals = [];
 let growattServer = null;
+let luxpowerPollers = [];
 const profileCache = new Map();
 
 function startDonglePolling() {
@@ -52,6 +54,34 @@ function startDonglePolling() {
       continue;
     }
 
+    if (profile.protocol === 'luxpower-tcp') {
+      // LuxPower local TCP (v5 TranslatedData on :8000). Config uses explicit
+      // dongle_serial (outer header) + inverter_serial (inner 10-char serial);
+      // tolerate devices that stored the inverter serial under serial_number.
+      let transport = null;
+      try {
+        transport = new LuxpowerTcpTransport({
+          host: inst.host || inst.ip,
+          port: inst.port || 8000,
+          dongle_serial: inst.dongle_serial,
+          inverter_serial: inst.inverter_serial || inst.serial_number,
+          onFrame: parsed => handleLuxpowerFrame(inst, parsed)
+        });
+        // D4 (revised): ~5s active input cadence for luxpower-tcp; honor an
+        // explicit poll_interval (seconds) when the instance sets one.
+        const intervalMs = (inst.poll_interval || 5) * 1000;
+        const id = setInterval(() => pollLuxpowerInstance(inst, transport, profile), intervalMs);
+        luxpowerPollers.push({ instance: inst, transport, intervalId: id });
+        transport.start();
+        pollLuxpowerInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+      } catch (err) {
+        if (transport) { try { transport.stop(); } catch (_) {} }
+        logger.warn(`[dongle] ${inst.name}: luxpower instance skipped — ${err.message}`);
+        continue;
+      }
+      continue;
+    }
+
     profile.poll_ranges = buildPollRanges(profile.metrics);
 
     let Transport = ModbusTcpTransport;
@@ -73,6 +103,11 @@ function startDonglePolling() {
 function stopDonglePolling() {
   pollIntervals.forEach(clearInterval);
   pollIntervals = [];
+  for (const entry of luxpowerPollers) {
+    clearInterval(entry.intervalId);
+    if (entry.transport) entry.transport.stop();
+  }
+  luxpowerPollers = [];
   if (growattServer) { growattServer.stop(); growattServer = null; }
 }
 
@@ -276,6 +311,109 @@ async function pollJsonInstance(instance, transport, profile) {
   }
 }
 
+/**
+ * LuxPower local-TCP poll cycle: active INPUT-register reads only (holding
+ * metrics are out of scope in phase 1 — see D5). Ranges are derived from the
+ * profile's register_type:'input' metrics; decoded values reuse the shared
+ * Modbus-style decode semantics (int16/uint32/int32/uint64/bit/scale, honoring
+ * profile.byte_order and instance.prefix/mappings) and are funneled into
+ * writeMetrics. Mapping keys are namespaced input:0xNNNN / holding:0xNNNN for
+ * register_type-carrying metrics (AC16); legacy bare-hex keys still match.
+ */
+async function pollLuxpowerInstance(instance, transport, profile) {
+  try {
+    const start = Date.now();
+    const inputMetrics = profile.metrics.filter(m => (m.register_type || 'holding') === 'input');
+    const registerData = {};
+
+    for (const range of buildPollRanges(inputMetrics)) {
+      const buf = await transport.readRegisters(range.start, range.count, 0x04);
+      if (buf.length < range.count * 2) {
+        logger.warn(`[dongle] ${instance.name}: short buffer at range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
+      }
+      const leSwap = profile.byte_order === 'le';
+      for (let i = 0; i < range.count && i * 2 < buf.length; i++) {
+        let v = buf.readUInt16BE(i * 2);
+        if (leSwap) v = ((v & 0xFF) << 8) | (v >> 8);
+        registerData[range.start + i] = v;
+      }
+    }
+
+    const metrics = {};
+    const units = {};
+    const prefix = instance.prefix || '';
+    const mappings = instance.mappings || null;
+    // Build reverse lookup: (namespaced) register key → metric name
+    let regToMetric = null;
+    if (mappings) {
+      regToMetric = {};
+      for (const [metric, reg] of Object.entries(mappings)) {
+        regToMetric[reg] = metric;
+      }
+    }
+
+    for (const m of inputMetrics) {
+      const addr = parseInt(m.register, 16);
+      let raw = registerData[addr];
+      if (raw === undefined) continue;
+
+      // Mapping override logic — namespaced key first (AC16), then legacy bare
+      // hex for configs saved before namespacing; unmapped → skip.
+      let metricName;
+      if (regToMetric) {
+        const key = m.register_type ? `${m.register_type}:${m.register}` : m.register;
+        metricName = regToMetric[key] !== undefined ? regToMetric[key] : regToMetric[m.register];
+        if (metricName === undefined) continue;
+      } else {
+        metricName = prefix + m.name;
+      }
+
+      if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
+
+      if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
+
+      if (m.type === 'uint32' || m.type === 'int32') {
+        const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
+        const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
+        raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
+        if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
+      }
+
+      if (m.type === 'uint64') {
+        raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
+            + ((registerData[addr + 2] || 0) * 0x100000000)
+            + ((registerData[addr + 1] || 0) << 16)
+            + (registerData[addr] || 0);
+      }
+
+      const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
+      metrics[metricName] = value;
+      if (m.unit) units[metricName] = m.unit;
+    }
+
+    writeMetrics(metrics, units);
+    instance.lastSeen = Date.now();
+    instance.consecutiveFails = 0;
+    logger.debug(`[dongle] ${instance.name}: ${Object.keys(metrics).length} metrics in ${Date.now() - start}ms`);
+
+  } catch (err) {
+    logger.warn(`[dongle] ${instance.name}: poll failed — ${err.message}`);
+    instance.consecutiveFails = (instance.consecutiveFails || 0) + 1;
+  }
+}
+
+/**
+ * Unsolicited LuxPower frames (e.g. holding pushes from the inverter) — treated
+ * as liveness/diagnostics only in phase 1 (holding metrics are out of scope,
+ * see D5). Updates lastSeen/consecutiveFails so a healthy push keeps the device
+ * green between active polls.
+ */
+function handleLuxpowerFrame(instance, parsed) {
+  instance.lastSeen = Date.now();
+  instance.consecutiveFails = 0;
+  logger.debug(`[dongle] ${instance.name}: unsolicited luxpower frame devFn=0x${parsed.devFn.toString(16)} start=0x${parsed.start.toString(16)} byteLen=${parsed.byteLen}`);
+}
+
 function getByPath(obj, path) {
   const parts = path.split('.');
   let cur = obj;
@@ -330,6 +468,11 @@ async function executeDongleAction(deviceName, registerAddr, value) {
   const profile = getProfileById(device.profile);
   if (transportType === 'felicity-tcp' || profile?.protocol === 'felicity-tcp') {
     return { error: 'felicity-tcp dongles use a proprietary JSON API and do not support Modbus register writes' };
+  }
+
+  // LuxPower local TCP is read-only in phase 1 — no 0x06/0x10 write support.
+  if (transportType === 'luxpower-tcp' || profile?.protocol === 'luxpower-tcp') {
+    return { error: 'luxpower-tcp is read-only in phase 1 — register writes are not supported' };
   }
 
   if (isNaN(parseInt(registerAddr))) {
