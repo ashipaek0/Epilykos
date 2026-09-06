@@ -2,8 +2,10 @@
 /**
  * test/dongle-luxpower-frame.test.js
  * Frame-level validation for the LuxPower local-TCP transport (issue #102),
- * covering AC1-AC6 plus structural validation of the phase-1 profile
- * profiles/dongles/luxpower-geta.json (AC15).
+ * covering AC1-AC6 plus structural validation of the phase-2 profile
+ * profiles/dongles/luxpower-geta.json (AC15, issue #106: write:true,
+ * writable_registers, input+holding scopes, count:2 uint32 lsb_first pairs,
+ * read_ranges coverage, explicit mapping).
  *
  * Fixtures marked REAL were captured from the live GETA dongle (serials replaced
  * with synthetic LXP fixtures for public-repo hygiene, #105) on 2026-09-05
@@ -22,10 +24,12 @@ const path = require('path');
 
 const {
   buildReadFrame,
+  buildWriteFrame,
   parseFrame,
   crc16Modbus,
   DEV_FN_HOLDING,
-  DEV_FN_INPUT
+  DEV_FN_INPUT,
+  DEV_FN_WRITE_SINGLE
 } = require('../modules/dongle/luxpowerTcp');
 
 // ---------------------------------------------------------------------------
@@ -167,8 +171,9 @@ function parseAndCheck(buf, expect, label) {
 }
 
 // ---------------------------------------------------------------------------
-// AC15: profile structural validation (schema, write:false, register scope,
-// no duplicate (register_type, register))
+// AC15: profile structural validation (phase-2 schema: capabilities.write,
+// writable_registers, input+holding register scope, count 1|2 with uint32
+// lsb_first pairs, read_ranges coverage, explicit mapping)
 // ---------------------------------------------------------------------------
 {
   const PROFILE_PATH = path.join(__dirname, '..', 'profiles', 'dongles', 'luxpower-geta.json');
@@ -179,20 +184,60 @@ function parseAndCheck(buf, expect, label) {
   assert.strictEqual(profile.transport, 'luxpower-tcp', 'AC15: transport must be luxpower-tcp');
   assert.strictEqual(profile.default_port, 8000, 'AC15: default_port must be 8000');
   assert.strictEqual(profile.byte_order, 'le', 'AC15: byte_order must be le (real values are LE words)');
-  assert.strictEqual(profile.capabilities && profile.capabilities.write, false, 'AC15: capabilities.write must be false');
+  assert.strictEqual(profile.mapping, 'explicit', 'AC15: mapping must be explicit (issue #106 phase 2)');
+  assert.ok(profile.capabilities && profile.capabilities.write === true, 'AC15: capabilities.write must be true (issue #106 phase 2)');
   assert.ok(Array.isArray(profile.metrics) && profile.metrics.length > 0, 'AC15: metrics[] required');
 
+  // writable_registers: 4 seeded registers, each fully specified
+  const writable = profile.writable_registers || [];
+  assert.strictEqual(writable.length, 4, 'AC15: writable_registers must seed exactly 4 registers');
+  const writableKeys = new Set();
+  for (const w of writable) {
+    for (const field of ['register', 'register_type', 'name', 'label', 'unit', 'scale', 'type', 'min', 'max', 'step', 'kind']) {
+      assert.ok(w[field] !== undefined && w[field] !== null, `AC15: writable_registers entry ${w.register} must define ${field}`);
+    }
+    assert.ok(/^0x[0-9a-fA-F]+$/.test(w.register), `AC15: writable register ${w.name} register must be hex 0xNNNN`);
+    assert.strictEqual(w.register_type, 'holding', `AC15: writable register ${w.name} must be register_type 'holding'`);
+    assert.ok(['value', 'bitfield'].includes(w.kind), `AC15: writable register ${w.name} kind must be value|bitfield`);
+    writableKeys.add(`${w.register_type}:${w.register}`);
+  }
+  assert.strictEqual(writableKeys.size, writable.length, 'AC15: writable registers must be unique');
+
+  const rangeCovers = (reg, type) => (profile.read_ranges && profile.read_ranges[type] || []).some(([s, c]) => reg >= s && reg < s + c);
+
   const seen = new Set();
+  let inputCount = 0;
+  let holdingCount = 0;
+  let count2Count = 0;
   for (const m of profile.metrics) {
     assert.strictEqual(typeof m.name, 'string', 'AC15: metric name required');
     assert.ok(/^0x[0-9a-fA-F]+$/.test(m.register), `AC15: ${m.name} register must be hex 0xNNNN`);
     const reg = parseInt(m.register, 16);
-    assert.ok(reg >= 0x00 && reg <= 0x27, `AC15: ${m.name} register ${m.register} outside phase-1 input scope 0x00..0x27`);
-    assert.strictEqual(m.register_type, 'input', `AC15: ${m.name} must be register_type 'input' in phase 1 (no holding metrics, D5)`);
-    const pairKey = `${m.register_type}:${m.register}`;
+    const rtype = m.register_type || 'holding';
+    assert.ok(rtype === 'input' || rtype === 'holding', `AC15: ${m.name} register_type must be input or holding`);
+    const count = m.count || 1;
+    assert.ok(count === 1 || count === 2, `AC15: ${m.name} count must be 1 or 2`);
+    if (rtype === 'input') {
+      inputCount++;
+      assert.ok(reg >= 0x00 && reg <= 0xE8, `AC15: input ${m.name} register ${m.register} outside scope 0x00..0xE8`);
+      assert.ok(!(reg >= 0x73 && reg <= 0x77), `AC15: input ${m.name} register ${m.register} in serial region 0x73..0x77`);
+    } else {
+      holdingCount++;
+      assert.ok(reg >= 0x00 && reg <= 0x77, `AC15: holding ${m.name} register ${m.register} outside scope 0x00..0x77`);
+      assert.ok(!(reg >= 0x02 && reg <= 0x08), `AC15: holding ${m.name} register ${m.register} in serial region 0x02..0x08`);
+    }
+    if (count === 2) {
+      count2Count++;
+      assert.strictEqual(m.type, 'uint32', `AC15: ${m.name} count:2 must be type uint32`);
+      assert.strictEqual(m.word_order, 'lsb_first', `AC15: ${m.name} count:2 must be word_order lsb_first (lower addr = low word)`);
+    }
+    assert.ok(rangeCovers(reg, rtype), `AC15: ${m.name} register ${m.register} (${rtype}) not inside any ${rtype} read_range`);
+    const pairKey = `${rtype}:${m.register}`;
     assert.ok(!seen.has(pairKey), `AC15: duplicate (register_type, register) ${pairKey}`);
     seen.add(pairKey);
   }
+  assert.ok(inputCount > 0 && holdingCount > 0, 'AC15: profile must mix input and holding metrics (issue #106)');
+  assert.ok(count2Count > 0, 'AC15: profile must include count:2 uint32 metrics');
 
   const names = profile.metrics.map(m => m.name);
   for (const n of ['operational_state', 'pv1_voltage', 'pv2_voltage', 'pv3_voltage', 'battery_voltage', 'battery_soc',
@@ -201,8 +246,91 @@ function parseAndCheck(buf, expect, label) {
   }
   assert.strictEqual(profile.metrics.length, names.length, 'AC15: metric names must be unique');
   assert.strictEqual(profile.metrics.length, seen.size, 'AC15: all (register_type, register) pairs unique');
-  console.log(`PASS AC15: luxpower-geta.json valid — ${profile.metrics.length} input metrics, regs 0x00..0x27, write:false`);
+  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), mapping:explicit, write:true, ${writable.length} writable holding registers`);
 }
 
-console.log('PASS: dongle-luxpower-frame.test.js — AC1, AC2, AC3, AC4, AC6, AC15 all green');
+// ---------------------------------------------------------------------------
+// AC27 (issue #106 W2): buildWriteFrame unit test — 38-byte layout, field
+// offsets, CRC coverage, validation throws (synthetic LXP serials only).
+// ---------------------------------------------------------------------------
+{
+  const wf = buildWriteFrame({ protocol: 5, dongle: 'LXP0000001', inverter: 'LXP0000002', start: 0x69, value: 0x1234 });
+  assert.strictEqual(wf.length, 38, 'AC27: write frame must be 38 bytes total (frame_len 32 + 6 header/CRC)');
+  assert.strictEqual(wf.readUInt16LE(4), 32, 'AC27: frame_len must be 32');
+  assert.strictEqual(wf.readUInt16LE(18), 18, 'AC27: data_len must be 18 (16-byte inner + 2-byte CRC)');
+  assert.strictEqual(wf[0], 0xA1, 'AC27: start marker A1');
+  assert.strictEqual(wf[1], 0x1A, 'AC27: start marker 1A');
+  assert.strictEqual(wf[7], 0xC2, 'AC27: tcp function 0xC2 (TranslatedData)');
+  assert.strictEqual(wf.slice(8, 18).toString('ascii'), 'LXP0000001', 'AC27: dongle serial must occupy frame[8..18)');
+  assert.strictEqual(wf[20], 0x00, 'AC27: inner action must be 0x00 (request) at frame[20]');
+  assert.strictEqual(wf[21], DEV_FN_WRITE_SINGLE, 'AC27: inner dev_fn must be 0x06 at frame[21]');
+  assert.strictEqual(wf.slice(22, 32).toString('ascii'), 'LXP0000002', 'AC27: inverter serial must occupy frame[22..32)');
+  assert.strictEqual(wf.readUInt16LE(32), 0x69, 'AC27: start register must be u16 LE at frame[32..34)');
+  assert.strictEqual(wf.readUInt16LE(34), 0x1234, 'AC27: value must be u16 LE at frame[34..36)');
+  const stored = wf.readUInt16LE(36);
+  const computed = crc16Modbus(wf.slice(20, wf.length - 2));
+  assert.strictEqual(stored, computed, 'AC27: stored CRC must equal crc16Modbus(frame[20:-2])');
+  console.log('PASS AC27: buildWriteFrame — 38B layout, dongle@[8..18) dev_fn=0x06@21 start@[32..34) value@[34..36), CRC over inner valid');
+}
+{
+  const base = { protocol: 5, dongle: 'LXP0000001', inverter: 'LXP0000002', start: 0x69, value: 1 };
+  assert.throws(() => buildWriteFrame({ ...base, dongle: 'LXP1' }), /dongle must be exactly 10 alphanumeric/, 'AC27: short dongle serial must throw');
+  assert.throws(() => buildWriteFrame({ ...base, dongle: 'LXP000000!' }), /dongle must be exactly 10 alphanumeric/, 'AC27: non-alnum dongle serial must throw');
+  assert.throws(() => buildWriteFrame({ ...base, inverter: 'INV0000' }), /inverter must be exactly 10 alphanumeric/, 'AC27: short inverter serial must throw');
+  assert.throws(() => buildWriteFrame({ ...base, inverter: 'INV000000!' }), /inverter must be exactly 10 alphanumeric/, 'AC27: non-alnum inverter serial must throw');
+  assert.throws(() => buildWriteFrame({ ...base, start: -1 }), /start must be within 0\.\.0xFFFF/, 'AC27: negative start must throw');
+  assert.throws(() => buildWriteFrame({ ...base, start: 0x10000 }), /start must be within 0\.\.0xFFFF/, 'AC27: start > 0xFFFF must throw');
+  assert.throws(() => buildWriteFrame({ ...base, start: 'abc' }), /start must be within/, 'AC27: non-numeric start must throw');
+  assert.throws(() => buildWriteFrame({ ...base, value: -1 }), /value must be within 0\.\.0xFFFF/, 'AC27: negative value must throw');
+  assert.throws(() => buildWriteFrame({ ...base, value: 0x10000 }), /value must be within 0\.\.0xFFFF/, 'AC27: value > 0xFFFF must throw');
+  assert.throws(() => buildWriteFrame({ ...base, value: 'xyz' }), /value must be within/, 'AC27: non-numeric value must throw');
+  // Boundary values are legal and build (start/value u16 LE fields round-trip)
+  const edge = buildWriteFrame({ ...base, start: 0xFFFF, value: 0xFFFF });
+  assert.strictEqual(edge.readUInt16LE(32), 0xFFFF, 'AC27: start 0xFFFF must round-trip');
+  assert.strictEqual(edge.readUInt16LE(34), 0xFFFF, 'AC27: value 0xFFFF must round-trip');
+  console.log('PASS AC27: buildWriteFrame validation — bad serials / start>0xFFFF / value out of range all throw; 0xFFFF boundaries round-trip');
+}
+
+// ---------------------------------------------------------------------------
+// R4 (issue #106 QA-AC4): 76522s runtime golden fixture — the count:2
+// lsb_first uint32 decode of registers 0x45/0x46 (low word 10986 = 0x2AEA +
+// high word 1<<16 = 76522 s) must produce 76522 via the shared profile decode.
+// Exercised end-to-end: synthetic response frame → parseFrame →
+// luxpowerWordsFromBuffer → decodeLuxpowerMetrics (the exact pipeline the poll
+// cycle and unsolicited-push handler share). Synthetic LXP serials only.
+// ---------------------------------------------------------------------------
+{
+  const { luxpowerWordsFromBuffer, decodeLuxpowerMetrics } = require('../modules/dongle');
+  const profile = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'profiles', 'dongles', 'luxpower-geta.json'), 'utf8'));
+  const runtime = profile.metrics.find(m => m.name === 'runtime_seconds');
+  assert.ok(runtime, 'R4: profile must model runtime_seconds');
+  assert.strictEqual(runtime.register, '0x0045', 'R4: runtime_seconds must live at register 0x0045');
+  assert.strictEqual(runtime.register_type, 'input', 'R4: runtime_seconds must be input-space');
+  assert.strictEqual(runtime.count, 2, 'R4: runtime_seconds must be count:2');
+  assert.strictEqual(runtime.type, 'uint32', 'R4: runtime_seconds must be type uint32');
+  assert.strictEqual(runtime.word_order, 'lsb_first', 'R4: runtime_seconds must be word_order lsb_first');
+  assert.strictEqual(runtime.scale, 1, 'R4: runtime_seconds must be scale 1');
+  assert.strictEqual(runtime.unit, 's', 'R4: runtime_seconds must be unit s');
+
+  // Synthetic response frame: devFn 0x04 (input), start register 0x45, payload
+  // = the two wire words (LE per word): [EA 2A] = 10986, [01 00] = 1.
+  const R4_HEX = 'a11a0500230001c24c585030303030303031150001044c585030303030303032450004ea2a01002e0f';
+  const R4_FRAME = Buffer.from(R4_HEX, 'hex');
+  // CRC sanity over the fixture itself
+  assert.strictEqual(R4_FRAME.readUInt16LE(R4_FRAME.length - 2), crc16Modbus(R4_FRAME.slice(20, R4_FRAME.length - 2)), 'R4: fixture CRC must be valid');
+  const p = parseFrame(R4_FRAME);
+  assert.strictEqual(p.devFn, 0x04, 'R4: frame must parse as devFn 0x04');
+  assert.strictEqual(p.start, 0x45, 'R4: frame start must be register 0x45');
+  assert.strictEqual(p.byteLen, 4, 'R4: frame byte_len must be 4 (two registers)');
+
+  const words = luxpowerWordsFromBuffer(profile, p.values, p.start, 'input');
+  const instance = { name: 'lxp-runtime-fixture', mappings: { runtime_seconds: 'input:0x0045' } };
+  const { metrics, units } = decodeLuxpowerMetrics(profile, instance, words);
+  assert.strictEqual(metrics.runtime_seconds, 76522, 'R4: count:2 lsb_first decode of 0x45/0x46 (10986 + 1<<16) must produce 76522');
+  assert.strictEqual(units.runtime_seconds, 's', 'R4: decoded unit must be s');
+  assert.strictEqual(metrics.runtime_seconds + '', '76522', 'R4: raw seconds (scale 1), no fractional drift');
+  console.log('PASS R4 (QA-AC4): 76522s runtime golden — parseFrame(0x04@0x45) → words → profile decode = 76522 s (fixture ' + R4_HEX + ')');
+}
+
+console.log('PASS: dongle-luxpower-frame.test.js — AC1, AC2, AC3, AC4, AC6, AC15, R4 (76522s golden), AC27 (buildWriteFrame) all green');
 process.exitCode = 0;

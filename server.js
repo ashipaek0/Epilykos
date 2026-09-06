@@ -1446,11 +1446,17 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
         // components send action = command name and params.value = value.
         result = await executeRs232ProfileAction(device, action, params?.value);
         break;
-      case 'dongle':
+      case 'dongle': {
         const { executeDongleAction } = require('./modules/dongle');
-        // (deviceName, registerAddr, value) — register = entity
-        result = await executeDongleAction(device, entity, params?.value);
+        // (deviceName, registerAddr, value). The entity may be a namespaced id
+        // from the profile entity catalog ('holding:0x0069') or a bare hex
+        // register — hand only the register address to the transport. Action
+        // strings other than 'write' pass through untouched (executeDongleAction
+        // is write-only today; presets are reserved for later).
+        const registerAddr = typeof entity === 'string' && entity.includes(':') ? entity.split(':').pop() : entity;
+        result = await executeDongleAction(device, registerAddr, params?.value);
         break;
+      }
       default:
         return res.status(501).json({ success: false, error: 'Source not yet supported' });
     }
@@ -1835,7 +1841,7 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
     const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
     const profiles = files.map(f => {
       const raw = JSON.parse(fs.readFileSync(path.join(profilesDir, f), 'utf8'));
-      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id };
+      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id, protocol: raw.protocol, capabilities: raw.capabilities, mapping: raw.mapping };
     });
     res.json(profiles);
   } catch (err) {
@@ -1854,6 +1860,91 @@ app.get('/api/dongle/profile/:id', (req, res) => {
     res.json(profile);
   } catch (err) {
     logger.error('Error loading dongle profile:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Flat entity catalog for a dongle profile — one entry per metric register plus
+// any writable register absent from metrics[]. ids are namespaced
+// '<register_type>:<register>' (e.g. 'input:0x0000'); access/writable derive
+// from the profile's writable_registers (which also carry min/max/step/kind).
+// Sorted by register_type (coil → discrete → input → holding), then numeric register.
+app.get('/api/dongle/profile/:id/entities', (req, res) => {
+  try {
+    const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
+    if (!fs.existsSync(profilePath)) return res.status(404).json({ error: 'Profile not found' });
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    const metrics = Array.isArray(profile.metrics) ? profile.metrics : [];
+    const writable = Array.isArray(profile.writable_registers) ? profile.writable_registers : [];
+
+    const regNum = (reg) => {
+      const s = String(reg).trim();
+      return /^0x/i.test(s) ? parseInt(s, 16) : parseInt(s, 10);
+    };
+    const wKey = (type, reg) => `${String(type || '').toLowerCase()}:${regNum(reg)}`;
+    const writableMap = new Map();
+    writable.forEach(w => writableMap.set(wKey(w.register_type, w.register), w));
+
+    const entities = [];
+    metrics.forEach(m => {
+      const w = writableMap.get(wKey(m.register_type, m.register));
+      const entity = {
+        id: `${m.register_type}:${m.register}`,
+        register_type: m.register_type,
+        register: m.register,
+        name: m.name,
+        label: m.label,
+        unit: m.unit,
+        scale: m.scale,
+        type: m.type,
+        count: m.count,
+        access: w ? 'readwrite' : 'read',
+        writable: !!w
+      };
+      if (w) {
+        if (w.min !== undefined) entity.min = w.min;
+        if (w.max !== undefined) entity.max = w.max;
+        if (w.step !== undefined) entity.step = w.step;
+        if (w.kind !== undefined) entity.kind = w.kind;
+        if (w.actions !== undefined) entity.actions = w.actions;
+      }
+      entities.push(entity);
+    });
+    // Writable registers that never appear in metrics[] still surface as entities.
+    writable.forEach(w => {
+      if (!metrics.some(m => wKey(m.register_type, m.register) === wKey(w.register_type, w.register))) {
+        entities.push({
+          id: `${w.register_type}:${w.register}`,
+          register_type: w.register_type,
+          register: w.register,
+          name: w.name,
+          label: w.label,
+          unit: w.unit,
+          scale: w.scale,
+          type: w.type,
+          count: w.count !== undefined ? w.count : 1,
+          access: 'readwrite',
+          writable: true,
+          ...(w.min !== undefined ? { min: w.min } : {}),
+          ...(w.max !== undefined ? { max: w.max } : {}),
+          ...(w.step !== undefined ? { step: w.step } : {}),
+          ...(w.kind !== undefined ? { kind: w.kind } : {}),
+          ...(w.actions !== undefined ? { actions: w.actions } : {})
+        });
+      }
+    });
+
+    const REG_TYPE_ORDER = { coil: 0, discrete: 1, input: 2, holding: 3 };
+    entities.sort((a, b) => {
+      const ar = REG_TYPE_ORDER[a.register_type] !== undefined ? REG_TYPE_ORDER[a.register_type] : 99;
+      const br = REG_TYPE_ORDER[b.register_type] !== undefined ? REG_TYPE_ORDER[b.register_type] : 99;
+      if (ar !== br) return ar - br;
+      return regNum(a.register) - regNum(b.register);
+    });
+    res.json(entities);
+  } catch (err) {
+    logger.error('Error loading dongle profile entities:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

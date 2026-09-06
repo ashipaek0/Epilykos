@@ -17,7 +17,8 @@ const {
   LuxpowerTcpTransport,
   crc16Modbus,
   DEV_FN_HOLDING,
-  DEV_FN_INPUT
+  DEV_FN_INPUT,
+  DEV_FN_WRITE_SINGLE
 } = require('../modules/dongle/luxpowerTcp');
 
 const DONGLE = 'LXP0000001';
@@ -59,6 +60,39 @@ function makeValues(req) {
   const v = Buffer.alloc(req.count * 2);
   for (let i = 0; i < req.count; i++) v.writeUInt16BE((req.start + i) & 0xFFFF, i * 2);
   return v;
+}
+
+/** A 16-bit word as little-endian wire bytes ([lo, hi]) — real-dongle word order. */
+function leWord(v) {
+  return Buffer.from([v & 0xFF, (v >> 8) & 0xFF]);
+}
+
+/**
+ * Build a bare write-single (0x06) ECHO response — the 16-byte request inner
+ * with action flipped to 0x01 (no byte_len field): action | dev_fn | inverter
+ * (10) | start(u16 LE) | value(u16 LE). parseFrame accepts this shape.
+ */
+function buildWriteEcho16({ start, value, inverter = INVERTER, dongle = DONGLE }) {
+  const inner = Buffer.alloc(16);
+  inner[0] = 0x01; // action = response
+  inner[1] = DEV_FN_WRITE_SINGLE;
+  inner.write(inverter, 2, 10, 'ascii');
+  inner.writeUInt16LE(start, 12);
+  inner.writeUInt16LE(value, 14);
+  const dataLen = inner.length + 2;
+  const frameLen = dataLen + 14;
+  const frame = Buffer.alloc(frameLen + 6);
+  frame[0] = 0xA1;
+  frame[1] = 0x1A;
+  frame.writeUInt16LE(5, 2);
+  frame.writeUInt16LE(frameLen, 4);
+  frame[6] = 0x01;
+  frame[7] = 0xC2;
+  frame.write(dongle, 8, 10, 'ascii');
+  frame.writeUInt16LE(dataLen, 18);
+  inner.copy(frame, 20);
+  frame.writeUInt16LE(crc16Modbus(inner), frameLen + 4);
+  return frame;
 }
 
 /** Parse a 38-byte LuxPower request frame (request inner = 16 bytes). */
@@ -402,6 +436,126 @@ async function testAC12() {
 }
 
 // ---------------------------------------------------------------------------
+// AC31a: loopback writeRegister resolves on the matching 0x06 echo (bare
+// 16-byte echo form); the request bytes carry dev_fn 0x06 + start + value.
+// ---------------------------------------------------------------------------
+async function testAC31a() {
+  let seen = null;
+  await withFakeDongle(sock => {
+    recordAndCapture(sock, reqBuf => {
+      seen = Buffer.from(reqBuf);
+      const req = parseRequest(reqBuf);
+      sock.write(buildWriteEcho16({ start: req.start, value: req.count })); // value rides the u16 LE field parseRequest calls 'count'
+    });
+  }, async port => {
+    const t = makeTransport(port);
+    try {
+      const echoed = await t.writeRegister(0x69, 0x0BB8);
+      assert.ok(seen, 'AC31a: fake dongle must have received the write request');
+      assert.strictEqual(seen.length, 38, 'AC31a: write request must be 38 bytes');
+      assert.strictEqual(seen[21], DEV_FN_WRITE_SINGLE, 'AC31a: request dev_fn must be 0x06');
+      assert.strictEqual(seen.readUInt16LE(32), 0x69, 'AC31a: request start register must be 0x69');
+      assert.strictEqual(seen.readUInt16LE(34), 0x0BB8, 'AC31a: request value must be 0x0BB8');
+      assert.ok(echoed.equals(leWord(0x0BB8)), 'AC31a: resolved echo must carry the written word bytes');
+      assert.strictEqual(echoed.readUInt16LE(0), 0x0BB8, 'AC31a: resolved echo word must round-trip');
+    } finally { t.stop(); }
+  });
+  console.log('PASS AC31a: writeRegister(0x69, 0x0BB8) resolves on matching 0x06 echo (16B bare form); wire request correct');
+}
+
+// ---------------------------------------------------------------------------
+// AC31b: wrong-devFn and wrong-start frames never resolve a pending write —
+// they are treated as unsolicited (onFrame) — only the matching echo resolves.
+// ---------------------------------------------------------------------------
+async function testAC31b() {
+  const frames = [];
+  await withFakeDongle(sock => {
+    recordAndCapture(sock, reqBuf => {
+      const req = parseRequest(reqBuf);
+      assert.strictEqual(req.devFn, DEV_FN_WRITE_SINGLE, 'AC31b: fake must only see write requests here');
+      // 1) read-shaped frame (devFn 0x03) at the SAME start — wrong function
+      const wrongFn = buildFrame({ devFn: DEV_FN_HOLDING, start: req.start, values: Buffer.from([0xAA, 0xBB]) });
+      // 2) 0x06 echo of a DIFFERENT register — wrong start
+      const wrongStart = buildWriteEcho16({ start: (req.start + 1) & 0xFFFF, value: 0x1111 });
+      // 3) the real echo in the framed 17-byte form (byte_len=2) — must resolve
+      const ok = buildFrame({ devFn: DEV_FN_WRITE_SINGLE, start: req.start, values: leWord(req.count) });
+      sock.write(Buffer.concat([wrongFn, wrongStart, ok]));
+    });
+  }, async port => {
+    const t = makeTransport(port, { onFrame: p => frames.push(p) });
+    try {
+      const echoed = await t.writeRegister(0x30, 0xABCD);
+      assert.ok(echoed.equals(leWord(0xABCD)), 'AC31b: write must resolve from the matching echo ONLY (framed 17B form)');
+      assert.strictEqual(frames.length, 2, 'AC31b: wrong-devFn + wrong-start frames must be emitted unsolicited, never resolve the write');
+      assert.strictEqual(frames[0].devFn, DEV_FN_HOLDING, 'AC31b: first unsolicited frame is the 0x03 read-shape');
+      assert.strictEqual(frames[1].devFn, DEV_FN_WRITE_SINGLE, 'AC31b: second unsolicited frame is the 0x06 wrong-start echo');
+      assert.strictEqual(frames[1].start, 0x31, 'AC31b: wrong-start echo must carry start 0x31');
+    } finally { t.stop(); }
+  });
+  console.log('PASS AC31b: wrong-devFn + wrong-start frames treated unsolicited (never resolve pending write); framed 17B echo resolves');
+}
+
+// ---------------------------------------------------------------------------
+// AC31c: an unsolicited holding push arriving DURING a pending write is
+// handled safely — emitted to onFrame, never resolves the write.
+// ---------------------------------------------------------------------------
+async function testAC31c() {
+  const frames = [];
+  await withFakeDongle(sock => {
+    recordAndCapture(sock, reqBuf => {
+      const req = parseRequest(reqBuf);
+      const push = buildFrame({ devFn: DEV_FN_HOLDING, start: 0, values: Buffer.alloc(160) }); // 0-79 holding push
+      const ok = buildWriteEcho16({ start: req.start, value: req.count });
+      sock.write(Buffer.concat([push, ok]));
+    });
+  }, async port => {
+    const t = makeTransport(port, { onFrame: p => frames.push(p) });
+    try {
+      const echoed = await t.writeRegister(0x4B, 60);
+      assert.ok(echoed.equals(leWord(60)), 'AC31c: write must still resolve after the push');
+      assert.strictEqual(echoed.readUInt16LE(0), 60, 'AC31c: echo word 60 round-trips');
+      assert.strictEqual(frames.length, 1, 'AC31c: exactly one unsolicited frame (the push)');
+      assert.strictEqual(frames[0].devFn, DEV_FN_HOLDING, 'AC31c: push devFn 0x03');
+      assert.strictEqual(frames[0].start, 0, 'AC31c: push start 0');
+      assert.strictEqual(frames[0].byteLen, 160, 'AC31c: push byte_len 160');
+    } finally { t.stop(); }
+  });
+  console.log('PASS AC31c: holding push during pending write → onFrame, write still resolves on its echo');
+}
+
+// ---------------------------------------------------------------------------
+// AC31d: stateful fake dongle — write-then-read-back of the same holding
+// register returns the written value on the same connection.
+// ---------------------------------------------------------------------------
+async function testAC31d() {
+  await withFakeDongle(sock => {
+    const regs = new Map();
+    recordAndCapture(sock, reqBuf => {
+      const req = parseRequest(reqBuf);
+      if (req.devFn === DEV_FN_WRITE_SINGLE) {
+        regs.set(req.start, req.count); // value lives in the u16 LE field
+        sock.write(buildWriteEcho16({ start: req.start, value: req.count }));
+      } else {
+        const v = regs.has(req.start) ? regs.get(req.start) : 0;
+        sock.write(buildFrame({ devFn: req.devFn, start: req.start, values: leWord(v) }));
+      }
+    });
+  }, async port => {
+    const t = makeTransport(port);
+    try {
+      await t.writeRegister(0x69, 77);
+      const readBack = await t.readRegisters(0x69, 1, DEV_FN_HOLDING);
+      assert.strictEqual(readBack.length, 2, 'AC31d: read-back must return one register');
+      assert.strictEqual(readBack.readUInt16LE(0), 77, 'AC31d: read-back of the written register must return 77');
+      // untouched register reads back 0
+      const untouched = await t.readRegisters(0x6A, 1, DEV_FN_HOLDING);
+      assert.strictEqual(untouched.readUInt16LE(0), 0, 'AC31d: untouched register must read back 0');
+    } finally { t.stop(); }
+  });
+  console.log('PASS AC31d: stateful fake — writeRegister(0x69, 77) then readRegisters(0x69) returns 77; untouched reg reads 0');
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
   await testAC8();
   await testAC5();
@@ -410,7 +564,11 @@ async function main() {
   await testAC10();
   await testAC11();
   await testAC12();
-  console.log('PASS: dongle-luxpower-socket.test.js — AC5, AC6, AC8, AC9, AC10, AC11, AC12 all green');
+  await testAC31a();
+  await testAC31b();
+  await testAC31c();
+  await testAC31d();
+  console.log('PASS: dongle-luxpower-socket.test.js — AC5, AC6, AC8..AC12, AC31a-d (write flows) all green');
   process.exitCode = 0;
 }
 

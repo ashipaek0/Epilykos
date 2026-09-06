@@ -12,18 +12,22 @@
  * (frame[20 : len-2]) — standard Modbus CRC16 (poly 0xA001, init 0xFFFF,
  * reflected), stored little-endian. data_len = inner length + 2 (includes CRC).
  *
- * inner (request)  = action(0x00) | dev_fn | inverter(10 ASCII) | start(u16 LE) | count(u16 LE)
+ * inner (request)  = action(0x00) | dev_fn | inverter(10 ASCII) | start(u16 LE) | count|value(u16 LE)
  * inner (response) = action(0x01) | dev_fn | inverter(10 ASCII) | start(u16 LE) | byte_len(1) | values[byte_len]
  *
- * dev_fn: 0x03 = holding (ReadHold), 0x04 = input (ReadInput).
+ * dev_fn: 0x03 = holding (ReadHold), 0x04 = input (ReadInput),
+ *         0x06 = write single register (WriteSingle). A 0x06 response echoes
+ *         the written register back either as the bare 16-byte request inner
+ *         with action flipped to 0x01 (no byte_len) or in the framed 17-byte
+ *         form above with byte_len = 2.
  *
  * Design: persistent connection lifecycle (connect / auto-reconnect with 1s→60s
  * exponential backoff / stop), one serialized outstanding request at a time
- * (single-flight), receive-buffer framing that survives fragmentation,
- * concatenation and junk (resync on A1 1A), CRC validation, and emission of
- * unsolicited action=0x01 frames to onFrame. Response discrimination is by
- * content (dev_fn + start register + inverter serial), since the protocol has
- * no request/response correlation field.
+ * (single-flight — reads and writes share the queue), receive-buffer framing
+ * that survives fragmentation, concatenation and junk (resync on A1 1A), CRC
+ * validation, and emission of unsolicited action=0x01 frames to onFrame.
+ * Response discrimination is by content (dev_fn + start register + inverter
+ * serial), since the protocol has no request/response correlation field.
  *
  * @module dongle/luxpowerTcp
  */
@@ -33,6 +37,7 @@ const FRAME_MAGIC = 0xA11A; // bytes A1 1A
 const TCP_FN_TRANSLATED_DATA = 0xC2;
 const DEV_FN_HOLDING = 0x03;
 const DEV_FN_INPUT = 0x04;
+const DEV_FN_WRITE_SINGLE = 0x06;
 
 /** Exponential reconnect backoff sequence (ms), capped at 60 s. */
 const RECONNECT_BACKOFF_MS = [1000, 2000, 5000, 10000, 30000, 60000];
@@ -124,6 +129,47 @@ function buildReadFrame(opts) {
 }
 
 /**
+ * Build a LuxPower local-TCP v5 write-single-register request frame
+ * (Modbus fn 0x06), same C2 envelope as buildReadFrame.
+ * @param {object} opts { protocol=5, dongle, inverter, start, value }
+ * @returns {Buffer} full wire frame (38 bytes: frame_len 32 + 6)
+ */
+function buildWriteFrame(opts) {
+  const protocol = (opts.protocol === undefined ? 5 : parseInt(opts.protocol, 10)) || 5;
+  const dongle = validateSerial(opts.dongle, 'dongle');
+  const inverter = validateSerial(opts.inverter, 'inverter');
+  const start = parseInt(opts.start, 10);
+  const value = parseInt(opts.value, 10);
+  if (isNaN(start) || start < 0 || start > 0xFFFF) throw new Error('start must be within 0..0xFFFF');
+  if (isNaN(value) || value < 0 || value > 0xFFFF) throw new Error('value must be within 0..0xFFFF');
+  const maskedValue = value & 0xFFFF;
+
+  // inner (request) = action | dev_fn(0x06) | inverter(10) | start(u16 LE) | value(u16 LE)
+  const inner = Buffer.alloc(16);
+  inner[0] = 0x00; // action = request
+  inner[1] = DEV_FN_WRITE_SINGLE;
+  inner.write(inverter, 2, 10, 'ascii');
+  inner.writeUInt16LE(start, 12);
+  inner.writeUInt16LE(maskedValue, 14);
+
+  // outer frame; data_len covers inner + 2-byte CRC => total = 20 + data_len
+  const dataLen = inner.length + 2;
+  const total = 20 + dataLen;
+  const frame = Buffer.alloc(total);
+  frame[0] = 0xA1;
+  frame[1] = 0x1A;
+  frame.writeUInt16LE(protocol, 2);
+  frame.writeUInt16LE(total - 6, 4); // frame_len = total - 6
+  frame[6] = 0x01;
+  frame[7] = TCP_FN_TRANSLATED_DATA;
+  frame.write(dongle, 8, 10, 'ascii');
+  frame.writeUInt16LE(dataLen, 18);
+  inner.copy(frame, 20);
+  frame.writeUInt16LE(crc16Modbus(inner), total - 2);
+  return frame;
+}
+
+/**
  * Parse a complete (CRC-validated) LuxPower v5 response frame.
  * @param {Buffer} frame — full wire frame
  * @returns {{action:number, devFn:number, inverter:string, start:number,
@@ -148,15 +194,35 @@ function parseFrame(frame) {
   const devFn = inner[1];
   const inverter = inner.slice(2, 12).toString('ascii');
   const start = inner.readUInt16LE(12);
-  const byteLen = inner[14];
-  if (15 + byteLen !== inner.length) throw new Error(`byte_len ${byteLen} does not match value payload (${inner.length - 15})`);
+  let byteLen;
+  let values;
+  if (devFn === DEV_FN_WRITE_SINGLE) {
+    // Write-single (0x06) response echoes the written register. Accept both
+    // wire shapes: the bare 16-byte request inner with action flipped to 0x01
+    // (…|start|value, no byte_len field) and the framed 17-byte form used by
+    // 0x03/0x04 responses (…|start|byte_len=2|value).
+    if (inner.length === 16) {
+      byteLen = 2;
+      values = inner.slice(14, 16);
+    } else if (inner.length === 17) {
+      byteLen = inner[14];
+      if (byteLen !== 2) throw new Error(`write-single byte_len ${byteLen} must be 2 (one register)`);
+      values = inner.slice(15, 17);
+    } else {
+      throw new Error(`write-single response inner must be 16 (echo) or 17 (framed) bytes, got ${inner.length}`);
+    }
+  } else {
+    byteLen = inner[14];
+    if (15 + byteLen !== inner.length) throw new Error(`byte_len ${byteLen} does not match value payload (${inner.length - 15})`);
+    values = inner.slice(15, 15 + byteLen);
+  }
   return {
     action,
     devFn,
     inverter,
     start,
     byteLen,
-    values: inner.slice(15, 15 + byteLen),
+    values,
     frameLen,
     dataLen
   };
@@ -244,7 +310,8 @@ class LuxpowerTcpTransport {
 
   /**
    * Read `count` registers starting at `start` via function code devFn.
-   * Serialized: only one request is outstanding at a time; further calls queue.
+   * Serialized with writeRegister on one shared queue: only one request is
+   * outstanding at a time; further calls queue.
    * @param {number} start — register address (decimal, 0-based)
    * @param {number} count — number of registers (1..0xFFFF)
    * @param {number} [devFn] — 0x03 holding (default) or 0x04 input
@@ -261,6 +328,30 @@ class LuxpowerTcpTransport {
 
     return new Promise((resolve, reject) => {
       this._queue.push({ start: parsedStart, count: parsedCount, devFn: fn, resolve, reject, timer: null });
+      this._pump();
+    });
+  }
+
+  /**
+   * Write a single holding register (Modbus fn 0x06, write-single). Runs on the
+   * SAME single-flight queue as reads — only one request (read or write) is
+   * outstanding at a time. Resolves when the dongle echoes the write back
+   * (action 0x01, dev_fn 0x06, matching start register). Any other frame that
+   * arrives while the write is pending (read responses, pushes, wrong start)
+   * is treated as unsolicited and never resolves the write.
+   * @param {number} start — register address (decimal, 0-based)
+   * @param {number} value — 16-bit word to write (masked to 0..0xFFFF)
+   * @returns {Promise<Buffer>} 2-byte echo of the written value
+   */
+  writeRegister(start, value) {
+    if (!this._started) this.start();
+    const parsedStart = parseInt(start, 10);
+    const parsedValue = parseInt(value, 10);
+    if (isNaN(parsedStart) || parsedStart < 0 || parsedStart > 0xFFFF) return Promise.reject(new Error('start must be within 0..0xFFFF'));
+    if (isNaN(parsedValue) || parsedValue < 0 || parsedValue > 0xFFFF) return Promise.reject(new Error('value must be within 0..0xFFFF'));
+
+    return new Promise((resolve, reject) => {
+      this._queue.push({ kind: 'write', start: parsedStart, value: parsedValue & 0xFFFF, resolve, reject, timer: null });
       this._pump();
     });
   }
@@ -283,14 +374,25 @@ class LuxpowerTcpTransport {
     }, this._timeoutMs);
     req.timer.unref && req.timer.unref();
     try {
-      const frame = buildReadFrame({
-        protocol: this._protocol,
-        dongle: this._dongle,
-        inverter: this._inverter,
-        devFn: req.devFn,
-        start: req.start,
-        count: req.count
-      });
+      let frame;
+      if (req.kind === 'write') {
+        frame = buildWriteFrame({
+          protocol: this._protocol,
+          dongle: this._dongle,
+          inverter: this._inverter,
+          start: req.start,
+          value: req.value
+        });
+      } else {
+        frame = buildReadFrame({
+          protocol: this._protocol,
+          dongle: this._dongle,
+          inverter: this._inverter,
+          devFn: req.devFn,
+          start: req.start,
+          count: req.count
+        });
+      }
       this._socket.write(frame);
     } catch (e) {
       this._current = null;
@@ -415,6 +517,22 @@ class LuxpowerTcpTransport {
       return;
     }
 
+    // Pending write: resolve ONLY on the matching 0x06 echo (action is already
+    // 0x01 — parseFrame guarantees it). dev_fn 0x06 never matches a read request
+    // and vice versa, so read responses / holding pushes / wrong-register echoes
+    // arriving mid-write fall through to unsolicited and never resolve it.
+    if (req.kind === 'write') {
+      if (parsed.devFn === DEV_FN_WRITE_SINGLE && parsed.start === req.start) {
+        this._current = null;
+        clearTimeout(req.timer);
+        req.resolve(parsed.values);
+        this._pump();
+        return;
+      }
+      this._emitUnsolicited(parsed);
+      return;
+    }
+
     // Content-match discrimination: dev_fn + start + inverter serial.
     if (parsed.devFn === req.devFn && parsed.start === req.start) {
       if (parsed.byteLen !== req.count * 2) {
@@ -445,8 +563,10 @@ class LuxpowerTcpTransport {
 module.exports = {
   LuxpowerTcpTransport,
   buildReadFrame,
+  buildWriteFrame,
   parseFrame,
   crc16Modbus,
   DEV_FN_HOLDING,
-  DEV_FN_INPUT
+  DEV_FN_INPUT,
+  DEV_FN_WRITE_SINGLE
 };

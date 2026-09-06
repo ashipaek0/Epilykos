@@ -2510,7 +2510,15 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="fetch-btn load-dongle-registers" data-device="${idx}">
         📥 Load Profile Registers
       </button>
+      <button type="button" class="fetch-btn fetch-dongle-entities" data-device="${idx}" style="display:none;">
+        📋 Fetch Profile Entities
+      </button>
+      <button type="button" class="fetch-btn add-dongle-mapping" data-device="${idx}" style="display:none;">
+        + Add Mapping
+      </button>
     </div>
+    <div class="section-divider dongle-write-divider" id="dongle-write-divider-${idx}" style="display:none;"><span class="stg-divider-icon">✍️</span> Write Controls</div>
+    <div class="write-controls" id="dongle-write-controls-${idx}" style="display:none;"></div>
   `;
   container.appendChild(card);
 
@@ -2540,14 +2548,29 @@ function renderDongleDevice(device, idx) {
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
     unitIdInput.value = p.default_unit_id || 1;
     unitIdInput.style.display = (tx === 'felicity-tcp') ? 'none' : '';
-    // Auto-load register mappings when profile changes
+    // Auto-load register mappings when profile changes. luxpower-tcp (#106 2C)
+    // switches to the entity-catalog UI instead: metrics are never auto-created
+    // or pre-bound (mapping:'explicit'), so the list just resets with a hint.
     const mappingsList = card.querySelector('.mappings-list');
     if (mappingsList) {
       if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
         profileSelect.value = device.profile || '';
         return;
       }
-      loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+      const lux = isLuxpowerDongleProfile(p);
+      card._dongleEntities = null;
+      applyDongleMappingMode(card, lux);
+      if (lux) {
+        const note = document.createElement('div');
+        note.className = 'note';
+        note.textContent = 'No entities mapped yet — “Fetch Profile Entities” lists every register for this profile, or “+ Add Mapping” adds a single row.';
+        mappingsList.innerHTML = '';
+        mappingsList.appendChild(note);
+        populateDongleWriteControls(card, profileSelect.value);
+      } else {
+        hideDongleWriteControls(card);
+        loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+      }
     }
   });
 
@@ -2592,16 +2615,36 @@ function renderDongleDevice(device, idx) {
 
   dongleDeviceCounter++;
 
-  // Load button click
-  card.querySelector('.load-dongle-registers').addEventListener('click', () => {
+  // Load button click (register-based profiles; luxpower-tcp cards use the
+  // 'Fetch Profile Entities' / '+ Add Mapping' buttons instead — visible only
+  // in luxpower mode via applyDongleMappingMode).
+  card.querySelector('.load-dongle-registers').addEventListener('click', async () => {
+    const profileId = profileSelect.value || device.profile || '';
+    if (!profileId) return;
+    if (await isLuxpowerDongleProfileAsync(profileId)) return; // hidden in lux mode — guard anyway (no auto-create)
     const mappingsList = card.querySelector('.mappings-list');
-    loadDongleRegisterMappings(profileSelect.value, idx, mappingsList);
+    loadDongleRegisterMappings(profileId, idx, mappingsList);
   });
 
-  // Restore saved mappings on initial load
-  if (device.mappings && Object.keys(device.mappings).length > 0) {
+  // LuxPower local-TCP (#106 2C): fetch the profile entity catalog and render
+  // one row per entity — metric dropdown EMPTY (metrics are never auto-created
+  // or pre-bound), entity chip carries the namespaced input:0xNNNN handle.
+  card.querySelector('.fetch-dongle-entities').addEventListener('click', () => {
+    const profileId = profileSelect.value || device.profile || '';
+    fetchLuxpowerEntities(profileId, card.querySelector('.mappings-list'), card.querySelector('.fetch-dongle-entities'));
+  });
+  card.querySelector('.add-dongle-mapping').addEventListener('click', () => {
+    const profileId = profileSelect.value || device.profile || '';
+    addLuxpowerMappingRow(card, profileId);
+  });
+
+  // Restore saved mappings on initial load (mode-aware: luxpower-tcp profiles
+  // restore namespaced metric↔entity rows resolved via the entity catalog).
+  if (device.profile) {
     const mappingsList = card.querySelector('.mappings-list');
-    renderDongleMappings(profileSelect.value, device.mappings, mappingsList);
+    const hasMappings = device.mappings && Object.keys(device.mappings).length > 0;
+    if (hasMappings) mappingsList.innerHTML = '<div class="note">Loading saved mappings…</div>';
+    initDongleCardMappings(card, device.profile, device.mappings || {}, mappingsList);
   }
 }
 function reindexDongle() {
@@ -2744,6 +2787,461 @@ function renderDongleMappings(profileId, mappings, container) {
   }).catch(() => {
     container.innerHTML = '<div class="note" style="color:var(--error);">Failed to load register details</div>';
   });
+}
+
+// ---------- LuxPower TCP entity-catalog mapping helpers (#106 Batch 2C) ----------
+// luxpower-tcp profiles are mapping:'explicit': the UI pairs an EXISTING metric
+// (user-picked dropdown — never auto-created, never pre-bound) with a namespaced
+// entity handle (input:0xNNNN / holding:0xNNNN) that is persisted verbatim as
+// the mapping value. The entity catalog comes from GET
+// /api/dongle/profile/<id>/entities (id/register_type/register/name/label/unit/
+// scale/type/count/access/writable/min/max/step/kind/actions?).
+
+function isLuxpowerDongleProfile(p) {
+  return !!(p && (p.protocol === 'luxpower-tcp' || p.transport === 'luxpower-tcp'));
+}
+
+function dongleProfileIsLuxpower(profileId) {
+  if (!profileId) return false;
+  return isLuxpowerDongleProfile(getProfileById(profileId));
+}
+
+async function isLuxpowerDongleProfileAsync(profileId) {
+  if (!profileId) return false;
+  if (dongleProfileIsLuxpower(profileId)) return true;
+  try {
+    const res = await fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`);
+    if (!res.ok) return false;
+    return isLuxpowerDongleProfile(await res.json());
+  } catch (e) { return false; }
+}
+
+async function fetchDongleProfileEntities(profileId) {
+  if (!profileId) throw new Error('Select a profile first');
+  const res = await fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}/entities`);
+  if (!res.ok) {
+    let msg = `Failed to load entities (HTTP ${res.status})`;
+    try { const d = await res.json(); if (d && d.error) msg = d.error; } catch (e) {}
+    throw new Error(msg);
+  }
+  const list = await res.json();
+  return Array.isArray(list) ? list : [];
+}
+
+function dongleEntityId(e) {
+  if (!e) return '';
+  if (e.id) return String(e.id);
+  return (e.register_type && e.register) ? `${e.register_type}:${e.register}` : (e.register ? String(e.register) : '');
+}
+
+function dongleEntityAccess(e) {
+  if (e && e.access) return String(e.access);
+  return (e && (e.writable || e.register_type === 'holding')) ? 'readwrite' : 'read';
+}
+
+// Human label: "Label (unit) - input:0x0001 - read" / "... - holding:0x005B - readwrite"
+function dongleEntityLabel(e) {
+  const id = dongleEntityId(e);
+  const name = (e && (e.label || e.name)) || id;
+  const unit = (e && e.unit) ? ` (${e.unit})` : '';
+  return `${name}${unit} - ${id} - ${dongleEntityAccess(e)}`;
+}
+
+// Resolve a saved mapping value against the catalog → { id, entity }. Namespaced
+// handles match exactly; legacy bare-hex values (pre-namespacing saves) resolve
+// by register number (input preferred). Unresolvable handles round-trip as-is so
+// the readable raw chip survives save/reload.
+function resolveDongleMappingHandle(value, entities) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return { id: '', entity: null };
+  const list = Array.isArray(entities) ? entities : [];
+  const bareHex = /^0x[0-9a-f]+$/i.test(raw);
+  const lower = raw.toLowerCase();
+  const hit = list.find(e => dongleEntityId(e).toLowerCase() === lower)
+    || (bareHex
+      ? (list.find(e => e.register_type === 'input' && String(e.register || '').toLowerCase() === lower)
+        || list.find(e => String(e.register || '').toLowerCase() === lower))
+      : null);
+  if (!hit) return { id: raw, entity: null };
+  return { id: dongleEntityId(hit), entity: hit };
+}
+
+// Fixed entity chip (Fetch / restore rows) — mirrors the HA entity pill styling.
+function createDongleEntityChip(text) {
+  const chip = document.createElement('span');
+  chip.className = 'register-desc entity-chip';
+  chip.textContent = text;
+  chip.title = text;
+  chip.style.flex = '1';
+  chip.style.fontSize = '0.82em';
+  chip.style.overflow = 'hidden';
+  chip.style.textOverflow = 'ellipsis';
+  chip.style.whiteSpace = 'nowrap';
+  chip.style.minWidth = '0';
+  chip.style.padding = '0.15rem 0.6rem';
+  chip.style.border = '1px solid #39414f';
+  chip.style.borderRadius = '999px';
+  chip.style.background = 'rgba(120, 145, 190, 0.10)';
+  chip.style.color = 'var(--text-secondary, #93a1b5)';
+  return chip;
+}
+
+// Entity picker for blank "+ Add Mapping" rows — HA fetch-entities parity: the
+// select is populated from the fetched catalog (fetched on demand).
+function createDongleEntitySelect(entities) {
+  const sel = document.createElement('select');
+  sel.className = 'entity-select';
+  sel.title = 'Select entity';
+  sel.innerHTML = '<option value="">-- Select entity --</option>';
+  (Array.isArray(entities) ? entities : []).forEach(e => {
+    const id = dongleEntityId(e);
+    if (!id) return;
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = dongleEntityLabel(e);
+    sel.appendChild(opt);
+  });
+  return sel;
+}
+
+// One metric↔entity row. mode 'chip' binds the row's entity (Fetch / restore);
+// mode 'select' lets the user pick from the catalog ("+ Add Mapping"). The
+// namespaced handle always lives on row.dataset.address so the save collector
+// (dongle_config) writes it verbatim — bare hex stays bare, namespaced stays
+// namespaced.
+function createLuxpowerMappingRow(metricName, entityId, entity, entities, mode) {
+  const row = document.createElement('div');
+  row.className = 'metric-row';
+  row.dataset.address = entityId || '';
+  const metricSelect = createMetricDropdown(metricName || '', Array.from(getAllUsedMetrics ? getAllUsedMetrics() : []));
+  metricSelect.className = 'metric-name';
+  metricSelect.addEventListener('change', () => { if (refreshAllMetricDropdowns) refreshAllMetricDropdowns(); });
+  let entityCtrl;
+  if (mode === 'select') {
+    entityCtrl = createDongleEntitySelect(entities);
+    entityCtrl.addEventListener('change', () => { row.dataset.address = entityCtrl.value; });
+  } else {
+    entityCtrl = createDongleEntityChip(entity ? dongleEntityLabel(entity) : (entityId || ''));
+  }
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn remove-metric';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', () => {
+    row.remove();
+    if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+  });
+  row.appendChild(metricSelect);
+  row.appendChild(entityCtrl);
+  row.appendChild(removeBtn);
+  return row;
+}
+
+function removeDongleListNotes(listEl) {
+  Array.from(listEl.children).forEach(c => {
+    if (c && c.classList && c.classList.contains('note')) c.remove();
+  });
+}
+
+// "Fetch Profile Entities": one row per catalog entity with an EMPTY metric
+// dropdown. No auto-creation — metric names come only from user selections.
+async function fetchLuxpowerEntities(profileId, listEl, btn) {
+  if (!listEl) return;
+  const oldText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Fetching…'; }
+  try {
+    const entities = await fetchDongleProfileEntities(profileId);
+    const card = listEl.closest ? listEl.closest('.device-card') : null;
+    if (card) card._dongleEntities = entities;
+    listEl.innerHTML = '';
+    if (!entities.length) {
+      const note = document.createElement('div');
+      note.className = 'note';
+      note.textContent = 'This profile has no entities.';
+      listEl.appendChild(note);
+      return;
+    }
+    entities.forEach(e => {
+      const id = dongleEntityId(e);
+      if (!id) return;
+      listEl.appendChild(createLuxpowerMappingRow('', id, e, entities, 'chip'));
+    });
+    if (refreshAllMetricDropdowns) await refreshAllMetricDropdowns();
+  } catch (err) {
+    listEl.innerHTML = '';
+    const note = document.createElement('div');
+    note.className = 'note';
+    note.style.color = 'var(--error)';
+    note.textContent = err.message || 'Failed to load profile entities';
+    listEl.appendChild(note);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldText || 'Fetch Profile Entities'; }
+  }
+}
+
+// "+ Add Mapping": blank HA-parity row (universe metric dropdown + entity
+// select). The catalog is fetched on demand, then cached on the card.
+async function addLuxpowerMappingRow(card, profileId) {
+  const listEl = card.querySelector('.mappings-list');
+  if (!listEl) return;
+  let entities = card._dongleEntities;
+  if (!Array.isArray(entities) || entities.length === 0) {
+    try {
+      entities = await fetchDongleProfileEntities(profileId);
+      card._dongleEntities = entities;
+    } catch (err) {
+      const note = document.createElement('div');
+      note.className = 'note';
+      note.style.color = 'var(--error)';
+      note.textContent = err.message || 'Failed to load profile entities';
+      listEl.appendChild(note);
+      setTimeout(() => note.remove(), 6000);
+      return;
+    }
+  }
+  removeDongleListNotes(listEl);
+  listEl.appendChild(createLuxpowerMappingRow('', '', null, entities, 'select'));
+  if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+}
+
+// Restore saved mappings: { metricName: 'input:0x0001' } rows with the metric
+// dropdown pre-selected to the saved name and the entity chip resolved from the
+// catalog. Round-trips through save/reload (dataset.address = namespaced handle).
+function renderLuxpowerSavedMappings(mappings, entities, listEl) {
+  listEl.innerHTML = '';
+  const entries = Object.entries(mappings || {}).filter(([, v]) => {
+    return String(v == null ? '' : v).trim().length > 0;
+  });
+  if (!entries.length) {
+    const note = document.createElement('div');
+    note.className = 'note';
+    note.textContent = 'No saved mappings for this profile yet — “Fetch Profile Entities” lists every register, or “+ Add Mapping” adds a single row.';
+    listEl.appendChild(note);
+    return;
+  }
+  entries.sort(([a], [b]) => a.localeCompare(b)).forEach(([metricName, handle]) => {
+    const { id, entity } = resolveDongleMappingHandle(handle, entities);
+    listEl.appendChild(createLuxpowerMappingRow(metricName, id, entity, entities, 'chip'));
+  });
+  if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+}
+
+// Show the correct mapping-section buttons for the card's mode: luxpower-tcp →
+// 'Fetch Profile Entities' + '+ Add Mapping'; every other transport keeps the
+// legacy '📥 Load Profile Registers' button.
+function applyDongleMappingMode(card, luxpower) {
+  const loadBtn = card.querySelector('.load-dongle-registers');
+  const fetchBtn = card.querySelector('.fetch-dongle-entities');
+  const addBtn = card.querySelector('.add-dongle-mapping');
+  if (loadBtn) loadBtn.style.display = luxpower ? 'none' : '';
+  if (fetchBtn) fetchBtn.style.display = luxpower ? '' : 'none';
+  if (addBtn) addBtn.style.display = luxpower ? '' : 'none';
+}
+
+function hideDongleWriteControls(card) {
+  const wrap = card.querySelector('.write-controls');
+  const divider = card.querySelector('.dongle-write-divider');
+  if (wrap) wrap.style.display = 'none';
+  if (divider) divider.style.display = 'none';
+}
+
+// Write Controls — luxpower-tcp only, when the profile has capabilities.write
+// and a non-empty writable_registers list. Per writable entry: a human label
+// (unit + min/max/step), a number input and a Write button that confirm()s and
+// POSTs /api/action { source:'dongle', device:<card instance name>,
+// action:'write', entity:'holding:0xNNNN', params:{value} } with an inline
+// status (8s timeout). Preset buttons render from entry.actions when present.
+async function populateDongleWriteControls(card, profileId, profile) {
+  const wrap = card.querySelector('.write-controls');
+  if (!wrap || !profileId) return;
+  hideDongleWriteControls(card);
+  wrap.innerHTML = '';
+  let p = profile;
+  if (!p) {
+    try {
+      const res = await fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`);
+      if (res.ok) p = await res.json();
+    } catch (e) {}
+  }
+  if (!p || !isLuxpowerDongleProfile(p)) return;
+  const caps = p.capabilities || {};
+  const writable = Array.isArray(p.writable_registers) ? p.writable_registers : [];
+  if (caps.write !== true || writable.length === 0) return;
+  let entities = Array.isArray(card._dongleEntities) ? card._dongleEntities : [];
+  if (!entities.length) {
+    try { entities = await fetchDongleProfileEntities(profileId); card._dongleEntities = entities; } catch (e) {}
+  }
+  const byId = new Map();
+  entities.forEach(e => { const id = dongleEntityId(e); if (id) byId.set(id.toLowerCase(), e); });
+  // The user may have switched profiles while the fetches above were in flight.
+  const sel = card.querySelector('.dongle-profile-select');
+  if (sel && sel.value && sel.value !== profileId) return;
+
+  const divider = card.querySelector('.dongle-write-divider');
+  if (divider) divider.style.display = '';
+  wrap.style.display = '';
+
+  writable.forEach(w => {
+    const id = `${(w.register_type || 'holding').toLowerCase()}:${w.register}`;
+    const ent = byId.get(id.toLowerCase()) || null;
+    const label = w.label || w.name || id;
+    const unit = w.unit ? ` (${w.unit})` : '';
+    const rangeParts = [];
+    if (w.min !== undefined && w.min !== null) rangeParts.push(`min ${w.min}`);
+    if (w.max !== undefined && w.max !== null) rangeParts.push(`max ${w.max}`);
+    if (w.step !== undefined && w.step !== null) rangeParts.push(`step ${w.step}`);
+    const rangeTxt = rangeParts.length ? ` · ${rangeParts.join(' · ')}` : '';
+
+    const row = document.createElement('div');
+    row.className = 'write-control-row';
+    row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;padding:0.3rem 0;';
+    const nameEl = document.createElement('span');
+    nameEl.textContent = `${label}${unit}${rangeTxt}`;
+    nameEl.title = `${id} — ${w.type || 'uint16'}${w.scale !== undefined && w.scale !== 1 ? `, scale ${w.scale}` : ''}`;
+    nameEl.style.cssText = 'flex:1;min-width:180px;font-size:0.85em;';
+    row.appendChild(nameEl);
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    if (w.min !== undefined && w.min !== null) input.min = w.min;
+    if (w.max !== undefined && w.max !== null) input.max = w.max;
+    input.step = (w.step !== undefined && w.step !== null) ? w.step : 'any';
+    input.placeholder = (w.min !== undefined && w.max !== undefined) ? `${w.min} … ${w.max}` : 'value';
+    input.style.cssText = 'width:110px;';
+    row.appendChild(input);
+
+    const writeBtn = document.createElement('button');
+    writeBtn.type = 'button';
+    writeBtn.className = 'fetch-btn';
+    writeBtn.textContent = 'Write';
+    row.appendChild(writeBtn);
+
+    const statusEl = document.createElement('span');
+    statusEl.className = 'test-status';
+    statusEl.style.fontSize = '0.75em';
+    row.appendChild(statusEl);
+
+    const runWrite = () => {
+      const rawVal = input.value.trim();
+      if (rawVal === '') { showStatus(statusEl, 'Enter a value first', 'error'); return; }
+      const val = Number(rawVal);
+      if (isNaN(val)) { showStatus(statusEl, 'Not a number', 'error'); return; }
+      if (!showConfirm(`Write ${val} to ${label} (${id})?`)) return;
+      sendDongleRegisterWrite(card, id, val, 'write', statusEl);
+    };
+    writeBtn.addEventListener('click', runWrite);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); runWrite(); }
+    });
+
+    // Preset actions for this entry (catalog entity first, then profile entry).
+    const actions = (ent && Array.isArray(ent.actions) && ent.actions.length) ? ent.actions
+      : (Array.isArray(w.actions) ? w.actions : []);
+    actions.forEach(a => {
+      const preset = (a && typeof a === 'object' && !Array.isArray(a)) ? a : { action: String(a), label: String(a) };
+      const pBtn = document.createElement('button');
+      pBtn.type = 'button';
+      pBtn.className = 'fetch-btn write-preset-btn';
+      pBtn.textContent = preset.label || String(preset.action || 'preset');
+      pBtn.style.cssText = 'font-size:0.72rem;padding:0.15rem 0.55rem;';
+      row.appendChild(pBtn);
+      pBtn.addEventListener('click', () => {
+        const val = (preset.value !== undefined && preset.value !== null)
+          ? preset.value
+          : (input.value.trim() !== '' ? Number(input.value) : undefined);
+        if (val === undefined) { showStatus(statusEl, 'Enter a value (or use the number box)', 'error'); return; }
+        sendDongleRegisterWrite(card, id, val, String(preset.action || 'preset'), statusEl);
+      });
+    });
+
+    wrap.appendChild(row);
+  });
+}
+
+// POST /api/action for a dongle register write. The device NAME comes from the
+// card header input — the server resolves the transport from its stored config
+// (no host/port/serials cross the wire; same SSRF-safe pattern as HA actions).
+async function sendDongleRegisterWrite(card, entityId, value, action, statusEl) {
+  const nameInput = card.querySelector('.device-header input[type="text"]');
+  const deviceName = nameInput ? nameInput.value.trim() : '';
+  if (!deviceName) { showStatus(statusEl, 'Instance name required', 'error'); return; }
+  // Disable every button in this entry's row while the write is in flight so a
+  // second click (Write or a preset) cannot fire a concurrent POST.
+  const rowEl = statusEl.closest ? statusEl.closest('.write-control-row') : null;
+  const rowBtns = rowEl ? Array.from(rowEl.querySelectorAll('button')) : [];
+  rowBtns.forEach(b => { b.disabled = true; });
+  showStatus(statusEl, 'Writing…', 'info');
+  const body = { source: 'dongle', device: deviceName, action: action || 'write', entity: entityId, params: {} };
+  if (value !== undefined && value !== null) body.params.value = value;
+  try {
+    const res = await fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data && data.success !== false && !data.error) {
+      showStatus(statusEl, 'Write OK', 'success');
+    } else {
+      showStatus(statusEl, (data && data.error) ? data.error : `Write failed (HTTP ${res.status})`, 'error');
+    }
+  } catch (e) {
+    const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    showStatus(statusEl, timedOut ? 'Write timed out' : (e.message || 'Write failed'), 'error');
+  } finally {
+    rowBtns.forEach(b => { b.disabled = false; });
+  }
+}
+
+// Async initialiser for a dongle card: fetch the profile to pick the mapping UI
+// (luxpower-tcp → entity-catalog UI; anything else keeps the legacy register
+// UI), restore saved mappings, then build the Write Controls section.
+async function initDongleCardMappings(card, profileId, savedMappings, mappingsList) {
+  if (!profileId) return;
+  if (!mappingsList) mappingsList = card.querySelector('.mappings-list');
+  if (!mappingsList) return;
+  const profileSel = card.querySelector('.dongle-profile-select');
+  const profileStillSelected = () => {
+    if (!profileSel) return true;
+    return profileSel.value === '' || profileSel.value === profileId;
+  };
+  let profile = null;
+  try {
+    const res = await fetch(`/api/dongle/profile/${encodeURIComponent(profileId)}`);
+    if (res.ok) profile = await res.json();
+  } catch (e) {}
+  if (!profileStillSelected()) return;
+  const lux = isLuxpowerDongleProfile(profile);
+  applyDongleMappingMode(card, lux);
+  if (!lux) {
+    hideDongleWriteControls(card);
+    if (savedMappings && Object.keys(savedMappings).length > 0) {
+      renderDongleMappings(profileId, savedMappings, mappingsList);
+    } else {
+      mappingsList.innerHTML = '';
+    }
+    return;
+  }
+  // luxpower-tcp: cache the entity catalog, restore rows, then Write Controls.
+  let entities = [];
+  try {
+    entities = await fetchDongleProfileEntities(profileId);
+    card._dongleEntities = entities;
+  } catch (e) {
+    card._dongleEntities = [];
+  }
+  // The transport <select> derives from the profile cache, which may not have
+  // loaded when this card first rendered — correct it for luxpower so the
+  // dongle/inverter serial fields show and saves persist transport:'luxpower-tcp'.
+  const txSel = card.querySelector('select[name$="[transport]"]');
+  if (txSel && txSel.value !== 'luxpower-tcp') {
+    txSel.value = 'luxpower-tcp';
+    if (typeof updateDongleTransportUI === 'function') updateDongleTransportUI(card);
+  }
+  if (!profileStillSelected()) return;
+  renderLuxpowerSavedMappings(savedMappings || {}, entities, mappingsList);
+  await populateDongleWriteControls(card, profileId, profile);
 }
 
 // ======================== PVOUTPUT ========================
@@ -3841,7 +4339,12 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || (txSel === 'luxpower-tcp' ? 5 : 30);
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
-    // Collect register mappings: { metricName → register }
+    // Phase-2 (issue #106) explicit-mapping era marker (AC18): every luxpower-tcp
+    // device saved through the current settings UI is user-managed under
+    // mapping:'explicit'. Stamp it so the boot-time legacy migration never
+    // treats a phase-2 save (brand-new instance, or one whose mappings were all
+    // deleted) as a phase-1 legacy instance to auto-migrate.
+    if (txSel === 'luxpower-tcp') dev._luxpowerPhase2 = true;
     dev.mappings = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const address = row.dataset.address;

@@ -98,6 +98,17 @@ function deleteMetric(name) {
   });
   if (extChanged) setConfig('external_sources', JSON.stringify(externalSources));
 
+  // 6. Remove from dongle_config device mappings (mappings: { metricName → register })
+  const dongleDevices = JSON.parse(getConfig('dongle_config') || '[]');
+  let dongleChanged = false;
+  dongleDevices.forEach(device => {
+    if (device.mappings && Object.prototype.hasOwnProperty.call(device.mappings, name)) {
+      delete device.mappings[name];
+      dongleChanged = true;
+    }
+  });
+  if (dongleChanged) setConfig('dongle_config', JSON.stringify(dongleDevices));
+
   logger.info(`Deleted metric: ${name}`);
 }
 
