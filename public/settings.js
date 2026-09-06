@@ -2448,6 +2448,18 @@ function updateDongleTransportUI(card) {
   if (inverterSerialInput) inverterSerialInput.style.display = isLux ? '' : 'none';
   if (unitIdInput) unitIdInput.style.display = isLux ? 'none' : '';
   if (isLux && portInput && !portInput.value) portInput.value = 8000;
+  // #103 (AC12/AC13/D4): migrate a stranded serial_number into dongle_serial for
+  // LuxPower — but ONLY when dongle_serial is empty; if dongle_serial is already
+  // filled, touch nothing. Idempotent: runs on profile change, transport change
+  // and initial render.
+  if (isLux) {
+    const sn = serialInput ? serialInput.value.trim() : '';
+    const ds = dongleSerialInput ? dongleSerialInput.value.trim() : '';
+    if (ds === '' && sn !== '') {
+      if (dongleSerialInput) dongleSerialInput.value = sn;
+      if (serialInput) serialInput.value = '';
+    }
+  }
 }
 
 function renderDongleDevice(device, idx) {
@@ -3821,6 +3833,11 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';
     dev.dongle_serial = card.querySelector('input[name$="[dongle_serial]"]')?.value?.trim() || '';
     dev.inverter_serial = card.querySelector('input[name$="[inverter_serial]"]')?.value?.trim() || '';
+    // LuxPower: never persist a stranded shape (serial in serial_number but dongle_serial empty).
+    if ((txSel === 'luxpower-tcp') && !dev.dongle_serial && dev.serial_number) {
+      dev.dongle_serial = dev.serial_number;
+      dev.serial_number = '';
+    }
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || (txSel === 'luxpower-tcp' ? 5 : 30);
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';

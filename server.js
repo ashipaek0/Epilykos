@@ -1864,15 +1864,19 @@ app.post('/api/dongle/test', async (req, res) => {
   if (!host) return res.status(400).json({ error: 'Host required' });
 
   const rawHost = String(host).trim();
-  const isPrivateOrLocalIp = (ip) => {
-    if (ip === '127.0.0.1' || ip === '::1') return true;
-    if (ip.startsWith('10.')) return true;
-    if (ip.startsWith('192.168.')) return true;
-    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
-    if (ip.startsWith('169.254.')) return true;
-    if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
-    if (ip.startsWith('fe80:')) return true;
-    return false;
+  // #103: RFC1918 literals/resolutions (10/8, 172.16/12, 192.168/16) are now
+  // ALLOWED for dongle test dials (intranet inverters). Still blocked: loopback
+  // 127/8 + ::1 (+ IPv4-mapped), link-local 169.254/16 incl. metadata + fe80::/10,
+  // ULA fc00::/7, and unspecified 0.0.0.0/::. isBlockedIp(ip, true) already blocks
+  // loopback/link-local/unspecified (and mapped-loopback via its IPv4 re-check)
+  // while ALLOWING RFC1918 — but it also allows ULA when allowPrivate is true,
+  // so add an explicit fc00::/7 first-hextet check. Anything non-IP → blocked.
+  const isRestrictedTestIp = (ip) => {
+    if (isBlockedIp(ip, true)) return true;
+    if (net.isIP(ip) !== 6) return false; // v4 RFC1918 + public, or 0 → allow
+    const first = String(ip).toLowerCase().split(':')[0];
+    if (!/^[0-9a-f]{1,4}$/.test(first)) return false;
+    return (parseInt(first, 16) & 0xfe00) === 0xfc00; // ULA fc00::/7
   };
   const isValidHostname = (value) => {
     if (value.length > 253) return false;
@@ -1886,7 +1890,7 @@ app.post('/api/dongle/test', async (req, res) => {
 
   const ipVersion = net.isIP(rawHost);
   if (ipVersion) {
-    if (isPrivateOrLocalIp(rawHost.toLowerCase())) {
+    if (isRestrictedTestIp(rawHost.toLowerCase())) {
       return res.status(400).json({ error: 'Host is not allowed' });
     }
   } else {
@@ -1904,12 +1908,14 @@ app.post('/api/dongle/test', async (req, res) => {
   if (port !== undefined && port !== null && port !== '' && safePort === null) {
     return res.status(400).json({ error: 'Invalid port' });
   }
-  // SSRF guard (#71): resolve hostnames up front and dial the RESOLVED IP so a
-  // DNS-rebinding swap between validation and connect() cannot redirect the TCP
-  // dial to a private/loopback/link-local address. Every A/AAAA record must be
-  // a public address (isBlockedIp with allowPrivate:false blocks RFC1918, ULA,
-  // loopback, link-local/metadata, unspecified). Literal IPs are already vetted
-  // by the string-level block above.
+  // SSRF guard (#71/#103): resolve hostnames up front and dial the RESOLVED IP
+  // so a DNS-rebinding swap between validation and connect() cannot redirect the
+  // TCP dial to a blocked address. Every A/AAAA record must be either public or
+  // RFC1918 (intranet inverters are first-class targets); loopback, link-local/
+  // metadata, ULA and unspecified stay blocked (isRestrictedTestIp). Mixed
+  // public+blocked resolution sets → blocked. Literal IPs are vetted by the
+  // same numeric check above (string-prefix block removed — numeric checks now
+  // cover 0.0.0.0 and :: too).
   let safeHost = rawHost;
   if (!net.isIP(rawHost)) {
     let addrs;
@@ -1920,7 +1926,7 @@ app.post('/api/dongle/test', async (req, res) => {
     }
     if (!addrs || addrs.length === 0) return res.status(400).json({ error: 'Invalid host' });
     for (const a of addrs) {
-      if (isBlockedIp(a.address, false)) {
+      if (isRestrictedTestIp(a.address)) {
         return res.status(400).json({ error: 'Host is not allowed' });
       }
     }
@@ -1937,7 +1943,8 @@ app.post('/api/dongle/test', async (req, res) => {
       return;
     }
     if (transport === 'luxpower-tcp') {
-      const dongleSerial = String(req.body.dongle_serial || '').trim();
+      // #103/AC18: stranded serial_number is usable as the dongle serial too.
+      const dongleSerial = String(req.body.dongle_serial || req.body.serial_number || '').trim();
       const inverterSerial = String(req.body.inverter_serial || req.body.serial_number || '').trim();
       if (!dongleSerial || !inverterSerial) {
         return res.status(400).json({ error: 'Dongle serial and inverter serial are required for luxpower-tcp' });

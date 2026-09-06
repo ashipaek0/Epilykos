@@ -57,13 +57,14 @@ function startDonglePolling() {
     if (profile.protocol === 'luxpower-tcp') {
       // LuxPower local TCP (v5 TranslatedData on :8000). Config uses explicit
       // dongle_serial (outer header) + inverter_serial (inner 10-char serial);
-      // tolerate devices that stored the inverter serial under serial_number.
+      // tolerate devices that stored either serial under serial_number — both
+      // dedicated fields fall back to serial_number when left empty.
       let transport = null;
       try {
         transport = new LuxpowerTcpTransport({
           host: inst.host || inst.ip,
           port: inst.port || 8000,
-          dongle_serial: inst.dongle_serial,
+          dongle_serial: inst.dongle_serial || inst.serial_number,
           inverter_serial: inst.inverter_serial || inst.serial_number,
           onFrame: parsed => handleLuxpowerFrame(inst, parsed)
         });
