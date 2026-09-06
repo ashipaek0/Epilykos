@@ -2486,8 +2486,8 @@ function renderDongleDevice(device, idx) {
     </div>
     <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
       <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
-      <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial (e.g. LXP0000001)" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
-      <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial (e.g. LXP0000002)" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
+      <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
+      <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
     </div>
     <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
