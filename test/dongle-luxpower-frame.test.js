@@ -3,8 +3,8 @@
  * test/dongle-luxpower-frame.test.js
  * Frame-level validation for the LuxPower local-TCP transport (issue #102),
  * covering AC1-AC6 plus structural validation of the phase-2 profile
- * profiles/dongles/luxpower-geta.json (AC15, issue #106: write:true,
- * writable_registers, input+holding scopes, count:2 uint32 lsb_first pairs,
+ * profiles/dongles/luxpower-geta.json (AC15, issue #107: write:false,
+ * empty writable_registers, input+holding scopes, count:2 uint32 lsb_first pairs,
  * read_ranges coverage, explicit mapping).
  *
  * Fixtures marked REAL were captured from the live GETA dongle (serials replaced
@@ -185,23 +185,19 @@ function parseAndCheck(buf, expect, label) {
   assert.strictEqual(profile.default_port, 8000, 'AC15: default_port must be 8000');
   assert.strictEqual(profile.byte_order, 'le', 'AC15: byte_order must be le (real values are LE words)');
   assert.strictEqual(profile.mapping, 'explicit', 'AC15: mapping must be explicit (issue #106 phase 2)');
-  assert.ok(profile.capabilities && profile.capabilities.write === true, 'AC15: capabilities.write must be true (issue #106 phase 2)');
+  assert.ok(profile.capabilities && profile.capabilities.write === false, 'AC15: capabilities.write must be false (issue #107 — no surfaced writes)');
   assert.ok(Array.isArray(profile.metrics) && profile.metrics.length > 0, 'AC15: metrics[] required');
 
-  // writable_registers: 4 seeded registers, each fully specified
+  // writable_registers: must be empty — no write registers surfaced (issue #107)
   const writable = profile.writable_registers || [];
-  assert.strictEqual(writable.length, 4, 'AC15: writable_registers must seed exactly 4 registers');
-  const writableKeys = new Set();
+  assert.strictEqual(writable.length, 0, 'AC15: writable_registers must be empty (issue #107)');
+  // Formerly surfaced writable registers (0x0069 eod_soc, 0x004B charge_first_soc_limit,
+  // 0x005A eps_voltage_set, 0x005B eps_frequency_set) must not reappear in any writable list
+  const formerWritable = [0x0069, 0x004B, 0x005A, 0x005B];
   for (const w of writable) {
-    for (const field of ['register', 'register_type', 'name', 'label', 'unit', 'scale', 'type', 'min', 'max', 'step', 'kind']) {
-      assert.ok(w[field] !== undefined && w[field] !== null, `AC15: writable_registers entry ${w.register} must define ${field}`);
-    }
-    assert.ok(/^0x[0-9a-fA-F]+$/.test(w.register), `AC15: writable register ${w.name} register must be hex 0xNNNN`);
-    assert.strictEqual(w.register_type, 'holding', `AC15: writable register ${w.name} must be register_type 'holding'`);
-    assert.ok(['value', 'bitfield'].includes(w.kind), `AC15: writable register ${w.name} kind must be value|bitfield`);
-    writableKeys.add(`${w.register_type}:${w.register}`);
+    const reg = parseInt(w.register, 16);
+    assert.ok(!formerWritable.includes(reg), `AC15: former writable register ${w.register} must not be surfaced (issue #107)`);
   }
-  assert.strictEqual(writableKeys.size, writable.length, 'AC15: writable registers must be unique');
 
   const rangeCovers = (reg, type) => (profile.read_ranges && profile.read_ranges[type] || []).some(([s, c]) => reg >= s && reg < s + c);
 
@@ -246,7 +242,7 @@ function parseAndCheck(buf, expect, label) {
   }
   assert.strictEqual(profile.metrics.length, names.length, 'AC15: metric names must be unique');
   assert.strictEqual(profile.metrics.length, seen.size, 'AC15: all (register_type, register) pairs unique');
-  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), mapping:explicit, write:true, ${writable.length} writable holding registers`);
+  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), mapping:explicit, write:false, ${writable.length} writable holding registers`);
 }
 
 // ---------------------------------------------------------------------------

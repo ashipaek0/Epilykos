@@ -5,7 +5,7 @@
   "default_port": 8000,
   "byte_order": "le",
   "capabilities": {
-    "write": true
+    "write": false
   },
   "metrics": [
     {
@@ -1910,58 +1910,5 @@
     ]
   },
   "mapping": "explicit",
-  "writable_registers": [
-    {
-      "register": "0x0069",
-      "register_type": "holding",
-      "name": "eod_soc",
-      "label": "EOD SOC (Shutdown %)",
-      "unit": "%",
-      "scale": 1,
-      "type": "uint16",
-      "min": 10,
-      "max": 90,
-      "step": 1,
-      "kind": "value"
-    },
-    {
-      "register": "0x004B",
-      "register_type": "holding",
-      "name": "charge_first_soc_limit",
-      "label": "Charge First SOC Limit",
-      "unit": "%",
-      "scale": 1,
-      "type": "uint16",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "kind": "value"
-    },
-    {
-      "register": "0x005A",
-      "register_type": "holding",
-      "name": "eps_voltage_set",
-      "label": "EPS Voltage Set",
-      "unit": "V",
-      "scale": 1,
-      "type": "uint16",
-      "min": 200,
-      "max": 260,
-      "step": 1,
-      "kind": "value"
-    },
-    {
-      "register": "0x005B",
-      "register_type": "holding",
-      "name": "eps_frequency_set",
-      "label": "EPS Frequency Set",
-      "unit": "Hz",
-      "scale": 1,
-      "type": "uint16",
-      "min": 45,
-      "max": 55,
-      "step": 0.1,
-      "kind": "value"
-    }
-  ]
+  "writable_registers": []
 }
