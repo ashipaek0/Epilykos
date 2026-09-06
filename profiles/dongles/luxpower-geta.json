@@ -1857,6 +1857,426 @@
       "scale": 1,
       "unit": "W",
       "label": "CT Power Offset"
+    },
+    {
+      "name": "device_type_high_speed",
+      "register": "0x0013",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Device Type (High-Speed Comm)"
+    },
+    {
+      "name": "pv_start_voltage",
+      "register": "0x0016",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PV Start Voltage"
+    },
+    {
+      "name": "ac_charge_end_time",
+      "register": "0x0045",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AC Charge End Time (packed HH:MM)"
+    },
+    {
+      "name": "lead_acid_temp_upper_limit_chg",
+      "register": "0x006D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "°C",
+      "label": "Lead Acid Temp Upper Limit (Charge)"
+    },
+    {
+      "name": "composed_phase",
+      "register": "0x0071",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Composed Phase (R/S/T)"
+    },
+    {
+      "name": "system_enable_2",
+      "register": "0x0078",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "System Enable 2 (bitfield)"
+    },
+    {
+      "name": "soc_low_limit_eps_discharge",
+      "register": "0x007D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "SOC Low Limit for EPS Discharge"
+    },
+    {
+      "name": "battery_cell_numbers",
+      "register": "0x0085",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Battery Cell Numbers (packed hi/lo)"
+    },
+    {
+      "name": "float_charge_voltage",
+      "register": "0x0090",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Float Charge Voltage"
+    },
+    {
+      "name": "line_mode",
+      "register": "0x0092",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Line Mode (0=APL 1=UPS 2=GEN)"
+    },
+    {
+      "name": "unmatched_battery_capacity",
+      "register": "0x0093",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "Ah",
+      "label": "Battery Capacity (Unmatched)"
+    },
+    {
+      "name": "battery_nominal_voltage",
+      "register": "0x0094",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Nominal Voltage"
+    },
+    {
+      "name": "equalization_voltage",
+      "register": "0x0095",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Equalization Voltage"
+    },
+    {
+      "name": "equalization_interval",
+      "register": "0x0096",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "d",
+      "label": "Equalization Interval"
+    },
+    {
+      "name": "ac_charge_start_voltage",
+      "register": "0x009E",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Charge Start Voltage"
+    },
+    {
+      "name": "ac_charge_end_voltage",
+      "register": "0x009F",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Charge End Voltage"
+    },
+    {
+      "name": "unmapped_holding_c8",
+      "register": "0x00C8",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Unmapped Holding Register 0xC8"
+    },
+    {
+      "name": "charge_first_end_voltage",
+      "register": "0x00C9",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Charge-First End Voltage"
+    },
+    {
+      "name": "lead_acid_capacity",
+      "register": "0x00CC",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "Ah",
+      "label": "Lead-Acid Battery Capacity"
+    },
+    {
+      "name": "smart_load_on_voltage",
+      "register": "0x00D5",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Smart Load On Voltage"
+    },
+    {
+      "name": "smart_load_off_voltage",
+      "register": "0x00D6",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Smart Load Off Voltage"
+    },
+    {
+      "name": "smart_load_on_soc",
+      "register": "0x00D7",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Smart Load On SOC"
+    },
+    {
+      "name": "smart_load_off_soc",
+      "register": "0x00D8",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Smart Load Off SOC"
+    },
+    {
+      "name": "start_pv_power",
+      "register": "0x00D9",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kW",
+      "label": "Start PV Power"
+    },
+    {
+      "name": "ac_couple_start_soc",
+      "register": "0x00DC",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "AC Couple Start SOC"
+    },
+    {
+      "name": "ac_couple_end_soc",
+      "register": "0x00DD",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "AC Couple End SOC"
+    },
+    {
+      "name": "ac_couple_start_voltage",
+      "register": "0x00DE",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Couple Start Voltage"
+    },
+    {
+      "name": "ac_couple_end_voltage",
+      "register": "0x00DF",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "AC Couple End Voltage"
+    },
+    {
+      "name": "battery_stop_charge_soc",
+      "register": "0x00E3",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Battery Stop Charge SOC"
+    },
+    {
+      "name": "battery_stop_charge_voltage",
+      "register": "0x00E4",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Stop Charge Voltage"
+    },
+    {
+      "name": "unmapped_holding_e5",
+      "register": "0x00E5",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Unmapped Holding Register 0xE5"
+    },
+    {
+      "name": "delta_soc",
+      "register": "0x00FD",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "SOC Delta / Hysteresis"
+    },
+    {
+      "name": "delta_voltage",
+      "register": "0x00FE",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Voltage Delta / Hysteresis"
+    },
+    {
+      "name": "ac_charge_start_soc",
+      "register": "0x00A0",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "AC Charge Start SOC"
+    },
+    {
+      "name": "ac_charge_end_soc",
+      "register": "0x00A1",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "AC Charge End SOC"
+    },
+    {
+      "name": "gen_charge_start_voltage",
+      "register": "0x00C2",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Generator Charge Start Voltage"
+    },
+    {
+      "name": "gen_charge_end_voltage",
+      "register": "0x00C3",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Generator Charge End Voltage"
+    },
+    {
+      "name": "gen_charge_start_soc",
+      "register": "0x00C4",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Generator Charge Start SOC"
+    },
+    {
+      "name": "gen_charge_end_soc",
+      "register": "0x00C5",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Generator Charge End SOC"
+    },
+    {
+      "name": "max_gen_charge_current",
+      "register": "0x00C6",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "A",
+      "label": "Max Generator Charge Current"
+    },
+    {
+      "name": "unmapped_input_d3",
+      "register": "0x00D3",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Unmapped Input Register 0xD3"
+    },
+    {
+      "name": "unmapped_input_ee",
+      "register": "0x00EE",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Unmapped Input Register 0xEE"
     }
   ],
   "read_ranges": {
@@ -1904,7 +2324,15 @@
         40
       ],
       [
+        160,
+        40
+      ],
+      [
         200,
+        40
+      ],
+      [
+        240,
         40
       ]
     ]

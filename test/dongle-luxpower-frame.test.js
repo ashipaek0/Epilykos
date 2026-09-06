@@ -5,7 +5,9 @@
  * covering AC1-AC6 plus structural validation of the phase-2 profile
  * profiles/dongles/luxpower-geta.json (AC15, issue #107: write:false,
  * empty writable_registers, input+holding scopes, count:2 uint32 lsb_first pairs,
- * read_ranges coverage, explicit mapping).
+ * read_ranges coverage, explicit mapping). Issue #109 widened the live scope —
+ * wide-sweep holding 0x0C-0xFE (was 0x00-0x77), input <= 0xEE (was 0xE8) — and
+ * added 42 metrics (40 holding + 2 input) with decode spot-checks AC9-AC12.
  *
  * Fixtures marked REAL were captured from the live GETA dongle (serials replaced
  * with synthetic LXP fixtures for public-repo hygiene, #105) on 2026-09-05
@@ -215,12 +217,11 @@ function parseAndCheck(buf, expect, label) {
     assert.ok(count === 1 || count === 2, `AC15: ${m.name} count must be 1 or 2`);
     if (rtype === 'input') {
       inputCount++;
-      assert.ok(reg >= 0x00 && reg <= 0xE8, `AC15: input ${m.name} register ${m.register} outside scope 0x00..0xE8`);
+      assert.ok(reg >= 0x00 && reg <= 0xEE, `AC15: input ${m.name} register ${m.register} outside scope 0x00..0xEE (issue #109)`);
       assert.ok(!(reg >= 0x73 && reg <= 0x77), `AC15: input ${m.name} register ${m.register} in serial region 0x73..0x77`);
     } else {
       holdingCount++;
-      assert.ok(reg >= 0x00 && reg <= 0x77, `AC15: holding ${m.name} register ${m.register} outside scope 0x00..0x77`);
-      assert.ok(!(reg >= 0x02 && reg <= 0x08), `AC15: holding ${m.name} register ${m.register} in serial region 0x02..0x08`);
+      assert.ok(reg >= 0x0C && reg <= 0xFE, `AC15: holding ${m.name} register ${m.register} outside scope 0x0C..0xFE (identity 0x00..0x0B excluded, issue #109)`);
     }
     if (count === 2) {
       count2Count++;
@@ -232,17 +233,24 @@ function parseAndCheck(buf, expect, label) {
     assert.ok(!seen.has(pairKey), `AC15: duplicate (register_type, register) ${pairKey}`);
     seen.add(pairKey);
   }
-  assert.ok(inputCount > 0 && holdingCount > 0, 'AC15: profile must mix input and holding metrics (issue #106)');
-  assert.ok(count2Count > 0, 'AC15: profile must include count:2 uint32 metrics');
+  assert.strictEqual(inputCount, 167, 'AC15: profile must hold exactly 167 input metrics (165 + 2 unmapped raws, issue #109)');
+  assert.strictEqual(holdingCount, 58, 'AC15: profile must hold exactly 58 holding metrics (18 + 40, issue #109)');
+  assert.strictEqual(count2Count, 20, 'AC15: count:2 uint32 metric count must stay 20 (issue #109 adds no count:2)');
 
   const names = profile.metrics.map(m => m.name);
   for (const n of ['operational_state', 'pv1_voltage', 'pv2_voltage', 'pv3_voltage', 'battery_voltage', 'battery_soc',
     'pv1_power', 'pv2_power', 'pv3_or_total_power', 'battery_charge_power', 'battery_discharge_power', 'grid_voltage', 'grid_frequency']) {
     assert.ok(names.includes(n), `AC15: starter metric ${n} missing from profile`);
   }
+  // Issue #109 spot list (AC2 registry anchors)
+  for (const n of ['float_charge_voltage', 'battery_nominal_voltage', 'equalization_interval', 'line_mode', 'system_enable_2',
+    'soc_low_limit_eps_discharge', 'unmatched_battery_capacity', 'ac_charge_start_soc', 'delta_voltage',
+    'unmapped_input_d3', 'unmapped_input_ee']) {
+    assert.ok(names.includes(n), `AC15: issue-#109 metric ${n} missing from profile`);
+  }
   assert.strictEqual(profile.metrics.length, names.length, 'AC15: metric names must be unique');
   assert.strictEqual(profile.metrics.length, seen.size, 'AC15: all (register_type, register) pairs unique');
-  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), mapping:explicit, write:false, ${writable.length} writable holding registers`);
+  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), issue #109 +42, mapping:explicit, write:false, ${writable.length} writable holding registers`);
 }
 
 // ---------------------------------------------------------------------------
@@ -328,5 +336,147 @@ function parseAndCheck(buf, expect, label) {
   console.log('PASS R4 (QA-AC4): 76522s runtime golden — parseFrame(0x04@0x45) → words → profile decode = 76522 s (fixture ' + R4_HEX + ')');
 }
 
-console.log('PASS: dongle-luxpower-frame.test.js — AC1, AC2, AC3, AC4, AC6, AC15, R4 (76522s golden), AC27 (buildWriteFrame) all green');
+// ---------------------------------------------------------------------------
+// AC9 (issue #109): decode spot-check — synthetic holding frame (devFn 0x03,
+// start 0x90, 7 words = regs 0x90..0x96) carrying sweep values 0x90=274,
+// 0x94=240, 0x96=30 → float_charge_voltage 27.4 V, battery_nominal_voltage
+// 24.0 V, equalization_interval 30 d through the shared decode pipeline.
+// 0.1-scaled floats compared within 1e-9 (no exact-equality on decimals).
+// ---------------------------------------------------------------------------
+{
+  const { luxpowerWordsFromBuffer, decodeLuxpowerMetrics } = require('../modules/dongle');
+  const profile = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'profiles', 'dongles', 'luxpower-geta.json'), 'utf8'));
+  const AC9_HEX = 'a11a05002d0001c24c5850303030303030311f0001034c58503030303030303290000e1201000000000000f00000001e0095c0';
+  const AC9_FRAME = Buffer.from(AC9_HEX, 'hex');
+  assert.strictEqual(AC9_FRAME.readUInt16LE(AC9_FRAME.length - 2), crc16Modbus(AC9_FRAME.slice(20, AC9_FRAME.length - 2)), 'AC9: fixture CRC must be valid');
+  const p = parseFrame(AC9_FRAME);
+  assert.strictEqual(p.devFn, 0x03, 'AC9: frame must parse as devFn 0x03 (holding)');
+  assert.strictEqual(p.start, 0x90, 'AC9: frame start must be register 0x90');
+  assert.strictEqual(p.byteLen, 14, 'AC9: frame byte_len must be 14 (seven registers 0x90..0x96)');
+  assert.strictEqual(p.values.readUInt16LE(0), 274, 'AC9: reg 0x90 raw must be 274');
+  assert.strictEqual(p.values.readUInt16LE(4 * 2), 240, 'AC9: reg 0x94 raw must be 240');
+  assert.strictEqual(p.values.readUInt16LE(6 * 2), 30, 'AC9: reg 0x96 raw must be 30');
+
+  const words = luxpowerWordsFromBuffer(profile, p.values, p.start, 'holding');
+  const instance = { name: 'lxp-ac9-fixture', mappings: { float_charge_voltage: 'holding:0x0090', battery_nominal_voltage: 'holding:0x0094', equalization_interval: 'holding:0x0096' } };
+  const { metrics, units } = decodeLuxpowerMetrics(profile, instance, words);
+  assert.ok(Math.abs(metrics.float_charge_voltage - 27.4) < 1e-9, 'AC9: float_charge_voltage must decode 27.4 (274 @0.1)');
+  assert.strictEqual(units.float_charge_voltage, 'V', 'AC9: float_charge_voltage unit must be V');
+  assert.ok(Math.abs(metrics.battery_nominal_voltage - 24.0) < 1e-9, 'AC9: battery_nominal_voltage must decode 24.0 (240 @0.1)');
+  assert.strictEqual(units.battery_nominal_voltage, 'V', 'AC9: battery_nominal_voltage unit must be V');
+  assert.strictEqual(metrics.equalization_interval, 30, 'AC9: equalization_interval must decode 30 (scale 1)');
+  assert.strictEqual(units.equalization_interval, 'd', 'AC9: equalization_interval unit must be d');
+  console.log('PASS AC9: sweep decode spot-check — 0x90=274→27.4V, 0x94=240→24.0V, 0x96=30→30d (fixture ' + AC9_HEX + ')');
+}
+
+// ---------------------------------------------------------------------------
+// AC10 (issue #109): decode spot-check 2 — REAL_HOLDING_80_119 fixture holds
+// reg 0x6D raw 400 (the lead-acid charge temp upper limit lives inside that
+// REAL capture) → lead_acid_temp_upper_limit_chg 40.0 °C; plus synthetic
+// smart_load_on_voltage 0xD5=270 → 27.0 V and delta_voltage 0xFE=16 → 1.6 V.
+// AC9 + AC10 together cover 6 new registers against real sweep values.
+// ---------------------------------------------------------------------------
+{
+  const { luxpowerWordsFromBuffer, decodeLuxpowerMetrics } = require('../modules/dongle');
+  const profile = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'profiles', 'dongles', 'luxpower-geta.json'), 'utf8'));
+
+  // (a) REAL capture: holding 80-119 covers 0x50..0x77; 0x6D sits at word 29.
+  const stored = REAL_HOLDING_80_119.readUInt16LE(REAL_HOLDING_80_119.length - 2);
+  assert.strictEqual(stored, crc16Modbus(REAL_HOLDING_80_119.slice(20, REAL_HOLDING_80_119.length - 2)), 'AC10: REAL_HOLDING_80_119 CRC must be valid');
+  const pr = parseFrame(REAL_HOLDING_80_119);
+  assert.strictEqual(pr.start, 0x50, 'AC10: REAL holding frame must start at 0x50');
+  assert.strictEqual(pr.values.readUInt16LE(29 * 2), 400, 'AC10: REAL reg 0x6D raw must be 400 (sweep-confirmed)');
+  const wordsReal = luxpowerWordsFromBuffer(profile, pr.values, pr.start, 'holding');
+  const instReal = { name: 'lxp-ac10-real', mappings: { lead_acid_temp_upper_limit_chg: 'holding:0x006D' } };
+  const decReal = decodeLuxpowerMetrics(profile, instReal, wordsReal);
+  assert.ok(Math.abs(decReal.metrics.lead_acid_temp_upper_limit_chg - 40.0) < 1e-9, 'AC10: lead_acid_temp_upper_limit_chg must decode 40.0 (400 @0.1)');
+  assert.strictEqual(decReal.units.lead_acid_temp_upper_limit_chg, '°C', 'AC10: lead_acid_temp_upper_limit_chg unit must be °C');
+
+  // (b) synthetic: holding reg 0xD5 = 270 → 27.0 V
+  const AC10_D5_HEX = 'a11a0500210001c24c585030303030303031130001034c585030303030303032d500020e0101e5';
+  const AC10_D5 = Buffer.from(AC10_D5_HEX, 'hex');
+  assert.strictEqual(AC10_D5.readUInt16LE(AC10_D5.length - 2), crc16Modbus(AC10_D5.slice(20, AC10_D5.length - 2)), 'AC10: D5 fixture CRC must be valid');
+  const pd = parseFrame(AC10_D5);
+  const wordsD5 = luxpowerWordsFromBuffer(profile, pd.values, pd.start, 'holding');
+  const decD5 = decodeLuxpowerMetrics(profile, { name: 'lxp-ac10-d5', mappings: { smart_load_on_voltage: 'holding:0x00D5' } }, wordsD5);
+  assert.ok(Math.abs(decD5.metrics.smart_load_on_voltage - 27.0) < 1e-9, 'AC10: smart_load_on_voltage must decode 27.0 (270 @0.1)');
+  assert.strictEqual(decD5.units.smart_load_on_voltage, 'V', 'AC10: smart_load_on_voltage unit must be V');
+
+  // (c) synthetic: holding reg 0xFE = 16 → 1.6 V
+  const AC10_FE_HEX = 'a11a0500210001c24c585030303030303031130001034c585030303030303032fe00021000ed83';
+  const AC10_FE = Buffer.from(AC10_FE_HEX, 'hex');
+  assert.strictEqual(AC10_FE.readUInt16LE(AC10_FE.length - 2), crc16Modbus(AC10_FE.slice(20, AC10_FE.length - 2)), 'AC10: FE fixture CRC must be valid');
+  const pfe = parseFrame(AC10_FE);
+  const wordsFE = luxpowerWordsFromBuffer(profile, pfe.values, pfe.start, 'holding');
+  const decFE = decodeLuxpowerMetrics(profile, { name: 'lxp-ac10-fe', mappings: { delta_voltage: 'holding:0x00FE' } }, wordsFE);
+  assert.ok(Math.abs(decFE.metrics.delta_voltage - 1.6) < 1e-9, 'AC10: delta_voltage must decode 1.6 (16 @0.1)');
+  assert.strictEqual(decFE.units.delta_voltage, 'V', 'AC10: delta_voltage unit must be V');
+  console.log('PASS AC10: REAL 0x6D=400→40.0°C + synthetic 0xD5=270→27.0V smart_load_on_voltage, 0xFE=16→1.6V delta_voltage');
+}
+
+// ---------------------------------------------------------------------------
+// AC11 (issue #109): new-window chunk parse — synthetic devFn 0x03 response
+// at the previously-gapped 0xA0..0xC7 boundary (start 0xA0, 40 regs, byte_len
+// 0x50) parses cleanly; all 7 Tier-B metrics appear in the words and decode to
+// 0 through the shared pipeline (values 0 allowed — window never captured).
+// ---------------------------------------------------------------------------
+{
+  const { luxpowerWordsFromBuffer, decodeLuxpowerMetrics } = require('../modules/dongle');
+  const profile = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'profiles', 'dongles', 'luxpower-geta.json'), 'utf8'));
+  const AC11_HEX = 'a11a05006f0001c24c585030303030303031610001034c585030303030303032a000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000783c';
+  const AC11_FRAME = Buffer.from(AC11_HEX, 'hex');
+  assert.strictEqual(AC11_FRAME.readUInt16LE(AC11_FRAME.length - 2), crc16Modbus(AC11_FRAME.slice(20, AC11_FRAME.length - 2)), 'AC11: fixture CRC must be valid');
+  const p = parseFrame(AC11_FRAME);
+  assert.strictEqual(p.devFn, 0x03, 'AC11: frame must parse as devFn 0x03 (holding)');
+  assert.strictEqual(p.start, 0xA0, 'AC11: frame start must be register 0xA0');
+  assert.strictEqual(p.byteLen, 0x50, 'AC11: frame byte_len must be 0x50 (40 registers)');
+  assert.strictEqual(p.values.length, 80, 'AC11: values must span 80 bytes');
+
+  const words = luxpowerWordsFromBuffer(profile, p.values, p.start, 'holding');
+  const tierB = [['ac_charge_start_soc', 0xA0], ['ac_charge_end_soc', 0xA1], ['gen_charge_start_voltage', 0xC2],
+    ['gen_charge_end_voltage', 0xC3], ['gen_charge_start_soc', 0xC4], ['gen_charge_end_soc', 0xC5], ['max_gen_charge_current', 0xC6]];
+  const mappings = {};
+  for (const [name, reg] of tierB) {
+    assert.strictEqual(words['holding:' + reg], 0, `AC11: word holding:${reg} (${name}) must be present (0 in zero-filled window)`);
+    mappings[name] = 'holding:0x' + reg.toString(16).toUpperCase().padStart(4, '0');
+  }
+  const instance = { name: 'lxp-ac11-fixture', mappings };
+  const { metrics, units } = decodeLuxpowerMetrics(profile, instance, words);
+  for (const [name] of tierB) {
+    assert.strictEqual(metrics[name], 0, `AC11: ${name} must decode 0 from the zero-filled window`);
+  }
+  assert.strictEqual(units.ac_charge_start_soc, '%', 'AC11: ac_charge_start_soc unit must be %');
+  assert.strictEqual(units.max_gen_charge_current, 'A', 'AC11: max_gen_charge_current unit must be A');
+  console.log('PASS AC11: window chunk 0xA0-0xC7 parses — 7 Tier-B metrics in words, decode to 0, no boundary error');
+}
+
+// ---------------------------------------------------------------------------
+// AC12 (issue #109): unmapped input raws — synthetic input frame (devFn 0x04,
+// start 0xD3, 28 words = regs 0xD3..0xEE) carrying 0xD3=1500 and 0xEE=32775
+// → unmapped_input_d3 1500, unmapped_input_ee 32775 (scale 1, unit "").
+// ---------------------------------------------------------------------------
+{
+  const { luxpowerWordsFromBuffer, decodeLuxpowerMetrics } = require('../modules/dongle');
+  const profile = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'profiles', 'dongles', 'luxpower-geta.json'), 'utf8'));
+  const AC12_HEX = 'a11a0500570001c24c585030303030303031490001044c585030303030303032d30038dc05000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000780c36c';
+  const AC12_FRAME = Buffer.from(AC12_HEX, 'hex');
+  assert.strictEqual(AC12_FRAME.readUInt16LE(AC12_FRAME.length - 2), crc16Modbus(AC12_FRAME.slice(20, AC12_FRAME.length - 2)), 'AC12: fixture CRC must be valid');
+  const p = parseFrame(AC12_FRAME);
+  assert.strictEqual(p.devFn, 0x04, 'AC12: frame must parse as devFn 0x04 (input)');
+  assert.strictEqual(p.start, 0xD3, 'AC12: frame start must be register 0xD3');
+  assert.strictEqual(p.byteLen, 0x38, 'AC12: frame byte_len must be 0x38 (28 registers 0xD3..0xEE)');
+  assert.strictEqual(p.values.readUInt16LE(0), 1500, 'AC12: reg 0xD3 raw must be 1500 (0x05DC)');
+  assert.strictEqual(p.values.readUInt16LE(27 * 2), 32775, 'AC12: reg 0xEE raw must be 32775 (0x8007)');
+
+  const words = luxpowerWordsFromBuffer(profile, p.values, p.start, 'input');
+  const instance = { name: 'lxp-ac12-fixture', mappings: { unmapped_input_d3: 'input:0x00D3', unmapped_input_ee: 'input:0x00EE' } };
+  const { metrics, units } = decodeLuxpowerMetrics(profile, instance, words);
+  assert.strictEqual(metrics.unmapped_input_d3, 1500, 'AC12: unmapped_input_d3 must decode 1500 (scale 1)');
+  assert.strictEqual(metrics.unmapped_input_ee, 32775, 'AC12: unmapped_input_ee must decode 32775 (scale 1)');
+  assert.strictEqual(units.unmapped_input_d3, undefined, 'AC12: unmapped_input_d3 must carry no unit (unit "")');
+  assert.strictEqual(units.unmapped_input_ee, undefined, 'AC12: unmapped_input_ee must carry no unit (unit "")');
+  console.log('PASS AC12: unmapped input raws — 0xD3=1500, 0xEE=32775 (scale 1, unit "")');
+}
+
+console.log('PASS: dongle-luxpower-frame.test.js — AC1, AC2, AC3, AC4, AC6, AC15 (167/58/20), R4 (76522s golden), AC9-AC12 (issue #109 decode spot-checks), AC27 (buildWriteFrame) all green');
 process.exitCode = 0;
