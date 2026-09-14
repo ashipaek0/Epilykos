@@ -360,7 +360,17 @@ router.get('/savings', async (req, res) => {
 
 router.get('/solar-forecast', async (req, res) => {
   try {
-    res.json(await getSolarForecast(req.query.source));
+    // S5-front-A: per-card rest_map from dashboard config (JSON string).
+    // Missing/malformed/non-object -> {} (backend identity aliases apply).
+    let restMap = {};
+    const rawMap = req.query.rest_map;
+    if (rawMap != null && rawMap !== '') {
+      try {
+        const parsed = JSON.parse(rawMap);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) restMap = parsed;
+      } catch { restMap = {}; }
+    }
+    res.json(await getSolarForecast(req.query.source, restMap));
   } catch (err) {
     logger.error('Error in /api/solar-forecast:', err);
     res.status(500).json({ error: 'Internal server error' });

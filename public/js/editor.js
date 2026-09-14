@@ -553,6 +553,39 @@ var WX_SOURCE_TYPES = ['weather-block', 'forecast-banner', 'forecast-info', 'for
 // Alert rule vocab (S3, AC15): metric in {temp,wind,precip,cloud}, op in {>,<}, max 4 rules.
 var WX_ALERT_METRICS = ['temp', 'wind', 'precip', 'cloud'];
 var WX_ALERT_OPS = ['>', '<'];
+// REST field vocab for per-card rest_map (S5-editor): keys mirror the resolver
+// rest_map (temp,humidity,wind,precip,cloud,ghi,description,pv_estimate); values are strings.
+var REST_MAP_KEYS = ['temp', 'humidity', 'wind', 'precip', 'cloud', 'ghi', 'description', 'pv_estimate'];
+
+/** Validate rest_map textarea text. Returns {ok, value, error}. Empty = null (key deleted on save). */
+function validateRestMap(text) {
+  var t = (text || '').trim();
+  if (!t) return { ok: true, value: null };
+  var obj = null;
+  try { obj = JSON.parse(t); } catch (e) { return { ok: false, error: 'Field map must be a JSON object.' }; }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { ok: false, error: 'Field map must be a JSON object.' };
+  var bad = Object.keys(obj).filter(function(k) { return REST_MAP_KEYS.indexOf(k) === -1; });
+  if (bad.length) return { ok: false, error: 'Unknown field(s): ' + bad.join(', ') + '. Allowed: ' + REST_MAP_KEYS.join(', ') + '.' };
+  var badVal = Object.keys(obj).filter(function(k) { return typeof obj[k] !== 'string'; });
+  if (badVal.length) return { ok: false, error: 'Values must be strings (source field names). Bad key(s): ' + badVal.join(', ') + '.' };
+  return { ok: true, value: obj };
+}
+
+/** Per-card REST field-map textarea (S5-editor). Shown only when source starts with rest:. */
+function buildRestMapForm(cfg) {
+  var rm = cfg.rest_map;
+  var txt = '';
+  if (typeof rm === 'string') txt = rm;
+  else if (rm && typeof rm === 'object') txt = JSON.stringify(rm, null, 2);
+  if (txt === '{}') txt = '';
+  var visible = (cfg.source || '').indexOf('rest:') === 0;
+  var html = '<div id="modal-restmap-wrap" style="margin-bottom:0.35rem;' + (visible ? '' : 'display:none;') + '">';
+  html += '<label style="font-size:0.85rem;display:block;">REST field map (JSON object)';
+  html += '<textarea id="modal-restmap" placeholder=\'{"temp": "temperature", "humidity": "humidity"}\' style="display:block;width:100%;min-height:80px;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);font-size:0.8rem;font-family:monospace;resize:vertical;">' + escHtml(txt) + '</textarea></label>';
+  html += '<div id="modal-restmap-error" style="display:none;color:#ef4444;font-size:0.8rem;margin-top:0.2rem;"></div>';
+  html += '</div>';
+  return html;
+}
 
 /** Source dropdown shared by the 5 weather/forecast cards. Selected = cfg.source or auto. */
 function weatherSourceSelect(cfg) {
@@ -694,6 +727,7 @@ function buildSimpleForm(block) {
 
   if (WX_SOURCE_TYPES.indexOf(block.type) !== -1) {
     html += weatherSourceSelect(cfg);
+    html += buildRestMapForm(cfg);
   }
 
   html += '</fieldset>';
@@ -1190,6 +1224,25 @@ function readSettingsForm(block) {
           config.source = sv;
         }
       }
+      // S5-editor: per-card rest_map for rest: sources. Stored as an object on
+      // config.rest_map (same shape as S3 alerts/charts); empty textarea or
+      // non-rest source deletes the key. Invalid blocks save with inline error.
+      if (WX_SOURCE_TYPES.indexOf(type) !== -1) {
+        var curSrc = config.source || '';
+        if (curSrc.indexOf('rest:') === 0) {
+          var rmEl = document.getElementById('modal-restmap');
+          var rmRes = validateRestMap(rmEl ? rmEl.value : '');
+          if (!rmRes.ok) {
+            var rmErrEl = document.getElementById('modal-restmap-error');
+            if (rmErrEl) { rmErrEl.textContent = rmRes.error; rmErrEl.style.display = 'block'; }
+            return rmRes.error;
+          }
+          if (rmRes.value && Object.keys(rmRes.value).length) config.rest_map = rmRes.value;
+          else delete config.rest_map;
+        } else {
+          delete config.rest_map;
+        }
+      }
       // S3: weather-block display/charts/alerts, validated.
       if (type === 'weather-block') {
         var disp = {};
@@ -1227,6 +1280,7 @@ function readSettingsForm(block) {
   }
 
   block.config = config;
+  return null;
 }
 
 /** Refresh the live grid item content after settings save */
@@ -1291,7 +1345,11 @@ async function handleSettingsSave() {
   if (!currentEditingBlock) return;
   var statusEl = document.getElementById('settings-modal-status');
   if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
-  readSettingsForm(currentEditingBlock);
+  var formErr = readSettingsForm(currentEditingBlock);
+  if (formErr) {
+    if (statusEl) { statusEl.textContent = formErr; statusEl.style.display = 'block'; }
+    return;  // keep modal open, do not persist
+  }
   var saved = await persistLayout();
   if (!saved) {
     console.error('Save failed — layout not persisted');
@@ -1334,6 +1392,15 @@ async function openSettingsModal(block) {
   ['modal-switch-oncolor', 'modal-switch-offcolor'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
+  });
+
+  // S5-editor: toggle rest_map textarea with source pick (rest: -> show, else hide + clear error)
+  var srcSel = document.getElementById('modal-simple-source');
+  var rmWrap = document.getElementById('modal-restmap-wrap');
+  if (srcSel && rmWrap) srcSel.addEventListener('change', function() {
+    var show = (srcSel.value || '').indexOf('rest:') === 0;
+    rmWrap.style.display = show ? '' : 'none';
+    if (!show) { var rmErr = document.getElementById('modal-restmap-error'); if (rmErr) { rmErr.textContent = ''; rmErr.style.display = 'none'; } }
   });
 
   // Initialize dynamic row renderers after DOM is populated

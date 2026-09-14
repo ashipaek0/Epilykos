@@ -55,26 +55,40 @@ function sourceLabelFor(data, fallbackSource) {
 }
 
 /**
- * Resolve a weather card instance's source.
+ * Normalize a block config.rest_map: object or JSON string; {} on malformed.
+ */
+function normalizeRestMap(raw) {
+  let m = raw;
+  if (typeof m === 'string') { try { m = JSON.parse(m); } catch { m = {}; } }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return {};
+  return m;
+}
+
+/**
+ * Resolve a weather card instance's source + rest_map.
  * Mirrors forecast.js resolveCardSource: dataset.source first, then block id
  * lookup in dashboard.js dashboardConfig, else 'auto' (legacy behavior).
+ * restMap is the block config.rest_map (normalized, {} default); only sent for rest: sources.
  */
 async function resolveCardSource(card) {
-  if (card?.dataset?.source) return card.dataset.source;
+  if (card?.dataset?.source) return { source: card.dataset.source, restMap: {} };
   const blockId = card?.dataset?.blockId
     || card?.closest?.('.dashboard-block')?.dataset?.blockId;
-  if (!blockId) return 'auto';
+  if (!blockId) return { source: 'auto', restMap: {} };
   try {
     const { dashboardConfig } = await import('../dashboard.js');
     const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
     const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return block?.config?.source || 'auto';
-  } catch { return 'auto'; }
+    return { source: block?.config?.source || 'auto', restMap: normalizeRestMap(block?.config?.rest_map) };
+  } catch { return { source: 'auto', restMap: {} }; }
 }
 
-function weatherUrlFor(source) {
+function weatherUrlFor(source, restMap) {
   if (!source || source === 'auto') return '/api/solar-forecast';
-  return `/api/solar-forecast?source=${encodeURIComponent(source)}`;
+  let url = `/api/solar-forecast?source=${encodeURIComponent(source)}`;
+  // S5-front-A: thread per-card rest_map to the backend, rest: sources only.
+  if (source.startsWith('rest:')) url += `&rest_map=${encodeURIComponent(JSON.stringify(restMap || {}))}`;
+  return url;
 }
 
 /** Per-card inline error. Never hides the card itself. */
@@ -434,7 +448,7 @@ export async function updateWeatherBlock(state) {
   const containers = [...document.querySelectorAll('.weather-block')];
   if (!containers.length) return;
 
-  // Group instances by resolved source (default auto = legacy global behavior)
+  // Group instances by resolved source (+rest_map for rest:); default auto = legacy global behavior
   const sources = await Promise.all(containers.map(el => resolveCardSource(el)));
   const displays = await Promise.all(containers.map(el => resolveCardDisplay(el)));
   const dispByEl = new Map(containers.map((el, i) => [el, displays[i]]));
@@ -444,23 +458,28 @@ export async function updateWeatherBlock(state) {
   const alertsByEl = new Map(containers.map((el, i) => [el, alertRules[i]]));
   const groups = new Map();
   containers.forEach((el, i) => {
-    const src = sources[i] || 'auto';
-    if (!groups.has(src)) groups.set(src, []);
-    groups.get(src).push(el);
+    const r = sources[i] || {};
+    const src = r.source || 'auto';
+    const restMap = r.restMap || {};
+    const key = src.startsWith('rest:') ? JSON.stringify([src, restMap]) : src;
+    if (!groups.has(key)) groups.set(key, { src, restMap, els: [] });
+    groups.get(key).els.push(el);
   });
 
-  // One fetch per distinct source; omit ?source= when auto (legacy URL, byte-identical)
+  // One fetch per distinct source (+rest_map); omit ?source= when auto (legacy URL, byte-identical)
   const entries = [...groups.entries()];
-  const results = await Promise.all(entries.map(async ([src]) => {
+  const results = await Promise.all(entries.map(async ([key, g]) => {
     try {
-      const res = await fetch(weatherUrlFor(src));
-      return [src, await res.json()];
-    } catch (err) { return [src, { error: true, _fetchFailed: true, source: src }]; }
+      const res = await fetch(weatherUrlFor(g.src, g.restMap));
+      return [key, await res.json()];
+    } catch (err) { return [key, { error: true, _fetchFailed: true, source: g.src }]; }
   }));
   const dataBySource = new Map(results);
 
-  for (const [src, cards] of entries) {
-    const data = dataBySource.get(src);
+  for (const [key, g] of entries) {
+    const src = g.src;
+    const cards = g.els;
+    const data = dataBySource.get(key);
     const label = sourceLabelFor(data, src);
     cards.forEach(c => {
       const el = c.querySelector('.weather-source');

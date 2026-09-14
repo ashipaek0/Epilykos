@@ -48,27 +48,43 @@ export function sourceLabelFor(data, fallbackSource) {
 }
 
 /**
- * Resolve a card instance's forecast source.
+ * Normalize a block config.rest_map: object or JSON string; {} on malformed.
+ * Mirrors weatherBlock normalizeDisplay/normalizeCharts string convention.
+ */
+function normalizeRestMap(raw) {
+  let m = raw;
+  if (typeof m === 'string') { try { m = JSON.parse(m); } catch { m = {}; } }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return {};
+  return m;
+}
+
+/**
+ * Resolve a card instance's forecast source + rest_map.
  * Seam: block configs live in dashboard.js dashboardConfig (same dynamic-import
  * pattern as metricCards.js — read-only, no touch to dashboard.js). Builders
  * only stamp dataset.blockId/metricMap, so config lookup is by block id.
  * Falls back to dataset.source (future-proof) then 'auto' (legacy = current behavior).
+ * restMap is the block config.rest_map (normalized, {} default); only sent for rest: sources.
  */
 async function resolveCardSource(card) {
-  if (card?.dataset?.source) return card.dataset.source;
+  if (card?.dataset?.source) return { source: card.dataset.source, restMap: {} };
   const blockId = card?.dataset?.blockId;
-  if (!blockId) return 'auto';
+  if (!blockId) return { source: 'auto', restMap: {} };
   try {
     const { dashboardConfig } = await import('./dashboard.js');
     const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
     const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return block?.config?.source || 'auto';
-  } catch { return 'auto'; }
+    return { source: block?.config?.source || 'auto', restMap: normalizeRestMap(block?.config?.rest_map) };
+  } catch { return { source: 'auto', restMap: {} }; }
 }
 
-function forecastUrlFor(source) {
+function forecastUrlFor(source, restMap) {
   if (!source || source === 'auto') return '/api/solar-forecast';
-  return `/api/solar-forecast?source=${encodeURIComponent(source)}`;
+  let url = `/api/solar-forecast?source=${encodeURIComponent(source)}`;
+  // S5-front-A: thread per-card rest_map to the backend, rest: sources only.
+  // Non-rest URLs stay byte-identical to legacy behavior.
+  if (source.startsWith('rest:')) url += `&rest_map=${encodeURIComponent(JSON.stringify(restMap || {}))}`;
+  return url;
 }
 
 /** Per-card inline error (AC8). Never hides the card itself. */
@@ -115,22 +131,27 @@ export async function updateForecast() {
   const sources = await Promise.all(all.map(a => resolveCardSource(a.el)));
   const groups = new Map();
   all.forEach((a, i) => {
-    const src = sources[i] || 'auto';
-    if (!groups.has(src)) groups.set(src, { banners: [], infos: [], sparks: [], pvs: [] });
-    const g = groups.get(src);
+    const r = sources[i] || {};
+    const src = r.source || 'auto';
+    const restMap = r.restMap || {};
+    // Rest: cards with different rest_maps must not share a fetch; non-rest
+    // keys stay the plain source string (legacy grouping, unchanged).
+    const key = src.startsWith('rest:') ? JSON.stringify([src, restMap]) : src;
+    if (!groups.has(key)) groups.set(key, { src, restMap, banners: [], infos: [], sparks: [], pvs: [] });
+    const g = groups.get(key);
     if (a.kind === 'banner') g.banners.push(a.el);
     else if (a.kind === 'info') g.infos.push(a.el);
     else if (a.kind === 'spark') g.sparks.push(a.el);
     else g.pvs.push(a.el);
   });
 
-  // One fetch per distinct source; omit ?source= when auto (legacy URL, byte-identical)
+  // One fetch per distinct source (+rest_map); omit ?source= when auto (legacy URL, byte-identical)
   const entries = [...groups.entries()];
-  const results = await Promise.all(entries.map(async ([src]) => {
+  const results = await Promise.all(entries.map(async ([key, g]) => {
     try {
-      const r = await fetch(forecastUrlFor(src));
-      return [src, await r.json()];
-    } catch (e) { return [src, { error: true, _fetchFailed: true, source: src }]; }
+      const r = await fetch(forecastUrlFor(g.src, g.restMap));
+      return [key, await r.json()];
+    } catch (e) { return [key, { error: true, _fetchFailed: true, source: g.src }]; }
   }));
   const dataBySource = new Map(results);
 
@@ -143,8 +164,9 @@ export async function updateForecast() {
   const systemCapacityKwp = window.systemCapacityKwp || 2.1;
   const sevenAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 0, 0).getTime();
 
-  for (const [src, g] of entries) {
-    const data = dataBySource.get(src);
+  for (const [key, g] of entries) {
+    const src = g.src;
+    const data = dataBySource.get(key);
     const label = sourceLabelFor(data, src);
     setGroupSourceLabel([...g.banners, ...g.infos, ...g.sparks], label);
 

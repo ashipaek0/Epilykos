@@ -242,13 +242,91 @@ function shouldInvalidateForecastCache(savedKeys) {
   return keys.some((k) => FORECAST_CACHE_KEYS.includes(k));
 }
 
-async function getSolarForecast(sourceParam) {
+// ---- Issue #127 S5-backend: rest: resolver ----
+// Block rest_map is per-card config (not available backend-side), so the
+// resolver takes an optional restMap seam: { temp, humidity, wind, precip,
+// cloud, ghi, description, pv_estimate } of latest_metrics metric names
+// (non-string values ignored). Without a map, identity aliases apply.
+const REST_DEFAULT_ALIASES = {
+  temp: ['temp', 'air_temp', 'temperature'],
+  humidity: ['humidity', 'relative_humidity'],
+  wind: ['wind', 'wind_speed'],
+  precip: ['precip', 'precip_rate'],
+  cloud: ['cloud', 'cloud_cover'],
+  ghi: ['ghi', 'shortwave_radiation'],
+  description: ['description', 'weather_desc'],
+  pv_estimate: ['pv_estimate']
+};
+
+// Resolve a rest:<name> source to point values from latest_metrics.
+// Returns { error } for unknown/disabled/missing-url sources, else a
+// forecast-shaped result with 3 all-null daily stubs and empty hourly.
+function resolveRestSource(name, restMap) {
+  const trimmed = String(name == null ? '' : name).trim();
+  const key = 'rest:' + trimmed;
+  let sources = [];
+  try { sources = JSON.parse(getConfig('external_sources') || '[]'); } catch (e) { sources = []; }
+  if (!Array.isArray(sources)) sources = [];
+  const src = sources.find((s) => s && s.name === trimmed);
+  if (!src || !src.enabled || !src.url) return { error: `Source unavailable: ${key}` };
+
+  const map = (restMap && typeof restMap === 'object' && !Array.isArray(restMap)) ? restMap : {};
+  let rows = [];
+  try { rows = getDb().prepare('SELECT metric, value, value_text FROM latest_metrics').all(); } catch (e) { rows = []; }
+  const byMetric = new Map();
+  for (const r of rows || []) if (r && r.metric != null && !byMetric.has(r.metric)) byMetric.set(r.metric, r);
+  const numVal = (row) => {
+    if (!row) return null;
+    const n = Number(row.value);
+    return Number.isFinite(n) ? n : null;
+  };
+  const lookup = (field) => {
+    const mapped = map[field];
+    if (typeof mapped === 'string' && mapped) return byMetric.get(mapped) || null;
+    const aliases = REST_DEFAULT_ALIASES[field] || [];
+    for (const a of aliases) if (byMetric.has(a)) return byMetric.get(a);
+    return null;
+  };
+
+  const temp = numVal(lookup('temp'));
+  const humidity = numVal(lookup('humidity'));
+  const wind = numVal(lookup('wind'));
+  const precip = numVal(lookup('precip'));
+  const cloud = numVal(lookup('cloud'));
+  const ghi = numVal(lookup('ghi'));
+  const pv = numVal(lookup('pv_estimate'));
+  const descRow = lookup('description');
+  const description = descRow ? (descRow.value_text != null ? descRow.value_text : descRow.value) : null;
+
+  const daily = [0, 1, 2].map((off) => {
+    const d = new Date();
+    d.setDate(d.getDate() + off);
+    return { date: d.toLocaleDateString('en-CA'), total_kwh: null, peak_kw: null, source: key };
+  });
+
+  const weather = {
+    temp, humidity, wind, precip, cloud, ghi,
+    feels_like: null, icon: null, description,
+    // Compat with the Open-Meteo weather shape the dashboard consumes.
+    icon_class: null, desc: description, extra: '', forecast_weather: []
+  };
+
+  return {
+    source: key,
+    source_label: src.name,
+    weather_source: key,
+    weather, daily, hourly: [],
+    pv_estimate: pv
+  };
+}
+
+async function getSolarForecast(sourceParam, restMap) {
   const forecastEnabled = getConfig('forecast_enabled') === 'true';
   if (!forecastEnabled) return { error: 'Forecast disabled' };
 
   const selector = normalizeSourceSelector(sourceParam);
   if (selector === null) return { error: `Unknown forecast source: ${sourceParam}` };
-  if (selector.startsWith('rest:')) return { error: 'Custom REST sources are not supported yet' };
+  if (selector.startsWith('rest:')) return resolveRestSource(selector.slice(5), restMap);
 
   const now = Date.now();
   const cached = forecastCache[selector];
@@ -280,7 +358,7 @@ async function getSolarForecast(sourceParam) {
   // An invalid global falls back to 'auto' (cascade). rest: globals are
   // rejected like explicit rest: picks (S5 owns them).
   const forecastSel = selector === 'auto' ? resolveDefaultSource('forecast_default_source') : selector;
-  if (forecastSel.startsWith('rest:')) return { error: 'Custom REST sources are not supported yet' };
+  if (forecastSel.startsWith('rest:')) return resolveRestSource(forecastSel.slice(5), restMap);
   const wantSolcast = forecastSel === 'auto' || forecastSel === 'solcast';
   const wantOpenMeteo = forecastSel === 'auto' || forecastSel === 'open-meteo';
 
@@ -352,7 +430,14 @@ async function getSolarForecast(sourceParam) {
   // 'open-meteo' = OM only (ignore solcastWx); 'solcast' = solcastWx when
   // available else OM fallback. Icons/weathercode always stay Open-Meteo.
   const weatherSelRaw = resolveDefaultSource('weather_default_source');
-  const weatherSel = weatherSelRaw.startsWith('rest:') ? 'auto' : weatherSelRaw;
+  // S5-backend: a rest: weather default resolves through latest_metrics;
+  // on resolver error fall back to 'auto' (previous behavior).
+  let restWeather = null;
+  if (weatherSelRaw.startsWith('rest:')) {
+    const resolved = resolveRestSource(weatherSelRaw.slice(5), restMap);
+    if (!resolved.error) restWeather = resolved;
+  }
+  const weatherSel = restWeather ? weatherSelRaw : (weatherSelRaw.startsWith('rest:') ? 'auto' : weatherSelRaw);
   const useSolcastWx = weatherSel !== 'open-meteo';
   let weatherSource = 'open-meteo';
   if (lat && lon) {
@@ -426,6 +511,11 @@ async function getSolarForecast(sourceParam) {
         extra: (feelsLike != null ? `Feels ${feelsLike.toFixed(0)}°C` : '') + (humidity != null ? ` · Humidity ${humidity}%` : ''),
         forecast_weather: forecastWeather
       };
+      // S5-backend: rest: weather default wins over OM/solcast point values.
+      if (restWeather) {
+        result.weather = restWeather.weather;
+        weatherSource = restWeather.weather_source;
+      }
     } catch (e) {
       result.weather = { icon_class: DEFAULT_WEATHER.icon, desc: DEFAULT_WEATHER.desc, temp: null, extra: '', forecast_weather: [] };
     }
@@ -516,4 +606,4 @@ async function testForecast(opts) {
   return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
 }
 
-module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS };
+module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES };

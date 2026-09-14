@@ -169,14 +169,14 @@ https.get = fakeGet;
   await (async () => {
     solar.clearForecastCache();
     const r = await solar.getSolarForecast('rest:mycard');
-    assert.ok(r && r.error && /Custom REST sources are not supported yet/.test(r.error), `expected custom-REST error, got ${JSON.stringify(r)}`);
+    assert.ok(r && r.error && /Source unavailable: rest:mycard/.test(r.error), `expected custom-REST error, got ${JSON.stringify(r)}`);
     passed++;
     console.log('ok - getSolarForecast rest: -> custom-REST error');
   })();
   await (async () => {
     solar.clearForecastCache();
     const r = await solar.getSolarForecast('REST:MyAPI');
-    assert.ok(r && r.error && /Custom REST sources are not supported yet/.test(r.error), `expected custom-REST error (case), got ${JSON.stringify(r)}`);
+    assert.ok(r && r.error && /Source unavailable: rest:MyAPI/.test(r.error), `expected custom-REST error (case), got ${JSON.stringify(r)}`);
     assert.strictEqual(solar.normalizeSourceSelector('REST:MyAPI'), 'rest:MyAPI');
     passed++;
     console.log('ok - getSolarForecast REST:MyAPI -> custom-REST error, case preserved');
@@ -218,7 +218,7 @@ https.get = fakeGet;
   // ---- (H) route passthrough (static check) ----
   check('route: /api/solar-forecast passes req.query.source', () => {
     const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'metrics.js'), 'utf8');
-    assert.ok(srv.includes('getSolarForecast(req.query.source)'), 'route does not forward req.query.source');
+    assert.ok(srv.includes('getSolarForecast(req.query.source'), 'route does not forward req.query.source');
   });
 
   console.log(`\nPASS solar-forecast-s1prime: ${passed} checks`);
