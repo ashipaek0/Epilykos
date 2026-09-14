@@ -212,6 +212,30 @@ function pickSolcastWeather(periods) {
 // Test hook (no prod callers): drop all per-selector cache entries.
 function clearForecastCache() { forecastCache = {}; }
 
+// ---- Issue #127 S2: global default sources (AC9) ----
+// Every config key whose save can change getSolarForecast() output.
+const FORECAST_CACHE_KEYS = [
+  'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
+  'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
+  'solar_loss_factor', 'solar_install_date',
+  'forecast_default_source', 'weather_default_source'
+];
+
+// Resolve a global default source key to an effective selector.
+// Invalid/unknown values fall back to 'auto' (never null); empty/unset is
+// already 'auto' via normalizeSourceSelector.
+function resolveDefaultSource(configKey) {
+  const sel = normalizeSourceSelector(getConfig(configKey));
+  return sel === null ? 'auto' : sel;
+}
+
+// Pure helper (no side effects): true when a settings save touched any key
+// that can change getSolarForecast() output -> caller must clearForecastCache().
+function shouldInvalidateForecastCache(savedKeys) {
+  const keys = Array.isArray(savedKeys) ? savedKeys : Object.keys(savedKeys || {});
+  return keys.some((k) => FORECAST_CACHE_KEYS.includes(k));
+}
+
 async function getSolarForecast(sourceParam) {
   const forecastEnabled = getConfig('forecast_enabled') === 'true';
   if (!forecastEnabled) return { error: 'Forecast disabled' };
@@ -244,8 +268,15 @@ async function getSolarForecast(sourceParam) {
 
   // D2: auto keeps the Solcast -> Open-Meteo cascade; an explicit pick
   // uses that path ONLY and hard-errors on failure (no silent cascade).
-  const wantSolcast = selector === 'auto' || selector === 'solcast';
-  const wantOpenMeteo = selector === 'auto' || selector === 'open-meteo';
+  // S2 (AC9): a requesting selector of 'auto' resolves through the global
+  // forecast default: global auto -> cascade; global solcast/open-meteo ->
+  // that path only with the same hard-error semantics as an explicit pick.
+  // An invalid global falls back to 'auto' (cascade). rest: globals are
+  // rejected like explicit rest: picks (S5 owns them).
+  const forecastSel = selector === 'auto' ? resolveDefaultSource('forecast_default_source') : selector;
+  if (forecastSel.startsWith('rest:')) return { error: 'Custom REST sources are not supported yet' };
+  const wantSolcast = forecastSel === 'auto' || forecastSel === 'solcast';
+  const wantOpenMeteo = forecastSel === 'auto' || forecastSel === 'open-meteo';
 
   if (wantSolcast && solcastKey) {
     if (resourceId) {
@@ -272,7 +303,7 @@ async function getSolarForecast(sourceParam) {
     }
   }
 
-  if (!forecastData && selector === 'solcast') return { error: 'Solcast unavailable' };
+  if (!forecastData && forecastSel === 'solcast') return { error: 'Solcast unavailable' };
 
   if (!forecastData && wantOpenMeteo) {
     if (!lat || !lon) return { error: 'Location required for Open-Meteo' };
@@ -310,6 +341,14 @@ async function getSolarForecast(sourceParam) {
   const solcastWx = source === 'solcast' ? pickSolcastWeather(forecastData) : { temp: null, humidity: null };
 
   // Weather data
+  // S2 (AC9): global weather default. 'auto' = today's behavior (prefer
+  // Solcast temp/humidity when this run produced them, else OM fallback);
+  // 'open-meteo' = OM only (ignore solcastWx); 'solcast' = solcastWx when
+  // available else OM fallback. Icons/weathercode always stay Open-Meteo.
+  const weatherSelRaw = resolveDefaultSource('weather_default_source');
+  const weatherSel = weatherSelRaw.startsWith('rest:') ? 'auto' : weatherSelRaw;
+  const useSolcastWx = weatherSel !== 'open-meteo';
+  let weatherSource = 'open-meteo';
   if (lat && lon) {
     try {
       const currentUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,apparent_temperature&timezone=auto&forecast_days=1`;
@@ -371,8 +410,11 @@ async function getSolarForecast(sourceParam) {
           });
         }
       }
-      if (solcastWx.temp != null) temp = solcastWx.temp;
-      if (solcastWx.humidity != null) humidity = solcastWx.humidity;
+      if (useSolcastWx) {
+        if (solcastWx.temp != null) temp = solcastWx.temp;
+        if (solcastWx.humidity != null) humidity = solcastWx.humidity;
+        if (solcastWx.temp != null || solcastWx.humidity != null) weatherSource = 'solcast';
+      }
       result.weather = {
         icon_class: iconClass, desc: weatherDesc, temp,
         extra: (feelsLike != null ? `Feels ${feelsLike.toFixed(0)}°C` : '') + (humidity != null ? ` · Humidity ${humidity}%` : ''),
@@ -384,6 +426,9 @@ async function getSolarForecast(sourceParam) {
   } else {
     result.weather = { icon_class: DEFAULT_WEATHER.icon, desc: DEFAULT_WEATHER.desc, temp: null, extra: '', forecast_weather: [] };
   }
+
+  // S2 (AC9, additive): which provider supplied the weather temp/humidity.
+  result.weather_source = weatherSource;
 
   forecastCache[selector] = { data: result, timestamp: now };
   return result;
@@ -465,4 +510,4 @@ async function testForecast(opts) {
   return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
 }
 
-module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache };
+module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS };

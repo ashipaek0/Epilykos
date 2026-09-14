@@ -34,7 +34,7 @@ const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDe
 const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
 const { pollLegacyHistory } = require('./modules/history');
 const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
-const { computeTodaySolar, getSolarForecast, testForecast } = require('./modules/solar');
+const { computeTodaySolar, getSolarForecast, testForecast, shouldInvalidateForecastCache, clearForecastCache } = require('./modules/solar');
 const { getSavings } = require('./modules/savings');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const metricSanity = require('./modules/metricSanity');
@@ -1096,14 +1096,7 @@ app.post('/api/settings', (req, res) => {
     if ('dongle_config' in filteredUpdates) restartDonglePolling();
     if ('pvoutput_config' in filteredUpdates) pvoutput.restart();
     if ('rs232_devices' in filteredUpdates) restartRs232Streaming();
-    const forecastKeys = [
-      'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
-      'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
-      'solar_loss_factor', 'solar_install_date'
-    ];
-    if (Object.keys(filteredUpdates).some(k => forecastKeys.includes(k))) {
-      // Force cache reset
-    }
+    if (shouldInvalidateForecastCache(filteredUpdates)) clearForecastCache();
     logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
@@ -1248,9 +1241,11 @@ app.post('/api/settings/solar', isAuthenticated, (req, res) => {
     const allowed = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
-      'solar_loss_factor', 'solar_install_date', 'role_metrics'
+      'solar_loss_factor', 'solar_install_date',
+      'forecast_default_source', 'weather_default_source', 'role_metrics'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
+    if (shouldInvalidateForecastCache(saved)) clearForecastCache();
     logger.info(`[Settings/solar] Saved: ${saved.join(', ')}`);
     res.json({ ok: true, saved });
   } catch (err) {
