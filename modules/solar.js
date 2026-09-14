@@ -2,7 +2,7 @@ const { logger } = require('./logger');
 const https = require('https');
 const { getConfig, getDb } = require('./database');
 
-let forecastCache = { data: null, timestamp: 0 };
+let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
 let solarCache = { value: 0, timestamp: 0 };
 const FORECAST_CACHE_MS = 3 * 60 * 60 * 1000;
 const SOLAR_CACHE_MS = 30000; // 30s TTL
@@ -156,18 +156,79 @@ async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
   return { forecasts, source: 'open-meteo' };
 }
 
-async function getSolarForecast() {
+// ---- Issue #127 S1-prime: selectable forecast sources ----
+const SOURCE_LABELS = { solcast: 'Solcast', 'open-meteo': 'Open-Meteo', none: 'None' };
+
+// Known Solcast forecast fields (AC3/AC3a): absent -> null, never 0.
+// Unknown/future upstream fields are ALSO forwarded verbatim (never stripped);
+// only the derived `cloud_cover` alias is added for backwards compat.
+const SOLCAST_KNOWN_FIELDS = [
+  'period', 'period_end',
+  'pv_estimate', 'pv_estimate10', 'pv_estimate90',
+  'ghi', 'ghi10', 'ghi90',
+  'dni', 'dni10', 'dni90', 'ebh',
+  'dhi', 'dhi10', 'dhi90',
+  'air_temp', 'relative_humidity',
+  'cloud_opacity', 'precip_rate',
+  'wind_speed', 'wind_speed_10m',
+  'azimuth', 'zenith'
+];
+
+// Full-schema passthrough (D3): forward every upstream field verbatim,
+// fill absent known fields with null, keep derived cloud_cover alias.
+// Present values (including 0) are never rewritten.
+function mapSolcastPeriod(f) {
+  const src = (f && typeof f === 'object') ? f : {};
+  const out = {};
+  for (const k of Object.keys(src)) out[k] = src[k] === undefined ? null : src[k];
+  for (const k of SOLCAST_KNOWN_FIELDS) if (!(k in out)) out[k] = null;
+  if (out.cloud_cover == null) out.cloud_cover = out.cloud_opacity ?? null;
+  return out;
+}
+
+// Normalize the ?source= selector. Returns 'auto' | 'solcast' | 'open-meteo'
+// | 'rest:<name>', or null for unknown selectors.
+function normalizeSourceSelector(sel) {
+  const raw = String(sel == null ? 'auto' : sel).trim();
+  if (!raw) return 'auto';
+  const s = raw.toLowerCase();
+  if (s === 'auto' || s === 'solcast' || s === 'open-meteo') return s;
+  if (s.startsWith('rest:')) return 'rest:' + raw.slice(5); // scheme normalized; name keeps original case (S5 lookup is case-sensitive)
+  return null;
+}
+
+// D4: prefer Solcast air_temp / relative_humidity for weather when present.
+// First non-null occurrence wins; missing values stay null (OM fallback).
+function pickSolcastWeather(periods) {
+  let temp = null, humidity = null;
+  for (const p of periods || []) {
+    if (temp == null && p && p.air_temp != null) temp = p.air_temp;
+    if (humidity == null && p && p.relative_humidity != null) humidity = p.relative_humidity;
+    if (temp != null && humidity != null) break;
+  }
+  return { temp, humidity };
+}
+
+// Test hook (no prod callers): drop all per-selector cache entries.
+function clearForecastCache() { forecastCache = {}; }
+
+async function getSolarForecast(sourceParam) {
   const forecastEnabled = getConfig('forecast_enabled') === 'true';
   if (!forecastEnabled) return { error: 'Forecast disabled' };
 
+  const selector = normalizeSourceSelector(sourceParam);
+  if (selector === null) return { error: `Unknown forecast source: ${sourceParam}` };
+  if (selector.startsWith('rest:')) return { error: 'Custom REST sources are not supported yet' };
+
   const now = Date.now();
-  if (forecastCache.data && (now - forecastCache.timestamp) < FORECAST_CACHE_MS) {
-    const cacheDate = forecastCache.data.daily[0]?.date;
+  const cached = forecastCache[selector];
+  if (cached && cached.data && (now - cached.timestamp) < FORECAST_CACHE_MS) {
+    const cacheDate = cached.data.daily[0]?.date;
     const todayDate = new Date().toLocaleDateString('en-CA');
     // Invalidate if date changed, or if cached data is missing cloud_cover (stale cache from older code)
-    const hasCloudCover = forecastCache.data.hourly?.length && forecastCache.data.hourly[0].cloud_cover != null;
-    if (cacheDate !== todayDate || !hasCloudCover) forecastCache = { data: null, timestamp: 0 };
-    else return forecastCache.data;
+    const hasCloudCover = cached.data.hourly?.length && cached.data.hourly[0].cloud_cover != null;
+    if (cacheDate !== todayDate || !hasCloudCover) delete forecastCache[selector];
+    else return cached.data;
   }
 
   const lat = parseFloat(getConfig('solar_latitude')) || null;
@@ -181,14 +242,19 @@ async function getSolarForecast() {
 
   let forecastData = null, source = 'none';
 
-  if (solcastKey) {
+  // D2: auto keeps the Solcast -> Open-Meteo cascade; an explicit pick
+  // uses that path ONLY and hard-errors on failure (no silent cascade).
+  const wantSolcast = selector === 'auto' || selector === 'solcast';
+  const wantOpenMeteo = selector === 'auto' || selector === 'open-meteo';
+
+  if (wantSolcast && solcastKey) {
     if (resourceId) {
       try {
         const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
-          if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
+          if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
         }
       } catch (e) { logger.warn(`Solcast rooftop forecast unavailable: ${e.message}`); }
     }
@@ -200,13 +266,15 @@ async function getSolarForecast() {
         const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
-          if (data.forecasts) { forecastData = data.forecasts.map(f => ({ period_end: f.period_end, pv_estimate: f.pv_estimate, cloud_cover: f.cloud_opacity ?? null })); source = 'solcast'; }
+          if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
         }
       } catch (e) { logger.warn(`Solcast world PV power forecast unavailable: ${e.message}`); }
     }
   }
 
-  if (!forecastData) {
+  if (!forecastData && selector === 'solcast') return { error: 'Solcast unavailable' };
+
+  if (!forecastData && wantOpenMeteo) {
     if (!lat || !lon) return { error: 'Location required for Open-Meteo' };
     try {
       const openMeteo = await getOpenMeteoData(lat, lon, capacityKwp, lossFactor);
@@ -215,13 +283,17 @@ async function getSolarForecast() {
     } catch (e) { return { error: 'All forecast sources unavailable' }; }
   }
 
+  if (!forecastData) return { error: 'All forecast sources unavailable' };
+
   const actualTodayKwh = computeTodaySolar();
   const dailyMap = new Map();
   forecastData.forEach(f => {
-    const date = f.period_end.split('T')[0];
+    const date = String(f.period_end || '').split('T')[0];
     const existing = dailyMap.get(date) || { date, total_kwh: 0, peak_kw: 0, source };
-    existing.total_kwh += f.pv_estimate;
-    existing.peak_kw = Math.max(existing.peak_kw, f.pv_estimate);
+    const n = Number(f.pv_estimate);
+    const pv = Number.isFinite(n) ? n : 0; // AC3a: null/absent -> 0 in sums, never NaN
+    existing.total_kwh += pv;
+    existing.peak_kw = Math.max(existing.peak_kw, pv);
     dailyMap.set(date, existing);
   });
   const daily = Array.from(dailyMap.values()).slice(0, 4);
@@ -229,7 +301,13 @@ async function getSolarForecast() {
   for (const dayEntry of daily) if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
 
   const hourly = forecastData.slice(0, 96);
-  const result = { daily, hourly, source };
+  const result = { daily, hourly, source, source_label: SOURCE_LABELS[source] || source };
+
+  // D4: effective source is Solcast and its payload carries air_temp /
+  // relative_humidity -> prefer them for weather temp/extra. Rooftop
+  // payloads carry neither -> Open-Meteo fallback below still applies.
+  // Icons/weathercode path is unchanged (stays Open-Meteo).
+  const solcastWx = source === 'solcast' ? pickSolcastWeather(forecastData) : { temp: null, humidity: null };
 
   // Weather data
   if (lat && lon) {
@@ -293,6 +371,8 @@ async function getSolarForecast() {
           });
         }
       }
+      if (solcastWx.temp != null) temp = solcastWx.temp;
+      if (solcastWx.humidity != null) humidity = solcastWx.humidity;
       result.weather = {
         icon_class: iconClass, desc: weatherDesc, temp,
         extra: (feelsLike != null ? `Feels ${feelsLike.toFixed(0)}°C` : '') + (humidity != null ? ` · Humidity ${humidity}%` : ''),
@@ -305,7 +385,7 @@ async function getSolarForecast() {
     result.weather = { icon_class: DEFAULT_WEATHER.icon, desc: DEFAULT_WEATHER.desc, temp: null, extra: '', forecast_weather: [] };
   }
 
-  forecastCache = { data: result, timestamp: now };
+  forecastCache[selector] = { data: result, timestamp: now };
   return result;
 }
 
@@ -385,4 +465,4 @@ async function testForecast(opts) {
   return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
 }
 
-module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER };
+module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache };

@@ -360,7 +360,7 @@ router.get('/savings', async (req, res) => {
 
 router.get('/solar-forecast', async (req, res) => {
   try {
-    res.json(await getSolarForecast());
+    res.json(await getSolarForecast(req.query.source));
   } catch (err) {
     logger.error('Error in /api/solar-forecast:', err);
     res.status(500).json({ error: 'Internal server error' });
