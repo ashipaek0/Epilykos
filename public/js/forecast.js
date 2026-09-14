@@ -36,39 +36,130 @@ function setWeatherIconColor(el, desc) {
   else el.style.color = 'var(--text)';
 }
 
-export async function updateForecast() {
-  const banners = document.querySelectorAll('.forecast-banner-instance');
-  const infoCards = document.querySelectorAll('.forecast-info-instance');
-  const sparkCards = document.querySelectorAll('.forecast-sparkline-instance');
-  const pvTodayCards = document.querySelectorAll('.pv-today-instance');
-  if (!banners.length && !infoCards.length && !sparkCards.length && !pvTodayCards.length) return;
-  let forecastData;
-  try { const r = await fetch('/api/solar-forecast'); forecastData = await r.json(); }
-  catch (e) { banners.forEach(b => b.style.display = 'none'); updatePvToday({ error: true }); return; }
-  const data = forecastData;
-  const source = data.source || 'unknown';
-  document.querySelectorAll('.forecast-source').forEach(el => { el.textContent = source === 'solcast' ? 'Solcast' : source === 'open-meteo' ? 'Open-Meteo' : ''; });
+const SOURCE_LABELS = { solcast: 'Solcast', 'open-meteo': 'Open-Meteo', auto: 'Auto' };
+// In-memory last-good timestamp per source (AC8). Never persisted.
+const lastGoodBySource = {};
 
-  if (data.error || !data.daily || !data.daily.length) {
-    banners.forEach(b => b.style.display = 'none');
-    infoCards.forEach(b => b.style.display = 'none');
-    sparkCards.forEach(b => b.style.display = 'none');
-    updatePvToday(data);
-    return;
+/** Effective display label: server source_label wins, else local map. */
+export function sourceLabelFor(data, fallbackSource) {
+  if (data && data.source_label) return data.source_label;
+  const key = (data && data.source) || fallbackSource || 'auto';
+  return SOURCE_LABELS[key] || key || '';
+}
+
+/**
+ * Resolve a card instance's forecast source.
+ * Seam: block configs live in dashboard.js dashboardConfig (same dynamic-import
+ * pattern as metricCards.js — read-only, no touch to dashboard.js). Builders
+ * only stamp dataset.blockId/metricMap, so config lookup is by block id.
+ * Falls back to dataset.source (future-proof) then 'auto' (legacy = current behavior).
+ */
+async function resolveCardSource(card) {
+  if (card?.dataset?.source) return card.dataset.source;
+  const blockId = card?.dataset?.blockId;
+  if (!blockId) return 'auto';
+  try {
+    const { dashboardConfig } = await import('./dashboard.js');
+    const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
+    const block = (layout || []).find(b => String(b.id) === String(blockId));
+    return block?.config?.source || 'auto';
+  } catch { return 'auto'; }
+}
+
+function forecastUrlFor(source) {
+  if (!source || source === 'auto') return '/api/solar-forecast';
+  return `/api/solar-forecast?source=${encodeURIComponent(source)}`;
+}
+
+/** Per-card inline error (AC8). Never hides the card itself. */
+function setCardError(card, message) {
+  let err = card.querySelector(':scope > .forecast-inline-error');
+  if (!message) { if (err) err.remove(); return; }
+  if (!err) {
+    err = document.createElement('div');
+    err.className = 'forecast-inline-error';
+    err.setAttribute('role', 'alert');
+    card.prepend(err);
   }
+  err.textContent = message;
+}
 
+function setGroupSourceLabel(cards, label) {
+  cards.forEach(card => {
+    const el = card.querySelector('.forecast-source');
+    if (el) el.textContent = label;
+  });
+}
+
+function showGroupError(cards, pvCards, label, source) {
+  const lastGood = lastGoodBySource[source];
+  const msg = `Source ${label || source} unavailable${lastGood ? ` — last good ${lastGood}` : ''}`;
+  cards.forEach(c => { c.style.display = 'block'; setCardError(c, msg); });
+  if (pvCards.length) updatePvToday({ error: true, source, source_label: label }, pvCards, lastGood || '');
+}
+
+export async function updateForecast() {
+  const banners = [...document.querySelectorAll('.forecast-banner-instance')];
+  const infoCards = [...document.querySelectorAll('.forecast-info-instance')];
+  const sparkCards = [...document.querySelectorAll('.forecast-sparkline-instance')];
+  const pvTodayCards = [...document.querySelectorAll('.pv-today-instance')];
+  if (!banners.length && !infoCards.length && !sparkCards.length && !pvTodayCards.length) return;
+
+  // Group instances by resolved source (default auto = legacy global behavior)
+  const all = [
+    ...banners.map(el => ({ kind: 'banner', el })),
+    ...infoCards.map(el => ({ kind: 'info', el })),
+    ...sparkCards.map(el => ({ kind: 'spark', el })),
+    ...pvTodayCards.map(el => ({ kind: 'pv', el })),
+  ];
+  const sources = await Promise.all(all.map(a => resolveCardSource(a.el)));
+  const groups = new Map();
+  all.forEach((a, i) => {
+    const src = sources[i] || 'auto';
+    if (!groups.has(src)) groups.set(src, { banners: [], infos: [], sparks: [], pvs: [] });
+    const g = groups.get(src);
+    if (a.kind === 'banner') g.banners.push(a.el);
+    else if (a.kind === 'info') g.infos.push(a.el);
+    else if (a.kind === 'spark') g.sparks.push(a.el);
+    else g.pvs.push(a.el);
+  });
+
+  // One fetch per distinct source; omit ?source= when auto (legacy URL, byte-identical)
+  const entries = [...groups.entries()];
+  const results = await Promise.all(entries.map(async ([src]) => {
+    try {
+      const r = await fetch(forecastUrlFor(src));
+      return [src, await r.json()];
+    } catch (e) { return [src, { error: true, _fetchFailed: true, source: src }]; }
+  }));
+  const dataBySource = new Map(results);
+
+  // Shared, source-independent context
   const now = new Date(), todayDate = now.toLocaleDateString('en-CA');
-  let ti = data.daily.findIndex(d => d.date === todayDate);
-  if (ti === -1) ti = 0;
-  const today = data.daily[ti], tomorrow = data.daily[ti + 1] || null, nextDay = data.daily[ti + 2] || null;
-  const sevenAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 0, 0).getTime();
-  const historyRes = await fetch('/api/history?days=1');
-  const historyData = await historyRes.json();
+  let historyData = [];
+  try { historyData = await (await fetch('/api/history?days=1')).json(); } catch (e) { historyData = []; }
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const actualColor = '#f59e0b', forecastColor = '#d97706';
   const systemCapacityKwp = window.systemCapacityKwp || 2.1;
+  const sevenAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 0, 0).getTime();
 
-  for (const banner of banners) {
+  for (const [src, g] of entries) {
+    const data = dataBySource.get(src);
+    const label = sourceLabelFor(data, src);
+    setGroupSourceLabel([...g.banners, ...g.infos, ...g.sparks], label);
+
+    if (!data || data.error || !data.daily || !data.daily.length) {
+      showGroupError([...g.banners, ...g.infos, ...g.sparks], g.pvs, label, src);
+      continue;
+    }
+    lastGoodBySource[src] = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    [...g.banners, ...g.infos, ...g.sparks].forEach(c => setCardError(c, ''));
+
+    let ti = data.daily.findIndex(d => d.date === todayDate);
+    if (ti === -1) ti = 0;
+    const today = data.daily[ti], tomorrow = data.daily[ti + 1] || null, nextDay = data.daily[ti + 2] || null;
+
+  for (const banner of g.banners) {
     const id = banner.dataset.blockId || '';
     banner.style.display = 'block';
     const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
@@ -158,7 +249,7 @@ export async function updateForecast() {
   }
 
   // Forecast info cards (weather + days, no sparkline)
-  document.querySelectorAll('.forecast-info-instance').forEach(card => {
+  g.infos.forEach(card => {
     const id = card.dataset.blockId || '';
     card.style.display = 'block';
     const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
@@ -192,7 +283,7 @@ export async function updateForecast() {
   });
 
   // Forecast sparkline cards (graph only) — identical logic to banner sparkline above
-  for (const card of document.querySelectorAll('.forecast-sparkline-instance')) {
+  for (const card of g.sparks) {
     const id = card.dataset.blockId || '';
     const canvasId = id ? `fc-sparkline-${id}` : 'fc-sparkline';
     const canvas = document.getElementById(canvasId);
@@ -244,10 +335,11 @@ export async function updateForecast() {
     sc.update();
   }
 
-  // PV Today cards
-  if (document.querySelectorAll('.pv-today-instance').length) {
-    updatePvToday(data);
+  // PV Today cards — thread this group's data into only this group's cards
+  if (g.pvs.length) {
+    updatePvToday(data, g.pvs);
   }
+  } // end per-source group loop
 }
 
 /** Shared actual-curve computation used by both banner and standalone sparklines. */

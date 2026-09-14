@@ -72,8 +72,23 @@ export function buildPvToday(block = {}) {
 
 const DEBUG_PVTODAY = false; // Set to false to silence diagnostic logs
 
-export async function updatePvToday(forecastData) {
-  const cards = document.querySelectorAll('.pv-today-instance');
+const PV_SOURCE_LABELS = { solcast: 'Solcast', 'open-meteo': 'Open-Meteo', auto: 'Auto' };
+function pvSourceLabel(data) {
+  if (data && data.source_label) return data.source_label;
+  const key = (data && data.source) || '';
+  return PV_SOURCE_LABELS[key] || key || '';
+}
+
+/**
+ * Render PV Today cards.
+ * @param {object} forecastData server payload for this card group (must carry
+ *   source/source_label when rendered per-source from forecast.js)
+ * @param {Element[]} [targetCards] restrict rendering to these instances
+ *   (per-source group threading); omitted = all .pv-today-instance (legacy)
+ * @param {string} [lastGoodTime] in-memory last-good timestamp for this source (AC8)
+ */
+export async function updatePvToday(forecastData, targetCards, lastGoodTime = '') {
+  const cards = (targetCards && targetCards.length ? [...targetCards] : [...document.querySelectorAll('.pv-today-instance')]);
   if (!cards.length) { DEBUG_PVTODAY && console.log('[pvToday] no .pv-today-instance elements in DOM'); return; }
 
   const hasData = forecastData && !forecastData.error && forecastData.daily && forecastData.daily.length;
@@ -118,8 +133,12 @@ export async function updatePvToday(forecastData) {
     DEBUG_PVTODAY && console.log('[pvToday] canvas found:', !!canvas, 'canvasId:', canvasId, 'emptyEl:', !!emptyEl);
 
     if (!hasData) {
-      if (emptyEl) emptyEl.style.display = 'flex';
-      if (canvas) canvas.style.display = 'none';
+      // Inline per-card error (AC8): card stays visible, never display:none.
+      const label = pvSourceLabel(forecastData);
+      const msg = forecastData && forecastData.error
+        ? `Source ${label || 'forecast'} unavailable${lastGoodTime ? ` — last good ${lastGoodTime}` : ''}`
+        : 'No forecast data';
+      if (emptyEl) { emptyEl.textContent = msg; emptyEl.style.display = 'flex'; }
       continue;
     }
     if (emptyEl) emptyEl.style.display = 'none';

@@ -134,7 +134,7 @@ const weatherCodeMap = {
 const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
 
 async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,cloud_cover&timezone=auto&forecast_days=4`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,cloud_cover,temperature_2m&timezone=auto&forecast_days=4`;
   const data = await new Promise((resolve, reject) => {
     const req = https.get(url, { timeout: 10000 }, (res) => {
       if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
@@ -148,11 +148,17 @@ async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
   });
   const conversionFactor = (capacityKwp / 1000) * (lossFactor || 0.9);
   const hourly = data.hourly;
-  const forecasts = hourly.time.map((t, i) => ({
-    period_end: new Date(t).toISOString(),
-    pv_estimate: hourly.shortwave_radiation[i] * conversionFactor,
-    cloud_cover: hourly.cloud_cover?.[i] ?? null
-  }));
+  const forecasts = hourly.time.map((t, i) => {
+    const sw = Number(hourly.shortwave_radiation?.[i]);
+    const at = Number(hourly.temperature_2m?.[i]);
+    return {
+      period_end: new Date(t).toISOString(),
+      pv_estimate: hourly.shortwave_radiation[i] * conversionFactor,
+      cloud_cover: hourly.cloud_cover?.[i] ?? null,
+      air_temp: Number.isFinite(at) ? at : null,
+      shortwave_radiation: Number.isFinite(sw) ? sw : null
+    };
+  });
   return { forecasts, source: 'open-meteo' };
 }
 
