@@ -24,6 +24,7 @@ import { buildPvToday } from './pvToday.js';
 import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
 import { buildBarSingleCard } from './barSingleCard.js';
+import { buildBarStackedCard } from './barStackedCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
@@ -55,6 +56,7 @@ export const componentBuilders = {
   'bar-gauge': buildBarGauge,
   'bar-gauge-retro': buildBarGaugeRetro,
   'bar-single': buildBarSingleCard,
+  'bar-stacked': buildBarStackedCard,
   'weather-block': buildWeatherBlock,
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock

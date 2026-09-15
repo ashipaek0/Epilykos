@@ -390,6 +390,81 @@ function renderBarSingleRows(container) {
   });
 }
 
+/** Bar Stacked: N series (label+metric+color), shared range/bucket/agg */
+var BAR_STACKED_WARM = ['#a8a29e', '#f59e0b', '#b45309', '#166534'];
+function buildBarStackedForm(block) {
+  var cfg = block.config || {};
+  var range = cfg.range || '24h';
+  var bucket = cfg.bucket || '1h';
+  var agg = cfg.agg || 'avg';
+  var metrics = cfg.metrics || [];
+  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Bar Stacked</legend>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.35rem;">';
+  html += '<label style="font-size:0.85rem;">Range <select id="modal-bs-range" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+    + '<option value="24h"' + (range === '24h' ? ' selected' : '') + '>24h</option>'
+    + '<option value="7d"' + (range === '7d' ? ' selected' : '') + '>7d</option></select></label>';
+  html += '<label style="font-size:0.85rem;">Bucket <select id="modal-bs-bucket" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+    + '<option value="15m"' + (bucket === '15m' ? ' selected' : '') + '>15m</option>'
+    + '<option value="1h"' + (bucket === '1h' ? ' selected' : '') + '>1h</option>'
+    + '<option value="1d"' + (bucket === '1d' ? ' selected' : '') + '>1d</option></select></label>';
+  html += '<label style="font-size:0.85rem;">Agg <select id="modal-bs-agg" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+    + '<option value="avg"' + (agg === 'avg' ? ' selected' : '') + '>avg</option>'
+    + '<option value="sum"' + (agg === 'sum' ? ' selected' : '') + '>sum</option>'
+    + '<option value="min"' + (agg === 'min' ? ' selected' : '') + '>min</option>'
+    + '<option value="max"' + (agg === 'max' ? ' selected' : '') + '>max</option>'
+    + '<option value="last"' + (agg === 'last' ? ' selected' : '') + '>last</option></select></label>';
+  html += '</div></fieldset>';
+  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Series</legend>';
+  html += '<div id="bs-rows"></div>';
+  html += '<button type="button" id="bs-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Series</button>';
+  html += '</fieldset>';
+  html += '<script id="bs-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
+  return html;
+}
+
+function renderBarStackedRows(container) {
+  var dataEl = container.querySelector('#bs-data');
+  var rows = [];
+  try { rows = JSON.parse(dataEl.textContent); } catch(e) {}
+  var rowsEl = container.querySelector('#bs-rows');
+  if (!rowsEl) return;
+  var html = '';
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i] || {};
+    html += '<div class="bs-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--border);border-radius:0.3rem;">';
+    html += '<input type="text" class="bs-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
+    html += '<div style="grid-column:1/-1;display:flex;gap:0.25rem;">';
+    html += metricSelect(r.metric || '', 'bs-metric-' + i);
+    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bs-color" value="' + escHtml(r.color || BAR_STACKED_WARM[i % BAR_STACKED_WARM.length]) + '" style="width:36px;height:24px;"></label>';
+    html += '</div>';
+    html += '<button type="button" class="bs-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove series">X Remove</button>';
+    html += '</div>';
+  }
+  rowsEl.innerHTML = html;
+  var addBtn = container.querySelector('#bs-add-row');
+  if (addBtn) {
+    addBtn.onclick = function() {
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      current.push({ label: '', metric: '', color: '' });
+      dataEl.textContent = JSON.stringify(current);
+      renderBarStackedRows(container);
+    };
+  }
+  container.querySelectorAll('.bs-remove').forEach(function(btn) {
+    btn.onclick = function() {
+      var idx = parseInt(btn.dataset.idx);
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      current.splice(idx, 1);
+      dataEl.textContent = JSON.stringify(current);
+      renderBarStackedRows(container);
+    };
+  });
+}
+
 /** Gauge / Half Gauge / Half Gauge 2: single metric */
 function buildGaugeForm(block) {
   var cfg = block.config || {};
@@ -952,6 +1027,9 @@ function buildSettingsForm(block) {
     case 'bar-single':
       html += buildBarSingleForm(block);
       break;
+    case 'bar-stacked':
+      html += buildBarStackedForm(block);
+      break;
     case 'gauge-card':
     case 'half-gauge':
     case 'half-gauge-2':
@@ -1157,6 +1235,34 @@ function readSettingsForm(block) {
         bandsOut = BAR_SINGLE_WARM.map(function(c, i) { return { to: (i + 1) * 25, color: c }; });
       }
       config.bands = bandsOut;
+      break;
+    }
+    case 'bar-stacked': {
+      var bsRangeEl = document.getElementById('modal-bs-range');
+      var bsRangeVal = bsRangeEl ? bsRangeEl.value : '';
+      config.range = (bsRangeVal === '24h' || bsRangeVal === '7d') ? bsRangeVal : '24h';
+      var bsBucketEl = document.getElementById('modal-bs-bucket');
+      var bsBucketVal = bsBucketEl ? bsBucketEl.value : '';
+      config.bucket = (bsBucketVal === '15m' || bsBucketVal === '1h' || bsBucketVal === '1d') ? bsBucketVal : '1h';
+      var bsAggEl = document.getElementById('modal-bs-agg');
+      var bsAggVal = bsAggEl ? bsAggEl.value : '';
+      config.agg = (['avg', 'sum', 'min', 'max', 'last'].indexOf(bsAggVal) !== -1) ? bsAggVal : 'avg';
+      var bsData = document.getElementById('bs-data');
+      var bsRows = [];
+      try { bsRows = JSON.parse(bsData.textContent); } catch(e) {}
+      var bsLabels = document.querySelectorAll('.bs-label');
+      var bsColors = document.querySelectorAll('.bs-color');
+      var bsOut = [];
+      for (var bsi = 0; bsi < bsRows.length; bsi++) {
+        var bsMetricEl = document.getElementById('bs-metric-' + bsi);
+        var bsMetric = bsMetricEl ? bsMetricEl.value : '';
+        if (!bsMetric) continue;
+        var bsLabel = bsLabels[bsi] ? bsLabels[bsi].value : '';
+        var bsColor = bsColors[bsi] ? bsColors[bsi].value : '';
+        bsOut.push({ label: bsLabel || bsMetric, metric: bsMetric, color: bsColor || BAR_STACKED_WARM[bsOut.length % BAR_STACKED_WARM.length] });
+      }
+      block.metrics = bsOut;
+      config.metrics = bsOut;
       break;
     }
     case 'gauge-card':
@@ -1522,6 +1628,9 @@ async function openSettingsModal(block) {
     case 'bar-single':
       renderBarSingleRows(body);
       break;
+    case 'bar-stacked':
+      renderBarStackedRows(body);
+      break;
     case 'metric-cards':
       renderMetricCardsRows(body);
       break;
@@ -1718,7 +1827,7 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');
