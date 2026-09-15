@@ -25,7 +25,7 @@ const http = require('http');
 const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
-const { getBreaker } = require('./modules/circuitBreaker');
+const { PollingManager } = require('./services/PollingManager');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH, startMetricAutoFlush, flushSync, flushMetrics } = require('./modules/database');
 
 /**
@@ -574,41 +574,20 @@ wss.on('connection', (ws) => {
  * builds dashboard state, and broadcasts to WebSocket clients.
  * Runs once immediately on startup, then every 30s via setInterval.
  */
+const pollingManager = new PollingManager();
+pollingManager.on('metrics-ready', ({ sourceId }) => {
+  logger.debug(`Poll ${sourceId} metrics ready`);
+});
+pollingManager.on('device-error', ({ sourceId, error }) => {
+  logger.warn(`Poll ${sourceId} failed:`, error && error.message ? error.message : error);
+});
+
 async function pollAllSources() {
   const start = Date.now();
   logger.debug('Polling cycle started');
-  try {
-    await getBreaker('ha').execute(() => pollHomeAssistant());
-  } catch (err) {
-    logger.warn('Poll ha failed:', err && err.message ? err.message : err);
-  }
-  try {
-    await getBreaker('modbus').execute(() => pollModbus());
-  } catch (err) {
-    logger.warn('Poll modbus failed:', err && err.message ? err.message : err);
-  }
-  try {
-    await getBreaker('tuya').execute(() => pollTuyaDevices());
-  } catch (err) {
-    logger.warn('Poll tuya failed:', err && err.message ? err.message : err);
-  }
-  try {
-    await getBreaker('rs232').execute(() => pollRs232());
-  } catch (err) {
-    logger.warn('Poll rs232 failed:', err && err.message ? err.message : err);
-  }
-  try {
-    await getBreaker('history').execute(() => pollLegacyHistory());
-  } catch (err) {
-    logger.warn('Poll history failed:', err && err.message ? err.message : err);
-  }
-  try {
-    await getBreaker('grid').execute(() => pollGridStatus());
-  } catch (err) {
-    logger.warn('Poll grid failed:', err && err.message ? err.message : err);
-  }
   // BMS polling is independent and runs on its own interval
   try {
+    await pollingManager.runCycle();
     flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
     if (wsClients.size > 0) {
       const state = await buildDashboardState();
