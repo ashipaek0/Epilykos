@@ -89,15 +89,30 @@ function initializeDatabase() {
       timestamp INTEGER,
       unit TEXT
     );
-  `);
-  // Migration: add unit column to existing installs
-  try { db.exec('ALTER TABLE latest_metrics ADD COLUMN unit TEXT'); } catch (e) { /* already exists */ }
 
-  // Phase 0: add value_text and value_type columns for text metrics support
-  try { db.exec('ALTER TABLE latest_metrics ADD COLUMN value_text TEXT'); } catch (e) { /* already exists */ }
-  try { db.exec('ALTER TABLE latest_metrics ADD COLUMN value_type TEXT DEFAULT \'number\''); } catch (e) { /* already exists */ }
-  try { db.exec('ALTER TABLE metrics ADD COLUMN value_text TEXT'); } catch (e) { /* already exists */ }
-  try { db.exec('ALTER TABLE metrics ADD COLUMN value_type TEXT DEFAULT \'number\''); } catch (e) { /* already exists */ }
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at INTEGER NOT NULL
+    );
+  `);
+
+  const hasColumn = (tableName, columnName) => {
+    const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    return columns.some(c => c.name === columnName);
+  };
+
+  const addColumnIfNotExists = (tableName, columnName, definition) => {
+    if (!hasColumn(tableName, columnName)) {
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+    }
+  };
+
+  // Safe schema migrations with explicit PRAGMA column checking
+  addColumnIfNotExists('latest_metrics', 'unit', 'TEXT');
+  addColumnIfNotExists('latest_metrics', 'value_text', 'TEXT');
+  addColumnIfNotExists('latest_metrics', 'value_type', "TEXT DEFAULT 'number'");
+  addColumnIfNotExists('metrics', 'value_text', 'TEXT');
+  addColumnIfNotExists('metrics', 'value_type', "TEXT DEFAULT 'number'");
 
   // PVOutput integration tables
   db.exec(`
@@ -173,6 +188,7 @@ function initializeDatabase() {
     'solar_latitude', 'solar_longitude', 'solar_tilt', 'solar_azimuth',
     'solar_capacity_kwp', 'solcast_api_key', 'forecast_enabled',
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
+    'forecast_default_source', 'weather_default_source',
     'savings_currency', 'savings_rate', 'savings_solar_metric', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'desktop_dashboard', 'mobile_dashboard',
     'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
     'user_metrics', 'bms_devices', 'dongle_config', 'pvoutput_config', 'pvoutput_stats_cache', 'pvoutput_rate_limit_state',
@@ -195,6 +211,8 @@ function initializeDatabase() {
     // Default values
     const defaults = {
       forecast_enabled: 'false',
+      forecast_default_source: 'auto',
+      weather_default_source: 'auto',
       dashboard_title: '⚡ Epilykos',
       savings_currency: '€',
       savings_rate: '0.30',

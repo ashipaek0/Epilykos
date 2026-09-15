@@ -6,6 +6,7 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 let grid = null, dashboardConfig = null, currentTabId = null, unsaved = false;
 let currentEditingBlock = null;  // block being edited in settings modal
 let availableMetrics = [];       // metric names from dashboard state
+let availableRestSources = [];   // REST source names from /api/settings external_sources (S3)
 
 function markUnsaved() { unsaved = true; document.getElementById('unsaved-indicator').classList.add('show'); }
 function clearUnsaved() { unsaved = false; document.getElementById('unsaved-indicator').classList.remove('show'); }
@@ -546,6 +547,159 @@ function renderChartRows(container, showUnit, extraOptions) {
 }
 
 /** Forecast blocks / weather / savings: simple title + metric if applicable */
+
+// Card types with a per-card weather/forecast source selector (S3, AC1).
+var WX_SOURCE_TYPES = ['weather-block', 'forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday'];
+// Alert rule vocab (S3, AC15): metric in {temp,wind,precip,cloud}, op in {>,<}, max 4 rules.
+var WX_ALERT_METRICS = ['temp', 'wind', 'precip', 'cloud'];
+var WX_ALERT_OPS = ['>', '<'];
+// REST field vocab for per-card rest_map (S5-editor): keys mirror the resolver
+// rest_map (temp,humidity,wind,precip,cloud,ghi,description,pv_estimate); values are strings.
+var REST_MAP_KEYS = ['temp', 'humidity', 'wind', 'precip', 'cloud', 'ghi', 'description', 'pv_estimate'];
+
+/** Validate rest_map textarea text. Returns {ok, value, error}. Empty = null (key deleted on save). */
+function validateRestMap(text) {
+  var t = (text || '').trim();
+  if (!t) return { ok: true, value: null };
+  var obj = null;
+  try { obj = JSON.parse(t); } catch (e) { return { ok: false, error: 'Field map must be a JSON object.' }; }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { ok: false, error: 'Field map must be a JSON object.' };
+  var bad = Object.keys(obj).filter(function(k) { return REST_MAP_KEYS.indexOf(k) === -1; });
+  if (bad.length) return { ok: false, error: 'Unknown field(s): ' + bad.join(', ') + '. Allowed: ' + REST_MAP_KEYS.join(', ') + '.' };
+  var badVal = Object.keys(obj).filter(function(k) { return typeof obj[k] !== 'string'; });
+  if (badVal.length) return { ok: false, error: 'Values must be strings (source field names). Bad key(s): ' + badVal.join(', ') + '.' };
+  return { ok: true, value: obj };
+}
+
+/** Per-card REST field-map textarea (S5-editor). Shown only when source starts with rest:. */
+function buildRestMapForm(cfg) {
+  var rm = cfg.rest_map;
+  var txt = '';
+  if (typeof rm === 'string') txt = rm;
+  else if (rm && typeof rm === 'object') txt = JSON.stringify(rm, null, 2);
+  if (txt === '{}') txt = '';
+  var visible = (cfg.source || '').indexOf('rest:') === 0;
+  var html = '<div id="modal-restmap-wrap" style="margin-bottom:0.35rem;' + (visible ? '' : 'display:none;') + '">';
+  html += '<label style="font-size:0.85rem;display:block;">REST field map (JSON object)';
+  html += '<textarea id="modal-restmap" placeholder=\'{"temp": "temperature", "humidity": "humidity"}\' style="display:block;width:100%;min-height:80px;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);font-size:0.8rem;font-family:monospace;resize:vertical;">' + escHtml(txt) + '</textarea></label>';
+  html += '<div id="modal-restmap-error" style="display:none;color:#ef4444;font-size:0.8rem;margin-top:0.2rem;"></div>';
+  html += '</div>';
+  return html;
+}
+
+/** Source dropdown shared by the 5 weather/forecast cards. Selected = cfg.source or auto. */
+function weatherSourceSelect(cfg) {
+  var sel = cfg.source || 'auto';
+  var known = ['auto', 'solcast', 'open-meteo'];
+  var isListedRest = sel.indexOf('rest:') === 0 && availableRestSources.indexOf(sel.slice(5)) !== -1;
+  if (known.indexOf(sel) === -1 && !isListedRest) sel = 'auto';
+  var html = '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:80px;font-size:0.85rem;">Source</span>';
+  html += '<select id="modal-simple-source" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '<option value="auto"' + (sel === 'auto' ? ' selected' : '') + '>Auto (default)</option>';
+  html += '<option value="solcast"' + (sel === 'solcast' ? ' selected' : '') + '>Solcast</option>';
+  html += '<option value="open-meteo"' + (sel === 'open-meteo' ? ' selected' : '') + '>Open-Meteo</option>';
+  for (var i = 0; i < availableRestSources.length; i++) {
+    var n = availableRestSources[i];
+    var v = 'rest:' + n;
+    html += '<option value="' + escHtml(v) + '"' + (v === sel ? ' selected' : '') + '>' + escHtml(n) + ' (REST)</option>';
+  }
+  html += '</select>';
+  html += '</div>';
+  return html;
+}
+
+/** Weather card display toggles + day count + mini-chart toggles (S3, AC7 AC12). */
+function buildWeatherDisplayForm(cfg) {
+  var disp = cfg.display || {};
+  var charts = cfg.charts || {};
+  var days = disp.days != null ? parseInt(disp.days, 10) : 2;
+  if (!isFinite(days)) days = 2;
+  days = Math.max(0, Math.min(4, days));
+  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Display</legend>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  var fields = [['temp', 'Temperature'], ['feels_like', 'Feels Like'], ['humidity', 'Humidity'], ['wind', 'Wind'], ['desc', 'Description']];
+  for (var i = 0; i < fields.length; i++) {
+    var key = fields[i][0], label = fields[i][1], id = 'modal-wx-show-' + key;
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (disp[key] !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>';
+  }
+  html += '</div>';
+  html += '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Forecast Days <input type="number" id="modal-wx-days" min="0" max="4" step="1" value="' + days + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '</fieldset>';
+  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Charts</legend>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-wx-chart-ghi"' + (charts.ghi !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-wx-chart-ghi">GHI Curve</label></span>';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-wx-chart-temp"' + (charts.temp === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-wx-chart-temp">Temp Curve</label></span>';
+  html += '</div></fieldset>';
+  return html;
+}
+
+/** Weather card alert-rules editor shell (S3, AC15). Rows rendered by renderWeatherAlertRows. */
+function buildWeatherAlertsForm(cfg) {
+  var alerts = Array.isArray(cfg.alerts) ? cfg.alerts : [];
+  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Alerts (max 4)</legend>';
+  html += '<div id="weather-alert-rows"></div>';
+  html += '<button type="button" id="weather-alert-add" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Alert</button>';
+  html += '<script id="weather-alert-data" type="application/json">' + JSON.stringify(alerts).replace(/</g, '\\u003c') + '</script>';
+  html += '</fieldset>';
+  return html;
+}
+
+/** Render alert-rule rows (metric/op/value + remove); add capped at 4. */
+function renderWeatherAlertRows(container) {
+  var dataEl = container.querySelector('#weather-alert-data');
+  var rowsEl = container.querySelector('#weather-alert-rows');
+  if (!dataEl || !rowsEl) return;
+  var alerts = [];
+  try { alerts = JSON.parse(dataEl.textContent); } catch(e) {}
+  if (!Array.isArray(alerts)) alerts = [];
+  var html = '';
+  for (var i = 0; i < alerts.length; i++) {
+    var a = alerts[i] || {};
+    html += '<div class="wx-alert-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
+    html += '<select class="wx-alert-metric" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    for (var m = 0; m < WX_ALERT_METRICS.length; m++) {
+      html += '<option value="' + WX_ALERT_METRICS[m] + '"' + (a.metric === WX_ALERT_METRICS[m] ? ' selected' : '') + '>' + WX_ALERT_METRICS[m] + '</option>';
+    }
+    html += '</select>';
+    html += '<select class="wx-alert-op" style="width:3.5rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    for (var o = 0; o < WX_ALERT_OPS.length; o++) {
+      html += '<option value="' + escHtml(WX_ALERT_OPS[o]) + '"' + (a.op === WX_ALERT_OPS[o] ? ' selected' : '') + '>' + escHtml(WX_ALERT_OPS[o]) + '</option>';
+    }
+    html += '</select>';
+    html += '<input type="number" step="any" class="wx-alert-value" value="' + escHtml(a.value != null ? String(a.value) : '') + '" placeholder="value" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<button type="button" class="wx-alert-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
+    html += '</div>';
+  }
+  rowsEl.innerHTML = html;
+  var addBtn = container.querySelector('#weather-alert-add');
+  if (addBtn) {
+    addBtn.onclick = function() {
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      if (!Array.isArray(current)) current = [];
+      if (current.length >= 4) return;
+      current.push({ metric: 'temp', op: '>', value: '' });
+      dataEl.textContent = JSON.stringify(current);
+      renderWeatherAlertRows(container);
+    };
+  }
+  rowsEl.querySelectorAll('.wx-alert-remove').forEach(function(btn) {
+    btn.onclick = function() {
+      var idx = parseInt(btn.dataset.idx);
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      if (!Array.isArray(current)) current = [];
+      current.splice(idx, 1);
+      dataEl.textContent = JSON.stringify(current);
+      renderWeatherAlertRows(container);
+    };
+  });
+}
+
 function buildSimpleForm(block) {
   var cfg = block.config || {};
   var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
@@ -571,7 +725,16 @@ function buildSimpleForm(block) {
     html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   }
 
+  if (WX_SOURCE_TYPES.indexOf(block.type) !== -1) {
+    html += weatherSourceSelect(cfg);
+    html += buildRestMapForm(cfg);
+  }
+
   html += '</fieldset>';
+  if (block.type === 'weather-block') {
+    html += buildWeatherDisplayForm(cfg);
+    html += buildWeatherAlertsForm(cfg);
+  }
   return html;
 }
 
@@ -1047,11 +1210,77 @@ function readSettingsForm(block) {
           config.metrics.generated = metEl.value;
         }
       }
+      // S3: per-card weather/forecast source. auto = unset (delete key);
+      // explicit valid pick persisted; deleted rest: source preserved (T7).
+      var srcEl = document.getElementById('modal-simple-source');
+      if (srcEl && WX_SOURCE_TYPES.indexOf(type) !== -1) {
+        var priorSource = config.source;
+        var sv = srcEl.value || 'auto';
+        var okRest = sv.indexOf('rest:') === 0 && availableRestSources.indexOf(sv.slice(5)) !== -1;
+        if (sv === 'auto') {
+          if (priorSource && priorSource.indexOf('rest:') === 0 && availableRestSources.indexOf(priorSource.slice(5)) === -1) config.source = priorSource;
+          else delete config.source;
+        } else if (sv === 'solcast' || sv === 'open-meteo' || okRest) {
+          config.source = sv;
+        }
+      }
+      // S5-editor: per-card rest_map for rest: sources. Stored as an object on
+      // config.rest_map (same shape as S3 alerts/charts); empty textarea or
+      // non-rest source deletes the key. Invalid blocks save with inline error.
+      if (WX_SOURCE_TYPES.indexOf(type) !== -1) {
+        var curSrc = config.source || '';
+        if (curSrc.indexOf('rest:') === 0) {
+          var rmEl = document.getElementById('modal-restmap');
+          var rmRes = validateRestMap(rmEl ? rmEl.value : '');
+          if (!rmRes.ok) {
+            var rmErrEl = document.getElementById('modal-restmap-error');
+            if (rmErrEl) { rmErrEl.textContent = rmRes.error; rmErrEl.style.display = 'block'; }
+            return rmRes.error;
+          }
+          if (rmRes.value && Object.keys(rmRes.value).length) config.rest_map = rmRes.value;
+          else delete config.rest_map;
+        } else {
+          delete config.rest_map;
+        }
+      }
+      // S3: weather-block display/charts/alerts, validated.
+      if (type === 'weather-block') {
+        var disp = {};
+        var dkeys = ['temp', 'feels_like', 'humidity', 'wind', 'desc'];
+        for (var di = 0; di < dkeys.length; di++) {
+          var dk = dkeys[di];
+          var dcb = document.getElementById('modal-wx-show-' + dk);
+          disp[dk] = dcb ? !!dcb.checked : true;
+        }
+        var daysEl = document.getElementById('modal-wx-days');
+        var wdays = daysEl ? parseInt(daysEl.value, 10) : 2;
+        if (!isFinite(wdays)) wdays = 2;
+        disp.days = Math.max(0, Math.min(4, wdays));
+        config.display = disp;
+        var ghiEl = document.getElementById('modal-wx-chart-ghi');
+        var tmpEl = document.getElementById('modal-wx-chart-temp');
+        config.charts = { ghi: ghiEl ? !!ghiEl.checked : true, temp: tmpEl ? !!tmpEl.checked : false };
+        var mEls = document.querySelectorAll('.wx-alert-metric');
+        var oEls = document.querySelectorAll('.wx-alert-op');
+        var vEls = document.querySelectorAll('.wx-alert-value');
+        var alertsOut = [];
+        for (var ai = 0; ai < mEls.length && alertsOut.length < 4; ai++) {
+          var am = mEls[ai] ? mEls[ai].value : '';
+          var ao = oEls[ai] ? oEls[ai].value : '';
+          var av = vEls[ai] ? parseFloat(vEls[ai].value) : NaN;
+          if (WX_ALERT_METRICS.indexOf(am) === -1) continue;
+          if (WX_ALERT_OPS.indexOf(ao) === -1) continue;
+          if (!isFinite(av)) continue;
+          alertsOut.push({ metric: am, op: ao, value: av });
+        }
+        config.alerts = alertsOut;
+      }
       break;
     }
   }
 
   block.config = config;
+  return null;
 }
 
 /** Refresh the live grid item content after settings save */
@@ -1116,7 +1345,11 @@ async function handleSettingsSave() {
   if (!currentEditingBlock) return;
   var statusEl = document.getElementById('settings-modal-status');
   if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
-  readSettingsForm(currentEditingBlock);
+  var formErr = readSettingsForm(currentEditingBlock);
+  if (formErr) {
+    if (statusEl) { statusEl.textContent = formErr; statusEl.style.display = 'block'; }
+    return;  // keep modal open, do not persist
+  }
   var saved = await persistLayout();
   if (!saved) {
     console.error('Save failed — layout not persisted');
@@ -1161,6 +1394,15 @@ async function openSettingsModal(block) {
     if (el) el.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
   });
 
+  // S5-editor: toggle rest_map textarea with source pick (rest: -> show, else hide + clear error)
+  var srcSel = document.getElementById('modal-simple-source');
+  var rmWrap = document.getElementById('modal-restmap-wrap');
+  if (srcSel && rmWrap) srcSel.addEventListener('change', function() {
+    var show = (srcSel.value || '').indexOf('rest:') === 0;
+    rmWrap.style.display = show ? '' : 'none';
+    if (!show) { var rmErr = document.getElementById('modal-restmap-error'); if (rmErr) { rmErr.textContent = ''; rmErr.style.display = 'none'; } }
+  });
+
   // Initialize dynamic row renderers after DOM is populated
   switch (block.type) {
     case 'multi-value':
@@ -1186,6 +1428,9 @@ async function openSettingsModal(block) {
       break;
     case 'state-select':
       renderStateSelectRows(body);
+      break;
+    case 'weather-block':
+      renderWeatherAlertRows(body);
       break;
   }
 }
@@ -1323,6 +1568,12 @@ async function loadTab(tabId) {
 async function initEditor() {
   showLoading('Loading editor...');
   try {
+    fetch('/api/settings').then(function(r) { return r.json(); }).then(function(s) {
+      try {
+        var ext = JSON.parse(s.external_sources || '[]');
+        availableRestSources = ext.map(function(x) { return x.name; }).filter(Boolean);
+      } catch (e) { availableRestSources = []; }
+    }).catch(function() { availableRestSources = []; });
     dashboardConfig = await fetchDashboardConfig();
     if (!dashboardConfig.dashboards || !dashboardConfig.dashboards.length) {
       dashboardConfig.dashboards = [{ id: 'main', name: 'Main', layout: [] }];
