@@ -22,7 +22,7 @@ process.env.ENC_KEY_FILE = path.join(keyDir, 'encryption-key');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'enc-int-db-'));
 process.chdir(tmp);
 
-const REPO = '/home/ubuntu/epilykos-repo';
+const REPO = path.join(__dirname, '..');
 const db = require(path.join(REPO, 'modules', 'database.js'));
 
 function freshEncryption() {
