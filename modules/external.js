@@ -1,13 +1,9 @@
 const { logger } = require('./logger');
 const dns = require('dns').promises;
-const { getConfig, getDb } = require('./database');
+const { getConfig, queueMetricWrite } = require('./database');
 const { isPrivateOrLocalIp, isValidHostname } = require('./utils');
 
 let externalPollInterval = null;
-let externalMetricInsert = null;
-let externalLatestUpsert = null;
-let externalMetricInsertText = null;
-let externalLatestUpsertText = null;
 
 function getValueByPath(obj, path) {
   return path.split('.').reduce((current, key) => current?.[key], obj);
@@ -17,16 +13,14 @@ function saveExternalMetric(metricName, rawValue, timestamp) {
   if (rawValue === null || rawValue === undefined) return;
   const num = parseFloat(rawValue);
   if (!isNaN(num) && num === Number(rawValue)) {
-    externalMetricInsert.run(timestamp, metricName, num);
-    externalLatestUpsert.run(metricName, num, timestamp);
+    queueMetricWrite({ metric: metricName, value: num, timestamp });
   } else {
     const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
     const lower = strVal.toLowerCase();
     const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
     const type = isBool ? 'boolean' : 'string';
     const displayVal = isBool ? lower : strVal;
-    externalMetricInsertText.run(timestamp, metricName, displayVal, type);
-    externalLatestUpsertText.run(metricName, displayVal, type, timestamp);
+    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
   }
 }
 

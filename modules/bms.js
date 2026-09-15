@@ -1,4 +1,4 @@
-const { getConfig, getDb } = require('./database');
+const { getConfig, queueMetricWrite } = require('./database');
 const { logger } = require('./logger');
 const { computeBankAggregates } = require('./bmsAggregator');
 
@@ -81,46 +81,19 @@ async function pollBMS() {
   }
 }
 
-let bmsMetricInsert = null;
-let bmsLatestUpsert = null;
-let bmsMetricInsertText = null;
-let bmsLatestUpsertText = null;
-
-function getBmsMetricInsert(db) {
-  if (!bmsMetricInsert) bmsMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  return bmsMetricInsert;
-}
-
-function getBmsLatestUpsert(db) {
-  if (!bmsLatestUpsert) bmsLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
-  return bmsLatestUpsert;
-}
-
-function getBmsMetricInsertText(db) {
-  if (!bmsMetricInsertText) bmsMetricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
-  return bmsMetricInsertText;
-}
-
-function getBmsLatestUpsertText(db) {
-  if (!bmsLatestUpsertText) bmsLatestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
-  return bmsLatestUpsertText;
-}
-
-function saveBmsMetric(db, metricName, rawValue, timestamp) {
+function saveBmsMetric(metricName, rawValue, timestamp) {
   if (rawValue === null || rawValue === undefined) return;
   if (typeof rawValue === 'object' && !Array.isArray(rawValue)) return;
   const num = parseFloat(rawValue);
   if (!isNaN(num) && num === Number(rawValue)) {
-    getBmsLatestUpsert(db).run(metricName, num, timestamp);
-    getBmsMetricInsert(db).run(timestamp, metricName, num);
+    queueMetricWrite({ metric: metricName, value: num, timestamp });
   } else {
     const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
     const lower = strVal.toLowerCase();
     const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
     const type = isBool ? 'boolean' : 'string';
     const displayVal = isBool ? lower : strVal;
-    getBmsLatestUpsertText(db).run(metricName, displayVal, type, timestamp);
-    getBmsMetricInsertText(db).run(timestamp, metricName, displayVal, type);
+    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
   }
 }
 
