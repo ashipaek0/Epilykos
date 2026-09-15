@@ -8,6 +8,7 @@ import { updateHalfGaugeCard } from './components/halfGaugeCard.js';
 import { updateHalfGauge2Card } from './components/halfGauge2Card.js';
 import { updateBarGauge } from './components/barGauge.js';
 import { updateBarGaugeRetro } from './components/barGaugeRetro.js';
+import { refreshBarSingleCard } from './components/barSingleCard.js';
 import { updateFlowCardSquare } from './components/flowCardSquare.js';
 import { updateFlowCardSquare2 } from './components/flowCardSquare2.js';
 import { updatePvToday } from './components/pvToday.js';
@@ -38,6 +39,7 @@ export function updateWithState(state) {
   if (blockTypes.has('half-gauge-2')) updateHalfGauge2Card(state);
   if (blockTypes.has('bar-gauge')) updateBarGauge(state);
   if (blockTypes.has('bar-gauge-retro')) updateBarGaugeRetro(state);
+  if (blockTypes.has('bar-single')) refreshBarSingleCard();
   if (blockTypes.has('flow-card-square')) updateFlowCardSquare(state);
   if (blockTypes.has('flow-card-square-2')) updateFlowCardSquare2(state);
   if (blockTypes.has('metric-cards')) updateMetricCardsFromState(state);

@@ -316,6 +316,80 @@ function renderBarGaugeRetroRows(container) {
   });
 }
 
+/** Bar Single: one metric, history-backed vertical bars, banded colors */
+var BAR_SINGLE_WARM = ['#a8a29e', '#f59e0b', '#b45309', '#166534'];
+function buildBarSingleForm(block) {
+  var cfg = block.config || {};
+  var range = cfg.range || '24h';
+  var bucket = cfg.bucket || '1h';
+  // 'auto' resolves to the component default band mode (see normalizeBarConfig in barSingleCard.js).
+  var bandMode = cfg.bandMode === 'fixed' ? 'fixed' : 'auto';
+  var bands = cfg.bands || [];
+  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Bar Single</legend>';
+  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
+  html += '<span style="width:60px;font-size:0.85rem;">Metric</span>';
+  html += '<div style="flex:1;">' + metricSelect(cfg.metric || '', 'modal-bar-metric') + '</div>';
+  html += '</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.35rem;">';
+  html += '<label style="font-size:0.85rem;">Range <select id="modal-bar-range" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+    + '<option value="24h"' + (range === '24h' ? ' selected' : '') + '>24h</option>'
+    + '<option value="7d"' + (range === '7d' ? ' selected' : '') + '>7d</option></select></label>';
+  html += '<label style="font-size:0.85rem;">Bucket <select id="modal-bar-bucket" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+    + '<option value="15m"' + (bucket === '15m' ? ' selected' : '') + '>15m</option>'
+    + '<option value="1h"' + (bucket === '1h' ? ' selected' : '') + '>1h</option>'
+    + '<option value="1d"' + (bucket === '1d' ? ' selected' : '') + '>1d</option></select></label>';
+  html += '<label style="font-size:0.85rem;">Bands <select id="modal-bar-bandmode" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+    + '<option value="auto"' + (bandMode === 'auto' ? ' selected' : '') + '>Auto</option>'
+    + '<option value="fixed"' + (bandMode === 'fixed' ? ' selected' : '') + '>Fixed</option></select></label>';
+  html += '</div></fieldset>';
+  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<legend style="font-weight:600;font-size:0.9rem;">Bands</legend>';
+  html += '<div id="bar-bands-rows"></div>';
+  html += '<button type="button" id="bar-bands-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Band</button>';
+  html += '</fieldset>';
+  html += '<script id="bar-bands-data" type="application/json">' + JSON.stringify(bands).replace(/</g, '\\u003c') + '</script>';
+  return html;
+}
+
+function renderBarSingleRows(container) {
+  var dataEl = container.querySelector('#bar-bands-data');
+  var rows = [];
+  try { rows = JSON.parse(dataEl.textContent); } catch(e) {}
+  var rowsEl = container.querySelector('#bar-bands-rows');
+  if (!rowsEl) return;
+  var html = '';
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i] || {};
+    html += '<div class="bar-band-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
+    html += '<input type="number" step="any" class="bar-band-to" value="' + escHtml(r.to ?? '') + '" placeholder="Up to" title="Values at or below this threshold use this color" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bar-band-color" value="' + escHtml(r.color || BAR_SINGLE_WARM[i % BAR_SINGLE_WARM.length]) + '" style="width:36px;height:24px;"></label>';
+    html += '<button type="button" class="bar-band-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove band">X</button>';
+    html += '</div>';
+  }
+  rowsEl.innerHTML = html;
+  var addBtn = container.querySelector('#bar-bands-add-row');
+  if (addBtn) {
+    addBtn.onclick = function() {
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      current.push({ to: '', color: BAR_SINGLE_WARM[current.length % BAR_SINGLE_WARM.length] });
+      dataEl.textContent = JSON.stringify(current);
+      renderBarSingleRows(container);
+    };
+  }
+  container.querySelectorAll('.bar-band-remove').forEach(function(btn) {
+    btn.onclick = function() {
+      var idx = parseInt(btn.dataset.idx);
+      var current = [];
+      try { current = JSON.parse(dataEl.textContent); } catch(e) {}
+      current.splice(idx, 1);
+      dataEl.textContent = JSON.stringify(current);
+      renderBarSingleRows(container);
+    };
+  });
+}
+
 /** Gauge / Half Gauge / Half Gauge 2: single metric */
 function buildGaugeForm(block) {
   var cfg = block.config || {};
@@ -875,6 +949,9 @@ function buildSettingsForm(block) {
     case 'bar-gauge-retro':
       html += buildBarGaugeRetroForm(block);
       break;
+    case 'bar-single':
+      html += buildBarSingleForm(block);
+      break;
     case 'gauge-card':
     case 'half-gauge':
     case 'half-gauge-2':
@@ -1052,6 +1129,34 @@ function readSettingsForm(block) {
       }
       block.metrics = bgrRows;
       config.metrics = bgrRows;
+      break;
+    }
+    case 'bar-single': {
+      config.metric = document.getElementById('modal-bar-metric')?.value || '';
+      var barRangeEl = document.getElementById('modal-bar-range');
+      var barRangeVal = barRangeEl ? barRangeEl.value : '';
+      config.range = (barRangeVal === '24h' || barRangeVal === '7d') ? barRangeVal : '24h';
+      var barBucketEl = document.getElementById('modal-bar-bucket');
+      var barBucketVal = barBucketEl ? barBucketEl.value : '';
+      config.bucket = (barBucketVal === '15m' || barBucketVal === '1h' || barBucketVal === '1d') ? barBucketVal : '1h';
+      var barModeEl = document.getElementById('modal-bar-bandmode');
+      config.bandMode = (barModeEl && barModeEl.value === 'fixed') ? 'fixed' : 'auto';
+      var barBandsData = document.getElementById('bar-bands-data');
+      var barBandsRows = [];
+      try { barBandsRows = JSON.parse(barBandsData.textContent); } catch(e) {}
+      var allBandTos = document.querySelectorAll('.bar-band-to');
+      var allBandColors = document.querySelectorAll('.bar-band-color');
+      var bandsOut = [];
+      for (var bi = 0; bi < barBandsRows.length; bi++) {
+        var toVal = allBandTos[bi] ? parseFloat(allBandTos[bi].value) : NaN;
+        if (!isFinite(toVal)) continue;
+        var colVal = allBandColors[bi] ? allBandColors[bi].value : '';
+        bandsOut.push({ to: toVal, color: colVal || BAR_SINGLE_WARM[bi % BAR_SINGLE_WARM.length] });
+      }
+      if (!bandsOut.length) {
+        bandsOut = BAR_SINGLE_WARM.map(function(c, i) { return { to: (i + 1) * 25, color: c }; });
+      }
+      config.bands = bandsOut;
       break;
     }
     case 'gauge-card':
@@ -1414,6 +1519,9 @@ async function openSettingsModal(block) {
     case 'bar-gauge-retro':
       renderBarGaugeRetroRows(body);
       break;
+    case 'bar-single':
+      renderBarSingleRows(body);
+      break;
     case 'metric-cards':
       renderMetricCardsRows(body);
       break;
@@ -1610,7 +1718,7 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');
