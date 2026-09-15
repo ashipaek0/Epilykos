@@ -122,7 +122,7 @@ function fakeGet(url, opts, cb) {
   const isDaily = String(url).includes('daily=');
   const payload = isDaily
     ? { daily: { time: [todayStr], weathercode: [0], temperature_2m_max: [15], apparent_temperature_max: [14], relativehumidity_2m_mean: [20] } }
-    : { current_weather: { temperature: 15, weathercode: 0 }, hourly: { time: [omTime], apparent_temperature: [14], relativehumidity_2m: [20] } };
+    : { current_weather: { temperature: 15, weathercode: 0 }, hourly: { time: [omTime], apparent_temperature: [14], relativehumidity_2m: [20], shortwave_radiation: [200], cloud_cover: [10], temperature_2m: [28] } };
   const body = JSON.stringify(payload);
   const res = new EventEmitter();
   res.statusCode = 200;
@@ -244,8 +244,10 @@ check('radar absence: editor.js iframe hits confined to generic embed-card path'
   });
   const callsAfterSol = fetchCalls;
   const rAuto = await solar.getSolarForecast('auto');
-  check('cache isolation: auto does NOT reuse solcast entry (refetch, distinct object)', () => {
-    assert.ok(fetchCalls > callsAfterSol, `auto reused solcast cache (fetchCalls ${callsAfterSol} -> ${fetchCalls})`);
+  check('cache isolation: auto does NOT reuse solcast entry (gate skips Solcast, cascades to OM)', () => {
+    // With the 60-min upstream gate (quota hardening), auto skips the Solcast
+    // fetch without touching fetch() and cascades to Open-Meteo (https stub).
+    assert.strictEqual(rAuto.source, 'open-meteo');
     assert.notStrictEqual(rAuto, rSol);
   });
   const callsAfterAuto = fetchCalls;

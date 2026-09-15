@@ -7,6 +7,19 @@ let solarCache = { value: 0, timestamp: 0 };
 const FORECAST_CACHE_MS = 3 * 60 * 60 * 1000;
 const SOLAR_CACHE_MS = 30000; // 30s TTL
 
+// ---- Issue #127 follow-up: Solcast negative-cache + upstream gate ----
+// Per-selector negative cache entry:
+//   { errorText, firstFailure, retryAt, lastGood, lastGoodData, cachedError: true }
+// Global upstream gate: allow max 1 Solcast attempt per 60min across ALL selectors.
+let solcastNegativeCache = {}; // selector -> negative entry
+let solcastLastUpstreamAttempt = 0; // epoch ms of last upstream Solcast fetch attempt
+const SOLCAST_UPSTREAM_GATE_MS = 60 * 60 * 1000; // 60 min gate
+
+// TTL constants for negative cache
+const SOLCAST_NEGATIVE_TTL_TRANSPORT_MS = 30 * 60 * 1000;   // 30 min: transport/5xx/empty
+const SOLCAST_NEGATIVE_TTL_429_BASE_MS = 120 * 60 * 1000;   // 120 min: 429 without Retry-After
+const SOLCAST_NEGATIVE_TTL_MAX_MS = 6 * 60 * 60 * 1000;     // 6 hr: cap
+
 function computeSolarForDate(dateStr) {
   const db = getDb();
   const startOfDay = new Date(dateStr + 'T00:00:00');
@@ -216,7 +229,79 @@ function pickSolcastWeather(periods) {
 }
 
 // Test hook (no prod callers): drop all per-selector cache entries.
-function clearForecastCache() { forecastCache = {}; }
+function clearForecastCache() { forecastCache = {}; solcastNegativeCache = {}; solcastLastUpstreamAttempt = 0; }
+
+// ---- Issue #127 follow-up: Solcast negative-cache helpers ----
+
+// Drop negative cache for a selector (or all if selector omitted).
+function clearSolcastNegativeCache(selector) {
+  if (selector) delete solcastNegativeCache[selector];
+  else solcastNegativeCache = {};
+}
+
+// Check if a negative cache entry is still valid (not expired).
+function isNegativeCacheValid(entry, now) {
+  return entry && entry.retryAt && entry.retryAt > now;
+}
+
+// Compute negative cache TTL and retryAt based on error type.
+function computeNegativeCacheEntry(errorText, status, retryAfterHeader) {
+  const now = Date.now();
+  let ttlMs;
+  if (status === 429) {
+    const retryAfterSec = parseInt(retryAfterHeader, 10);
+    if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+      ttlMs = Math.min(retryAfterSec * 1000, SOLCAST_NEGATIVE_TTL_MAX_MS);
+    } else {
+      ttlMs = Math.min(SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS);
+    }
+  } else {
+    // transport error, 5xx, empty response, or other non-OK
+    ttlMs = SOLCAST_NEGATIVE_TTL_TRANSPORT_MS;
+  }
+  const retryAt = now + ttlMs;
+  return {
+    errorText,
+    firstFailure: now,
+    retryAt,
+    lastGood: null,
+    lastGoodData: null,
+    cachedError: true
+  };
+}
+
+// Check if we can attempt an upstream Solcast fetch (global 60-min gate).
+function canAttemptSolcastUpstream() {
+  const now = Date.now();
+  return (now - solcastLastUpstreamAttempt) >= SOLCAST_UPSTREAM_GATE_MS;
+}
+
+// Record a Solcast upstream attempt (success or failure).
+function recordSolcastUpstreamAttempt() {
+  solcastLastUpstreamAttempt = Date.now();
+}
+
+// Store a successful Solcast response as lastGood in negative cache (if entry exists).
+function recordSolcastSuccess(selector, data) {
+  const entry = solcastNegativeCache[selector];
+  if (entry) {
+    entry.lastGood = Date.now();
+    entry.lastGoodData = data;
+  }
+}
+
+// Build the cached error response object (byte-identical error text + advisory fields).
+function buildCachedErrorResponse(entry, selector) {
+  return {
+    error: entry.errorText,
+    cached_error: true,
+    first_failure: new Date(entry.firstFailure).toISOString(),
+    retry_after: new Date(entry.retryAt).toISOString(),
+    last_good: entry.lastGood ? new Date(entry.lastGood).toISOString() : null,
+    source: selector,
+    source_label: SOURCE_LABELS[selector] || selector
+  };
+}
 
 // ---- Issue #127 S2: global default sources (AC9) ----
 // Every config key whose save can change getSolarForecast() output.
@@ -363,27 +448,64 @@ async function getSolarForecast(sourceParam, restMap) {
   const wantOpenMeteo = forecastSel === 'auto' || forecastSel === 'open-meteo';
 
   if (wantSolcast && solcastKey) {
-    if (resourceId) {
-      try {
-        const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
+    // --- Negative-cache check (per selector) ---
+    const negEntry = solcastNegativeCache[forecastSel];
+    if (isNegativeCacheValid(negEntry, now)) {
+      if (forecastSel === 'solcast') return buildCachedErrorResponse(negEntry, forecastSel);
+      // auto: skip Solcast fetch, fall through to OM cascade (no record)
+    } else {
+      // --- Upstream gate (global 60-min) ---
+      if (!canAttemptSolcastUpstream()) {
+        // Gate closed -> treat as negative-cached
+        const gateEntry = negEntry || { errorText: 'Upstream gate: Solcast rate limited', firstFailure: now, retryAt: now + SOLCAST_UPSTREAM_GATE_MS, cachedError: true };
+        if (forecastSel === 'solcast') return buildCachedErrorResponse(gateEntry, forecastSel);
+        // auto: skip Solcast fetch, fall through to OM cascade
+      } else {
+        recordSolcastUpstreamAttempt();
+        let solcastErrText = null, solcastErrStatus = null, solcastRetryAfter = null;
+
+        if (resourceId) {
+          try {
+            const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
+            } else {
+              solcastErrStatus = res.status;
+              solcastRetryAfter = res.headers.get('retry-after');
+              solcastErrText = `Solcast rooftop HTTP ${res.status}`;
+            }
+          } catch (e) { solcastErrText = `Solcast rooftop error: ${e.message}`; }
         }
-      } catch (e) { logger.warn(`Solcast rooftop forecast unavailable: ${e.message}`); }
-    }
-    if (!forecastData && lat && lon) {
-      try {
-        const tilt = parseFloat(getConfig('solar_tilt')) || 30;
-        const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
-        const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
+        if (!forecastData && lat && lon) {
+          try {
+            const tilt = parseFloat(getConfig('solar_tilt')) || 30;
+            const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
+            const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
+            } else {
+              solcastErrStatus = res.status;
+              solcastRetryAfter = res.headers.get('retry-after');
+              solcastErrText = `Solcast world PV HTTP ${res.status}`;
+            }
+          } catch (e) { solcastErrText = `Solcast world PV error: ${e.message}`; }
         }
-      } catch (e) { logger.warn(`Solcast world PV power forecast unavailable: ${e.message}`); }
+
+        // --- On failure: populate negative cache (preserve lastGood/lastGoodData) ---
+        if (!forecastData) {
+          const prior = solcastNegativeCache[forecastSel];
+          const entry = computeNegativeCacheEntry(solcastErrText || 'Solcast unavailable', solcastErrStatus, solcastRetryAfter);
+          if (prior && prior.lastGood) { entry.lastGood = prior.lastGood; entry.lastGoodData = prior.lastGoodData; }
+          solcastNegativeCache[forecastSel] = entry;
+        } else {
+          // --- On success: clear negative cache for this selector ---
+          delete solcastNegativeCache[forecastSel];
+        }
+      }
     }
   }
 
@@ -606,4 +728,4 @@ async function testForecast(opts) {
   return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
 }
 
-module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES };
+module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
