@@ -26,7 +26,7 @@ const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { PollingManager } = require('./services/PollingManager');
-const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH, startMetricAutoFlush, flushSync, flushMetrics } = require('./modules/database');
+const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH, startMetricAutoFlush, flushSync, flushMetrics, migrateSecretsToEncrypted } = require('./modules/database');
 
 /**
  * Compute delta between current and previous state objects.
@@ -432,6 +432,7 @@ startBmsPolling();   // Start BMS bridge polling
 startBmsWiredPolling();   // Start BMS wired (Modbus-RTU serial) polling
 startDonglePolling();
 startMetricAutoFlush(); // batch bursty metric writes: 5s auto-flush (unref'd)
+try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); } // one-time plaintext→$enc1$ (idempotent)
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
 
@@ -1200,12 +1201,11 @@ app.post('/api/settings', (req, res) => {
       }
       filteredUpdates[key] = value;
     }
-    const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
     for (const [key, value] of Object.entries(filteredUpdates)) {
       // Reject undefined values; coerce null to empty string
       if (value === undefined) continue;
       const safeValue = value === null ? '' : String(value);
-      stmt.run(key, safeValue);
+      setConfig(key, safeValue); // encrypt-at-write ($enc1$ passthrough)
     }
     if ('mqtt_devices' in filteredUpdates) restartMqtt();
     if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
@@ -1273,10 +1273,9 @@ function saveConfigKeys(allowedKeys, req, res) {
       filtered[key] = value;
     }
   }
-  const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
   const saved = [];
   for (const [key, value] of Object.entries(filtered)) {
-    stmt.run(key, value);
+    setConfig(key, value); // encrypt-at-write ($enc1$ passthrough)
     saved.push(key);
   }
   return { saved };

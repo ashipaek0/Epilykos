@@ -11,6 +11,7 @@
  */
 const { PVOutputClient } = require('./client');
 const { canCall, isRateLimitError } = require('./rateLimiter');
+const { encryptConfigValue } = require('../database');
 const { logger } = require('../logger');
 
 // D2: startup getsystem cache gate — re-fetch at most once per 60 minutes
@@ -143,7 +144,7 @@ async function fetchSystemInfo(db, client, opts = {}) {
       const cfg = JSON.parse(configRow.value);
       if (!cfg.timezone && timezone) {
         cfg.timezone = timezone;
-        db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('pvoutput_config', ?)").run(JSON.stringify(cfg));
+        db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('pvoutput_config', ?)").run(encryptConfigValue('pvoutput_config', JSON.stringify(cfg)));
         logger.info(`[pvoutput] auto-detected timezone: ${timezone}`);
       }
     } catch (e) { /* non-critical */ }

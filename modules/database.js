@@ -15,6 +15,13 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const { logger } = require('./logger');
+const {
+  SECRET_FIELDS,
+  encryptString,
+  decryptString,
+  isEncrypted,
+  encryptSecretFields,
+} = require('./encryption');
 
 let db;
 const DB_PATH = './data/energy.db';
@@ -424,11 +431,166 @@ function migrateDashboardConfigBlob() {
 
 function getConfig(key) {
   const row = getDb().prepare('SELECT value FROM config WHERE key = ?').get(key);
-  return row ? row.value : '';
+  if (!row) return '';
+  return decryptConfigValue(key, row.value);
 }
 
 function setConfig(key, value) {
-  getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, String(value));
+  getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, encryptConfigValue(key, String(value)));
+}
+
+// ── At-rest secret encryption (slice B) ────────────────────────────
+// WRITE PATH: setConfig() encrypts via encryptConfigValue() below, so every
+// caller that funnels through setConfig (migrations in this file, all
+// modules/*, server.js setConfig call sites) is covered automatically.
+//
+// Bulk config writers ENUMERATED (audit 2026-09-15) — all routed through the
+// encryption write path (setConfig / encryptConfigValue; $enc1$ envelopes
+// pass through idempotently):
+// - setConfig (central encrypting writer; migrations, modules/*, server.js
+//   call sites auto-covered). Seed INSERT OR IGNORE / UPDATE in
+//   initializeDatabase (non-secret '' + defaults only — passthrough).
+// - server.js bulk settings save (~L1204): setConfig per key.
+// - server.js saveConfigKeys (~L1277): setConfig per key.
+// - modules/pvoutput/pull.js pvoutput_config timezone auto-fill:
+//   encryptConfigValue on the injected-handle write (api_key envelope
+//   preserved verbatim via idempotent passthrough).
+//
+// READ PATH: getConfig() decrypts symmetric to the write path. One bad field
+// never kills a whole read — per-field try/catch returns the field raw + warn.
+
+/**
+ * Encrypt `strValue` for storage under `key`. Idempotent (existing $enc1$
+ * envelopes pass through). Non-secret keys and empty values pass through.
+ * Blob keys with unparseable JSON are stored raw + warn (never brick a save).
+ */
+function encryptConfigValue(key, strValue) {
+  const fields = SECRET_FIELDS[key];
+  if (fields === undefined || strValue === '') return strValue;
+  if (fields.length === 0) {
+    // Top-level scalar secret (e.g. solcast_api_key, mqtt_password, ha_token).
+    if (isEncrypted(strValue)) return strValue;
+    return encryptString(strValue);
+  }
+  // Blob key (e.g. tuya_devices, ha_devices, pvoutput_config): encrypt
+  // matching leaf fields wherever they appear (objects/arrays recursed,
+  // case-insensitive — see modules/encryption.js encryptSecretFields).
+  let parsed;
+  try {
+    parsed = JSON.parse(strValue);
+  } catch (_) {
+    logger.warn(`encryption: config key '${key}' is not JSON — storing raw`);
+    return strValue;
+  }
+  return JSON.stringify(encryptSecretFields(parsed, fields));
+}
+
+/**
+ * Inverse of encryptConfigValue: decrypt stored `strValue` for `key`.
+ * Non-envelopes pass through (partial-migration safety). Per-field try/catch
+ * on blob keys: a corrupt/wrong-key field is returned raw + warn without
+ * killing the whole read. Scalar decrypt failure likewise returns raw + warn
+ * (resilience at read time; use decryptString directly when a throw is wanted).
+ */
+function decryptConfigValue(key, strValue) {
+  const fields = SECRET_FIELDS[key];
+  if (fields === undefined || typeof strValue !== 'string' || strValue === '') return strValue;
+  if (fields.length === 0) {
+    if (!isEncrypted(strValue)) return strValue;
+    try {
+      return decryptString(strValue);
+    } catch (err) {
+      logger.warn(`encryption: scalar key '${key}' failed to decrypt — returning raw: ${err.message}`);
+      return strValue;
+    }
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(strValue);
+  } catch (_) {
+    return strValue;
+  }
+  const wanted = new Set(fields.map((f) => String(f).toLowerCase()));
+  decryptLeaves(parsed, wanted, key);
+  return JSON.stringify(parsed);
+}
+
+function decryptLeaves(node, wanted, configKey) {
+  if (Array.isArray(node)) {
+    // Bare array scalars are never secret leaves (encrypt side only touches
+    // keyed leaves) — recurse into objects only.
+    for (let i = 0; i < node.length; i++) {
+      const v = node[i];
+      if (v !== null && typeof v === 'object') decryptLeaves(v, wanted, configKey);
+    }
+  } else if (node !== null && typeof node === 'object') {
+    for (const k of Object.keys(node)) {
+      const v = node[k];
+      if (v !== null && typeof v === 'object') { decryptLeaves(v, wanted, configKey); continue; }
+      if (!wanted.has(String(k).toLowerCase())) continue;
+      if (typeof v !== 'string' || !isEncrypted(v)) continue;
+      try { node[k] = decryptString(v); }
+      catch (err) { logger.warn(`encryption: key '${configKey}' field '${k}' failed to decrypt — returning raw: ${err.message}`); }
+    }
+  }
+}
+
+// NOTE (deploy, 5.9GB prod DB): this migration rewrites config rows in place
+// inside ONE transaction — it never copies energy.db and never takes a file
+// backup itself. The user runbook file-backup of energy.db precedes deploy.
+let secretsMigrationDone = false;
+
+/**
+ * One-time plaintext→$enc1$ migration over SECRET_FIELDS keys present in
+ * config. Idempotent (envelopes skipped) — safe to re-run; re-run migrates 0.
+ * Runs inside a single transaction. Returns { migrated, skipped }.
+ */
+function migrateSecretsToEncrypted() {
+  if (!getDb()) return { migrated: 0, skipped: 0 };
+  const selectAll = getDb().prepare('SELECT key, value FROM config');
+  const rows = selectAll.all().filter((r) => Object.prototype.hasOwnProperty.call(SECRET_FIELDS, r.key));
+  let migrated = 0;
+  let skipped = 0;
+  const run = getDb().transaction((list) => {
+    const write = getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
+    for (const { key, value } of list) {
+      const fields = SECRET_FIELDS[key];
+      let needs = false;
+      if (typeof value === 'string' && value !== '') {
+        if (fields.length === 0) {
+          needs = !isEncrypted(value);
+        } else {
+          try {
+            needs = secretLeafNeedsMigration(JSON.parse(value), new Set(fields.map((f) => String(f).toLowerCase())));
+          } catch (_) { needs = false; }
+        }
+      }
+      if (!needs) { skipped++; continue; }
+      write.run(key, encryptConfigValue(key, value));
+      migrated++;
+    }
+  });
+  run(rows);
+  logger.info(`encryption: secrets migration — ${migrated} migrated, ${skipped} already encrypted`);
+  return { migrated, skipped };
+}
+
+function secretLeafNeedsMigration(node, wanted) {
+  if (Array.isArray(node)) {
+    return node.some((v) => {
+      if (v !== null && typeof v === 'object') return secretLeafNeedsMigration(v, wanted);
+      return false; // bare array scalars are not keyed secret leaves
+    });
+  }
+  if (node !== null && typeof node === 'object') {
+    return Object.keys(node).some((k) => {
+      const v = node[k];
+      if (v !== null && typeof v === 'object') return secretLeafNeedsMigration(v, wanted);
+      return wanted.has(String(k).toLowerCase())
+        && typeof v === 'string' && v !== '' && !isEncrypted(v);
+    });
+  }
+  return false;
 }
 
 // ── Metric write queue ─────────────────────────────────────────────
@@ -520,6 +682,8 @@ module.exports = {
   initializeDatabase,
   getConfig,
   setConfig,
+  encryptConfigValue,
+  migrateSecretsToEncrypted,
   getDb,
   DB_PATH,
   queueMetricWrite,
