@@ -431,10 +431,103 @@ function setConfig(key, value) {
   getDb().prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, String(value));
 }
 
+// ── Metric write queue ─────────────────────────────────────────────
+// Bursty poll writers (modbus / HA / Tuya / dongle) enqueue here instead of
+// hitting SQLite per-sample; flushMetrics() batch-writes in ONE transaction.
+// Flush triggers: 5s auto-flush (server), flush-on-read (modules/metrics.js),
+// flushSync() (SIGTERM/SIGINT, tests). Config/grid_status writes are NEVER
+// buffered — only metrics/latest_metrics rows go through this queue.
+const METRIC_BUFFER_CAP = 500;
+let metricBuffer = [];
+let metricFlushTimer = null;
+
+function queueMetricWrite(entry) {
+  if (!entry || entry.metric === undefined || entry.metric === null) return;
+  metricBuffer.push({
+    metric: entry.metric,
+    value: typeof entry.value === 'number' ? entry.value : null,
+    value_text: entry.value_text !== undefined ? entry.value_text : null,
+    value_type: entry.value_type !== undefined ? entry.value_type : null,
+    unit: entry.unit !== undefined ? entry.unit : null,
+    timestamp: (entry.timestamp !== undefined && entry.timestamp !== null)
+      ? entry.timestamp : Math.floor(Date.now() / 1000)
+  });
+  if (metricBuffer.length > METRIC_BUFFER_CAP) {
+    const dropped = metricBuffer.length - METRIC_BUFFER_CAP;
+    metricBuffer.splice(0, dropped);
+    logger.warn(`Metric write buffer overflow: dropped ${dropped} oldest entries (cap ${METRIC_BUFFER_CAP})`);
+  }
+}
+
+// Single-transaction batch upsert. Statement shapes mirror the per-module
+// writers exactly (numeric 3-col, text 4-col, dongle unit variants).
+function flushMetrics() {
+  if (metricBuffer.length === 0) return 0;
+  const batch = metricBuffer;
+  metricBuffer = [];
+  const dbm = getDb();
+  const metricInsert = dbm.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
+  const metricInsertText = dbm.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
+  const latestUpsert = dbm.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+  const latestUpsertText = dbm.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
+  const latestUpsertUnit = dbm.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)');
+  const latestUpsertTextUnit = dbm.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp, unit) VALUES (?, ?, ?, ?, ?)');
+  const runBatch = dbm.transaction((rows) => {
+    for (const e of rows) {
+      if (e.value !== null) {
+        metricInsert.run(e.timestamp, e.metric, e.value);
+        if (e.unit !== null && e.unit !== undefined) latestUpsertUnit.run(e.metric, e.value, e.timestamp, e.unit);
+        else latestUpsert.run(e.metric, e.value, e.timestamp);
+      } else {
+        metricInsertText.run(e.timestamp, e.metric, e.value_text, e.value_type);
+        if (e.unit !== null && e.unit !== undefined) latestUpsertTextUnit.run(e.metric, e.value_text, e.value_type, e.timestamp, e.unit);
+        else latestUpsertText.run(e.metric, e.value_text, e.value_type, e.timestamp);
+      }
+    }
+  });
+  runBatch(batch);
+  return batch.length;
+}
+
+function flushSync() {
+  return flushMetrics();
+}
+
+function clearMetricBuffer() {
+  const n = metricBuffer.length;
+  metricBuffer = [];
+  return n;
+}
+
+function getMetricBufferSize() {
+  return metricBuffer.length;
+}
+
+function startMetricAutoFlush(intervalMs = 5000) {
+  if (metricFlushTimer) return metricFlushTimer;
+  metricFlushTimer = setInterval(() => {
+    try { flushMetrics(); } catch (err) { logger.warn('Metric auto-flush failed:', err.message); }
+  }, intervalMs);
+  if (typeof metricFlushTimer.unref === 'function') metricFlushTimer.unref();
+  return metricFlushTimer;
+}
+
+function stopMetricAutoFlush() {
+  if (metricFlushTimer) { clearInterval(metricFlushTimer); metricFlushTimer = null; }
+}
+
 module.exports = {
   initializeDatabase,
   getConfig,
   setConfig,
   getDb,
-  DB_PATH
+  DB_PATH,
+  queueMetricWrite,
+  flushMetrics,
+  flushSync,
+  clearMetricBuffer,
+  getMetricBufferSize,
+  startMetricAutoFlush,
+  stopMetricAutoFlush,
+  METRIC_BUFFER_CAP
 };

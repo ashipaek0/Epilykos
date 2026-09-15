@@ -10,7 +10,8 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { getConfig, setConfig, getDb } = require('./database');
+const { getConfig, setConfig } = require('./database');
+const { queueMetricWrite } = require('./database');
 const { logger } = require('./logger');
 const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
@@ -121,26 +122,20 @@ function stopDonglePolling() {
 function restartDonglePolling() { startDonglePolling(); }
 
 function writeMetrics(metrics, units) {
-  const db = getDb();
   const now = Math.floor(Date.now() / 1000);
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)');
-  const metricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
-  const latestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp, unit) VALUES (?, ?, ?, ?, ?)');
   for (const [name, rawValue] of Object.entries(metrics)) {
     if (rawValue === undefined || rawValue === null) continue;
+    const unit = (units && units[name]) || null;
     const num = parseFloat(rawValue);
     if (!isNaN(num) && num === Number(rawValue)) {
-      metricInsert.run(now, name, num);
-      latestUpsert.run(name, num, now, (units && units[name]) || null);
+      queueMetricWrite({ metric: name, value: num, timestamp: now, unit });
     } else {
       const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
       const lower = strVal.toLowerCase();
       const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
       const type = isBool ? 'boolean' : 'string';
       const displayVal = isBool ? lower : strVal;
-      metricInsertText.run(now, name, displayVal, type);
-      latestUpsertText.run(name, displayVal, type, now, (units && units[name]) || null);
+      queueMetricWrite({ metric: name, value: null, value_text: displayVal, value_type: type, timestamp: now, unit });
     }
   }
 }

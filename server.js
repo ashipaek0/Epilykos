@@ -25,7 +25,8 @@ const http = require('http');
 const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
-const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
+const { getBreaker } = require('./modules/circuitBreaker');
+const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH, startMetricAutoFlush, flushSync, flushMetrics } = require('./modules/database');
 
 /**
  * Compute delta between current and previous state objects.
@@ -430,6 +431,7 @@ startExternalPolling();
 startBmsPolling();   // Start BMS bridge polling
 startBmsWiredPolling();   // Start BMS wired (Modbus-RTU serial) polling
 startDonglePolling();
+startMetricAutoFlush(); // batch bursty metric writes: 5s auto-flush (unref'd)
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
 
@@ -576,13 +578,38 @@ async function pollAllSources() {
   const start = Date.now();
   logger.debug('Polling cycle started');
   try {
-    await pollHomeAssistant();
-    await pollModbus();
-    await pollTuyaDevices();
-    await pollRs232();         // RS232 serial inverter polling
-    await pollLegacyHistory();
-    await pollGridStatus();
-    // BMS polling is independent and runs on its own interval
+    await getBreaker('ha').execute(() => pollHomeAssistant());
+  } catch (err) {
+    logger.warn('Poll ha failed:', err && err.message ? err.message : err);
+  }
+  try {
+    await getBreaker('modbus').execute(() => pollModbus());
+  } catch (err) {
+    logger.warn('Poll modbus failed:', err && err.message ? err.message : err);
+  }
+  try {
+    await getBreaker('tuya').execute(() => pollTuyaDevices());
+  } catch (err) {
+    logger.warn('Poll tuya failed:', err && err.message ? err.message : err);
+  }
+  try {
+    await getBreaker('rs232').execute(() => pollRs232());
+  } catch (err) {
+    logger.warn('Poll rs232 failed:', err && err.message ? err.message : err);
+  }
+  try {
+    await getBreaker('history').execute(() => pollLegacyHistory());
+  } catch (err) {
+    logger.warn('Poll history failed:', err && err.message ? err.message : err);
+  }
+  try {
+    await getBreaker('grid').execute(() => pollGridStatus());
+  } catch (err) {
+    logger.warn('Poll grid failed:', err && err.message ? err.message : err);
+  }
+  // BMS polling is independent and runs on its own interval
+  try {
+    flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
     if (wsClients.size > 0) {
       const state = await buildDashboardState();
       broadcastDashboardState(state);
@@ -2246,6 +2273,7 @@ process.on('SIGTERM', async () => {
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
   wss.close(() => wsClients.clear());
+  try { flushSync(); } catch (e) { logger.warn('SIGTERM metric flush failed:', e.message); }
   db.close();
   logger.info('Shutdown complete');
 });
@@ -2261,6 +2289,7 @@ process.on('SIGINT', async () => {
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
   wss.close(() => wsClients.clear());
+  try { flushSync(); } catch (e) { logger.warn('SIGINT metric flush failed:', e.message); }
   db.close();
   logger.info('Shutdown complete');
 });

@@ -32,7 +32,7 @@ const path = require('path');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-metric-sanity-'));
 process.chdir(tmp);
 
-const { initializeDatabase, setConfig, getConfig } = require('../modules/database');
+const { initializeDatabase, setConfig, getConfig, flushSync } = require('../modules/database');
 initializeDatabase();
 
 // role_metrics: PV Energy Generated is the daily_solar counter; Load Energy
@@ -140,7 +140,9 @@ const INCIDENT = [
   const t1 = lagos(2026, 9, 10, 8, 0, 0);
 
   ha.saveMetric(M, 1.0, t1);
+  flushSync();
   ha.saveMetric(M, 39.1, t1 + 30); // TS-2: the real spike -> rejected
+  flushSync();
 
   let row = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?').get(M);
   assert.strictEqual(row.value, 1.0, 'held value must stay 1.0');
@@ -150,7 +152,9 @@ const INCIDENT = [
 
   // TS-3: hold across siblings — suspectSince captured once, baseline 1.0
   ha.saveMetric(M, 39.2, t1 + 60);
+  flushSync();
   ha.saveMetric(M, 39.3, t1 + 90);
+  flushSync();
   row = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?').get(M);
   assert.strictEqual(row.value, 1.0, 'still held at 1.0');
   assert.strictEqual(row.timestamp, t1, 'timestamp still original');
@@ -163,6 +167,7 @@ const INCIDENT = [
 
   // TS-4: recovery 2.0 accepted, clears suspect, both tables written
   ha.saveMetric(M, 2.0, t1 + 120);
+  flushSync();
   row = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?').get(M);
   assert.strictEqual(row.value, 2.0, 'recovering value written');
   assert.strictEqual(row.timestamp, t1 + 120);
@@ -254,12 +259,15 @@ const INCIDENT = [
   const t = lagos(2026, 9, 10, 13, 0, 0);
 
   ha.saveMetric('PV Power', 0, t);
+  flushSync();
   ha.saveMetric('PV Power', 39000, t + 30); // huge jump — must be written unchanged
+  flushSync();
   const row = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?').get('PV Power');
   assert.strictEqual(row.value, 39000, 'non-counter written unchanged even on a big jump');
   assert.strictEqual(row.timestamp, t + 30, 'non-counter timestamp fresh');
 
   ha.saveMetric('Grid Status', 'on', t + 60); // text branch — byte-identical
+  flushSync();
   const trow = db.prepare('SELECT value_text, value_type FROM latest_metrics WHERE metric = ?').get('Grid Status');
   assert.strictEqual(trow.value_text, 'on');
   assert.strictEqual(trow.value_type, 'boolean');
@@ -410,7 +418,9 @@ const INCIDENT = [
   const M = 'Load Energy Consumed';
   const t = lagos(2026, 9, 10, 14, 0, 0);
   ha.saveMetric(M, 1.0, t);
+  flushSync();
   ha.saveMetric(M, 39.1, t + 30); // the F2-corrupted-metric spike — must be held
+  flushSync();
 
   const row = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?').get(M);
   assert.strictEqual(row.value, 1.0, 'Load Energy Consumed held at 1.0');

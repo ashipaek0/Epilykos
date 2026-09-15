@@ -1,7 +1,8 @@
 const { logger } = require('./logger');
-const { getDb } = require('./database');
+const { getDb, flushMetrics } = require('./database');
 
 function getCurrentMetrics() {
+  flushMetrics(); // read-your-write: drain the write queue before serving
   const db = getDb();
   const rows = db.prepare('SELECT metric, value, value_text, value_type, timestamp, unit FROM latest_metrics').all();
   const result = {};
@@ -17,6 +18,7 @@ function getCurrentMetrics() {
 }
 
 function getMetricHistory(metric, hours = 24) {
+  flushMetrics(); // read-your-write: drain the write queue before serving
   const db = getDb();
   if (!metric) throw new Error('Metric name required');
   const since = Math.floor(Date.now() / 1000) - hours * 3600;
