@@ -18,7 +18,7 @@ import { componentBuilders } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { clearSparklineCharts } from './forecast.js';
-import { updateAllComponents } from './updater.js';
+import { updateAllComponents, updateWithState } from './updater.js';
 import { ensureBlockIds } from './utils/blockId.js';
 
 let dashboardConfig;
@@ -384,3 +384,30 @@ function applyBranding(cfg) {
 }
 
 export { dashboardConfig, renderDashboard, switchDashboard };
+
+// Partial-render listener (Phase 2 delta compression): ws-manager dispatches
+// 'state-updated' with detail { isPartial: true, state, keys } when a
+// dashboard-delta arrives. When every delta key is a known top-level state
+// key (see buildDashboardState() in routes/metrics.js), update only the DOM
+// via the existing card updater fns — no full re-render. Unknown keys, or a
+// non-partial event (isPartial false/undefined), fall back to renderDashboard().
+const PARTIAL_RENDER_KEYS = new Set([
+  'current', 'metrics', 'savings', 'gridStatus',
+  'gridHours', 'gridTimeline', 'powerHistory', 'dailyEnergyBar',
+]);
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('state-updated', (event) => {
+    const detail = event && event.detail;
+    if (!detail || !detail.isPartial) {
+      renderDashboard();
+      return;
+    }
+    const state = detail.state;
+    const keys = Array.isArray(detail.keys) ? detail.keys : Object.keys(state || {});
+    if (state && keys.length > 0 && keys.every((k) => PARTIAL_RENDER_KEYS.has(k))) {
+      updateWithState(state);
+    } else {
+      renderDashboard();
+    }
+  });
+}

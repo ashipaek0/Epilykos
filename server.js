@@ -26,6 +26,91 @@ const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH } = require('./modules/database');
+
+/**
+ * Compute delta between current and previous state objects.
+ * Pure recursive function: compares objects/arrays by reference equality.
+ * - Objects: only include keys with changed values (recursive).
+ * - Arrays: compare by length first; if length differs, include entire array.
+ *   If length same, compare items by index; changed item → include whole index.
+ * - Primitives: strict equality (===).
+ * Returns empty object {} if identical; otherwise minimal delta object.
+ * @param {any} current - current state
+ * @param {any} previous - previous state
+ * @returns {object} delta object
+ */
+function computeDelta(current, previous) {
+  if (current === previous) return {};
+  if (current === null || previous === null) return current;
+  if (typeof current !== 'object' || typeof previous !== 'object') return current;
+  if (Array.isArray(current) !== Array.isArray(previous)) return current;
+  
+  if (Array.isArray(current)) {
+    // Arrays: whole-array on any length/item difference (simple, correct)
+    if (current.length !== previous.length) return current;
+    for (let i = 0; i < current.length; i++) {
+      const c = current[i];
+      const p = previous[i];
+      if (c === p) continue;
+      if (c !== null && p !== null && typeof c === 'object' && typeof p === 'object') {
+        const sub = computeDelta(c, p);
+        const empty = (typeof sub === 'object' && sub !== null && !Array.isArray(sub) && Object.keys(sub).length === 0);
+        if (!empty) return current;
+      } else {
+        // Primitives (or null) differ by strict !== → whole array
+        return current;
+      }
+    }
+    return {};
+  }
+
+  // Object case: primitives → strict ===; plain objects → recurse (sub-delta
+  // only when non-empty); arrays → whole-array on any difference;
+  // deleted keys → null; added keys → value.
+  const delta = {};
+  let hasChanges = false;
+  for (const key of Object.keys(current)) {
+    if (!(key in previous)) {
+      delta[key] = current[key];
+      hasChanges = true;
+      continue;
+    }
+    const c = current[key];
+    const p = previous[key];
+    if (c === p) continue;
+    const cIsObj = (c !== null && typeof c === 'object' && !Array.isArray(c));
+    const pIsObj = (p !== null && typeof p === 'object' && !Array.isArray(p));
+    if (cIsObj && pIsObj) {
+      const subDelta = computeDelta(c, p);
+      if (Object.keys(subDelta).length > 0) {
+        delta[key] = subDelta;
+        hasChanges = true;
+      }
+    } else if (Array.isArray(c) && Array.isArray(p)) {
+      const arrDelta = computeDelta(c, p);
+      const empty = (typeof arrDelta === 'object' && arrDelta !== null && !Array.isArray(arrDelta) && Object.keys(arrDelta).length === 0);
+      if (!empty) {
+        delta[key] = c;
+        hasChanges = true;
+      }
+    } else if (c !== p) {
+      // Primitives, null, or type-mismatched values differ → assign value
+      delta[key] = c;
+      hasChanges = true;
+    }
+  }
+  for (const key of Object.keys(previous)) {
+    if (!(key in current)) {
+      // Key deleted - represent as null to signal removal
+      delta[key] = null;
+      hasChanges = true;
+    }
+  }
+  return hasChanges ? delta : {};
+}
+
+// Export for tests
+module.exports.computeDelta = computeDelta;
 const { isAuthenticated, loginLimiter, csrfProtection, passwordEnvManaged, verifyPassword, setSettingsPassword } = require('./modules/sessionAuth');
 const { pollHomeAssistant, fetchHAEntities, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
@@ -386,28 +471,76 @@ const wss = new WebSocket.Server({ server });
 // Store connected WebSocket clients
 const wsClients = new Set();
 
+// Delta-broadcast state: last sent snapshot + consecutive-suppression counter
+// (staleness guard forces a full state every 3rd cycle when nothing changed).
+let lastBroadcastState = null;
+let consecutiveSuppress = 0;
+
 /**
  * Push dashboard state to all connected WebSocket clients.
- * Each client receives JSON: { type: 'dashboard-state', data: state }
+ * Sends minimal { type: 'dashboard-delta', data: delta } when the delta is
+ * small, full { type: 'dashboard-state', data: state } when the delta is
+ * empty-but-stale (every 3rd suppressed cycle) or larger than 80% of the
+ * full state, and suppresses (sends nothing) on small empty deltas.
  * @param {object} state - built by buildDashboardState()
  */
 function broadcastDashboardState(state) {
-  const message = JSON.stringify({ type: 'dashboard-state', data: state });
-  const MAX_MESSAGE_SIZE = 64 * 1024; // 64 KB
-  if (Buffer.byteLength(message, 'utf8') > MAX_MESSAGE_SIZE) {
-    logger.warn(`WebSocket broadcast blocked: message size ${Buffer.byteLength(message, 'utf8')} exceeds 64KB limit`);
+  const sendToAll = (message) => {
+    const MAX_MESSAGE_SIZE = 64 * 1024; // 64 KB
+    if (Buffer.byteLength(message, 'utf8') > MAX_MESSAGE_SIZE) {
+      logger.warn(`WebSocket broadcast blocked: message size ${Buffer.byteLength(message, 'utf8')} exceeds 64KB limit`);
+      return false;
+    }
+    wsClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message, err => {
+          if (err) {
+            wsClients.delete(client);
+            client.terminate();
+          }
+        });
+      }
+    });
+    return true;
+  };
+  const snapshot = () => {
+    try {
+      lastBroadcastState = (typeof structuredClone === 'function')
+        ? structuredClone(state)
+        : JSON.parse(JSON.stringify(state));
+    } catch (e) {
+      lastBroadcastState = JSON.parse(JSON.stringify(state));
+    }
+  };
+
+  const delta = computeDelta(state, lastBroadcastState);
+
+  // Empty delta → suppress unless already suppressed twice consecutively
+  // (force full every 3rd, staleness guard so clients never drift stale).
+  if (typeof delta === 'object' && delta !== null && !Array.isArray(delta) && Object.keys(delta).length === 0) {
+    if (consecutiveSuppress >= 2) {
+      consecutiveSuppress = 0;
+      if (sendToAll(JSON.stringify({ type: 'dashboard-state', data: state }))) snapshot();
+    } else {
+      consecutiveSuppress += 1;
+    }
     return;
   }
-  wsClients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message, err => {
-        if (err) {
-          wsClients.delete(client);
-          client.terminate();
-        }
-      });
-    }
-  });
+
+  consecutiveSuppress = 0;
+
+  // Delta larger than 80% of full state → not worth it, send full.
+  let useFull = false;
+  try {
+    useFull = Buffer.byteLength(JSON.stringify(delta), 'utf8') > 0.8 * Buffer.byteLength(JSON.stringify(state), 'utf8');
+  } catch (e) {
+    useFull = true;
+  }
+  if (useFull) {
+    if (sendToAll(JSON.stringify({ type: 'dashboard-state', data: state }))) snapshot();
+  } else {
+    if (sendToAll(JSON.stringify({ type: 'dashboard-delta', data: delta }))) snapshot();
+  }
 }
 
 // WebSocket connection handler

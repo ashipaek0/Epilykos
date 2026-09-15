@@ -99,6 +99,17 @@ function doConnect() {
         // Cache every state update
         await cacheState(message.data);
         if (onStateUpdate) onStateUpdate(message.data);
+      } else if (message.type === 'dashboard-delta' && message.data) {
+        // Apply delta to cached state, then notify
+        const cached = await loadCachedState();
+        if (cached) {
+          const merged = applyDelta(cached, message.data);
+          await cacheState(merged);
+          // Dispatch custom event for partial render
+          window.dispatchEvent(new CustomEvent('state-updated', {
+            detail: { isPartial: true, state: merged, keys: Object.keys(message.data) }
+          }));
+        }
       }
     } catch (err) {
       console.error('[WSManager] Message parse error:', err);
@@ -138,6 +149,54 @@ export async function loadInitialState() {
     return cached;
   }
   return null;
+}
+
+/**
+ * Apply a delta object to a base state object.
+ * Recursive plain-object merge; arrays are replaced wholesale.
+ * Malformed delta (non-object) is ignored — returns base unchanged.
+ * @param {object} base - current state object
+ * @param {object} delta - delta object from server
+ * @returns {object} merged state
+ */
+function applyDelta(base, delta) {
+  // Guard: delta must be a plain object
+  if (!delta || typeof delta !== 'object' || Array.isArray(delta)) {
+    return base;
+  }
+  // Guard: base must be an object
+  if (!base || typeof base !== 'object' || Array.isArray(base)) {
+    return base;
+  }
+
+  const result = { ...base };
+  for (const key of Object.keys(delta)) {
+    const deltaVal = delta[key];
+    const baseVal = result[key];
+
+    // Deleted key (null in delta) → remove from result
+    if (deltaVal === null) {
+      delete result[key];
+      continue;
+    }
+
+    // Both are plain objects → recurse
+    const deltaIsObj = deltaVal !== null && typeof deltaVal === 'object' && !Array.isArray(deltaVal);
+    const baseIsObj = baseVal !== null && typeof baseVal === 'object' && !Array.isArray(baseVal);
+
+    if (deltaIsObj && baseIsObj) {
+      result[key] = applyDelta(baseVal, deltaVal);
+    } else {
+      // Arrays replace wholesale, primitives assign
+      result[key] = deltaVal;
+    }
+  }
+  return result;
+}
+
+// Export for tests (attach to window if no module system)
+if (typeof window !== 'undefined') {
+  window.applyDelta = applyDelta;
 }
 
 // ── Background sync handler ──────────────────────────────────────────
