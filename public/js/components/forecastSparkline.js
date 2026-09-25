@@ -1,18 +1,8 @@
-import { uid } from '../utils/uid.js';
+import { buildForecastShell } from './forecastShell.js';
 
-// Standalone sparkline graph card
+// Chart-only card: today's actual vs forecast solar power.
 export function buildForecastSparkline(block = {}) {
-  const id = block.id || '';
-  const config = block.config || {};
-  const metrics = config.metrics || {};
-  const actualField = metrics.actual_energy || 'solar_kw';
-
-  const card = document.createElement('div');
-  card.className = 'forecast-sparkline-card forecast-sparkline-instance';
-  card.dataset.metricMap = JSON.stringify({ actual_energy: actualField });
-  card.dataset.blockId = id;
-  card.innerHTML = `<div class="pv-sparkline-container"><canvas id="${uid('fc-sparkline', id)}"></canvas></div><span class="forecast-source" id="${uid('fc-source', id)}"></span>`;
-  return card;
+  return buildForecastShell(block, {
+    kind: 'spark', instanceClass: 'forecast-sparkline-instance', summary: false, chart: true, defaultTitle: 'Solar Today'
+  });
 }
-
-export function updateForecastSparkline(state) { /* handled by forecast.js */ }

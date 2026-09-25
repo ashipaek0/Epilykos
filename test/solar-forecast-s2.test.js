@@ -86,24 +86,13 @@ const curHour = new Date().getHours();
 const pad = (n) => String(n).padStart(2, '0');
 const omTime = `${todayStr}T${pad(curHour)}:00`;
 let omForecastCalls = 0;
+const { openMeteoPayload } = require('./open-meteo-fixture');
 function fakeGet(url, opts, cb) {
   if (typeof opts === 'function') { cb = opts; }
   const u = String(url);
-  let payload;
-  if (u.includes('shortwave_radiation')) {
-    omForecastCalls++;
-    payload = {
-      hourly: {
-        time: [`${todayStr}T10:00:00`, `${todayStr}T11:00:00`],
-        shortwave_radiation: [800, 900],
-        cloud_cover: [10, 20]
-      }
-    };
-  } else if (u.includes('daily=')) {
-    payload = { daily: { time: [todayStr, todayStr, todayStr], weathercode: [0, 1, 2], temperature_2m_max: [15, 16, 17], apparent_temperature_max: [14, 15, 16], relativehumidity_2m_mean: [20, 21, 22] } };
-  } else {
-    payload = { current_weather: { temperature: 15, weathercode: 0 }, hourly: { time: [omTime], apparent_temperature: [14], relativehumidity_2m: [20] } };
-  }
+  // One combined Open-Meteo call now serves both the PV forecast and weather.
+  if (u.includes('shortwave_radiation')) omForecastCalls++;
+  const payload = openMeteoPayload();
   const body = JSON.stringify(payload);
   const res = new EventEmitter();
   res.statusCode = 200;

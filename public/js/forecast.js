@@ -1,39 +1,22 @@
 /**
- * Solar Forecast Engine
+ * Solar forecast cards — data + rendering for forecast banner, info and
+ * sparkline cards (PV Today renders itself from the same payload).
  *
- * Fetches /api/solar-forecast and renders sparkline charts, weather, and forecast days
- * for all forecast block types: full banner, sparkline-only card, and info card.
- *
- * Sparkline: Chart.js line chart comparing actual power vs predicted, 7am-7pm.
- * Uses 30-minute bucketing for smoothing. Green gradient fill on actual line.
- * Configurable actual-energy field per block (default: solar_kw).
- *
- * Multi-instance: charts stored in sparklineCharts Map keyed by canvas ID.
+ * One /api/solar-forecast fetch per distinct card source; every card renders
+ * into its own elements (class-scoped, no page-global ids), so any number of
+ * instances coexist. Missing data renders as '--' — never throws.
  *
  * @module forecast
  */
-import { fetchDashboardState } from './api.js';
 import { updatePvToday } from './components/pvToday.js';
+import { ensureChartJS } from './chartLoader.js';
+import { escapeHtml } from './utils.js';
+import { fmtTemp, fmtKwh, fmtNum, dayLabel, localDate, iconHtml } from './weatherFormat.js';
 
-const sparklineCharts = {};
+const charts = new Set();
 export function clearSparklineCharts() {
-  Object.values(sparklineCharts).forEach(c => c.destroy());
-  for (const k in sparklineCharts) delete sparklineCharts[k];
-}
-const clockIntervals = {};
-
-const weatherCodeMap = { 0: { icon: 'fi fi-sr-sun', desc: 'Clear Sky' }, 1: { icon: 'fi fi-sr-sun', desc: 'Mainly Clear' }, 2: { icon: 'fi fi-sr-cloud-sun', desc: 'Partly Cloudy' }, 3: { icon: 'fi fi-sr-cloud', desc: 'Overcast' }, 45: { icon: 'fi fi-sr-cloud', desc: 'Fog' }, 48: { icon: 'fi fi-sr-cloud', desc: 'Depositing Rime Fog' }, 51: { icon: 'fi fi-sr-cloud-rain', desc: 'Light Drizzle' }, 53: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Drizzle' }, 55: { icon: 'fi fi-sr-cloud-rain', desc: 'Dense Drizzle' }, 61: { icon: 'fi fi-sr-cloud-rain', desc: 'Slight Rain' }, 63: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Rain' }, 65: { icon: 'fi fi-sr-cloud-rain', desc: 'Heavy Rain' }, 80: { icon: 'fi fi-sr-cloud-rain', desc: 'Rain Showers' } };
-const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
-
-function getDayName(d) { return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' }); }
-function setWeatherIconColor(el, desc) {
-  const d = (desc || '').toLowerCase();
-  if (d.includes('clear') || d.includes('sunny')) el.style.color = '#f59e0b';
-  else if (d.includes('partly cloudy')) el.style.color = '#eab308';
-  else if (d.includes('cloudy') || d.includes('overcast')) el.style.color = '#9ca3af';
-  else if (d.includes('rain') || d.includes('drizzle')) el.style.color = '#87aec8';
-  else if (d.includes('fog')) el.style.color = '#94a3b8';
-  else el.style.color = 'var(--text)';
+  charts.forEach(c => { try { c.destroy(); } catch { /* already gone */ } });
+  charts.clear();
 }
 
 const SOURCE_LABELS = { solcast: 'Solcast', 'open-meteo': 'Open-Meteo', auto: 'Auto' };
@@ -47,10 +30,7 @@ export function sourceLabelFor(data, fallbackSource) {
   return SOURCE_LABELS[key] || key || '';
 }
 
-/**
- * Normalize a block config.rest_map: object or JSON string; {} on malformed.
- * Mirrors weatherBlock normalizeDisplay/normalizeCharts string convention.
- */
+/** Block config.rest_map: object or JSON string; {} on malformed. */
 function normalizeRestMap(raw) {
   let m = raw;
   if (typeof m === 'string') { try { m = JSON.parse(m); } catch { m = {}; } }
@@ -58,336 +38,311 @@ function normalizeRestMap(raw) {
   return m;
 }
 
-/**
- * Resolve a card instance's forecast source + rest_map.
- * Seam: block configs live in dashboard.js dashboardConfig (same dynamic-import
- * pattern as metricCards.js — read-only, no touch to dashboard.js). Builders
- * only stamp dataset.blockId/metricMap, so config lookup is by block id.
- * Falls back to dataset.source (future-proof) then 'auto' (legacy = current behavior).
- * restMap is the block config.rest_map (normalized, {} default); only sent for rest: sources.
- */
-async function resolveCardSource(card) {
-  if (card?.dataset?.source) return { source: card.dataset.source, restMap: {} };
+/** A card's block config from the active dashboard (read-only). */
+async function blockConfigFor(card) {
   const blockId = card?.dataset?.blockId;
-  if (!blockId) return { source: 'auto', restMap: {} };
+  if (!blockId) return {};
   try {
     const { dashboardConfig } = await import('./dashboard.js');
     const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-    const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return { source: block?.config?.source || 'auto', restMap: normalizeRestMap(block?.config?.rest_map) };
-  } catch { return { source: 'auto', restMap: {} }; }
+    return (layout || []).find(b => String(b.id) === String(blockId))?.config || {};
+  } catch { return {}; }
 }
 
 function forecastUrlFor(source, restMap) {
   if (!source || source === 'auto') return '/api/solar-forecast';
   let url = `/api/solar-forecast?source=${encodeURIComponent(source)}`;
-  // S5-front-A: thread per-card rest_map to the backend, rest: sources only.
-  // Non-rest URLs stay byte-identical to legacy behavior.
+  // S5-front-A: per-card rest_map for rest: sources only.
   if (source.startsWith('rest:')) url += `&rest_map=${encodeURIComponent(JSON.stringify(restMap || {}))}`;
   return url;
 }
 
 /** Per-card inline error (AC8). Never hides the card itself. */
 function setCardError(card, message) {
-  let err = card.querySelector(':scope > .forecast-inline-error');
-  if (!message) { if (err) err.remove(); return; }
-  if (!err) {
-    err = document.createElement('div');
-    err.className = 'forecast-inline-error';
-    err.setAttribute('role', 'alert');
-    card.prepend(err);
+  const err = card.querySelector('.fc-error');
+  if (!err) return;
+  err.textContent = message || '';
+  err.hidden = !message;
+}
+
+const num = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+const periodEndMs = (h) => new Date(h.period_end).getTime();
+/** kWh in one forecast period (backend sets energy_kwh; older payloads: 1-h kW). */
+const periodKwh = (h) => num(h.energy_kwh) ?? (num(h.pv_estimate) || 0);
+
+/** Today's production figures from one payload. */
+function todayFigures(data) {
+  const today = localDate();
+  const day = (data.daily || []).find(d => d.date === today) || null;
+  const nowMs = Date.now();
+  const hourly = (data.hourly || []).filter(h => localDate(new Date(h.period_end)) === today);
+  const remaining = hourly.length ? hourly.filter(h => periodEndMs(h) > nowMs).reduce((s, h) => s + periodKwh(h), 0) : null;
+  const total = day ? num(day.total_kwh) : null;
+  const actual = day ? num(day.actual_so_far) : null;
+  return { total, actual, remaining };
+}
+
+/** Weather row for a date: today → weather.today, later → forecast_weather. */
+function weatherForDate(w, date) {
+  if (!w) return null;
+  if (w.today && w.today.date === date) return w.today;
+  return (w.forecast_weather || []).find(d => d.date === date) || null;
+}
+
+function renderSummary(card, data, cfg) {
+  const q = (s) => card.querySelector(s);
+  const w = data.weather || null;
+  const { total, actual, remaining } = todayFigures(data);
+  // REST weather sources carry no PV forecast: hide the kWh sections entirely.
+  const hasProduction = total != null || remaining != null || (data.daily || []).some(d => num(d.total_kwh) != null);
+  const todayEl = q('.fc-today');
+  if (todayEl) todayEl.hidden = !hasProduction;
+
+  // Today: remaining forecast energy, with produced / expected context
+  const valueEl = q('.fc-today-value');
+  if (valueEl) valueEl.textContent = remaining != null ? fmtKwh(remaining) : fmtKwh(total);
+  const sub = [];
+  if (remaining != null) sub.push('remaining');
+  if (actual != null && actual > 0) sub.push(`${fmtNum(actual, 1)} produced`);
+  if (total != null) sub.push(`${fmtNum(total, 1)} expected`);
+  const subEl = q('.fc-today-sub');
+  if (subEl) subEl.textContent = sub.join(' · ');
+  const prog = q('.fc-progress');
+  if (prog) {
+    const denom = (actual || 0) + (remaining || 0);
+    prog.hidden = !(actual != null && actual > 0 && denom > 0);
+    if (!prog.hidden) prog.firstElementChild.style.width = `${Math.min(100, (actual / denom) * 100)}%`;
   }
-  err.textContent = message;
+
+  // Current weather
+  const now = q('.fc-now');
+  if (now) {
+    const hasWx = w && w.available !== false && (w.temp != null || w.desc);
+    now.hidden = !hasWx;
+    if (hasWx) {
+      q('.fc-now-icon').innerHTML = iconHtml(w.icon_class, w.code, w.is_day);
+      q('.fc-now-temp').textContent = fmtTemp(w.temp);
+      q('.fc-now-desc').textContent = w.desc || '';
+      const extra = [];
+      if (w.today && (w.today.temp_max != null || w.today.temp_min != null)) extra.push(`H ${fmtTemp(w.today.temp_max)} · L ${fmtTemp(w.today.temp_min)}`);
+      if (w.humidity != null) extra.push(`${fmtNum(w.humidity, 0, '%')} RH`);
+      if (w.precip_probability != null && w.precip_probability > 0) extra.push(`Rain ${fmtNum(w.precip_probability, 0, '%')}`);
+      q('.fc-now-extra').textContent = extra.join(' · ');
+    }
+  }
+
+  // Next days: production + that day's weather
+  const daysEl = q('.fc-days');
+  if (daysEl) {
+    const today = localDate();
+    const maxDays = Math.max(1, Math.min(6, parseInt(cfg.days, 10) || 3));
+    const days = hasProduction ? (data.daily || []).filter(d => d.date > today).slice(0, maxDays) : [];
+    daysEl.innerHTML = days.map(d => {
+      const dw = weatherForDate(w, d.date);
+      const hilo = dw && (dw.temp_max != null || dw.temp_min != null)
+        ? `<span class="fc-day-temp">${fmtTemp(dw.temp_max ?? dw.temp)}<small>${dw.temp_min != null ? ' / ' + fmtTemp(dw.temp_min) : ''}</small></span>` : '';
+      const rain = dw && dw.precip_probability != null && dw.precip_probability > 0
+        ? `<span class="fc-day-rain">${fmtNum(dw.precip_probability, 0, '%')}</span>` : '';
+      return `
+        <div class="fc-day" title="${escapeHtml(dw?.desc || '')}">
+          <span class="fc-day-name">${escapeHtml(dayLabel(d.date, 'short'))}</span>
+          ${dw ? iconHtml(dw.icon_class, dw.code, true, 'fc-day-icon') : ''}
+          <span class="fc-day-kwh">${fmtKwh(d.total_kwh)}</span>
+          <span class="fc-day-wx">${hilo}${rain}</span>
+        </div>`;
+    }).join('');
+    daysEl.hidden = !days.length;
+  }
 }
 
-function setGroupSourceLabel(cards, label) {
-  cards.forEach(card => {
-    const el = card.querySelector('.forecast-source');
-    if (el) el.textContent = label;
-  });
+/** Chart window: sunrise−1 h … sunset+1 h when known, else 06:00–20:00. */
+function chartWindow(w) {
+  const base = new Date(); base.setHours(0, 0, 0, 0);
+  const at = (h) => base.getTime() + h * 3600000;
+  const rise = w && w.sunrise ? new Date(w.sunrise) : null;
+  const set = w && w.sunset ? new Date(w.sunset) : null;
+  const ok = rise && set && !isNaN(rise) && !isNaN(set) && localDate(rise) === localDate();
+  const start = ok ? at(Math.max(0, rise.getHours() - 1)) : at(6);
+  const end = ok ? at(Math.min(24, set.getHours() + 2)) : at(20);
+  return { start, end };
 }
 
-function showGroupError(cards, pvCards, label, source) {
-  const lastGood = lastGoodBySource[source];
-  const msg = `Source ${label || source} unavailable${lastGood ? ` — last good ${lastGood}` : ''}`;
-  cards.forEach(c => { c.style.display = 'block'; setCardError(c, msg); });
-  if (pvCards.length) updatePvToday({ error: true, source, source_label: label }, pvCards, lastGood || '');
+async function renderChart(card, data, historyData) {
+  const wrap = card.querySelector('.fc-chart');
+  if (!wrap) return;
+  const canvas = wrap.querySelector('canvas');
+  const empty = wrap.querySelector('.fc-chart-empty');
+  try { await ensureChartJS(); } catch { if (empty) { empty.textContent = 'Chart library unavailable'; empty.hidden = false; } return; }
+
+  const { start, end } = chartWindow(data.weather);
+  const today = localDate();
+  const inWin = (x) => x >= start && x <= end;
+  const periods = (data.hourly || []).filter(h => localDate(new Date(h.period_end)) === today);
+  const forecast = periods.map(h => ({ x: periodEndMs(h), y: num(h.pv_estimate) ?? 0 })).filter(p => inWin(p.x)).sort((a, b) => a.x - b.x);
+  const band = periods.filter(h => num(h.pv_estimate10) != null && num(h.pv_estimate90) != null)
+    .map(h => ({ x: periodEndMs(h), lo: num(h.pv_estimate10), hi: num(h.pv_estimate90) })).filter(p => inWin(p.x)).sort((a, b) => a.x - b.x);
+
+  let actualField = 'solar_kw';
+  try { const mm = JSON.parse(card.dataset.metricMap || '{}'); if (mm.actual_energy) actualField = mm.actual_energy; } catch { /* default */ }
+  const actual = computeActualCurve((historyData || []).filter(d => inWin(new Date(d.timestamp).getTime())), actualField, start, end);
+
+  if (empty) empty.hidden = forecast.length > 0 || actual.length > 0;
+  const styles = getComputedStyle(document.documentElement);
+  const muted = styles.getPropertyValue('--text-secondary').trim() || '#64748b';
+  const grid = document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const capacity = num(window.systemCapacityKwp);
+
+  const datasets = [];
+  if (band.length) {
+    datasets.push(
+      { label: 'P10', data: band.map(p => ({ x: p.x, y: p.lo })), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.4 },
+      { label: 'P10–P90', data: band.map(p => ({ x: p.x, y: p.hi })), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.4 }
+    );
+  }
+  datasets.push(
+    { label: 'Forecast', data: forecast, borderColor: '#d97706', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, fill: false, tension: 0.4 },
+    { label: 'Actual', data: actual, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.22)', borderWidth: 2, pointRadius: 0, fill: 'origin', tension: 0.4 }
+  );
+
+  const options = {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { intersect: false, mode: 'index' },
+    scales: {
+      x: { type: 'time', min: start, max: end, time: { unit: 'hour', displayFormats: { hour: 'HH' } }, grid: { display: false }, ticks: { color: muted, maxTicksLimit: 8, font: { size: 10 } } },
+      y: { beginAtZero: true, suggestedMax: capacity || undefined, grid: { color: grid }, ticks: { color: muted, maxTicksLimit: 4, font: { size: 10 }, callback: v => `${v} kW` } }
+    },
+    plugins: {
+      legend: { display: true, labels: { color: muted, boxWidth: 12, font: { size: 10 }, filter: i => i.text !== 'P10' } },
+      tooltip: {
+        filter: i => i.dataset.label !== 'P10',
+        callbacks: { label: (c) => `${c.dataset.label}: ${Number(c.parsed.y).toFixed(2)} kW` }
+      }
+    }
+  };
+
+  if (card._fcChart && card._fcChart.canvas !== canvas) { charts.delete(card._fcChart); try { card._fcChart.destroy(); } catch { /* gone */ } card._fcChart = null; }
+  if (card._fcChart) {
+    card._fcChart.data.datasets = datasets;
+    card._fcChart.options = options;
+    card._fcChart.update('none');
+  } else {
+    card._fcChart = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets }, options });
+    charts.add(card._fcChart);
+  }
+}
+
+/** Date + live clock in the card header (one timer per card, self-cleaning). */
+function startClock(card) {
+  const dateEl = card.querySelector('.fc-date');
+  const clockEl = card.querySelector('.fc-clock');
+  if (dateEl) dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  if (!clockEl || card._fcClock) return;
+  const tick = () => {
+    if (!card.isConnected) { clearInterval(card._fcClock); card._fcClock = null; return; }
+    clockEl.textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  };
+  tick();
+  card._fcClock = setInterval(tick, 15000);
 }
 
 export async function updateForecast() {
-  const banners = [...document.querySelectorAll('.forecast-banner-instance')];
-  const infoCards = [...document.querySelectorAll('.forecast-info-instance')];
-  const sparkCards = [...document.querySelectorAll('.forecast-sparkline-instance')];
-  const pvTodayCards = [...document.querySelectorAll('.pv-today-instance')];
-  if (!banners.length && !infoCards.length && !sparkCards.length && !pvTodayCards.length) return;
+  const cards = [...document.querySelectorAll('.forecast-banner-instance, .forecast-info-instance, .forecast-sparkline-instance')];
+  const pvCards = [...document.querySelectorAll('.pv-today-instance')];
+  if (!cards.length && !pvCards.length) return;
 
-  // Group instances by resolved source (default auto = legacy global behavior)
-  const all = [
-    ...banners.map(el => ({ kind: 'banner', el })),
-    ...infoCards.map(el => ({ kind: 'info', el })),
-    ...sparkCards.map(el => ({ kind: 'spark', el })),
-    ...pvTodayCards.map(el => ({ kind: 'pv', el })),
-  ];
-  const sources = await Promise.all(all.map(a => resolveCardSource(a.el)));
+  // Group instances by source (+rest_map) so each distinct source is fetched once.
+  const all = [...cards.map(el => ({ el, pv: false })), ...pvCards.map(el => ({ el, pv: true }))];
+  const configs = await Promise.all(all.map(a => blockConfigFor(a.el)));
   const groups = new Map();
   all.forEach((a, i) => {
-    const r = sources[i] || {};
-    const src = r.source || 'auto';
-    const restMap = r.restMap || {};
-    // Rest: cards with different rest_maps must not share a fetch; non-rest
-    // keys stay the plain source string (legacy grouping, unchanged).
+    const cfg = configs[i] || {};
+    const src = a.el.dataset.source || cfg.source || 'auto';
+    const restMap = normalizeRestMap(cfg.rest_map);
     const key = src.startsWith('rest:') ? JSON.stringify([src, restMap]) : src;
-    if (!groups.has(key)) groups.set(key, { src, restMap, banners: [], infos: [], sparks: [], pvs: [] });
+    if (!groups.has(key)) groups.set(key, { src, restMap, cards: [], pvs: [] });
     const g = groups.get(key);
-    if (a.kind === 'banner') g.banners.push(a.el);
-    else if (a.kind === 'info') g.infos.push(a.el);
-    else if (a.kind === 'spark') g.sparks.push(a.el);
-    else g.pvs.push(a.el);
+    (a.pv ? g.pvs : g.cards).push({ el: a.el, cfg });
   });
 
-  // One fetch per distinct source (+rest_map); omit ?source= when auto (legacy URL, byte-identical)
-  const entries = [...groups.entries()];
-  const results = await Promise.all(entries.map(async ([key, g]) => {
-    try {
-      const r = await fetch(forecastUrlFor(g.src, g.restMap));
-      return [key, await r.json()];
-    } catch (e) { return [key, { error: true, _fetchFailed: true, source: g.src }]; }
+  const entries = [...groups.values()];
+  const results = await Promise.all(entries.map(async (g) => {
+    try { return await (await fetch(forecastUrlFor(g.src, g.restMap))).json(); }
+    catch { return { error: true, source: g.src }; }
   }));
-  const dataBySource = new Map(results);
-
-  // Shared, source-independent context
-  const now = new Date(), todayDate = now.toLocaleDateString('en-CA');
-  let historyData = [];
-  try { historyData = await (await fetch('/api/history?days=1')).json(); } catch (e) { historyData = []; }
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const actualColor = '#f59e0b', forecastColor = '#d97706';
-  const systemCapacityKwp = window.systemCapacityKwp || 2.1;
-  const sevenAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 0, 0).getTime();
-
-  for (const [key, g] of entries) {
-    const src = g.src;
-    const data = dataBySource.get(key);
-    const label = sourceLabelFor(data, src);
-    setGroupSourceLabel([...g.banners, ...g.infos, ...g.sparks], label);
-
-    if (!data || data.error || !data.daily || !data.daily.length) {
-      showGroupError([...g.banners, ...g.infos, ...g.sparks], g.pvs, label, src);
-      continue;
-    }
-    lastGoodBySource[src] = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    [...g.banners, ...g.infos, ...g.sparks].forEach(c => setCardError(c, ''));
-
-    let ti = data.daily.findIndex(d => d.date === todayDate);
-    if (ti === -1) ti = 0;
-    const today = data.daily[ti], tomorrow = data.daily[ti + 1] || null, nextDay = data.daily[ti + 2] || null;
-
-  for (const banner of g.banners) {
-    const id = banner.dataset.blockId || '';
-    banner.style.display = 'block';
-    const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
-    const setTxt = (s, v) => { const e = el(s); if (e) e.textContent = v || ''; };
-
-    // Remaining: sum forecast from now until end of today, not total - actual
-    const nowMs = Date.now();
-    const remainingTodayKwh = (data.hourly || [])
-      .filter(h => new Date(h.period_end).getTime() > nowMs && new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
-      .reduce((sum, h) => sum + (h.pv_estimate || 0), 0);
-    setTxt('pv-today-value', remainingTodayKwh.toFixed(1) + ' kWh');
-    setTxt('pv-today-remaining', 'remaining');
-    if (tomorrow) { setTxt('pred-day1-label', getDayName(tomorrow.date)); setTxt('pv-tomorrow', tomorrow.total_kwh.toFixed(1) + ' kWh'); }
-    if (nextDay) { setTxt('pred-day2-label', getDayName(nextDay.date)); setTxt('pv-nextday', nextDay.total_kwh.toFixed(1) + ' kWh'); }
-    setTxt('forecast-date', now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }));
-
-    if (data.weather) {
-      const w = data.weather;
-      const wi = el('weather-i'); if (wi) { wi.className = w.icon_class || 'fi fi-sr-sun'; setWeatherIconColor(wi, w.desc); }
-      setTxt('weather-temp', w.temp != null ? w.temp.toFixed(0) + '°C' : '--°');
-      setTxt('weather-desc', w.desc || ''); setTxt('weather-extra', w.extra || '');
-      for (let i = 0; i < 2; i++) {
-        const col = el(`forecast-weather-${i + 1}`), fwd = (w.forecast_weather || [])[i];
-        if (col && fwd && fwd.temp != null) {
-          col.style.display = '';
-          setTxt(`fcast-heading-${i + 1}`, fwd.day_name || '--');
-          const ic = el(`fcast-icon-${i + 1}`); if (ic) { ic.className = fwd.icon_class; setWeatherIconColor(ic, fwd.desc); }
-          setTxt(`fcast-temp-${i + 1}`, fwd.temp.toFixed(0) + '°C');
-          setTxt(`fcast-desc-${i + 1}`, fwd.desc || ''); setTxt(`fcast-extra-${i + 1}`, fwd.extra || '');
-        } else if (col) col.style.display = 'none';
-      }
-    }
-
-    const clockEl = el('forecast-clock');
-    if (clockEl) {
-      const cKey = id || '_default';
-      if (clockIntervals[cKey]) clearInterval(clockIntervals[cKey]);
-      const tick = () => { clockEl.textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
-      tick(); clockIntervals[cKey] = setInterval(tick, 1000);
-    }
-
-    const canvasId = id ? `pv-sparkline-${id}` : 'pv-sparkline';
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) continue;
-
-    const sparkContainer = canvas.parentElement;
-    if (sparkContainer) {
-      const rect = sparkContainer.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        canvas.width = rect.width * (window.devicePixelRatio || 1);
-        canvas.height = rect.height * (window.devicePixelRatio || 1);
-      }
-    }
-
-    if (!sparklineCharts[canvasId]) {
-      sparklineCharts[canvasId] = new Chart(canvas.getContext('2d'), {
-        type: 'line', data: { datasets: [] },
-        options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0 } }, scales: { x: { type: 'time', time: { unit: 'hour', displayFormats: { hour: 'HH' } }, grid: { display: false } }, y: { beginAtZero: true, max: 1 } }, plugins: { tooltip: { enabled: false }, legend: { display: true } } }
-      });
-    }
-    const sc = sparklineCharts[canvasId];
-
-    let actualField = 'solar_kw';
-    try { const mm = JSON.parse(banner.dataset.metricMap); if (mm.actual_energy) actualField = mm.actual_energy; } catch (e) {}
-    const pointsForToday = historyData.filter(d => { const dt = new Date(d.timestamp); return dt.toLocaleDateString('en-CA') === todayDate && dt.getHours() >= 6 && dt.getHours() <= 20; });
-    const actualData = computeActualCurve(pointsForToday, actualField, now);
-    let fh = (data.hourly || []).filter(h => { const d = new Date(h.period_end); return d.toLocaleDateString('en-CA') === todayDate && d.getHours() >= 7 && d.getHours() <= 19; }).map(h => ({ x: new Date(h.period_end).getTime(), y: h.pv_estimate }));
-    if (!fh.length || fh[0].x > sevenAM) fh.unshift({ x: sevenAM, y: 0 });
-    fh.sort((a, b) => a.x - b.x);
-
-    sc.data.datasets = [{ label: 'Actual', data: actualData, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [] }, { label: 'Forecast', data: fh, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [5, 5] }];
-    sc.update();
-    const ca = sc.chartArea;
-    if (ca && sc.data.datasets[0].data.length > 0) {
-      const ctx = sc.ctx, grad = ctx.createLinearGradient(0, ca.bottom, 0, ca.top), hx = actualColor;
-      const r = parseInt(hx.slice(1, 3), 16), g = parseInt(hx.slice(3, 5), 16), b = parseInt(hx.slice(5, 7), 16);
-      grad.addColorStop(0, `rgba(${r},${g},${b},0.1)`); grad.addColorStop(0.5, `rgba(${r},${g},${b},0.3)`); grad.addColorStop(1, `rgba(${r},${g},${b},0.5)`);
-      sc.data.datasets[0].backgroundColor = grad; sc.update();
-    }
-    sc.options.scales.x.min = sevenAM;
-    sc.options.scales.x.max = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0, 0).getTime();
-    sc.options.scales.y.max = systemCapacityKwp || undefined;
-    sc.options.scales.x.ticks.color = isDark ? '#f8fafc' : '#0f172a';
-    sc.options.scales.y.ticks.color = isDark ? '#f8fafc' : '#0f172a';
-    sc.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#0f172a';
-    sc.update();
+  let historyData = null;
+  if (cards.some(c => c.querySelector('.fc-chart'))) {
+    try { historyData = await (await fetch('/api/history?days=1')).json(); } catch { historyData = []; }
   }
 
-  // Forecast info cards (weather + days, no sparkline)
-  g.infos.forEach(card => {
-    const id = card.dataset.blockId || '';
-    card.style.display = 'block';
-    const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
-    const setTxt = (s, v) => { const e = el(s); if (e) e.textContent = v || ''; };
-    setTxt('fi-date', now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }));
-    const clockEl = el('fi-clock');
-    if (clockEl) { clockEl.textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
-    const remainingTodayKwh = (data.hourly || [])
-      .filter(h => new Date(h.period_end).getTime() > Date.now() && new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
-      .reduce((sum, h) => sum + (h.pv_estimate || 0), 0);
-    setTxt('fi-today-value', remainingTodayKwh.toFixed(1) + ' kWh');
-    setTxt('fi-today-remaining', 'remaining');
-    if (tomorrow) { setTxt('fi-day1-label', getDayName(tomorrow.date)); setTxt('fi-tomorrow', tomorrow.total_kwh.toFixed(1) + ' kWh'); }
-    if (nextDay) { setTxt('fi-day2-label', getDayName(nextDay.date)); setTxt('fi-nextday', nextDay.total_kwh.toFixed(1) + ' kWh'); }
-    if (data.weather) {
-      const w = data.weather;
-      const wi = el('fi-weather-i'); if (wi) { wi.className = w.icon_class || 'fi fi-sr-sun'; setWeatherIconColor(wi, w.desc); }
-      setTxt('fi-weather-temp', w.temp != null ? w.temp.toFixed(0) + '°C' : '--°');
-      setTxt('fi-weather-desc', w.desc || ''); setTxt('fi-weather-extra', w.extra || '');
-      for (let i = 0; i < 2; i++) {
-        const col = el(`fi-weather-${i + 1}`), fwd = (w.forecast_weather || [])[i];
-        if (col && fwd && fwd.temp != null) {
-          col.style.display = '';
-          setTxt(`fi-fcast-heading-${i + 1}`, fwd.day_name || '--');
-          const ic = el(`fi-fcast-icon-${i + 1}`); if (ic) { ic.className = fwd.icon_class; setWeatherIconColor(ic, fwd.desc); }
-          setTxt(`fi-fcast-temp-${i + 1}`, fwd.temp.toFixed(0) + '°C');
-          setTxt(`fi-fcast-desc-${i + 1}`, fwd.desc || ''); setTxt(`fi-fcast-extra-${i + 1}`, fwd.extra || '');
-        } else if (col) col.style.display = 'none';
+  for (let i = 0; i < entries.length; i++) {
+    const g = entries[i];
+    const data = results[i];
+    const label = sourceLabelFor(data, g.src);
+    const failed = !data || data.error || !Array.isArray(data.daily);
+
+    for (const { el: card, cfg } of g.cards) {
+      const srcEl = card.querySelector('.fc-source');
+      if (srcEl) srcEl.textContent = [label, data?.weather?.stale ? 'weather stale' : ''].filter(Boolean).join(' · ');
+      startClock(card);
+      // Until a card has rendered once, a failure shows only the message.
+      card.classList.toggle('fc-failed', !!failed && !card._fcRendered);
+      if (failed) {
+        const lastGood = lastGoodBySource[g.src];
+        setCardError(card, `Source ${label || g.src} unavailable${lastGood ? ` — last good ${lastGood}` : ''}${data && typeof data.error === 'string' ? ` (${data.error})` : ''}`);
+        continue;
+      }
+      setCardError(card, '');
+      try {
+        if (card.querySelector('.fc-today')) renderSummary(card, data, cfg);
+        if (card.querySelector('.fc-chart')) await renderChart(card, data, historyData);
+        card._fcRendered = true;
+      } catch (e) {
+        console.error('Forecast card render error:', e);
+        setCardError(card, `Could not render forecast from ${label || g.src}`);
       }
     }
-  });
+    if (!failed) lastGoodBySource[g.src] = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-  // Forecast sparkline cards (graph only) — identical logic to banner sparkline above
-  for (const card of g.sparks) {
-    const id = card.dataset.blockId || '';
-    const canvasId = id ? `fc-sparkline-${id}` : 'fc-sparkline';
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) continue;
-
-    const sparkContainer = canvas.parentElement;
-    if (sparkContainer) {
-      const rect = sparkContainer.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        canvas.width = rect.width * (window.devicePixelRatio || 1);
-        canvas.height = rect.height * (window.devicePixelRatio || 1);
-      }
+    if (g.pvs.length) {
+      const pvEls = g.pvs.map(p => p.el);
+      if (failed) updatePvToday({ error: true, source: g.src, source_label: label }, pvEls, lastGoodBySource[g.src] || '');
+      else updatePvToday(data, pvEls);
     }
-
-    if (!sparklineCharts[canvasId]) {
-      sparklineCharts[canvasId] = new Chart(canvas.getContext('2d'), {
-        type: 'line', data: { datasets: [] },
-        options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 0 } }, scales: { x: { type: 'time', time: { unit: 'hour', displayFormats: { hour: 'HH' } }, grid: { display: false } }, y: { beginAtZero: true, max: 1 } }, plugins: { tooltip: { enabled: false }, legend: { display: true } } }
-      });
-    }
-    const sc = sparklineCharts[canvasId];
-
-    let sField = 'solar_kw';
-    try { const mm = JSON.parse(card.dataset.metricMap); if (mm.actual_energy) sField = mm.actual_energy; } catch (e) {}
-
-    const pts = historyData.filter(d => { const dt = new Date(d.timestamp); return dt.toLocaleDateString('en-CA') === todayDate && dt.getHours() >= 6 && dt.getHours() <= 20; });
-    const sActual = computeActualCurve(pts, sField, now);
-
-    let fh2 = (data.hourly || []).filter(h => { const d = new Date(h.period_end); return d.toLocaleDateString('en-CA') === todayDate && d.getHours() >= 7 && d.getHours() <= 19; }).map(h => ({ x: new Date(h.period_end).getTime(), y: h.pv_estimate }));
-    if (!fh2.length || fh2[0].x > sevenAM) fh2.unshift({ x: sevenAM, y: 0 });
-    fh2.sort((a, b) => a.x - b.x);
-
-    sc.data.datasets = [{ label: 'Actual', data: sActual, borderColor: actualColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: true, borderDash: [] }, { label: 'Forecast', data: fh2, borderColor: forecastColor, backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false, borderDash: [5, 5] }];
-    sc.update();
-
-    const ca = sc.chartArea;
-    if (ca && sc.data.datasets[0].data.length > 0) {
-      const ctx = sc.ctx, grad = ctx.createLinearGradient(0, ca.bottom, 0, ca.top), hx = actualColor;
-      const r = parseInt(hx.slice(1, 3), 16), g = parseInt(hx.slice(3, 5), 16), b = parseInt(hx.slice(5, 7), 16);
-      grad.addColorStop(0, `rgba(${r},${g},${b},0.1)`); grad.addColorStop(0.5, `rgba(${r},${g},${b},0.3)`); grad.addColorStop(1, `rgba(${r},${g},${b},0.5)`);
-      sc.data.datasets[0].backgroundColor = grad; sc.update();
-    }
-    sc.options.scales.x.min = sevenAM;
-    sc.options.scales.x.max = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0, 0).getTime();
-    sc.options.scales.y.max = systemCapacityKwp || undefined;
-    sc.options.scales.x.ticks.color = isDark ? '#f8fafc' : '#0f172a';
-    sc.options.scales.y.ticks.color = isDark ? '#f8fafc' : '#0f172a';
-    sc.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#0f172a';
-    sc.update();
   }
-
-  // PV Today cards — thread this group's data into only this group's cards
-  if (g.pvs.length) {
-    updatePvToday(data, g.pvs);
-  }
-  } // end per-source group loop
 }
 
-/** Shared actual-curve computation used by both banner and standalone sparklines. */
-function computeActualCurve(pointsForToday, actualField, now) {
-  const intervals = []; for (let h = 7; h <= 19; h += 0.5) intervals.push(new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60, 0).getTime());
-  const hasInstantKw = pointsForToday.some(d => (d[actualField] || 0) > 0);
-  if (hasInstantKw) {
-    const bins = {}; pointsForToday.forEach(p => { const d = new Date(p.timestamp), bm = Math.floor(d.getMinutes() / 30) * 30, bt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), bm, 0).getTime(); if (!bins[bt]) bins[bt] = []; bins[bt].push(p[actualField] || 0); });
-    return intervals.map(ts => { const vals = bins[ts] || []; if (!vals.length) return null; return { x: ts, y: vals.reduce((a, b) => a + b, 0) / vals.length }; }).filter(p => p !== null && p.x <= now.getTime());
-  }
-  // Derive hourly kW from daily_solar kWh increments
-  const dailySolarPoints = pointsForToday.filter(d => d.daily_solar != null).sort((a, b) => a.timestamp - b.timestamp);
-  if (dailySolarPoints.length >= 1 && dailySolarPoints[0].daily_solar > 0) {
-    const sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
-    dailySolarPoints.unshift({ timestamp: Math.floor(sunrise.getTime() / 1000), daily_solar: 0 });
-  }
-  if (dailySolarPoints.length >= 2) {
+/**
+ * Actual PV curve (kW) in 30-min buckets across the chart window, from
+ * /api/history rows: instantaneous kW when present, else derived from the
+ * daily_solar kWh counter.
+ */
+function computeActualCurve(points, actualField, start, end) {
+  const nowMs = Date.now();
+  const intervals = [];
+  for (let t = start; t <= Math.min(end, nowMs); t += 1800000) intervals.push(t);
+  const hasInstant = points.some(d => (d[actualField] || 0) > 0);
+  if (hasInstant) {
+    const bins = {};
+    for (const p of points) {
+      const bt = Math.floor(new Date(p.timestamp).getTime() / 1800000) * 1800000;
+      (bins[bt] = bins[bt] || []).push(Number(p[actualField]) || 0);
+    }
     return intervals.map(ts => {
-      const t = ts / 1000;
-      let prev = null; for (let i = dailySolarPoints.length - 1; i >= 0; i--) { if (dailySolarPoints[i].timestamp / 1000 <= t) { prev = dailySolarPoints[i]; break; } }
-      const next = dailySolarPoints.find(p => p.timestamp / 1000 > t);
-      if (!prev || !next) return null;
-      const dtHours = (next.timestamp / 1000 - prev.timestamp / 1000) / 3600;
-      if (dtHours <= 0) return null;
-      return { x: ts, y: Math.max(0, ((next.daily_solar - prev.daily_solar) / dtHours) || 0) };
-    }).filter(p => p !== null && p.x <= now.getTime());
+      const vals = bins[ts];
+      return vals && vals.length ? { x: ts + 900000, y: vals.reduce((a, b) => a + b, 0) / vals.length } : null;
+    }).filter(Boolean);
   }
-  return [];
+  const counter = points.filter(d => d.daily_solar != null)
+    .map(d => ({ t: new Date(d.timestamp).getTime(), kwh: Number(d.daily_solar) }))
+    .sort((a, b) => a.t - b.t);
+  if (counter.length && counter[0].kwh > 0) counter.unshift({ t: start, kwh: 0 });
+  if (counter.length < 2) return [];
+  return intervals.map(ts => {
+    const mid = ts + 900000;
+    let prev = null;
+    for (let i = counter.length - 1; i >= 0; i--) if (counter[i].t <= mid) { prev = counter[i]; break; }
+    const next = counter.find(c => c.t > mid);
+    if (!prev || !next || next.t <= prev.t) return null;
+    return { x: mid, y: Math.max(0, (next.kwh - prev.kwh) / ((next.t - prev.t) / 3600000)) };
+  }).filter(Boolean);
 }
