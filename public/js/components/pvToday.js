@@ -3,6 +3,8 @@
  */
 import { escapeHtml } from '../utils.js';
 import { uid } from '../utils/uid.js';
+import { ensureChartJS } from '../chartLoader.js';
+import { iconHtml, iconForCode, localDate } from '../weatherFormat.js';
 
 const pvTodayCharts = {};
 const pvTodayObservers = {};
@@ -96,7 +98,8 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     forecastData ? `daily:${forecastData.daily?.length} hourly:${forecastData.hourly?.length} error:${forecastData.error}` : 'no forecastData');
 
   const now = new Date();
-  const todayDate = now.toLocaleDateString('en-CA');
+  const todayDate = localDate(now);
+  const win = pvWindow(forecastData && forecastData.weather);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   DEBUG_PVTODAY && console.log('[pvToday] todayDate:', todayDate, 'systemCapacityKwp:', window.systemCapacityKwp, 'Chart loaded:', typeof Chart !== 'undefined');
 
@@ -109,8 +112,16 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     totalForecastKwh = today.total_kwh || 0;
     DEBUG_PVTODAY && console.log('[pvToday] today index:', ti, 'total_kwh:', totalForecastKwh, 'actual_so_far:', today.actual_so_far);
     todayHourly = (forecastData.hourly || [])
-      .filter(h => new Date(h.period_end).toLocaleDateString('en-CA') === todayDate)
-      .map(h => ({ x: new Date(h.period_end).getTime(), pv: h.pv_estimate || 0, cloud: h.cloud_cover != null ? h.cloud_cover : null }));
+      .filter(h => localDate(new Date(h.period_end)) === todayDate)
+      .map(h => ({
+        x: new Date(h.period_end).getTime(),
+        pv: h.pv_estimate || 0,
+        // kWh in this period (Solcast periods are 30 min; energy_kwh from the backend)
+        kwh: h.energy_kwh != null ? h.energy_kwh : (h.pv_estimate || 0),
+        cloud: h.cloud_cover != null ? h.cloud_cover : null,
+        code: h.weather_code != null ? h.weather_code : null,
+        isDay: h.is_day
+      }));
     DEBUG_PVTODAY && console.log('[pvToday] todayHourly entries:', todayHourly.length, 'sample:', todayHourly.slice(0,3));
   }
 
@@ -171,7 +182,7 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     const nowMs = Date.now();
     const remKwh = todayHourly
       .filter(h => h.x > nowMs)
-      .reduce((sum, h) => sum + (h.pv || 0), 0);
+      .reduce((sum, h) => sum + (h.kwh || 0), 0);
     const progPct = totalForecastKwh > 0 ? Math.min(100, (actualKwh / Math.max(totalForecastKwh, actualKwh + remKwh)) * 100) : 0;
     DEBUG_PVTODAY && console.log('[pvToday] actualKwh:', actualKwh.toFixed(2), 'remKwh:', remKwh.toFixed(2), 'progPct:', progPct.toFixed(1));
 
@@ -183,7 +194,7 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     if (fillEl) fillEl.style.width = progPct + '%';
 
     // Weather timeline strip
-    renderTimeline(el('pvt-icons'), el('pvt-timeline-bar'), todayHourly, now);
+    renderTimeline(el('pvt-icons'), el('pvt-timeline-bar'), todayHourly, win);
 
     // Chart — sized by CSS + Chart.js responsive; resize handled by observer in builder
     if (!canvas) continue;
@@ -197,7 +208,7 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     DEBUG_PVTODAY && console.log('[pvToday] chart datasets — generated:', generatedByHour.length, 'predicted:', predictedByHour.length, 'cloud:', cloudByHour.length, 'hasInstantW:', hasInstantW);
     if (generatedByHour.length) DEBUG_PVTODAY && console.log('[pvToday] generated sample:', generatedByHour.slice(0, 3));
 
-    if (typeof Chart === 'undefined') { DEBUG_PVTODAY && console.error('[pvToday] Chart.js not loaded!'); continue; }
+    try { await ensureChartJS(); } catch (e) { continue; }
 
     const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim();
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
@@ -232,7 +243,7 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
           interaction: { intersect: false, mode: 'index' },
           plugins: { legend: { display: false }, tooltip: { enabled: false } },
           scales: {
-            x: { type: 'linear', min: getHourTimestamp(7), max: getHourTimestamp(19), ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
+            x: { type: 'linear', min: win.start, max: win.end, ticks: { stepSize: 2 * 3600000, callback: v => new Date(v).getHours(), color: mutedColor, font: { size: 9 } }, grid: { color: gridColor } },
             y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v, color: mutedColor, font: { size: 9 }, maxTicksLimit: 4 }, grid: { color: gridColor } },
             y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { callback: v => (v === 0 || v === 50 || v === 100) ? v : '', color: axisColor, font: { size: 8 } }, grid: { display: false } }
           }
@@ -255,6 +266,8 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     chart.data.datasets[0].data = generatedByHour;
     chart.data.datasets[1].data = predictedByHour;
     chart.data.datasets[2].data = cloudByHour;
+    chart.options.scales.x.min = win.start;
+    chart.options.scales.x.max = win.end;
     chart.options.scales.x.ticks.color = mutedColor;
     chart.options.scales.y.ticks.color = mutedColor;
     chart.options.scales.x.grid.color = gridColor;
@@ -308,21 +321,35 @@ function bucketIntradayByDailySolar(data, now) {
   return result;
 }
 
-function renderTimeline(iconsEl, barEl, hourly, now) {
-  if (!iconsEl || !barEl) { DEBUG_PVTODAY && console.log('[pvToday] renderTimeline skipped — iconsEl:', !!iconsEl, 'barEl:', !!barEl); return; }
-  const slots = [7, 10, 13, 16, 19];
-  const timelineData = slots.map(h => {
-    const t = getHourTimestamp(h);
-    const entry = hourly.reduce((best, cur) => {
-      if (!best || Math.abs(cur.x - t) < Math.abs(best.x - t)) return cur;
-      return best;
-    }, null);
-    return { hour: h, cloud: entry ? entry.cloud : null };
+/** Chart/timeline window: sunrise−1 h … sunset+1 h when known, else 07–19. */
+function pvWindow(w) {
+  const rise = w && w.sunrise ? new Date(w.sunrise) : null;
+  const set = w && w.sunset ? new Date(w.sunset) : null;
+  const ok = rise && set && !isNaN(rise) && !isNaN(set) && localDate(rise) === localDate();
+  return ok
+    ? { start: getHourTimestamp(Math.max(0, rise.getHours() - 1)), end: getHourTimestamp(Math.min(24, set.getHours() + 2)) }
+    : { start: getHourTimestamp(7), end: getHourTimestamp(19) };
+}
+
+/** Cloud-cover % → WMO-like code, for sources (Solcast) without weather codes. */
+function cloudToCode(cloud) {
+  if (cloud == null) return null;
+  return cloud > 85 ? 3 : cloud > 40 ? 2 : cloud > 15 ? 1 : 0;
+}
+
+function renderTimeline(iconsEl, barEl, hourly, win) {
+  if (!iconsEl || !barEl) return;
+  // Five evenly spaced slots across the daylight window.
+  const slots = [0, 0.25, 0.5, 0.75, 1].map(f => win.start + f * (win.end - win.start));
+  const timelineData = slots.map(t => {
+    const entry = hourly.reduce((best, cur) => (!best || Math.abs(cur.x - t) < Math.abs(best.x - t) ? cur : best), null);
+    const code = entry ? (entry.code != null ? entry.code : cloudToCode(entry.cloud)) : null;
+    return { t, cloud: entry ? entry.cloud : null, code, isDay: entry ? entry.isDay : null };
   });
-  DEBUG_PVTODAY && console.log('[pvToday] timelineData:', timelineData, 'hourly count:', hourly.length);
-  // Weather timeline: bars only (emoji icons removed per design spec)
   iconsEl.innerHTML = timelineData.map(d => {
-    return `<span class="pvt-timeline-icon" title="${d.hour}:00"></span>`;
+    const hour = new Date(d.t).getHours();
+    const label = `${String(hour).padStart(2, '0')}:00${d.cloud != null ? ` · cloud ${Math.round(d.cloud)}%` : ''}`;
+    return `<span class="pvt-timeline-icon" title="${label}">${d.code != null ? iconHtml(iconForCode(d.code, d.isDay), d.code, d.isDay) : ''}</span>`;
   }).join('');
   // Read CSS variable colors for cloud coverage bars
   const style = getComputedStyle(document.documentElement);

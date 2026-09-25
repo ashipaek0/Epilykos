@@ -1,4 +1,4 @@
-const { getConfig, queueMetricWrite } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
 const { computeBankAggregates } = require('./bmsAggregator');
 
@@ -13,7 +13,6 @@ async function pollBMS() {
   }
   bmsPollingActive = true;
   try {
-    const db = getDb();
     let devices;
     try {
       devices = JSON.parse(getConfig('bms_devices') || '[]');
@@ -34,7 +33,7 @@ async function pollBMS() {
     for (const device of devices) {
       if (!device.enabled || !device.address) continue;
       try {
-        const res = await fetch(`${BRIDGE_URL}/device/${device.address}`, { signal: AbortSignal.timeout(10000) });
+        const res = await fetch(`${BRIDGE_URL}/device/${encodeURIComponent(device.address)}`, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) {
           logger.warn(`BMS ${device.name} returned ${res.status}`);
           continue;
@@ -48,10 +47,10 @@ async function pollBMS() {
           if (typeof val === 'object' && !Array.isArray(val)) continue;
           // Always store raw metric: bms_<device_name>_<key> (aggregator needs this)
           const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-          saveBmsMetric(db, safeName, val, now);
+          queueMetricValue(safeName, val, now);
           // If device has metric mappings, also publish under the mapped name
           if (hasMappings && mappings[key]) {
-            saveBmsMetric(db, mappings[key], val, now);
+            queueMetricValue(mappings[key], val, now);
           }
         }
         logger.debug(`BMS ${device.name} polled successfully`);
@@ -81,28 +80,13 @@ async function pollBMS() {
   }
 }
 
-function saveBmsMetric(metricName, rawValue, timestamp) {
-  if (rawValue === null || rawValue === undefined) return;
-  if (typeof rawValue === 'object' && !Array.isArray(rawValue)) return;
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    queueMetricWrite({ metric: metricName, value: num, timestamp });
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
-  }
-}
-
 function startBmsPolling() {
   if (bmsPollInterval) clearInterval(bmsPollInterval);
   const intervalSec = parseInt(getConfig('bms_poll_interval')) || 30;
   logger.info(`BMS polling started: interval=${intervalSec}s, stale_threshold=${intervalSec * 2}s`);
-  bmsPollInterval = setInterval(pollBMS, intervalSec * 1000);
-  pollBMS().catch(err => logger.error('BMS initial poll failed:', err.message)); // immediate first run
+  const run = () => pollBMS().catch(err => logger.error(`BMS poll failed: ${err.message}`));
+  bmsPollInterval = setInterval(run, intervalSec * 1000);
+  run(); // immediate first run
 }
 
 function restartBmsPolling() {

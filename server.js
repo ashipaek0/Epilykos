@@ -26,7 +26,8 @@ const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { PollingManager } = require('./services/PollingManager');
-const { initializeDatabase, getConfig, setConfig, getDb, DB_PATH, startMetricAutoFlush, flushSync, flushMetrics, migrateSecretsToEncrypted } = require('./modules/database');
+const { timeZoneName } = require('./modules/localTime');
+const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted } = require('./modules/database');
 
 /**
  * Compute delta between current and previous state objects.
@@ -112,21 +113,17 @@ function computeDelta(current, previous) {
 
 // Export for tests
 module.exports.computeDelta = computeDelta;
-const { isAuthenticated, loginLimiter, csrfProtection, passwordEnvManaged, verifyPassword, setSettingsPassword } = require('./modules/sessionAuth');
-const { pollHomeAssistant, fetchHAEntities, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
+const { isAuthenticated, csrfProtection } = require('./modules/sessionAuth');
+const { fetchHAEntities, haApiUrl, getActionsForEntity, getEntityActions, getEntityModes } = require('./modules/ha');
 const { setupMqtt, restartMqtt, mqttClients } = require('./modules/mqtt');
-const { loadProfiles, pollModbus, testModbusConnection, availableProfiles } = require('./modules/modbus');
-const { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
-const { loadRs232Profiles, pollRs232, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
-const { pollLegacyHistory } = require('./modules/history');
-const { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline } = require('./modules/grid');
-const { computeTodaySolar, getSolarForecast, testForecast, shouldInvalidateForecastCache, clearForecastCache } = require('./modules/solar');
-const { getSavings } = require('./modules/savings');
+const { loadProfiles, testModbusConnection, availableProfiles } = require('./modules/modbus');
+const { fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('./modules/tuya');
+const { loadRs232Profiles, testRs232Connection, getAvailablePorts, shutdownRs232, restartRs232Streaming, availableProfiles: rs232Profiles } = require('./modules/rs232');
+const { testForecast, shouldInvalidateForecastCache, clearForecastCache } = require('./modules/solar');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
-const metricSanity = require('./modules/metricSanity');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
-const { parseGridState, assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp } = require('./modules/utils');
+const { assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp, isValidHostname } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
@@ -380,7 +377,11 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
-// Global rate limiter — 200 requests per 15 min per IP
+// Health probe first: never rate-limited, never logged per request (it is
+// polled every 30 s by Docker/Podman).
+app.use(require('./routes/health').router);
+
+// Global rate limiter — 2000 requests per 15 min per IP
 const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false });
 app.use(globalLimiter);
 
@@ -423,7 +424,8 @@ app.use(session({
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
-const db = getDb();
+// Reassigned by rebindAfterRestore() — a restore reopens the connection.
+let db = getDb();
 loadProfiles();
 loadRs232Profiles();  // RS232 serial inverter profiles
 setupMqtt();
@@ -438,13 +440,14 @@ startSnapshotScheduler();
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
-setInterval(() => {
+const walCheckpointInterval = setInterval(() => {
   try { checkpointWal(); } catch (e) { logger.warn('Periodic WAL checkpoint failed:', e.message); }
 }, 60 * 60 * 1000);
 
 // Multer for restore and import
 const upload = multer({
-  dest: '/tmp/',
+  // os.tmpdir() honours TMPDIR (EpilykosOS points it at a tmpfs).
+  dest: require('os').tmpdir(),
   fileFilter: (req, file, cb) => {
     if (file.originalname.endsWith('.db') || file.originalname.endsWith('.json')) cb(null, true);
     else cb(new Error('Only .db or .json files allowed'));
@@ -583,10 +586,18 @@ pollingManager.on('device-error', ({ sourceId, error }) => {
   logger.warn(`Poll ${sourceId} failed:`, error && error.message ? error.message : error);
 });
 
+let pollCycleRunning = false;
 async function pollAllSources() {
+  // A slow source (serial timeouts, unreachable hosts) can push a cycle past
+  // 30s; never run two cycles concurrently against the same devices.
+  if (pollCycleRunning) {
+    logger.warn('Polling cycle skipped — previous cycle still running');
+    return;
+  }
+  pollCycleRunning = true;
   const start = Date.now();
   logger.debug('Polling cycle started');
-  // BMS polling is independent and runs on its own interval
+  // MQTT, external REST, BMS and dongles run on their own timers/subscriptions
   try {
     await pollingManager.runCycle();
     flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
@@ -598,6 +609,8 @@ async function pollAllSources() {
     logger.info(`Polling cycle completed in ${elapsed}ms`);
   } catch (err) {
     logger.error('Polling error:', err);
+  } finally {
+    pollCycleRunning = false;
   }
 }
 pollAllSources();
@@ -608,7 +621,9 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/api', metricsRouter);
 
 // ---------- Authentication & Setup routes ----------
-app.use('/api', require('./routes/auth'));
+const authRoutes = require('./routes/auth');
+app.use('/api', authRoutes);
+authRoutes.announceSetupCode(); // logs the first-run setup code while setup is pending
 
 // Public page (pre-auth; setup.js gates sources behind login)
 app.get('/setup', (req, res) => {
@@ -772,7 +787,7 @@ app.post('/api/ha/entity-actions', async (req, res) => {
     if (url && token) {
       const [modeData, stateRes] = await Promise.all([
         getEntityModes(url, token, entityIdOk),
-        fetch(`${url}/api/states/${entityIdOk}`, {
+        fetch(haApiUrl(url, 'states/' + entityIdOk), {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: AbortSignal.timeout(5000)
         }).catch(() => null)
@@ -1145,13 +1160,26 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 app.use('/api/backup', isAuthenticated);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
+// A restore closes and reopens the SQLite connection: pick up the new handle
+// and restart the engines that captured the old one.
+function rebindAfterRestore() {
+  try {
+    db = getDb();
+    pvoutput.restart();
+  } catch (e) {
+    logger.error(`Rebinding after restore failed: ${e.message}`);
+  }
+}
+
 app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     await restoreDatabase(req.file.path);
+    rebindAfterRestore();
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
+    rebindAfterRestore(); // the rollback reopened the original database
     logger.error('Restore error:', err);
     res.status(500).json({ error: 'Restore failed, original database restored.' });
   } finally {
@@ -1173,8 +1201,11 @@ app.get('/api/snapshots', (req, res) => {
 app.post('/api/snapshots/restore/:name', async (req, res) => {
   try {
     const result = await restoreFromSnapshot(decodeURIComponent(req.params.name));
+    rebindAfterRestore();
     res.json(result);
   } catch (err) {
+    rebindAfterRestore(); // a failed restore rolls back and reopens the original database
+    logger.error('Snapshot restore error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1201,41 +1232,17 @@ app.post('/api/settings', (req, res) => {
       }
       filteredUpdates[key] = value;
     }
+    const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
+    const saved = [];
     for (const [key, value] of Object.entries(filteredUpdates)) {
       // Reject undefined values; coerce null to empty string
       if (value === undefined) continue;
       const safeValue = value === null ? '' : String(value);
       setConfig(key, safeValue); // encrypt-at-write ($enc1$ passthrough)
+      saved.push(key);
     }
-    if ('mqtt_devices' in filteredUpdates) restartMqtt();
-    if ('external_sources' in filteredUpdates || 'external_poll_interval' in filteredUpdates) restartExternalPolling();
-    if ('bms_devices' in filteredUpdates) {
-      restartBmsPolling();
-      restartBmsWiredPolling();
-    }
-    if ('bms_banks' in filteredUpdates) {
-      // Orphan cleanup: diff old vs new, delete unreferenced bank_* metrics
-      const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
-      const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
-      const newBanks = JSON.parse(filteredUpdates['bms_banks']);
-      cleanupOrphanedBankMetrics(oldBanks, newBanks);
-      // Auto-create bank metrics not yet in the system
-      const { createMetric } = require('./modules/metricsManager');
-      for (const bank of newBanks) {
-        const safeName = bank.name.replace(/[^a-zA-Z0-9_]/g, '_');
-        for (const fn of (bank.functions || [])) {
-          try { createMetric(`bank_${fn.output}`, ''); } catch (_) { /* idempotent */ }
-        }
-        try { createMetric(`bank_${safeName}_devices_online`, ''); } catch (_) {}
-        try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
-      }
-      restartBmsPolling();
-      restartBmsWiredPolling();
-    }
-    if ('dongle_config' in filteredUpdates) restartDonglePolling();
-    if ('pvoutput_config' in filteredUpdates) pvoutput.restart();
-    if ('rs232_devices' in filteredUpdates) restartRs232Streaming();
-    if (shouldInvalidateForecastCache(filteredUpdates)) clearForecastCache();
+    applySourceConfigChanges(saved, oldBanksRaw);
+    if (shouldInvalidateForecastCache(saved)) clearForecastCache();
     logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
@@ -1247,6 +1254,43 @@ app.post('/api/settings', (req, res) => {
 // ── Per-section save API ─────────────────────────────────────────
 
 const sensitivePattern = /_token$|_password$|_secret$/i;
+
+/**
+ * Restart the pollers whose config keys were just saved. For bms_banks, also
+ * delete bank_* metrics the new config no longer produces and pre-create the
+ * ones it does. `oldBanksRaw` must be read BEFORE the save.
+ * @param {string[]} savedKeys
+ * @param {string} oldBanksRaw - previous bms_banks JSON
+ */
+function applySourceConfigChanges(savedKeys, oldBanksRaw) {
+  const has = (k) => savedKeys.includes(k);
+  if (has('mqtt_devices')) restartMqtt();
+  if (has('external_sources') || has('external_poll_interval')) restartExternalPolling();
+  if (has('bms_banks')) {
+    const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
+    const { createMetric } = require('./modules/metricsManager');
+    const parseBanks = (raw) => {
+      try { const v = JSON.parse(raw || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
+    };
+    const newBanks = parseBanks(getConfig('bms_banks'));
+    cleanupOrphanedBankMetrics(parseBanks(oldBanksRaw), newBanks);
+    for (const bank of newBanks) {
+      const safeName = String(bank.name || '').replace(/[^a-zA-Z0-9_]/g, '_');
+      const names = (bank.functions || []).map(fn => `bank_${fn.output}`)
+        .concat([`bank_${safeName}_devices_online`, `bank_${safeName}_last_update`]);
+      for (const name of names) {
+        try { createMetric(name, ''); } catch (_) { /* already exists */ }
+      }
+    }
+  }
+  if (has('bms_devices') || has('bms_banks')) {
+    restartBmsPolling();
+    restartBmsWiredPolling();
+  }
+  if (has('dongle_config')) restartDonglePolling();
+  if (has('pvoutput_config')) pvoutput.restart();
+  if (has('rs232_devices')) restartRs232Streaming();
+}
 
 /**
  * Helper: save a whitelist of config keys from req.body.
@@ -1291,34 +1335,9 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
       'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
       'tuya_devices', 'tuya_cloud', 'setup_probe_cache'
     ];
+    const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
     const { saved } = saveConfigKeys(allowed, req, res);
-
-    if ('mqtt_devices' in req.body) restartMqtt();
-    if ('external_sources' in req.body || 'external_poll_interval' in req.body) restartExternalPolling();
-    if ('bms_devices' in req.body) {
-      restartBmsPolling();
-      restartBmsWiredPolling();
-    }
-    if ('bms_banks' in req.body) {
-      const { cleanupOrphanedBankMetrics } = require('./modules/bmsAggregator');
-      const oldBanks = JSON.parse(getConfig('bms_banks') || '[]');
-      const newBanks = JSON.parse(req.body['bms_banks']);
-      cleanupOrphanedBankMetrics(oldBanks, newBanks);
-      const { createMetric } = require('./modules/metricsManager');
-      for (const bank of newBanks) {
-        const safeName = bank.name.replace(/[^a-zA-Z0-9_]/g, '_');
-        for (const fn of (bank.functions || [])) {
-          try { createMetric(`bank_${fn.output}`, ''); } catch (_) { /* idempotent */ }
-        }
-        try { createMetric(`bank_${safeName}_devices_online`, ''); } catch (_) {}
-        try { createMetric(`bank_${safeName}_last_update`, ''); } catch (_) {}
-      }
-      restartBmsPolling();
-      restartBmsWiredPolling();
-    }
-    if ('dongle_config' in req.body) restartDonglePolling();
-    if ('pvoutput_config' in req.body) pvoutput.restart();
-    if ('rs232_devices' in req.body) restartRs232Streaming();
+    applySourceConfigChanges(saved, oldBanksRaw);
 
     logger.info(`[Settings/data-sources] Saved: ${saved.join(', ')}`);
     res.json({ ok: true, saved });
@@ -1439,22 +1458,61 @@ app.post('/api/settings/backup', isAuthenticated, (req, res) => {
   res.json({ ok: true, saved: [] });
 });
 
-app.post('/api/action', isAuthenticated, async (req, res) => {
-  const { source, device, action, entity, params } = req.body;
-  
-  if (!source || !device || !action) {
-    return res.status(400).json({ success: false, error: 'source, device, and action are required' });
+/**
+ * Resolve the device an action targets. Dashboard switch/state-select cards
+ * only store source + entity, so when `device` is empty it is looked up from
+ * the configured device that maps the entity (HA entity_id, MQTT topic, Tuya
+ * DP name). MQTT clients are keyed by broker URL, so an MQTT device name is
+ * translated to its broker. Returns '' when nothing matches.
+ */
+function resolveActionDevice(source, device, entity) {
+  const list = (key) => {
+    try { const v = JSON.parse(getConfig(key) || '[]'); return Array.isArray(v) ? v.filter(Boolean) : []; } catch (_) { return []; }
+  };
+  const entityIdOf = (m) => (m && typeof m === 'object') ? m.entityId : m;
+  if (source === 'mqtt') {
+    const mqttDevices = list('mqtt_devices').filter(d => d.enabled && d.broker);
+    const byRef = device ? mqttDevices.find(d => d.name === device || d.broker === device) : null;
+    if (byRef) return byRef.broker;
+    if (device) return device;
+    const host = mqttDevices.find(d => Object.values(d.topics || {}).includes(entity));
+    return host ? host.broker : '';
   }
-  
+  if (device || !entity) return device || '';
+  if (source === 'ha') {
+    const host = list('ha_devices').find(d => d.enabled &&
+      Object.entries(d.entities || {}).some(([metric, m]) => entityIdOf(m) === entity || metric === entity));
+    return host ? host.name : '';
+  }
+  if (source === 'tuya') {
+    const host = list('tuya_devices').find(d => d.enabled && d.dps && Object.prototype.hasOwnProperty.call(d.dps, entity));
+    return host ? (host.name || host.dev_id) : '';
+  }
+  return '';
+}
+
+app.post('/api/action', isAuthenticated, async (req, res) => {
+  const { source, action, entity, params } = req.body;
+
+  if (!source || !action) {
+    return res.status(400).json({ success: false, error: 'source and action are required' });
+  }
+  const device = resolveActionDevice(source, req.body.device, entity);
+  if (!device) {
+    return res.status(400).json({ success: false, error: 'device is required (none configured for this entity)' });
+  }
+
+
   try {
     let result;
     switch (source) {
-      case 'ha':
+      case 'ha': {
         const { executeHAAction } = require('./modules/ha');
         // Route form of the spec signature: (deviceId, action, entityId, params);
         // `action` may be a dotted string 'domain.service' or an object {domain, service}.
         result = await executeHAAction(device, action, entity, params || {});
         break;
+      }
       case 'mqtt': {
         const { executeMqttAction } = require('./modules/mqtt');
         // Topic is the entity; payload comes from params.payload or is inferred from the action.
@@ -1464,7 +1522,10 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
           else if (action === 'turn_off') payload = 'OFF';
           else if (action === 'toggle') {
             // Flip the entity's current state; default to 'ON' when unknown.
-            const cur = getCurrentMetrics()[entity]?.value;
+            // The entity is a topic — read the metric that topic feeds.
+            const mqttDevice = JSON.parse(getConfig('mqtt_devices') || '[]').find(d => d && d.broker === device);
+            const metricName = Object.entries(mqttDevice?.topics || {}).find(([, t]) => t === entity)?.[0] || entity;
+            const cur = getCurrentMetrics()[metricName]?.value;
             const isOn = cur === 'on' || cur === 'ON' || cur === 'true' || cur === '1' || cur === 1 || cur === true;
             payload = isOn ? 'OFF' : 'ON';
           } else {
@@ -1498,17 +1559,19 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
         result = await executeTuyaAction(device, dpNumber, actionValue);
         break;
       }
-      case 'modbus':
+      case 'modbus': {
         const { executeModbusAction } = require('./modules/modbus');
         // (deviceName, registerAddr, value, type) — register = entity, type='coil' for coils
         result = await executeModbusAction(device, entity, params?.value, params?.type);
         break;
-      case 'rs232':
+      }
+      case 'rs232': {
         const { executeRs232ProfileAction } = require('./modules/rs232');
         // Profile form (deviceName, commandName, value) — the switch/stateSelect
         // components send action = command name and params.value = value.
         result = await executeRs232ProfileAction(device, action, params?.value);
         break;
+      }
       case 'dongle': {
         const { executeDongleAction } = require('./modules/dongle');
         // (deviceName, registerAddr, value). The entity may be a namespaced id
@@ -1574,13 +1637,11 @@ app.get('/api/bms/test', async (req, res) => {
       const devices = JSON.parse(getConfig('bms_devices') || '[]');
       const device = devices.find(d => d.address === address);
       if (device && device.name) {
-        const db = getDb();
         const now = Math.floor(Date.now() / 1000);
-        const stmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
         for (const [key, val] of Object.entries(data)) {
           if (typeof val !== 'number' || isNaN(val)) continue;
           const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-          stmt.run(safeName, val, now);
+          queueMetricWrite({ metric: safeName, value: val, timestamp: now });
         }
       }
     } catch (storeErr) {
@@ -1991,15 +2052,6 @@ app.post('/api/dongle/test', async (req, res) => {
     if (!/^[0-9a-f]{1,4}$/.test(first)) return false;
     return (parseInt(first, 16) & 0xfe00) === 0xfc00; // ULA fc00::/7
   };
-  const isValidHostname = (value) => {
-    if (value.length > 253) return false;
-    const labels = value.split('.');
-    return labels.every(label =>
-      /^[a-zA-Z0-9-]{1,63}$/.test(label) &&
-      !label.startsWith('-') &&
-      !label.endsWith('-')
-    );
-  };
 
   const ipVersion = net.isIP(rawHost);
   if (ipVersion) {
@@ -2233,41 +2285,37 @@ app.use((req, res, next) => {
 });
 
 // Start HTTP server with WebSocket support
-server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
+server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'}, time zone: ${timeZoneName()})`));
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
 });
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received — shutting down');
-  await shutdownRs232();
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`${signal} received — shutting down`);
   clearInterval(pollInterval);
+  clearInterval(walCheckpointInterval);
+  try { await shutdownRs232(); } catch (e) { logger.warn(`RS232 shutdown failed: ${e.message}`); }
   stopExternalPolling();
   stopBmsPolling();
   stopBmsWiredPolling();
   stopDonglePolling();
   stopSnapshotScheduler();
+  try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
-  wss.close(() => wsClients.clear());
-  try { flushSync(); } catch (e) { logger.warn('SIGTERM metric flush failed:', e.message); }
+  for (const client of wsClients) client.terminate();
+  wsClients.clear();
+  wss.close();
+  server.close();
+  stopMetricAutoFlush();
+  try { flushSync(); } catch (e) { logger.warn(`${signal} metric flush failed: ${e.message}`); }
   db.close();
   logger.info('Shutdown complete');
-});
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received — shutting down');
-  await shutdownRs232();
-  clearInterval(pollInterval);
-  stopExternalPolling();
-  stopBmsPolling();
-  stopBmsWiredPolling();
-  stopDonglePolling();
-  stopSnapshotScheduler();
-  for (const client of mqttClients.values()) client.end(true);
-  mqttClients.clear();
-  wss.close(() => wsClients.clear());
-  try { flushSync(); } catch (e) { logger.warn('SIGINT metric flush failed:', e.message); }
-  db.close();
-  logger.info('Shutdown complete');
-});
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

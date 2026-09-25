@@ -835,23 +835,26 @@ function weatherSourceSelect(cfg) {
   return html;
 }
 
+// Weather card display toggles (all default ON: show everything the source provides).
+var WX_DISPLAY_FIELDS = [['temp', 'Temperature'], ['feels_like', 'Feels Like'], ['humidity', 'Humidity'], ['wind', 'Wind'], ['desc', 'Description'], ['details', 'Rain / UV / Pressure / Cloud'], ['hourly', 'Hourly Strip'], ['sun', 'Sunrise / Sunset']];
+
 /** Weather card display toggles + day count + mini-chart toggles (S3, AC7 AC12). */
 function buildWeatherDisplayForm(cfg) {
   var disp = cfg.display || {};
   var charts = cfg.charts || {};
-  var days = disp.days != null ? parseInt(disp.days, 10) : 2;
-  if (!isFinite(days)) days = 2;
-  days = Math.max(0, Math.min(4, days));
+  var days = disp.days != null ? parseInt(disp.days, 10) : 6;
+  if (!isFinite(days)) days = 6;
+  days = Math.max(0, Math.min(6, days));
   var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
   html += '<legend style="font-weight:600;font-size:0.9rem;">Display</legend>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
-  var fields = [['temp', 'Temperature'], ['feels_like', 'Feels Like'], ['humidity', 'Humidity'], ['wind', 'Wind'], ['desc', 'Description']];
+  var fields = WX_DISPLAY_FIELDS;
   for (var i = 0; i < fields.length; i++) {
     var key = fields[i][0], label = fields[i][1], id = 'modal-wx-show-' + key;
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (disp[key] !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>';
   }
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Forecast Days <input type="number" id="modal-wx-days" min="0" max="4" step="1" value="' + days + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Forecast Days <input type="number" id="modal-wx-days" min="0" max="6" step="1" value="' + days + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   html += '</fieldset>';
   html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
   html += '<legend style="font-weight:600;font-size:0.9rem;">Charts</legend>';
@@ -947,6 +950,11 @@ function buildSimpleForm(block) {
     html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   } else if (block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline') {
     html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    if (block.type !== 'forecast-sparkline') {
+      var fcDays = parseInt(cfg.days, 10);
+      if (!isFinite(fcDays)) fcDays = 3;
+      html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Upcoming days shown <input type="number" id="modal-fc-days" min="1" max="6" step="1" value="' + Math.max(1, Math.min(6, fcDays)) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    }
   } else {
     html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
   }
@@ -1565,19 +1573,23 @@ function readSettingsForm(block) {
           delete config.rest_map;
         }
       }
+      var fcDaysEl = document.getElementById('modal-fc-days');
+      if (fcDaysEl && (type === 'forecast-banner' || type === 'forecast-info')) {
+        var fd = parseInt(fcDaysEl.value, 10);
+        config.days = isFinite(fd) ? Math.max(1, Math.min(6, fd)) : 3;
+      }
       // S3: weather-block display/charts/alerts, validated.
       if (type === 'weather-block') {
         var disp = {};
-        var dkeys = ['temp', 'feels_like', 'humidity', 'wind', 'desc'];
-        for (var di = 0; di < dkeys.length; di++) {
-          var dk = dkeys[di];
+        for (var di = 0; di < WX_DISPLAY_FIELDS.length; di++) {
+          var dk = WX_DISPLAY_FIELDS[di][0];
           var dcb = document.getElementById('modal-wx-show-' + dk);
           disp[dk] = dcb ? !!dcb.checked : true;
         }
         var daysEl = document.getElementById('modal-wx-days');
-        var wdays = daysEl ? parseInt(daysEl.value, 10) : 2;
-        if (!isFinite(wdays)) wdays = 2;
-        disp.days = Math.max(0, Math.min(4, wdays));
+        var wdays = daysEl ? parseInt(daysEl.value, 10) : 6;
+        if (!isFinite(wdays)) wdays = 6;
+        disp.days = Math.max(0, Math.min(6, wdays));
         config.display = disp;
         var ghiEl = document.getElementById('modal-wx-chart-ghi');
         var tmpEl = document.getElementById('modal-wx-chart-temp');
@@ -1627,7 +1639,7 @@ function refreshGridItem(block) {
       var isForecastBlock = block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline' || block.type === 'weather-block';
       if (isForecastBlock) {
         content.style.display = '';
-        if (!content.querySelector('.pv-days, .weather-section, .pv-sparkline-container, canvas')) {
+        if (!content.querySelector('.fc-body, .wx-body, canvas')) {
           content.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:0.9rem;gap:0.5rem;">☀️ ' + (block.type === 'forecast-banner' ? 'Solar Forecast Banner' : block.type === 'forecast-info' ? 'Solar Forecast Info' : 'Solar Forecast Sparkline') + '</div>';
         }
       }
@@ -1784,12 +1796,9 @@ function buildGridItem(block) {
   var isForecastBlock = block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline' || block.type === 'weather-block';
   if (isForecastBlock) {
     content.style.display = '';
-    if (content.querySelector('.pv-days, .weather-section, .pv-sparkline-container, canvas')) {
+    if (content.querySelector('.fc-body, .wx-body, canvas')) {
       // Has real content structure — just make visible with placeholder data
-      var pvValues = content.querySelectorAll('.pv-day-value, .fi-today-value');
-      pvValues.forEach(function(el) { if (el && (el.textContent === '0 kWh' || el.textContent === '--')) el.textContent = '-- kWh'; });
-      var weatherTemps = content.querySelectorAll('.weather-temp, .fi-weather-temp');
-      weatherTemps.forEach(function(el) { if (el && el.textContent === '--°') el.textContent = '25°C'; });
+      // Real structure with '--' placeholders; live data arrives on the dashboard.
     } else {
       // Empty/minimal content — show a stub
       content.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary, #94a3b8);font-size:0.9rem;gap:0.5rem;">☀️ ' + (block.type === 'forecast-banner' ? 'Solar Forecast Banner' : block.type === 'forecast-info' ? 'Solar Forecast Info' : 'Solar Forecast Sparkline') + '</div>';

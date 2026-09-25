@@ -19,8 +19,9 @@
  * @module grid
  */
 const { logger } = require('./logger');
-const { getConfig, getDb } = require('./database');
+const { getConfig, getDb, flushMetrics } = require('./database');
 const { parseGridState } = require('./utils');
+const { haApiUrl } = require('./ha');
 
 // Rate-limit unresolvable-state warnings per entity (poller runs every 30s; don't flood logs)
 const lastUnresolvableWarns = new Map(); // gridMetric -> last warn timestamp
@@ -41,6 +42,7 @@ function warnRateLimited(key, message) {
  * @returns {number|null} 0/1 or null when the row is missing/unresolvable.
  */
 function readLatestGridState(gridMetric) {
+  flushMetrics(); // read-your-write: pollers queue their writes
   const db = getDb();
   const row = db.prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(gridMetric);
   if (!row) return null;
@@ -68,12 +70,15 @@ function resolveGridEntityHost(gridMetric) {
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
   for (const device of haDevices) {
     if (!device.enabled || !device.url || !device.token) continue;
+    // Mapping values are either an entity_id string or { entityId, actions }.
+    const entityIdOf = (mapping) => (mapping && typeof mapping === 'object') ? mapping.entityId : mapping;
     const entities = device.entities || {};
     // Metric-name key match (config holds a metric name like 'Grid Status')
-    if (entities[gridMetric]) return { device, entityId: entities[gridMetric] };
+    const byKey = entityIdOf(entities[gridMetric]);
+    if (byKey) return { device, entityId: byKey };
     // Entity-id value match (config holds the entity_id itself)
-    for (const [metric, entityId] of Object.entries(entities)) {
-      if (entityId === gridMetric) return { device, entityId };
+    for (const mapping of Object.values(entities)) {
+      if (entityIdOf(mapping) === gridMetric) return { device, entityId: gridMetric };
     }
   }
   return null;
@@ -92,7 +97,7 @@ async function fetchGridStateFromHA(gridMetric) {
   }
   const { device, entityId } = host;
   try {
-    const res = await fetch(`${device.url}/api/states/${entityId}`, {
+    const res = await fetch(haApiUrl(device.url, 'states/' + entityId), {
       headers: { 'Authorization': `Bearer ${device.token}` },
       signal: AbortSignal.timeout(5000)
     });

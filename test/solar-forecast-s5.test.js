@@ -51,6 +51,7 @@ require.cache[dbId] = {
   id: dbId, filename: dbId, loaded: true,
   exports: {
     getConfig: (k) => cfg[k],
+    flushMetrics: () => 0,
     getDb: () => ({
       prepare: () => ({
         all: () => metricRows,

@@ -1,17 +1,12 @@
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
-const { DelimiterParser } = require('@serialport/parser-delimiter');
 const fs = require('fs');
 const path = require('path');
-const { getConfig, getDb } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
 const { buildModbusReadRequest, buildPollRanges, parseModbusReadResponse, frameByteCount } = require('./modbus-frame');
 
 let availableProfiles = [];
-let metricInsertStmt = null;
-let latestUpsertStmt = null;
-let metricInsertTextStmt = null;
-let latestUpsertTextStmt = null;
 
 // Streaming connections: device_name → { port, parser, device, profile }
 const streamingConnections = new Map();
@@ -26,59 +21,6 @@ const MODBUS_RT_TIMEOUT_MS = 5000;
 
 // Global poll cycle counter for throttling
 let pollCycleCounter = 0;
-
-// ── DB Helpers (matches modbus.js pattern) ──────────────────────────────
-
-function getMetricInsert() {
-  if (!metricInsertStmt) {
-    const db = getDb();
-    metricInsertStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  }
-  return metricInsertStmt;
-}
-
-function getLatestUpsert() {
-  if (!latestUpsertStmt) {
-    const db = getDb();
-    latestUpsertStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
-  }
-  return latestUpsertStmt;
-}
-
-function getMetricInsertText() {
-  if (!metricInsertTextStmt) {
-    const db = getDb();
-    metricInsertTextStmt = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
-  }
-  return metricInsertTextStmt;
-}
-
-function getLatestUpsertText() {
-  if (!latestUpsertTextStmt) {
-    const db = getDb();
-    latestUpsertTextStmt = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
-  }
-  return latestUpsertTextStmt;
-}
-
-function saveMetric(metricName, rawValue, timestamp) {
-  if (rawValue === null || rawValue === undefined) return;
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    getLatestUpsert().run(metricName, num, timestamp);
-    getMetricInsert().run(timestamp, metricName, num);
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    getLatestUpsertText().run(metricName, displayVal, type, timestamp);
-    getMetricInsertText().run(timestamp, metricName, displayVal, type);
-  }
-}
-
-// ── Profile Loading ─────────────────────────────────────────────────────
 
 function loadRs232Profiles() {
   const profilesDir = path.join(__dirname, '../profiles/rs232');
@@ -396,7 +338,7 @@ async function pollQueryDevice(device, profile) {
     // Write to database — use type detection
     const now = Math.floor(Date.now() / 1000);
     for (const [metric, value] of Object.entries(results)) {
-      saveMetric(metric, value, now);
+      queueMetricValue(metric, value, now);
     }
     logger.info(`RS232 poll ${device.name}: ${Object.keys(results).length} metrics`);
   } finally {
@@ -521,7 +463,7 @@ async function pollModbusRtuDevice(device, profile) {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    for (const [name, val] of Object.entries(metrics)) saveMetric(name, val, now);
+    for (const [name, val] of Object.entries(metrics)) queueMetricValue(name, val, now);
     logger.info(`RS232 Modbus-RTU poll ${device.name}: ${Object.keys(metrics).length} metrics`);
   } finally {
     await closeSerialPort(port);
@@ -561,7 +503,7 @@ function setupStreamingConnection(device, profile) {
       if (Object.keys(metrics).length > 0) {
         const now = Math.floor(Date.now() / 1000);
         for (const [metric, val] of Object.entries(metrics)) {
-          saveMetric(metric, val, now);
+          queueMetricValue(metric, val, now);
         }
       }
       currentFrame = {};
@@ -727,7 +669,7 @@ async function getAvailablePorts() {
 
 async function shutdownRs232() {
   logger.info('RS232 shutdown: closing all streaming connections');
-  for (const [name, conn] of streamingConnections) {
+  for (const conn of streamingConnections.values()) {
     try { conn.port.close(); } catch (e) { /* ignore */ }
   }
   streamingConnections.clear();

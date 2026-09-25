@@ -5,7 +5,7 @@
  * Run:  node test/bar-bands.test.js   (also picked up by `npm test`)
  *
  * Loads the real public/js/components/barCardLogic.js source as a `data:` URL
- * ES module (same pattern as tests/text-metric-card.test.js — the module has
+ * ES module (same pattern as test/text-metric-card.test.js — the module has
  * ZERO imports so this resolves with nothing installed).
  */
 'use strict';

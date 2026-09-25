@@ -40,22 +40,6 @@ function parseGridState(state, warnKey, warnFn) {
 }
 
 /**
- * Check if an IP address is private or local.
- * @param {string} ip - IP string (v4 or v6)
- * @returns {boolean}
- */
-function isPrivateOrLocalIp(ip) {
-  if (ip === '127.0.0.1' || ip === '::1') return true;
-  if (ip.startsWith('10.')) return true;
-  if (ip.startsWith('192.168.')) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
-  if (ip.startsWith('169.254.')) return true;
-  if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
-  if (ip.startsWith('fe80:')) return true;
-  return false;
-}
-
-/**
  * Split an IPv6 literal into eight 16-bit groups (handles '::' compression and
  * embedded dotted-quad IPv4 like ::ffff:127.0.0.1). Returns null if malformed.
  * @param {string} ip
@@ -167,8 +151,11 @@ async function assertSafeFetchUrl(url, opts) {
   for (const a of addrs) {
     if (isBlockedIp(a.address, allowPrivate)) return { ok: false, error: 'Host not allowed' };
   }
-  // Pin connection to the verified IP to prevent DNS rebinding TOCTOU
   const safeIp = addrs[0].address;
+  // https: keep the hostname — certificate validation needs it, and it already
+  // defeats a DNS-rebinding swap (the rebound host cannot present a valid cert).
+  if (u.protocol === 'https:') return { ok: true, url: u.toString(), resolvedIp: safeIp };
+  // http: pin the connection to the verified IP to prevent DNS rebinding TOCTOU
   const ipFormatted = net.isIP(safeIp) === 6 ? `[${safeIp}]` : safeIp;
   const pinnedUrl = new URL(u.toString());
   pinnedUrl.hostname = ipFormatted;
@@ -205,4 +192,4 @@ function isValidHostname(value) {
   );
 }
 
-module.exports = { parseGridState, isPrivateOrLocalIp, isBlockedIp, isValidHostname, assertSafeFetchUrl, assertSafeBrokerUrl, warnParseRateLimited };
+module.exports = { parseGridState, isBlockedIp, isValidHostname, assertSafeFetchUrl, assertSafeBrokerUrl, warnParseRateLimited };

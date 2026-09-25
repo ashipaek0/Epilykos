@@ -29,9 +29,8 @@
 const { getConfig, setConfig } = require('./database');
 const { logger } = require('./logger');
 const { warnParseRateLimited } = require('./utils');
+const { localDateString } = require('./localTime');
 
-// Container-local timezone (docker-compose.yaml: TZ=Africa/Lagos, UTC+1, no DST).
-const TZ = 'Africa/Lagos';
 
 const STATE_CONFIG_KEY = 'metric_sanity_state';
 
@@ -413,20 +412,11 @@ function maxStepFor(name) {
   return DEFAULTS.maxStepDefault;
 }
 
-// ── Local day (Africa/Lagos) ─────────────────────────────────────────────
+// ── Local day (process time zone: TZ env or host /etc/localtime) ─────────
 
 function localDay(tsSeconds) {
   const d = new Date(Number(tsSeconds) * 1000);
-  try {
-    const parts = Object.fromEntries(
-      new Intl.DateTimeFormat('en-GB', {
-        timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit'
-      }).formatToParts(d).map(p => [p.type, p.value])
-    );
-    return `${parts.year}-${parts.month}-${parts.day}`;
-  } catch (_) {
-    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-  }
+  return isNaN(d.getTime()) ? null : localDateString(d);
 }
 
 function nowSeconds(ts) {
@@ -633,6 +623,5 @@ module.exports = {
   _reset,
   _test,
   DEFAULTS,
-  EPS_KWH,
-  TZ
+  EPS_KWH
 };

@@ -1,4 +1,3 @@
-const { logger } = require('./logger');
 const { getDb, flushMetrics } = require('./database');
 
 function getCurrentMetrics() {

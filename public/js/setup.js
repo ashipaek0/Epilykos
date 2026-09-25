@@ -111,7 +111,7 @@
     completed: false,
     busy: false,
     existing: null,
-    password: { current: '', newPw: '', confirmPw: '' },
+    password: { newPw: '', confirmPw: '', setupCode: '', envPw: '' },
     sources: {
       ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
       mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
@@ -460,28 +460,32 @@
   function renderStep1() {
     var body = $('#step-1-body');
     var envManaged = state.status && state.status.passwordEnvManaged;
-    state.password.current = '';
     state.password.newPw = '';
     state.password.confirmPw = '';
+    state.password.setupCode = '';
+    state.password.envPw = '';
 
     var html = '<div class="card">'
       + '<div class="card-header"><span class="card-title">🔑 Admin password</span></div>';
 
     if (envManaged) {
-      // Env-managed: replace the default intro, hide manual password fields,
-      // keep the Next/continue control enabled.
-      html += '<div class="alert alert-info">Password has been set via environment variable server-side. Click next to continue.</div>';
+      if (state.authGated) {
+        // Prove the server-side password before the wizard unlocks.
+        html += '<div class="alert alert-info">The admin password is set by the SETTINGS_PASSWORD environment variable. Enter it to continue.</div>'
+          + '<div class="form-group"><label>SETTINGS_PASSWORD</label>'
+          + '<input class="input" type="password" id="pw-env" data-field="password.envPw" autocomplete="current-password"></div>';
+      } else {
+        html += '<div class="alert alert-info">Password has been set via environment variable server-side. Click next to continue.</div>';
+      }
     } else {
-      // Show current password (pre-auth public endpoint)
-      html += '<div class="form-group">'
-        + '<label>Current password</label>'
-        + '<div class="current-pw-row" style="display:flex;gap:0.4rem;">'
-        + '<input class="input" readonly type="password" value="' + esc(state.password.current) + '" id="current-pw" placeholder="Loading…">'
-        + '<button class="btn btn-sm" type="button" data-action="reveal-pw">Show</button>'
-        + '</div>'
-        + '<span class="note">Record this — it unlocks Settings and the REST API.</span>'
-        + '</div>'
-        + '<div class="form-row">'
+      if (state.authGated) {
+        html += '<div class="form-group">'
+          + '<label>Setup code</label>'
+          + '<input class="input" type="text" id="pw-setup-code" data-field="password.setupCode" autocomplete="off" placeholder="8 characters" style="text-transform:uppercase;">'
+          + '<span class="note">Printed in the server log on startup — e.g. <code>docker logs epilykos</code>. It proves you run this server.</span>'
+          + '</div>';
+      }
+      html += '<div class="form-row">'
         + '<div class="form-group"><label>New password</label><input class="input" type="password" id="pw-new" data-field="password.newPw" placeholder="Min 4 characters"><span class="note" id="pw-new-err"></span></div>'
         + '<div class="form-group"><label>Confirm password</label><input class="input" type="password" id="pw-confirm" data-field="password.confirmPw" placeholder="Repeat password"></div>'
         + '</div>'
@@ -489,6 +493,7 @@
         + '<button class="btn btn-sm" type="button" data-action="regenerate">🔄 Regenerate</button>'
         + '<span class="test-badge pending" data-badge-src="pw">Untouched</span>'
         + '</div>'
+        + '<span class="note">Record this password — it unlocks Settings and the REST API.</span>'
         + '<p class="note" id="pw-msg" style="font-size:0.78rem;"></p>';
     }
 
@@ -500,52 +505,33 @@
     html += '</div>';
 
     body.innerHTML = html;
-
-    if (!envManaged) {
-      loadCurrentPassword();
-      var revealBtn = $('[data-action="reveal-pw"]');
-      if (revealBtn) revealBtn.addEventListener('click', function () {
-        var input = $('#current-pw');
-        if (!input) return;
-        if (input.type === 'password') { input.type = 'text'; this.textContent = 'Hide'; }
-        else { input.type = 'password'; this.textContent = 'Show'; }
-      });
-    }
-  }
-
-  function loadCurrentPassword() {
-    api('/api/wizard/password').then(function (res) {
-      if (res.ok && res.data && res.data.password != null) {
-        state.password.current = res.data.password;
-        var input = $('#current-pw');
-        if (input) input.value = res.data.password;
-      } else if (res.status === 403) {
-        var input = $('#current-pw');
-        if (input) { input.value = '(hidden)'; input.type = 'password'; }
-      }
-    }).catch(function () {});
   }
 
   function submitPassword() {
     var envManaged = state.status && state.status.passwordEnvManaged;
-    if (envManaged) {
-      // Establish the auto-login session (env-managed first-run) before continuing.
-      api('/api/wizard/password', { method: 'POST', body: JSON.stringify({}) }).then(function () { afterPasswordDone(); }).catch(function () { afterPasswordDone(); });
-      return;
-    }
     var p = state.password;
-    if (!validNewPassword()) {
-      var err = $('#pw-new-err');
-      if (err) err.textContent = (p.newPw.length < 4) ? 'Password must be at least 4 characters.' : 'Passwords do not match.';
-      updateNav();
-      return;
+    var payload;
+    if (envManaged) {
+      if (!state.authGated) { afterPasswordDone(); return; }
+      payload = { password: p.envPw };
+    } else {
+      if (!validNewPassword()) {
+        var err = $('#pw-new-err');
+        if (err) err.textContent = (p.newPw.length < 4) ? 'Password must be at least 4 characters.' : 'Passwords do not match.';
+        updateNav();
+        return;
+      }
+      payload = { password: p.newPw, setup_code: p.setupCode };
     }
     setBusy(true);
-    api('/api/wizard/password', { method: 'POST', body: JSON.stringify({ password: p.newPw }) }).then(function (res) {
+    api('/api/wizard/password', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
       setBusy(false);
       if (res.ok && res.data && res.data.success) {
         var msg = $('#pw-msg'); if (msg) msg.textContent = '✔ Password saved.';
+        setGlobalError(null);
         afterPasswordDone();
+      } else if (res.data && res.data.error) {
+        setGlobalError(String(res.data.error));
       } else {
         setGlobalError('Could not save the password (' + res.status + '). Please try again.');
       }
@@ -558,6 +544,7 @@
 
   function afterPasswordDone() {
     state.password.newPw = ''; state.password.confirmPw = '';
+    state.password.setupCode = ''; state.password.envPw = '';
     if (state.authGated) {
       state.authGated = false;
       state.isReRun = false;

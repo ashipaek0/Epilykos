@@ -9,7 +9,7 @@
  * (loaded by settings.html before settings.js, and required by the mapper), and
  * this suite exercises it directly plus asserts the wiring in the page sources.
  *
- * Run: node --test tests/pvoutput-units.test.js
+ * Run: node --test test/pvoutput-units.test.js
  */
 
 const { test } = require('node:test');

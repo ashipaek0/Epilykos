@@ -14,7 +14,6 @@
  *
  * @module pvoutput/backfill
  */
-const { PVOutputClient } = require('./client');
 const { canCall, msUntilReset, isDonationAccount } = require('./rateLimiter');
 const { logger } = require('../logger');
 

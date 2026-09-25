@@ -22,7 +22,7 @@
  * predicate/formatting contract those functions delegate to, plus a behavioural
  * reproduction of the flowCard NaN mechanism (see the last test).
  *
- * Run: node tests/metric-value-format.test.js   (or `npm test`)
+ * Run: node test/metric-value-format.test.js   (or `npm test`)
  */
 
 const { test } = require('node:test');

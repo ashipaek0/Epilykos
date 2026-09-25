@@ -1,6 +1,7 @@
 const { logger } = require('./logger');
 const https = require('https');
-const { getConfig, getDb } = require('./database');
+const { getConfig, getDb, flushMetrics } = require('./database');
+const { localDateString } = require('./localTime');
 
 let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
 let solarCache = { value: 0, timestamp: 0 };
@@ -62,6 +63,7 @@ function computeTodaySolar() {
   var computed = 0;
   var done = false;
 
+  flushMetrics(); // read-your-write: pollers queue their writes
   const configured = (getConfig('savings_solar_metric') || '').trim();
 
   // 1. User-configured metric — check latest_metrics (treat as cumulative kWh)
@@ -90,7 +92,7 @@ function computeTodaySolar() {
 
     // 2b. Power candidates: integrate any metric whose name suggests solar power
     if (!done) {
-      for (var i = 0; i < allMetrics.length; i++) {
+      for (let i = 0; i < allMetrics.length; i++) {
         var n = allMetrics[i].metric.toLowerCase();
         if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
           const rows = db.prepare(
@@ -129,28 +131,71 @@ function integrateWattsToKwh(rows, endUnix) {
   return totalKwh;
 }
 
-const weatherCodeMap = {
-  0: { icon: 'fi fi-sr-sun', desc: 'Clear Sky' },
-  1: { icon: 'fi fi-sr-sun', desc: 'Mainly Clear' },
-  2: { icon: 'fi fi-sr-cloud-sun', desc: 'Partly Cloudy' },
-  3: { icon: 'fi fi-sr-cloud', desc: 'Overcast' },
-  45: { icon: 'fi fi-sr-cloud', desc: 'Fog' },
-  48: { icon: 'fi fi-sr-cloud', desc: 'Depositing Rime Fog' },
-  51: { icon: 'fi fi-sr-cloud-rain', desc: 'Light Drizzle' },
-  53: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Drizzle' },
-  55: { icon: 'fi fi-sr-cloud-rain', desc: 'Dense Drizzle' },
-  61: { icon: 'fi fi-sr-cloud-rain', desc: 'Slight Rain' },
-  63: { icon: 'fi fi-sr-cloud-rain', desc: 'Moderate Rain' },
-  65: { icon: 'fi fi-sr-cloud-rain', desc: 'Heavy Rain' },
-  80: { icon: 'fi fi-sr-cloud-rain', desc: 'Rain Showers' }
+// ---- WMO weather codes (Open-Meteo) → description + day/night icon ----
+// Every code Open-Meteo documents is covered; unknown codes fall back to a
+// neutral cloud rather than claiming "Clear Sky".
+const WMO_CODES = {
+  0: { desc: 'Clear Sky', day: 'fi-sr-sun', night: 'fi-sr-moon' },
+  1: { desc: 'Mainly Clear', day: 'fi-sr-sun', night: 'fi-sr-moon-stars' },
+  2: { desc: 'Partly Cloudy', day: 'fi-sr-cloud-sun', night: 'fi-sr-cloud-moon' },
+  3: { desc: 'Overcast', day: 'fi-sr-clouds', night: 'fi-sr-clouds' },
+  45: { desc: 'Fog', day: 'fi-sr-fog', night: 'fi-sr-fog' },
+  48: { desc: 'Rime Fog', day: 'fi-sr-fog', night: 'fi-sr-fog' },
+  51: { desc: 'Light Drizzle', day: 'fi-sr-cloud-drizzle', night: 'fi-sr-cloud-drizzle' },
+  53: { desc: 'Drizzle', day: 'fi-sr-cloud-drizzle', night: 'fi-sr-cloud-drizzle' },
+  55: { desc: 'Dense Drizzle', day: 'fi-sr-cloud-drizzle', night: 'fi-sr-cloud-drizzle' },
+  56: { desc: 'Freezing Drizzle', day: 'fi-sr-cloud-sleet', night: 'fi-sr-cloud-sleet' },
+  57: { desc: 'Freezing Drizzle', day: 'fi-sr-cloud-sleet', night: 'fi-sr-cloud-sleet' },
+  61: { desc: 'Light Rain', day: 'fi-sr-cloud-rain', night: 'fi-sr-cloud-rain' },
+  63: { desc: 'Rain', day: 'fi-sr-cloud-rain', night: 'fi-sr-cloud-rain' },
+  65: { desc: 'Heavy Rain', day: 'fi-sr-cloud-showers-heavy', night: 'fi-sr-cloud-showers-heavy' },
+  66: { desc: 'Freezing Rain', day: 'fi-sr-cloud-sleet', night: 'fi-sr-cloud-sleet' },
+  67: { desc: 'Freezing Rain', day: 'fi-sr-cloud-sleet', night: 'fi-sr-cloud-sleet' },
+  71: { desc: 'Light Snow', day: 'fi-sr-cloud-snow', night: 'fi-sr-cloud-snow' },
+  73: { desc: 'Snow', day: 'fi-sr-cloud-snow', night: 'fi-sr-cloud-snow' },
+  75: { desc: 'Heavy Snow', day: 'fi-sr-snowflakes', night: 'fi-sr-snowflakes' },
+  77: { desc: 'Snow Grains', day: 'fi-sr-snowflake', night: 'fi-sr-snowflake' },
+  80: { desc: 'Rain Showers', day: 'fi-sr-cloud-sun-rain', night: 'fi-sr-cloud-moon-rain' },
+  81: { desc: 'Rain Showers', day: 'fi-sr-cloud-showers', night: 'fi-sr-cloud-showers' },
+  82: { desc: 'Violent Showers', day: 'fi-sr-cloud-showers-heavy', night: 'fi-sr-cloud-showers-heavy' },
+  85: { desc: 'Snow Showers', day: 'fi-sr-cloud-snow', night: 'fi-sr-cloud-snow' },
+  86: { desc: 'Heavy Snow Showers', day: 'fi-sr-snowflakes', night: 'fi-sr-snowflakes' },
+  95: { desc: 'Thunderstorm', day: 'fi-sr-thunderstorm-sun', night: 'fi-sr-thunderstorm-moon' },
+  96: { desc: 'Thunderstorm, Hail', day: 'fi-sr-cloud-hail', night: 'fi-sr-cloud-hail' },
+  99: { desc: 'Thunderstorm, Heavy Hail', day: 'fi-sr-cloud-hail', night: 'fi-sr-cloud-hail' }
 };
-const DEFAULT_WEATHER = { icon: 'fi fi-sr-sun', desc: 'Clear Sky' };
 
-async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,cloud_cover,temperature_2m&timezone=auto&forecast_days=4`;
-  const data = await new Promise((resolve, reject) => {
+/** Description + icon class for a WMO code; isDay false → night icon. */
+function describeWeatherCode(code, isDay = true) {
+  const n = Number(code);
+  const entry = (code != null && Number.isFinite(n)) ? WMO_CODES[n] : null;
+  if (!entry) return { code: null, desc: '', icon_class: 'fi fi-sr-cloud' };
+  return { code: n, desc: entry.desc, icon_class: 'fi ' + (isDay === false ? entry.night : entry.day) };
+}
+
+// Legacy shape kept for callers/tests that import it: code → { icon, desc }.
+const weatherCodeMap = Object.fromEntries(Object.keys(WMO_CODES).map(k => [k, { icon: 'fi ' + WMO_CODES[k].day, desc: WMO_CODES[k].desc }]));
+const DEFAULT_WEATHER = { icon: 'fi fi-sr-cloud', desc: '' };
+
+// ---- Open-Meteo: ONE request for current, hourly and 7-day data ----
+const OPEN_METEO_CACHE_MS = 15 * 60 * 1000;
+let openMeteoCache = { key: null, data: null, timestamp: 0 };
+let lastGoodWeather = null; // served (flagged stale) when Open-Meteo fails
+
+const OM_CURRENT = ['temperature_2m', 'apparent_temperature', 'relative_humidity_2m', 'weather_code', 'is_day',
+  'cloud_cover', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', 'precipitation', 'pressure_msl', 'uv_index'];
+const OM_HOURLY = ['temperature_2m', 'apparent_temperature', 'relative_humidity_2m', 'dew_point_2m',
+  'precipitation_probability', 'precipitation', 'weather_code', 'cloud_cover', 'wind_speed_10m',
+  'wind_direction_10m', 'wind_gusts_10m', 'shortwave_radiation', 'uv_index', 'is_day'];
+const OM_DAILY = ['weather_code', 'temperature_2m_max', 'temperature_2m_min', 'apparent_temperature_max',
+  'apparent_temperature_min', 'precipitation_sum', 'precipitation_probability_max', 'wind_speed_10m_max',
+  'wind_gusts_10m_max', 'wind_direction_10m_dominant', 'uv_index_max', 'sunrise', 'sunset',
+  'shortwave_radiation_sum', 'daylight_duration'];
+
+function httpsGetJson(url) {
+  return new Promise((resolve, reject) => {
     const req = https.get(url, { timeout: 10000 }, (res) => {
-      if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+      if (res.statusCode !== 200) { res.resume(); reject(new Error(`HTTP ${res.statusCode}`)); return; }
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (chunk) => { body += chunk; });
@@ -159,20 +204,235 @@ async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
     req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
     req.on('error', reject);
   });
-  const conversionFactor = (capacityKwp / 1000) * (lossFactor || 0.9);
-  const hourly = data.hourly;
-  const forecasts = hourly.time.map((t, i) => {
-    const sw = Number(hourly.shortwave_radiation?.[i]);
-    const at = Number(hourly.temperature_2m?.[i]);
-    return {
-      period_end: new Date(t).toISOString(),
-      pv_estimate: hourly.shortwave_radiation[i] * conversionFactor,
-      cloud_cover: hourly.cloud_cover?.[i] ?? null,
-      air_temp: Number.isFinite(at) ? at : null,
-      shortwave_radiation: Number.isFinite(sw) ? sw : null
-    };
+}
+
+function numOrNull(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Column-oriented Open-Meteo block → array of row objects keyed by variable. */
+function omRows(block) {
+  if (!block || !Array.isArray(block.time)) return [];
+  const keys = Object.keys(block).filter(k => k !== 'time' && Array.isArray(block[k]));
+  return block.time.map((t, i) => {
+    const row = { time: t };
+    for (const k of keys) row[k] = block[k][i] ?? null;
+    return row;
   });
+}
+
+/**
+ * Normalise an Open-Meteo response (timeformat=unixtime) into
+ * { current, hourly[], daily[] } with epoch-ms times and the location's
+ * calendar dates for daily rows.
+ */
+function parseOpenMeteo(raw) {
+  const offsetMs = (Number(raw && raw.utc_offset_seconds) || 0) * 1000;
+  const toMs = (t) => (typeof t === 'number' ? t * 1000 : new Date(t).getTime());
+  const dayOf = (t) => (typeof t === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t))
+    ? t : new Date(toMs(t) + offsetMs).toISOString().slice(0, 10);
+
+  const hourly = omRows(raw && raw.hourly).map(r => ({
+    ms: toMs(r.time),
+    temp: numOrNull(r.temperature_2m),
+    feels_like: numOrNull(r.apparent_temperature),
+    humidity: numOrNull(r.relative_humidity_2m),
+    dew_point: numOrNull(r.dew_point_2m),
+    precip_probability: numOrNull(r.precipitation_probability),
+    precip: numOrNull(r.precipitation),
+    code: numOrNull(r.weather_code),
+    cloud_cover: numOrNull(r.cloud_cover),
+    wind_speed: numOrNull(r.wind_speed_10m),
+    wind_direction: numOrNull(r.wind_direction_10m),
+    wind_gusts: numOrNull(r.wind_gusts_10m),
+    shortwave_radiation: numOrNull(r.shortwave_radiation),
+    uv_index: numOrNull(r.uv_index),
+    is_day: r.is_day == null ? null : Number(r.is_day) === 1
+  })).filter(h => Number.isFinite(h.ms));
+
+  const daily = omRows(raw && raw.daily).map(r => ({
+    date: dayOf(r.time),
+    code: numOrNull(r.weather_code),
+    temp_max: numOrNull(r.temperature_2m_max),
+    temp_min: numOrNull(r.temperature_2m_min),
+    feels_max: numOrNull(r.apparent_temperature_max),
+    feels_min: numOrNull(r.apparent_temperature_min),
+    precip_sum: numOrNull(r.precipitation_sum),
+    precip_probability: numOrNull(r.precipitation_probability_max),
+    wind_max: numOrNull(r.wind_speed_10m_max),
+    gusts_max: numOrNull(r.wind_gusts_10m_max),
+    wind_direction: numOrNull(r.wind_direction_10m_dominant),
+    uv_max: numOrNull(r.uv_index_max),
+    sunrise: r.sunrise != null ? toMs(r.sunrise) : null,
+    sunset: r.sunset != null ? toMs(r.sunset) : null,
+    radiation_sum: numOrNull(r.shortwave_radiation_sum),
+    daylight_s: numOrNull(r.daylight_duration)
+  }));
+
+  const c = (raw && raw.current) || null;
+  const current = c ? {
+    ms: c.time != null ? toMs(c.time) : Date.now(),
+    temp: numOrNull(c.temperature_2m),
+    feels_like: numOrNull(c.apparent_temperature),
+    humidity: numOrNull(c.relative_humidity_2m),
+    code: numOrNull(c.weather_code),
+    is_day: c.is_day == null ? null : Number(c.is_day) === 1,
+    cloud_cover: numOrNull(c.cloud_cover),
+    wind_speed: numOrNull(c.wind_speed_10m),
+    wind_direction: numOrNull(c.wind_direction_10m),
+    wind_gusts: numOrNull(c.wind_gusts_10m),
+    precip: numOrNull(c.precipitation),
+    pressure: numOrNull(c.pressure_msl),
+    uv_index: numOrNull(c.uv_index)
+  } : null;
+
+  return { current, hourly, daily, timezone: (raw && raw.timezone) || null };
+}
+
+/** Cached (15 min) single Open-Meteo request for a location. */
+async function fetchOpenMeteo(lat, lon) {
+  const key = `${lat},${lon}`;
+  const now = Date.now();
+  if (openMeteoCache.key === key && openMeteoCache.data && now - openMeteoCache.timestamp < OPEN_METEO_CACHE_MS) {
+    return openMeteoCache.data;
+  }
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    + '&timezone=auto&timeformat=unixtime&wind_speed_unit=ms&forecast_days=7'
+    + `&current=${OM_CURRENT.join(',')}&hourly=${OM_HOURLY.join(',')}&daily=${OM_DAILY.join(',')}`;
+  const data = parseOpenMeteo(await httpsGetJson(url));
+  openMeteoCache = { key, data, timestamp: now };
+  return data;
+}
+
+/** Open-Meteo hourly → forecast periods (pv_estimate in kW, 1-hour periods). */
+async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
+  const om = await fetchOpenMeteo(lat, lon);
+  if (!om.hourly.length) throw new Error('Open-Meteo returned no hourly data');
+  // shortwave_radiation is the mean over the PRECEDING hour, so time = period end.
+  const conversionFactor = (capacityKwp / 1000) * (lossFactor || 0.9);
+  const forecasts = om.hourly.map(h => ({
+    period_end: new Date(h.ms).toISOString(),
+    period: 'PT60M',
+    pv_estimate: (h.shortwave_radiation || 0) * conversionFactor,
+    ghi: h.shortwave_radiation,
+    shortwave_radiation: h.shortwave_radiation,
+    cloud_cover: h.cloud_cover,
+    air_temp: h.temp,
+    relative_humidity: h.humidity,
+    precip_rate: h.precip,
+    precip_probability: h.precip_probability,
+    wind_speed_10m: h.wind_speed,
+    wind_direction_10m: h.wind_direction,
+    weather_code: h.code,
+    is_day: h.is_day,
+    uv_index: h.uv_index
+  }));
   return { forecasts, source: 'open-meteo' };
+}
+
+/** Hours covered by one forecast period ('PT30M' → 0.5); default 1 h. */
+function periodHours(f) {
+  const m = /^PT(\d+(?:\.\d+)?)([HM])$/i.exec(String((f && f.period) || ''));
+  if (!m) return 1;
+  const v = Number(m[1]);
+  return m[2].toUpperCase() === 'H' ? v : v / 60;
+}
+
+/** Degrees → 16-point compass label. */
+function compassPoint(deg) {
+  const n = numOrNull(deg);
+  if (n == null) return null;
+  const pts = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return pts[Math.round((((n % 360) + 360) % 360) / 22.5) % 16];
+}
+
+/**
+ * Build the weather object every weather/forecast card consumes from one
+ * parsed Open-Meteo payload. Legacy keys (icon_class, desc, temp, extra,
+ * forecast_weather[]) keep their meaning; everything else is additive.
+ */
+function buildOpenMeteoWeather(om) {
+  const now = Date.now();
+  const todayStr = localDateString();
+  const cur = om.current || {};
+  // Hour nearest "now" fills anything `current` did not return.
+  const nearest = om.hourly.reduce((best, h) => (!best || Math.abs(h.ms - now) < Math.abs(best.ms - now) ? h : best), null) || {};
+  const pick = (k) => (cur[k] != null ? cur[k] : (nearest[k] != null ? nearest[k] : null));
+  const isDay = pick('is_day');
+  const current = describeWeatherCode(pick('code'), isDay);
+  const todayRow = om.daily.find(d => d.date === todayStr) || om.daily[0] || null;
+  const dayOut = (d) => {
+    const w = describeWeatherCode(d.code, true);
+    const dt = new Date(d.date + 'T12:00:00');
+    return {
+      date: d.date,
+      day_name: dt.toLocaleDateString('en-US', { weekday: 'long' }),
+      icon_class: w.icon_class, desc: w.desc, code: w.code,
+      temp: d.temp_max, temp_max: d.temp_max, temp_min: d.temp_min,
+      feels_max: d.feels_max, feels_min: d.feels_min,
+      precip_sum: d.precip_sum, precip_probability: d.precip_probability,
+      wind_max: d.wind_max, gusts_max: d.gusts_max,
+      wind_direction: d.wind_direction, wind_compass: compassPoint(d.wind_direction),
+      uv_max: d.uv_max,
+      sunrise: d.sunrise != null ? new Date(d.sunrise).toISOString() : null,
+      sunset: d.sunset != null ? new Date(d.sunset).toISOString() : null,
+      daylight_hours: d.daylight_s != null ? Math.round(d.daylight_s / 360) / 10 : null,
+      extra: [d.feels_max != null ? `Feels ${d.feels_max.toFixed(0)}°C` : '',
+        d.precip_probability != null ? `Rain ${d.precip_probability.toFixed(0)}%` : ''].filter(Boolean).join(' · ')
+    };
+  };
+  const temp = pick('temp');
+  const feels = pick('feels_like');
+  const humidity = pick('humidity');
+  return {
+    available: true,
+    updated_at: new Date(cur.ms || now).toISOString(),
+    icon_class: current.icon_class,
+    desc: current.desc,
+    code: current.code,
+    is_day: isDay,
+    temp,
+    feels_like: feels,
+    humidity,
+    wind_speed: pick('wind_speed'),
+    wind_gusts: pick('wind_gusts'),
+    wind_direction: pick('wind_direction'),
+    wind_compass: compassPoint(pick('wind_direction')),
+    cloud_cover: pick('cloud_cover'),
+    precip: pick('precip'),
+    precip_probability: nearest.precip_probability ?? null,
+    pressure: cur.pressure ?? null,
+    uv_index: pick('uv_index'),
+    today: todayRow ? dayOut(todayRow) : null,
+    sunrise: todayRow && todayRow.sunrise != null ? new Date(todayRow.sunrise).toISOString() : null,
+    sunset: todayRow && todayRow.sunset != null ? new Date(todayRow.sunset).toISOString() : null,
+    extra: buildWeatherExtra(feels, humidity),
+    forecast_weather: om.daily.filter(d => d.date > todayStr).slice(0, 6).map(dayOut),
+    hourly: om.hourly
+      .filter(h => h.ms >= now - 30 * 60 * 1000)
+      .slice(0, 24)
+      .map(h => {
+        const w = describeWeatherCode(h.code, h.is_day);
+        return {
+          time: new Date(h.ms).toISOString(), temp: h.temp, feels_like: h.feels_like,
+          icon_class: w.icon_class, desc: w.desc, code: w.code,
+          precip_probability: h.precip_probability, precip: h.precip,
+          cloud_cover: h.cloud_cover, wind_speed: h.wind_speed, uv_index: h.uv_index, is_day: h.is_day
+        };
+      })
+  };
+}
+
+function buildWeatherExtra(feels, humidity) {
+  return [feels != null ? `Feels ${Number(feels).toFixed(0)}°C` : '',
+    humidity != null ? `Humidity ${Number(humidity).toFixed(0)}%` : ''].filter(Boolean).join(' · ');
+}
+
+/** Weather placeholder when no provider answered: never pretends "Clear Sky". */
+function unavailableWeather() {
+  return { available: false, icon_class: 'fi fi-sr-cloud-question', desc: '', temp: null, extra: '', forecast_weather: [], hourly: [] };
 }
 
 // ---- Issue #127 S1-prime: selectable forecast sources ----
@@ -229,7 +489,10 @@ function pickSolcastWeather(periods) {
 }
 
 // Test hook (no prod callers): drop all per-selector cache entries.
-function clearForecastCache() { forecastCache = {}; solcastNegativeCache = {}; solcastLastUpstreamAttempt = 0; }
+function clearForecastCache() {
+  forecastCache = {}; solcastNegativeCache = {}; solcastLastUpstreamAttempt = 0;
+  openMeteoCache = { key: null, data: null, timestamp: 0 }; lastGoodWeather = null;
+}
 
 // ---- Issue #127 follow-up: Solcast negative-cache helpers ----
 
@@ -357,7 +620,10 @@ function resolveRestSource(name, restMap) {
 
   const map = (restMap && typeof restMap === 'object' && !Array.isArray(restMap)) ? restMap : {};
   let rows = [];
-  try { rows = getDb().prepare('SELECT metric, value, value_text FROM latest_metrics').all(); } catch (e) { rows = []; }
+  try {
+    flushMetrics();
+    rows = getDb().prepare('SELECT metric, value, value_text FROM latest_metrics').all();
+  } catch (e) { rows = []; }
   const byMetric = new Map();
   for (const r of rows || []) if (r && r.metric != null && !byMetric.has(r.metric)) byMetric.set(r.metric, r);
   const numVal = (row) => {
@@ -416,12 +682,14 @@ async function getSolarForecast(sourceParam, restMap) {
   const now = Date.now();
   const cached = forecastCache[selector];
   if (cached && cached.data && (now - cached.timestamp) < FORECAST_CACHE_MS) {
-    const cacheDate = cached.data.daily[0]?.date;
-    const todayDate = new Date().toLocaleDateString('en-CA');
-    // Invalidate if date changed, or if cached data is missing cloud_cover (stale cache from older code)
-    const hasCloudCover = cached.data.hourly?.length && cached.data.hourly[0].cloud_cover != null;
-    if (cacheDate !== todayDate || !hasCloudCover) delete forecastCache[selector];
-    else return cached.data;
+    // The PV forecast is kept for 3 h (Solcast quota), but the day it starts
+    // on must still be today; weather is refreshed on its own 15-min cadence.
+    if (cached.data.daily[0]?.date !== localDateString()) {
+      delete forecastCache[selector];
+    } else {
+      await attachWeather(cached.data, cached.ctx);
+      return cached.data;
+    }
   }
 
   const lat = parseFloat(getConfig('solar_latitude')) || null;
@@ -525,35 +793,53 @@ async function getSolarForecast(sourceParam, restMap) {
   const actualTodayKwh = computeTodaySolar();
   const dailyMap = new Map();
   forecastData.forEach(f => {
-    const date = String(f.period_end || '').split('T')[0];
+    // Bucket by LOCAL day (period_end is a UTC instant) so "today" matches
+    // the cache check and the actual_so_far lookup below.
+    const end = new Date(f.period_end);
+    const date = isNaN(end.getTime()) ? String(f.period_end || '').split('T')[0] : localDateString(end);
     const existing = dailyMap.get(date) || { date, total_kwh: 0, peak_kw: 0, source };
     const n = Number(f.pv_estimate);
     const pv = Number.isFinite(n) ? n : 0; // AC3a: null/absent -> 0 in sums, never NaN
-    existing.total_kwh += pv;
+    // pv_estimate is mean kW over the period: energy = kW x period length
+    // (Solcast periods are 30 min, Open-Meteo 60 min).
+    f.energy_kwh = pv * periodHours(f);
+    existing.total_kwh += f.energy_kwh;
     existing.peak_kw = Math.max(existing.peak_kw, pv);
     dailyMap.set(date, existing);
   });
-  const daily = Array.from(dailyMap.values()).slice(0, 4);
-  const todayDate = new Date().toLocaleDateString('en-CA');
-  for (const dayEntry of daily) if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
+  const daily = Array.from(dailyMap.values()).slice(0, 7);
+  const todayDate = localDateString();
+  for (const dayEntry of daily) {
+    dayEntry.total_kwh = Math.round(dayEntry.total_kwh * 100) / 100;
+    if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
+  }
 
   const hourly = forecastData.slice(0, 96);
   const result = { daily, hourly, source, source_label: SOURCE_LABELS[source] || source };
 
   // D4: effective source is Solcast and its payload carries air_temp /
-  // relative_humidity -> prefer them for weather temp/extra. Rooftop
-  // payloads carry neither -> Open-Meteo fallback below still applies.
-  // Icons/weathercode path is unchanged (stays Open-Meteo).
-  const solcastWx = source === 'solcast' ? pickSolcastWeather(forecastData) : { temp: null, humidity: null };
+  // relative_humidity -> prefer them for weather temp/humidity.
+  const ctx = {
+    lat, lon, restMap,
+    solcastWx: source === 'solcast' ? pickSolcastWeather(forecastData) : { temp: null, humidity: null }
+  };
+  await attachWeather(result, ctx);
 
-  // Weather data
-  // S2 (AC9): global weather default. 'auto' = today's behavior (prefer
-  // Solcast temp/humidity when this run produced them, else OM fallback);
-  // 'open-meteo' = OM only (ignore solcastWx); 'solcast' = solcastWx when
-  // available else OM fallback. Icons/weathercode always stay Open-Meteo.
+  forecastCache[selector] = { data: result, timestamp: now, ctx };
+  return result;
+}
+
+
+/**
+ * (Re)build result.weather + result.weather_source in place. Open-Meteo is
+ * cached for 15 min, so a cached PV forecast still shows current weather.
+ * S2 (AC9) global weather default: 'auto' prefers Solcast temp/humidity when
+ * this forecast carried them, 'open-meteo' ignores them, 'solcast' uses them
+ * when present; rest:<name> replaces the point values from latest_metrics.
+ */
+async function attachWeather(result, ctx) {
+  const { lat, lon, restMap, solcastWx } = ctx || {};
   const weatherSelRaw = resolveDefaultSource('weather_default_source');
-  // S5-backend: a rest: weather default resolves through latest_metrics;
-  // on resolver error fall back to 'auto' (previous behavior).
   let restWeather = null;
   if (weatherSelRaw.startsWith('rest:')) {
     const resolved = resolveRestSource(weatherSelRaw.slice(5), restMap);
@@ -561,95 +847,45 @@ async function getSolarForecast(sourceParam, restMap) {
   }
   const weatherSel = restWeather ? weatherSelRaw : (weatherSelRaw.startsWith('rest:') ? 'auto' : weatherSelRaw);
   const useSolcastWx = weatherSel !== 'open-meteo';
+
+  let weather = null;
   let weatherSource = 'open-meteo';
   if (lat && lon) {
     try {
-      const currentUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,apparent_temperature&timezone=auto&forecast_days=1`;
-      const currentData = await new Promise((resolve, reject) => {
-        const req = https.get(currentUrl, { timeout: 10000 }, (res) => {
-          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
-          let body = '';
-          res.setEncoding('utf8');
-          res.on('data', (chunk) => { body += chunk; });
-          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
-        });
-        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-        req.on('error', reject);
-      });
-      let temp = null, feelsLike = null, humidity = null, iconClass = DEFAULT_WEATHER.icon, weatherDesc = DEFAULT_WEATHER.desc;
-        const cw = currentData.current_weather;
-        temp = cw.temperature;
-        const code = cw.weathercode;
-        const mapping = weatherCodeMap[code] || DEFAULT_WEATHER;
-        iconClass = mapping.icon; weatherDesc = mapping.desc;
-        const hourlyData = currentData.hourly;
-        const times = hourlyData.time.map(t => new Date(t));
-        for (let i = 0; i < times.length; i++) {
-          if (times[i].getHours() === new Date().getHours()) {
-            feelsLike = hourlyData.apparent_temperature[i];
-            humidity = hourlyData.relativehumidity_2m[i];
-            break;
-          }
-        }
-      let forecastWeather = [];
-      const dailyWeatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,relativehumidity_2m_mean&timezone=auto&forecast_days=3`;
-      const dailyData = await new Promise((resolve, reject) => {
-        const req = https.get(dailyWeatherUrl, { timeout: 10000 }, (res) => {
-          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
-          let body = '';
-          res.setEncoding('utf8');
-          res.on('data', (chunk) => { body += chunk; });
-          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); } });
-        });
-        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-        req.on('error', reject);
-      });
-      if (dailyData.daily) {
-        const dates = dailyData.daily.time;
-        const codes = dailyData.daily.weathercode;
-        const temps = dailyData.daily.temperature_2m_max;
-        const feels = dailyData.daily.apparent_temperature_max;
-        const humids = dailyData.daily.relativehumidity_2m_mean;
-        for (let i = 1; i <= 2 && i < dates.length; i++) {
-          const mapping = weatherCodeMap[codes[i]] || DEFAULT_WEATHER;
-          const d = new Date(dates[i] + 'T12:00:00');
-          forecastWeather.push({
-            date: dates[i],
-            day_name: d.toLocaleDateString('en-US', { weekday: 'long' }),
-            icon_class: mapping.icon,
-            desc: mapping.desc,
-            temp: temps[i],
-            extra: (feels[i] != null ? `Feels ${feels[i].toFixed(0)}°C` : '') + (humids[i] != null ? ` · Humidity ${humids[i].toFixed(0)}%` : '')
-          });
-        }
-      }
-      if (useSolcastWx) {
-        if (solcastWx.temp != null) temp = solcastWx.temp;
-        if (solcastWx.humidity != null) humidity = solcastWx.humidity;
-        if (solcastWx.temp != null || solcastWx.humidity != null) weatherSource = 'solcast';
-      }
-      result.weather = {
-        icon_class: iconClass, desc: weatherDesc, temp,
-        extra: (feelsLike != null ? `Feels ${feelsLike.toFixed(0)}°C` : '') + (humidity != null ? ` · Humidity ${humidity}%` : ''),
-        forecast_weather: forecastWeather
-      };
-      // S5-backend: rest: weather default wins over OM/solcast point values.
-      if (restWeather) {
-        result.weather = restWeather.weather;
-        weatherSource = restWeather.weather_source;
-      }
+      weather = buildOpenMeteoWeather(await fetchOpenMeteo(lat, lon));
+      lastGoodWeather = weather;
     } catch (e) {
-      result.weather = { icon_class: DEFAULT_WEATHER.icon, desc: DEFAULT_WEATHER.desc, temp: null, extra: '', forecast_weather: [] };
+      logger.warn(`[forecast] Open-Meteo weather unavailable: ${e.message}`);
+      if (lastGoodWeather) weather = { ...lastGoodWeather, stale: true };
     }
-  } else {
-    result.weather = { icon_class: DEFAULT_WEATHER.icon, desc: DEFAULT_WEATHER.desc, temp: null, extra: '', forecast_weather: [] };
   }
+  if (!weather) weather = unavailableWeather();
 
+  if (useSolcastWx && solcastWx && (solcastWx.temp != null || solcastWx.humidity != null)) {
+    weather = { ...weather };
+    if (solcastWx.temp != null) weather.temp = solcastWx.temp;
+    if (solcastWx.humidity != null) weather.humidity = solcastWx.humidity;
+    weather.extra = buildWeatherExtra(weather.feels_like, weather.humidity);
+    weatherSource = 'solcast';
+  }
+  // S5-backend: rest: weather default wins over OM/solcast point values,
+  // keeping Open-Meteo's multi-day outlook when it is available.
+  if (restWeather) {
+    const rw = restWeather.weather;
+    weather = {
+      ...weather, ...Object.fromEntries(Object.entries(rw).filter(([k, v]) => v != null && !(Array.isArray(v) && !v.length) && v !== '')),
+      forecast_weather: weather.forecast_weather || [], hourly: weather.hourly || []
+    };
+    if (rw.wind != null) weather.wind_speed = rw.wind;
+    if (rw.cloud != null) weather.cloud_cover = rw.cloud;
+    if (rw.precip != null) weather.precip = rw.precip;
+    weather.extra = buildWeatherExtra(weather.feels_like, weather.humidity);
+    weather.available = true;
+    weatherSource = restWeather.weather_source;
+  }
+  result.weather = weather;
   // S2 (AC9, additive): which provider supplied the weather temp/humidity.
   result.weather_source = weatherSource;
-
-  forecastCache[selector] = { data: result, timestamp: now };
-  return result;
 }
 
 async function testForecast(opts) {
@@ -673,8 +909,8 @@ async function testForecast(opts) {
         const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
-          const today = new Date().toISOString().split('T')[0];
-          (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
+          const today = localDateString();
+          (data.forecasts || []).forEach(f => { if (localDateString(new Date(f.period_end)) === today) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
       } catch (e) { logger.debug(`Solcast rooftop test unavailable: ${e.message}`); }
@@ -685,8 +921,8 @@ async function testForecast(opts) {
         const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
-          const today = new Date().toISOString().split('T')[0];
-          (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
+          const today = localDateString();
+          (data.forecasts || []).forEach(f => { if (localDateString(new Date(f.period_end)) === today) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
       } catch (e) { logger.debug(`Solcast world PV test unavailable: ${e.message}`); }
@@ -715,7 +951,7 @@ async function testForecast(opts) {
       });
       // Also fix the Solcast fetch calls the same way (same container, same fetch bug risk)
       const conversionFactor = (capacityKwp / 1000) * lossFactor;
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateString();
       data.hourly.time.forEach((t, i) => {
         if (t.startsWith(today)) {
           const pv = data.hourly.shortwave_radiation[i] * conversionFactor;
@@ -728,4 +964,4 @@ async function testForecast(opts) {
   return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
 }
 
-module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
+module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };

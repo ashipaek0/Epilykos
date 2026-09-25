@@ -1,23 +1,7 @@
 const { logger } = require('./logger');
-const { getConfig } = require('./database');
-const { queueMetricWrite } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 const { execFile } = require('child_process');
 const path = require('path');
-
-function saveMetric(metricName, rawValue, timestamp) {
-  if (rawValue === null || rawValue === undefined) return;
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    queueMetricWrite({ metric: metricName, value: num, timestamp });
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
-  }
-}
 
 /**
  * Spawn a Python bridge script and return its parsed JSON output.
@@ -101,7 +85,7 @@ async function pollTuyaDevices() {
       for (const [metricName, dpNumber] of Object.entries(dpsConfig)) {
         const dpKey = String(dpNumber);
         if (dps[dpKey] === undefined || dps[dpKey] === null) continue;
-        saveMetric(metricName, dps[dpKey], now);
+        queueMetricValue(metricName, dps[dpKey], now);
         written++;
       }
 

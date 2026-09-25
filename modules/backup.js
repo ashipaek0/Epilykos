@@ -1,7 +1,7 @@
 const { logger } = require('./logger');
 const fs = require('fs');
 const path = require('path');
-const { getDb, DB_PATH, initializeDatabase } = require('./database');
+const { getDb, DB_PATH, initializeDatabase, flushMetrics } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -105,8 +105,10 @@ async function restoreDatabase(filePath) {
     throw new Error('Uploaded file is not a valid Epilykos database: ' + err.message);
   }
 
-  // Step 2: backup the current database before overwriting
+  // Step 2: backup the current database before overwriting (drain queued
+  // metric writes first so they land in the backup, not the restored DB)
   try {
+    try { flushMetrics(); } catch (e) { logger.warn(`Restore: metric flush failed: ${e.message}`); }
     if (fs.existsSync(DB_PATH)) {
       checkpointWal();
       fs.copyFileSync(DB_PATH, backupPath);

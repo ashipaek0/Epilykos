@@ -9,7 +9,7 @@
  * stale persisted-state init, canCall boundaries, msUntilReset, and
  * donation-limit preservation.
  *
- * Run: node --test tests/rateLimiter.test.js
+ * Run: node --test test/rateLimiter.test.js
  */
 
 const { test, beforeEach } = require('node:test');

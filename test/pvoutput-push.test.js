@@ -12,7 +12,7 @@
  * AC-10: rate-limit lockouts (canCall false OR 403 Exceeded) log-and-drop —
  * they never write a hollow row to pvoutput_upload_queue.
  *
- * Run: node --test tests/pvoutput-push.test.js
+ * Run: node --test test/pvoutput-push.test.js
  */
 
 const { test, beforeEach, afterEach } = require('node:test');

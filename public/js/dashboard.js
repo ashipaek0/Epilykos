@@ -20,29 +20,9 @@ import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { clearSparklineCharts } from './forecast.js';
 import { updateAllComponents, updateWithState } from './updater.js';
 import { ensureBlockIds } from './utils/blockId.js';
+import { ensureChartJS } from './chartLoader.js';
 
 let dashboardConfig;
-
-/** Load a script dynamically and return a promise. */
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-let chartJSLoading = null;
-/** Ensure Chart.js + adapter are loaded (idempotent). Returns a promise. */
-function ensureChartJS() {
-  if (typeof Chart !== 'undefined') return Promise.resolve();
-  if (chartJSLoading) return chartJSLoading;
-  chartJSLoading = loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js')
-    .then(() => loadScript('https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'));
-  return chartJSLoading;
-}
 
 /**
  * Fetch dashboard config from API, select active tab (honouring ?tab= param

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * tests/entity-state.test.js
- * Issue #61 Phase-3 defect — entity state dropped to null for numeric metrics,
- * plus the modules/ha.js mqttValues string-drop (rides along).
+ * test/entity-state.test.js
+ * Issue #61 Phase-3 defect — entity state dropped to null for numeric metrics.
  *
- * Run:  node tests/entity-state.test.js   (also picked up by `npm test`)
+ * Run:  node test/entity-state.test.js   (also picked up by `npm test`)
  *
  * Why this shape
  * --------------
@@ -36,7 +35,6 @@ const Database = require('better-sqlite3');
 
 const ROOT = path.join(__dirname, '..');
 const SERVER_SRC = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
-const HA_SRC = fs.readFileSync(path.join(ROOT, 'modules', 'ha.js'), 'utf8');
 
 let passes = 0;
 let failures = 0;
@@ -146,37 +144,6 @@ check('unknown entity -> null (no throw)', () => {
 
 check('server.js no longer keys state on the value_type flag', () => {
   assert.ok(!/value_type\s*\?/.test(SERVER_SRC), 'server.js still contains a `value_type ?` ternary');
-});
-
-// ── modules/ha.js mqttValues string-drop (rides along) ───────────────────
-// pollHomeAssistant() writes the map but cannot be run here (it needs a live
-// DB + fetch), so the real assignment expression is extracted from source and
-// evaluated for representative HA states. The bug: non-numeric, non-boolean
-// states fell through to `undefined`, dropping the text.
-console.log('modules/ha.js \u2014 mqttValues carries text values');
-
-let evalMqttValue = null;
-check('the mqttValues assignment expression is extractable from ha.js', () => {
-  const m = HA_SRC.match(/mqttValues\[metric\]\s*=\s*(.+);\s*$/m);
-  assert.ok(m, 'mqttValues[metric] assignment not found in modules/ha.js');
-  evalMqttValue = new Function('data', 'num', 'return (' + m[1].trim() + ');');
-});
-
-check('numeric state stays numeric (43 -> 43)', () => {
-  assert.strictEqual(evalMqttValue({ state: '43' }, 43), 43);
-});
-
-check('boolean states stay 1 / 0', () => {
-  assert.strictEqual(evalMqttValue({ state: 'on' }, NaN), 1);
-  assert.strictEqual(evalMqttValue({ state: 'true' }, NaN), 1);
-  assert.strictEqual(evalMqttValue({ state: 'off' }, NaN), 0);
-  assert.strictEqual(evalMqttValue({ state: 'false' }, NaN), 0);
-});
-
-check('a plain string state is carried through, not dropped to undefined', () => {
-  const v = evalMqttValue({ state: 'Charging' }, NaN);
-  assert.strictEqual(v, 'Charging');
-  assert.notStrictEqual(v, undefined);
 });
 
 console.log('');

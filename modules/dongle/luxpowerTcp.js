@@ -33,7 +33,6 @@
  */
 const net = require('net');
 
-const FRAME_MAGIC = 0xA11A; // bytes A1 1A
 const TCP_FN_TRANSLATED_DATA = 0xC2;
 const DEV_FN_HOLDING = 0x03;
 const DEV_FN_INPUT = 0x04;

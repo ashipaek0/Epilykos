@@ -1,6 +1,5 @@
 const { logger } = require('./logger');
-const { getConfig } = require('./database');
-const { queueMetricWrite } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 const { assertSafeFetchUrl } = require('./utils');
 const metricSanity = require('./metricSanity');
 
@@ -45,21 +44,10 @@ function saveMetric(metricName, rawValue, timestamp) {
     // the held row keeps its ORIGINAL timestamp (AC-4). check() fails open and
     // never throws (AC-9); unguarded metrics are queued exactly as before (AC-12b).
     const verdict = metricSanity.check(metricName, num, timestamp);
-    if (verdict && verdict.guarded && !verdict.accepted) {
-      return;
-    }
-    queueMetricWrite({ metric: metricName, value: num, timestamp });
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
+    if (verdict && verdict.guarded && !verdict.accepted) return;
   }
+  queueMetricValue(metricName, rawValue, timestamp);
 }
-
-let mqttValues = {};
 
 async function pollHomeAssistant() {
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
@@ -90,9 +78,6 @@ async function pollHomeAssistant() {
         const data = await res.json();
         const now = Math.floor(Date.now() / 1000);
         saveMetric(metric, data.state, now);
-        // Store numeric representation for mqttValues compatibility
-        const num = parseFloat(data.state);
-        mqttValues[metric] = !isNaN(num) ? num : (data.state === 'on' || data.state === 'true' ? 1 : (data.state === 'off' || data.state === 'false' ? 0 : data.state));
       } catch (e) {
         logger.warn(`HA poll error for ${device.name} - ${metric}: ${e.message}`);
       }
@@ -324,4 +309,4 @@ async function getEntityModes(url, token, entityId) {
   return data;
 }
 
-module.exports = { pollHomeAssistant, fetchHAEntities, mqttValues, executeHAAction, getActionsForEntity, getEntityActions, getEntityModes, saveMetric };
+module.exports = { pollHomeAssistant, fetchHAEntities, haApiUrl, executeHAAction, getActionsForEntity, getEntityActions, getEntityModes, saveMetric };

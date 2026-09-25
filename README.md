@@ -36,9 +36,13 @@ Public display with no login required — settings are password-protected.
 ```bash
 git clone https://github.com/ashipaek0/epilykos.git
 cd epilykos
-nano .env   # set SETTINGS_PASSWORD
+nano .env   # set SETTINGS_PASSWORD (optional — see below)
 docker compose up -d
 ```
+
+Then open `http://localhost:3000/setup`. If you set `SETTINGS_PASSWORD`, the wizard asks for it.
+Otherwise it asks for a one-time **setup code** printed in the server log
+(`docker compose logs epilykos | grep "setup code"`) before you choose the admin password.
 
 | URL | Purpose |
 |-----|---------|
@@ -60,6 +64,9 @@ services:
     volumes:
       - ./data:/app/data
       - ./.env:/app/.env
+      - /etc/localtime:/etc/localtime:ro  # follow the host time zone…
+    environment:
+      - TZ=Africa/Lagos                    # …unless TZ is set (remove to use the host)
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
     group_add:
@@ -108,7 +115,7 @@ Connect Tuya-compatible smart devices directly on your LAN — no cloud dependen
 **Manual setup:** For devices not discovered via the cloud flow, enter the Device ID, Local Key, and IP Address directly.
 
 ### External REST API
-Point Epilykos at any HTTP API that returns JSON. Map JSON field paths to dashboard metrics.
+Point Epilykos at any HTTP(S) API that returns JSON — on your LAN (e.g. `http://192.168.1.50/status`) or on the internet. Map JSON field paths to dashboard metrics. Loopback and cloud-metadata addresses are blocked.
 
 ### Bluetooth BMS
 Requires the `bms-bridge` sidecar container. Scan for nearby BLE devices and select the target MAC address.
@@ -202,6 +209,21 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 
 ---
 
+## Health check & runtime settings
+
+`GET /healthz` (no login) returns `200 {"status":"ok",…}` once the app is serving and its database opens with the expected schema, and `503` otherwise. It never depends on the network, so a box with no Internet stays healthy. The Docker image uses it as its `HEALTHCHECK`.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LOG_TO_FILE` | `true` | `false` logs to stdout/stderr only (no `logs/` directory) — for read-only container roots |
+| `LOG_DIR` | `logs/` | Where rotating log files go when file logging is on |
+| `SQLITE_SYNCHRONOUS` | `NORMAL` | SQLite durability: `NORMAL`, `FULL` or `EXTRA` (`OFF` is refused) |
+| `TMPDIR` | `/tmp` | Temporary directory for uploads (backup restore, layout import) |
+
+All persistent state — `energy.db`, snapshots, `session-secret`, `settings-password` — lives in `data/` (`/app/data` in the container).
+
+---
+
 ## Troubleshooting
 
 | Symptom | Resolution |
@@ -215,11 +237,18 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | **RS232 scan error (ENOENT)** | Ensure the container has `udev` installed — the Docker image includes it by default |
 | **WebSocket fails ("closed before connection is established")** | If using the PWA, unregister the old Service Worker and reload; also check [WebSocket reverse proxy configuration](#websocket-support) |
 | **BMS scan returns no devices** | Ensure `bms-bridge` uses `network_mode: host` and the host has an active Bluetooth adapter |
+| **Daily totals roll over at the wrong hour** | Set `TZ` (e.g. `TZ=Europe/Berlin`) or mount `/etc/localtime:/etc/localtime:ro`; the startup log line shows the active time zone |
+| **Setup wizard asks for a setup code** | It is printed at startup: `docker compose logs epilykos \| grep "setup code"` |
 | **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |
 
 ---
 
 ## Development
+
+```bash
+npm ci
+npm test   # runs every test/*.test.js
+```
 
 For a complete walkthrough of the codebase architecture — adding new block types, integrating new data sources, settings UI patterns, performance best practices, deployment workflows, and common pitfalls — see the **[Development Guide](https://github.com/ashipaek0/Epilykos/wiki/Development-Guide)** on the wiki.
 

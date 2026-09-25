@@ -1,4 +1,4 @@
-const { getConfig, setConfig, getDb } = require('./database');
+const { getConfig, setConfig, getDb, flushMetrics } = require('./database');
 const { logger } = require('./logger');
 
 // Get all metrics (from latest_metrics + user_metrics)
@@ -56,7 +56,9 @@ function deleteMetric(name) {
   }
   setConfig('user_metrics', JSON.stringify(userMetrics));
 
-  // 2. Remove from latest_metrics and metrics tables
+  // 2. Remove from latest_metrics and metrics tables (drain the write queue
+  // first so a still-queued sample cannot re-create the metric afterwards)
+  flushMetrics();
   const db = getDb();
   db.prepare('DELETE FROM latest_metrics WHERE metric = ?').run(name);
   db.prepare('DELETE FROM metrics WHERE metric = ?').run(name);

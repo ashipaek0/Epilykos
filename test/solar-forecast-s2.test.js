@@ -57,6 +57,7 @@ require.cache[dbId] = {
   id: dbId, filename: dbId, loaded: true,
   exports: {
     getConfig: (k) => cfg[k],
+    flushMetrics: () => 0,
     getDb: () => ({ prepare: () => ({ all: () => [], get: () => undefined }) })
   }
 };
@@ -65,11 +66,12 @@ const solar = require('../modules/solar');
 const https = require('https');
 
 // ---- Stubbed upstream payloads ----
-const todayStr = new Date().toISOString().split('T')[0];
+// Local date: forecast days follow the process time zone (modules/localTime).
+const todayStr = require('../modules/localTime').localDateString();
 // Solcast periods WITH temp/humidity (Solcast weather observable).
 let solcastPeriods = [
-  { period_end: `${todayStr}T10:00:00Z`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-  { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
+  { period_end: `${todayStr}T10:00:00`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+  { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
 ];
 let fetchCalls = 0;
 global.fetch = async () => {
@@ -84,24 +86,13 @@ const curHour = new Date().getHours();
 const pad = (n) => String(n).padStart(2, '0');
 const omTime = `${todayStr}T${pad(curHour)}:00`;
 let omForecastCalls = 0;
+const { openMeteoPayload } = require('./open-meteo-fixture');
 function fakeGet(url, opts, cb) {
   if (typeof opts === 'function') { cb = opts; }
   const u = String(url);
-  let payload;
-  if (u.includes('shortwave_radiation')) {
-    omForecastCalls++;
-    payload = {
-      hourly: {
-        time: [`${todayStr}T10:00:00Z`, `${todayStr}T11:00:00Z`],
-        shortwave_radiation: [800, 900],
-        cloud_cover: [10, 20]
-      }
-    };
-  } else if (u.includes('daily=')) {
-    payload = { daily: { time: [todayStr, todayStr, todayStr], weathercode: [0, 1, 2], temperature_2m_max: [15, 16, 17], apparent_temperature_max: [14, 15, 16], relativehumidity_2m_mean: [20, 21, 22] } };
-  } else {
-    payload = { current_weather: { temperature: 15, weathercode: 0 }, hourly: { time: [omTime], apparent_temperature: [14], relativehumidity_2m: [20] } };
-  }
+  // One combined Open-Meteo call now serves both the PV forecast and weather.
+  if (u.includes('shortwave_radiation')) omForecastCalls++;
+  const payload = openMeteoPayload();
   const body = JSON.stringify(payload);
   const res = new EventEmitter();
   res.statusCode = 200;
@@ -188,8 +179,8 @@ check('invalidate: unrelated false', () => {
 
   // ---- (F) weather_source: solcast vs open-meteo vs fallback ----
   solcastPeriods = [
-    { period_end: `${todayStr}T10:00:00Z`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-    { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
+    { period_end: `${todayStr}T10:00:00`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+    { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
   ];
   solar.clearForecastCache();
   cfg.forecast_default_source = 'auto';
@@ -210,8 +201,8 @@ check('invalidate: unrelated false', () => {
 
   // Rooftop-shaped payload: no air_temp/relative_humidity anywhere.
   solcastPeriods = [
-    { period_end: `${todayStr}T10:00:00Z`, pv_estimate: 1.5 },
-    { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5 }
+    { period_end: `${todayStr}T10:00:00`, pv_estimate: 1.5 },
+    { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5 }
   ];
   solar.clearForecastCache();
   cfg.weather_default_source = 'solcast';

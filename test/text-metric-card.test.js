@@ -2,7 +2,7 @@
 /**
  * Epilykos Phase 2c — metric-bound text card (`text-metric`) behavioural test.
  *
- * Run:  node tests/text-metric-card.test.js   (also picked up by `npm test`)
+ * Run:  node test/text-metric-card.test.js   (also picked up by `npm test`)
  *
  * Why this shape
  * --------------

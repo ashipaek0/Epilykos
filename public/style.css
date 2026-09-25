@@ -332,58 +332,6 @@ h1, h2, h3, h4,
 .solar-now-gauge .gauge-bar-fill { height: 100%; width: 0%; background: var(--solar); border-radius: var(--radius-xs); transition: width 0.5s ease; }
 .solar-now-gauge .gauge-percent { font-size: var(--fs-small); font-weight: 600; color: var(--text); min-width: 2rem; }
 
-/* Solar Forecast Banner */
-.pv-today-banner {
-  background: var(--card-bg); border-radius: var(--radius); padding: 0.8rem 1.2rem;
-  box-shadow: var(--shadow); border: 1px solid var(--border);
-  display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
-}
-.pv-top-bar { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0; }
-.pv-top-bar h3 { font-size: var(--fs-large); font-weight: 600; margin: 2rem 0 0 0; white-space: nowrap; }
-.forecast-date { font-size: var(--fs-small); color: var(--text-secondary); min-width: 90px; text-align: right; }
-.forecast-clock { font-size: var(--fs-medium); font-weight: 500; color: var(--accent); margin-top: 0.15rem; }
-.forecast-date-clock { display: flex; flex-direction: column; align-items: center; }
-.weather-icon-big { margin-top: 5px; }
-
-.pv-main-row { display: flex; align-items: center; gap: 1.5rem; flex: 1; min-height: 0; margin-top: 0.25rem; }
-.pv-days { display: flex; flex-direction: column; gap: 0.75rem; min-width: 110px; justify-content: center; }
-.pv-day { display: flex; flex-direction: column; }
-.pv-day-label { font-size: var(--fs-small); color: var(--text-secondary); }
-.pv-day-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); }
-.pv-day-remaining { font-size: 0.7rem; color: var(--accent); margin-top: 0.1rem; }
-
-/* Weather section */
-.weather-section { display: flex; gap: 1.5rem; align-items: center; }
-.weather-column { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; min-width: 110px; }
-.weather-heading { font-size: var(--fs-small); font-weight: 500; color: var(--text-secondary); }
-.weather-icon-big { font-size: 4rem; line-height: 1; }
-.weather-icon-big i { font-size: inherit; color: var(--text); }
-.weather-details { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
-.weather-temp { font-size: var(--fs-small); font-weight: 600; color: var(--text); }
-.weather-desc { font-size: var(--fs-small); opacity: 0.8; color: var(--text-secondary); }
-.weather-extra { font-size: var(--fs-small); opacity: 0.7; color: var(--text-secondary); }
-
-/* Sparkline */
-.pv-sparkline-container { flex: 1 1 auto; min-height: 50px; align-self: stretch; }
-.pv-sparkline-container canvas { width: 100% !important; height: 100% !important; }
-
-/* Standalone forecast cards */
-.forecast-sparkline-card {
-  background: var(--card-bg); border-radius: var(--radius);
-  box-shadow: var(--shadow); border: 1px solid var(--border);
-  padding: 0.25rem; height: 100%; box-sizing: border-box;
-  display: flex; flex-direction: column;
-}
-.forecast-sparkline-card .pv-sparkline-container { flex: 1; min-height: 0; }
-.forecast-sparkline-card canvas { width: 100% !important; height: 100% !important; }
-.forecast-info-card {
-  background: var(--card-bg); border-radius: var(--radius);
-  box-shadow: var(--shadow); border: 1px solid var(--border);
-  padding: 0.25rem; height: 100%; box-sizing: border-box;
-  display: flex; flex-direction: column;
-}
-.forecast-info-card .pv-main-row { flex: 1; min-height: 0; }
-
 /* PV Today Card */
 .pv-today-card {
   background: var(--card-bg); border-radius: var(--radius);
@@ -424,8 +372,6 @@ h1, h2, h3, h4,
   .pvt-left, .pvt-right { align-items: center; text-align: center; min-width: 0; }
   .pvt-progress-wrap { width: 100%; }
 }
-.forecast-info-card .weather-section { align-self: center; margin-left: auto; }
-.forecast-info-card .pv-days { align-self: center; }
 
 /* Stats Grid */
 .stats-grid {
@@ -640,32 +586,13 @@ h1, h2, h3, h4,
   .flow-arrow { font-size: 2.5rem; display: none; }
   .grid-stats { display: grid; grid-template-columns: 1fr 1fr; }
   .grid-stats .stat-card { flex: none; min-width: 0; }
-  .forecast-info-card .pv-main-row { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
-  .forecast-info-card .weather-section, .forecast-info-card .pv-days { flex: 1 1 45%; min-width: 0; }
   .flow-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
   .flow-arrow { display: none; }
   .flow-item { min-height: auto; }
   .stat-value { font-size: var(--fs-large); }
   #signin-btn { display: none !important; }
   .chart-container { height: auto; min-height: 300px; }
-  .pv-today-banner { padding: 0.8rem 1rem; }
-  .pv-main-row { flex-direction: column; }
-  .pv-today-banner .pv-days, .pv-today-banner .weather-section { flex: 1 1 45%; }
-  .pv-today-banner .pv-main-row { flex-wrap: wrap; flex-direction: row; }
-  .pv-today-banner .pv-sparkline-container { flex: 1 1 100%; min-height: 60px; }
-  .weather-section { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
-  .weather-column { min-width: 100px; flex: 1 1 40%; }
-  .weather-section { flex-wrap: wrap; }
-  .weather-column { min-width: 100px; }
-  .weather-icon-big { font-size: 3rem; }
-  .pv-sparkline-container { width: 100%; min-height: 50px; }
-  .pv-hourly-table { display: block; margin-top: 1rem; }
-  .pv-hourly-table table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
-  .pv-hourly-table th, .pv-hourly-table td { padding: 0.3rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border); }
-  .pv-hourly-table th { color: var(--text-secondary); font-weight: 500; }
-  .pv-hourly-table td { color: var(--text); }
 }
-.pv-hourly-table { display: none; }
 
 
 /* Config modal (already defined in editor.html but ensure global) */
@@ -1241,15 +1168,14 @@ h1, h2, h3, h4,
 
 /* Transparency toggle */
 body.transparent-blocks .flow-card,
-body.transparent-blocks .pv-today-banner,
+body.transparent-blocks .fc-card,
+body.transparent-blocks .pv-today-card,
 body.transparent-blocks .chart-container,
 body.transparent-blocks .daily-breakdown-container,
 body.transparent-blocks .grid-card,
 body.transparent-blocks .flow-card-2,
 body.transparent-blocks .battery-block,
 body.transparent-blocks .weather-block,
-body.transparent-blocks .forecast-sparkline-card,
-body.transparent-blocks .forecast-info-card,
 body.transparent-blocks .stat-card {
   background: transparent !important;
   border-color: transparent !important;
@@ -1691,3 +1617,193 @@ details.help-sub.help-hidden { display: none; }
   text-decoration: none; font-weight: 600; color: inherit;
 }
 .setup-wizard-entry:hover { background: var(--accent-light, #ffede0); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Weather card (.wx-card) — layout follows the card's own width via
+   container queries, so it adapts to any grid size, not just the screen.
+   ═══════════════════════════════════════════════════════════════════ */
+.wx-ic { color: var(--text-secondary); line-height: 1; display: inline-block; }
+.wx-ic[data-kind="clear"]  { color: #f59e0b; }
+.wx-ic[data-kind="partly"] { color: #eab308; }
+.wx-ic[data-kind="night"]  { color: #818cf8; }
+.wx-ic[data-kind="cloudy"], .wx-ic[data-kind="fog"] { color: #94a3b8; }
+.wx-ic[data-kind="rain"]   { color: #3b82f6; }
+.wx-ic[data-kind="snow"]   { color: #7dd3fc; }
+.wx-ic[data-kind="storm"]  { color: #8b5cf6; }
+
+.wx-card {
+  container: wx / inline-size;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); color: var(--text);
+  padding: 0.75rem 0.9rem; height: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 0.6rem; overflow: auto;
+}
+.wx-card.wx-stale .wx-now { opacity: 0.7; }
+.wx-card [hidden] { display: none !important; }
+.wx-card > * { flex-shrink: 0; }
+.wx-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 0.5rem; min-width: 0; }
+.wx-title { margin: 0; font-size: var(--fs-medium, 1rem); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.wx-meta { display: flex; gap: 0.5rem; font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; }
+.wx-meta span:empty { display: none; }
+.wx-error { font-size: 0.8rem; color: var(--color-negative, #ef4444); }
+.wx-alerts { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.weather-alert-badge {
+  font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px;
+  background: var(--warn-bg, #fef3c7); color: var(--warn-fg, #92400e); border: 1px solid currentColor;
+}
+
+.wx-body { display: grid; grid-template-columns: 1fr; gap: 0.75rem; min-width: 0; }
+.wx-now { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.wx-now-icon .wx-ic { font-size: clamp(2.4rem, 16cqi, 4.2rem); }
+.wx-now-main { display: flex; flex-direction: column; min-width: 0; }
+.wx-card .wx-now-temp { font-size: clamp(1.8rem, 11cqi, 3rem); font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.wx-card .wx-now-desc { font-size: 0.9rem; font-weight: 500; color: var(--text); opacity: 1; }
+.wx-hilo, .wx-card .wx-extra { font-size: 0.78rem; color: var(--text-secondary); opacity: 1; }
+/* The one-line summary is only for cards too narrow for the details grid. */
+.wx-card.wx-has-details .wx-extra { display: none; }
+
+.wx-details { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
+.wx-detail { display: flex; flex-direction: column; min-width: 0; }
+.wx-detail dt { font-size: 0.68rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; }
+.wx-detail dt i { font-size: 0.75rem; line-height: 1; }
+.wx-detail dd { margin: 0; font-size: 0.85rem; font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+.wx-hourly {
+  display: flex; gap: 0.25rem; overflow-x: auto; scrollbar-width: thin;
+  padding-bottom: 0.25rem; border-top: 1px solid var(--border); padding-top: 0.5rem;
+  scroll-snap-type: x proximity;
+}
+.wx-hour {
+  flex: 0 0 auto; min-width: 2.9rem; display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  font-size: 0.72rem; scroll-snap-align: start;
+}
+.wx-hour .wx-ic { font-size: 1.15rem; }
+.wx-hour-time { color: var(--text-secondary); }
+.wx-hour-temp { font-weight: 600; }
+.wx-hour-rain { color: #3b82f6; min-height: 0.9em; font-size: 0.65rem; }
+
+.wx-days { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.wx-day {
+  display: grid; align-items: center; gap: 0.4rem; font-size: 0.8rem;
+  grid-template-columns: minmax(2.6rem, 1fr) 1.4rem 2.2rem 2.2rem minmax(2rem, 3fr) 2.2rem;
+}
+.wx-day .wx-ic { font-size: 1.1rem; justify-self: center; }
+.wx-day-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wx-day-rain { color: #3b82f6; font-size: 0.7rem; text-align: right; }
+.wx-day-lo { color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+.wx-day-hi { font-weight: 600; font-variant-numeric: tabular-nums; }
+.wx-range { position: relative; height: 5px; border-radius: 3px; background: var(--border); }
+.wx-range span { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #60a5fa, #f59e0b); }
+
+.wx-charts { display: flex; flex-direction: column; gap: 0.5rem; }
+.wx-chart { position: relative; height: 110px; min-height: 90px; }
+.wx-chart canvas { width: 100% !important; height: 100% !important; }
+.wx-chart .weather-chart-caption { font-size: 0.8rem; color: var(--text-secondary); }
+
+/* Very narrow: drop the range bar and rain column so names/temps never clip. */
+@container wx (max-width: 280px) {
+  .wx-day { grid-template-columns: minmax(2.4rem, 1fr) 1.4rem 2rem 2rem; }
+  .wx-day .wx-range, .wx-day .wx-day-rain { display: none; }
+  .wx-details { grid-template-columns: minmax(0, 1fr); }
+}
+/* Medium: current conditions beside the details grid, days underneath. */
+@container wx (min-width: 460px) {
+  .wx-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; }
+  .wx-days { grid-column: 1 / -1; }
+  .wx-details { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* Wide: three columns — now | details | days. */
+@container wx (min-width: 760px) {
+  .wx-card.wx-has-days .wx-body { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1.3fr); }
+  .wx-card.wx-has-days .wx-days { grid-column: auto; }
+  .wx-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wx-hour { min-width: 3.3rem; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Solar forecast cards (.fc-card: banner / info / sparkline)
+   Container queries: the layout follows the card's width, not the screen.
+   ═══════════════════════════════════════════════════════════════════ */
+.fc-card {
+  container: fc / inline-size;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); color: var(--text);
+  padding: 0.7rem 0.9rem 0.4rem; height: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 0.5rem; overflow: auto;
+}
+.fc-card [hidden] { display: none !important; }
+.fc-card > * { flex-shrink: 0; }
+.fc-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 0.5rem; min-width: 0; }
+.fc-title { margin: 0; font-size: var(--fs-medium, 1rem); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.fc-when { display: flex; gap: 0.5rem; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
+.fc-clock { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fc-error { font-size: 0.8rem; color: var(--color-negative, #ef4444); }
+.fc-source { font-size: 0.68rem; color: var(--text-secondary); text-align: right; margin-top: auto; }
+.fc-source:empty { display: none; }
+
+.fc-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem 1.25rem; min-width: 0; flex: 1 0 auto; }
+
+.fc-today { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.fc-today-label { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.fc-today-value { font-size: clamp(1.4rem, 8cqi, 2.2rem); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-today-sub { font-size: 0.75rem; color: var(--text-secondary); }
+.fc-progress { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 0.3rem; }
+.fc-progress span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.6s ease; }
+
+.fc-now { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.fc-now-icon .wx-ic { font-size: clamp(2rem, 11cqi, 3.2rem); }
+.fc-now-text { min-width: 0; }
+.fc-now-temp { font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
+.fc-now-desc { font-size: 0.82rem; font-weight: 500; }
+.fc-now-extra { font-size: 0.72rem; color: var(--text-secondary); }
+
+.fc-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr)); gap: 0.4rem; min-width: 0; }
+.fc-day {
+  display: grid; grid-template-columns: auto 1fr; grid-template-areas: "name icon" "kwh kwh" "wx wx";
+  align-items: center; gap: 0.1rem 0.3rem; padding: 0.4rem 0.5rem; border-radius: 8px;
+  background: color-mix(in srgb, var(--border) 35%, transparent); min-width: 0;
+}
+.fc-day-name { grid-area: name; font-size: 0.75rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-day-icon { grid-area: icon; justify-self: end; font-size: 1.1rem; }
+.fc-day-kwh { grid-area: kwh; font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-day-wx { grid-area: wx; display: flex; justify-content: space-between; gap: 0.3rem; font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; }
+.fc-day-temp small { font-size: inherit; opacity: 0.8; }
+.fc-day-rain { color: #3b82f6; }
+
+.fc-chart { position: relative; min-height: 120px; min-width: 0; width: 100%; align-self: stretch; justify-self: stretch; }
+.fc-chart canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.fc-chart-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: var(--text-secondary); }
+/* Sparkline-only card: the chart takes all remaining height. */
+.fc-spark .fc-body { display: flex; flex-direction: column; }
+.fc-spark .fc-chart { flex: 1 1 auto; }
+
+/* ≥ 360px: today + weather side by side; days and chart full width below. */
+@container fc (min-width: 360px) {
+  .fc-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+  .fc-days, .fc-chart { grid-column: 1 / -1; }
+}
+/* ≥ 820px (banner/info): today | weather | days in one row, chart below. */
+@container fc (min-width: 820px) {
+  .fc-body { grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 0.9fr) minmax(0, 2fr); }
+  .fc-days { grid-column: auto; }
+  .fc-chart { min-height: 140px; }
+}
+/* Very wide banners: put the chart in the same row as well. */
+@container fc (min-width: 1150px) {
+  .fc-banner .fc-body { grid-template-columns: minmax(10.5rem, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.6fr) minmax(0, 2fr); align-items: stretch; column-gap: 1.25rem; }
+  .fc-banner .fc-chart { grid-column: auto; }
+  .fc-banner .fc-today, .fc-banner .fc-now, .fc-banner .fc-days { align-self: center; }
+}
+
+/* PV Today timeline icons */
+.pvt-timeline-icon .wx-ic { font-size: clamp(0.9rem, 2.2vw, 1.3rem); }
+
+/* Phones: dashboard blocks become auto-height, so charts need a real height. */
+@media (max-width: 768px) {
+  .pvt-chart-container { flex: 0 0 auto; height: 170px; }
+  .fc-chart { min-height: 160px; }
+}
+
+/* A card whose source failed before it ever rendered shows only the error. */
+.fc-card.fc-failed .fc-body, .wx-card.wx-failed .wx-body,
+.wx-card.wx-failed .wx-hourly, .wx-card.wx-failed .wx-charts { display: none; }

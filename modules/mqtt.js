@@ -1,22 +1,8 @@
 const { logger } = require('./logger');
 const mqtt = require('mqtt');
-const { getConfig, queueMetricWrite } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 
 const mqttClients = new Map();
-
-function saveMetric(metricName, rawValue, timestamp) {
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    queueMetricWrite({ metric: metricName, value: num, timestamp });
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
-  }
-}
 
 function setupMqtt() {
   for (const client of mqttClients.values()) client.end();
@@ -49,7 +35,7 @@ function setupMqtt() {
       }
       if (!metric) return;
       const now = Math.floor(Date.now() / 1000);
-      saveMetric(metric, msg, now);
+      queueMetricValue(metric, msg, now);
     });
 
     client.on('error', (err) => logger.error(`MQTT ${device.broker} error:`, err));

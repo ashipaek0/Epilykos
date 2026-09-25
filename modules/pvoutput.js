@@ -176,7 +176,9 @@ module.exports = {
   restart,
   router: apiRouter,         // protected API routes (SC1)
   get webhookRouter() {      // lazy-init webhook router
-    if (!webhookRouter) webhookRouter = createWebhookRouter(getDb(), getConfig);
+    // The router is mounted once at startup; hand it a facade that always
+    // targets the current connection so it survives a backup restore.
+    if (!webhookRouter) webhookRouter = createWebhookRouter({ prepare: (sql) => getDb().prepare(sql) }, getConfig);
     return webhookRouter;
   }
 };

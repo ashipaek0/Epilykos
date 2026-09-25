@@ -23,7 +23,7 @@
 const { SerialPort } = require('serialport');
 const fs = require('fs');
 const path = require('path');
-const { getConfig, getDb } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
 const {
   buildModbusReadRequest,
@@ -189,54 +189,9 @@ function readModbusRtuFrame(port, frame, timeoutMs = 5000) {
   });
 }
 
-// ── DB Metric Helpers (mirror bms.js saveBmsMetric) ──────────────────────
-
-let bmsMetricInsert = null;
-let bmsLatestUpsert = null;
-let bmsMetricInsertText = null;
-let bmsLatestUpsertText = null;
-
-function getBmsMetricInsert(db) {
-  if (!bmsMetricInsert) bmsMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  return bmsMetricInsert;
-}
-
-function getBmsLatestUpsert(db) {
-  if (!bmsLatestUpsert) bmsLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
-  return bmsLatestUpsert;
-}
-
-function getBmsMetricInsertText(db) {
-  if (!bmsMetricInsertText) bmsMetricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
-  return bmsMetricInsertText;
-}
-
-function getBmsLatestUpsertText(db) {
-  if (!bmsLatestUpsertText) bmsLatestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
-  return bmsLatestUpsertText;
-}
-
-function saveBmsMetric(db, metricName, rawValue, timestamp) {
-  if (rawValue === null || rawValue === undefined) return;
-  if (typeof rawValue === 'object' && !Array.isArray(rawValue)) return;
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    getBmsLatestUpsert(db).run(metricName, num, timestamp);
-    getBmsMetricInsert(db).run(timestamp, metricName, num);
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    getBmsLatestUpsertText(db).run(metricName, displayVal, type, timestamp);
-    getBmsMetricInsertText(db).run(timestamp, metricName, displayVal, type);
-  }
-}
-
 // ── Device Poll (mirror rs232.js pollModbusRtuDevice, publish bms_*) ──────
 
-async function pollWiredDevice(device, profile, db) {
+async function pollWiredDevice(device, profile) {
   const port = await openSerialPort(device, profile);
   try {
     const unitId = device.modbus_unit_id || profile.default_unit_id || 5;
@@ -285,11 +240,11 @@ async function pollWiredDevice(device, profile, db) {
       // Prefer m.field, fall back to m.name.
       const key = m.field || m.name;
       const metricName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      saveBmsMetric(db, metricName, value, now);
+      queueMetricValue(metricName, value, now);
       writeCount++;
       // Publish the mapped role-metric alias (parity with BLE poller).
       const wiredMappings = device.mappings || {};
-      if (wiredMappings[key]) saveBmsMetric(db, wiredMappings[key], value, now);
+      if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
     }
     logger.info(`BMS-wired poll ${device.name} (unit ${unitId}): ${writeCount} metrics`);
   } finally {
@@ -310,7 +265,6 @@ async function pollBmsWired() {
   }
   bmsWiredPollingActive = true;
   try {
-    const db = getDb();
     let devices;
     try {
       devices = JSON.parse(getConfig('bms_devices') || '[]');
@@ -332,7 +286,7 @@ async function pollBmsWired() {
         continue;
       }
       try {
-        await pollWiredDevice(device, profile, db);
+        await pollWiredDevice(device, profile);
       } catch (err) {
         logger.error(`BMS-wired poll error for ${device.name}: ${err.message}`);
       }

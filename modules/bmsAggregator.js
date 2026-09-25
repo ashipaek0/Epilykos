@@ -21,7 +21,7 @@
  * @property {BankFunction[]} functions
  */
 
-const { getConfig, getDb } = require('./database');
+const { getDb, queueMetricValue, flushMetrics } = require('./database');
 const { logger } = require('./logger');
 
 // ---------------------------------------------------------------------------
@@ -44,6 +44,7 @@ const { logger } = require('./logger');
  * @returns {Object.<string, {value: number, timestamp: number}>}
  */
 function readLatestBmsMetrics(deviceName) {
+  flushMetrics(); // read-your-write: the BMS pollers queue their writes
   const db = getDb();
   const prefix = `bms_${deviceName}_`;
   const metrics = {};
@@ -240,7 +241,6 @@ async function computeBankAggregates(bank, pollIntervalSec) {
     return;
   }
 
-  const db = getDb();
   const now = Math.floor(Date.now() / 1000);
   const stalenessThreshold = pollIntervalSec * 2;
 
@@ -271,27 +271,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
       .map(d => Math.max(...Object.values(d.raw).map(m => m.timestamp)))
   );
 
-  const metricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  const latestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
-  const metricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
-  const latestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
-
-  const writeMetric = (metricName, rawValue) => {
-    if (rawValue === null || rawValue === undefined) return;
-    const num = parseFloat(rawValue);
-    if (!isNaN(num) && num === Number(rawValue)) {
-      metricInsert.run(now, metricName, num);
-      latestUpsert.run(metricName, num, now);
-    } else {
-      const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-      const lower = strVal.toLowerCase();
-      const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-      const type = isBool ? 'boolean' : 'string';
-      const displayVal = isBool ? lower : strVal;
-      metricInsertText.run(now, metricName, displayVal, type);
-      latestUpsertText.run(metricName, displayVal, type, now);
-    }
-  };
+  const writeMetric = (metricName, rawValue) => queueMetricValue(metricName, rawValue, now);
 
   writeMetric(companionOnline, freshCount);
   writeMetric(companionUpdate, oldestFreshTs);
@@ -371,6 +351,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
  * @param {Bank[]} newBanks - after save
  */
 function cleanupOrphanedBankMetrics(oldBanks, newBanks) {
+  flushMetrics(); // a still-queued bank write must not resurrect a deleted row
   const db = getDb();
 
   // Collect all expected metric names from new config

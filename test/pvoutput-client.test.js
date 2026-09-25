@@ -8,7 +8,7 @@
  * PVOutput's addstatus rejects (400 Invalid Time). The header is set inline in
  * post() only; GET must remain unchanged (X-Pvoutput auth headers only).
  *
- * Run: node --test tests/pvoutput-client.test.js
+ * Run: node --test test/pvoutput-client.test.js
  */
 
 const { test, after } = require('node:test');

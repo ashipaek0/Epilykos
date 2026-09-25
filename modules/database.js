@@ -15,6 +15,7 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const { logger } = require('./logger');
+const { localDateString } = require('./localTime');
 const {
   SECRET_FIELDS,
   encryptString,
@@ -26,6 +27,10 @@ const {
 let db;
 const DB_PATH = './data/energy.db';
 
+// Default dashboard layout seeded on first run (dashboard_layouts and the
+// legacy dashboard_config blob both start from this).
+const DEFAULT_DASHBOARD_LAYOUTS_JSON = `[{"id":"main","name":"Main","layout":[{"id":"b_1784465890590_20sz","type":"forecast-pvtoday","gridX":0,"gridY":12,"gridW":12,"gridH":8,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","location_name":"Solar Forecast - Lagos","metrics":{"generated":"PV Power"}},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1784465948035_e0n4","type":"grid-card","gridX":0,"gridY":20,"gridW":12,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"#000000","fontColor":"#000000","fontSize":"","metrics":{"grid_status":"Grid Status"},"showTimeline":true}},{"id":"b_1784466238742_nhu9","type":"savings-summary","gridX":4,"gridY":10,"gridW":8,"gridH":2,"enabled":true,"config":{}},{"id":"b_1784480049598_gc1w","type":"flow-card-2","gridX":0,"gridY":0,"gridW":4,"gridH":12,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"},"inverter_image":"https://i.postimg.cc/0y66sKCR/srne.png"},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"}},{"id":"b_1784480391877_32v7","type":"metric-cards","gridX":4,"gridY":6,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"PV Voltage","metric":"PV Voltage","unit":"V"},{"title":"PV Current","metric":"PV Current","unit":"A"},{"title":"Peak PV","metric":"Peak PV Power","unit":"W"}]},{"id":"b_1784554263492_o1tm","type":"metric-cards","gridX":4,"gridY":8,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"Batt Voltage","metric":"Battery Voltage","unit":"V"},{"title":"Batt Power","metric":"Battery Power","unit":"W"},{"title":"Batt Energy","metric":"Battery Energy (Capacity)","unit":"kWh"}]},{"id":"b_1785070489725_fqnm","type":"bar-gauge-retro","gridX":4,"gridY":0,"gridW":8,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},{"id":"b_1785073195659_rf7m","type":"chart-power","gridX":0,"gridY":26,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Load","metric":"Load Power","color":"#474eff"},{"label":"Solar","metric":"PV Power","color":"#f59e0b"},{"label":"Battery Charge","metric":"Battery Charge Power","color":"#4a6a2e"},{"label":"Grid Import","metric":"Grid Power","color":"#b33a2e"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1785073219406_yp2j","type":"chart-energy","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Solar Generated","metric":"PV Energy Generated","color":"#f59e0b"},{"label":"Grid Imported","metric":"Grid Energy Import","color":"#b33a2e"},{"label":"Energy Consumed","metric":"Load Energy Consumed","color":"#474eff"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""}]}]`;
+
 function getDb() {
   if (!db) throw new Error('Database not initialized');
   return db;
@@ -33,19 +38,20 @@ function getDb() {
 
 function initializeDatabase() {
   const dataDir = path.dirname(DB_PATH);
+  let dbFile = DB_PATH;
   if (!fs.existsSync(dataDir)) {
     try {
       fs.mkdirSync(dataDir, { recursive: true });
     } catch (err) {
+      // Still run the schema setup below so the in-memory DB is usable.
       logger.error(`Cannot create data directory ${dataDir}: ${err.message}. Falling back to in-memory database.`);
-      db = new Database(':memory:');
-      db.pragma('journal_mode = WAL');
-      return;
+      dbFile = ':memory:';
     }
   }
 
-  db = new Database(DB_PATH);
+  db = new Database(dbFile);
   db.pragma('journal_mode = WAL');
+  applySynchronousMode(db);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
@@ -224,7 +230,7 @@ function initializeDatabase() {
       savings_currency: '€',
       savings_rate: '0.30',
       solar_loss_factor: '0.9',
-      solar_install_date: new Date().toISOString().split('T')[0],
+      solar_install_date: localDateString(),
       external_poll_interval: '60'
     };
     for (const [key, val] of Object.entries(defaults)) updateConfig.run(val, key, '');
@@ -240,7 +246,7 @@ function initializeDatabase() {
   // Ensure dashboard_layouts exists with valid JSON (post-migration)
   const dashLayouts = getConfig('dashboard_layouts');
   if (!dashLayouts || dashLayouts === '' || dashLayouts === 'null') {
-    const defaultLayouts = JSON.parse(`[{"id":"main","name":"Main","layout":[{"id":"b_1784465890590_20sz","type":"forecast-pvtoday","gridX":0,"gridY":12,"gridW":12,"gridH":8,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","location_name":"Solar Forecast - Lagos","metrics":{"generated":"PV Power"}},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1784465948035_e0n4","type":"grid-card","gridX":0,"gridY":20,"gridW":12,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"#000000","fontColor":"#000000","fontSize":"","metrics":{"grid_status":"Grid Status"},"showTimeline":true}},{"id":"b_1784466238742_nhu9","type":"savings-summary","gridX":4,"gridY":10,"gridW":8,"gridH":2,"enabled":true,"config":{}},{"id":"b_1784480049598_gc1w","type":"flow-card-2","gridX":0,"gridY":0,"gridW":4,"gridH":12,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"},"inverter_image":"https://i.postimg.cc/0y66sKCR/srne.png"},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"}},{"id":"b_1784480391877_32v7","type":"metric-cards","gridX":4,"gridY":6,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"PV Voltage","metric":"PV Voltage","unit":"V"},{"title":"PV Current","metric":"PV Current","unit":"A"},{"title":"Peak PV","metric":"Peak PV Power","unit":"W"}]},{"id":"b_1784554263492_o1tm","type":"metric-cards","gridX":4,"gridY":8,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"Batt Voltage","metric":"Battery Voltage","unit":"V"},{"title":"Batt Power","metric":"Battery Power","unit":"W"},{"title":"Batt Energy","metric":"Battery Energy (Capacity)","unit":"kWh"}]},{"id":"b_1785070489725_fqnm","type":"bar-gauge-retro","gridX":4,"gridY":0,"gridW":8,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},{"id":"b_1785073195659_rf7m","type":"chart-power","gridX":0,"gridY":26,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Load","metric":"Load Power","color":"#474eff"},{"label":"Solar","metric":"PV Power","color":"#f59e0b"},{"label":"Battery Charge","metric":"Battery Charge Power","color":"#4a6a2e"},{"label":"Grid Import","metric":"Grid Power","color":"#b33a2e"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1785073219406_yp2j","type":"chart-energy","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Solar Generated","metric":"PV Energy Generated","color":"#f59e0b"},{"label":"Grid Imported","metric":"Grid Energy Import","color":"#b33a2e"},{"label":"Energy Consumed","metric":"Load Energy Consumed","color":"#474eff"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""}]}]`);
+    const defaultLayouts = JSON.parse(DEFAULT_DASHBOARD_LAYOUTS_JSON);
     setConfig('dashboard_layouts', JSON.stringify(defaultLayouts));
     setConfig('dashboard_active', 'main');
     logger.info('Initialised default dashboard layouts');
@@ -256,7 +262,7 @@ function initializeDatabase() {
   // (seeded after migration so existing installs keep their old blob)
   const dashConfig = getConfig('dashboard_config');
   if (!dashConfig || dashConfig === '' || dashConfig === 'null') {
-    const defaultConfig = JSON.parse(`{"dashboards":[{"id":"main","name":"Main","layout":[{"id":"b_1784465890590_20sz","type":"forecast-pvtoday","gridX":0,"gridY":12,"gridW":12,"gridH":8,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","location_name":"Solar Forecast - Lagos","metrics":{"generated":"PV Power"}},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1784465948035_e0n4","type":"grid-card","gridX":0,"gridY":20,"gridW":12,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"#000000","fontColor":"#000000","fontSize":"","metrics":{"grid_status":"Grid Status"},"showTimeline":true}},{"id":"b_1784466238742_nhu9","type":"savings-summary","gridX":4,"gridY":10,"gridW":8,"gridH":2,"enabled":true,"config":{}},{"id":"b_1784480049598_gc1w","type":"flow-card-2","gridX":0,"gridY":0,"gridW":4,"gridH":12,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"},"inverter_image":"https://i.postimg.cc/0y66sKCR/srne.png"},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"}},{"id":"b_1784480391877_32v7","type":"metric-cards","gridX":4,"gridY":6,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"PV Voltage","metric":"PV Voltage","unit":"V"},{"title":"PV Current","metric":"PV Current","unit":"A"},{"title":"Peak PV","metric":"Peak PV Power","unit":"W"}]},{"id":"b_1784554263492_o1tm","type":"metric-cards","gridX":4,"gridY":8,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"Batt Voltage","metric":"Battery Voltage","unit":"V"},{"title":"Batt Power","metric":"Battery Power","unit":"W"},{"title":"Batt Energy","metric":"Battery Energy (Capacity)","unit":"kWh"}]},{"id":"b_1785070489725_fqnm","type":"bar-gauge-retro","gridX":4,"gridY":0,"gridW":8,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},{"id":"b_1785073195659_rf7m","type":"chart-power","gridX":0,"gridY":26,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Load","metric":"Load Power","color":"#474eff"},{"label":"Solar","metric":"PV Power","color":"#f59e0b"},{"label":"Battery Charge","metric":"Battery Charge Power","color":"#4a6a2e"},{"label":"Grid Import","metric":"Grid Power","color":"#b33a2e"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1785073219406_yp2j","type":"chart-energy","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Solar Generated","metric":"PV Energy Generated","color":"#f59e0b"},{"label":"Grid Imported","metric":"Grid Energy Import","color":"#b33a2e"},{"label":"Energy Consumed","metric":"Load Energy Consumed","color":"#474eff"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""}]}],"activeDashboard":"main"}`);
+    const defaultConfig = { dashboards: JSON.parse(DEFAULT_DASHBOARD_LAYOUTS_JSON), activeDashboard: 'main' };
     setConfig('dashboard_config', JSON.stringify(defaultConfig));
     logger.info('Initialised default dashboard configuration (legacy blob)');
   }
@@ -369,7 +375,7 @@ function migrateLegacyConfig() {
         topics
       };
       setConfig('mqtt_devices', JSON.stringify([device]));
-      db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled'").run();
+      db.prepare("DELETE FROM config WHERE key LIKE 'mqtt_topic_%' OR key IN ('mqtt_broker_url','mqtt_username','mqtt_password','mqtt_enabled')").run();
       logger.info('Migrated legacy MQTT config to mqtt_devices array.');
     }
   }
@@ -427,6 +433,34 @@ function migrateDashboardConfigBlob() {
   } catch (err) {
     logger.warn('Failed to migrate dashboard_config blob:', err.message);
   }
+}
+
+// SQLite durability (EpilykosOS C-DATA-003 / D-SQLITE-001): set explicitly,
+// never left to the library's build default. WAL + NORMAL (the historical
+// effective value) cannot corrupt the database on power loss but may drop the
+// last few committed transactions; FULL/EXTRA fsync every commit. OFF is
+// refused — it trades integrity for speed.
+const SYNCHRONOUS_MODES = ['NORMAL', 'FULL', 'EXTRA'];
+const DEFAULT_SYNCHRONOUS = 'NORMAL';
+
+function applySynchronousMode(handle) {
+  const wanted = String(process.env.SQLITE_SYNCHRONOUS || DEFAULT_SYNCHRONOUS).trim().toUpperCase();
+  const mode = SYNCHRONOUS_MODES.includes(wanted) ? wanted : DEFAULT_SYNCHRONOUS;
+  if (mode !== wanted) {
+    logger.warn(`SQLITE_SYNCHRONOUS=${wanted} is not allowed (use ${SYNCHRONOUS_MODES.join('/')}); using ${mode}`);
+  }
+  handle.pragma(`synchronous = ${mode}`);
+  return mode;
+}
+
+/** journal_mode + synchronous as SQLite reports them (for /healthz and diagnostics). */
+function getDurabilitySettings() {
+  const names = { 0: 'OFF', 1: 'NORMAL', 2: 'FULL', 3: 'EXTRA' };
+  const handle = getDb();
+  return {
+    journal_mode: handle.pragma('journal_mode', { simple: true }),
+    synchronous: names[handle.pragma('synchronous', { simple: true })] || 'UNKNOWN'
+  };
 }
 
 function getConfig(key) {
@@ -538,7 +572,6 @@ function decryptLeaves(node, wanted, configKey) {
 // NOTE (deploy, 5.9GB prod DB): this migration rewrites config rows in place
 // inside ONE transaction — it never copies energy.db and never takes a file
 // backup itself. The user runbook file-backup of energy.db precedes deploy.
-let secretsMigrationDone = false;
 
 /**
  * One-time plaintext→$enc1$ migration over SECRET_FIELDS keys present in
@@ -600,6 +633,10 @@ function secretLeafNeedsMigration(node, wanted) {
 // flushSync() (SIGTERM/SIGINT, tests). Config/grid_status writes are NEVER
 // buffered — only metrics/latest_metrics rows go through this queue.
 const METRIC_BUFFER_CAP = 500;
+// Queued samples reach SQLite at most this long after they are read, so an
+// abrupt power cut loses at most this window of telemetry (config/settings
+// writes are never queued). EpilykosOS C-DATA-003 cites this value.
+const METRIC_FLUSH_INTERVAL_MS = 5000;
 let metricBuffer = [];
 let metricFlushTimer = null;
 
@@ -619,6 +656,34 @@ function queueMetricWrite(entry) {
     metricBuffer.splice(0, dropped);
     logger.warn(`Metric write buffer overflow: dropped ${dropped} oldest entries (cap ${METRIC_BUFFER_CAP})`);
   }
+}
+
+/**
+ * Queue one raw source value, classified the way every poller stores it:
+ * numeric strings/numbers → `value`; on/off/true/false (and booleans) →
+ * value_text with type 'boolean' (lower-cased); anything else → value_text
+ * with type 'string'. null/undefined and plain objects are ignored.
+ */
+function queueMetricValue(metric, rawValue, timestamp, unit) {
+  if (rawValue === null || rawValue === undefined) return;
+  if (typeof rawValue === 'object' && !Array.isArray(rawValue)) return;
+  const extra = (unit !== undefined && unit !== null) ? { unit } : {};
+  const num = parseFloat(rawValue);
+  if (!isNaN(num) && num === Number(rawValue)) {
+    queueMetricWrite({ metric, value: num, timestamp, ...extra });
+    return;
+  }
+  const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
+  const lower = strVal.toLowerCase();
+  const isBool = typeof rawValue === 'boolean' || lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false';
+  queueMetricWrite({
+    metric,
+    value: null,
+    value_text: isBool ? lower : strVal,
+    value_type: isBool ? 'boolean' : 'string',
+    timestamp,
+    ...extra
+  });
 }
 
 // Single-transaction batch upsert. Statement shapes mirror the per-module
@@ -665,7 +730,7 @@ function getMetricBufferSize() {
   return metricBuffer.length;
 }
 
-function startMetricAutoFlush(intervalMs = 5000) {
+function startMetricAutoFlush(intervalMs = METRIC_FLUSH_INTERVAL_MS) {
   if (metricFlushTimer) return metricFlushTimer;
   metricFlushTimer = setInterval(() => {
     try { flushMetrics(); } catch (err) { logger.warn('Metric auto-flush failed:', err.message); }
@@ -685,13 +750,16 @@ module.exports = {
   encryptConfigValue,
   migrateSecretsToEncrypted,
   getDb,
+  getDurabilitySettings,
   DB_PATH,
   queueMetricWrite,
+  queueMetricValue,
   flushMetrics,
   flushSync,
   clearMetricBuffer,
   getMetricBufferSize,
   startMetricAutoFlush,
   stopMetricAutoFlush,
-  METRIC_BUFFER_CAP
+  METRIC_BUFFER_CAP,
+  METRIC_FLUSH_INTERVAL_MS
 };

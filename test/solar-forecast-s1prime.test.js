@@ -52,6 +52,7 @@ require.cache[dbId] = {
   id: dbId, filename: dbId, loaded: true,
   exports: {
     getConfig: (k) => cfg[k],
+    flushMetrics: () => 0,
     getDb: () => ({ prepare: () => ({ all: () => [], get: () => undefined }) })
   }
 };
@@ -120,10 +121,11 @@ check('pick: all-absent->nulls', () => {
 });
 
 // ---- (D/E/F/G) getSolarForecast with stubbed fetch + https ----
-const todayStr = new Date().toISOString().split('T')[0];
+// Local date: forecast days follow the process time zone (modules/localTime).
+const todayStr = require('../modules/localTime').localDateString();
 const solcastPeriods = [
-  { period_end: `${todayStr}T10:00:00Z`, pv_estimate: null, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-  { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20, custom_future: 'fwd' }
+  { period_end: `${todayStr}T10:00:00`, pv_estimate: null, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+  { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20, custom_future: 'fwd' }
 ];
 let fetchCalls = 0;
 global.fetch = async () => {
@@ -136,12 +138,10 @@ global.fetch = async () => {
 const curHour = new Date().getHours();
 const pad = (n) => String(n).padStart(2, '0');
 const omTime = `${todayStr}T${pad(curHour)}:00`;
+const { openMeteoPayload } = require('./open-meteo-fixture');
 function fakeGet(url, opts, cb) {
   if (typeof opts === 'function') { cb = opts; }
-  const isDaily = String(url).includes('daily=');
-  const payload = isDaily
-    ? { daily: { time: [todayStr, todayStr, todayStr], weathercode: [0, 1, 2], temperature_2m_max: [15, 16, 17], apparent_temperature_max: [14, 15, 16], relativehumidity_2m_mean: [20, 21, 22] } }
-    : { current_weather: { temperature: 15, weathercode: 0 }, hourly: { time: [omTime], apparent_temperature: [14], relativehumidity_2m: [20] } };
+  const payload = openMeteoPayload();
   const body = JSON.stringify(payload);
   const res = new EventEmitter();
   res.statusCode = 200;

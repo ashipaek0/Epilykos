@@ -1,4 +1,6 @@
 import { escapeHtml } from "../utils.js";
+import { fmtTemp, fmtNum, fmtWind, uvLabel, timeLabel, hourLabel, dayLabel, iconHtml } from "../weatherFormat.js";
+import { ensureChartJS } from "../chartLoader.js";
 
 const SOURCE_LABELS = { solcast: 'Solcast', 'open-meteo': 'Open-Meteo', auto: 'Auto' };
 // In-memory last-good timestamp per source. Never persisted.
@@ -8,39 +10,38 @@ export function buildWeatherBlock(block = {}) {
   const config = block.config || {};
   const charts = normalizeCharts(config.charts);
   const container = document.createElement('div');
-  container.className = 'weather-block card';
+  container.className = 'weather-block wx-card';
   if (block.id != null) container.dataset.blockId = block.id;
-  container.style.background = 'var(--card-bg)';
-  container.style.borderRadius = 'var(--radius)';
-  container.style.padding = '1rem';
-  container.style.boxShadow = 'var(--shadow)';
-  container.style.border = '1px solid var(--border)';
 
   container.innerHTML = `
-    <div class="weather-block-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-      <h3 style="margin:0;">${escapeHtml(config.title || 'Weather')}</h3>
-      <span class="weather-source" style="font-size: 0.7rem; opacity:0.6;"></span>
-      <span class="weather-last-updated" style="font-size: 0.7rem; opacity:0.6;">--</span>
+    <header class="wx-head">
+      <h3 class="wx-title">${escapeHtml(config.title || 'Weather')}</h3>
+      <span class="wx-meta"><span class="weather-source"></span><span class="weather-last-updated"></span></span>
+    </header>
+    <div class="weather-error wx-error" role="alert" hidden></div>
+    <div class="weather-alerts wx-alerts" hidden></div>
+    <div class="wx-body">
+      <section class="wx-now">
+        <div class="weather-icon wx-now-icon"><i class="fi fi-sr-cloud wx-ic" data-kind="unknown"></i></div>
+        <div class="wx-now-main">
+          <div class="weather-temp wx-now-temp">--°</div>
+          <div class="weather-desc wx-now-desc"></div>
+          <div class="wx-hilo"></div>
+          <div class="weather-extra wx-extra"></div>
+        </div>
+      </section>
+      <dl class="wx-details"></dl>
+      <div class="weather-forecast wx-days"></div>
     </div>
-    <div class="weather-error" role="alert" hidden></div>
-    <div class="weather-alerts" hidden style="display: flex; gap: 0.375rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
-    <div class="weather-block-current" style="display: flex; align-items: center; gap: 1rem;">
-      <div class="weather-icon" style="font-size: 2rem;"><i class="fi fi-sr-sun"></i></div>
-      <div class="weather-temp" style="font-size: 1.5rem; font-weight: bold;">--°C</div>
-      <div class="weather-desc">--</div>
-    </div>
-    <div class="weather-extra" style="font-size: 0.8rem; margin-top: 0.5rem;">Feels like --°C · Humidity --%</div>
-    <div class="weather-forecast" style="display: flex; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap;">
-      <!-- forecast days will be injected -->
-    </div>
-    <div class="weather-charts" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem;">
-      <div class="weather-chart-ghi" style="height: 120px; position: relative;"${charts.ghi ? '' : ' hidden'}>
-        <canvas class="weather-canvas" style="width: 100%; height: 100%;"></canvas>
-        <div class="weather-chart-caption" style="font-size: 0.8rem; opacity: 0.6;" hidden>--</div>
+    <div class="wx-hourly" hidden></div>
+    <div class="weather-charts wx-charts">
+      <div class="weather-chart-ghi wx-chart"${charts.ghi ? '' : ' hidden'}>
+        <canvas class="weather-canvas"></canvas>
+        <div class="weather-chart-caption" hidden>--</div>
       </div>
-      <div class="weather-chart-temp" style="height: 120px; position: relative;"${charts.temp ? '' : ' hidden'}>
-        <canvas class="weather-canvas" style="width: 100%; height: 100%;"></canvas>
-        <div class="weather-chart-caption" style="font-size: 0.8rem; opacity: 0.6;" hidden>--</div>
+      <div class="weather-chart-temp wx-chart"${charts.temp ? '' : ' hidden'}>
+        <canvas class="weather-canvas"></canvas>
+        <div class="weather-chart-caption" hidden>--</div>
       </div>
     </div>
   `;
@@ -100,22 +101,21 @@ function setCardError(card, message) {
   err.hidden = false;
 }
 
-/** Per-card display prefs (S4, AC7). Absent keys = current behavior:
- *  temp/feels_like/humidity/desc on, wind off (never rendered today),
- *  days 2. Alert rules live in config.alerts (M2b) — see normalizeAlerts. */
+/** Per-card display prefs. Absent keys = shown (the card shows everything the
+ *  source provides unless a toggle is explicitly off); days 0–6 (default all 6).
+ *  Alert rules live in config.alerts — see normalizeAlerts. */
+const MAX_DAYS = 6;
 function normalizeDisplay(raw) {
   let d = raw;
   if (typeof d === 'string') { try { d = JSON.parse(d); } catch { d = {}; } }
   if (!d || typeof d !== 'object') d = {};
-  let days = d.days != null ? parseInt(d.days, 10) : 2;
-  if (!isFinite(days)) days = 2;
-  days = Math.max(0, Math.min(4, days));
+  let days = d.days != null ? parseInt(d.days, 10) : MAX_DAYS;
+  if (!isFinite(days)) days = MAX_DAYS;
+  days = Math.max(0, Math.min(MAX_DAYS, days));
+  const on = (k) => d[k] !== false;
   return {
-    temp: d.temp !== false,
-    feels_like: d.feels_like !== false,
-    humidity: d.humidity !== false,
-    wind: d.wind === true,
-    desc: d.desc !== false,
+    temp: on('temp'), feels_like: on('feels_like'), humidity: on('humidity'), wind: on('wind'),
+    desc: on('desc'), details: on('details'), hourly: on('hourly'), sun: on('sun'),
     days
   };
 }
@@ -208,9 +208,10 @@ function drawWxChart(card, key, enabled, series, band, opts) {
   if (!enabled) { wrap.hidden = true; return; }
   wrap.hidden = false;
   const hasData = series.some(p => p.y != null);
-  if (!canvas || typeof Chart === 'undefined' || !hasData) {
+  if (!hasData) { wrap.hidden = true; return; } // nothing to plot from this source
+  if (!canvas || typeof Chart === 'undefined') {
     if (canvas) canvas.style.display = 'none';
-    if (caption) { caption.textContent = '--'; caption.hidden = false; }
+    if (caption) { caption.textContent = 'Chart unavailable'; caption.hidden = false; }
     return;
   }
   if (caption) caption.hidden = true;
@@ -285,15 +286,6 @@ function currentHourEntry(hourly) {
   return null;
 }
 
-/** Current-hour wind from hourly[] (Solcast wind_speed_10m m/s), else null. */
-function currentHourWind(hourly) {
-  const h = currentHourEntry(hourly);
-  if (!h) return null;
-  const v = h.wind_speed_10m ?? h.wind_speed;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 /** Alert rules (M2b, AC15/AC16). config.alerts[{metric,op,value}], max 4.
  *  JSON-string convention accepted. Malformed entries ignored defensively
  *  (editor validates; renderer never throws). */
@@ -337,17 +329,19 @@ function alertCurrentValue(metric, w, hourly) {
       return Number.isFinite(n) ? n : null;
     }
     case 'wind': {
-      const v = entry ? (entry.wind_speed_10m ?? entry.wind_speed) : undefined;
+      const v = entry ? (entry.wind_speed_10m ?? entry.wind_speed) : (w ? w.wind_speed : undefined);
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
     }
     case 'precip': {
-      const n = Number(entry?.precip_rate);
-      return Number.isFinite(n) ? n : null;
+      const v = entry ? (entry.precip_rate ?? entry.precip) : (w ? w.precip : undefined);
+      const n = Number(v);
+      return v != null && Number.isFinite(n) ? n : null;
     }
     case 'cloud': {
-      const n = Number(entry?.cloud_opacity);
-      return Number.isFinite(n) ? n : null;
+      const v = entry ? (entry.cloud_opacity ?? entry.cloud_cover) : (w ? w.cloud_cover : undefined);
+      const n = Number(v);
+      return v != null && Number.isFinite(n) ? n : null;
     }
     default: return null;
   }
@@ -382,12 +376,11 @@ function renderAlerts(card, w, hourly, alerts) {
   for (const { rule, cur } of breaches) {
     const badge = document.createElement('span');
     badge.className = 'weather-alert-badge';
-    badge.style.cssText = 'font-size: 0.7rem; font-weight: bold; padding: 0.15rem 0.5rem; border-radius: 9999px; background: var(--warn-bg, #fef3c7); color: var(--warn-fg, #92400e); border: 1px solid currentColor;';
     badge.innerHTML = escapeHtml(`${ALERT_LABEL[rule.metric](cur)} ${rule.op} ${rule.value}`);
     box.appendChild(badge);
   }
   box.hidden = false;
-  box.style.display = 'flex';
+  box.style.display = '';
 }
 
 /** Clear badges (error path / source switch without data). */
@@ -399,46 +392,99 @@ function clearAlerts(card) {
   box.style.display = 'none';
 }
 
-function renderCard(container, data, disp, charts, alerts) {
-  const w = data.weather;
-  const show = disp || normalizeDisplay({});
-  const lastUpdated = new Date().toLocaleTimeString();
-  container.querySelector('.weather-last-updated').textContent = `Updated ${lastUpdated}`;
-  container.querySelector('.weather-icon i').className = w.icon_class || 'fi fi-sr-sun';
-  const tempEl = container.querySelector('.weather-temp');
-  tempEl.textContent = w.temp != null ? `${w.temp.toFixed(0)}°C` : '--°C';
-  tempEl.style.display = show.temp ? '' : 'none';
-  const descEl = container.querySelector('.weather-desc');
-  descEl.textContent = w.desc || '';
-  descEl.style.display = show.desc ? '' : 'none';
-  // Extra line: filter server-rendered parts by toggle, optionally append wind.
-  const parts = String(w.extra || '').split('·').map(s => s.trim()).filter(Boolean)
-    .filter(p => !/^feels\b/i.test(p) || show.feels_like)
-    .filter(p => !/humid/i.test(p) || show.humidity);
-  if (show.wind) {
-    const wind = currentHourWind(data.hourly);
-    if (wind != null) parts.push(`Wind ${wind.toFixed(0)} m/s`);
-  }
-  const extraEl = container.querySelector('.weather-extra');
-  extraEl.textContent = parts.join(' · ');
-  extraEl.style.display = parts.length ? '' : 'none';
+function detailItem(icon, label, value) {
+  return `<div class="wx-detail"><dt><i class="fi ${icon}" aria-hidden="true"></i>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+}
 
-  const forecastContainer = container.querySelector('.weather-forecast');
-  forecastContainer.innerHTML = '';
-  forecastContainer.style.display = show.days > 0 ? '' : 'none';
-  (w.forecast_weather || []).slice(0, show.days).forEach(day => {
-    const dayDiv = document.createElement('div');
-    dayDiv.className = 'weather-forecast-day';
-    dayDiv.style.textAlign = 'center';
-    dayDiv.style.minWidth = '80px';
-    dayDiv.innerHTML = `
-      <div class="forecast-day-name" style="font-weight:bold;">${escapeHtml(day.day_name)}</div>
-      <div class="forecast-icon"><i class="${escapeHtml(day.icon_class)}"></i></div>
-      <div class="forecast-temp">${Number.isFinite(Number(day.temp)) ? Number(day.temp).toFixed(0) : '--'}°C</div>
-      <div class="forecast-desc" style="font-size:0.7rem;">${escapeHtml(day.desc)}</div>
-    `;
-    forecastContainer.appendChild(dayDiv);
-  });
+function renderCard(container, data, disp, charts, alerts) {
+  const w = data.weather || {};
+  const show = disp || normalizeDisplay({});
+  const q = (sel) => container.querySelector(sel);
+  container.classList.toggle('wx-stale', !!w.stale);
+
+  const updated = w.updated_at ? new Date(w.updated_at) : new Date();
+  q('.weather-last-updated').textContent = `${w.stale ? 'Stale · ' : ''}${updated.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+
+  // Current conditions
+  q('.wx-now-icon').innerHTML = iconHtml(w.icon_class, w.code, w.is_day);
+  const tempEl = q('.wx-now-temp');
+  tempEl.textContent = fmtTemp(w.temp);
+  tempEl.hidden = !show.temp;
+  const descEl = q('.wx-now-desc');
+  descEl.textContent = w.available === false ? 'Weather unavailable' : (w.desc || '');
+  descEl.hidden = !show.desc && w.available !== false;
+  const today = w.today || null;
+  const hilo = q('.wx-hilo');
+  hilo.textContent = today && (today.temp_max != null || today.temp_min != null)
+    ? `H ${fmtTemp(today.temp_max)} · L ${fmtTemp(today.temp_min)}` : '';
+  hilo.hidden = !show.temp || !hilo.textContent;
+  // Compact one-liner used when the card is too narrow for the details grid.
+  const extraParts = [];
+  if (show.feels_like && w.feels_like != null) extraParts.push(`Feels ${fmtTemp(w.feels_like)}`);
+  if (show.humidity && w.humidity != null) extraParts.push(`${fmtNum(w.humidity, 0, '%')} RH`);
+  if (show.wind && w.wind_speed != null) extraParts.push(fmtWind(w.wind_speed, w.wind_compass));
+  const extraEl = q('.wx-extra');
+  extraEl.textContent = extraParts.join(' · ');
+  extraEl.hidden = !extraParts.length;
+
+  // Details grid: every value the source provided
+  const items = [];
+  if (show.feels_like && w.feels_like != null) items.push(detailItem('fi-sr-temperature-high', 'Feels like', fmtTemp(w.feels_like)));
+  if (show.humidity && w.humidity != null) items.push(detailItem('fi-sr-humidity', 'Humidity', fmtNum(w.humidity, 0, '%')));
+  if (show.wind && w.wind_speed != null) items.push(detailItem('fi-sr-wind', 'Wind', fmtWind(w.wind_speed, w.wind_compass, w.wind_gusts)));
+  if (show.details) {
+    const rain = [w.precip_probability != null ? fmtNum(w.precip_probability, 0, '%') : null,
+      w.precip != null && w.precip > 0 ? fmtNum(w.precip, 1, ' mm') : null].filter(Boolean).join(' · ');
+    if (rain) items.push(detailItem('fi-sr-umbrella', 'Rain', rain));
+    if (w.cloud_cover != null) items.push(detailItem('fi-sr-clouds', 'Cloud', fmtNum(w.cloud_cover, 0, '%')));
+    if (w.uv_index != null) items.push(detailItem('fi-sr-sun', 'UV', uvLabel(w.uv_index)));
+    if (w.pressure != null) items.push(detailItem('fi-sr-tachometer-average', 'Pressure', fmtNum(w.pressure, 0, ' hPa')));
+    if (w.ghi != null) items.push(detailItem('fi-sr-sun-dust', 'Irradiance', fmtNum(w.ghi, 0, ' W/m²')));
+  }
+  if (show.sun && w.sunrise) items.push(detailItem('fi-sr-sunrise', 'Sunrise', timeLabel(w.sunrise)));
+  if (show.sun && w.sunset) items.push(detailItem('fi-sr-sunset', 'Sunset', timeLabel(w.sunset)));
+  const details = q('.wx-details');
+  details.innerHTML = items.join('');
+  details.hidden = !items.length;
+  container.classList.toggle('wx-has-details', items.length > 0);
+
+  // Hourly strip (next 24 h)
+  const hourlyEl = q('.wx-hourly');
+  // Skip hours already past (the payload can be up to 15 min old).
+  const hours = show.hourly ? (w.hourly || []).filter(h => new Date(h.time).getTime() > Date.now() - 45 * 60000) : [];
+  hourlyEl.innerHTML = hours.map(h => `
+    <div class="wx-hour">
+      <span class="wx-hour-time">${escapeHtml(hourLabel(h.time))}</span>
+      ${iconHtml(h.icon_class, h.code, h.is_day)}
+      <span class="wx-hour-temp">${fmtTemp(h.temp)}</span>
+      <span class="wx-hour-rain">${h.precip_probability != null && h.precip_probability > 0 ? fmtNum(h.precip_probability, 0, '%') : ''}</span>
+    </div>`).join('');
+  hourlyEl.hidden = !hours.length;
+
+  // Multi-day outlook with a hi/lo range bar scaled across the shown days
+  const days = (w.forecast_weather || []).slice(0, show.days);
+  const daysEl = q('.wx-days');
+  const lows = days.map(d => d.temp_min).filter(v => v != null);
+  const highs = days.map(d => d.temp_max ?? d.temp).filter(v => v != null);
+  const lo = lows.length ? Math.min(...lows) : null;
+  const hi = highs.length ? Math.max(...highs) : null;
+  const span = lo != null && hi != null && hi > lo ? hi - lo : null;
+  daysEl.innerHTML = days.map(d => {
+    const max = d.temp_max ?? d.temp;
+    const bar = span != null && d.temp_min != null && max != null
+      ? `<span class="wx-range"><span style="left:${((d.temp_min - lo) / span) * 100}%;right:${100 - ((max - lo) / span) * 100}%"></span></span>` : '<span class="wx-range"></span>';
+    return `
+      <div class="wx-day weather-forecast-day" title="${escapeHtml(d.desc || '')}">
+        <span class="wx-day-name forecast-day-name">${escapeHtml(dayLabel(d.date, 'short'))}</span>
+        ${iconHtml(d.icon_class, d.code, true)}
+        <span class="wx-day-rain">${d.precip_probability != null && d.precip_probability > 0 ? fmtNum(d.precip_probability, 0, '%') : ''}</span>
+        <span class="wx-day-lo">${d.temp_min != null ? fmtTemp(d.temp_min) : ''}</span>
+        ${bar}
+        <span class="wx-day-hi forecast-temp">${fmtTemp(max)}</span>
+      </div>`;
+  }).join('');
+  daysEl.hidden = !days.length;
+  container.classList.toggle('wx-has-days', days.length > 0);
 
   renderWeatherCharts(container, data.hourly, charts);
   renderAlerts(container, w, data.hourly, alerts);
@@ -447,6 +493,8 @@ function renderCard(container, data, disp, charts, alerts) {
 export async function updateWeatherBlock(state) {
   const containers = [...document.querySelectorAll('.weather-block')];
   if (!containers.length) return;
+  // Mini-charts need Chart.js; a dashboard may have no other chart card to load it.
+  await ensureChartJS().catch(() => {});
 
   // Group instances by resolved source (+rest_map for rest:); default auto = legacy global behavior
   const sources = await Promise.all(containers.map(el => resolveCardSource(el)));
@@ -486,7 +534,8 @@ export async function updateWeatherBlock(state) {
       if (el) el.textContent = label;
     });
 
-    if (data.error || !data.weather) {
+    cards.forEach(c => c.classList.toggle('wx-failed', (!data || data.error || !data.weather) && !c._wxRendered));
+    if (!data || data.error || !data.weather) {
       const lastGood = lastGoodBySource[src];
       const msg = `Source ${label || src} unavailable${lastGood ? ` — last good ${lastGood}` : ''}`;
       cards.forEach(c => { setCardError(c, msg); clearAlerts(c); });
@@ -497,6 +546,7 @@ export async function updateWeatherBlock(state) {
       setCardError(c, '');
       try {
         renderCard(c, data, dispByEl.get(c), chartsByEl.get(c), alertsByEl.get(c));
+        c._wxRendered = true;
       } catch (err) {
         console.error('Weather block error:', err);
         setCardError(c, `Source ${label || src} unavailable`);

@@ -57,6 +57,7 @@ require.cache[dbId] = {
   id: dbId, filename: dbId, loaded: true,
   exports: {
     getConfig: (k) => cfg[k],
+    flushMetrics: () => 0,
     getDb: () => ({ prepare: () => ({ all: () => [], get: () => undefined }) })
   }
 };
@@ -113,16 +114,15 @@ global.fetch = async (url) => {
 };
 
 // ---- Stub https.get: minimal Open-Meteo payload (weather fallback path) ----
-const todayStr = new Date().toISOString().split('T')[0];
+// Local date: forecast days follow the process time zone (modules/localTime).
+const todayStr = require('../modules/localTime').localDateString();
 const curHour = new Date().getHours();
 const pad = (n) => String(n).padStart(2, '0');
 const omTime = `${todayStr}T${pad(curHour)}:00`;
+const { openMeteoPayload } = require('./open-meteo-fixture');
 function fakeGet(url, opts, cb) {
   if (typeof opts === 'function') { cb = opts; }
-  const isDaily = String(url).includes('daily=');
-  const payload = isDaily
-    ? { daily: { time: [todayStr], weathercode: [0], temperature_2m_max: [15], apparent_temperature_max: [14], relativehumidity_2m_mean: [20] } }
-    : { current_weather: { temperature: 15, weathercode: 0 }, hourly: { time: [omTime], apparent_temperature: [14], relativehumidity_2m: [20], shortwave_radiation: [200], cloud_cover: [10], temperature_2m: [28] } };
+  const payload = openMeteoPayload();
   const body = JSON.stringify(payload);
   const res = new EventEmitter();
   res.statusCode = 200;
