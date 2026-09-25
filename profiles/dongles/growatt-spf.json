@@ -1,0 +1,89 @@
+{
+  "name": "Growatt SPF Series (TCP Server)",
+  "transport": "growatt",
+  "requires_serial": false,
+  "default_port": 5279,
+  "default_unit_id": 1,
+  "metrics": [
+    {
+      "name": "solar_power",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "field": "pv1_power",
+      "label": "Solar Power"
+    },
+    {
+      "name": "solar_voltage",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "V",
+      "field": "pv1_voltage",
+      "label": "Solar Voltage"
+    },
+    {
+      "name": "grid_power",
+      "register": "",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "field": "grid_power",
+      "label": "Grid Power"
+    },
+    {
+      "name": "load_power",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "field": "ac_power",
+      "label": "Load Power"
+    },
+    {
+      "name": "battery_voltage",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "field": "battery_voltage",
+      "label": "Battery Voltage"
+    },
+    {
+      "name": "inverter_temperature",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "field": "inverter_temp",
+      "label": "Inverter Temperature"
+    },
+    {
+      "name": "daily_solar",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "daily_solar_kwh",
+      "label": "Daily Solar"
+    },
+    {
+      "name": "total_solar",
+      "register": "",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kWh",
+      "field": "total_solar_kwh",
+      "label": "Total Solar"
+    }
+  ]
+}
