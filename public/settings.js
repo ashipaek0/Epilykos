@@ -2425,6 +2425,7 @@ function renderBmsWiredDevice(device, idx) {
       <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
       <span class="test-status"></span>
     </div>
+    <div class="bms-wired-profile-notes" style="display:none; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list"></div>
@@ -2442,17 +2443,33 @@ function renderBmsWiredDevice(device, idx) {
   });
 
   const profileSelect = card.querySelector('.bms-wired-profile-select');
+  const profileNotes = card.querySelector('.bms-wired-profile-notes');
+  const bmsProfileDescriptions = {};
+  function updateBmsWiredNotes() {
+    if (!profileNotes) return;
+    const text = bmsProfileDescriptions[profileSelect.value] || '';
+    if (text) {
+      profileNotes.textContent = text;
+      profileNotes.style.display = '';
+    } else {
+      profileNotes.textContent = '';
+      profileNotes.style.display = 'none';
+    }
+  }
   fetch('/api/rs232/profiles').then(r => r.json()).then(profiles => {
     (profiles || []).forEach(p => {
       const idStr = String(p.id);
       const nameStr = String(p.name || '');
       if (!/bms/i.test(`${idStr} ${nameStr}`)) return;
+      bmsProfileDescriptions[idStr] = p.description || '';
       const opt = document.createElement('option');
       opt.value = idStr;
       opt.textContent = p.name;
       if (String(device.profile) === idStr) opt.selected = true;
       profileSelect.appendChild(opt);
     });
+    updateBmsWiredNotes();
+    if (profileSelect) profileSelect.addEventListener('change', updateBmsWiredNotes);
   }).catch(() => {});
 
   const removeBtn = card.querySelector('[data-action="remove-bms-wired"]');

@@ -189,6 +189,33 @@ function readModbusRtuFrame(port, frame, timeoutMs = 5000) {
   });
 }
 
+/** Decode profile metrics from a map of register address to uint16 value. */
+function decodeProfileRegisters(profile, registerData) {
+  const result = {};
+  for (const m of profile.metrics || []) {
+    const addr = parseInt(m.register, 16);
+    let raw = registerData[addr];
+    if (raw === undefined) continue;
+    if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
+    if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
+    if (m.type === 'uint32' || m.type === 'int32') {
+      const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
+      const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
+      raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
+      if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
+    }
+    if (m.type === 'uint64') {
+      raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
+          + ((registerData[addr + 2] || 0) * 0x100000000)
+          + ((registerData[addr + 1] || 0) << 16)
+          + (registerData[addr] || 0);
+    }
+    const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
+    result[m.field || m.name] = value;
+  }
+  return result;
+}
+
 // ── Device Poll (mirror rs232.js pollModbusRtuDevice, publish bms_*) ──────
 
 async function pollWiredDevice(device, profile) {
@@ -215,34 +242,14 @@ async function pollWiredDevice(device, profile) {
 
     const now = Math.floor(Date.now() / 1000);
     let writeCount = 0;
+    const decoded = decodeProfileRegisters(profile, registerData);
     for (const m of profile.metrics) {
-      const addr = parseInt(m.register, 16);
-      let raw = registerData[addr];
-      if (raw === undefined) continue;
-
-      if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
-      if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
-      if (m.type === 'uint32' || m.type === 'int32') {
-        const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
-        const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
-        raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
-        if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
-      }
-      if (m.type === 'uint64') {
-        raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
-            + ((registerData[addr + 2] || 0) * 0x100000000)
-            + ((registerData[addr + 1] || 0) << 16)
-            + (registerData[addr] || 0);
-      }
-
-      const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
-      // D-3E: publish under the existing bms_<deviceName>_<field> convention.
-      // Prefer m.field, fall back to m.name.
       const key = m.field || m.name;
+      if (decoded[key] === undefined) continue;
+      const value = decoded[key];
       const metricName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
       queueMetricValue(metricName, value, now);
       writeCount++;
-      // Publish the mapped role-metric alias (parity with BLE poller).
       const wiredMappings = device.mappings || {};
       if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
     }
@@ -361,30 +368,7 @@ async function testBmsWiredConnection(device) {
       }
     }
 
-    const result = {};
-    for (const m of profile.metrics) {
-      const addr = parseInt(m.register, 16);
-      let raw = registerData[addr];
-      if (raw === undefined) continue;
-      if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
-      if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
-      if (m.type === 'uint32' || m.type === 'int32') {
-        const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
-        const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
-        raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
-        if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
-      }
-      if (m.type === 'uint64') {
-        raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
-            + ((registerData[addr + 2] || 0) * 0x100000000)
-            + ((registerData[addr + 1] || 0) << 16)
-            + (registerData[addr] || 0);
-      }
-      const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
-      const key = m.field || m.name;
-      result[key] = value;
-    }
-    return result;
+    return decodeProfileRegisters(profile, registerData);
   } finally {
     await closeSerialPort(port);
   }
@@ -440,4 +424,5 @@ module.exports = {
   loadBmsWiredProfiles,
   testBmsWiredConnection,
   getBmsWiredFields,
+  decodeProfileRegisters,
 };

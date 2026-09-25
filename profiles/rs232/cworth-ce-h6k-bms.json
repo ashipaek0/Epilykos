@@ -1,0 +1,356 @@
+{
+  "name": "Cworth CE-H6K / CE-LBW-48100C (PACE BMS)",
+  "description": "Wired Modbus-RTU profile for Cworth CE-H6K / CE-LBW-48100C PACE BMS. Unit ID 1 and little-endian byte order are inferred from the existing wired profile template; confirm both against hardware before use. Pack current polarity is preserved as reported: negative=charge, positive=discharge. Wiring: battery COMM port pin 7 = RS485-A-PCS and pin 8 = RS485-B-PCS; connect ONLY these two pins. Hazard: pin 3 carries +5V; do NOT connect pin 3 to a USB-RS485 adapter or use a straight-through 8-pin cable. Only one pack can be reliably polled per physical RS485 bus: packs default to Modbus address 0 and there is no documented way to set a unique address over the wire. Inverter setup: set Program 01 to LIb (lithium) and connect the comms cable BEFORE power-cycling the inverter, because the BMS handshake occurs only at boot.",
+  "protocol": "modbus-rtu",
+  "transport": "rs232",
+  "default_unit_id": 1,
+  "byte_order": "le",
+  "defaults": {
+    "baud": 9600,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "metrics": [
+    {
+      "name": "pack_voltage",
+      "register": "0x1306",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "V",
+      "field": "pack_voltage",
+      "label": "Pack Voltage"
+    },
+    {
+      "name": "pack_current",
+      "register": "0x1307",
+      "count": 1,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "A",
+      "field": "pack_current",
+      "label": "Pack Current (negative=charge, positive=discharge)"
+    },
+    {
+      "name": "soc",
+      "register": "0x130B",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "field": "soc",
+      "label": "State of Charge"
+    },
+    {
+      "name": "cycle_count",
+      "register": "0x130D",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "field": "cycle_count",
+      "label": "Cycle Count"
+    },
+    {
+      "name": "charge_cutoff_voltage",
+      "register": "0x131C",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "V",
+      "field": "charge_cutoff_voltage",
+      "label": "Charge Cutoff Voltage"
+    },
+    {
+      "name": "discharge_cutoff_voltage",
+      "register": "0x131D",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "V",
+      "field": "discharge_cutoff_voltage",
+      "label": "Discharge Cutoff Voltage"
+    },
+    {
+      "name": "max_charge_current",
+      "register": "0x131E",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "field": "max_charge_current",
+      "label": "Maximum Charge Current"
+    },
+    {
+      "name": "max_discharge_current",
+      "register": "0x131F",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "A",
+      "field": "max_discharge_current",
+      "label": "Maximum Discharge Current"
+    },
+    {
+      "name": "highest_cell_voltage",
+      "register": "0x1320",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "highest_cell_voltage",
+      "label": "Highest Cell Voltage"
+    },
+    {
+      "name": "index_highest_cell",
+      "register": "0x1321",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "field": "index_highest_cell",
+      "label": "Index of Highest Cell"
+    },
+    {
+      "name": "lowest_cell_voltage",
+      "register": "0x1322",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "lowest_cell_voltage",
+      "label": "Lowest Cell Voltage"
+    },
+    {
+      "name": "index_lowest_cell",
+      "register": "0x1323",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "field": "index_lowest_cell",
+      "label": "Index of Lowest Cell"
+    },
+    {
+      "name": "highest_temperature",
+      "register": "0x1324",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "DegC",
+      "field": "highest_temperature",
+      "label": "Highest Temperature"
+    },
+    {
+      "name": "lowest_temperature",
+      "register": "0x1326",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "DegC",
+      "field": "lowest_temperature",
+      "label": "Lowest Temperature"
+    },
+    {
+      "name": "cell_voltage_1",
+      "register": "0x132A",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_1",
+      "label": "Cell Voltage 1"
+    },
+    {
+      "name": "cell_voltage_2",
+      "register": "0x132B",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_2",
+      "label": "Cell Voltage 2"
+    },
+    {
+      "name": "cell_voltage_3",
+      "register": "0x132C",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_3",
+      "label": "Cell Voltage 3"
+    },
+    {
+      "name": "cell_voltage_4",
+      "register": "0x132D",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_4",
+      "label": "Cell Voltage 4"
+    },
+    {
+      "name": "cell_voltage_5",
+      "register": "0x132E",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_5",
+      "label": "Cell Voltage 5"
+    },
+    {
+      "name": "cell_voltage_6",
+      "register": "0x132F",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_6",
+      "label": "Cell Voltage 6"
+    },
+    {
+      "name": "cell_voltage_7",
+      "register": "0x1330",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_7",
+      "label": "Cell Voltage 7"
+    },
+    {
+      "name": "cell_voltage_8",
+      "register": "0x1331",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_8",
+      "label": "Cell Voltage 8"
+    },
+    {
+      "name": "cell_voltage_9",
+      "register": "0x1332",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_9",
+      "label": "Cell Voltage 9"
+    },
+    {
+      "name": "cell_voltage_10",
+      "register": "0x1333",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_10",
+      "label": "Cell Voltage 10"
+    },
+    {
+      "name": "cell_voltage_11",
+      "register": "0x1334",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_11",
+      "label": "Cell Voltage 11"
+    },
+    {
+      "name": "cell_voltage_12",
+      "register": "0x1335",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_12",
+      "label": "Cell Voltage 12"
+    },
+    {
+      "name": "cell_voltage_13",
+      "register": "0x1336",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_13",
+      "label": "Cell Voltage 13"
+    },
+    {
+      "name": "cell_voltage_14",
+      "register": "0x1337",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_14",
+      "label": "Cell Voltage 14"
+    },
+    {
+      "name": "cell_voltage_15",
+      "register": "0x1338",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_15",
+      "label": "Cell Voltage 15"
+    },
+    {
+      "name": "cell_voltage_16",
+      "register": "0x1339",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "V",
+      "field": "cell_voltage_16",
+      "label": "Cell Voltage 16"
+    },
+    {
+      "name": "temp_sensor_1",
+      "register": "0x133A",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "DegC",
+      "field": "temp_sensor_1",
+      "label": "Temperature Sensor 1"
+    },
+    {
+      "name": "temp_sensor_2",
+      "register": "0x133B",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "DegC",
+      "field": "temp_sensor_2",
+      "label": "Temperature Sensor 2"
+    },
+    {
+      "name": "temp_sensor_3",
+      "register": "0x133C",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "DegC",
+      "field": "temp_sensor_3",
+      "label": "Temperature Sensor 3"
+    },
+    {
+      "name": "temp_sensor_4",
+      "register": "0x133D",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "DegC",
+      "field": "temp_sensor_4",
+      "label": "Temperature Sensor 4"
+    }
+  ]
+}

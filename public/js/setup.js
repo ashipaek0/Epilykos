@@ -855,6 +855,7 @@
       + '<div class="form-group"><label>Timeout (ms)</label><input class="input" type="number" data-field="sources.bmsWired.timeout" value="' + esc(s.timeout) + '"></div>'
       + '</div>'
       + '<div class="form-group"><label>Profile</label><select class="input" data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select></div>'
+      + '<div id="bms-wired-profile-notes" style="display:none; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>'
       + '<div class="test-row">'
       + '<button class="btn btn-sm" type="button" data-action="test" data-source="bmsWired" data-test="bmsWired">Test connection</button>'
       + '<span class="test-badge pending" data-badge-src="bmsWired">Not tested</span>'
@@ -1014,6 +1015,22 @@
     });
   }
 
+  function updateBmsWiredProfileNotes() {
+    var sel = $('#bms-wired-profile');
+    var box = $('#bms-wired-profile-notes');
+    if (!sel || !box) return;
+    var descriptions = {};
+    try { descriptions = JSON.parse(sel.dataset.descriptions || '{}'); } catch (e) { descriptions = {}; }
+    var text = descriptions[sel.value] || '';
+    if (text) {
+      box.textContent = text;
+      box.style.display = '';
+    } else {
+      box.textContent = '';
+      box.style.display = 'none';
+    }
+  }
+
   function loadBmsWiredProfiles() {
     api('/api/rs232/profiles').then(function (res) {
       var sel = $('#bms-wired-profile');
@@ -1024,16 +1041,21 @@
       }
       var html = '<option value="">Select a profile…</option>';
       var found = false;
+      var descriptions = {};
       res.data.forEach(function (p) {
         var id = p.id !== undefined && p.id !== null ? p.id : p.name;
         var name = p.name || id;
         var hay = String(name).toLowerCase() + ' ' + String(id).toLowerCase();
         if (hay.indexOf('bms') === -1) return;
         found = true;
+        descriptions[id] = p.description || '';
         html += '<option value="' + esc(id) + '"' + (state.sources.bmsWired.profile === id ? ' selected' : '') + '>' + esc(name) + '</option>';
       });
       if (!found) html = '<option value="">No BMS profiles found</option>';
       sel.innerHTML = html;
+      sel.dataset.descriptions = JSON.stringify(descriptions);
+      updateBmsWiredProfileNotes();
+      sel.addEventListener('change', updateBmsWiredProfileNotes);
     }).catch(function () {
       var sel = $('#bms-wired-profile');
       if (sel) sel.innerHTML = '<option value="">Profiles unavailable</option>';
