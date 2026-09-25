@@ -1,0 +1,15 @@
+{
+  "name": "Infinisolar (Voltronic QPIGS)",
+  "protocol": "voltronic-qpigs",
+  "transport": "rs232",
+  "defaults": {
+    "baud": 2400,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "profile_file": "voltronic-qpigs.json",
+  "commands": [],
+  "fields": [],
+  "notes": "Infinisolar is a Voltronic/Axpert rebadge. Uses identical QPIGS ASCII protocol. The actual protocol logic is loaded from voltronic-qpigs.json via the profile_file reference."
+}

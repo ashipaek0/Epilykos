@@ -1,0 +1,104 @@
+name: Build and Push Main Images (Multi‑Arch)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: epilykos
+            context: .
+            dockerfile: ./Dockerfile
+            tag: irunmole/epilykos:latest
+          - name: epilykos-bms
+            context: ./bms-bridge
+            dockerfile: ./bms-bridge/Dockerfile
+            tag: irunmole/epilykos-bms:latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service.name }}
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ matrix.service.tag }}
+
+      # Record the immutable digest of what was just pushed. EpilykosOS
+      # application manifests pin images by digest (C-UPDATE-002), never by tag.
+      - name: Record image digest
+        env:
+          IMAGE_TAG: ${{ matrix.service.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          SERVICE: ${{ matrix.service.name }}
+        run: |
+          repo="${IMAGE_TAG%:*}"
+          echo "### ${SERVICE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${repo}@${IMAGE_DIGEST}\` (tag \`${IMAGE_TAG}\`, commit \`${GITHUB_SHA}\`)" >> "$GITHUB_STEP_SUMMARY"
+          version="$(jq -r .version package.json)"
+          printf '{"service":"%s","image":"%s","digest":"%s","tag":"%s","commit":"%s","ref":"%s","version":"%s"}\n' \
+            "$SERVICE" "$repo" "$IMAGE_DIGEST" "$IMAGE_TAG" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$version" > "digest-${SERVICE}.json"
+
+      - name: Upload digest record
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest-${{ matrix.service.name }}
+          path: digest-${{ matrix.service.name }}.json
+          retention-days: 90
+
+  # Bridge to EpilykosOS (C-RELEASE-001): hand the digest records of this
+  # build to ashipaek0/epilykos-os, which opens a pull request updating its
+  # application manifest. Merging that PR is the human trust decision; nothing
+  # reaches an appliance automatically. Skipped (build still green) when the
+  # EPILYKOS_OS_DISPATCH_TOKEN secret is not configured.
+  notify-epilykos-os:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect digest records
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-digest-*
+          merge-multiple: true
+          path: digests
+
+      - name: Dispatch to epilykos-os
+        env:
+          DISPATCH_TOKEN: ${{ secrets.EPILYKOS_OS_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$DISPATCH_TOKEN" ]; then
+            echo "::notice::EPILYKOS_OS_DISPATCH_TOKEN not set; epilykos-os not notified"
+            exit 0
+          fi
+          payload="$(jq -cs '{event_type: "app-image-published", client_payload: {ref: .[0].ref, commit: .[0].commit, records: .}}' digests/*.json)"
+          echo "$payload" | jq .
+          curl --fail-with-body -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${DISPATCH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/ashipaek0/epilykos-os/dispatches \
+            -d "$payload"
