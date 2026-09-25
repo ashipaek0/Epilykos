@@ -209,6 +209,21 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 
 ---
 
+## Health check & runtime settings
+
+`GET /healthz` (no login) returns `200 {"status":"ok",…}` once the app is serving and its database opens with the expected schema, and `503` otherwise. It never depends on the network, so a box with no Internet stays healthy. The Docker image uses it as its `HEALTHCHECK`.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LOG_TO_FILE` | `true` | `false` logs to stdout/stderr only (no `logs/` directory) — for read-only container roots |
+| `LOG_DIR` | `logs/` | Where rotating log files go when file logging is on |
+| `SQLITE_SYNCHRONOUS` | `NORMAL` | SQLite durability: `NORMAL`, `FULL` or `EXTRA` (`OFF` is refused) |
+| `TMPDIR` | `/tmp` | Temporary directory for uploads (backup restore, layout import) |
+
+All persistent state — `energy.db`, snapshots, `session-secret`, `settings-password` — lives in `data/` (`/app/data` in the container).
+
+---
+
 ## Troubleshooting
 
 | Symptom | Resolution |

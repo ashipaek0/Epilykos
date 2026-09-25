@@ -51,6 +51,7 @@ function initializeDatabase() {
 
   db = new Database(dbFile);
   db.pragma('journal_mode = WAL');
+  applySynchronousMode(db);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
@@ -434,6 +435,34 @@ function migrateDashboardConfigBlob() {
   }
 }
 
+// SQLite durability (EpilykosOS C-DATA-003 / D-SQLITE-001): set explicitly,
+// never left to the library's build default. WAL + NORMAL (the historical
+// effective value) cannot corrupt the database on power loss but may drop the
+// last few committed transactions; FULL/EXTRA fsync every commit. OFF is
+// refused — it trades integrity for speed.
+const SYNCHRONOUS_MODES = ['NORMAL', 'FULL', 'EXTRA'];
+const DEFAULT_SYNCHRONOUS = 'NORMAL';
+
+function applySynchronousMode(handle) {
+  const wanted = String(process.env.SQLITE_SYNCHRONOUS || DEFAULT_SYNCHRONOUS).trim().toUpperCase();
+  const mode = SYNCHRONOUS_MODES.includes(wanted) ? wanted : DEFAULT_SYNCHRONOUS;
+  if (mode !== wanted) {
+    logger.warn(`SQLITE_SYNCHRONOUS=${wanted} is not allowed (use ${SYNCHRONOUS_MODES.join('/')}); using ${mode}`);
+  }
+  handle.pragma(`synchronous = ${mode}`);
+  return mode;
+}
+
+/** journal_mode + synchronous as SQLite reports them (for /healthz and diagnostics). */
+function getDurabilitySettings() {
+  const names = { 0: 'OFF', 1: 'NORMAL', 2: 'FULL', 3: 'EXTRA' };
+  const handle = getDb();
+  return {
+    journal_mode: handle.pragma('journal_mode', { simple: true }),
+    synchronous: names[handle.pragma('synchronous', { simple: true })] || 'UNKNOWN'
+  };
+}
+
 function getConfig(key) {
   const row = getDb().prepare('SELECT value FROM config WHERE key = ?').get(key);
   if (!row) return '';
@@ -604,6 +633,10 @@ function secretLeafNeedsMigration(node, wanted) {
 // flushSync() (SIGTERM/SIGINT, tests). Config/grid_status writes are NEVER
 // buffered — only metrics/latest_metrics rows go through this queue.
 const METRIC_BUFFER_CAP = 500;
+// Queued samples reach SQLite at most this long after they are read, so an
+// abrupt power cut loses at most this window of telemetry (config/settings
+// writes are never queued). EpilykosOS C-DATA-003 cites this value.
+const METRIC_FLUSH_INTERVAL_MS = 5000;
 let metricBuffer = [];
 let metricFlushTimer = null;
 
@@ -697,7 +730,7 @@ function getMetricBufferSize() {
   return metricBuffer.length;
 }
 
-function startMetricAutoFlush(intervalMs = 5000) {
+function startMetricAutoFlush(intervalMs = METRIC_FLUSH_INTERVAL_MS) {
   if (metricFlushTimer) return metricFlushTimer;
   metricFlushTimer = setInterval(() => {
     try { flushMetrics(); } catch (err) { logger.warn('Metric auto-flush failed:', err.message); }
@@ -717,6 +750,7 @@ module.exports = {
   encryptConfigValue,
   migrateSecretsToEncrypted,
   getDb,
+  getDurabilitySettings,
   DB_PATH,
   queueMetricWrite,
   queueMetricValue,
@@ -726,5 +760,6 @@ module.exports = {
   getMetricBufferSize,
   startMetricAutoFlush,
   stopMetricAutoFlush,
-  METRIC_BUFFER_CAP
+  METRIC_BUFFER_CAP,
+  METRIC_FLUSH_INTERVAL_MS
 };

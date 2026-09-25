@@ -39,6 +39,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.service.name }}
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.service.context }}
@@ -46,3 +47,24 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ matrix.service.tag }}
+
+      # Record the immutable digest of what was just pushed. EpilykosOS
+      # application manifests pin images by digest (C-UPDATE-002), never by tag.
+      - name: Record image digest
+        env:
+          IMAGE_TAG: ${{ matrix.service.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          SERVICE: ${{ matrix.service.name }}
+        run: |
+          repo="${IMAGE_TAG%:*}"
+          echo "### ${SERVICE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${repo}@${IMAGE_DIGEST}\` (tag \`${IMAGE_TAG}\`, commit \`${GITHUB_SHA}\`)" >> "$GITHUB_STEP_SUMMARY"
+          printf '{"service":"%s","image":"%s","digest":"%s","tag":"%s","commit":"%s","ref":"%s"}\n' \
+            "$SERVICE" "$repo" "$IMAGE_DIGEST" "$IMAGE_TAG" "$GITHUB_SHA" "$GITHUB_REF_NAME" > "digest-${SERVICE}.json"
+
+      - name: Upload digest record
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest-${{ matrix.service.name }}
+          path: digest-${{ matrix.service.name }}.json
+          retention-days: 90

@@ -20,6 +20,10 @@ COPY --chown=node:node . .
 USER node
 
 EXPOSE 3000
+# /healthz proves the app started and SQLite opened; it never depends on the
+# network, so a box with no Internet stays "healthy".
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 # Run node directly (not via npm) so SIGTERM reaches server.js and the
 # graceful shutdown (final metric flush, DB close) runs on `docker stop`.
 CMD ["node", "server.js"]

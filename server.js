@@ -377,6 +377,10 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
+// Health probe first: never rate-limited, never logged per request (it is
+// polled every 30 s by Docker/Podman).
+app.use(require('./routes/health').router);
+
 // Global rate limiter — 2000 requests per 15 min per IP
 const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false });
 app.use(globalLimiter);
@@ -442,7 +446,8 @@ const walCheckpointInterval = setInterval(() => {
 
 // Multer for restore and import
 const upload = multer({
-  dest: '/tmp/',
+  // os.tmpdir() honours TMPDIR (EpilykosOS points it at a tmpfs).
+  dest: require('os').tmpdir(),
   fileFilter: (req, file, cb) => {
     if (file.originalname.endsWith('.db') || file.originalname.endsWith('.json')) cb(null, true);
     else cb(new Error('Only .db or .json files allowed'));
