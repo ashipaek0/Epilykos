@@ -38,6 +38,7 @@ function loadRs232Profiles() {
         id: file.replace('.json', ''),
         name: profile.name || file,
         protocol: profile.protocol || 'unknown',
+        description: profile.description || null,
         transport: profile.transport || 'rs232',
         defaults: profile.defaults || { baud: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
         commands: profile.commands || [],

@@ -1031,7 +1031,7 @@ app.post('/api/test-modbus', async (req, res) => {
 // ── RS232 API Endpoints ────────────────────────────────────────────────
 app.use('/api/rs232/profiles', isAuthenticated);
 app.get('/api/rs232/profiles', (req, res) => {
-  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol })));
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '' })));
 });
 
 app.use('/api/rs232/profile', isAuthenticated);
