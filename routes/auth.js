@@ -72,6 +72,12 @@ router.post('/wizard/password', (req, res) => {
     if (req.session) req.session.authenticated = true;
     return res.json({ success: true });
   }
+  // Unauthenticated callers may only set the password during first-run setup;
+  // afterwards this endpoint must not become an unauthenticated reset.
+  const authenticated = !!(req.session && req.session.authenticated);
+  if (getConfig('setup_wizard_completed') === 'true' && !authenticated) {
+    return res.status(403).json({ error: 'Setup already complete — log in to change the password' });
+  }
   if (typeof password !== 'string' || password.length < 4) {
     return res.status(400).json({ error: 'Password must be at least 4 characters' });
   }

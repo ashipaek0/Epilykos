@@ -1,6 +1,6 @@
 const { logger } = require('./logger');
 const dns = require('dns').promises;
-const { getConfig, queueMetricWrite } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 const { isPrivateOrLocalIp, isValidHostname } = require('./utils');
 
 let externalPollInterval = null;
@@ -9,30 +9,9 @@ function getValueByPath(obj, path) {
   return path.split('.').reduce((current, key) => current?.[key], obj);
 }
 
-function saveExternalMetric(metricName, rawValue, timestamp) {
-  if (rawValue === null || rawValue === undefined) return;
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    queueMetricWrite({ metric: metricName, value: num, timestamp });
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
-  }
-}
-
 async function pollExternalSources() {
   const sources = JSON.parse(getConfig('external_sources') || '[]');
   if (!sources.length) return;
-
-  const db = getDb();
-  if (!externalMetricInsert) externalMetricInsert = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
-  if (!externalLatestUpsert) externalLatestUpsert = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
-  if (!externalMetricInsertText) externalMetricInsertText = db.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
-  if (!externalLatestUpsertText) externalLatestUpsertText = db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value_text, value_type, timestamp) VALUES (?, ?, ?, ?)');
 
   for (const source of sources) {
     if (!source.enabled || !source.url) continue;
@@ -71,12 +50,11 @@ async function pollExternalSources() {
       const now = Math.floor(Date.now() / 1000);
       // Mappings: { metricName → jsonPath } — iterate by metric name
       for (const [metric, jsonPath] of Object.entries(source.mappings || {})) {
-        let value = getValueByPath(data, jsonPath);
-        if (value === undefined) continue;
-        saveExternalMetric(metric, value, now);
+        if (typeof jsonPath !== 'string' || !jsonPath) continue;
+        queueMetricValue(metric, getValueByPath(data, jsonPath), now);
       }
     } catch (err) {
-      logger.error(`External source ${source.name} error:`, err.message);
+      logger.error(`External source ${source.name} error: ${err.message}`);
     }
   }
 }
@@ -84,8 +62,9 @@ async function pollExternalSources() {
 function startExternalPolling() {
   if (externalPollInterval) clearInterval(externalPollInterval);
   const intervalSec = parseInt(getConfig('external_poll_interval')) || 60;
-  externalPollInterval = setInterval(pollExternalSources, intervalSec * 1000);
-  pollExternalSources().catch(err => logger.error('External sources initial poll failed:', err.message)); // immediate first run
+  const run = () => pollExternalSources().catch(err => logger.error(`External sources poll failed: ${err.message}`));
+  externalPollInterval = setInterval(run, intervalSec * 1000);
+  run(); // immediate first run
 }
 
 function restartExternalPolling() {

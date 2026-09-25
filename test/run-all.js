@@ -26,7 +26,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 // Issue #120: suites live in BOTH the singular `test/` and the plural `tests/`
 // tree, so scan both. The `.test.js` filter keeps helper/manual scripts sitting
-// in those dirs (e.g. tests/rs232-simulator.js, tests/test-rs232-*.js) excluded,
+// in those dirs (e.g. tests/rs232-simulator.js) excluded,
 // and any new *.test.js is auto-discovered (no fixture list to edit).
 const TEST_DIRS = ['test', 'tests'];
 const PER_FILE_TIMEOUT_MS = 180000; // generous: luxpower frame tests decode big frames

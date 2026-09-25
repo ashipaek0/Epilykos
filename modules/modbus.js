@@ -2,24 +2,9 @@ const { logger } = require('./logger');
 const ModbusRTU = require('modbus-serial');
 const fs = require('fs');
 const path = require('path');
-const { getConfig } = require('./database');
-const { queueMetricWrite } = require('./database');
+const { getConfig, queueMetricValue } = require('./database');
 
 let availableProfiles = [];
-
-function saveMetric(metricName, rawValue, timestamp) {
-  const num = parseFloat(rawValue);
-  if (!isNaN(num) && num === Number(rawValue)) {
-    queueMetricWrite({ metric: metricName, value: num, timestamp });
-  } else {
-    const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-    const lower = strVal.toLowerCase();
-    const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-    const type = isBool ? 'boolean' : 'string';
-    const displayVal = isBool ? lower : strVal;
-    queueMetricWrite({ metric: metricName, value: null, value_text: displayVal, value_type: type, timestamp });
-  }
-}
 
 function loadProfiles() {
   const profilesDir = path.join(__dirname, '../profiles');
@@ -136,7 +121,7 @@ async function pollModbus() {
 
       const now = Math.floor(Date.now() / 1000);
       for (const [metric, value] of Object.entries(results)) {
-        saveMetric(metric, value, now);
+        queueMetricValue(metric, value, now);
       }
       console.log(`Modbus poll (${device.name || device.host || device.serial_path}): ${Object.keys(results).length} metrics.`);
     } catch (err) {

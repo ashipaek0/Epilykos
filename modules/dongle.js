@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getConfig, setConfig } = require('./database');
-const { queueMetricWrite } = require('./database');
+const { queueMetricValue } = require('./database');
 const { logger } = require('./logger');
 const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
@@ -124,19 +124,7 @@ function restartDonglePolling() { startDonglePolling(); }
 function writeMetrics(metrics, units) {
   const now = Math.floor(Date.now() / 1000);
   for (const [name, rawValue] of Object.entries(metrics)) {
-    if (rawValue === undefined || rawValue === null) continue;
-    const unit = (units && units[name]) || null;
-    const num = parseFloat(rawValue);
-    if (!isNaN(num) && num === Number(rawValue)) {
-      queueMetricWrite({ metric: name, value: num, timestamp: now, unit });
-    } else {
-      const strVal = typeof rawValue === 'boolean' ? String(rawValue) : String(rawValue).trim();
-      const lower = strVal.toLowerCase();
-      const isBool = lower === 'on' || lower === 'off' || lower === 'true' || lower === 'false' || typeof rawValue === 'boolean';
-      const type = isBool ? 'boolean' : 'string';
-      const displayVal = isBool ? lower : strVal;
-      queueMetricWrite({ metric: name, value: null, value_text: displayVal, value_type: type, timestamp: now, unit });
-    }
+    queueMetricValue(name, rawValue, now, (units && units[name]) || null);
   }
 }
 

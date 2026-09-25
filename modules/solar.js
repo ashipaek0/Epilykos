@@ -1,6 +1,6 @@
 const { logger } = require('./logger');
 const https = require('https');
-const { getConfig, getDb } = require('./database');
+const { getConfig, getDb, flushMetrics } = require('./database');
 
 let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
 let solarCache = { value: 0, timestamp: 0 };
@@ -62,6 +62,7 @@ function computeTodaySolar() {
   var computed = 0;
   var done = false;
 
+  flushMetrics(); // read-your-write: pollers queue their writes
   const configured = (getConfig('savings_solar_metric') || '').trim();
 
   // 1. User-configured metric — check latest_metrics (treat as cumulative kWh)
@@ -90,7 +91,7 @@ function computeTodaySolar() {
 
     // 2b. Power candidates: integrate any metric whose name suggests solar power
     if (!done) {
-      for (var i = 0; i < allMetrics.length; i++) {
+      for (let i = 0; i < allMetrics.length; i++) {
         var n = allMetrics[i].metric.toLowerCase();
         if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
           const rows = db.prepare(
@@ -357,7 +358,10 @@ function resolveRestSource(name, restMap) {
 
   const map = (restMap && typeof restMap === 'object' && !Array.isArray(restMap)) ? restMap : {};
   let rows = [];
-  try { rows = getDb().prepare('SELECT metric, value, value_text FROM latest_metrics').all(); } catch (e) { rows = []; }
+  try {
+    flushMetrics();
+    rows = getDb().prepare('SELECT metric, value, value_text FROM latest_metrics').all();
+  } catch (e) { rows = []; }
   const byMetric = new Map();
   for (const r of rows || []) if (r && r.metric != null && !byMetric.has(r.metric)) byMetric.set(r.metric, r);
   const numVal = (row) => {

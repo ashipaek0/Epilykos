@@ -1,4 +1,3 @@
-const { logger } = require('./logger');
 const { getConfig, getDb } = require('./database');
 const { computeTodaySolar } = require('./solar');
 
@@ -18,7 +17,6 @@ async function getSavings() {
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - weekDiff);
   weekStart.setHours(0, 0, 0, 0);
-  const weekStartStr = weekStart.toLocaleDateString('en-CA');
 
   // Month start
   const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -42,25 +40,17 @@ async function getSavings() {
     GROUP BY day ORDER BY day ASC
   `).all(monthStartUnix, todayEndUnix);
 
-  // Compute week total: sum past days from DB, use live value for today
-  let weekSolar = 0;
-  for (const row of weekRows) {
-    if (row.day === todayStr) {
-      weekSolar += todaySolar;
-    } else {
-      weekSolar += row.max_solar || 0;
+  // Sum past days from the DB and use the live value for today (counted even
+  // when no history row has been written for today yet).
+  const sumWithLiveToday = (rows) => {
+    let total = todaySolar;
+    for (const row of rows) {
+      if (row.day !== todayStr) total += row.max_solar || 0;
     }
-  }
-
-  // Compute month total similarly
-  let monthSolar = 0;
-  for (const row of monthRows) {
-    if (row.day === todayStr) {
-      monthSolar += todaySolar;
-    } else {
-      monthSolar += row.max_solar || 0;
-    }
-  }
+    return total;
+  };
+  const weekSolar = sumWithLiveToday(weekRows);
+  const monthSolar = sumWithLiveToday(monthRows);
 
   // All-time aggregation
   const dayRows = db.prepare(`SELECT date(timestamp, 'unixepoch') AS day, MAX(daily_solar) AS max_solar FROM history WHERE daily_solar IS NOT NULL GROUP BY day ORDER BY day ASC`).all();

@@ -1,0 +1,18 @@
+# Keep local state, secrets and tooling out of the image build context.
+.git
+.github
+node_modules
+data
+logs
+.env
+.env.*
+!.env.example
+*.log
+cookies.txt
+.claude
+test
+tests
+bms-bridge
+__pycache__
+*.pyc
+.DS_Store

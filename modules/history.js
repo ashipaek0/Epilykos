@@ -11,37 +11,22 @@
  * @module history
  */
 const { logger } = require('./logger');
-const { getDb, getConfig, setConfig } = require('./database');
+const { getDb, getConfig, setConfig, flushMetrics } = require('./database');
+const { getDashboardConfig } = require('./dashboard-config');
 
-let historyInsertStmt = null;
-
+// Prepared per call (every 30s): a cached statement would outlive the
+// connection when a backup restore reopens the database.
 function getHistoryInsert() {
-  if (!historyInsertStmt) {
-    const db = getDb();
-    historyInsertStmt = db.prepare(`
+  return getDb().prepare(`
       INSERT OR REPLACE INTO history
       (timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export, battery_soc,
        daily_consumption, daily_solar, daily_battery_charge, daily_battery_discharge, daily_grid_import, daily_grid_export)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-  }
-  return historyInsertStmt;
 }
 
-// ── Default role → metric name mapping ──────────────────────────────────
-// These are role keys used by the history table. Their values are the actual
-// metric names from latest_metrics (configurable per user).
-const DEFAULT_ROLES = [
-  // Instantaneous power
-  'solar', 'consumption', 'battery_charge', 'battery_discharge',
-  'grid_import', 'grid_export',
-  // Battery SOC
-  'battery_soc',
-  // Daily energy totals
-  'daily_solar', 'daily_consumption', 'daily_battery_charge',
-  'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export',
-];
-
+// Role keys used by the history table → history column. The role values in
+// config `role_metrics` are the actual metric names from latest_metrics.
 const ROLE_TO_COL = {
   solar: 'solar', consumption: 'consumption',
   battery_charge: 'battery_charge', battery_discharge: 'battery_discharge',
@@ -66,9 +51,7 @@ const ZERO_VALUES = {
  */
 function autoPopulateRoleMetrics() {
   try {
-    const dcRaw = getConfig('dashboard_config');
-    if (!dcRaw) return;
-    const dc = JSON.parse(dcRaw);
+    const dc = getDashboardConfig();
     const mapping = {};
     // Map flow-card/flow-card-2 role keys to history role keys
     const roleMap = {
@@ -119,45 +102,21 @@ function getRoleMetrics() {
   return {};
 }
 
-/**
- * Build a reverse lookup: metric name → role.
- */
-function buildMetricToRole(roleMetrics) {
-  const map = {};
-  for (const [role, metricName] of Object.entries(roleMetrics)) {
-    if (metricName && typeof metricName === 'string') {
-      map[metricName.trim()] = role;
-    }
-  }
-  return map;
-}
-
 async function pollLegacyHistory() {
+  flushMetrics(); // read-your-write: this cycle's polls are still queued
   const db = getDb();
   const latest = db.prepare('SELECT metric, value FROM latest_metrics').all();
+  const valueByMetric = new Map(latest.map(r => [r.metric, r.value]));
   const roleMetrics = getRoleMetrics();
-  const metricToRole = buildMetricToRole(roleMetrics);
 
-  // Start all values at 0
+  // Start all values at 0, then fill each role from its mapped metric by exact
+  // name (no regex guessing). One metric may back several roles.
   const values = { ...ZERO_VALUES };
-
-  // Direct name lookup — no regex, no guessing
-  for (const row of latest) {
-    const role = metricToRole[row.metric];
-    if (role && ROLE_TO_COL[role]) {
-      const col = ROLE_TO_COL[role];
-      // Handle sign-based battery/grid power with a single metric
-      if (role === 'battery_charge' && roleMetrics.battery_discharge && row.metric === roleMetrics.battery_discharge) {
-        // This row is for discharge, not charge
-        continue;
-      }
-    }
-    if (role) {
-      const col = ROLE_TO_COL[role];
-      if (col) {
-        values[col] = row.value;
-      }
-    }
+  for (const [role, metricName] of Object.entries(roleMetrics)) {
+    const col = ROLE_TO_COL[role];
+    if (!col || typeof metricName !== 'string') continue;
+    const key = metricName.trim();
+    if (valueByMetric.has(key)) values[col] = valueByMetric.get(key);
   }
 
   const now = Math.floor(Date.now() / 1000);

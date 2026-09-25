@@ -10,6 +10,19 @@ if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 // Determine log level from environment
 const logLevel = process.env.LOG_LEVEL || 'info';
 
+// winston only merges object/Error extra args into the log entry; primitive
+// extras such as logger.warn('Save failed:', err.message) are dropped. Append
+// them to the message so the reason is never lost.
+const SPLAT = Symbol.for('splat');
+const appendPrimitiveArgs = winston.format((info) => {
+  const extras = info[SPLAT];
+  if (Array.isArray(extras)) {
+    const primitives = extras.filter(a => a === null || (typeof a !== 'object' && typeof a !== 'function'));
+    if (primitives.length) info.message = `${info.message} ${primitives.map(String).join(' ')}`;
+  }
+  return info;
+});
+
 // Define custom format for console (pretty)
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
@@ -29,6 +42,7 @@ const fileFormat = winston.format.combine(
 // Create logger
 const logger = winston.createLogger({
   level: logLevel,
+  format: appendPrimitiveArgs(),
   levels: winston.config.npm.levels,
   transports: [
     // Rotating file transport

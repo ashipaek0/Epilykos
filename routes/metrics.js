@@ -21,18 +21,19 @@ const router = express.Router();
 
 const POWER_HISTORY_BUCKET_SECONDS = 600;
 
-async function buildDashboardState() {
-  const db = getDb();
-  const start = Date.now();
+/**
+ * Latest history row projected to the dashboard's "current" shape (kW / kWh,
+ * savings). Returns null when no history row exists yet.
+ */
+function buildCurrentData(db) {
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
+  if (!latest) return null;
   const dailySolarKwh = computeTodaySolar();
-  const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
-  const rate = parseFloat(rateRow?.value) || 0.30;
+  const rate = parseFloat(getConfig('savings_rate')) || 0.30;
   const curr = getConfig('savings_currency') || '€';
   const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY date(timestamp, 'unixepoch'))`).get();
   const allTimeSavings = (allTimeSolar?.total || 0) * rate;
-
-  const currentData = latest ? {
+  return {
     consumption_kw: latest.consumption / 1000,
     solar_kw: latest.solar / 1000,
     battery_charge_kw: latest.battery_charge / 1000,
@@ -52,7 +53,13 @@ async function buildDashboardState() {
     today_savings: dailySolarKwh * rate,
     all_time_savings: allTimeSavings,
     timestamp: latest.timestamp * 1000
-  } : null;
+  };
+}
+
+async function buildDashboardState() {
+  const db = getDb();
+  const start = Date.now();
+  const currentData = buildCurrentData(db);
 
   const gridStatus = await getCurrentGridStatus();
   const now = Math.floor(Date.now() / 1000);
@@ -159,38 +166,10 @@ router.get('/public-config', async (req, res) => {
 
 router.get('/current', async (req, res) => {
   try {
-    const db = getDb();
-    const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
-    const rateRow = db.prepare('SELECT value FROM config WHERE key = ?').get('savings_rate');
-    const rate = parseFloat(rateRow?.value) || 0.30;
-    const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY date(timestamp, 'unixepoch'))`).get();
-    const allTimeSavings = (allTimeSolar?.total || 0) * rate;
+    const current = buildCurrentData(getDb());
     res.set('Cache-Control', 'public, max-age=10');
-    if (latest) {
-      const curr = getConfig('savings_currency') || '€';
-      const dailySolarKwh = computeTodaySolar();
-      res.json({
-        consumption_kw: latest.consumption / 1000,
-        solar_kw: latest.solar / 1000,
-        battery_charge_kw: latest.battery_charge / 1000,
-        battery_discharge_kw: latest.battery_discharge / 1000,
-        battery_power_kw: (latest.battery_charge - latest.battery_discharge) / 1000,
-        grid_import_kw: latest.grid_import / 1000,
-        grid_export_kw: latest.grid_export / 1000,
-        battery_soc: latest.battery_soc,
-        daily_consumption_kwh: latest.daily_consumption,
-        daily_solar_kwh: dailySolarKwh,
-        daily_battery_charge_kwh: latest.daily_battery_charge,
-        daily_battery_discharge_kwh: latest.daily_battery_discharge,
-        daily_grid_import_kwh: latest.daily_grid_import,
-        daily_grid_export_kwh: latest.daily_grid_export,
-        savings_currency: curr,
-        savings_rate: rate,
-        today_savings: dailySolarKwh * rate,
-        all_time_savings: allTimeSavings,
-        metric_sanity: metricSanity.getStatus(),
-        timestamp: latest.timestamp * 1000
-      });
+    if (current) {
+      res.json({ ...current, metric_sanity: metricSanity.getStatus() });
     } else {
       res.json({ error: 'No data yet' });
     }

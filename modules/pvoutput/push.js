@@ -7,7 +7,6 @@
  *
  * @module pvoutput/push
  */
-const { PVOutputClient } = require('./client');
 const { buildStatusPayload, validatePayload, resolveEnergyUnit } = require('./mapper');
 const { canCall, isRateLimitError } = require('./rateLimiter');
 const { logger } = require('../logger');

@@ -8,9 +8,9 @@ RUN pip3 install --break-system-packages tinytuya tuya-device-sharing-sdk qrcode
 RUN mkdir -p /app/data && chown -R node:node /app
 WORKDIR /app
 
-# Install dependencies (npm 10.x is fine)
+# Install dependencies exactly as locked (no devDependencies)
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci --omit=dev --no-audit --no-fund
 
 # Copy the rest of the app
 COPY --chown=node:node . .
@@ -19,4 +19,6 @@ COPY --chown=node:node . .
 USER node
 
 EXPOSE 3000
-CMD ["npm", "start"]
+# Run node directly (not via npm) so SIGTERM reaches server.js and the
+# graceful shutdown (final metric flush, DB close) runs on `docker stop`.
+CMD ["node", "server.js"]

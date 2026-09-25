@@ -9,7 +9,6 @@
  *
  * @module pvoutput/pull
  */
-const { PVOutputClient } = require('./client');
 const { canCall, isRateLimitError } = require('./rateLimiter');
 const { encryptConfigValue } = require('../database');
 const { logger } = require('../logger');

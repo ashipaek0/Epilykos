@@ -43,6 +43,6 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       # test/run-all.js auto-discovers both test/*.test.js and tests/*.test.js,
-      # so this single command covers all fixtures (15 as of now).
+      # so this single command covers every fixture.
       - name: Run tests
         run: npm test
