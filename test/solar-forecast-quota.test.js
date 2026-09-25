@@ -85,7 +85,8 @@ global.fetch = async () => {
 
 // ---- Stub https.get: minimal Open-Meteo payload (copied pattern from s6prime) ----
 let httpsCalls = 0;
-const todayStr = new Date().toISOString().split('T')[0];
+// Local date: forecast days follow the process time zone (modules/localTime).
+const todayStr = require('../modules/localTime').localDateString();
 const curHour = new Date().getHours();
 const pad = (n) => String(n).padStart(2, '0');
 const omTime = `${todayStr}T${pad(curHour)}:00`;

@@ -97,7 +97,7 @@ const loginLimiter = rateLimit({
 
 // CSRF protection (skip for login endpoint & webhook)
 const csrfProtection = (req, res, next) => {
-  if (req.originalUrl === '/api/login' || req.originalUrl.startsWith('/api/pvoutput/webhook') || req.originalUrl === '/api/wizard/password') {
+  if (req.originalUrl === '/api/login' || req.originalUrl.startsWith('/api/pvoutput/webhook')) {
     return next();
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {

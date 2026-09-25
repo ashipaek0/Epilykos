@@ -7,8 +7,12 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data
+      # Host time zone — used for "today", daily totals and savings when TZ
+      # below is not set.
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - SETTINGS_PASSWORD=
+      # Time zone for day boundaries. Remove this line to follow the host clock.
       - TZ=Africa/Lagos
       - BMS_BRIDGE_URL=http://172.17.0.1:8020
     depends_on:

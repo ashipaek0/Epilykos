@@ -2,7 +2,7 @@
 /**
  * Epilykos issue #64 — grid-hours regression test (manual, framework-free).
  *
- * Run:  node tests/grid-hours.test.js   (from anywhere; cwd is not touched)
+ * Run:  node test/grid-hours.test.js   (from anywhere; cwd is not touched)
  *
  * Covers the issue-#64 grid-hours assertions:
  *   AC1  text-state recording  (latest_metrics.value NULL + value_text='on')

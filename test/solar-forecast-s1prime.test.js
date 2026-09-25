@@ -121,10 +121,11 @@ check('pick: all-absent->nulls', () => {
 });
 
 // ---- (D/E/F/G) getSolarForecast with stubbed fetch + https ----
-const todayStr = new Date().toISOString().split('T')[0];
+// Local date: forecast days follow the process time zone (modules/localTime).
+const todayStr = require('../modules/localTime').localDateString();
 const solcastPeriods = [
-  { period_end: `${todayStr}T10:00:00Z`, pv_estimate: null, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-  { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20, custom_future: 'fwd' }
+  { period_end: `${todayStr}T10:00:00`, pv_estimate: null, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+  { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20, custom_future: 'fwd' }
 ];
 let fetchCalls = 0;
 global.fetch = async () => {

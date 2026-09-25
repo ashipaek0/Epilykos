@@ -11,7 +11,6 @@ logs
 cookies.txt
 .claude
 test
-tests
 bms-bridge
 __pycache__
 *.pyc

@@ -10,7 +10,7 @@
  * AC-6: a locked pool at startup defers the initial fetches with a warn and
  *       makes zero network requests.
  *
- * Run: node --test tests/pvoutput-pull.test.js
+ * Run: node --test test/pvoutput-pull.test.js
  */
 
 const { test, beforeEach, afterEach } = require('node:test');

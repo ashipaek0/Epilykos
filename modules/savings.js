@@ -1,5 +1,6 @@
 const { getConfig, getDb } = require('./database');
 const { computeTodaySolar } = require('./solar');
+const { SQL_LOCAL_DAY, localDateString } = require('./localTime');
 
 async function getSavings() {
   const db = getDb();
@@ -9,7 +10,7 @@ async function getSavings() {
   const todaySolar = computeTodaySolar();
 
   const now = new Date();
-  const todayStr = now.toLocaleDateString('en-CA');
+  const todayStr = localDateString(now);
 
   // Week start (Monday-based)
   const dayOfWeek = now.getDay();
@@ -27,7 +28,7 @@ async function getSavings() {
   const todayEndUnix = Math.floor(now.getTime() / 1000);
 
   const weekRows = db.prepare(`
-    SELECT date(timestamp, 'unixepoch') AS day, MAX(daily_solar) AS max_solar
+    SELECT ${SQL_LOCAL_DAY} AS day, MAX(daily_solar) AS max_solar
     FROM history WHERE timestamp >= ? AND timestamp <= ? AND daily_solar IS NOT NULL
     GROUP BY day ORDER BY day ASC
   `).all(weekStartUnix, todayEndUnix);
@@ -35,7 +36,7 @@ async function getSavings() {
   // Month rows from the same data — just aggregate differently
   const monthStartUnix = Math.floor(new Date(monthStartStr + 'T00:00:00').getTime() / 1000);
   const monthRows = db.prepare(`
-    SELECT date(timestamp, 'unixepoch') AS day, MAX(daily_solar) AS max_solar
+    SELECT ${SQL_LOCAL_DAY} AS day, MAX(daily_solar) AS max_solar
     FROM history WHERE timestamp >= ? AND timestamp <= ? AND daily_solar IS NOT NULL
     GROUP BY day ORDER BY day ASC
   `).all(monthStartUnix, todayEndUnix);
@@ -53,7 +54,7 @@ async function getSavings() {
   const monthSolar = sumWithLiveToday(monthRows);
 
   // All-time aggregation
-  const dayRows = db.prepare(`SELECT date(timestamp, 'unixepoch') AS day, MAX(daily_solar) AS max_solar FROM history WHERE daily_solar IS NOT NULL GROUP BY day ORDER BY day ASC`).all();
+  const dayRows = db.prepare(`SELECT ${SQL_LOCAL_DAY} AS day, MAX(daily_solar) AS max_solar FROM history WHERE daily_solar IS NOT NULL GROUP BY day ORDER BY day ASC`).all();
   const allTimeSolar = dayRows.reduce((sum, row) => sum + (row.max_solar || 0), 0);
   const allTimeSavings = allTimeSolar * rate;
 

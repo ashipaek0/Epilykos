@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * tests/entity-state.test.js
+ * test/entity-state.test.js
  * Issue #61 Phase-3 defect — entity state dropped to null for numeric metrics.
  *
- * Run:  node tests/entity-state.test.js   (also picked up by `npm test`)
+ * Run:  node test/entity-state.test.js   (also picked up by `npm test`)
  *
  * Why this shape
  * --------------

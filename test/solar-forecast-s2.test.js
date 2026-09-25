@@ -66,11 +66,12 @@ const solar = require('../modules/solar');
 const https = require('https');
 
 // ---- Stubbed upstream payloads ----
-const todayStr = new Date().toISOString().split('T')[0];
+// Local date: forecast days follow the process time zone (modules/localTime).
+const todayStr = require('../modules/localTime').localDateString();
 // Solcast periods WITH temp/humidity (Solcast weather observable).
 let solcastPeriods = [
-  { period_end: `${todayStr}T10:00:00Z`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-  { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
+  { period_end: `${todayStr}T10:00:00`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+  { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
 ];
 let fetchCalls = 0;
 global.fetch = async () => {
@@ -93,7 +94,7 @@ function fakeGet(url, opts, cb) {
     omForecastCalls++;
     payload = {
       hourly: {
-        time: [`${todayStr}T10:00:00Z`, `${todayStr}T11:00:00Z`],
+        time: [`${todayStr}T10:00:00`, `${todayStr}T11:00:00`],
         shortwave_radiation: [800, 900],
         cloud_cover: [10, 20]
       }
@@ -189,8 +190,8 @@ check('invalidate: unrelated false', () => {
 
   // ---- (F) weather_source: solcast vs open-meteo vs fallback ----
   solcastPeriods = [
-    { period_end: `${todayStr}T10:00:00Z`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-    { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
+    { period_end: `${todayStr}T10:00:00`, pv_estimate: 1.5, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+    { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20 }
   ];
   solar.clearForecastCache();
   cfg.forecast_default_source = 'auto';
@@ -211,8 +212,8 @@ check('invalidate: unrelated false', () => {
 
   // Rooftop-shaped payload: no air_temp/relative_humidity anywhere.
   solcastPeriods = [
-    { period_end: `${todayStr}T10:00:00Z`, pv_estimate: 1.5 },
-    { period_end: `${todayStr}T11:00:00Z`, pv_estimate: 2.5 }
+    { period_end: `${todayStr}T10:00:00`, pv_estimate: 1.5 },
+    { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5 }
   ];
   solar.clearForecastCache();
   cfg.weather_default_source = 'solcast';

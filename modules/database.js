@@ -15,6 +15,7 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const { logger } = require('./logger');
+const { localDateString } = require('./localTime');
 const {
   SECRET_FIELDS,
   encryptString,
@@ -228,7 +229,7 @@ function initializeDatabase() {
       savings_currency: '€',
       savings_rate: '0.30',
       solar_loss_factor: '0.9',
-      solar_install_date: new Date().toISOString().split('T')[0],
+      solar_install_date: localDateString(),
       external_poll_interval: '60'
     };
     for (const [key, val] of Object.entries(defaults)) updateConfig.run(val, key, '');

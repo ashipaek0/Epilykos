@@ -14,6 +14,7 @@ const { getGridHours, getGridTimeline, getCurrentGridStatus } = require('../modu
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
+const { SQL_LOCAL_DAY, localDateString } = require('../modules/localTime');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
@@ -31,7 +32,7 @@ function buildCurrentData(db) {
   const dailySolarKwh = computeTodaySolar();
   const rate = parseFloat(getConfig('savings_rate')) || 0.30;
   const curr = getConfig('savings_currency') || '€';
-  const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY date(timestamp, 'unixepoch'))`).get();
+  const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY ${SQL_LOCAL_DAY})`).get();
   const allTimeSavings = (allTimeSolar?.total || 0) * rate;
   return {
     consumption_kw: latest.consumption / 1000,
@@ -84,7 +85,7 @@ async function buildDashboardState() {
       ORDER BY timestamp ASC
     `).all(powerHistorySince)),
     Promise.resolve(db.prepare(`
-      SELECT date(timestamp, 'unixepoch') as day,
+      SELECT ${SQL_LOCAL_DAY} as day,
         MAX(daily_solar) as solar_kwh,
         MAX(daily_consumption) as consumption_kwh,
         MAX(daily_battery_charge) as battery_charge_kwh,
@@ -214,14 +215,14 @@ router.get('/daily', async (req, res) => {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    dateArray.push(d.toISOString().split('T')[0]);
+    dateArray.push(localDateString(d));
   }
   const startUnix = Math.floor(new Date(dateArray[0] + 'T00:00:00').getTime() / 1000);
   const endUnix = Math.floor(now.getTime() / 1000);
   try {
     const db = getDb();
     const rows = db.prepare(`
-      SELECT date(timestamp, 'unixepoch') as day,
+      SELECT ${SQL_LOCAL_DAY} as day,
         MAX(daily_consumption) as consumption_kwh,
         MAX(daily_solar) as solar_kwh,
         MAX(daily_battery_charge) as battery_charge_kwh,
@@ -269,7 +270,7 @@ router.get('/monthly', async (req, res) => {
     const db = getDb();
     const rows = db.prepare(`
       WITH daily_max AS (
-        SELECT date(timestamp, 'unixepoch') as day,
+        SELECT ${SQL_LOCAL_DAY} as day,
           MAX(daily_consumption) as consumption,
           MAX(daily_solar) as solar,
           MAX(daily_battery_charge) as battery_charge,

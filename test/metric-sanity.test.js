@@ -24,6 +24,10 @@
  */
 'use strict';
 
+// Day rollover follows the process time zone; pin it so the Lagos
+// wall-clock fixtures below are deterministic on any CI host.
+process.env.TZ = 'Africa/Lagos';
+
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');

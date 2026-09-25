@@ -3,8 +3,8 @@
  * Requires socat: sudo apt install socat
  * 
  * Usage:
- *   node tests/rs232-simulator.js voltronic    # Simulate a Voltronic inverter
- *   node tests/rs232-simulator.js vedirect     # Simulate Victron VE.Direct
+ *   node test/rs232-simulator.js voltronic    # Simulate a Voltronic inverter
+ *   node test/rs232-simulator.js vedirect     # Simulate Victron VE.Direct
  * 
  * Then configure Epilykos RS232 device with serial_path: /tmp/epilykos-rs232-sim
  */

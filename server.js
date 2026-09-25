@@ -26,6 +26,7 @@ const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { PollingManager } = require('./services/PollingManager');
+const { timeZoneName } = require('./modules/localTime');
 const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted } = require('./modules/database');
 
 /**
@@ -122,7 +123,7 @@ const { testForecast, shouldInvalidateForecastCache, clearForecastCache } = requ
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
-const { assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp } = require('./modules/utils');
+const { assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp, isValidHostname } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
@@ -615,7 +616,9 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/api', metricsRouter);
 
 // ---------- Authentication & Setup routes ----------
-app.use('/api', require('./routes/auth'));
+const authRoutes = require('./routes/auth');
+app.use('/api', authRoutes);
+authRoutes.announceSetupCode(); // logs the first-run setup code while setup is pending
 
 // Public page (pre-auth; setup.js gates sources behind login)
 app.get('/setup', (req, res) => {
@@ -2044,15 +2047,6 @@ app.post('/api/dongle/test', async (req, res) => {
     if (!/^[0-9a-f]{1,4}$/.test(first)) return false;
     return (parseInt(first, 16) & 0xfe00) === 0xfc00; // ULA fc00::/7
   };
-  const isValidHostname = (value) => {
-    if (value.length > 253) return false;
-    const labels = value.split('.');
-    return labels.every(label =>
-      /^[a-zA-Z0-9-]{1,63}$/.test(label) &&
-      !label.startsWith('-') &&
-      !label.endsWith('-')
-    );
-  };
 
   const ipVersion = net.isIP(rawHost);
   if (ipVersion) {
@@ -2286,7 +2280,7 @@ app.use((req, res, next) => {
 });
 
 // Start HTTP server with WebSocket support
-server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'})`));
+server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'}, time zone: ${timeZoneName()})`));
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
 process.on('unhandledRejection', (reason, promise) => {

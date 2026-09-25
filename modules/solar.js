@@ -1,6 +1,7 @@
 const { logger } = require('./logger');
 const https = require('https');
 const { getConfig, getDb, flushMetrics } = require('./database');
+const { localDateString } = require('./localTime');
 
 let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
 let solarCache = { value: 0, timestamp: 0 };
@@ -421,7 +422,7 @@ async function getSolarForecast(sourceParam, restMap) {
   const cached = forecastCache[selector];
   if (cached && cached.data && (now - cached.timestamp) < FORECAST_CACHE_MS) {
     const cacheDate = cached.data.daily[0]?.date;
-    const todayDate = new Date().toLocaleDateString('en-CA');
+    const todayDate = localDateString();
     // Invalidate if date changed, or if cached data is missing cloud_cover (stale cache from older code)
     const hasCloudCover = cached.data.hourly?.length && cached.data.hourly[0].cloud_cover != null;
     if (cacheDate !== todayDate || !hasCloudCover) delete forecastCache[selector];
@@ -529,7 +530,10 @@ async function getSolarForecast(sourceParam, restMap) {
   const actualTodayKwh = computeTodaySolar();
   const dailyMap = new Map();
   forecastData.forEach(f => {
-    const date = String(f.period_end || '').split('T')[0];
+    // Bucket by LOCAL day (period_end is a UTC instant) so "today" matches
+    // the cache check and the actual_so_far lookup below.
+    const end = new Date(f.period_end);
+    const date = isNaN(end.getTime()) ? String(f.period_end || '').split('T')[0] : localDateString(end);
     const existing = dailyMap.get(date) || { date, total_kwh: 0, peak_kw: 0, source };
     const n = Number(f.pv_estimate);
     const pv = Number.isFinite(n) ? n : 0; // AC3a: null/absent -> 0 in sums, never NaN
@@ -538,7 +542,7 @@ async function getSolarForecast(sourceParam, restMap) {
     dailyMap.set(date, existing);
   });
   const daily = Array.from(dailyMap.values()).slice(0, 4);
-  const todayDate = new Date().toLocaleDateString('en-CA');
+  const todayDate = localDateString();
   for (const dayEntry of daily) if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
 
   const hourly = forecastData.slice(0, 96);
@@ -677,8 +681,8 @@ async function testForecast(opts) {
         const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
-          const today = new Date().toISOString().split('T')[0];
-          (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
+          const today = localDateString();
+          (data.forecasts || []).forEach(f => { if (localDateString(new Date(f.period_end)) === today) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
       } catch (e) { logger.debug(`Solcast rooftop test unavailable: ${e.message}`); }
@@ -689,8 +693,8 @@ async function testForecast(opts) {
         const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data = await res.json();
-          const today = new Date().toISOString().split('T')[0];
-          (data.forecasts || []).forEach(f => { if (f.period_end.startsWith(today)) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
+          const today = localDateString();
+          (data.forecasts || []).forEach(f => { if (localDateString(new Date(f.period_end)) === today) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
           source = 'solcast';
         }
       } catch (e) { logger.debug(`Solcast world PV test unavailable: ${e.message}`); }
@@ -719,7 +723,7 @@ async function testForecast(opts) {
       });
       // Also fix the Solcast fetch calls the same way (same container, same fetch bug risk)
       const conversionFactor = (capacityKwp / 1000) * lossFactor;
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateString();
       data.hourly.time.forEach((t, i) => {
         if (t.startsWith(today)) {
           const pv = data.hourly.shortwave_radiation[i] * conversionFactor;

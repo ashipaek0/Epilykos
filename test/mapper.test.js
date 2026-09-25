@@ -4,7 +4,7 @@
  * Tests for the PVOutput metric mapper (issue #76 — .toFixed crash on
  * non-numeric metric values).
  *
- * Run: node --test tests/mapper.test.js
+ * Run: node --test test/mapper.test.js
  */
 
 const { test } = require('node:test');

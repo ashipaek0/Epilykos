@@ -2,7 +2,7 @@
 /**
  * test/run-all.js — issue #108 AC-42: `npm test` fixture runner.
  *
- * Iterates every *.test.js under BOTH `test/` and `tests/` in the repo
+ * Iterates every *.test.js under `test/` in the repo
  * SEQUENTIALLY (plain node, no framework — the fixtures themselves are plain-node
  * assert scripts with exit codes). Reports per-file PASS/FAIL (with the repo-root-
  * relative path, so the originating directory is unambiguous) plus an aggregate
@@ -24,14 +24,13 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-// Issue #120: suites live in BOTH the singular `test/` and the plural `tests/`
-// tree, so scan both. The `.test.js` filter keeps helper/manual scripts sitting
-// in those dirs (e.g. tests/rs232-simulator.js) excluded,
-// and any new *.test.js is auto-discovered (no fixture list to edit).
-const TEST_DIRS = ['test', 'tests'];
+// All suites live in `test/`. The `.test.js` filter keeps helper/manual scripts
+// there (run-all.js itself, test/rs232-simulator.js) excluded, and any new
+// *.test.js is auto-discovered (no fixture list to edit).
+const TEST_DIRS = ['test'];
 const PER_FILE_TIMEOUT_MS = 180000; // generous: luxpower frame tests decode big frames
 
-// Collect repo-root-relative paths (e.g. `test/foo.test.js`, `tests/foo.test.js`)
+// Collect repo-root-relative paths (e.g. `test/foo.test.js`, `test/foo.test.js`)
 // so each PASS/FAIL line names the directory it came from.
 const files = [];
 for (const dir of TEST_DIRS) {
