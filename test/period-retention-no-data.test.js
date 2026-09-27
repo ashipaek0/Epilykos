@@ -1,0 +1,2 @@
+const assert=require('node:assert/strict');const {reduceDailyRows}=require('../modules/periodReducer');
+const r=reduceDailyRows([{day:'2024-01-01',solar_kwh:1}],{period:'year',now:new Date('2024-06-01Z'),timezone:'UTC',metric:'solar_kwh',coverageStart:'2024-01-01'});assert.equal(r.status,'insufficient-history');assert.equal(r.label,'Insufficient history');assert.equal(r.value,null);assert.equal(r.coverageStart,'2024-01-01');console.log('period-retention-no-data.test.js: PASS');

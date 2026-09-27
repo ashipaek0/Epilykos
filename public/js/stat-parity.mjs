@@ -27,5 +27,6 @@ export function statPresentation(value, thresholds=[], mode='value', fixedColor=
   return {mode,color:mode === 'fixed' ? fixedColor : evaluateThreshold(value, thresholds)};
 }
 export function normalizeStatConfig(config={}) {
-  return {...config, reducer: config.reducer || 'lastNotNull', thresholds:Array.isArray(config.thresholds) ? config.thresholds.map(t=>({...t})) : [], sparkline:config.sparkline === 'none' ? 'none' : 'area'};
+  const reducer = config.reducer === 'period-sum' ? 'period-sum' : 'lastNotNull';
+  return {...config, reducer, thresholds:Array.isArray(config.thresholds) ? config.thresholds.map(t=>({...t})) : [], sparkline:config.sparkline === 'none' ? 'none' : 'area'};
 }

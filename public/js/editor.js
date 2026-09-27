@@ -6,6 +6,7 @@ import { componentBuilders } from './components/index.js';
 import { mergePersistedBlock } from './dashboard-config-roundtrip.mjs';
 import { resolveFamilyComponentType } from './dashboard-family-runtime.mjs';
 import { normalizePhase2FamilyConfig, applyPhase2FormValues } from './phase2-family-settings.mjs';
+import { periodBindingWarning } from './periodStat.mjs';
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1095,7 +1096,8 @@ function buildPhase2FamilyForm(block) {
   var field = function(name, value, type) { return '<label>' + escHtml(name) + '<input id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" type="' + (type || 'text') + '" value="' + escHtml(value ?? '') + '"></label>'; };
   var select = function(name, value, options) { return '<label>' + escHtml(name) + '<select id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '">' + options.map(function(option){ return '<option value="' + option + '"' + (value === option ? ' selected' : '') + '>' + option + '</option>'; }).join('') + '</select></label>'; };
   if (block.type === 'static-text') return '<label>Content<textarea id="modal-p2-content">' + escHtml(c.content) + '</textarea></label>';
-  var html = field('binding.metric', c.binding.metric) + field('label',c.label) + select('reducer',c.reducer,['lastNotNull']) + field('unit',c.unit);
+  var reducerOptions = block.type === 'stat-metric' ? ['lastNotNull','period-sum'] : ['lastNotNull'];
+  var html = field('binding.metric', c.binding.metric) + field('label',c.label) + select('reducer',c.reducer,reducerOptions) + field('unit',c.unit);
   var fields = block.type === 'stat-metric' ? ['precision','min','max','colorMode','fixedColor','sparkline'] : ['min','max','segments','spacing','endpoint','sparkline'];
   fields.forEach(function(k){
     if (k === 'colorMode') html += select(k,c[k],['value','background','fixed']);
@@ -1103,6 +1105,15 @@ function buildPhase2FamilyForm(block) {
     else if (k === 'endpoint') html += select(k,c[k],['point','none']);
     else html += field(k,c[k] ?? '', k==='precision'||k==='min'||k==='max'||k==='segments'||k==='spacing'?'number':'text');
   });
+  if (block.type === 'stat-metric' && c.reducer === 'period-sum') {
+    html += select('period', c.period, ['today','month','year','since-install']);
+    html += select('historyMetric', c.historyMetric, ['daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export']);
+    html += select('formula', c.formula, ['','monthly-grid-savings','yearly-grid-savings','generator-savings','generator-roi']);
+    html += field('currency', c.currency);
+    html += '<label>Formula params (JSON)<textarea id="modal-p2-formulaParams">' + escHtml(JSON.stringify(c.formulaParams || {})) + '</textarea></label>';
+    var bindingWarning = periodBindingWarning(c.label, c.historyMetric);
+    if (bindingWarning) html += '<p class="p2-binding-warning" style="color:var(--color-warning,#d97706)">⚠ ' + escHtml(bindingWarning) + '</p>';
+  }
   if (block.type === 'segmented-gauge') html += '<label>Markers<input id="modal-p2-markers" type="checkbox" ' + (c.markers?'checked':'') + '></label><label>Labels<input id="modal-p2-labels" type="checkbox" ' + (c.labels?'checked':'') + '></label>';
   html += '<label>Thresholds<textarea id="modal-p2-thresholds">' + escHtml(JSON.stringify(c.thresholds)) + '</textarea></label>';
   html += '<label>Fallback enabled<input id="modal-p2-fallback-enabled" type="checkbox" ' + (c.fallback.enabled?'checked':'') + '></label>' + field('fallback.value',c.fallback.value ?? '', 'number') + field('fallback.label',c.fallback.label);
@@ -1233,7 +1244,7 @@ function readSettingsForm(block) {
     case 'segmented-gauge':
     case 'static-text': {
       var p2 = {};
-      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content'].forEach(function(k){
+      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content','period','historyMetric','formula','currency','formulaParams'].forEach(function(k){
         var id = 'modal-p2-' + k.replace(/[^a-z0-9]/gi,'-'); var el = document.getElementById(id);
         if (el) p2[k] = el.type === 'checkbox' ? el.checked : el.value;
       });
