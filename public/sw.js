@@ -26,8 +26,15 @@ const STATIC_ASSETS = [
   '/js/csrf.js',
   '/js/theme.js',
   '/manifest.json',
+  '/favicon.ico',
+  '/icons/epilykos-mark.svg',
+  '/icons/epilykos-mark-light.svg',
+  '/icons/epilykos-mark-dark.svg',
+  '/icons/apple-touch-icon.png',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png'
 ];
 
 // ── Runtime state (received via postMessage) ──────────────────────────
@@ -202,7 +209,7 @@ self.addEventListener('push', event => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      badge: '/icons/icon-maskable-192.png',
       tag: 'epilykos-update'
     })
   );

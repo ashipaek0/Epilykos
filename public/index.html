@@ -20,13 +20,16 @@
   <script defer src="js/csrf.js"></script>
   <!-- Network detection (sends URLs to Service Worker) -->
   <script defer src="js/network-detect.js"></script>
-</head>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  </head>
 <body>
   <a href="#dashboard-container" class="skip-link" style="position:absolute;left:-9999px;top:0;z-index:9999;padding:0.5rem 1rem;background:var(--accent);color:#fff;border-radius:0 0 var(--radius) 0">Skip to dashboard</a>
   <div class="container">
     <header>
       <div class="header-left">
-        <img id="logo-img" alt="Logo" style="height:40px; margin-right:1rem; display:none;">
+        <img id="logo-img" src="/icons/epilykos-mark.svg" alt="Epilykos" style="height:40px; margin-right:1rem;">
         <h1 id="dashboard-title"></h1>
       </div>
       <div class="header-right">
