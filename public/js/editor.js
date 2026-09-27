@@ -1,3 +1,5 @@
+import { normalizeSeries } from './multiSeriesTimeseries.mjs';
+import { readMultiSeriesForm, normalizeMultiSeriesSettings } from './multiSeriesTimeseriesSettings.mjs';
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
 import { mergePersistedBlock } from './dashboard-config-roundtrip.mjs';
@@ -1179,6 +1181,10 @@ function buildSettingsForm(block) {
     case 'chart-metric':
       html += buildChartForm(block, true);
       break;
+    case 'multi-series-timeseries':
+      html += '<label>Title<input id="modal-mst-title" value="' + escHtml(block.config?.title ?? '') + '"></label><label>Series JSON<textarea id="modal-mst-series" rows="10">' + escHtml(JSON.stringify(block.config?.series || [], null, 2)) + '</textarea></label>';
+      html += '<label>Line width<input id="modal-mst-lineWidth" type="number" min="1" value="' + escHtml(block.config?.lineWidth ?? 2) + '"></label><label>Fill opacity<input id="modal-mst-fillOpacity" type="number" min="0" max="1" step="0.01" value="' + escHtml(block.config?.fillOpacity ?? 0.2) + '"></label><label>Fixed window (ms)<input id="modal-mst-windowMs" type="number" min="1" value="' + escHtml(block.config?.windowMs ?? 60000) + '"></label><label>Range hours<input id="modal-mst-hours" type="number" min="1" value="' + escHtml(block.config?.hours ?? 24) + '"></label><label>Stack<input id="modal-mst-stack" value="' + escHtml(block.config?.stack ?? '') + '"></label><label>Axis JSON<textarea id="modal-mst-axis">' + escHtml(JSON.stringify(block.config?.axis || {})) + '</textarea></label><label>Legend JSON<textarea id="modal-mst-legend">' + escHtml(JSON.stringify(block.config?.legend || {position:'bottom',calculations:['mean','max','min','lastNotNull']})) + '</textarea></label><label>Thresholds JSON<textarea id="modal-mst-thresholds">' + escHtml(JSON.stringify(block.config?.thresholds || [])) + '</textarea></label><label>Smooth<input id="modal-mst-smooth" type="checkbox" ' + (block.config?.smooth !== false ? 'checked' : '') + '></label>';
+      break;
     case 'chart-energy':
       html += buildChartForm(block, false);
       break;
@@ -1498,6 +1504,14 @@ function readSettingsForm(block) {
       config.metrics = config.metrics || {};
       config.metrics.grid_status = document.getElementById('modal-metric-grid-status')?.value || '';
       config.showTimeline = document.getElementById('modal-showtimeline')?.checked !== false;
+      break;
+    }
+    case 'multi-series-timeseries': {
+      try {
+        var settings = readMultiSeriesForm(function(name) { var el=document.getElementById('modal-mst-'+name); return name === 'smooth' ? !!el?.checked : (el?.value ?? ''); });
+        config.title = settings.title;
+        Object.assign(config, settings);
+      } catch (e) { return e.message || 'Invalid time-series settings'; }
       break;
     }
     case 'chart-power':

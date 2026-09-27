@@ -1,7 +1,7 @@
 const FAMILY_TYPES = Object.freeze({
   'stat-metric': 'stat-metric',
   'segmented-gauge': 'segmented-gauge',
-  'multi-series-timeseries': 'chart-metric',
+  'multi-series-timeseries': 'multi-series-timeseries',
   'multi-series-bar-gauge': 'bar-stacked',
   'static-text': 'text-card',
   'string-state': 'text-card'

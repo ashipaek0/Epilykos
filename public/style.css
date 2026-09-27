@@ -1819,3 +1819,28 @@ details.help-sub.help-hidden { display: none; }
 /* A card whose source failed before it ever rendered shows only the error. */
 .fc-card.fc-failed .fc-body, .wx-card.wx-failed .wx-body,
 .wx-card.wx-failed .wx-hourly, .wx-card.wx-failed .wx-charts { display: none; }
+
+/* Phase3 multi-series timeseries presentation */
+.mst-chart-body { display:flex; gap:0.75rem; min-width:0; min-height:220px; overflow:hidden; }
+.mst-chart-plot { flex:1 1 auto; min-width:0; min-height:220px; }
+.mst-chart-plot canvas { display:block; width:100%; min-width:180px; min-height:180px; max-width:100%; }
+.mst-legend { flex:0 0 auto; }
+.mst-legend--right { order:2; align-self:center; }
+.mst-legend--bottom { order:3; width:100%; }
+.mst-legend-table { border-collapse:collapse; }
+.mst-legend td, .mst-legend th { padding:0.25rem 0.45rem; border:1px solid var(--border); text-align:left; }
+.mst-legend-color { display:inline-block; width:0.75rem; height:0.75rem; margin-right:0.35rem; }
+.mst-status { padding:0.35rem 0.5rem; color:var(--text); }
+.mst-threshold-descriptor { overflow-wrap:anywhere; }
+@media (max-width:600px) {
+  .mst-chart-body, .mst-chart-body > .mst-chart-plot, .mst-chart-body > .mst-legend { max-width:100%; min-width:0; }
+  .mst-chart-body { max-width:100%; min-width:0; flex-wrap:wrap; overflow:visible; }
+  .multi-series-timeseries { overflow:visible; }
+  .mst-chart-body > .mst-chart-plot, .mst-chart-body > .mst-legend { max-width:100%; min-width:0; }
+  .mst-chart-plot { flex-basis:100%; min-height:120px; }
+  .mst-chart-plot canvas { min-height:110px; }
+  .mst-legend--right { order:3; flex-basis:100%; }
+  .mst-legend { max-width:100%; min-width:0; overflow:visible; }
+  .mst-legend-table { width:100%; max-width:100%; table-layout:fixed; }
+  .mst-legend th, .mst-legend td { white-space:normal; overflow-wrap:anywhere; font-size:0.72rem; padding:0.15rem 0.2rem; }
+}
