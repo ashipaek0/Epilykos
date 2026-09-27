@@ -1,3 +1,5 @@
+import { serializeDashboardConfig, deserializeDashboardConfig } from './dashboard-config-roundtrip.mjs';
+
 export async function fetchDashboardState() {
   const res = await fetch('/api/dashboard-state');
   return res.json();
@@ -10,14 +12,14 @@ export async function fetchPublicConfig() {
 
 export async function fetchDashboardConfig() {
   const res = await fetch('/api/dashboard-config');
-  return res.json();
+  return deserializeDashboardConfig(await res.text());
 }
 
 export async function saveDashboardConfig(config) {
   const res = await fetch('/api/dashboard-config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-    body: JSON.stringify(config)
+    body: serializeDashboardConfig(config)
   });
   if (!res.ok) {
     let msg = `Save failed (${res.status})`;

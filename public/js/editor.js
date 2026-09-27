@@ -1,5 +1,7 @@
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
+import { mergePersistedBlock } from './dashboard-config-roundtrip.mjs';
+import { resolveFamilyComponentType } from './dashboard-family-runtime.mjs';
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -30,7 +32,7 @@ async function persistLayout() {
         break;
       }
     }
-    if (existing) { block.config = existing.config; block.transparent = existing.transparent; block.bgColor = existing.bgColor; block.fontColor = existing.fontColor; block.fontSize = existing.fontSize; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
+    if (existing) block = mergePersistedBlock(existing, { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true });
     layout.push(block);
   });
   var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
@@ -1632,7 +1634,7 @@ function refreshGridItem(block) {
   if (settingsBtn) inner.appendChild(settingsBtn);
   if (delBtn) inner.appendChild(delBtn);
 
-  var builder = componentBuilders[block.type];
+  var builder = componentBuilders[resolveFamilyComponentType(block.type)];
   if (typeof builder === 'function') {
     var content = builder(block);
     if (content) {
@@ -1786,7 +1788,7 @@ async function openSettingsModal(block) {
  * @returns {HTMLElement} the grid-stack-item element
  */
 function buildGridItem(block) {
-  var builder = componentBuilders[block.type];
+  var builder = componentBuilders[resolveFamilyComponentType(block.type)];
   if (typeof builder !== 'function') return null;
   var content = builder(block);
   if (!content) return null;

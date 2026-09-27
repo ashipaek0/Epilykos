@@ -29,6 +29,7 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
+import { getFamily, familyNames } from '../dashboard-family-contract.mjs';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -63,3 +64,10 @@ export const componentBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock
 };
+
+// Stable parity-family aliases reuse the established renderer implementations.
+export const dashboardFamilyRegistry = Object.freeze(Object.fromEntries(familyNames.map(name => {
+  const metadata = getFamily(name);
+  return [name, Object.freeze({ ...metadata, builder: componentBuilders[metadata.componentType] })];
+})));
+for (const [name, metadata] of Object.entries(dashboardFamilyRegistry)) componentBuilders[name] = metadata.builder;
