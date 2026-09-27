@@ -1844,3 +1844,9 @@ details.help-sub.help-hidden { display: none; }
   .mst-legend-table { width:100%; max-width:100%; table-layout:fixed; }
   .mst-legend th, .mst-legend td { white-space:normal; overflow-wrap:anywhere; font-size:0.72rem; padding:0.15rem 0.2rem; }
 }
+.multi-series-bar-gauge { min-width:0; overflow:hidden; }
+.msbg-row { display:grid; grid-template-columns:minmax(5rem, 1fr) minmax(4rem, 3fr) auto; align-items:center; gap:.65rem; margin:.55rem 0; min-width:0; }
+.msbg-label,.msbg-value { color:var(--text); overflow-wrap:anywhere; }
+.msbg-track { height:.8rem; min-width:0; border-radius:999px; background:var(--bg); border:1px solid var(--border); overflow:hidden; }
+.msbg-fill { height:100%; width:0; background-color:var(--olive-500); transition:width 0.4s ease, background-color 0.4s ease; }
+@media(max-width:600px){.msbg-row{grid-template-columns:minmax(4rem,1fr) minmax(2rem,2fr) auto;gap:.35rem;font-size:.82rem}}

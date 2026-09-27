@@ -6,6 +6,7 @@ import { buildChartPower } from './chartPower.js';
 import { buildChartEnergy } from './chartEnergy.js';
 import { buildChartMetric } from './chartMetric.js';
 import { buildMultiSeriesTimeseries } from './multiSeriesTimeseries.js';
+import { buildMultiSeriesBarGauge } from './multiSeriesBarGauge.js';
 import { buildTextMetricCard } from './textMetricCard.js';
 import { buildStatMetricCard } from './statMetricCard.js';
 import { buildSegmentedGauge } from './segmentedGauge.js';
@@ -45,6 +46,7 @@ export const componentBuilders = {
   'chart-energy': buildChartEnergy,
   'chart-metric': buildChartMetric,
   'multi-series-timeseries': buildMultiSeriesTimeseries,
+  'multi-series-bar-gauge': buildMultiSeriesBarGauge,
   'text-metric': buildTextMetricCard,
   'stat-metric': buildStatMetricCard,
   'segmented-gauge': buildSegmentedGauge,

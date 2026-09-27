@@ -1,0 +1,3 @@
+import { normalizeGaugeSeries } from './multiSeriesBarGauge.mjs';
+export function normalizeBarGaugeSettings(c={}) { const decimals=Number(c.decimals??0); if(!Number.isInteger(decimals)||decimals<0) throw new Error('Decimals must be a non-negative integer'); return {...c,title:String(c.title??''),unit:String(c.unit??''),decimals,palette:c.palette==='energy'?'energy':'power',series:normalizeGaugeSeries(c.series??[])}; }
+export function readBarGaugeForm(get) { let series; try { series=JSON.parse(get('series')); } catch { throw new Error('Series must be valid JSON'); } if(!Array.isArray(series)) throw new Error('Series must be a JSON array'); return normalizeBarGaugeSettings({title:get('title'),series,unit:get('unit'),decimals:get('decimals'),palette:get('palette')}); }

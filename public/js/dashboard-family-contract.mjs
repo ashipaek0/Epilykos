@@ -2,7 +2,7 @@ const FAMILY_TYPES = Object.freeze({
   'stat-metric': 'stat-metric',
   'segmented-gauge': 'segmented-gauge',
   'multi-series-timeseries': 'multi-series-timeseries',
-  'multi-series-bar-gauge': 'bar-stacked',
+  'multi-series-bar-gauge': 'multi-series-bar-gauge',
   'static-text': 'text-card',
   'string-state': 'text-card'
 });

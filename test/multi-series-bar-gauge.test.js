@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { normalizeGaugeSeries, gaugeValue, gaugeFillPercent, gaugeColor } from '../public/js/multiSeriesBarGauge.mjs';
+import { normalizeBarGaugeSettings, readBarGaugeForm } from '../public/js/multiSeriesBarGaugeSettings.mjs';
+
+assert.deepEqual(normalizeGaugeSeries([{binding:{metric:'pv'},label:'PV',max:100}]), [{binding:{metric:'pv'},label:'PV',unit:'',decimals:0,min:0,max:100}]);
+assert.throws(() => normalizeGaugeSeries([{binding:{metric:'pv'},max:0}]), /max/);
+assert.equal(gaugeValue({binding:{metric:'pv'}},{pv:null}).value, null);
+assert.equal(gaugeValue({binding:{metric:'pv'}},{}).status, 'no-data');
+assert.equal(gaugeValue({binding:{metric:'pv'}},{pv:0}).value, 0);
+assert.equal(gaugeFillPercent(150,0,100),100);
+assert.equal(gaugeFillPercent(-1,0,100),0);
+const CSS_VARS = { '--olive-500': '#84a45a', '--sky-500': '#87aec8', '--color-warning': '#d97706', '--color-danger': '#dc6b4a' };
+const readVar = (name) => CSS_VARS[name] || '';
+assert.equal(gaugeColor(10,100,'power',readVar), CSS_VARS['--olive-500']);
+assert.equal(gaugeColor(60,100,'power',readVar), CSS_VARS['--color-warning']);
+assert.equal(gaugeColor(90,100,'power',readVar), CSS_VARS['--color-danger']);
+assert.equal(gaugeColor(10,100,'energy',readVar), CSS_VARS['--sky-500']);
+assert.equal(gaugeColor(60,100,'energy',readVar), CSS_VARS['--color-warning']);
+assert.equal(gaugeColor(90,100,'energy',readVar), CSS_VARS['--color-danger']);
+assert.notEqual(gaugeColor(10,100,'power',readVar), gaugeColor(10,100,'energy',readVar), 'power and energy palettes must differ at low ratio (source: GrYlRd vs BlYlRd)');
+const cfg=normalizeBarGaugeSettings({series:[{binding:{metric:'daily'},label:'Daily',min:0,max:12}],unit:'kWh',decimals:1});
+assert.equal(cfg.series[0].max,12); assert.equal(cfg.unit,'kWh');
+const form=readBarGaugeForm(k=>({title:'Yield',series:JSON.stringify(cfg.series),unit:'kWh',decimals:'1',palette:'energy'}[k]));
+assert.equal(form.title,'Yield'); assert.equal(form.series[0].binding.metric,'daily');
+console.log('multi-series-bar-gauge.test.js: passed');
