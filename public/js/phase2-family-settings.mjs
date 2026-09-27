@@ -1,6 +1,7 @@
 const schemas = {
   'stat-metric': ['binding.metric','label','reducer','unit','precision','min','max','colorMode','fixedColor','thresholds','sparkline','fallback.enabled','fallback.value','fallback.label','period','historyMetric','formula','currency','formulaParams'],
   'segmented-gauge': ['binding.metric','label','reducer','unit','min','max','segments','spacing','thresholds','markers','labels','endpoint','sparkline','fallback.enabled','fallback.value','fallback.label'],
+  'string-state': ['binding.metric','label','colorMode','mappings'],
   'static-text': ['content']
 };
 const PERIODS = ['today','month','year','since-install'];
@@ -12,6 +13,11 @@ export function normalizePhase2FamilyConfig(type, input = {}) {
   const src = input || {}, out = {};
   if (!schemas[type]) throw new Error(`Unsupported Phase-2 family: ${type}`);
   if (type === 'static-text') return { content: String(src.content ?? '') };
+  if (type === 'string-state') {
+    let mappings = src.mappings;
+    if (typeof mappings === 'string') { try { mappings = JSON.parse(mappings || '[]'); } catch { mappings = []; } }
+    return { binding: { metric: String(src.binding?.metric ?? src.metric ?? '') }, label: String(src.label ?? ''), colorMode: src.colorMode === 'background' ? 'background' : 'value', mappings: Array.isArray(mappings) ? copy(mappings) : [] };
+  }
   out.binding = { metric: String(src.binding?.metric ?? src.metric ?? '') };
   out.label = String(src.label ?? ''); out.reducer = src.reducer === 'period-sum' ? 'period-sum' : 'lastNotNull'; out.unit = String(src.unit ?? '');
   for (const key of ['precision','min','max','segments','spacing']) if (src[key] != null && src[key] !== '') out[key] = Number(src[key]);
@@ -33,6 +39,12 @@ export function normalizePhase2FamilyConfig(type, input = {}) {
 }
 export function applyPhase2FormValues(type, existing = {}, values = {}) {
   if (type === 'static-text') return { ...copy(existing || {}), content: String(values.content ?? '') };
+  if (type === 'string-state') {
+    let mappings;
+    try { mappings = typeof values.mappings === 'string' ? JSON.parse(values.mappings || '[]') : copy(values.mappings ?? existing.mappings ?? []); } catch { throw new Error('Mappings must be valid JSON'); }
+    if (!Array.isArray(mappings) || mappings.some(m => !m || typeof m !== 'object' || typeof m.value !== 'string' || typeof m.label !== 'string')) throw new Error('Mappings must be an array of value/label objects');
+    return { ...normalizePhase2FamilyConfig(type, existing), binding: { metric: String(values['binding.metric'] ?? values.metric ?? existing.binding?.metric ?? '') }, label: String(values.label ?? existing.label ?? ''), colorMode: values.colorMode === 'background' ? 'background' : 'value', mappings };
+  }
   let thresholds;
   try { thresholds = typeof values.thresholds === 'string' ? JSON.parse(values.thresholds || '[]') : copy(values.thresholds ?? []); }
   catch { throw new Error('Thresholds must be valid JSON'); }
