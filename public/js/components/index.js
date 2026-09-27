@@ -8,6 +8,7 @@ import { buildChartMetric } from './chartMetric.js';
 import { buildMultiSeriesTimeseries } from './multiSeriesTimeseries.js';
 import { buildMultiSeriesBarGauge } from './multiSeriesBarGauge.js';
 import { buildTextMetricCard } from './textMetricCard.js';
+import { buildStringStateCard } from './stringStateCard.js';
 import { buildStatMetricCard } from './statMetricCard.js';
 import { buildSegmentedGauge } from './segmentedGauge.js';
 import { buildSavingsSummary } from './savingsSummary.js';
@@ -48,6 +49,7 @@ export const componentBuilders = {
   'multi-series-timeseries': buildMultiSeriesTimeseries,
   'multi-series-bar-gauge': buildMultiSeriesBarGauge,
   'text-metric': buildTextMetricCard,
+  'string-state': buildStringStateCard,
   'stat-metric': buildStatMetricCard,
   'segmented-gauge': buildSegmentedGauge,
   'savings-summary': buildSavingsSummary,

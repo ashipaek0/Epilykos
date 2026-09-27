@@ -4,7 +4,7 @@ const FAMILY_TYPES = Object.freeze({
   'multi-series-timeseries': 'multi-series-timeseries',
   'multi-series-bar-gauge': 'multi-series-bar-gauge',
   'static-text': 'text-card',
-  'string-state': 'text-card'
+  'string-state': 'string-state'
 });
 const FAMILY_NAMES = Object.freeze(Object.keys(FAMILY_TYPES));
 const REGISTRY = Object.freeze(Object.fromEntries(FAMILY_NAMES.map(name => [name, Object.freeze({

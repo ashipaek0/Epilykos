@@ -1095,6 +1095,7 @@ function buildPhase2FamilyForm(block) {
   var prefix = 'modal-p2-';
   var field = function(name, value, type) { return '<label>' + escHtml(name) + '<input id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" type="' + (type || 'text') + '" value="' + escHtml(value ?? '') + '"></label>'; };
   var select = function(name, value, options) { return '<label>' + escHtml(name) + '<select id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '">' + options.map(function(option){ return '<option value="' + option + '"' + (value === option ? ' selected' : '') + '>' + option + '</option>'; }).join('') + '</select></label>'; };
+  if (block.type === 'string-state') return field('binding.metric',c.binding.metric) + field('label',c.label) + select('colorMode',c.colorMode,['value','background']) + '<label>Mappings (JSON)<textarea id="modal-p2-mappings">' + escHtml(JSON.stringify(c.mappings || [])) + '</textarea></label>';
   if (block.type === 'static-text') return '<label>Content<textarea id="modal-p2-content">' + escHtml(c.content) + '</textarea></label>';
   var reducerOptions = block.type === 'stat-metric' ? ['lastNotNull','period-sum'] : ['lastNotNull'];
   var html = field('binding.metric', c.binding.metric) + field('label',c.label) + select('reducer',c.reducer,reducerOptions) + field('unit',c.unit);
@@ -1167,6 +1168,7 @@ function buildSettingsForm(block) {
     case 'data-table-monthly':
       html += buildDataTableForm(block);
       break;
+    case 'string-state':
     case 'stat-metric':
     case 'segmented-gauge':
     case 'static-text':
@@ -1242,9 +1244,10 @@ function readSettingsForm(block) {
   switch (type) {
     case 'stat-metric':
     case 'segmented-gauge':
+    case 'string-state':
     case 'static-text': {
       var p2 = {};
-      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content','period','historyMetric','formula','currency','formulaParams'].forEach(function(k){
+      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content','period','historyMetric','formula','currency','formulaParams','mappings'].forEach(function(k){
         var id = 'modal-p2-' + k.replace(/[^a-z0-9]/gi,'-'); var el = document.getElementById(id);
         if (el) p2[k] = el.type === 'checkbox' ? el.checked : el.value;
       });
@@ -2025,7 +2028,7 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select','multi-series-timeseries':'\u25C7 Multi Timeseries','multi-series-bar-gauge':'\u25C7 String Bar Gauge' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select','multi-series-timeseries':'\u25C7 Multi Timeseries','multi-series-bar-gauge':'\u25C7 String Bar Gauge','string-state':'\u25C7 String State' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');
