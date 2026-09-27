@@ -1,3 +1,4 @@
+import { readBarGaugeForm } from './multiSeriesBarGaugeSettings.mjs';
 import { normalizeSeries } from './multiSeriesTimeseries.mjs';
 import { readMultiSeriesForm, normalizeMultiSeriesSettings } from './multiSeriesTimeseriesSettings.mjs';
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
@@ -1181,6 +1182,9 @@ function buildSettingsForm(block) {
     case 'chart-metric':
       html += buildChartForm(block, true);
       break;
+    case 'multi-series-bar-gauge':
+      html += '<label>Title<input id="modal-msbg-title" value="' + escHtml(block.config?.title ?? '') + '"></label><label>Series JSON (label, binding.metric, min, max, unit, decimals)<textarea id="modal-msbg-series" rows="10">' + escHtml(JSON.stringify(block.config?.series || [], null, 2)) + '</textarea></label><label>Unit<input id="modal-msbg-unit" value="' + escHtml(block.config?.unit ?? '') + '"></label><label>Decimals<input id="modal-msbg-decimals" type="number" min="0" value="' + escHtml(block.config?.decimals ?? 0) + '"></label><label>Palette<select id="modal-msbg-palette"><option value="power">Power</option><option value="energy">Energy</option></select></label>';
+      break;
     case 'multi-series-timeseries':
       html += '<label>Title<input id="modal-mst-title" value="' + escHtml(block.config?.title ?? '') + '"></label><label>Series JSON<textarea id="modal-mst-series" rows="10">' + escHtml(JSON.stringify(block.config?.series || [], null, 2)) + '</textarea></label>';
       html += '<label>Line width<input id="modal-mst-lineWidth" type="number" min="1" value="' + escHtml(block.config?.lineWidth ?? 2) + '"></label><label>Fill opacity<input id="modal-mst-fillOpacity" type="number" min="0" max="1" step="0.01" value="' + escHtml(block.config?.fillOpacity ?? 0.2) + '"></label><label>Fixed window (ms)<input id="modal-mst-windowMs" type="number" min="1" value="' + escHtml(block.config?.windowMs ?? 60000) + '"></label><label>Range hours<input id="modal-mst-hours" type="number" min="1" value="' + escHtml(block.config?.hours ?? 24) + '"></label><label>Stack<input id="modal-mst-stack" value="' + escHtml(block.config?.stack ?? '') + '"></label><label>Axis JSON<textarea id="modal-mst-axis">' + escHtml(JSON.stringify(block.config?.axis || {})) + '</textarea></label><label>Legend JSON<textarea id="modal-mst-legend">' + escHtml(JSON.stringify(block.config?.legend || {position:'bottom',calculations:['mean','max','min','lastNotNull']})) + '</textarea></label><label>Thresholds JSON<textarea id="modal-mst-thresholds">' + escHtml(JSON.stringify(block.config?.thresholds || [])) + '</textarea></label><label>Smooth<input id="modal-mst-smooth" type="checkbox" ' + (block.config?.smooth !== false ? 'checked' : '') + '></label>';
@@ -1504,6 +1508,11 @@ function readSettingsForm(block) {
       config.metrics = config.metrics || {};
       config.metrics.grid_status = document.getElementById('modal-metric-grid-status')?.value || '';
       config.showTimeline = document.getElementById('modal-showtimeline')?.checked !== false;
+      break;
+    }
+    case 'multi-series-bar-gauge': {
+      try { Object.assign(config, readBarGaugeForm(name => document.getElementById('modal-msbg-' + name)?.value ?? '')); }
+      catch (e) { return e.message || 'Invalid bar-gauge settings'; }
       break;
     }
     case 'multi-series-timeseries': {
@@ -2005,7 +2014,7 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select','multi-series-timeseries':'\u25C7 Multi Timeseries','multi-series-bar-gauge':'\u25C7 String Bar Gauge' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');
