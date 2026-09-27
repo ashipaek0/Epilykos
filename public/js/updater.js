@@ -1,3 +1,4 @@
+import { expandFamilyBlockTypes } from './dashboard-family-runtime.mjs';
 import { fetchDashboardState } from './api.js';
 import { dashboardConfig } from './dashboard.js';
 import { updateFlowCard } from './components/flowCard.js';
@@ -32,7 +33,7 @@ export function updateWithState(state) {
   if (!dashboardConfig?.dashboards) return;
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
-  const blockTypes = new Set(activeLayout.map(b => b.type));
+  const blockTypes = expandFamilyBlockTypes(new Set(activeLayout.map(b => b.type)));
   if (blockTypes.has('flow-card')) updateFlowCard(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);
