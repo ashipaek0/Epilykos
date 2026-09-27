@@ -7,8 +7,16 @@ const runtimeSource = require('fs').readFileSync('public/js/dashboard-family-run
 const updaterSource = require('fs').readFileSync('public/js/updater.js', 'utf8');
 const editorSource = require('fs').readFileSync('public/js/editor.js', 'utf8');
 const roundtrip = await import('../public/js/dashboard-config-roundtrip.mjs');
-assert.deepStrictEqual([...expandFamilyBlockTypes(['stat-metric'])], ['stat-metric', 'text-metric']);
-assert.strictEqual(resolveFamilyComponentType('stat-metric'), 'text-metric');
+assert.deepStrictEqual([...expandFamilyBlockTypes(['stat-metric'])], ['stat-metric']);
+assert.strictEqual(resolveFamilyComponentType('stat-metric'), 'stat-metric');
+const componentRegistry = await import('../public/js/components/index.js');
+const { buildStatMetricCard } = await import('../public/js/components/statMetricCard.js');
+const { buildSegmentedGauge } = await import('../public/js/components/segmentedGauge.js');
+assert.strictEqual(componentRegistry.componentBuilders['stat-metric'], buildStatMetricCard);
+assert.strictEqual(componentRegistry.componentBuilders['segmented-gauge'], buildSegmentedGauge);
+assert(updaterSource.includes("import { updateStatMetricCards } from './components/statMetricCard.js'") && updaterSource.includes('updateStatMetricCards(state)'), 'updater must dispatch stat updater');
+assert(updaterSource.includes("import { updateSegmentedGauges } from './components/segmentedGauge.js'") && updaterSource.includes('updateSegmentedGauges(state)'), 'updater must dispatch gauge updater');
+assert.strictEqual(resolveFamilyComponentType('text-metric'), 'text-metric');
 assert.strictEqual(resolveFamilyComponentType('existing-type'), 'existing-type');
 assert(updaterSource.includes("import { expandFamilyBlockTypes } from './dashboard-family-runtime.mjs'") && updaterSource.includes('const blockTypes = expandFamilyBlockTypes('), 'updater must import and call family expansion');
 assert(editorSource.includes('resolveFamilyComponentType') && (editorSource.match(/componentBuilders\[resolveFamilyComponentType\(/g) || []).length >= 2, 'editor must resolve builders for refresh/build');
