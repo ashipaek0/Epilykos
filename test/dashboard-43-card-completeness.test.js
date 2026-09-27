@@ -1,0 +1,13 @@
+'use strict';
+const assert = require('assert');
+const fs = require('fs');
+const { familyNames, getFamily } = require('../public/js/dashboard-family-contract.mjs');
+const template = JSON.parse(fs.readFileSync('templates/dashboard-43-panel-template.json', 'utf8'));
+const blocks = template.dashboards.flatMap(d => d.layout);
+assert.strictEqual(blocks.length, 43);
+assert.strictEqual(new Set(blocks.map(b => b.id)).size, 43);
+assert.deepStrictEqual(blocks.map(b => b.type).every(t => familyNames.includes(t)), true);
+assert.deepStrictEqual(blocks.map(b => getFamily(b.type)).every(Boolean), true);
+assert.deepStrictEqual(blocks.reduce((a,b)=>{a[b.section]=(a[b.section]||0)+1;return a;},{}), { 'R1 Live Overview':12,'R2 Financial Summary':5,'R3 PV Strings':3,'R4 Energy Totals':7,'R5 Battery Health & History':9,'R6 Forecast & Environment':7 });
+assert.deepStrictEqual(Object.keys(blocks.reduce((a,b)=>{a[b.section]=1;return a;},{})).length, 6);
+console.log('dashboard-43-card-completeness: PASS');
