@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+const logic = await import(new URL('../public/js/stat-parity.mjs', import.meta.url));
+assert.deepEqual(logic.resolveStat({metric:'x'}, {}, {value:9}), {status:'no-data',value:null,reason:'missing-binding'});
+assert.deepEqual(logic.resolveStat({metric:'x'}, {x:null}, {value:9}), {status:'no-data',value:null,reason:'null-value'});
+assert.deepEqual(logic.resolveStat({metric:'x'}, {x:0}, {value:9}), {status:'data',value:0, fallback:null});
+assert.deepEqual(logic.resolveStat({metric:'x'}, {}, {enabled:false,value:9,label:'Fallback'}), {status:'no-data',value:null,reason:'missing-binding'});
+assert.deepEqual(logic.resolveStat({metric:'x'}, {}, {enabled:true,value:9,label:'User note'}), {status:'fallback',value:9,fallback:{value:9,label:'User note'},measured:null});
+assert.equal(logic.resolveStat({metric:'x'}, {}, {enabled:true,value:9,label:'User note'}).measured, null);
+console.log('stat-fallback-no-data.test.js: passed');

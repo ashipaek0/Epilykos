@@ -1,0 +1,400 @@
+{
+  "stats": [
+    {
+      "title": "Solar PV Power",
+      "unit": "W",
+      "precision": 0,
+      "colorMode": "background",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 1000,
+          "color": "yellow"
+        },
+        {
+          "value": 10000,
+          "color": "orange"
+        },
+        {
+          "value": 15000,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Solar PV Power"
+    },
+    {
+      "title": "Battery Power",
+      "unit": "W",
+      "precision": 0,
+      "colorMode": "background",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "orange"
+        },
+        {
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "value": 10000,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Battery Power"
+    },
+    {
+      "title": "Load",
+      "unit": "W",
+      "precision": 0,
+      "colorMode": "background",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "value": 5000,
+          "color": "yellow"
+        },
+        {
+          "value": 8000,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Load"
+    },
+    {
+      "title": "Grid",
+      "unit": "W",
+      "precision": 0,
+      "colorMode": "background",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "value": 1,
+          "color": "yellow"
+        },
+        {
+          "value": 100,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Grid"
+    },
+    {
+      "title": "Battery Voltage",
+      "unit": "V",
+      "precision": 1,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 49,
+          "color": "dark-red"
+        },
+        {
+          "value": 52,
+          "color": "yellow"
+        },
+        {
+          "value": 55,
+          "color": "green"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Battery Voltage"
+    },
+    {
+      "title": "Battery Current",
+      "unit": "A",
+      "precision": 1,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "yellow"
+        },
+        {
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "value": 250,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Battery Current"
+    },
+    {
+      "title": "Battery Temp",
+      "unit": "\u00b0C",
+      "precision": 1,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 35,
+          "color": "yellow"
+        },
+        {
+          "value": 37,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Battery Temp"
+    },
+    {
+      "title": "Inverter Load",
+      "unit": "%",
+      "precision": 0,
+      "min": 0,
+      "max": 100,
+      "colorMode": "background",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "value": 50,
+          "color": "yellow"
+        },
+        {
+          "value": 80,
+          "color": "red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Inverter Load"
+    },
+    {
+      "title": "Ah Available",
+      "unit": "Ah",
+      "precision": 0,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "red"
+        },
+        {
+          "value": 200,
+          "color": "yellow"
+        },
+        {
+          "value": 300,
+          "color": "green"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Ah Available"
+    },
+    {
+      "title": "Consumed kWh Live",
+      "unit": "kWh",
+      "precision": 1,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 1,
+          "color": "green"
+        },
+        {
+          "value": 40,
+          "color": "semi-dark-red"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Consumed kWh Live"
+    },
+    {
+      "title": "Ah Charged In",
+      "unit": "Ah",
+      "precision": 0,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 1,
+          "color": "green"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Ah Charged In"
+    },
+    {
+      "title": "Battery Cycles",
+      "unit": "count",
+      "precision": 0,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 1,
+          "color": "green"
+        }
+      ],
+      "sparkline": "none",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Battery Cycles"
+    },
+    {
+      "title": "Battery SOH",
+      "unit": "%",
+      "precision": 0,
+      "min": 0,
+      "max": 100,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "value": 95,
+          "color": "green"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "Battery SOH"
+    },
+    {
+      "title": "System Efficiency",
+      "unit": "%",
+      "precision": 1,
+      "colorMode": "value",
+      "thresholds": [
+        {
+          "value": 0,
+          "color": "blue"
+        },
+        {
+          "value": 80,
+          "color": "red"
+        },
+        {
+          "value": 90,
+          "color": "green"
+        }
+      ],
+      "sparkline": "area",
+      "binding": {
+        "metric": ""
+      },
+      "reducer": "lastNotNull",
+      "label": "System Efficiency"
+    }
+  ],
+  "gauge": {
+    "min": 0,
+    "max": 100,
+    "segments": 30,
+    "spacing": 0.3,
+    "thresholds": [
+      {
+        "value": 0,
+        "color": "red"
+      },
+      {
+        "value": 15,
+        "color": "orange"
+      },
+      {
+        "value": 30,
+        "color": "yellow"
+      },
+      {
+        "value": 50,
+        "color": "green"
+      }
+    ],
+    "markers": true,
+    "labels": false,
+    "endpoint": "point",
+    "sparkline": "area",
+    "binding": {
+      "metric": ""
+    },
+    "reducer": "lastNotNull"
+  }
+}

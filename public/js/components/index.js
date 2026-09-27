@@ -6,6 +6,8 @@ import { buildChartPower } from './chartPower.js';
 import { buildChartEnergy } from './chartEnergy.js';
 import { buildChartMetric } from './chartMetric.js';
 import { buildTextMetricCard } from './textMetricCard.js';
+import { buildStatMetricCard } from './statMetricCard.js';
+import { buildSegmentedGauge } from './segmentedGauge.js';
 import { buildSavingsSummary } from './savingsSummary.js';
 import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
@@ -42,6 +44,8 @@ export const componentBuilders = {
   'chart-energy': buildChartEnergy,
   'chart-metric': buildChartMetric,
   'text-metric': buildTextMetricCard,
+  'stat-metric': buildStatMetricCard,
+  'segmented-gauge': buildSegmentedGauge,
   'savings-summary': buildSavingsSummary,
   'data-table-daily': buildDataTableDaily,
   'data-table-monthly': buildDataTableMonthly,
@@ -70,4 +74,6 @@ export const dashboardFamilyRegistry = Object.freeze(Object.fromEntries(familyNa
   const metadata = getFamily(name);
   return [name, Object.freeze({ ...metadata, builder: componentBuilders[metadata.componentType] })];
 })));
-for (const [name, metadata] of Object.entries(dashboardFamilyRegistry)) componentBuilders[name] = metadata.builder;
+for (const [name, metadata] of Object.entries(dashboardFamilyRegistry)) {
+  if (!Object.prototype.hasOwnProperty.call(componentBuilders, name)) componentBuilders[name] = metadata.builder;
+}

@@ -2,6 +2,7 @@ import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from '
 import { componentBuilders } from './components/index.js';
 import { mergePersistedBlock } from './dashboard-config-roundtrip.mjs';
 import { resolveFamilyComponentType } from './dashboard-family-runtime.mjs';
+import { normalizePhase2FamilyConfig, applyPhase2FormValues } from './phase2-family-settings.mjs';
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1085,6 +1086,26 @@ function renderStateSelectRows(container) {
 }
 
 /** Main entry: build the settings form for a given block type */
+function buildPhase2FamilyForm(block) {
+  var c = normalizePhase2FamilyConfig(block.type, block.config || {});
+  var prefix = 'modal-p2-';
+  var field = function(name, value, type) { return '<label>' + escHtml(name) + '<input id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" type="' + (type || 'text') + '" value="' + escHtml(value ?? '') + '"></label>'; };
+  var select = function(name, value, options) { return '<label>' + escHtml(name) + '<select id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '">' + options.map(function(option){ return '<option value="' + option + '"' + (value === option ? ' selected' : '') + '>' + option + '</option>'; }).join('') + '</select></label>'; };
+  if (block.type === 'static-text') return '<label>Content<textarea id="modal-p2-content">' + escHtml(c.content) + '</textarea></label>';
+  var html = field('binding.metric', c.binding.metric) + field('label',c.label) + select('reducer',c.reducer,['lastNotNull']) + field('unit',c.unit);
+  var fields = block.type === 'stat-metric' ? ['precision','min','max','colorMode','fixedColor','sparkline'] : ['min','max','segments','spacing','endpoint','sparkline'];
+  fields.forEach(function(k){
+    if (k === 'colorMode') html += select(k,c[k],['value','background','fixed']);
+    else if (k === 'sparkline') html += select(k,c[k],['area','none']);
+    else if (k === 'endpoint') html += select(k,c[k],['point','none']);
+    else html += field(k,c[k] ?? '', k==='precision'||k==='min'||k==='max'||k==='segments'||k==='spacing'?'number':'text');
+  });
+  if (block.type === 'segmented-gauge') html += '<label>Markers<input id="modal-p2-markers" type="checkbox" ' + (c.markers?'checked':'') + '></label><label>Labels<input id="modal-p2-labels" type="checkbox" ' + (c.labels?'checked':'') + '></label>';
+  html += '<label>Thresholds<textarea id="modal-p2-thresholds">' + escHtml(JSON.stringify(c.thresholds)) + '</textarea></label>';
+  html += '<label>Fallback enabled<input id="modal-p2-fallback-enabled" type="checkbox" ' + (c.fallback.enabled?'checked':'') + '></label>' + field('fallback.value',c.fallback.value ?? '', 'number') + field('fallback.label',c.fallback.label);
+  return html;
+}
+
 function buildSettingsForm(block) {
   var type = block.type;
   var html = '';
@@ -1131,6 +1152,11 @@ function buildSettingsForm(block) {
     case 'data-table-daily':
     case 'data-table-monthly':
       html += buildDataTableForm(block);
+      break;
+    case 'stat-metric':
+    case 'segmented-gauge':
+    case 'static-text':
+      html += buildPhase2FamilyForm(block);
       break;
     case 'text-card':
       html += buildTextCardForm(block);
@@ -1193,6 +1219,19 @@ function readSettingsForm(block) {
   var type = block.type;
 
   switch (type) {
+    case 'stat-metric':
+    case 'segmented-gauge':
+    case 'static-text': {
+      var p2 = {};
+      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content'].forEach(function(k){
+        var id = 'modal-p2-' + k.replace(/[^a-z0-9]/gi,'-'); var el = document.getElementById(id);
+        if (el) p2[k] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      ['markers','labels'].forEach(function(k){ var el=document.getElementById('modal-p2-'+k); if(el) p2[k]=el.checked; });
+      var thresholdsEl = document.getElementById('modal-p2-thresholds'); if (thresholdsEl) p2.thresholds = thresholdsEl.value;
+      try { block.config = applyPhase2FormValues(type, config, p2); } catch (e) { return e.message || 'Invalid Phase-2 settings'; }
+      return '';
+    }
     case 'flow-card': {
       var slots = ['solar','battery_soc','battery_charge','battery_discharge','consumption','grid_import','grid_export'];
       var metrics = {};
