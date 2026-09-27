@@ -25,6 +25,7 @@ import { updateSwitchBlockFromState } from './components/switchBlock.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
 import { updateStatMetricCards } from './components/statMetricCard.js';
+import { updatePeriodStatCards } from './components/statMetricCard.js';
 import { updateMultiSeriesBarGauge } from './components/multiSeriesBarGauge.js';
 import { updateMultiSeriesTimeseries } from './components/multiSeriesTimeseries.js';
 import { updateSegmentedGauges } from './components/segmentedGauge.js';
@@ -60,6 +61,7 @@ export function updateWithState(state) {
   if (blockTypes.has('multi-series-bar-gauge')) updateMultiSeriesBarGauge(state);
   if (blockTypes.has('text-metric')) updateTextMetricCard(state);
   if (blockTypes.has('stat-metric')) updateStatMetricCards(state);
+  if (blockTypes.has('stat-metric')) updatePeriodStatCards();
   if (blockTypes.has('segmented-gauge')) updateSegmentedGauges(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
   const forecastTypes = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];

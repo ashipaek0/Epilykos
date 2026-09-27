@@ -13,6 +13,7 @@ const { computeTodaySolar, getSolarForecast } = require('../modules/solar');
 const { getGridHours, getGridTimeline, getCurrentGridStatus } = require('../modules/grid');
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
+const { reduceDailyRows } = require('../modules/periodReducer');
 const { getDashboardConfig } = require('../modules/dashboard-config');
 const { SQL_LOCAL_DAY, localDateString } = require('../modules/localTime');
 
@@ -395,6 +396,53 @@ router.get('/dashboard-config', async (req, res) => {
       activeDashboard: 'main'
     };
     res.status(500).json(fallback);
+  }
+});
+
+/**
+ * Canonical period-sum totals (today / month / year / since-install) for a
+ * single history metric column, backed by the same local-calendar-day
+ * rollup as /api/daily -- NEVER /api/metrics/history (7-day cap, unsuitable
+ * for month/year/since-install windows). See modules/periodReducer.js.
+ */
+router.get('/period-sum', async (req, res) => {
+  const period = String(req.query.period || 'today');
+  const metric = String(req.query.metric || '');
+  const ALLOWED_METRICS = new Set([
+    'daily_consumption', 'daily_solar', 'daily_battery_charge',
+    'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'
+  ]);
+  if (!['today', 'month', 'year', 'since-install'].includes(period)) {
+    return res.status(400).json({ error: 'period must be one of today|month|year|since-install' });
+  }
+  if (!ALLOWED_METRICS.has(metric)) {
+    return res.status(400).json({ error: `metric must be one of ${[...ALLOWED_METRICS].join(', ')}` });
+  }
+  try {
+    const db = getDb();
+    const rangeRow = db.prepare('SELECT MIN(timestamp) as minTs FROM history').get();
+    let rows = [];
+    let coverageStart = null;
+    if (rangeRow && rangeRow.minTs != null) {
+      coverageStart = localDateString(new Date(rangeRow.minTs * 1000));
+      rows = db.prepare(`
+        SELECT ${SQL_LOCAL_DAY} as day, MAX(${metric}) as value
+        FROM history
+        GROUP BY day
+        ORDER BY day ASC
+      `).all();
+    }
+    const installDate = getConfig('solar_install_date') || null;
+    const result = reduceDailyRows(rows, {
+      period,
+      metric: 'value',
+      coverageStart,
+      installDate
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error('Error in /api/period-sum:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
