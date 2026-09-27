@@ -62,9 +62,10 @@ body {
 }
 
 .wizard-brand .logo-icon {
-  color: var(--accent);
-  font-size: 1.4rem;
-  line-height: 1;
+  width: 1.65rem;
+  height: 1.65rem;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .wizard-tagline {
