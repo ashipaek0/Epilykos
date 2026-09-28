@@ -1,12 +1,15 @@
+import { mountMultiSeriesForm } from './multiSeriesSettingsForm.mjs';
 import { readBarGaugeForm } from './multiSeriesBarGaugeSettings.mjs';
-import { normalizeSeries } from './multiSeriesTimeseries.mjs';
-import { readMultiSeriesForm, normalizeMultiSeriesSettings } from './multiSeriesTimeseriesSettings.mjs';
+import { readMultiSeriesForm } from './multiSeriesTimeseriesSettings.mjs';
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
 import { mergePersistedBlock } from './dashboard-config-roundtrip.mjs';
 import { resolveFamilyComponentType } from './dashboard-family-runtime.mjs';
 import { normalizePhase2FamilyConfig, applyPhase2FormValues } from './phase2-family-settings.mjs';
 import { periodBindingWarning } from './periodStat.mjs';
+import dashboard43Template from './dashboard-43-presets.mjs';
+import { listDashboardPresets, createPresetBlock, previewTemplateImport, applyTemplateImport } from './dashboard-presets.mjs';
+import { deserializeDashboardConfig } from './dashboard-config-roundtrip.mjs';
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1091,33 +1094,21 @@ function renderStateSelectRows(container) {
 
 /** Main entry: build the settings form for a given block type */
 function buildPhase2FamilyForm(block) {
-  var c = normalizePhase2FamilyConfig(block.type, block.config || {});
-  var prefix = 'modal-p2-';
-  var field = function(name, value, type) { return '<label>' + escHtml(name) + '<input id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" type="' + (type || 'text') + '" value="' + escHtml(value ?? '') + '"></label>'; };
-  var select = function(name, value, options) { return '<label>' + escHtml(name) + '<select id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '">' + options.map(function(option){ return '<option value="' + option + '"' + (value === option ? ' selected' : '') + '>' + option + '</option>'; }).join('') + '</select></label>'; };
-  if (block.type === 'string-state') return field('binding.metric',c.binding.metric) + field('label',c.label) + select('colorMode',c.colorMode,['value','background']) + '<label>Mappings (JSON)<textarea id="modal-p2-mappings">' + escHtml(JSON.stringify(c.mappings || [])) + '</textarea></label>';
-  if (block.type === 'static-text') return '<label>Content<textarea id="modal-p2-content">' + escHtml(c.content) + '</textarea></label>';
-  var reducerOptions = block.type === 'stat-metric' ? ['lastNotNull','period-sum'] : ['lastNotNull'];
-  var html = field('binding.metric', c.binding.metric) + field('label',c.label) + select('reducer',c.reducer,reducerOptions) + field('unit',c.unit);
-  var fields = block.type === 'stat-metric' ? ['precision','min','max','colorMode','fixedColor','sparkline'] : ['min','max','segments','spacing','endpoint','sparkline'];
-  fields.forEach(function(k){
-    if (k === 'colorMode') html += select(k,c[k],['value','background','fixed']);
-    else if (k === 'sparkline') html += select(k,c[k],['area','none']);
-    else if (k === 'endpoint') html += select(k,c[k],['point','none']);
-    else html += field(k,c[k] ?? '', k==='precision'||k==='min'||k==='max'||k==='segments'||k==='spacing'?'number':'text');
-  });
+  var c = normalizePhase2FamilyConfig(block.type, block.config || {}), prefix = 'modal-p2-';
+  var field = function(name, value, type) { return '<label style="display:block;font-size:.85rem;margin:.35rem 0">' + escHtml(name) + '<input id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" type="' + (type || 'text') + '" value="' + escHtml(value ?? '') + '" style="display:block;width:100%;min-height:44px;padding:.4rem;border:1px solid var(--border);border-radius:.3rem;background:var(--bg);color:var(--text)"></label>'; };
+  var select = function(name, value, options) { return '<label style="display:block;font-size:.85rem;margin:.35rem 0">' + escHtml(name) + '<select id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" style="display:block;width:100%;min-height:44px">' + options.map(function(option){ return '<option value="' + escHtml(option) + '"' + (value === option ? ' selected' : '') + '>' + escHtml(option || 'None') + '</option>'; }).join('') + '</select></label>'; };
+  if (block.type === 'static-text') return field('Content',c.content);
+  if (block.type === 'string-state') return field('Metric',c.binding.metric) + field('Label',c.label) + select('colorMode',c.colorMode,['value','background']) + '<div id="modal-p2-mapping-rows"></div><button type="button" id="modal-p2-mapping-add" aria-label="Add mapping" style="min-height:44px">Add mapping</button>';
+  var html = field('Metric',c.binding.metric) + field('Label',c.label) + select('reducer',c.reducer,block.type === 'stat-metric' ? ['lastNotNull','period-sum'] : ['lastNotNull']) + field('Unit',c.unit) + field('precision',c.precision,'number');
+  if (block.type === 'stat-metric') html += select('colorMode',c.colorMode,['value','background','fixed']) + field('fixedColor',c.fixedColor) + select('sparkline',c.sparkline,['area','none']);
+  else html += field('min',c.min,'number') + field('max',c.max,'number') + field('segments',c.segments,'number') + field('spacing',c.spacing,'number') + select('endpoint',c.endpoint,['point','none']) + select('sparkline',c.sparkline,['area','none']) + '<label><input id="modal-p2-markers" type="checkbox" ' + (c.markers?'checked':'') + '> Markers</label><label><input id="modal-p2-labels" type="checkbox" ' + (c.labels?'checked':'') + '> Labels</label>';
+  html += '<details><summary>Thresholds</summary><div id="modal-p2-threshold-rows"></div><button type="button" id="modal-p2-threshold-add" aria-label="Add threshold" style="min-height:44px">Add threshold</button></details>';
+  if (block.type === 'stat-metric' && c.reducer === 'period-sum') html += select('period',c.period,['today','month','year','since-install']) + select('historyMetric',c.historyMetric,['','daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export']) + select('formula',c.formula,['','monthly-grid-savings','yearly-grid-savings','generator-savings','generator-roi']) + field('currency',c.currency) + field('installDate',c.installDate) + field('formulaParams.monthlyRate',c.formulaParams?.monthlyRate,'number') + field('formulaParams.generatorCost',c.formulaParams?.generatorCost,'number') + field('formulaParams.generatorCapacity',c.formulaParams?.generatorCapacity,'number');
+  html += '<label><input id="modal-p2-fallback-enabled" type="checkbox" ' + (c.fallback.enabled?'checked':'') + '> Fallback enabled</label>' + field('fallback.value',c.fallback.value ?? '', 'number') + field('fallback.label',c.fallback.label);
   if (block.type === 'stat-metric' && c.reducer === 'period-sum') {
-    html += select('period', c.period, ['today','month','year','since-install']);
-    html += select('historyMetric', c.historyMetric, ['daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export']);
-    html += select('formula', c.formula, ['','monthly-grid-savings','yearly-grid-savings','generator-savings','generator-roi']);
-    html += field('currency', c.currency);
-    html += '<label>Formula params (JSON)<textarea id="modal-p2-formulaParams">' + escHtml(JSON.stringify(c.formulaParams || {})) + '</textarea></label>';
-    var bindingWarning = periodBindingWarning(c.label, c.historyMetric);
-    if (bindingWarning) html += '<p class="p2-binding-warning" style="color:var(--color-warning,#d97706)">⚠ ' + escHtml(bindingWarning) + '</p>';
+    var warning = periodBindingWarning(c.label,c.historyMetric);
+    if (warning) html += '<p id="p2-binding-warning">' + escHtml(warning) + '</p>';
   }
-  if (block.type === 'segmented-gauge') html += '<label>Markers<input id="modal-p2-markers" type="checkbox" ' + (c.markers?'checked':'') + '></label><label>Labels<input id="modal-p2-labels" type="checkbox" ' + (c.labels?'checked':'') + '></label>';
-  html += '<label>Thresholds<textarea id="modal-p2-thresholds">' + escHtml(JSON.stringify(c.thresholds)) + '</textarea></label>';
-  html += '<label>Fallback enabled<input id="modal-p2-fallback-enabled" type="checkbox" ' + (c.fallback.enabled?'checked':'') + '></label>' + field('fallback.value',c.fallback.value ?? '', 'number') + field('fallback.label',c.fallback.label);
   return html;
 }
 
@@ -1196,11 +1187,10 @@ function buildSettingsForm(block) {
       html += buildChartForm(block, true);
       break;
     case 'multi-series-bar-gauge':
-      html += '<label>Title<input id="modal-msbg-title" value="' + escHtml(block.config?.title ?? '') + '"></label><label>Series JSON (label, binding.metric, min, max, unit, decimals)<textarea id="modal-msbg-series" rows="10">' + escHtml(JSON.stringify(block.config?.series || [], null, 2)) + '</textarea></label><label>Unit<input id="modal-msbg-unit" value="' + escHtml(block.config?.unit ?? '') + '"></label><label>Decimals<input id="modal-msbg-decimals" type="number" min="0" value="' + escHtml(block.config?.decimals ?? 0) + '"></label><label>Palette<select id="modal-msbg-palette"><option value="power">Power</option><option value="energy">Energy</option></select></label>';
+      html += '<div id="modal-msbg-structured"></div>';
       break;
     case 'multi-series-timeseries':
-      html += '<label>Title<input id="modal-mst-title" value="' + escHtml(block.config?.title ?? '') + '"></label><label>Series JSON<textarea id="modal-mst-series" rows="10">' + escHtml(JSON.stringify(block.config?.series || [], null, 2)) + '</textarea></label>';
-      html += '<label>Line width<input id="modal-mst-lineWidth" type="number" min="1" value="' + escHtml(block.config?.lineWidth ?? 2) + '"></label><label>Fill opacity<input id="modal-mst-fillOpacity" type="number" min="0" max="1" step="0.01" value="' + escHtml(block.config?.fillOpacity ?? 0.2) + '"></label><label>Fixed window (ms)<input id="modal-mst-windowMs" type="number" min="1" value="' + escHtml(block.config?.windowMs ?? 60000) + '"></label><label>Range hours<input id="modal-mst-hours" type="number" min="1" value="' + escHtml(block.config?.hours ?? 24) + '"></label><label>Stack<input id="modal-mst-stack" value="' + escHtml(block.config?.stack ?? '') + '"></label><label>Axis JSON<textarea id="modal-mst-axis">' + escHtml(JSON.stringify(block.config?.axis || {})) + '</textarea></label><label>Legend JSON<textarea id="modal-mst-legend">' + escHtml(JSON.stringify(block.config?.legend || {position:'bottom',calculations:['mean','max','min','lastNotNull']})) + '</textarea></label><label>Thresholds JSON<textarea id="modal-mst-thresholds">' + escHtml(JSON.stringify(block.config?.thresholds || [])) + '</textarea></label><label>Smooth<input id="modal-mst-smooth" type="checkbox" ' + (block.config?.smooth !== false ? 'checked' : '') + '></label>';
+      html += '<div id="modal-mst-structured"></div>';
       break;
     case 'chart-energy':
       html += buildChartForm(block, false);
@@ -1222,6 +1212,14 @@ function buildSettingsForm(block) {
 
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
+  var multiSettings;
+  try {
+    if (block.type === 'multi-series-timeseries' || block.type === 'multi-series-bar-gauge') {
+      var gauge = block.type === 'multi-series-bar-gauge';
+      var values = document.getElementById(gauge ? 'modal-msbg-structured' : 'modal-mst-structured').readSettings();
+      multiSettings = gauge ? readBarGaugeForm(key => values[key], block.config || {}) : readMultiSeriesForm(key => values[key], block.config || {});
+    }
+  } catch (e) { return e.message || 'Invalid multi-series settings'; }
   var config = block.config || {};
   // Common appearance
   config.enabled = document.getElementById('modal-enabled')?.checked !== false;
@@ -1247,12 +1245,27 @@ function readSettingsForm(block) {
     case 'string-state':
     case 'static-text': {
       var p2 = {};
-      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content','period','historyMetric','formula','currency','formulaParams','mappings'].forEach(function(k){
-        var id = 'modal-p2-' + k.replace(/[^a-z0-9]/gi,'-'); var el = document.getElementById(id);
+      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content','period','historyMetric','formula','currency','installDate'].forEach(function(k){
+        var id = 'modal-p2-' + k.replace(/[^a-z0-9]/gi,'-');
+        if (k === 'binding.metric') id = 'modal-p2-Metric';
+        if (k === 'label' || k === 'unit' || k === 'content') id = 'modal-p2-' + k[0].toUpperCase() + k.slice(1);
+        var el = document.getElementById(id);
         if (el) p2[k] = el.type === 'checkbox' ? el.checked : el.value;
       });
       ['markers','labels'].forEach(function(k){ var el=document.getElementById('modal-p2-'+k); if(el) p2[k]=el.checked; });
-      var thresholdsEl = document.getElementById('modal-p2-thresholds'); if (thresholdsEl) p2.thresholds = thresholdsEl.value;
+      ['threshold','mapping'].forEach(function(kind) {
+        var container = document.getElementById('modal-p2-' + kind + '-rows');
+        if (!container) return;
+        p2[kind === 'threshold' ? 'thresholds' : 'mappings'] = Array.from(container.querySelectorAll('.p2-' + kind + '-row')).map(function(row) {
+          var value = { ...row.p2Original };
+          row.querySelectorAll('[data-p2-field]').forEach(function(input) { value[input.dataset.p2Field] = input.value; });
+          return value;
+        }).filter(function(row) { return ['value','label','color'].some(function(k) { return String(row[k] ?? '').trim() !== ''; }); });
+      });
+      ['monthlyRate','generatorCost','generatorCapacity'].forEach(function(k) {
+        var el = document.getElementById('modal-p2-formulaParams-' + k);
+        if (el) { if (!p2.formulaParams) p2.formulaParams = { ...(config.formulaParams || {}) }; p2.formulaParams[k] = el.value; }
+      });
       try { block.config = applyPhase2FormValues(type, config, p2); } catch (e) { return e.message || 'Invalid Phase-2 settings'; }
       return '';
     }
@@ -1524,19 +1537,10 @@ function readSettingsForm(block) {
       config.showTimeline = document.getElementById('modal-showtimeline')?.checked !== false;
       break;
     }
-    case 'multi-series-bar-gauge': {
-      try { Object.assign(config, readBarGaugeForm(name => document.getElementById('modal-msbg-' + name)?.value ?? '')); }
-      catch (e) { return e.message || 'Invalid bar-gauge settings'; }
+    case 'multi-series-bar-gauge':
+    case 'multi-series-timeseries':
+      Object.assign(config, multiSettings);
       break;
-    }
-    case 'multi-series-timeseries': {
-      try {
-        var settings = readMultiSeriesForm(function(name) { var el=document.getElementById('modal-mst-'+name); return name === 'smooth' ? !!el?.checked : (el?.value ?? ''); });
-        config.title = settings.title;
-        Object.assign(config, settings);
-      } catch (e) { return e.message || 'Invalid time-series settings'; }
-      break;
-    }
     case 'chart-power':
     case 'chart-energy':
     case 'chart-metric': {
@@ -1773,6 +1777,46 @@ async function handleSettingsSave() {
   hideSettingsModal();
 }
 
+// Rows stay in the DOM so edits and explicit ordering survive every operation.
+function renderPhase2Rows(block) {
+  var config = normalizePhase2FamilyConfig(block.type, block.config || {});
+  ['threshold','mapping'].forEach(function(kind) {
+    var container = document.getElementById('modal-p2-' + kind + '-rows');
+    if (!container) return;
+    function addRow(value) {
+      var row = document.createElement('div');
+      row.className = 'p2-' + kind + '-row';
+      row.p2Original = { ...value };
+      ['value','label','color'].forEach(function(key) {
+        var label = document.createElement('label');
+        label.textContent = key === 'value' ? (kind === 'threshold' ? 'Threshold value' : 'Source value') : key === 'color' ? 'Semantic color' : 'Display label (optional)';
+        var input = document.createElement('input');
+        input.type = kind === 'threshold' && key === 'value' ? 'number' : 'text';
+        if (input.type === 'number') input.step = 'any';
+        input.dataset.p2Field = key;
+        input.value = value[key] ?? (key === 'value' && kind === 'threshold' ? value.to ?? value.from ?? value.min ?? '' : '');
+        input.style.minHeight = '44px';
+        label.appendChild(input); row.appendChild(label);
+      });
+      ['Move up','Move down','Remove'].forEach(function(action) {
+        var button = document.createElement('button');
+        button.type = 'button'; button.textContent = action;
+        button.setAttribute('aria-label', action + ' ' + kind);
+        button.style.minHeight = '44px'; button.style.minWidth = '44px';
+        button.addEventListener('click', function() {
+          if (action === 'Remove') row.remove();
+          else if (action === 'Move up' && row.previousElementSibling) container.insertBefore(row, row.previousElementSibling);
+          else if (action === 'Move down' && row.nextElementSibling) container.insertBefore(row.nextElementSibling, row);
+        });
+        row.appendChild(button);
+      });
+      container.appendChild(row);
+    }
+    (config[kind === 'threshold' ? 'thresholds' : 'mappings'] || []).forEach(addRow);
+    document.getElementById('modal-p2-' + kind + '-add').addEventListener('click', function() { addRow({}); });
+  });
+}
+
 async function openSettingsModal(block) {
   // Re-resolve from the current layout — the closure may hold a stale
   // reference if persistLayout() replaced tab.layout after addBlockToGrid.
@@ -1817,6 +1861,17 @@ async function openSettingsModal(block) {
 
   // Initialize dynamic row renderers after DOM is populated
   switch (block.type) {
+    case 'multi-series-timeseries':
+    case 'multi-series-bar-gauge': {
+      var gauge = block.type === 'multi-series-bar-gauge';
+      mountMultiSeriesForm(document, document.getElementById(gauge ? 'modal-msbg-structured' : 'modal-mst-structured'), block.config || {}, gauge);
+      break;
+    }
+    case 'stat-metric':
+    case 'segmented-gauge':
+    case 'string-state':
+      renderPhase2Rows(block);
+      break;
     case 'multi-value':
       renderMultiValueRows(body);
       break;
@@ -1924,10 +1979,12 @@ function buildGridItem(block) {
  * Add a single block to the active dashboard without rebuilding the entire grid.
  * @param {string} type - block type identifier
  */
-function addBlockToGrid(type) {
+function addBlockToGrid(type, preset) {
   var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
   if (!tab) return;
-  var newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
+  var newBlock = preset
+    ? createPresetBlock(preset, function() { return 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9); })
+    : { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
   tab.layout.push(newBlock);
   var item = buildGridItem(newBlock);
   if (!item) return;
@@ -1967,8 +2024,11 @@ async function loadTab(tabId) {
   dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
   dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
+    var sourcePanelId = e.dataTransfer.getData('sourcePanelId');
+    var preset = sourcePanelId && listDashboardPresets(dashboard43Template).find(function(panel) { return panel.panelId === sourcePanelId; });
     var type = e.dataTransfer.getData('blockType');
-    if (type) addBlockToGrid(type);
+    if (preset) addBlockToGrid(preset.type, preset);
+    else if (type) addBlockToGrid(type);
   });
 
   // Auth check for header buttons
@@ -2037,6 +2097,23 @@ async function initEditor() {
       item.addEventListener('click', function() { addBlockToGrid(type); });
       palette.appendChild(item);
     });
+    var presetsHeading = document.createElement('h4');
+    presetsHeading.className = 'preset-section-heading';
+    presetsHeading.textContent = '43 dashboard presets';
+    palette.appendChild(presetsHeading);
+    listDashboardPresets(dashboard43Template).forEach(function(preset) {
+      if (!componentBuilders[resolveFamilyComponentType(preset.type)]) return;
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'block-item dashboard-preset-item';
+      item.textContent = preset.title;
+      item.title = preset.section + ' · ' + preset.type;
+      item.dataset.blockType = preset.type;
+      item.draggable = true;
+      item.addEventListener('dragstart', function(e) { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('blockType', preset.type); e.dataTransfer.setData('sourcePanelId', preset.panelId); });
+      item.addEventListener('click', function() { addBlockToGrid(preset.type, preset); });
+      palette.appendChild(item);
+    });
 
     // Export/Import
     document.getElementById('export-btn').addEventListener('click', function() {
@@ -2048,10 +2125,16 @@ async function initEditor() {
       input.addEventListener('change', async function(e) {
         var file = e.target.files[0]; if (!file) return;
         try {
-          var text = await file.text(); var imported = JSON.parse(text);
-          if (!imported.dashboards) throw new Error('Invalid format');
-          dashboardConfig = imported;
-          currentTabId = dashboardConfig.dashboards[0]?.id;
+          var text = await file.text();
+          var imported = deserializeDashboardConfig(text);
+          if (!Array.isArray(imported?.dashboards)) throw new Error('Invalid format');
+          var summary = previewTemplateImport(imported);
+          var breakdown = summary.cardCount === 43 ? '\nPreset family breakdown: ' + Object.entries(summary.familyBreakdown).map(function(entry) { return entry[0] + ': ' + entry[1]; }).join(', ') : '';
+          var action = window.prompt('Import preview: ' + summary.dashboardCount + ' dashboard(s), ' + summary.cardCount + ' card(s).' + breakdown + '\nType Append or Replace. Cancel or leave blank to make no changes.', '');
+          if (action !== 'Append' && action !== 'Replace') return;
+          dashboardConfig = applyTemplateImport(dashboardConfig, imported, action.toLowerCase());
+          currentTabId = dashboardConfig.activeDashboard && dashboardConfig.dashboards.some(function(db) { return db.id === dashboardConfig.activeDashboard; })
+            ? dashboardConfig.activeDashboard : (dashboardConfig.dashboards[0]?.id || null);
           if (currentTabId) loadTab(currentTabId);
           refreshTabSelect();
           markUnsaved();

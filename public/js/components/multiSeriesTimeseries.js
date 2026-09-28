@@ -23,7 +23,7 @@ export function buildMultiSeriesTimeseries(block = {}) {
   container.dataset.blockId = block.id || '';
   container.dataset.chartConfig = JSON.stringify(cfg);
   container.dataset.qaFamily = 'multi-series-timeseries';
-  normalizeSeries(cfg.series || []);
+  normalizeSeries(cfg.series || [], {reducer:cfg.reducer});
   const header = element('div', 'chart-header');
   header.append(element('h3', '', cfg.title || 'Multi-series time series'));
   const controls = element('div', 'chart-controls');
@@ -82,7 +82,7 @@ export async function updateMultiSeriesTimeseries() {
   }
   for (const container of document.querySelectorAll('.multi-series-timeseries')) {
     const config = JSON.parse(container.dataset.chartConfig || '{}');
-    const series = normalizeSeries(config.series || []);
+    const series = normalizeSeries(config.series || [], {reducer:config.reducer});
     const hours = Number(config.hours || 24);
     const windowMs = Number(config.windowMs || 60000);
     const end = Date.now();
@@ -126,7 +126,7 @@ export async function updateMultiSeriesTimeseries() {
       const thresholds = Array.isArray(config.thresholds) ? config.thresholds : [];
       thresholdTarget.hidden = thresholds.length === 0;
       for (const threshold of thresholds) {
-        const descriptor = element('div', 'mst-threshold-descriptor', `${Number(threshold.value)} · ${Array.isArray(threshold.dash) ? threshold.dash.join(', ') : '6, 4'}`);
+        const descriptor = element('div', 'mst-threshold-descriptor', `${threshold.label ? threshold.label + ': ' : ''}${Number(threshold.value)} · ${Array.isArray(threshold.dash) ? threshold.dash.join(', ') : '6, 4'}`);
         descriptor.style.borderLeft = `3px dashed ${threshold.color || '#ef4444'}`;
         thresholdTarget.append(descriptor);
       }
@@ -135,7 +135,7 @@ export async function updateMultiSeriesTimeseries() {
     const yScale = { ...model.scales.y, ...calculateAxisBounds(axis, model.datasets) };
     const canvas = container.querySelector('[data-multi-series-chart]');
     if (!canvas || chartLoadError || typeof Chart === 'undefined') continue;
-    const options = { responsive: true, maintainAspectRatio: false, parsing: false, interaction: { mode: 'index', intersect: false }, scales: { x: { type: 'time' }, y: yScale }, plugins: { ...model.plugins, legend: { ...model.plugins.legend, display: false } } };
+    const options = { responsive: true, maintainAspectRatio: false, parsing: false, interaction: { mode: 'index', intersect: false }, scales: { ...model.scales, x: { type: 'time' }, y: yScale }, plugins: { ...model.plugins, legend: { ...model.plugins.legend, display: false } } };
     const plugin = thresholdPlugin(model.thresholds);
     let chart = charts.get(canvas);
     if (!chart) {
@@ -143,8 +143,7 @@ export async function updateMultiSeriesTimeseries() {
       charts.set(canvas, chart);
     } else {
       chart.data.datasets = model.datasets;
-      chart.options.scales.x = options.scales.x;
-      chart.options.scales.y = yScale;
+      chart.options.scales = options.scales;
       chart.options.plugins = options.plugins;
       chart.$multiSeriesThresholds = model.thresholds;
       chart.$multiSeriesCoverage = coverage;
