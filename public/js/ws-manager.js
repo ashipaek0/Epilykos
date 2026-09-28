@@ -18,6 +18,7 @@ const MAX_RECONNECT_ATTEMPTS = 30; // stop retrying after 30 attempts (~15 min)
 let ws = null;
 let reconnectAttempt = 0;
 let reconnectTimer = null;
+let connectionFailureLogged = false;
 let onStateUpdate = null; // callback: (state) => void
 let onConnect = null;     // callback: () => void
 let db = null;
@@ -88,6 +89,7 @@ function doConnect() {
   ws.onopen = () => {
     console.debug('[WSManager] Connected');
     reconnectAttempt = 0;
+    connectionFailureLogged = false;
     if (reconnectTimer) clearTimeout(reconnectTimer);
     if (onConnect) onConnect();
   };
@@ -116,8 +118,10 @@ function doConnect() {
     }
   };
 
-  ws.onerror = (err) => {
-    console.error('[WSManager] Error:', err);
+  ws.onerror = () => {
+    if (connectionFailureLogged) return;
+    connectionFailureLogged = true;
+    console.error('[WSManager] Connection failed; retrying');
   };
 
   ws.onclose = () => {
