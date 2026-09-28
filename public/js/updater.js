@@ -31,8 +31,20 @@ import { updateMultiSeriesBarGauge } from './components/multiSeriesBarGauge.js';
 import { updateMultiSeriesTimeseries } from './components/multiSeriesTimeseries.js';
 import { updateSegmentedGauges } from './components/segmentedGauge.js';
 
+let fetchFailureLogged = false;
+
 export async function updateAllComponents() {
-  try { const state = await fetchDashboardState(); updateWithState(state); } catch (e) { console.error(e); }
+  try {
+    const state = await fetchDashboardState();
+    updateWithState(state);
+    fetchFailureLogged = false;
+  } catch (e) {
+    if (!fetchFailureLogged) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`[Dashboard] State update failed: ${message}`);
+      fetchFailureLogged = true;
+    }
+  }
 }
 
 export function updateWithState(state) {

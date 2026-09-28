@@ -1,13 +1,25 @@
 import { serializeDashboardConfig, deserializeDashboardConfig } from './dashboard-config-roundtrip.mjs';
 
+async function fetchJson(endpoint) {
+  const res = await fetch(endpoint);
+  if (!res.ok) throw new Error(`API request failed: ${endpoint} (${res.status})`);
+  const contentType = res.headers?.get('content-type') || '';
+  if (!/^application\/json\b/i.test(contentType)) {
+    throw new Error(`Invalid API response: ${endpoint} (${res.status})`);
+  }
+  try {
+    return await res.json();
+  } catch {
+    throw new Error(`Invalid API response: ${endpoint} (${res.status})`);
+  }
+}
+
 export async function fetchDashboardState() {
-  const res = await fetch('/api/dashboard-state');
-  return res.json();
+  return fetchJson('/api/dashboard-state');
 }
 
 export async function fetchPublicConfig() {
-  const res = await fetch('/api/public-config');
-  return res.json();
+  return fetchJson('/api/public-config');
 }
 
 export async function fetchDashboardConfig() {
