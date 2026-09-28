@@ -1,34 +1,30 @@
 import { normalizeSeries } from './multiSeriesTimeseries.mjs';
-
-function object(value, name) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${name} must be a JSON object`);
-  return value;
-}
-function parse(value, name, kind) {
-  let parsed;
-  try { parsed = JSON.parse(value); } catch { throw new Error(`${name} must be valid JSON`); }
-  if (kind === 'array' && !Array.isArray(parsed)) throw new Error(`${name} must be a JSON array`);
-  if (kind === 'object') object(parsed, name);
-  return parsed;
-}
-export function normalizeMultiSeriesSettings(config) {
-  const c = config || {};
-  const axis = object(c.axis ?? {}, 'Axis');
-  const legend = object(c.legend ?? {}, 'Legend');
-  const thresholds = c.thresholds ?? [];
-  if (!Array.isArray(thresholds) || thresholds.some(t => !t || typeof t !== 'object' || Array.isArray(t))) throw new Error('Thresholds must be an array of objects');
-  if (legend.calculations != null && (!Array.isArray(legend.calculations) || legend.calculations.some(x => !['mean','max','min','lastNotNull'].includes(x)))) throw new Error('Legend calculations must be supported calculations');
-  if (axis.position != null && !['left','right'].includes(axis.position)) throw new Error('Axis position must be left or right');
-  for (const t of thresholds) if (typeof t.value !== 'number' || typeof t.color !== 'string' || (t.dash != null && !Array.isArray(t.dash))) throw new Error('Each threshold needs numeric value, color and optional dash array');
-  const rawStack = c.stack ?? 'none';
-  const stack = rawStack === false || rawStack === 'false' || rawStack === '' || rawStack === 'none' ? 'none' : rawStack;
-  if (stack !== 'normal' && typeof stack !== 'string') throw new Error('Stack must be none, normal or a group name');
-  const numbers = ['lineWidth','fillOpacity','windowMs','hours'];
-  const out = {...c, series: normalizeSeries(c.series ?? []), axis, legend, thresholds, stack, smooth: c.smooth !== false};
-  for (const key of numbers) out[key] = Number(c[key] ?? ({lineWidth:2,fillOpacity:.2,windowMs:60000,hours:24}[key]));
-  if (!(out.lineWidth > 0) || !(out.windowMs > 0) || !(out.hours > 0) || out.fillOpacity < 0 || out.fillOpacity > 1) throw new Error('Line width, window, range and opacity are out of range');
+import { clone, normalizeFields, timeseriesGlobals, axisFields, thresholdFields, calculations, validateBounds, validateFormSeries, formSection } from './multiSeriesSchema.mjs';
+export function normalizeMultiSeriesSettings(config={}) {
+  const c=clone(config);
+  const raw=c.stack;
+  c.stack=raw === false || raw === 'false' || raw === '' || raw == null ? 'none' : raw;
+  const out=normalizeFields(c,timeseriesGlobals);
+  if (c.axis?.position != null && !axisFields.position.options.includes(c.axis.position)) throw new Error('Axis position must be auto, left or right');
+  out.axis=normalizeFields(formSection(c.axis ?? {},'Axis'),axisFields);
+  validateBounds(out.axis);
+  out.legend=clone(formSection(c.legend ?? {},'Legend'));
+  if (out.legend.position != null && !['bottom','right'].includes(out.legend.position)) throw new Error('Legend position must be bottom or right');
+  if (out.legend.calculations != null && (!Array.isArray(out.legend.calculations) || out.legend.calculations.some(x=>!calculations.includes(x)))) throw new Error('Legend calculations must be supported calculations');
+  out.thresholds=formSection(c.thresholds ?? [],'Thresholds',true).map(t=>{
+    if (typeof t?.value !== 'number' || !Number.isFinite(t.value) || typeof t?.color !== 'string') throw new Error('Each threshold needs numeric value and color');
+    return normalizeFields(t,thresholdFields);
+  });
+  out.series=normalizeSeries(c.series ?? [],{reducer:out.reducer});
   return out;
 }
-export function readMultiSeriesForm(get) {
-  return normalizeMultiSeriesSettings({title:get('title'),series:parse(get('series'),'Series','array'),lineWidth:get('lineWidth'),fillOpacity:get('fillOpacity'),windowMs:get('windowMs'),hours:get('hours'),smooth:get('smooth'),stack:get('stack') || 'none',axis:parse(get('axis'),'Axis','object'),legend:parse(get('legend'),'Legend','object'),thresholds:parse(get('thresholds'),'Thresholds','array')});
+export function readMultiSeriesForm(get, original={}) {
+  const value=clone(original);
+  for (const key of Object.keys(timeseriesGlobals)) { const v=get(key); if (v !== undefined && !(v === '' && timeseriesGlobals[key].default === undefined && key !== 'stack')) value[key]=v; }
+  for (const key of ['series','axis','legend','thresholds']) {
+    const v=get(key); if (v !== undefined) value[key]=formSection(v,key[0].toUpperCase()+key.slice(1),key==='series'||key==='thresholds');
+  }
+  const result=normalizeMultiSeriesSettings(value);
+  validateFormSeries(result.series);
+  return result;
 }

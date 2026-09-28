@@ -1,11 +1,5 @@
-export function normalizeGaugeSeries(series=[]) {
-  if (!Array.isArray(series)) throw new TypeError('series must be an array');
-  return series.map((item,i)=>{const s=item||{}, min=Number(s.min??0), max=Number(s.max); const decimals=Number(s.decimals??0);
-    if (!Number.isFinite(min)) throw new TypeError(`series[${i}].min must be numeric`);
-    if (!Number.isFinite(max)||max<=min) throw new TypeError(`series[${i}].max must exceed min`);
-    if (!Number.isInteger(decimals)||decimals<0) throw new TypeError(`series[${i}].decimals must be a non-negative integer`);
-    return {binding:{metric:String(s.binding?.metric??'')},label:String(s.label??''),unit:String(s.unit??''),decimals,min,max};});
-}
+import { normalizeSeriesFields, gaugeFields } from './multiSeriesSchema.mjs';
+export function normalizeGaugeSeries(series=[], defaults={}) { return normalizeSeriesFields(series, gaugeFields, defaults); }
 export function gaugeValue(series, values={}) { const metric=series?.binding?.metric; if(!metric||!values||!Object.prototype.hasOwnProperty.call(values,metric)||values[metric]===null||values[metric]===undefined||!Number.isFinite(Number(values[metric]))) return {status:'no-data',value:null}; return {status:'data',value:Number(values[metric])}; }
 export function gaugeFillPercent(value,min,max) { if(!Number.isFinite(Number(value))||!Number.isFinite(Number(min))||!Number.isFinite(Number(max))||Number(max)<=Number(min)) return 0; return Math.max(0,Math.min(100,(Number(value)-Number(min))/(Number(max)-Number(min))*100)); }
 /**

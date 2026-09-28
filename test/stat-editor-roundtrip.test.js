@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { applyPhase2FormValues, normalizePhase2FamilyConfig } from '../public/js/phase2-family-settings.mjs';
 import { normalizeStatConfig } from '../public/js/stat-parity.mjs';
 import { saveDashboardConfig, fetchDashboardConfig } from '../public/js/api.js';
@@ -8,16 +7,12 @@ const gauge = applyPhase2FormValues('segmented-gauge', {}, {metric:'soc',label:'
 assert.equal(stat.thresholds.length, 2); assert.equal(stat.thresholds[0].value, stat.thresholds[1].value); assert.equal(gauge.thresholds.length, 2);
 assert.equal(normalizeStatConfig({...stat,fallback:{...stat.fallback,enabled:true,label:'n/a'}}).fallback.enabled,true);
 for (const cfg of [stat, normalizePhase2FamilyConfig('stat-metric',stat), normalizeStatConfig(stat)]) { assert.equal(cfg.min,0); assert.equal(cfg.max,100); }
-const src=fs.readFileSync(new URL('../public/js/editor.js',import.meta.url),'utf8');
-assert.match(src,/case 'stat-metric':[\s\S]*?buildPhase2FamilyForm/); assert.match(src,/applyPhase2FormValues/);
-assert.match(src,/select\('reducer',c\.reducer,reducerOptions\)/);
-assert.match(src,/\['binding\.metric','label','reducer'/);
-assert.match(src,/value === option \? ' selected' : ''/);
-assert.match(src,/select\(k,c\[k\],\['value','background','fixed'\]\)/);
-assert.match(src,/select\(k,c\[k\],\['area','none'\]\)/);
-assert.match(src,/select\(k,c\[k\],\['point','none'\]\)/);
-assert.match(src,/name\.replace\(\/\[\^a-z0-9\]\/gi,'-'\)/);
-for (const value of ['value','background','fixed','area','none','point']) assert.match(src,new RegExp("'" + value + "'"));
+for (const reducer of ['lastNotNull','period-sum']) {
+  const config = applyPhase2FormValues('stat-metric', {}, {reducer, colorMode:'fixed', sparkline:'none'});
+  assert.equal(normalizePhase2FamilyConfig('stat-metric', config).reducer, reducer);
+  assert.equal(config.colorMode, 'fixed'); assert.equal(config.sparkline, 'none');
+}
+for (const endpoint of ['point','none']) assert.equal(applyPhase2FormValues('segmented-gauge', {}, {endpoint}).endpoint, endpoint);
 for (const [type, values, key, fallback] of [
   ['stat-metric',{colorMode:'invalid',sparkline:'invalid'},'colorMode','value'],
   ['stat-metric',{colorMode:'fixed',sparkline:'invalid'},'sparkline','area'],
