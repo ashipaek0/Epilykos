@@ -2496,6 +2496,7 @@ function renderBmsWiredDevice(device, idx) {
       const idStr = String(p.id);
       const nameStr = String(p.name || '');
       if (!/bms/i.test(`${idStr} ${nameStr}`)) return;
+      if (p.placeholder && String(device.profile) !== idStr) return; // unverified skeleton map
       bmsProfileDescriptions[idStr] = p.description || '';
       const opt = document.createElement('option');
       opt.value = idStr;
