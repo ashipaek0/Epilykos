@@ -1841,7 +1841,14 @@
     var s = find(['solar_power', 'pv_power', 'pv_total_power', 'pv1_power', 'avatar_power', 'pv', 'solar'], NOT_POWER); if (s) hint.solar = s;
     var g = find(['grid_power', 'grid_import', 'buy', 'grid'], NOT_POWER); if (g) hint.grid_import = g;
     var l = find(['load_power', 'consumption', 'home_power', 'output_power', 'ac_output_power', 'load'], NOT_POWER); if (l) hint.consumption = l;
-    var b = find(['battery_power', 'battery'], NOT_POWER); if (b) { hint.battery_charge = b; hint.battery_discharge = b; }
+    // A signed battery power fills both roles; separate charge/discharge
+    // metrics (e.g. Phocos battery_discharge_power) only fill their own.
+    var b = find(['battery_power'], NOT_POWER);
+    var ch = find(['battery_charge_power', 'charge_power', 'battery_charging_power'], /discharg/) || b;
+    var dch = find(['battery_discharge_power', 'discharge_power'], NOT_POWER) || b;
+    if (!b && !ch && !dch) { b = find(['battery'], /(discharg|voltage|volt\b|current|frequency|freq|temp|percent|_pct|soc|level|energy|kwh)/); ch = ch || b; dch = dch || b; }
+    if (ch) hint.battery_charge = ch;
+    if (dch) hint.battery_discharge = dch;
     var soc = find(['battery_soc', 'soc', 'battery_level']); if (soc) hint.battery_soc = soc;
     var v = find(['solar_voltage', 'panel_voltage', 'pv_voltage', 'pv1_voltage', 'pv_input_voltage']); if (v) hint.solar_voltage = v;
     // daily-ish role hints
