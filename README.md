@@ -102,6 +102,12 @@ use 🔍 Scan to pick the module's MAC, and test. The default characteristics ar
 your module uses different ones, you can read them with a BLE explorer app such as nRF Connect. Note that many Wi-Fi +
 Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data over it.
 
+**Phocos Any-Grid PSW-H (Bluetooth):** the inverter's display has built-in Bluetooth (the link the PhocosLink app uses).
+Choose Connection **Bluetooth**, profile **Phocos Any-Grid PSW-H (Bluetooth)**, Scan and pick the device (it advertises
+its serial number, e.g. `ID9634…`). It is read-only and needs no pairing: Epilykos reads output, battery voltage/SOC/
+discharge current and power (voltage × current), heatsink temperature and both PV strings, and never writes to the inverter. Close the PhocosLink
+app first. Decoded on display firmware 00041.00; SOC, temperature and discharge current are inferred from live data.
+
 ### Home Assistant
 Enter your Home Assistant URL and a **Long-Lived Access Token**. Fetch available entities and map them to dashboard metrics.
 
@@ -128,6 +134,22 @@ Built in (needs the `/run/dbus` mount, see [Docker Compose](#docker-compose)). S
 are labelled with their type. Decoding uses [aiobmsble](https://pypi.org/project/aiobmsble/), which covers JK, JBD,
 Daly, Seplos, ANT, Renogy, EG4, Pace and many more. Values are stored as `bms_<name>_<key>`, e.g. `voltage`,
 `current`, `battery_level`, `cell_voltage_1`, `temp_1`.
+
+If a rebranded pack is found by Scan but not recognised, set its **type** (JBD, JK, Daly, Seplos, ANT, PACE / PACEEX) next to the
+MAC address.
+
+### BMS — Wired (RS485 / UART)
+Pick the serial port and a profile; the serial settings follow the profile.
+- **JBD / Jiabaida / Xiaoxiang / Overkill Solar** — UART (USB-TTL) or RS485, 9600 8N1.
+- **JK-BMS (JK-B / JK-BD)** — JK RS485 adapter or GPS/UART port, 115200 8N1. (The newer JK-PB inverter BMS speaks a
+  different Modbus protocol and is not covered yet.)
+- **PACE (protocol 25)** — PACE's published RS232/RS485 protocol used by many packs (Jakiper, Easun, Tewaycell,
+  Greenrich, FSP, Eenovance…), 9600 8N1; set the pack's DIP-switch address. Older protocol-20 packs (e.g. EG4
+  LifePower4) are not covered yet.
+- **Cworth CE-H6K / CE-LBW-48100C (PACE)** — Modbus-RTU over RS485.
+
+Wired JBD and JK packs report the same metric names as over Bluetooth (`voltage`, `current`, `battery_level`,
+`cell_voltage_N`, `temp_N`…), so dashboards and banks work with either connection.
 
 Most BMS and inverter modules accept **one Bluetooth connection at a time**, so close the vendor phone app while
 Epilykos is connected. All Bluetooth devices share one adapter and are polled one after another.
