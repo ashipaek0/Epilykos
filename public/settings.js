@@ -2507,7 +2507,7 @@ function renderBmsWiredDevice(device, idx) {
       <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
       <span class="test-status"></span>
     </div>
-    <div class="bms-wired-profile-notes" style="display:none; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>
+    <div class="bms-wired-profile-notes" style="display:none; white-space:pre-line; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list"></div>
