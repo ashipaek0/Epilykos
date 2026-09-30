@@ -110,7 +110,7 @@
       dongle:  { selected: false, name: 'Inverter (dongle)', link: 'network', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', ble_address: '', ble_write_uuid: '', ble_notify_uuid: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
-      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', tcp_framing: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       bms:     { selected: false, name: 'BMS (Bluetooth)', address: '', poll_interval: '30', enabled: true, mappings: {}, sampleKeys: [] },
       bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {}, fieldKeys: [], sampleKeys: [] },
       rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
@@ -222,7 +222,7 @@
       if (mb.transport === 'serial') {
         Object.assign(state.sources.modbusSerial, { selected: true, name: mb.name || 'Inverter (RS485)', profile: mb.profile || '', serial_path: mb.serial_path || '', serial_baud: mb.serial_baud || '9600', serial_data_bits: mb.serial_data_bits || '8', serial_parity: mb.serial_parity || 'none', serial_stop_bits: mb.serial_stop_bits || '1', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
       } else {
-        Object.assign(state.sources.modbusTcp, { selected: true, name: mb.name || 'Inverter (Modbus-TCP)', profile: mb.profile || '', host: mb.host || '', port: mb.port || '502', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
+        Object.assign(state.sources.modbusTcp, { selected: true, name: mb.name || 'Inverter (Modbus-TCP)', tcp_framing: mb.tcp_framing === 'rtu' ? 'rtu' : 'tcp', profile: mb.profile || '', host: mb.host || '', port: mb.port || '502', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
       }
     });
     var bm = asArray(bySrc.bms).filter(function (d) { return d && d.transport !== 'wired'; })[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (Bluetooth)', address: bm.address || '', poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
@@ -598,7 +598,7 @@
       sourceCardModbusSerial() + sourceCardRS232());
 
     // 2 · Inverter — Wireless (TCP/IP)
-    html += section(g.inverterWireless, 'Connect over your local network.',
+    html += section(g.inverterWireless, 'Connect over your local network — a Modbus-TCP inverter, or an RS-485 inverter through a network gateway.',
       grid([
         { key: 'modbusTcp', icon: '🌐', label: 'Modbus-TCP', sub: 'Modbus over TCP/IP' }
       ]),
@@ -831,6 +831,12 @@
       + '<div class="form-group"><label>Host</label><input class="input" data-field="sources.modbusTcp.host" placeholder="192.168.1.50" value="' + esc(s.host) + '"></div>'
       + '<div class="form-group"><label>Port</label><input class="input" type="number" data-field="sources.modbusTcp.port" placeholder="502" value="' + esc(s.port) + '"></div>'
       + '</div>'
+      + '<div class="form-group" id="modbus-tcp-gateway" style="display:none;"><label>Gateway type</label>'
+      + '<select class="select-input" data-field="sources.modbusTcp.tcp_framing">'
+      + '<option value="tcp"' + (s.tcp_framing === 'rtu' ? '' : ' selected') + '>Converts to Modbus-TCP (most gateways)</option>'
+      + '<option value="rtu"' + (s.tcp_framing === 'rtu' ? ' selected' : '') + '>Transparent (RTU over TCP)</option>'
+      + '</select>'
+      + '<span class="note">This inverter has an RS-485 port — reach it over the network through an RS485-to-Ethernet/Wi-Fi gateway (e.g. Elfin EW11, USR-TCP232).</span></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Unit id</label><input class="input" type="number" data-field="sources.modbusTcp.unit" value="' + esc(s.unit) + '"></div>'
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.modbusTcp.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
@@ -934,12 +940,20 @@
       }
       state.sources[kind].profiles = res.data;
       if (!sel) return;
+      var cur = state.sources[kind].profile;
+      function opt(p) { return '<option value="' + esc(p.id) + '"' + (cur === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }
+      var tcpNative = res.data.filter(function (p) { return p.connection === 'tcp'; });
+      var rtu = res.data.filter(function (p) { return p.connection !== 'tcp'; });
       var html = '<option value="">Select a profile…</option>';
-      res.data.forEach(function (p) {
-        var v = p.id;
-        html += '<option value="' + esc(v) + '"' + (state.sources[kind].profile === v ? ' selected' : '') + '>' + esc(p.name) + '</option>';
-      });
+      if (kind === 'modbusTcp') {
+        // Modbus-TCP devices first; RS-485 inverters need a gateway.
+        if (tcpNative.length) html += '<optgroup label="Modbus-TCP devices">' + tcpNative.map(opt).join('') + '</optgroup>';
+        if (rtu.length) html += '<optgroup label="RS-485 inverters (via RS485-to-Ethernet gateway)">' + rtu.map(opt).join('') + '</optgroup>';
+      } else {
+        html += rtu.map(opt).join(''); // Modbus-TCP-only devices cannot be wired over RS-485
+      }
       sel.innerHTML = html;
+      if (kind === 'modbusTcp') syncModbusGateway();
       if (state.sources[kind].profile) loadProfileEntities(kind);
     }).catch(function () {
       var sel = docById(selId);
@@ -947,6 +961,12 @@
     });
   }
   function docById(id) { return document.getElementById(id); }
+  function syncModbusGateway() {
+    var t = state.sources.modbusTcp;
+    var p = (t.profiles || []).filter(function (x) { return x.id === t.profile; })[0];
+    var g = docById('modbus-tcp-gateway');
+    if (g) g.style.display = (p && p.connection !== 'tcp') ? '' : 'none';
+  }
 
   function loadDongleProfiles() {
     state.sources.dongle.profilesLoaded = true;
@@ -1468,7 +1488,7 @@
   function modbusTestBody(kind) {
     if (kind === 'modbusTcp') {
       var t = state.sources.modbusTcp;
-      return { transport: 'tcp', profile: t.profile, host: t.host, port: t.port, unit: t.unit };
+      return { transport: 'tcp', tcp_framing: t.tcp_framing || 'tcp', profile: t.profile, host: t.host, port: t.port, unit: t.unit };
     }
     var s = state.sources.modbusSerial;
     return { transport: 'serial', profile: s.profile, serial_path: s.serial_path, serial_baud: s.serial_baud, serial_data_bits: s.serial_data_bits, serial_parity: s.serial_parity, serial_stop_bits: s.serial_stop_bits, unit: s.unit };
@@ -1601,7 +1621,7 @@
     }
     var mt = state.sources.modbusTcp;
     if (mt.selected) {
-      out.push({ name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: effectiveMappings('modbusTcp') });
+      out.push({ name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', tcp_framing: mt.tcp_framing || 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: effectiveMappings('modbusTcp') });
     }
     return out;
   }
@@ -2239,6 +2259,7 @@
       var kind = field.split('.')[1];
       state.sources[kind].mappings = {}; state.sources[kind].entities = []; state.sources[kind].entitiesFor = null;
       loadProfileEntities(kind);
+      if (kind === 'modbusTcp') syncModbusGateway();
     }
     else if (field === 'sources.bmsWired.profile') loadBmsWiredFields();
   }

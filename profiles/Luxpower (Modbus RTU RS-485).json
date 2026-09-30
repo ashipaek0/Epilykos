@@ -1,5 +1,6 @@
 {
   "name": "Luxpower (Modbus RTU RS-485)",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "pv1_voltage", "address": 1, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV1 Voltage"},
