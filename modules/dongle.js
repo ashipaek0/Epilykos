@@ -19,6 +19,7 @@ const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
 const { LuxpowerTcpTransport } = require('./dongle/luxpowerTcp');
 const { BleModbusTransport } = require('./dongle/bleModbus');
+const { BleGattTransport } = require('./dongle/bleGatt');
 
 let pollIntervals = [];
 let growattServer = null;
@@ -46,6 +47,22 @@ function startDonglePolling() {
 
     const profile = loadProfile(inst.profile);
     if (!profile) { logger.warn(`[dongle] profile ${inst.profile} not found for ${inst.name}`); continue; }
+
+    if (profile.protocol === 'ble-gatt') {
+      // Read-only Bluetooth device publishing values in GATT characteristics.
+      let transport;
+      try {
+        transport = new BleGattTransport(inst, profile);
+      } catch (err) {
+        logger.warn(`[dongle] ${inst.name}: instance skipped — ${err.message}`);
+        continue;
+      }
+      const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
+      const id = setInterval(() => pollJsonInstance(inst, transport, profile), intervalMs);
+      pollIntervals.push(id);
+      pollJsonInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+      continue;
+    }
 
     if (profile.protocol === 'felicity-tcp') {
       const transport = new FelicityTcpTransport(inst);
@@ -663,6 +680,9 @@ async function executeDongleAction(deviceName, registerAddr, value) {
 
   // Felicity inverters speak a proprietary JSON API, not Modbus registers.
   const profile = getProfileById(device.profile);
+  if (transportType === 'ble-gatt' || profile?.protocol === 'ble-gatt') {
+    return { error: 'This Bluetooth profile is read-only — settings cannot be changed from Epilykos' };
+  }
   if (transportType === 'felicity-tcp' || profile?.protocol === 'felicity-tcp') {
     return { error: 'felicity-tcp dongles use a proprietary JSON API and do not support Modbus register writes' };
   }
@@ -815,6 +835,7 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
 module.exports = {
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
+  getByPathForTest: getByPath,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
   luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame

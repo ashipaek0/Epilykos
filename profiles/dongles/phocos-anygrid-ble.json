@@ -1,0 +1,40 @@
+{
+  "name": "Phocos Any-Grid PSW-H (Bluetooth)",
+  "protocol": "ble-gatt",
+  "transport": "ble-gatt",
+  "connection": "bluetooth",
+  "read_only": true,
+  "default_poll_interval": 15,
+  "description": "Reads the Any-Grid display's built-in Bluetooth (the link the PhocosLink app uses). Read-only: nothing is written to the inverter. Close the PhocosLink app first — the inverter accepts one Bluetooth connection at a time.",
+  "notes": "Decoded from an Any-Grid PSW-H 8 kW / 48 V, display firmware 00041.00 / 00000.25. The inverter publishes its Voltronic QPIGS values as little-endian 16-bit words in reused standard characteristics. battery_soc, inverter_temp and battery_discharge_current are inferred from live readings and an energy balance, not from vendor documentation.",
+  "blocks": [
+    { "id": "live",   "service": "1810", "characteristic": "2a03", "label": "Grid / output / battery (QPIGS 0-8)" },
+    { "id": "status", "service": "1810", "characteristic": "2a04", "label": "SOC / temperature / battery current" },
+    { "id": "pv1",    "service": "1811", "characteristic": "2a11", "label": "PV string 1" },
+    { "id": "pv2",    "service": "1811", "characteristic": "2a12", "label": "PV string 2" }
+  ],
+  "derived": [
+    { "name": "pv_power", "sum": ["pv1[7]", "pv2[7]"] }
+  ],
+  "fields": [
+    { "name": "grid_voltage",              "path": "live[0]",   "scale": 0.1,  "unit": "V",  "label": "Grid Voltage" },
+    { "name": "grid_frequency",            "path": "live[1]",   "scale": 0.1,  "unit": "Hz", "label": "Grid Frequency" },
+    { "name": "output_voltage",            "path": "live[2]",   "scale": 0.1,  "unit": "V",  "label": "AC Output Voltage" },
+    { "name": "output_frequency",          "path": "live[3]",   "scale": 0.1,  "unit": "Hz", "label": "AC Output Frequency" },
+    { "name": "output_va",                 "path": "live[4]",   "scale": 1,    "unit": "VA", "label": "AC Output Apparent Power" },
+    { "name": "output_power",              "path": "live[5]",   "scale": 1,    "unit": "W",  "label": "AC Output Active Power" },
+    { "name": "load_percent",              "path": "live[6]",   "scale": 1,    "unit": "%",  "label": "Output Load Percent" },
+    { "name": "bus_voltage",               "path": "live[7]",   "scale": 1,    "unit": "V",  "label": "DC Bus Voltage" },
+    { "name": "battery_voltage",           "path": "live[8]",   "scale": 0.01, "unit": "V",  "label": "Battery Voltage" },
+    { "name": "battery_soc",               "path": "status[0]", "scale": 1,    "unit": "%",  "label": "Battery SOC (inferred)" },
+    { "name": "inverter_temp",             "path": "status[1]", "scale": 1,    "unit": "°C", "label": "Inverter Heatsink Temperature (inferred)" },
+    { "name": "battery_discharge_current", "path": "status[2]", "scale": 1,    "unit": "A",  "label": "Battery Discharge Current (inferred)" },
+    { "name": "pv1_current",               "path": "pv1[5]",    "scale": 0.1,  "unit": "A",  "label": "PV1 Current" },
+    { "name": "pv1_voltage",               "path": "pv1[6]",    "scale": 0.1,  "unit": "V",  "label": "PV1 Voltage" },
+    { "name": "pv1_power",                 "path": "pv1[7]",    "scale": 1,    "unit": "W",  "label": "PV1 Power" },
+    { "name": "pv2_current",               "path": "pv2[5]",    "scale": 0.1,  "unit": "A",  "label": "PV2 Current" },
+    { "name": "pv2_voltage",               "path": "pv2[6]",    "scale": 0.1,  "unit": "V",  "label": "PV2 Voltage" },
+    { "name": "pv2_power",                 "path": "pv2[7]",    "scale": 1,    "unit": "W",  "label": "PV2 Power" },
+    { "name": "pv_power",                  "path": "derived.pv_power", "scale": 1, "unit": "W", "label": "PV Power (PV1 + PV2)" }
+  ]
+}

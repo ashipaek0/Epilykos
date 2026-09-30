@@ -281,6 +281,16 @@ async function modbusExchange(address, { writeUuid, notifyUuid, frame, timeout =
   return Buffer.from(result.frame, 'hex');
 }
 
+/**
+ * Read characteristics by (service, characteristic) — never writes.
+ * @param {Array<{service: string, characteristic: string}>} reads
+ * @returns {Promise<Array<Buffer|null>>} one entry per read (null = not on device)
+ */
+async function gattRead(address, reads, { timeout = 20 } = {}) {
+  const result = await helper().request('gatt_read', { address, reads, timeout }, (timeout + 5) * 1000);
+  return (result.values || []).map(v => (v === null || v === undefined ? null : Buffer.from(v, 'hex')));
+}
+
 function disconnect(address) {
   return helper().request('disconnect', { address }, 10000);
 }
@@ -291,6 +301,6 @@ async function shutdownBle() {
 
 module.exports = {
   BleHelper, BleError, isConfigured, isValidAddress,
-  status, scan, readBms, modbusExchange, disconnect, shutdownBle,
+  status, scan, readBms, modbusExchange, gattRead, disconnect, shutdownBle,
   _setHelperForTests(h) { shared = h; }
 };
