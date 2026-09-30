@@ -62,9 +62,10 @@ body {
 }
 
 .wizard-brand .logo-icon {
-  color: var(--accent);
-  font-size: 1.4rem;
-  line-height: 1;
+  width: 1.65rem;
+  height: 1.65rem;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .wizard-tagline {
@@ -502,6 +503,18 @@ input[type="password"] { font-family: var(--font); }
 
 .topic-item .tick { margin-left: auto; color: var(--text-tertiary); }
 
+/* Bluetooth device picker (BMS + inverter Bluetooth module) */
+.input-with-btn { display: flex; gap: 0.5rem; align-items: center; }
+.input-with-btn .input { flex: 1; min-width: 0; }
+.input-with-btn .btn { flex-shrink: 0; }
+.ble-scan-results { margin-top: 0.5rem; }
+.ble-scan-results:empty { display: none; }
+.ble-device { flex-wrap: wrap; }
+.ble-device .ble-name { color: var(--text); font-weight: 600; }
+.ble-device code { font-size: 0.72rem; }
+.ble-device .ble-rssi { margin-left: auto; color: var(--text-tertiary); font-size: 0.72rem; }
+.ble-tag { font-size: 0.68rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); }
+
 /* ── Entity picker (HA) ───────────────────────────────────── */
 .entity-select {
   width: 100%;
@@ -671,3 +684,4 @@ input[type="password"] { font-family: var(--font); }
   .wizard-nav .nav-right { justify-content: flex-end; }
   .nav-hint { display: none; }
 }
+.metric-table .role-warn { display: block; margin-top: 0.2rem; font-size: 0.7rem; color: var(--color-warning, #b7791f); }

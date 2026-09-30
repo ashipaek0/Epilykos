@@ -1,5 +1,6 @@
 {
   "name": "Solis String Inverter (Ver19 / 3-Phase)",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "active_power", "address": 3004, "type": "uint32", "scale": 1.0, "unit": "W", "label": "Active Power"},

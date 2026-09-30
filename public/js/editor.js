@@ -53,6 +53,31 @@ function refreshTabSelect() {
   });
 }
 
+function uniqueDashboardId(id, usedIds) {
+  var candidate = id;
+  var suffix = 2;
+  while (usedIds.has(candidate)) candidate = id + '_' + suffix++;
+  return candidate;
+}
+
+function applyDashboardImport(currentConfig, imported, choice) {
+  if (!imported || !Array.isArray(imported.dashboards)) throw new Error('Invalid format: dashboards must be an array');
+  var stagedDashboards = imported.dashboards.map(function(db) {
+    if (!db || typeof db !== 'object' || Array.isArray(db)) throw new Error('Invalid dashboard entry');
+    if (typeof db.id !== 'string' || !db.id.trim()) throw new Error('Invalid dashboard id');
+    return JSON.parse(JSON.stringify(db));
+  });
+  if (choice === 'Replace') return Object.assign({}, imported, { dashboards: stagedDashboards });
+  if (choice !== 'Append') throw new Error('Invalid import choice');
+  var existingDashboards = currentConfig.dashboards;
+  var usedIds = new Set(existingDashboards.map(function(db) { return db.id; }));
+  stagedDashboards.forEach(function(db) {
+    db.id = uniqueDashboardId(db.id, usedIds);
+    usedIds.add(db.id);
+  });
+  return Object.assign({}, currentConfig, { dashboards: existingDashboards.concat(stagedDashboards) });
+}
+
 // ── Settings Modal ──────────────────────────────────────────────────────
 
 function showSettingsModal() {
@@ -1971,11 +1996,18 @@ async function initEditor() {
         var file = e.target.files[0]; if (!file) return;
         try {
           var text = await file.text(); var imported = JSON.parse(text);
-          if (!imported.dashboards) throw new Error('Invalid format');
-          dashboardConfig = imported;
-          currentTabId = dashboardConfig.dashboards[0]?.id;
-          if (currentTabId) loadTab(currentTabId);
+          if (!imported || !Array.isArray(imported.dashboards)) throw new Error('Invalid format: dashboards must be an array');
+          var existingCount = dashboardConfig.dashboards.length;
+          var importedCount = imported.dashboards.length;
+          var choice = prompt('Import contains ' + importedCount + ' dashboard(s); current configuration has ' + existingCount + '. Type Append or Replace.');
+          if (choice !== 'Append' && choice !== 'Replace') return;
+          var nextDashboardConfig = applyDashboardImport(dashboardConfig, imported, choice);
+          dashboardConfig = nextDashboardConfig;
+          currentTabId = choice === 'Replace'
+            ? (dashboardConfig.dashboards[0] && dashboardConfig.dashboards[0].id)
+            : currentTabId;
           refreshTabSelect();
+          if (currentTabId) loadTab(currentTabId);
           markUnsaved();
         } catch (err) { alert('Import failed: ' + err.message); }
       });
