@@ -282,6 +282,18 @@ async function modbusExchange(address, { writeUuid, notifyUuid, frame, timeout =
 }
 
 /**
+ * Luxpower dongle exchange: write one A1 1A request frame, return the
+ * notified response frame that answers it (same dev_fn, start register and
+ * inverter serial). Unsolicited pushes arriving meanwhile are skipped.
+ */
+async function luxpowerExchange(address, { writeUuid, notifyUuid, frame, timeout = 15 }) {
+  const result = await helper().request('luxpower', {
+    address, write_uuid: writeUuid, notify_uuid: notifyUuid, frame: frame.toString('hex'), timeout
+  }, (timeout + 5) * 1000);
+  return Buffer.from(result.frame, 'hex');
+}
+
+/**
  * Read characteristics by (service, characteristic) — never writes.
  * @param {Array<{service: string, characteristic: string}>} reads
  * @returns {Promise<Array<Buffer|null>>} one entry per read (null = not on device)
@@ -301,6 +313,6 @@ async function shutdownBle() {
 
 module.exports = {
   BleHelper, BleError, isConfigured, isValidAddress,
-  status, scan, readBms, modbusExchange, gattRead, disconnect, shutdownBle,
+  status, scan, readBms, modbusExchange, luxpowerExchange, gattRead, disconnect, shutdownBle,
   _setHelperForTests(h) { shared = h; }
 };

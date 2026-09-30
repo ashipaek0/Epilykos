@@ -1,5 +1,5 @@
 {
-  "name": "LuxPower GETA Hybrid (Local TCP)",
+  "name": "LuxPower GETA Hybrid (Wi-Fi / Bluetooth dongle)",
   "protocol": "luxpower-tcp",
   "transport": "luxpower-tcp",
   "default_port": 8000,
