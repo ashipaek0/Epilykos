@@ -5,6 +5,7 @@
  *   modbus-rtu — register maps (e.g. Cworth / PACE)
  *   jbd        — JBD / Jiabaida smart BMS UART/RS485 (modules/bms-decoders/jbd.js)
  *   jk-rs485   — JK-BMS "4E 57" RS485 / GPS-port protocol (modules/bms-decoders/jk.js)
+ *   pace-v25   — PACE "paceic" ASCII protocol v0x25 (modules/bms-decoders/pace.js)
  *
  * Dedicated poller for BMS devices connected over a direct serial Modbus-RTU
  * link (RS-485/USB). This is a NET-NEW transport for the BMS subsystem — it
@@ -38,6 +39,7 @@ const {
 } = require('./modbus-frame');
 const jbd = require('./bms-decoders/jbd');
 const jk = require('./bms-decoders/jk');
+const pace = require('./bms-decoders/pace');
 
 let bmsWiredPollInterval = null;
 let bmsWiredPollingActive = false;
@@ -248,7 +250,15 @@ async function readJk(port) {
   return jk.decode(jk.parseFrame(await readFramed(port, jk.buildRequest(), jk)));
 }
 
-const FRAMED_READERS = { jbd: readJbd, 'jk-rs485': readJk };
+/** PACE v25: read analog information for the pack at its DIP-switch address. */
+async function readPace(port, device) {
+  const address = Math.min(Math.max(parseInt(device && device.modbus_unit_id, 10) || 1, 0), 255);
+  const { address: from, info } = pace.parseFrame(await readFramed(port, pace.buildRequest(address), pace));
+  if (from !== address) throw new Error(`PACE: reply from address ${from}, expected ${address}`);
+  return pace.decodeAnalog(info);
+}
+
+const FRAMED_READERS = { jbd: readJbd, 'jk-rs485': readJk, 'pace-v25': readPace };
 
 /** Decode profile metrics from a map of register address to uint16 value. */
 function decodeProfileRegisters(profile, registerData) {
@@ -284,7 +294,7 @@ async function pollWiredDevice(device, profile) {
   try {
     const framed = FRAMED_READERS[profile.protocol];
     if (framed) {
-      const data = await framed(port);
+      const data = await framed(port, device);
       const now = Math.floor(Date.now() / 1000);
       const wiredMappings = device.mappings || {};
       let writeCount = 0;
@@ -417,7 +427,7 @@ async function testBmsWiredConnection(device) {
 
   try {
     const framed = FRAMED_READERS[profile.protocol];
-    if (framed) return await framed(port);
+    if (framed) return await framed(port, device);
     const unitId = device.modbus_unit_id || profile.default_unit_id || 5;
     const ranges = buildPollRanges(profile.metrics);
     if (!ranges.length) throw new Error('No poll ranges defined in profile');
@@ -504,5 +514,5 @@ module.exports = {
   getBmsWiredFields,
   decodeProfileRegisters,
   // Framed-protocol readers (JBD / JK) — exported for tests with a fake port.
-  _readers: { readFramed, readJbd, readJk },
+  _readers: { readFramed, readJbd, readJk, readPace },
 };

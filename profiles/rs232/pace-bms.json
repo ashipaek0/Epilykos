@@ -1,0 +1,225 @@
+{
+  "name": "PACE BMS (RS232 / RS485, protocol 25)",
+  "description": "For PACE-based packs speaking PACE protocol 25 (Jakiper, Easun, Tewaycell, Greenrich, FSP, Eenovance and many rebrands)\n- Wiring: the pack's RS232 port (usually RJ11 / RJ12) through a USB-RS232 adapter, or its RS485 port through a USB-RS485 adapter.\n- Set the address field to the pack's DIP-switch address (usually 1).\n- 9600 baud 8N1; a few packs use 19200.\n- Current: positive=charge, negative=discharge.\n- If the pack does not answer, try the other port: on many packs the RS485 / CAN port is set to an inverter protocol instead.\n- Older protocol 20 packs (e.g. EG4 LifePower4) are not covered by this profile.",
+  "protocol": "pace-v25",
+  "transport": "rs232",
+  "default_unit_id": 1,
+  "defaults": {
+    "baud": 9600,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "metrics": [
+    {
+      "name": "voltage",
+      "field": "voltage",
+      "label": "Pack Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "current",
+      "field": "current",
+      "label": "Current (+charge / −discharge)",
+      "unit": "A"
+    },
+    {
+      "name": "power",
+      "field": "power",
+      "label": "Power (+charge / −discharge)",
+      "unit": "W"
+    },
+    {
+      "name": "battery_level",
+      "field": "battery_level",
+      "label": "State of Charge",
+      "unit": "%"
+    },
+    {
+      "name": "battery_health",
+      "field": "battery_health",
+      "label": "State of Health",
+      "unit": "%"
+    },
+    {
+      "name": "cycle_charge",
+      "field": "cycle_charge",
+      "label": "Remaining Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "full_capacity",
+      "field": "full_capacity",
+      "label": "Full Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "design_capacity",
+      "field": "design_capacity",
+      "label": "Design Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "cycles",
+      "field": "cycles",
+      "label": "Charge Cycles",
+      "unit": ""
+    },
+    {
+      "name": "cell_count",
+      "field": "cell_count",
+      "label": "Cell Count",
+      "unit": ""
+    },
+    {
+      "name": "delta_voltage",
+      "field": "delta_voltage",
+      "label": "Cell Voltage Spread",
+      "unit": "V"
+    },
+    {
+      "name": "temperature",
+      "field": "temperature",
+      "label": "Average Cell Temperature",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_1",
+      "field": "temp_1",
+      "label": "Cell Temperature 1",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_2",
+      "field": "temp_2",
+      "label": "Cell Temperature 2",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_3",
+      "field": "temp_3",
+      "label": "Cell Temperature 3",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_4",
+      "field": "temp_4",
+      "label": "Cell Temperature 4",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_mosfet",
+      "field": "temp_mosfet",
+      "label": "MOSFET Temperature",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_env",
+      "field": "temp_env",
+      "label": "Environment Temperature",
+      "unit": "°C"
+    },
+    {
+      "name": "battery_charging",
+      "field": "battery_charging",
+      "label": "Charging",
+      "unit": ""
+    },
+    {
+      "name": "cell_voltage_1",
+      "field": "cell_voltage_1",
+      "label": "Cell 1 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_2",
+      "field": "cell_voltage_2",
+      "label": "Cell 2 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_3",
+      "field": "cell_voltage_3",
+      "label": "Cell 3 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_4",
+      "field": "cell_voltage_4",
+      "label": "Cell 4 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_5",
+      "field": "cell_voltage_5",
+      "label": "Cell 5 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_6",
+      "field": "cell_voltage_6",
+      "label": "Cell 6 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_7",
+      "field": "cell_voltage_7",
+      "label": "Cell 7 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_8",
+      "field": "cell_voltage_8",
+      "label": "Cell 8 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_9",
+      "field": "cell_voltage_9",
+      "label": "Cell 9 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_10",
+      "field": "cell_voltage_10",
+      "label": "Cell 10 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_11",
+      "field": "cell_voltage_11",
+      "label": "Cell 11 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_12",
+      "field": "cell_voltage_12",
+      "label": "Cell 12 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_13",
+      "field": "cell_voltage_13",
+      "label": "Cell 13 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_14",
+      "field": "cell_voltage_14",
+      "label": "Cell 14 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_15",
+      "field": "cell_voltage_15",
+      "label": "Cell 15 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_16",
+      "field": "cell_voltage_16",
+      "label": "Cell 16 Voltage",
+      "unit": "V"
+    }
+  ]
+}

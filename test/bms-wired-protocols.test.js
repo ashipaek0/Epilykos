@@ -6,6 +6,8 @@
  *  - JBD 0x03 / 0x04 replies from the JBD protocol document (checksums valid).
  *  - JK read-all reply from syssi/esphome-jk-bms esp8266-example-faker.yaml
  *    (header/trailer from its comments; checksum 0x54D1 valid).
+ *  - PACE protocol-25 request / analog reply from nkinnan/esphome-pace-bms
+ *    (pace_bms_protocol_v25.cpp example frames; checksums valid).
  */
 const assert = require('node:assert');
 const { EventEmitter } = require('node:events');
@@ -17,11 +19,14 @@ const REPO = path.join(__dirname, '..');
 process.chdir(fs.mkdtempSync(path.join(os.tmpdir(), 'bms-jbd-jk-')));
 const jbd = require(path.join(REPO, 'modules/bms-decoders/jbd'));
 const jk = require(path.join(REPO, 'modules/bms-decoders/jk'));
+const pace = require(path.join(REPO, 'modules/bms-decoders/pace'));
 const { _readers } = require(path.join(REPO, 'modules/bmsWired'));
 
 const hex = s => Buffer.from(s.replace(/\s+/g, ''), 'hex');
 const JBD_BASIC = hex('DD 03 00 1B 17 00 00 00 02 D0 03 E8 00 00 20 78 00 00 00 00 00 00 10 48 03 0F 02 0B 76 0B 82 FB FF 77');
 const JBD_CELLS = hex('DD 04 00 1E 0F 66 0F 63 0F 63 0F 64 0F 3E 0F 63 0F 37 0F 5B 0F 65 0F 3B 0F 63 0F 63 0F 3C 0F 66 0F 3D F9 F9 77');
+const PACE_REQUEST = '~25014642E00201FD30\r';
+const PACE_ANALOG = Buffer.from('~25014600F07A0001100CC70CC80CC70CC70CC70CC50CC60CC70CC70CC60CC70CC60CC60CC70CC60CC7060B9B0B990B990B990BB30BBCFF1FCCCD12D303286A008C2710E1E4\r', 'ascii');
 const JK_FRAME = hex('4e57011b00000000060001792a010eed020efa030ef7040eec050ef8060efa070ef1080ef8090ee30a0efa0b0ef10c0efb0d0efb0e0ef280001d81001e82001c8314ef8480d0850f860287000489000000008a000e8b00008c00078e16268f10ae900fd2910fa0920005930bea940c1c95000596012c9700079800039900059a00059b0ce49c00089d019e005a9f0046a00064a10064a20014a30046a40046a5ffeca6fff6a7ffeca8fff6a90eaa0000000eab01ac01ad0411ae01af01b0000ab114b231323334353600000000b300b4496e707574205573b532313031b60000e200b748362e585f5f53362e312e33535f5fb800b900000000ba425433303732303230313230303030323030353231303031c0010000000068000054d1');
 
 /** Serial-port stand-in: answers each write with the next canned reply, in chunks. */
@@ -85,6 +90,23 @@ function fakePort(replies, { junk = Buffer.alloc(0), chunk = 7 } = {}) {
   assert.throws(() => jk.parseFrame(jkBad), /checksum/);
   console.log('ok - JK frame');
 
+  // ── PACE protocol 25 ──────────────────────────────────
+  assert.strictEqual(pace.buildRequest(1).toString('ascii'), PACE_REQUEST);
+  const pf = pace.parseFrame(PACE_ANALOG);
+  assert.strictEqual(pf.address, 1);
+  const pa = pace.decodeAnalog(pf.info);
+  assert.deepStrictEqual(
+    [pa.cell_count, pa.cell_voltage_1, pa.cell_voltage_16, pa.voltage, pa.current, pa.cycle_charge, pa.full_capacity, pa.design_capacity, pa.cycles, pa.battery_level],
+    [16, 3.271, 3.271, 52.429, -2.25, 48.19, 103.46, 100, 140, 46.6]);
+  assert.deepStrictEqual([pa.temp_1, pa.temp_4, pa.temp_mosfet, pa.temp_env], [24.1, 23.9, 26.5, 27.4]);
+  const pBad = Buffer.from(PACE_ANALOG); pBad[20] = pBad[20] === 0x30 ? 0x31 : 0x30;
+  assert.throws(() => pace.parseFrame(pBad), /checksum/);
+  // A well-formed reply carrying return code 0x04 (invalid CID2) must surface that error.
+  const errBody = '25014604' + '0000';
+  const pErr = Buffer.from('~' + errBody + pace.frameChecksum(errBody).toString(16).toUpperCase().padStart(4, '0') + '\r', 'ascii');
+  assert.throws(() => pace.parseFrame(pErr), /invalid CID2/);
+  console.log('ok - PACE frames');
+
   // ── Serial framing: chunked replies with leading junk ─
   const jbdPort = fakePort([JBD_BASIC, JBD_CELLS], { junk: Buffer.from([0x00, 0x77, 0x12]) });
   const jbdData = await _readers.readJbd(jbdPort);
@@ -95,10 +117,15 @@ function fakePort(replies, { junk = Buffer.alloc(0), chunk = 7 } = {}) {
   const jkData = await _readers.readJk(jkPort);
   assert.strictEqual(jkData.voltage, 53.59);
   assert.strictEqual(jkData.cell_count, 14);
+  const pacePort = fakePort([PACE_ANALOG], { junk: Buffer.from('\r\n~x', 'ascii').subarray(0, 2), chunk: 16 });
+  const paceData = await _readers.readPace(pacePort, { modbus_unit_id: 1 });
+  assert.strictEqual(paceData.voltage, 52.429);
+  assert.strictEqual(pacePort.writes[0].toString('ascii'), PACE_REQUEST);
+  await assert.rejects(_readers.readPace(fakePort([PACE_ANALOG]), { modbus_unit_id: 2 }), /expected 2/);
   console.log('ok - serial framing');
 
   // ── Profiles ──────────────────────────────────────────
-  for (const [file, protocol, baud] of [['jbd-bms', 'jbd', 9600], ['jk-bms', 'jk-rs485', 115200]]) {
+  for (const [file, protocol, baud] of [['jbd-bms', 'jbd', 9600], ['jk-bms', 'jk-rs485', 115200], ['pace-bms', 'pace-v25', 9600]]) {
     const p = JSON.parse(fs.readFileSync(path.join(REPO, 'profiles/rs232', file + '.json'), 'utf8'));
     assert.strictEqual(p.protocol, protocol);
     assert.strictEqual(p.defaults.baud, baud);
@@ -108,5 +135,5 @@ function fakePort(replies, { junk = Buffer.alloc(0), chunk = 7 } = {}) {
     }
   }
   console.log('ok - profiles');
-  console.log('# bms-jbd-jk: all passed');
+  console.log('# bms-jbd-jk-pace: all passed');
 })().catch(e => { console.error('not ok -', e); process.exit(1); });

@@ -1227,7 +1227,11 @@
     var w = state.sources.bmsWired;
     var p = (w.profileInfo || {})[w.profile];
     var g = $('#bms-wired-unit-group');
-    if (g) g.style.display = (p && p.protocol && p.protocol !== 'modbus-rtu') ? 'none' : '';
+    if (g) {
+      g.style.display = (p && ['jbd', 'jk-rs485'].indexOf(p.protocol) >= 0) ? 'none' : '';
+      var lbl = g.querySelector('label');
+      if (lbl) lbl.textContent = (p && p.protocol === 'pace-v25') ? 'Pack address (DIP switch)' : 'Modbus unit id';
+    }
     if (!userChange || !p || !p.defaults) return;
     var d = p.defaults;
     if (d.baud != null) setFieldValue('sources.bmsWired.baud', d.baud);
