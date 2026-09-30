@@ -1,5 +1,5 @@
 /**
- * Inverter Dongle Module — polls inverter WiFi dongles via Solarman V5, Modbus TCP, or Growatt.
+ * Inverter Dongle Module — polls inverter dongles via Solarman V5, Modbus TCP, Growatt, or Modbus over Bluetooth LE.
  *
  * Each enabled dongle instance is polled on its own interval. Solarman V5 and Modbus TCP
  * use outgoing TCP connections (poll-based). Growatt uses an inbound TCP server (push-based).
@@ -18,6 +18,8 @@ const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
 const { LuxpowerTcpTransport } = require('./dongle/luxpowerTcp');
+const { BleModbusTransport } = require('./dongle/bleModbus');
+const { BleGattTransport } = require('./dongle/bleGatt');
 
 let pollIntervals = [];
 let growattServer = null;
@@ -45,6 +47,22 @@ function startDonglePolling() {
 
     const profile = loadProfile(inst.profile);
     if (!profile) { logger.warn(`[dongle] profile ${inst.profile} not found for ${inst.name}`); continue; }
+
+    if (profile.protocol === 'ble-gatt') {
+      // Read-only Bluetooth device publishing values in GATT characteristics.
+      let transport;
+      try {
+        transport = new BleGattTransport(inst, profile);
+      } catch (err) {
+        logger.warn(`[dongle] ${inst.name}: instance skipped — ${err.message}`);
+        continue;
+      }
+      const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
+      const id = setInterval(() => pollJsonInstance(inst, transport, profile), intervalMs);
+      pollIntervals.push(id);
+      pollJsonInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+      continue;
+    }
 
     if (profile.protocol === 'felicity-tcp') {
       const transport = new FelicityTcpTransport(inst);
@@ -94,7 +112,14 @@ function startDonglePolling() {
 
     let Transport = ModbusTcpTransport;
     if (inst.transport === 'solarman-v5') Transport = SolarmanV5Transport;
-    const transport = new Transport(inst);
+    if (inst.transport === 'ble-modbus') Transport = BleModbusTransport;
+    let transport;
+    try {
+      transport = new Transport(inst);
+    } catch (err) {
+      logger.warn(`[dongle] ${inst.name}: instance skipped — ${err.message}`);
+      continue;
+    }
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
     const id = setInterval(() => pollInstance(inst, transport, profile), intervalMs);
@@ -655,6 +680,9 @@ async function executeDongleAction(deviceName, registerAddr, value) {
 
   // Felicity inverters speak a proprietary JSON API, not Modbus registers.
   const profile = getProfileById(device.profile);
+  if (transportType === 'ble-gatt' || profile?.protocol === 'ble-gatt') {
+    return { error: 'This Bluetooth profile is read-only — settings cannot be changed from Epilykos' };
+  }
   if (transportType === 'felicity-tcp' || profile?.protocol === 'felicity-tcp') {
     return { error: 'felicity-tcp dongles use a proprietary JSON API and do not support Modbus register writes' };
   }
@@ -688,6 +716,12 @@ async function executeDongleAction(deviceName, registerAddr, value) {
         serial_number: device.serial_number,
         modbus_unit_id: device.modbus_unit_id || 1
       });
+      await transport.writeRegister(addr, val);
+      return { success: true };
+    }
+
+    if (transportType === 'ble-modbus') {
+      const transport = new BleModbusTransport(device);
       await transport.writeRegister(addr, val);
       return { success: true };
     }
@@ -801,6 +835,7 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
 module.exports = {
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
+  getByPathForTest: getByPath,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
   luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame

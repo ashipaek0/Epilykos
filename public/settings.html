@@ -6,7 +6,10 @@
   <title>Settings — Epilykos</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
-</head>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  </head>
 <body>
 
 <div class="app-shell">
@@ -31,7 +34,7 @@
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <a href="/" class="sidebar-logo">
-        <span class="logo-icon">⚡</span>
+        <img class="logo-icon" src="/icons/epilykos-mark.svg" alt="">
         Epilykos
       </a>
       <button class="sidebar-close" id="sidebar-close" aria-label="Close menu">&times;</button>
@@ -179,7 +182,7 @@
         <div id="subtab-bms" class="subtab-content">
           <div id="bms-devices-container"></div>
           <button type="button" id="add-bms-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add BMS Device</button>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Requires the BMS bridge container to be running.</p>
+          <p class="note" id="bluetooth-status" style="font-size:0.775rem;color:var(--text-tertiary);">Bluetooth uses the host's adapter — mount <code>/run/dbus</code> into the container.</p>
           <div class="section-divider">🔌 BMS — Wired</div>
           <div id="bms-wired-devices-container"></div>
           <button type="button" id="add-bms-wired-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Wired BMS</button>
@@ -1265,7 +1268,7 @@
 <script src="/js/csrf.js"></script>
 <script src="js/source-labels.js"></script>
 <script src="js/pvoutput-units.js?v=1"></script>
-<script src="settings.js?v=7"></script>
+<script src="settings.js?v=8"></script>
 <script src="js/catalog-ui.js?v=1"></script>
 </body>
 </html>

@@ -459,7 +459,14 @@ const upload = multer({
 // Redirect raw editor.html to the protected /editor route (auth gate — issue #87)
 app.get('/editor.html', (req, res) => res.redirect('/editor'));
 // Serve static files with 1h browser cache
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable: true }));
+// Pages, scripts and styles revalidate on every load (ETag → 304 when unchanged)
+// so an image update is visible at once; icons/fonts keep the 1 h cache.
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  setHeaders(res, filePath) {
+    if (/\.(html|js|css|json|webmanifest)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
@@ -985,7 +992,7 @@ function persistMqttDiscoveryCache(brokerUrlKey, entries) {
 
 app.use('/api/modbus/profiles', isAuthenticated);
 app.get('/api/modbus/profiles', (req, res) => {
-  res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
+  res.json(availableProfiles.map(p => ({ id: p.id, name: p.name, connection: p.connection })));
 });
 
 app.use('/api/modbus/profile', isAuthenticated);
@@ -1031,7 +1038,8 @@ app.post('/api/test-modbus', async (req, res) => {
 // ── RS232 API Endpoints ────────────────────────────────────────────────
 app.use('/api/rs232/profiles', isAuthenticated);
 app.get('/api/rs232/profiles', (req, res) => {
-  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol })));
+  // placeholder: unverified skeleton register map — pickers hide it unless already selected
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '', placeholder: p.placeholder === true, defaults: p.defaults || null })));
 });
 
 app.use('/api/rs232/profile', isAuthenticated);
@@ -1597,26 +1605,17 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
   }
 });
 
-// BMS bridge proxy – browser can't reach bms-bridge directly
-const BMS_BRIDGE_URL = process.env.BMS_BRIDGE_URL || 'http://bms-bridge:8020';
-
+// Bluetooth BMS — built-in (modules/ble.js), or a legacy bms-bridge sidecar
+// when BMS_BRIDGE_URL is set (see modules/bms.js).
 app.use('/api/bms', isAuthenticated);
 
 app.get('/api/bms/scan', async (req, res) => {
   try {
-    const force = req.query.force === '1';
-    const url = force ? `${BMS_BRIDGE_URL}/devices?force_scan=true` : `${BMS_BRIDGE_URL}/devices`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
-    if (!r.ok) {
-      const text = await r.text();
-      logger.error(`BMS scan bridge returned ${r.status}: ${text.slice(0,200)}`);
-      return res.status(502).json({ error: `Bridge returned ${r.status}` });
-    }
-    const data = await r.json();
-    res.json(data);
+    const { scanDevices } = require('./modules/bms');
+    res.json(await scanDevices(req.query.force === '1'));
   } catch (err) {
-    logger.error('BMS scan proxy error:', err.message);
-    res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+    logger.warn(`BMS scan failed: ${err.message}`);
+    res.status(err.status || 502).json({ error: err.message, code: err.code });
   }
 });
 
@@ -1624,18 +1623,13 @@ app.get('/api/bms/test', async (req, res) => {
   const address = req.query.address;
   if (!address) return res.status(400).json({ error: 'MAC address required' });
   try {
-    const r = await fetch(`${BMS_BRIDGE_URL}/device/${encodeURIComponent(address)}`, { signal: AbortSignal.timeout(10000) });
-    if (!r.ok) {
-      const text = await r.text();
-      logger.error(`BMS test bridge returned ${r.status}: ${text.slice(0,200)}`);
-      return res.status(502).json({ error: `Bridge returned ${r.status}` });
-    }
-    const data = await r.json();
+    const { readDevice } = require('./modules/bms');
+    const data = await readDevice(String(address), String(req.query.type || ''));
 
     // Store test data in latest_metrics so getAvailableSourceKeys can find it
     try {
       const devices = JSON.parse(getConfig('bms_devices') || '[]');
-      const device = devices.find(d => d.address === address);
+      const device = devices.find(d => String(d.address || '').toUpperCase() === String(address).toUpperCase());
       if (device && device.name) {
         const now = Math.floor(Date.now() / 1000);
         for (const [key, val] of Object.entries(data)) {
@@ -1650,8 +1644,30 @@ app.get('/api/bms/test', async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    logger.error('BMS test proxy error:', err.message);
-    res.status(502).json({ error: 'BMS bridge not reachable. Check that bms-bridge container is running.' });
+    logger.warn(`BMS test read failed for ${address}: ${err.message}`);
+    res.status(err.status || 502).json({ error: err.message, code: err.code });
+  }
+});
+
+// Bluetooth adapter status + generic scan (inverter BLE dongles use this to
+// pick an address; the BMS scan above only lists recognised BMS devices).
+app.use('/api/bluetooth', isAuthenticated);
+
+app.get('/api/bluetooth/status', async (req, res) => {
+  const ble = require('./modules/ble');
+  const legacy = (process.env.BMS_BRIDGE_URL || '').trim();
+  const st = await ble.status();
+  res.json({ ...st, legacy_bms_bridge: !!legacy });
+});
+
+app.get('/api/bluetooth/scan', async (req, res) => {
+  try {
+    const ble = require('./modules/ble');
+    res.json(await ble.scan({ timeout: 8, all: true }));
+  } catch (err) {
+    logger.warn(`Bluetooth scan failed: ${err.message}`);
+    const status = ['no_dbus', 'no_adapter', 'adapter_off', 'no_bluez', 'dbus_denied', 'restarting', 'start_failed'].includes(err.code) ? 503 : 502;
+    res.status(status).json({ error: err.message, code: err.code });
   }
 });
 
@@ -1989,7 +2005,7 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
     const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
     const profiles = files.map(f => {
       const raw = JSON.parse(fs.readFileSync(path.join(profilesDir, f), 'utf8'));
-      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id, protocol: raw.protocol, capabilities: raw.capabilities, mapping: raw.mapping };
+      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id, protocol: raw.protocol, capabilities: raw.capabilities, mapping: raw.mapping, connection: raw.connection, read_only: raw.read_only === true, default_poll_interval: raw.default_poll_interval };
     });
     res.json(profiles);
   } catch (err) {
@@ -2035,6 +2051,52 @@ app.get('/api/dongle/profile/:id/entities', (req, res) => {
 app.use('/api/dongle/test', isAuthenticated);
 app.post('/api/dongle/test', async (req, res) => {
   const { host, port, serial_number, modbus_unit_id, transport } = req.body;
+  if (transport === 'ble-gatt') {
+    // Read-only Bluetooth profile (e.g. Phocos Any-Grid): one poll of its blocks.
+    const safeId = String(req.body.profile || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
+    let profile;
+    try { profile = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch (_) { return res.status(400).json({ error: 'Profile not found' }); }
+    const { BleGattTransport } = require('./modules/dongle/bleGatt');
+    let bt;
+    try {
+      bt = new BleGattTransport({ ble_address: req.body.ble_address || host }, profile);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    try {
+      const data = await bt.poll();
+      const blocks = (profile.blocks || []).filter(b => Array.isArray(data[b.id])).length;
+      const out = profile.fields.find(f => f.name === 'output_power');
+      const w = out ? require('./modules/dongle').getByPathForTest(data, out.path) : undefined;
+      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}` });
+    } catch (err) {
+      logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
+      return res.status(502).json({ error: err.message });
+    }
+  }
+  if (transport === 'ble-modbus') {
+    // Bluetooth: the target is a MAC address, not a network host — no SSRF surface.
+    const { BleModbusTransport } = require('./modules/dongle/bleModbus');
+    let bt;
+    try {
+      bt = new BleModbusTransport({
+        ble_address: req.body.ble_address || host,
+        ble_write_uuid: req.body.ble_write_uuid,
+        ble_notify_uuid: req.body.ble_notify_uuid,
+        modbus_unit_id: modbus_unit_id || 1
+      });
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    try {
+      const data = await bt.readRegisters(0x0100, 1);
+      return res.json({ success: true, raw: data.readUInt16BE(0) });
+    } catch (err) {
+      logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
+      return res.status(502).json({ error: err.message });
+    }
+  }
   if (!host) return res.status(400).json({ error: 'Host required' });
 
   const rawHost = String(host).trim();
@@ -2303,6 +2365,7 @@ async function shutdown(signal) {
   stopBmsPolling();
   stopBmsWiredPolling();
   stopDonglePolling();
+  try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);

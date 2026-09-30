@@ -1,5 +1,6 @@
 {
   "name": "Voltronic Axpert / MPP Solar (P00-P09 Modbus)",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "grid_voltage", "address": 170, "type": "uint16", "scale": 0.1, "unit": "V", "label": "Grid Voltage"},

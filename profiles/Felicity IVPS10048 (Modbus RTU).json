@@ -1,5 +1,6 @@
 {
   "name": "Felicity IVPS10048 (Modbus RTU) - 10kVA",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {

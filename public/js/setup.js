@@ -102,6 +102,21 @@
   ];
   var MINIMAL_DASH_TYPES = ['flow-card-2', 'savings-summary', 'metric-cards'];
 
+  // Fresh per-source wizard state (also used by "Start fresh").
+  function defaultSources() {
+    return {
+      ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
+      mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
+      dongle:  { selected: false, name: 'Inverter (dongle)', link: 'network', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', ble_address: '', ble_write_uuid: '', ble_notify_uuid: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', tcp_framing: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      bms:     { selected: false, name: 'BMS (Bluetooth)', address: '', poll_interval: '30', enabled: true, mappings: {}, sampleKeys: [] },
+      bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {}, fieldKeys: [], sampleKeys: [] },
+      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
+    };
+  }
+
   // ── State ─────────────────────────────────────────────────
   var state = {
     status: null,
@@ -112,17 +127,7 @@
     busy: false,
     existing: null,
     password: { newPw: '', confirmPw: '', setupCode: '', envPw: '' },
-    sources: {
-      ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
-      mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
-      dongle:  { selected: false, name: 'Inverter (TCP)', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
-      bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
-      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
-    },
+    sources: defaultSources(),
     roleMetrics: {},       // role -> metric name
     dashboard: { choice: 'full', layoutMap: {}, mainBlocks: [], blockCount: 0 },
     basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar' },
@@ -207,7 +212,7 @@
     function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return []; } } return []; }
     var ha = asArray(bySrc.ha)[0]; if (ha) { Object.assign(state.sources.ha, { selected: true, name: ha.name || 'Home Assistant', url: ha.url || '', token: ha.token || '', poll_interval: String(ha.poll_interval || 30), entities: Object.keys(ha.entities || {}) }); }
     var mq = asArray(bySrc.mqtt)[0]; if (mq) { Object.assign(state.sources.mqtt, { selected: true, name: mq.name || 'MQTT Broker', broker: mq.broker || '', username: mq.username || '', password: mq.password || '', poll_interval: String(mq.poll_interval || 30), selectedTopics: mq.topics || {}, topics: mq.topics || {} }); }
-    var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (TCP)', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', modbus_unit_id: dg.modbus_unit_id || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '', mappings: dg.mappings || {} }); }
+    var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (dongle)', link: dg.transport === 'ble-modbus' ? 'bluetooth' : 'network', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', modbus_unit_id: dg.modbus_unit_id || '', ble_address: dg.ble_address || '', ble_write_uuid: dg.ble_write_uuid || '', ble_notify_uuid: dg.ble_notify_uuid || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '', mappings: dg.mappings || {} }); }
     var rs = asArray(bySrc.rs232)[0]; if (rs) {
       Object.assign(state.sources.rs232, { selected: true, name: rs.name || 'Inverter (RS232)', portChoice: rs.serial_path || '', profile: rs.profile || '', baud: rs.baud || '', data_bits: rs.data_bits || '', stop_bits: rs.stop_bits || '', parity: rs.parity || '', modbus_unit_id: rs.modbus_unit_id || '', timeout: String(rs.timeout || 5), mappings: rs.mappings || {} });
     }
@@ -217,10 +222,10 @@
       if (mb.transport === 'serial') {
         Object.assign(state.sources.modbusSerial, { selected: true, name: mb.name || 'Inverter (RS485)', profile: mb.profile || '', serial_path: mb.serial_path || '', serial_baud: mb.serial_baud || '9600', serial_data_bits: mb.serial_data_bits || '8', serial_parity: mb.serial_parity || 'none', serial_stop_bits: mb.serial_stop_bits || '1', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
       } else {
-        Object.assign(state.sources.modbusTcp, { selected: true, name: mb.name || 'Inverter (Modbus-TCP)', profile: mb.profile || '', host: mb.host || '', port: mb.port || '502', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
+        Object.assign(state.sources.modbusTcp, { selected: true, name: mb.name || 'Inverter (Modbus-TCP)', tcp_framing: mb.tcp_framing === 'rtu' ? 'rtu' : 'tcp', profile: mb.profile || '', host: mb.host || '', port: mb.port || '502', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
       }
     });
-    var bm = asArray(bySrc.bms)[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (BLE bridge)', address: bm.address || '', bridge_url: bm.bridge_url || state.sources.bms.bridge_url, poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
+    var bm = asArray(bySrc.bms).filter(function (d) { return d && d.transport !== 'wired'; })[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (Bluetooth)', address: bm.address || '', poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
     var bw = (asArray(bySrc.bms) || []).find(function (d) { return d && d.transport === 'wired'; }); if (bw) { Object.assign(state.sources.bmsWired, { selected: true, name: bw.name || 'BMS (RS485/RS232)', serial_path: bw.serial_path || '', baud: String(bw.baud || 9600), data_bits: String(bw.data_bits || 8), parity: bw.parity || 'none', stop_bits: String(bw.stop_bits || 1), modbus_unit_id: String(bw.modbus_unit_id || 1), profile: bw.profile || '', timeout: String(bw.timeout || 5000), poll_interval: String(bw.poll_interval || 30), mappings: bw.mappings || {} }); }
     var rx = asArray(bySrc.rest)[0]; if (rx) { Object.assign(state.sources.rest, { selected: true, name: rx.name || 'REST API', url: rx.url || '', mappings: rx.mappings || {} }); }
     // Re-seed wizard discovery results (HA entities, MQTT selectedTopics,
@@ -233,8 +238,8 @@
       if (cache && typeof cache === 'object') {
         if (Array.isArray(cache.ha)) state.sources.ha.entities = cache.ha;
         if (cache.mqtt && typeof cache.mqtt === 'object') state.sources.mqtt.selectedTopics = cache.mqtt;
-        if (cache.dongle && typeof cache.dongle === 'object') state.sources.dongle.mappings = cache.dongle;
-        if (cache.rs232 && typeof cache.rs232 === 'object') state.sources.rs232.mappings = cache.rs232;
+        if (cache.dongle && typeof cache.dongle === 'object' && !Object.keys(state.sources.dongle.mappings || {}).length) state.sources.dongle.mappings = cache.dongle;
+        if (cache.rs232 && typeof cache.rs232 === 'object' && !Object.keys(state.sources.rs232.mappings || {}).length) state.sources.rs232.mappings = cache.rs232;
       }
     }
   }
@@ -593,23 +598,23 @@
       sourceCardModbusSerial() + sourceCardRS232());
 
     // 2 · Inverter — Wireless (TCP/IP)
-    html += section(g.inverterWireless, 'Connect over your local network.',
+    html += section(g.inverterWireless, 'Connect over your local network — a Modbus-TCP inverter, or an RS-485 inverter through a network gateway.',
       grid([
         { key: 'modbusTcp', icon: '🌐', label: 'Modbus-TCP', sub: 'Modbus over TCP/IP' }
       ]),
       sourceCardModbusTcp());
 
     // 3 · Inverter — Dongle
-    html += section(g.inverterDongle, 'Built-in logger / WiFi dongle on the inverter.',
+    html += section(g.inverterDongle, 'Built-in logger, Wi-Fi dongle or Bluetooth module on the inverter.',
       grid([
-        { key: 'dongle', icon: '🔌', label: 'Inverter dongle', sub: 'Solarman / Felicity / Growatt' }
+        { key: 'dongle', icon: '🔌', label: 'Inverter dongle', sub: 'Wi-Fi (Solarman / Felicity / Growatt…) or Bluetooth' }
       ]),
       sourceCardDongle());
 
     // 4 · BMS — Bluetooth
-    html += section(g.bmsBluetooth, 'Battery BMS over Bluetooth, via the BLE bridge.',
+    html += section(g.bmsBluetooth, 'Battery BMS over Bluetooth, using the host Bluetooth adapter.',
       grid([
-        { key: 'bms', icon: '🔋', label: 'BMS (BLE bridge)', sub: 'MAC address + bridge' }
+        { key: 'bms', icon: '🔋', label: 'BMS (Bluetooth)', sub: 'Scan for nearby batteries' }
       ]),
       sourceCardBMS());
 
@@ -696,29 +701,51 @@
   }
   function sourceCardDongle() {
     var s = cfg('dongle');
-    var serialVisible = s.profile && (s.profileRequiresSerial || s.serialVisible) ? '' : ' style="display:none;"';
+    var bt = s.link === 'bluetooth';
+    var serialVisible = !bt && s.profile && (s.profileRequiresSerial || s.serialVisible) ? '' : ' style="display:none;"';
     return '<div class="source-config card" data-source="dongle">'
-      + '<div class="card-header"><span class="card-title">Inverter (TCP / dongle)</span></div>'
+      + '<div class="card-header"><span class="card-title">Inverter dongle</span></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.dongle.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Profile</label><select class="select-input" data-field="sources.dongle.profile" id="dongle-profile"><option value="">Loading…</option></select></div>'
+      + '<div class="form-group"><label>Connection</label><select class="select-input" data-field="sources.dongle.link" id="dongle-link">'
+      + '<option value="network"' + (bt ? '' : ' selected') + '>Wi-Fi / network dongle</option>'
+      + '<option value="bluetooth"' + (bt ? ' selected' : '') + '>Bluetooth module</option>'
+      + '</select></div>'
       + '</div>'
+      + '<div class="form-group"><label>Profile</label><select class="select-input" data-field="sources.dongle.profile" id="dongle-profile"><option value="">Loading…</option></select></div>'
+      + '<div id="dongle-net-group"' + (bt ? ' style="display:none;"' : '') + '>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Host</label><input class="input" data-field="sources.dongle.host" placeholder="192.168.1.50" value="' + esc(s.host) + '"></div>'
       + '<div class="form-group"><label>Port</label><input class="input" type="number" data-field="sources.dongle.port" value="' + esc(s.port) + '"></div>'
       + '</div>'
       + '<div class="form-group" id="dongle-serial-group"' + serialVisible + '><label>Serial number</label><input class="input" data-field="sources.dongle.serial_number" value="' + esc(s.serial_number) + '"></div>'
+      + '</div>'
+      + '<div id="dongle-bt-group"' + (bt ? '' : ' style="display:none;"') + '>'
+      + bleAddressField('dongle', 'sources.dongle.ble_address', s.ble_address, 'Bluetooth module')
+      + '<div class="form-row" id="dongle-ble-uuid-row">'
+      + '<div class="form-group"><label>Write characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_write_uuid" placeholder="ffd1" value="' + esc(s.ble_write_uuid) + '"></div>'
+      + '<div class="form-group"><label>Notify characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_notify_uuid" placeholder="fff1" value="' + esc(s.ble_notify_uuid) + '"></div>'
+      + '</div>'
+      + '<span class="note">Pick your inverter\'s profile: Bluetooth inverters such as Phocos Any-Grid are read directly; for Modbus Bluetooth modules (e.g. SRNE / Renogy-style) pick the inverter\'s register profile. Close the vendor phone app first — most allow one connection at a time.</span>'
+      + '</div>'
       + '<div class="form-row">'
-      + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.dongle.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
+      + '<div class="form-group" id="dongle-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.dongle.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.dongle.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
       + '</div>'
-      + '<div class="form-group"><label>Topic prefix <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.prefix" value="' + esc(s.prefix) + '"></div>'
+      + '<div class="form-group"><label>Metric prefix <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.prefix" value="' + esc(s.prefix) + '"></div>'
       + '<div class="test-row">'
       + '<button class="btn btn-sm" type="button" data-action="test" data-source="dongle" data-test="dongle">Test connection</button>'
       + '<span class="test-badge pending" data-badge-src="dongle">Not tested</span>'
       + '</div>'
       + '<div data-error="dongle"></div>'
       + '</div>';
+  }
+  // MAC input + "Scan" button + pick list, shared by the Bluetooth cards.
+  function bleAddressField(kind, field, value, label) {
+    return '<div class="form-group"><label>' + esc(label) + '</label>'
+      + '<div class="input-with-btn"><input class="input" data-field="' + field + '" placeholder="Scan, or type AA:BB:CC:DD:EE:FF" value="' + esc(value) + '">'
+      + '<button class="btn btn-sm" type="button" data-action="ble-scan" data-source="' + kind + '">🔍 Scan</button></div>'
+      + '<div class="ble-scan-results" id="' + kind + '-ble-results"></div></div>';
   }
   function sourceCardRS232() {
     var s = cfg('rs232');
@@ -804,6 +831,12 @@
       + '<div class="form-group"><label>Host</label><input class="input" data-field="sources.modbusTcp.host" placeholder="192.168.1.50" value="' + esc(s.host) + '"></div>'
       + '<div class="form-group"><label>Port</label><input class="input" type="number" data-field="sources.modbusTcp.port" placeholder="502" value="' + esc(s.port) + '"></div>'
       + '</div>'
+      + '<div class="form-group" id="modbus-tcp-gateway" style="display:none;"><label>Gateway type</label>'
+      + '<select class="select-input" data-field="sources.modbusTcp.tcp_framing">'
+      + '<option value="tcp"' + (s.tcp_framing === 'rtu' ? '' : ' selected') + '>Converts to Modbus-TCP (most gateways)</option>'
+      + '<option value="rtu"' + (s.tcp_framing === 'rtu' ? ' selected' : '') + '>Transparent (RTU over TCP)</option>'
+      + '</select>'
+      + '<span class="note">This inverter has an RS-485 port — reach it over the network through an RS485-to-Ethernet/Wi-Fi gateway (e.g. Elfin EW11, USR-TCP232).</span></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Unit id</label><input class="input" type="number" data-field="sources.modbusTcp.unit" value="' + esc(s.unit) + '"></div>'
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.modbusTcp.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
@@ -818,14 +851,13 @@
   function sourceCardBMS() {
     var s = cfg('bms');
     return '<div class="source-config card" data-source="bms">'
-      + '<div class="card-header"><span class="card-title">BMS (BLE bridge)</span></div>'
+      + '<div class="card-header"><span class="card-title">BMS (Bluetooth)</span></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.bms.name" value="' + esc(s.name) + '"></div>'
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bms.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
       + '</div>'
-      + '<div class="form-group"><label>MAC address</label><input class="input" data-field="sources.bms.address" placeholder="AA:BB:CC:DD:EE:FF" value="' + esc(s.address) + '"></div>'
-      + '<div class="form-group"><label>BMS bridge URL</label><input class="input" data-field="sources.bms.bridge_url" value="' + esc(s.bridge_url) + '">'
-      + '<span class="note">The BLE bridge container. Only change this if the bridge runs on another host.</span></div>'
+      + bleAddressField('bms', 'sources.bms.address', s.address, 'BMS device')
+      + '<span class="note">Press Scan to find nearby batteries, then pick yours. Close the vendor phone app first — most BMS allow one connection at a time.</span>'
       + '<div class="test-row">'
       + '<button class="btn btn-sm" type="button" data-action="test" data-source="bms" data-test="bms">Test connection</button>'
       + '<span class="test-badge pending" data-badge-src="bms">Not tested</span>'
@@ -842,9 +874,11 @@
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bmsWired.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
       + '</div>'
       + '<div class="form-group"><label>Serial port</label><select class="input" data-field="sources.bmsWired.serial_path" id="bms-wired-port"><option value="">Loading…</option></select></div>'
+      + '<div class="form-group"><label>Profile</label><select class="input" data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select></div>'
+      + '<div id="bms-wired-profile-notes" style="display:none; white-space:pre-line; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.bmsWired.baud" value="' + esc(s.baud) + '"></div>'
-      + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
+      + '<div class="form-group" id="bms-wired-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
       + '</div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Data bits</label><select class="select-input" data-field="sources.bmsWired.data_bits">' + [[8,'8'],[7,'7'],[6,'6'],[5,'5']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.data_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
@@ -854,7 +888,6 @@
       + '<div class="form-group"><label>Stop bits</label><select class="select-input" data-field="sources.bmsWired.stop_bits">' + [['1','1'],['2','2']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.stop_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
       + '<div class="form-group"><label>Timeout (ms)</label><input class="input" type="number" data-field="sources.bmsWired.timeout" value="' + esc(s.timeout) + '"></div>'
       + '</div>'
-      + '<div class="form-group"><label>Profile</label><select class="input" data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select></div>'
       + '<div class="test-row">'
       + '<button class="btn btn-sm" type="button" data-action="test" data-source="bmsWired" data-test="bmsWired">Test connection</button>'
       + '<span class="test-badge pending" data-badge-src="bmsWired">Not tested</span>'
@@ -907,18 +940,33 @@
       }
       state.sources[kind].profiles = res.data;
       if (!sel) return;
+      var cur = state.sources[kind].profile;
+      function opt(p) { return '<option value="' + esc(p.id) + '"' + (cur === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }
+      var tcpNative = res.data.filter(function (p) { return p.connection === 'tcp'; });
+      var rtu = res.data.filter(function (p) { return p.connection !== 'tcp'; });
       var html = '<option value="">Select a profile…</option>';
-      res.data.forEach(function (p) {
-        var v = p.id;
-        html += '<option value="' + esc(v) + '"' + (state.sources[kind].profile === v ? ' selected' : '') + '>' + esc(p.name) + '</option>';
-      });
+      if (kind === 'modbusTcp') {
+        // Modbus-TCP devices first; RS-485 inverters need a gateway.
+        if (tcpNative.length) html += '<optgroup label="Modbus-TCP devices">' + tcpNative.map(opt).join('') + '</optgroup>';
+        if (rtu.length) html += '<optgroup label="RS-485 inverters (via RS485-to-Ethernet gateway)">' + rtu.map(opt).join('') + '</optgroup>';
+      } else {
+        html += rtu.map(opt).join(''); // Modbus-TCP-only devices cannot be wired over RS-485
+      }
       sel.innerHTML = html;
+      if (kind === 'modbusTcp') syncModbusGateway();
+      if (state.sources[kind].profile) loadProfileEntities(kind);
     }).catch(function () {
       var sel = docById(selId);
       if (sel) sel.innerHTML = '<option value="">(unavailable)</option>';
     });
   }
   function docById(id) { return document.getElementById(id); }
+  function syncModbusGateway() {
+    var t = state.sources.modbusTcp;
+    var p = (t.profiles || []).filter(function (x) { return x.id === t.profile; })[0];
+    var g = docById('modbus-tcp-gateway');
+    if (g) g.style.display = (p && p.connection !== 'tcp') ? '' : 'none';
+  }
 
   function loadDongleProfiles() {
     state.sources.dongle.profilesLoaded = true;
@@ -927,20 +975,65 @@
         var sel = $('#dongle-profile'); if (sel) sel.innerHTML = '<option value="">(unavailable)</option>';
         return;
       }
-      state.sources.dongle.profiles = res.data;
-      var sel = $('#dongle-profile');
-      if (sel) {
-        var html = '<option value="">Select a profile…</option>';
-        res.data.forEach(function (p) {
-          var v = p.name;
-          html += '<option value="' + esc(v) + '"' + (state.sources.dongle.profile === v ? ' selected' : '') + '>' + esc(v) + '</option>';
-        });
-        sel.innerHTML = html;
-        if (state.sources.dongle.profile) onDongleProfileChange(state.sources.dongle.profile);
-      }
+      var d = state.sources.dongle;
+      d.profiles = res.data;
+      // Older wizard runs saved the display name; the poller needs the file id.
+      var byName = res.data.filter(function (p) { return p.name === d.profile; })[0];
+      if (byName) d.profile = byName.id;
+      renderDongleProfileOptions();
+      if (d.profile) onDongleProfileChange(d.profile, false);
     }).catch(function () {
       var sel = $('#dongle-profile'); if (sel) sel.innerHTML = '<option value="">(unavailable)</option>';
     });
+  }
+  // Bluetooth modules speak Modbus, so only register-map profiles apply there.
+  function isRegisterDongleProfile(p) {
+    var protocol = String(p.protocol || '').toLowerCase();
+    return protocol !== 'luxpower-tcp' && protocol !== 'felicity-tcp' && protocol !== 'ble-gatt' && String(p.transport || '').toLowerCase() !== 'growatt';
+  }
+  // Read-only Bluetooth devices that publish values directly (e.g. Phocos Any-Grid).
+  function isBleGattDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'ble-gatt'; }
+  function currentDongleProfile() {
+    var d = state.sources.dongle;
+    return (d.profiles || []).filter(function (p) { return p.id === d.profile; })[0];
+  }
+  function renderDongleProfileOptions() {
+    var d = state.sources.dongle;
+    var sel = $('#dongle-profile');
+    if (!sel || !d.profiles) return;
+    var bt = d.link === 'bluetooth';
+    var html = '<option value="">Select a profile…</option>';
+    d.profiles.forEach(function (p) {
+      if (bt && !isRegisterDongleProfile(p) && !isBleGattDongleProfile(p)) return;
+      if (!bt && (isBleGattDongleProfile(p) || p.connection === 'bluetooth')) return;
+      html += '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+    });
+    sel.innerHTML = html;
+    if (d.profile && sel.value !== d.profile) { d.profile = ''; d.mappings = {}; d.entities = []; }
+  }
+  function syncDongleLink() {
+    var d = state.sources.dongle;
+    var bt = d.link === 'bluetooth';
+    var net = $('#dongle-net-group'); if (net) net.style.display = bt ? 'none' : '';
+    var btg = $('#dongle-bt-group'); if (btg) btg.style.display = bt ? '' : 'none';
+    renderDongleProfileOptions();
+    d.transport = dongleTransport();
+    syncDongleBleFields();
+  }
+  // Characteristics / unit id only apply to Modbus over BLE, not to read-only profiles.
+  function syncDongleBleFields() {
+    var gatt = state.sources.dongle.link === 'bluetooth' && isBleGattDongleProfile(currentDongleProfile());
+    var uuid = $('#dongle-ble-uuid-row'); if (uuid) uuid.style.display = gatt ? 'none' : '';
+    var unit = $('#dongle-unit-group'); if (unit) unit.style.display = gatt ? 'none' : '';
+  }
+  function dongleTransport() {
+    var d = state.sources.dongle;
+    if (d.link === 'bluetooth') return isBleGattDongleProfile(currentDongleProfile()) ? 'ble-gatt' : 'ble-modbus';
+    var prof = (d.profiles || []).filter(function (p) { return p.id === d.profile; })[0];
+    if (!prof) return d.transport === 'ble-modbus' ? 'solarman-v5' : (d.transport || 'solarman-v5');
+    if (prof.protocol === 'felicity-tcp') return 'felicity-tcp';
+    if (prof.protocol === 'luxpower-tcp') return 'luxpower-tcp';
+    return prof.transport || 'solarman-v5';
   }
 
   function loadRs232Ports() {
@@ -982,11 +1075,11 @@
         res.data.forEach(function (p) {
           var hay = String(p.name || '') + ' ' + String(p.id || '');
           if (hay.toLowerCase().indexOf('bms') !== -1) return;
-          var v = p.name;
-          html += '<option value="' + esc(v) + '"' + (state.sources.rs232.profile === v ? ' selected' : '') + '>' + esc(v) + '</option>';
+          if (p.name === state.sources.rs232.profile) state.sources.rs232.profile = p.id; // legacy: saved by name
+          html += '<option value="' + esc(p.id) + '"' + (state.sources.rs232.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
         });
         sel.innerHTML = html;
-        if (state.sources.rs232.profile) onRs232ProfileChange(state.sources.rs232.profile);
+        if (state.sources.rs232.profile) onRs232ProfileChange(state.sources.rs232.profile, false);
       }
     }).catch(function () {
       var sel = $('#rs232-profile'); if (sel) sel.innerHTML = '<option value="">(unavailable)</option>';
@@ -1014,6 +1107,22 @@
     });
   }
 
+  function updateBmsWiredProfileNotes() {
+    var sel = $('#bms-wired-profile');
+    var box = $('#bms-wired-profile-notes');
+    if (!sel || !box) return;
+    var descriptions = {};
+    try { descriptions = JSON.parse(sel.dataset.descriptions || '{}'); } catch (e) { descriptions = {}; }
+    var text = descriptions[sel.value] || '';
+    if (text) {
+      box.textContent = text;
+      box.style.display = '';
+    } else {
+      box.textContent = '';
+      box.style.display = 'none';
+    }
+  }
+
   function loadBmsWiredProfiles() {
     api('/api/rs232/profiles').then(function (res) {
       var sel = $('#bms-wired-profile');
@@ -1024,16 +1133,26 @@
       }
       var html = '<option value="">Select a profile…</option>';
       var found = false;
+      var descriptions = {};
       res.data.forEach(function (p) {
         var id = p.id !== undefined && p.id !== null ? p.id : p.name;
         var name = p.name || id;
         var hay = String(name).toLowerCase() + ' ' + String(id).toLowerCase();
         if (hay.indexOf('bms') === -1) return;
+        // Unverified skeleton maps stay out of the wizard (a saved device keeps its choice).
+        if (p.placeholder && state.sources.bmsWired.profile !== id) return;
         found = true;
+        state.sources.bmsWired.profileInfo = state.sources.bmsWired.profileInfo || {};
+        state.sources.bmsWired.profileInfo[id] = p;
+        descriptions[id] = p.description || '';
         html += '<option value="' + esc(id) + '"' + (state.sources.bmsWired.profile === id ? ' selected' : '') + '>' + esc(name) + '</option>';
       });
       if (!found) html = '<option value="">No BMS profiles found</option>';
       sel.innerHTML = html;
+      sel.dataset.descriptions = JSON.stringify(descriptions);
+      updateBmsWiredProfileNotes();
+      sel.addEventListener('change', updateBmsWiredProfileNotes);
+      if (state.sources.bmsWired.profile) { loadBmsWiredFields(); applyBmsWiredProfile(false); }
     }).catch(function () {
       var sel = $('#bms-wired-profile');
       if (sel) sel.innerHTML = '<option value="">Profiles unavailable</option>';
@@ -1045,24 +1164,32 @@
     if (g) g.style.display = (state.sources.rs232.portChoice === '__custom') ? '' : 'none';
   }
 
-  function onDongleProfileChange(id) {
+  // userChange: the user picked a different profile, so saved mappings (which
+  // point at the old profile's registers) are dropped and rebuilt from the new one.
+  function onDongleProfileChange(id, userChange) {
     var d = state.sources.dongle;
-    var prof = (d.profiles || []).filter(function (p) { return p.name === id; })[0];
+    var prof = (d.profiles || []).filter(function (p) { return p.id === id; })[0];
+    if (userChange) { d.mappings = {}; d.entities = []; }
     if (prof) {
-      if (prof.transport) setFieldValue('sources.dongle.transport', prof.transport);
-      if (prof.default_port != null) setFieldValue('sources.dongle.port', prof.default_port);
-      if (prof.default_unit_id != null) setFieldValue('sources.dongle.modbus_unit_id', prof.default_unit_id);
+      d.transport = dongleTransport();
+      syncDongleBleFields();
+      if (userChange && prof.default_poll_interval) setFieldValue('sources.dongle.poll_interval', prof.default_poll_interval);
+      if (userChange && d.link !== 'bluetooth' && prof.default_port != null) setFieldValue('sources.dongle.port', prof.default_port);
+      if (userChange && prof.default_unit_id != null) setFieldValue('sources.dongle.modbus_unit_id', prof.default_unit_id);
       d.profileRequiresSerial = !!prof.requires_serial;
       var g = $('#dongle-serial-group');
-      if (g) g.style.display = d.profileRequiresSerial ? '' : 'none';
+      if (g) g.style.display = (d.profileRequiresSerial && d.link !== 'bluetooth') ? '' : 'none';
       if (state.sources.dongle.profileMetricsLoadedFor !== id) ensureDongleProfileDetail(id);
+      loadProfileEntities('dongle');
     }
   }
 
-  function onRs232ProfileChange(id) {
+  function onRs232ProfileChange(id, userChange) {
     var r = state.sources.rs232;
-    var prof = (r.profiles || []).filter(function (p) { return p.name === id; })[0];
+    var prof = (r.profiles || []).filter(function (p) { return p.id === id; })[0];
+    if (userChange) { r.mappings = {}; r.entities = []; }
     if (prof) {
+      loadProfileEntities('rs232');
       var defaults = prof.defaults || {};
       if (defaults.baud != null) setFieldValue('sources.rs232.baud', defaults.baud);
       if (defaults.dataBits != null) setFieldValue('sources.rs232.data_bits', defaults.dataBits);
@@ -1077,6 +1204,64 @@
     setPath(state, path, value);
     var el = document.querySelector('[data-field="' + path + '"]');
     if (el && String(el.value) !== String(value)) { el.value = value; }
+  }
+
+  // Entity catalog for the chosen profile: [{id: decode handle, name: default
+  // metric name}]. The wizard turns it into default mappings so a source set up
+  // here writes metrics (an empty mappings object means "write nothing").
+  var ENTITY_URL = { dongle: '/api/dongle/profile/', rs232: '/api/rs232/profile/', modbusSerial: '/api/modbus/profile/', modbusTcp: '/api/modbus/profile/' };
+  function loadProfileEntities(kind) {
+    var src = state.sources[kind];
+    var id = src.profile;
+    if (!id || src.entitiesFor === id) return;
+    api(ENTITY_URL[kind] + encodeURIComponent(id) + '/entities').then(function (res) {
+      if (src.profile !== id) return;
+      src.entities = (res.ok && Array.isArray(res.data)) ? res.data : [];
+      src.entitiesFor = id;
+      if (state.currentStep === 3) renderStep3();
+    }).catch(function () {});
+  }
+  // Serial settings follow the chosen wired profile (JK = 115200); JBD / JK are
+  // not Modbus, so their unit id is hidden.
+  function applyBmsWiredProfile(userChange) {
+    var w = state.sources.bmsWired;
+    var p = (w.profileInfo || {})[w.profile];
+    var g = $('#bms-wired-unit-group');
+    if (g) {
+      g.style.display = (p && ['jbd', 'jk-rs485'].indexOf(p.protocol) >= 0) ? 'none' : '';
+      var lbl = g.querySelector('label');
+      if (lbl) lbl.textContent = (p && p.protocol === 'pace-v25') ? 'Pack address (DIP switch)' : 'Modbus unit id';
+    }
+    if (!userChange || !p || !p.defaults) return;
+    var d = p.defaults;
+    if (d.baud != null) setFieldValue('sources.bmsWired.baud', d.baud);
+    if (d.dataBits != null) setFieldValue('sources.bmsWired.data_bits', d.dataBits);
+    if (d.parity != null) setFieldValue('sources.bmsWired.parity', d.parity);
+    if (d.stopBits != null) setFieldValue('sources.bmsWired.stop_bits', d.stopBits);
+  }
+  function loadBmsWiredFields() {
+    var w = state.sources.bmsWired;
+    if (!w.profile) { w.fieldKeys = []; return; }
+    api('/api/bms-wired/fields/' + encodeURIComponent(w.profile)).then(function (res) {
+      w.fieldKeys = (res.ok && Array.isArray(res.data)) ? res.data.map(function (f) { return f.field; }).filter(Boolean) : [];
+    }).catch(function () {});
+  }
+  // Mappings to save for a register/field source: what the user already has,
+  // else one metric per profile entity (same as Settings' "Load Profile Registers").
+  function effectiveMappings(kind) {
+    var src = state.sources[kind];
+    if (src.mappings && Object.keys(src.mappings).length) return src.mappings;
+    var prefix = kind === 'dongle' ? (src.prefix || '') : '';
+    var out = {};
+    (src.entities || []).forEach(function (e) {
+      if (!e || e.id === undefined || e.id === null || !e.name) return;
+      var metric = prefix + e.name;
+      if (out[metric] === undefined) out[metric] = String(e.id);
+    });
+    return out;
+  }
+  function bmsMetricName(deviceName, key) {
+    return ('bms_' + deviceName + '_' + key).replace(/[^a-zA-Z0-9_]/g, '_');
   }
 
   function ensureDongleProfileDetail(id) {
@@ -1098,6 +1283,45 @@
     }).catch(function () {});
   }
 
+  // ── Bluetooth scan (BMS + inverter Bluetooth modules) ─────
+  var BLE_FIELD = { bms: 'sources.bms.address', dongle: 'sources.dongle.ble_address' };
+  function runBleScan(kind, btn) {
+    var box = $('#' + kind + '-ble-results');
+    if (!box) return;
+    if (btn) btn.disabled = true;
+    box.innerHTML = '<div class="test-badge pending">Scanning for Bluetooth devices… (about 10 s)</div>';
+    // BMS: recognised batteries first; inverter modules: everything nearby.
+    var url = kind === 'bms' ? '/api/bms/scan?force=1' : '/api/bluetooth/scan';
+    api(url).then(function (res) {
+      if (!res.ok || !Array.isArray(res.data)) {
+        box.innerHTML = '<div class="alert alert-error">' + esc(apiErrMsg(res, 'Bluetooth scan')) + '</div>';
+        return;
+      }
+      if (!res.data.length) {
+        box.innerHTML = '<div class="alert alert-info">No Bluetooth devices found. Make sure the device is powered, within ~10 m, and not connected to a phone app, then scan again.</div>';
+        return;
+      }
+      var rows = res.data.slice().sort(function (a, b) { return (b.rssi || -999) - (a.rssi || -999); }).map(function (d) {
+        var tag = d.bms_type ? '<span class="ble-tag">' + esc(d.bms_type) + '</span>' : '';
+        return '<div class="topic-item ble-device" data-action="ble-pick" data-source="' + esc(kind) + '" data-address="' + esc(d.address) + '" role="button" tabindex="0">'
+          + '<span class="ble-name">' + esc(d.name || 'Unknown') + '</span>' + tag
+          + '<code>' + esc(d.address) + '</code><span class="ble-rssi">' + esc(String(d.rssi)) + ' dBm</span></div>';
+      }).join('');
+      box.innerHTML = '<div class="topic-list">' + rows + '</div><span class="note">Tap a device to use it.</span>';
+    }).catch(function () {
+      box.innerHTML = '<div class="alert alert-error">Network error during Bluetooth scan.</div>';
+    }).then(function () { if (btn) btn.disabled = false; });
+  }
+  function pickBleDevice(kind, address) {
+    setFieldValue(BLE_FIELD[kind], address);
+    var box = $('#' + kind + '-ble-results');
+    if (box) box.innerHTML = '<span class="note">Selected ' + esc(address) + ' — press Test connection.</span>';
+    clearBadge(kind);
+    clearError(kind);
+    updateTestButtons();
+    updateNav();
+  }
+
   // ── Connection tests ──────────────────────────────────────
   function setBadge(key, cls, text) {
     var el = document.querySelector('[data-badge-src="' + key + '"]');
@@ -1111,14 +1335,14 @@
   }
   function clearError(key) {
     var el = document.querySelector('[data-error="' + key + '"]');
-    if (el) { el.className = 'alert alert-error'; el.innerHTML = ''; }
+    if (el) { el.className = ''; el.innerHTML = ''; } // no styling while empty (was an empty red box)
   }
 
   function hasMinimal(kind) {
     var s = state.sources[kind];
     if (kind === 'ha') return !!(s.url && s.token);
     if (kind === 'mqtt') return !!s.broker;
-    if (kind === 'dongle') return !!(s.host && s.port && s.profile);
+    if (kind === 'dongle') return s.link === 'bluetooth' ? !!(s.ble_address && s.profile) : !!(s.host && s.port && s.profile);
     if (kind === 'rs232') return !!(resolveSerialPath(s) && s.profile);
     if (kind === 'modbusSerial') return !!(s.serial_path && s.transport === 'serial');
     if (kind === 'modbusTcp') return !!(s.host && s.port && s.transport === 'tcp');
@@ -1218,16 +1442,17 @@
           setError(kind, apiErrMsg(res, 'Modbus'));
         }
       } else if (kind === 'bms') {
-        if (res.ok && res.data && (res.data.success || res.data.metrics || Object.keys(res.data || {}).length)) {
-          setBadge('bms', 'ok', '✔ Connected');
-        } else if (res.ok && res.data && res.data.success === false) {
+        var bmsKeys = (res.ok && res.data && typeof res.data === 'object') ? Object.keys(res.data).filter(function (k) { return typeof res.data[k] === 'number'; }) : [];
+        if (bmsKeys.length) {
+          state.sources.bms.sampleKeys = bmsKeys;
+          setBadge('bms', 'ok', '✔ ' + bmsKeys.length + ' metrics');
+        } else {
           setBadge('bms', 'fail', '✖ Failed');
           setError('bms', apiErrMsg(res, 'BMS'));
-        } else {
-          setBadge('bms', 'ok', '✔ Connected');
         }
       } else if (kind === 'bmsWired') {
         if (res.ok && res.data && Object.keys(res.data || {}).length) {
+          state.sources.bmsWired.sampleKeys = Object.keys(res.data);
           setBadge('bmsWired', 'ok', '✔ ' + Object.keys(res.data).length + ' metrics');
         } else {
           setBadge('bmsWired', 'fail', '✖ Failed');
@@ -1299,7 +1524,7 @@
   function modbusTestBody(kind) {
     if (kind === 'modbusTcp') {
       var t = state.sources.modbusTcp;
-      return { transport: 'tcp', profile: t.profile, host: t.host, port: t.port, unit: t.unit };
+      return { transport: 'tcp', tcp_framing: t.tcp_framing || 'tcp', profile: t.profile, host: t.host, port: t.port, unit: t.unit };
     }
     var s = state.sources.modbusSerial;
     return { transport: 'serial', profile: s.profile, serial_path: s.serial_path, serial_baud: s.serial_baud, serial_data_bits: s.serial_data_bits, serial_parity: s.serial_parity, serial_stop_bits: s.serial_stop_bits, unit: s.unit };
@@ -1315,7 +1540,10 @@
 
   function dongleTestBody() {
     var d = state.sources.dongle;
-    var body = { host: d.host, port: d.port, modbus_unit_id: d.modbus_unit_id, transport: d.transport };
+    if (d.link === 'bluetooth') {
+      return { transport: dongleTransport(), profile: d.profile, ble_address: d.ble_address, ble_write_uuid: d.ble_write_uuid, ble_notify_uuid: d.ble_notify_uuid, modbus_unit_id: d.modbus_unit_id };
+    }
+    var body = { host: d.host, port: d.port, modbus_unit_id: d.modbus_unit_id, transport: dongleTransport() };
     if (d.serial_number) body.serial_number = d.serial_number;
     return body;
   }
@@ -1388,21 +1616,33 @@
   function buildHADevices() {
     if (!state.sources.ha.selected) return [];
     var s = state.sources.ha;
-    return [{ name: s.name || 'Home Assistant', url: s.url, token: s.token, enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, entities: carryForwardMap(state.existing, 'ha_devices', 'entities', '') }];
+    var entities = carryForwardMap(state.existing, 'ha_devices', 'entities', '');
+    Object.keys(s.roleEntities || {}).forEach(function (id) { if (entities[id] === undefined) entities[id] = id; });
+    return [{ name: s.name || 'Home Assistant', url: s.url, token: s.token, enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, entities: entities }];
   }
   function buildMQTTDevices() {
     if (!state.sources.mqtt.selected) return [];
     var s = state.sources.mqtt;
-    return [{ name: s.name || 'MQTT Broker', broker: s.broker, username: s.username || '', password: s.password || '', enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, topics: s.topics || {} }];
+    var topics = Object.assign({}, s.topics || {});
+    var mapped = {}; Object.keys(topics).forEach(function (k) { mapped[topics[k]] = true; });
+    Object.keys(s.selectedTopics || {}).forEach(function (t) { if (!mapped[t] && topics[t] === undefined) topics[t] = t; });
+    return [{ name: s.name || 'MQTT Broker', broker: s.broker, username: s.username || '', password: s.password || '', enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, topics: topics }];
   }
   function buildDongleConfig() {
     if (!state.sources.dongle.selected) return [];
     var d = state.sources.dongle;
-    return [{ name: d.name || 'Inverter (TCP)', enabled: true, profile: d.profile, transport: d.transport, host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: carryForwardMap(state.existing, 'dongle_config', 'mappings', '') }];
+    var dev = { name: d.name || 'Inverter (dongle)', enabled: true, profile: d.profile, transport: dongleTransport(), host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: effectiveMappings('dongle') };
+    if (d.link === 'bluetooth') {
+      dev.ble_address = String(d.ble_address || '').trim().toUpperCase();
+      dev.ble_write_uuid = d.ble_write_uuid || '';
+      dev.ble_notify_uuid = d.ble_notify_uuid || '';
+      dev.host = ''; dev.port = undefined; dev.serial_number = '';
+    }
+    return [dev];
   }
   function buildRS232Device(opts) {
     var r = state.sources.rs232;
-    var dev = { name: r.name || 'Inverter (RS232)', serial_path: resolveSerialPath(r), baud: r.baud, modbus_unit_id: r.modbus_unit_id, parity: r.parity, data_bits: r.data_bits, stop_bits: r.stop_bits, profile: r.profile, timeout: r.timeout ? parseInt(r.timeout, 10) : 5, enabled: r.enabled, mappings: (r && r.mappings && typeof r.mappings === 'object' && Object.keys(r.mappings).length) ? r.mappings : carryForwardMap(state.existing, 'rs232_devices', 'mappings', '') };
+    var dev = { name: r.name || 'Inverter (RS232)', serial_path: resolveSerialPath(r), baud: r.baud, modbus_unit_id: r.modbus_unit_id, parity: r.parity, data_bits: r.data_bits, stop_bits: r.stop_bits, profile: r.profile, timeout: r.timeout ? parseInt(r.timeout, 10) : 5, enabled: r.enabled, mappings: effectiveMappings('rs232') };
     return dev;
   }
   function buildRS232Devices() {
@@ -1413,11 +1653,11 @@
     var out = [];
     var ms = state.sources.modbusSerial;
     if (ms.selected) {
-      out.push({ name: ms.name || 'Inverter (RS485)', enabled: true, transport: 'serial', profile: ms.profile || '', serial_path: ms.serial_path || '', serial_baud: parseInt(ms.serial_baud, 10) || 9600, serial_data_bits: parseInt(ms.serial_data_bits, 10) || 8, serial_parity: ms.serial_parity || 'none', serial_stop_bits: parseInt(ms.serial_stop_bits, 10) || 1, unit: parseInt(ms.unit, 10) || 1, poll_interval: parseInt(ms.poll_interval, 10) || 30, mappings: ms.mappings || {} });
+      out.push({ name: ms.name || 'Inverter (RS485)', enabled: true, transport: 'serial', profile: ms.profile || '', serial_path: ms.serial_path || '', serial_baud: parseInt(ms.serial_baud, 10) || 9600, serial_data_bits: parseInt(ms.serial_data_bits, 10) || 8, serial_parity: ms.serial_parity || 'none', serial_stop_bits: parseInt(ms.serial_stop_bits, 10) || 1, unit: parseInt(ms.unit, 10) || 1, poll_interval: parseInt(ms.poll_interval, 10) || 30, mappings: effectiveMappings('modbusSerial') });
     }
     var mt = state.sources.modbusTcp;
     if (mt.selected) {
-      out.push({ name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: mt.mappings || {} });
+      out.push({ name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', tcp_framing: mt.tcp_framing || 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: effectiveMappings('modbusTcp') });
     }
     return out;
   }
@@ -1425,7 +1665,7 @@
     var out = [];
     if (state.sources.bms.selected) {
       var b = state.sources.bms;
-      out.push({ name: b.name || 'BMS (BLE bridge)', enabled: true, transport: 'bluetooth', address: b.address || '', bridge_url: b.bridge_url || 'http://bms-bridge:8020', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} });
+      out.push({ name: b.name || 'BMS (Bluetooth)', enabled: true, transport: 'bluetooth', address: b.address || '', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} });
     }
     if (state.sources.bmsWired.selected) {
       var w = state.sources.bmsWired;
@@ -1488,11 +1728,12 @@
       var s = state.sources[k];
       if (k === 'ha' && !(s.url && s.token)) errors.ha = 'Base URL and access token are required.';
       else if (k === 'mqtt' && !s.broker) errors.mqtt = 'Broker URL is required.';
-      else if (k === 'dongle' && !(s.host && s.port && s.profile)) errors.dongle = 'Host, port and profile are required.';
+      else if (k === 'dongle' && s.link === 'bluetooth' && !(s.ble_address && s.profile)) errors.dongle = 'Bluetooth module and profile are required.';
+      else if (k === 'dongle' && s.link !== 'bluetooth' && !(s.host && s.port && s.profile)) errors.dongle = 'Host, port and profile are required.';
       else if (k === 'rs232' && !(resolveSerialPath(s) && s.profile)) errors.rs232 = 'Serial port and profile are required.';
       else if (k === 'modbusSerial' && !s.serial_path) errors.modbusSerial = 'Serial path is required.';
       else if (k === 'modbusTcp' && !(s.host && s.port)) errors.modbusTcp = 'Host and port are required.';
-      else if (k === 'bms' && !s.address) errors.bms = 'MAC address is required.';
+      else if (k === 'bms' && !s.address) errors.bms = 'Pick a BMS with Scan, or enter its MAC address.';
       else if (k === 'bmsWired' && !(s.serial_path && s.profile && s.modbus_unit_id)) errors.bmsWired = 'Serial port, profile and Modbus unit ID are required.';
       else if (k === 'rest' && !s.url) errors.rest = 'Endpoint URL is required.';
     });
@@ -1545,17 +1786,7 @@
 
   function resetClientState() {
     // Revert the wizard's local source state so a cleared server state is fully reflected.
-    state.sources = {
-      ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
-      mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
-      dongle:  { selected: false, name: 'Inverter (TCP)', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
-      bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
-      rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
-    };
+    state.sources = defaultSources();
     state.roleMetrics = {};
     state.dashboard.choice = 'full';
     state.optional = {
@@ -1566,12 +1797,39 @@
   }
 
   // ── STEP 3: METRICS ───────────────────────────────────────
+  // Bluetooth BMS keys before a test has read the real ones (aiobmsble names).
+  var BLE_BMS_KEYS = ['battery_level', 'voltage', 'current', 'power', 'temperature', 'cycle_charge', 'cycles', 'battery_charging'];
+
+  // Metric names the configured sources will actually write, grouped so
+  // inverter/BMS names can drive the auto-fill before HA/MQTT ones.
+  function sourceMetricNames() {
+    var inverter = [], bms = [], other = [];
+    ['dongle', 'rs232', 'modbusSerial', 'modbusTcp'].forEach(function (k) {
+      if (state.sources[k].selected) Object.keys(effectiveMappings(k)).forEach(function (n) { inverter.push(n); });
+    });
+    var b = state.sources.bms;
+    if (b.selected) (b.sampleKeys && b.sampleKeys.length ? b.sampleKeys : BLE_BMS_KEYS).forEach(function (k) { bms.push(bmsMetricName(b.name || 'BMS (Bluetooth)', k)); });
+    var w = state.sources.bmsWired;
+    if (w.selected) ((w.sampleKeys && w.sampleKeys.length) ? w.sampleKeys : (w.fieldKeys || [])).forEach(function (k) { bms.push(bmsMetricName(w.name || 'BMS (RS485/RS232)', k)); });
+    if (state.sources.ha.selected) state.sources.ha.entities.forEach(function (e) { other.push(e); });
+    if (state.sources.mqtt.selected) Object.keys(state.sources.mqtt.selectedTopics).forEach(function (t) { other.push(t); });
+    return { inverter: inverter, bms: bms, other: other };
+  }
+  function knownMetricNames(suggestions) {
+    var known = {};
+    (suggestions || []).forEach(function (n) { known[n] = true; });
+    var ex = state.existing || {};
+    function arr(v) { if (Array.isArray(v)) return v; try { var a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+    arr(ex.tuya_devices).forEach(function (d) { Object.values((d && d.dps) || {}).forEach(function (v) { if (typeof v === 'string') known[v] = true; else if (v && v.metric) known[v.metric] = true; }); });
+    arr(ex.external_sources).forEach(function (d) { Object.keys((d && d.mappings) || {}).forEach(function (k) { known[k] = true; }); });
+    arr(ex.bms_devices).forEach(function (d) { Object.values((d && d.mappings) || {}).forEach(function (v) { if (v) known[v] = true; }); });
+    arr(ex.bms_banks).forEach(function (bank) { ((bank && bank.functions) || []).forEach(function (f) { if (f && f.output) known[f.output] = true; }); });
+    return known;
+  }
   function roleSuggestions() {
+    var g = sourceMetricNames();
     var set = {};
-    state.sources.ha.entities.forEach(function (e) { set[e] = true; });
-    Object.keys(state.sources.mqtt.selectedTopics).forEach(function (t) { set[t] = true; });
-    metricsNames(state.sources.dongle.profileMetrics).forEach(function (n) { set[n] = true; });
-    metricsNames(state.sources.rs232.profileMetrics).forEach(function (n) { set[n] = true; });
+    g.inverter.concat(g.bms, g.other).forEach(function (n) { set[n] = true; });
     return Object.keys(set);
   }
   function metricsNames(list) {
@@ -1585,20 +1843,34 @@
     return names;
   }
   function profileHint(list) {
-    var names = metricsNames(list).map(function (n) { return n.toLowerCase(); });
+    var names = metricsNames(list);
+    var lower = names.map(function (n) { return n.toLowerCase(); });
     var hint = {};
-    function find(keys) {
+    // exclude: a regex of names that can never fill the role (e.g. a power role
+    // must not pick grid_voltage just because it contains "grid").
+    function find(keys, exclude) {
       for (var i = 0; i < keys.length; i++) {
-        for (var j = 0; j < names.length; j++) { if (names[j].indexOf(keys[i]) > -1) return names[j]; }
+        for (var j = 0; j < lower.length; j++) {
+          if (exclude && exclude.test(lower[j])) continue;
+          if (lower[j].indexOf(keys[i]) > -1) return names[j];
+        }
       }
       return null;
     }
-    var s = find(['solar_power', 'pv_power', 'avatar_power', 'pv', 'solar']); if (s) hint.solar = s;
-    var g = find(['grid_power', 'grid_import', 'buy', 'grid']); if (g) hint.grid_import = g;
-    var l = find(['load_power', 'consumption', 'home_power', 'load']); if (l) hint.consumption = l;
-    var b = find(['battery_power', 'battery']); if (b) { hint.battery_charge = b; hint.battery_discharge = b; }
-    var soc = find(['battery_soc', 'soc']); if (soc) hint.battery_soc = soc;
-    var v = find(['solar_voltage', 'panel_voltage', 'voltage']); if (v) hint.solar_voltage = v;
+    var NOT_POWER = /(voltage|volt\b|current|frequency|freq|temp|percent|_pct|soc|level|_va\b|apparent|energy|kwh|daily|total_)/;
+    var s = find(['solar_power', 'pv_power', 'pv_total_power', 'pv1_power', 'avatar_power', 'pv', 'solar'], NOT_POWER); if (s) hint.solar = s;
+    var g = find(['grid_power', 'grid_import', 'buy', 'grid'], NOT_POWER); if (g) hint.grid_import = g;
+    var l = find(['load_power', 'consumption', 'home_power', 'output_power', 'ac_output_power', 'load'], NOT_POWER); if (l) hint.consumption = l;
+    // A signed battery power fills both roles; separate charge/discharge
+    // metrics (e.g. Phocos battery_discharge_power) only fill their own.
+    var b = find(['battery_power'], NOT_POWER);
+    var ch = find(['battery_charge_power', 'charge_power', 'battery_charging_power'], /discharg/) || b;
+    var dch = find(['battery_discharge_power', 'discharge_power'], NOT_POWER) || b;
+    if (!b && !ch && !dch) { b = find(['battery'], /(discharg|voltage|volt\b|current|frequency|freq|temp|percent|_pct|soc|level|energy|kwh)/); ch = ch || b; dch = dch || b; }
+    if (ch) hint.battery_charge = ch;
+    if (dch) hint.battery_discharge = dch;
+    var soc = find(['battery_soc', 'soc', 'battery_level']); if (soc) hint.battery_soc = soc;
+    var v = find(['solar_voltage', 'panel_voltage', 'pv_voltage', 'pv1_voltage', 'pv_input_voltage']); if (v) hint.solar_voltage = v;
     // daily-ish role hints
     function findDaily(words) { for (var w = 0; w < words.length; w++) for (var j = 0; j < names.length; j++) if (names[j].indexOf(words[w]) > -1) return names[j]; return null; }
     var ds = findDaily(['daily_solar', 'day_solar', 'kwh*', 'pv_daily']); if (ds) hint.daily_solar = ds;
@@ -1608,30 +1880,35 @@
   function renderStep3() {
     var body = $('#step-3-body');
     var suggestions = roleSuggestions();
-    var hint = profileHint(state.sources.dongle.profileMetrics);
-    var hint2 = profileHint(state.sources.rs232.profileMetrics);
-    Object.keys(hint2).forEach(function (k) { if (!hint[k]) hint[k] = hint2[k]; });
-
-    var hasEntities = state.sources.ha.entities.length > 0;
-    var hasTopics = Object.keys(state.sources.mqtt.selectedTopics).length > 0;
-    var hasInv = metricsNames(state.sources.dongle.profileMetrics).length || metricsNames(state.sources.rs232.profileMetrics).length;
+    var groups = sourceMetricNames();
+    // Inverter names fill the power roles first; BMS names only fill what is left (SOC etc.).
+    var hint = profileHint(groups.inverter);
+    var hint2 = profileHint(groups.bms);
+    if (!hint.battery_soc && hint2.battery_soc) hint.battery_soc = hint2.battery_soc;
 
     var note = '<div class="alert alert-info" id="metrics-info">';
-    if (!hasEntities && !hasTopics && !hasInv) {
-      note += 'No source data yet — type the metric name you expect.';
+    if (!suggestions.length) {
+      note += 'No source metrics yet — go back and pick a profile (or test your BMS / Home Assistant), or type the metric name you expect.';
     } else {
-      note += 'Suggestions are pulled from your tested sources.';
+      note += 'Pick a metric for each role — click a box to see the ' + suggestions.length + ' metrics your sources provide. Pre-filled guesses can be changed; leave a role empty to skip it.';
     }
     note += '</div>';
 
+    // Names something already writes: the sources above plus metric names
+    // mapped in Settings (Tuya, REST, BMS mappings…).
+    var known = knownMetricNames(suggestions);
     var rows = '';
     ROLES.forEach(function (r) {
-      var val = (state.roleMetrics[r.key] || '').trim() || (hint[r.key] || '');
-      if (!val && !(state.roleMetrics[r.key] || '').trim()) { /* fall back to hint */ }
-      if (val && !(state.roleMetrics[r.key] || '').trim()) { state.roleMetrics[r.key] = val; }
+      var cur = (state.roleMetrics[r.key] || '').trim();
+      // Fresh installs start with the default dashboard's placeholder names
+      // (history.js auto-fill); a real metric from a source replaces them.
+      var val = (cur && (known[cur] || !hint[r.key])) ? cur : (hint[r.key] || '');
+      if (val !== cur) state.roleMetrics[r.key] = val;
+      var warn = (val && suggestions.length && !known[val])
+        ? '<span class="note role-warn">No configured source writes “' + esc(val) + '” yet.</span>' : '';
       rows += '<tr>'
         + '<td class="role-cell">' + esc(r.label) + ' <span class="role-hint">' + esc(r.key) + '</span></td>'
-        + '<td><input class="input" list="role-suggestions" data-metric-role="' + esc(r.key) + '" value="' + esc(val) + '" placeholder="' + esc(r.label) + ' ' + esc(r.unit) + '"></td>'
+        + '<td><input class="input" list="role-suggestions" data-metric-role="' + esc(r.key) + '" value="' + esc(val) + '" placeholder="' + esc(r.label) + ' ' + esc(r.unit) + '">' + warn + '</td>'
         + '</tr>';
     });
 
@@ -1649,7 +1926,21 @@
     // Keep existing roles by sending the full mapping of non-empty values.
     var map = {};
     ROLES.forEach(function (r) { var v = (state.roleMetrics[r.key] || '').trim(); if (v) map[r.key] = v; });
-    return api('/api/role-metrics', { method: 'POST', body: JSON.stringify(map) }).then(function (res) {
+    // A Home Assistant entity picked for a role must be polled, so add it to
+    // the HA device's entity map (metric name = entity id) and re-save sources.
+    var ha = state.sources.ha;
+    var haIds = {}; (ha.entities || []).forEach(function (e) { haIds[e] = true; });
+    ha.roleEntities = {};
+    Object.keys(map).forEach(function (k) { if (haIds[map[k]]) ha.roleEntities[map[k]] = true; });
+    var pre = (ha.selected && Object.keys(ha.roleEntities).length) ? saveSources() : Promise.resolve(true);
+    return pre.then(function (okSources) {
+      if (!okSources) {
+        var e1 = $('#metrics-error'); if (e1) { e1.textContent = 'Could not save the Home Assistant entities for these roles.'; e1.hidden = false; }
+        return { sourcesFailed: true };
+      }
+      return api('/api/role-metrics', { method: 'POST', body: JSON.stringify(map) });
+    }).then(function (res) {
+      if (res.sourcesFailed) return false;
       if (res.ok && res.data && res.data.success) return true;
       var el = $('#metrics-error'); if (el) { el.textContent = 'Could not save metric mapping (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Server'); el.hidden = false; }
       return false;
@@ -2009,9 +2300,17 @@
 
   // ── Field change side-effects ─────────────────────────────
   function afterFieldChange(field) {
-    if (field === 'sources.dongle.profile') onDongleProfileChange(state.sources.dongle.profile);
-    else if (field === 'sources.rs232.profile') onRs232ProfileChange(state.sources.rs232.profile);
+    if (field === 'sources.dongle.profile') onDongleProfileChange(state.sources.dongle.profile, true);
+    else if (field === 'sources.dongle.link') syncDongleLink();
+    else if (field === 'sources.rs232.profile') onRs232ProfileChange(state.sources.rs232.profile, true);
     else if (field === 'sources.rs232.portChoice') syncCustomGroup();
+    else if (field === 'sources.modbusSerial.profile' || field === 'sources.modbusTcp.profile') {
+      var kind = field.split('.')[1];
+      state.sources[kind].mappings = {}; state.sources[kind].entities = []; state.sources[kind].entitiesFor = null;
+      loadProfileEntities(kind);
+      if (kind === 'modbusTcp') syncModbusGateway();
+    }
+    else if (field === 'sources.bmsWired.profile') { loadBmsWiredFields(); applyBmsWiredProfile(true); }
   }
 
   // ── Event delegation ──────────────────────────────────────
@@ -2062,6 +2361,8 @@
       else if (action === 'choose-dashboard') chooseDashboard(el);
       else if (action === 'toggle-theme') toggleTheme();
       else if (action === 'reset-sources') resetSources();
+      else if (action === 'ble-scan') runBleScan(el.getAttribute('data-source'), el);
+      else if (action === 'ble-pick') pickBleDevice(el.getAttribute('data-source'), el.getAttribute('data-address'));
     });
 
     $('#back-btn').addEventListener('click', function () { if (!state.busy) gotoStep(state.currentStep - 1); });

@@ -1,5 +1,11 @@
 /**
- * BMS Wired (Modbus-RTU Serial) Poller.
+ * BMS Wired (Serial) Poller.
+ *
+ * Protocols (profile.protocol):
+ *   modbus-rtu — register maps (e.g. Cworth / PACE)
+ *   jbd        — JBD / Jiabaida smart BMS UART/RS485 (modules/bms-decoders/jbd.js)
+ *   jk-rs485   — JK-BMS "4E 57" RS485 / GPS-port protocol (modules/bms-decoders/jk.js)
+ *   pace-v25   — PACE "paceic" ASCII protocol v0x25 (modules/bms-decoders/pace.js)
  *
  * Dedicated poller for BMS devices connected over a direct serial Modbus-RTU
  * link (RS-485/USB). This is a NET-NEW transport for the BMS subsystem — it
@@ -31,6 +37,9 @@ const {
   parseModbusReadResponse,
   frameByteCount,
 } = require('./modbus-frame');
+const jbd = require('./bms-decoders/jbd');
+const jk = require('./bms-decoders/jk');
+const pace = require('./bms-decoders/pace');
 
 let bmsWiredPollInterval = null;
 let bmsWiredPollingActive = false;
@@ -189,11 +198,115 @@ function readModbusRtuFrame(port, frame, timeoutMs = 5000) {
   });
 }
 
+// ── Framed (non-Modbus) protocols: JBD and JK ─────────────────────────────
+
+/**
+ * Write a request and resolve with one complete reply frame, found with the
+ * protocol's sync() (skip to the start marker) and frameLength().
+ */
+function readFramed(port, request, codec) {
+  const safeTimeout = MODBUS_RT_TIMEOUT_MS; // constant delay (see readModbusRtuFrame)
+  return new Promise((resolve, reject) => {
+    let buffer = Buffer.alloc(0);
+    const done = (err, frame) => {
+      clearTimeout(timer);
+      port.removeAllListeners('data');
+      if (err) reject(err); else resolve(frame);
+    };
+    const timer = setTimeout(() => done(new Error('No response from BMS')), safeTimeout);
+    port.on('data', chunk => {
+      buffer = codec.sync(Buffer.concat([buffer, chunk]));
+      if (buffer.length > 4096) buffer = buffer.subarray(buffer.length - 4096);
+      const total = codec.frameLength(buffer);
+      if (total && buffer.length >= total) done(null, buffer.subarray(0, total));
+      else timer.refresh();
+    });
+    port.write(request, err => { if (err) done(err); });
+  });
+}
+
+/** JBD: basic info (0x03) then cell voltages (0x04). Retries once — some boards sleep. */
+async function readJbd(port) {
+  const ask = async cmd => {
+    try {
+      return await readFramed(port, jbd.buildRequest(cmd), jbd);
+    } catch (err) {
+      if (err.message !== 'No response from BMS') throw err;
+      return readFramed(port, jbd.buildRequest(cmd), jbd); // first request can wake the BMS
+    }
+  };
+  const basic = jbd.decodeBasic(jbd.parseFrame(await ask(jbd.CMD_BASIC), jbd.CMD_BASIC).data);
+  let cells = {};
+  try {
+    cells = jbd.decodeCells(jbd.parseFrame(await ask(jbd.CMD_CELLS), jbd.CMD_CELLS).data);
+  } catch (err) {
+    logger.debug(`[bmsWired] JBD cell read failed: ${err.message}`);
+  }
+  return { ...basic, ...cells };
+}
+
+/** JK: one read-all request. */
+async function readJk(port) {
+  return jk.decode(jk.parseFrame(await readFramed(port, jk.buildRequest(), jk)));
+}
+
+/** PACE v25: read analog information for the pack at its DIP-switch address. */
+async function readPace(port, device) {
+  const address = Math.min(Math.max(parseInt(device && device.modbus_unit_id, 10) || 1, 0), 255);
+  const { address: from, info } = pace.parseFrame(await readFramed(port, pace.buildRequest(address), pace));
+  if (from !== address) throw new Error(`PACE: reply from address ${from}, expected ${address}`);
+  return pace.decodeAnalog(info);
+}
+
+const FRAMED_READERS = { jbd: readJbd, 'jk-rs485': readJk, 'pace-v25': readPace };
+
+/** Decode profile metrics from a map of register address to uint16 value. */
+function decodeProfileRegisters(profile, registerData) {
+  const result = {};
+  for (const m of profile.metrics || []) {
+    const addr = parseInt(m.register, 16);
+    let raw = registerData[addr];
+    if (raw === undefined) continue;
+    if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
+    if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
+    if (m.type === 'uint32' || m.type === 'int32') {
+      const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
+      const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
+      raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
+      if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
+    }
+    if (m.type === 'uint64') {
+      raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
+          + ((registerData[addr + 2] || 0) * 0x100000000)
+          + ((registerData[addr + 1] || 0) << 16)
+          + (registerData[addr] || 0);
+    }
+    const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
+    result[m.field || m.name] = value;
+  }
+  return result;
+}
+
 // ── Device Poll (mirror rs232.js pollModbusRtuDevice, publish bms_*) ──────
 
 async function pollWiredDevice(device, profile) {
   const port = await openSerialPort(device, profile);
   try {
+    const framed = FRAMED_READERS[profile.protocol];
+    if (framed) {
+      const data = await framed(port, device);
+      const now = Math.floor(Date.now() / 1000);
+      const wiredMappings = device.mappings || {};
+      let writeCount = 0;
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) continue;
+        queueMetricValue(`bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_'), value, now);
+        if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
+        writeCount++;
+      }
+      logger.info(`BMS-wired poll ${device.name} (${profile.protocol}): ${writeCount} metrics`);
+      return;
+    }
     const unitId = device.modbus_unit_id || profile.default_unit_id || 5;
     const ranges = buildPollRanges(profile.metrics);
     const registerData = {};
@@ -215,34 +328,14 @@ async function pollWiredDevice(device, profile) {
 
     const now = Math.floor(Date.now() / 1000);
     let writeCount = 0;
+    const decoded = decodeProfileRegisters(profile, registerData);
     for (const m of profile.metrics) {
-      const addr = parseInt(m.register, 16);
-      let raw = registerData[addr];
-      if (raw === undefined) continue;
-
-      if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
-      if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
-      if (m.type === 'uint32' || m.type === 'int32') {
-        const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
-        const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
-        raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
-        if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
-      }
-      if (m.type === 'uint64') {
-        raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
-            + ((registerData[addr + 2] || 0) * 0x100000000)
-            + ((registerData[addr + 1] || 0) << 16)
-            + (registerData[addr] || 0);
-      }
-
-      const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
-      // D-3E: publish under the existing bms_<deviceName>_<field> convention.
-      // Prefer m.field, fall back to m.name.
       const key = m.field || m.name;
+      if (decoded[key] === undefined) continue;
+      const value = decoded[key];
       const metricName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
       queueMetricValue(metricName, value, now);
       writeCount++;
-      // Publish the mapped role-metric alias (parity with BLE poller).
       const wiredMappings = device.mappings || {};
       if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
     }
@@ -333,6 +426,8 @@ async function testBmsWiredConnection(device) {
   }
 
   try {
+    const framed = FRAMED_READERS[profile.protocol];
+    if (framed) return await framed(port, device);
     const unitId = device.modbus_unit_id || profile.default_unit_id || 5;
     const ranges = buildPollRanges(profile.metrics);
     if (!ranges.length) throw new Error('No poll ranges defined in profile');
@@ -361,30 +456,7 @@ async function testBmsWiredConnection(device) {
       }
     }
 
-    const result = {};
-    for (const m of profile.metrics) {
-      const addr = parseInt(m.register, 16);
-      let raw = registerData[addr];
-      if (raw === undefined) continue;
-      if (m.bit !== undefined) raw = (raw >> m.bit) & 1;
-      if (m.type === 'int16') raw = raw > 0x7FFF ? raw - 0x10000 : raw;
-      if (m.type === 'uint32' || m.type === 'int32') {
-        const lo = m.word_order === 'lsb_first' ? addr : addr + 1;
-        const hi = m.word_order === 'lsb_first' ? addr + 1 : addr;
-        raw = ((registerData[hi] || 0) << 16) | (registerData[lo] || 0);
-        if (m.type === 'int32' && raw > 0x7FFFFFFF) raw -= 0x100000000;
-      }
-      if (m.type === 'uint64') {
-        raw = ((registerData[addr + 3] || 0) * 0x1000000000000)
-            + ((registerData[addr + 2] || 0) * 0x100000000)
-            + ((registerData[addr + 1] || 0) << 16)
-            + (registerData[addr] || 0);
-      }
-      const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
-      const key = m.field || m.name;
-      result[key] = value;
-    }
-    return result;
+    return decodeProfileRegisters(profile, registerData);
   } finally {
     await closeSerialPort(port);
   }
@@ -440,4 +512,7 @@ module.exports = {
   loadBmsWiredProfiles,
   testBmsWiredConnection,
   getBmsWiredFields,
+  decodeProfileRegisters,
+  // Framed-protocol readers (JBD / JK) — exported for tests with a fake port.
+  _readers: { readFramed, readJbd, readJk, readPace },
 };

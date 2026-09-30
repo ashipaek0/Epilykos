@@ -1,6 +1,7 @@
 {
   "name": "BMS Modbus-RTU (Wired) — PLACEHOLDER / [HUMAN] VERIFY REGISTER MAP",
   "description": "GENERIC BMS Modbus-RTU profile for wired (RS-485/USB) BMS devices. The register addresses, scales and data types below are a COMMONLY DOCUMENTED starting point and are PLACEHOLDERS — a [HUMAN] MUST verify every address, type and scale against the REAL BMS datasheet/manual before relying on these values. Use this profile as a skeleton: keep the field/label/unit structure, correct the registers.",
+  "placeholder": true,
   "protocol": "modbus-rtu",
   "transport": "rs232",
   "default_unit_id": 1,

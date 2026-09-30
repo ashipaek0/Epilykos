@@ -1,5 +1,6 @@
 {
   "name": "Deye Hybrid Inverter",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "inverter_temp", "address": 90, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Inverter Temperature"},
