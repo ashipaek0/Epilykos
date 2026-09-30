@@ -3099,8 +3099,18 @@ function getProfileById(id) {
   return dongleProfilesCache.find(p => p.id === id);
 }
 
+// Bluetooth transports: 'ble-modbus' (Modbus over a GATT write/notify pair, any
+// register profile) and 'ble-gatt' (read-only devices such as Phocos Any-Grid).
+function isBleTransport(tx) {
+  return tx === 'ble-modbus' || tx === 'ble-gatt';
+}
+function isBleGattProfile(p) {
+  return !!(p && String(p.protocol || '').toLowerCase() === 'ble-gatt');
+}
+
 function getTransportForProfile(profileId, current) {
   const p = getProfileById(profileId);
+  if (isBleGattProfile(p)) return 'ble-gatt';
   // Bluetooth is chosen per instance on top of any register-based profile.
   if (current === 'ble-modbus' && (!p || isDongleRegisterProfile(p))) return 'ble-modbus';
   // Profiles not loaded yet: keep what is saved (defaulting would silently
@@ -3111,8 +3121,9 @@ function getTransportForProfile(profileId, current) {
   return p.transport || 'solarman-v5';
 }
 
-// Profile list for a dongle card: Bluetooth modules speak Modbus, so only
-// register-map profiles are offered there. Clears a profile that no longer fits.
+// Profile list for a dongle card: Bluetooth offers register-map profiles (Modbus
+// over BLE) and Bluetooth-only profiles; TCP/IP hides Bluetooth-only ones.
+// Clears a profile that no longer fits.
 function fillDongleProfileOptions(card, selectedId) {
   const profileSelect = card.querySelector('.dongle-profile-select');
   const linkSelect = card.querySelector('.dongle-link-select');
@@ -3121,7 +3132,8 @@ function fillDongleProfileOptions(card, selectedId) {
   profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
   let kept = false;
   dongleProfilesCache.forEach(p => {
-    if (bt && !isDongleRegisterProfile(p)) return;
+    if (bt && !isDongleRegisterProfile(p) && !isBleGattProfile(p)) return;
+    if (!bt && (isBleGattProfile(p) || p.connection === 'bluetooth')) return;
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
@@ -3136,11 +3148,14 @@ function updateDongleTransportUI(card) {
   if (!transportSelect) return;
   const tx = transportSelect.value;
   const isLux = tx === 'luxpower-tcp';
-  const isBle = tx === 'ble-modbus';
+  const isBle = isBleTransport(tx);
   const bleRow = card.querySelector('.dongle-ble-row');
   const bleUuidRow = card.querySelector('.dongle-ble-uuid-row');
   if (bleRow) bleRow.style.display = isBle ? '' : 'none';
-  if (bleUuidRow) bleUuidRow.style.display = isBle ? '' : 'none';
+  // Characteristics are only chosen for Modbus over BLE; ble-gatt profiles define their own.
+  if (bleUuidRow) bleUuidRow.style.display = tx === 'ble-modbus' ? '' : 'none';
+  const unitIdBle = card.querySelector('input[name$="[modbus_unit_id]"]');
+  if (unitIdBle && isBle) unitIdBle.style.display = tx === 'ble-gatt' ? 'none' : '';
   const netHost = card.querySelector('input[name$="[host]"]');
   const netPort = card.querySelector('input[name$="[port]"]');
   if (isBle) {
@@ -3202,8 +3217,8 @@ function renderDongleDevice(device, idx) {
     <div class="form-row dongle-link-row">
       <label class="dongle-field"><span class="dongle-field-label">Connection</span>
         <select class="dongle-link-select">
-          <option value="network" ${transport === 'ble-modbus' ? '' : 'selected'}>TCP/IP (Wi-Fi / LAN)</option>
-          <option value="bluetooth" ${transport === 'ble-modbus' ? 'selected' : ''}>Bluetooth</option>
+          <option value="network" ${isBleTransport(transport) ? '' : 'selected'}>TCP/IP (Wi-Fi / LAN)</option>
+          <option value="bluetooth" ${isBleTransport(transport) ? 'selected' : ''}>Bluetooth</option>
         </select>
       </label>
       <label class="dongle-field" style="flex:2;"><span class="dongle-field-label">Profile</span>
@@ -3221,7 +3236,7 @@ function renderDongleDevice(device, idx) {
       <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
       <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
     </div>
-    <div class="form-row dongle-ble-row" style="${transport === 'ble-modbus' ? '' : 'display:none;'}">
+    <div class="form-row dongle-ble-row" style="${isBleTransport(transport) ? '' : 'display:none;'}">
       <input type="text" name="dongle_config[${idx}][ble_address]" placeholder="Bluetooth MAC (AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.ble_address || '')}" style="flex:1;">
       <button type="button" class="fetch-btn scan-dongle-ble">🔍 Scan</button>
     </div>
@@ -3245,6 +3260,7 @@ function renderDongleDevice(device, idx) {
       <option value="growatt" ${transport === 'growatt' ? 'selected' : ''}>Growatt</option>
       <option value="luxpower-tcp" ${transport === 'luxpower-tcp' ? 'selected' : ''}>LuxPower Local TCP</option>
       <option value="ble-modbus" ${transport === 'ble-modbus' ? 'selected' : ''}>Bluetooth (Modbus over BLE)</option>
+      <option value="ble-gatt" ${transport === 'ble-gatt' ? 'selected' : ''}>Bluetooth (read-only device)</option>
     </select>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
     <div class="mappings-section">
@@ -3290,7 +3306,8 @@ function renderDongleDevice(device, idx) {
     if (!profileSelect.value && card.querySelector('.mappings-list')) {
       card.querySelector('.mappings-list').innerHTML = '';
     }
-    transportSelect.value = bt ? 'ble-modbus'
+    const cur = getProfileById(profileSelect.value);
+    transportSelect.value = bt ? (isBleGattProfile(cur) ? 'ble-gatt' : 'ble-modbus')
       : (profileSelect.value ? getTransportForProfile(profileSelect.value) : 'solarman-v5');
     updateDongleTransportUI(card);
   });
@@ -3299,16 +3316,17 @@ function renderDongleDevice(device, idx) {
     const profileId = profileSelect.value;
     const p = await resolveDongleProfile(profileId);
     if (!p) return;
-    // Bluetooth stays selected (the list only offers register profiles there).
+    // Bluetooth stays selected (the list only offers Bluetooth-capable profiles there).
     const keepBle = linkSelect.value === 'bluetooth' && isDongleRegisterProfile(p);
-    const tx = keepBle ? 'ble-modbus' : getTransportForProfile(p.id);
+    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle ? 'ble-modbus' : getTransportForProfile(p.id));
+    if (isBleGattProfile(p)) linkSelect.value = 'bluetooth';
     transportSelect.value = tx;
     updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
     portInput.value = p.default_port || '';
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
     unitIdInput.value = p.default_unit_id || 1;
-    unitIdInput.style.display = (tx === 'felicity-tcp') ? 'none' : '';
+    unitIdInput.style.display = (tx === 'felicity-tcp' || tx === 'ble-gatt') ? 'none' : '';
     // Mapping UI is adapter-dispatched by the profile's family (#108 wave 4):
     //   luxpower-tcp → entity-catalog UI only (wave-3 path, unchanged)
     //   register transports → entity-catalog UI with the legacy Load retained
@@ -3376,8 +3394,8 @@ function renderDongleDevice(device, idx) {
     const bleAddress = card.querySelector('input[name$="[ble_address]"]')?.value.trim() || '';
     const bleWrite = card.querySelector('input[name$="[ble_write_uuid]"]')?.value.trim() || '';
     const bleNotify = card.querySelector('input[name$="[ble_notify_uuid]"]')?.value.trim() || '';
-    if (tx === 'ble-modbus' ? !bleAddress : !host) {
-      showStatus(statusEl, tx === 'ble-modbus' ? 'Bluetooth MAC required' : 'Host required', 'error');
+    if (isBleTransport(tx) ? !bleAddress : !host) {
+      showStatus(statusEl, isBleTransport(tx) ? 'Bluetooth MAC required' : 'Host required', 'error');
       return;
     }
     showStatus(statusEl, 'Testing...', 'info');
@@ -3385,11 +3403,11 @@ function renderDongleDevice(device, idx) {
       const res = await fetch('/api/dongle/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx, ble_address: bleAddress, ble_write_uuid: bleWrite, ble_notify_uuid: bleNotify })
+        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx, profile: profileSelect.value, ble_address: bleAddress, ble_write_uuid: bleWrite, ble_notify_uuid: bleNotify })
       });
       const data = await res.json();
       if (res.ok) {
-        const label = (tx === 'luxpower-tcp') ? 'OK — Operational State (reg 0x0000) =' : 'OK — Register 0x0100 =';
+        const label = tx === 'ble-gatt' ? 'OK —' : (tx === 'luxpower-tcp') ? 'OK — Operational State (reg 0x0000) =' : 'OK — Register 0x0100 =';
         showStatus(statusEl, `${label} ${data.raw}`, 'success');
       }
       else showStatus(statusEl, data.error, 'error');
@@ -3469,10 +3487,14 @@ async function loadDongleRegisterMappings(profileId, deviceIdx, container) {
     }
     const profile = await res.json();
 
-    // Auto-create any profile metrics not yet in the system
-    if (profile.metrics && allMetrics) {
+    // Auto-create any profile metrics not yet in the system — register
+    // profiles list them in metrics[], path profiles (Felicity TCP, Bluetooth
+    // GATT) in fields[]; without this the rows' metric dropdowns stay empty
+    // and nothing is saved.
+    const declared = [...(profile.metrics || []), ...(profile.fields || [])];
+    if (declared.length && allMetrics) {
       const existingNames = new Set(allMetrics.map(m => m.name));
-      for (const m of profile.metrics) {
+      for (const m of declared) {
         if (m.name && !existingNames.has(m.name)) {
           await fetch('/api/metrics/create', {
             method: 'POST',
@@ -3759,7 +3781,7 @@ function catalogKindToken(e) {
 function isDongleRegisterProfile(p) {
   if (!p || typeof p !== 'object') return false;
   const protocol = String(p.protocol || '').toLowerCase();
-  if (protocol === 'luxpower-tcp' || protocol === 'felicity-tcp') return false;
+  if (protocol === 'luxpower-tcp' || protocol === 'felicity-tcp' || protocol === 'ble-gatt') return false;
   if (String(p.transport || '').toLowerCase() === 'growatt') return false;
   return true;
 }
@@ -5616,7 +5638,7 @@ if (form) form.addEventListener('submit', async (e) => {
       dev.dongle_serial = dev.serial_number;
       dev.serial_number = '';
     }
-    if (txSel === 'ble-modbus') {
+    if (isBleTransport(txSel)) {
       dev.ble_address = card.querySelector('input[name$="[ble_address]"]')?.value.trim().toUpperCase() || '';
       dev.ble_write_uuid = card.querySelector('input[name$="[ble_write_uuid]"]')?.value.trim() || '';
       dev.ble_notify_uuid = card.querySelector('input[name$="[ble_notify_uuid]"]')?.value.trim() || '';

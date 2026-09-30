@@ -21,6 +21,9 @@ Commands
   modbus      {address, write_uuid, notify_uuid, frame, timeout}
                               send one Modbus-RTU frame over a GATT write/notify
                               pair and return the complete response frame (hex)
+  gatt_read   {address, reads: [{service, characteristic}], timeout}
+                              read characteristics (read-only devices that expose
+                              live values directly, e.g. Phocos Any-Grid)
   disconnect  {address}       drop cached connections for one device
   disconnect_all
 """
@@ -358,8 +361,9 @@ async def _drop_gatt(address):
 
 
 async def _gatt_link(address, notify_uuid, timeout):
+    """Kept-alive connection. notify_uuid=None: plain reads, any open link will do."""
     link = _gatt.get(address)
-    if link and link.client.is_connected and link.notify_uuid == notify_uuid:
+    if link and link.client.is_connected and (notify_uuid is None or link.notify_uuid == notify_uuid):
         return link
     await _drop_gatt(address)
     device, _adv = await _find(address, min(10.0, timeout / 2))
@@ -371,7 +375,8 @@ async def _gatt_link(address, notify_uuid, timeout):
         disconnected_callback=lambda _c: _gatt.pop(address, None),
     )
     link = GattLink(client, notify_uuid)
-    await client.start_notify(notify_uuid, link.on_notify)
+    if notify_uuid:
+        await client.start_notify(notify_uuid, link.on_notify)
     _gatt[address] = link
     return link
 
@@ -418,6 +423,52 @@ async def cmd_modbus(args):
     return {"frame": resp.hex()}
 
 
+def full_uuid(u):
+    """'2a03' / '0x2a03' / full form -> lower-case 128-bit UUID string."""
+    u = str(u or "").strip().lower()
+    if u.startswith("0x"):
+        u = u[2:]
+    if len(u) == 4 and all(c in "0123456789abcdef" for c in u):
+        return f"0000{u}-0000-1000-8000-00805f9b34fb"
+    if len(u) == 36:
+        return u
+    raise HelperError(f"invalid UUID {u!r}", "bad_request")
+
+
+async def cmd_gatt_read(args):
+    """Read characteristics by (service, characteristic). Never writes.
+    The service is part of the key because some devices reuse standard
+    characteristic UUIDs in several services."""
+    address = norm_address(args.get("address"))
+    reads = args.get("reads") or []
+    if not isinstance(reads, list) or not reads or len(reads) > 32:
+        raise HelperError("reads must be a list of 1-32 {service, characteristic}", "bad_request")
+    wanted = [(full_uuid(r.get("service")), full_uuid(r.get("characteristic"))) for r in reads]
+    timeout = min(max(float(args.get("timeout", 20)), 3.0), 60.0)
+    values = []
+    try:
+        async with asyncio.timeout(timeout):
+            link = await _gatt_link(address, None, timeout)
+            client = link.client
+            for svc_uuid, char_uuid in wanted:
+                svc = client.services.get_service(svc_uuid)
+                ch = svc.get_characteristic(char_uuid) if svc else None
+                if ch is None:
+                    values.append(None)
+                    continue
+                values.append(bytes(await client.read_gatt_char(ch)).hex())
+    except HelperError:
+        raise
+    except Exception as exc:
+        await _drop_gatt(address)
+        raise _map_error(exc) from exc
+    if all(v is None for v in values):
+        raise HelperError("none of the requested characteristics exist on this device", "unsupported")
+    if not KEEP_ALIVE:
+        await _drop_gatt(address)
+    return {"values": values}
+
+
 async def cmd_disconnect(args):
     address = norm_address(args.get("address"))
     await _drop_bms(address)
@@ -438,6 +489,7 @@ COMMANDS = {
     "scan": cmd_scan,
     "read_bms": cmd_read_bms,
     "modbus": cmd_modbus,
+    "gatt_read": cmd_gatt_read,
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
 }
@@ -514,6 +566,8 @@ def _self_test():
     assert modbus_sync(bytearray(b"\x00\x99\x01\x03\x02"), 1, 3) == bytearray(b"\x01\x03\x02")
     assert modbus_sync(bytearray(b"\x00\x99\x01"), 1, 3) == bytearray(b"\x01")
     assert modbus_sync(bytearray(b"\x00\x99"), 1, 3) == bytearray()
+    assert full_uuid("2A03") == "00002a03-0000-1000-8000-00805f9b34fb"
+    assert full_uuid("0x1810") == "00001810-0000-1000-8000-00805f9b34fb"
     print("ok")
 
 

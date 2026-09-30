@@ -722,14 +722,14 @@
       + '</div>'
       + '<div id="dongle-bt-group"' + (bt ? '' : ' style="display:none;"') + '>'
       + bleAddressField('dongle', 'sources.dongle.ble_address', s.ble_address, 'Bluetooth module')
-      + '<div class="form-row">'
+      + '<div class="form-row" id="dongle-ble-uuid-row">'
       + '<div class="form-group"><label>Write characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_write_uuid" placeholder="ffd1" value="' + esc(s.ble_write_uuid) + '"></div>'
       + '<div class="form-group"><label>Notify characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_notify_uuid" placeholder="fff1" value="' + esc(s.ble_notify_uuid) + '"></div>'
       + '</div>'
-      + '<span class="note">For Bluetooth modules that carry Modbus (e.g. SRNE / Renogy-style BT modules). Close the vendor phone app first — most modules allow one connection at a time.</span>'
+      + '<span class="note">Pick your inverter\'s profile: Bluetooth inverters such as Phocos Any-Grid are read directly; for Modbus Bluetooth modules (e.g. SRNE / Renogy-style) pick the inverter\'s register profile. Close the vendor phone app first — most allow one connection at a time.</span>'
       + '</div>'
       + '<div class="form-row">'
-      + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.dongle.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
+      + '<div class="form-group" id="dongle-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.dongle.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.dongle.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
       + '</div>'
       + '<div class="form-group"><label>Metric prefix <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.prefix" value="' + esc(s.prefix) + '"></div>'
@@ -989,7 +989,13 @@
   // Bluetooth modules speak Modbus, so only register-map profiles apply there.
   function isRegisterDongleProfile(p) {
     var protocol = String(p.protocol || '').toLowerCase();
-    return protocol !== 'luxpower-tcp' && protocol !== 'felicity-tcp' && String(p.transport || '').toLowerCase() !== 'growatt';
+    return protocol !== 'luxpower-tcp' && protocol !== 'felicity-tcp' && protocol !== 'ble-gatt' && String(p.transport || '').toLowerCase() !== 'growatt';
+  }
+  // Read-only Bluetooth devices that publish values directly (e.g. Phocos Any-Grid).
+  function isBleGattDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'ble-gatt'; }
+  function currentDongleProfile() {
+    var d = state.sources.dongle;
+    return (d.profiles || []).filter(function (p) { return p.id === d.profile; })[0];
   }
   function renderDongleProfileOptions() {
     var d = state.sources.dongle;
@@ -998,7 +1004,8 @@
     var bt = d.link === 'bluetooth';
     var html = '<option value="">Select a profile…</option>';
     d.profiles.forEach(function (p) {
-      if (bt && !isRegisterDongleProfile(p)) return;
+      if (bt && !isRegisterDongleProfile(p) && !isBleGattDongleProfile(p)) return;
+      if (!bt && (isBleGattDongleProfile(p) || p.connection === 'bluetooth')) return;
       html += '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
     });
     sel.innerHTML = html;
@@ -1011,10 +1018,17 @@
     var btg = $('#dongle-bt-group'); if (btg) btg.style.display = bt ? '' : 'none';
     renderDongleProfileOptions();
     d.transport = dongleTransport();
+    syncDongleBleFields();
+  }
+  // Characteristics / unit id only apply to Modbus over BLE, not to read-only profiles.
+  function syncDongleBleFields() {
+    var gatt = state.sources.dongle.link === 'bluetooth' && isBleGattDongleProfile(currentDongleProfile());
+    var uuid = $('#dongle-ble-uuid-row'); if (uuid) uuid.style.display = gatt ? 'none' : '';
+    var unit = $('#dongle-unit-group'); if (unit) unit.style.display = gatt ? 'none' : '';
   }
   function dongleTransport() {
     var d = state.sources.dongle;
-    if (d.link === 'bluetooth') return 'ble-modbus';
+    if (d.link === 'bluetooth') return isBleGattDongleProfile(currentDongleProfile()) ? 'ble-gatt' : 'ble-modbus';
     var prof = (d.profiles || []).filter(function (p) { return p.id === d.profile; })[0];
     if (!prof) return d.transport === 'ble-modbus' ? 'solarman-v5' : (d.transport || 'solarman-v5');
     if (prof.protocol === 'felicity-tcp') return 'felicity-tcp';
@@ -1156,6 +1170,8 @@
     if (userChange) { d.mappings = {}; d.entities = []; }
     if (prof) {
       d.transport = dongleTransport();
+      syncDongleBleFields();
+      if (userChange && prof.default_poll_interval) setFieldValue('sources.dongle.poll_interval', prof.default_poll_interval);
       if (userChange && d.link !== 'bluetooth' && prof.default_port != null) setFieldValue('sources.dongle.port', prof.default_port);
       if (userChange && prof.default_unit_id != null) setFieldValue('sources.dongle.modbus_unit_id', prof.default_unit_id);
       d.profileRequiresSerial = !!prof.requires_serial;
@@ -1505,7 +1521,7 @@
   function dongleTestBody() {
     var d = state.sources.dongle;
     if (d.link === 'bluetooth') {
-      return { transport: 'ble-modbus', ble_address: d.ble_address, ble_write_uuid: d.ble_write_uuid, ble_notify_uuid: d.ble_notify_uuid, modbus_unit_id: d.modbus_unit_id };
+      return { transport: dongleTransport(), profile: d.profile, ble_address: d.ble_address, ble_write_uuid: d.ble_write_uuid, ble_notify_uuid: d.ble_notify_uuid, modbus_unit_id: d.modbus_unit_id };
     }
     var body = { host: d.host, port: d.port, modbus_unit_id: d.modbus_unit_id, transport: dongleTransport() };
     if (d.serial_number) body.serial_number = d.serial_number;
@@ -1810,18 +1826,24 @@
     var names = metricsNames(list);
     var lower = names.map(function (n) { return n.toLowerCase(); });
     var hint = {};
-    function find(keys) {
+    // exclude: a regex of names that can never fill the role (e.g. a power role
+    // must not pick grid_voltage just because it contains "grid").
+    function find(keys, exclude) {
       for (var i = 0; i < keys.length; i++) {
-        for (var j = 0; j < lower.length; j++) { if (lower[j].indexOf(keys[i]) > -1) return names[j]; }
+        for (var j = 0; j < lower.length; j++) {
+          if (exclude && exclude.test(lower[j])) continue;
+          if (lower[j].indexOf(keys[i]) > -1) return names[j];
+        }
       }
       return null;
     }
-    var s = find(['solar_power', 'pv_power', 'pv_total_power', 'pv1_power', 'avatar_power', 'pv', 'solar']); if (s) hint.solar = s;
-    var g = find(['grid_power', 'grid_import', 'buy', 'grid']); if (g) hint.grid_import = g;
-    var l = find(['load_power', 'consumption', 'home_power', 'load']); if (l) hint.consumption = l;
-    var b = find(['battery_power', 'battery']); if (b) { hint.battery_charge = b; hint.battery_discharge = b; }
+    var NOT_POWER = /(voltage|volt\b|current|frequency|freq|temp|percent|_pct|soc|level|_va\b|apparent|energy|kwh|daily|total_)/;
+    var s = find(['solar_power', 'pv_power', 'pv_total_power', 'pv1_power', 'avatar_power', 'pv', 'solar'], NOT_POWER); if (s) hint.solar = s;
+    var g = find(['grid_power', 'grid_import', 'buy', 'grid'], NOT_POWER); if (g) hint.grid_import = g;
+    var l = find(['load_power', 'consumption', 'home_power', 'output_power', 'ac_output_power', 'load'], NOT_POWER); if (l) hint.consumption = l;
+    var b = find(['battery_power', 'battery'], NOT_POWER); if (b) { hint.battery_charge = b; hint.battery_discharge = b; }
     var soc = find(['battery_soc', 'soc', 'battery_level']); if (soc) hint.battery_soc = soc;
-    var v = find(['solar_voltage', 'panel_voltage', 'voltage']); if (v) hint.solar_voltage = v;
+    var v = find(['solar_voltage', 'panel_voltage', 'pv_voltage', 'pv1_voltage', 'pv_input_voltage']); if (v) hint.solar_voltage = v;
     // daily-ish role hints
     function findDaily(words) { for (var w = 0; w < words.length; w++) for (var j = 0; j < names.length; j++) if (names[j].indexOf(words[w]) > -1) return names[j]; return null; }
     var ds = findDaily(['daily_solar', 'day_solar', 'kwh*', 'pv_daily']); if (ds) hint.daily_solar = ds;
