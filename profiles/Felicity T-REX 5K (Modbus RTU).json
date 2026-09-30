@@ -1,5 +1,6 @@
 {
   "name": "Felicity T-REX 5K (Modbus RTU) - P1G01",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {

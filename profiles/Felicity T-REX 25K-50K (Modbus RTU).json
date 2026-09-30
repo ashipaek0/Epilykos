@@ -1,5 +1,6 @@
 {
   "name": "Felicity T-REX 25K/50K (Modbus RTU) - HP3G01",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {
