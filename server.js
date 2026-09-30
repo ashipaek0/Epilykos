@@ -459,7 +459,14 @@ const upload = multer({
 // Redirect raw editor.html to the protected /editor route (auth gate — issue #87)
 app.get('/editor.html', (req, res) => res.redirect('/editor'));
 // Serve static files with 1h browser cache
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', immutable: true }));
+// Pages, scripts and styles revalidate on every load (ETag → 304 when unchanged)
+// so an image update is visible at once; icons/fonts keep the 1 h cache.
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  setHeaders(res, filePath) {
+    if (/\.(html|js|css|json|webmanifest)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
@@ -1031,7 +1038,8 @@ app.post('/api/test-modbus', async (req, res) => {
 // ── RS232 API Endpoints ────────────────────────────────────────────────
 app.use('/api/rs232/profiles', isAuthenticated);
 app.get('/api/rs232/profiles', (req, res) => {
-  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '' })));
+  // placeholder: unverified skeleton register map — pickers hide it unless already selected
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '', placeholder: p.placeholder === true })));
 });
 
 app.use('/api/rs232/profile', isAuthenticated);
