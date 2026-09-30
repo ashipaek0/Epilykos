@@ -1,6 +1,6 @@
 {
   "name": "Cworth CE-H6K / CE-LBW-48100C (PACE BMS)",
-  "description": "Wired Modbus-RTU profile for Cworth CE-H6K / CE-LBW-48100C PACE BMS. Unit ID 1 and little-endian byte order are inferred from the existing wired profile template; confirm both against hardware before use. Pack current polarity is preserved as reported: negative=charge, positive=discharge. Wiring: battery COMM port pin 7 = RS485-A-PCS and pin 8 = RS485-B-PCS; connect ONLY these two pins. Hazard: pin 3 carries +5V; do NOT connect pin 3 to a USB-RS485 adapter or use a straight-through 8-pin cable. Only one pack can be reliably polled per physical RS485 bus: packs default to Modbus address 0 and there is no documented way to set a unique address over the wire. Inverter setup: set Program 01 to LIb (lithium) and connect the comms cable BEFORE power-cycling the inverter, because the BMS handshake occurs only at boot.",
+  "description": "For Cworth CE-H6K / CE-LBW-48100C PACE BMS\n- Wiring: battery COMM port pin 7 = RS485-A-PCS and pin 8 = RS485-B-PCS; connect ONLY these two pins.\n- pin 3 carries +5V; do NOT connect pin 3 to a USB-RS485 adapter or use a straight-through 8-pin cable.\n- negative=charge, positive=discharge\n- Only one pack can be reliably polled per physical RS485 module: packs default to Modbus address 0 and there is no documented way to set a unique address over the wire.",
   "protocol": "modbus-rtu",
   "transport": "rs232",
   "default_unit_id": 1,
