@@ -10,7 +10,6 @@ logs
 *.log
 cookies.txt
 test
-bms-bridge
 __pycache__
 *.pyc
 .DS_Store
