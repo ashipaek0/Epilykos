@@ -1,4 +1,3 @@
-import { expandFamilyBlockTypes } from './dashboard-family-runtime.mjs';
 import { fetchDashboardState } from './api.js';
 import { dashboardConfig } from './dashboard.js';
 import { updateFlowCard } from './components/flowCard.js';
@@ -24,12 +23,6 @@ import { updateWeatherBlock } from './components/weatherBlock.js';
 import { updateSwitchBlockFromState } from './components/switchBlock.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
-import { updateStringStateCard } from './components/stringStateCard.js';
-import { updateStatMetricCards } from './components/statMetricCard.js';
-import { updatePeriodStatCards } from './components/statMetricCard.js';
-import { updateMultiSeriesBarGauge } from './components/multiSeriesBarGauge.js';
-import { updateMultiSeriesTimeseries } from './components/multiSeriesTimeseries.js';
-import { updateSegmentedGauges } from './components/segmentedGauge.js';
 
 let fetchFailureLogged = false;
 
@@ -51,7 +44,7 @@ export function updateWithState(state) {
   if (!dashboardConfig?.dashboards) return;
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
-  const blockTypes = expandFamilyBlockTypes(new Set(activeLayout.map(b => b.type)));
+  const blockTypes = new Set(activeLayout.map(b => b.type));
   if (blockTypes.has('flow-card')) updateFlowCard(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);
@@ -70,13 +63,7 @@ export function updateWithState(state) {
   if (blockTypes.has('chart-power')) updatePowerChartFromState(state);
   if (blockTypes.has('chart-energy')) updateEnergyChartFromState(state);
   if (blockTypes.has('chart-metric')) updateMetricChartFromState(state);
-  if (blockTypes.has('multi-series-timeseries')) updateMultiSeriesTimeseries();
-  if (blockTypes.has('multi-series-bar-gauge')) updateMultiSeriesBarGauge(state);
   if (blockTypes.has('text-metric')) updateTextMetricCard(state);
-  if (blockTypes.has('string-state')) updateStringStateCard(state);
-  if (blockTypes.has('stat-metric')) updateStatMetricCards(state);
-  if (blockTypes.has('stat-metric')) updatePeriodStatCards();
-  if (blockTypes.has('segmented-gauge')) updateSegmentedGauges(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
   const forecastTypes = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
   const hasForecast = forecastTypes.some(t => blockTypes.has(t));

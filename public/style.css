@@ -395,18 +395,6 @@ h1, h2, h3, h4,
 .stat-value { font-size: var(--fs-large); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: var(--fs-small); opacity: 0.7; margin-top: 0.25rem; }
 
-/* Phase 2 metric-card presentation */
-.stat-metric-card, .segmented-gauge-card { min-width: 0; max-width: 100%; overflow: hidden; }
-.stat-sparkline, .segmented-gauge-sparkline { display: block; width: 100%; max-width: 100%; height: 1.5rem; overflow: hidden; }
-.stat-sparkline-none, .segmented-gauge-sparkline-none { display: none; }
-.stat-fallback-label, .segmented-gauge-fallback { font-size: var(--fs-small); opacity: .75; }
-.segmented-gauge-track { position: relative; display: flex; gap: 3px; width: 100%; min-width: 0; overflow: visible; }
-.segmented-gauge-segment { flex: 1 1 0; min-width: 0; height: .65rem; border-radius: 2px; }
-.segmented-gauge-marker { position: absolute; top: -3px; height: calc(100% + 6px); border-left: 1px solid var(--text-secondary); pointer-events: none; }
-.segmented-gauge-endpoint { position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: var(--text); transform: translate(-50%, -50%); }
-.segmented-gauge-value { font-variant-numeric: tabular-nums; }
-@media (max-width: 480px) { .stat-metric-card, .segmented-gauge-card { width: 100%; } .segmented-gauge-track { gap: 2px; } }
-
 /* Bar Gauge Card */
 .bar-gauge-card {
   background: var(--card-bg); border-radius: var(--radius);
@@ -1819,34 +1807,3 @@ details.help-sub.help-hidden { display: none; }
 /* A card whose source failed before it ever rendered shows only the error. */
 .fc-card.fc-failed .fc-body, .wx-card.wx-failed .wx-body,
 .wx-card.wx-failed .wx-hourly, .wx-card.wx-failed .wx-charts { display: none; }
-
-/* Phase3 multi-series timeseries presentation */
-.mst-chart-body { display:flex; gap:0.75rem; min-width:0; min-height:220px; overflow:hidden; }
-.mst-chart-plot { flex:1 1 auto; min-width:0; min-height:220px; }
-.mst-chart-plot canvas { display:block; width:100%; min-width:180px; min-height:180px; max-width:100%; }
-.mst-legend { flex:0 0 auto; }
-.mst-legend--right { order:2; align-self:center; }
-.mst-legend--bottom { order:3; width:100%; }
-.mst-legend-table { border-collapse:collapse; }
-.mst-legend td, .mst-legend th { padding:0.25rem 0.45rem; border:1px solid var(--border); text-align:left; }
-.mst-legend-color { display:inline-block; width:0.75rem; height:0.75rem; margin-right:0.35rem; }
-.mst-status { padding:0.35rem 0.5rem; color:var(--text); }
-.mst-threshold-descriptor { overflow-wrap:anywhere; }
-@media (max-width:600px) {
-  .mst-chart-body, .mst-chart-body > .mst-chart-plot, .mst-chart-body > .mst-legend { max-width:100%; min-width:0; }
-  .mst-chart-body { max-width:100%; min-width:0; flex-wrap:wrap; overflow:visible; }
-  .multi-series-timeseries { overflow:visible; }
-  .mst-chart-body > .mst-chart-plot, .mst-chart-body > .mst-legend { max-width:100%; min-width:0; }
-  .mst-chart-plot { flex-basis:100%; min-height:120px; }
-  .mst-chart-plot canvas { min-height:110px; }
-  .mst-legend--right { order:3; flex-basis:100%; }
-  .mst-legend { max-width:100%; min-width:0; overflow:visible; }
-  .mst-legend-table { width:100%; max-width:100%; table-layout:fixed; }
-  .mst-legend th, .mst-legend td { white-space:normal; overflow-wrap:anywhere; font-size:0.72rem; padding:0.15rem 0.2rem; }
-}
-.multi-series-bar-gauge { min-width:0; overflow:hidden; }
-.msbg-row { display:grid; grid-template-columns:minmax(5rem, 1fr) minmax(4rem, 3fr) auto; align-items:center; gap:.65rem; margin:.55rem 0; min-width:0; }
-.msbg-label,.msbg-value { color:var(--text); overflow-wrap:anywhere; }
-.msbg-track { height:.8rem; min-width:0; border-radius:999px; background:var(--bg); border:1px solid var(--border); overflow:hidden; }
-.msbg-fill { height:100%; width:0; background-color:var(--olive-500); transition:width 0.4s ease, background-color 0.4s ease; }
-@media(max-width:600px){.msbg-row{grid-template-columns:minmax(4rem,1fr) minmax(2rem,2fr) auto;gap:.35rem;font-size:.82rem}}

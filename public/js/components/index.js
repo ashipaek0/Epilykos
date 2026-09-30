@@ -5,12 +5,7 @@ import { buildGridCard } from './gridCard.js';
 import { buildChartPower } from './chartPower.js';
 import { buildChartEnergy } from './chartEnergy.js';
 import { buildChartMetric } from './chartMetric.js';
-import { buildMultiSeriesTimeseries } from './multiSeriesTimeseries.js';
-import { buildMultiSeriesBarGauge } from './multiSeriesBarGauge.js';
 import { buildTextMetricCard } from './textMetricCard.js';
-import { buildStringStateCard } from './stringStateCard.js';
-import { buildStatMetricCard } from './statMetricCard.js';
-import { buildSegmentedGauge } from './segmentedGauge.js';
 import { buildSavingsSummary } from './savingsSummary.js';
 import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
@@ -34,7 +29,6 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
-import { getFamily, familyNames } from '../dashboard-family-contract.mjs';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -46,12 +40,7 @@ export const componentBuilders = {
   'chart-power': buildChartPower,
   'chart-energy': buildChartEnergy,
   'chart-metric': buildChartMetric,
-  'multi-series-timeseries': buildMultiSeriesTimeseries,
-  'multi-series-bar-gauge': buildMultiSeriesBarGauge,
   'text-metric': buildTextMetricCard,
-  'string-state': buildStringStateCard,
-  'stat-metric': buildStatMetricCard,
-  'segmented-gauge': buildSegmentedGauge,
   'savings-summary': buildSavingsSummary,
   'data-table-daily': buildDataTableDaily,
   'data-table-monthly': buildDataTableMonthly,
@@ -74,12 +63,3 @@ export const componentBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock
 };
-
-// Stable parity-family aliases reuse the established renderer implementations.
-export const dashboardFamilyRegistry = Object.freeze(Object.fromEntries(familyNames.map(name => {
-  const metadata = getFamily(name);
-  return [name, Object.freeze({ ...metadata, builder: componentBuilders[metadata.componentType] })];
-})));
-for (const [name, metadata] of Object.entries(dashboardFamilyRegistry)) {
-  if (!Object.prototype.hasOwnProperty.call(componentBuilders, name)) componentBuilders[name] = metadata.builder;
-}

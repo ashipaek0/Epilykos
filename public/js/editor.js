@@ -1,15 +1,5 @@
-import { mountMultiSeriesForm } from './multiSeriesSettingsForm.mjs';
-import { readBarGaugeForm } from './multiSeriesBarGaugeSettings.mjs';
-import { readMultiSeriesForm } from './multiSeriesTimeseriesSettings.mjs';
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
-import { mergePersistedBlock } from './dashboard-config-roundtrip.mjs';
-import { resolveFamilyComponentType } from './dashboard-family-runtime.mjs';
-import { normalizePhase2FamilyConfig, applyPhase2FormValues } from './phase2-family-settings.mjs';
-import { periodBindingWarning } from './periodStat.mjs';
-import dashboard43Template from './dashboard-43-presets.mjs';
-import { listDashboardPresets, createPresetBlock, previewTemplateImport, applyTemplateImport } from './dashboard-presets.mjs';
-import { deserializeDashboardConfig } from './dashboard-config-roundtrip.mjs';
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -40,7 +30,7 @@ async function persistLayout() {
         break;
       }
     }
-    if (existing) block = mergePersistedBlock(existing, { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true });
+    if (existing) { block.config = existing.config; block.transparent = existing.transparent; block.bgColor = existing.bgColor; block.fontColor = existing.fontColor; block.fontSize = existing.fontSize; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
     layout.push(block);
   });
   var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
@@ -61,6 +51,31 @@ function refreshTabSelect() {
     var o = document.createElement('option'); o.value = db.id; o.textContent = db.name; o.selected = db.id === currentTabId;
     ts.appendChild(o);
   });
+}
+
+function uniqueDashboardId(id, usedIds) {
+  var candidate = id;
+  var suffix = 2;
+  while (usedIds.has(candidate)) candidate = id + '_' + suffix++;
+  return candidate;
+}
+
+function applyDashboardImport(currentConfig, imported, choice) {
+  if (!imported || !Array.isArray(imported.dashboards)) throw new Error('Invalid format: dashboards must be an array');
+  var stagedDashboards = imported.dashboards.map(function(db) {
+    if (!db || typeof db !== 'object' || Array.isArray(db)) throw new Error('Invalid dashboard entry');
+    if (typeof db.id !== 'string' || !db.id.trim()) throw new Error('Invalid dashboard id');
+    return JSON.parse(JSON.stringify(db));
+  });
+  if (choice === 'Replace') return Object.assign({}, imported, { dashboards: stagedDashboards });
+  if (choice !== 'Append') throw new Error('Invalid import choice');
+  var existingDashboards = currentConfig.dashboards;
+  var usedIds = new Set(existingDashboards.map(function(db) { return db.id; }));
+  stagedDashboards.forEach(function(db) {
+    db.id = uniqueDashboardId(db.id, usedIds);
+    usedIds.add(db.id);
+  });
+  return Object.assign({}, currentConfig, { dashboards: existingDashboards.concat(stagedDashboards) });
 }
 
 // ── Settings Modal ──────────────────────────────────────────────────────
@@ -1093,25 +1108,6 @@ function renderStateSelectRows(container) {
 }
 
 /** Main entry: build the settings form for a given block type */
-function buildPhase2FamilyForm(block) {
-  var c = normalizePhase2FamilyConfig(block.type, block.config || {}), prefix = 'modal-p2-';
-  var field = function(name, value, type) { return '<label style="display:block;font-size:.85rem;margin:.35rem 0">' + escHtml(name) + '<input id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" type="' + (type || 'text') + '" value="' + escHtml(value ?? '') + '" style="display:block;width:100%;min-height:44px;padding:.4rem;border:1px solid var(--border);border-radius:.3rem;background:var(--bg);color:var(--text)"></label>'; };
-  var select = function(name, value, options) { return '<label style="display:block;font-size:.85rem;margin:.35rem 0">' + escHtml(name) + '<select id="' + prefix + name.replace(/[^a-z0-9]/gi,'-') + '" style="display:block;width:100%;min-height:44px">' + options.map(function(option){ return '<option value="' + escHtml(option) + '"' + (value === option ? ' selected' : '') + '>' + escHtml(option || 'None') + '</option>'; }).join('') + '</select></label>'; };
-  if (block.type === 'static-text') return field('Content',c.content);
-  if (block.type === 'string-state') return field('Metric',c.binding.metric) + field('Label',c.label) + select('colorMode',c.colorMode,['value','background']) + '<div id="modal-p2-mapping-rows"></div><button type="button" id="modal-p2-mapping-add" aria-label="Add mapping" style="min-height:44px">Add mapping</button>';
-  var html = field('Metric',c.binding.metric) + field('Label',c.label) + select('reducer',c.reducer,block.type === 'stat-metric' ? ['lastNotNull','period-sum'] : ['lastNotNull']) + field('Unit',c.unit) + field('precision',c.precision,'number');
-  if (block.type === 'stat-metric') html += select('colorMode',c.colorMode,['value','background','fixed']) + field('fixedColor',c.fixedColor) + select('sparkline',c.sparkline,['area','none']);
-  else html += field('min',c.min,'number') + field('max',c.max,'number') + field('segments',c.segments,'number') + field('spacing',c.spacing,'number') + select('endpoint',c.endpoint,['point','none']) + select('sparkline',c.sparkline,['area','none']) + '<label><input id="modal-p2-markers" type="checkbox" ' + (c.markers?'checked':'') + '> Markers</label><label><input id="modal-p2-labels" type="checkbox" ' + (c.labels?'checked':'') + '> Labels</label>';
-  html += '<details><summary>Thresholds</summary><div id="modal-p2-threshold-rows"></div><button type="button" id="modal-p2-threshold-add" aria-label="Add threshold" style="min-height:44px">Add threshold</button></details>';
-  if (block.type === 'stat-metric' && c.reducer === 'period-sum') html += select('period',c.period,['today','month','year','since-install']) + select('historyMetric',c.historyMetric,['','daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export']) + select('formula',c.formula,['','monthly-grid-savings','yearly-grid-savings','generator-savings','generator-roi']) + field('currency',c.currency) + field('installDate',c.installDate) + field('formulaParams.monthlyRate',c.formulaParams?.monthlyRate,'number') + field('formulaParams.generatorCost',c.formulaParams?.generatorCost,'number') + field('formulaParams.generatorCapacity',c.formulaParams?.generatorCapacity,'number');
-  html += '<label><input id="modal-p2-fallback-enabled" type="checkbox" ' + (c.fallback.enabled?'checked':'') + '> Fallback enabled</label>' + field('fallback.value',c.fallback.value ?? '', 'number') + field('fallback.label',c.fallback.label);
-  if (block.type === 'stat-metric' && c.reducer === 'period-sum') {
-    var warning = periodBindingWarning(c.label,c.historyMetric);
-    if (warning) html += '<p id="p2-binding-warning">' + escHtml(warning) + '</p>';
-  }
-  return html;
-}
-
 function buildSettingsForm(block) {
   var type = block.type;
   var html = '';
@@ -1159,12 +1155,6 @@ function buildSettingsForm(block) {
     case 'data-table-monthly':
       html += buildDataTableForm(block);
       break;
-    case 'string-state':
-    case 'stat-metric':
-    case 'segmented-gauge':
-    case 'static-text':
-      html += buildPhase2FamilyForm(block);
-      break;
     case 'text-card':
       html += buildTextCardForm(block);
       break;
@@ -1186,12 +1176,6 @@ function buildSettingsForm(block) {
     case 'chart-metric':
       html += buildChartForm(block, true);
       break;
-    case 'multi-series-bar-gauge':
-      html += '<div id="modal-msbg-structured"></div>';
-      break;
-    case 'multi-series-timeseries':
-      html += '<div id="modal-mst-structured"></div>';
-      break;
     case 'chart-energy':
       html += buildChartForm(block, false);
       break;
@@ -1212,14 +1196,6 @@ function buildSettingsForm(block) {
 
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
-  var multiSettings;
-  try {
-    if (block.type === 'multi-series-timeseries' || block.type === 'multi-series-bar-gauge') {
-      var gauge = block.type === 'multi-series-bar-gauge';
-      var values = document.getElementById(gauge ? 'modal-msbg-structured' : 'modal-mst-structured').readSettings();
-      multiSettings = gauge ? readBarGaugeForm(key => values[key], block.config || {}) : readMultiSeriesForm(key => values[key], block.config || {});
-    }
-  } catch (e) { return e.message || 'Invalid multi-series settings'; }
   var config = block.config || {};
   // Common appearance
   config.enabled = document.getElementById('modal-enabled')?.checked !== false;
@@ -1240,35 +1216,6 @@ function readSettingsForm(block) {
   var type = block.type;
 
   switch (type) {
-    case 'stat-metric':
-    case 'segmented-gauge':
-    case 'string-state':
-    case 'static-text': {
-      var p2 = {};
-      ['binding.metric','label','reducer','unit','precision','min','max','segments','spacing','colorMode','fixedColor','sparkline','endpoint','fallback.enabled','fallback.value','fallback.label','content','period','historyMetric','formula','currency','installDate'].forEach(function(k){
-        var id = 'modal-p2-' + k.replace(/[^a-z0-9]/gi,'-');
-        if (k === 'binding.metric') id = 'modal-p2-Metric';
-        if (k === 'label' || k === 'unit' || k === 'content') id = 'modal-p2-' + k[0].toUpperCase() + k.slice(1);
-        var el = document.getElementById(id);
-        if (el) p2[k] = el.type === 'checkbox' ? el.checked : el.value;
-      });
-      ['markers','labels'].forEach(function(k){ var el=document.getElementById('modal-p2-'+k); if(el) p2[k]=el.checked; });
-      ['threshold','mapping'].forEach(function(kind) {
-        var container = document.getElementById('modal-p2-' + kind + '-rows');
-        if (!container) return;
-        p2[kind === 'threshold' ? 'thresholds' : 'mappings'] = Array.from(container.querySelectorAll('.p2-' + kind + '-row')).map(function(row) {
-          var value = { ...row.p2Original };
-          row.querySelectorAll('[data-p2-field]').forEach(function(input) { value[input.dataset.p2Field] = input.value; });
-          return value;
-        }).filter(function(row) { return ['value','label','color'].some(function(k) { return String(row[k] ?? '').trim() !== ''; }); });
-      });
-      ['monthlyRate','generatorCost','generatorCapacity'].forEach(function(k) {
-        var el = document.getElementById('modal-p2-formulaParams-' + k);
-        if (el) { if (!p2.formulaParams) p2.formulaParams = { ...(config.formulaParams || {}) }; p2.formulaParams[k] = el.value; }
-      });
-      try { block.config = applyPhase2FormValues(type, config, p2); } catch (e) { return e.message || 'Invalid Phase-2 settings'; }
-      return '';
-    }
     case 'flow-card': {
       var slots = ['solar','battery_soc','battery_charge','battery_discharge','consumption','grid_import','grid_export'];
       var metrics = {};
@@ -1537,10 +1484,6 @@ function readSettingsForm(block) {
       config.showTimeline = document.getElementById('modal-showtimeline')?.checked !== false;
       break;
     }
-    case 'multi-series-bar-gauge':
-    case 'multi-series-timeseries':
-      Object.assign(config, multiSettings);
-      break;
     case 'chart-power':
     case 'chart-energy':
     case 'chart-metric': {
@@ -1714,7 +1657,7 @@ function refreshGridItem(block) {
   if (settingsBtn) inner.appendChild(settingsBtn);
   if (delBtn) inner.appendChild(delBtn);
 
-  var builder = componentBuilders[resolveFamilyComponentType(block.type)];
+  var builder = componentBuilders[block.type];
   if (typeof builder === 'function') {
     var content = builder(block);
     if (content) {
@@ -1777,46 +1720,6 @@ async function handleSettingsSave() {
   hideSettingsModal();
 }
 
-// Rows stay in the DOM so edits and explicit ordering survive every operation.
-function renderPhase2Rows(block) {
-  var config = normalizePhase2FamilyConfig(block.type, block.config || {});
-  ['threshold','mapping'].forEach(function(kind) {
-    var container = document.getElementById('modal-p2-' + kind + '-rows');
-    if (!container) return;
-    function addRow(value) {
-      var row = document.createElement('div');
-      row.className = 'p2-' + kind + '-row';
-      row.p2Original = { ...value };
-      ['value','label','color'].forEach(function(key) {
-        var label = document.createElement('label');
-        label.textContent = key === 'value' ? (kind === 'threshold' ? 'Threshold value' : 'Source value') : key === 'color' ? 'Semantic color' : 'Display label (optional)';
-        var input = document.createElement('input');
-        input.type = kind === 'threshold' && key === 'value' ? 'number' : 'text';
-        if (input.type === 'number') input.step = 'any';
-        input.dataset.p2Field = key;
-        input.value = value[key] ?? (key === 'value' && kind === 'threshold' ? value.to ?? value.from ?? value.min ?? '' : '');
-        input.style.minHeight = '44px';
-        label.appendChild(input); row.appendChild(label);
-      });
-      ['Move up','Move down','Remove'].forEach(function(action) {
-        var button = document.createElement('button');
-        button.type = 'button'; button.textContent = action;
-        button.setAttribute('aria-label', action + ' ' + kind);
-        button.style.minHeight = '44px'; button.style.minWidth = '44px';
-        button.addEventListener('click', function() {
-          if (action === 'Remove') row.remove();
-          else if (action === 'Move up' && row.previousElementSibling) container.insertBefore(row, row.previousElementSibling);
-          else if (action === 'Move down' && row.nextElementSibling) container.insertBefore(row.nextElementSibling, row);
-        });
-        row.appendChild(button);
-      });
-      container.appendChild(row);
-    }
-    (config[kind === 'threshold' ? 'thresholds' : 'mappings'] || []).forEach(addRow);
-    document.getElementById('modal-p2-' + kind + '-add').addEventListener('click', function() { addRow({}); });
-  });
-}
-
 async function openSettingsModal(block) {
   // Re-resolve from the current layout — the closure may hold a stale
   // reference if persistLayout() replaced tab.layout after addBlockToGrid.
@@ -1861,17 +1764,6 @@ async function openSettingsModal(block) {
 
   // Initialize dynamic row renderers after DOM is populated
   switch (block.type) {
-    case 'multi-series-timeseries':
-    case 'multi-series-bar-gauge': {
-      var gauge = block.type === 'multi-series-bar-gauge';
-      mountMultiSeriesForm(document, document.getElementById(gauge ? 'modal-msbg-structured' : 'modal-mst-structured'), block.config || {}, gauge);
-      break;
-    }
-    case 'stat-metric':
-    case 'segmented-gauge':
-    case 'string-state':
-      renderPhase2Rows(block);
-      break;
     case 'multi-value':
       renderMultiValueRows(body);
       break;
@@ -1919,7 +1811,7 @@ async function openSettingsModal(block) {
  * @returns {HTMLElement} the grid-stack-item element
  */
 function buildGridItem(block) {
-  var builder = componentBuilders[resolveFamilyComponentType(block.type)];
+  var builder = componentBuilders[block.type];
   if (typeof builder !== 'function') return null;
   var content = builder(block);
   if (!content) return null;
@@ -1979,12 +1871,10 @@ function buildGridItem(block) {
  * Add a single block to the active dashboard without rebuilding the entire grid.
  * @param {string} type - block type identifier
  */
-function addBlockToGrid(type, preset) {
+function addBlockToGrid(type) {
   var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
   if (!tab) return;
-  var newBlock = preset
-    ? createPresetBlock(preset, function() { return 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9); })
-    : { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
+  var newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
   tab.layout.push(newBlock);
   var item = buildGridItem(newBlock);
   if (!item) return;
@@ -2024,11 +1914,8 @@ async function loadTab(tabId) {
   dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
   dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
-    var sourcePanelId = e.dataTransfer.getData('sourcePanelId');
-    var preset = sourcePanelId && listDashboardPresets(dashboard43Template).find(function(panel) { return panel.panelId === sourcePanelId; });
     var type = e.dataTransfer.getData('blockType');
-    if (preset) addBlockToGrid(preset.type, preset);
-    else if (type) addBlockToGrid(type);
+    if (type) addBlockToGrid(type);
   });
 
   // Auth check for header buttons
@@ -2088,30 +1975,13 @@ async function initEditor() {
 
     // Palette — use addBlockToGrid instead of loadTab rebuild
     var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select','multi-series-timeseries':'\u25C7 Multi Timeseries','multi-series-bar-gauge':'\u25C7 String Bar Gauge','string-state':'\u25C7 String State' };
+    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
     Object.entries(componentBuilders).forEach(function(entry) {
       var type = entry[0];
       var item = document.createElement('div');
       item.className = 'block-item'; item.textContent = names[type] || type; item.draggable = true; item.dataset.blockType = type;
       item.addEventListener('dragstart', function(e) { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('blockType', type); });
       item.addEventListener('click', function() { addBlockToGrid(type); });
-      palette.appendChild(item);
-    });
-    var presetsHeading = document.createElement('h4');
-    presetsHeading.className = 'preset-section-heading';
-    presetsHeading.textContent = '43 dashboard presets';
-    palette.appendChild(presetsHeading);
-    listDashboardPresets(dashboard43Template).forEach(function(preset) {
-      if (!componentBuilders[resolveFamilyComponentType(preset.type)]) return;
-      var item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'block-item dashboard-preset-item';
-      item.textContent = preset.title;
-      item.title = preset.section + ' · ' + preset.type;
-      item.dataset.blockType = preset.type;
-      item.draggable = true;
-      item.addEventListener('dragstart', function(e) { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('blockType', preset.type); e.dataTransfer.setData('sourcePanelId', preset.panelId); });
-      item.addEventListener('click', function() { addBlockToGrid(preset.type, preset); });
       palette.appendChild(item);
     });
 
@@ -2125,18 +1995,19 @@ async function initEditor() {
       input.addEventListener('change', async function(e) {
         var file = e.target.files[0]; if (!file) return;
         try {
-          var text = await file.text();
-          var imported = deserializeDashboardConfig(text);
-          if (!Array.isArray(imported?.dashboards)) throw new Error('Invalid format');
-          var summary = previewTemplateImport(imported);
-          var breakdown = summary.cardCount === 43 ? '\nPreset family breakdown: ' + Object.entries(summary.familyBreakdown).map(function(entry) { return entry[0] + ': ' + entry[1]; }).join(', ') : '';
-          var action = window.prompt('Import preview: ' + summary.dashboardCount + ' dashboard(s), ' + summary.cardCount + ' card(s).' + breakdown + '\nType Append or Replace. Cancel or leave blank to make no changes.', '');
-          if (action !== 'Append' && action !== 'Replace') return;
-          dashboardConfig = applyTemplateImport(dashboardConfig, imported, action.toLowerCase());
-          currentTabId = dashboardConfig.activeDashboard && dashboardConfig.dashboards.some(function(db) { return db.id === dashboardConfig.activeDashboard; })
-            ? dashboardConfig.activeDashboard : (dashboardConfig.dashboards[0]?.id || null);
-          if (currentTabId) loadTab(currentTabId);
+          var text = await file.text(); var imported = JSON.parse(text);
+          if (!imported || !Array.isArray(imported.dashboards)) throw new Error('Invalid format: dashboards must be an array');
+          var existingCount = dashboardConfig.dashboards.length;
+          var importedCount = imported.dashboards.length;
+          var choice = prompt('Import contains ' + importedCount + ' dashboard(s); current configuration has ' + existingCount + '. Type Append or Replace.');
+          if (choice !== 'Append' && choice !== 'Replace') return;
+          var nextDashboardConfig = applyDashboardImport(dashboardConfig, imported, choice);
+          dashboardConfig = nextDashboardConfig;
+          currentTabId = choice === 'Replace'
+            ? (dashboardConfig.dashboards[0] && dashboardConfig.dashboards[0].id)
+            : currentTabId;
           refreshTabSelect();
+          if (currentTabId) loadTab(currentTabId);
           markUnsaved();
         } catch (err) { alert('Import failed: ' + err.message); }
       });
