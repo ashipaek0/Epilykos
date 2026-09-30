@@ -71,14 +71,18 @@ async function scanDevices(force = false) {
  * Read one sample from a Bluetooth BMS.
  * @returns {Promise<Object<string, number>>}
  */
-async function readDevice(address) {
+// aiobmsble plugin names a user may force when auto-detection fails.
+const BMS_TYPE_RE = /^[a-z0-9]+(_[a-z0-9]+)*_bms$/;
+
+async function readDevice(address, bmsType = '') {
   const bridge = legacyBridgeUrl();
   if (bridge) {
     return legacyFetchJson(`${bridge}/device/${encodeURIComponent(address)}`, 10000);
   }
   if (!ble.isValidAddress(address)) throw new BmsBackendError('Invalid Bluetooth address', 400, 'bad_request');
   try {
-    return await ble.readBms(address.trim().toUpperCase());
+    const type = BMS_TYPE_RE.test(String(bmsType || '')) ? bmsType : '';
+    return await ble.readBms(address.trim().toUpperCase(), { bmsType: type });
   } catch (err) {
     throw new BmsBackendError(err.message, statusForCode(err.code), err.code);
   }
@@ -133,7 +137,7 @@ async function pollBMS() {
 
     for (const device of devices) {
       try {
-        const data = await readDevice(device.address);
+        const data = await readDevice(device.address, device.bms_type);
         storeSample(device, data, Math.floor(Date.now() / 1000));
         logger.debug(`BMS ${device.name} polled successfully`);
       } catch (err) {

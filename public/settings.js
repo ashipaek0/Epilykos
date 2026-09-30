@@ -2316,7 +2316,11 @@ function renderBmsDevice(device, idx) {
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row">
-      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="width:100%;">
+      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
+      <select name="bms_devices[${idx}][bms_type]" class="bms-type-select" style="flex:1;" title="Leave on Auto-detect unless the BMS is not recognised (rebranded packs)">
+        ${[['', 'Auto-detect type'], ['jbd_bms', 'JBD / Jiabaida / Xiaoxiang'], ['jikong_bms', 'JK-BMS (Jikong)'], ['daly_bms', 'Daly'], ['seplos_bms', 'Seplos'], ['ant_bms', 'ANT']]
+          .map(([v, l]) => `<option value="${v}" ${(device.bms_type || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
     </div>
     <div class="form-row" style="gap:0.5rem;">
       <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">🔍 Scan</button>
@@ -2357,7 +2361,8 @@ function renderBmsDevice(device, idx) {
     }
     showStatus(statusEl, 'Testing connection...', 'info');
     try {
-      const res = await fetch(`/api/bms/test?address=${encodeURIComponent(address)}`, { credentials: 'include' });
+      const bmsType = card.querySelector('.bms-type-select')?.value || '';
+      const res = await fetch(`/api/bms/test?address=${encodeURIComponent(address)}&type=${encodeURIComponent(bmsType)}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         showStatus(statusEl, `OK - ${Object.keys(data).length} metrics`, 'success');
@@ -2538,11 +2543,27 @@ function renderBmsWiredDevice(device, idx) {
       profileNotes.style.display = 'none';
     }
   }
+  const wiredProfiles = {};
+  // Serial settings + unit id follow the chosen profile: JBD / JK are not Modbus
+  // (no unit id) and JK talks at 115200, so a stale 9600 would never answer.
+  const applyWiredProfile = (userChange) => {
+    const p = wiredProfiles[profileSelect.value];
+    const unitInput = card.querySelector('input[name$="[modbus_unit_id]"]');
+    if (unitInput) unitInput.style.display = (p && p.protocol && p.protocol !== 'modbus-rtu') ? 'none' : '';
+    if (!userChange || !p || !p.defaults) return;
+    const d = p.defaults;
+    const set = (sel, v) => { const el = card.querySelector(sel); if (el && v !== undefined && v !== null) el.value = String(v); };
+    set('input[name$="[baud]"]', d.baud);
+    set('select[name$="[data_bits]"]', d.dataBits);
+    set('select[name$="[parity]"]', d.parity);
+    set('select[name$="[stop_bits]"]', d.stopBits);
+  };
   fetch('/api/rs232/profiles').then(r => r.json()).then(profiles => {
     (profiles || []).forEach(p => {
       const idStr = String(p.id);
       const nameStr = String(p.name || '');
       if (!/bms/i.test(`${idStr} ${nameStr}`)) return;
+      wiredProfiles[idStr] = p;
       if (p.placeholder && String(device.profile) !== idStr) return; // unverified skeleton map
       bmsProfileDescriptions[idStr] = p.description || '';
       const opt = document.createElement('option');
@@ -2552,7 +2573,11 @@ function renderBmsWiredDevice(device, idx) {
       profileSelect.appendChild(opt);
     });
     updateBmsWiredNotes();
-    if (profileSelect) profileSelect.addEventListener('change', updateBmsWiredNotes);
+    applyWiredProfile(false);
+    if (profileSelect) {
+      profileSelect.addEventListener('change', updateBmsWiredNotes);
+      profileSelect.addEventListener('change', () => applyWiredProfile(true));
+    }
   }).catch(() => {});
 
   const removeBtn = card.querySelector('[data-action="remove-bms-wired"]');
@@ -5577,6 +5602,7 @@ if (form) form.addEventListener('submit', async (e) => {
       dev.name = card.querySelector('.device-header input[type="text"]').value;
       dev.enabled = card.querySelector('.device-header input[type="checkbox"]').checked;
       dev.address = card.querySelector('input[name$="[address]"]').value;
+      dev.bms_type = card.querySelector('.bms-type-select')?.value || '';
       dev.transport = 'bluetooth';
       // Collect metric mappings: { bmsKey → metricName }
       dev.mappings = {};

@@ -314,9 +314,21 @@ async def cmd_read_bms(args):
             bms = _bms.get(address)
             if bms is None:
                 device, adv = await _find(address, min(10.0, timeout / 2))
-                cls = await _identify(device, adv)
+                # An explicit type (e.g. "jbd_bms", "jikong_bms") covers rebranded
+                # packs whose name / MAC prefix aiobmsble does not recognise.
+                forced = str(args.get("bms_type") or "").strip()
+                cls = None
+                if forced:
+                    from aiobmsble.utils import bms_cls
+                    if not forced.endswith("_bms") or not forced.replace("_", "").isalnum():
+                        raise HelperError(f"unknown BMS type {forced!r}", "bad_request")
+                    cls = await bms_cls(forced)
+                    if cls is None:
+                        raise HelperError(f"unknown BMS type {forced!r}", "bad_request")
+                else:
+                    cls = await _identify(device, adv)
                 if cls is None:
-                    raise HelperError(f"{address} is not a supported Bluetooth BMS", "unsupported")
+                    raise HelperError(f"{address} is not a recognised Bluetooth BMS — choose its type in the BMS settings", "unsupported")
                 from aiobmsble import BMSConfig
                 bms = cls(device, BMSConfig(keep_alive=KEEP_ALIVE))
                 _bms[address] = bms
