@@ -14,10 +14,12 @@ function dayOffset(n) {
   return localDateString(d);
 }
 
-function openMeteoPayload() {
-  const today = localDateString();
+function openMeteoPayload(now = new Date()) {
+  const today = localDateString(now);
   const pad = (n) => String(n).padStart(2, '0');
-  const nowHour = `${today}T${pad(new Date().getHours())}:00`;
+  // Anchor the hourly strip to the injected/real "now" so the test never
+  // depends on which real-world minute it happens to run in (#133).
+  const nowHour = `${today}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
   return {
     utc_offset_seconds: 0,
     timezone: 'Etc/Test',

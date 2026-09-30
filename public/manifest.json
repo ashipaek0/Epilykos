@@ -4,24 +4,42 @@
   "description": "Real-time solar energy monitoring dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#292a24",
+  "theme_color": "#292a24",
   "orientation": "portrait",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["utilities", "monitoring"],
+  "categories": [
+    "utilities",
+    "monitoring"
+  ],
   "lang": "en",
-  "display_override": ["standalone", "minimal-ui"]
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ]
 }

@@ -1,5 +1,6 @@
 {
   "name": "Victron CCGX / Venus OS (Modbus TCP)",
+  "connection": "tcp",
   "defaultUnitId": 100,
   "registers": [
     {"metric": "load_power", "address": 817, "type": "uint16", "scale": 1.0, "unit": "W", "label": "AC Load Power"},

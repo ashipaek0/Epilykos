@@ -347,7 +347,7 @@ function applyBranding(cfg) {
   titleEl.textContent = title;
   document.title = title;
   if (cfg.dashboard_logo) { logoEl.src = cfg.dashboard_logo; logoEl.style.display = 'inline'; }
-  else { logoEl.style.display = 'none'; }
+  else { logoEl.src = '/icons/epilykos-mark.svg'; logoEl.style.display = 'inline'; }
   if (cfg.dashboard_favicon) {
     let link = document.querySelector('link[rel="icon"]');
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
