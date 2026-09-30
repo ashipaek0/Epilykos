@@ -50,6 +50,7 @@ function loadRs232Profiles() {
         frame_format: profile.frame_format || null,
         call_order: profile.call_order || null,
         profile_file: profile.profile_file || null,
+        placeholder: profile.placeholder === true,
       });
     } catch (e) {
       logger.error(`Failed to parse RS232 profile ${file}:`, e.message);
