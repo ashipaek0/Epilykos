@@ -314,7 +314,8 @@ function dongleProfileEntities(profile) {
   if (!profile || typeof profile !== 'object') return [];
   const protocol = profile.protocol ? String(profile.protocol).toLowerCase() : '';
   if (protocol === 'luxpower-tcp') return dongleLuxpowerEntities(profile);
-  if (protocol === 'felicity-tcp') return dongleFelicityEntities(profile);
+  // ble-gatt (e.g. Phocos Any-Grid over Bluetooth) is path-addressed like felicity-tcp.
+  if (protocol === 'felicity-tcp' || protocol === 'ble-gatt') return dongleFelicityEntities(profile);
   const transport = profile.transport ? String(profile.transport).toLowerCase() : '';
   if (transport === 'growatt') return dongleGrowattEntities(profile);
   return dongleRegisterEntities(profile);

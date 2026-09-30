@@ -1039,7 +1039,7 @@ app.post('/api/test-modbus', async (req, res) => {
 app.use('/api/rs232/profiles', isAuthenticated);
 app.get('/api/rs232/profiles', (req, res) => {
   // placeholder: unverified skeleton register map — pickers hide it unless already selected
-  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '', placeholder: p.placeholder === true })));
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '', placeholder: p.placeholder === true, defaults: p.defaults || null })));
 });
 
 app.use('/api/rs232/profile', isAuthenticated);
@@ -1624,7 +1624,7 @@ app.get('/api/bms/test', async (req, res) => {
   if (!address) return res.status(400).json({ error: 'MAC address required' });
   try {
     const { readDevice } = require('./modules/bms');
-    const data = await readDevice(String(address));
+    const data = await readDevice(String(address), String(req.query.type || ''));
 
     // Store test data in latest_metrics so getAvailableSourceKeys can find it
     try {
@@ -2005,7 +2005,7 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
     const files = fs.readdirSync(profilesDir).filter(f => f.endsWith('.json'));
     const profiles = files.map(f => {
       const raw = JSON.parse(fs.readFileSync(path.join(profilesDir, f), 'utf8'));
-      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id, protocol: raw.protocol, capabilities: raw.capabilities, mapping: raw.mapping };
+      return { id: f.replace('.json', ''), name: raw.name, transport: raw.transport, requires_serial: raw.requires_serial, default_port: raw.default_port, default_unit_id: raw.default_unit_id, protocol: raw.protocol, capabilities: raw.capabilities, mapping: raw.mapping, connection: raw.connection, read_only: raw.read_only === true, default_poll_interval: raw.default_poll_interval };
     });
     res.json(profiles);
   } catch (err) {
@@ -2051,6 +2051,30 @@ app.get('/api/dongle/profile/:id/entities', (req, res) => {
 app.use('/api/dongle/test', isAuthenticated);
 app.post('/api/dongle/test', async (req, res) => {
   const { host, port, serial_number, modbus_unit_id, transport } = req.body;
+  if (transport === 'ble-gatt') {
+    // Read-only Bluetooth profile (e.g. Phocos Any-Grid): one poll of its blocks.
+    const safeId = String(req.body.profile || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
+    let profile;
+    try { profile = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch (_) { return res.status(400).json({ error: 'Profile not found' }); }
+    const { BleGattTransport } = require('./modules/dongle/bleGatt');
+    let bt;
+    try {
+      bt = new BleGattTransport({ ble_address: req.body.ble_address || host }, profile);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    try {
+      const data = await bt.poll();
+      const blocks = (profile.blocks || []).filter(b => Array.isArray(data[b.id])).length;
+      const out = profile.fields.find(f => f.name === 'output_power');
+      const w = out ? require('./modules/dongle').getByPathForTest(data, out.path) : undefined;
+      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}` });
+    } catch (err) {
+      logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
+      return res.status(502).json({ error: err.message });
+    }
+  }
   if (transport === 'ble-modbus') {
     // Bluetooth: the target is a MAC address, not a network host — no SSRF surface.
     const { BleModbusTransport } = require('./modules/dongle/bleModbus');
