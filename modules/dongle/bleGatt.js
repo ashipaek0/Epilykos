@@ -9,7 +9,9 @@
  *
  * The profile describes the reads and how to lay them out:
  *   "blocks":  [{ "id": "live", "service": "1810", "characteristic": "2a03" }, ...]
- *   "derived": [{ "name": "pv_power", "sum": ["pv1[7]", "pv2[7]"] }]
+ *   "derived": [{ "name": "pv_power", "sum": ["pv1[7]", "pv2[7]"] },
+ *               { "name": "battery_discharge_power", "product": ["live[8]", "status[2]"] }]
+ * (derived values are raw word arithmetic; the field's scale converts units)
  * poll() returns { live: [w0, w1, ...], pv1: [...], derived: { pv_power } } so
  * profile.fields address values by path ("live[5]"), exactly like the
  * felicity-tcp JSON family, and dongle.js pollJsonInstance does the rest.
@@ -40,9 +42,11 @@ function decodeBlocks(profile, raws) {
   });
   const derived = {};
   for (const d of profile.derived || []) {
-    if (!Array.isArray(d.sum)) continue;
-    const parts = d.sum.map(ref => valueAt(data, ref));
-    if (parts.every(v => typeof v === 'number')) derived[d.name] = parts.reduce((a, v) => a + v, 0);
+    const refs = Array.isArray(d.sum) ? d.sum : Array.isArray(d.product) ? d.product : null;
+    if (!refs) continue;
+    const parts = refs.map(ref => valueAt(data, ref));
+    if (!parts.every(v => typeof v === 'number')) continue;
+    derived[d.name] = d.sum ? parts.reduce((a, v) => a + v, 0) : parts.reduce((a, v) => a * v, 1);
   }
   data.derived = derived;
   return data;
