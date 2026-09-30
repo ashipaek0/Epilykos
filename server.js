@@ -2075,6 +2075,28 @@ app.post('/api/dongle/test', async (req, res) => {
       return res.status(502).json({ error: err.message });
     }
   }
+  if (transport === 'ble-luxpower') {
+    // LuxPower dongle over Bluetooth: same frames as luxpower-tcp, MAC target.
+    const { BleLuxpowerTransport } = require('./modules/dongle/bleLuxpower');
+    let bt;
+    try {
+      bt = new BleLuxpowerTransport({
+        ble_address: req.body.ble_address || host,
+        dongle_serial: String(req.body.dongle_serial || req.body.serial_number || '').trim(),
+        inverter_serial: String(req.body.inverter_serial || req.body.serial_number || '').trim()
+      });
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    try {
+      // Input registers 0-39: operational state, battery voltage (reg 4, 0.1 V) and SOC (reg 5).
+      const data = await bt.readRegisters(0, 40, 0x04);
+      return res.json({ success: true, raw: `${data.readUInt16LE(0)} — battery ${(data.readUInt16LE(8) / 10).toFixed(1)} V, ${data.readUInt16LE(10)} %` });
+    } catch (err) {
+      logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
+      return res.status(502).json({ error: err.message });
+    }
+  }
   if (transport === 'ble-modbus') {
     // Bluetooth: the target is a MAC address, not a network host — no SSRF surface.
     const { BleModbusTransport } = require('./modules/dongle/bleModbus');

@@ -3130,9 +3130,20 @@ function getProfileById(id) {
 }
 
 // Bluetooth transports: 'ble-modbus' (Modbus over a GATT write/notify pair, any
-// register profile) and 'ble-gatt' (read-only devices such as Phocos Any-Grid).
+// register profile), 'ble-gatt' (read-only devices such as Phocos Any-Grid) and
+// 'ble-luxpower' (LuxPower dongle frames over the dongle's Bluetooth link).
 function isBleTransport(tx) {
-  return tx === 'ble-modbus' || tx === 'ble-gatt';
+  return tx === 'ble-modbus' || tx === 'ble-gatt' || tx === 'ble-luxpower';
+}
+// LuxPower dongle frames, over TCP port 8000 or Bluetooth.
+function isLuxTransport(tx) {
+  return tx === 'luxpower-tcp' || tx === 'ble-luxpower';
+}
+// Bluetooth transport for a profile: its own kind, else Modbus over BLE.
+function bleTransportForProfile(p) {
+  if (isBleGattProfile(p)) return 'ble-gatt';
+  if (isLuxpowerDongleProfile(p)) return 'ble-luxpower';
+  return 'ble-modbus';
 }
 function isBleGattProfile(p) {
   return !!(p && String(p.protocol || '').toLowerCase() === 'ble-gatt');
@@ -3141,6 +3152,7 @@ function isBleGattProfile(p) {
 function getTransportForProfile(profileId, current) {
   const p = getProfileById(profileId);
   if (isBleGattProfile(p)) return 'ble-gatt';
+  if (current === 'ble-luxpower' && (!p || isLuxpowerDongleProfile(p))) return 'ble-luxpower';
   // Bluetooth is chosen per instance on top of any register-based profile.
   if (current === 'ble-modbus' && (!p || isDongleRegisterProfile(p))) return 'ble-modbus';
   // Profiles not loaded yet: keep what is saved (defaulting would silently
@@ -3162,7 +3174,7 @@ function fillDongleProfileOptions(card, selectedId) {
   profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
   let kept = false;
   dongleProfilesCache.forEach(p => {
-    if (bt && !isDongleRegisterProfile(p) && !isBleGattProfile(p)) return;
+    if (bt && !isDongleRegisterProfile(p) && !isBleGattProfile(p) && !isLuxpowerDongleProfile(p)) return;
     if (!bt && (isBleGattProfile(p) || p.connection === 'bluetooth')) return;
     const opt = document.createElement('option');
     opt.value = p.id;
@@ -3177,7 +3189,7 @@ function updateDongleTransportUI(card) {
   const transportSelect = card.querySelector('select[name$="[transport]"]');
   if (!transportSelect) return;
   const tx = transportSelect.value;
-  const isLux = tx === 'luxpower-tcp';
+  const isLux = isLuxTransport(tx);
   const isBle = isBleTransport(tx);
   const bleRow = card.querySelector('.dongle-ble-row');
   const bleUuidRow = card.querySelector('.dongle-ble-uuid-row');
@@ -3185,13 +3197,19 @@ function updateDongleTransportUI(card) {
   // Characteristics are only chosen for Modbus over BLE; ble-gatt profiles define their own.
   if (bleUuidRow) bleUuidRow.style.display = tx === 'ble-modbus' ? '' : 'none';
   const unitIdBle = card.querySelector('input[name$="[modbus_unit_id]"]');
-  if (unitIdBle && isBle) unitIdBle.style.display = tx === 'ble-gatt' ? 'none' : '';
+  if (unitIdBle && isBle) unitIdBle.style.display = tx === 'ble-modbus' ? '' : 'none';
   const netHost = card.querySelector('input[name$="[host]"]');
   const netPort = card.querySelector('input[name$="[port]"]');
   if (isBle) {
     // Bluetooth: no network host/port/logger serial — the MAC lives in ble_address.
+    // LuxPower still addresses its frames by dongle + inverter serial.
     const serialRowBle = card.querySelector('.dongle-serial-row');
-    if (serialRowBle) serialRowBle.style.display = 'none';
+    if (serialRowBle) serialRowBle.style.display = isLux ? '' : 'none';
+    if (isLux) {
+      const sn = card.querySelector('input[name$="[serial_number]"]');
+      if (sn) sn.style.display = 'none';
+      card.querySelectorAll('input[name$="[dongle_serial]"], input[name$="[inverter_serial]"]').forEach(el => { el.style.display = ''; });
+    }
     if (netHost) netHost.style.display = 'none';
     if (netPort) netPort.style.display = 'none';
     const netRowBle = card.querySelector('.dongle-net-row');
@@ -3277,7 +3295,7 @@ function renderDongleDevice(device, idx) {
     <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
       <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
-      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : 30)}" style="width:100px;">
+      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : transport === 'ble-luxpower' ? 15 : 30)}" style="width:100px;">
       <input type="text" name="dongle_config[${idx}][prefix]" placeholder="Metric Prefix (optional)" value="${escapeHtml(device.prefix || '')}" style="width:150px;">
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
@@ -3291,6 +3309,7 @@ function renderDongleDevice(device, idx) {
       <option value="luxpower-tcp" ${transport === 'luxpower-tcp' ? 'selected' : ''}>LuxPower Local TCP</option>
       <option value="ble-modbus" ${transport === 'ble-modbus' ? 'selected' : ''}>Bluetooth (Modbus over BLE)</option>
       <option value="ble-gatt" ${transport === 'ble-gatt' ? 'selected' : ''}>Bluetooth (read-only device)</option>
+      <option value="ble-luxpower" ${transport === 'ble-luxpower' ? 'selected' : ''}>LuxPower Bluetooth</option>
     </select>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
     <div class="mappings-section">
@@ -3337,7 +3356,7 @@ function renderDongleDevice(device, idx) {
       card.querySelector('.mappings-list').innerHTML = '';
     }
     const cur = getProfileById(profileSelect.value);
-    transportSelect.value = bt ? (isBleGattProfile(cur) ? 'ble-gatt' : 'ble-modbus')
+    transportSelect.value = bt ? bleTransportForProfile(cur)
       : (profileSelect.value ? getTransportForProfile(profileSelect.value) : 'solarman-v5');
     updateDongleTransportUI(card);
   });
@@ -3347,8 +3366,8 @@ function renderDongleDevice(device, idx) {
     const p = await resolveDongleProfile(profileId);
     if (!p) return;
     // Bluetooth stays selected (the list only offers Bluetooth-capable profiles there).
-    const keepBle = linkSelect.value === 'bluetooth' && isDongleRegisterProfile(p);
-    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle ? 'ble-modbus' : getTransportForProfile(p.id));
+    const keepBle = linkSelect.value === 'bluetooth' && (isDongleRegisterProfile(p) || isLuxpowerDongleProfile(p));
+    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle ? bleTransportForProfile(p) : getTransportForProfile(p.id));
     if (isBleGattProfile(p)) linkSelect.value = 'bluetooth';
     transportSelect.value = tx;
     updateDongleTransportUI(card);
@@ -3356,7 +3375,7 @@ function renderDongleDevice(device, idx) {
     portInput.value = p.default_port || '';
     const unitIdInput = card.querySelector('input[name$="[modbus_unit_id]"]');
     unitIdInput.value = p.default_unit_id || 1;
-    unitIdInput.style.display = (tx === 'felicity-tcp' || tx === 'ble-gatt') ? 'none' : '';
+    unitIdInput.style.display = (tx === 'felicity-tcp' || tx === 'ble-gatt' || isLuxTransport(tx)) ? 'none' : '';
     // Mapping UI is adapter-dispatched by the profile's family (#108 wave 4):
     //   luxpower-tcp → entity-catalog UI only (wave-3 path, unchanged)
     //   register transports → entity-catalog UI with the legacy Load retained
@@ -3437,7 +3456,7 @@ function renderDongleDevice(device, idx) {
       });
       const data = await res.json();
       if (res.ok) {
-        const label = tx === 'ble-gatt' ? 'OK —' : (tx === 'luxpower-tcp') ? 'OK — Operational State (reg 0x0000) =' : 'OK — Register 0x0100 =';
+        const label = tx === 'ble-gatt' ? 'OK —' : (tx === 'luxpower-tcp') ? 'OK — Operational State (reg 0x0000) =' : (tx === 'ble-luxpower') ? 'OK — Operational State' : 'OK — Register 0x0100 =';
         showStatus(statusEl, `${label} ${data.raw}`, 'success');
       }
       else showStatus(statusEl, data.error, 'error');
@@ -4535,7 +4554,7 @@ async function initDongleCardMappings(card, profileId, savedMappings, mappingsLi
     // loaded when this card first rendered — correct it for luxpower so the
     // dongle/inverter serial fields show and saves persist transport:'luxpower-tcp'.
     const txSel = card.querySelector('select[name$="[transport]"]');
-    if (txSel && txSel.value !== 'luxpower-tcp') {
+    if (txSel && !isLuxTransport(txSel.value)) {
       txSel.value = 'luxpower-tcp';
       if (typeof updateDongleTransportUI === 'function') updateDongleTransportUI(card);
     }
@@ -5665,7 +5684,7 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.dongle_serial = card.querySelector('input[name$="[dongle_serial]"]')?.value?.trim() || '';
     dev.inverter_serial = card.querySelector('input[name$="[inverter_serial]"]')?.value?.trim() || '';
     // LuxPower: never persist a stranded shape (serial in serial_number but dongle_serial empty).
-    if ((txSel === 'luxpower-tcp') && !dev.dongle_serial && dev.serial_number) {
+    if (isLuxTransport(txSel) && !dev.dongle_serial && dev.serial_number) {
       dev.dongle_serial = dev.serial_number;
       dev.serial_number = '';
     }
@@ -5675,14 +5694,14 @@ if (form) form.addEventListener('submit', async (e) => {
       dev.ble_notify_uuid = card.querySelector('input[name$="[ble_notify_uuid]"]')?.value.trim() || '';
     }
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
-    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || (txSel === 'luxpower-tcp' ? 5 : 30);
+    dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || (txSel === 'luxpower-tcp' ? 5 : txSel === 'ble-luxpower' ? 15 : 30);
     dev.prefix = card.querySelector('input[name$="[prefix]"]')?.value || '';
     // Phase-2 (issue #106) explicit-mapping era marker (AC18): every luxpower-tcp
     // device saved through the current settings UI is user-managed under
     // mapping:'explicit'. Stamp it so the boot-time legacy migration never
     // treats a phase-2 save (brand-new instance, or one whose mappings were all
     // deleted) as a phase-1 legacy instance to auto-migrate.
-    if (txSel === 'luxpower-tcp') dev._luxpowerPhase2 = true;
+    if (isLuxTransport(txSel)) dev._luxpowerPhase2 = true;
     dev.mappings = {};
     card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
       const address = row.dataset.address;
@@ -5693,7 +5712,7 @@ if (form) form.addEventListener('submit', async (e) => {
     // keeps its existing _luxpowerPhase2 marker ONLY (byte-compat: never add
     // _catalogV2 to luxpower saves); non-LuxPower register families stamp
     // _catalogV2 when any catalog component row is persisted.
-    if (txSel !== 'luxpower-tcp' && cardHasCatalogRows(card)) dev._catalogV2 = true;
+    if (!isLuxTransport(txSel) && cardHasCatalogRows(card)) dev._catalogV2 = true;
     return dev;
   });
   payload.tuya_devices = collectDeviceArray('tuya-devices-container', (card) => {
