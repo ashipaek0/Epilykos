@@ -4,15 +4,23 @@ services:
     container_name: epilykos
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3000:3000"                  # Ignored with network_mode: host (the app then listens on host port 3000)
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro
-      - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus. Remove this line if you don't use Bluetooth.
+      # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
+      # Mount the /run/dbus directory, not the socket file: a file mount goes stale when
+      # the host's D-Bus restarts. Remove this line if you don't use Bluetooth.
+      - /run/dbus:/run/dbus:ro
     environment:
-      - TZ=Africa/Lagos  # Time zone for day boundaries. Remove this line to follow the host clock. 
-    devices:
-#      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
-    group_add:
-      - "dialout"                        # Serial port permissions
+      - TZ=Africa/Lagos              # Time zone for day boundaries. Remove this line to follow the host clock.
+    # USB serial adapter (RS232 / RS485 inverter or wired BMS): uncomment both blocks.
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # group_add:
+    #   - "dialout"                  # Serial port permissions
+    #   - "108"                      # Only if Settings shows "D-Bus denied access to BlueZ": the host's
+    #                                # bluetooth group ID from `getent group bluetooth`
+    # Bluetooth needs no cap_add, privileged or host networking. Host networking is only
+    # needed for Tuya LAN broadcast discovery.
     network_mode: "host"
