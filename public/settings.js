@@ -2100,6 +2100,8 @@ let bmsDeviceCounter = 0;
 
 // ── BMS Scan Modal ─────────────────────────────────────
 let bmsScanTargetIdx = -1;
+let bmsScanTarget = 'bms'; // 'bms' → BMS card; 'dongle' → inverter Bluetooth card
+let bmsScanTargetCard = null; // dongle cards are addressed directly (indexes shift on remove)
 let bmsScanTimestamp = 0;
 let bmsScanInterval = null;
 
@@ -2112,7 +2114,9 @@ function closeBmsScanModal() {
   if (!bmsScanModal) return;
   bmsScanModal.style.display = 'none';
   if (bmsScanTargetIdx >= 0) {
-    const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
+    const statusEl = bmsScanTargetCard
+      ? bmsScanTargetCard.querySelector('[id^="dongle-test-status-"]')
+      : document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
     if (statusEl && statusEl.textContent.includes('Scanning')) {
       statusEl.innerHTML = '';
       statusEl.className = 'test-status';
@@ -2120,8 +2124,10 @@ function closeBmsScanModal() {
   }
 }
 
-function openBmsScanModal(idx) {
+function openBmsScanModal(idx, target = 'bms', card = null) {
   bmsScanTargetIdx = idx;
+  bmsScanTarget = target;
+  bmsScanTargetCard = card;
   bmsScanModal.style.display = 'flex';
   bmsScanList.innerHTML = '';
   bmsScanCacheBadge.textContent = '';
@@ -2134,12 +2140,14 @@ async function runBmsScan(force) {
   bmsScanCacheBadge.textContent = '';
 
   try {
-    const url = force ? '/api/bms/scan?force=1' : '/api/bms/scan';
-    const res = await fetch(url, { signal: AbortSignal.timeout(20000), credentials: 'include' });
+    // Inverter cards list every device; BMS cards list recognised BMS first.
+    const url = bmsScanTarget === 'dongle' ? '/api/bluetooth/scan' : (force ? '/api/bms/scan?force=1' : '/api/bms/scan');
+    // Generous: the scan may wait behind a BMS/inverter poll on the shared adapter.
+    const res = await fetch(url, { signal: AbortSignal.timeout(60000), credentials: 'include' });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       bmsScanStatus.textContent = err.error || 'Scan failed';
-      bmsScanList.innerHTML = '<div class="bms-scan-empty">Scan failed — bridge may be unreachable</div>';
+      bmsScanList.innerHTML = '<div class="bms-scan-empty">Scan failed — check the Bluetooth status above the device list</div>';
       return;
     }
     const devices = await res.json();
@@ -2161,10 +2169,14 @@ async function runBmsScan(force) {
     bmsScanList.innerHTML = devices.map(d => {
       const rssiPct = Math.min(100, Math.max(0, ((d.rssi + 100) / 60) * 100));
       const strength = d.rssi > -60 ? 'strong' : d.rssi > -75 ? 'medium' : 'weak';
-      const isBms = d.name && /bms|jk|jbd|daly/i.test(d.name);
-      const bmsTag = isBms
-        ? '<span class="bms-scan-bms-tag match">BMS</span>'
-        : '<span class="bms-scan-bms-tag unknown">?</span>';
+      // bms_type comes from built-in Bluetooth (aiobmsble identification); the
+      // legacy bridge only returns names, so fall back to the name heuristic.
+      const isBms = d.bms_type || (d.name && /bms|jk|jbd|daly/i.test(d.name));
+      const bmsTag = d.bms_type
+        ? `<span class="bms-scan-bms-tag match">${escapeHtml(d.bms_type)}</span>`
+        : isBms
+          ? '<span class="bms-scan-bms-tag match">BMS</span>'
+          : '<span class="bms-scan-bms-tag unknown">?</span>';
       return `<div class="bms-scan-device" data-address="${escapeHtml(d.address)}">
         <div class="bms-scan-rssi-bar"><div class="bms-scan-rssi-fill ${strength}" style="width:${rssiPct}%"></div></div>
         <span class="bms-scan-rssi-db">${d.rssi} dB</span>
@@ -2187,12 +2199,14 @@ async function runBmsScan(force) {
 
 function selectBmsDevice(address) {
   if (bmsScanTargetIdx < 0) return;
-  const card = document.querySelector(`#bms-devices-container .device-card[data-index="${bmsScanTargetIdx}"]`);
+  const card = bmsScanTargetCard || document.querySelector(`#bms-devices-container .device-card[data-index="${bmsScanTargetIdx}"]`);
   if (card) {
-    const input = card.querySelector('input[name$="[address]"]');
+    const input = card.querySelector(bmsScanTarget === 'dongle' ? 'input[name$="[ble_address]"]' : 'input[name$="[address]"]');
     if (input) input.value = address;
   }
-  const statusEl = document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
+  const statusEl = bmsScanTargetCard
+    ? bmsScanTargetCard.querySelector('[id^="dongle-test-status-"]')
+    : document.getElementById(`bms-test-status-${bmsScanTargetIdx}`);
   if (statusEl) showStatus(statusEl, `Selected ${address}`, 'success');
   closeBmsScanModal();
 }
@@ -2212,7 +2226,28 @@ if (bmsScanModal) {
   bmsScanModal.querySelector('.bms-scan-refresh').addEventListener('click', () => runBmsScan(true));
   bmsScanModal.addEventListener('click', (e) => { if (e.target === bmsScanModal) closeBmsScanModal(); });
 }
+// Bluetooth adapter status under the BMS list (built-in Bluetooth, or the
+// deprecated sidecar when BMS_BRIDGE_URL is set).
+async function refreshBluetoothStatus() {
+  const el = document.getElementById('bluetooth-status');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/bluetooth/status', { credentials: 'include', signal: AbortSignal.timeout(20000) });
+    if (!res.ok) return;
+    const st = await res.json();
+    if (st.legacy_bms_bridge) {
+      el.textContent = 'Bluetooth BMS: using the legacy bms-bridge container (BMS_BRIDGE_URL is set). Unset it to use built-in Bluetooth.';
+    } else if (st.available) {
+      const a = (st.adapters || []).find(x => x.powered) || {};
+      el.textContent = `Bluetooth ready${a.address ? ` — adapter ${a.address}` : ''}.`;
+    } else {
+      el.textContent = `Bluetooth unavailable: ${st.error || 'unknown error'}`;
+    }
+  } catch (_) { /* keep the static hint */ }
+}
+
 function buildBmsDeviceList(devices) {
+  refreshBluetoothStatus();
   const container = document.getElementById('bms-devices-container');
   if (!container) return;
   container.innerHTML = '';
@@ -2241,7 +2276,7 @@ function renderBmsDevice(device, idx) {
       <button type="button" class="fetch-btn test-bms" style="flex:1;">Test Connection</button>
       <span class="test-status" id="bms-test-status-${idx}"></span>
     </div>
-    <div class="note">MAC address can be found by scanning with a phone BLE scanner or using the bridge's /devices endpoint.</div>
+    <div class="note">Use 🔍 Scan to pick a nearby BMS. Close the vendor phone app first — most BMS accept only one Bluetooth connection at a time.</div>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list" id="bms-mappings-list-${idx}"></div>
@@ -2265,7 +2300,7 @@ function renderBmsDevice(device, idx) {
     openBmsScanModal(idx);
   });
 
-  // Test connection button – uses backend proxy to reach BMS bridge
+  // Test connection button – reads one sample over Bluetooth
   card.querySelector('.test-bms').addEventListener('click', async () => {
     const statusEl = document.getElementById(`bms-test-status-${idx}`);
     const address = card.querySelector('input[name$="[address]"]').value.trim();
@@ -3016,8 +3051,10 @@ function getProfileById(id) {
   return dongleProfilesCache.find(p => p.id === id);
 }
 
-function getTransportForProfile(profileId) {
+function getTransportForProfile(profileId, current) {
   const p = getProfileById(profileId);
+  // Bluetooth is chosen per instance on top of any register-based profile.
+  if (current === 'ble-modbus' && (!p || isDongleRegisterProfile(p))) return 'ble-modbus';
   if (!p) return 'solarman-v5';
   if (p.protocol === 'felicity-tcp') return 'felicity-tcp';
   if (p.protocol === 'luxpower-tcp') return 'luxpower-tcp';
@@ -3029,6 +3066,21 @@ function updateDongleTransportUI(card) {
   if (!transportSelect) return;
   const tx = transportSelect.value;
   const isLux = tx === 'luxpower-tcp';
+  const isBle = tx === 'ble-modbus';
+  const bleRow = card.querySelector('.dongle-ble-row');
+  const bleUuidRow = card.querySelector('.dongle-ble-uuid-row');
+  if (bleRow) bleRow.style.display = isBle ? '' : 'none';
+  if (bleUuidRow) bleUuidRow.style.display = isBle ? '' : 'none';
+  const netHost = card.querySelector('input[name$="[host]"]');
+  const netPort = card.querySelector('input[name$="[port]"]');
+  if (isBle) {
+    // Bluetooth: no network host/port/logger serial — the MAC lives in ble_address.
+    const serialRowBle = card.querySelector('.dongle-serial-row');
+    if (serialRowBle) serialRowBle.style.display = 'none';
+    if (netHost) netHost.style.display = 'none';
+    if (netPort) netPort.style.display = 'none';
+    return;
+  }
   const serialRow = card.querySelector('.dongle-serial-row');
   const hostInput = card.querySelector('input[name$="[host]"]');
   const portInput = card.querySelector('input[name$="[port]"]');
@@ -3064,7 +3116,7 @@ function renderDongleDevice(device, idx) {
   card.className = 'device-card';
   card.dataset.index = idx;
 
-  const transport = device.profile ? getTransportForProfile(device.profile) : (device.transport || 'solarman-v5');
+  const transport = device.profile ? getTransportForProfile(device.profile, device.transport) : (device.transport || 'solarman-v5');
 
   card.innerHTML = `
     <div class="device-header">
@@ -3085,6 +3137,14 @@ function renderDongleDevice(device, idx) {
       <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
       <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
     </div>
+    <div class="form-row dongle-ble-row" style="${transport === 'ble-modbus' ? '' : 'display:none;'}">
+      <input type="text" name="dongle_config[${idx}][ble_address]" placeholder="Bluetooth MAC (AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.ble_address || '')}" style="flex:1;">
+      <button type="button" class="fetch-btn scan-dongle-ble">🔍 Scan</button>
+    </div>
+    <div class="form-row dongle-ble-uuid-row" style="${transport === 'ble-modbus' ? '' : 'display:none;'}">
+      <input type="text" name="dongle_config[${idx}][ble_write_uuid]" placeholder="Write characteristic (default ffd1)" value="${escapeHtml(device.ble_write_uuid || '')}" title="GATT characteristic the Modbus request is written to">
+      <input type="text" name="dongle_config[${idx}][ble_notify_uuid]" placeholder="Notify characteristic (default fff1)" value="${escapeHtml(device.ble_notify_uuid || '')}" title="GATT characteristic the Modbus response arrives on">
+    </div>
     <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
     <div class="form-row">
       <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
@@ -3099,6 +3159,7 @@ function renderDongleDevice(device, idx) {
       <option value="felicity-tcp" ${transport === 'felicity-tcp' ? 'selected' : ''}>Felicity TCP</option>
       <option value="growatt" ${transport === 'growatt' ? 'selected' : ''}>Growatt</option>
       <option value="luxpower-tcp" ${transport === 'luxpower-tcp' ? 'selected' : ''}>LuxPower Local TCP</option>
+      <option value="ble-modbus" ${transport === 'ble-modbus' ? 'selected' : ''}>Bluetooth (Modbus over BLE)</option>
     </select>
     <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
     <div class="mappings-section">
@@ -3142,7 +3203,9 @@ function renderDongleDevice(device, idx) {
     const profileId = profileSelect.value;
     const p = await resolveDongleProfile(profileId);
     if (!p) return;
-    const tx = p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport;
+    // Keep Bluetooth selected when the new profile is register-based.
+    const keepBle = transportSelect.value === 'ble-modbus' && isDongleRegisterProfile(p);
+    const tx = keepBle ? 'ble-modbus' : (p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport);
     transportSelect.value = tx;
     updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
@@ -3192,6 +3255,11 @@ function renderDongleDevice(device, idx) {
   transportSelect.addEventListener('change', () => updateDongleTransportUI(card));
   updateDongleTransportUI(card);
 
+  card.querySelector('.scan-dongle-ble').addEventListener('click', () => {
+    showStatus(card.querySelector('[id^="dongle-test-status-"]'), 'Scanning for Bluetooth devices...', 'info');
+    openBmsScanModal(Number(card.dataset.index), 'dongle', card);
+  });
+
   const removeDongleBtn = card.querySelector('[data-action="remove-dongle"]');
   if (removeDongleBtn) removeDongleBtn.addEventListener('click', () => {
     if (showConfirm('Remove this dongle instance?')) {
@@ -3209,13 +3277,19 @@ function renderDongleDevice(device, idx) {
     const inverterSerial = card.querySelector('input[name$="[inverter_serial]"]')?.value || '';
     const unitId = card.querySelector('input[name$="[modbus_unit_id]"]')?.value;
     const tx = transportSelect.value;
-    if (!host) { showStatus(statusEl, 'Host required', 'error'); return; }
+    const bleAddress = card.querySelector('input[name$="[ble_address]"]')?.value.trim() || '';
+    const bleWrite = card.querySelector('input[name$="[ble_write_uuid]"]')?.value.trim() || '';
+    const bleNotify = card.querySelector('input[name$="[ble_notify_uuid]"]')?.value.trim() || '';
+    if (tx === 'ble-modbus' ? !bleAddress : !host) {
+      showStatus(statusEl, tx === 'ble-modbus' ? 'Bluetooth MAC required' : 'Host required', 'error');
+      return;
+    }
     showStatus(statusEl, 'Testing...', 'info');
     try {
       const res = await fetch('/api/dongle/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx })
+        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx, ble_address: bleAddress, ble_write_uuid: bleWrite, ble_notify_uuid: bleNotify })
       });
       const data = await res.json();
       if (res.ok) {
@@ -5444,6 +5518,11 @@ if (form) form.addEventListener('submit', async (e) => {
     if ((txSel === 'luxpower-tcp') && !dev.dongle_serial && dev.serial_number) {
       dev.dongle_serial = dev.serial_number;
       dev.serial_number = '';
+    }
+    if (txSel === 'ble-modbus') {
+      dev.ble_address = card.querySelector('input[name$="[ble_address]"]')?.value.trim().toUpperCase() || '';
+      dev.ble_write_uuid = card.querySelector('input[name$="[ble_write_uuid]"]')?.value.trim() || '';
+      dev.ble_notify_uuid = card.querySelector('input[name$="[ble_notify_uuid]"]')?.value.trim() || '';
     }
     dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]').value) || 1;
     dev.poll_interval = parseInt(card.querySelector('input[name$="[poll_interval]"]').value) || (txSel === 'luxpower-tcp' ? 5 : 30);

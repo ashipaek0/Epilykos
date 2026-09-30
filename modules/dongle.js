@@ -1,5 +1,5 @@
 /**
- * Inverter Dongle Module — polls inverter WiFi dongles via Solarman V5, Modbus TCP, or Growatt.
+ * Inverter Dongle Module — polls inverter dongles via Solarman V5, Modbus TCP, Growatt, or Modbus over Bluetooth LE.
  *
  * Each enabled dongle instance is polled on its own interval. Solarman V5 and Modbus TCP
  * use outgoing TCP connections (poll-based). Growatt uses an inbound TCP server (push-based).
@@ -18,6 +18,7 @@ const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
 const { LuxpowerTcpTransport } = require('./dongle/luxpowerTcp');
+const { BleModbusTransport } = require('./dongle/bleModbus');
 
 let pollIntervals = [];
 let growattServer = null;
@@ -94,7 +95,14 @@ function startDonglePolling() {
 
     let Transport = ModbusTcpTransport;
     if (inst.transport === 'solarman-v5') Transport = SolarmanV5Transport;
-    const transport = new Transport(inst);
+    if (inst.transport === 'ble-modbus') Transport = BleModbusTransport;
+    let transport;
+    try {
+      transport = new Transport(inst);
+    } catch (err) {
+      logger.warn(`[dongle] ${inst.name}: instance skipped — ${err.message}`);
+      continue;
+    }
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
     const id = setInterval(() => pollInstance(inst, transport, profile), intervalMs);
@@ -688,6 +696,12 @@ async function executeDongleAction(deviceName, registerAddr, value) {
         serial_number: device.serial_number,
         modbus_unit_id: device.modbus_unit_id || 1
       });
+      await transport.writeRegister(addr, val);
+      return { success: true };
+    }
+
+    if (transportType === 'ble-modbus') {
+      const transport = new BleModbusTransport(device);
       await transport.writeRegister(addr, val);
       return { success: true };
     }
