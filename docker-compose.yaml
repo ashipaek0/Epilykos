@@ -12,7 +12,7 @@ services:
     environment:
       - TZ=Africa/Lagos  # Time zone for day boundaries. Remove this line to follow the host clock. 
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
+#      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
     group_add:
       - "dialout"                        # Serial port permissions
     networks:
