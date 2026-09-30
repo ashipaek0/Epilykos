@@ -1,0 +1,5 @@
+# Bluetooth LE helper (modules/ble/ble_helper.py). Pinned: BMS decoding
+# changes between aiobmsble releases.
+aiobmsble==0.29.0
+bleak==3.0.2
+bleak-retry-connector==4.7.1

@@ -1,9 +1,16 @@
-FROM node:22-slim
+FROM node:22-trixie-slim
 
 # Install build tools required for better-sqlite3 native compilation
 # tzdata: lets TZ names and a host-mounted /etc/localtime resolve to a zone
+# Debian trixie ships Python 3.13; the Bluetooth BMS library (aiobmsble) needs >= 3.12.
 RUN apt-get update && apt-get install -y python3 python3-pip make g++ udev tzdata && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --break-system-packages tinytuya tuya-device-sharing-sdk qrcode[pil] && rm -rf /root/.cache/pip
+
+# Bluetooth LE (BMS + inverter Bluetooth modules). bleak talks to the HOST's
+# BlueZ over the mounted system D-Bus socket (/run/dbus), so no BlueZ, host
+# networking or privileged mode is needed inside the container.
+COPY modules/ble/requirements.txt /tmp/ble-requirements.txt
+RUN pip3 install --break-system-packages -r /tmp/ble-requirements.txt && rm -rf /root/.cache/pip /tmp/ble-requirements.txt
 
 # Create app directory and set ownership
 RUN mkdir -p /app/data && chown -R node:node /app
