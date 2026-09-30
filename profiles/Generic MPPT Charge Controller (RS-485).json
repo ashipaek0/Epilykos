@@ -1,5 +1,6 @@
 {
   "name": "Generic MPPT Charge Controller (EPever/Tracer/Renogy)",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "pv_voltage", "address": 4096, "type": "uint16", "scale": 0.1, "unit": "V", "label": "PV Voltage"},

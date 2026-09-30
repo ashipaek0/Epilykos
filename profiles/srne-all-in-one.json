@@ -1,5 +1,6 @@
 {
   "name": "SRNE All-in-One Inverter (Modbus RTU)",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "battery_soc", "address": 256, "type": "uint16", "scale": 1.0, "unit": "%", "label": "Battery SOC"},

@@ -1,5 +1,6 @@
 {
   "name": "Solis Hybrid Inverter (Ver3.2 / RHI Series)",
+  "connection": "rtu",
   "defaultUnitId": 1,
   "registers": [
     {"metric": "inverter_temp", "address": 33022, "type": "int16", "scale": 0.1, "unit": "°C", "label": "Inverter Temperature"},

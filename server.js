@@ -992,7 +992,7 @@ function persistMqttDiscoveryCache(brokerUrlKey, entries) {
 
 app.use('/api/modbus/profiles', isAuthenticated);
 app.get('/api/modbus/profiles', (req, res) => {
-  res.json(availableProfiles.map(p => ({ id: p.id, name: p.name })));
+  res.json(availableProfiles.map(p => ({ id: p.id, name: p.name, connection: p.connection })));
 });
 
 app.use('/api/modbus/profile', isAuthenticated);

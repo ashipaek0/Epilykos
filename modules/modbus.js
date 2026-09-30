@@ -21,6 +21,9 @@ function loadProfiles() {
       availableProfiles.push({
         id: file.replace('.json', ''),
         name: profile.name || file,
+        // How the device speaks Modbus natively: 'rtu' (RS-485 port — reachable
+        // over TCP only through an RS485-to-Ethernet gateway) or 'tcp'.
+        connection: profile.connection === 'tcp' ? 'tcp' : 'rtu',
         registers: profile.registers || []
       });
     } catch (e) { logger.error(`Failed to parse profile ${file}:`, e.message); }
@@ -38,6 +41,9 @@ async function connectModbus(device) {
     const stopBits = parseInt(device.serial_stop_bits) || 1;
     const parity = device.serial_parity || 'none';
     await client.connectRTUBuffered(path_, { baudRate, dataBits, stopBits, parity });
+  } else if (device.tcp_framing === 'rtu') {
+    // Transparent RS485-to-Ethernet gateway: raw RTU frames (with CRC) over TCP.
+    await client.connectTcpRTUBuffered(device.host, { port: parseInt(device.port) || 502 });
   } else {
     await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
   }
