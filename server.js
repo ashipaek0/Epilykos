@@ -1039,7 +1039,7 @@ app.post('/api/test-modbus', async (req, res) => {
 app.use('/api/rs232/profiles', isAuthenticated);
 app.get('/api/rs232/profiles', (req, res) => {
   // placeholder: unverified skeleton register map — pickers hide it unless already selected
-  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '', placeholder: p.placeholder === true })));
+  res.json(rs232Profiles.map(p => ({ id: p.id, name: p.name, protocol: p.protocol, description: p.description || '', placeholder: p.placeholder === true, defaults: p.defaults || null })));
 });
 
 app.use('/api/rs232/profile', isAuthenticated);
@@ -1624,7 +1624,7 @@ app.get('/api/bms/test', async (req, res) => {
   if (!address) return res.status(400).json({ error: 'MAC address required' });
   try {
     const { readDevice } = require('./modules/bms');
-    const data = await readDevice(String(address));
+    const data = await readDevice(String(address), String(req.query.type || ''));
 
     // Store test data in latest_metrics so getAvailableSourceKeys can find it
     try {

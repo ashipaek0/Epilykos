@@ -266,8 +266,8 @@ function scan({ timeout = 8, all = false } = {}) {
 }
 
 /** @returns {Promise<Object<string, number>>} flattened BMS sample */
-function readBms(address, { timeout = 25 } = {}) {
-  return helper().request('read_bms', { address, timeout }, (timeout + 5) * 1000);
+function readBms(address, { timeout = 25, bmsType = '' } = {}) {
+  return helper().request('read_bms', { address, timeout, bms_type: bmsType || undefined }, (timeout + 5) * 1000);
 }
 
 /**

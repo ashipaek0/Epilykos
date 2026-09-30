@@ -135,6 +135,19 @@ are labelled with their type. Decoding uses [aiobmsble](https://pypi.org/project
 Daly, Seplos, ANT, Renogy, EG4, Pace and many more. Values are stored as `bms_<name>_<key>`, e.g. `voltage`,
 `current`, `battery_level`, `cell_voltage_1`, `temp_1`.
 
+If a rebranded pack is found by Scan but not recognised, set its **type** (JBD, JK, Daly, Seplos, ANT) next to the
+MAC address.
+
+### BMS — Wired (RS485 / UART)
+Pick the serial port and a profile; the serial settings follow the profile.
+- **JBD / Jiabaida / Xiaoxiang / Overkill Solar** — UART (USB-TTL) or RS485, 9600 8N1.
+- **JK-BMS (JK-B / JK-BD)** — JK RS485 adapter or GPS/UART port, 115200 8N1. (The newer JK-PB inverter BMS speaks a
+  different Modbus protocol and is not covered yet.)
+- **Cworth CE-H6K / CE-LBW-48100C (PACE)** — Modbus-RTU over RS485.
+
+Wired JBD and JK packs report the same metric names as over Bluetooth (`voltage`, `current`, `battery_level`,
+`cell_voltage_N`, `temp_N`…), so dashboards and banks work with either connection.
+
 Most BMS and inverter modules accept **one Bluetooth connection at a time**, so close the vendor phone app while
 Epilykos is connected. All Bluetooth devices share one adapter and are polled one after another.
 

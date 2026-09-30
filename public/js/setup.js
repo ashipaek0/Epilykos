@@ -878,7 +878,7 @@
       + '<div id="bms-wired-profile-notes" style="display:none; white-space:pre-line; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.bmsWired.baud" value="' + esc(s.baud) + '"></div>'
-      + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
+      + '<div class="form-group" id="bms-wired-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
       + '</div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Data bits</label><select class="select-input" data-field="sources.bmsWired.data_bits">' + [[8,'8'],[7,'7'],[6,'6'],[5,'5']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.data_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
@@ -1142,6 +1142,8 @@
         // Unverified skeleton maps stay out of the wizard (a saved device keeps its choice).
         if (p.placeholder && state.sources.bmsWired.profile !== id) return;
         found = true;
+        state.sources.bmsWired.profileInfo = state.sources.bmsWired.profileInfo || {};
+        state.sources.bmsWired.profileInfo[id] = p;
         descriptions[id] = p.description || '';
         html += '<option value="' + esc(id) + '"' + (state.sources.bmsWired.profile === id ? ' selected' : '') + '>' + esc(name) + '</option>';
       });
@@ -1150,7 +1152,7 @@
       sel.dataset.descriptions = JSON.stringify(descriptions);
       updateBmsWiredProfileNotes();
       sel.addEventListener('change', updateBmsWiredProfileNotes);
-      if (state.sources.bmsWired.profile) loadBmsWiredFields();
+      if (state.sources.bmsWired.profile) { loadBmsWiredFields(); applyBmsWiredProfile(false); }
     }).catch(function () {
       var sel = $('#bms-wired-profile');
       if (sel) sel.innerHTML = '<option value="">Profiles unavailable</option>';
@@ -1218,6 +1220,20 @@
       src.entitiesFor = id;
       if (state.currentStep === 3) renderStep3();
     }).catch(function () {});
+  }
+  // Serial settings follow the chosen wired profile (JK = 115200); JBD / JK are
+  // not Modbus, so their unit id is hidden.
+  function applyBmsWiredProfile(userChange) {
+    var w = state.sources.bmsWired;
+    var p = (w.profileInfo || {})[w.profile];
+    var g = $('#bms-wired-unit-group');
+    if (g) g.style.display = (p && p.protocol && p.protocol !== 'modbus-rtu') ? 'none' : '';
+    if (!userChange || !p || !p.defaults) return;
+    var d = p.defaults;
+    if (d.baud != null) setFieldValue('sources.bmsWired.baud', d.baud);
+    if (d.dataBits != null) setFieldValue('sources.bmsWired.data_bits', d.dataBits);
+    if (d.parity != null) setFieldValue('sources.bmsWired.parity', d.parity);
+    if (d.stopBits != null) setFieldValue('sources.bmsWired.stop_bits', d.stopBits);
   }
   function loadBmsWiredFields() {
     var w = state.sources.bmsWired;
@@ -2290,7 +2306,7 @@
       loadProfileEntities(kind);
       if (kind === 'modbusTcp') syncModbusGateway();
     }
-    else if (field === 'sources.bmsWired.profile') loadBmsWiredFields();
+    else if (field === 'sources.bmsWired.profile') { loadBmsWiredFields(); applyBmsWiredProfile(true); }
   }
 
   // ── Event delegation ──────────────────────────────────────
