@@ -1633,3 +1633,8 @@ details[open] > .help-sub-summary::before {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Inverter dongle: Connection + Profile side by side, labelled */
+.dongle-link-row .dongle-field { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 0; }
+.dongle-link-row .dongle-field select { width: 100%; }
+.dongle-link-row .dongle-field-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); }
