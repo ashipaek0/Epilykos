@@ -20,6 +20,7 @@ const { FelicityTcpTransport } = require('./dongle/felicityTcp');
 const { LuxpowerTcpTransport } = require('./dongle/luxpowerTcp');
 const { BleModbusTransport } = require('./dongle/bleModbus');
 const { BleGattTransport } = require('./dongle/bleGatt');
+const { BleLuxpowerTransport } = require('./dongle/bleLuxpower');
 
 let pollIntervals = [];
 let growattServer = null;
@@ -86,16 +87,11 @@ function startDonglePolling() {
       // dedicated fields fall back to serial_number when left empty.
       let transport = null;
       try {
-        transport = new LuxpowerTcpTransport({
-          host: inst.host || inst.ip,
-          port: inst.port || 8000,
-          dongle_serial: inst.dongle_serial || inst.serial_number,
-          inverter_serial: inst.inverter_serial || inst.serial_number,
-          onFrame: parsed => handleLuxpowerFrame(inst, profile, parsed)
-        });
+        transport = createLuxpowerTransport(inst, profile, parsed => handleLuxpowerFrame(inst, profile, parsed));
         // D4 (revised): ~5s active input cadence for luxpower-tcp; honor an
-        // explicit poll_interval (seconds) when the instance sets one.
-        const intervalMs = (inst.poll_interval || 5) * 1000;
+        // explicit poll_interval (seconds) when the instance sets one. Over
+        // Bluetooth a full cycle takes several seconds, so default to 15s.
+        const intervalMs = (inst.poll_interval || (inst.transport === 'ble-luxpower' ? 15 : 5)) * 1000;
         const id = setInterval(() => pollLuxpowerInstance(inst, transport, profile), intervalMs);
         luxpowerPollers.push({ instance: inst, transport, intervalId: id });
         transport.start();
@@ -547,6 +543,9 @@ function decodeLuxpowerMetrics(profile, instance, registerData) {
  * the transport's single-flight queue is respected.
  */
 async function pollLuxpowerInstance(instance, transport, profile) {
+  // A slow cycle (e.g. over Bluetooth) must not stack reads onto the next one.
+  if (instance._luxPollBusy) return;
+  instance._luxPollBusy = true;
   try {
     const start = Date.now();
     const inputMetrics = profile.metrics.filter(m => (m.register_type || 'holding') === 'input');
@@ -594,6 +593,8 @@ async function pollLuxpowerInstance(instance, transport, profile) {
   } catch (err) {
     logger.warn(`[dongle] ${instance.name}: poll failed — ${err.message}`);
     instance.consecutiveFails = (instance.consecutiveFails || 0) + 1;
+  } finally {
+    instance._luxPollBusy = false;
   }
 }
 
@@ -746,6 +747,27 @@ async function executeDongleAction(deviceName, registerAddr, value) {
 }
 
 /**
+ * Transport for a luxpower-tcp profile instance: TCP port 8000 by default, or
+ * the dongle's Bluetooth link when the instance transport is 'ble-luxpower'.
+ * Both speak the same frames and expose readRegisters / writeRegister.
+ */
+function createLuxpowerTransport(inst, profile, onFrame) {
+  const serials = {
+    dongle_serial: inst.dongle_serial || inst.serial_number,
+    inverter_serial: inst.inverter_serial || inst.serial_number
+  };
+  if (inst.transport === 'ble-luxpower') {
+    return new BleLuxpowerTransport({ ...serials, ble_address: inst.ble_address, ble_write_uuid: inst.ble_write_uuid, ble_notify_uuid: inst.ble_notify_uuid });
+  }
+  return new LuxpowerTcpTransport({
+    ...serials,
+    host: inst.host || inst.ip,
+    port: inst.port || (profile && profile.default_port) || 8000,
+    onFrame
+  });
+}
+
+/**
  * LuxPower local-TCP register write (issue #106 phase 2): writes a single
  * holding register via Modbus fn 0x06 (write-single) over the shared transport
  * queue, resolving on the dongle's echo response. The entity handle is the
@@ -802,12 +824,7 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
 
   let transport = null;
   try {
-    transport = new LuxpowerTcpTransport({
-      host: device.host || device.ip,
-      port: device.port || profile.default_port || 8000,
-      dongle_serial: device.dongle_serial || device.serial_number,
-      inverter_serial: device.inverter_serial || device.serial_number
-    });
+    transport = createLuxpowerTransport(device, profile);
     let writeValue = Math.round(raw);
     if (writeValue < 0 || writeValue > 0xFFFF) {
       return { error: `Value ${writeValue} out of 16-bit register range` };

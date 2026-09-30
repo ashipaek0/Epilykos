@@ -107,7 +107,7 @@
     return {
       ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
       mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
-      dongle:  { selected: false, name: 'Inverter (dongle)', link: 'network', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', modbus_unit_id: '', ble_address: '', ble_write_uuid: '', ble_notify_uuid: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      dongle:  { selected: false, name: 'Inverter (dongle)', link: 'network', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', dongle_serial: '', inverter_serial: '', modbus_unit_id: '', ble_address: '', ble_write_uuid: '', ble_notify_uuid: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', tcp_framing: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
@@ -212,7 +212,7 @@
     function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return []; } } return []; }
     var ha = asArray(bySrc.ha)[0]; if (ha) { Object.assign(state.sources.ha, { selected: true, name: ha.name || 'Home Assistant', url: ha.url || '', token: ha.token || '', poll_interval: String(ha.poll_interval || 30), entities: Object.keys(ha.entities || {}) }); }
     var mq = asArray(bySrc.mqtt)[0]; if (mq) { Object.assign(state.sources.mqtt, { selected: true, name: mq.name || 'MQTT Broker', broker: mq.broker || '', username: mq.username || '', password: mq.password || '', poll_interval: String(mq.poll_interval || 30), selectedTopics: mq.topics || {}, topics: mq.topics || {} }); }
-    var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (dongle)', link: dg.transport === 'ble-modbus' ? 'bluetooth' : 'network', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', modbus_unit_id: dg.modbus_unit_id || '', ble_address: dg.ble_address || '', ble_write_uuid: dg.ble_write_uuid || '', ble_notify_uuid: dg.ble_notify_uuid || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '', mappings: dg.mappings || {} }); }
+    var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (dongle)', link: /^ble-/.test(dg.transport || '') ? 'bluetooth' : 'network', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', dongle_serial: dg.dongle_serial || '', inverter_serial: dg.inverter_serial || '', modbus_unit_id: dg.modbus_unit_id || '', ble_address: dg.ble_address || '', ble_write_uuid: dg.ble_write_uuid || '', ble_notify_uuid: dg.ble_notify_uuid || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '', mappings: dg.mappings || {} }); }
     var rs = asArray(bySrc.rs232)[0]; if (rs) {
       Object.assign(state.sources.rs232, { selected: true, name: rs.name || 'Inverter (RS232)', portChoice: rs.serial_path || '', profile: rs.profile || '', baud: rs.baud || '', data_bits: rs.data_bits || '', stop_bits: rs.stop_bits || '', parity: rs.parity || '', modbus_unit_id: rs.modbus_unit_id || '', timeout: String(rs.timeout || 5), mappings: rs.mappings || {} });
     }
@@ -720,13 +720,17 @@
       + '</div>'
       + '<div class="form-group" id="dongle-serial-group"' + serialVisible + '><label>Serial number</label><input class="input" data-field="sources.dongle.serial_number" value="' + esc(s.serial_number) + '"></div>'
       + '</div>'
+      + '<div class="form-row" id="dongle-lux-group" style="display:none;">'
+      + '<div class="form-group"><label>Dongle serial</label><input class="input" data-field="sources.dongle.dongle_serial" placeholder="10 characters, dongle label" value="' + esc(s.dongle_serial) + '"></div>'
+      + '<div class="form-group"><label>Inverter serial</label><input class="input" data-field="sources.dongle.inverter_serial" placeholder="10 characters, inverter label" value="' + esc(s.inverter_serial) + '"></div>'
+      + '</div>'
       + '<div id="dongle-bt-group"' + (bt ? '' : ' style="display:none;"') + '>'
       + bleAddressField('dongle', 'sources.dongle.ble_address', s.ble_address, 'Bluetooth module')
       + '<div class="form-row" id="dongle-ble-uuid-row">'
       + '<div class="form-group"><label>Write characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_write_uuid" placeholder="ffd1" value="' + esc(s.ble_write_uuid) + '"></div>'
       + '<div class="form-group"><label>Notify characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_notify_uuid" placeholder="fff1" value="' + esc(s.ble_notify_uuid) + '"></div>'
       + '</div>'
-      + '<span class="note">Pick your inverter\'s profile: Bluetooth inverters such as Phocos Any-Grid are read directly; for Modbus Bluetooth modules (e.g. SRNE / Renogy-style) pick the inverter\'s register profile. Close the vendor phone app first — most allow one connection at a time.</span>'
+      + '<span class="note">Pick your inverter\'s profile: Bluetooth inverters such as Phocos Any-Grid and LuxPower dongles (fill in both serials above) are read directly; for Modbus Bluetooth modules (e.g. SRNE / Renogy-style) pick the inverter\'s register profile. Close the vendor phone app first — most allow one connection at a time.</span>'
       + '</div>'
       + '<div class="form-row">'
       + '<div class="form-group" id="dongle-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.dongle.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
@@ -993,6 +997,8 @@
   }
   // Read-only Bluetooth devices that publish values directly (e.g. Phocos Any-Grid).
   function isBleGattDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'ble-gatt'; }
+  // LuxPower dongles: same frames over Wi-Fi (TCP 8000) or Bluetooth, addressed by dongle + inverter serial.
+  function isLuxDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'luxpower-tcp'; }
   function currentDongleProfile() {
     var d = state.sources.dongle;
     return (d.profiles || []).filter(function (p) { return p.id === d.profile; })[0];
@@ -1004,7 +1010,7 @@
     var bt = d.link === 'bluetooth';
     var html = '<option value="">Select a profile…</option>';
     d.profiles.forEach(function (p) {
-      if (bt && !isRegisterDongleProfile(p) && !isBleGattDongleProfile(p)) return;
+      if (bt && !isRegisterDongleProfile(p) && !isBleGattDongleProfile(p) && !isLuxDongleProfile(p)) return;
       if (!bt && (isBleGattDongleProfile(p) || p.connection === 'bluetooth')) return;
       html += '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
     });
@@ -1020,17 +1026,23 @@
     d.transport = dongleTransport();
     syncDongleBleFields();
   }
-  // Characteristics / unit id only apply to Modbus over BLE, not to read-only profiles.
+  // Characteristics / unit id only apply to Modbus over BLE; LuxPower needs its two serials instead.
   function syncDongleBleFields() {
-    var gatt = state.sources.dongle.link === 'bluetooth' && isBleGattDongleProfile(currentDongleProfile());
-    var uuid = $('#dongle-ble-uuid-row'); if (uuid) uuid.style.display = gatt ? 'none' : '';
-    var unit = $('#dongle-unit-group'); if (unit) unit.style.display = gatt ? 'none' : '';
+    var prof = currentDongleProfile();
+    var lux = isLuxDongleProfile(prof);
+    var own = (state.sources.dongle.link === 'bluetooth' && isBleGattDongleProfile(prof)) || lux;
+    var uuid = $('#dongle-ble-uuid-row'); if (uuid) uuid.style.display = own ? 'none' : '';
+    var unit = $('#dongle-unit-group'); if (unit) unit.style.display = own ? 'none' : '';
+    var luxg = $('#dongle-lux-group'); if (luxg) luxg.style.display = lux ? '' : 'none';
   }
   function dongleTransport() {
     var d = state.sources.dongle;
-    if (d.link === 'bluetooth') return isBleGattDongleProfile(currentDongleProfile()) ? 'ble-gatt' : 'ble-modbus';
+    if (d.link === 'bluetooth') {
+      var bp = currentDongleProfile();
+      return isBleGattDongleProfile(bp) ? 'ble-gatt' : isLuxDongleProfile(bp) ? 'ble-luxpower' : 'ble-modbus';
+    }
     var prof = (d.profiles || []).filter(function (p) { return p.id === d.profile; })[0];
-    if (!prof) return d.transport === 'ble-modbus' ? 'solarman-v5' : (d.transport || 'solarman-v5');
+    if (!prof) return /^ble-/.test(d.transport || '') ? 'solarman-v5' : (d.transport || 'solarman-v5');
     if (prof.protocol === 'felicity-tcp') return 'felicity-tcp';
     if (prof.protocol === 'luxpower-tcp') return 'luxpower-tcp';
     return prof.transport || 'solarman-v5';
@@ -1541,9 +1553,9 @@
   function dongleTestBody() {
     var d = state.sources.dongle;
     if (d.link === 'bluetooth') {
-      return { transport: dongleTransport(), profile: d.profile, ble_address: d.ble_address, ble_write_uuid: d.ble_write_uuid, ble_notify_uuid: d.ble_notify_uuid, modbus_unit_id: d.modbus_unit_id };
+      return { transport: dongleTransport(), profile: d.profile, ble_address: d.ble_address, ble_write_uuid: d.ble_write_uuid, ble_notify_uuid: d.ble_notify_uuid, modbus_unit_id: d.modbus_unit_id, dongle_serial: d.dongle_serial, inverter_serial: d.inverter_serial };
     }
-    var body = { host: d.host, port: d.port, modbus_unit_id: d.modbus_unit_id, transport: dongleTransport() };
+    var body = { host: d.host, port: d.port, modbus_unit_id: d.modbus_unit_id, transport: dongleTransport(), dongle_serial: d.dongle_serial, inverter_serial: d.inverter_serial };
     if (d.serial_number) body.serial_number = d.serial_number;
     return body;
   }
@@ -1632,6 +1644,11 @@
     if (!state.sources.dongle.selected) return [];
     var d = state.sources.dongle;
     var dev = { name: d.name || 'Inverter (dongle)', enabled: true, profile: d.profile, transport: dongleTransport(), host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: effectiveMappings('dongle') };
+    if (isLuxDongleProfile(currentDongleProfile())) {
+      dev.dongle_serial = String(d.dongle_serial || '').trim();
+      dev.inverter_serial = String(d.inverter_serial || '').trim();
+      dev._luxpowerPhase2 = true;
+    }
     if (d.link === 'bluetooth') {
       dev.ble_address = String(d.ble_address || '').trim().toUpperCase();
       dev.ble_write_uuid = d.ble_write_uuid || '';
@@ -1729,6 +1746,7 @@
       if (k === 'ha' && !(s.url && s.token)) errors.ha = 'Base URL and access token are required.';
       else if (k === 'mqtt' && !s.broker) errors.mqtt = 'Broker URL is required.';
       else if (k === 'dongle' && s.link === 'bluetooth' && !(s.ble_address && s.profile)) errors.dongle = 'Bluetooth module and profile are required.';
+      else if (k === 'dongle' && isLuxDongleProfile(currentDongleProfile()) && !(/^[A-Za-z0-9]{10}$/.test(String(s.dongle_serial || '').trim()) && /^[A-Za-z0-9]{10}$/.test(String(s.inverter_serial || '').trim()))) errors.dongle = 'LuxPower needs the 10-character dongle serial and inverter serial from the labels.';
       else if (k === 'dongle' && s.link !== 'bluetooth' && !(s.host && s.port && s.profile)) errors.dongle = 'Host, port and profile are required.';
       else if (k === 'rs232' && !(resolveSerialPath(s) && s.profile)) errors.rs232 = 'Serial port and profile are required.';
       else if (k === 'modbusSerial' && !s.serial_path) errors.modbusSerial = 'Serial path is required.';
