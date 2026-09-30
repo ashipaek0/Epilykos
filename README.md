@@ -103,7 +103,7 @@ services:
 Open `/settings`, log in, and navigate to **Data Sources**. Epilykos supports the following source types:
 
 ### Inverter Dongle
-Direct TCP connection to WiFi dongles. Supported protocols: **Solarman V5**, **Modbus TCP**, **Growatt**.  
+Direct TCP connection to WiFi dongles. Supported protocols: **Solarman V5**, **Modbus TCP**, **Growatt**, **LuxPower**, **Felicity**.  
 Select a profile, enter the dongle IP address, and test the connection.
 
 **Bluetooth modules:** some inverters ship a Bluetooth module that carries plain Modbus-RTU over BLE, e.g. SRNE and
@@ -117,6 +117,13 @@ Choose Connection **Bluetooth**, profile **Phocos Any-Grid PSW-H (Bluetooth)**, 
 its serial number, e.g. `ID9634…`). It is read-only and needs no pairing: Epilykos reads output, battery voltage/SOC/
 discharge current and power (voltage × current), heatsink temperature and both PV strings, and never writes to the inverter. Close the PhocosLink
 app first. Decoded on display firmware 00041.00; SOC, temperature and discharge current are inferred from live data.
+
+**LuxPower dongles (Wi-Fi or Bluetooth):** profile **LuxPower GETA Hybrid (Wi-Fi / Bluetooth dongle)**. Enter the
+10-character **dongle serial** (dongle label; the dongle also advertises it as its Bluetooth name, e.g. `DT62000575`) and
+**inverter serial** (inverter label). Over Wi-Fi, enter the dongle's IP (port 8000). Over Bluetooth, choose Connection
+**Bluetooth** and Scan for the dongle. Both carry the same LuxPower frames, so readings, entity mappings and
+write controls are identical; Bluetooth defaults to a 15 s poll because each read takes longer. Close the LuxPower app
+and disconnect SolarAssistant (or any other Bluetooth client) first — ESP32-based dongles usually accept only one Bluetooth connection at a time.
 
 ### Home Assistant
 Enter your Home Assistant URL and a **Long-Lived Access Token**. Fetch available entities and map them to dashboard metrics.
