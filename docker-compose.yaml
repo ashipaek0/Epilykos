@@ -4,7 +4,7 @@ services:
     container_name: epilykos
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3000:3000"                  # Ignored with network_mode: host (the app then listens on host port 3000)
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro

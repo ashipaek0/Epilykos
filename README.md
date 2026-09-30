@@ -68,17 +68,27 @@ services:
       - /run/dbus:/run/dbus:ro           # Bluetooth (optional) — host BlueZ over D-Bus
     environment:
       - TZ=Africa/Lagos                    # …unless TZ is set (remove to use the host)
+    # Only with a USB serial adapter (RS232 / RS485 inverter or wired BMS):
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
+      - "/dev/ttyUSB0:/dev/ttyUSB0"     # serial passthrough
     group_add:
-      - "dialout"                        # Serial port permissions
+      - "dialout"                        # serial port permissions
     restart: unless-stopped
 ```
 
 > **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built into the main container. It uses the host's
-> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount. It does **not** need
-> `network_mode: host` or `privileged`. The host must run BlueZ (`bluetoothd`) with a powered adapter. Drop the mount if
-> you don't use Bluetooth.
+> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount:
+>
+> - Mount the **`/run/dbus` directory**, not `/run/dbus/system_bus_socket`. A mounted socket file goes stale when the
+>   host's D-Bus restarts (e.g. after an update), and Bluetooth stops working until the container is recreated.
+> - No `cap_add` (`NET_ADMIN` / `NET_RAW`), `privileged` or `network_mode: host` is needed for Bluetooth.
+> - The host must run BlueZ with a powered adapter: `systemctl status bluetooth` shows *active*, `bluetoothctl show`
+>   shows `Powered: yes`.
+> - If Settings reports *D-Bus denied access to BlueZ*, add the host's `bluetooth` group ID (`getent group bluetooth`)
+>   under `group_add`; on Ubuntu hosts also add `security_opt: [apparmor=unconfined]`.
+>
+> Drop the mount if you don't use Bluetooth. Drop `devices` and `group_add` if you don't use a USB serial adapter —
+> `devices` must list at least one device or be removed entirely.
 
 **Docker Hub image:** `irunmole/epilykos:latest`
 
@@ -274,6 +284,7 @@ All persistent state — `energy.db`, snapshots, `session-secret`, `settings-pas
 | **RS232 scan error (ENOENT)** | Ensure the container has `udev` installed — the Docker image includes it by default |
 | **WebSocket fails ("closed before connection is established")** | If using the PWA, unregister the old Service Worker and reload; also check [WebSocket reverse proxy configuration](#websocket-support) |
 | **Bluetooth unavailable: mount the host D-Bus socket** | Add `- /run/dbus:/run/dbus:ro` to the `epilykos` volumes and recreate the container |
+| **Bluetooth stopped working after a host update / reboot of D-Bus** | You mounted the socket file (`/run/dbus/system_bus_socket`). Mount the directory instead: `- /run/dbus:/run/dbus:ro`, then recreate the container |
 | **Bluetooth: D-Bus denied access to BlueZ** | The host's BlueZ D-Bus policy doesn't allow the container user (uid 1000). Add the host's `bluetooth` group ID via `group_add` (`getent group bluetooth`). On Ubuntu hosts with AppArmor D-Bus mediation, also add `security_opt: [apparmor=unconfined]` |
 | **Bluetooth: no adapter / adapter powered off** | Check `bluetoothctl show` on the host; `rfkill unblock bluetooth` and `bluetoothctl power on` |
 | **BMS scan returns no devices** | Move the adapter closer (BLE range is ~10 m), close the vendor app, and scan again. On a Raspberry Pi 3 a USB Bluetooth dongle is more reliable than the onboard radio |
