@@ -18,10 +18,6 @@ jobs:
             context: .
             dockerfile: ./Dockerfile
             tag: irunmole/epilykos:latest
-          - name: epilykos-bms
-            context: ./bms-bridge
-            dockerfile: ./bms-bridge/Dockerfile
-            tag: irunmole/epilykos-bms:latest
     steps:
       - name: Check out code
         uses: actions/checkout@v7

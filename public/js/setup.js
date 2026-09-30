@@ -119,7 +119,7 @@
       rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
+      bms:     { selected: false, name: 'BMS (Bluetooth)', address: '', poll_interval: '30', enabled: true, mappings: {} },
       bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
       rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
     },
@@ -220,7 +220,7 @@
         Object.assign(state.sources.modbusTcp, { selected: true, name: mb.name || 'Inverter (Modbus-TCP)', profile: mb.profile || '', host: mb.host || '', port: mb.port || '502', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
       }
     });
-    var bm = asArray(bySrc.bms)[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (BLE bridge)', address: bm.address || '', bridge_url: bm.bridge_url || state.sources.bms.bridge_url, poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
+    var bm = asArray(bySrc.bms)[0]; if (bm) { Object.assign(state.sources.bms, { selected: true, name: bm.name || 'BMS (Bluetooth)', address: bm.address || '', poll_interval: String(bm.poll_interval || 30), mappings: bm.mappings || {} }); }
     var bw = (asArray(bySrc.bms) || []).find(function (d) { return d && d.transport === 'wired'; }); if (bw) { Object.assign(state.sources.bmsWired, { selected: true, name: bw.name || 'BMS (RS485/RS232)', serial_path: bw.serial_path || '', baud: String(bw.baud || 9600), data_bits: String(bw.data_bits || 8), parity: bw.parity || 'none', stop_bits: String(bw.stop_bits || 1), modbus_unit_id: String(bw.modbus_unit_id || 1), profile: bw.profile || '', timeout: String(bw.timeout || 5000), poll_interval: String(bw.poll_interval || 30), mappings: bw.mappings || {} }); }
     var rx = asArray(bySrc.rest)[0]; if (rx) { Object.assign(state.sources.rest, { selected: true, name: rx.name || 'REST API', url: rx.url || '', mappings: rx.mappings || {} }); }
     // Re-seed wizard discovery results (HA entities, MQTT selectedTopics,
@@ -607,9 +607,9 @@
       sourceCardDongle());
 
     // 4 · BMS — Bluetooth
-    html += section(g.bmsBluetooth, 'Battery BMS over Bluetooth, via the BLE bridge.',
+    html += section(g.bmsBluetooth, 'Battery BMS over Bluetooth, using the host Bluetooth adapter.',
       grid([
-        { key: 'bms', icon: '🔋', label: 'BMS (BLE bridge)', sub: 'MAC address + bridge' }
+        { key: 'bms', icon: '🔋', label: 'BMS (Bluetooth)', sub: 'Bluetooth MAC address' }
       ]),
       sourceCardBMS());
 
@@ -818,14 +818,13 @@
   function sourceCardBMS() {
     var s = cfg('bms');
     return '<div class="source-config card" data-source="bms">'
-      + '<div class="card-header"><span class="card-title">BMS (BLE bridge)</span></div>'
+      + '<div class="card-header"><span class="card-title">BMS (Bluetooth)</span></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.bms.name" value="' + esc(s.name) + '"></div>'
       + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bms.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
       + '</div>'
       + '<div class="form-group"><label>MAC address</label><input class="input" data-field="sources.bms.address" placeholder="AA:BB:CC:DD:EE:FF" value="' + esc(s.address) + '"></div>'
-      + '<div class="form-group"><label>BMS bridge URL</label><input class="input" data-field="sources.bms.bridge_url" value="' + esc(s.bridge_url) + '">'
-      + '<span class="note">The BLE bridge container. Only change this if the bridge runs on another host.</span></div>'
+      + '<span class="note">Uses the host\'s Bluetooth adapter (mount /run/dbus into the container). Close the vendor phone app first — most BMS allow one connection at a time.</span>'
       + '<div class="test-row">'
       + '<button class="btn btn-sm" type="button" data-action="test" data-source="bms" data-test="bms">Test connection</button>'
       + '<span class="test-badge pending" data-badge-src="bms">Not tested</span>'
@@ -1447,7 +1446,7 @@
     var out = [];
     if (state.sources.bms.selected) {
       var b = state.sources.bms;
-      out.push({ name: b.name || 'BMS (BLE bridge)', enabled: true, transport: 'bluetooth', address: b.address || '', bridge_url: b.bridge_url || 'http://bms-bridge:8020', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} });
+      out.push({ name: b.name || 'BMS (Bluetooth)', enabled: true, transport: 'bluetooth', address: b.address || '', poll_interval: parseInt(b.poll_interval, 10) || 30, mappings: b.mappings || {} });
     }
     if (state.sources.bmsWired.selected) {
       var w = state.sources.bmsWired;
@@ -1574,7 +1573,7 @@
       rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
       modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null },
-      bms:     { selected: false, name: 'BMS (BLE bridge)', address: '', bridge_url: 'http://bms-bridge:8020', poll_interval: '30', enabled: true, mappings: {} },
+      bms:     { selected: false, name: 'BMS (Bluetooth)', address: '', poll_interval: '30', enabled: true, mappings: {} },
       bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {} },
       rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
     };

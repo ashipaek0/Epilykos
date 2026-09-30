@@ -65,6 +65,7 @@ services:
       - ./data:/app/data
       - ./.env:/app/.env
       - /etc/localtime:/etc/localtime:ro  # follow the host time zone…
+      - /run/dbus:/run/dbus:ro           # Bluetooth (optional) — host BlueZ over D-Bus
     environment:
       - TZ=Africa/Lagos                    # …unless TZ is set (remove to use the host)
     devices:
@@ -72,19 +73,18 @@ services:
     group_add:
       - "dialout"                        # Serial port permissions
     restart: unless-stopped
-
-  bms-bridge:           # optional — Bluetooth BMS only
-    image: irunmole/epilykos-bms:latest
-    container_name: epilykos-bms
-    network_mode: host
-    restart: unless-stopped
 ```
 
-> **Note:** The `bms-bridge` service is only required if you are using a Bluetooth BMS device. It requires `network_mode: host` to access the host's Bluetooth adapter.
+> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built into the main container. It uses the host's
+> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount. It does **not** need
+> `network_mode: host` or `privileged`. The host must run BlueZ (`bluetoothd`) with a powered adapter. Drop the mount if
+> you don't use Bluetooth.
 
-**Docker Hub images:**
-- `irunmole/epilykos:latest`
-- `irunmole/epilykos-bms:latest`
+**Docker Hub image:** `irunmole/epilykos:latest`
+
+> **Upgrading from the `bms-bridge` sidecar:** remove the `bms-bridge` service and `BMS_BRIDGE_URL`, and add the
+> `/run/dbus` mount above. While `BMS_BRIDGE_URL` is set, Epilykos keeps using the old sidecar, so you can switch over when
+> it suits you. The `irunmole/epilykos-bms` image is no longer built.
 
 ---
 
@@ -95,6 +95,12 @@ Open `/settings`, log in, and navigate to **Data Sources**. Epilykos supports th
 ### Inverter Dongle
 Direct TCP connection to WiFi dongles. Supported protocols: **Solarman V5**, **Modbus TCP**, **Growatt**.  
 Select a profile, enter the dongle IP address, and test the connection.
+
+**Bluetooth modules:** some inverters ship a Bluetooth module that carries plain Modbus-RTU over BLE, e.g. SRNE and
+Renogy-style BT modules. Pick a register profile for your inverter, set the transport to **Bluetooth (Modbus over BLE)**,
+use 🔍 Scan to pick the module's MAC, and test. The default characteristics are `ffd1` (write) and `fff1` (notify). If
+your module uses different ones, you can read them with a BLE explorer app such as nRF Connect. Note that many Wi-Fi +
+Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data over it.
 
 ### Home Assistant
 Enter your Home Assistant URL and a **Long-Lived Access Token**. Fetch available entities and map them to dashboard metrics.
@@ -118,7 +124,13 @@ Connect Tuya-compatible smart devices directly on your LAN — no cloud dependen
 Point Epilykos at any HTTP(S) API that returns JSON — on your LAN (e.g. `http://192.168.1.50/status`) or on the internet. Map JSON field paths to dashboard metrics. Loopback and cloud-metadata addresses are blocked.
 
 ### Bluetooth BMS
-Requires the `bms-bridge` sidecar container. Scan for nearby BLE devices and select the target MAC address.
+Built in (needs the `/run/dbus` mount, see [Docker Compose](#docker-compose)). Scan for nearby devices; recognised BMS
+are labelled with their type. Decoding uses [aiobmsble](https://pypi.org/project/aiobmsble/), which covers JK, JBD,
+Daly, Seplos, ANT, Renogy, EG4, Pace and many more. Values are stored as `bms_<name>_<key>`, e.g. `voltage`,
+`current`, `battery_level`, `cell_voltage_1`, `temp_1`.
+
+Most BMS and inverter modules accept **one Bluetooth connection at a time**, so close the vendor phone app while
+Epilykos is connected. All Bluetooth devices share one adapter and are polled one after another.
 
 ### RS232 Serial
 Connect inverters via USB-to-RS232/RS485 adapter. Supported protocols:
@@ -167,7 +179,7 @@ Epilykos is a **Progressive Web App** — install it on your phone or desktop fo
 | **Real-time updates** | WebSocket push every 30 seconds |
 | **Searchable Help** | Accordion-based help section with search — covers all sources and block types |
 | **PWA** | Installable, offline-capable, background sync |
-| **BMS Bluetooth** | Native BLE support via bms-bridge sidecar |
+| **Bluetooth** | BMS and inverter Bluetooth modules, built in (no sidecar) |
 | **No forced login** | Dashboard is publicly accessible; only settings require a password |
 
 ---
@@ -219,6 +231,9 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `LOG_DIR` | `logs/` | Where rotating log files go when file logging is on |
 | `SQLITE_SYNCHRONOUS` | `NORMAL` | SQLite durability: `NORMAL`, `FULL` or `EXTRA` (`OFF` is refused) |
 | `TMPDIR` | `/tmp` | Temporary directory for uploads (backup restore, layout import) |
+| `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
+| `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
+| `BMS_BRIDGE_URL` | — | Deprecated: use a legacy `bms-bridge` sidecar instead of built-in Bluetooth |
 
 All persistent state — `energy.db`, snapshots, `session-secret`, `settings-password` — lives in `data/` (`/app/data` in the container).
 
@@ -236,7 +251,10 @@ All persistent state — `energy.db`, snapshots, `session-secret`, `settings-pas
 | **RS232 permission denied** | `sudo usermod -a -G dialout $USER` then log out and back in |
 | **RS232 scan error (ENOENT)** | Ensure the container has `udev` installed — the Docker image includes it by default |
 | **WebSocket fails ("closed before connection is established")** | If using the PWA, unregister the old Service Worker and reload; also check [WebSocket reverse proxy configuration](#websocket-support) |
-| **BMS scan returns no devices** | Ensure `bms-bridge` uses `network_mode: host` and the host has an active Bluetooth adapter |
+| **Bluetooth unavailable: mount the host D-Bus socket** | Add `- /run/dbus:/run/dbus:ro` to the `epilykos` volumes and recreate the container |
+| **Bluetooth: D-Bus denied access to BlueZ** | The host's BlueZ D-Bus policy doesn't allow the container user (uid 1000). Add the host's `bluetooth` group ID via `group_add` (`getent group bluetooth`). On Ubuntu hosts with AppArmor D-Bus mediation, also add `security_opt: [apparmor=unconfined]` |
+| **Bluetooth: no adapter / adapter powered off** | Check `bluetoothctl show` on the host; `rfkill unblock bluetooth` and `bluetoothctl power on` |
+| **BMS scan returns no devices** | Move the adapter closer (BLE range is ~10 m), close the vendor app, and scan again. On a Raspberry Pi 3 a USB Bluetooth dongle is more reliable than the onboard radio |
 | **Daily totals roll over at the wrong hour** | Set `TZ` (e.g. `TZ=Europe/Berlin`) or mount `/etc/localtime:/etc/localtime:ro`; the startup log line shows the active time zone |
 | **Setup wizard asks for a setup code** | It is printed at startup: `docker compose logs epilykos \| grep "setup code"` |
 | **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |

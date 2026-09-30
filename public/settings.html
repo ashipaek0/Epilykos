@@ -182,7 +182,7 @@
         <div id="subtab-bms" class="subtab-content">
           <div id="bms-devices-container"></div>
           <button type="button" id="add-bms-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add BMS Device</button>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Requires the BMS bridge container to be running.</p>
+          <p class="note" id="bluetooth-status" style="font-size:0.775rem;color:var(--text-tertiary);">Bluetooth uses the host's adapter — mount <code>/run/dbus</code> into the container.</p>
           <div class="section-divider">🔌 BMS — Wired</div>
           <div id="bms-wired-devices-container"></div>
           <button type="button" id="add-bms-wired-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Wired BMS</button>
