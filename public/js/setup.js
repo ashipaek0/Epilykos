@@ -875,7 +875,7 @@
       + '</div>'
       + '<div class="form-group"><label>Serial port</label><select class="input" data-field="sources.bmsWired.serial_path" id="bms-wired-port"><option value="">Loading…</option></select></div>'
       + '<div class="form-group"><label>Profile</label><select class="input" data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select></div>'
-      + '<div id="bms-wired-profile-notes" style="display:none; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>'
+      + '<div id="bms-wired-profile-notes" style="display:none; white-space:pre-line; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>'
       + '<div class="form-row">'
       + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.bmsWired.baud" value="' + esc(s.baud) + '"></div>'
       + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
