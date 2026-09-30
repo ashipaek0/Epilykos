@@ -1,0 +1,236 @@
+{
+  "name": "JK-BMS (RS485 adapter / GPS port)",
+  "description": "For JK-BMS (Jikong) JK-B / JK-BD boards with the JK RS485 adapter (or the GPS/UART port)\n- Wiring: JK RS485 adapter in the BMS GPS port, A/B to a USB-RS485 adapter; or GPS-port TX/RX/GND to a USB-TTL adapter.\n- Do NOT connect the GPS port's VBAT pin to the adapter.\n- 115200 baud 8N1. Modbus unit id is not used.\n- Current: positive=charge, negative=discharge.\n- The newer JK-PB inverter BMS (Modbus RS485) is a different protocol and is not covered by this profile.",
+  "protocol": "jk-rs485",
+  "transport": "rs232",
+  "defaults": {
+    "baud": 115200,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "metrics": [
+    {
+      "name": "voltage",
+      "field": "voltage",
+      "label": "Pack Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "current",
+      "field": "current",
+      "label": "Current (+charge / −discharge)",
+      "unit": "A"
+    },
+    {
+      "name": "power",
+      "field": "power",
+      "label": "Power (+charge / −discharge)",
+      "unit": "W"
+    },
+    {
+      "name": "battery_level",
+      "field": "battery_level",
+      "label": "State of Charge",
+      "unit": "%"
+    },
+    {
+      "name": "cycle_charge",
+      "field": "cycle_charge",
+      "label": "Remaining Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "design_capacity",
+      "field": "design_capacity",
+      "label": "Nominal Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "cycles",
+      "field": "cycles",
+      "label": "Charge Cycles",
+      "unit": ""
+    },
+    {
+      "name": "cell_count",
+      "field": "cell_count",
+      "label": "Cell Count",
+      "unit": ""
+    },
+    {
+      "name": "delta_voltage",
+      "field": "delta_voltage",
+      "label": "Cell Voltage Spread",
+      "unit": "V"
+    },
+    {
+      "name": "temperature",
+      "field": "temperature",
+      "label": "Average Temperature",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_1",
+      "field": "temp_1",
+      "label": "Temperature 1",
+      "unit": "°C"
+    },
+    {
+      "name": "temp_2",
+      "field": "temp_2",
+      "label": "Temperature 2",
+      "unit": "°C"
+    },
+    {
+      "name": "chrg_mosfet",
+      "field": "chrg_mosfet",
+      "label": "Charge MOSFET On",
+      "unit": ""
+    },
+    {
+      "name": "dischrg_mosfet",
+      "field": "dischrg_mosfet",
+      "label": "Discharge MOSFET On",
+      "unit": ""
+    },
+    {
+      "name": "balancer",
+      "field": "balancer",
+      "label": "Balancing",
+      "unit": ""
+    },
+    {
+      "name": "battery_charging",
+      "field": "battery_charging",
+      "label": "Charging",
+      "unit": ""
+    },
+    {
+      "name": "problem",
+      "field": "problem",
+      "label": "Alarm Active",
+      "unit": ""
+    },
+    {
+      "name": "problem_code",
+      "field": "problem_code",
+      "label": "Alarm Bits",
+      "unit": ""
+    },
+    {
+      "name": "temp_mosfet",
+      "field": "temp_mosfet",
+      "label": "MOSFET Temperature",
+      "unit": "°C"
+    },
+    {
+      "name": "actual_capacity",
+      "field": "actual_capacity",
+      "label": "Measured Full Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "total_charge",
+      "field": "total_charge",
+      "label": "Total Cycled Capacity",
+      "unit": "Ah"
+    },
+    {
+      "name": "cell_voltage_1",
+      "field": "cell_voltage_1",
+      "label": "Cell 1 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_2",
+      "field": "cell_voltage_2",
+      "label": "Cell 2 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_3",
+      "field": "cell_voltage_3",
+      "label": "Cell 3 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_4",
+      "field": "cell_voltage_4",
+      "label": "Cell 4 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_5",
+      "field": "cell_voltage_5",
+      "label": "Cell 5 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_6",
+      "field": "cell_voltage_6",
+      "label": "Cell 6 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_7",
+      "field": "cell_voltage_7",
+      "label": "Cell 7 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_8",
+      "field": "cell_voltage_8",
+      "label": "Cell 8 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_9",
+      "field": "cell_voltage_9",
+      "label": "Cell 9 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_10",
+      "field": "cell_voltage_10",
+      "label": "Cell 10 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_11",
+      "field": "cell_voltage_11",
+      "label": "Cell 11 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_12",
+      "field": "cell_voltage_12",
+      "label": "Cell 12 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_13",
+      "field": "cell_voltage_13",
+      "label": "Cell 13 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_14",
+      "field": "cell_voltage_14",
+      "label": "Cell 14 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_15",
+      "field": "cell_voltage_15",
+      "label": "Cell 15 Voltage",
+      "unit": "V"
+    },
+    {
+      "name": "cell_voltage_16",
+      "field": "cell_voltage_16",
+      "label": "Cell 16 Voltage",
+      "unit": "V"
+    }
+  ]
+}
