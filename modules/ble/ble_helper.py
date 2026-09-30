@@ -141,6 +141,35 @@ def modbus_sync(buf, unit_id, fc):
     return buf[i:]
 
 
+def lux_frame_length(buf):
+    """Total length of the Luxpower frame at the start of buf (A1 1A,
+    frame_len u16 LE at offset 4, total = frame_len + 6), or None if more
+    bytes are needed. A marker with an absurd length is dropped by lux_sync."""
+    if len(buf) < 6:
+        return None
+    return int.from_bytes(buf[4:6], "little") + 6
+
+
+def lux_sync(buf):
+    """Drop leading bytes until buf starts with a plausible A1 1A frame."""
+    while True:
+        i = buf.find(b"\xA1\x1A")
+        if i < 0:
+            return buf[-1:] if buf and buf[-1] == 0xA1 else bytearray()
+        buf = buf[i:]
+        if len(buf) < 6 or 22 <= lux_frame_length(buf) <= 0x2000:
+            return buf
+        buf = buf[2:]
+
+
+def lux_matches(frame, request):
+    """True when frame answers request: response action, same dev_fn, start
+    register and inverter serial. The dongle also pushes unsolicited frames
+    over the same characteristic; those do not match and are skipped."""
+    return (len(frame) >= 35 and frame[20] == 0x01 and frame[21] == request[21]
+            and frame[22:32] == request[22:32] and frame[32:34] == request[32:34])
+
+
 # ---------------------------------------------------------------------------
 # Bluetooth state
 # ---------------------------------------------------------------------------
@@ -358,8 +387,8 @@ class GattLink:
 
     def on_notify(self, _char, data):
         self.buf.extend(data)
-        if len(self.buf) > 4096:
-            del self.buf[:-4096]
+        if len(self.buf) > 8192:
+            del self.buf[:-8192]
         self.event.set()
 
 
@@ -393,7 +422,8 @@ async def _gatt_link(address, notify_uuid, timeout):
     return link
 
 
-async def cmd_modbus(args):
+async def _exchange(args, framing):
+    """Write one request frame, return the matching notified response frame."""
     address = norm_address(args.get("address"))
     write_uuid = str(args.get("write_uuid") or "").strip().lower()
     notify_uuid = str(args.get("notify_uuid") or "").strip().lower()
@@ -405,6 +435,8 @@ async def cmd_modbus(args):
         raise HelperError("frame must be hex", "bad_request") from exc
     if len(frame) < 4 or len(frame) > 256:
         raise HelperError("frame length out of range", "bad_request")
+    if framing == "luxpower" and (len(frame) < 36 or frame[:2] != b"\xA1\x1A"):
+        raise HelperError("not a Luxpower request frame", "bad_request")
     timeout = min(max(float(args.get("timeout", 15)), 2.0), 60.0)
     unit_id, fc = frame[0], frame[1]
 
@@ -413,10 +445,27 @@ async def cmd_modbus(args):
             link = await _gatt_link(address, notify_uuid, timeout)
             link.buf.clear()
             link.event.clear()
-            await link.client.write_gatt_char(write_uuid, frame)
+            # Luxpower requests exceed the default 20-byte payload; BlueZ sends
+            # them as one long write, which the dongle reassembles.
+            await link.client.write_gatt_char(write_uuid, frame, response=framing == "luxpower" or None)
             while True:
                 await link.event.wait()
                 link.event.clear()
+                if framing == "luxpower":
+                    resp = None
+                    while True:
+                        link.buf[:] = lux_sync(link.buf)
+                        need = lux_frame_length(link.buf)
+                        if need is None or len(link.buf) < need:
+                            break
+                        candidate = bytes(link.buf[:need])
+                        del link.buf[:need]
+                        if lux_matches(candidate, frame):
+                            resp = candidate
+                            break
+                    if resp is not None:
+                        break
+                    continue
                 synced = modbus_sync(link.buf, unit_id, fc)
                 if len(synced) != len(link.buf):
                     link.buf[:] = synced
@@ -433,6 +482,14 @@ async def cmd_modbus(args):
     if not KEEP_ALIVE:
         await _drop_gatt(address)
     return {"frame": resp.hex()}
+
+
+async def cmd_modbus(args):
+    return await _exchange(args, "modbus")
+
+
+async def cmd_luxpower(args):
+    return await _exchange(args, "luxpower")
 
 
 def full_uuid(u):
@@ -501,6 +558,7 @@ COMMANDS = {
     "scan": cmd_scan,
     "read_bms": cmd_read_bms,
     "modbus": cmd_modbus,
+    "luxpower": cmd_luxpower,
     "gatt_read": cmd_gatt_read,
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
@@ -578,6 +636,14 @@ def _self_test():
     assert modbus_sync(bytearray(b"\x00\x99\x01\x03\x02"), 1, 3) == bytearray(b"\x01\x03\x02")
     assert modbus_sync(bytearray(b"\x00\x99\x01"), 1, 3) == bytearray(b"\x01")
     assert modbus_sync(bytearray(b"\x00\x99"), 1, 3) == bytearray()
+    req = bytes.fromhex("a11a0500200001c244543632303030353735120000043632303033553232373100002800b019")
+    resp = bytes.fromhex("a11a05006f0001c20000000000000000000061000104363230303355323237310000" "50" + "00" * 80 + "0000")
+    assert lux_frame_length(bytearray(resp)) == len(resp) and lux_matches(resp, req)
+    push = resp[:21] + b"\x03" + resp[22:]
+    assert not lux_matches(push, req)
+    assert lux_sync(bytearray(b"\x00\x01" + resp[:10])) == bytearray(resp[:10])
+    assert lux_sync(bytearray(b"\x00\xa1")) == bytearray(b"\xa1")
+    assert lux_sync(bytearray(b"\xa1\x1a\x05\x00\xff\xff" + resp)) == bytearray(resp)
     assert full_uuid("2A03") == "00002a03-0000-1000-8000-00805f9b34fb"
     assert full_uuid("0x1810") == "00001810-0000-1000-8000-00805f9b34fb"
     print("ok")
