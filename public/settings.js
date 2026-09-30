@@ -1125,6 +1125,13 @@ function renderModbusDevice(device, idx) {
         <input type="text" name="modbus_devices[${idx}][host]" placeholder="Host/IP" value="${escapeHtml(device.host || '')}">
         <input type="number" name="modbus_devices[${idx}][port]" placeholder="Port" value="${device.port || 502}">
       </div>
+      <div class="form-row modbus-gateway-row">
+        <select name="modbus_devices[${idx}][tcp_framing]" class="modbus-framing-select" title="How your RS485-to-Ethernet gateway forwards Modbus">
+          <option value="tcp" ${device.tcp_framing === 'rtu' ? '' : 'selected'}>Gateway converts to Modbus-TCP (most gateways)</option>
+          <option value="rtu" ${device.tcp_framing === 'rtu' ? 'selected' : ''}>Transparent gateway (RTU over TCP)</option>
+        </select>
+        <div class="note modbus-gateway-note">This inverter has an RS-485 port — reach it over the network through an RS485-to-Ethernet/Wi-Fi gateway (e.g. Elfin EW11, USR-TCP232).</div>
+      </div>
     </div>
     <div class="modbus-serial-fields" style="${device.transport === 'serial' ? '' : 'display:none;'}">
       <div class="form-row">
@@ -1174,20 +1181,59 @@ function renderModbusDevice(device, idx) {
   const transportSelect = card.querySelector('.modbus-transport-select');
   const tcpFields = card.querySelector('.modbus-tcp-fields');
   const serialFields = card.querySelector('.modbus-serial-fields');
+  const profileSelect = card.querySelector('.modbus-profile-select');
+  const gatewayRow = card.querySelector('.modbus-gateway-row');
+  let modbusProfiles = [];
+  // Serial lists RS-485 (RTU) profiles; TCP lists Modbus-TCP devices first,
+  // then RS-485 inverters reachable through a gateway.
+  const fillModbusProfiles = () => {
+    const isTcp = transportSelect.value === 'tcp';
+    const current = profileSelect.value || device.profile || '';
+    profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
+    const groups = isTcp
+      ? [['Modbus-TCP devices', p => p.connection === 'tcp'], ['RS-485 inverters (via RS485-to-Ethernet gateway)', p => p.connection !== 'tcp']]
+      : [[null, p => p.connection !== 'tcp']];
+    let kept = false;
+    for (const [label, match] of groups) {
+      const list = modbusProfiles.filter(match);
+      if (!list.length) continue;
+      const parent = label ? document.createElement('optgroup') : profileSelect;
+      if (label) { parent.label = label; profileSelect.appendChild(parent); }
+      list.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        if (p.id === current) { opt.selected = true; kept = true; }
+        parent.appendChild(opt);
+      });
+    }
+    // A saved profile that does not fit this connection stays visible, flagged.
+    if (current && !kept) {
+      const p = modbusProfiles.find(x => x.id === current);
+      if (p) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} (not usable over ${isTcp ? 'TCP' : 'serial'})`;
+        opt.selected = true;
+        profileSelect.appendChild(opt);
+      }
+    }
+    syncModbusGateway();
+  };
+  const syncModbusGateway = () => {
+    const p = modbusProfiles.find(x => x.id === profileSelect.value);
+    if (gatewayRow) gatewayRow.style.display = (transportSelect.value === 'tcp' && p && p.connection !== 'tcp') ? '' : 'none';
+  };
   transportSelect.addEventListener('change', (e) => {
     const isTcp = e.target.value === 'tcp';
     tcpFields.style.display = isTcp ? '' : 'none';
     serialFields.style.display = isTcp ? 'none' : '';
+    fillModbusProfiles();
   });
-  const profileSelect = card.querySelector('.modbus-profile-select');
+  profileSelect.addEventListener('change', syncModbusGateway);
   fetch('/api/modbus/profiles').then(r => r.json()).then(profiles => {
-    profiles.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.name;
-      if (p.id === device.profile) opt.selected = true;
-      profileSelect.appendChild(opt);
-    });
+    modbusProfiles = Array.isArray(profiles) ? profiles : [];
+    fillModbusProfiles();
   });
   const removeModbusBtn = card.querySelector('[data-action="remove-modbus"]');
   if (removeModbusBtn) removeModbusBtn.addEventListener('click', () => {
@@ -1202,6 +1248,7 @@ function renderModbusDevice(device, idx) {
     this.after(statusEl);
     const dev = {
       transport: transportSelect.value,
+      tcp_framing: card.querySelector('.modbus-framing-select')?.value || 'tcp',
       host: card.querySelector('input[name$="[host]"]')?.value,
       port: card.querySelector('input[name$="[port]"]')?.value,
       serial_path: card.querySelector('input[name$="[serial_path]"]')?.value,
@@ -3056,10 +3103,32 @@ function getTransportForProfile(profileId, current) {
   const p = getProfileById(profileId);
   // Bluetooth is chosen per instance on top of any register-based profile.
   if (current === 'ble-modbus' && (!p || isDongleRegisterProfile(p))) return 'ble-modbus';
-  if (!p) return 'solarman-v5';
+  // Profiles not loaded yet: keep what is saved (defaulting would silently
+  // turn e.g. a Growatt dongle into Solarman on the next save).
+  if (!p) return current || 'solarman-v5';
   if (p.protocol === 'felicity-tcp') return 'felicity-tcp';
   if (p.protocol === 'luxpower-tcp') return 'luxpower-tcp';
   return p.transport || 'solarman-v5';
+}
+
+// Profile list for a dongle card: Bluetooth modules speak Modbus, so only
+// register-map profiles are offered there. Clears a profile that no longer fits.
+function fillDongleProfileOptions(card, selectedId) {
+  const profileSelect = card.querySelector('.dongle-profile-select');
+  const linkSelect = card.querySelector('.dongle-link-select');
+  if (!profileSelect) return;
+  const bt = linkSelect && linkSelect.value === 'bluetooth';
+  profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
+  let kept = false;
+  dongleProfilesCache.forEach(p => {
+    if (bt && !isDongleRegisterProfile(p)) return;
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    if (p.id === selectedId) { opt.selected = true; kept = true; }
+    profileSelect.appendChild(opt);
+  });
+  if (selectedId && !kept) profileSelect.value = '';
 }
 
 function updateDongleTransportUI(card) {
@@ -3080,8 +3149,12 @@ function updateDongleTransportUI(card) {
     if (serialRowBle) serialRowBle.style.display = 'none';
     if (netHost) netHost.style.display = 'none';
     if (netPort) netPort.style.display = 'none';
+    const netRowBle = card.querySelector('.dongle-net-row');
+    if (netRowBle) netRowBle.style.display = 'none';
     return;
   }
+  const netRow = card.querySelector('.dongle-net-row');
+  if (netRow) netRow.style.display = '';
   const serialRow = card.querySelector('.dongle-serial-row');
   const hostInput = card.querySelector('input[name$="[host]"]');
   const portInput = card.querySelector('input[name$="[port]"]');
@@ -3126,10 +3199,20 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="remove-btn danger" data-action="remove-dongle">✕</button>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
-    <div class="form-row">
-      <select name="dongle_config[${idx}][profile]" class="dongle-profile-select">
-        <option value="">-- Select profile --</option>
-      </select>
+    <div class="form-row dongle-link-row">
+      <label class="dongle-field"><span class="dongle-field-label">Connection</span>
+        <select class="dongle-link-select">
+          <option value="network" ${transport === 'ble-modbus' ? '' : 'selected'}>TCP/IP (Wi-Fi / LAN)</option>
+          <option value="bluetooth" ${transport === 'ble-modbus' ? 'selected' : ''}>Bluetooth</option>
+        </select>
+      </label>
+      <label class="dongle-field" style="flex:2;"><span class="dongle-field-label">Profile</span>
+        <select name="dongle_config[${idx}][profile]" class="dongle-profile-select">
+          <option value="">-- Select profile --</option>
+        </select>
+      </label>
+    </div>
+    <div class="form-row dongle-net-row">
       <input type="text" name="dongle_config[${idx}][host]" placeholder="Host / IP Address" value="${escapeHtml(device.host || '')}">
       <input type="number" name="dongle_config[${idx}][port]" placeholder="Port" value="${device.port || ''}">
     </div>
@@ -3154,7 +3237,8 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
-    <select name="dongle_config[${idx}][transport]" class="dongle-transport-select">
+    <!-- Derived from Connection + Profile (see syncDongleTransport); not user-facing. -->
+    <select name="dongle_config[${idx}][transport]" class="dongle-transport-select" hidden style="display:none;" aria-hidden="true" tabindex="-1">
       <option value="modbus-tcp" ${transport === 'modbus-tcp' ? 'selected' : ''}>TCP/IP</option>
       <option value="solarman-v5" ${transport === 'solarman-v5' ? 'selected' : ''}>Solarman v5</option>
       <option value="felicity-tcp" ${transport === 'felicity-tcp' ? 'selected' : ''}>Felicity TCP</option>
@@ -3188,25 +3272,36 @@ function renderDongleDevice(device, idx) {
   const transportSelect = card.querySelector('select[name$="[transport]"]');
 
   const profileSelect = card.querySelector('.dongle-profile-select');
+  const linkSelect = card.querySelector('.dongle-link-select');
   (dongleProfilesCache.length ? Promise.resolve(dongleProfilesCache) : fetch('/api/dongle/profiles').then(r => r.json()))
     .then(profiles => {
       if (!dongleProfilesCache.length) dongleProfilesCache = profiles;
-      profiles.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.name;
-        if (p.id === device.profile) opt.selected = true;
-        profileSelect.appendChild(opt);
-      });
+      fillDongleProfileOptions(card, device.profile);
+      // Profiles are known now: settle the transport the card rendered with.
+      if (profileSelect.value) {
+        transportSelect.value = getTransportForProfile(profileSelect.value, transportSelect.value);
+        updateDongleTransportUI(card);
+      }
     }).catch(() => {});
+
+  linkSelect.addEventListener('change', () => {
+    const bt = linkSelect.value === 'bluetooth';
+    fillDongleProfileOptions(card, profileSelect.value);
+    if (!profileSelect.value && card.querySelector('.mappings-list')) {
+      card.querySelector('.mappings-list').innerHTML = '';
+    }
+    transportSelect.value = bt ? 'ble-modbus'
+      : (profileSelect.value ? getTransportForProfile(profileSelect.value) : 'solarman-v5');
+    updateDongleTransportUI(card);
+  });
 
   profileSelect.addEventListener('change', async () => {
     const profileId = profileSelect.value;
     const p = await resolveDongleProfile(profileId);
     if (!p) return;
-    // Keep Bluetooth selected when the new profile is register-based.
-    const keepBle = transportSelect.value === 'ble-modbus' && isDongleRegisterProfile(p);
-    const tx = keepBle ? 'ble-modbus' : (p.protocol === 'felicity-tcp' ? 'felicity-tcp' : p.transport);
+    // Bluetooth stays selected (the list only offers register profiles there).
+    const keepBle = linkSelect.value === 'bluetooth' && isDongleRegisterProfile(p);
+    const tx = keepBle ? 'ble-modbus' : getTransportForProfile(p.id);
     transportSelect.value = tx;
     updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
@@ -5418,6 +5513,7 @@ if (form) form.addEventListener('submit', async (e) => {
     dev.profile = card.querySelector('.modbus-profile-select').value;
     dev.host = card.querySelector('input[name$="[host]"]')?.value || '';
     dev.port = card.querySelector('input[name$="[port]"]')?.value || '';
+    dev.tcp_framing = card.querySelector('.modbus-framing-select')?.value || 'tcp';
     dev.serial_path = card.querySelector('input[name$="[serial_path]"]')?.value || '';
     dev.serial_baud = card.querySelector('input[name$="[serial_baud]"]')?.value || '';
     dev.serial_data_bits = card.querySelector('input[name$="[serial_data_bits]"]')?.value || '';
