@@ -36,7 +36,7 @@ Public display with no login required — settings are password-protected.
 ```bash
 git clone https://github.com/ashipaek0/epilykos.git
 cd epilykos
-nano .env   # set SETTINGS_PASSWORD (optional — see below)
+cp .env.example .env && nano .env   # set SETTINGS_PASSWORD (optional — see below)
 docker compose up -d
 ```
 
@@ -103,12 +103,14 @@ services:
 Open `/settings`, log in, and navigate to **Data Sources**. Epilykos supports the following source types:
 
 ### Inverter Dongle
-Direct TCP connection to WiFi dongles. Supported protocols: **Solarman V5**, **Modbus TCP**, **Growatt**, **LuxPower**, **Felicity**.  
-Select a profile, enter the dongle IP address, and test the connection.
+Wi-Fi / LAN dongles over TCP, or the inverter's Bluetooth link. Supported protocols: **Solarman V5**, **Modbus TCP**,
+**Growatt**, **LuxPower**, **Felicity**, and over Bluetooth **Modbus over BLE**, **LuxPower** and **Phocos Any-Grid**.  
+Choose **Connection** (TCP/IP or Bluetooth), then the **Profile** — the list only offers profiles that work over the
+chosen connection. For TCP/IP enter the dongle's IP address; for Bluetooth use 🔍 Scan. Then test the connection.
 
 **Bluetooth modules:** some inverters ship a Bluetooth module that carries plain Modbus-RTU over BLE, e.g. SRNE and
-Renogy-style BT modules. Pick a register profile for your inverter, set the transport to **Bluetooth (Modbus over BLE)**,
-use 🔍 Scan to pick the module's MAC, and test. The default characteristics are `ffd1` (write) and `fff1` (notify). If
+Renogy-style BT modules. Set Connection to **Bluetooth**, pick your inverter's register profile, use 🔍 Scan to pick
+the module's MAC, and test. The default characteristics are `ffd1` (write) and `fff1` (notify). If
 your module uses different ones, you can read them with a BLE explorer app such as nRF Connect. Note that many Wi-Fi +
 Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data over it.
 
@@ -133,7 +135,9 @@ Enter your broker URL and map MQTT topics to the metrics you want to display.
 
 ### Modbus
 Supported profiles: **SRNE**, **Deye**, **Growatt**, **Victron**, **Voltronic/Axpert**, **Solis**, **Luxpower**, **Felicity**, **Generic MPPT**.  
-Connects via TCP or serial interface. All profiles are validated against official manufacturer register maps.
+Connects via a serial RS-485 adapter or over TCP. Of these, only the Victron profile is native Modbus-TCP; the others are
+RS-485 (Modbus-RTU) register maps, which you can also reach over the network through an RS-485→Ethernet gateway —
+pick the gateway's framing (Modbus-TCP or RTU over TCP) on the card. All profiles are validated against official manufacturer register maps.
 
 ### Tuya (Smart Life)
 
@@ -176,6 +180,7 @@ Connect inverters via USB-to-RS232/RS485 adapter. Supported protocols:
 - **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, Phocos, MUST, Sako (2400 8N1)
 - **Victron VE.Direct** — SmartSolar, BMV, MultiPlus via VE.Direct cable (19200 8N1, streaming)
 - **SolaX Pocket USB** — SolaX X1/X3 series via USB-to-TTL adapter (9600 8N1, binary AA55)
+- **Modbus-RTU** — e.g. Anern EVO4200L over RS485
 
 Select your inverter's profile, pick the detected serial port, and save. The 30-second poll loop and WebSocket updates work identically to other data sources.
 
@@ -272,6 +277,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `TMPDIR` | `/tmp` | Temporary directory for uploads (backup restore, layout import) |
 | `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
 | `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
+| `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device) |
 | `BMS_BRIDGE_URL` | — | Deprecated: use a legacy `bms-bridge` sidecar instead of built-in Bluetooth |
 
 All persistent state — `energy.db`, snapshots, `session-secret`, `settings-password` — lives in `data/` (`/app/data` in the container).
@@ -305,8 +311,12 @@ All persistent state — `energy.db`, snapshots, `session-secret`, `settings-pas
 
 ```bash
 npm ci
-npm test   # runs every test/*.test.js
+npm test                                            # runs every test/*.test.js (no hardware needed)
+python3 modules/ble/ble_helper.py --self-test       # Bluetooth helper pure functions
+PORT=3002 SETTINGS_PASSWORD=dev node server.js      # local instance (data/ in the working directory)
 ```
+
+Bluetooth outside Docker needs Python ≥ 3.12 with `pip install -r modules/ble/requirements.txt` and a running BlueZ.
 
 For a complete walkthrough of the codebase architecture — adding new block types, integrating new data sources, settings UI patterns, performance best practices, deployment workflows, and common pitfalls — see the **[Development Guide](https://github.com/ashipaek0/Epilykos/wiki/Development-Guide)** on the wiki.
 
