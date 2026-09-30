@@ -105,7 +105,7 @@ Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data o
 **Phocos Any-Grid PSW-H (Bluetooth):** the inverter's display has built-in Bluetooth (the link the PhocosLink app uses).
 Choose Connection **Bluetooth**, profile **Phocos Any-Grid PSW-H (Bluetooth)**, Scan and pick the device (it advertises
 its serial number, e.g. `ID9634…`). It is read-only and needs no pairing: Epilykos reads output, battery voltage/SOC/
-discharge current, heatsink temperature and both PV strings, and never writes to the inverter. Close the PhocosLink
+discharge current and power (voltage × current), heatsink temperature and both PV strings, and never writes to the inverter. Close the PhocosLink
 app first. Decoded on display firmware 00041.00; SOC, temperature and discharge current are inferred from live data.
 
 ### Home Assistant

@@ -61,6 +61,7 @@ function metricsFrom(data) {
   assert.strictEqual(m.pv2_voltage, 247.3);
   assert.strictEqual(m.pv2_power, 473);
   assert.strictEqual(m.pv_power, 926);
+  assert.strictEqual(m.battery_discharge_power, 750.4); // 53.60 V × 14 A
   console.log('ok - captured values decode');
 
   // A missing characteristic leaves its fields (and the sum) out, the rest still decode

@@ -14,7 +14,8 @@
     { "id": "pv2",    "service": "1811", "characteristic": "2a12", "label": "PV string 2" }
   ],
   "derived": [
-    { "name": "pv_power", "sum": ["pv1[7]", "pv2[7]"] }
+    { "name": "pv_power", "sum": ["pv1[7]", "pv2[7]"] },
+    { "name": "battery_discharge_power", "product": ["live[8]", "status[2]"] }
   ],
   "fields": [
     { "name": "grid_voltage",              "path": "live[0]",   "scale": 0.1,  "unit": "V",  "label": "Grid Voltage" },
@@ -35,6 +36,7 @@
     { "name": "pv2_current",               "path": "pv2[5]",    "scale": 0.1,  "unit": "A",  "label": "PV2 Current" },
     { "name": "pv2_voltage",               "path": "pv2[6]",    "scale": 0.1,  "unit": "V",  "label": "PV2 Voltage" },
     { "name": "pv2_power",                 "path": "pv2[7]",    "scale": 1,    "unit": "W",  "label": "PV2 Power" },
-    { "name": "pv_power",                  "path": "derived.pv_power", "scale": 1, "unit": "W", "label": "PV Power (PV1 + PV2)" }
+    { "name": "pv_power",                  "path": "derived.pv_power", "scale": 1, "unit": "W", "label": "PV Power (PV1 + PV2)" },
+    { "name": "battery_discharge_power",   "path": "derived.battery_discharge_power", "scale": 0.01, "unit": "W", "label": "Battery Discharge Power (voltage × discharge current)" }
   ]
 }
