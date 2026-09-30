@@ -15,9 +15,4 @@ services:
 #      - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
     group_add:
       - "dialout"                        # Serial port permissions
-    networks:
-      - epilykos-net
-
-networks:
-  epilykos-net:
-    driver: bridge
+    network_mode: "host"
