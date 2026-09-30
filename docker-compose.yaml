@@ -1,22 +1,16 @@
 services:
   epilykos:
-    image: irunmole/epilykos:latest
+    image: irunmole/epilykos:dev
     container_name: epilykos
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
       - ./data:/app/data
-      # Host time zone — used for "today", daily totals and savings when TZ
-      # below is not set.
       - /etc/localtime:/etc/localtime:ro
-      # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ
-      # over D-Bus. Remove this line if you don't use Bluetooth.
-      - /run/dbus:/run/dbus:ro
+      - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus. Remove this line if you don't use Bluetooth.
     environment:
-      - SETTINGS_PASSWORD=
-      # Time zone for day boundaries. Remove this line to follow the host clock.
-      - TZ=Africa/Lagos
+      - TZ=Africa/Lagos  # Time zone for day boundaries. Remove this line to follow the host clock. 
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"     # RS232 serial passthrough
     group_add:
