@@ -2318,7 +2318,7 @@ function renderBmsDevice(device, idx) {
     <div class="form-row">
       <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
       <select name="bms_devices[${idx}][bms_type]" class="bms-type-select" style="flex:1;" title="Leave on Auto-detect unless the BMS is not recognised (rebranded packs)">
-        ${[['', 'Auto-detect type'], ['jbd_bms', 'JBD / Jiabaida / Xiaoxiang'], ['jikong_bms', 'JK-BMS (Jikong)'], ['daly_bms', 'Daly'], ['seplos_bms', 'Seplos'], ['ant_bms', 'ANT']]
+        ${[['', 'Auto-detect type'], ['jbd_bms', 'JBD / Jiabaida / Xiaoxiang'], ['jikong_bms', 'JK-BMS (Jikong)'], ['daly_bms', 'Daly'], ['seplos_bms', 'Seplos'], ['ant_bms', 'ANT'], ['pace_bms', 'PACE (PACEEX app)']]
           .map(([v, l]) => `<option value="${v}" ${(device.bms_type || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
       </select>
     </div>
@@ -2549,7 +2549,12 @@ function renderBmsWiredDevice(device, idx) {
   const applyWiredProfile = (userChange) => {
     const p = wiredProfiles[profileSelect.value];
     const unitInput = card.querySelector('input[name$="[modbus_unit_id]"]');
-    if (unitInput) unitInput.style.display = (p && p.protocol && p.protocol !== 'modbus-rtu') ? 'none' : '';
+    // JBD and JK have no bus address; Modbus and PACE (DIP switch) do.
+    if (unitInput) {
+      unitInput.style.display = (p && ['jbd', 'jk-rs485'].includes(p.protocol)) ? 'none' : '';
+      unitInput.placeholder = (p && p.protocol === 'pace-v25') ? 'Pack address' : 'Unit ID';
+      unitInput.title = (p && p.protocol === 'pace-v25') ? 'Pack address (DIP switch, usually 1)' : 'Modbus Unit ID';
+    }
     if (!userChange || !p || !p.defaults) return;
     const d = p.defaults;
     const set = (sel, v) => { const el = card.querySelector(sel); if (el && v !== undefined && v !== null) el.value = String(v); };
