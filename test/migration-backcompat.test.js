@@ -240,7 +240,9 @@ check('AC-38.4|marker machinery exists in source and is inert: catalog rows carr
   assert.ok(js.includes('function cardHasCatalogRows'), 'cardHasCatalogRows helper missing');
   assert.ok(js.includes("_catalogV2"), '_catalogV2 marker absent from collectors');
   assert.ok(js.includes(".metric-row[data-catalog]"), 'collector data-catalog query missing');
-  assert.ok(js.includes("txSel !== 'luxpower-tcp' && cardHasCatalogRows(card)"), 'luxpower must be excluded from _catalogV2 stamping');
+  // LuxPower over TCP and over Bluetooth (ble-luxpower) are both excluded.
+  assert.ok(js.includes("!isLuxTransport(txSel) && cardHasCatalogRows(card)"), 'luxpower must be excluded from _catalogV2 stamping');
+  assert.ok(js.includes("return tx === 'luxpower-tcp' || tx === 'ble-luxpower';"), 'isLuxTransport must cover both LuxPower transports');
   // HA collector must NOT stamp _catalogV2: expose provenance is in-session only,
   // restored rows render as manual-anatomy, a stamp could not round-trip
   // reload→save and would break the AC-31.14 byte-identical contract (see the
