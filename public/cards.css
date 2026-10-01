@@ -1,0 +1,296 @@
+/* ═══════════════════════════════════════════════════════════
+   Dashboard cards — shared structure (loaded after style.css on
+   the dashboard and in the layout editor's previews).
+
+   Every card fills its block, uses one surface, one title style and
+   one way of showing numbers. Numbers scale with the block's width
+   through container queries (cqi), so small blocks don't clip and
+   large blocks don't look empty.
+   ═══════════════════════════════════════════════════════════ */
+
+.dashboard-block,
+.ed .blk-body { container-type: inline-size; }
+.dashboard-block > * { height: 100%; }
+
+:root {
+  --card-pad: clamp(10px, 3.2cqi, 18px);
+  --card-gap: clamp(6px, 2cqi, 12px);
+}
+
+/* ── Surface ──────────────────────────────────────────────── */
+.ep-card,
+.stats-grid.ep-tiles,
+.multi-value-card,
+.chart-container,
+.daily-breakdown-container,
+.bar-single-card,
+.bar-stacked-card,
+.bar-threshold-card,
+.switch-block,
+.state-select-block,
+.flow-card,
+.flow-card-2,
+.flow-card-square,
+.flow-card-square2 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border-radius: var(--radius);
+}
+.ep-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  overflow: hidden;
+}
+.ep-card-flush { padding: 0; }
+.ep-card-empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.ep-card-title, .chart-header h3, .fc-title, .daily-breakdown-header h3 {
+  margin: 0;
+  font-size: clamp(0.8rem, 2.6cqi, 0.95rem) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+/* Labels and values */
+.ep-label {
+  font-size: clamp(0.7rem, 2.4cqi, 0.85rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  opacity: 1;
+  margin: 0;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.ep-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.18em;
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.ep-num { overflow: hidden; text-overflow: ellipsis; }
+.ep-unit { font-size: 0.55em; font-weight: 600; color: var(--text-secondary); letter-spacing: 0; }
+.ep-value.is-empty { color: var(--text-secondary); font-weight: 500; }
+/* Text values (modes, states) wrap instead of being cut off. */
+.ep-value.is-text { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+.ep-tiles > .ep-tile .ep-value.is-text { font-size: clamp(1rem, 4.6cqi, 1.5rem); }
+
+/* ── Tiles: metric cards, multi-value, savings, grid hours ── */
+.ep-tiles {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+  gap: var(--card-gap);
+  align-content: stretch;
+  background: none;
+}
+.ep-tiles > .ep-tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.35em;
+  padding: var(--card-pad);
+  text-align: left;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.ep-tiles > .ep-tile .ep-value { font-size: clamp(1.15rem, 6cqi, 2.1rem); }
+/* Inside a card (savings, grid) tiles are flat sub-areas, not cards. */
+.ep-card .ep-tiles > .ep-tile { background: var(--bg); border-color: transparent; box-shadow: none; padding: 0.6em 0.75em; }
+.ep-card .ep-tiles > .ep-tile .ep-value { font-size: clamp(1rem, 4.6cqi, 1.6rem); }
+.ep-card .ep-tiles { flex: 1 1 auto; }
+@container (max-width: 260px) {
+  .ep-tiles { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Text metric ──────────────────────────────────────────── */
+.text-metric-card {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  text-align: left !important;
+  padding: var(--card-pad) !important;
+  gap: 0.35em;
+}
+.text-metric-card .text-metric-value { font-size: clamp(1.1rem, 5.5cqi, 2rem) !important; font-weight: 700; line-height: 1.15; }
+.text-metric-card .text-metric-label { font-size: clamp(0.7rem, 2.4cqi, 0.85rem); font-weight: 600; margin: 0; }
+
+/* ── Gauges ───────────────────────────────────────────────── */
+.ep-gauge { align-items: center; justify-content: center; text-align: center; padding: var(--card-pad) !important; }
+.ep-gauge-wrap { position: relative; width: 100%; flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.ep-gauge-svg { width: 100%; height: 100%; max-height: 100%; display: block; overflow: visible; }
+.ep-gauge-track { stroke: var(--border); }
+.ep-gauge-fill { transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease, stroke 0.3s; }
+.ep-gauge-readout {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15em;
+  pointer-events: none;
+}
+.ep-gauge-ring .ep-value { font-size: clamp(1.05rem, 12cqi, 2.4rem); }
+.ep-gauge-half { aspect-ratio: 200 / 112; flex: 0 1 auto; max-height: 100%; }
+.ep-gauge-half .ep-gauge-readout { justify-content: flex-end; padding-bottom: 2%; }
+.ep-gauge-half .ep-value { font-size: clamp(0.95rem, 8cqi, 1.9rem); }
+.ep-gauge > .ep-label { flex-shrink: 0; }
+.ep-gauge-zero {
+  position: absolute; left: 50%; top: 3%; width: 2px; height: 14%;
+  transform: translateX(-50%); background: var(--text-secondary); opacity: 0.5; border-radius: 1px;
+}
+
+/* ── Bar gauges ───────────────────────────────────────────── */
+.bar-gauge-card, .bar-gauge-retro-card { justify-content: center !important; gap: clamp(8px, 3cqi, 16px) !important; padding: var(--card-pad) !important; }
+.bar-gauge-row, .bg-retro-row { display: grid !important; grid-template-columns: minmax(3.5em, 28%) minmax(0, 1fr) auto; align-items: center; gap: 0.6em; }
+.bar-gauge-label, .bg-retro-label {
+  font-size: clamp(0.75rem, 3cqi, 0.95rem) !important; font-weight: 600; color: var(--text-secondary);
+  min-width: 0 !important; max-width: none !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bar-gauge-track { height: clamp(10px, 3.4cqi, 18px) !important; background: var(--bg) !important; border: 1px solid var(--border); border-radius: 99px !important; }
+.bar-gauge-fill { border-radius: 99px !important; }
+.bar-gauge-value, .bg-retro-value { font-size: clamp(0.85rem, 3.6cqi, 1.15rem) !important; min-width: 0 !important; }
+.bg-retro-segments { gap: 3px !important; }
+.bg-retro-seg { height: clamp(12px, 4cqi, 22px) !important; border-radius: 3px !important; background: var(--border); }
+
+/* ── History and threshold bars ───────────────────────────── */
+.bar-single-card, .bar-stacked-card, .bar-threshold-card {
+  display: flex !important; flex-direction: column !important;
+  align-items: stretch !important; justify-content: flex-start !important; text-align: left !important;
+  gap: var(--card-gap); padding: var(--card-pad) !important;
+}
+.bar-single-title, .bar-stacked-title, .bar-threshold-title {
+  margin: 0 !important; font-size: clamp(0.8rem, 2.6cqi, 0.95rem) !important; font-weight: 700 !important; color: var(--text) !important; text-align: left;
+}
+.bar-single-body, .bar-stacked-body { flex: 1 1 auto; min-height: 60px !important; align-self: stretch; gap: clamp(1px, 0.6cqi, 4px) !important; }
+.bar-single-bar, .bar-stacked-body > * { border-radius: 3px 3px 0 0; }
+.bar-single-status, .bar-stacked-status { font-style: normal !important; font-size: 0.82rem; }
+
+/* ── Savings ──────────────────────────────────────────────── */
+.savings-block-container .ep-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr)); }
+
+/* ── Grid status ──────────────────────────────────────────── */
+.grid-card.ep-card { gap: var(--card-gap); padding: var(--card-pad); }
+.ep-grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.grid-card .grid-date { margin: 0 !important; font-size: 0.72rem !important; font-weight: 500 !important; color: var(--text-secondary) !important; }
+.ep-grid-now { display: flex; align-items: baseline; gap: 0.6em; flex-wrap: wrap; }
+.ep-grid-state { font-size: clamp(1.15rem, 6cqi, 1.8rem); font-weight: 800; color: var(--text-secondary); }
+.ep-grid-state[data-state="on"] { color: var(--color-battery); }
+.ep-grid-state[data-state="off"] { color: var(--color-grid); }
+.ep-grid-since { font-size: 0.78rem !important; color: var(--text-secondary); opacity: 1 !important; }
+.ep-grid-hours-title { margin-top: 2px; }
+.grid-card [id^="grid-timeline"] { overflow: hidden; }
+.grid-card .grid-stats { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 72px), 1fr)); flex: 0 0 auto; }
+
+/* ── Text and embeds ──────────────────────────────────────── */
+.text-card.ep-card { white-space: pre-wrap; word-break: break-word; font-size: clamp(0.85rem, 2.8cqi, 1rem); line-height: 1.55; color: var(--text); overflow: auto; }
+.text-card.ep-card.ep-card-empty { white-space: normal; color: var(--text-secondary); }
+.iframe-card iframe { width: 100%; height: 100%; border: 0; display: block; border-radius: inherit; }
+
+/* ── Charts ───────────────────────────────────────────────── */
+.chart-container { padding: var(--card-pad) !important; gap: 4px; }
+.chart-header { margin-bottom: 4px !important; gap: 8px; flex-wrap: wrap; }
+.chart-controls { gap: 2px !important; padding: 2px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+.chart-controls button {
+  min-height: 28px !important; min-width: 0 !important; padding: 0 10px !important;
+  border: none !important; border-radius: 8px !important; background: none !important;
+  color: var(--text-secondary) !important; font-size: 0.75rem !important; font-weight: 700;
+}
+.chart-controls button:hover { color: var(--text) !important; }
+.chart-controls button.active { background: var(--card-bg) !important; color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.chart-empty { text-align: center; font-size: 0.82rem; color: var(--text-secondary); padding: 8px; }
+
+/* ── Tables ───────────────────────────────────────────────── */
+.daily-breakdown-container { padding: var(--card-pad) !important; }
+.energy-table th { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); }
+.energy-table td { font-variant-numeric: tabular-nums; }
+
+/* ── Flow squares: fit the block instead of fixed paddings ── */
+.flow-card-square, .flow-card-square2 { padding: var(--card-pad) !important; overflow: hidden; }
+.fcs-grid, .fcs2-grid { height: 100%; gap: var(--card-gap) !important; }
+.fcs-cell, .fcs2-cell { padding: clamp(4px, 2.5cqi, 16px) !important; min-width: 0; min-height: 0; }
+.fcs-icon, .fcs2-icon { font-size: clamp(1.6rem, 9cqi, 3rem) !important; width: auto !important; }
+.fcs-inverter-icon, .fcs2-inv { width: clamp(1.8rem, 9cqi, 3rem) !important; height: clamp(2.6rem, 14cqi, 5rem) !important; color: var(--color-text-on-accent, #111) !important; }
+.fcs-label, .fcs2-label { font-size: clamp(0.62rem, 2.2cqi, 0.75rem) !important; }
+.fcs-value, .fcs2-value { font-size: clamp(0.85rem, 4.2cqi, 1.3rem) !important; font-variant-numeric: tabular-nums; }
+.fcs-sub, .fcs2-sub { font-size: clamp(0.62rem, 2.4cqi, 0.8rem) !important; }
+
+/* Flow card (four nodes) */
+.flow-value { font-size: clamp(1rem, 5cqi, 1.7rem) !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flow-label { font-size: clamp(0.72rem, 2.4cqi, 0.85rem) !important; }
+.flow-icon { font-size: clamp(1.4rem, 7cqi, 2.4rem); }
+
+/* ── Controls ─────────────────────────────────────────────── */
+.toggle-switch.action-toggle .slider { background: var(--switch-off-color, #a8a59e) !important; }
+[data-theme="dark"] .toggle-switch.action-toggle .slider { background: var(--switch-off-color, #4a4a4a) !important; }
+.toggle-switch.action-toggle input:checked + .slider { background: var(--switch-on-color, #4a6a2e) !important; }
+.switch-block { padding: var(--card-pad) !important; }
+.state-select-block { padding: var(--card-pad) !important; overflow: auto; }
+
+/* ── Forecast and weather: quieter error notices ──────────── */
+.fc-error, .wx-error {
+  font-size: 0.8rem !important; color: var(--text-secondary) !important;
+  padding: 8px 10px; border-radius: 8px; background: var(--bg); border: 1px dashed var(--border);
+}
+
+/* Phones: blocks stack and lose their fixed height, so cards that draw
+   to their height get a sensible minimum. */
+@media (max-width: 768px) {
+  .dashboard-block > .ep-gauge { min-height: 180px; }
+  .dashboard-block > .bar-single-card, .dashboard-block > .bar-stacked-card { min-height: 180px; }
+  .dashboard-block > .chart-container { min-height: 260px; }
+  .dashboard-block > .flow-card-square, .dashboard-block > .flow-card-square2 { min-height: 280px; }
+  .dashboard-block > .iframe-card { min-height: 300px; }
+}
+/* Built-in icons for the .fi icon classes (replaces the external icon font). */
+.fi { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; background-color: currentColor; -webkit-mask: var(--fi) center / contain no-repeat; mask: var(--fi) center / contain no-repeat; font-style: normal; }
+.fi::before { content: none !important; }
+.fi-sr-solar-panel { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M3 15l2.5-10h13L21 15z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M4.3 10h15.4M9.5 5l-1 10M14.5 5l1 10M12 15v4M8 19h8%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-battery-full { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%226%22 y=%225%22 width=%2212%22 height=%2214%22 rx=%222%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 3h4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Crect x=%227.5%22 y=%227.5%22 width=%229%22 height=%2210.0%22 rx=%221%22 fill=%22black%22/%3E%3C/svg%3E"); }
+.fi-sr-battery-three-quarters { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%226%22 y=%225%22 width=%2212%22 height=%2214%22 rx=%222%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 3h4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Crect x=%227.5%22 y=%2210.0%22 width=%229%22 height=%227.5%22 rx=%221%22 fill=%22black%22/%3E%3C/svg%3E"); }
+.fi-sr-battery-half { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%226%22 y=%225%22 width=%2212%22 height=%2214%22 rx=%222%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 3h4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Crect x=%227.5%22 y=%2212.5%22 width=%229%22 height=%225.0%22 rx=%221%22 fill=%22black%22/%3E%3C/svg%3E"); }
+.fi-sr-battery-quarter { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%226%22 y=%225%22 width=%2212%22 height=%2214%22 rx=%222%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 3h4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Crect x=%227.5%22 y=%2215.0%22 width=%229%22 height=%222.5%22 rx=%221%22 fill=%22black%22/%3E%3C/svg%3E"); }
+.fi-sr-battery-empty { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%226%22 y=%225%22 width=%2212%22 height=%2214%22 rx=%222%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 3h4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-home { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M3 11l9-7 9 7%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M5 9.5V20h14V9.5%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 20v-5h4v5%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-bolt { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M13 2L4 14h7l-1 8 9-12h-7z%22 fill=%22black%22/%3E%3C/svg%3E"); }
+.fi-sr-cloud { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 18h10a4 4 0 00.5-8 6 6 0 00-11.4 1.5A3.3 3.3 0 007 18z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-clouds { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M6 19h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 006 19z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M9 7.5A5 5 0 0118.5 9a3.5 3.5 0 012.5 3.4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-cloud-sun { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M8 19h9a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 008 19z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M7 10.5a3.5 3.5 0 015-4.6M7 3v1.5M2.5 7.5H4M3.8 3.8l1 1%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-cloud-moon { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M8 19h9a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 008 19z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M9.5 6.5A4 4 0 014 10.5a4 4 0 015.5-4z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-cloud-rain { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 15h10a4 4 0 00.5-8 6 6 0 00-11.4 1.5A3.3 3.3 0 007 15z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M8 18l-1 3M12 18l-1 3M16 18l-1 3%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-cloud-snow { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 15h10a4 4 0 00.5-8 6 6 0 00-11.4 1.5A3.3 3.3 0 007 15z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M8 19h.01M12 19h.01M16 19h.01M10 21.5h.01M14 21.5h.01%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22 stroke-width=%222.6%22/%3E%3C/svg%3E"); }
+.fi-sr-thunderstorm { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 14h10a4 4 0 00.5-8 6 6 0 00-11.4 1.5A3.3 3.3 0 007 14z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M12.5 15l-2.5 4h3l-2 4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-fog { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 12h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 007 12z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M4 16h16M6 20h12%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-moon { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-sun { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%224%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-sun-dust { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Ccircle cx=%2210%22 cy=%2210%22 r=%223.5%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M10 2.5V4M2.5 10H4M4.7 4.7l1 1M15.3 4.7l-1 1M14 16h7M11 19.5h9M4 16h4%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-sunrise { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M5 16a7 7 0 0114 0M2 20h20M12 3v5M9 6l3-3 3 3%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-sunset { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M5 16a7 7 0 0114 0M2 20h20M12 8V3M9 5l3 3 3-3%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-temperature-high { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M10 14.5V4.5a2 2 0 014 0v10a4 4 0 11-4 0z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M12 9v7%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-humidity { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-wind { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M3 8h11a3 3 0 10-3-3M3 12h15a3 3 0 11-3 3M3 16h7%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-umbrella { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M3 12a9 9 0 0118 0z%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M12 12v7a2 2 0 01-4 0%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
+.fi-sr-tachometer-average { --fi: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M4 17a8 8 0 1116 0%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3Cpath d=%22M12 17l3-5%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 fill=%22none%22/%3E%3C/svg%3E"); }
