@@ -206,7 +206,8 @@ function drawWxChart(card, key, enabled, series, band, opts) {
   if (caption) caption.hidden = true;
   canvas.style.display = '';
 
-  const rect = wrap.getBoundingClientRect();
+  // Layout size, not on-screen size: the editor shows cards scaled down.
+  const rect = { width: wrap.clientWidth, height: wrap.clientHeight };
   if (rect.width > 0 && rect.height > 0) {
     canvas.width = rect.width * (window.devicePixelRatio || 1);
     canvas.height = rect.height * (window.devicePixelRatio || 1);

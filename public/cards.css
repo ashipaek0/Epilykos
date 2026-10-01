@@ -8,8 +8,7 @@
    large blocks don't look empty.
    ═══════════════════════════════════════════════════════════ */
 
-.dashboard-block,
-.ed .blk-body { container-type: inline-size; }
+.dashboard-block { container-type: inline-size; }
 .dashboard-block > * { height: 100%; }
 
 :root {
