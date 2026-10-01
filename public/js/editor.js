@@ -1,5 +1,8 @@
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
+// Builders by block type. A Map has no inherited entries, so a saved or imported
+// layout naming "constructor" / "toString" can never resolve to a callable.
+const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -768,7 +771,7 @@ function renderChartRows(container, showUnit, extraOptions) {
     html += metricSelect(d.metric || '', 'chart-metric-' + i, extraOptions);
     if (showUnit) {
       html += '<input type="text" class="chart-unit" value="' + escHtml(d.unit || '') + '" placeholder="Unit" title="Measurement unit (e.g. %, kWh, kW, V, hours)" style="width:4rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
-      html += '<input type="number" step="any" class="chart-scale" value="' + String(d.scale != null ? d.scale : 1) + '" placeholder="Scale" title="Multiply values by this factor (e.g. 0.001 for W->kW)" style="width:4.5rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
+      html += '<input type="number" step="any" class="chart-scale" value="' + (Number.isFinite(Number(d.scale)) && d.scale !== null && d.scale !== '' ? Number(d.scale) : 1) + '" placeholder="Scale" title="Multiply values by this factor (e.g. 0.001 for W->kW)" style="width:4.5rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
     }
     html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
     html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
@@ -1657,7 +1660,7 @@ function refreshGridItem(block) {
   if (settingsBtn) inner.appendChild(settingsBtn);
   if (delBtn) inner.appendChild(delBtn);
 
-  var builder = componentBuilders[block.type];
+  var builder = BLOCK_BUILDERS.get(block.type);
   if (typeof builder === 'function') {
     var content = builder(block);
     if (content) {
@@ -1811,7 +1814,7 @@ async function openSettingsModal(block) {
  * @returns {HTMLElement} the grid-stack-item element
  */
 function buildGridItem(block) {
-  var builder = componentBuilders[block.type];
+  var builder = BLOCK_BUILDERS.get(block.type);
   if (typeof builder !== 'function') return null;
   var content = builder(block);
   if (!content) return null;

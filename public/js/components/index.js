@@ -63,3 +63,12 @@ export const componentBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock
 };
+
+/**
+ * Builder for a block type, or null. Only the registry's own entries count —
+ * a saved or imported layout naming an inherited property ("constructor",
+ * "toString", …) must not resolve to a callable.
+ */
+export function getBuilder(type) {
+  return Object.prototype.hasOwnProperty.call(componentBuilders, type) ? componentBuilders[type] : null;
+}

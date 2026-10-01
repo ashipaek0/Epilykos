@@ -38,7 +38,10 @@ assert.doesNotMatch(editor, /dashboard-preset|dashboard-43|preset-section-headin
 assert.match(editor, /case 'chart-metric'/);
 assert.match(editor, /case 'text-card'/);
 assert.match(editor, /case 'metric-cards'/);
-assert.match(editor, /componentBuilders\[block\.type\]/);
+// Builders are looked up by block type in a Map built from componentBuilders
+// (no inherited properties such as "constructor" can resolve to a callable).
+assert.match(editor, /new Map\(Object\.entries\(componentBuilders\)\)/);
+assert.match(editor, /BLOCK_BUILDERS\.get\(block\.type\)/);
 assert.match(editor, /if \(typeof builder !== 'function'\) return null;/, 'unknown/removed card types must be skipped safely');
 assert.match(editor, /Array\.isArray\(imported\.dashboards\)/, 'imports must validate dashboards as an array');
 assert.match(editor, /Type Append or Replace/i, 'imports must require explicit Append or Replace confirmation');
