@@ -11,9 +11,11 @@
 
 /** Modbus CRC-16 (polynomial 0xA001) */
 function modbusCrc16(buf) {
+  // Byte buffers only: a plain object with a huge `length` must not drive the loop.
+  if (!(buf instanceof Uint8Array)) throw new TypeError('modbusCrc16 expects a Buffer');
   let crc = 0xFFFF;
-  for (let i = 0; i < buf.length; i++) {
-    crc ^= buf[i];
+  for (const byte of buf) {
+    crc ^= byte;
     for (let j = 0; j < 8; j++) {
       if (crc & 0x0001) crc = (crc >> 1) ^ 0xA001;
       else crc >>= 1;

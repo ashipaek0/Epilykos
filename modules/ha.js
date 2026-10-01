@@ -1,6 +1,6 @@
 const { logger } = require('./logger');
 const { getConfig, queueMetricValue } = require('./database');
-const { assertSafeFetchUrl } = require('./utils');
+const { assertSafeFetchUrl, trimSlashes } = require('./utils');
 const metricSanity = require('./metricSanity');
 
 // Build a Home Assistant REST API URL from a base URL, robust to trailing
@@ -12,14 +12,14 @@ function haApiUrl(base, path) {
     u = new URL(base);
   } catch (_) {
     // Never crash URL construction — fall back to an un-normalized concatenation.
-    return String(base).replace(/\/+$/, '') + (path ? '/' + String(path).replace(/^\/+/, '') : '');
+    return trimSlashes(base) + (path ? '/' + trimSlashes(path, { leading: true, trailing: false }) : '');
   }
   // u.pathname always starts with '/' (e.g. '/', '/api', '/base'). Strip only the
   // trailing slash that new URL().toString() adds, then ensure it ends in '/api'.
-  let p = u.pathname.replace(/\/+$/, '');
+  let p = trimSlashes(u.pathname);
   if (p === '') p = '/api';
   else if (!p.endsWith('/api')) p = p + '/api';
-  const rest = String(path || '').replace(/^\/+/, '').replace(/\/+$/, '');
+  const rest = trimSlashes(path || '', { leading: true });
   return u.origin + p + (rest ? '/' + rest : '');
 }
 
@@ -72,6 +72,7 @@ async function pollHomeAssistant() {
       try {
         const res = await fetch(haApiUrl(base, 'states/' + entityId), {
           headers: { 'Authorization': `Bearer ${device.token}` },
+          redirect: 'error', // never forward the HA token to a redirect target
           signal: AbortSignal.timeout(5000)
         });
         if (!res.ok) continue;
@@ -93,12 +94,13 @@ async function fetchHAEntities(url, token) {
   let u;
   try { u = new URL(String(url)); } catch (_) { throw new Error('Invalid HA URL'); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('HA URL scheme not allowed (must use http or https)');
-  let p = u.pathname.replace(/\/+$/, '');
+  let p = trimSlashes(u.pathname);
   if (p === '') p = '/api';
   else if (!p.endsWith('/api')) p = p + '/api';
   u.pathname = p + '/states';
   const response = await fetch(u, {
     headers: { 'Authorization': `Bearer ${token}` },
+    redirect: 'error', // never forward the HA token to a redirect target
     signal: AbortSignal.timeout(5000)
   });
   if (!response.ok) throw new Error(`HA error ${response.status} for GET ${u.toString()}`);
@@ -173,6 +175,7 @@ async function executeHAAction(deviceId, domain, service, entityId, params = {})
     const res = await fetch(haApiUrl(device.url, 'services/' + domain + '/' + service), {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${device.token}`, 'Content-Type': 'application/json' },
+      redirect: 'error', // never forward the HA token to a redirect target
       body: JSON.stringify({ entity_id: entityId, ...params }),
       signal: AbortSignal.timeout(5000)
     });
@@ -290,6 +293,7 @@ async function getEntityModes(url, token, entityId) {
   try {
     const res = await fetch(haApiUrl(url, 'states/' + entityId), {
       headers: { 'Authorization': `Bearer ${token}` },
+      redirect: 'error', // never forward the HA token to a redirect target
       signal: AbortSignal.timeout(5000)
     });
     if (res.ok) {

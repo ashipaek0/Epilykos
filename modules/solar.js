@@ -21,6 +21,27 @@ const SOLCAST_NEGATIVE_TTL_TRANSPORT_MS = 30 * 60 * 1000;   // 30 min: transport
 const SOLCAST_NEGATIVE_TTL_429_BASE_MS = 120 * 60 * 1000;   // 120 min: 429 without Retry-After
 const SOLCAST_NEGATIVE_TTL_MAX_MS = 6 * 60 * 60 * 1000;     // 6 hr: cap
 
+// Solcast requests: fixed host, encoded path/query, and the API key in the
+// Authorization header — never in the URL, where it would reach logs.
+const SOLCAST_BASE = 'https://api.solcast.com.au';
+
+function solcastRooftopUrl(resourceId) {
+  const url = new URL(`/rooftop_sites/${encodeURIComponent(String(resourceId))}/forecasts`, SOLCAST_BASE);
+  url.searchParams.set('format', 'json');
+  return url;
+}
+
+function solcastWorldUrl(params) {
+  const url = new URL('/world_pv_power/forecasts', SOLCAST_BASE);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+  url.searchParams.set('format', 'json');
+  return url;
+}
+
+function solcastFetch(url, apiKey) {
+  return fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10000) });
+}
+
 function computeSolarForDate(dateStr) {
   const db = getDb();
   const startOfDay = new Date(dateStr + 'T00:00:00');
@@ -734,8 +755,8 @@ async function getSolarForecast(sourceParam, restMap) {
 
         if (resourceId) {
           try {
-            const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            const url = solcastRooftopUrl(resourceId);
+            const res = await solcastFetch(url, solcastKey);
             if (res.ok) {
               const data = await res.json();
               if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
@@ -750,8 +771,8 @@ async function getSolarForecast(sourceParam, restMap) {
           try {
             const tilt = parseFloat(getConfig('solar_tilt')) || 30;
             const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
-            const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            const url = solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt, azimuth, loss_factor: lossFactor, install_date: installDate });
+            const res = await solcastFetch(url, solcastKey);
             if (res.ok) {
               const data = await res.json();
               if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
@@ -905,8 +926,8 @@ async function testForecast(opts) {
   if (solcastKey) {
     if (resourceId) {
       try {
-        const url = `https://api.solcast.com.au/rooftop_sites/${resourceId}/forecasts?format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const url = solcastRooftopUrl(resourceId);
+        const res = await solcastFetch(url, solcastKey);
         if (res.ok) {
           const data = await res.json();
           const today = localDateString();
@@ -917,8 +938,8 @@ async function testForecast(opts) {
     }
     if (source === 'none') {
       try {
-        const url = `https://api.solcast.com.au/world_pv_power/forecasts?latitude=${lat}&longitude=${lon}&capacity=${capacityKwp}&tilt=${tilt}&azimuth=${azimuth}&loss_factor=${lossFactor}&install_date=${installDate}&format=json&api_key=${solcastKey}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const url = solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt, azimuth, loss_factor: lossFactor, install_date: installDate });
+        const res = await solcastFetch(url, solcastKey);
         if (res.ok) {
           const data = await res.json();
           const today = localDateString();

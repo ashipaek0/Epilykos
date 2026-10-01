@@ -192,4 +192,37 @@ function isValidHostname(value) {
   );
 }
 
-module.exports = { parseGridState, isBlockedIp, isValidHostname, assertSafeFetchUrl, assertSafeBrokerUrl, warnParseRateLimited };
+/**
+ * fetch() through the SSRF guard, following redirects by hand: every hop is
+ * re-checked with assertSafeFetchUrl, so an allowed URL cannot redirect to a
+ * blocked one (loopback, link-local, cloud metadata). At most `maxRedirects`
+ * hops. Throws on a refused URL or hop.
+ */
+async function safeFetch(url, init = {}, opts = {}) {
+  const maxRedirects = opts.maxRedirects === undefined ? 3 : opts.maxRedirects;
+  let current = String(url);
+  for (let hop = 0; ; hop++) {
+    const safe = await assertSafeFetchUrl(current, opts);
+    if (!safe.ok) throw new Error(hop ? `Redirect refused: ${safe.error}` : safe.error);
+    const res = await fetch(safe.url, { ...init, redirect: 'manual' });
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!location) return res;
+    if (hop >= maxRedirects) throw new Error('Too many redirects');
+    current = new URL(location, current).toString();
+  }
+}
+
+/**
+ * Strip leading / trailing '/' characters in linear time. (A /\/+$/ regex is
+ * quadratic on long runs of slashes followed by another character.)
+ */
+function trimSlashes(value, { leading = false, trailing = true } = {}) {
+  const s = String(value);
+  let start = 0;
+  let end = s.length;
+  if (leading) while (start < end && s.charCodeAt(start) === 47) start++;
+  if (trailing) while (end > start && s.charCodeAt(end - 1) === 47) end--;
+  return s.slice(start, end);
+}
+
+module.exports = { parseGridState, isBlockedIp, isValidHostname, assertSafeFetchUrl, assertSafeBrokerUrl, warnParseRateLimited, trimSlashes, safeFetch };
