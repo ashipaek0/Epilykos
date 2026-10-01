@@ -107,7 +107,9 @@ function buildPeriods({ dropDni = false } = {}) {
 let upstreamPeriods = buildPeriods();
 let fetchCalls = 0;
 let lastFetchUrl = '';
-global.fetch = async (url) => {
+let lastFetchHeaders = {};
+global.fetch = async (url, opts) => {
+  lastFetchHeaders = (opts && opts.headers) || {};
   fetchCalls++;
   lastFetchUrl = String(url);
   return { ok: true, json: async () => ({ forecasts: upstreamPeriods }) };
@@ -217,7 +219,9 @@ check('radar absence: editor.js iframe hits confined to generic embed-card path'
     // We stubbed solcast_resource_id -> rooftop_sites is chosen.
     assert.ok(/rooftop_sites\/STUBRES/.test(lastFetchUrl), `rooftop_sites path missing: ${lastFetchUrl}`);
     assert.ok(/format=json/.test(lastFetchUrl), `format=json missing: ${lastFetchUrl}`);
-    assert.ok(/api_key=STUBKEY/.test(lastFetchUrl), `api_key missing: ${lastFetchUrl}`);
+    // The key travels in the Authorization header, never in the URL (it would reach logs).
+    assert.ok(!/STUBKEY/.test(lastFetchUrl), `api key leaked into URL: ${lastFetchUrl}`);
+    assert.strictEqual(lastFetchHeaders.Authorization, 'Bearer STUBKEY');
   });
 
   // ---- (4b) NULL discipline, forecast level: dni-less upstream -> null ----
