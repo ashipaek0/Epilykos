@@ -8,7 +8,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/ashipaek0/epilykos?style=flat&logo=github)](https://github.com/ashipaek0/epilykos)
 
-Connects directly to inverters, Home Assistant, MQTT, Modbus, RS232 serial, Bluetooth BMS, and REST APIs.  
+Connects directly to inverters, Battery BMS, Home Assistant, over MQTT, Modbus, RS232 serial, Bluetooth, and REST APIs.  
 Public display with no login required — settings are password-protected.  
 **PWA** with real-time WebSocket push, network auto-switching, and background sync.
 
@@ -68,20 +68,17 @@ services:
       - /run/dbus:/run/dbus:ro           # Bluetooth (optional) — host BlueZ over D-Bus
     environment:
       - TZ=Africa/Lagos                    # …unless TZ is set (remove to use the host)
-    # Only with a USB serial adapter (RS232 / RS485 inverter or wired BMS):
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"     # serial passthrough
+     # - "/dev/ttyUSB0:/dev/ttyUSB0"     # serial passthrough. uncomment only with a USB serial adapter (RS232 / RS485 inverter or wired BMS):
     group_add:
       - "dialout"                        # serial port permissions
     restart: unless-stopped
 ```
 
-> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built into the main container. It uses the host's
+> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built in. It uses the host's
 > Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount:
 >
-> - Mount the **`/run/dbus` directory**, not `/run/dbus/system_bus_socket`. A mounted socket file goes stale when the
->   host's D-Bus restarts (e.g. after an update), and Bluetooth stops working until the container is recreated.
-> - No `cap_add` (`NET_ADMIN` / `NET_RAW`), `privileged` or `network_mode: host` is needed for Bluetooth.
+> - Mount the **`/run/dbus` directory**
 > - The host must run BlueZ with a powered adapter: `systemctl status bluetooth` shows *active*, `bluetoothctl show`
 >   shows `Powered: yes`.
 > - If Settings reports *D-Bus denied access to BlueZ*, add the host's `bluetooth` group ID (`getent group bluetooth`)
@@ -92,10 +89,6 @@ services:
 
 **Docker Hub image:** `irunmole/epilykos:latest`
 
-> **Upgrading from the `bms-bridge` sidecar:** remove the `bms-bridge` service and `BMS_BRIDGE_URL`, and add the
-> `/run/dbus` mount above. While `BMS_BRIDGE_URL` is set, Epilykos keeps using the old sidecar, so you can switch over when
-> it suits you. The `irunmole/epilykos-bms` image is no longer built.
-
 ---
 
 ## Adding Data Sources
@@ -103,29 +96,34 @@ services:
 Open `/settings`, log in, and navigate to **Data Sources**. Epilykos supports the following source types:
 
 ### Inverter Dongle
-Wi-Fi / LAN dongles over TCP, or the inverter's Bluetooth link. Supported protocols: **Solarman V5**, **Modbus TCP**,
-**Growatt**, **LuxPower**, **Felicity**, and over Bluetooth **Modbus over BLE**, **LuxPower** and **Phocos Any-Grid**.  
+Wi-Fi / LAN dongles over TCP or the inverter's Bluetooth link. 
+Supported protocols: **Solarman V5**, **Modbus TCP**, **Growatt**, **LuxPower**, **Felicity**.
+over Bluetooth **Modbus over BLE**, **LuxPower** and **Phocos Any-Grid**.  
+
 Choose **Connection** (TCP/IP or Bluetooth), then the **Profile** — the list only offers profiles that work over the
 chosen connection. For TCP/IP enter the dongle's IP address; for Bluetooth use 🔍 Scan. Then test the connection.
 
 **Bluetooth modules:** some inverters ship a Bluetooth module that carries plain Modbus-RTU over BLE, e.g. SRNE and
 Renogy-style BT modules. Set Connection to **Bluetooth**, pick your inverter's register profile, use 🔍 Scan to pick
-the module's MAC, and test. The default characteristics are `ffd1` (write) and `fff1` (notify). If
-your module uses different ones, you can read them with a BLE explorer app such as nRF Connect. Note that many Wi-Fi +
-Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data over it.
+the module's MAC, and test. 
+The default characteristics are `ffd1` (write) and `fff1` (notify). If your module uses different ones, you can read them with a BLE explorer app such as nRF Connect. 
+
+Note that many Wi-Fi + Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data over it.
 
 **Phocos Any-Grid PSW-H (Bluetooth):** the inverter's display has built-in Bluetooth (the link the PhocosLink app uses).
+
 Choose Connection **Bluetooth**, profile **Phocos Any-Grid PSW-H (Bluetooth)**, Scan and pick the device (it advertises
 its serial number, e.g. `ID9634…`). It is read-only and needs no pairing: Epilykos reads output, battery voltage/SOC/
 discharge current and power (voltage × current), heatsink temperature and both PV strings, and never writes to the inverter. Close the PhocosLink
 app first. Decoded on display firmware 00041.00; SOC, temperature and discharge current are inferred from live data.
 
 **LuxPower dongles (Wi-Fi or Bluetooth):** profile **LuxPower GETA Hybrid (Wi-Fi / Bluetooth dongle)**. Enter the
-10-character **dongle serial** (dongle label; the dongle also advertises it as its Bluetooth name, e.g. `DT62000575`) and
-**inverter serial** (inverter label). Over Wi-Fi, enter the dongle's IP (port 8000). Over Bluetooth, choose Connection
-**Bluetooth** and Scan for the dongle. Both carry the same LuxPower frames, so readings, entity mappings and
+10-character **dongle serial** (dongle label; the dongle also advertises it as its Bluetooth name, e.g. `DTXXXXXXXX`) and
+**inverter serial** (inverter label). Over Wi-Fi, enter the dongle's IP (port 8000). 
+
+Over Bluetooth, choose Connection **Bluetooth** and Scan for the dongle. Both carry the same LuxPower frames, so readings, entity mappings and
 write controls are identical; Bluetooth defaults to a 15 s poll because each read takes longer. Close the LuxPower app
-and disconnect SolarAssistant (or any other Bluetooth client) first — ESP32-based dongles usually accept only one Bluetooth connection at a time.
+and disconnect any other Bluetooth client first. Dongles usually accept only one Bluetooth connection at a time.
 
 ### Home Assistant
 Enter your Home Assistant URL and a **Long-Lived Access Token**. Fetch available entities and map them to dashboard metrics.
@@ -135,9 +133,9 @@ Enter your broker URL and map MQTT topics to the metrics you want to display.
 
 ### Modbus
 Supported profiles: **SRNE**, **Deye**, **Growatt**, **Victron**, **Voltronic/Axpert**, **Solis**, **Luxpower**, **Felicity**, **Generic MPPT**.  
-Connects via a serial RS-485 adapter or over TCP. Of these, only the Victron profile is native Modbus-TCP; the others are
-RS-485 (Modbus-RTU) register maps, which you can also reach over the network through an RS-485→Ethernet gateway —
-pick the gateway's framing (Modbus-TCP or RTU over TCP) on the card. All profiles are validated against official manufacturer register maps.
+Connects via a serial RS-485 adapter or over TCP. 
+Only the Victron profile is native Modbus-TCP; the others are RS-485 (Modbus-RTU) register maps, which you can also reach over the network through an RS-485→Ethernet gateway — pick the gateway's framing (Modbus-TCP or RTU over TCP) on the card. 
+All profiles are validated against official manufacturer register maps.
 
 ### Tuya (Smart Life)
 
@@ -151,10 +149,10 @@ Connect Tuya-compatible smart devices directly on your LAN — no cloud dependen
 Point Epilykos at any HTTP(S) API that returns JSON — on your LAN (e.g. `http://192.168.1.50/status`) or on the internet. Map JSON field paths to dashboard metrics. Loopback and cloud-metadata addresses are blocked.
 
 ### Bluetooth BMS
-Built in (needs the `/run/dbus` mount, see [Docker Compose](#docker-compose)). Scan for nearby devices; recognised BMS
-are labelled with their type. Decoding uses [aiobmsble](https://pypi.org/project/aiobmsble/), which covers JK, JBD,
-Daly, Seplos, ANT, Renogy, EG4, Pace and many more. Values are stored as `bms_<name>_<key>`, e.g. `voltage`,
-`current`, `battery_level`, `cell_voltage_1`, `temp_1`.
+Built in (needs the `/run/dbus` mount, see [Docker Compose](#docker-compose)). 
+Scan for nearby devices; recognised BMS are labelled with their type. 
+Decoding uses [aiobmsble](https://pypi.org/project/aiobmsble/), which covers JK, JBD, Daly, Seplos, ANT, Renogy, EG4, Pace and many more. 
+Values are stored as `bms_<name>_<key>`, e.g. `voltage`,`current`, `battery_level`, `cell_voltage_1`, `temp_1`.
 
 If a rebranded pack is found by Scan but not recognised, set its **type** (JBD, JK, Daly, Seplos, ANT, PACE / PACEEX) next to the
 MAC address.
@@ -162,7 +160,7 @@ MAC address.
 ### BMS — Wired (RS485 / UART)
 Pick the serial port and a profile; the serial settings follow the profile.
 - **JBD / Jiabaida / Xiaoxiang / Overkill Solar** — UART (USB-TTL) or RS485, 9600 8N1.
-- **JK-BMS (JK-B / JK-BD)** — JK RS485 adapter or GPS/UART port, 115200 8N1. (The newer JK-PB inverter BMS speaks a
+- **JK-BMS (JK-B / JK-BD)** — JK RS485 adapter or UART port, 115200 8N1. (The newer JK-PB inverter BMS speaks a
   different Modbus protocol and is not covered yet.)
 - **PACE (protocol 25)** — PACE's published RS232/RS485 protocol used by many packs (Jakiper, Easun, Tewaycell,
   Greenrich, FSP, Eenovance…), 9600 8N1; set the pack's DIP-switch address. Older protocol-20 packs (e.g. EG4
@@ -196,7 +194,7 @@ Multiple dashboards are supported, with automatic switching between desktop and 
 
 ## PWA & Network Switching
 
-Epilykos is a **Progressive Web App** — install it on your phone or desktop for a native-like experience.
+Epilykos can be installed as a **Progressive Web App** — on your phone or desktop for a native-like app experience.
 
 | Feature | Detail |
 |---------|--------|
@@ -223,8 +221,8 @@ Epilykos is a **Progressive Web App** — install it on your phone or desktop fo
 | **Real-time updates** | WebSocket push every 30 seconds |
 | **Searchable Help** | Accordion-based help section with search — covers all sources and block types |
 | **PWA** | Installable, offline-capable, background sync |
-| **Bluetooth** | BMS and inverter Bluetooth modules, built in (no sidecar) |
-| **No forced login** | Dashboard is publicly accessible; only settings require a password |
+| **Bluetooth** | BMS and inverter Bluetooth modules, built in |
+| **No forced login** | Dashboard can publicly accessible; settings require a login |
 
 ---
 
@@ -278,9 +276,6 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
 | `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
 | `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device) |
-| `BMS_BRIDGE_URL` | — | Deprecated: use a legacy `bms-bridge` sidecar instead of built-in Bluetooth |
-
-All persistent state — `energy.db`, snapshots, `session-secret`, `settings-password` — lives in `data/` (`/app/data` in the container).
 
 ---
 
@@ -297,7 +292,6 @@ All persistent state — `energy.db`, snapshots, `session-secret`, `settings-pas
 | **RS232 scan error (ENOENT)** | Ensure the container has `udev` installed — the Docker image includes it by default |
 | **WebSocket fails ("closed before connection is established")** | If using the PWA, unregister the old Service Worker and reload; also check [WebSocket reverse proxy configuration](#websocket-support) |
 | **Bluetooth unavailable: mount the host D-Bus socket** | Add `- /run/dbus:/run/dbus:ro` to the `epilykos` volumes and recreate the container |
-| **Bluetooth stopped working after a host update / reboot of D-Bus** | You mounted the socket file (`/run/dbus/system_bus_socket`). Mount the directory instead: `- /run/dbus:/run/dbus:ro`, then recreate the container |
 | **Bluetooth: D-Bus denied access to BlueZ** | The host's BlueZ D-Bus policy doesn't allow the container user (uid 1000). Add the host's `bluetooth` group ID via `group_add` (`getent group bluetooth`). On Ubuntu hosts with AppArmor D-Bus mediation, also add `security_opt: [apparmor=unconfined]` |
 | **Bluetooth: no adapter / adapter powered off** | Check `bluetoothctl show` on the host; `rfkill unblock bluetooth` and `bluetoothctl power on` |
 | **BMS scan returns no devices** | Move the adapter closer (BLE range is ~10 m), close the vendor app, and scan again. On a Raspberry Pi 3 a USB Bluetooth dongle is more reliable than the onboard radio |
