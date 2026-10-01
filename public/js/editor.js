@@ -3,6 +3,10 @@ import { componentBuilders } from './components/index.js';
 import { initTheme } from './theme.js';
 import { GROUPS, BLOCKS, blockInfo, icon } from './editor-catalog.js';
 import { openDialog, openMenu, closeMenu, isMenuOpen, toast, hideToast } from './editor-ui.js';
+import { updateCards } from './cards-update.js';
+import { ensureChartJS } from './chartLoader.js';
+import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
+import { updateDailyTable, updateMonthlyTable } from './tables.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
 const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
@@ -1877,11 +1881,60 @@ function refreshGridItem(block) {
   if (!el) return;
   var inner = el.querySelector('.grid-stack-item-content');
   if (inner) fillGridItemContent(inner, block);
+  schedulePreview();
 }
 
 function updateEmptyState() {
   var tab = currentTab();
   $('empty-state').hidden = !!(tab && tab.layout.length);
+}
+
+// ── Live previews ────────────────────────────────────────────────────────
+// Blocks on the grid show real data: the same dashboard state and the same
+// card updaters the dashboard uses, refreshed every 30 seconds and right
+// after a block is added or its settings change.
+
+var previewState = null;
+var previewTimer = null;
+var CHART_TYPES = ['chart-power', 'chart-energy', 'chart-metric'];
+
+function previewTypes() {
+  var tab = currentTab();
+  return new Set(tab ? tab.layout.map(function(b) { return b.type; }) : []);
+}
+
+function applyPreviews() {
+  if (!previewState || !grid) return;
+  var types = previewTypes();
+  var run = function() {
+    try { updateCards(previewState, types); } catch (e) { console.warn('Preview update failed:', e); }
+  };
+  if (CHART_TYPES.some(function(t) { return types.has(t); })) {
+    ensureChartJS().then(function() {
+      initPowerChart(); initEnergyChart(); initMetricChart();
+      run();
+    }).catch(function() { run(); });
+  } else {
+    run();
+  }
+  if (types.has('data-table-daily')) updateDailyTable().catch(function() {});
+  if (types.has('data-table-monthly')) updateMonthlyTable().catch(function() {});
+}
+
+async function refreshPreviews() {
+  try {
+    previewState = await fetchDashboardState();
+    applyPreviews();
+  } catch (e) {
+    // Without data the blocks keep their empty "—" state.
+    console.warn('Could not load preview data:', e);
+  }
+}
+
+/** Re-apply data soon (after a block was added, changed or redrawn). */
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(applyPreviews, 250);
 }
 
 // ── Selection and the block toolbar ──────────────────────────────────────
@@ -1984,6 +2037,7 @@ function cellFromPoint(clientX, clientY, w) {
 
 function placeNewItem(block) {
   var item = buildGridItem(block);
+  schedulePreview();
   grid.makeWidget(item);  // GridStack v11+ requires makeWidget() for HTMLElements
   syncLayoutFromGrid();
   updateEmptyState();
@@ -2578,6 +2632,7 @@ function loadTab(tabId, opts) {
   updateHeader();
   updateEmptyState();
   selectBlock(opts.keepSelection || null, { force: true });
+  schedulePreview();
 }
 
 function renameDashboard(title) {
@@ -2945,6 +3000,8 @@ async function initEditor() {
     wireTopbar();
     wireKeyboard();
     loadTab(currentTabId, { skipSync: true });
+    refreshPreviews();
+    setInterval(function() { if (!document.hidden) refreshPreviews(); }, 30000);
     setSaveStatus(readOnly ? 'readonly' : 'saved');
     updateUndoButtons();
     hideLoading();
