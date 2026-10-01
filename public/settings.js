@@ -14,18 +14,24 @@ const backupStatus = document.getElementById('backup-status');
 let usedDashboardMetrics = [];
 let allMetrics = []; // array of { name, unit, value?, timestamp? }
 
+// Success messages clear after a few seconds; errors stay until the next
+// message on the same element so they can actually be read.
 function showStatus(element, msg, type) {
+  if (!element) return;
+  clearTimeout(element._statusTimer);
   element.textContent = msg;
   element.className = `status ${type}`;
-  if (type !== 'info') {
-    setTimeout(() => { element.textContent = ''; element.className = 'status'; }, 5000);
+  if (type === 'success') {
+    element._statusTimer = setTimeout(() => { element.textContent = ''; element.className = 'status'; }, 5000);
   }
 }
 function showStatusHtml(element, msg, type) {
+  if (!element) return;
+  clearTimeout(element._statusTimer);
   element.innerHTML = msg;
   element.className = `status ${type}`;
-  if (type !== 'info') {
-    setTimeout(() => { element.innerHTML = ''; element.className = 'status'; }, 5000);
+  if (type === 'success') {
+    element._statusTimer = setTimeout(() => { element.innerHTML = ''; element.className = 'status'; }, 5000);
   }
 }
 
@@ -4932,6 +4938,10 @@ function populateDashboardSelects(config, savedDesktop, savedMobile) {
 
 // ======================== DASHBOARD EDITOR ========================
 let dashConfig = null;
+// Layouts belong to the editor. Settings only sends them back when the
+// dashboards list on this page was actually changed, so a settings tab left
+// open never overwrites newer editor changes with its stale copy.
+let dashConfigDirty = false;
 function buildDashboardEditor(config) {
   dashConfig = config || { dashboards: [], activeDashboard: 'main' };
   const listEl = document.getElementById('dashboards-list');
@@ -4948,16 +4958,18 @@ function buildDashboardEditor(config) {
     `;
     listEl.appendChild(row);
     row.querySelector('.set-active').addEventListener('click', () => {
+      dashConfigDirty = true;
       dashConfig.activeDashboard = db.id;
       buildDashboardEditor(dashConfig);
     });
     row.querySelector('.delete-dash').addEventListener('click', () => {
       if (!showConfirm(`Delete dashboard "${db.name}"? This cannot be undone.`)) return;
+      dashConfigDirty = true;
       dashConfig.dashboards = dashConfig.dashboards.filter(d => d.id !== db.id);
       if (dashConfig.activeDashboard === db.id) dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
       buildDashboardEditor(dashConfig);
     });
-    row.querySelector('.dash-name').addEventListener('change', (e) => { db.name = e.target.value; });
+    row.querySelector('.dash-name').addEventListener('change', (e) => { dashConfigDirty = true; db.name = e.target.value; });
   });
   const activeDb = dashConfig.dashboards.find(db => db.id === activeId);
   if (activeDb) renderBlockInventory(activeDb);
@@ -5005,6 +5017,7 @@ function renderBlockInventory(dashboard) {
 const addDashboardBtn = document.getElementById('add-dashboard-btn');
 if (addDashboardBtn) addDashboardBtn.addEventListener('click', () => {
   const newId = 'db_' + Date.now();
+  dashConfigDirty = true;
   dashConfig.dashboards.push({ id: newId, name: 'New Tab', layout: [] });
   dashConfig.activeDashboard = newId;
   buildDashboardEditor(dashConfig);
@@ -5755,9 +5768,24 @@ if (form) form.addEventListener('submit', async (e) => {
     return dev;
   });
   payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
-  payload.dashboard_config = JSON.stringify(dashConfig);
-  payload.dashboard_layouts = JSON.stringify(dashConfig.dashboards || []);
-  payload.dashboard_active = dashConfig.activeDashboard || 'main';
+  if (dashConfigDirty) {
+    // Merge this page's list edits (names, deletions, additions, active tab)
+    // onto the latest saved layouts so blocks edited elsewhere are kept.
+    try {
+      const latestRes = await fetch('/api/dashboard-config');
+      const latest = latestRes.ok ? await latestRes.json() : null;
+      if (latest && Array.isArray(latest.dashboards)) {
+        const latestById = new Map(latest.dashboards.map(d => [d.id, d]));
+        dashConfig.dashboards = dashConfig.dashboards.map(d => {
+          const fresh = latestById.get(d.id);
+          return fresh ? Object.assign({}, fresh, { name: d.name }) : d;
+        });
+      }
+    } catch (e) { /* fall back to this page's copy */ }
+    payload.dashboard_config = JSON.stringify(dashConfig);
+    payload.dashboard_layouts = JSON.stringify(dashConfig.dashboards || []);
+    payload.dashboard_active = dashConfig.activeDashboard || 'main';
+  }
   // Collect tuya_cloud credentials
   const tuyaCloud = {
     region: document.getElementById('tuya-cloud-region')?.value || 'eu',
@@ -5779,6 +5807,7 @@ if (form) form.addEventListener('submit', async (e) => {
     const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(payload) });
     if (res.ok) {
       showStatus(saveStatus, 'Settings saved successfully!', 'success');
+      dashConfigDirty = false;
       // Clear the unsaved changes indicator
       const dirtyCount = document.getElementById('stg-dirty-count');
       if (dirtyCount) { dirtyCount.textContent = ''; dirtyCount.classList.remove('show'); }
