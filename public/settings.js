@@ -556,7 +556,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
 }
 
 // ── HA enriched entity catalog (issue #108 wave 5, AC-25) ────────────────
-// Fetch Entities now pulls the enriched catalog (GET /api/ha/entities — the
+// Fetch Entities now pulls the enriched catalog (POST /api/ha/entities — the
 // 8-domain projection with friendly_name/unit/state enrichment) and renders
 // expose-all rows: empty metric dropdown + entity <select> whose option reads
 // "friendly_name (unit) - entity_id - <state>". A domain filter <select>
@@ -595,7 +595,7 @@ async function fetchHaEntityCatalog(url, token) {
   // label: friendly_name, name, unit_of_measurement, device_class, state,
   // attributes, kind: 'ha' }] for the same 8 domains. The legacy string-array
   // /api/ha-device-entities endpoint stays untouched for the setup.js wizard.
-  const res = await fetch(`/api/ha/entities?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`);
+  const res = await fetch('/api/ha/entities', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ url, token }) });
   const data = await res.json();
   if (!res.ok) throw new Error((data && data.error) || `HA fetch failed (HTTP ${res.status})`);
   return Array.isArray(data) ? data : [];
@@ -824,10 +824,10 @@ function renderMqttDevice(device, idx) {
     }
     showStatus(statusEl, 'Testing...', 'info');
     try {
-      const params = new URLSearchParams({ broker });
-      if (username) params.set('username', username);
-      if (password) params.set('password', password);
-      const res = await fetch(`/api/test-mqtt?${params.toString()}`);
+      const params = { broker };
+      if (username) params.username = username;
+      if (password) params.password = password;
+      const res = await fetch('/api/test-mqtt', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
       if (res.ok) showStatus(statusEl, data.message, 'success');
       else showStatus(statusEl, data.error || 'Test failed', 'error');
@@ -853,10 +853,10 @@ function renderMqttDevice(device, idx) {
     }
     showStatus(statusEl, 'Waiting for message...', 'info');
     try {
-      const params = new URLSearchParams({ topic, broker });
-      if (username) params.set('username', username);
-      if (password) params.set('password', password);
-      const res = await fetch(`/api/test-mqtt-topic?${params.toString()}`);
+      const params = { topic, broker };
+      if (username) params.username = username;
+      if (password) params.password = password;
+      const res = await fetch('/api/test-mqtt-topic', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `Received: ${data.value ?? data.raw}`, 'success');
       else showStatus(statusEl, data.error, 'error');
@@ -878,10 +878,10 @@ function renderMqttDevice(device, idx) {
     }
     showStatus(statusEl, 'Listening for 15s...', 'info');
     try {
-      const params = new URLSearchParams({ broker });
-      if (username) params.set('username', username);
-      if (password) params.set('password', password);
-      const res = await fetch(`/api/mqtt-discover-topics?${params.toString()}`);
+      const params = { broker };
+      if (username) params.username = username;
+      if (password) params.password = password;
+      const res = await fetch('/api/mqtt-discover-topics', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
       const entries = Array.isArray(data && data.entries) ? data.entries : [];
       const topicsOnly = Array.isArray(data && data.topics) ? data.topics : [];
@@ -4085,7 +4085,7 @@ window.catalogAdapters.rs232Solax = rs232Solax;
 // existing card functions — the cards themselves are not rewritten.
 //
 //   ha        — enriched HA entity catalog (AC-25): fetch(ctx{url,token}) →
-//               GET /api/ha/entities (items have friendly_name/unit/state);
+//               POST /api/ha/entities (items have friendly_name/unit/state);
 //               handle = entity_id (the persisted mapping value, byte-compat);
 //               handleCtrl 'select' (row anatomy of addHaMetricRow).
 //   mqtt      — MQTT discovery cache (AC-26): fetch(ctx{broker}) → GET
@@ -4722,7 +4722,7 @@ if (forecastTestBtn) {
     showStatus(statusEl, 'Fetching forecast...', 'info');
     try {
       // Send current form values so user can test before saving
-      const params = new URLSearchParams({
+      const params = {
         lat: document.getElementById('solar-latitude')?.value || '',
         lon: document.getElementById('solar-longitude')?.value || '',
         capacity: document.getElementById('solar-capacity')?.value || '',
@@ -4732,8 +4732,8 @@ if (forecastTestBtn) {
         install_date: document.getElementById('solar-install-date')?.value || '2020-01-01',
         api_key: document.getElementById('solcast-api-key')?.value || '',
         resource_id: document.getElementById('solcast-resource-id')?.value || ''
-      });
-      const res = await fetch(`/api/test-forecast?${params.toString()}`);
+      };
+      const res = await fetch('/api/test-forecast', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
       if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
       else showStatus(statusEl, `❌ ${data.error}`, 'error');
