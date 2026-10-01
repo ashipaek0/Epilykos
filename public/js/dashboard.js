@@ -14,7 +14,7 @@
  * @module dashboard
  */
 import { fetchDashboardConfig, saveDashboardConfig, fetchPublicConfig } from './api.js';
-import { componentBuilders } from './components/index.js';
+import { getBuilder } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { clearSparklineCharts } from './forecast.js';
@@ -140,7 +140,7 @@ function renderDashboard() {
   const positioned = [];
   layoutWithIds.forEach((block) => {
     if (block.enabled === false) return;
-    const builder = componentBuilders[block.type];
+    const builder = getBuilder(block.type);
     if (!builder) return;
     const x = block.gridX ?? 0;
     const y = block.gridY ?? 0;
@@ -178,7 +178,7 @@ function renderDashboard() {
   positioned.forEach(({ block, x, w, h, _top }) => {
     let content;
     try {
-      content = componentBuilders[block.type](block);
+      content = getBuilder(block.type)(block);
     } catch (e) {
       console.error('Block render failed:', block.type, block.id, e);
       content = document.createElement('div');
