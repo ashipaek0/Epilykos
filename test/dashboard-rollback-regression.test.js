@@ -44,7 +44,10 @@ assert.match(editor, /new Map\(Object\.entries\(componentBuilders\)\)/);
 assert.match(editor, /BLOCK_BUILDERS\.get\(block\.type\)/);
 assert.match(editor, /if \(typeof builder !== 'function'\) return null;/, 'unknown/removed card types must be skipped safely');
 assert.match(editor, /Array\.isArray\(imported\.dashboards\)/, 'imports must validate dashboards as an array');
-assert.match(editor, /Type Append or Replace/i, 'imports must require explicit Append or Replace confirmation');
+// Imports ask for an explicit Append or Replace choice in a dialog (radio
+// cards named importMode); nothing is imported without that choice.
+assert.match(editor, /input\.name = 'importMode';/, 'imports must require explicit Append or Replace confirmation');
+assert.match(editor, /var choice = form\.elements\.importMode\.value;/, 'import choice must come from the dialog');
 const importHelper = editor.match(/function applyDashboardImport\([\s\S]*?\n\}/);
 assert.ok(importHelper, 'dashboard imports must use the tested pure import helper');
 const uniqueIdHelper = editor.match(/function uniqueDashboardId\([\s\S]*?\n\}/);
