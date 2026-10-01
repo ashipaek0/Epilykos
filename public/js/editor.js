@@ -16,34 +16,57 @@ function clearUnsaved() { unsaved = false; document.getElementById('unsaved-indi
 function showLoading(msg) { let o = document.getElementById('loading-overlay'); if (!o) { o = document.createElement('div'); o.id = 'loading-overlay'; o.className = 'loading-overlay'; o.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p id="loading-message"></p></div>'; document.body.appendChild(o); } document.getElementById('loading-message').textContent = msg; o.style.display = 'flex'; }
 function hideLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'none'; }
 
-async function persistLayout() {
-  if (!grid) return;
-  var items = grid.getGridItems();
+function currentTab() {
+  return dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) || null;
+}
+
+/**
+ * Copy grid positions back onto the current tab's blocks. Existing block
+ * objects are updated in place so every saved field (enabled, styling,
+ * config, ...) survives; blocks the editor could not render (unknown types)
+ * are kept as they are instead of being dropped.
+ */
+function syncLayoutFromGrid() {
+  var tab = currentTab();
+  if (!tab || !grid) return;
+  var byId = new Map(tab.layout.map(function(b) { return [b.id, b]; }));
+  var seen = new Set();
   var layout = [];
-  items.forEach(function(el) {
+  grid.getGridItems().forEach(function(el) {
     var n = el.gridstackNode;
-    var block = { id: el.dataset.blockId, type: el.dataset.blockType, gridX: n.x, gridY: n.y, gridW: n.w, gridH: n.h, enabled: true, config: {} };
-    var existing = null;
-    var tabs = dashboardConfig.dashboards;
-    for (var ti = 0; ti < tabs.length; ti++) {
-      if (tabs[ti].id === currentTabId) {
-        for (var li = 0; li < tabs[ti].layout.length; li++) {
-          if (tabs[ti].layout[li].id === el.dataset.blockId) { existing = tabs[ti].layout[li]; break; }
-        }
-        break;
-      }
-    }
-    if (existing) { block.config = existing.config; block.transparent = existing.transparent; block.bgColor = existing.bgColor; block.fontColor = existing.fontColor; block.fontSize = existing.fontSize; if (existing.metrics) block.metrics = existing.metrics; if (existing.cards) block.cards = existing.cards; if (existing.columns) block.columns = existing.columns; }
+    var block = byId.get(el.dataset.blockId);
+    if (!block) block = { id: el.dataset.blockId, type: el.dataset.blockType, enabled: true, config: {} };
+    block.gridX = n.x; block.gridY = n.y; block.gridW = n.w; block.gridH = n.h;
     layout.push(block);
+    seen.add(block.id);
   });
-  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
-  if (tab) { tab.layout = layout; tab.name = document.getElementById('dash-name-input').value || tab.name; }
+  tab.layout.forEach(function(b) { if (!seen.has(b.id)) layout.push(b); });
+  tab.layout = layout;
+  tab.name = document.getElementById('dash-name-input').value || tab.name;
+}
+
+async function persistLayout() {
+  if (!grid) return false;
+  syncLayoutFromGrid();
   try {
     await saveDashboardConfig(dashboardConfig);
+    setSaveError(null);
     return true;
   } catch (e) {
     console.warn('Save failed:', e);
+    setSaveError(e);
     return false;
+  }
+}
+
+function setSaveError(err) {
+  var el = document.getElementById('unsaved-indicator');
+  if (!el) return;
+  if (err) {
+    el.textContent = "Couldn't save your changes: " + (err.message || err) + '. They will be retried on the next change.';
+    el.classList.add('show');
+  } else if (!unsaved) {
+    el.classList.remove('show');
   }
 }
 
@@ -1659,6 +1682,7 @@ function refreshGridItem(block) {
   inner.innerHTML = '';
   if (settingsBtn) inner.appendChild(settingsBtn);
   if (delBtn) inner.appendChild(delBtn);
+  inner.classList.toggle('is-hidden-block', block.enabled === false);
 
   var builder = BLOCK_BUILDERS.get(block.type);
   if (typeof builder === 'function') {
@@ -1719,7 +1743,6 @@ async function handleSettingsSave() {
     return;  // keep modal open
   }
   refreshGridItem(currentEditingBlock);
-  markUnsaved();
   hideSettingsModal();
 }
 
@@ -1863,9 +1886,16 @@ function buildGridItem(block) {
   delBtn.textContent = '\u2715';
   delBtn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:10;';
   delBtn.setAttribute('aria-label', 'Delete block');
-  delBtn.addEventListener('click', function(e) { e.stopPropagation(); grid.removeWidget(item); persistLayout(); markUnsaved(); });
+  delBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var tab = currentTab();
+    if (tab) tab.layout = tab.layout.filter(function(b) { return b.id !== item.dataset.blockId; });
+    grid.removeWidget(item);
+    persistLayout();
+  });
   inner.appendChild(delBtn);
   inner.appendChild(content);
+  if (block.enabled === false) inner.classList.add('is-hidden-block');
   item.appendChild(inner);
   return item;
 }
@@ -1884,7 +1914,6 @@ function addBlockToGrid(type) {
 
   // GridStack v11+ requires makeWidget() for HTMLElements
   grid.makeWidget(item);
-  markUnsaved();
   persistLayout(); // auto-save after add
 }
 
@@ -1900,13 +1929,13 @@ async function loadTab(tabId) {
   if (grid) { grid.destroy(false); grid = null; }
 
   tab.layout.forEach(function(block) {
-    if (block.enabled === false) return;
+    // Hidden blocks stay editable (dimmed) — skipping them made them
+    // impossible to re-enable and let the next save drop them.
     var item = buildGridItem(block);
     if (item) container.appendChild(item);
   });
 
   grid = GridStack.init({ column: 12, cellHeight: 50, float: false, animate: true, resizable: { handles: 'e, se, s, sw, w' }, minRow: 1 }, container);
-  grid.on('change', function() { markUnsaved(); });
   grid.on('dragstop', function() { persistLayout(); });
   grid.on('resizestop', function() { persistLayout(); });
 
@@ -1914,12 +1943,6 @@ async function loadTab(tabId) {
   grid.opts.acceptWidgets = function(el) { return true; };
 
   var dropZone = container.closest('.editor-grid-wrapper') || container;
-  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-  dropZone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    var type = e.dataTransfer.getData('blockType');
-    if (type) addBlockToGrid(type);
-  });
 
   // Auth check for header buttons
   fetch('/api/auth/status')
@@ -1947,9 +1970,22 @@ async function initEditor() {
       dashboardConfig.dashboards = [{ id: 'main', name: 'Main', layout: [] }];
       dashboardConfig.activeDashboard = 'main';
     }
-    currentTabId = dashboardConfig.activeDashboard || dashboardConfig.dashboards[0].id;
+    var requestedTab = new URLSearchParams(window.location.search).get('tab');
+    currentTabId = dashboardConfig.dashboards.some(function(db) { return db.id === requestedTab; })
+      ? requestedTab
+      : (dashboardConfig.activeDashboard || dashboardConfig.dashboards[0].id);
 
     refreshTabSelect();
+
+    // Palette drop target — bound once (loadTab runs on every dashboard switch).
+    var dropZone = document.querySelector('.editor-grid-wrapper');
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      var type = e.dataTransfer.getData('blockType');
+      if (type) addBlockToGrid(type);
+    });
+
     document.getElementById('tab-select').addEventListener('change', function(e) {
       if (unsaved) { persistLayout(); clearUnsaved(); }
       loadTab(e.target.value);
@@ -1972,7 +2008,9 @@ async function initEditor() {
       dashboardConfig.dashboards = dashboardConfig.dashboards.filter(function(db) { return db.id !== currentTabId; });
       currentTabId = dashboardConfig.dashboards[0].id;
       dashboardConfig.activeDashboard = currentTabId;
-      saveDashboardConfig(dashboardConfig).catch(function(e) { console.warn(e); });
+      saveDashboardConfig(dashboardConfig)
+        .then(function() { setSaveError(null); })
+        .catch(function(e) { console.warn(e); setSaveError(e); });
       loadTab(currentTabId);
     });
 
@@ -2018,7 +2056,7 @@ async function initEditor() {
     });
 
     await loadTab(currentTabId);
-    document.getElementById('save-btn').addEventListener('click', async function() { await persistLayout(); clearUnsaved(); var validTab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) ? currentTabId : dashboardConfig.dashboards[0]?.id || 'main'; window.location.href = '/?tab=' + encodeURIComponent(validTab); });
+    document.getElementById('save-btn').addEventListener('click', async function() { if (!(await persistLayout())) return; clearUnsaved(); var validTab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) ? currentTabId : dashboardConfig.dashboards[0]?.id || 'main'; window.location.href = '/?tab=' + encodeURIComponent(validTab); });
 
     // ── Settings Modal Event Bindings ──
     document.getElementById('settings-modal-close').addEventListener('click', hideSettingsModal);

@@ -212,6 +212,15 @@
       border-color: #ef4444;
     }
 
+    /* Hidden on the dashboard, still editable here */
+    .grid-stack-item-content.is-hidden-block { opacity: 0.5; border-style: dashed; }
+    .grid-stack-item-content.is-hidden-block::after {
+      content: 'Hidden on dashboard';
+      position: absolute; left: 0.5rem; bottom: 0.4rem;
+      font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem;
+      border-radius: 0.4rem; background: var(--border); color: var(--text);
+    }
+
     .grid-item-preview { flex: 1; overflow: auto; min-height: 100px; }
 
     /* Drag handle for grid items */
