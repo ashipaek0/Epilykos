@@ -46,17 +46,19 @@
   --border:          var(--stone-200);
   --text:            var(--stone-900);
   --text-secondary:  var(--stone-500);
-  --text-tertiary:   var(--stone-400);
-  --accent:          var(--orange-500);
-  --accent-hover:    var(--orange-600);
-  --accent-light:    var(--orange-100);
+  --text-tertiary:   #666666;          /* was #999 (2.8:1); now 5.7:1 on white */
+  /* App amber (matches dashboard and editor). #b45309 carries white text at
+     5.0:1 and reads as text on white at 5.0:1; #d65a00 was 3.9:1. */
+  --accent:          #b45309;
+  --accent-hover:    #92400e;
+  --accent-light:    #fef3c7;
   --input-bg:        #f0eee8;
   --success:         var(--green-500);
   --success-light:   #e6f5ea;
   --info:            var(--orange-400);
   --info-light:      var(--orange-50);
   --danger:          var(--red-500);
-  --toggle-off:      #c27a20;
+  --toggle-off:      #a8a59e;          /* grey when off; orange read as on */
 
   /* Text on accent-colored backgrounds */
   --color-text-on-accent: #fff;
@@ -90,16 +92,17 @@
   --input-bg:        #1c1c1a;
   --text:            #f0f0f0;
   --text-secondary:  #b0b0b0;
-  --text-tertiary:   #707070;
-  --accent:          var(--orange-400);
-  --accent-hover:    var(--orange-300);
-  --accent-light:    rgba(255,138,64,0.12);
+  --text-tertiary:   #9a9a9a;
+  --accent:          #fbbf24;
+  --accent-hover:    #fcd34d;
+  --accent-light:    rgba(251,191,36,0.14);
+  --color-text-on-accent: #111111;
   --success:         var(--green-500-bright);
   --success-light:   rgba(77,168,99,0.15);
   --info:            var(--orange-400);
   --info-light:      rgba(255,138,64,0.12);
   --danger:          #dc2626;
-  --toggle-off:      #d48a28;
+  --toggle-off:      #4a4a4a;
   --shadow-sm:       0 1px 2px rgba(0,0,0,0.5);
   --shadow:          0 1px 3px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.5);
   --shadow-md:       0 4px 6px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.5);
