@@ -18,10 +18,12 @@ const CACHE_NAME = 'epilykos-shell';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
+  '/cards.css',
   '/js/main.js',
   '/js/dashboard.js',
   '/js/charts.js',
   '/js/updater.js',
+  '/js/cards-update.js',
   '/js/editor.js',
   '/js/editor-catalog.js',
   '/js/editor-ui.js',
