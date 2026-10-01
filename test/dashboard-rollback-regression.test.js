@@ -12,7 +12,7 @@ const removedFamilies = [
   'multi-series-bar-gauge', 'static-text', 'string-state'
 ];
 const sourceFiles = [
-  'public/editor.html', 'public/js/editor.js', 'public/js/updater.js',
+  'public/editor.html', 'public/js/editor.js', 'public/js/updater.js', 'public/js/cards-update.js',
   'public/js/components/index.js', 'public/style.css', 'routes/metrics.js'
 ];
 const production = sourceFiles.map(read).join('\n');
@@ -86,7 +86,9 @@ const olderCards = [
 ];
 for (const card of olderCards) assert.match(components, new RegExp(`['"]${card}['"]\\s*:`), `older card removed: ${card}`);
 for (const family of removedFamilies) assert.doesNotMatch(components, new RegExp(`['"]${family}['"]`));
-assert.match(read('public/js/updater.js'), /chart-metric/);
+// Card updates are dispatched from cards-update.js (shared with the editor's previews).
+assert.match(read('public/js/cards-update.js'), /chart-metric/);
+assert.match(read('public/js/updater.js'), /updateCards\(state, /);
 
 // #133 deterministic time injection and #134 branding assets remain present.
 const { openMeteoPayload } = require('./open-meteo-fixture');

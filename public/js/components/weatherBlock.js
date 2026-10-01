@@ -1,3 +1,4 @@
+import { blockFor } from './blockRegistry.js';
 import { escapeHtml } from "../utils.js";
 import { fmtTemp, fmtNum, fmtWind, uvLabel, timeLabel, hourLabel, dayLabel, iconHtml } from "../weatherFormat.js";
 import { ensureChartJS } from "../chartLoader.js";
@@ -68,7 +69,7 @@ function normalizeRestMap(raw) {
 /**
  * Resolve a weather card instance's source + rest_map.
  * Mirrors forecast.js resolveCardSource: dataset.source first, then block id
- * lookup in dashboard.js dashboardConfig, else 'auto' (legacy behavior).
+ * lookup in the block registry, else 'auto' (legacy behavior).
  * restMap is the block config.rest_map (normalized, {} default); only sent for rest: sources.
  */
 async function resolveCardSource(card) {
@@ -76,12 +77,8 @@ async function resolveCardSource(card) {
   const blockId = card?.dataset?.blockId
     || card?.closest?.('.dashboard-block')?.dataset?.blockId;
   if (!blockId) return { source: 'auto', restMap: {} };
-  try {
-    const { dashboardConfig } = await import('../dashboard.js');
-    const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-    const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return { source: block?.config?.source || 'auto', restMap: normalizeRestMap(block?.config?.rest_map) };
-  } catch { return { source: 'auto', restMap: {} }; }
+  const block = blockFor(blockId);
+  return { source: block?.config?.source || 'auto', restMap: normalizeRestMap(block?.config?.rest_map) };
 }
 
 function weatherUrlFor(source, restMap) {
@@ -125,12 +122,8 @@ async function resolveCardDisplay(card) {
   const blockId = card?.dataset?.blockId
     || card?.closest?.('.dashboard-block')?.dataset?.blockId;
   if (!blockId) return normalizeDisplay({});
-  try {
-    const { dashboardConfig } = await import('../dashboard.js');
-    const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-    const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return normalizeDisplay(block?.config?.display);
-  } catch { return normalizeDisplay({}); }
+  const block = blockFor(blockId);
+  return normalizeDisplay(block?.config?.display);
 }
 
 /** Charts prefs (S4', AC12). config charts:{ghi default ON, temp default OFF}.
@@ -147,12 +140,8 @@ async function resolveCardCharts(card) {
   const blockId = card?.dataset?.blockId
     || card?.closest?.('.dashboard-block')?.dataset?.blockId;
   if (!blockId) return normalizeCharts({});
-  try {
-    const { dashboardConfig } = await import('../dashboard.js');
-    const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-    const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return normalizeCharts(block?.config?.charts);
-  } catch { return normalizeCharts({}); }
+  const block = blockFor(blockId);
+  return normalizeCharts(block?.config?.charts);
 }
 
 function wxHourMs(h) {
@@ -308,12 +297,8 @@ async function resolveCardAlerts(card) {
   const blockId = card?.dataset?.blockId
     || card?.closest?.('.dashboard-block')?.dataset?.blockId;
   if (!blockId) return [];
-  try {
-    const { dashboardConfig } = await import('../dashboard.js');
-    const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-    const block = (layout || []).find(b => String(b.id) === String(blockId));
-    return normalizeAlerts(block?.config?.alerts);
-  } catch { return []; }
+  const block = blockFor(blockId);
+  return normalizeAlerts(block?.config?.alerts);
 }
 
 /** Current value per metric. temp: w.temp else current-hour air_temp;

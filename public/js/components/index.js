@@ -29,6 +29,7 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
+import { registerBlock } from './blockRegistry.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
@@ -63,6 +64,13 @@ export const componentBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock
 };
+
+// Every build registers its block so cards can look up their own config when
+// they update (see blockRegistry.js), wherever they are rendered.
+for (const type of Object.keys(componentBuilders)) {
+  const build = componentBuilders[type];
+  componentBuilders[type] = (block = {}) => { registerBlock(block); return build(block); };
+}
 
 /**
  * Builder for a block type, or null. Only the registry's own entries count —

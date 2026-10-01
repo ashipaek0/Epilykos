@@ -17,11 +17,15 @@ function loadScript(src) {
 }
 
 let chartJSLoading = null;
+let chartJSLoaded = false;
+/** True once Chart.js and its date adapter have both loaded. */
+export function chartJSReady() { return chartJSLoaded; }
 /** Ensure Chart.js + the date adapter are loaded (idempotent). */
 export function ensureChartJS() {
   if (!chartJSLoading) {
     chartJSLoading = loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js')
       .then(() => loadScript('https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'))
+      .then(() => { chartJSLoaded = true; })
       .catch((e) => { chartJSLoading = null; throw e; });
   }
   return chartJSLoading;
