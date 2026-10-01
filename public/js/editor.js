@@ -1,24 +1,41 @@
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
 import { componentBuilders } from './components/index.js';
+import { initTheme } from './theme.js';
+import { GROUPS, BLOCKS, blockInfo, icon } from './editor-catalog.js';
+import { openDialog, openMenu, closeMenu, isMenuOpen, toast, hideToast } from './editor-ui.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
 const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-let grid = null, dashboardConfig = null, currentTabId = null, unsaved = false;
-let currentEditingBlock = null;  // block being edited in settings modal
-let availableMetrics = [];       // metric names from dashboard state
-let availableRestSources = [];   // REST source names from /api/settings external_sources (S3)
+var GRID_COLUMNS = 12, CELL_HEIGHT = 50;
 
-function markUnsaved() { unsaved = true; document.getElementById('unsaved-indicator').classList.add('show'); }
-function clearUnsaved() { unsaved = false; document.getElementById('unsaved-indicator').classList.remove('show'); }
-function showLoading(msg) { let o = document.getElementById('loading-overlay'); if (!o) { o = document.createElement('div'); o.id = 'loading-overlay'; o.className = 'loading-overlay'; o.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p id="loading-message"></p></div>'; document.body.appendChild(o); } document.getElementById('loading-message').textContent = msg; o.style.display = 'flex'; }
-function hideLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'none'; }
+var grid = null, dashboardConfig = null, currentTabId = null;
+var selectedBlockId = null;      // block shown in the inspector
+var inspectorTab = 'data';       // data | style | layout
+var availableMetrics = [];       // metric names from dashboard state
+var metricsPromise = null;       // fetched once per editor session
+var availableRestSources = [];   // REST source names from /api/settings external_sources (S3)
+var readOnly = false;
+
+function $(id) { return document.getElementById(id); }
+function isNarrow() { return window.matchMedia('(max-width: 900px)').matches; }
 
 function currentTab() {
   return dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) || null;
 }
+function findBlock(id) {
+  var tab = currentTab();
+  return tab ? tab.layout.find(function(b) { return b.id === id; }) || null : null;
+}
+function gridItemEl(id) {
+  return document.querySelector('.grid-stack-item[data-block-id="' + CSS.escape(id) + '"]');
+}
+function newBlockId() { return 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+
+function showLoading(msg) { var o = $('loading-overlay'); $('loading-message').textContent = msg; o.hidden = false; }
+function hideLoading() { $('loading-overlay').hidden = true; }
 
 /**
  * Copy grid positions back onto the current tab's blocks. Existing block
@@ -35,48 +52,116 @@ function syncLayoutFromGrid() {
   grid.getGridItems().forEach(function(el) {
     var n = el.gridstackNode;
     var block = byId.get(el.dataset.blockId);
-    if (!block) block = { id: el.dataset.blockId, type: el.dataset.blockType, enabled: true, config: {} };
+    if (!block) return;
     block.gridX = n.x; block.gridY = n.y; block.gridW = n.w; block.gridH = n.h;
     layout.push(block);
     seen.add(block.id);
   });
   tab.layout.forEach(function(b) { if (!seen.has(b.id)) layout.push(b); });
   tab.layout = layout;
-  tab.name = document.getElementById('dash-name-input').value || tab.name;
 }
 
-async function persistLayout() {
-  if (!grid) return false;
-  syncLayoutFromGrid();
-  try {
-    await saveDashboardConfig(dashboardConfig);
-    setSaveError(null);
-    return true;
-  } catch (e) {
-    console.warn('Save failed:', e);
-    setSaveError(e);
-    return false;
-  }
-}
+// ── Saving ───────────────────────────────────────────────────────────────
+// Every change autosaves after a short pause. One status in the top bar says
+// whether the work is saved; there is no separate "save" step.
 
-function setSaveError(err) {
-  var el = document.getElementById('unsaved-indicator');
+var saveTimer = null, saving = null, saveState = 'saved', lastSaveError = null, lastSavedAt = null;
+
+function setSaveStatus(state) {
+  saveState = state;
+  var el = $('save-status');
   if (!el) return;
-  if (err) {
-    el.textContent = "Couldn't save your changes: " + (err.message || err) + '. They will be retried on the next change.';
-    el.classList.add('show');
-  } else if (!unsaved) {
-    el.classList.remove('show');
+  el.dataset.state = state;
+  el.title = '';
+  if (state === 'saving' || state === 'pending') {
+    el.innerHTML = '<span class="ed-status-icon is-spinning">' + icon('spinner', 14) + '</span>Saving…';
+  } else if (state === 'saved') {
+    el.innerHTML = '<span class="ed-status-icon">' + icon('check', 14) + '</span>Saved';
+    if (lastSavedAt) el.title = 'Saved at ' + lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (state === 'error') {
+    var expired = lastSaveError && /\((401|403)\)/.test(String(lastSaveError.message || ''));
+    el.innerHTML = '<span class="ed-status-icon">' + icon('alert', 14) + '</span>' +
+      (expired ? 'Signed out, not saved' : "Couldn't save") +
+      (expired ? '<a class="ed-status-action" href="/login" target="_blank" rel="noopener">Sign in</a>' : '') +
+      '<button type="button" class="ed-status-action" id="save-retry">Retry</button>';
+    el.title = expired
+      ? 'Your session ended. Sign in (opens a new tab), then press Retry.'
+      : (lastSaveError ? String(lastSaveError.message || lastSaveError) : '');
+    var retry = $('save-retry');
+    if (retry) retry.addEventListener('click', function() { flushSave(); });
+  } else if (state === 'readonly') {
+    el.innerHTML = '<span class="ed-status-icon">' + icon('lock', 14) + '</span>Read-only';
   }
 }
 
-function refreshTabSelect() {
-  var ts = document.getElementById('tab-select');
-  ts.innerHTML = '';
-  dashboardConfig.dashboards.forEach(function(db) {
-    var o = document.createElement('option'); o.value = db.id; o.textContent = db.name; o.selected = db.id === currentTabId;
-    ts.appendChild(o);
+function scheduleSave(delay) {
+  if (readOnly) return;
+  clearTimeout(saveTimer);
+  setSaveStatus('pending');
+  saveTimer = setTimeout(flushSave, delay == null ? 600 : delay);
+}
+
+/** Save now. Resolves true when everything is saved. */
+async function flushSave() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (readOnly) return false;
+  while (saving) await saving;
+  syncLayoutFromGrid();
+  setSaveStatus('saving');
+  saving = saveDashboardConfig(dashboardConfig).then(function() { return true; }, function(e) {
+    console.warn('Save failed:', e);
+    lastSaveError = e;
+    return false;
   });
+  var ok = await saving;
+  saving = null;
+  if (saveTimer) return ok;  // a newer change is already queued
+  if (ok) { lastSaveError = null; lastSavedAt = new Date(); setSaveStatus('saved'); }
+  else setSaveStatus('error');
+  return ok;
+}
+
+// ── Undo / redo ──────────────────────────────────────────────────────────
+// Snapshots of the whole config, taken before each change.
+
+var undoStack = [], redoStack = [];
+
+function snapshot() {
+  syncLayoutFromGrid();
+  return JSON.stringify({ config: dashboardConfig, tab: currentTabId, selected: selectedBlockId });
+}
+function pushUndo() {
+  if (readOnly) return;
+  undoStack.push(snapshot());
+  if (undoStack.length > 60) undoStack.shift();
+  redoStack = [];
+  updateUndoButtons();
+}
+function restoreSnapshot(snap) {
+  var s = JSON.parse(snap);
+  dashboardConfig = s.config;
+  var tabId = dashboardConfig.dashboards.some(function(db) { return db.id === s.tab; }) ? s.tab : dashboardConfig.dashboards[0].id;
+  loadTab(tabId, { skipSync: true, keepSelection: s.selected });
+  scheduleSave(0);
+}
+function undo() {
+  if (!undoStack.length || readOnly) return;
+  hideToast();
+  redoStack.push(snapshot());
+  restoreSnapshot(undoStack.pop());
+  updateUndoButtons();
+}
+function redo() {
+  if (!redoStack.length || readOnly) return;
+  hideToast();
+  undoStack.push(snapshot());
+  restoreSnapshot(redoStack.pop());
+  updateUndoButtons();
+}
+function updateUndoButtons() {
+  $('undo-btn').disabled = readOnly || !undoStack.length;
+  $('redo-btn').disabled = readOnly || !redoStack.length;
 }
 
 function uniqueDashboardId(id, usedIds) {
@@ -104,20 +189,14 @@ function applyDashboardImport(currentConfig, imported, choice) {
   return Object.assign({}, currentConfig, { dashboards: existingDashboards.concat(stagedDashboards) });
 }
 
-// ── Settings Modal ──────────────────────────────────────────────────────
-
-function showSettingsModal() {
-  document.getElementById('settings-modal-overlay').style.display = 'flex';
-}
-function hideSettingsModal() {
-  document.getElementById('settings-modal-overlay').style.display = 'none';
-  currentEditingBlock = null;
-}
+// ── Settings forms ──────────────────────────────────────────────────────
+// Each block type's fields, rendered into the inspector. Field ids keep their
+// historical "modal-" prefix; readSettingsForm() reads them back.
 
 /** Build a <select> dropdown with metric options */
 function metricSelect(selectedName, existingId, extraOptions) {
   var id = existingId || ('ms_' + Math.random().toString(36).slice(2,8));
-  var sel = '<select id="' + id + '" style="width:100%;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  var sel = '<select id="' + id + '" data-ui="input">';
   sel += '<option value="">-- select --</option>';
   for (var i = 0; i < availableMetrics.length; i++) {
     var m = availableMetrics[i];
@@ -135,7 +214,7 @@ function metricSelect(selectedName, existingId, extraOptions) {
   return sel;
 }
 
-/** Build common appearance fields: enabled, transparent, bgColor, fontColor, fontSize */
+/** Build common appearance fields: transparent, bgColor, fontColor, fontSize (Style tab) */
 function buildAppearanceFields(block) {
   var config = block.config || {};
   var bgColor = block.bgColor || config.bgColor || '';
@@ -143,15 +222,14 @@ function buildAppearanceFields(block) {
   var fontSize = block.fontSize || config.fontSize || '';
   var transparent = !!(block.transparent || config.transparent);
   return [
-    '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">',
-    '<legend style="font-weight:600;font-size:0.9rem;">Appearance</legend>',
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">',
-    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-enabled"' + (block.enabled !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-enabled">Enabled</label></span>',
-    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-transparent"' + (transparent ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-transparent">Transparent</label></span>',
-    '<label style="font-size:0.85rem;">Bg Color <input type="color" id="modal-bgcolor" value="' + escHtml(bgColor) + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
-    '<label style="font-size:0.85rem;">Font Color <input type="color" id="modal-fontcolor" value="' + escHtml(fontColor) + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>',
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Colors and text</legend>',
+    '<div data-ui="grid2">',
+    '<span class="toggle-wrap" data-ui="span"><label class="toggle-switch"><input type="checkbox" id="modal-transparent"' + (transparent ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-transparent">Transparent</label></span>',
+    '<label data-ui="label">Bg Color <input type="color" id="modal-bgcolor" value="' + escHtml(bgColor) + '" data-dirty="false" data-ui="color"></label>',
+    '<label data-ui="label">Font Color <input type="color" id="modal-fontcolor" value="' + escHtml(fontColor) + '" data-dirty="false" data-ui="color"></label>',
     '</div>',
-    '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Font Size <input type="text" id="modal-fontsize" value="' + escHtml(fontSize) + '" placeholder="e.g. 0.9rem" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>',
+    '<label data-ui="field">Font Size <input type="text" id="modal-fontsize" value="' + escHtml(fontSize) + '" placeholder="e.g. 0.9rem" data-ui="input"></label>',
     '</fieldset>'
   ].join('\n');
 }
@@ -162,13 +240,13 @@ function buildFlowCardForm(block) {
   var metrics = cfg.metrics || {};
   var slots = ['solar','battery_soc','battery_charge','battery_discharge','consumption','grid_import','grid_export'];
   var labels = {solar:'Solar',battery_soc:'Battery SoC',battery_charge:'Battery Charge',battery_discharge:'Battery Discharge',consumption:'Consumption',grid_import:'Grid Import',grid_export:'Grid Export'};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metrics Map</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Map</legend>';
   for (var i = 0; i < slots.length; i++) {
     var s = slots[i];
-    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-    html += '<span style="width:100px;font-size:0.85rem;text-align:right;">' + labels[s] + '</span>';
-    html += '<div style="flex:1;">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">' + labels[s] + '</span>';
+    html += '<div data-ui="grow">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
     html += '</div>';
   }
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-showgauge"' + (cfg.showGauge !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-showgauge">Show solar gauge</label></span>';
@@ -182,16 +260,16 @@ function buildSystemTopologyForm(block) {
   var metrics = cfg.metrics || {};
   var slots = ['solar','grid_import','battery_charge','battery_soc','consumption','battery_discharge','grid_export'];
   var labels = {solar:'Solar',grid_import:'Grid Import',battery_charge:'Battery Charge',battery_soc:'Battery SoC',consumption:'Consumption',battery_discharge:'Battery Discharge',grid_export:'Grid Export'};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metrics Map</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Map</legend>';
   for (var i = 0; i < slots.length; i++) {
     var s = slots[i];
-    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-    html += '<span style="width:100px;font-size:0.85rem;text-align:right;">' + labels[s] + '</span>';
-    html += '<div style="flex:1;">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">' + labels[s] + '</span>';
+    html += '<div data-ui="grow">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
     html += '</div>';
   }
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="https://..." style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label data-ui="field">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="https://..." data-ui="input"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -200,10 +278,10 @@ function buildSystemTopologyForm(block) {
 function buildMultiValueForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metrics Array</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="mv-rows"></div>';
-  html += '<button type="button" id="mv-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Row</button>';
+  html += '<button type="button" id="mv-add-row" data-ui="add">+ Add Row</button>';
   html += '</fieldset>';
   html += '<script id="mv-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -218,10 +296,10 @@ function renderMultiValueRows(container) {
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
-    html += '<div class="mv-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="mv-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<div class="mv-row" data-ui="list-row">';
+    html += '<input type="text" class="mv-label" value="' + escHtml(r.label || '') + '" placeholder="Label" data-ui="input grow">';
     html += metricSelect(r.metric || '', 'mv-metric-' + i);
-    html += '<input type="text" class="mv-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="mv-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" data-ui="input unit">';
     html += '<button type="button" class="mv-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove row">✕</button>';
     html += '</div>';
   }
@@ -254,10 +332,10 @@ function renderMultiValueRows(container) {
 function buildBarGaugeForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metrics Array</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="bg-rows"></div>';
-  html += '<button type="button" id="bg-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Row</button>';
+  html += '<button type="button" id="bg-add-row" data-ui="add">+ Add Row</button>';
   html += '</fieldset>';
   html += '<script id="bg-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -272,17 +350,17 @@ function renderBarGaugeRows(container) {
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
-    html += '<div class="bg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--border);border-radius:0.3rem;">';
-    html += '<input type="text" class="bg-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
-    html += '<div style="grid-column:1/-1;display:flex;gap:0.25rem;">';
+    html += '<div class="bg-row" data-ui="card grid2">';
+    html += '<input type="text" class="bg-label" value="' + escHtml(r.label || '') + '" placeholder="Label" data-ui="input span">';
+    html += '<div data-ui="span flex">';
     html += metricSelect(r.metric || '', 'bg-metric-' + i);
-    html += '<input type="text" class="bg-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="bg-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" data-ui="input unit">';
     html += '</div>';
-    html += '<input type="number" class="bg-min" value="' + escHtml(r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="number" class="bg-max" value="' + escHtml(r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bg-color" value="' + escHtml(r.color || '') + '" style="width:36px;height:24px;"></label>';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bg-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
-    html += '<button type="button" class="bg-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
+    html += '<input type="number" class="bg-min" value="' + escHtml(r.min ?? 0) + '" placeholder="Min" data-ui="input">';
+    html += '<input type="number" class="bg-max" value="' + escHtml(r.max ?? 100) + '" placeholder="Max" data-ui="input">';
+    html += '<label data-ui="inline-label">Color <input type="color" class="bg-color" value="' + escHtml(r.color || '') + '" data-ui="swatch"></label>';
+    html += '<label data-ui="inline-label">Grad <input type="text" class="bg-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" data-ui="input"></label>';
+    html += '<button type="button" class="bg-remove row-remove-btn" data-idx="' + i + '" data-ui="span" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -312,10 +390,10 @@ function renderBarGaugeRows(container) {
 function buildBarGaugeRetroForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metrics Array</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="bgr-rows"></div>';
-  html += '<button type="button" id="bgr-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Row</button>';
+  html += '<button type="button" id="bgr-add-row" data-ui="add">+ Add Row</button>';
   html += '</fieldset>';
   html += '<script id="bgr-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -330,18 +408,18 @@ function renderBarGaugeRetroRows(container) {
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
-    html += '<div class="bgr-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.25rem;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--border);border-radius:0.3rem;">';
-    html += '<input type="text" class="bgr-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
-    html += '<div style="grid-column:1/-1;display:flex;gap:0.25rem;">';
+    html += '<div class="bgr-row" data-ui="card grid3">';
+    html += '<input type="text" class="bgr-label" value="' + escHtml(r.label || '') + '" placeholder="Label" data-ui="input span">';
+    html += '<div data-ui="span flex">';
     html += metricSelect(r.metric || '', 'bgr-metric-' + i);
-    html += '<input type="text" class="bgr-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="bgr-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" data-ui="input unit">';
     html += '</div>';
-    html += '<input type="number" class="bgr-min" value="' + escHtml(r.min ?? 0) + '" placeholder="Min" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="number" class="bgr-max" value="' + escHtml(r.max ?? 100) + '" placeholder="Max" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="number" class="bgr-segments" value="' + escHtml(r.segments || 10) + '" placeholder="Segments" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">C <input type="color" class="bgr-color" value="' + escHtml(r.color || '') + '" style="width:36px;height:24px;"></label>';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Grad <input type="text" class="bgr-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;"></label>';
-    html += '<button type="button" class="bgr-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove row">✕ Remove</button>';
+    html += '<input type="number" class="bgr-min" value="' + escHtml(r.min ?? 0) + '" placeholder="Min" data-ui="input">';
+    html += '<input type="number" class="bgr-max" value="' + escHtml(r.max ?? 100) + '" placeholder="Max" data-ui="input">';
+    html += '<input type="number" class="bgr-segments" value="' + escHtml(r.segments || 10) + '" placeholder="Segments" data-ui="input">';
+    html += '<label data-ui="inline-label"><span class="ed-visually-hidden">Color</span><input type="color" class="bgr-color" value="' + escHtml(r.color || '') + '" data-ui="swatch"></label>';
+    html += '<label data-ui="inline-label">Grad <input type="text" class="bgr-gradient" value="' + escHtml(r.gradient || '') + '" placeholder="#f00,#0f0" data-ui="input"></label>';
+    html += '<button type="button" class="bgr-remove row-remove-btn" data-idx="' + i + '" data-ui="span" aria-label="Remove row">✕ Remove</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -376,28 +454,28 @@ function buildBarSingleForm(block) {
   // 'auto' resolves to the component default band mode (see normalizeBarConfig in barSingleCard.js).
   var bandMode = cfg.bandMode === 'fixed' ? 'fixed' : 'auto';
   var bands = cfg.bands || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Bar Single</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:60px;font-size:0.85rem;">Metric</span>';
-  html += '<div style="flex:1;">' + metricSelect(cfg.metric || '', 'modal-bar-metric') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Bar Single</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Metric</span>';
+  html += '<div data-ui="grow">' + metricSelect(cfg.metric || '', 'modal-bar-metric') + '</div>';
   html += '</div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.35rem;">';
-  html += '<label style="font-size:0.85rem;">Range <select id="modal-bar-range" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<div data-ui="grid3">';
+  html += '<label data-ui="label">Range <select id="modal-bar-range" data-ui="input">'
     + '<option value="24h"' + (range === '24h' ? ' selected' : '') + '>24h</option>'
     + '<option value="7d"' + (range === '7d' ? ' selected' : '') + '>7d</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Bucket <select id="modal-bar-bucket" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Bucket <select id="modal-bar-bucket" data-ui="input">'
     + '<option value="15m"' + (bucket === '15m' ? ' selected' : '') + '>15m</option>'
     + '<option value="1h"' + (bucket === '1h' ? ' selected' : '') + '>1h</option>'
     + '<option value="1d"' + (bucket === '1d' ? ' selected' : '') + '>1d</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Bands <select id="modal-bar-bandmode" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Bands <select id="modal-bar-bandmode" data-ui="input">'
     + '<option value="auto"' + (bandMode === 'auto' ? ' selected' : '') + '>Auto</option>'
     + '<option value="fixed"' + (bandMode === 'fixed' ? ' selected' : '') + '>Fixed</option></select></label>';
   html += '</div></fieldset>';
-  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Bands</legend>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Bands</legend>';
   html += '<div id="bar-bands-rows"></div>';
-  html += '<button type="button" id="bar-bands-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Band</button>';
+  html += '<button type="button" id="bar-bands-add-row" data-ui="add">+ Add Band</button>';
   html += '</fieldset>';
   html += '<script id="bar-bands-data" type="application/json">' + JSON.stringify(bands).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -412,9 +490,9 @@ function renderBarSingleRows(container) {
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
-    html += '<div class="bar-band-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="number" step="any" class="bar-band-to" value="' + escHtml(r.to ?? '') + '" placeholder="Up to" title="Values at or below this threshold use this color" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bar-band-color" value="' + escHtml(r.color || BAR_SINGLE_WARM[i % BAR_SINGLE_WARM.length]) + '" style="width:36px;height:24px;"></label>';
+    html += '<div class="bar-band-row" data-ui="list-row">';
+    html += '<input type="number" step="any" class="bar-band-to" value="' + escHtml(r.to ?? '') + '" placeholder="Up to" title="Values at or below this threshold use this color" data-ui="input grow">';
+    html += '<label data-ui="inline-label">Color <input type="color" class="bar-band-color" value="' + escHtml(r.color || BAR_SINGLE_WARM[i % BAR_SINGLE_WARM.length]) + '" data-ui="swatch"></label>';
     html += '<button type="button" class="bar-band-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove band">X</button>';
     html += '</div>';
   }
@@ -449,27 +527,27 @@ function buildBarStackedForm(block) {
   var bucket = cfg.bucket || '1h';
   var agg = cfg.agg || 'avg';
   var metrics = cfg.metrics || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Bar Stacked</legend>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.35rem;">';
-  html += '<label style="font-size:0.85rem;">Range <select id="modal-bs-range" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Bar Stacked</legend>';
+  html += '<div data-ui="grid3">';
+  html += '<label data-ui="label">Range <select id="modal-bs-range" data-ui="input">'
     + '<option value="24h"' + (range === '24h' ? ' selected' : '') + '>24h</option>'
     + '<option value="7d"' + (range === '7d' ? ' selected' : '') + '>7d</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Bucket <select id="modal-bs-bucket" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Bucket <select id="modal-bs-bucket" data-ui="input">'
     + '<option value="15m"' + (bucket === '15m' ? ' selected' : '') + '>15m</option>'
     + '<option value="1h"' + (bucket === '1h' ? ' selected' : '') + '>1h</option>'
     + '<option value="1d"' + (bucket === '1d' ? ' selected' : '') + '>1d</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Agg <select id="modal-bs-agg" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Agg <select id="modal-bs-agg" data-ui="input">'
     + '<option value="avg"' + (agg === 'avg' ? ' selected' : '') + '>avg</option>'
     + '<option value="sum"' + (agg === 'sum' ? ' selected' : '') + '>sum</option>'
     + '<option value="min"' + (agg === 'min' ? ' selected' : '') + '>min</option>'
     + '<option value="max"' + (agg === 'max' ? ' selected' : '') + '>max</option>'
     + '<option value="last"' + (agg === 'last' ? ' selected' : '') + '>last</option></select></label>';
   html += '</div></fieldset>';
-  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Series</legend>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Series</legend>';
   html += '<div id="bs-rows"></div>';
-  html += '<button type="button" id="bs-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Series</button>';
+  html += '<button type="button" id="bs-add-row" data-ui="add">+ Add Series</button>';
   html += '</fieldset>';
   html += '<script id="bs-data" type="application/json">' + JSON.stringify(metrics).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -484,13 +562,13 @@ function renderBarStackedRows(container) {
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
-    html += '<div class="bs-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--border);border-radius:0.3rem;">';
-    html += '<input type="text" class="bs-label" value="' + escHtml(r.label || '') + '" placeholder="Label" style="padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;grid-column:1/-1;">';
-    html += '<div style="grid-column:1/-1;display:flex;gap:0.25rem;">';
+    html += '<div class="bs-row" data-ui="card grid2">';
+    html += '<input type="text" class="bs-label" value="' + escHtml(r.label || '') + '" placeholder="Label" data-ui="input span">';
+    html += '<div data-ui="span flex">';
     html += metricSelect(r.metric || '', 'bs-metric-' + i);
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bs-color" value="' + escHtml(r.color || BAR_STACKED_WARM[i % BAR_STACKED_WARM.length]) + '" style="width:36px;height:24px;"></label>';
+    html += '<label data-ui="inline-label">Color <input type="color" class="bs-color" value="' + escHtml(r.color || BAR_STACKED_WARM[i % BAR_STACKED_WARM.length]) + '" data-ui="swatch"></label>';
     html += '</div>';
-    html += '<button type="button" class="bs-remove row-remove-btn" data-idx="' + i + '" style="grid-column:1/-1;" aria-label="Remove series">X Remove</button>';
+    html += '<button type="button" class="bs-remove row-remove-btn" data-idx="' + i + '" data-ui="span" aria-label="Remove series">X Remove</button>';
     html += '</div>';
   }
   rowsEl.innerHTML = html;
@@ -525,31 +603,31 @@ function buildBarThresholdForm(block) {
   var valueAgg = cfg.valueAgg === 'avg' ? 'avg' : 'last';
   var bandMode = cfg.bandMode === 'fixed' ? 'fixed' : 'auto';
   var bands = cfg.bands || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Bar Threshold</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:60px;font-size:0.85rem;">Metric</span>';
-  html += '<div style="flex:1;">' + metricSelect(cfg.metric || '', 'modal-bt-metric') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Bar Threshold</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Metric</span>';
+  html += '<div data-ui="grow">' + metricSelect(cfg.metric || '', 'modal-bt-metric') + '</div>';
   html += '</div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.35rem;">';
-  html += '<label style="font-size:0.85rem;">Range <select id="modal-bt-range" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<div data-ui="grid4">';
+  html += '<label data-ui="label">Range <select id="modal-bt-range" data-ui="input">'
     + '<option value="24h"' + (range === '24h' ? ' selected' : '') + '>24h</option>'
     + '<option value="7d"' + (range === '7d' ? ' selected' : '') + '>7d</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Bucket <select id="modal-bt-bucket" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Bucket <select id="modal-bt-bucket" data-ui="input">'
     + '<option value="15m"' + (bucket === '15m' ? ' selected' : '') + '>15m</option>'
     + '<option value="1h"' + (bucket === '1h' ? ' selected' : '') + '>1h</option>'
     + '<option value="1d"' + (bucket === '1d' ? ' selected' : '') + '>1d</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Value <select id="modal-bt-valueagg" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Value <select id="modal-bt-valueagg" data-ui="input">'
     + '<option value="last"' + (valueAgg === 'last' ? ' selected' : '') + '>last</option>'
     + '<option value="avg"' + (valueAgg === 'avg' ? ' selected' : '') + '>avg</option></select></label>';
-  html += '<label style="font-size:0.85rem;">Bands <select id="modal-bt-bandmode" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">'
+  html += '<label data-ui="label">Bands <select id="modal-bt-bandmode" data-ui="input">'
     + '<option value="auto"' + (bandMode === 'auto' ? ' selected' : '') + '>Auto</option>'
     + '<option value="fixed"' + (bandMode === 'fixed' ? ' selected' : '') + '>Fixed</option></select></label>';
   html += '</div></fieldset>';
-  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Bands</legend>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Bands</legend>';
   html += '<div id="bt-bands-rows"></div>';
-  html += '<button type="button" id="bt-bands-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Band</button>';
+  html += '<button type="button" id="bt-bands-add-row" data-ui="add">+ Add Band</button>';
   html += '</fieldset>';
   html += '<script id="bt-bands-data" type="application/json">' + JSON.stringify(bands).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -564,9 +642,9 @@ function renderBarThresholdRows(container) {
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
-    html += '<div class="bt-band-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="number" step="any" class="bt-band-to" value="' + escHtml(r.to ?? '') + '" placeholder="Up to" title="Values at or below this threshold use this color" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.8rem;display:flex;align-items:center;gap:0.2rem;">Color <input type="color" class="bt-band-color" value="' + escHtml(r.color || BAR_THRESHOLD_WARM[i % BAR_THRESHOLD_WARM.length]) + '" style="width:36px;height:24px;"></label>';
+    html += '<div class="bt-band-row" data-ui="list-row">';
+    html += '<input type="number" step="any" class="bt-band-to" value="' + escHtml(r.to ?? '') + '" placeholder="Up to" title="Values at or below this threshold use this color" data-ui="input grow">';
+    html += '<label data-ui="inline-label">Color <input type="color" class="bt-band-color" value="' + escHtml(r.color || BAR_THRESHOLD_WARM[i % BAR_THRESHOLD_WARM.length]) + '" data-ui="swatch"></label>';
     html += '<button type="button" class="bt-band-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove band">X</button>';
     html += '</div>';
   }
@@ -596,18 +674,18 @@ function renderBarThresholdRows(container) {
 /** Gauge / Half Gauge / Half Gauge 2: single metric */
 function buildGaugeForm(block) {
   var cfg = block.config || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Gauge Config</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:60px;font-size:0.85rem;">Metric</span>';
-  html += '<div style="flex:1;">' + metricSelect(cfg.metric || '', 'modal-metric-gauge') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Gauge Config</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Metric</span>';
+  html += '<div data-ui="grow">' + metricSelect(cfg.metric || '', 'modal-metric-gauge') + '</div>';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-gauge-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;">';
-  html += '<label style="font-size:0.85rem;">Min <input type="number" id="modal-gauge-min" value="' + escHtml(cfg.min ?? 0) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<label style="font-size:0.85rem;">Max <input type="number" id="modal-gauge-max" value="' + escHtml(cfg.max ?? 100) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-gauge-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
+  html += '<div data-ui="grid2">';
+  html += '<label data-ui="label">Min <input type="number" id="modal-gauge-min" value="' + escHtml(cfg.min ?? 0) + '" data-ui="input"></label>';
+  html += '<label data-ui="label">Max <input type="number" id="modal-gauge-max" value="' + escHtml(cfg.max ?? 100) + '" data-ui="input"></label>';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.35rem;">Color <input type="color" id="modal-gauge-color" value="' + escHtml(cfg.color || '#f59e0b') + '" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
+  html += '<label data-ui="field">Color <input type="color" id="modal-gauge-color" value="' + escHtml(cfg.color || '#f59e0b') + '" data-ui="color"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -616,10 +694,10 @@ function buildGaugeForm(block) {
 function buildMetricCardsForm(block) {
   var cfg = block.config || {};
   var cards = block.cards || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metric Cards</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metric Cards</legend>';
   html += '<div id="mc-rows"></div>';
-  html += '<button type="button" id="mc-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Card</button>';
+  html += '<button type="button" id="mc-add-row" data-ui="add">+ Add Card</button>';
   html += '</fieldset>';
   html += '<script id="mc-data" type="application/json">' + JSON.stringify(cards).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -634,10 +712,10 @@ function renderMetricCardsRows(container) {
   var html = '';
   for (var i = 0; i < cards.length; i++) {
     var c = cards[i] || {};
-    html += '<div class="mc-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="mc-title" value="' + escHtml(c.title || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<div class="mc-row" data-ui="list-row">';
+    html += '<input type="text" class="mc-title" value="' + escHtml(c.title || '') + '" placeholder="Label" data-ui="input grow">';
     html += metricSelect(c.metric || '', 'mc-metric-' + i);
-    html += '<input type="text" class="mc-unit" value="' + escHtml(c.unit || '') + '" placeholder="Unit" style="width:60px;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="text" class="mc-unit" value="' + escHtml(c.unit || '') + '" placeholder="Unit" data-ui="input unit">';
     html += '<button type="button" class="mc-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
@@ -676,13 +754,13 @@ function buildDataTableForm(block) {
   if (columns.length === 0) {
     allColFields.forEach(function(f) { enabledFields[f] = true; });
   }
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Columns</legend>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-table-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;">';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Columns</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-table-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
+  html += '<div data-ui="grid2">';
   for (var i = 0; i < allColFields.length; i++) {
     var f = allColFields[i];
-    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="col-toggle" data-field="' + f + '"' + (enabledFields[f] ? ' checked' : '') + '><span class="slider"></span></label><label style="font-size:0.85rem;cursor:pointer;">' + colLabels[f] + '</label></span>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="col-toggle" data-field="' + f + '"' + (enabledFields[f] ? ' checked' : '') + '><span class="slider"></span></label><label data-ui="check">' + colLabels[f] + '</label></span>';
   }
   html += '</div></fieldset>';
   return html;
@@ -691,9 +769,9 @@ function buildDataTableForm(block) {
 /** Text Card: content textarea */
 function buildTextCardForm(block) {
   var cfg = block.config || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Content</legend>';
-  html += '<textarea id="modal-text-content" style="width:100%;min-height:120px;padding:0.5rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);font-size:0.85rem;resize:vertical;">' + escHtml(cfg.content || '') + '</textarea>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Content</legend>';
+  html += '<textarea id="modal-text-content" data-ui="input textarea">' + escHtml(cfg.content || '') + '</textarea>';
   html += '</fieldset>';
   return html;
 }
@@ -701,14 +779,14 @@ function buildTextCardForm(block) {
 /** Text Metric: metric dropdown + optional friendly label + optional unit suffix */
 function buildTextMetricForm(block) {
   var cfg = block.config || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Text Metric</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
-  html += '<div style="flex:1;">' + metricSelect(cfg.metric || '', 'modal-metric-textmetric') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Text Metric</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Metric</span>';
+  html += '<div data-ui="grow">' + metricSelect(cfg.metric || '', 'modal-metric-textmetric') + '</div>';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Label <input type="text" id="modal-textmetric-label" value="' + escHtml(cfg.label || '') + '" placeholder="Falls back to the metric key" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<label style="font-size:0.85rem;display:block;">Unit suffix <input type="text" id="modal-textmetric-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="Optional; appended to numeric values only" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label data-ui="field">Label <input type="text" id="modal-textmetric-label" value="' + escHtml(cfg.label || '') + '" placeholder="Falls back to the metric key" data-ui="input"></label>';
+  html += '<label data-ui="field">Unit suffix <input type="text" id="modal-textmetric-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="Optional; appended to numeric values only" data-ui="input"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -716,9 +794,9 @@ function buildTextMetricForm(block) {
 /** Iframe Card: URL input */
 function buildIframeCardForm(block) {
   var cfg = block.config || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Embed URL</legend>';
-  html += '<label style="font-size:0.85rem;">URL <input type="text" id="modal-iframe-url" value="' + escHtml(cfg.url || '') + '" placeholder="https://..." style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Embed URL</legend>';
+  html += '<label data-ui="label">URL <input type="text" id="modal-iframe-url" value="' + escHtml(cfg.url || '') + '" placeholder="https://..." data-ui="input"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -729,16 +807,16 @@ function buildBatteryBlockForm(block) {
   var metrics = cfg.metrics || {};
   var slots = ['soc','voltage','current','power','temperature'];
   var labels = {soc:'SoC',voltage:'Voltage',current:'Current',power:'Power',temperature:'Temperature'};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Metrics Map</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Map</legend>';
   for (var i = 0; i < slots.length; i++) {
     var s = slots[i];
-    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-    html += '<span style="width:100px;font-size:0.85rem;text-align:right;">' + labels[s] + '</span>';
-    html += '<div style="flex:1;">' + metricSelect(metrics[s] || '', 'modal-metric-batt-' + s) + '</div>';
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">' + labels[s] + '</span>';
+    html += '<div data-ui="grow">' + metricSelect(metrics[s] || '', 'modal-metric-batt-' + s) + '</div>';
     html += '</div>';
   }
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-batt-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-batt-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   html += '</fieldset>';
   return html;
 }
@@ -747,11 +825,11 @@ function buildBatteryBlockForm(block) {
 function buildGridCardForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Grid Status Config</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
-  html += '<div style="flex:1;">' + metricSelect(metrics.grid_status || '', 'modal-metric-grid-status') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Grid Status Config</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Metric</span>';
+  html += '<div data-ui="grow">' + metricSelect(metrics.grid_status || '', 'modal-metric-grid-status') + '</div>';
   html += '</div>';
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-showtimeline"' + (cfg.showTimeline !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-showtimeline">Show timeline</label></span>';
   html += '</fieldset>';
@@ -762,19 +840,19 @@ function buildGridCardForm(block) {
 function buildChartForm(block, showFill) {
   var cfg = block.config || {};
   var datasets = cfg.datasets || [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Options</legend>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Options</legend>';
+  html += '<div data-ui="grid2">';
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-chart-hidegrid"' + (cfg.hideGrid ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-chart-hidegrid">Hide Grid</label></span>';
   if (showFill) {
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-chart-fill"' + (cfg.fill !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-chart-fill">Fill Gradient</label></span>';
   }
   html += '</div></fieldset>';
-  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Datasets</legend>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Datasets</legend>';
   html += '<div id="chart-rows"></div>';
-  html += '<button type="button" id="chart-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Dataset</button>';
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.4rem;">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<button type="button" id="chart-add-row" data-ui="add">+ Add Dataset</button>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   html += '</fieldset>';
   html += '<script id="chart-data" type="application/json">' + JSON.stringify(datasets).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -789,14 +867,14 @@ function renderChartRows(container, showUnit, extraOptions) {
   var html = '';
   for (var i = 0; i < datasets.length; i++) {
     var d = datasets[i] || {};
-    html += '<div class="chart-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<div class="chart-row" data-ui="list-row">';
+    html += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Label" data-ui="input grow">';
     html += metricSelect(d.metric || '', 'chart-metric-' + i, extraOptions);
     if (showUnit) {
-      html += '<input type="text" class="chart-unit" value="' + escHtml(d.unit || '') + '" placeholder="Unit" title="Measurement unit (e.g. %, kWh, kW, V, hours)" style="width:4rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
-      html += '<input type="number" step="any" class="chart-scale" value="' + (Number.isFinite(Number(d.scale)) && d.scale !== null && d.scale !== '' ? Number(d.scale) : 1) + '" placeholder="Scale" title="Multiply values by this factor (e.g. 0.001 for W->kW)" style="width:4.5rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.8rem;">';
+      html += '<input type="text" class="chart-unit" value="' + escHtml(d.unit || '') + '" placeholder="Unit" title="Measurement unit (e.g. %, kWh, kW, V, hours)" data-ui="input narrow">';
+      html += '<input type="number" step="any" class="chart-scale" value="' + (Number.isFinite(Number(d.scale)) && d.scale !== null && d.scale !== '' ? Number(d.scale) : 1) + '" placeholder="Scale" title="Multiply values by this factor (e.g. 0.001 for W->kW)" data-ui="input narrow">';
     }
-    html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" style="width:30px;height:20px;"></label>';
+    html += '<label data-ui="inline-label"><span class="ed-visually-hidden">Color</span><input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" data-ui="swatch"></label>';
     html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
@@ -857,9 +935,9 @@ function buildRestMapForm(cfg) {
   if (txt === '{}') txt = '';
   var visible = (cfg.source || '').indexOf('rest:') === 0;
   var html = '<div id="modal-restmap-wrap" style="margin-bottom:0.35rem;' + (visible ? '' : 'display:none;') + '">';
-  html += '<label style="font-size:0.85rem;display:block;">REST field map (JSON object)';
-  html += '<textarea id="modal-restmap" placeholder=\'{"temp": "temperature", "humidity": "humidity"}\' style="display:block;width:100%;min-height:80px;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);font-size:0.8rem;font-family:monospace;resize:vertical;">' + escHtml(txt) + '</textarea></label>';
-  html += '<div id="modal-restmap-error" style="display:none;color:#ef4444;font-size:0.8rem;margin-top:0.2rem;"></div>';
+  html += '<label data-ui="field">REST field map (JSON object)';
+  html += '<textarea id="modal-restmap" placeholder=\'{"temp": "temperature", "humidity": "humidity"}\' data-ui="input textarea mono">' + escHtml(txt) + '</textarea></label>';
+  html += '<div id="modal-restmap-error" data-ui="error" style="display:none;"></div>';
   html += '</div>';
   return html;
 }
@@ -870,9 +948,9 @@ function weatherSourceSelect(cfg) {
   var known = ['auto', 'solcast', 'open-meteo'];
   var isListedRest = sel.indexOf('rest:') === 0 && availableRestSources.indexOf(sel.slice(5)) !== -1;
   if (known.indexOf(sel) === -1 && !isListedRest) sel = 'auto';
-  var html = '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Source</span>';
-  html += '<select id="modal-simple-source" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  var html = '<div data-ui="row">';
+  html += '<span data-ui="row-label">Source</span>';
+  html += '<select id="modal-simple-source" data-ui="input grow">';
   html += '<option value="auto"' + (sel === 'auto' ? ' selected' : '') + '>Auto (default)</option>';
   html += '<option value="solcast"' + (sel === 'solcast' ? ' selected' : '') + '>Solcast</option>';
   html += '<option value="open-meteo"' + (sel === 'open-meteo' ? ' selected' : '') + '>Open-Meteo</option>';
@@ -896,20 +974,20 @@ function buildWeatherDisplayForm(cfg) {
   var days = disp.days != null ? parseInt(disp.days, 10) : 6;
   if (!isFinite(days)) days = 6;
   days = Math.max(0, Math.min(6, days));
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Display</legend>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Display</legend>';
+  html += '<div data-ui="grid2">';
   var fields = WX_DISPLAY_FIELDS;
   for (var i = 0; i < fields.length; i++) {
     var key = fields[i][0], label = fields[i][1], id = 'modal-wx-show-' + key;
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (disp[key] !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>';
   }
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-top:0.5rem;">Forecast Days <input type="number" id="modal-wx-days" min="0" max="6" step="1" value="' + days + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label data-ui="field">Forecast Days <input type="number" id="modal-wx-days" min="0" max="6" step="1" value="' + days + '" data-ui="input"></label>';
   html += '</fieldset>';
-  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Charts</legend>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Charts</legend>';
+  html += '<div data-ui="grid2">';
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-wx-chart-ghi"' + (charts.ghi !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-wx-chart-ghi">GHI Curve</label></span>';
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-wx-chart-temp"' + (charts.temp === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-wx-chart-temp">Temp Curve</label></span>';
   html += '</div></fieldset>';
@@ -919,10 +997,10 @@ function buildWeatherDisplayForm(cfg) {
 /** Weather card alert-rules editor shell (S3, AC15). Rows rendered by renderWeatherAlertRows. */
 function buildWeatherAlertsForm(cfg) {
   var alerts = Array.isArray(cfg.alerts) ? cfg.alerts : [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Alerts (max 4)</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Alerts (max 4)</legend>';
   html += '<div id="weather-alert-rows"></div>';
-  html += '<button type="button" id="weather-alert-add" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add Alert</button>';
+  html += '<button type="button" id="weather-alert-add" data-ui="add">+ Add Alert</button>';
   html += '<script id="weather-alert-data" type="application/json">' + JSON.stringify(alerts).replace(/</g, '\\u003c') + '</script>';
   html += '</fieldset>';
   return html;
@@ -939,18 +1017,18 @@ function renderWeatherAlertRows(container) {
   var html = '';
   for (var i = 0; i < alerts.length; i++) {
     var a = alerts[i] || {};
-    html += '<div class="wx-alert-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<select class="wx-alert-metric" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<div class="wx-alert-row" data-ui="list-row">';
+    html += '<select class="wx-alert-metric" data-ui="input grow">';
     for (var m = 0; m < WX_ALERT_METRICS.length; m++) {
       html += '<option value="' + WX_ALERT_METRICS[m] + '"' + (a.metric === WX_ALERT_METRICS[m] ? ' selected' : '') + '>' + WX_ALERT_METRICS[m] + '</option>';
     }
     html += '</select>';
-    html += '<select class="wx-alert-op" style="width:3.5rem;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<select class="wx-alert-op" data-ui="input narrow">';
     for (var o = 0; o < WX_ALERT_OPS.length; o++) {
       html += '<option value="' + escHtml(WX_ALERT_OPS[o]) + '"' + (a.op === WX_ALERT_OPS[o] ? ' selected' : '') + '>' + escHtml(WX_ALERT_OPS[o]) + '</option>';
     }
     html += '</select>';
-    html += '<input type="number" step="any" class="wx-alert-value" value="' + escHtml(a.value != null ? String(a.value) : '') + '" placeholder="value" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
+    html += '<input type="number" step="any" class="wx-alert-value" value="' + escHtml(a.value != null ? String(a.value) : '') + '" placeholder="value" data-ui="input grow">';
     html += '<button type="button" class="wx-alert-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
@@ -982,32 +1060,32 @@ function renderWeatherAlertRows(container) {
 
 function buildSimpleForm(block) {
   var cfg = block.config || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Config</legend>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Config</legend>';
 
   if (block.type === 'savings-summary') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-    html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
-    html += '<div style="flex:1;">' + metricSelect(cfg.savings_metric || '', 'modal-simple-metric') + '</div>';
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">Metric</span>';
+    html += '<div data-ui="grow">' + metricSelect(cfg.savings_metric || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
   } else if (block.type === 'forecast-pvtoday') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Location Name <input type="text" id="modal-simple-title" value="' + escHtml(cfg.location_name || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-    html += '<span style="width:80px;font-size:0.85rem;">Metric</span>';
-    html += '<div style="flex:1;">' + metricSelect((cfg.metrics || {}).generated || '', 'modal-simple-metric') + '</div>';
+    html += '<label data-ui="field">Location Name <input type="text" id="modal-simple-title" value="' + escHtml(cfg.location_name || '') + '" data-ui="input"></label>';
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">Metric</span>';
+    html += '<div data-ui="grow">' + metricSelect((cfg.metrics || {}).generated || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
   } else if (block.type === 'weather-block') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   } else if (block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline') {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
     if (block.type !== 'forecast-sparkline') {
       var fcDays = parseInt(cfg.days, 10);
       if (!isFinite(fcDays)) fcDays = 3;
-      html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Upcoming days shown <input type="number" id="modal-fc-days" min="1" max="6" step="1" value="' + Math.max(1, Math.min(6, fcDays)) + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+      html += '<label data-ui="field">Upcoming days shown <input type="number" id="modal-fc-days" min="1" max="6" step="1" value="' + Math.max(1, Math.min(6, fcDays)) + '" data-ui="input"></label>';
     }
   } else {
-    html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   }
 
   if (WX_SOURCE_TYPES.indexOf(block.type) !== -1) {
@@ -1026,23 +1104,23 @@ function buildSimpleForm(block) {
 /** Switch Block: entity metric, source, label, action, on/off icons + colors */
 function buildSwitchBlockForm(block) {
   var cfg = block.config || {};
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">Toggle Switch Config</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Entity</span>';
-  html += '<div style="flex:1;">' + metricSelect(cfg.entity || '', 'modal-switch-entity') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Toggle Switch Config</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Entity</span>';
+  html += '<div data-ui="grow">' + metricSelect(cfg.entity || '', 'modal-switch-entity') + '</div>';
   html += '</div>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Source</span>';
-  html += '<input type="text" id="modal-switch-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Source</span>';
+  html += '<input type="text" id="modal-switch-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" data-ui="input grow">';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">';
-  html += '<label style="font-size:0.85rem;">On Color <input type="color" id="modal-switch-oncolor" value="' + escHtml(cfg.onColor || '') + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
-  html += '<label style="font-size:0.85rem;">Off Color <input type="color" id="modal-switch-offcolor" value="' + escHtml(cfg.offColor || '') + '" data-dirty="false" style="display:block;width:100%;min-height:36px;margin-top:0.15rem;"></label>';
-  html += '<label style="font-size:0.85rem;">On Icon <input type="text" id="modal-switch-onicon" value="' + escHtml(cfg.onIcon || '') + '" placeholder="🔆" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<label style="font-size:0.85rem;">Off Icon <input type="text" id="modal-switch-officon" value="' + escHtml(cfg.offIcon || '') + '" placeholder="🔅" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
+  html += '<label data-ui="field">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
+  html += '<label data-ui="field">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" data-ui="input"></label>';
+  html += '<div data-ui="grid2">';
+  html += '<label data-ui="label">On Color <input type="color" id="modal-switch-oncolor" value="' + escHtml(cfg.onColor || '') + '" data-dirty="false" data-ui="color"></label>';
+  html += '<label data-ui="label">Off Color <input type="color" id="modal-switch-offcolor" value="' + escHtml(cfg.offColor || '') + '" data-dirty="false" data-ui="color"></label>';
+  html += '<label data-ui="label">On Icon <input type="text" id="modal-switch-onicon" value="' + escHtml(cfg.onIcon || '') + '" placeholder="🔆" data-ui="input"></label>';
+  html += '<label data-ui="label">Off Icon <input type="text" id="modal-switch-officon" value="' + escHtml(cfg.offIcon || '') + '" placeholder="🔅" data-ui="input"></label>';
   html += '</div>';
   html += '</fieldset>';
   return html;
@@ -1052,33 +1130,33 @@ function buildSwitchBlockForm(block) {
 function buildStateSelectForm(block) {
   var cfg = block.config || {};
   var states = Array.isArray(cfg.states) ? cfg.states : [];
-  var html = '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">State Select Config</legend>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Entity</span>';
-  html += '<div style="flex:1;">' + metricSelect(cfg.entity || '', 'modal-state-entity') + '</div>';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">State Select Config</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Entity</span>';
+  html += '<div data-ui="grow">' + metricSelect(cfg.entity || '', 'modal-state-entity') + '</div>';
   html += '</div>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Source</span>';
-  html += '<input type="text" id="modal-state-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Source</span>';
+  html += '<input type="text" id="modal-state-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" data-ui="input grow">';
   html += '</div>';
-  html += '<label style="font-size:0.85rem;display:block;margin-bottom:0.35rem;">Label <input type="text" id="modal-state-label" value="' + escHtml(cfg.label || '') + '" style="display:block;width:100%;padding:0.35rem;margin-top:0.15rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;"></label>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Action</span>';
-  html += '<input type="text" id="modal-state-action" value="' + escHtml(cfg.action || 'select.select_option') + '" placeholder="select.select_option" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '<label data-ui="field">Label <input type="text" id="modal-state-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Action</span>';
+  html += '<input type="text" id="modal-state-action" value="' + escHtml(cfg.action || 'select.select_option') + '" placeholder="select.select_option" data-ui="input grow">';
   html += '</div>';
-  html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">';
-  html += '<span style="width:80px;font-size:0.85rem;">Display</span>';
-  html += '<select id="modal-state-displaystyle" style="flex:1;padding:0.35rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;">';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Display</span>';
+  html += '<select id="modal-state-displaystyle" data-ui="input grow">';
   html += '<option value="buttons"' + (cfg.displayStyle !== 'dropdown' ? ' selected' : '') + '>Button group</option>';
   html += '<option value="dropdown"' + (cfg.displayStyle === 'dropdown' ? ' selected' : '') + '>Dropdown</option>';
   html += '</select>';
   html += '</div>';
   html += '</fieldset>';
-  html += '<fieldset style="border:1px solid var(--border);border-radius:0.4rem;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<legend style="font-weight:600;font-size:0.9rem;">States</legend>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">States</legend>';
   html += '<div id="state-rows"></div>';
-  html += '<button type="button" id="state-add-row" style="background:var(--border);color:var(--text);border:none;padding:0.4rem 0.75rem;border-radius:0.4rem;cursor:pointer;font-size:0.85rem;margin-top:0.4rem;min-height:36px;">+ Add State</button>';
+  html += '<button type="button" id="state-add-row" data-ui="add">+ Add State</button>';
   html += '</fieldset>';
   html += '<script id="state-data" type="application/json">' + JSON.stringify(states).replace(/</g, '\\u003c') + '</script>';
   return html;
@@ -1096,10 +1174,10 @@ function renderStateSelectRows(container) {
     var val = (st && typeof st === 'object') ? (st.value ?? '') : (st ?? '');
     var lbl = (st && typeof st === 'object' && st.label != null) ? st.label : val;
     var col = (st && typeof st === 'object' && st.color) ? st.color : '';
-    html += '<div class="state-row" style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;">';
-    html += '<input type="text" class="state-value" value="' + escHtml(String(val)) + '" placeholder="value" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<input type="text" class="state-label" value="' + escHtml(String(lbl)) + '" placeholder="label" style="flex:1;padding:0.3rem;border:1px solid var(--border);border-radius:0.3rem;background:var(--bg);color:var(--text);min-height:36px;font-size:0.85rem;">';
-    html += '<label style="font-size:0.75rem;display:flex;align-items:center;gap:0.15rem;">C <input type="color" class="state-color" value="' + escHtml(col || '#888888') + '" data-dirty="false" style="width:30px;height:20px;"></label>';
+    html += '<div class="state-row" data-ui="list-row">';
+    html += '<input type="text" class="state-value" value="' + escHtml(String(val)) + '" placeholder="value" data-ui="input grow">';
+    html += '<input type="text" class="state-label" value="' + escHtml(String(lbl)) + '" placeholder="label" data-ui="input grow">';
+    html += '<label data-ui="inline-label"><span class="ed-visually-hidden">Color</span><input type="color" class="state-color" value="' + escHtml(col || '#888888') + '" data-dirty="false" data-ui="swatch"></label>';
     html += '<button type="button" class="state-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
     html += '</div>';
   }
@@ -1138,8 +1216,7 @@ function buildSettingsForm(block) {
   var type = block.type;
   var html = '';
 
-  // Common appearance fields
-  html += buildAppearanceFields(block);
+  // Appearance fields live on the inspector's Style tab (buildAppearanceFields).
 
   // Type-specific fields
   switch (type) {
@@ -1668,113 +1745,580 @@ function readSettingsForm(block) {
   return null;
 }
 
-/** Refresh the live grid item content after settings save */
-function refreshGridItem(block) {
-  var el = document.querySelector('.grid-stack-item[data-block-id="' + block.id + '"]');
-  if (!el) return;
-  // Remove old content div, rebuild
-  var inner = el.querySelector('.grid-stack-item-content');
-  if (!inner) return;
-  // Keep delete and settings buttons, rebuild content
-  var delBtn = inner.querySelector('.grid-item-delete');
-  var settingsBtn = inner.querySelector('.grid-item-settings');
-  // Clear inner
-  inner.innerHTML = '';
-  if (settingsBtn) inner.appendChild(settingsBtn);
-  if (delBtn) inner.appendChild(delBtn);
-  inner.classList.toggle('is-hidden-block', block.enabled === false);
+// ── Block content on the grid ────────────────────────────────────────────
 
+var FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'weather-block'];
+
+/** Apply a block's saved styling to its rendered content (mirrors dashboard.js). */
+function applyBlockStyling(content, block) {
+  if (block.bgColor && block.bgColor !== '#ffffff') {
+    content.style.setProperty('background-color', block.bgColor, 'important');
+  }
+  if (block.innerBgColor && block.innerBgColor !== '#ffffff') {
+    content.style.setProperty('--card-bg', block.innerBgColor, 'important');
+    content.style.setProperty('--bg', block.innerBgColor, 'important');
+  }
+  if (block.fontColor && block.fontColor !== '#000000') {
+    content.style.setProperty('color', block.fontColor, 'important');
+  }
+  if (block.fontSize) {
+    content.style.fontSize = block.fontSize;
+  }
+  if (block.transparent) {
+    content.style.background = 'transparent';
+    content.style.borderColor = 'transparent';
+    content.style.boxShadow = 'none';
+    content.style.setProperty('--card-bg', 'transparent');
+    content.style.setProperty('--bg', 'transparent');
+    content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(function(el) {
+      el.style.background = 'transparent';
+      el.style.borderColor = 'transparent';
+      el.style.boxShadow = 'none';
+    });
+  }
+}
+
+/** Render a block's component, or null when its type is unknown. */
+function buildBlockContent(block) {
   var builder = BLOCK_BUILDERS.get(block.type);
-  if (typeof builder === 'function') {
-    var content = builder(block);
-    if (content) {
-      var isForecastBlock = block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline' || block.type === 'weather-block';
-      if (isForecastBlock) {
-        content.style.display = '';
-        if (!content.querySelector('.fc-body, .wx-body, canvas')) {
-          content.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:0.9rem;gap:0.5rem;">☀️ ' + (block.type === 'forecast-banner' ? 'Solar Forecast Banner' : block.type === 'forecast-info' ? 'Solar Forecast Info' : 'Solar Forecast Sparkline') + '</div>';
-        }
-      }
-      inner.appendChild(content);
-
-      // Apply block styling (mirrors dashboard.js render loop)
-      if (block.bgColor && block.bgColor !== '#ffffff') {
-        content.style.setProperty('background-color', block.bgColor, 'important');
-      }
-      if (block.innerBgColor && block.innerBgColor !== '#ffffff') {
-        content.style.setProperty('--card-bg', block.innerBgColor, 'important');
-        content.style.setProperty('--bg', block.innerBgColor, 'important');
-      }
-      if (block.fontColor && block.fontColor !== '#000000') {
-        content.style.setProperty('color', block.fontColor, 'important');
-      }
-      if (block.fontSize) {
-        content.style.fontSize = block.fontSize;
-      }
-      if (block.transparent) {
-        content.style.background = 'transparent';
-        content.style.borderColor = 'transparent';
-        content.style.boxShadow = 'none';
-        content.style.setProperty('--card-bg', 'transparent');
-        content.style.setProperty('--bg', 'transparent');
-        content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
-          el.style.background = 'transparent';
-          el.style.borderColor = 'transparent';
-          el.style.boxShadow = 'none';
-        });
-      }
+  if (typeof builder !== 'function') return null;
+  var content;
+  try {
+    content = builder(block);
+  } catch (e) {
+    console.error('Block render failed:', block.type, block.id, e);
+    content = document.createElement('div');
+    content.className = 'blk-placeholder';
+    content.textContent = "This block couldn't be drawn in the editor.";
+    return content;
+  }
+  if (!content) return null;
+  // Forecast blocks start hidden (display:none) while waiting for data. In the
+  // editor, show them (or a labelled stub) so people can see where they sit.
+  if (FORECAST_TYPES.indexOf(block.type) !== -1) {
+    content.style.display = '';
+    if (!content.querySelector('.fc-body, .wx-body, canvas')) {
+      content.innerHTML = '';
+      var stub = document.createElement('div');
+      stub.className = 'blk-placeholder';
+      stub.textContent = blockInfo(block.type).name;
+      content.appendChild(stub);
     }
   }
+  applyBlockStyling(content, block);
+  return content;
 }
 
-async function handleSettingsSave() {
-  if (!currentEditingBlock) return;
-  var statusEl = document.getElementById('settings-modal-status');
-  if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
-  var formErr = readSettingsForm(currentEditingBlock);
-  if (formErr) {
-    if (statusEl) { statusEl.textContent = formErr; statusEl.style.display = 'block'; }
-    return;  // keep modal open, do not persist
+function fillGridItemContent(inner, block) {
+  var info = blockInfo(block.type);
+  var known = BLOCK_BUILDERS.has(block.type);
+  var hidden = block.enabled === false;
+
+  inner.querySelectorAll('.blk-body, .blk-label, .blk-badge').forEach(function(el) { el.remove(); });
+  inner.classList.toggle('is-hidden-block', hidden);
+  inner.classList.toggle('is-unknown-block', !known);
+  inner.setAttribute('aria-label', info.name + (hidden ? ', hidden on dashboard' : '') + (block.id === selectedBlockId ? ', selected' : ''));
+
+  var label = document.createElement('span');
+  label.className = 'blk-label';
+  label.textContent = info.name;
+  inner.insertBefore(label, inner.firstChild);
+
+  var body = document.createElement('div');
+  body.className = 'blk-body';
+  var content = known ? buildBlockContent(block) : null;
+  if (!content) {
+    content = document.createElement('div');
+    content.className = 'blk-placeholder';
+    content.textContent = known ? info.name : 'Unknown block type "' + block.type + '". It isn\'t shown on the dashboard.';
   }
-  var saved = await persistLayout();
-  if (!saved) {
-    console.error('Save failed — layout not persisted');
-    if (statusEl) { statusEl.textContent = 'Save failed — your session may have expired. Please sign in and try again.'; statusEl.style.display = 'block'; }
-    return;  // keep modal open
+  body.appendChild(content);
+  inner.appendChild(body);
+
+  if (hidden) {
+    var badge = document.createElement('span');
+    badge.className = 'blk-badge';
+    badge.innerHTML = icon('eyeOff', 14) + '<span>Hidden on dashboard</span>';
+    inner.appendChild(badge);
   }
-  refreshGridItem(currentEditingBlock);
-  hideSettingsModal();
 }
 
-async function openSettingsModal(block) {
-  // Re-resolve from the current layout — the closure may hold a stale
-  // reference if persistLayout() replaced tab.layout after addBlockToGrid.
-  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
-  if (tab) {
-    var live = tab.layout.find(function(b) { return b.id === block.id; });
-    if (live) block = live;
+/**
+ * Build a single grid-stack-item DOM element for a block definition.
+ * @param {object} block - block config {id, type, gridX, gridY, gridW, gridH, ...}
+ * @returns {HTMLElement} the grid-stack-item element
+ */
+function buildGridItem(block) {
+  if (!block.id) block.id = newBlockId();
+  var info = blockInfo(block.type);
+  var item = document.createElement('div');
+  item.className = 'grid-stack-item';
+  item.dataset.blockId = block.id;
+  item.dataset.blockType = block.type;
+  item.setAttribute('gs-x', block.gridX ?? 0);
+  item.setAttribute('gs-y', block.gridY ?? 0);
+  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? info.w);
+  item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / CELL_HEIGHT)));
+  item.setAttribute('gs-min-w', 1);
+  item.setAttribute('gs-min-h', 1);
+
+  var inner = document.createElement('div');
+  inner.className = 'grid-stack-item-content';
+  inner.tabIndex = 0;
+  inner.setAttribute('role', 'group');
+  fillGridItemContent(inner, block);
+  item.appendChild(inner);
+  return item;
+}
+
+/** Redraw a block on the grid after its settings change. */
+function refreshGridItem(block) {
+  var el = gridItemEl(block.id);
+  if (!el) return;
+  var inner = el.querySelector('.grid-stack-item-content');
+  if (inner) fillGridItemContent(inner, block);
+}
+
+function updateEmptyState() {
+  var tab = currentTab();
+  $('empty-state').hidden = !!(tab && tab.layout.length);
+}
+
+// ── Selection and the block toolbar ──────────────────────────────────────
+
+var toolbar = null;
+
+function buildToolbar() {
+  toolbar = document.createElement('div');
+  toolbar.className = 'blk-toolbar';
+  toolbar.setAttribute('role', 'toolbar');
+  toolbar.setAttribute('aria-label', 'Block actions');
+  [
+    ['settings', 'settings', 'Edit settings'],
+    ['duplicate', 'copy', 'Duplicate'],
+    ['visibility', 'eyeOff', 'Hide on dashboard'],
+    ['remove', 'trash', 'Remove block']
+  ].forEach(function(def) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.act = def[0];
+    b.className = 'blk-tool' + (def[0] === 'remove' ? ' is-danger' : '');
+    b.setAttribute('aria-label', def[2]);
+    b.title = def[2];
+    b.innerHTML = icon(def[1], 18);
+    toolbar.appendChild(b);
+  });
+  // Keep GridStack from starting a drag when a toolbar button is pressed.
+  ['mousedown', 'pointerdown', 'touchstart'].forEach(function(t) {
+    toolbar.addEventListener(t, function(e) { e.stopPropagation(); }, { passive: true });
+  });
+  toolbar.addEventListener('click', function(e) {
+    var b = e.target.closest('button');
+    if (!b || !selectedBlockId) return;
+    e.stopPropagation();
+    var id = selectedBlockId;
+    if (b.dataset.act === 'settings') openSettings();
+    else if (b.dataset.act === 'duplicate') duplicateBlock(id);
+    else if (b.dataset.act === 'visibility') toggleBlockHidden(id);
+    else if (b.dataset.act === 'remove') removeBlock(id);
+  });
+}
+
+function updateToolbar() {
+  var block = selectedBlockId && findBlock(selectedBlockId);
+  if (!toolbar || !block) return;
+  var vis = toolbar.querySelector('[data-act="visibility"]');
+  var hidden = block.enabled === false;
+  var label = hidden ? 'Show on dashboard' : 'Hide on dashboard';
+  vis.setAttribute('aria-label', label);
+  vis.title = label;
+  vis.innerHTML = icon(hidden ? 'eye' : 'eyeOff', 18);
+}
+
+var settingsSnapshotTaken = false;
+
+function selectBlock(id, opts) {
+  opts = opts || {};
+  if (id && !findBlock(id)) id = null;
+  var changed = id !== selectedBlockId;
+  if (!changed && !opts.force) return;
+  selectedBlockId = id;
+  settingsSnapshotTaken = false;
+  document.querySelectorAll('.grid-stack-item.is-selected').forEach(function(el) {
+    el.classList.remove('is-selected');
+    var inner = el.querySelector('.grid-stack-item-content');
+    var b = findBlock(el.dataset.blockId);
+    if (inner && b) inner.setAttribute('aria-label', blockInfo(b.type).name + (b.enabled === false ? ', hidden on dashboard' : ''));
+  });
+  var el = id ? gridItemEl(id) : null;
+  if (el) {
+    el.classList.add('is-selected');
+    var inner = el.querySelector('.grid-stack-item-content');
+    if (!readOnly) inner.appendChild(toolbar);
+    var b = findBlock(id);
+    inner.setAttribute('aria-label', blockInfo(b.type).name + (b.enabled === false ? ', hidden on dashboard' : '') + ', selected');
+    updateToolbar();
+  } else if (toolbar) {
+    toolbar.remove();
   }
+  renderInspector();
+  if (!id && document.body.dataset.sheet === 'inspector') closeSheets();
+}
 
-  // Fetch available metrics for dropdowns
-  try {
-    var state = await fetchDashboardState();
-    availableMetrics = state.metrics ? Object.keys(state.metrics).sort() : [];
-  } catch (e) {
-    console.warn('Could not fetch metrics for settings dropdown:', e);
-    availableMetrics = [];
+function openSettings() {
+  if (!selectedBlockId) return;
+  if (isNarrow()) { openSheet('inspector'); return; }
+  var tab = $('ins-tab-' + inspectorTab);
+  if (tab) tab.focus();
+}
+
+// ── Block actions ────────────────────────────────────────────────────────
+
+function cellFromPoint(clientX, clientY, w) {
+  var rect = $('grid').getBoundingClientRect();
+  var colW = rect.width / GRID_COLUMNS;
+  var x = Math.floor((clientX - rect.left) / colW);
+  var y = Math.floor((clientY - rect.top) / CELL_HEIGHT);
+  return { x: Math.max(0, Math.min(GRID_COLUMNS - w, x)), y: Math.max(0, y) };
+}
+
+function placeNewItem(block) {
+  var item = buildGridItem(block);
+  grid.makeWidget(item);  // GridStack v11+ requires makeWidget() for HTMLElements
+  syncLayoutFromGrid();
+  updateEmptyState();
+  selectBlock(block.id, { force: true });
+  item.classList.add('is-new');
+  setTimeout(function() { item.classList.remove('is-new'); }, 1200);
+  item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  return item;
+}
+
+/**
+ * Add a block to the active dashboard. With `at` ({x, y}) it goes there;
+ * otherwise below the selected block, or at the bottom.
+ */
+function addBlock(type, at) {
+  if (readOnly || !BLOCK_BUILDERS.has(type)) return;
+  var tab = currentTab();
+  if (!tab) return;
+  var info = blockInfo(type);
+  pushUndo();
+  var w = Math.min(info.w, GRID_COLUMNS);
+  var x = 0, y;
+  var sel = selectedBlockId && findBlock(selectedBlockId);
+  if (at) { x = at.x; y = at.y; }
+  else if (sel) { x = Math.min(sel.gridX || 0, GRID_COLUMNS - w); y = (sel.gridY || 0) + (sel.gridH || 1); }
+  else { y = grid.getRow(); }
+  var block = { id: newBlockId(), type: type, enabled: true, gridX: x, gridY: y, gridW: w, gridH: info.h, config: {} };
+  tab.layout.push(block);
+  placeNewItem(block);
+  closeSheets();
+  scheduleSave(0);
+  toast(info.name + ' added', { actionLabel: 'Undo', onAction: undo, timeout: 4000 });
+}
+
+function duplicateBlock(id) {
+  var tab = currentTab();
+  var block = findBlock(id);
+  if (readOnly || !tab || !block) return;
+  pushUndo();
+  syncLayoutFromGrid();
+  var copy = JSON.parse(JSON.stringify(block));
+  copy.id = newBlockId();
+  copy.gridY = (block.gridY || 0) + (block.gridH || 1);
+  tab.layout.push(copy);
+  placeNewItem(copy);
+  scheduleSave(0);
+  toast(blockInfo(block.type).name + ' duplicated', { actionLabel: 'Undo', onAction: undo, timeout: 4000 });
+}
+
+function removeBlock(id) {
+  var tab = currentTab();
+  var block = findBlock(id);
+  if (readOnly || !tab || !block) return;
+  pushUndo();
+  var name = blockInfo(block.type).name;
+  tab.layout = tab.layout.filter(function(b) { return b.id !== id; });
+  if (id === selectedBlockId) selectBlock(null);
+  var el = gridItemEl(id);
+  if (el) grid.removeWidget(el);
+  syncLayoutFromGrid();
+  updateEmptyState();
+  scheduleSave(0);
+  toast(name + ' removed', { actionLabel: 'Undo', onAction: undo });
+  $('ed-canvas').focus();
+}
+
+function toggleBlockHidden(id) {
+  var block = findBlock(id);
+  if (readOnly || !block) return;
+  pushUndo();
+  var hide = block.enabled !== false;
+  block.enabled = !hide;
+  if (block.config) block.config.enabled = !hide;
+  refreshGridItem(block);
+  updateToolbar();
+  if (id === selectedBlockId) renderInspector();
+  scheduleSave(0);
+  toast(blockInfo(block.type).name + (hide ? ' hidden on the dashboard' : ' shown on the dashboard'), { actionLabel: 'Undo', onAction: undo, timeout: 4000 });
+}
+
+/** Move (or with resize: true, resize) the selected block by whole cells. */
+function nudgeBlock(id, dx, dy, resize) {
+  var el = gridItemEl(id);
+  if (readOnly || !el) return;
+  var n = el.gridstackNode;
+  pushUndo();
+  if (resize) grid.update(el, { w: Math.max(1, Math.min(GRID_COLUMNS - n.x, n.w + dx)), h: Math.max(1, n.h + dy) });
+  else grid.update(el, { x: Math.max(0, Math.min(GRID_COLUMNS - n.w, n.x + dx)), y: Math.max(0, n.y + dy) });
+  syncLayoutFromGrid();
+  refreshInspectorLayout();
+  scheduleSave();
+}
+
+// ── Inspector ────────────────────────────────────────────────────────────
+
+var INSPECTOR_TABS = [['data', 'Data'], ['style', 'Style'], ['layout', 'Layout']];
+
+function sizeText(block) {
+  return (block.gridW || 1) + ' columns × ' + (block.gridH || 1) + ' rows';
+}
+
+function buildLayoutFields(block) {
+  return [
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Size</legend>',
+    '<div data-ui="grid2">',
+    '<label data-ui="field">Width (columns)<input type="number" id="ins-w" data-ui="input" min="1" max="' + GRID_COLUMNS + '" step="1" value="' + escHtml(block.gridW || 1) + '"></label>',
+    '<label data-ui="field">Height (rows)<input type="number" id="ins-h" data-ui="input" min="1" max="60" step="1" value="' + escHtml(block.gridH || 1) + '"></label>',
+    '</div>',
+    '<p data-ui="help">The layout is ' + GRID_COLUMNS + ' columns wide and each row is ' + CELL_HEIGHT + ' px tall. With a block selected, arrow keys move it and Shift + arrow keys resize it.</p>',
+    '</fieldset>',
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Visibility</legend>',
+    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-enabled"' + (block.enabled !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-enabled">Show on dashboard</label></span>',
+    '<p data-ui="help">Hidden blocks stay here, dimmed, so you can show them again later.</p>',
+    '</fieldset>'
+  ].join('\n');
+}
+
+function renderDashboardSummary(aside) {
+  var tab = currentTab();
+  var total = tab ? tab.layout.length : 0;
+  var hidden = tab ? tab.layout.filter(function(b) { return b.enabled === false; }).length : 0;
+  aside.innerHTML =
+    '<div class="ins-empty">' +
+      '<span class="ins-empty-icon">' + icon('layers', 22) + '</span>' +
+      '<h2 class="ed-panel-title">' + escHtml(tab ? tab.name || 'Dashboard' : 'Dashboard') + '</h2>' +
+      '<p class="ins-empty-meta">' + total + (total === 1 ? ' block' : ' blocks') + (hidden ? ' · ' + hidden + ' hidden' : '') + '</p>' +
+      '<p class="ins-empty-hint">Select a block on the layout to change its data, style and size.</p>' +
+      '<ul class="ins-keys">' +
+        '<li><span><kbd>Ctrl</kbd> <kbd>Z</kbd></span>Undo</li>' +
+        '<li><span><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></span>Redo</li>' +
+        '<li><span><kbd>Delete</kbd></span>Remove selected block</li>' +
+        '<li><span><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></span>Move selected block</li>' +
+        '<li><span><kbd>Shift</kbd> + arrows</span>Resize selected block</li>' +
+      '</ul>' +
+    '</div>';
+}
+
+function renderInspector() {
+  var aside = $('inspector');
+  var block = selectedBlockId && findBlock(selectedBlockId);
+  if (!block) { renderDashboardSummary(aside); return; }
+  var info = blockInfo(block.type);
+  var known = BLOCK_BUILDERS.has(block.type);
+
+  var tabs = INSPECTOR_TABS.map(function(t) {
+    var on = t[0] === inspectorTab;
+    return '<button type="button" role="tab" class="ins-tab" id="ins-tab-' + t[0] + '" data-tab="' + t[0] + '" aria-controls="ins-panel-' + t[0] + '" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '">' + t[1] + '</button>';
+  }).join('');
+  var dataPanel = known
+    ? buildSettingsForm(block)
+    : '<p data-ui="help">This block type isn\'t available in this version of Epilykos, so it has no settings here. You can still move, resize or remove it.</p>';
+
+  aside.innerHTML =
+    '<div class="ed-sheet-handle" aria-hidden="true"></div>' +
+    '<div class="ins-head">' +
+      '<span class="ins-icon">' + icon(info.icon, 20) + '</span>' +
+      '<div class="ins-titles"><h2 class="ed-panel-title" id="ins-title">' + escHtml(info.name) + '</h2>' +
+      '<p class="ins-sub" id="ins-sub">' + escHtml(sizeText(block)) + '</p></div>' +
+      '<button type="button" class="ed-icon-btn" id="ins-close" aria-label="Close settings">' + icon('close', 18) + '</button>' +
+    '</div>' +
+    '<div class="ins-tabs" role="tablist" aria-labelledby="ins-title">' + tabs + '</div>' +
+    '<form class="ins-body" id="ins-body" autocomplete="off" novalidate>' +
+      '<fieldset class="ins-fieldset"' + (readOnly ? ' disabled' : '') + '>' +
+        '<div role="tabpanel" class="ins-panel" id="ins-panel-data" aria-labelledby="ins-tab-data">' + dataPanel + '</div>' +
+        '<div role="tabpanel" class="ins-panel" id="ins-panel-style" aria-labelledby="ins-tab-style">' + buildAppearanceFields(block) + '</div>' +
+        '<div role="tabpanel" class="ins-panel" id="ins-panel-layout" aria-labelledby="ins-tab-layout">' + buildLayoutFields(block) + '</div>' +
+      '</fieldset>' +
+    '</form>' +
+    '<div class="ins-foot">' +
+      '<p class="ins-msg" id="ins-msg" role="status">' + (readOnly ? 'Read-only' : 'Changes apply as you edit') + '</p>' +
+      (readOnly ? '' : '<button type="button" class="ed-btn-text is-danger" id="ins-remove">Remove block</button>') +
+    '</div>';
+
+  showInspectorTab(inspectorTab, false);
+  wireInspector(aside, block);
+}
+
+function showInspectorTab(name, focus) {
+  inspectorTab = name;
+  INSPECTOR_TABS.forEach(function(t) {
+    var tab = $('ins-tab-' + t[0]);
+    var panel = $('ins-panel-' + t[0]);
+    if (!tab || !panel) return;
+    var on = t[0] === name;
+    tab.setAttribute('aria-selected', String(on));
+    tab.tabIndex = on ? 0 : -1;
+    panel.hidden = !on;
+  });
+  if (focus) $('ins-tab-' + name).focus();
+}
+
+function refreshInspectorLayout() {
+  var block = selectedBlockId && findBlock(selectedBlockId);
+  if (!block) return;
+  var sub = $('ins-sub');
+  if (sub) sub.textContent = sizeText(block);
+  var w = $('ins-w'), h = $('ins-h');
+  if (w && document.activeElement !== w) w.value = block.gridW || 1;
+  if (h && document.activeElement !== h) h.value = block.gridH || 1;
+}
+
+var applyTimer = null;
+
+function applySettings() {
+  clearTimeout(applyTimer);
+  var block = selectedBlockId && findBlock(selectedBlockId);
+  if (!block || readOnly) return;
+  var msg = $('ins-msg');
+  if (BLOCK_BUILDERS.has(block.type)) {
+    var err = readSettingsForm(block);
+    if (err) {
+      if (msg) { msg.textContent = err; msg.classList.add('is-error'); }
+      return;  // keep the last valid settings; nothing is saved
+    }
+  } else {
+    var en = $('modal-enabled');
+    if (en) block.enabled = en.checked;
   }
+  if (msg) { msg.textContent = 'Changes apply as you edit'; msg.classList.remove('is-error'); }
+  refreshGridItem(block);
+  updateToolbar();
+  scheduleSave();
+}
 
-  currentEditingBlock = block;
-  var body = document.getElementById('settings-modal-body');
-  body.innerHTML = buildSettingsForm(block);
-  showSettingsModal();
+function scheduleApply(delay) {
+  if (!settingsSnapshotTaken) { pushUndo(); settingsSnapshotTaken = true; }
+  clearTimeout(applyTimer);
+  applyTimer = setTimeout(applySettings, delay);
+}
 
-  // Mark color inputs as dirty when user interacts with them
-  var bgInput = document.getElementById('modal-bgcolor');
-  var fgInput = document.getElementById('modal-fontcolor');
-  if (bgInput) bgInput.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
-  if (fgInput) fgInput.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
-  ['modal-switch-oncolor', 'modal-switch-offcolor'].forEach(function(id) {
+/** Values of every control in each row of a row list, by row index. */
+function captureRows(rowsEl) {
+  return Array.from(rowsEl.children).map(function(row) {
+    return Array.from(row.querySelectorAll('input, select, textarea')).map(function(c) {
+      return { value: c.value, checked: c.checked, dirty: c.dataset.dirty };
+    });
+  });
+}
+function restoreRows(rowsEl, saved, removedIdx) {
+  Array.from(rowsEl.children).forEach(function(row, i) {
+    var src = removedIdx == null ? saved[i] : saved[i < removedIdx ? i : i + 1];
+    if (!src) return;
+    Array.from(row.querySelectorAll('input, select, textarea')).forEach(function(c, j) {
+      var v = src[j];
+      if (!v) return;
+      if (c.type === 'checkbox' || c.type === 'radio') c.checked = v.checked;
+      else c.value = v.value;
+      if (v.dirty) c.dataset.dirty = v.dirty;
+    });
+  });
+}
+
+function wireInspector(aside, block) {
+  $('ins-close').addEventListener('click', function() {
+    if (isNarrow()) { closeSheets(); return; }
+    var el = gridItemEl(block.id);
+    selectBlock(null);
+    if (el) el.querySelector('.grid-stack-item-content').focus();
+  });
+  var remove = $('ins-remove');
+  if (remove) remove.addEventListener('click', function() { removeBlock(block.id); });
+
+  var tablist = aside.querySelector('.ins-tabs');
+  tablist.addEventListener('click', function(e) {
+    var t = e.target.closest('[role="tab"]');
+    if (t) showInspectorTab(t.dataset.tab, false);
+  });
+  tablist.addEventListener('keydown', function(e) {
+    var i = INSPECTOR_TABS.findIndex(function(t) { return t[0] === inspectorTab; });
+    var next = null;
+    if (e.key === 'ArrowRight') next = (i + 1) % INSPECTOR_TABS.length;
+    else if (e.key === 'ArrowLeft') next = (i - 1 + INSPECTOR_TABS.length) % INSPECTOR_TABS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = INSPECTOR_TABS.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    showInspectorTab(INSPECTOR_TABS[next][0], true);
+  });
+
+  var body = $('ins-body');
+  body.addEventListener('submit', function(e) { e.preventDefault(); });
+  wireSettingsForm(body, block);
+  if (readOnly) return;
+
+  body.addEventListener('input', function(e) {
+    if (e.target.id === 'ins-w' || e.target.id === 'ins-h') return;
+    scheduleApply(350);
+  });
+  body.addEventListener('change', function(e) {
+    if (e.target.id === 'ins-w' || e.target.id === 'ins-h') { resizeFromInspector(block); return; }
+    scheduleApply(0);
+  });
+
+  // Row lists (series, bands, states...) re-render themselves from a JSON
+  // snapshot when a row is added or removed, which used to throw away what
+  // had been typed. Keep the typed values across that re-render.
+  var pending = null;
+  body.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var isAdd = /-add(-row)?$/.test(btn.id);
+    var isRemove = btn.classList.contains('row-remove-btn');
+    if (!isAdd && !isRemove) return;
+    var rowsEl = isRemove ? btn.closest('[id$="-rows"]') : (btn.closest('fieldset') || body).querySelector('[id$="-rows"]');
+    if (!rowsEl) return;
+    pending = { rowsEl: rowsEl, id: rowsEl.id, saved: captureRows(rowsEl), removedIdx: isRemove ? parseInt(btn.dataset.idx, 10) : null };
+  }, true);
+  body.addEventListener('click', function() {
+    if (!pending) return;
+    var p = pending;
+    pending = null;
+    var rowsEl = document.getElementById(p.id);
+    if (rowsEl) restoreRows(rowsEl, p.saved, p.removedIdx);
+    scheduleApply(0);
+  });
+}
+
+function resizeFromInspector(block) {
+  var el = gridItemEl(block.id);
+  if (!el) return;
+  var w = Math.max(1, Math.min(GRID_COLUMNS, parseInt($('ins-w').value, 10) || 1));
+  var h = Math.max(1, Math.min(60, parseInt($('ins-h').value, 10) || 1));
+  pushUndo();
+  grid.update(el, { w: w, h: h });
+  syncLayoutFromGrid();
+  refreshInspectorLayout();
+  scheduleSave();
+}
+
+/** Hook up the dynamic parts of a block's settings form. */
+function wireSettingsForm(body, block) {
+  // Color inputs are only saved once the person has actually picked a color.
+  ['modal-bgcolor', 'modal-fontcolor', 'modal-switch-oncolor', 'modal-switch-offcolor'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('input', function() { this.dataset.dirty = 'true'; }, { once: true });
   });
@@ -1829,135 +2373,538 @@ async function openSettingsModal(block) {
   }
 }
 
-// ── END Settings Modal ──────────────────────────────────────────────────
+// ── Block library ────────────────────────────────────────────────────────
 
-/**
- * Build a single grid-stack-item DOM element for a block definition.
- * @param {object} block - block config {id, type, gridX, gridY, gridW, gridH, ...}
- * @returns {HTMLElement} the grid-stack-item element
- */
-function buildGridItem(block) {
-  var builder = BLOCK_BUILDERS.get(block.type);
-  if (typeof builder !== 'function') return null;
-  var content = builder(block);
-  if (!content) return null;
+var COLLAPSED_KEY = 'epilykos.editor.collapsedGroups';
+var collapsedGroups = new Set();
+var draggingType = null;
 
-  // Forecast blocks start hidden (display:none) while waiting for data.
-  // In the editor, show a visible placeholder so users can see where blocks are placed.
-  var isForecastBlock = block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline' || block.type === 'weather-block';
-  if (isForecastBlock) {
-    content.style.display = '';
-    if (content.querySelector('.fc-body, .wx-body, canvas')) {
-      // Has real content structure — just make visible with placeholder data
-      // Real structure with '--' placeholders; live data arrives on the dashboard.
-    } else {
-      // Empty/minimal content — show a stub
-      content.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary, #94a3b8);font-size:0.9rem;gap:0.5rem;">☀️ ' + (block.type === 'forecast-banner' ? 'Solar Forecast Banner' : block.type === 'forecast-info' ? 'Solar Forecast Info' : 'Solar Forecast Sparkline') + '</div>';
-    }
-  }
+function loadCollapsed() {
+  try { collapsedGroups = new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]')); } catch (e) { collapsedGroups = new Set(); }
+}
+function saveCollapsed() {
+  try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(collapsedGroups))); } catch (e) {}
+}
 
-  var item = document.createElement('div');
-  item.className = 'grid-stack-item';
-  item.dataset.blockId = block.id || ('b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
-  item.dataset.blockType = block.type;
-  item.setAttribute('gs-x', block.gridX ?? 0);
-  item.setAttribute('gs-y', block.gridY ?? 0);
-  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? 6);
-  item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / 50)));
-  item.setAttribute('gs-min-w', 2);
-  item.setAttribute('gs-min-h', 1);
-
-  var inner = document.createElement('div');
-  inner.className = 'grid-stack-item-content';
-  inner.style.padding = '0.5rem'; inner.style.fontSize = '0.8rem'; inner.style.position = 'relative';
-
-  // Settings button (gear)
-  var settingsBtn = document.createElement('button');
-  settingsBtn.className = 'grid-item-settings';
-  settingsBtn.innerHTML = '&#9881;';
-  settingsBtn.style.cssText = 'position:absolute;top:4px;right:42px;z-index:10;';
-  settingsBtn.setAttribute('aria-label', 'Block settings');
-  settingsBtn.addEventListener('click', function(e) { e.stopPropagation(); openSettingsModal(block); });
-  inner.appendChild(settingsBtn);
-
-  // Delete button
-  var delBtn = document.createElement('button');
-  delBtn.className = 'grid-item-delete';
-  delBtn.textContent = '\u2715';
-  delBtn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:10;';
-  delBtn.setAttribute('aria-label', 'Delete block');
-  delBtn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    var tab = currentTab();
-    if (tab) tab.layout = tab.layout.filter(function(b) { return b.id !== item.dataset.blockId; });
-    grid.removeWidget(item);
-    persistLayout();
+function libraryGroups() {
+  var groups = GROUPS.map(function(g) { return { id: g.id, label: g.label, types: [] }; });
+  var other = { id: 'other', label: 'Other', types: [] };
+  BLOCK_BUILDERS.forEach(function(_b, type) {
+    var info = blockInfo(type);
+    var g = groups.find(function(x) { return x.id === info.group; });
+    (g || other).types.push(type);
   });
-  inner.appendChild(delBtn);
-  inner.appendChild(content);
-  if (block.enabled === false) inner.classList.add('is-hidden-block');
-  item.appendChild(inner);
-  return item;
+  // Keep the catalog's order inside each group.
+  var order = Object.keys(BLOCKS);
+  groups.forEach(function(g) { g.types.sort(function(a, b) { return order.indexOf(a) - order.indexOf(b); }); });
+  if (other.types.length) groups.push(other);
+  return groups.filter(function(g) { return g.types.length; });
 }
 
-/**
- * Add a single block to the active dashboard without rebuilding the entire grid.
- * @param {string} type - block type identifier
- */
-function addBlockToGrid(type) {
-  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
-  if (!tab) return;
-  var newBlock = { id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), type: type, enabled: true, colSpan: 6, rowSpan: 200, config: {} };
-  tab.layout.push(newBlock);
-  var item = buildGridItem(newBlock);
-  if (!item) return;
-
-  // GridStack v11+ requires makeWidget() for HTMLElements
-  grid.makeWidget(item);
-  persistLayout(); // auto-save after add
+function renderLibrary(query) {
+  var list = $('library-list');
+  var q = (query || '').trim().toLowerCase();
+  var html = '';
+  var shown = 0;
+  libraryGroups().forEach(function(g) {
+    var types = g.types.filter(function(type) {
+      if (!q) return true;
+      var info = blockInfo(type);
+      return (info.name + ' ' + info.desc + ' ' + type + ' ' + g.label).toLowerCase().indexOf(q) !== -1;
+    });
+    if (!types.length) return;
+    shown += types.length;
+    var collapsed = !q && collapsedGroups.has(g.id);
+    var listId = 'lib-group-' + g.id;
+    html += '<section class="lib-group">' +
+      '<h3 class="lib-group-head"><button type="button" class="lib-group-btn" data-group="' + g.id + '" aria-expanded="' + !collapsed + '" aria-controls="' + listId + '">' +
+        '<span>' + escHtml(g.label) + '</span><span class="lib-count">' + types.length + '</span>' + icon(collapsed ? 'chevronDown' : 'chevronUp', 14) +
+      '</button></h3>' +
+      '<ul class="lib-items" id="' + listId + '"' + (collapsed ? ' hidden' : '') + '>';
+    types.forEach(function(type) {
+      var info = blockInfo(type);
+      html += '<li><button type="button" class="lib-item" draggable="true" data-type="' + escHtml(type) + '">' +
+        '<span class="lib-icon">' + icon(info.icon, 20) + '</span>' +
+        '<span class="lib-text"><span class="lib-name">' + escHtml(info.name) + '</span>' +
+        (info.desc ? '<span class="lib-desc">' + escHtml(info.desc) + '</span>' : '') + '</span>' +
+      '</button></li>';
+    });
+    html += '</ul></section>';
+  });
+  if (!shown) html = '<p class="lib-empty">No blocks match “' + escHtml(query.trim()) + '”.</p>';
+  list.innerHTML = html;
 }
 
-async function loadTab(tabId) {
+function wireLibrary() {
+  loadCollapsed();
+  renderLibrary('');
+  var search = $('library-search');
+  search.addEventListener('input', function() { renderLibrary(search.value); });
+  search.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') { var first = $('library-list').querySelector('.lib-item'); if (first) { e.preventDefault(); first.focus(); } }
+    if (e.key === 'Enter') { var only = $('library-list').querySelectorAll('.lib-item'); if (only.length) { e.preventDefault(); addBlock(only[0].dataset.type); } }
+  });
+
+  var list = $('library-list');
+  list.addEventListener('click', function(e) {
+    var gb = e.target.closest('.lib-group-btn');
+    if (gb) {
+      var id = gb.dataset.group;
+      if (collapsedGroups.has(id)) collapsedGroups.delete(id); else collapsedGroups.add(id);
+      saveCollapsed();
+      renderLibrary(search.value);
+      var again = list.querySelector('.lib-group-btn[data-group="' + id + '"]');
+      if (again) again.focus();
+      return;
+    }
+    var item = e.target.closest('.lib-item');
+    if (item) addBlock(item.dataset.type);
+  });
+  list.addEventListener('keydown', function(e) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    var focusables = Array.from(list.querySelectorAll('.lib-group-btn, .lib-items:not([hidden]) .lib-item'));
+    var i = focusables.indexOf(document.activeElement);
+    if (i === -1) return;
+    e.preventDefault();
+    var next = focusables[i + (e.key === 'ArrowDown' ? 1 : -1)];
+    if (next) next.focus(); else if (e.key === 'ArrowUp') search.focus();
+  });
+  list.addEventListener('dragstart', function(e) {
+    var item = e.target.closest('.lib-item');
+    if (!item || readOnly) { e.preventDefault(); return; }
+    draggingType = item.dataset.type;
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('blockType', draggingType);
+    e.dataTransfer.setData('text/plain', blockInfo(draggingType).name);
+  });
+  list.addEventListener('dragend', function() {
+    draggingType = null;
+    $('ed-canvas').classList.remove('is-drop-target');
+  });
+}
+
+// ── Canvas ───────────────────────────────────────────────────────────────
+
+function wireCanvas() {
+  var canvas = $('ed-canvas');
+  // Palette drop target — bound once (loadTab runs on every dashboard switch).
+  canvas.addEventListener('dragover', function(e) {
+    if (readOnly || !draggingType) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    canvas.classList.add('is-drop-target');
+  });
+  canvas.addEventListener('dragleave', function(e) {
+    if (!canvas.contains(e.relatedTarget)) canvas.classList.remove('is-drop-target');
+  });
+  canvas.addEventListener('drop', function(e) {
+    canvas.classList.remove('is-drop-target');
+    var type = e.dataTransfer.getData('blockType') || draggingType;
+    draggingType = null;
+    if (!type || readOnly) return;
+    e.preventDefault();
+    addBlock(type, cellFromPoint(e.clientX, e.clientY, Math.min(blockInfo(type).w, GRID_COLUMNS)));
+  });
+
+  // Selecting blocks: click or Enter / Space; click on empty space clears it.
+  canvas.addEventListener('click', function(e) {
+    if (e.target.closest('.blk-toolbar')) return;
+    var inner = e.target.closest('.grid-stack-item-content');
+    if (inner) selectBlock(inner.parentElement.dataset.blockId);
+    else if (!e.target.closest('.grid-stack-item')) selectBlock(null);
+  });
+  canvas.addEventListener('keydown', function(e) {
+    var inner = e.target.classList && e.target.classList.contains('grid-stack-item-content') ? e.target : null;
+    if (!inner) return;
+    var id = inner.parentElement.dataset.blockId;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (selectedBlockId === id) openSettings(); else selectBlock(id);
+      return;
+    }
+    if (id !== selectedBlockId) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeBlock(id); return; }
+    var arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (arrows[e.key]) {
+      e.preventDefault();
+      nudgeBlock(id, arrows[e.key][0], arrows[e.key][1], e.shiftKey);
+      inner.focus();
+    }
+  });
+}
+
+// ── Dashboards ───────────────────────────────────────────────────────────
+
+function updateHeader() {
+  var tab = currentTab();
+  var idx = dashboardConfig.dashboards.indexOf(tab);
+  $('dash-name').textContent = (tab && tab.name) || 'Dashboard';
+  $('dash-count').textContent = dashboardConfig.dashboards.length > 1 ? (idx + 1) + ' of ' + dashboardConfig.dashboards.length : '';
+  $('dash-menu-btn').setAttribute('aria-label', 'Dashboard: ' + ((tab && tab.name) || 'Dashboard') + '. Switch, rename or manage dashboards');
+  document.title = 'Edit ' + ((tab && tab.name) || 'layout') + ' · Epilykos';
+  try {
+    var url = new URL(window.location.href);
+    url.searchParams.set('tab', currentTabId);
+    history.replaceState(null, '', url.pathname + url.search);
+  } catch (e) {}
+}
+
+function loadTab(tabId, opts) {
+  opts = opts || {};
   var tab = dashboardConfig.dashboards.find(function(db) { return db.id === tabId; });
   if (!tab) return;
+  if (!opts.skipSync) syncLayoutFromGrid();
   currentTabId = tabId;
-  document.getElementById('dash-name-input').value = tab.name || '';
-  refreshTabSelect();
+  if (toolbar) toolbar.remove();
+  selectedBlockId = null;
 
-  var container = document.getElementById('grid');
-  container.innerHTML = '';
+  var container = $('grid');
   if (grid) { grid.destroy(false); grid = null; }
-
+  container.innerHTML = '';
   tab.layout.forEach(function(block) {
-    // Hidden blocks stay editable (dimmed) — skipping them made them
-    // impossible to re-enable and let the next save drop them.
-    var item = buildGridItem(block);
-    if (item) container.appendChild(item);
+    // Hidden blocks are drawn too (dimmed) so they can be shown again.
+    container.appendChild(buildGridItem(block));
   });
 
-  grid = GridStack.init({ column: 12, cellHeight: 50, float: false, animate: true, resizable: { handles: 'e, se, s, sw, w' }, minRow: 1 }, container);
-  grid.on('dragstop', function() { persistLayout(); });
-  grid.on('resizestop', function() { persistLayout(); });
+  grid = GridStack.init({
+    column: GRID_COLUMNS, cellHeight: CELL_HEIGHT, float: false, animate: true, minRow: 4,
+    staticGrid: readOnly,
+    resizable: { handles: 'e, se, s, sw, w' },
+    draggable: { cancel: 'input,textarea,button,select,option,.blk-toolbar' }
+  }, container);
+  grid.on('dragstart resizestart', function() { pushUndo(); });
+  grid.on('dragstop resizestop', function() { syncLayoutFromGrid(); refreshInspectorLayout(); scheduleSave(); });
 
-  // Enable palette drops via GridStack's own drop handling
-  grid.opts.acceptWidgets = function(el) { return true; };
+  updateHeader();
+  updateEmptyState();
+  selectBlock(opts.keepSelection || null, { force: true });
+}
 
-  var dropZone = container.closest('.editor-grid-wrapper') || container;
+function renameDashboard(title) {
+  var tab = currentTab();
+  if (!tab || readOnly) return Promise.resolve();
+  var wrap = document.createElement('div');
+  wrap.className = 'ed-field';
+  var label = document.createElement('label');
+  label.htmlFor = 'rename-input';
+  label.textContent = 'Name';
+  var input = document.createElement('input');
+  input.id = 'rename-input';
+  input.name = 'name';
+  input.type = 'text';
+  input.required = true;
+  input.maxLength = 60;
+  input.value = tab.name || '';
+  wrap.appendChild(label);
+  wrap.appendChild(input);
+  return openDialog({ title: title || 'Rename dashboard', body: wrap, confirmLabel: 'Save name' }).then(function(form) {
+    if (!form) return;
+    var name = form.elements.name.value.trim();
+    if (!name || name === tab.name) return;
+    pushUndo();
+    tab.name = name;
+    updateHeader();
+    if (!selectedBlockId) renderInspector();
+    scheduleSave(0);
+  });
+}
 
-  // Auth check for header buttons
-  fetch('/api/auth/status')
-    .then(function(r) { return r.json(); })
-    .then(function(auth) {
-      if (!auth.authenticated) {
-        document.getElementById('save-btn').disabled = true;
-        dropZone.style.opacity = '0.5';
-        dropZone.style.pointerEvents = 'none';
+function newDashboard() {
+  if (readOnly) return;
+  pushUndo();
+  var used = new Set(dashboardConfig.dashboards.map(function(db) { return db.id; }));
+  var id = uniqueDashboardId('db_' + Date.now(), used);
+  dashboardConfig.dashboards.push({ id: id, name: 'New dashboard', layout: [] });
+  loadTab(id);
+  scheduleSave(0);
+  renameDashboard('Name your new dashboard');
+}
+
+function duplicateDashboard() {
+  var tab = currentTab();
+  if (readOnly || !tab) return;
+  pushUndo();
+  var used = new Set(dashboardConfig.dashboards.map(function(db) { return db.id; }));
+  var copy = JSON.parse(JSON.stringify(tab));
+  copy.id = uniqueDashboardId(tab.id + '_copy', used);
+  copy.name = (tab.name || 'Dashboard') + ' copy';
+  copy.layout.forEach(function(b) { b.id = newBlockId(); });
+  dashboardConfig.dashboards.splice(dashboardConfig.dashboards.indexOf(tab) + 1, 0, copy);
+  loadTab(copy.id);
+  scheduleSave(0);
+  toast('Created "' + copy.name + '"', { actionLabel: 'Undo', onAction: undo });
+}
+
+function deleteDashboard() {
+  var tab = currentTab();
+  if (readOnly || !tab || dashboardConfig.dashboards.length <= 1) return;
+  var n = tab.layout.length;
+  var p = document.createElement('p');
+  p.textContent = 'This removes the dashboard and its ' + n + (n === 1 ? ' block' : ' blocks') + '. You can undo this right after.';
+  openDialog({ title: 'Delete "' + (tab.name || 'Dashboard') + '"?', body: p, confirmLabel: 'Delete dashboard', danger: true, alert: true }).then(function(form) {
+    if (!form) return;
+    pushUndo();
+    dashboardConfig.dashboards = dashboardConfig.dashboards.filter(function(db) { return db.id !== tab.id; });
+    if (dashboardConfig.activeDashboard === tab.id) dashboardConfig.activeDashboard = dashboardConfig.dashboards[0].id;
+    loadTab(dashboardConfig.dashboards[0].id, { skipSync: true });
+    scheduleSave(0);
+    toast('Deleted "' + (tab.name || 'Dashboard') + '"', { actionLabel: 'Undo', onAction: undo, timeout: 10000 });
+  });
+}
+
+function exportLayout() {
+  syncLayoutFromGrid();
+  var json = JSON.stringify(dashboardConfig, null, 2);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'dashboard-config.json';
+  a.click();
+  setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+  toast('Exported ' + dashboardConfig.dashboards.length + (dashboardConfig.dashboards.length === 1 ? ' dashboard' : ' dashboards'));
+}
+
+function importOptionsBody(fileName, importedCount, existingCount) {
+  var wrap = document.createElement('div');
+  wrap.className = 'ed-import';
+  var file = document.createElement('div');
+  file.className = 'ed-import-file';
+  file.innerHTML = icon('file', 18);
+  var fname = document.createElement('span');
+  fname.className = 'ed-import-name';
+  fname.textContent = fileName;
+  var fcount = document.createElement('span');
+  fcount.className = 'ed-import-count';
+  fcount.textContent = importedCount + (importedCount === 1 ? ' dashboard' : ' dashboards');
+  file.appendChild(fname);
+  file.appendChild(fcount);
+  wrap.appendChild(file);
+
+  var fs = document.createElement('fieldset');
+  fs.className = 'ed-choice-group';
+  var legend = document.createElement('legend');
+  legend.textContent = 'How should it be added?';
+  fs.appendChild(legend);
+  [
+    ['Append', 'Add alongside your dashboards', 'You\'ll have ' + (existingCount + importedCount) + ' dashboards. Duplicate IDs get a suffix.'],
+    ['Replace', 'Replace all dashboards', 'Your ' + existingCount + ' current ' + (existingCount === 1 ? 'dashboard' : 'dashboards') + ' will be removed. You can undo this right after.']
+  ].forEach(function(opt, i) {
+    var label = document.createElement('label');
+    label.className = 'ed-choice';
+    var input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'importMode';
+    input.value = opt[0];
+    input.checked = i === 0;
+    var text = document.createElement('span');
+    var title = document.createElement('span');
+    title.className = 'ed-choice-title';
+    title.textContent = opt[1];
+    var desc = document.createElement('span');
+    desc.className = 'ed-choice-desc';
+    desc.textContent = opt[2];
+    text.appendChild(title);
+    text.appendChild(desc);
+    label.appendChild(input);
+    label.appendChild(text);
+    fs.appendChild(label);
+  });
+  wrap.appendChild(fs);
+  return wrap;
+}
+
+function importLayout() {
+  if (readOnly) return;
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.addEventListener('change', async function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var imported;
+    try {
+      imported = JSON.parse(await file.text());
+      if (!imported || !Array.isArray(imported.dashboards)) throw new Error('Invalid format: dashboards must be an array');
+    } catch (err) {
+      toast('Import failed: ' + err.message, { tone: 'error', timeout: 8000 });
+      return;
+    }
+    var importedCount = imported.dashboards.length;
+    var existingCount = dashboardConfig.dashboards.length;
+    var form = await openDialog({
+      title: 'Import layout',
+      body: importOptionsBody(file.name, importedCount, existingCount),
+      confirmLabel: 'Import ' + importedCount + (importedCount === 1 ? ' dashboard' : ' dashboards')
+    });
+    if (!form) return;
+    var choice = form.elements.importMode.value;
+    if (choice !== 'Append' && choice !== 'Replace') return;
+    var next;
+    try {
+      next = applyDashboardImport(dashboardConfig, imported, choice);
+      if (!next.dashboards.length) throw new Error('The file has no dashboards');
+    } catch (err) {
+      toast('Import failed: ' + err.message, { tone: 'error', timeout: 8000 });
+      return;
+    }
+    pushUndo();
+    dashboardConfig = next;
+    dashboardConfig.dashboards.forEach(function(db) { if (!Array.isArray(db.layout)) db.layout = []; });
+    var tabId = choice === 'Replace' || !dashboardConfig.dashboards.some(function(db) { return db.id === currentTabId; })
+      ? dashboardConfig.dashboards[0].id
+      : currentTabId;
+    if (choice === 'Replace' && !dashboardConfig.dashboards.some(function(db) { return db.id === dashboardConfig.activeDashboard; })) {
+      dashboardConfig.activeDashboard = tabId;
+    }
+    loadTab(tabId, { skipSync: true });
+    scheduleSave(0);
+    toast('Imported ' + importedCount + (importedCount === 1 ? ' dashboard' : ' dashboards'), { actionLabel: 'Undo', onAction: undo, timeout: 10000 });
+  });
+  input.click();
+}
+
+function openDashboardMenu() {
+  var only = dashboardConfig.dashboards.length <= 1;
+  var items = dashboardConfig.dashboards.map(function(db) {
+    return { label: db.name || db.id, checked: db.id === currentTabId, onSelect: function() { if (db.id !== currentTabId) loadTab(db.id); } };
+  });
+  items.push({ separator: true });
+  items.push({ label: 'Rename…', icon: 'text', disabled: readOnly, onSelect: function() { renameDashboard(); } });
+  items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly, onSelect: duplicateDashboard });
+  items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
+  if (isNarrow()) {
+    items.push({ separator: true });
+    items.push({ label: 'Export all dashboards', icon: 'file', onSelect: exportLayout });
+    items.push({ label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout });
+  }
+  items.push({ separator: true });
+  items.push({ label: 'Delete dashboard…', icon: 'trash', danger: true, disabled: readOnly || only, hint: only ? 'Only one left' : '', onSelect: deleteDashboard });
+  openMenu($('dash-menu-btn'), items, { label: 'Dashboards' });
+}
+
+function openIoMenu() {
+  openMenu($('io-btn'), [
+    { label: 'Export all dashboards', icon: 'file', onSelect: exportLayout },
+    { label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout }
+  ], { label: 'Import or export' });
+}
+
+// ── Leaving the editor ───────────────────────────────────────────────────
+
+var leaving = false;
+
+function isSettled() { return !saveTimer && !saving && saveState === 'saved'; }
+
+async function leaveTo(url, opts) {
+  opts = opts || {};
+  var ok = readOnly || isSettled() || await flushSave();
+  if (!ok) {
+    if (opts.allowDiscard) {
+      var form = await openDialog({
+        title: 'Leave without saving?',
+        body: "<p>Your latest changes couldn't be saved. If you leave now, they'll be lost.</p>",
+        confirmLabel: 'Leave anyway', cancelLabel: 'Stay', danger: true, alert: true
+      });
+      if (!form) return;
+    } else {
+      toast("Your changes aren't saved yet. Use Retry at the top, then try again.", { tone: 'error', timeout: 8000 });
+      return;
+    }
+  }
+  leaving = true;
+  window.location.href = url;
+}
+
+// ── Sheets (narrow screens) ──────────────────────────────────────────────
+
+function openSheet(name) {
+  if (!isNarrow()) return;
+  document.body.dataset.sheet = name;
+  $('sheet-scrim').hidden = false;
+  $('library-btn').setAttribute('aria-expanded', String(name === 'library'));
+  var sheet = $(name);
+  var focusTarget = name === 'library' ? $('library-search') : sheet.querySelector('[role="tab"][aria-selected="true"]');
+  if (focusTarget) setTimeout(function() { focusTarget.focus(); }, 50);
+}
+
+function closeSheets() {
+  var was = document.body.dataset.sheet;
+  if (!was) return;
+  delete document.body.dataset.sheet;
+  $('sheet-scrim').hidden = true;
+  $('library-btn').setAttribute('aria-expanded', 'false');
+  if (was === 'library') $('library-btn').focus();
+}
+
+// ── Setup ────────────────────────────────────────────────────────────────
+
+function hydrateIcons(root) {
+  root.querySelectorAll('[data-icon]').forEach(function(el) {
+    el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon, parseInt(el.dataset.size, 10) || 20));
+    el.removeAttribute('data-icon');
+  });
+}
+
+function enterReadOnly() {
+  readOnly = true;
+  document.body.classList.add('is-readonly');
+  $('readonly-banner').hidden = false;
+  $('library').setAttribute('inert', '');
+  $('library-btn').disabled = true;
+  setSaveStatus('readonly');
+  updateUndoButtons();
+}
+
+function wireTopbar() {
+  $('dash-menu-btn').addEventListener('click', openDashboardMenu);
+  $('io-btn').addEventListener('click', openIoMenu);
+  $('undo-btn').addEventListener('click', undo);
+  $('redo-btn').addEventListener('click', redo);
+  $('done-btn').addEventListener('click', function() {
+    leaveTo('/?tab=' + encodeURIComponent(currentTabId));
+  });
+  $('back-link').addEventListener('click', function(e) {
+    e.preventDefault();
+    leaveTo('/?tab=' + encodeURIComponent(currentTabId), { allowDiscard: true });
+  });
+  $('library-btn').addEventListener('click', function() {
+    if (document.body.dataset.sheet === 'library') closeSheets(); else openSheet('library');
+  });
+  $('sheet-scrim').addEventListener('click', closeSheets);
+  document.querySelectorAll('[data-close-sheet]').forEach(function(b) { b.addEventListener('click', closeSheets); });
+  window.matchMedia('(max-width: 900px)').addEventListener('change', closeSheets);
+
+  window.addEventListener('beforeunload', function(e) {
+    if (leaving || readOnly || isSettled()) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+}
+
+function wireKeyboard() {
+  document.addEventListener('keydown', function(e) {
+    if (document.querySelector('dialog[open]')) return;
+    var t = e.target;
+    var typing = t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]');
+    var mod = e.ctrlKey || e.metaKey;
+    var key = (e.key || '').toLowerCase();
+    if (mod && !typing && key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+    if (mod && !typing && key === 'y') { e.preventDefault(); redo(); return; }
+    if (e.key === 'Escape') {
+      if (isMenuOpen()) { closeMenu(true); return; }
+      if (document.body.dataset.sheet) { closeSheets(); return; }
+      if (selectedBlockId && !typing) {
+        var el = gridItemEl(selectedBlockId);
+        selectBlock(null);
+        if (el) el.querySelector('.grid-stack-item-content').focus();
       }
-    }).catch(function() {});
+    }
+  });
 }
 
 async function initEditor() {
-  showLoading('Loading editor...');
+  initTheme();
+  hydrateIcons(document);
+  showLoading('Loading editor…');
   try {
     fetch('/api/settings').then(function(r) { return r.json(); }).then(function(s) {
       try {
@@ -1965,108 +2912,51 @@ async function initEditor() {
         availableRestSources = ext.map(function(x) { return x.name; }).filter(Boolean);
       } catch (e) { availableRestSources = []; }
     }).catch(function() { availableRestSources = []; });
+    // Metrics for the settings dropdowns: fetched once, not on every open.
+    metricsPromise = fetchDashboardState().then(function(state) {
+      availableMetrics = state.metrics ? Object.keys(state.metrics).sort() : [];
+    }).catch(function(e) {
+      console.warn('Could not fetch metrics for settings dropdowns:', e);
+      availableMetrics = [];
+    });
+    var authPromise = fetch('/api/auth/status').then(function(r) { return r.json(); }).catch(function() { return { authenticated: true }; });
+
     dashboardConfig = await fetchDashboardConfig();
-    if (!dashboardConfig.dashboards || !dashboardConfig.dashboards.length) {
+    if (!dashboardConfig || typeof dashboardConfig !== 'object') dashboardConfig = {};
+    if (!Array.isArray(dashboardConfig.dashboards) || !dashboardConfig.dashboards.length) {
       dashboardConfig.dashboards = [{ id: 'main', name: 'Main', layout: [] }];
       dashboardConfig.activeDashboard = 'main';
     }
+    dashboardConfig.dashboards.forEach(function(db) { if (!Array.isArray(db.layout)) db.layout = []; });
     var requestedTab = new URLSearchParams(window.location.search).get('tab');
     currentTabId = dashboardConfig.dashboards.some(function(db) { return db.id === requestedTab; })
       ? requestedTab
-      : (dashboardConfig.activeDashboard || dashboardConfig.dashboards[0].id);
+      : (dashboardConfig.dashboards.some(function(db) { return db.id === dashboardConfig.activeDashboard; })
+        ? dashboardConfig.activeDashboard
+        : dashboardConfig.dashboards[0].id);
 
-    refreshTabSelect();
+    var auth = await authPromise;
+    if (auth && auth.authenticated === false) enterReadOnly();
+    await metricsPromise;
 
-    // Palette drop target — bound once (loadTab runs on every dashboard switch).
-    var dropZone = document.querySelector('.editor-grid-wrapper');
-    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-    dropZone.addEventListener('drop', function(e) {
-      e.preventDefault();
-      var type = e.dataTransfer.getData('blockType');
-      if (type) addBlockToGrid(type);
-    });
-
-    document.getElementById('tab-select').addEventListener('change', function(e) {
-      if (unsaved) { persistLayout(); clearUnsaved(); }
-      loadTab(e.target.value);
-    });
-    document.getElementById('dash-name-input').addEventListener('change', function() { markUnsaved(); });
-
-    // New Dashboard
-    document.getElementById('new-dash-btn').addEventListener('click', function() {
-      var id = 'db_' + Date.now();
-      dashboardConfig.dashboards.push({ id: id, name: 'New Dashboard', layout: [] });
-      dashboardConfig.activeDashboard = id;
-      persistLayout(); clearUnsaved();
-      loadTab(id);
-    });
-
-    // Delete Dashboard
-    document.getElementById('delete-dash-btn').addEventListener('click', function() {
-      if (dashboardConfig.dashboards.length <= 1) { alert('Cannot delete the last dashboard.'); return; }
-      if (!confirm('Delete this dashboard and all its blocks?')) return;
-      dashboardConfig.dashboards = dashboardConfig.dashboards.filter(function(db) { return db.id !== currentTabId; });
-      currentTabId = dashboardConfig.dashboards[0].id;
-      dashboardConfig.activeDashboard = currentTabId;
-      saveDashboardConfig(dashboardConfig)
-        .then(function() { setSaveError(null); })
-        .catch(function(e) { console.warn(e); setSaveError(e); });
-      loadTab(currentTabId);
-    });
-
-    // Palette — use addBlockToGrid instead of loadTab rebuild
-    var palette = document.getElementById('available-blocks');
-    var names = { 'flow-card':'\uD83D\uDD04 Flow Card','forecast-banner':'\u2600\uFE0F Forecast','forecast-sparkline':'\u2600\uFE0F Forecast Spark','forecast-info':'\u2600\uFE0F Forecast Info','metric-cards':'\uD83D\uDCCA Metric Cards','grid-card':'\uD83D\uDD0C Grid Card','chart-power':'\u26A1 Power Chart','chart-energy':'\uD83D\uDCC8 Energy Chart','chart-metric':'\u25C7 Metric Chart','savings-summary':'\uD83D\uDCB0 Savings','data-table-daily':'\uD83D\uDCCB Daily Table','data-table-monthly':'\uD83D\uDCC5 Monthly Table','weather-block':'\uD83C\uDF26\uFE0F Weather','battery-block':'\uD83D\uDD0B Battery','flow-card-2':'\uD83D\uDD04 Flow Card 2','multi-value':'\uD83D\uDCCA Multi-Value','gauge-card':'\uD83C\uDFAF Gauge','half-gauge':'\uD83C\uDFAF Half Gauge','half-gauge-2':'\uD83C\uDFAF Half Gauge 2','flow-card-square':'\uD83D\uDD04 Flow Sq','flow-card-square-2':'\uD83D\uDD04 Flow Sq 2','text-card':'\uD83D\uDCDD Text','text-metric':'\uD83D\uDCDD Text Metric','iframe-card':'\uD83C\uDF10 Embed','forecast-pvtoday':'\u2600\uFE0F PV Today','bar-gauge':'\uD83D\uDCCA Bar Gauge','bar-gauge-retro':'\uD83D\uDCCA Bar Retro','bar-single':'\uD83D\uDCCA Bar Single','bar-stacked':'\uD83D\uDCCA Bar Stacked','bar-threshold':'\uD83D\uDCCA Bar Threshold','switch-block':'\uD83D\uDD18 Toggle Switch','state-select':'\uD83D\uDCCB State Select' };
-    Object.entries(componentBuilders).forEach(function(entry) {
-      var type = entry[0];
-      var item = document.createElement('div');
-      item.className = 'block-item'; item.textContent = names[type] || type; item.draggable = true; item.dataset.blockType = type;
-      item.addEventListener('dragstart', function(e) { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('blockType', type); });
-      item.addEventListener('click', function() { addBlockToGrid(type); });
-      palette.appendChild(item);
-    });
-
-    // Export/Import
-    document.getElementById('export-btn').addEventListener('click', function() {
-      var json = JSON.stringify(dashboardConfig, null, 2);
-      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = 'dashboard-config.json'; a.click();
-    });
-    document.getElementById('import-btn').addEventListener('click', function() {
-      var input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
-      input.addEventListener('change', async function(e) {
-        var file = e.target.files[0]; if (!file) return;
-        try {
-          var text = await file.text(); var imported = JSON.parse(text);
-          if (!imported || !Array.isArray(imported.dashboards)) throw new Error('Invalid format: dashboards must be an array');
-          var existingCount = dashboardConfig.dashboards.length;
-          var importedCount = imported.dashboards.length;
-          var choice = prompt('Import contains ' + importedCount + ' dashboard(s); current configuration has ' + existingCount + '. Type Append or Replace.');
-          if (choice !== 'Append' && choice !== 'Replace') return;
-          var nextDashboardConfig = applyDashboardImport(dashboardConfig, imported, choice);
-          dashboardConfig = nextDashboardConfig;
-          currentTabId = choice === 'Replace'
-            ? (dashboardConfig.dashboards[0] && dashboardConfig.dashboards[0].id)
-            : currentTabId;
-          refreshTabSelect();
-          if (currentTabId) loadTab(currentTabId);
-          markUnsaved();
-        } catch (err) { alert('Import failed: ' + err.message); }
-      });
-      input.click();
-    });
-
-    await loadTab(currentTabId);
-    document.getElementById('save-btn').addEventListener('click', async function() { if (!(await persistLayout())) return; clearUnsaved(); var validTab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) ? currentTabId : dashboardConfig.dashboards[0]?.id || 'main'; window.location.href = '/?tab=' + encodeURIComponent(validTab); });
-
-    // ── Settings Modal Event Bindings ──
-    document.getElementById('settings-modal-close').addEventListener('click', hideSettingsModal);
-    document.getElementById('settings-modal-cancel').addEventListener('click', hideSettingsModal);
-    document.getElementById('settings-modal-save').addEventListener('click', handleSettingsSave);
-    document.getElementById('settings-modal-overlay').addEventListener('click', function(e) { if (e.target === e.currentTarget) hideSettingsModal(); });
-    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && currentEditingBlock) hideSettingsModal(); });
-
+    buildToolbar();
+    wireLibrary();
+    wireCanvas();
+    wireTopbar();
+    wireKeyboard();
+    loadTab(currentTabId, { skipSync: true });
+    setSaveStatus(readOnly ? 'readonly' : 'saved');
+    updateUndoButtons();
     hideLoading();
-  } catch (e) { hideLoading(); alert('Editor failed: ' + e.message); }
+  } catch (e) {
+    console.error('Editor failed to load:', e);
+    hideLoading();
+    var empty = $('empty-state');
+    empty.hidden = false;
+    empty.innerHTML = '<h2>The editor couldn\'t load</h2><p></p><button type="button" class="ed-btn ed-btn-primary">Try again</button>';
+    empty.querySelector('p').textContent = e.message || String(e);
+    empty.querySelector('button').addEventListener('click', function() { window.location.reload(); });
+  }
 }
 
 initEditor();
