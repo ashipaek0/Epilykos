@@ -1,5 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
+import { formatMetric } from './format.js';
+const watts = (w) => formatMetric(w, 'W').text;
 
 
 export function buildFlowCardSquare(block = {}) {
@@ -19,7 +21,7 @@ export function buildFlowCardSquare(block = {}) {
         <i id="${uid('fcs-icon-solar',id)}" class="fi fi-sr-solar-panel fcs-icon"></i>
         <div class="fcs-info">
           <span class="fcs-label">Solar</span>
-          <span class="fcs-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span>
+          <span class="fcs-value" data-metric="${escapeHtml(metrics.solar)}">—</span>
         </div>
       </div>
       <div class="fcs-cell" id="${uid('fcs-battery',id)}">
@@ -27,7 +29,7 @@ export function buildFlowCardSquare(block = {}) {
         <div class="fcs-info">
           <span class="fcs-label">Battery</span>
           <span class="fcs-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('fcs-battery-soc',id)}">0%</span>
-          <span class="fcs-sub" data-metric="${escapeHtml(metrics.battery_power)}" id="${uid('fcs-battery-power',id)}">0 W</span>
+          <span class="fcs-sub" data-metric="${escapeHtml(metrics.battery_power)}" id="${uid('fcs-battery-power',id)}">—</span>
         </div>
       </div>
       <div class="fcs-cell" id="${uid('fcs-inverter',id)}">
@@ -41,7 +43,7 @@ export function buildFlowCardSquare(block = {}) {
         <i id="${uid('fcs-icon-grid',id)}" class="fi fi-sr-bolt fcs-icon"></i>
         <div class="fcs-info">
           <span class="fcs-label">Grid</span>
-          <span class="fcs-value" data-metric="${escapeHtml(metrics.grid)}">0 W</span>
+          <span class="fcs-value" data-metric="${escapeHtml(metrics.grid)}">—</span>
         </div>
       </div>
     </div>`;
@@ -66,7 +68,7 @@ export function updateFlowCardSquare(state) {
 
     // Solar
     const sv = card.querySelector(`#${uid('fcs-solar',id)} .fcs-value`);
-    if (sv) sv.textContent = rawTextOf('solar') ?? (Math.round(solar) + ' W');
+    if (sv) sv.textContent = rawTextOf('solar') ?? (watts(solar));
     const si = el('fcs-icon-solar');
     if (si) si.style.color = solar > 50 ? 'var(--solar)' : 'var(--text-secondary)';
 
@@ -75,9 +77,9 @@ export function updateFlowCardSquare(state) {
     if (bv) bv.textContent = rawTextOf('battery_soc') ?? (Math.round(battSoc) + '%');
     const bp = el('fcs-battery-power');
     if (bp) {
-      if (battPower > 50) bp.textContent = '↑ ' + Math.round(battPower) + ' W';
-      else if (battDischarge > 50) bp.textContent = '↓ ' + Math.round(battDischarge) + ' W';
-      else bp.textContent = '0 W';
+      if (battPower > 50) bp.textContent = '↑ ' + watts(battPower);
+      else if (battDischarge > 50) bp.textContent = '↓ ' + watts(battDischarge);
+      else bp.textContent = watts(0);
     }
     const bi = el('fcs-icon-battery');
     if (bi) {
@@ -92,7 +94,7 @@ export function updateFlowCardSquare(state) {
     // Grid
     const gv2 = card.querySelector(`#${uid('fcs-grid',id)} .fcs-value`);
     if (gv2) {
-      gv2.textContent = gridExport > grid ? Math.round(gridExport) + ' W out' : Math.round(grid) + ' W in';
+      gv2.textContent = gridExport > grid ? watts(gridExport) + ' out' : watts(grid) + ' in';
     }
     const gi = el('fcs-icon-grid');
     if (gi) {
