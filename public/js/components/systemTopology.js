@@ -182,7 +182,18 @@ export function updateSystemTopology(state) {
 function positionFlowLines(container) {
   const grid = container.querySelector('.topo-grid');
   if (!grid) return;
+  // Measure relative to .topo-grid in layout pixels. The card may sit inside
+  // a CSS transform (the layout editor scales previews), so divide by the
+  // on-screen scale.
   const gridRect = grid.getBoundingClientRect();
+  const scale = grid.offsetWidth ? gridRect.width / grid.offsetWidth || 1 : 1;
+  const rel = (el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      left: (r.left - gridRect.left) / scale, right: (r.right - gridRect.left) / scale,
+      top: (r.top - gridRect.top) / scale, bottom: (r.bottom - gridRect.top) / scale
+    };
+  };
 
   const hub = container.querySelector('.topo-hub');
   const solarCircle = container.querySelector('.topo-solar .topo-node-circle');
@@ -192,20 +203,20 @@ function positionFlowLines(container) {
 
   if (!hub || !solarCircle || !gridCircle || !homeCircle || !battCircle) return;
 
-  const hubR = hub.getBoundingClientRect();
-  const solarR = solarCircle.getBoundingClientRect();
-  const gridR = gridCircle.getBoundingClientRect();
-  const homeR = homeCircle.getBoundingClientRect();
-  const battR = battCircle.getBoundingClientRect();
+  const hubR = rel(hub);
+  const solarR = rel(solarCircle);
+  const gridR = rel(gridCircle);
+  const homeR = rel(homeCircle);
+  const battR = rel(battCircle);
 
   const lineW = 3; // line thickness
 
   // Solar → Hub (vertical: solar bottom-center to hub top-center)
   const solarLine = container.querySelector('.topo-line-solar');
   if (solarLine) {
-    const cx = (solarR.left + solarR.right) / 2 - gridRect.left;
-    const y1 = solarR.bottom - gridRect.top;
-    const y2 = hubR.top - gridRect.top;
+    const cx = (solarR.left + solarR.right) / 2;
+    const y1 = solarR.bottom;
+    const y2 = hubR.top;
     Object.assign(solarLine.style, {
       left: (cx - lineW / 2) + 'px', top: y1 + 'px',
       width: lineW + 'px', height: Math.max(0, y2 - y1) + 'px',
@@ -216,9 +227,9 @@ function positionFlowLines(container) {
   // Hub → Battery (vertical: hub bottom-center to battery top-center)
   const battLine = container.querySelector('.topo-line-battery');
   if (battLine) {
-    const cx = (hubR.left + hubR.right) / 2 - gridRect.left;
-    const y1 = hubR.bottom - gridRect.top;
-    const y2 = battR.top - gridRect.top;
+    const cx = (hubR.left + hubR.right) / 2;
+    const y1 = hubR.bottom;
+    const y2 = battR.top;
     Object.assign(battLine.style, {
       left: (cx - lineW / 2) + 'px', top: y1 + 'px',
       width: lineW + 'px', height: Math.max(0, y2 - y1) + 'px',
@@ -229,9 +240,9 @@ function positionFlowLines(container) {
   // Grid → Hub (horizontal: grid right-center to hub left-center)
   const gridLine = container.querySelector('.topo-line-grid');
   if (gridLine) {
-    const cy = (gridR.top + gridR.bottom) / 2 - gridRect.top;
-    const x1 = gridR.right - gridRect.left;
-    const x2 = hubR.left - gridRect.left;
+    const cy = (gridR.top + gridR.bottom) / 2;
+    const x1 = gridR.right;
+    const x2 = hubR.left;
     Object.assign(gridLine.style, {
       left: x1 + 'px', top: (cy - lineW / 2) + 'px',
       width: Math.max(0, x2 - x1) + 'px', height: lineW + 'px',
@@ -242,9 +253,9 @@ function positionFlowLines(container) {
   // Hub → Home (horizontal: hub right-center to home left-center)
   const homeLine = container.querySelector('.topo-line-home');
   if (homeLine) {
-    const cy = (homeR.top + homeR.bottom) / 2 - gridRect.top;
-    const x1 = hubR.right - gridRect.left;
-    const x2 = homeR.left - gridRect.left;
+    const cy = (homeR.top + homeR.bottom) / 2;
+    const x1 = hubR.right;
+    const x2 = homeR.left;
     Object.assign(homeLine.style, {
       left: x1 + 'px', top: (cy - lineW / 2) + 'px',
       width: Math.max(0, x2 - x1) + 'px', height: lineW + 'px',

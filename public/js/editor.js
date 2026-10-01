@@ -1836,7 +1836,13 @@ function fillGridItemContent(inner, block) {
     content.className = 'blk-placeholder';
     content.textContent = known ? info.name : 'Unknown block type "' + block.type + '". It isn\'t shown on the dashboard.';
   }
-  body.appendChild(content);
+  // Lay the card out at its dashboard size, then shrink it to fit (see
+  // applyPreviewScale), so it looks the way it will on the dashboard.
+  var frame = document.createElement('div');
+  frame.className = 'dashboard-block blk-scale';
+  frame.dataset.blockId = block.id;
+  frame.appendChild(content);
+  body.appendChild(frame);
   inner.appendChild(body);
 
   if (hidden) {
@@ -1887,6 +1893,36 @@ function refreshGridItem(block) {
 function updateEmptyState() {
   var tab = currentTab();
   $('empty-state').hidden = !!(tab && tab.layout.length);
+}
+
+// ── Preview scale ────────────────────────────────────────────────────────
+// The canvas is narrower than the dashboard, and cards are laid out for the
+// dashboard's width. Rather than squeezing them, the whole layout is drawn as
+// a scaled-down dashboard: rows and gaps shrink by the same factor as the
+// columns, and each card is laid out at full size and scaled with CSS.
+
+var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 10;
+var previewScale = 1;
+
+/** Width the dashboard's block area has in this browser window. */
+function dashboardWidth() {
+  return Math.min(DASHBOARD_MAX_WIDTH, Math.max(320, window.innerWidth - DASHBOARD_PAGE_PADDING));
+}
+
+function applyPreviewScale() {
+  var el = $('grid');
+  if (!el || !el.clientWidth) return;
+  var k = Math.min(1, el.clientWidth / dashboardWidth());
+  k = Math.round(k * 1000) / 1000;
+  el.style.setProperty('--pv-scale', String(k));
+  if (k === previewScale && grid && grid.getCellHeight() === CELL_HEIGHT * k) return;
+  previewScale = k;
+  if (grid) {
+    grid.batchUpdate();
+    grid.margin(GRID_MARGIN * k);
+    grid.cellHeight(CELL_HEIGHT * k);
+    grid.batchUpdate(false);
+  }
 }
 
 // ── Live previews ────────────────────────────────────────────────────────
@@ -2031,7 +2067,7 @@ function cellFromPoint(clientX, clientY, w) {
   var rect = $('grid').getBoundingClientRect();
   var colW = rect.width / GRID_COLUMNS;
   var x = Math.floor((clientX - rect.left) / colW);
-  var y = Math.floor((clientY - rect.top) / CELL_HEIGHT);
+  var y = Math.floor((clientY - rect.top) / (CELL_HEIGHT * previewScale));
   return { x: Math.max(0, Math.min(GRID_COLUMNS - w, x)), y: Math.max(0, y) };
 }
 
@@ -2620,8 +2656,10 @@ function loadTab(tabId, opts) {
     container.appendChild(buildGridItem(block));
   });
 
+  applyPreviewScale();
   grid = GridStack.init({
-    column: GRID_COLUMNS, cellHeight: CELL_HEIGHT, float: false, animate: true, minRow: 4,
+    column: GRID_COLUMNS, cellHeight: CELL_HEIGHT * previewScale, margin: GRID_MARGIN * previewScale,
+    float: false, animate: true, minRow: 4,
     staticGrid: readOnly,
     resizable: { handles: 'e, se, s, sw, w' },
     draggable: { cancel: 'input,textarea,button,select,option,.blk-toolbar' }
@@ -3001,6 +3039,8 @@ async function initEditor() {
     wireKeyboard();
     loadTab(currentTabId, { skipSync: true });
     refreshPreviews();
+    if (window.ResizeObserver) new ResizeObserver(function() { applyPreviewScale(); }).observe($('grid'));
+    window.addEventListener('resize', applyPreviewScale);
     setInterval(function() { if (!document.hidden) refreshPreviews(); }, 30000);
     setSaveStatus(readOnly ? 'readonly' : 'saved');
     updateUndoButtons();
