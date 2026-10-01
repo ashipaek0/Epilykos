@@ -267,7 +267,11 @@ function renderDashboard() {
 
         // Add editor link to tab bar
         const editorLink = document.createElement('a');
-        editorLink.href = `/editor?tab=${dashboardConfig.activeDashboard}`;
+        editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
+        // Tabs switch without a reload, so point at the tab shown at click time.
+        editorLink.addEventListener('click', () => {
+          editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
+        });
         editorLink.className = 'settings-link';
         editorLink.textContent = ' Edit Layout';
         editorLink.style.marginLeft = '0.5rem';
