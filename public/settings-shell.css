@@ -418,10 +418,13 @@ body.st {
 }
 
 /* ── Device-card controls in the app's button style ─────── */
-.st .st-type-panel [id$="-devices-container"],
-.st .st-type-panel #external-sources-container,
-.st .st-type-panel #bms-banks-container,
-.st .st-type-panel .tuya-grid { display: block; }
+/* One card at a time fills the detail pane. #settings-form is here to beat
+   style.css's ID rules (#dongle-devices-container etc.), which set a
+   two-column grid. */
+.st #settings-form .st-type-panel [id$="-devices-container"],
+.st #settings-form .st-type-panel #external-sources-container,
+.st #settings-form .st-type-panel #bms-banks-container,
+.st #settings-form .st-type-panel .tuya-grid { display: block; }
 .st .st-search > span:first-child { position: absolute; left: 12px; top: 13px; display: inline-flex; pointer-events: none; }
 .st #settings-form button.fetch-btn,
 .st #settings-form .device-card button:not(.remove-btn):not([data-action*="remove"]):not(.row-remove-btn):not(.st-icon-btn) {
