@@ -941,14 +941,11 @@
     themeToggle.textContent = icon;
     if (mobileThemeToggle) mobileThemeToggle.textContent = icon;
   }
-  // Migration: read old key if new key not set
-  var saved = localStorage.getItem('epilykos-theme');
-  if (!saved) {
-    saved = localStorage.getItem('theme');
-    if (!saved) {
-      saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-  }
+  // 'theme' is the key the dashboard and editor use; the older settings-only
+  // 'epilykos-theme' key is only a fallback so the pages never disagree.
+  var saved = null;
+  try { saved = localStorage.getItem('theme') || localStorage.getItem('epilykos-theme'); } catch (e) {}
+  if (!saved) saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   setTheme(saved);
   themeToggle.addEventListener('click', function() {
     setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
@@ -968,6 +965,8 @@
     activateSection(sectionId);
     if (subtabId) activateSubtab(subtabId);
   }
+  // Help topics link here from inline handlers, which run in global scope.
+  window.navigateTo = navigateTo;
 
   function activateSection(sectionId) {
     activeSection = sectionId;
@@ -981,6 +980,7 @@
     if (navBtn) navBtn.classList.add('active');
 
     try { localStorage.setItem('epilykos-settings-section', sectionId); } catch(e) {}
+    if (sectionId === 'backup' && typeof loadSnapshots === 'function') loadSnapshots();
   }
 
   navItems.forEach(function(item) {
@@ -1087,6 +1087,24 @@
       dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
       dirtyCount.classList.add('show');
     }
+  });
+
+  // Adding or removing devices, rows and dashboards changes the settings too,
+  // even though no named field fires an input event.
+  stgForm.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn || btn.id === 'stg-save-btn') return;
+    var sig = ((btn.className || '') + ' ' + (btn.id || '') + ' ' + (btn.getAttribute('data-action') || '')).toLowerCase();
+    if (/(^|[\s-])(add|remove|delete)([\s-]|$)|remove-btn|set-active/.test(sig)) {
+      dirtyFields.add('structure:' + (btn.id || btn.className));
+      dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
+      dirtyCount.classList.add('show');
+    }
+  }, true);
+  window.addEventListener('beforeunload', function(e) {
+    if (!dirtyFields.size) return;
+    e.preventDefault();
+    e.returnValue = '';
   });
 
   // ── Save button ────────────────────────────────────────
@@ -1196,12 +1214,6 @@
   }
 
   loadSnapshots();
-  if (snapSection) {
-    var observer = new MutationObserver(function() {
-      if (snapSection.style.display !== 'none') loadSnapshots();
-    });
-    observer.observe(snapSection, { attributes: true, attributeFilter: ['style'] });
-  }
 
   // ── Mappings filter ──────────────────────
   function applyMappingFilterAndPagination(containerId) {
