@@ -25,12 +25,18 @@
 
   function setPath(obj, path, val) {
     var parts = path.split('.');
-    for (var i = 0; i < parts.length; i++) {
-      if (!isSafeKey(parts[i])) return; // refuse to walk/assign onto polluted keys
-    }
     var cur = obj;
-    for (var i = 0; i < parts.length - 1; i++) { cur = cur[parts[i]]; }
-    cur[parts[parts.length - 1]] = val;
+    // Walk only existing own properties, refusing polluted keys at every step.
+    for (var i = 0; i < parts.length - 1; i++) {
+      var key = parts[i];
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+      if (!Object.prototype.hasOwnProperty.call(cur, key)) return;
+      cur = cur[key];
+      if (cur === null || typeof cur !== 'object') return;
+    }
+    var last = parts[parts.length - 1];
+    if (last === '__proto__' || last === 'constructor' || last === 'prototype') return;
+    cur[last] = val;
   }
   function getPath(obj, path) {
     var parts = path.split('.');
@@ -68,6 +74,15 @@
     }).catch(function (err) {
       return { ok: false, status: 0, data: null, error: err };
     });
+  }
+
+  // Drop empty fields, as encodeQuery does — the server falls back to saved config for missing ones.
+  function compact(obj) {
+    var out = {};
+    for (var k in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') out[k] = obj[k];
+    }
+    return out;
   }
 
   function encodeQuery(obj) {
@@ -1385,9 +1400,9 @@
     clearError(kind);
     var p;
     if (kind === 'ha') {
-      p = api('/api/ha-device-entities' + encodeQuery({ url: s.url, token: s.token }));
+      p = api('/api/ha-device-entities', { method: 'POST', body: JSON.stringify({ url: s.url, token: s.token }) });
     } else if (kind === 'mqtt') {
-      p = api('/api/test-mqtt' + encodeQuery({ broker: s.broker, username: s.username, password: s.password }));
+      p = api('/api/test-mqtt', { method: 'POST', body: JSON.stringify({ broker: s.broker, username: s.username, password: s.password }) });
     } else if (kind === 'dongle') {
       var body = dongleTestBody();
       p = api('/api/dongle/test', { method: 'POST', body: JSON.stringify(body) });
@@ -1409,7 +1424,7 @@
       p = api('/api/pvoutput/test', { method: 'POST', body: JSON.stringify({ api_key: pvo.api_key, system_id: pvo.system_id }) });
     } else if (kind === 'forecast') {
       var fo = state.optional.forecast;
-      p = api('/api/test-forecast' + encodeQuery({ lat: fo.latitude, lon: fo.longitude, capacity: fo.capacity_kwp, api_key: fo.solcast_api_key, resource_id: fo.solcast_resource_id, tilt: fo.tilt, azimuth: fo.azimuth, loss: fo.loss_factor }));
+      p = api('/api/test-forecast', { method: 'POST', body: JSON.stringify(compact({ lat: fo.latitude, lon: fo.longitude, capacity: fo.capacity_kwp, api_key: fo.solcast_api_key, resource_id: fo.solcast_resource_id, tilt: fo.tilt, azimuth: fo.azimuth, loss: fo.loss_factor })) });
     } else if (kind === 'network') {
       p = testNetworkUrls();
     }
@@ -1575,7 +1590,7 @@
     var s = state.sources.mqtt;
     var box = $('#mqtt-topics');
     if (box) box.innerHTML = '<div class="test-badge pending">Discovering…</div>';
-    api('/api/mqtt-discover-topics' + encodeQuery({ broker: s.broker, username: s.username, password: s.password })).then(function (res) {
+    api('/api/mqtt-discover-topics', { method: 'POST', body: JSON.stringify({ broker: s.broker, username: s.username, password: s.password }) }).then(function (res) {
       if (!box) return;
       if (res.ok && res.data && res.data.success && Array.isArray(res.data.topics)) {
         var topics = res.data.topics;
