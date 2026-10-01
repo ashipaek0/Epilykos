@@ -41,6 +41,6 @@ export function buildChartMetric(block = {}) {
   const container = document.createElement('div');
   container.className = 'chart-container'; container.dataset.chartDatasets = JSON.stringify(datasets); container.dataset.chartConfig = JSON.stringify(config || {}); container.dataset.blockId = id;
   container.innerHTML = `<div class="chart-header"><h3>${escapeHtml(config.title || 'Metric Chart')}</h3><div class="chart-controls" id="${uid('metric-chart-controls', id)}"><button data-range="24h" class="active">24h</button><button data-range="3d">3d</button><button data-range="7d">7d</button></div></div><div class="chart-loading" id="${uid('metricChart-loading', id)}">Loading chart\u2026</div><canvas id="${uid('metricChart', id)}" style="display:none;"></canvas>`;
-  container.querySelector('#' + uid('metric-chart-controls', id)).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const r = b.dataset.range; if (r) { container.querySelectorAll('button').forEach(x => x.classList.remove('active')); b.classList.add('active'); import('../charts.js').then(m => m.setMetricRange(r)); } });
+  container.querySelector('#' + uid('metric-chart-controls', id)).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const r = b.dataset.range; if (r) { container.querySelectorAll('button').forEach(x => x.classList.remove('active')); b.classList.add('active'); import('../charts.js').then(m => m.setMetricRange(r, null, container)); } });
   return container;
 }
