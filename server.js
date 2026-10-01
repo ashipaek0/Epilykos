@@ -123,7 +123,7 @@ const { testForecast, shouldInvalidateForecastCache, clearForecastCache } = requ
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
-const { assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp, isValidHostname } = require('./modules/utils');
+const { assertSafeFetchUrl, assertSafeBrokerUrl, isBlockedIp, isValidHostname, trimSlashes, safeFetch } = require('./modules/utils');
 const { startExternalPolling, restartExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./modules/bms');
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
@@ -419,7 +419,11 @@ app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
+  // 'auto': Secure whenever the request is HTTPS (directly or via the reverse
+  // proxy — trust proxy is set above), so plain-HTTP LAN access keeps working.
+  // sameSite 'lax' keeps the cookie off cross-site subrequests (CSRF defence in
+  // depth next to the X-Requested-With check in csrfProtection).
+  cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 // Initialize database, load profiles, start MQTT and external polling
@@ -647,11 +651,46 @@ app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   res.json({ success: true });
 });
 
+/**
+ * Path of a bundled profile file by id, or null. The path is built from the
+ * matching directory entry, never from the request, so no id can escape the
+ * profiles directory.
+ */
+function bundledProfilePath(subdir, id) {
+  const dir = path.join(__dirname, 'profiles', subdir);
+  const wanted = `${String(id || '')}.json`;
+  let entry;
+  try { entry = fs.readdirSync(dir).find(f => f === wanted); } catch (_) { return null; }
+  return entry ? path.join(dir, entry) : null;
+}
+
+/** Path of a multer upload, checked to sit in the upload directory; else null. */
+function uploadedFilePath(file) {
+  const root = path.resolve(require('os').tmpdir());
+  const resolved = path.resolve(String((file && file.path) || ''));
+  return resolved.startsWith(root + path.sep) ? resolved : null;
+}
+
+/** Plain string/number fields of a JSON body, as strings — like a query string. */
+function stringFields(obj) {
+  const out = {};
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return out;
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === 'string') out[k] = v;
+    else if (typeof v === 'number' && Number.isFinite(v)) out[k] = String(v);
+  }
+  return out;
+}
+
 // ---------- Protected API (session + CSRF) – no rate limit ----------
+// Test/discovery routes that carry credentials (passwords, tokens, API keys)
+// are POST with a JSON body, so secrets never land in URLs, access logs or
+// browser history.
 app.use('/api/test-forecast', isAuthenticated);
-app.get('/api/test-forecast', async (req, res) => {
+app.post('/api/test-forecast', async (req, res) => {
+  const body = stringFields(req.body);
   try {
-    res.json(await testForecast(req.query));
+    res.json(await testForecast(body));
   } catch (err) {
     logger.error('Error in test-forecast:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -672,8 +711,9 @@ app.post('/api/role-metrics', (req, res) => {
 });
 
 app.use('/api/ha-device-entities', isAuthenticated);
-app.get('/api/ha-device-entities', async (req, res) => {
-  const { url, token } = req.query;
+app.post('/api/ha-device-entities', async (req, res) => {
+  const body = stringFields(req.body);
+  const { url, token } = body;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
@@ -691,8 +731,9 @@ app.get('/api/ha-device-entities', async (req, res) => {
 // attributes. Pure projection (haStatesToCatalog) — no registry, no websocket,
 // no writes. The legacy string-array endpoint above is untouched.
 app.use('/api/ha/entities', isAuthenticated);
-app.get('/api/ha/entities', async (req, res) => {
-  const { url, token } = req.query;
+app.post('/api/ha/entities', async (req, res) => {
+  const body = stringFields(req.body);
+  const { url, token } = body;
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
@@ -704,12 +745,13 @@ app.get('/api/ha/entities', async (req, res) => {
     if (u.protocol !== 'http:' && u.protocol !== 'https:') {
       return res.status(400).json({ error: 'HA URL scheme not allowed (must use http or https)' });
     }
-    let p = u.pathname.replace(/\/+$/, '');
+    let p = trimSlashes(u.pathname);
     if (p === '') p = '/api';
     else if (!p.endsWith('/api')) p = p + '/api';
     u.pathname = p + '/states';
     const response = await fetch(u, {
       headers: { 'Authorization': `Bearer ${token}` },
+      redirect: 'error', // never forward the HA token to a redirect target
       signal: AbortSignal.timeout(5000)
     });
     if (!response.ok) throw new Error(`HA error ${response.status} for GET ${u.toString()}`);
@@ -796,6 +838,7 @@ app.post('/api/ha/entity-actions', async (req, res) => {
         getEntityModes(url, token, entityIdOk),
         fetch(haApiUrl(url, 'states/' + entityIdOk), {
           headers: { 'Authorization': `Bearer ${token}` },
+          redirect: 'error', // never forward the HA token to a redirect target
           signal: AbortSignal.timeout(5000)
         }).catch(() => null)
       ]);
@@ -818,15 +861,16 @@ app.post('/api/ha/entity-actions', async (req, res) => {
 });
 
 app.use('/api/test-mqtt', isAuthenticated);
-app.get('/api/test-mqtt', async (req, res) => {
+app.post('/api/test-mqtt', async (req, res) => {
+  const body = stringFields(req.body);
   // Support pre-save testing: accept broker/username/password from query params
-  const broker = req.query.broker || (() => {
+  const broker = body.broker || (() => {
     const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
     const device = devices.find(d => d.enabled);
     return device?.broker;
   })();
-  const username = req.query.username || null;
-  const password = req.query.password || null;
+  const username = body.username || null;
+  const password = body.password || null;
   if (!broker) return res.status(400).json({ error: 'No MQTT broker configured. Enter a broker URL first.' });
   const options = {};
   if (username) options.username = username;
@@ -836,7 +880,8 @@ app.get('/api/test-mqtt', async (req, res) => {
   const testClient = require('mqtt').connect(safe.url, options);
   let responded = false;
   const timeout = setTimeout(() => {
-    if (!responded) { testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
+    // Mark answered first: a late 'error' event must not reply again (that throws and kills the process).
+    if (!responded) { responded = true; testClient.end(); res.status(500).json({ error: 'Connection timeout' }); }
   }, 5000);
   testClient.on('connect', () => {
     clearTimeout(timeout);
@@ -851,17 +896,18 @@ app.get('/api/test-mqtt', async (req, res) => {
 });
 
 app.use('/api/test-mqtt-topic', isAuthenticated);
-app.get('/api/test-mqtt-topic', async (req, res) => {
-  const topic = req.query.topic;
+app.post('/api/test-mqtt-topic', async (req, res) => {
+  const body = stringFields(req.body);
+  const topic = body.topic;
   if (!topic) return res.status(400).json({ error: 'Topic required' });
   // Support pre-save testing: accept broker/username/password from query params
-  const broker = req.query.broker || (() => {
+  const broker = body.broker || (() => {
     const devices = JSON.parse(getConfig('mqtt_devices') || '[]');
     const device = devices.find(d => d.enabled);
     return device?.broker;
   })();
-  const username = req.query.username || null;
-  const password = req.query.password || null;
+  const username = body.username || null;
+  const password = body.password || null;
   if (!broker) return res.status(400).json({ error: 'No MQTT broker configured' });
   const options = {};
   if (username) options.username = username;
@@ -871,7 +917,7 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
   const testClient = require('mqtt').connect(safe.url, options);
   let responded = false;
   const timeout = setTimeout(() => {
-    if (!responded) { testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
+    if (!responded) { responded = true; testClient.end(); res.status(500).json({ error: 'No message received within 5 seconds' }); }
   }, 5000);
   testClient.on('connect', () => testClient.subscribe(topic));
   testClient.on('message', (recTopic, message) => {
@@ -895,10 +941,11 @@ app.get('/api/test-mqtt-topic', async (req, res) => {
 
 // ── MQTT topic discovery ────────────────────────────────────────
 app.use('/api/mqtt-discover-topics', isAuthenticated);
-app.get('/api/mqtt-discover-topics', async (req, res) => {
-  const broker = req.query.broker;
-  const username = req.query.username || null;
-  const password = req.query.password || null;
+app.post('/api/mqtt-discover-topics', async (req, res) => {
+  const body = stringFields(req.body);
+  const broker = body.broker;
+  const username = body.username || null;
+  const password = body.password || null;
   if (!broker) return res.status(400).json({ error: 'Broker URL required' });
   const safe = assertSafeBrokerUrl(broker);
   if (!safe.ok) return res.status(400).json({ error: safe.error });
@@ -1047,8 +1094,8 @@ app.get('/api/rs232/profile/:id', (req, res) => {
   const profile = rs232Profiles.find(p => p.id === req.params.id);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
   // Resolve profile_file alias and return full profile with fields/commands
-  const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
-  const profilePath = path.join(__dirname, 'profiles', 'rs232', `${safeId}.json`);
+  const profilePath = bundledProfilePath('rs232', profile.id);
+  if (!profilePath) return res.status(404).json({ error: 'Profile not found' });
   try {
     const fullProfile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     // Issue #108 AC-9: serve the ALIAS-MERGED profile — resolve profile_file
@@ -1134,8 +1181,10 @@ app.get('/api/dashboard-config/export', isAuthenticated, (req, res) => {
 
 app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const uploaded = uploadedFilePath(req.file);
+  if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
   try {
-    const content = fs.readFileSync(req.file.path, 'utf8');
+    const content = fs.readFileSync(uploaded, 'utf8');
     const imported = JSON.parse(content);
     if (!imported.dashboards || !Array.isArray(imported.dashboards)) {
       throw new Error('Invalid dashboard config format');
@@ -1156,10 +1205,10 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
     } else {
       saveDashboardConfig(imported);
     }
-    fs.unlinkSync(req.file.path);
+    fs.unlinkSync(uploaded);
     res.json({ success: true });
   } catch (err) {
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded);
     logger.error('Error importing dashboard config:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -1182,8 +1231,10 @@ function rebindAfterRestore() {
 app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const uploaded = uploadedFilePath(req.file);
+  if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
   try {
-    await restoreDatabase(req.file.path);
+    await restoreDatabase(uploaded);
     rebindAfterRestore();
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
@@ -1191,7 +1242,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
     logger.error('Restore error:', err);
     res.status(500).json({ error: 'Restore failed, original database restored.' });
   } finally {
-    try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(e) {}
+    try { if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded); } catch(e) {}
   }
 });
 
@@ -1953,7 +2004,7 @@ app.post('/api/test-external', async (req, res) => {
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
   try {
-    const response = await fetch(safeUrl, { signal: AbortSignal.timeout(5000) });
+    const response = await safeFetch(safeUrl, { signal: AbortSignal.timeout(5000) }, { allowPrivate: true }); // re-checks each redirect hop
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     let value = null;
@@ -1986,7 +2037,7 @@ app.post('/api/external/fields', async (req, res) => {
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
   try {
-    const response = await fetch(safeUrl, { signal: AbortSignal.timeout(5000) });
+    const response = await safeFetch(safeUrl, { signal: AbortSignal.timeout(5000) }, { allowPrivate: true }); // re-checks each redirect hop
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     const { leaves, truncated } = flattenJsonLeaves(data, REST_FLATTEN_DEFAULT_CAPS);
@@ -2017,9 +2068,8 @@ app.get('/api/dongle/profiles', isAuthenticated, (req, res) => {
 app.use('/api/dongle/profile', isAuthenticated);
 app.get('/api/dongle/profile/:id', (req, res) => {
   try {
-    const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
-    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
-    if (!fs.existsSync(profilePath)) return res.status(404).json({ error: 'Profile not found' });
+    const profilePath = bundledProfilePath('dongles', req.params.id);
+    if (!profilePath) return res.status(404).json({ error: 'Profile not found' });
     const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     res.json(profile);
   } catch (err) {
@@ -2037,9 +2087,8 @@ app.get('/api/dongle/profile/:id', (req, res) => {
 // creation, no config writes, no poll side effects. 404/500 shapes unchanged.
 app.get('/api/dongle/profile/:id/entities', (req, res) => {
   try {
-    const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
-    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
-    if (!fs.existsSync(profilePath)) return res.status(404).json({ error: 'Profile not found' });
+    const profilePath = bundledProfilePath('dongles', req.params.id);
+    if (!profilePath) return res.status(404).json({ error: 'Profile not found' });
     const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     res.json(entityCatalog.dongleProfileEntities(profile));
   } catch (err) {
@@ -2053,8 +2102,7 @@ app.post('/api/dongle/test', async (req, res) => {
   const { host, port, serial_number, modbus_unit_id, transport } = req.body;
   if (transport === 'ble-gatt') {
     // Read-only Bluetooth profile (e.g. Phocos Any-Grid): one poll of its blocks.
-    const safeId = String(req.body.profile || '').replace(/[^a-zA-Z0-9_-]/g, '');
-    const profilePath = path.join(__dirname, 'profiles', 'dongles', `${safeId}.json`);
+    const profilePath = bundledProfilePath('dongles', req.body.profile);
     let profile;
     try { profile = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch (_) { return res.status(400).json({ error: 'Profile not found' }); }
     const { BleGattTransport } = require('./modules/dongle/bleGatt');

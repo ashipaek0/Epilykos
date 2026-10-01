@@ -111,20 +111,7 @@ The default characteristics are `ffd1` (write) and `fff1` (notify). If your modu
 
 Note that many Wi-Fi + Bluetooth dongles use Bluetooth only for Wi-Fi setup and don't serve live data over it.
 
-**Phocos Any-Grid PSW-H (Bluetooth):** the inverter's display has built-in Bluetooth (the link the PhocosLink app uses).
-
-Choose Connection **Bluetooth**, profile **Phocos Any-Grid PSW-H (Bluetooth)**, Scan and pick the device (it advertises
-its serial number, e.g. `ID9634…`). It is read-only and needs no pairing: Epilykos reads output, battery voltage/SOC/
-discharge current and power (voltage × current), heatsink temperature and both PV strings, and never writes to the inverter. Close the PhocosLink
-app first. Decoded on display firmware 00041.00; SOC, temperature and discharge current are inferred from live data.
-
-**LuxPower dongles (Wi-Fi or Bluetooth):** profile **LuxPower GETA Hybrid (Wi-Fi / Bluetooth dongle)**. Enter the
-10-character **dongle serial** (dongle label; the dongle also advertises it as its Bluetooth name, e.g. `DTXXXXXXXX`) and
-**inverter serial** (inverter label). Over Wi-Fi, enter the dongle's IP (port 8000). 
-
-Over Bluetooth, choose Connection **Bluetooth** and Scan for the dongle. Both carry the same LuxPower frames, so readings, entity mappings and
-write controls are identical; Bluetooth defaults to a 15 s poll because each read takes longer. Close the LuxPower app
-and disconnect any other Bluetooth client first. Dongles usually accept only one Bluetooth connection at a time.
+Dongles usually accept only one Bluetooth connection at a time.
 
 ### Home Assistant
 Enter your Home Assistant URL and a **Long-Lived Access Token**. Fetch available entities and map them to dashboard metrics.
