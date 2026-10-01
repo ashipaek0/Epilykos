@@ -4799,6 +4799,11 @@ if (saveRoleMetricsBtn) {
   saveRoleMetricsBtn.addEventListener('click', async () => {
     const statusEl = document.getElementById('role-metrics-status');
     const selects = document.querySelectorAll('.role-metric-select');
+    // Roles not loaded yet would post {} and erase every saved mapping.
+    if (!selects.length) {
+      showStatus(statusEl, 'Metric roles haven\'t loaded yet. Reload the page and try again.', 'error');
+      return;
+    }
     const mapping = {};
     selects.forEach(sel => {
       if (sel.value) mapping[sel.dataset.role] = sel.value;
@@ -4822,8 +4827,10 @@ const solarObserver = new MutationObserver(() => {
     loadRoleMetrics();
   }
 });
-const stgSections = document.getElementById('stg-main');
+const stgSections = document.getElementById('main-content');
 if (stgSections) solarObserver.observe(stgSections, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+// The observer only fires on later changes; cover the section already open.
+loadRoleMetrics();
 window.addEventListener('beforeunload', () => { solarObserver.disconnect(); if (bmsScanInterval) clearInterval(bmsScanInterval); });
 
 // ======================== METRICS MANAGEMENT ========================
