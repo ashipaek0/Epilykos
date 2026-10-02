@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title"><title id="title">Epilykos Broken Sun mark</title><circle cx="256" cy="256" r="214" fill="#E8441A"/><path id="opening" d="M70 375 207 226 229 248 99 400Z" fill="#F6F0E3"/><circle id="aperture" cx="238" cy="239" r="24" fill="#F6F0E3"/><path id="beacon-slit" d="M231 216 219 198 225 183 216 165 223 148 218 132 229 125 236 145 231 163 241 180 234 197 246 213Z" fill="#F6F0E3"/><path id="beam-left" class="beam" d="M248 224 390 94 365 140 278 238Z" fill="#11100E"/><path id="beam-right" class="beam" d="M250 247 432 119 393 168 277 258Z" fill="#11100E"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+<title id="title">Epilykos Watch-Grid E mark</title>
+<path d="M16 16 L16 52 M16 16 L42 16 M16 34 L42 34 M16 52 L42 52 M42 34 L56 34"
+      stroke="#1a1a18" stroke-width="7" fill="none" stroke-linecap="round"/>
+<circle cx="16" cy="16" r="8" fill="#d65a00"/>
+<circle cx="16" cy="34" r="8" fill="#c9922a"/>
+<circle cx="16" cy="52" r="8" fill="#767a3f"/>
+<circle cx="42" cy="16" r="8" fill="#c9922a"/>
+<circle cx="56" cy="34" r="8" fill="#9a3b26"/>
+<circle cx="42" cy="52" r="8" fill="#767a3f"/>
+</svg>
