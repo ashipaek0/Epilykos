@@ -4,8 +4,8 @@
   "description": "Real-time solar energy monitoring dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#292a24",
-  "theme_color": "#292a24",
+  "background_color": "#f5f5f0",
+  "theme_color": "#f5f5f0",
   "orientation": "portrait",
   "icons": [
     {
