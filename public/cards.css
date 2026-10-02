@@ -53,13 +53,13 @@
   justify-content: center;
   text-align: center;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--card-font-scale, 1));
   line-height: 1.45;
 }
 
 .ep-card-title, .chart-header h3, .fc-title, .daily-breakdown-header h3 {
   margin: 0;
-  font-size: clamp(0.8rem, 2.6cqi, 0.95rem) !important;
+  font-size: calc(clamp(0.8rem, 2.6cqi, 0.95rem) * var(--card-font-scale, 1)) !important;
   font-weight: 700 !important;
   letter-spacing: 0.01em;
   color: var(--text);
@@ -68,7 +68,7 @@
 
 /* Labels and values */
 .ep-label {
-  font-size: clamp(0.7rem, 2.4cqi, 0.85rem);
+  font-size: calc(clamp(0.7rem, 2.4cqi, 0.85rem) * var(--card-font-scale, 1));
   font-weight: 600;
   color: var(--text-secondary);
   opacity: 1;
@@ -97,7 +97,7 @@
 .ep-value.is-empty { color: var(--text-secondary); font-weight: 500; }
 /* Text values (modes, states) wrap instead of being cut off. */
 .ep-value.is-text { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
-.ep-tiles > .ep-tile .ep-value.is-text { font-size: clamp(1rem, 4.6cqi, 1.5rem); }
+.ep-tiles > .ep-tile .ep-value.is-text { font-size: calc(clamp(1rem, 4.6cqi, 1.5rem) * var(--card-font-scale, 1)); }
 
 /* ── Tiles: metric cards, multi-value, savings, grid hours ── */
 .ep-tiles {
@@ -121,10 +121,10 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-.ep-tiles > .ep-tile .ep-value { font-size: clamp(1.15rem, 6cqi, 2.1rem); }
+.ep-tiles > .ep-tile .ep-value { font-size: calc(clamp(1.15rem, 6cqi, 2.1rem) * var(--card-font-scale, 1)); }
 /* Inside a card (savings, grid) tiles are flat sub-areas, not cards. */
 .ep-card .ep-tiles > .ep-tile { background: var(--bg); border-color: transparent; box-shadow: none; padding: 0.6em 0.75em; }
-.ep-card .ep-tiles > .ep-tile .ep-value { font-size: clamp(1rem, 4.6cqi, 1.6rem); }
+.ep-card .ep-tiles > .ep-tile .ep-value { font-size: calc(clamp(1rem, 4.6cqi, 1.6rem) * var(--card-font-scale, 1)); }
 .ep-card .ep-tiles { flex: 1 1 auto; }
 @container (max-width: 260px) {
   .ep-tiles { grid-template-columns: minmax(0, 1fr); }
@@ -138,8 +138,8 @@
   padding: var(--card-pad) !important;
   gap: 0.35em;
 }
-.text-metric-card .text-metric-value { font-size: clamp(1.1rem, 5.5cqi, 2rem) !important; font-weight: 700; line-height: 1.15; }
-.text-metric-card .text-metric-label { font-size: clamp(0.7rem, 2.4cqi, 0.85rem); font-weight: 600; margin: 0; }
+.text-metric-card .text-metric-value { font-size: calc(clamp(1.1rem, 5.5cqi, 2rem) * var(--card-font-scale, 1)) !important; font-weight: 700; line-height: 1.15; }
+.text-metric-card .text-metric-label { font-size: calc(clamp(0.7rem, 2.4cqi, 0.85rem) * var(--card-font-scale, 1)); font-weight: 600; margin: 0; }
 
 /* ── Gauges ───────────────────────────────────────────────── */
 .ep-gauge { align-items: center; justify-content: center; text-align: center; padding: var(--card-pad) !important; }
@@ -152,10 +152,10 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15em;
   pointer-events: none;
 }
-.ep-gauge-ring .ep-value { font-size: clamp(1.05rem, 12cqi, 2.4rem); }
+.ep-gauge-ring .ep-value { font-size: calc(clamp(1.05rem, 12cqi, 2.4rem) * var(--card-font-scale, 1)); }
 .ep-gauge-half { aspect-ratio: 200 / 112; flex: 0 1 auto; max-height: 100%; }
 .ep-gauge-half .ep-gauge-readout { justify-content: flex-end; padding-bottom: 2%; }
-.ep-gauge-half .ep-value { font-size: clamp(0.95rem, 8cqi, 1.9rem); }
+.ep-gauge-half .ep-value { font-size: calc(clamp(0.95rem, 8cqi, 1.9rem) * var(--card-font-scale, 1)); }
 .ep-gauge > .ep-label { flex-shrink: 0; }
 .ep-gauge-zero {
   position: absolute; left: 50%; top: 3%; width: 2px; height: 14%;
@@ -166,12 +166,12 @@
 .bar-gauge-card, .bar-gauge-retro-card { justify-content: center !important; gap: clamp(8px, 3cqi, 16px) !important; padding: var(--card-pad) !important; }
 .bar-gauge-row, .bg-retro-row { display: grid !important; grid-template-columns: minmax(3.5em, 28%) minmax(0, 1fr) auto; align-items: center; gap: 0.6em; }
 .bar-gauge-label, .bg-retro-label {
-  font-size: clamp(0.75rem, 3cqi, 0.95rem) !important; font-weight: 600; color: var(--text-secondary);
+  font-size: calc(clamp(0.75rem, 3cqi, 0.95rem) * var(--card-font-scale, 1)) !important; font-weight: 600; color: var(--text-secondary);
   min-width: 0 !important; max-width: none !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .bar-gauge-track { height: clamp(10px, 3.4cqi, 18px) !important; background: var(--bg) !important; border: 1px solid var(--border); border-radius: 99px !important; }
 .bar-gauge-fill { border-radius: 99px !important; }
-.bar-gauge-value, .bg-retro-value { font-size: clamp(0.85rem, 3.6cqi, 1.15rem) !important; min-width: 0 !important; }
+.bar-gauge-value, .bg-retro-value { font-size: calc(clamp(0.85rem, 3.6cqi, 1.15rem) * var(--card-font-scale, 1)) !important; min-width: 0 !important; }
 .bg-retro-segments { gap: 3px !important; }
 .bg-retro-seg { height: clamp(12px, 4cqi, 22px) !important; border-radius: 3px !important; background: var(--border); }
 
@@ -182,11 +182,11 @@
   gap: var(--card-gap); padding: var(--card-pad) !important;
 }
 .bar-single-title, .bar-stacked-title, .bar-threshold-title {
-  margin: 0 !important; font-size: clamp(0.8rem, 2.6cqi, 0.95rem) !important; font-weight: 700 !important; color: var(--text) !important; text-align: left;
+  margin: 0 !important; font-size: calc(clamp(0.8rem, 2.6cqi, 0.95rem) * var(--card-font-scale, 1)) !important; font-weight: 700 !important; color: var(--text) !important; text-align: left;
 }
 .bar-single-body, .bar-stacked-body { flex: 1 1 auto; min-height: 60px !important; align-self: stretch; gap: clamp(1px, 0.6cqi, 4px) !important; }
 .bar-single-bar, .bar-stacked-body > * { border-radius: 3px 3px 0 0; }
-.bar-single-status, .bar-stacked-status { font-style: normal !important; font-size: 0.82rem; }
+.bar-single-status, .bar-stacked-status { font-style: normal !important; font-size: calc(0.82rem * var(--card-font-scale, 1)); }
 
 /* ── Savings ──────────────────────────────────────────────── */
 .savings-block-container .ep-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr)); }
@@ -194,18 +194,18 @@
 /* ── Grid status ──────────────────────────────────────────── */
 .grid-card.ep-card { gap: var(--card-gap); padding: var(--card-pad); }
 .ep-grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.grid-card .grid-date { margin: 0 !important; font-size: 0.72rem !important; font-weight: 500 !important; color: var(--text-secondary) !important; }
+.grid-card .grid-date { margin: 0 !important; font-size: calc(0.72rem * var(--card-font-scale, 1)) !important; font-weight: 500 !important; color: var(--text-secondary) !important; }
 .ep-grid-now { display: flex; align-items: baseline; gap: 0.6em; flex-wrap: wrap; }
-.ep-grid-state { font-size: clamp(1.15rem, 6cqi, 1.8rem); font-weight: 800; color: var(--text-secondary); }
+.ep-grid-state { font-size: calc(clamp(1.15rem, 6cqi, 1.8rem) * var(--card-font-scale, 1)); font-weight: 800; color: var(--text-secondary); }
 .ep-grid-state[data-state="on"] { color: var(--color-battery); }
 .ep-grid-state[data-state="off"] { color: var(--color-grid); }
-.ep-grid-since { font-size: 0.78rem !important; color: var(--text-secondary); opacity: 1 !important; }
+.ep-grid-since { font-size: calc(0.78rem * var(--card-font-scale, 1)) !important; color: var(--text-secondary); opacity: 1 !important; }
 .ep-grid-hours-title { margin-top: 2px; }
 .grid-card [id^="grid-timeline"] { overflow: hidden; }
 .grid-card .grid-stats { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 72px), 1fr)); flex: 0 0 auto; }
 
 /* ── Text and embeds ──────────────────────────────────────── */
-.text-card.ep-card { white-space: pre-wrap; word-break: break-word; font-size: clamp(0.85rem, 2.8cqi, 1rem); line-height: 1.55; color: var(--text); overflow: auto; }
+.text-card.ep-card { white-space: pre-wrap; word-break: break-word; font-size: calc(clamp(0.85rem, 2.8cqi, 1rem) * var(--card-font-scale, 1)); line-height: 1.55; color: var(--text); overflow: auto; }
 .text-card.ep-card.ep-card-empty { white-space: normal; color: var(--text-secondary); }
 .iframe-card iframe { width: 100%; height: 100%; border: 0; display: block; border-radius: inherit; }
 
@@ -216,31 +216,31 @@
 .chart-controls button {
   min-height: 28px !important; min-width: 0 !important; padding: 0 10px !important;
   border: none !important; border-radius: 8px !important; background: none !important;
-  color: var(--text-secondary) !important; font-size: 0.75rem !important; font-weight: 700;
+  color: var(--text-secondary) !important; font-size: calc(0.75rem * var(--card-font-scale, 1)) !important; font-weight: 700;
 }
 .chart-controls button:hover { color: var(--text) !important; }
 .chart-controls button.active { background: var(--card-bg) !important; color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
-.chart-empty { text-align: center; font-size: 0.82rem; color: var(--text-secondary); padding: 8px; }
+.chart-empty { text-align: center; font-size: calc(0.82rem * var(--card-font-scale, 1)); color: var(--text-secondary); padding: 8px; }
 
 /* ── Tables ───────────────────────────────────────────────── */
 .daily-breakdown-container { padding: var(--card-pad) !important; }
-.energy-table th { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); }
+.energy-table th { font-size: calc(0.72rem * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
 .energy-table td { font-variant-numeric: tabular-nums; }
 
 /* ── Flow squares: fit the block instead of fixed paddings ── */
 .flow-card-square, .flow-card-square2 { padding: var(--card-pad) !important; overflow: hidden; }
 .fcs-grid, .fcs2-grid { height: 100%; gap: var(--card-gap) !important; }
 .fcs-cell, .fcs2-cell { padding: clamp(4px, 2.5cqi, 16px) !important; min-width: 0; min-height: 0; }
-.fcs-icon, .fcs2-icon { font-size: clamp(1.6rem, 9cqi, 3rem) !important; width: auto !important; }
+.fcs-icon, .fcs2-icon { font-size: calc(clamp(1.6rem, 9cqi, 3rem) * var(--card-font-scale, 1)) !important; width: auto !important; }
 .fcs-inverter-icon, .fcs2-inv { width: clamp(1.8rem, 9cqi, 3rem) !important; height: clamp(2.6rem, 14cqi, 5rem) !important; color: var(--color-text-on-accent, #111) !important; }
-.fcs-label, .fcs2-label { font-size: clamp(0.62rem, 2.2cqi, 0.75rem) !important; }
-.fcs-value, .fcs2-value { font-size: clamp(0.85rem, 4.2cqi, 1.3rem) !important; font-variant-numeric: tabular-nums; }
-.fcs-sub, .fcs2-sub { font-size: clamp(0.62rem, 2.4cqi, 0.8rem) !important; }
+.fcs-label, .fcs2-label { font-size: calc(clamp(0.62rem, 2.2cqi, 0.75rem) * var(--card-font-scale, 1)) !important; }
+.fcs-value, .fcs2-value { font-size: calc(clamp(0.85rem, 4.2cqi, 1.3rem) * var(--card-font-scale, 1)) !important; font-variant-numeric: tabular-nums; }
+.fcs-sub, .fcs2-sub { font-size: calc(clamp(0.62rem, 2.4cqi, 0.8rem) * var(--card-font-scale, 1)) !important; }
 
 /* Flow card (four nodes) */
-.flow-value { font-size: clamp(1rem, 5cqi, 1.7rem) !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.flow-label { font-size: clamp(0.72rem, 2.4cqi, 0.85rem) !important; }
-.flow-icon { font-size: clamp(1.4rem, 7cqi, 2.4rem); }
+.flow-value { font-size: calc(clamp(1rem, 5cqi, 1.7rem) * var(--card-font-scale, 1)) !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flow-label { font-size: calc(clamp(0.72rem, 2.4cqi, 0.85rem) * var(--card-font-scale, 1)) !important; }
+.flow-icon { font-size: calc(clamp(1.4rem, 7cqi, 2.4rem) * var(--card-font-scale, 1)); }
 
 /* ── Controls ─────────────────────────────────────────────── */
 .toggle-switch.action-toggle .slider { background: var(--switch-off-color, #a8a59e) !important; }
@@ -251,7 +251,7 @@
 
 /* ── Forecast and weather: quieter error notices ──────────── */
 .fc-error, .wx-error {
-  font-size: 0.8rem !important; color: var(--text-secondary) !important;
+  font-size: calc(0.8rem * var(--card-font-scale, 1)) !important; color: var(--text-secondary) !important;
   padding: 8px 10px; border-radius: 8px; background: var(--bg); border: 1px dashed var(--border);
 }
 
