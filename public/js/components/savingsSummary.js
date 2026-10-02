@@ -1,19 +1,23 @@
 import { uid } from '../utils/uid.js';
+import { escapeHtml } from '../utils.js';
+import { formatMoney } from './format.js';
 
+/** Savings today / this week / this month / all time. */
 export function buildSavingsSummary(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
-  const title = config.title || '';
+  const title = config.title || 'Savings';
   const metric = (config.savings_metric || '').trim();
   const container = document.createElement('div');
-  container.className = 'savings-block-container';
+  container.className = 'savings-block-container ep-card';
   container.dataset.blockId = id;
   container.dataset.savingsMetric = metric;
-  if (title) { const h = document.createElement('h3'); h.textContent = title; h.style.margin = '0 0 0.5rem 0'; container.appendChild(h); }
-  const grid = document.createElement('div'); grid.className = 'stats-grid';
-  const add = (label, suffix) => { if (config[`show${suffix}`] !== false) { const c = document.createElement('div'); c.className = 'stat-card'; c.innerHTML = `<div class="stat-label">${label}</div><div class="stat-value" id="${uid('savings-'+suffix.toLowerCase(), id)}">--</div>`; grid.appendChild(c); } };
-  add('PV Savings Today', 'Today'); add('PV Savings This Week', 'Week'); add('PV Savings This Month', 'Month'); add('PV Savings All-Time', 'All');
-  container.appendChild(grid); return container;
+  const tiles = [['Today', 'Today'], ['This week', 'Week'], ['This month', 'Month'], ['All time', 'All']]
+    .filter(([, suffix]) => config[`show${suffix}`] !== false)
+    .map(([label, suffix]) => `<div class="stat-card ep-tile"><div class="stat-label ep-label">${label}</div><div class="stat-value ep-value is-empty" id="${uid('savings-' + suffix.toLowerCase(), id)}"><span class="ep-num">—</span></div></div>`)
+    .join('');
+  container.innerHTML = `<h3 class="ep-card-title">${escapeHtml(title)}</h3><div class="stats-grid ep-tiles">${tiles}</div>`;
+  return container;
 }
 
 export function updateSavingsFromState(state) {
@@ -24,13 +28,15 @@ export function updateSavingsFromState(state) {
   document.querySelectorAll('.savings-block-container').forEach(c => {
     const id = c.dataset.blockId || '';
     const metric = c.dataset.savingsMetric || '';
-    let today = s.today, week = s.week, month = s.month, all = s.all;
-    if (metric && metrics[metric] && metrics[metric].value > 0) {
-      const val = metrics[metric].value;
-      today = val * rate;
-      // Preserve server-computed week/month/all — only override today
-    }
-    const fmt = (v) => curr + ' ' + Math.round(v).toLocaleString();
-    [['savings-today',today],['savings-week',week],['savings-month',month],['savings-all',all]].forEach(([k,v]) => { const e = document.getElementById(uid(k,id)); if (e) e.textContent = fmt(v); });
+    let today = s.today;
+    // A chosen solar-energy metric overrides today only; week, month and
+    // all-time stay server-computed.
+    if (metric && metrics[metric] && metrics[metric].value > 0) today = metrics[metric].value * rate;
+    [['savings-today', today], ['savings-week', s.week], ['savings-month', s.month], ['savings-all', s.all]].forEach(([k, v]) => {
+      const e = document.getElementById(uid(k, id));
+      if (!e) return;
+      e.textContent = formatMoney(v, curr);
+      e.classList.toggle('is-empty', typeof v !== 'number');
+    });
   });
 }

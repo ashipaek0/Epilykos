@@ -2,14 +2,15 @@
  * Bar Gauge Card — multi-row horizontal bar visualization for any metric.
  * Each row: label | bar (min→max fill) | value+unit.
  */
-import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
+import { escapeHtml, isNumericValue } from '../utils.js';
+import { formatEntry, renderValue } from './format.js';
 export function buildBarGauge(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const rows = (config.metrics && config.metrics.length ? config.metrics : [{ label: '', metric: '', unit: '', min: 0, max: 100, color: '' }]);
 
   const container = document.createElement('div');
-  container.className = 'bar-gauge-card';
+  container.className = 'bar-gauge-card ep-card';
   container.dataset.blockId = id;
   container.dataset.metricMap = JSON.stringify(rows);
 
@@ -24,7 +25,7 @@ export function buildBarGauge(block = {}) {
         <div class="bar-gauge-track">
           <div class="bar-gauge-fill" id="bg-fill-${id}-${i}" style="${fillStyle}"></div>
         </div>
-        <span class="bar-gauge-value" id="bg-val-${id}-${i}" data-metric="${escapeHtml(r.metric || '')}">-- ${escapeHtml(r.unit || '')}</span>
+        <span class="bar-gauge-value" id="bg-val-${id}-${i}" data-metric="${escapeHtml(r.metric || '')}"><span class="ep-num">\u2014</span></span>
       </div>`;
   });
   container.innerHTML = html;
@@ -52,30 +53,9 @@ export function updateBarGauge(state) {
       if (fill) fill.style.width = pct + '%';
 
       const val = document.getElementById(`bg-val-${id}-${i}`);
-      if (val) {
-        if (isNumericValue(v)) {
-          const unit = cfg.unit || entry.unit || inferBarUnit(cfg.metric);
-          val.textContent = v.toFixed(1) + (unit ? ' ' + unit : '');
-        } else {
-          // D6: non-numeric values use explicit units only — never a name-inferred
-          // guess (which renders nonsense such as "error °C").
-          const unit = cfg.unit || entry.unit || '';
-          val.textContent = formatValueText(v) + (unit ? ' ' + unit : '');
-        }
-      }
+      // D6 (non-numeric: explicit units only) is handled by formatEntry.
+      renderValue(val, formatEntry(entry, cfg.unit, cfg.metric));
     });
   });
 }
 
-function inferBarUnit(n) {
-  n = (n || '').toLowerCase();
-  if (/soc|percentage|percent/.test(n)) return '%';
-  if (/temp/.test(n)) return '°C';
-  if (/volt/.test(n)) return 'V';
-  if (/current|amp/.test(n)) return 'A';
-  if (/power|watt/.test(n)) return 'W';
-  if (/energy|kwh|wh/.test(n)) return 'kWh';
-  if (/freq|hz/.test(n)) return 'Hz';
-  if (/runtime/.test(n)) return 'h';
-  return '';
-}

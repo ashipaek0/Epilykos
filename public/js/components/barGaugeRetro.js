@@ -3,14 +3,15 @@
  * Each row: label | [▮▮▮▮▯▯▯▯▯▯] | value+unit
  * Lit segments determined by value position between min and max.
  */
-import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
+import { escapeHtml, isNumericValue } from '../utils.js';
+import { formatEntry, renderValue } from './format.js';
 export function buildBarGaugeRetro(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const rows = (config.metrics && config.metrics.length ? config.metrics : [{ label: '', metric: '', unit: '', min: 0, max: 100, color: '', segments: 10 }]);
 
   const container = document.createElement('div');
-  container.className = 'bar-gauge-retro-card';
+  container.className = 'bar-gauge-retro-card ep-card';
   container.dataset.blockId = id;
   container.dataset.metricMap = JSON.stringify(rows);
 
@@ -20,7 +21,7 @@ export function buildBarGaugeRetro(block = {}) {
     const color = r.color || 'var(--accent)';
     let segsHtml = '';
     for (let s = 0; s < segs; s++) {
-      segsHtml += `<span class="bg-retro-seg" id="bg-retro-seg-${id}-${i}-${s}" style="background:var(--border);"></span>`;
+      segsHtml += `<span class="bg-retro-seg" id="bg-retro-seg-${id}-${i}-${s}"></span>`;
     }
     html += `
       <div class="bg-retro-row" data-bgidx="${i}">
@@ -28,7 +29,7 @@ export function buildBarGaugeRetro(block = {}) {
         <div class="bg-retro-segments" id="bg-retro-segments-${id}-${i}" data-color="${color}" data-gradient="${escapeHtml(r.gradient||'')}" data-segments="${segs}">
           ${segsHtml}
         </div>
-        <span class="bg-retro-value" id="bg-retro-val-${id}-${i}" data-metric="${escapeHtml(r.metric || '')}">-- ${escapeHtml(r.unit || '')}</span>
+        <span class="bg-retro-value" id="bg-retro-val-${id}-${i}" data-metric="${escapeHtml(r.metric || '')}"><span class="ep-num">\u2014</span></span>
       </div>`;
   });
   container.innerHTML = html;
@@ -73,25 +74,16 @@ export function updateBarGaugeRetro(state) {
             }
           }
           seg.style.background = segColor;
-          seg.style.boxShadow = `0 0 4px ${segColor}`;
+          seg.style.boxShadow = 'none';
         } else {
-          seg.style.background = 'transparent';
+          seg.style.background = '';
           seg.style.boxShadow = 'none';
         }
       }
 
       const val = document.getElementById(`bg-retro-val-${id}-${i}`);
-      if (val) {
-        if (isNumericValue(v)) {
-          const unit = cfg.unit || entry.unit || inferUnit(cfg.metric);
-          val.textContent = v.toFixed(1) + (unit ? ' ' + unit : '');
-        } else {
-          // D6: non-numeric values use explicit units only — never a name-inferred
-          // guess (which renders nonsense such as "error °C").
-          const unit = cfg.unit || entry.unit || '';
-          val.textContent = formatValueText(v) + (unit ? ' ' + unit : '');
-        }
-      }
+      // D6 (non-numeric: explicit units only) is handled by formatEntry.
+      renderValue(val, formatEntry(entry, cfg.unit, cfg.metric));
     });
   });
 }
@@ -109,15 +101,3 @@ function lerpColor(a, b, t) {
   return `#${((1 << 24) | (rr << 16) | (rg << 8) | rb).toString(16).slice(1)}`;
 }
 
-function inferUnit(n) {
-  n = (n || '').toLowerCase();
-  if (/soc|percentage|percent/.test(n)) return '%';
-  if (/temp/.test(n)) return '°C';
-  if (/volt/.test(n)) return 'V';
-  if (/current|amp/.test(n)) return 'A';
-  if (/power|watt/.test(n)) return 'W';
-  if (/energy|kwh|wh/.test(n)) return 'kWh';
-  if (/freq|hz/.test(n)) return 'Hz';
-  if (/runtime/.test(n)) return 'h';
-  return '';
-}

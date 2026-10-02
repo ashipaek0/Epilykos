@@ -72,6 +72,9 @@ export function computeDisplayValue(points, cfg) {
   return { value: val, bands };
 }
 
+/** 'battery_soc' → 'Battery soc' for titles when no label is configured. */
+function prettyMetric(m) { return String(m || '').replace(/[_.]+/g, ' ').trim().replace(/^./, function (c) { return c.toUpperCase(); }); }
+
 export function buildBarThresholdCard(block) {
   block = block || {};
   const cfg = normalizeThresholdConfig(block.config);
@@ -83,7 +86,7 @@ export function buildBarThresholdCard(block) {
 
   const titleEl = document.createElement('div');
   titleEl.className = 'stat-label bar-threshold-title';
-  titleEl.textContent = cfg.metric || 'Threshold Bar';
+  titleEl.textContent = cfg.metric ? prettyMetric(cfg.metric) : 'Threshold Bar';
   container.appendChild(titleEl);
 
   const barWrapper = document.createElement('div');
@@ -93,7 +96,7 @@ export function buildBarThresholdCard(block) {
 
   const valueEl = document.createElement('div');
   valueEl.className = 'bar-threshold-value';
-  valueEl.style.cssText = 'position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:var(--text-primary);font-weight:600;font-size:0.85rem;pointer-events:none;';
+  valueEl.style.cssText = 'position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:var(--text-primary);font-weight:600;font-size:calc(0.85rem * var(--card-font-scale, 1));pointer-events:none;';
   valueEl.textContent = cfg.metric ? EMPTY_TEXT : NO_METRIC_TEXT;
   container.appendChild(valueEl);
 
@@ -167,7 +170,7 @@ export async function refreshOneBarThresholdCard(container) {
   const wrapperEl = container.querySelector('.bar-threshold-wrapper');
   const valueEl = container.querySelector('.bar-threshold-value');
   if (!wrapperEl || !valueEl) return;
-  if (titleEl) titleEl.textContent = cfg.metric || 'Threshold Bar';
+  if (titleEl) titleEl.textContent = cfg.metric ? prettyMetric(cfg.metric) : 'Threshold Bar';
   if (!cfg.metric) {
     valueEl.textContent = NO_METRIC_TEXT;
     valueEl.style.color = 'var(--text-secondary)';

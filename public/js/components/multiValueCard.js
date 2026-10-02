@@ -1,39 +1,35 @@
-import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
+import { escapeHtml } from '../utils.js';
+import { formatEntry, renderValue } from './format.js';
+
+/** Several labelled values side by side (wrapping to rows when narrow). */
 export function buildMultiValueCard(block = {}) {
   const config = block.config || {};
   const metrics = config.metrics || [];
   const container = document.createElement('div');
-  container.className = 'multi-value-card';
-  container.style.display = 'flex'; container.style.gap = '0.5rem'; container.style.flexWrap = 'wrap';
+  container.className = 'multi-value-card ep-tiles';
   container.dataset.metricMap = JSON.stringify(metrics);
   container.dataset.blockId = block.id;
 
   (metrics.length ? metrics : [{ label: '', metric: '', unit: '' }]).forEach((m, i) => {
     const card = document.createElement('div');
-    card.className = 'stat-card';
-    card.style.flex = '1 1 0'; card.style.minWidth = '80px';
+    card.className = 'stat-card ep-tile';
     card.dataset.mvidx = i;
-    card.innerHTML = `<div class="stat-label">${escapeHtml(m.label || '--')}</div><div class="stat-value" data-metric="${escapeHtml(m.metric || '')}">-- ${escapeHtml(m.unit || '')}</div>`;
+    card.innerHTML = `<div class="stat-label ep-label">${escapeHtml(m.label || m.metric || 'Value')}</div><div class="stat-value ep-value is-empty" data-metric="${escapeHtml(m.metric || '')}"><span class="ep-num">—</span></div>`;
     container.appendChild(card);
   });
   return container;
 }
+
 export function updateMultiValueCard(state) {
   document.querySelectorAll('.multi-value-card').forEach(container => {
-    let metrics; try{metrics=JSON.parse(container.dataset.metricMap);}catch(e){return;}
+    let metrics; try { metrics = JSON.parse(container.dataset.metricMap); } catch (e) { return; }
     const m = state.metrics || {};
     const cards = container.querySelectorAll('.stat-card');
     metrics.forEach((cfg, i) => {
-      if (!cfg.metric) return;
-      const v = m[cfg.metric]?.value;
-      if (v === undefined || v === null) return;
-      if (cards[i]) {
-        const valEl = cards[i].querySelector('.stat-value');
-        if (valEl) {
-          if (isNumericValue(v)) valEl.textContent = `${v.toFixed(1)} ${cfg.unit||''}`;
-          else valEl.textContent = formatValueText(v) + (cfg.unit ? ' ' + cfg.unit : '');
-        }
-      }
+      if (!cfg.metric || !cards[i]) return;
+      const entry = m[cfg.metric];
+      if (!entry || entry.value === undefined || entry.value === null) return;
+      renderValue(cards[i].querySelector('.stat-value'), formatEntry(entry, cfg.unit, cfg.metric));
     });
   });
 }

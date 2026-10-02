@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#f5f5f0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,8 +14,7 @@
   <link rel="manifest" href="/manifest.json">
   
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css"></noscript>
+  <link rel="stylesheet" href="cards.css">
   <!-- Chart.js loaded dynamically when chart blocks are present -->
   <!-- CSRF protection -->
   <script defer src="js/csrf.js"></script>
@@ -23,6 +23,8 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="apple-touch-startup-image" href="/icons/splash-1024.png" media="(prefers-color-scheme: light)">
+  <link rel="apple-touch-startup-image" href="/icons/splash-1024-dark.png" media="(prefers-color-scheme: dark)">
   </head>
 <body>
   <a href="#dashboard-container" class="skip-link" style="position:absolute;left:-9999px;top:0;z-index:9999;padding:0.5rem 1rem;background:var(--accent);color:#fff;border-radius:0 0 var(--radius) 0">Skip to dashboard</a>

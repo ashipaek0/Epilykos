@@ -1,31 +1,29 @@
-// settings.js – fixed to use /api/metrics/list for immediate dropdown updates
-// Apply source subnav labels from the shared module (single source of truth) — corrects any HTML drift.
-(function () {
-  if (!window.EPILYKOS_LABELS || !window.EPILYKOS_LABELS.subnav) return;
-  var labels = window.EPILYKOS_LABELS.subnav;
-  document.querySelectorAll('.subnav-btn').forEach(function (btn) {
-    var id = btn.getAttribute('data-subtab');
-    if (id && labels[id]) btn.textContent = labels[id];
-  });
-})();
+// settings.js — device editors, collectors and per-section payload builders for
+// the Settings page. Navigation, saving and dialogs live in js/settings-shell.js.
 const form = document.getElementById('settings-form');
 const saveStatus = document.getElementById('save-status');
 const backupStatus = document.getElementById('backup-status');
 let usedDashboardMetrics = [];
 let allMetrics = []; // array of { name, unit, value?, timestamp? }
 
+// Success messages clear after a few seconds; errors stay until the next
+// message on the same element so they can actually be read.
 function showStatus(element, msg, type) {
+  if (!element) return;
+  clearTimeout(element._statusTimer);
   element.textContent = msg;
   element.className = `status ${type}`;
-  if (type !== 'info') {
-    setTimeout(() => { element.textContent = ''; element.className = 'status'; }, 5000);
+  if (type === 'success') {
+    element._statusTimer = setTimeout(() => { element.textContent = ''; element.className = 'status'; }, 5000);
   }
 }
 function showStatusHtml(element, msg, type) {
+  if (!element) return;
+  clearTimeout(element._statusTimer);
   element.innerHTML = msg;
   element.className = `status ${type}`;
-  if (type !== 'info') {
-    setTimeout(() => { element.innerHTML = ''; element.className = 'status'; }, 5000);
+  if (type === 'success') {
+    element._statusTimer = setTimeout(() => { element.innerHTML = ''; element.className = 'status'; }, 5000);
   }
 }
 
@@ -53,7 +51,15 @@ async function loadSettings() {
       const input = form.querySelector(`[name="${key}"]`);
       if (input) {
         if (input.type === 'checkbox') input.checked = value === 'true';
-        else input.value = value;
+        else {
+          input.value = value;
+          // A stored value a number/date field can't show (e.g. "6,52") would
+          // otherwise display empty and be saved back as blank.
+          if (value && ((input.value === '' && (input.type === 'number' || input.type === 'date')) || (input.type === 'url' && !input.checkValidity()))) {
+            input.type = 'text';
+            input.value = value;
+          }
+        }
       }
     }
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
@@ -83,7 +89,6 @@ async function loadSettings() {
     // Auto-match LAN IPs for existing devices
     autoMatchTuyaLanIps();
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
-    buildDashboardEditor(dashConfig);
     populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard);
 
     usedDashboardMetrics = [];
@@ -3145,6 +3150,12 @@ function bleTransportForProfile(p) {
   if (isLuxpowerDongleProfile(p)) return 'ble-luxpower';
   return 'ble-modbus';
 }
+// Profiles that only work over Bluetooth (read-only GATT devices, or a
+// profile that declares connection: bluetooth).
+function isBluetoothOnlyProfile(p) {
+  return !!p && (isBleGattProfile(p) || p.connection === 'bluetooth');
+}
+
 function isBleGattProfile(p) {
   return !!(p && String(p.protocol || '').toLowerCase() === 'ble-gatt');
 }
@@ -3173,15 +3184,23 @@ function fillDongleProfileOptions(card, selectedId) {
   const bt = linkSelect && linkSelect.value === 'bluetooth';
   profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
   let kept = false;
+  // On TCP/IP, Bluetooth-only profiles (e.g. Phocos Any-Grid) are still listed,
+  // in their own group; picking one switches the card to Bluetooth.
+  let btGroup = null;
   dongleProfilesCache.forEach(p => {
     if (bt && !isDongleRegisterProfile(p) && !isBleGattProfile(p) && !isLuxpowerDongleProfile(p)) return;
-    if (!bt && (isBleGattProfile(p) || p.connection === 'bluetooth')) return;
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
     if (p.id === selectedId) { opt.selected = true; kept = true; }
-    profileSelect.appendChild(opt);
+    if (!bt && isBluetoothOnlyProfile(p)) {
+      if (!btGroup) { btGroup = document.createElement('optgroup'); btGroup.label = 'Bluetooth only'; }
+      btGroup.appendChild(opt);
+    } else {
+      profileSelect.appendChild(opt);
+    }
   });
+  if (btGroup) profileSelect.appendChild(btGroup);
   if (selectedId && !kept) profileSelect.value = '';
 }
 
@@ -3367,8 +3386,11 @@ function renderDongleDevice(device, idx) {
     if (!p) return;
     // Bluetooth stays selected (the list only offers Bluetooth-capable profiles there).
     const keepBle = linkSelect.value === 'bluetooth' && (isDongleRegisterProfile(p) || isLuxpowerDongleProfile(p));
-    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle ? bleTransportForProfile(p) : getTransportForProfile(p.id));
-    if (isBleGattProfile(p)) linkSelect.value = 'bluetooth';
+    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle || isBluetoothOnlyProfile(p) ? bleTransportForProfile(p) : getTransportForProfile(p.id));
+    if (isBluetoothOnlyProfile(p) && linkSelect.value !== 'bluetooth') {
+      linkSelect.value = 'bluetooth';
+      fillDongleProfileOptions(card, p.id);
+    }
     transportSelect.value = tx;
     updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
@@ -4787,38 +4809,26 @@ async function loadRoleMetrics() {
   }
 }
 
-// Role metrics save button
-const saveRoleMetricsBtn = document.getElementById('save-role-metrics');
-if (saveRoleMetricsBtn) {
-  saveRoleMetricsBtn.addEventListener('click', async () => {
-    const statusEl = document.getElementById('role-metrics-status');
-    const selects = document.querySelectorAll('.role-metric-select');
-    const mapping = {};
-    selects.forEach(sel => {
-      if (sel.value) mapping[sel.dataset.role] = sel.value;
-    });
-    try {
-      const res = await fetch('/api/role-metrics', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify(mapping)
-      });
-      const data = await res.json();
-      showStatus(statusEl, data.success ? '✅ Saved' : '❌ ' + (data.error || 'Failed'), data.success ? 'success' : 'error');
-    } catch (e) {
-      showStatus(statusEl, '❌ Error: ' + e.message, 'error');
-    }
+/** Save metric roles. Throws when they haven't loaded or the server refuses. */
+async function saveRoleMetrics() {
+  const selects = document.querySelectorAll('.role-metric-select');
+  // Roles not loaded yet would post {} and erase every saved mapping.
+  if (!selects.length) throw new Error('Metric roles haven\'t loaded yet. Reload the page and try again.');
+  const mapping = {};
+  selects.forEach(sel => {
+    if (sel.value) mapping[sel.dataset.role] = sel.value;
   });
+  const res = await fetch('/api/role-metrics', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify(mapping)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || `Server error (${res.status})`);
 }
 
-// Load role metrics when solar tab is shown
-const solarObserver = new MutationObserver(() => {
-  if (document.getElementById('section-solar')?.classList.contains('active') && document.getElementById('role-metrics-container')?.innerHTML === '') {
-    loadRoleMetrics();
-  }
-});
-const stgSections = document.getElementById('stg-main');
-if (stgSections) solarObserver.observe(stgSections, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-window.addEventListener('beforeunload', () => { solarObserver.disconnect(); if (bmsScanInterval) clearInterval(bmsScanInterval); });
+// Role metrics load once with the page (they sit in the Metrics section).
+loadRoleMetrics();
+window.addEventListener('beforeunload', () => { if (bmsScanInterval) clearInterval(bmsScanInterval); });
 
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
@@ -4880,44 +4890,6 @@ function renderMetricsTable() {
     });
   });
 }
-// Modal handling
-const modal = document.getElementById('metric-modal');
-const createBtn = document.getElementById('create-metric-btn');
-const modalCancel = document.getElementById('modal-cancel');
-const modalCreate = document.getElementById('modal-create');
-if (createBtn) {
-  createBtn.addEventListener('click', () => {
-    if (modal) modal.style.display = 'flex';
-    const nameInput = document.getElementById('new-metric-name');
-    const unitInput = document.getElementById('new-metric-unit');
-    if (nameInput) nameInput.value = '';
-    if (unitInput) unitInput.value = '';
-  });
-}
-if (modalCancel) modalCancel.addEventListener('click', () => { if (modal) modal.style.display = 'none'; });
-if (modalCreate) {
-  modalCreate.addEventListener('click', async () => {
-    const nameInput = document.getElementById('new-metric-name');
-    const unitInput = document.getElementById('new-metric-unit');
-    const name = nameInput ? nameInput.value.trim() : '';
-    const unit = unitInput ? unitInput.value.trim() : '';
-    if (!name) { showStatus(backupStatus, 'Metric name is required', 'error'); return; }
-    try {
-      const res = await fetch('/api/metrics/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ name, unit }) });
-      if (res.ok) {
-        if (modal) modal.style.display = 'none';
-        await loadMetricsList();
-        await refreshAllMetricDropdowns();
-        showStatus(backupStatus, `Metric "${name}" created`, 'success');
-      } else {
-        const err = await res.json();
-        showStatus(backupStatus, err.error || 'Creation failed', 'error');
-      }
-    } catch (err) { showStatus(backupStatus, err.message, 'error'); }
-  });
-}
-window.addEventListener('click', (e) => { if (modal && e.target === modal) modal.style.display = 'none'; });
-
 function populateDashboardSelects(config, savedDesktop, savedMobile) {
   const dashboards = config?.dashboards || [];
   const saved = { 'desktop-dashboard': savedDesktop, 'mobile-dashboard': savedMobile };
@@ -4927,115 +4899,6 @@ function populateDashboardSelects(config, savedDesktop, savedMobile) {
     const cur = saved[id] || '';
     sel.innerHTML = '<option value="">-- Default --</option>';
     dashboards.forEach(db => { const o = document.createElement('option'); o.value = db.id; o.textContent = db.name; if (db.id === cur) o.selected = true; sel.appendChild(o); });
-  });
-}
-
-// ======================== DASHBOARD EDITOR ========================
-let dashConfig = null;
-function buildDashboardEditor(config) {
-  dashConfig = config || { dashboards: [], activeDashboard: 'main' };
-  const listEl = document.getElementById('dashboards-list');
-  listEl.innerHTML = '';
-  if (!dashConfig.dashboards.length) return;
-  const activeId = dashConfig.activeDashboard || dashConfig.dashboards[0]?.id;
-  dashConfig.dashboards.forEach(db => {
-    const row = document.createElement('div');
-    row.className = 'dash-row';
-    row.innerHTML = `
-      <input type="text" value="${escapeHtml(db.name)}" data-db-id="${db.id}" class="dash-name">
-      <button type="button" class="fetch-btn set-active" data-id="${db.id}">${db.id === activeId ? '★ Active' : 'Set Active'}</button>
-      <button type="button" class="remove-btn delete-dash" data-id="${db.id}">✕</button>
-    `;
-    listEl.appendChild(row);
-    row.querySelector('.set-active').addEventListener('click', () => {
-      dashConfig.activeDashboard = db.id;
-      buildDashboardEditor(dashConfig);
-    });
-    row.querySelector('.delete-dash').addEventListener('click', () => {
-      if (!showConfirm(`Delete dashboard "${db.name}"? This cannot be undone.`)) return;
-      dashConfig.dashboards = dashConfig.dashboards.filter(d => d.id !== db.id);
-      if (dashConfig.activeDashboard === db.id) dashConfig.activeDashboard = dashConfig.dashboards[0]?.id || 'main';
-      buildDashboardEditor(dashConfig);
-    });
-    row.querySelector('.dash-name').addEventListener('change', (e) => { db.name = e.target.value; });
-  });
-  const activeDb = dashConfig.dashboards.find(db => db.id === activeId);
-  if (activeDb) renderBlockInventory(activeDb);
-}
-function renderBlockInventory(dashboard) {
-  const container = document.getElementById('active-dashboard-editor');
-  const blocks = dashboard.layout || [];
-
-  // Count blocks by type
-  const typeCounts = {};
-  const typeIcons = {
-    'flow-card': '◉', 'flow-card-2': '◎', 'flow-card-square': '◉', 'flow-card-square-2': '◎',
-    'forecast-banner': '☷', 'forecast-sparkline': '☷', 'forecast-info': '☷', 'forecast-pvtoday': '☷',
-    'metric-cards': '≡', 'multi-value': '≡',
-    'gauge-card': '◔', 'half-gauge': '◔', 'half-gauge-2': '◔', 'bar-gauge': '▬', 'bar-gauge-retro': '▬',
-    'chart-power': '📈', 'chart-energy': '📊',
-    'grid-card': '⊞', 'battery-block': '⊟',
-    'savings-summary': '💰', 'data-table-daily': '📋', 'data-table-monthly': '📋',
-    'text-card': '📝', 'iframe-card': '🌐', 'system-info': '⌂'
-  };
-
-  blocks.forEach(b => {
-    const t = b.type || 'unknown';
-    typeCounts[t] = (typeCounts[t] || 0) + 1;
-  });
-
-  const chips = Object.entries(typeCounts).map(([type, count]) => {
-    const icon = typeIcons[type] || '●';
-    return `<div class="block-preview-chip"><span class="chip-icon">${icon}</span> ${count}× ${type}</div>`;
-  }).join('');
-
-  container.innerHTML = `
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Block Inventory — ${blocks.length} block${blocks.length !== 1 ? 's' : ''}</span>
-        <a href="/editor" class="btn btn-sm btn-primary">Open in Editor →</a>
-      </div>
-      <div class="block-preview-list">${chips || '<div class="empty-state"><p>No blocks yet. Add them in the Editor.</p></div>'}</div>
-      <p class="note" style="margin-top:0.5rem;font-size:0.775rem;">
-        Block editing has moved to the dedicated <a href="/editor" style="color:var(--accent);font-weight:600;">Editor page</a> for a full drag-and-drop experience with visual previews.
-      </p>
-    </div>
-  `;
-}
-const addDashboardBtn = document.getElementById('add-dashboard-btn');
-if (addDashboardBtn) addDashboardBtn.addEventListener('click', () => {
-  const newId = 'db_' + Date.now();
-  dashConfig.dashboards.push({ id: newId, name: 'New Tab', layout: [] });
-  dashConfig.activeDashboard = newId;
-  buildDashboardEditor(dashConfig);
-});
-
-// ======================== LAYOUT IMPORT/EXPORT ========================
-const exportLayoutBtn = document.getElementById('export-layout-btn');
-if (exportLayoutBtn) exportLayoutBtn.addEventListener('click', () => window.location.href = '/api/dashboard-config/export');
-const importLayoutBtn = document.getElementById('import-layout-btn');
-const importLayoutFile = document.getElementById('import-layout-file');
-if (importLayoutBtn && importLayoutFile) {
-  importLayoutBtn.addEventListener('click', () => importLayoutFile.click());
-  importLayoutFile.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('layout', file);
-    try {
-      const res = await fetch('/api/dashboard-config/import?merge=true', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData });
-      const data = await res.json();
-      if (res.ok) {
-        showStatus(backupStatus, 'Layout imported successfully! Reloading...', 'success');
-        setTimeout(() => location.reload(), 1500);
-      } else {
-        showStatus(backupStatus, data.error || 'Import failed', 'error');
-      }
-    } catch (err) {
-      showStatus(backupStatus, 'Error: ' + err.message, 'error');
-    } finally {
-      importLayoutFile.value = '';
-    }
   });
 }
 
@@ -5519,11 +5382,19 @@ function cardHasCatalogRows(card) {
   if (!card || !card.querySelector) return false;
   return card.querySelectorAll('.mappings-list .metric-row[data-catalog]').length > 0;
 }
-if (form) form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+// ── Per-section payloads ────────────────────────────────────────────────
+// Each Settings section saves on its own (js/settings-shell.js). These build the
+// request body for the sections whose state lives in device cards rather than
+// plain named fields.
+
+/** Sources: every device list plus the source-level fields. Throws when cancelled. */
+async function buildSourcesPayload() {
   const payload = {};
-  form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-    if (el.name.startsWith('ha_devices[') || el.name.startsWith('mqtt_devices[') || el.name.startsWith('modbus_devices[') || el.name.startsWith('tuya_devices[') || el.name === 'dashboard_config' || el.name.startsWith('external_sources[') || el.name.startsWith('bms_devices[') || el.name.startsWith('bms_banks[')) return;
+  // Source-level fields (global poll intervals). Device inputs are named
+  // like ha_devices[0][url] and are read by the collectors below instead.
+  const sourcesSection = document.getElementById('section-sources') || form;
+  sourcesSection.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
+    if (el.name.includes('[')) return;
     if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
     else payload[el.name] = el.value;
   });
@@ -5754,10 +5625,6 @@ if (form) form.addEventListener('submit', async (e) => {
     }
     return dev;
   });
-  payload.pvoutput_config = JSON.stringify(collectPvoutputConfig());
-  payload.dashboard_config = JSON.stringify(dashConfig);
-  payload.dashboard_layouts = JSON.stringify(dashConfig.dashboards || []);
-  payload.dashboard_active = dashConfig.activeDashboard || 'main';
   // Collect tuya_cloud credentials
   const tuyaCloud = {
     region: document.getElementById('tuya-cloud-region')?.value || 'eu',
@@ -5772,25 +5639,17 @@ if (form) form.addEventListener('submit', async (e) => {
   // that saves with zero mapped rows would flip to explicit-none and stop
   // polling — confirm before persisting that.
   if (!confirmImplicitToExplicitNoneFlips()) {
-    showStatus(saveStatus, 'Save cancelled — a device would flip from implicit profile-default polling to explicit-none (polling stops). Map at least one metric for it first.', 'error');
-    return;
+    const err = new Error('Save cancelled — a device would flip from implicit profile-default polling to explicit-none (polling stops). Map at least one metric for it first.');
+    err.cancelled = true;
+    throw err;
   }
-  try {
-    const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(payload) });
-    if (res.ok) {
-      showStatus(saveStatus, 'Settings saved successfully!', 'success');
-      // Clear the unsaved changes indicator
-      const dirtyCount = document.getElementById('stg-dirty-count');
-      if (dirtyCount) { dirtyCount.textContent = ''; dirtyCount.classList.remove('show'); }
-      document.dispatchEvent(new CustomEvent('stg-save-complete'));
-    }
-    else {
-      let msg = `Server error (${res.status})`;
-      try { const err = await res.json(); msg = err.error || msg; } catch {}
-      showStatus(saveStatus, msg, 'error');
-    }
-  } catch (e) { showStatus(saveStatus, 'Error: ' + e.message, 'error'); }
-});
+  return payload;
+}
+
+/** Uploads: the PVOutput configuration. */
+function buildUploadsPayload() {
+  return { pvoutput_config: JSON.stringify(collectPvoutputConfig()) };
+}
 
 function collectDeviceArray(containerId, extractFn) {
   const container = document.getElementById(containerId);
@@ -5806,6 +5665,5 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Initialize
-loadMetricsList();
-loadSettings();
+// Initialize. js/settings-shell.js waits on this before taking its baseline.
+window.settingsReady = Promise.all([loadMetricsList(), loadSettings()]);

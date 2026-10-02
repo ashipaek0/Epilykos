@@ -98,7 +98,127 @@
 
   // ── Constants ─────────────────────────────────────────────
   var SOURCE_KEYS = ['ha', 'mqtt', 'dongle', 'rs232', 'modbusSerial', 'modbusTcp', 'bms', 'bmsWired', 'rest'];
-  var STEP_LABELS = ['Password', 'Sources', 'Metrics', 'Dashboard', 'Basics', 'Optional', 'Finish'];
+  var STEPS = [
+    { label: 'Password', sub: 'Protect Settings', title: 'Secure your workspace', lede: 'Set the admin password. It protects Settings and the layout editor; the dashboard itself stays open to view.' },
+    { label: 'Sources', sub: 'Where data comes from', title: 'Connect your equipment', lede: 'Pick what Epilykos should read from, then fill in each connection. Testing is optional: a failed test won\'t stop you continuing.' },
+    { label: 'Metrics', sub: 'What each reading means', title: 'Match readings to roles', lede: 'Tell Epilykos which reading is your solar power, battery level and so on. These drive the flow card, savings and daily totals. Leave any you don\'t have empty.' },
+    { label: 'Dashboard', sub: 'Starting layout', title: 'Choose a starting dashboard', lede: 'Start with everything or a short, simple layout. You can add, remove and rearrange cards later in the layout editor.' },
+    { label: 'Basics', sub: 'Name, currency, size', title: 'A few basics', lede: 'Used for the dashboard title, savings figures and the solar forecast.' },
+    { label: 'Extras', sub: 'Optional', title: 'Optional extras', lede: 'Upload to PVOutput, forecast solar production, and set the addresses the app uses at home and away. Skip any of these; they\'re all in Settings later.' },
+    { label: 'Finish', sub: 'Review and go', title: 'Review and finish', lede: 'Here\'s what\'s set up. Finish to open your dashboard.' }
+  ];
+  var LAST_STEP = STEPS.length;
+
+  // Source types offered in step 2, grouped like Settings' add-source picker.
+  var SOURCE_GROUPS = [
+    { label: 'Inverter', items: [
+      { key: 'dongle', icon: 'dongle', name: 'WiFi or Bluetooth dongle', sub: 'Solarman, LuxPower, Growatt, Felicity sticks' },
+      { key: 'modbusTcp', icon: 'network', name: 'Modbus-TCP', sub: 'Over your network, or through an RS485 gateway' },
+      { key: 'modbusSerial', icon: 'register', name: 'RS485 (Modbus-RTU)', sub: 'USB to RS485 adapter' },
+      { key: 'rs232', icon: 'serial', name: 'RS232 serial', sub: 'Voltronic, Victron VE.Direct and similar' }
+    ] },
+    { label: 'Battery', items: [
+      { key: 'bms', icon: 'bluetooth', name: 'BMS over Bluetooth', sub: 'Scan for nearby batteries' },
+      { key: 'bmsWired', icon: 'battery', name: 'BMS over RS485 / RS232', sub: 'Wired to this server' }
+    ] },
+    { label: 'Home automation and other', items: [
+      { key: 'ha', icon: 'home', name: 'Home Assistant', sub: 'Read entities with a long-lived token' },
+      { key: 'mqtt', icon: 'mqtt', name: 'MQTT', sub: 'Subscribe to topics on a broker' },
+      { key: 'rest', icon: 'rest', name: 'REST API', sub: 'Any JSON endpoint' }
+    ] }
+  ];
+  function sourceType(key) {
+    for (var g = 0; g < SOURCE_GROUPS.length; g++) {
+      for (var i = 0; i < SOURCE_GROUPS[g].items.length; i++) if (SOURCE_GROUPS[g].items[i].key === key) return SOURCE_GROUPS[g].items[i];
+    }
+    return { key: key, icon: 'plug', name: key, sub: '' };
+  }
+
+  var ICONS = {
+    back: '<path d="M15 18l-6-6 6-6"/>',
+    check: '<path d="M20 6L9 17l-5-5"/>',
+    alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.01"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 004.4-1"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/>',
+    refresh: '<path d="M20 11a8 8 0 00-14.9-4M4 4v4h4M4 13a8 8 0 0014.9 4M20 20v-4h-4"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+    plug: '<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 01-10 0V8zM12 16v5"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
+    home: '<path d="M3 11l9-7 9 7v9H3z"/><path d="M10 20v-6h4v6"/>',
+    register: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',
+    serial: '<path d="M4 9h16v6H4z"/><path d="M8 9V6M16 9V6M8 15v3M16 15v3"/>',
+    dongle: '<path d="M5 12a7 7 0 0114 0M9 12a3 3 0 016 0"/><circle cx="12" cy="12" r="1"/><path d="M12 13v7"/>',
+    network: '<rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 17h.01M11 17h.01M12 14V9M8 6a6 6 0 018 0M5.5 3.5a10 10 0 0113 0"/>',
+    bluetooth: '<path d="M7 7l10 10-5 4V3l5 4L7 17"/>',
+    battery: '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 3V1.5h4V3M9 9h6M9 13h6"/>',
+    mqtt: '<path d="M4 12a8 8 0 0116 0M8 12a4 4 0 018 0"/><circle cx="12" cy="12" r="1.5"/>',
+    rest: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>',
+    upload: '<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
+    moon: '<path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/>',
+    wifi: '<path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r="1"/>',
+    layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 10h18M10 10v11"/>',
+    list: '<path d="M4 7h16M4 12h16M4 17h10"/>',
+    sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+    rocket: '<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2M9 18l-3-3c1-4 4-9.5 12-12 0 0 .5 7-6 12z"/><circle cx="14.5" cy="9.5" r="1.5"/>'
+  };
+  function icon(name, size) {
+    var n = size || 20;
+    return '<svg width="' + n + '" height="' + n + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + (ICONS[name] || ICONS.plug) + '</svg>';
+  }
+  function hydrateIcons(root) {
+    $$('[data-icon]', root).forEach(function (el) {
+      el.insertAdjacentHTML('afterbegin', icon(el.getAttribute('data-icon'), parseInt(el.getAttribute('data-size'), 10) || 20));
+      el.removeAttribute('data-icon');
+    });
+  }
+
+  // ── Markup helpers ────────────────────────────────────────
+  // field(label, control, {hint, optional, span, id, hidden})
+  function field(label, control, o) {
+    o = o || {};
+    return '<div class="wz-field' + (o.span ? ' wz-span' : '') + '"' + (o.id ? ' id="' + o.id + '"' : '') + (o.hidden ? ' style="display:none;"' : '') + '>'
+      + '<label' + (o.forId ? ' for="' + o.forId + '"' : '') + '>' + esc(label) + (o.optional ? ' <span class="wz-opt">(optional)</span>' : '') + '</label>'
+      + control
+      + (o.hint ? '<p class="wz-hint">' + o.hint + '</p>' : '')
+      + '</div>';
+  }
+  // input bound to a state path: inp('sources.ha.url', value, {type, placeholder, id, attrs})
+  function inp(path, value, o) {
+    o = o || {};
+    return '<input data-field="' + path + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' type="' + (o.type || 'text') + '"'
+      + (o.placeholder ? ' placeholder="' + esc(o.placeholder) + '"' : '')
+      + (o.type === 'number' ? ' inputmode="decimal"' : '')
+      + (o.attrs || '') + ' value="' + esc(value) + '">';
+  }
+  // sel('sources.x.parity', [[value, label], …], current, {id})
+  function sel(path, options, current, o) {
+    o = o || {};
+    return '<select data-field="' + path + '"' + (o.id ? ' id="' + o.id + '"' : '') + '>'
+      + options.map(function (x) { return '<option value="' + esc(x[0]) + '"' + (String(current) === String(x[0]) ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('')
+      + '</select>';
+  }
+  function grid() { return '<div class="wz-grid">' + Array.prototype.join.call(arguments, '') + '</div>'; }
+  function alertBox(kind, html, id) {
+    return '<div class="wz-alert is-' + kind + '"' + (id ? ' id="' + id + '"' : '') + '>' + icon(kind === 'error' ? 'alert' : kind === 'ok' ? 'check' : 'info', 18) + '<div>' + html + '</div></div>';
+  }
+  // A source's settings card: icon, title, status pill, fields, test row.
+  function sourceCard(key, bodyHtml, footHtml) {
+    var t = sourceType(key);
+    return '<section class="source-config wz-card" data-source="' + key + '" aria-labelledby="src-' + key + '-title">'
+      + '<header class="wz-card-head"><span class="wz-icon-tile">' + icon(t.icon) + '</span>'
+      + '<div class="wz-card-head-text"><h2 id="src-' + key + '-title">' + esc(t.name) + '</h2><p>' + esc(t.sub) + '</p></div>'
+      + '<span class="wz-pill" data-badge-src="' + key + '">Not tested</span></header>'
+      + '<div class="wz-card-body">' + bodyHtml + '<div data-error="' + key + '"></div></div>'
+      + '<footer class="wz-card-foot">'
+      + '<button class="wz-btn wz-btn-sm" type="button" data-action="test" data-source="' + key + '">Test connection</button>'
+      + (footHtml || '')
+      + '<span class="wz-spacer"></span>'
+      + '<button class="wz-btn-link is-danger" type="button" data-action="unselect-source" data-source="' + key + '">Remove</button>'
+      + '</footer></section>';
+  }
   var ROLES = [
     { key: 'solar',              label: 'Solar Power',       unit: 'W' },
     { key: 'consumption',        label: 'Home Consumption',   unit: 'W' },
@@ -116,6 +236,20 @@
     { key: 'daily_grid_export',  label: 'Daily Grid Export',  unit: 'kWh' }
   ];
   var MINIMAL_DASH_TYPES = ['flow-card-2', 'savings-summary', 'metric-cards'];
+  var ROLE_GROUPS = [
+    { label: 'Live power', hint: 'What\'s flowing right now. Drives the flow card and savings.', keys: ['solar', 'consumption', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'] },
+    { label: 'Battery and panels', keys: ['battery_soc', 'solar_voltage'] },
+    { label: 'Daily totals', hint: 'Energy so far today, usually reset at midnight by the inverter.', keys: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }
+  ];
+  // Friendly names for the dashboard preview in step 4.
+  var BLOCK_NAMES = {
+    'flow-card': 'Flow card', 'flow-card-2': 'Flow card', 'flow-card-square': 'Flow square', 'flow-card-square-2': 'Flow square', 'system-topology': 'System topology',
+    'metric-cards': 'Metric cards', 'multi-value': 'Multi-value', 'text-metric': 'Text value', 'gauge': 'Gauge', 'half-gauge': 'Half gauge', 'half-gauge-2': 'Half gauge',
+    'bar-gauge': 'Bar gauge', 'bar-gauge-retro': 'Retro bar gauge', 'bar-single': 'Bar chart', 'bar-stacked': 'Stacked bars', 'bar-threshold': 'Threshold bars',
+    'chart-power': 'Power chart', 'chart-energy': 'Daily energy', 'chart-metric': 'Metric chart', 'daily-table': 'Daily table', 'monthly-table': 'Monthly table',
+    'grid-card': 'Grid status', 'savings-summary': 'Savings', 'weather-block': 'Weather', 'forecast-pvtoday': 'Solar today', 'forecast-solar': 'Solar forecast',
+    'switch-block': 'Switch', 'state-select': 'Mode select', 'iframe': 'Embedded page', 'text': 'Text'
+  };
 
   // Fresh per-source wizard state (also used by "Start fresh").
   function defaultSources() {
@@ -140,6 +274,7 @@
     authGated: false,       // pristine first-run: password step only
     completed: false,
     busy: false,
+    skipped: {},           // step number -> true when it was skipped without saving
     existing: null,
     password: { newPw: '', confirmPw: '', setupCode: '', envPw: '' },
     sources: defaultSources(),
@@ -148,7 +283,7 @@
     basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar' },
     optional: {
       pvoutput: { enabled: false, api_key: '', system_id: '', timezone: '', upload_interval_minutes: '5', system_size_w: '0', net_mode: false, webhook_url: '', metric_map: {} },
-      forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', capacity_kwp: '', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
+      forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
       network: { local_url: '', remote_url: '' }
     }
   };
@@ -158,8 +293,7 @@
     if (theme !== 'dark') theme = 'light';
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('theme', theme); localStorage.setItem('epilykos-theme', theme); } catch (e) {}
-    var b = $('#theme-toggle');
-    if (b) b.innerHTML = theme === 'dark' ? '☀ Dark' : '☾ Light';
+    $$('[data-action="set-theme"]').forEach(function (b) { b.setAttribute('aria-checked', String(b.getAttribute('data-theme') === theme)); });
   }
   function initTheme() {
     var saved = null;
@@ -191,9 +325,9 @@
           state.authGated = true;
           state.isReRun = false;
           state.currentStep = 1;
-          revealWizard();
           hideStepperNav();
-          renderStep1();
+          revealWizard();
+          gotoStep(1);
           return;
         }
         state.authGated = false;
@@ -313,7 +447,6 @@
       ['solar_longitude', 'longitude'],
       ['solar_tilt', 'tilt'],
       ['solar_azimuth', 'azimuth'],
-      ['solar_capacity_kwp', 'capacity_kwp'],
       ['solcast_api_key', 'solcast_api_key'],
       ['solcast_resource_id', 'solcast_resource_id'],
       ['solar_loss_factor', 'loss_factor'],
@@ -322,7 +455,8 @@
       var v = cfg[pair[0]];
       if (present(v)) fg[pair[1]] = v;
     });
-    if (fg.enabled !== undefined) fg.enabled = !!fg.enabled;
+    // Stored as the string 'true' / 'false'; !!'false' would read as on.
+    if (fg.enabled !== undefined) fg.enabled = truthy(fg.enabled);
 
     // Network
     var net = state.optional.network;
@@ -358,6 +492,7 @@
       var el = $('#' + s);
       if (el) el.hidden = (s !== id);
     });
+    var prog = $('#wz-top-progress'); if (prog) prog.hidden = (id !== 'wizard') || state.authGated;
   }
   function showFatal() { showScreen('fatal-screen'); }
   function showAlreadySetup() { showScreen('already-setup'); }
@@ -373,44 +508,64 @@
   // step only, so the stepper + Back/Next nav are hidden until the
   // password is set (auto-login) and the rest is revealed.
   function hideStepperNav() {
-    var s = $('#wizard-steps'); if (s) s.style.display = 'none';
-    var n = $('#wizard-nav'); if (n) n.style.display = 'none';
+    var w = $('#wizard'); if (w) w.classList.add('is-gated');
     var g = $('#wizard-global-error'); if (g) g.hidden = true;
+    var prog = $('#wz-top-progress'); if (prog) prog.hidden = true;
   }
   function showStepperNav() {
-    var s = $('#wizard-steps'); if (s) s.style.display = '';
-    var n = $('#wizard-nav'); if (n) n.style.display = '';
+    var w = $('#wizard'); if (w) w.classList.remove('is-gated');
+    var prog = $('#wz-top-progress'); if (prog) prog.hidden = false;
   }
 
   // ── Stepper ───────────────────────────────────────────────
   function renderStepper() {
     var ol = $('#wizard-steps');
+    var first = state.isReRun ? 2 : 1;
     var html = '';
-    for (var i = 1; i <= STEP_LABELS.length; i++) {
-      var cls = i === state.currentStep ? 'active' : (i < state.currentStep ? 'done' : '');
-      var isLast = i === STEP_LABELS.length;
-      html += '<li class="step ' + cls + '">'
-        + '<span class="step-dot" title="' + esc(STEP_LABELS[i - 1]) + '">' + i + '</span>'
-        + (isLast ? '' : '<span class="step-bar"></span>')
-        + '</li>';
-    }
+    STEPS.forEach(function (st, idx) {
+      var n = idx + 1;
+      if (n < first) return;
+      var cur = n === state.currentStep && !state.completed;
+      var done = n < state.currentStep || state.completed;
+      var skipped = done && !!state.skipped[n];
+      html += '<li class="wz-step' + (cur ? ' is-current' : '') + (done ? ' is-done' : '') + (skipped ? ' is-skipped' : '') + '">'
+        + '<button type="button" class="wz-step-btn" data-action="goto-step" data-step="' + n + '"' + (cur ? ' aria-current="step"' : '') + (done ? '' : ' tabindex="-1" aria-disabled="true"') + '>'
+        + '<span class="wz-step-num">' + (skipped ? '–' : done ? icon('check', 16) : (n - first + 1)) + '</span>'
+        + '<span class="wz-step-text"><span class="wz-step-label">' + esc(st.label) + '</span><span class="wz-step-sub">' + (skipped ? 'Skipped' : esc(st.sub)) + '</span></span>'
+        + '</button></li>';
+    });
     ol.innerHTML = html;
+    var total = LAST_STEP - first + 1, pos = state.currentStep - first + 1;
+    var t = $('#wz-top-progress-text'); if (t) t.textContent = 'Step ' + pos + ' of ' + total;
+    var bar = $('#wz-progress-bar'); if (bar) bar.style.width = Math.round(pos / total * 100) + '%';
   }
   function markStepDone(step) { renderStepper(); }
 
   // ── Step navigation ───────────────────────────────────────
   function gotoStep(n) {
     if (n < 1) n = 1;
-    if (n > 7) n = 7;
+    if (n > LAST_STEP) n = LAST_STEP;
     state.currentStep = n;
     if (n > 1) state.progressAtLeast = n;
     renderStepper();
+    var first = state.isReRun ? 2 : 1;
     $$('.wizard-panel').forEach(function (p) {
-      p.classList.toggle('active', parseInt(p.getAttribute('data-step'), 10) === n);
+      var step = parseInt(p.getAttribute('data-step'), 10);
+      var on = step === n;
+      p.classList.toggle('active', on);
+      if (!on) return;
+      var meta = STEPS[step - 1];
+      $('[data-step-eyebrow]', p).textContent = state.authGated ? 'First-run setup' : 'Step ' + (step - first + 1) + ' of ' + (LAST_STEP - first + 1);
+      $('[data-step-title]', p).textContent = meta.title;
+      $('[data-step-lede]', p).textContent = meta.lede;
     });
+    setGlobalError(null);
+    setNavHint('');
     renderStepBody(n);
     updateNav();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0 });
+    var title = $('.wizard-panel.active [data-step-title]');
+    if (title && document.activeElement && document.activeElement !== document.body) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
   }
 
   function renderStepBody(n) {
@@ -422,7 +577,8 @@
     else if (n === 4) renderStep4();
     else if (n === 5) renderStep5();
     else if (n === 6) renderStepOptional();
-    else if (n === 7) renderStep6();
+    else if (n === 7) renderStepFinish();
+    hydrateIcons(body);
   }
 
   // ── VALIDATION ────────────────────────────────────────────
@@ -438,42 +594,57 @@
     var cap = String(b.solar_capacity_kwp).trim();
     return b.savings_currency.trim() !== '' && cap !== '' && !isNaN(Number(cap)) && b.dashboard_title.trim() !== '';
   }
+  // Whether Continue is enabled. Missing fields don't disable it: pressing it
+  // explains what's missing instead (see onNext).
   function canGoNext(step) {
     if (step === 1) return state.status ? (state.status.passwordEnvManaged ? true : validNewPassword()) : false;
-    if (step === 2) return selectedSourcesCount() > 0 && Object.keys(sourceValidationErrors()).length === 0;
-    if (step === 3) return true;
-    if (step === 4) return true;
-    if (step === 5) return basicsValid();
-    if (step === 6) return true;   // Optional — always skippable / non-blocking
-    if (step === 7) return true;   // Finish
-    return false;
+    return true;
   }
   function unassignedCount() {
     return ROLES.filter(function (r) { return !((state.roleMetrics[r.key] || '').trim()); }).length;
   }
   function roleCountLabel() {
-    var u = unassignedCount();
-    if (u === ROLES.length) return 'No metrics mapped yet — leave blank to skip.';
-    return u + ' role' + (u === 1 ? '' : 's') + ' unassigned';
+    var set = ROLES.length - unassignedCount();
+    if (!set) return 'No roles matched yet. You can skip this and do it in Settings.';
+    return set + ' of ' + ROLES.length + ' roles matched';
   }
 
   function updateNav() {
     if (state.authGated) return;
-    var wiz = $('#wizard');
     var next = $('#next-btn');
     var back = $('#back-btn');
+    var skip = $('#skip-btn');
     var firstVisible = state.isReRun ? 2 : 1;
-    back.style.display = (state.currentStep > firstVisible) ? '' : 'none';
+    back.hidden = !(state.currentStep > firstVisible) || state.completed;
+    skip.hidden = !isSkippable(state.currentStep) || state.completed;
     if (next) {
       if (!state.busy) next.disabled = !canGoNext(state.currentStep);
-      next.textContent = (state.currentStep === 7) ? (state.completed ? 'Done' : 'Finish') : 'Next →';
+      next.textContent = state.currentStep === LAST_STEP ? (state.completed ? 'Open dashboard' : 'Finish setup') : 'Continue';
     }
-    var hint = '';
-    if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Select at least one source.';
-    else if (state.currentStep === 3) hint = roleCountLabel();
-    else if (state.currentStep === 6) hint = 'All optional — leave blank to skip.';
     var hintEl = $('#nav-hint');
-    if (hintEl) hintEl.textContent = hint;
+    if (hintEl && !hintEl.classList.contains('is-error')) {
+      var hint = '';
+      if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Nothing picked: Continue skips this. Add sources in Settings any time.';
+      else if (state.currentStep === 3) hint = roleCountLabel();
+      hintEl.textContent = hint;
+    }
+  }
+  // Every step between the password and the review can be skipped. Skipping
+  // moves on without saving that step; Continue saves it.
+  function isSkippable(step) { return step > 1 && step < LAST_STEP; }
+  function skipStep() {
+    var step = state.currentStep;
+    if (!isSkippable(step)) return;
+    state.skipped[step] = true;
+    gotoStep(step + 1);
+  }
+
+  // An error in the nav bar stays until the next step change or Continue.
+  function setNavHint(msg, isError) {
+    var el = $('#nav-hint');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('is-error', !!(msg && isError));
   }
 
   // ── STEP 1: PASSWORD ──────────────────────────────────────
@@ -485,46 +656,52 @@
     state.password.setupCode = '';
     state.password.envPw = '';
 
-    var html = '<div class="card">'
-      + '<div class="card-header"><span class="card-title">🔑 Admin password</span></div>';
-
+    var html = '<div class="wz-card"><div class="wz-card-body">';
     if (envManaged) {
       if (state.authGated) {
         // Prove the server-side password before the wizard unlocks.
-        html += '<div class="alert alert-info">The admin password is set by the SETTINGS_PASSWORD environment variable. Enter it to continue.</div>'
-          + '<div class="form-group"><label>SETTINGS_PASSWORD</label>'
-          + '<input class="input" type="password" id="pw-env" data-field="password.envPw" autocomplete="current-password"></div>';
+        html += alertBox('info', 'This server\'s admin password is set with the <code>SETTINGS_PASSWORD</code> environment variable. Enter it to continue.')
+          + '<div style="height:16px"></div>'
+          + field('Admin password', passwordInput('password.envPw', 'pw-env', 'current-password'), { forId: 'pw-env' });
       } else {
-        html += '<div class="alert alert-info">Password has been set via environment variable server-side. Click next to continue.</div>';
+        html += alertBox('info', 'The admin password is set with the <code>SETTINGS_PASSWORD</code> environment variable, so there\'s nothing to do here.');
       }
     } else {
       if (state.authGated) {
-        html += '<div class="form-group">'
-          + '<label>Setup code</label>'
-          + '<input class="input" type="text" id="pw-setup-code" data-field="password.setupCode" autocomplete="off" placeholder="8 characters" style="text-transform:uppercase;">'
-          + '<span class="note">Printed in the server log on startup — e.g. <code>docker logs epilykos</code>. It proves you run this server.</span>'
-          + '</div>';
+        html += field('Setup code', '<input id="pw-setup-code" class="wz-code-input" data-field="password.setupCode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="XXXXXXXX">', {
+          forId: 'pw-setup-code',
+          hint: 'An 8-character code printed in the server log when Epilykos starts, for example with <code>docker logs epilykos</code>. It proves you run this server.'
+        });
       }
-      html += '<div class="form-row">'
-        + '<div class="form-group"><label>New password</label><input class="input" type="password" id="pw-new" data-field="password.newPw" placeholder="Min 4 characters"><span class="note" id="pw-new-err"></span></div>'
-        + '<div class="form-group"><label>Confirm password</label><input class="input" type="password" id="pw-confirm" data-field="password.confirmPw" placeholder="Repeat password"></div>'
-        + '</div>'
-        + '<div class="test-row">'
-        + '<button class="btn btn-sm" type="button" data-action="regenerate">🔄 Regenerate</button>'
-        + '<span class="test-badge pending" data-badge-src="pw">Untouched</span>'
-        + '</div>'
-        + '<span class="note">Record this password — it unlocks Settings and the REST API.</span>'
-        + '<p class="note" id="pw-msg" style="font-size:0.78rem;"></p>';
-    }
-
-    if (state.authGated) {
-      html += '<div class="btn-group" style="margin-top:0.75rem;">'
-        + '<button class="btn btn-primary" type="button" data-action="password-submit">' + (envManaged ? 'Continue →' : 'Set password & continue →') + '</button>'
-        + '</div>';
+      html += grid(
+        field('New password', passwordInput('password.newPw', 'pw-new', 'new-password'), { forId: 'pw-new' }),
+        field('Confirm password', passwordInput('password.confirmPw', 'pw-confirm', 'new-password'), { forId: 'pw-confirm' })
+      )
+        + '<ul class="wz-reqs" id="pw-reqs"><li data-req="len">At least 4 characters</li><li data-req="match">Both passwords match</li></ul>'
+        + '<div class="wz-actions"><button class="wz-btn wz-btn-sm" type="button" data-action="regenerate">' + icon('refresh', 16) + 'Generate a strong password</button>'
+        + '<button class="wz-btn wz-btn-sm" type="button" data-action="copy-password" id="pw-copy" hidden>' + icon('copy', 16) + 'Copy</button></div>'
+        + '<p class="wz-hint" id="pw-msg" style="margin-top:12px">Keep it somewhere safe: it unlocks Settings and the REST API.</p>';
     }
     html += '</div>';
-
+    if (state.authGated) {
+      html += '<div class="wz-card-foot"><span class="wz-spacer"></span><button class="wz-btn wz-btn-primary" type="button" data-action="password-submit" id="pw-submit">'
+        + (envManaged ? 'Continue' : 'Set password and continue') + '</button></div>';
+    }
+    html += '</div>';
     body.innerHTML = html;
+    syncPasswordReqs();
+  }
+  function passwordInput(path, id, autocomplete) {
+    return '<div class="wz-input-row"><input type="password" id="' + id + '" data-field="' + path + '" autocomplete="' + autocomplete + '">'
+      + '<button class="wz-btn" type="button" data-action="reveal" data-target="' + id + '" aria-label="Show password" aria-pressed="false">' + icon('eye', 18) + '</button></div>';
+  }
+  function syncPasswordReqs() {
+    var p = state.password;
+    var len = $('[data-req="len"]'), match = $('[data-req="match"]');
+    if (len) len.classList.toggle('is-met', (p.newPw || '').length >= 4);
+    if (match) match.classList.toggle('is-met', !!p.newPw && p.newPw === p.confirmPw);
+    var submit = $('#pw-submit');
+    if (submit && state.status && !state.status.passwordEnvManaged) submit.disabled = !(validNewPassword() && (!state.authGated || (p.setupCode || '').trim().length > 0));
   }
 
   function submitPassword() {
@@ -536,28 +713,28 @@
       payload = { password: p.envPw };
     } else {
       if (!validNewPassword()) {
-        var err = $('#pw-new-err');
-        if (err) err.textContent = (p.newPw.length < 4) ? 'Password must be at least 4 characters.' : 'Passwords do not match.';
-        updateNav();
+        setGlobalError((p.newPw.length < 4) ? 'The password needs at least 4 characters.' : 'The two passwords don\'t match.');
         return;
       }
       payload = { password: p.newPw, setup_code: p.setupCode };
     }
     setBusy(true);
+    var submitBtn = $('#pw-submit'); if (submitBtn) submitBtn.classList.add('is-busy');
     api('/api/wizard/password', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
       setBusy(false);
+      if (submitBtn) submitBtn.classList.remove('is-busy');
       if (res.ok && res.data && res.data.success) {
-        var msg = $('#pw-msg'); if (msg) msg.textContent = '✔ Password saved.';
         setGlobalError(null);
         afterPasswordDone();
       } else if (res.data && res.data.error) {
         setGlobalError(String(res.data.error));
       } else {
-        setGlobalError('Could not save the password (' + res.status + '). Please try again.');
+        setGlobalError('Couldn\'t save the password (error ' + res.status + '). Try again.');
       }
     }).catch(function () {
       setBusy(false);
-      setGlobalError('Could not reach the server to save the password.');
+      if (submitBtn) submitBtn.classList.remove('is-busy');
+      setGlobalError('Couldn\'t reach the server to save the password.');
     });
     return true; // handled
   }
@@ -581,88 +758,35 @@
 
   // ── STEP 2: SOURCES ───────────────────────────────────────
   function renderStep2() {
-    var g = (window.EPILYKOS_LABELS && window.EPILYKOS_LABELS.groups) || {};
     var body = $('#step-2-body');
+    var html = '<h2 class="wz-section-title">What do you want to connect?</h2>';
+    SOURCE_GROUPS.forEach(function (g) {
+      html += '<div class="wz-pick-group" role="group" aria-label="' + esc(g.label) + '"><h3 class="wz-pick-title">' + esc(g.label) + '</h3><div class="wz-pick-grid">';
+      g.items.forEach(function (t) {
+        var on = state.sources[t.key].selected;
+        html += '<label class="wz-pick' + (on ? ' is-on' : '') + '" data-pick="' + t.key + '">'
+          + '<input type="checkbox" data-source-pick="' + t.key + '"' + (on ? ' checked' : '') + '>'
+          + '<span class="wz-icon-tile">' + icon(t.icon) + '</span>'
+          + '<span class="wz-pick-text"><span class="wz-pick-name">' + esc(t.name) + '</span><span class="wz-pick-sub">' + esc(t.sub) + '</span></span>'
+          + '<span class="wz-pick-check">' + icon('check', 14) + '</span></label>';
+      });
+      html += '</div></div>';
+    });
+    html += '<p class="wz-hint">Tuya devices and battery banks are set up in Settings after this.</p>';
 
-    function tile(t) {
-      var on = state.sources[t.key].selected;
-      return '<div class="source-tile' + (on ? ' selected' : '') + '" data-action="toggle-source" data-source="' + t.key + '" role="button" tabindex="0">'
-        + '<span class="tile-icon">' + t.icon + '</span>'
-        + '<span class="tile-block"><span class="tile-label">' + esc(t.label) + '</span><br><span class="tile-sub">' + esc(t.sub) + '</span></span>'
-        + '<span class="tile-check">✓</span>'
-        + '</div>';
-    }
-    function grid(tiles) {
-      return '<div class="source-grid">' + tiles.map(tile).join('') + '</div>';
-    }
-    function section(label, sub, tilesHtml, cardsHtml) {
-      return '<div class="setup-section">'
-        + '<div class="setup-section-head"><h3>' + esc(label) + '</h3>' + (sub ? '<p>' + esc(sub) + '</p>' : '') + '</div>'
-        + tilesHtml + cardsHtml
-        + '</div>';
-    }
-
-    var html = '';
-
-    // 1 · Inverter — Wired
-    html += section(g.inverterWired, 'Connect over a direct cable to the inverter.',
-      grid([
-        { key: 'modbusSerial', icon: '🔌', label: 'RS485 (Modbus-RTU)', sub: 'USB / RS485 adapter' },
-        { key: 'rs232', icon: '📟', label: 'RS232 (direct serial)', sub: '9-pin serial' }
-      ]),
-      sourceCardModbusSerial() + sourceCardRS232());
-
-    // 2 · Inverter — Wireless (TCP/IP)
-    html += section(g.inverterWireless, 'Connect over your local network — a Modbus-TCP inverter, or an RS-485 inverter through a network gateway.',
-      grid([
-        { key: 'modbusTcp', icon: '🌐', label: 'Modbus-TCP', sub: 'Modbus over TCP/IP' }
-      ]),
-      sourceCardModbusTcp());
-
-    // 3 · Inverter — Dongle
-    html += section(g.inverterDongle, 'Built-in logger, Wi-Fi dongle or Bluetooth module on the inverter.',
-      grid([
-        { key: 'dongle', icon: '🔌', label: 'Inverter dongle', sub: 'Wi-Fi (Solarman / Felicity / Growatt…) or Bluetooth' }
-      ]),
-      sourceCardDongle());
-
-    // 4 · BMS — Bluetooth
-    html += section(g.bmsBluetooth, 'Battery BMS over Bluetooth, using the host Bluetooth adapter.',
-      grid([
-        { key: 'bms', icon: '🔋', label: 'BMS (Bluetooth)', sub: 'Scan for nearby batteries' }
-      ]),
-      sourceCardBMS());
-
-    // 5 · BMS — Wired (real source)
-    html += section(g.bmsWired, 'Read your BMS over a direct wired connection (RS485/RS232, Modbus-RTU).',
-      grid([{ key: 'bmsWired', icon: '🔌', label: 'BMS (RS485/RS232)', sub: 'Modbus-RTU over serial' }]),
-      sourceCardBmsWired());
-
-    // 6 · Home Assistant
-    html += section(g.ha, 'A running Home Assistant instance.',
-      grid([{ key: 'ha', icon: '🏠', label: 'Home Assistant', sub: 'Base URL + token' }]),
-      sourceCardHA());
-
-    // 7 · MQTT
-    html += section(g.mqtt, 'An MQTT broker to subscribe to.',
-      grid([{ key: 'mqtt', icon: '📡', label: 'MQTT', sub: 'Broker + optional topic list' }]),
-      sourceCardMQTT());
-
-    // 8 · REST API
-    html += section(g.rest, 'Pull readings from any JSON endpoint.',
-      grid([{ key: 'rest', icon: '🌐', label: 'REST API', sub: 'URL + JSON path' }]),
-      sourceCardREST());
-
-    // Tuya is configured in Settings, not the wizard.
-    html += '<div class="source-coming"><span class="source-coming-note">Tuya devices are configurable in the Settings page.</span></div>';
-
-    // Footer actions: Next is the single save+advance; Start fresh is the destructive reset (behind confirm).
-    html += '<div class="test-row">'
-      + '<span class="spacer"></span>'
-      + '<button class="btn" type="button" data-action="reset-sources">Start fresh</button>'
+    html += '<h2 class="wz-section-title">Connection details</h2>'
+      + '<div class="wz-configs">'
+      + '<p class="wz-configs-empty" id="sources-empty">Pick a source above and its settings appear here.</p>'
+      + sourceCardDongle() + sourceCardModbusTcp() + sourceCardModbusSerial() + sourceCardRS232()
+      + sourceCardBMS() + sourceCardBmsWired()
+      + sourceCardHA() + sourceCardMQTT() + sourceCardREST()
       + '</div>'
-      + '<div class="alert alert-info" id="reset-sources-note" hidden></div>'
-      + '<div class="alert alert-error" id="sources-error" hidden></div>';
+      + '<div class="wz-alert is-error" id="sources-error" role="alert" hidden></div>'
+      + '<div class="wz-alert is-ok" id="reset-sources-note" hidden></div>';
+
+    if (state.isReRun) {
+      html += '<p class="wz-hint" style="margin-top:28px">Want to start again? <button class="wz-btn-link is-danger" type="button" data-action="reset-sources">Clear all sources and metric roles</button></p>';
+    }
 
     body.innerHTML = html;
     syncSourceCardVisibility();
@@ -675,268 +799,189 @@
 
   function sourceCardHA() {
     var s = cfg('ha');
-    return '<div class="source-config card" data-source="ha">'
-      + '<div class="card-header"><span class="card-title">Home Assistant</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.ha.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.ha.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Base URL</label><input class="input" type="url" data-field="sources.ha.url" placeholder="http://192.168.1.20:8123" value="' + esc(s.url) + '"></div>'
-      + '<div class="form-group"><label>Long-lived access token</label><input class="input" type="password" data-field="sources.ha.token" placeholder="Paste your HA long-lived token" value="' + esc(s.token) + '"></div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="ha" data-test="ha">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="ha">Not tested</span>'
-      + '</div>'
-      + '<div id="ha-entities"></div>'
-      + '<input type="hidden" id="ha-entity-count" value="' + s.entities.length + '">'
-      + '<div data-error="ha"></div>'
-      + '</div>';
+    return sourceCard('ha',
+      grid(
+        field('Name', inp('sources.ha.name', s.name)),
+        field('Read every (seconds)', inp('sources.ha.poll_interval', s.poll_interval, { type: 'number' }))
+      )
+      + field('Home Assistant address', inp('sources.ha.url', s.url, { type: 'url', placeholder: 'http://192.168.1.20:8123' }))
+      + field('Long-lived access token', inp('sources.ha.token', s.token, { type: 'password', placeholder: 'Paste the token', attrs: ' autocomplete="off"' }), { hint: 'In Home Assistant: your profile → Security → Long-lived access tokens → Create token.' })
+      + '<div id="ha-entities"></div>');
   }
   function sourceCardMQTT() {
     var s = cfg('mqtt');
-    return '<div class="source-config card" data-source="mqtt">'
-      + '<div class="card-header"><span class="card-title">MQTT</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.mqtt.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.mqtt.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Broker URL</label><input class="input" data-field="sources.mqtt.broker" placeholder="mqtt://192.168.1.20:1883" value="' + esc(s.broker) + '"></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Username <span class="note">(optional)</span></label><input class="input" data-field="sources.mqtt.username" value="' + esc(s.username) + '"></div>'
-      + '<div class="form-group"><label>Password <span class="note">(optional)</span></label><input class="input" type="password" data-field="sources.mqtt.password" value="' + esc(s.password) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="mqtt" data-test="mqtt">Test connection</button>'
-      + '<button class="btn btn-sm" type="button" data-action="browse-topics">Browse topics</button>'
-      + '<span class="test-badge pending" data-badge-src="mqtt">Not tested</span>'
-      + '</div>'
-      + '<div id="mqtt-topics"></div>'
-      + '<div data-error="mqtt"></div>'
-      + '</div>';
+    return sourceCard('mqtt',
+      grid(
+        field('Name', inp('sources.mqtt.name', s.name)),
+        field('Read every (seconds)', inp('sources.mqtt.poll_interval', s.poll_interval, { type: 'number' }))
+      )
+      + field('Broker address', inp('sources.mqtt.broker', s.broker, { placeholder: 'mqtt://192.168.1.20:1883' }))
+      + grid(
+        field('Username', inp('sources.mqtt.username', s.username, { attrs: ' autocomplete="off"' }), { optional: true }),
+        field('Password', inp('sources.mqtt.password', s.password, { type: 'password', attrs: ' autocomplete="off"' }), { optional: true })
+      )
+      + '<div id="mqtt-topics"></div>',
+      '<button class="wz-btn wz-btn-sm" type="button" data-action="browse-topics">' + icon('search', 16) + 'Browse topics</button>');
   }
   function sourceCardDongle() {
     var s = cfg('dongle');
     var bt = s.link === 'bluetooth';
-    var serialVisible = !bt && s.profile && (s.profileRequiresSerial || s.serialVisible) ? '' : ' style="display:none;"';
-    return '<div class="source-config card" data-source="dongle">'
-      + '<div class="card-header"><span class="card-title">Inverter dongle</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.dongle.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Connection</label><select class="select-input" data-field="sources.dongle.link" id="dongle-link">'
-      + '<option value="network"' + (bt ? '' : ' selected') + '>Wi-Fi / network dongle</option>'
-      + '<option value="bluetooth"' + (bt ? ' selected' : '') + '>Bluetooth module</option>'
-      + '</select></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Profile</label><select class="select-input" data-field="sources.dongle.profile" id="dongle-profile"><option value="">Loading…</option></select></div>'
+    var serialVisible = !bt && s.profile && (s.profileRequiresSerial || s.serialVisible);
+    return sourceCard('dongle',
+      grid(
+        field('Name', inp('sources.dongle.name', s.name)),
+        field('Connection', sel('sources.dongle.link', [['network', 'WiFi or network'], ['bluetooth', 'Bluetooth']], bt ? 'bluetooth' : 'network', { id: 'dongle-link' }))
+      )
+      + field('Inverter profile', '<select data-field="sources.dongle.profile" id="dongle-profile"><option value="">Loading…</option></select>', { hint: 'The profile tells Epilykos how your inverter lays out its readings.' })
       + '<div id="dongle-net-group"' + (bt ? ' style="display:none;"' : '') + '>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Host</label><input class="input" data-field="sources.dongle.host" placeholder="192.168.1.50" value="' + esc(s.host) + '"></div>'
-      + '<div class="form-group"><label>Port</label><input class="input" type="number" data-field="sources.dongle.port" value="' + esc(s.port) + '"></div>'
+      + grid(
+        field('IP address', inp('sources.dongle.host', s.host, { placeholder: '192.168.1.50' })),
+        field('Port', inp('sources.dongle.port', s.port, { type: 'number' }))
+      )
+      + field('Logger serial number', inp('sources.dongle.serial_number', s.serial_number), { id: 'dongle-serial-group', hidden: !serialVisible, hint: 'Printed on the stick\'s label.' })
       + '</div>'
-      + '<div class="form-group" id="dongle-serial-group"' + serialVisible + '><label>Serial number</label><input class="input" data-field="sources.dongle.serial_number" value="' + esc(s.serial_number) + '"></div>'
-      + '</div>'
-      + '<div class="form-row" id="dongle-lux-group" style="display:none;">'
-      + '<div class="form-group"><label>Dongle serial</label><input class="input" data-field="sources.dongle.dongle_serial" placeholder="10 characters, dongle label" value="' + esc(s.dongle_serial) + '"></div>'
-      + '<div class="form-group"><label>Inverter serial</label><input class="input" data-field="sources.dongle.inverter_serial" placeholder="10 characters, inverter label" value="' + esc(s.inverter_serial) + '"></div>'
+      + '<div class="wz-grid" id="dongle-lux-group" style="display:none;">'
+      + field('Dongle serial', inp('sources.dongle.dongle_serial', s.dongle_serial, { placeholder: '10 characters' }), { hint: 'From the dongle\'s label.' })
+      + field('Inverter serial', inp('sources.dongle.inverter_serial', s.inverter_serial, { placeholder: '10 characters' }), { hint: 'From the inverter\'s label.' })
       + '</div>'
       + '<div id="dongle-bt-group"' + (bt ? '' : ' style="display:none;"') + '>'
       + bleAddressField('dongle', 'sources.dongle.ble_address', s.ble_address, 'Bluetooth module')
-      + '<div class="form-row" id="dongle-ble-uuid-row">'
-      + '<div class="form-group"><label>Write characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_write_uuid" placeholder="ffd1" value="' + esc(s.ble_write_uuid) + '"></div>'
-      + '<div class="form-group"><label>Notify characteristic <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.ble_notify_uuid" placeholder="fff1" value="' + esc(s.ble_notify_uuid) + '"></div>'
+      + '<div class="wz-grid" id="dongle-ble-uuid-row">'
+      + field('Write characteristic', inp('sources.dongle.ble_write_uuid', s.ble_write_uuid, { placeholder: 'ffd1' }), { optional: true })
+      + field('Notify characteristic', inp('sources.dongle.ble_notify_uuid', s.ble_notify_uuid, { placeholder: 'fff1' }), { optional: true })
       + '</div>'
-      + '<span class="note">Pick your inverter\'s profile: Bluetooth inverters such as Phocos Any-Grid and LuxPower dongles (fill in both serials above) are read directly; for Modbus Bluetooth modules (e.g. SRNE / Renogy-style) pick the inverter\'s register profile. Close the vendor phone app first — most allow one connection at a time.</span>'
+      + '<p class="wz-hint" style="margin:-4px 0 16px">Close the vendor phone app first: most modules allow one connection at a time.</p>'
       + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group" id="dongle-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.dongle.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.dongle.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Metric prefix <span class="note">(optional)</span></label><input class="input" data-field="sources.dongle.prefix" value="' + esc(s.prefix) + '"></div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="dongle" data-test="dongle">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="dongle">Not tested</span>'
-      + '</div>'
-      + '<div data-error="dongle"></div>'
-      + '</div>';
+      + grid(
+        field('Modbus unit ID', inp('sources.dongle.modbus_unit_id', s.modbus_unit_id, { type: 'number' }), { id: 'dongle-unit-group' }),
+        field('Read every (seconds)', inp('sources.dongle.poll_interval', s.poll_interval, { type: 'number' }))
+      )
+      + field('Metric name prefix', inp('sources.dongle.prefix', s.prefix, { placeholder: 'e.g. inv1_' }), { optional: true, hint: 'Only needed with more than one inverter, so their readings get different names.' }));
   }
   // MAC input + "Scan" button + pick list, shared by the Bluetooth cards.
-  function bleAddressField(kind, field, value, label) {
-    return '<div class="form-group"><label>' + esc(label) + '</label>'
-      + '<div class="input-with-btn"><input class="input" data-field="' + field + '" placeholder="Scan, or type AA:BB:CC:DD:EE:FF" value="' + esc(value) + '">'
-      + '<button class="btn btn-sm" type="button" data-action="ble-scan" data-source="' + kind + '">🔍 Scan</button></div>'
-      + '<div class="ble-scan-results" id="' + kind + '-ble-results"></div></div>';
+  function bleAddressField(kind, path, value, label) {
+    return field(label,
+      '<div class="wz-input-row">' + inp(path, value, { placeholder: 'AA:BB:CC:DD:EE:FF', attrs: ' class="wz-mono" spellcheck="false"' })
+      + '<button class="wz-btn" type="button" data-action="ble-scan" data-source="' + kind + '">' + icon('search', 16) + 'Scan</button></div>'
+      + '<div id="' + kind + '-ble-results"></div>',
+      { hint: 'Scan to find it nearby, or type its address.' });
   }
   function sourceCardRS232() {
     var s = cfg('rs232');
-    var customVisible = s.portChoice === '__custom' ? '' : ' style="display:none;"';
-    return '<div class="source-config card" data-source="rs232">'
-      + '<div class="card-header"><span class="card-title">Inverter (RS232 / serial)</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.rs232.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Profile</label><select class="select-input" data-field="sources.rs232.profile" id="rs232-profile"><option value="">Loading…</option></select></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Serial port</label><select class="select-input" data-field="sources.rs232.portChoice" id="rs232-port"><option value="">Loading…</option></select></div>'
-      + '<div class="form-group" id="rs232-custom-group"' + customVisible + '><label>Custom serial path</label><input class="input" data-field="sources.rs232.custom_path" placeholder="/dev/ttyUSB0" value="' + esc(s.custom_path) + '"></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.rs232.baud" value="' + esc(s.baud) + '"></div>'
-      + '<div class="form-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.rs232.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Data bits</label><input class="input" type="number" data-field="sources.rs232.data_bits" value="' + esc(s.data_bits) + '"></div>'
-      + '<div class="form-group"><label>Stop bits</label><input class="input" type="number" data-field="sources.rs232.stop_bits" value="' + esc(s.stop_bits) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Parity</label><input class="input" data-field="sources.rs232.parity" value="' + esc(s.parity) + '"></div>'
-      + '<div class="form-group"><label>Timeout (s)</label><input class="input" type="number" data-field="sources.rs232.timeout" value="' + esc(s.timeout) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="rs232" data-test="rs232">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="rs232">Not tested</span>'
-      + '</div>'
-      + '<div data-error="rs232"></div>'
-      + '</div>';
+    return sourceCard('rs232',
+      grid(
+        field('Name', inp('sources.rs232.name', s.name)),
+        field('Inverter profile', '<select data-field="sources.rs232.profile" id="rs232-profile"><option value="">Loading…</option></select>')
+      )
+      + grid(
+        field('Serial port', '<select data-field="sources.rs232.portChoice" id="rs232-port"><option value="">Loading…</option></select>'),
+        field('Port path', inp('sources.rs232.custom_path', s.custom_path, { placeholder: '/dev/ttyUSB0' }), { id: 'rs232-custom-group', hidden: s.portChoice !== '__custom' })
+      )
+      + '<p class="wz-sub-divider">Serial settings · filled in from the profile</p>'
+      + '<div class="wz-grid wz-grid-3">'
+      + field('Baud rate', inp('sources.rs232.baud', s.baud, { type: 'number' }))
+      + field('Data bits', inp('sources.rs232.data_bits', s.data_bits, { type: 'number' }))
+      + field('Stop bits', inp('sources.rs232.stop_bits', s.stop_bits, { type: 'number' }))
+      + field('Parity', inp('sources.rs232.parity', s.parity, { placeholder: 'none' }))
+      + field('Modbus unit ID', inp('sources.rs232.modbus_unit_id', s.modbus_unit_id, { type: 'number' }))
+      + field('Timeout (seconds)', inp('sources.rs232.timeout', s.timeout, { type: 'number' }))
+      + '</div>');
   }
 
-  function modbusParityOptions(sel) {
-    var opts = [['none', 'None'], ['even', 'Even'], ['odd', 'Odd']];
-    return opts.map(function (o) { return '<option value="' + o[0] + '"' + (sel === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
-  }
-  function modbusVersionOptions(sel) {
-    var opts = ['3.1', '3.2', '3.3', '3.4', '3.5'];
-    return opts.map(function (v) { return '<option value="' + v + '"' + ((sel || '3.3') === v ? ' selected' : '') + '>v' + v + '</option>'; }).join('');
-  }
+  var PARITY = [['none', 'None'], ['even', 'Even'], ['odd', 'Odd']];
   function modbusProfileSelect(id, kind) {
-    var s = cfg(kind);
-    return '<select class="select-input" data-field="sources.' + kind + '.profile" id="' + id + '"><option value="">Loading…</option></select>';
+    return '<select data-field="sources.' + kind + '.profile" id="' + id + '"><option value="">Loading…</option></select>';
   }
 
   function sourceCardModbusSerial() {
     var s = cfg('modbusSerial');
-    return '<div class="source-config card" data-source="modbusSerial">'
-      + '<div class="card-header"><span class="card-title">RS485 (Modbus-RTU)</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.modbusSerial.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Profile</label>' + modbusProfileSelect('modbus-serial-profile', 'modbusSerial') + '</div>'
-      + '</div>'
-      + '<div class="form-group"><label>Serial path</label><input class="input" data-field="sources.modbusSerial.serial_path" placeholder="/dev/ttyUSB0" value="' + esc(s.serial_path) + '"></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.modbusSerial.serial_baud" value="' + esc(s.serial_baud) + '"></div>'
-      + '<div class="form-group"><label>Data bits</label><input class="input" type="number" data-field="sources.modbusSerial.serial_data_bits" value="' + esc(s.serial_data_bits) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Parity</label><select class="select-input" data-field="sources.modbusSerial.serial_parity">' + modbusParityOptions(s.serial_parity) + '</select></div>'
-      + '<div class="form-group"><label>Stop bits</label><input class="input" type="number" data-field="sources.modbusSerial.serial_stop_bits" value="' + esc(s.serial_stop_bits) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Unit id</label><input class="input" type="number" data-field="sources.modbusSerial.unit" value="' + esc(s.unit) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.modbusSerial.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="modbusSerial" data-test="modbus">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="modbusSerial">Not tested</span>'
-      + '</div>'
-      + '<div data-error="modbusSerial"></div>'
-      + '</div>';
+    return sourceCard('modbusSerial',
+      grid(
+        field('Name', inp('sources.modbusSerial.name', s.name)),
+        field('Inverter profile', modbusProfileSelect('modbus-serial-profile', 'modbusSerial'))
+      )
+      + field('Serial port path', inp('sources.modbusSerial.serial_path', s.serial_path, { placeholder: '/dev/ttyUSB0' }))
+      + '<div class="wz-grid wz-grid-3">'
+      + field('Baud rate', inp('sources.modbusSerial.serial_baud', s.serial_baud, { type: 'number' }))
+      + field('Data bits', inp('sources.modbusSerial.serial_data_bits', s.serial_data_bits, { type: 'number' }))
+      + field('Stop bits', inp('sources.modbusSerial.serial_stop_bits', s.serial_stop_bits, { type: 'number' }))
+      + field('Parity', sel('sources.modbusSerial.serial_parity', PARITY, s.serial_parity))
+      + field('Unit ID', inp('sources.modbusSerial.unit', s.unit, { type: 'number' }))
+      + field('Read every (seconds)', inp('sources.modbusSerial.poll_interval', s.poll_interval, { type: 'number' }))
+      + '</div>');
   }
   function sourceCardModbusTcp() {
     var s = cfg('modbusTcp');
-    return '<div class="source-config card" data-source="modbusTcp">'
-      + '<div class="card-header"><span class="card-title">Modbus-TCP</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.modbusTcp.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Profile</label>' + modbusProfileSelect('modbus-tcp-profile', 'modbusTcp') + '</div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Host</label><input class="input" data-field="sources.modbusTcp.host" placeholder="192.168.1.50" value="' + esc(s.host) + '"></div>'
-      + '<div class="form-group"><label>Port</label><input class="input" type="number" data-field="sources.modbusTcp.port" placeholder="502" value="' + esc(s.port) + '"></div>'
-      + '</div>'
-      + '<div class="form-group" id="modbus-tcp-gateway" style="display:none;"><label>Gateway type</label>'
-      + '<select class="select-input" data-field="sources.modbusTcp.tcp_framing">'
-      + '<option value="tcp"' + (s.tcp_framing === 'rtu' ? '' : ' selected') + '>Converts to Modbus-TCP (most gateways)</option>'
-      + '<option value="rtu"' + (s.tcp_framing === 'rtu' ? ' selected' : '') + '>Transparent (RTU over TCP)</option>'
-      + '</select>'
-      + '<span class="note">This inverter has an RS-485 port — reach it over the network through an RS485-to-Ethernet/Wi-Fi gateway (e.g. Elfin EW11, USR-TCP232).</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Unit id</label><input class="input" type="number" data-field="sources.modbusTcp.unit" value="' + esc(s.unit) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.modbusTcp.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="modbusTcp" data-test="modbus">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="modbusTcp">Not tested</span>'
-      + '</div>'
-      + '<div data-error="modbusTcp"></div>'
-      + '</div>';
+    return sourceCard('modbusTcp',
+      grid(
+        field('Name', inp('sources.modbusTcp.name', s.name)),
+        field('Inverter profile', modbusProfileSelect('modbus-tcp-profile', 'modbusTcp'))
+      )
+      + grid(
+        field('IP address', inp('sources.modbusTcp.host', s.host, { placeholder: '192.168.1.50' })),
+        field('Port', inp('sources.modbusTcp.port', s.port, { type: 'number', placeholder: '502' }))
+      )
+      + field('Gateway type', sel('sources.modbusTcp.tcp_framing', [['tcp', 'Converts to Modbus-TCP (most gateways)'], ['rtu', 'Transparent (RTU over TCP)']], s.tcp_framing === 'rtu' ? 'rtu' : 'tcp'),
+        { id: 'modbus-tcp-gateway', hidden: true, hint: 'This inverter has an RS485 port, so it\'s reached through an RS485-to-network gateway such as an Elfin EW11 or USR-TCP232.' })
+      + grid(
+        field('Unit ID', inp('sources.modbusTcp.unit', s.unit, { type: 'number' })),
+        field('Read every (seconds)', inp('sources.modbusTcp.poll_interval', s.poll_interval, { type: 'number' }))
+      ));
   }
   function sourceCardBMS() {
     var s = cfg('bms');
-    return '<div class="source-config card" data-source="bms">'
-      + '<div class="card-header"><span class="card-title">BMS (Bluetooth)</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.bms.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bms.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + bleAddressField('bms', 'sources.bms.address', s.address, 'BMS device')
-      + '<span class="note">Press Scan to find nearby batteries, then pick yours. Close the vendor phone app first — most BMS allow one connection at a time.</span>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="bms" data-test="bms">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="bms">Not tested</span>'
-      + '</div>'
-      + '<div data-error="bms"></div>'
-      + '</div>';
+    return sourceCard('bms',
+      grid(
+        field('Name', inp('sources.bms.name', s.name)),
+        field('Read every (seconds)', inp('sources.bms.poll_interval', s.poll_interval, { type: 'number' }))
+      )
+      + bleAddressField('bms', 'sources.bms.address', s.address, 'Battery')
+      + '<p class="wz-hint" style="margin-top:-4px">Close the battery\'s phone app first: most BMS allow one connection at a time.</p>');
   }
   function sourceCardBmsWired() {
     var s = cfg('bmsWired');
-    return '<div class="source-config card" data-source="bmsWired">'
-      + '<div class="card-header"><span class="card-title">BMS (RS485/RS232)</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.bmsWired.name" value="' + esc(s.name) + '"></div>'
-      + '<div class="form-group"><label>Poll interval (s)</label><input class="input" type="number" data-field="sources.bmsWired.poll_interval" value="' + esc(s.poll_interval) + '"></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Serial port</label><select class="input" data-field="sources.bmsWired.serial_path" id="bms-wired-port"><option value="">Loading…</option></select></div>'
-      + '<div class="form-group"><label>Profile</label><select class="input" data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select></div>'
-      + '<div id="bms-wired-profile-notes" style="display:none; white-space:pre-line; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Baud rate</label><input class="input" type="number" data-field="sources.bmsWired.baud" value="' + esc(s.baud) + '"></div>'
-      + '<div class="form-group" id="bms-wired-unit-group"><label>Modbus unit id</label><input class="input" type="number" data-field="sources.bmsWired.modbus_unit_id" value="' + esc(s.modbus_unit_id) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Data bits</label><select class="select-input" data-field="sources.bmsWired.data_bits">' + [[8,'8'],[7,'7'],[6,'6'],[5,'5']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.data_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
-      + '<div class="form-group"><label>Parity</label><select class="select-input" data-field="sources.bmsWired.parity">' + [['none','None'],['even','Even'],['odd','Odd']].map(function (x) { return '<option value="' + x[0] + '"' + (String(s.parity) === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Stop bits</label><select class="select-input" data-field="sources.bmsWired.stop_bits">' + [['1','1'],['2','2']].map(function (x) { return '<option value="' + x[1] + '"' + (String(s.stop_bits) === String(x[1]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>'
-      + '<div class="form-group"><label>Timeout (ms)</label><input class="input" type="number" data-field="sources.bmsWired.timeout" value="' + esc(s.timeout) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="bmsWired" data-test="bmsWired">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="bmsWired">Not tested</span>'
-      + '</div>'
-      + '<div data-error="bmsWired"></div>'
-      + '</div>';
+    return sourceCard('bmsWired',
+      grid(
+        field('Name', inp('sources.bmsWired.name', s.name)),
+        field('Read every (seconds)', inp('sources.bmsWired.poll_interval', s.poll_interval, { type: 'number' }))
+      )
+      + grid(
+        field('Serial port', '<select data-field="sources.bmsWired.serial_path" id="bms-wired-port"><option value="">Loading…</option></select>'),
+        field('BMS profile', '<select data-field="sources.bmsWired.profile" id="bms-wired-profile"><option value="">Loading…</option></select>')
+      )
+      + '<div class="wz-profile-notes" id="bms-wired-profile-notes" style="display:none;"></div>'
+      + '<p class="wz-sub-divider">Serial settings · filled in from the profile</p>'
+      + '<div class="wz-grid wz-grid-3">'
+      + field('Baud rate', inp('sources.bmsWired.baud', s.baud, { type: 'number' }))
+      + field('Data bits', sel('sources.bmsWired.data_bits', [['8', '8'], ['7', '7'], ['6', '6'], ['5', '5']], s.data_bits))
+      + field('Stop bits', sel('sources.bmsWired.stop_bits', [['1', '1'], ['2', '2']], s.stop_bits))
+      + field('Parity', sel('sources.bmsWired.parity', PARITY, s.parity))
+      + field('Modbus unit ID', inp('sources.bmsWired.modbus_unit_id', s.modbus_unit_id, { type: 'number' }), { id: 'bms-wired-unit-group' })
+      + field('Timeout (ms)', inp('sources.bmsWired.timeout', s.timeout, { type: 'number' }))
+      + '</div>');
   }
   function sourceCardREST() {
     var s = cfg('rest');
-    return '<div class="source-config card" data-source="rest">'
-      + '<div class="card-header"><span class="card-title">REST API</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Name</label><input class="input" data-field="sources.rest.name" value="' + esc(s.name) + '"></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Endpoint URL</label><input class="input" data-field="sources.rest.url" placeholder="https://api.example.com/v1/data?key=..." value="' + esc(s.url) + '"></div>'
-      + '<div class="form-group"><label>Test JSON path</label><input class="input" id="rest-test-jsonpath" placeholder="e.g. current.temp_c">'
-      + '<span class="note">Optional — test the URL above with a JSON path. Metric mappings are configured in Settings after setup.</span></div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="rest" data-test="rest">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="rest">Not tested</span>'
-      + '</div>'
-      + '<div data-error="rest"></div>'
-      + '</div>';
+    return sourceCard('rest',
+      field('Name', inp('sources.rest.name', s.name))
+      + field('Endpoint URL', inp('sources.rest.url', s.url, { type: 'url', placeholder: 'https://api.example.com/v1/data' }))
+      + field('JSON path to try', '<input id="rest-test-jsonpath" placeholder="e.g. current.temp_c">', { optional: true, hint: 'Only used by Test connection. Choose which values become metrics in Settings → Sources after setup.' }));
   }
   function syncSourceCardVisibility() {
+    var any = false;
     $$('.source-config').forEach(function (card) {
       var key = card.getAttribute('data-source');
-      card.classList.toggle('visible', !!state.sources[key].selected);
-      if (!state.sources[key].selected) { clearBadge(key); clearError(key); }
+      var on = !!state.sources[key].selected;
+      any = any || on;
+      card.classList.toggle('visible', on);
+      if (!on) { clearBadge(key); clearError(key); }
     });
+    $$('[data-source-pick]').forEach(function (cb) {
+      var on = !!state.sources[cb.getAttribute('data-source-pick')].selected;
+      cb.checked = on;
+      cb.closest('.wz-pick').classList.toggle('is-on', on);
+    });
+    var empty = $('#sources-empty'); if (empty) empty.hidden = any;
   }
 
   // load dongle profiles + rs232 ports/profiles once
@@ -1011,6 +1056,7 @@
     return protocol !== 'luxpower-tcp' && protocol !== 'felicity-tcp' && protocol !== 'ble-gatt' && String(p.transport || '').toLowerCase() !== 'growatt';
   }
   // Read-only Bluetooth devices that publish values directly (e.g. Phocos Any-Grid).
+  function isBluetoothOnlyProfile(p) { return !!p && (isBleGattDongleProfile(p) || p.connection === 'bluetooth'); }
   function isBleGattDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'ble-gatt'; }
   // LuxPower dongles: same frames over Wi-Fi (TCP 8000) or Bluetooth, addressed by dongle + inverter serial.
   function isLuxDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'luxpower-tcp'; }
@@ -1024,11 +1070,15 @@
     if (!sel || !d.profiles) return;
     var bt = d.link === 'bluetooth';
     var html = '<option value="">Select a profile…</option>';
+    var btOnly = '';
     d.profiles.forEach(function (p) {
       if (bt && !isRegisterDongleProfile(p) && !isBleGattDongleProfile(p) && !isLuxDongleProfile(p)) return;
-      if (!bt && (isBleGattDongleProfile(p) || p.connection === 'bluetooth')) return;
-      html += '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      var opt = '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      // On WiFi, Bluetooth-only profiles (e.g. Phocos Any-Grid) are still
+      // listed in their own group; picking one switches to Bluetooth.
+      if (!bt && isBluetoothOnlyProfile(p)) btOnly += opt; else html += opt;
     });
+    if (btOnly) html += '<optgroup label="Bluetooth only">' + btOnly + '</optgroup>';
     sel.innerHTML = html;
     if (d.profile && sel.value !== d.profile) { d.profile = ''; d.mappings = {}; d.entities = []; }
   }
@@ -1178,7 +1228,6 @@
       sel.innerHTML = html;
       sel.dataset.descriptions = JSON.stringify(descriptions);
       updateBmsWiredProfileNotes();
-      sel.addEventListener('change', updateBmsWiredProfileNotes);
       if (state.sources.bmsWired.profile) { loadBmsWiredFields(); applyBmsWiredProfile(false); }
     }).catch(function () {
       var sel = $('#bms-wired-profile');
@@ -1197,6 +1246,10 @@
     var d = state.sources.dongle;
     var prof = (d.profiles || []).filter(function (p) { return p.id === id; })[0];
     if (userChange) { d.mappings = {}; d.entities = []; }
+    if (prof && isBluetoothOnlyProfile(prof) && d.link !== 'bluetooth') {
+      setFieldValue('sources.dongle.link', 'bluetooth');
+      syncDongleLink();
+    }
     if (prof) {
       d.transport = dongleTransport();
       syncDongleBleFields();
@@ -1315,34 +1368,34 @@
   function runBleScan(kind, btn) {
     var box = $('#' + kind + '-ble-results');
     if (!box) return;
-    if (btn) btn.disabled = true;
-    box.innerHTML = '<div class="test-badge pending">Scanning for Bluetooth devices… (about 10 s)</div>';
+    if (btn) { btn.disabled = true; btn.classList.add('is-busy'); }
+    box.innerHTML = '<p class="wz-hint" style="margin-top:8px">Scanning for Bluetooth devices. This takes about 10 seconds…</p>';
     // BMS: recognised batteries first; inverter modules: everything nearby.
     var url = kind === 'bms' ? '/api/bms/scan?force=1' : '/api/bluetooth/scan';
     api(url).then(function (res) {
       if (!res.ok || !Array.isArray(res.data)) {
-        box.innerHTML = '<div class="alert alert-error">' + esc(apiErrMsg(res, 'Bluetooth scan')) + '</div>';
+        box.innerHTML = alertBox('error', esc(apiErrMsg(res, 'Bluetooth scan')));
         return;
       }
       if (!res.data.length) {
-        box.innerHTML = '<div class="alert alert-info">No Bluetooth devices found. Make sure the device is powered, within ~10 m, and not connected to a phone app, then scan again.</div>';
+        box.innerHTML = alertBox('info', 'Nothing found. Check the device is powered, within about 10 m, and not connected to a phone app, then scan again.');
         return;
       }
       var rows = res.data.slice().sort(function (a, b) { return (b.rssi || -999) - (a.rssi || -999); }).map(function (d) {
-        var tag = d.bms_type ? '<span class="ble-tag">' + esc(d.bms_type) + '</span>' : '';
-        return '<div class="topic-item ble-device" data-action="ble-pick" data-source="' + esc(kind) + '" data-address="' + esc(d.address) + '" role="button" tabindex="0">'
-          + '<span class="ble-name">' + esc(d.name || 'Unknown') + '</span>' + tag
-          + '<code>' + esc(d.address) + '</code><span class="ble-rssi">' + esc(String(d.rssi)) + ' dBm</span></div>';
+        var tag = d.bms_type ? '<span class="wz-tag">' + esc(d.bms_type) + '</span>' : '';
+        return '<button type="button" class="wz-list-item" data-action="ble-pick" data-source="' + esc(kind) + '" data-address="' + esc(d.address) + '">'
+          + '<span class="wz-name">' + esc(d.name || 'Unknown device') + '</span>' + tag
+          + '<code>' + esc(d.address) + '</code><span class="wz-rssi">' + esc(String(d.rssi)) + ' dBm</span></button>';
       }).join('');
-      box.innerHTML = '<div class="topic-list">' + rows + '</div><span class="note">Tap a device to use it.</span>';
+      box.innerHTML = '<div class="wz-list-head"><span class="wz-label">' + res.data.length + ' found · strongest signal first</span></div><div class="wz-list">' + rows + '</div>';
     }).catch(function () {
-      box.innerHTML = '<div class="alert alert-error">Network error during Bluetooth scan.</div>';
-    }).then(function () { if (btn) btn.disabled = false; });
+      box.innerHTML = alertBox('error', 'Network error during the Bluetooth scan.');
+    }).then(function () { if (btn) { btn.disabled = false; btn.classList.remove('is-busy'); } });
   }
   function pickBleDevice(kind, address) {
     setFieldValue(BLE_FIELD[kind], address);
     var box = $('#' + kind + '-ble-results');
-    if (box) box.innerHTML = '<span class="note">Selected ' + esc(address) + ' — press Test connection.</span>';
+    if (box) box.innerHTML = '<p class="wz-hint" style="margin-top:8px">Using ' + esc(address) + '. Press Test connection to check it.</p>';
     clearBadge(kind);
     clearError(kind);
     updateTestButtons();
@@ -1350,19 +1403,24 @@
   }
 
   // ── Connection tests ──────────────────────────────────────
+  // Status pill on a source/extras card. cls: 'pending' (grey, or a spinner
+  // while the text ends in "…"), 'ok' or 'fail'.
   function setBadge(key, cls, text) {
     var el = document.querySelector('[data-badge-src="' + key + '"]');
-    if (el) el.className = 'test-badge ' + cls;
-    if (el) el.textContent = text;
+    if (!el) return;
+    var tone = cls === 'ok' ? ' is-ok' : cls === 'fail' ? ' is-error' : (/…$/.test(text) ? ' is-busy' : '');
+    el.className = 'wz-pill' + tone;
+    el.textContent = text;
+    el.hidden = false;
   }
   function clearBadge(key) { setBadge(key, 'pending', 'Not tested'); }
   function setError(key, msg) {
     var el = document.querySelector('[data-error="' + key + '"]');
-    if (el) { el.className = 'alert alert-error'; el.textContent = msg; }
+    if (el) { el.className = 'wz-alert is-error'; el.setAttribute('role', 'alert'); el.textContent = msg; }
   }
   function clearError(key) {
     var el = document.querySelector('[data-error="' + key + '"]');
-    if (el) { el.className = ''; el.innerHTML = ''; } // no styling while empty (was an empty red box)
+    if (el) { el.className = ''; el.removeAttribute('role'); el.innerHTML = ''; }
   }
 
   function hasMinimal(kind) {
@@ -1397,6 +1455,8 @@
   function runTest(kind) {
     var s = state.sources[kind];
     setBadge(kind, 'pending', 'Testing…');
+    var testBtn = document.querySelector('[data-action="test"][data-source="' + kind + '"]');
+    if (testBtn) testBtn.classList.add('is-busy');
     clearError(kind);
     var p;
     if (kind === 'ha') {
@@ -1424,86 +1484,87 @@
       p = api('/api/pvoutput/test', { method: 'POST', body: JSON.stringify({ api_key: pvo.api_key, system_id: pvo.system_id }) });
     } else if (kind === 'forecast') {
       var fo = state.optional.forecast;
-      p = api('/api/test-forecast', { method: 'POST', body: JSON.stringify(compact({ lat: fo.latitude, lon: fo.longitude, capacity: fo.capacity_kwp, api_key: fo.solcast_api_key, resource_id: fo.solcast_resource_id, tilt: fo.tilt, azimuth: fo.azimuth, loss: fo.loss_factor })) });
+      p = api('/api/test-forecast', { method: 'POST', body: JSON.stringify(compact({ lat: fo.latitude, lon: fo.longitude, capacity: state.basics.solar_capacity_kwp, api_key: fo.solcast_api_key, resource_id: fo.solcast_resource_id, tilt: fo.tilt, azimuth: fo.azimuth, loss: fo.loss_factor })) });
     } else if (kind === 'network') {
       p = testNetworkUrls();
     }
     if (!p) return;
+    p = p.then(function (res) { if (testBtn) testBtn.classList.remove('is-busy'); return res; }, function (e) { if (testBtn) testBtn.classList.remove('is-busy'); throw e; });
     p.then(function (res) {
       if (kind === 'ha') {
         if (res.ok && Array.isArray(res.data)) {
           state.sources.ha.entities = res.data;
-          setBadge('ha', 'ok', '✔ ' + res.data.length + ' entities');
+          setBadge('ha', 'ok', res.data.length + ' entities');
           renderHAEntities(res.data);
         } else {
           var msg = apiErrMsg(res, 'HA');
-          setBadge('ha', 'fail', '✖ Failed');
+          setBadge('ha', 'fail', 'Failed');
           setError('ha', msg);
         }
       } else if (kind === 'mqtt') {
         if (res.ok && res.data && res.data.success !== false) {
-          setBadge('mqtt', 'ok', '✔ Connected');
+          setBadge('mqtt', 'ok', 'Connected');
         } else {
-          setBadge('mqtt', 'fail', '✖ Failed');
+          setBadge('mqtt', 'fail', 'Failed');
           setError('mqtt', apiErrMsg(res, 'MQTT'));
         }
       } else if (kind === 'dongle') {
         if (res.ok && res.data && res.data.success) {
-          setBadge('dongle', 'ok', '✔ Connected');
+          setBadge('dongle', 'ok', 'Connected');
         } else {
-          setBadge('dongle', 'fail', '✖ Failed');
+          setBadge('dongle', 'fail', 'Failed');
           setError('dongle', apiErrMsg(res, 'Inverter'));
         }
       } else if (kind === 'rs232') {
         if (res.ok && res.data && res.data.success) {
-          setBadge('rs232', 'ok', '✔ Connected');
+          setBadge('rs232', 'ok', 'Connected');
         } else {
-          setBadge('rs232', 'fail', '✖ Failed');
+          setBadge('rs232', 'fail', 'Failed');
           setError('rs232', apiErrMsg(res, 'RS232'));
         }
       } else if (kind === 'modbusSerial' || kind === 'modbusTcp') {
         if (res.ok && res.data && res.data.success !== false) {
-          setBadge(kind, 'ok', '✔ Connected');
+          setBadge(kind, 'ok', 'Connected');
         } else {
-          setBadge(kind, 'fail', '✖ Failed');
+          setBadge(kind, 'fail', 'Failed');
           setError(kind, apiErrMsg(res, 'Modbus'));
         }
       } else if (kind === 'bms') {
         var bmsKeys = (res.ok && res.data && typeof res.data === 'object') ? Object.keys(res.data).filter(function (k) { return typeof res.data[k] === 'number'; }) : [];
         if (bmsKeys.length) {
           state.sources.bms.sampleKeys = bmsKeys;
-          setBadge('bms', 'ok', '✔ ' + bmsKeys.length + ' metrics');
+          setBadge('bms', 'ok', bmsKeys.length + ' readings');
         } else {
-          setBadge('bms', 'fail', '✖ Failed');
+          setBadge('bms', 'fail', 'Failed');
           setError('bms', apiErrMsg(res, 'BMS'));
         }
       } else if (kind === 'bmsWired') {
         if (res.ok && res.data && Object.keys(res.data || {}).length) {
           state.sources.bmsWired.sampleKeys = Object.keys(res.data);
-          setBadge('bmsWired', 'ok', '✔ ' + Object.keys(res.data).length + ' metrics');
+          setBadge('bmsWired', 'ok', Object.keys(res.data).length + ' readings');
         } else {
-          setBadge('bmsWired', 'fail', '✖ Failed');
+          setBadge('bmsWired', 'fail', 'Failed');
           setError('bmsWired', apiErrMsg(res, 'Wired BMS'));
         }
       } else if (kind === 'rest') {
         if (res.ok) {
-          setBadge('rest', 'ok', '✔ OK');
+          setBadge('rest', 'ok', 'Reachable');
         } else {
-          setBadge('rest', 'fail', '✖ Failed');
+          setBadge('rest', 'fail', 'Failed');
           setError('rest', apiErrMsg(res, 'REST'));
         }
       } else if (kind === 'pvoutput') {
         if (res.ok && res.data && res.data.success) {
-          setBadge('pvoutput', 'ok', '✔ Connected');
+          setBadge('pvoutput', 'ok', 'Connected');
         } else {
-          setBadge('pvoutput', 'fail', '✖ Failed');
+          setBadge('pvoutput', 'fail', 'Failed');
           setError('pvoutput', apiErrMsg(res, 'PVOutput'));
         }
       } else if (kind === 'forecast') {
         if (res.ok && res.data && res.data.source) {
-          setBadge('forecast', 'ok', '✔ ' + res.data.source + ' · ' + res.data.today_estimate_kwh + ' kWh');
+          setBadge('forecast', 'ok', res.data.source + ' · ' + res.data.today_estimate_kwh + ' kWh today');
         } else {
-          setBadge('forecast', 'fail', '✖ Failed');
+          setBadge('forecast', 'fail', 'Failed');
           setError('forecast', apiErrMsg(res, 'Forecast'));
         }
       } else if (kind === 'network') {
@@ -1511,16 +1572,16 @@
           var lr = res.data.localReachable;
           var rr = res.data.remoteReachable;
           setBadge('network', (lr || rr) ? 'ok' : 'fail',
-            (lr ? '✔ Local' : '✖ Local') + ' · ' + (rr ? '✔ Remote' : '✖ Remote'));
+            (lr ? 'Local OK' : 'Local unreachable') + ' · ' + (rr ? 'Remote OK' : 'Remote unreachable'));
           if (!lr && !rr) setError('network', 'None of the configured URLs were reachable.');
         } else {
-          setBadge('network', 'fail', '✖ Failed');
+          setBadge('network', 'fail', 'Failed');
           setError('network', apiErrMsg(res, 'Network'));
         }
       }
     }).catch(function (e) {
-      setBadge(kind, 'fail', '✖ Error');
-      setError(kind, 'Network error during test.');
+      setBadge(kind, 'fail', 'Failed');
+      setError(kind, 'Network error during the test.');
     });
   }
 
@@ -1580,42 +1641,50 @@
     if (!box) return;
     if (!entities.length) { box.innerHTML = ''; return; }
     var items = entities.slice(0, 60).map(function (e) {
-      return '<div class="topic-item"><span>...</span><code>' + esc(e) + '</code><span class="tick"></span></div>';
+      return '<div class="wz-list-item"><code>' + esc(e) + '</code></div>';
     }).join('');
-    box.innerHTML = '<div class="form-group" style="margin-top:0.5rem;"><label>Available entities (' + entities.length + ')</label>'
-      + '<div class="topic-list">' + items + '</div></div>';
+    box.innerHTML = '<div class="wz-list-head"><span class="wz-label">' + entities.length + ' entities found</span>'
+      + (entities.length > 60 ? '<span class="wz-hint">Showing the first 60</span>' : '') + '</div>'
+      + '<div class="wz-list">' + items + '</div>'
+      + '<p class="wz-hint" style="margin-top:8px">You\'ll pick which ones to use in the next step.</p>';
   }
 
   function runBrowseTopics() {
     var s = state.sources.mqtt;
     var box = $('#mqtt-topics');
-    if (box) box.innerHTML = '<div class="test-badge pending">Discovering…</div>';
+    var btn = $('[data-action="browse-topics"]');
+    if (btn) btn.classList.add('is-busy');
+    if (box) box.innerHTML = '<p class="wz-hint">Listening for topics…</p>';
     api('/api/mqtt-discover-topics', { method: 'POST', body: JSON.stringify({ broker: s.broker, username: s.username, password: s.password }) }).then(function (res) {
+      if (btn) btn.classList.remove('is-busy');
       if (!box) return;
       if (res.ok && res.data && res.data.success && Array.isArray(res.data.topics)) {
         var topics = res.data.topics;
         s.discoveredTopics = topics;
         var items = topics.map(function (t) {
-          var on = s.selectedTopics[t] ? ' on' : '';
-          return '<div class="topic-item' + on + '" data-action="toggle-topic" data-topic="' + esc(t) + '" role="button" tabindex="0">'
-            + '<span class="tick">' + (s.selectedTopics[t] ? '✓' : '') + '</span><code>' + esc(t) + '</code></div>';
+          var on = !!s.selectedTopics[t];
+          return '<button type="button" class="wz-list-item' + (on ? ' is-on' : '') + '" data-action="toggle-topic" data-topic="' + esc(t) + '" aria-pressed="' + on + '">'
+            + '<span class="wz-tick">' + icon('check', 12) + '</span><code>' + esc(t) + '</code></button>';
         }).join('');
-        box.innerHTML = '<div class="section-divider">Discovered topics (' + (res.data.count || topics.length) + ')</div>'
-          + '<div class="topic-list">' + items + '</div>'
-          + '<span class="note" style="font-size:0.72rem;">Tap topics to select them; they become metric suggestions in the next step.</span>';
+        box.innerHTML = '<div class="wz-list-head"><span class="wz-label">' + (res.data.count || topics.length) + ' topics found</span><span class="wz-hint">Select the ones to read</span></div>'
+          + (topics.length ? '<div class="wz-list">' + items + '</div>' : alertBox('info', 'No topics were published while listening. Check that your devices are sending, then try again.'));
       } else {
-        box.innerHTML = '<div class="alert alert-error">Could not browse topics: ' + esc(apiErrMsg(res, 'MQTT')) + '</div>';
+        box.innerHTML = alertBox('error', 'Couldn\'t browse topics: ' + esc(apiErrMsg(res, 'MQTT')));
       }
     }).catch(function () {
-      if (box) box.innerHTML = '<div class="alert alert-error">Network error discovering topics.</div>';
+      if (btn) btn.classList.remove('is-busy');
+      if (box) box.innerHTML = alertBox('error', 'Network error while browsing topics.');
     });
   }
 
   function toggleTopic(btn) {
     var t = btn.getAttribute('data-topic');
     var s = state.sources.mqtt;
-    if (s.selectedTopics[t]) { delete s.selectedTopics[t]; btn.classList.remove('on'); var tick = btn.querySelector('.tick'); if (tick) tick.textContent = ''; }
-    else { s.selectedTopics[t] = true; btn.classList.add('on'); var tick2 = btn.querySelector('.tick'); if (tick2) tick2.textContent = '✓'; }
+    if (s.selectedTopics[t]) delete s.selectedTopics[t];
+    else s.selectedTopics[t] = true;
+    var on = !!s.selectedTopics[t];
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', String(on));
   }
 
   // ── Build devices + save sources ──────────────────────────
@@ -1758,31 +1827,31 @@
     SOURCE_KEYS.forEach(function (k) {
       if (!state.sources[k].selected) return;
       var s = state.sources[k];
-      if (k === 'ha' && !(s.url && s.token)) errors.ha = 'Base URL and access token are required.';
-      else if (k === 'mqtt' && !s.broker) errors.mqtt = 'Broker URL is required.';
-      else if (k === 'dongle' && s.link === 'bluetooth' && !(s.ble_address && s.profile)) errors.dongle = 'Bluetooth module and profile are required.';
+      if (k === 'ha' && !(s.url && s.token)) errors.ha = 'Add the Home Assistant address and access token.';
+      else if (k === 'mqtt' && !s.broker) errors.mqtt = 'Add the broker address.';
+      else if (k === 'dongle' && s.link === 'bluetooth' && !(s.ble_address && s.profile)) errors.dongle = 'Choose the Bluetooth module and an inverter profile.';
       else if (k === 'dongle' && isLuxDongleProfile(currentDongleProfile()) && !(/^[A-Za-z0-9]{10}$/.test(String(s.dongle_serial || '').trim()) && /^[A-Za-z0-9]{10}$/.test(String(s.inverter_serial || '').trim()))) errors.dongle = 'LuxPower needs the 10-character dongle serial and inverter serial from the labels.';
-      else if (k === 'dongle' && s.link !== 'bluetooth' && !(s.host && s.port && s.profile)) errors.dongle = 'Host, port and profile are required.';
-      else if (k === 'rs232' && !(resolveSerialPath(s) && s.profile)) errors.rs232 = 'Serial port and profile are required.';
-      else if (k === 'modbusSerial' && !s.serial_path) errors.modbusSerial = 'Serial path is required.';
-      else if (k === 'modbusTcp' && !(s.host && s.port)) errors.modbusTcp = 'Host and port are required.';
-      else if (k === 'bms' && !s.address) errors.bms = 'Pick a BMS with Scan, or enter its MAC address.';
-      else if (k === 'bmsWired' && !(s.serial_path && s.profile && s.modbus_unit_id)) errors.bmsWired = 'Serial port, profile and Modbus unit ID are required.';
-      else if (k === 'rest' && !s.url) errors.rest = 'Endpoint URL is required.';
+      else if (k === 'dongle' && s.link !== 'bluetooth' && !(s.host && s.port && s.profile)) errors.dongle = 'Add the IP address and port, and choose an inverter profile.';
+      else if (k === 'rs232' && !(resolveSerialPath(s) && s.profile)) errors.rs232 = 'Choose the serial port and an inverter profile.';
+      else if (k === 'modbusSerial' && !s.serial_path) errors.modbusSerial = 'Add the serial port path.';
+      else if (k === 'modbusTcp' && !(s.host && s.port)) errors.modbusTcp = 'Add the IP address and port.';
+      else if (k === 'bms' && !s.address) errors.bms = 'Scan for your battery, or type its Bluetooth address.';
+      else if (k === 'bmsWired' && !(s.serial_path && s.profile && s.modbus_unit_id)) errors.bmsWired = 'Choose the serial port and a BMS profile, and add the unit ID.';
+      else if (k === 'rest' && !s.url) errors.rest = 'Add the endpoint URL.';
     });
     return errors;
   }
   // Blocks Save/Next when a selected source has empty required fields. Shows inline per-source hints.
   function validateSources() {
     if (selectedSourcesCount() === 0) {
-      showSourcesError('Select at least one source.');
+      showSourcesError('Pick at least one source.');
       return false;
     }
     var errors = sourceValidationErrors();
     var keys = Object.keys(errors);
     if (keys.length) {
       keys.forEach(function (k) { setError(k, errors[k]); });
-      showSourcesError('Fix the highlighted required fields before continuing.');
+      showSourcesError('Some sources are missing details. They\'re marked above.');
       return false;
     }
     hideSourcesError();
@@ -1796,24 +1865,39 @@
   // ── "Start fresh" — clear data sources (behind confirm) ───────
   function showResetNote() {
     var el = $('#reset-sources-note');
-    if (el) { el.textContent = 'Data sources cleared'; el.hidden = false; }
+    if (el) { el.textContent = 'All sources cleared.'; el.hidden = false; }
   }
 
   function resetSources() {
-    if (!window.confirm('This clears all configured data sources, role mapping and resets setup. History, metrics and snapshots are untouched. Continue?')) return;
-    setBusy(true);
-    api('/api/wizard/reset', { method: 'POST', body: '{}' }).then(function (res) {
-      if (res.ok && res.data && res.data.success) {
-        resetClientState();
-        loadExistingConfig().then(function () { setBusy(false); gotoStep(state.currentStep); showResetNote(); })
-          .catch(function () { setBusy(false); gotoStep(state.currentStep); showResetNote(); });
-      } else {
+    confirmDialog('Clear all sources?', 'This removes every data source and metric role, and marks setup as not done. History, metrics and snapshots stay.', 'Clear sources').then(function (ok) {
+      if (!ok) return;
+      setBusy(true);
+      api('/api/wizard/reset', { method: 'POST', body: '{}' }).then(function (res) {
+        if (res.ok && res.data && res.data.success) {
+          resetClientState();
+          loadExistingConfig().then(function () { setBusy(false); gotoStep(state.currentStep); showResetNote(); })
+            .catch(function () { setBusy(false); gotoStep(state.currentStep); showResetNote(); });
+        } else {
+          setBusy(false);
+          showSourcesError('Couldn\'t clear the sources (error ' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Server'));
+        }
+      }).catch(function () {
         setBusy(false);
-        showSourcesError('Could not reset data sources (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Server'));
-      }
-    }).catch(function () {
-      setBusy(false);
-      showSourcesError('Network error resetting data sources.');
+        showSourcesError('Network error while clearing the sources.');
+      });
+    });
+  }
+  // Resolves true when the person confirms.
+  function confirmDialog(title, text, okLabel) {
+    var d = $('#wz-dialog');
+    if (!d || typeof d.showModal !== 'function') return Promise.resolve(window.confirm(title + '\n\n' + text));
+    $('#wz-dialog-title').textContent = title;
+    $('#wz-dialog-body').textContent = text;
+    $('#wz-dialog-ok').textContent = okLabel;
+    d.returnValue = '';
+    d.showModal();
+    return new Promise(function (resolve) {
+      d.addEventListener('close', function onClose() { d.removeEventListener('close', onClose); resolve(d.returnValue === 'ok'); });
     });
   }
 
@@ -1824,7 +1908,7 @@
     state.dashboard.choice = 'full';
     state.optional = {
       pvoutput: { enabled: false, api_key: '', system_id: '', timezone: '', upload_interval_minutes: '5', system_size_w: '0', net_mode: false, webhook_url: '', metric_map: {} },
-      forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', capacity_kwp: '', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
+      forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
       network: { local_url: '', remote_url: '' }
     };
   }
@@ -1919,40 +2003,40 @@
     var hint2 = profileHint(groups.bms);
     if (!hint.battery_soc && hint2.battery_soc) hint.battery_soc = hint2.battery_soc;
 
-    var note = '<div class="alert alert-info" id="metrics-info">';
-    if (!suggestions.length) {
-      note += 'No source metrics yet — go back and pick a profile (or test your BMS / Home Assistant), or type the metric name you expect.';
-    } else {
-      note += 'Pick a metric for each role — click a box to see the ' + suggestions.length + ' metrics your sources provide. Pre-filled guesses can be changed; leave a role empty to skip it.';
-    }
-    note += '</div>';
+    var html = suggestions.length
+      ? alertBox('info', 'Your sources offer <strong>' + suggestions.length + '</strong> readings. Click a box to pick from them, or type a name. Guesses are filled in where Epilykos could tell.')
+      : alertBox('warn', 'No readings to choose from yet. Go back and pick a profile, or test your battery or Home Assistant connection. You can also type the name you expect, or skip this and match them in Settings later.');
 
     // Names something already writes: the sources above plus metric names
     // mapped in Settings (Tuya, REST, BMS mappings…).
     var known = knownMetricNames(suggestions);
-    var rows = '';
-    ROLES.forEach(function (r) {
-      var cur = (state.roleMetrics[r.key] || '').trim();
-      // Fresh installs start with the default dashboard's placeholder names
-      // (history.js auto-fill); a real metric from a source replaces them.
-      var val = (cur && (known[cur] || !hint[r.key])) ? cur : (hint[r.key] || '');
-      if (val !== cur) state.roleMetrics[r.key] = val;
-      var warn = (val && suggestions.length && !known[val])
-        ? '<span class="note role-warn">No configured source writes “' + esc(val) + '” yet.</span>' : '';
-      rows += '<tr>'
-        + '<td class="role-cell">' + esc(r.label) + ' <span class="role-hint">' + esc(r.key) + '</span></td>'
-        + '<td><input class="input" list="role-suggestions" data-metric-role="' + esc(r.key) + '" value="' + esc(val) + '" placeholder="' + esc(r.label) + ' ' + esc(r.unit) + '">' + warn + '</td>'
-        + '</tr>';
+    var byKey = {}; ROLES.forEach(function (r) { byKey[r.key] = r; });
+    ROLE_GROUPS.forEach(function (g) {
+      html += '<h2 class="wz-section-title">' + esc(g.label) + '</h2>'
+        + (g.hint ? '<p class="wz-hint" style="margin:-6px 0 10px">' + esc(g.hint) + '</p>' : '')
+        + '<div class="wz-card"><div class="wz-roles">';
+      g.keys.forEach(function (key) {
+        var r = byKey[key];
+        var cur = (state.roleMetrics[r.key] || '').trim();
+        // Fresh installs start with the default dashboard's placeholder names
+        // (history.js auto-fill); a real metric from a source replaces them.
+        var val = (cur && (known[cur] || !hint[r.key])) ? cur : (hint[r.key] || '');
+        if (val !== cur) state.roleMetrics[r.key] = val;
+        var warn = (val && suggestions.length && !known[val]) ? 'None of your sources has a reading called “' + esc(val) + '” yet.' : '';
+        var id = 'role-' + r.key;
+        html += '<div class="wz-role">'
+          + '<label class="wz-role-label" for="' + id + '">' + esc(r.label) + ' <span class="wz-unit">' + esc(r.unit) + '</span></label>'
+          + '<input class="wz-input" id="' + id + '" list="role-suggestions" data-metric-role="' + esc(r.key) + '" value="' + esc(val) + '" placeholder="Not used" autocomplete="off" spellcheck="false">'
+          + '<p class="wz-role-warn" data-role-warn="' + esc(r.key) + '"' + (warn ? '' : ' hidden') + '>' + warn + '</p>'
+          + '</div>';
+      });
+      html += '</div></div>';
     });
-
-    var dl = '<datalist id="role-suggestions">' + suggestions.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>';
-
-    body.innerHTML = note
-      + '<div class="metric-table-wrap"><table class="metric-table"><thead><tr><th>Role</th><th>Metric / entity</th></tr></thead><tbody>'
-      + rows + '</tbody></table></div>'
-      + '<p class="metric-empty" id="metric-count" style="margin-top:0.5rem;">' + esc(roleCountLabel()) + '</p>'
-      + dl
-      + '<div class="alert alert-error" id="metrics-error" hidden></div>';
+    html += '<datalist id="role-suggestions">' + suggestions.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>'
+      + '<div class="wz-alert is-error" id="metrics-error" role="alert" hidden></div>';
+    body.innerHTML = html;
+    body._known = known;
+    body._hasSuggestions = suggestions.length > 0;
   }
 
   function saveRoleMetrics() {
@@ -1986,27 +2070,41 @@
   // ── STEP 4: DASHBOARD ─────────────────────────────────────
   function renderStep4() {
     var body = $('#step-4-body');
-    var main = state.dashboard.mainBlocks;
-    var blockCount = main.length;
-    var typeSet = {};
-    main.forEach(function (b) { if (b && b.type) typeSet[b.type] = true; });
-    var known = ['flow-card-2','forecast-pvtoday','grid-card','savings-summary','metric-cards','bar-gauge-retro','chart-power','chart-energy'];
-    var tags = Object.keys(typeSet).map(function (t) { return '<span class="dash-badge">' + esc(t) + '</span>'; }).join('');
-
-    var html = '<div class="alert alert-info">Using the seeded <strong>Main</strong> layout (' + blockCount + ' blocks). Pick how much to keep.</div>';
-    html += '<div class="dash-options" id="dash-options">';
-    html += '<div class="dash-option' + (state.dashboard.choice === 'full' ? ' selected' : '') + '" data-action="choose-dashboard" data-layout="full" role="button" tabindex="0">'
-      + '<span class="dash-radio"></span><h3>Full</h3>'
-      + '<p>All ' + blockCount + ' seeded Main blocks — flow, gauges, charts, weather, savings. Everything at once.</p>'
-      + '<div style="margin-top:0.4rem;">' + (tags || '<span class="dash-badge">—</span>') + '</div>'
+    var main = state.dashboard.mainBlocks || [];
+    function isMinimal(b) { return b && MINIMAL_DASH_TYPES.indexOf(b.type) > -1; }
+    function names(list) {
+      var seen = {}, out = [];
+      list.forEach(function (b) { var n = BLOCK_NAMES[b && b.type] || (b && b.type); if (n && !seen[n]) { seen[n] = true; out.push(n); } });
+      return out;
+    }
+    // A small picture of the layout: every block of the seeded dashboard,
+    // with the ones this option keeps highlighted.
+    function mini(keep) {
+      var cells = main.map(function (b) {
+        if (!b) return '';
+        var x = (b.gridX || 0) + 1, y = (b.gridY || 0) + 1, w = b.gridW || 12, h = Math.max(1, b.gridH || 4);
+        return '<span class="' + (keep(b) ? 'is-kept' : '') + '" style="grid-column:' + x + ' / span ' + w + ';grid-row:' + y + ' / span ' + h + '"></span>';
+      }).join('');
+      return '<div class="wz-mini" aria-hidden="true">' + cells + '</div>';
+    }
+    function option(value, title, desc, list, keep) {
+      var on = state.dashboard.choice === value;
+      return '<label class="wz-choice' + (on ? ' is-on' : '') + '">'
+        + '<input type="radio" name="dash-choice" value="' + value + '" data-action="choose-dashboard" data-layout="' + value + '"' + (on ? ' checked' : '') + '>'
+        + '<span class="wz-choice-head"><span class="wz-radio"></span><strong>' + esc(title) + '</strong><span class="wz-chip">' + list.length + ' cards</span></span>'
+        + mini(keep)
+        + '<p>' + esc(desc) + '</p>'
+        + '<span class="wz-chips">' + names(list).map(function (n) { return '<span class="wz-chip">' + esc(n) + '</span>'; }).join('') + '</span>'
+        + '</label>';
+    }
+    if (!main.length) {
+      body.innerHTML = alertBox('info', 'There\'s no starter dashboard on this server, so your dashboard starts empty. Add cards in the layout editor after setup.');
+      return;
+    }
+    body.innerHTML = '<div class="wz-choices" role="radiogroup" aria-label="Starting dashboard">'
+      + option('full', 'Everything', 'Energy flow, gauges, charts, weather and savings. Remove what you don\'t need later.', main, function () { return true; })
+      + option('minimal', 'Simple', 'Just the energy flow, a row of key numbers and your savings.', main.filter(isMinimal), isMinimal)
       + '</div>';
-    html += '<div class="dash-option' + (state.dashboard.choice === 'minimal' ? ' selected' : '') + '" data-action="choose-dashboard" data-layout="minimal" role="button" tabindex="0">'
-      + '<span class="dash-radio"></span><h3>Minimal</h3>'
-      + '<p>A curated subset — flow card, metric cards and savings summary. Clean and simple.</p>'
-      + '<div style="margin-top:0.4rem;">' + MINIMAL_DASH_TYPES.map(function (t) { return '<span class="dash-badge">' + esc(t) + '</span>'; }).join('') + '</div>'
-      + '</div>';
-    html += '</div>';
-    body.innerHTML = html;
   }
 
   function saveDashboard() {
@@ -2048,24 +2146,25 @@
   function renderStep5() {
     var body = $('#step-5-body');
     var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    var html = '<div class="card">'
-      + '<div class="card-header"><span class="card-title">Housekeeping</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Savings currency</label><input class="input" data-field="basics.savings_currency" value="' + esc(state.basics.savings_currency) + '" placeholder="€"></div>'
-      + '<div class="form-group"><label>Solar capacity (kWp)</label><input class="input" type="number" step="0.01" data-field="basics.solar_capacity_kwp" value="' + esc(state.basics.solar_capacity_kwp) + '"></div>'
-      + '</div>'
-      + '<div class="form-group"><label>Dashboard title</label><input class="input" data-field="basics.dashboard_title" value="' + esc(state.basics.dashboard_title) + '" placeholder="My Solar"></div>'
-      + '</div>'
-      + '<div class="theme-row">'
-      + '<span class="theme-label">Appearance<small>Choose a light or dark theme</small></span>'
-      + '<button class="theme-toggle" type="button" data-action="toggle-theme" id="theme-toggle">' + (theme === 'dark' ? '☀ Dark' : '☾ Light') + '</button>'
-      + '</div>'
-      + '<div class="alert alert-error" id="basics-error" hidden></div>';
-    body.innerHTML = html;
+    var b = state.basics;
+    body.innerHTML = '<div class="wz-card"><div class="wz-card-body">'
+      + field('Dashboard title', inp('basics.dashboard_title', b.dashboard_title, { placeholder: 'My Solar', id: 'basics-title' }), { forId: 'basics-title', hint: 'Shown at the top of the dashboard.' })
+      + grid(
+        field('Currency symbol', inp('basics.savings_currency', b.savings_currency, { placeholder: '€', id: 'basics-currency', attrs: ' maxlength="4"' }), { forId: 'basics-currency', hint: 'For savings, e.g. €, $, £ or ₦.' }),
+        field('Solar array size (kWp)', inp('basics.solar_capacity_kwp', b.solar_capacity_kwp, { type: 'number', id: 'basics-kwp', attrs: ' step="0.01" min="0"' }), { forId: 'basics-kwp', hint: 'Total panel capacity. Used for the solar forecast.' })
+      )
+      + '</div></div>'
+      + '<div class="wz-card"><div class="wz-card-body wz-row-between">'
+      + '<div><div class="wz-label">Theme</div><p class="wz-hint">For this browser. Each device remembers its own.</p></div>'
+      + '<div class="wz-seg" role="radiogroup" aria-label="Theme">'
+      + '<button type="button" role="radio" data-action="set-theme" data-theme="light" aria-checked="' + (theme === 'light') + '">' + icon('sun', 16) + 'Light</button>'
+      + '<button type="button" role="radio" data-action="set-theme" data-theme="dark" aria-checked="' + (theme === 'dark') + '">' + icon('moon', 16) + 'Dark</button>'
+      + '</div></div></div>'
+      + '<div class="wz-alert is-error" id="basics-error" role="alert" hidden></div>';
   }
 
   function saveBasics() {
-    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Add a currency, capacity and title to continue.'; el.hidden = false; } updateNav(); return Promise.resolve(false); }
+    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title, currency and array size (a number) to continue.'; el.hidden = false; } return Promise.resolve(false); }
     var b = state.basics;
     var payload = {
       savings_currency: b.savings_currency,
@@ -2087,248 +2186,196 @@
     var body = $('#step-6-body');
     var o = state.optional;
     var pv = o.pvoutput, fc = o.forecast, nw = o.network;
-    var html = '<div class="alert alert-info">All optional — fill any of these or leave them blank and skip. Nothing here blocks finishing.</div>';
+    var pvOn = truthy(pv.enabled), fcOn = truthy(fc.enabled);
+    function extraCard(key, iconName, title, sub, toggle, inner, on) {
+      return '<section class="wz-card" data-extra="' + key + '">'
+        + '<header class="wz-card-head"><span class="wz-icon-tile">' + icon(iconName) + '</span>'
+        + '<div class="wz-card-head-text"><h2>' + esc(title) + '</h2><p>' + esc(sub) + '</p></div>'
+        + '<span class="wz-pill" data-badge-src="' + key + '" hidden></span>'
+        + toggle + '</header>'
+        + '<div data-extra-body="' + key + '"' + (on ? '' : ' hidden') + '>'
+        + '<div class="wz-card-body">' + inner + '<div data-error="' + key + '"></div></div>'
+        + '<footer class="wz-card-foot"><button class="wz-btn wz-btn-sm" type="button" data-action="test" data-source="' + key + '">Test</button></footer>'
+        + '</div></section>';
+    }
+    function sw(path, on, label) {
+      return '<label class="wz-switch"><input type="checkbox" data-field="' + path + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(label) + '"><span></span></label>';
+    }
+    var html = extraCard('pvoutput', 'upload', 'PVOutput', 'Upload your production to pvoutput.org.',
+      sw('optional.pvoutput.enabled', pvOn, 'Upload to PVOutput'),
+      grid(
+        field('System ID', inp('optional.pvoutput.system_id', pv.system_id, { placeholder: '12345' })),
+        field('API key', inp('optional.pvoutput.api_key', pv.api_key, { type: 'password', attrs: ' autocomplete="off"' }))
+      )
+      + grid(
+        field('Time zone', inp('optional.pvoutput.timezone', pv.timezone, { placeholder: 'e.g. Africa/Lagos' })),
+        field('Upload every', sel('optional.pvoutput.upload_interval_minutes', [['5', '5 minutes'], ['10', '10 minutes'], ['15', '15 minutes']], pv.upload_interval_minutes))
+      )
+      + grid(
+        field('System size (W)', inp('optional.pvoutput.system_size_w', pv.system_size_w, { type: 'number' })),
+        field('Webhook URL', inp('optional.pvoutput.webhook_url', pv.webhook_url, { type: 'url' }), { optional: true })
+      )
+      + '<p class="wz-hint">Choose which readings are uploaded in Settings → Uploads.</p>', pvOn);
 
-    // PVOutput
-    html += '<div class="card">'
-      + '<div class="card-header"><span class="card-title">📤 PVOutput upload</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Enabled</label><select class="select-input" data-field="optional.pvoutput.enabled"><option value="false"' + (pv.enabled ? '' : ' selected') + '>No</option><option value="true"' + (pv.enabled ? ' selected' : '') + '>Yes</option></select></div>'
-      + '<div class="form-group"><label>System ID</label><input class="input" data-field="optional.pvoutput.system_id" placeholder="12345" value="' + esc(pv.system_id) + '"></div>'
+    html += extraCard('forecast', 'sun', 'Solar forecast', 'Predict today\'s and tomorrow\'s production from the weather.',
+      sw('optional.forecast.enabled', fcOn, 'Solar forecast'),
+      grid(
+        field('Latitude', inp('optional.forecast.latitude', fc.latitude, { placeholder: 'e.g. 6.52' })),
+        field('Longitude', inp('optional.forecast.longitude', fc.longitude, { placeholder: 'e.g. 3.38' }))
+      )
+      + '<p class="wz-hint" style="margin:-8px 0 16px"><button class="wz-btn-link" type="button" data-action="locate">Use this device\'s location</button></p>'
+      + '<div class="wz-grid wz-grid-3">'
+      + field('Panel tilt (°)', inp('optional.forecast.tilt', fc.tilt, { type: 'number' }), { hint: '0 is flat' })
+      + field('Panel direction (°)', inp('optional.forecast.azimuth', fc.azimuth, { type: 'number' }), { hint: '180 faces south' })
+      + field('Loss factor', inp('optional.forecast.loss_factor', fc.loss_factor, { type: 'number', attrs: ' step="0.01"' }), { hint: '0.9 is typical' })
       + '</div>'
-      + '<div class="form-group"><label>API key</label><input class="input" type="password" data-field="optional.pvoutput.api_key" placeholder="PVOutput API key" value="' + esc(pv.api_key) + '"></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Timezone</label><input class="input" data-field="optional.pvoutput.timezone" placeholder="e.g. Africa/Lagos" value="' + esc(pv.timezone) + '"></div>'
-      + '<div class="form-group"><label>Upload interval (min)</label><select class="select-input" data-field="optional.pvoutput.upload_interval_minutes">' + [[5,'5'],[10,'10'],[15,'15']].map(function (x) { return '<option value="' + x[0] + '"' + (String(pv.upload_interval_minutes) === String(x[0]) ? ' selected' : '') + '>' + x[0] + '</option>'; }).join('') + '</select></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>System size (W)</label><input class="input" type="number" data-field="optional.pvoutput.system_size_w" value="' + esc(pv.system_size_w) + '"></div>'
-      + '<div class="form-group"><label>Webhook URL <span class="note">(optional)</span></label><input class="input" data-field="optional.pvoutput.webhook_url" value="' + esc(pv.webhook_url) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="save-optional" data-source="pvoutput">💾 Save</button>'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="pvoutput">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="pvoutput">Not tested</span>'
-      + '<span class="spacer"></span>'
-      + '</div>'
-      + '<div data-error="pvoutput"></div>'
-      + '</div>';
+      + grid(
+        field('Solcast API key', inp('optional.forecast.solcast_api_key', fc.solcast_api_key, { type: 'password', attrs: ' autocomplete="off"' }), { optional: true }),
+        field('Solcast site ID', inp('optional.forecast.solcast_resource_id', fc.solcast_resource_id), { optional: true })
+      )
+      + '<p class="wz-hint">Uses the array size from Basics (' + esc(state.basics.solar_capacity_kwp || '?') + ' kWp). Without Solcast, Epilykos uses the free Open-Meteo forecast.</p>', fcOn);
 
-    // Solar Forecast
-    html += '<div class="card">'
-      + '<div class="card-header"><span class="card-title">☀️ Solar forecast</span></div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Enabled</label><select class="select-input" data-field="optional.forecast.enabled"><option value="false"' + (fc.enabled ? '' : ' selected') + '>No</option><option value="true"' + (fc.enabled ? ' selected' : '') + '>Yes</option></select></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Latitude</label><input class="input" data-field="optional.forecast.latitude" value="' + esc(fc.latitude) + '"></div>'
-      + '<div class="form-group"><label>Longitude</label><input class="input" data-field="optional.forecast.longitude" value="' + esc(fc.longitude) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Panel tilt (°)</label><input class="input" type="number" data-field="optional.forecast.tilt" value="' + esc(fc.tilt) + '"></div>'
-      + '<div class="form-group"><label>Panel azimuth (°)</label><input class="input" type="number" data-field="optional.forecast.azimuth" value="' + esc(fc.azimuth) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Capacity (kWp)</label><input class="input" data-field="optional.forecast.capacity_kwp" value="' + esc(fc.capacity_kwp) + '"></div>'
-      + '<div class="form-group"><label>Solcast API key</label><input class="input" type="password" data-field="optional.forecast.solcast_api_key" value="' + esc(fc.solcast_api_key) + '"></div>'
-      + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group"><label>Solcast resource ID</label><input class="input" data-field="optional.forecast.solcast_resource_id" value="' + esc(fc.solcast_resource_id) + '"></div>'
-      + '<div class="form-group"><label>Loss factor</label><input class="input" data-field="optional.forecast.loss_factor" value="' + esc(fc.loss_factor) + '"></div>'
-      + '</div>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="save-optional" data-source="forecast">💾 Save</button>'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="forecast">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="forecast">Not tested</span>'
-      + '<span class="spacer"></span>'
-      + '</div>'
-      + '<div data-error="forecast"></div>'
-      + '</div>';
-
-    // Network URLs
-    html += '<div class="card">'
-      + '<div class="card-header"><span class="card-title">🌐 Network URLs</span></div>'
-      + '<div class="form-group"><label>Local URL (LAN / WiFi)</label><input class="input" data-field="optional.network.local_url" placeholder="http://local-ip:port" value="' + esc(nw.local_url) + '"></div>'
-      + '<div class="form-group"><label>Remote URL (Internet)</label><input class="input" data-field="optional.network.remote_url" placeholder="https://domain-name.tld" value="' + esc(nw.remote_url) + '"></div>'
-      + '<span class="note">The PWA picks the fastest URL for your current network automatically.</span>'
-      + '<div class="test-row">'
-      + '<button class="btn btn-sm" type="button" data-action="save-optional" data-source="network">💾 Save</button>'
-      + '<button class="btn btn-sm" type="button" data-action="test" data-source="network">Test connection</button>'
-      + '<span class="test-badge pending" data-badge-src="network">Not tested</span>'
-      + '<span class="spacer"></span>'
-      + '</div>'
-      + '<div data-error="network"></div>'
-      + '</div>';
+    html += extraCard('network', 'wifi', 'App addresses', 'So the installed app finds Epilykos at home and away.',
+      '',
+      field('Address at home', inp('optional.network.local_url', nw.local_url, { type: 'url', placeholder: 'http://192.168.1.10:3000' }), { optional: true })
+      + field('Address away from home', inp('optional.network.remote_url', nw.remote_url, { type: 'url', placeholder: 'https://solar.example.com' }), { optional: true })
+      + '<p class="wz-hint">The app uses whichever answers first.</p>', true);
 
     body.innerHTML = html;
   }
 
   function truthy(v) { return v === true || v === 'true' || v === '1'; }
 
-  function saveOptional() {
-    var o = state.optional;
-    var pv = o.pvoutput, fc = o.forecast, nw = o.network;
-    var payload = {
-      network_local_url: nw.local_url,
-      network_remote_url: nw.remote_url,
-      forecast_enabled: truthy(fc.enabled) ? 'true' : 'false',
-      solar_latitude: fc.latitude,
-      solar_longitude: fc.longitude,
-      solar_tilt: fc.tilt,
-      solar_azimuth: fc.azimuth,
-      solar_capacity_kwp: fc.capacity_kwp,
-      solcast_api_key: fc.solcast_api_key,
-      solcast_resource_id: fc.solcast_resource_id,
-      solar_loss_factor: fc.loss_factor
-    };
-    // Best-effort; a failure must never block the wizard.
-    return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function () {
-      return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify({
-        pvoutput_config: JSON.stringify({
-          enabled: truthy(pv.enabled),
-          api_key: pv.api_key,
-          system_id: pv.system_id,
-          timezone: pv.timezone,
-          upload_interval_minutes: parseInt(pv.upload_interval_minutes, 10) || 5,
-          system_size_w: parseInt(pv.system_size_w, 10) || 0,
-          net_mode: truthy(pv.net_mode),
-          webhook_url: pv.webhook_url,
-          // Issue #117 (D6/AC-11): re-emit the existing metric_map so the
-          // wizard's wholesale config replace cannot drop the unit selection.
-          metric_map: pv.metric_map || {}
-        })
-      }) });
-    }).then(function () { return true; }).catch(function () { return true; });
-  }
-
-  function saveOptionalCard(src) {
-    if (src === 'pvoutput') return saveOptionalPvOutput();
-    if (src === 'forecast') return saveOptionalForecast();
-    if (src === 'network') return saveOptionalNetwork();
-    return Promise.resolve(false);
-  }
-
-  function saveOptionalPvOutput() {
+  function pvoutputConfig() {
     var pv = state.optional.pvoutput;
-    setBadge('pvoutput', 'pending', 'Saving…');
-    return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify({
-      pvoutput_config: JSON.stringify({
-        enabled: truthy(pv.enabled),
-        api_key: pv.api_key,
-        system_id: pv.system_id,
-        timezone: pv.timezone,
-        upload_interval_minutes: parseInt(pv.upload_interval_minutes, 10) || 5,
-        system_size_w: parseInt(pv.system_size_w, 10) || 0,
-        net_mode: truthy(pv.net_mode),
-        webhook_url: pv.webhook_url,
-        // Issue #117 (D6/AC-11): re-emit the existing metric_map so the
-        // wizard's wholesale config replace cannot drop the unit selection.
-        metric_map: pv.metric_map || {}
-      })
-    }) }).then(function (res) {
-      if (res.ok) { setBadge('pvoutput', 'ok', '✔ Saved'); return true; }
-      setBadge('pvoutput', 'fail', '✖ Failed');
-      setError('pvoutput', 'Could not save PVOutput (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'PVOutput'));
-      return false;
-    }).catch(function () {
-      setBadge('pvoutput', 'fail', '✖ Failed');
-      setError('pvoutput', 'Network error saving PVOutput.');
-      return false;
+    return JSON.stringify({
+      enabled: truthy(pv.enabled),
+      api_key: pv.api_key,
+      system_id: pv.system_id,
+      timezone: pv.timezone,
+      upload_interval_minutes: parseInt(pv.upload_interval_minutes, 10) || 5,
+      system_size_w: parseInt(pv.system_size_w, 10) || 0,
+      net_mode: truthy(pv.net_mode),
+      webhook_url: pv.webhook_url,
+      // Issue #117 (D6/AC-11): re-emit the existing metric_map so the
+      // wizard's wholesale config replace cannot drop the unit selection.
+      metric_map: pv.metric_map || {}
     });
   }
 
-  function saveOptionalForecast() {
-    var fc = state.optional.forecast;
-    setBadge('forecast', 'pending', 'Saving…');
-    var payload = {
+  // Saves all three extras. Best-effort: a failure is reported but never
+  // blocks the wizard. The array size (solar_capacity_kwp) belongs to Basics
+  // and isn't sent here, so skipping extras can't blank it.
+  function saveOptional() {
+    var fc = state.optional.forecast, nw = state.optional.network;
+    var failed = [];
+    var forecast = api('/api/settings', { method: 'POST', body: JSON.stringify({
       forecast_enabled: truthy(fc.enabled) ? 'true' : 'false',
       solar_latitude: fc.latitude,
       solar_longitude: fc.longitude,
       solar_tilt: fc.tilt,
       solar_azimuth: fc.azimuth,
-      solar_capacity_kwp: fc.capacity_kwp,
       solcast_api_key: fc.solcast_api_key,
       solcast_resource_id: fc.solcast_resource_id,
       solar_loss_factor: fc.loss_factor
-    };
-    return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
-      if (res.ok) { setBadge('forecast', 'ok', '✔ Saved'); return true; }
-      setBadge('forecast', 'fail', '✖ Failed');
-      setError('forecast', 'Could not save forecast (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Forecast'));
-      return false;
-    }).catch(function () {
-      setBadge('forecast', 'fail', '✖ Failed');
-      setError('forecast', 'Network error saving forecast.');
-      return false;
-    });
+    }) }).then(function (res) { if (!res.ok) failed.push('solar forecast'); });
+    var network = api('/api/settings/network', { method: 'POST', body: JSON.stringify({ network_local_url: nw.local_url, network_remote_url: nw.remote_url }) })
+      .then(function (res) { if (!res.ok) failed.push('app addresses'); });
+    var pvoutput = api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify({ pvoutput_config: pvoutputConfig() }) })
+      .then(function (res) { if (!res.ok) failed.push('PVOutput'); });
+    return Promise.all([forecast, network, pvoutput]).then(function () { return failed; }, function () { return ['extras']; });
   }
 
-  function saveOptionalNetwork() {
-    var nw = state.optional.network;
-    setBadge('network', 'pending', 'Saving…');
-    var payload = { network_local_url: nw.local_url, network_remote_url: nw.remote_url };
-    return api('/api/settings/network', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
-      if (res.ok) { setBadge('network', 'ok', '✔ Saved'); return true; }
-      setBadge('network', 'fail', '✖ Failed');
-      setError('network', 'Could not save network URLs (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Network'));
-      return false;
-    }).catch(function () {
-      setBadge('network', 'fail', '✖ Failed');
-      setError('network', 'Network error saving network URLs.');
-      return false;
-    });
-  }
+
+
+
 
   // ── STEP 7: FINISH ────────────────────────────────────────
-  function renderStep6() {
+  var SKIPPED_NOTE = {
+    2: 'Add sources in Settings → Sources.',
+    3: 'Match readings to roles in Settings → Metrics.',
+    4: 'The starter dashboard is unchanged. Edit it in the layout editor.',
+    5: 'Defaults are used. Change them in Settings → Appearance and Savings.',
+    6: 'Set these up in Settings when you need them.'
+  };
+  function renderStepFinish() {
     var body = $('#step-7-body');
-    if (state.completed) {
-      body.innerHTML = finishHero(true);
-    } else {
-      body.innerHTML = '<div class="finish-hero">'
-        + '<div class="finish-icon">🚀</div>'
-        + '<h3>Ready to go</h3>'
-        + '<p>Finish to enable your dashboard and lock in this first-run setup.</p>'
-        + '</div>';
+    if (state.completed) { body.innerHTML = finishDone(); return; }
+    var src = SOURCE_KEYS.filter(function (k) { return state.sources[k].selected; });
+    var srcText = src.map(function (k) {
+      var s = state.sources[k];
+      return esc(s.name || sourceType(k).name);
+    }).join(', ');
+    var mapped = ROLES.length - unassignedCount();
+    var extras = [];
+    if (truthy(state.optional.pvoutput.enabled)) extras.push('PVOutput upload');
+    if (truthy(state.optional.forecast.enabled)) extras.push('solar forecast');
+    if (state.optional.network.local_url || state.optional.network.remote_url) extras.push('app addresses');
+    if (extras.length) extras[0] = extras[0].charAt(0).toUpperCase() + extras[0].slice(1);
+    function row(iconName, title, text, step) {
+      if (step && state.skipped[step]) text = '<em>Skipped.</em> ' + SKIPPED_NOTE[step];
+      return '<li' + (step && state.skipped[step] ? ' class="is-skipped"' : '') + '><span class="wz-icon-tile">' + icon(iconName) + '</span><span class="wz-summary-text"><strong>' + esc(title) + '</strong><span>' + text + '</span></span>'
+        + (step ? '<button class="wz-btn-link" type="button" data-action="goto-step" data-step="' + step + '">Edit</button>' : '') + '</li>';
     }
+    body.innerHTML = '<div class="wz-card"><ul class="wz-summary">'
+      + (state.isReRun ? '' : row('key', 'Admin password', 'Set', null))
+      + row('plug', state.skipped[2] ? 'Sources' : src.length + ' source' + (src.length === 1 ? '' : 's'), srcText || 'None', 2)
+      + row('list', 'Metric roles', mapped + ' of ' + ROLES.length + ' matched', 3)
+      + row('layout', 'Dashboard', state.dashboard.choice === 'minimal' ? 'Simple' : 'Everything', 4)
+      + row('sliders', state.skipped[5] ? 'Basics' : (state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp', 5)
+      + row('sun', 'Extras', extras.length ? esc(extras.join(', ')) : 'None', 6)
+      + '</ul></div>';
   }
-  function finishHero(done) {
-    return '<div class="finish-hero">'
-      + '<div class="finish-icon">' + (done ? '✅' : '🚀') + '</div>'
-      + '<h3>' + (done ? 'Setup complete!' : 'Ready to go') + '</h3>'
-      + '<p>' + (done ? 'Your Epilykos workspace is live and configured.' : 'Finish to enable your dashboard.') + '</p>'
-      + '</div>'
-      + '<div class="btn-group" style="justify-content:center;margin-top:1rem;">'
-      + '<a href="/" class="btn btn-primary">Open Dashboard</a>'
-      + '<a href="/settings" class="btn">Go to Settings</a>'
-      + '</div>';
+  // A source is configured on the server: saved in this run, or already there.
+  function hasSavedSource() {
+    if (!state.skipped[2] && selectedSourcesCount() > 0) return true;
+    var ex = state.existing || {};
+    return ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources'].some(function (k) {
+      var v = ex[k]; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+      return Array.isArray(v) && v.length > 0;
+    }) || !!(state.status && state.status.hasDataSource);
+  }
+  function finishDone() {
+    return '<div class="wz-card"><div class="wz-done">'
+      + '<span class="wz-state-icon is-ok">' + icon('check', 28) + '</span>'
+      + '<h2>You\'re all set</h2>'
+      + '<p>' + (hasSavedSource() ? 'Epilykos is reading your sources. Readings and charts fill in over the next few minutes.' : 'No sources yet. Add one in Settings → Sources and readings start to appear.') + '</p>'
+      + '<div class="wz-actions"><a href="/" class="wz-btn wz-btn-primary">Open dashboard</a><a href="/editor" class="wz-btn">Edit the layout</a><a href="/settings" class="wz-btn">Settings</a></div>'
+      + '</div></div>';
   }
 
   function completeWizard() {
     setBusy(true);
+    var next = $('#next-btn'); if (next) next.classList.add('is-busy');
     api('/api/wizard/complete', { method: 'POST', body: '{}' }).then(function (res) {
       setBusy(false);
+      if (next) next.classList.remove('is-busy');
       if (res.ok && res.data && res.data.success) {
         state.completed = true;
         state.status.completed = true;
-        renderStep6();
-        var el = $('#step-7-body'); if (el) el.innerHTML = finishHero(true);
-        var next = $('#next-btn'); if (next) next.textContent = 'Done';
+        var p = $('.wizard-panel.active');
+        if (p) { $('[data-step-eyebrow]', p).textContent = ''; $('[data-step-title]', p).textContent = 'Setup complete'; $('[data-step-lede]', p).textContent = ''; }
+        $('#wizard').classList.add('is-complete');
+        renderStepFinish();
+        renderStepper();
+        updateNav();
         setGlobalError(null);
       } else {
-        setGlobalError('Could not finalize setup (' + (res.status || 'network') + ').');
+        setGlobalError('Couldn\'t finish setup (error ' + (res.status || 'network') + '). Try again.');
       }
     }).catch(function () {
       setBusy(false);
-      setGlobalError('Network error finalizing setup.');
+      if (next) next.classList.remove('is-busy');
+      setGlobalError('Network error while finishing setup. Try again.');
     });
   }
 
   // ── Busy handling ─────────────────────────────────────────
   function setBusy(b) {
     state.busy = b;
-    var next = $('#next-btn'); if (next) next.disabled = b;
+    var next = $('#next-btn'); if (next) next.disabled = b || !canGoNext(state.currentStep);
     var back = $('#back-btn'); if (back) back.disabled = b;
+    var skip = $('#skip-btn'); if (skip) skip.disabled = b;
   }
 
   // ── Field change side-effects ─────────────────────────────
@@ -2343,124 +2390,189 @@
       loadProfileEntities(kind);
       if (kind === 'modbusTcp') syncModbusGateway();
     }
-    else if (field === 'sources.bmsWired.profile') { loadBmsWiredFields(); applyBmsWiredProfile(true); }
+    else if (field === 'sources.bmsWired.profile') { loadBmsWiredFields(); applyBmsWiredProfile(true); updateBmsWiredProfileNotes(); }
+    else if (field === 'optional.pvoutput.enabled' || field === 'optional.forecast.enabled') {
+      var extra = field.split('.')[1];
+      var box = document.querySelector('[data-extra-body="' + extra + '"]');
+      if (box) box.hidden = !truthy(getPath(state, field));
+    }
+    else if (/^password\./.test(field)) syncPasswordReqs();
   }
 
   // ── Event delegation ──────────────────────────────────────
   function bindEvents() {
     var wiz = $('#wizard');
 
-    wiz.addEventListener('input', function (e) {
+    function onField(e) {
       var t = e.target;
       if (t.matches('[data-field]')) {
         var field = t.getAttribute('data-field');
-        setPath(state, field, t.value);
+        setPath(state, field, t.type === 'checkbox' ? t.checked : t.value);
         afterFieldChange(field);
         updateTestButtons();
-        updateMetricsCountLabel();
         updateNav();
+        var f = t.closest('.wz-field'); if (f) f.classList.remove('has-error');
       }
       if (t.matches('[data-metric-role]')) {
         var role = t.getAttribute('data-metric-role');
         state.roleMetrics[role] = t.value;
-        updateMetricsCountLabel();
-      }
-    });
-
-    wiz.addEventListener('change', function (e) {
-      var t = e.target;
-      if (t.matches('[data-field]')) {
-        var field = t.getAttribute('data-field');
-        setPath(state, field, t.value);
-        afterFieldChange(field);
-        updateTestButtons();
-        updateMetricsCountLabel();
+        syncRoleWarning(t);
         updateNav();
       }
-    });
+      if (e.type === 'change' && t.matches('[data-source-pick]')) toggleSource(t.getAttribute('data-source-pick'), t.checked);
+      if (e.type === 'change' && t.matches('[data-action="choose-dashboard"]')) chooseDashboard(t);
+    }
+    wiz.addEventListener('input', onField);
+    wiz.addEventListener('change', onField);
 
     wiz.addEventListener('click', function (e) {
       var el = e.target.closest('[data-action]');
-      if (!el) return;
+      if (!el || el.matches('input')) return;
       var action = el.getAttribute('data-action');
-      if (action === 'toggle-source') toggleSource(el);
-      else if (action === 'test') runTest(el.getAttribute('data-source'));
-      else if (action === 'save-optional') saveOptionalCard(el.getAttribute('data-source'));
+      if (action === 'test') runTest(el.getAttribute('data-source'));
       else if (action === 'browse-topics') runBrowseTopics();
       else if (action === 'toggle-topic') toggleTopic(el);
       else if (action === 'regenerate') regeneratePassword();
+      else if (action === 'copy-password') copyPassword(el);
+      else if (action === 'reveal') revealPassword(el);
       else if (action === 'password-submit') submitPassword();
-      else if (action === 'build-entities') { /* noop */ }
-      else if (action === 'choose-dashboard') chooseDashboard(el);
-      else if (action === 'toggle-theme') toggleTheme();
+      else if (action === 'set-theme') applyTheme(el.getAttribute('data-theme'));
       else if (action === 'reset-sources') resetSources();
+      else if (action === 'unselect-source') toggleSource(el.getAttribute('data-source'), false);
       else if (action === 'ble-scan') runBleScan(el.getAttribute('data-source'), el);
       else if (action === 'ble-pick') pickBleDevice(el.getAttribute('data-source'), el.getAttribute('data-address'));
+      else if (action === 'locate') useDeviceLocation(el);
+      else if (action === 'goto-step') {
+        var n = parseInt(el.getAttribute('data-step'), 10);
+        if (!state.busy && !state.completed && n < state.currentStep) gotoStep(n);
+      }
+    });
+    // Enter in the password step submits it.
+    wiz.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && state.authGated && e.target.matches('#step-1-body input')) { e.preventDefault(); submitPassword(); }
     });
 
     $('#back-btn').addEventListener('click', function () { if (!state.busy) gotoStep(state.currentStep - 1); });
     $('#next-btn').addEventListener('click', function () { if (!state.busy) onNext(); });
+    $('#skip-btn').addEventListener('click', function () { if (!state.busy) skipStep(); });
   }
 
-  function toggleSource(el) {
-    var key = el.getAttribute('data-source');
+  function toggleSource(key, on) {
     var s = state.sources[key];
-    s.selected = !s.selected;
-    el.classList.toggle('selected', s.selected);
+    if (!s) return;
+    s.selected = !!on;
     syncSourceCardVisibility();
     updateTestButtons();
     loadSourceCatalog();
     updateNav();
+    setNavHint('');
+    if (on) {
+      var card = document.querySelector('.source-config[data-source="' + key + '"]');
+      if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   function regeneratePassword() {
     var pw = randomString(16);
     setPath(state, 'password.newPw', pw);
     setPath(state, 'password.confirmPw', pw);
-    var a = $('#pw-new'); if (a) a.value = pw;
-    var b = $('#pw-confirm'); if (b) b.value = pw;
-    var err = $('#pw-new-err'); if (err) err.textContent = '';
-    setBadge('pw', 'ok', '✔ Generated');
+    ['pw-new', 'pw-confirm'].forEach(function (id) { var el = $('#' + id); if (el) { el.value = pw; el.type = 'text'; } });
+    $$('[data-action="reveal"]').forEach(function (b) { b.setAttribute('aria-pressed', 'true'); b.setAttribute('aria-label', 'Hide password'); b.innerHTML = icon('eyeOff', 18); });
+    var copy = $('#pw-copy'); if (copy) copy.hidden = false;
+    var msg = $('#pw-msg'); if (msg) msg.textContent = 'Generated a 16-character password. Copy it somewhere safe before you continue.';
+    syncPasswordReqs();
+    updateNav();
+  }
+  function copyPassword(btn) {
+    var pw = state.password.newPw;
+    if (!pw || !navigator.clipboard) return;
+    navigator.clipboard.writeText(pw).then(function () {
+      btn.innerHTML = icon('check', 16) + 'Copied';
+      setTimeout(function () { btn.innerHTML = icon('copy', 16) + 'Copy'; }, 2000);
+    }).catch(function () {});
+  }
+  function revealPassword(btn) {
+    var input = $('#' + btn.getAttribute('data-target'));
+    if (!input) return;
+    var show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.innerHTML = icon(show ? 'eyeOff' : 'eye', 18);
+  }
+  function useDeviceLocation(btn) {
+    if (!navigator.geolocation) { setError('forecast', 'This browser can\'t share its location. Type the coordinates instead.'); return; }
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      btn.disabled = false;
+      setFieldValue('optional.forecast.latitude', pos.coords.latitude.toFixed(4));
+      setFieldValue('optional.forecast.longitude', pos.coords.longitude.toFixed(4));
+      clearError('forecast');
+    }, function () {
+      btn.disabled = false;
+      setError('forecast', 'Couldn\'t get this device\'s location. Type the coordinates instead.');
+    }, { timeout: 10000 });
+  }
+
+  function syncRoleWarning(input) {
+    var body = $('#step-3-body');
+    var key = input.getAttribute('data-metric-role');
+    var warn = $('[data-role-warn="' + key + '"]');
+    if (!warn || !body) return;
+    var v = input.value.trim();
+    var show = v && body._hasSuggestions && !(body._known || {})[v];
+    warn.hidden = !show;
+    if (show) warn.textContent = 'None of your sources has a reading called “' + v + '” yet.';
+  }
+
+  function chooseDashboard(input) {
+    state.dashboard.choice = input.getAttribute('data-layout');
+    $$('.wz-choice').forEach(function (o) { o.classList.toggle('is-on', o.contains(input)); });
     updateNav();
   }
 
-  function updateMetricsCountLabel() {
-    var el = $('#metric-count');
-    if (el) el.textContent = roleCountLabel();
-  }
-
-  function chooseDashboard(el) {
-    state.dashboard.choice = el.getAttribute('data-layout');
-    $$('.dash-option').forEach(function (o) { o.classList.toggle('selected', o === el); });
-    updateNav();
-  }
-
-  function toggleTheme() {
-    var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    applyTheme(cur === 'dark' ? 'light' : 'dark');
-    var b = $('#theme-toggle'); if (b) b.innerHTML = cur === 'dark' ? '☾ Light' : '☀ Dark';
-  }
 
   // ── NEXT ──────────────────────────────────────────────────
   function onNext() {
     if (state.busy) return;
     var step = state.currentStep;
     if (step === 1) { submitPassword(); return; }
-    if (step === 7) { completeWizard(); return; }
-
+    if (step === LAST_STEP) {
+      if (state.completed) { window.location.href = '/'; return; }
+      completeWizard();
+      return;
+    }
+    setNavHint('');
+    var next = $('#next-btn');
     setBusy(true);
-    var proceed = function () { setBusy(false); gotoStep(step + 1); };
+    if (next) next.classList.add('is-busy');
+    var done = function () { setBusy(false); if (next) next.classList.remove('is-busy'); };
+    var proceed = function () { done(); delete state.skipped[step]; gotoStep(step + 1); };
+    var stay = function (msg) { done(); updateNav(); if (msg) setNavHint(msg, true); };
+    if (step === 2 && selectedSourcesCount() === 0) {
+      // Nothing picked: same as Skip, no sources are saved.
+      done(); skipStep(); return;
+    }
     if (step === 2) {
-      saveSources().then(function (ok) { if (ok) proceed(); else setBusy(false); });
+      saveSources().then(function (ok) {
+        if (ok) { proceed(); return; }
+        stay('Some connection details are missing.');
+        var first = $('#step-2-body [data-error].wz-alert');
+        var card = first && first.closest('.source-config');
+        if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); var inp = $('input, select', card); if (inp) inp.focus({ preventScroll: true }); }
+      });
     } else if (step === 3) {
-      saveRoleMetrics().then(function () { proceed(); });
+      saveRoleMetrics().then(function (ok) { if (ok) proceed(); else stay('Couldn\'t save the roles.'); });
     } else if (step === 4) {
-      saveDashboard().then(function (ok) { if (ok) proceed(); else setBusy(false); });
+      saveDashboard().then(function (ok) { if (ok) proceed(); else stay(); });
     } else if (step === 5) {
-      saveBasics().then(function (ok) { if (ok) proceed(); else setBusy(false); });
+      saveBasics().then(function (ok) { if (ok) proceed(); else stay('Check the highlighted fields.'); });
     } else if (step === 6) {
-      // Optional: never blocks, never forces a test. Best-effort save.
-      saveOptional().then(function () { proceed(); });
+      // Extras never block: report anything that didn't save, then move on.
+      saveOptional().then(function (failed) {
+        proceed();
+        if (failed && failed.length) setGlobalError('Couldn\'t save ' + failed.join(', ') + '. You can set ' + (failed.length > 1 ? 'them' : 'it') + ' in Settings.');
+      });
     } else {
       proceed();
     }
@@ -2468,7 +2580,7 @@
 
   // ── Init ──────────────────────────────────────────────────
   function init() {
-    $$('.wizard-panel').forEach(function (p) { p.classList.toggle('active', parseInt(p.getAttribute('data-step'), 10) === 1); });
+    hydrateIcons(document);
     bindEvents();
     boot();
   }
