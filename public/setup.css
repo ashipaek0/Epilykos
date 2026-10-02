@@ -444,3 +444,10 @@ button.wz-list-item:hover { background: var(--wz-hover); }
   .wz *, .wz *::before, .wz *::after { animation-duration: 0.01ms !important; transition: none !important; }
 }
 .wz-eyebrow:empty, .wz-lede:empty { display: none; }
+
+/* Skipped steps: rail and review screen */
+.wz-step.is-skipped .wz-step-num { border-style: dashed; border-color: var(--wz-line); color: var(--wz-muted); font-size: 1rem; }
+.wz-step.is-skipped .wz-step-label { color: var(--wz-muted); }
+.wz-step.is-skipped:not(:last-child)::after { background: var(--wz-line-soft); }
+.wz-summary li.is-skipped .wz-icon-tile { background: var(--wz-press); color: var(--wz-muted); }
+.wz-summary li.is-skipped em { font-style: normal; font-weight: 700; color: var(--wz-text); }

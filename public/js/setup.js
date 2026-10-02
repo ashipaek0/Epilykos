@@ -274,6 +274,7 @@
     authGated: false,       // pristine first-run: password step only
     completed: false,
     busy: false,
+    skipped: {},           // step number -> true when it was skipped without saving
     existing: null,
     password: { newPw: '', confirmPw: '', setupCode: '', envPw: '' },
     sources: defaultSources(),
@@ -526,10 +527,11 @@
       if (n < first) return;
       var cur = n === state.currentStep && !state.completed;
       var done = n < state.currentStep || state.completed;
-      html += '<li class="wz-step' + (cur ? ' is-current' : '') + (done ? ' is-done' : '') + '">'
+      var skipped = done && !!state.skipped[n];
+      html += '<li class="wz-step' + (cur ? ' is-current' : '') + (done ? ' is-done' : '') + (skipped ? ' is-skipped' : '') + '">'
         + '<button type="button" class="wz-step-btn" data-action="goto-step" data-step="' + n + '"' + (cur ? ' aria-current="step"' : '') + (done ? '' : ' tabindex="-1" aria-disabled="true"') + '>'
-        + '<span class="wz-step-num">' + (done ? icon('check', 16) : (n - first + 1)) + '</span>'
-        + '<span class="wz-step-text"><span class="wz-step-label">' + esc(st.label) + '</span><span class="wz-step-sub">' + esc(st.sub) + '</span></span>'
+        + '<span class="wz-step-num">' + (skipped ? '–' : done ? icon('check', 16) : (n - first + 1)) + '</span>'
+        + '<span class="wz-step-text"><span class="wz-step-label">' + esc(st.label) + '</span><span class="wz-step-sub">' + (skipped ? 'Skipped' : esc(st.sub)) + '</span></span>'
         + '</button></li>';
     });
     ol.innerHTML = html;
@@ -615,7 +617,7 @@
     var skip = $('#skip-btn');
     var firstVisible = state.isReRun ? 2 : 1;
     back.hidden = !(state.currentStep > firstVisible) || state.completed;
-    skip.hidden = state.currentStep !== 6;
+    skip.hidden = !isSkippable(state.currentStep) || state.completed;
     if (next) {
       if (!state.busy) next.disabled = !canGoNext(state.currentStep);
       next.textContent = state.currentStep === LAST_STEP ? (state.completed ? 'Open dashboard' : 'Finish setup') : 'Continue';
@@ -623,11 +625,21 @@
     var hintEl = $('#nav-hint');
     if (hintEl && !hintEl.classList.contains('is-error')) {
       var hint = '';
-      if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Pick at least one source to continue.';
+      if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Pick a source to continue, or skip and add one in Settings.';
       else if (state.currentStep === 3) hint = roleCountLabel();
       hintEl.textContent = hint;
     }
   }
+  // Every step between the password and the review can be skipped. Skipping
+  // moves on without saving that step; Continue saves it.
+  function isSkippable(step) { return step > 1 && step < LAST_STEP; }
+  function skipStep() {
+    var step = state.currentStep;
+    if (!isSkippable(step)) return;
+    state.skipped[step] = true;
+    gotoStep(step + 1);
+  }
+
   // An error in the nav bar stays until the next step change or Continue.
   function setNavHint(msg, isError) {
     var el = $('#nav-hint');
@@ -2271,6 +2283,13 @@
 
 
   // ── STEP 7: FINISH ────────────────────────────────────────
+  var SKIPPED_NOTE = {
+    2: 'Add sources in Settings → Sources.',
+    3: 'Match readings to roles in Settings → Metrics.',
+    4: 'The starter dashboard is unchanged. Edit it in the layout editor.',
+    5: 'Defaults are used. Change them in Settings → Appearance and Savings.',
+    6: 'Set these up in Settings when you need them.'
+  };
   function renderStepFinish() {
     var body = $('#step-7-body');
     if (state.completed) { body.innerHTML = finishDone(); return; }
@@ -2286,23 +2305,33 @@
     if (state.optional.network.local_url || state.optional.network.remote_url) extras.push('app addresses');
     if (extras.length) extras[0] = extras[0].charAt(0).toUpperCase() + extras[0].slice(1);
     function row(iconName, title, text, step) {
-      return '<li><span class="wz-icon-tile">' + icon(iconName) + '</span><span class="wz-summary-text"><strong>' + esc(title) + '</strong><span>' + text + '</span></span>'
+      if (step && state.skipped[step]) text = '<em>Skipped.</em> ' + SKIPPED_NOTE[step];
+      return '<li' + (step && state.skipped[step] ? ' class="is-skipped"' : '') + '><span class="wz-icon-tile">' + icon(iconName) + '</span><span class="wz-summary-text"><strong>' + esc(title) + '</strong><span>' + text + '</span></span>'
         + (step ? '<button class="wz-btn-link" type="button" data-action="goto-step" data-step="' + step + '">Edit</button>' : '') + '</li>';
     }
     body.innerHTML = '<div class="wz-card"><ul class="wz-summary">'
       + (state.isReRun ? '' : row('key', 'Admin password', 'Set', null))
-      + row('plug', src.length + ' source' + (src.length === 1 ? '' : 's'), srcText || 'None', 2)
+      + row('plug', state.skipped[2] ? 'Sources' : src.length + ' source' + (src.length === 1 ? '' : 's'), srcText || 'None', 2)
       + row('list', 'Metric roles', mapped + ' of ' + ROLES.length + ' matched', 3)
       + row('layout', 'Dashboard', state.dashboard.choice === 'minimal' ? 'Simple' : 'Everything', 4)
-      + row('sliders', esc(state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp', 5)
+      + row('sliders', state.skipped[5] ? 'Basics' : (state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp', 5)
       + row('sun', 'Extras', extras.length ? esc(extras.join(', ')) : 'None', 6)
       + '</ul></div>';
+  }
+  // A source is configured on the server: saved in this run, or already there.
+  function hasSavedSource() {
+    if (!state.skipped[2] && selectedSourcesCount() > 0) return true;
+    var ex = state.existing || {};
+    return ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources'].some(function (k) {
+      var v = ex[k]; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+      return Array.isArray(v) && v.length > 0;
+    }) || !!(state.status && state.status.hasDataSource);
   }
   function finishDone() {
     return '<div class="wz-card"><div class="wz-done">'
       + '<span class="wz-state-icon is-ok">' + icon('check', 28) + '</span>'
       + '<h2>You\'re all set</h2>'
-      + '<p>Epilykos is reading your sources. Readings and charts fill in over the next few minutes.</p>'
+      + '<p>' + (hasSavedSource() ? 'Epilykos is reading your sources. Readings and charts fill in over the next few minutes.' : 'No sources yet. Add one in Settings → Sources and readings start to appear.') + '</p>'
       + '<div class="wz-actions"><a href="/" class="wz-btn wz-btn-primary">Open dashboard</a><a href="/editor" class="wz-btn">Edit the layout</a><a href="/settings" class="wz-btn">Settings</a></div>'
       + '</div></div>';
   }
@@ -2417,7 +2446,7 @@
 
     $('#back-btn').addEventListener('click', function () { if (!state.busy) gotoStep(state.currentStep - 1); });
     $('#next-btn').addEventListener('click', function () { if (!state.busy) onNext(); });
-    $('#skip-btn').addEventListener('click', function () { if (!state.busy) gotoStep(state.currentStep + 1); });
+    $('#skip-btn').addEventListener('click', function () { if (!state.busy) skipStep(); });
   }
 
   function toggleSource(key, on) {
@@ -2510,7 +2539,7 @@
     setBusy(true);
     if (next) next.classList.add('is-busy');
     var done = function () { setBusy(false); if (next) next.classList.remove('is-busy'); };
-    var proceed = function () { done(); gotoStep(step + 1); };
+    var proceed = function () { done(); delete state.skipped[step]; gotoStep(step + 1); };
     var stay = function (msg) { done(); updateNav(); if (msg) setNavHint(msg, true); };
     if (step === 2) {
       saveSources().then(function (ok) {
