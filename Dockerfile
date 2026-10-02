@@ -23,8 +23,12 @@ RUN npm ci --omit=dev --no-audit --no-fund
 # Copy the rest of the app
 COPY --chown=node:node . .
 
-# Switch to non-root user
-USER node
+# The container starts as root only so the entrypoint can make the bind-mounted
+# /app/data writable on a fresh install (Docker creates a missing ./data as
+# root). It then drops to the unprivileged `node` user before starting the app.
+COPY docker/entrypoint.sh /usr/local/bin/epilykos-entrypoint
+RUN chmod 0755 /usr/local/bin/epilykos-entrypoint
+ENTRYPOINT ["/usr/local/bin/epilykos-entrypoint"]
 
 EXPOSE 3000
 # /healthz proves the app started and SQLite opened; it never depends on the
