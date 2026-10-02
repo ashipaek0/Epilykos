@@ -743,8 +743,28 @@ function stopMetricAutoFlush() {
   if (metricFlushTimer) { clearInterval(metricFlushTimer); metricFlushTimer = null; }
 }
 
+/**
+ * Settings pages receive saved secrets still encrypted ($enc1$…) and send
+ * them back as-is when a Test / Fetch button is pressed. Swap such a value
+ * for the real secret, but only when it's one this server stored under one
+ * of `configKeys`; anything else passes through untouched.
+ * @param {*} value - value from a request body
+ * @param {string[]} configKeys - config keys whose stored secrets may match
+ */
+function resolveStoredSecret(value, configKeys) {
+  if (typeof value !== 'string' || !isEncrypted(value)) return value;
+  for (const key of configKeys) {
+    const row = getDb().prepare('SELECT value FROM config WHERE key = ?').get(key);
+    if (row && typeof row.value === 'string' && row.value.includes(value)) {
+      try { return decryptString(value); } catch (err) { logger.warn(`encryption: stored secret for '${key}' failed to decrypt: ${err.message}`); return value; }
+    }
+  }
+  return value;
+}
+
 module.exports = {
   initializeDatabase,
+  resolveStoredSecret,
   getConfig,
   setConfig,
   encryptConfigValue,

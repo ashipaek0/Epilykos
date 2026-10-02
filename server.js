@@ -27,7 +27,7 @@ const dns = require('dns');
 const { logger } = require('./modules/logger');
 const { PollingManager } = require('./services/PollingManager');
 const { timeZoneName } = require('./modules/localTime');
-const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted } = require('./modules/database');
+const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
 
 /**
  * Compute delta between current and previous state objects.
@@ -680,22 +680,6 @@ function stringFields(obj) {
     else if (typeof v === 'number' && Number.isFinite(v)) out[k] = String(v);
   }
   return out;
-}
-
-// Settings pages receive saved secrets still encrypted ($enc1$…) and send
-// them back as-is when you press a Test / Fetch button. Swap such a value for
-// the real secret, but only when it's one this server stored under one of
-// `configKeys` — an arbitrary envelope is passed through untouched.
-const { isEncrypted, decryptString } = require('./modules/encryption');
-function resolveStoredSecret(value, configKeys) {
-  if (typeof value !== 'string' || !isEncrypted(value)) return value;
-  for (const key of configKeys) {
-    const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
-    if (row && typeof row.value === 'string' && row.value.includes(value)) {
-      try { return decryptString(value); } catch (err) { logger.warn(`Stored secret for ${key} failed to decrypt: ${err.message}`); return value; }
-    }
-  }
-  return value;
 }
 
 // Plain-language reason a Home Assistant request failed, for the UI.
