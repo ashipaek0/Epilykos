@@ -82,7 +82,9 @@
         body: JSON.stringify({ password })
       });
       if (res.ok) {
-        window.location.href = '/';
+        // Only same-site paths: "/setup" yes, "//evil.example" no.
+        const next = new URLSearchParams(location.search).get('next') || '';
+        window.location.href = /^\/(?![\/\\])/.test(next) ? next : '/';
       } else {
         const data = await res.json();
         errorDiv.textContent = data.error || 'Invalid password';
