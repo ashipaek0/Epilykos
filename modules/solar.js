@@ -1,6 +1,6 @@
 const { logger } = require('./logger');
 const https = require('https');
-const { getConfig, getDb, flushMetrics } = require('./database');
+const { getConfig, setConfig, getDb, flushMetrics } = require('./database');
 const { localDateString } = require('./localTime');
 
 let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
@@ -201,6 +201,80 @@ const DEFAULT_WEATHER = { icon: 'fi fi-sr-cloud', desc: '' };
 // ---- Open-Meteo: ONE request for current, hourly and 7-day data ----
 const OPEN_METEO_CACHE_MS = 15 * 60 * 1000;
 let openMeteoCache = { key: null, data: null, timestamp: 0 };
+// ---- Today's earlier forecast periods ----
+// Solcast only returns periods from "now" onwards, so the morning of today's
+// forecast would vanish from the cards as the day goes on (the dotted line
+// starting at "now", today's total shrinking). Remember every period seen for
+// today, per source, and put the earlier ones back in front of each fetch.
+// Kept in config so a restart doesn't lose the morning.
+const TODAY_PERIODS_KEY = 'forecast_today_periods';
+const KEPT_PERIOD_FIELDS = ['period', 'period_end', 'pv_estimate', 'pv_estimate10', 'pv_estimate90', 'cloud_cover', 'air_temp', 'weather_code', 'is_day'];
+let todayPeriods = null; // { date, sources: { [source]: { [endMs]: period } } }
+
+function loadTodayPeriods(today) {
+  if (todayPeriods && todayPeriods.date === today) return todayPeriods;
+  let saved = null;
+  try { saved = JSON.parse(getConfig(TODAY_PERIODS_KEY) || 'null'); } catch (_) { saved = null; }
+  todayPeriods = (saved && saved.date === today && saved.sources && typeof saved.sources === 'object')
+    ? saved : { date: today, sources: {} };
+  return todayPeriods;
+}
+
+function periodEndMs(p) {
+  const t = new Date(p && p.period_end).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+/** periods (fresh from a source) → today's remembered earlier periods + periods. */
+function withTodaysEarlierPeriods(source, periods) {
+  if (!Array.isArray(periods) || !periods.length) return periods;
+  const today = localDateString();
+  const mem = loadTodayPeriods(today);
+  const bySource = mem.sources[source] || (mem.sources[source] = {});
+  let changed = false;
+  for (const p of periods) {
+    const ms = periodEndMs(p);
+    if (ms == null || localDateString(new Date(ms)) !== today) continue;
+    const kept = {};
+    for (const k of KEPT_PERIOD_FIELDS) if (p[k] !== undefined) kept[k] = p[k];
+    bySource[ms] = kept;
+    changed = true;
+  }
+  const firstFresh = Math.min(...periods.map(periodEndMs).filter(ms => ms != null));
+  const earlier = Object.keys(bySource).map(Number)
+    .filter(ms => ms < firstFresh)
+    .sort((a, b) => a - b)
+    .map(ms => ({ ...bySource[ms], earlier: true }));
+  if (changed) {
+    try { setConfig(TODAY_PERIODS_KEY, JSON.stringify(mem)); } catch (e) { logger.warn(`[forecast] could not save today's periods: ${e.message}`); }
+  }
+  return earlier.length ? earlier.concat(periods) : periods;
+}
+
+/**
+ * Fill weather on forecast periods that lack it (Solcast rooftop periods carry
+ * no weather code and often no cloud cover) from Open-Meteo's hourly data, so
+ * the PV Today weather row and cloud line have something to show.
+ */
+function fillPeriodWeather(periods, omHourly) {
+  if (!Array.isArray(periods) || !Array.isArray(omHourly) || !omHourly.length) return;
+  for (const p of periods) {
+    if (p.weather_code != null && p.cloud_cover != null) continue;
+    const end = periodEndMs(p);
+    if (end == null) continue;
+    const mid = end - periodHours(p) * 1800000; // middle of the period
+    let best = null;
+    for (const h of omHourly) {
+      const d = Math.abs((h.ms - 1800000) - mid); // OM hourly values describe the hour ending at h.ms
+      if (!best || d < best.d) best = { h, d };
+    }
+    if (!best || best.d > 3600000) continue;
+    if (p.weather_code == null && best.h.code != null) p.weather_code = best.h.code;
+    if (p.cloud_cover == null && best.h.cloud_cover != null) p.cloud_cover = best.h.cloud_cover;
+    if (p.is_day == null && best.h.is_day != null) p.is_day = best.h.is_day;
+  }
+}
+
 let lastGoodWeather = null; // served (flagged stale) when Open-Meteo fails
 
 const OM_CURRENT = ['temperature_2m', 'apparent_temperature', 'relative_humidity_2m', 'weather_code', 'is_day',
@@ -810,6 +884,7 @@ async function getSolarForecast(sourceParam, restMap) {
   }
 
   if (!forecastData) return { error: 'All forecast sources unavailable' };
+  forecastData = withTodaysEarlierPeriods(source, forecastData);
 
   const actualTodayKwh = computeTodaySolar();
   const dailyMap = new Map();
@@ -835,7 +910,9 @@ async function getSolarForecast(sourceParam, restMap) {
     if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
   }
 
-  const hourly = forecastData.slice(0, 96);
+  // All of today's periods (including the earlier ones) plus the next 48 h.
+  const earlierCount = forecastData.filter(f => f.earlier).length;
+  const hourly = forecastData.slice(0, 96 + earlierCount);
   const result = { daily, hourly, source, source_label: SOURCE_LABELS[source] || source };
 
   // D4: effective source is Solcast and its payload carries air_temp /
@@ -873,8 +950,10 @@ async function attachWeather(result, ctx) {
   let weatherSource = 'open-meteo';
   if (lat && lon) {
     try {
-      weather = buildOpenMeteoWeather(await fetchOpenMeteo(lat, lon));
+      const om = await fetchOpenMeteo(lat, lon);
+      weather = buildOpenMeteoWeather(om);
       lastGoodWeather = weather;
+      fillPeriodWeather(result.hourly, om.hourly);
     } catch (e) {
       logger.warn(`[forecast] Open-Meteo weather unavailable: ${e.message}`);
       if (lastGoodWeather) weather = { ...lastGoodWeather, stale: true };
@@ -985,4 +1064,4 @@ async function testForecast(opts) {
   return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
 }
 
-module.exports = { computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
+module.exports = { withTodaysEarlierPeriods, fillPeriodWeather, computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
