@@ -3150,6 +3150,12 @@ function bleTransportForProfile(p) {
   if (isLuxpowerDongleProfile(p)) return 'ble-luxpower';
   return 'ble-modbus';
 }
+// Profiles that only work over Bluetooth (read-only GATT devices, or a
+// profile that declares connection: bluetooth).
+function isBluetoothOnlyProfile(p) {
+  return !!p && (isBleGattProfile(p) || p.connection === 'bluetooth');
+}
+
 function isBleGattProfile(p) {
   return !!(p && String(p.protocol || '').toLowerCase() === 'ble-gatt');
 }
@@ -3178,15 +3184,23 @@ function fillDongleProfileOptions(card, selectedId) {
   const bt = linkSelect && linkSelect.value === 'bluetooth';
   profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
   let kept = false;
+  // On TCP/IP, Bluetooth-only profiles (e.g. Phocos Any-Grid) are still listed,
+  // in their own group; picking one switches the card to Bluetooth.
+  let btGroup = null;
   dongleProfilesCache.forEach(p => {
     if (bt && !isDongleRegisterProfile(p) && !isBleGattProfile(p) && !isLuxpowerDongleProfile(p)) return;
-    if (!bt && (isBleGattProfile(p) || p.connection === 'bluetooth')) return;
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
     if (p.id === selectedId) { opt.selected = true; kept = true; }
-    profileSelect.appendChild(opt);
+    if (!bt && isBluetoothOnlyProfile(p)) {
+      if (!btGroup) { btGroup = document.createElement('optgroup'); btGroup.label = 'Bluetooth only'; }
+      btGroup.appendChild(opt);
+    } else {
+      profileSelect.appendChild(opt);
+    }
   });
+  if (btGroup) profileSelect.appendChild(btGroup);
   if (selectedId && !kept) profileSelect.value = '';
 }
 
@@ -3372,8 +3386,11 @@ function renderDongleDevice(device, idx) {
     if (!p) return;
     // Bluetooth stays selected (the list only offers Bluetooth-capable profiles there).
     const keepBle = linkSelect.value === 'bluetooth' && (isDongleRegisterProfile(p) || isLuxpowerDongleProfile(p));
-    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle ? bleTransportForProfile(p) : getTransportForProfile(p.id));
-    if (isBleGattProfile(p)) linkSelect.value = 'bluetooth';
+    const tx = isBleGattProfile(p) ? 'ble-gatt' : (keepBle || isBluetoothOnlyProfile(p) ? bleTransportForProfile(p) : getTransportForProfile(p.id));
+    if (isBluetoothOnlyProfile(p) && linkSelect.value !== 'bluetooth') {
+      linkSelect.value = 'bluetooth';
+      fillDongleProfileOptions(card, p.id);
+    }
     transportSelect.value = tx;
     updateDongleTransportUI(card);
     const portInput = card.querySelector('input[name$="[port]"]');
