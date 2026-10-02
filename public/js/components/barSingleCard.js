@@ -65,7 +65,7 @@ export function buildBarSingleCard(block) {
 
   const titleEl = document.createElement('div');
   titleEl.className = 'stat-label bar-single-title';
-  titleEl.textContent = cfg.metric || 'Bar Card';
+  titleEl.textContent = cfg.metric ? prettyMetric(cfg.metric) + (cfg.range === '7d' ? ' · last 7 days' : ' · last 24 h') : 'Bar Card';
   container.appendChild(titleEl);
 
   const bodyEl = document.createElement('div');
@@ -111,6 +111,9 @@ export function renderBars(bodyEl, statusEl, bars, bands) {
   }
 }
 
+/** 'battery_soc' → 'Battery soc' for titles when no label is configured. */
+function prettyMetric(m) { return String(m || '').replace(/[_.]+/g, ' ').trim().replace(/^./, function (c) { return c.toUpperCase(); }); }
+
 function readCardConfig(container) {
   try { return normalizeBarConfig(JSON.parse(container.dataset.barConfig || '{}')); }
   catch (e) { return normalizeBarConfig({}); }
@@ -123,7 +126,7 @@ export async function refreshOneBarCard(container) {
   const bodyEl = container.querySelector('.bar-single-body');
   const statusEl = container.querySelector('.bar-single-status');
   if (!bodyEl || !statusEl) return;
-  if (titleEl) titleEl.textContent = cfg.metric || 'Bar Card';
+  if (titleEl) titleEl.textContent = cfg.metric ? prettyMetric(cfg.metric) + (cfg.range === '7d' ? ' · last 7 days' : ' · last 24 h') : 'Bar Card';
   if (!cfg.metric) {
     while (bodyEl.firstChild) bodyEl.removeChild(bodyEl.firstChild);
     statusEl.textContent = NO_METRIC_TEXT;

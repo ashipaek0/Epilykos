@@ -140,7 +140,7 @@ export function buildBarStackedCard(block) {
 
   const legendEl = document.createElement('div');
   legendEl.className = 'bar-stacked-legend';
-  legendEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;font-size:0.8rem;margin-bottom:0.25rem;';
+  legendEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;font-size:calc(0.8rem * var(--card-font-scale, 1));margin-bottom:0.25rem;';
   container.appendChild(legendEl);
 
   const bodyEl = document.createElement('div');

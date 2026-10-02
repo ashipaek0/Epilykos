@@ -142,8 +142,10 @@ test('wiring: settings.html loads the module, settings.js uses it, wizard preser
   assert.match(settingsJs, /collectMetricMap/, 'settings.js must collect metric_map via the shared module');
   assert.ok(!/Energy Generated \(Wh\)/.test(settingsJs), 'the (Wh) label must be gone from settings.js');
 
-  // Both wizard PVOutput save payloads re-emit metric_map.
+  // The wizard builds its PVOutput payload in one place, and that payload
+  // re-emits metric_map.
   const metricMapEmits = setupJs.match(/metric_map: pv\.metric_map \|\| \{\}/g) || [];
-  assert.strictEqual(metricMapEmits.length, 2, 'both wizard save payloads must carry metric_map forward');
+  assert.strictEqual(metricMapEmits.length, 1, 'the wizard PVOutput payload must carry metric_map forward');
+  assert.match(setupJs, /pvoutput_config: pvoutputConfig\(\)/, 'the wizard must save PVOutput through pvoutputConfig()');
   assert.match(setupJs, /pvPatch\.metric_map =/, 'prefillOptional must read metric_map back');
 });

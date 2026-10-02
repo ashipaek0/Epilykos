@@ -8,6 +8,7 @@
  *
  * @module forecast
  */
+import { blockFor } from './components/blockRegistry.js';
 import { updatePvToday } from './components/pvToday.js';
 import { ensureChartJS } from './chartLoader.js';
 import { escapeHtml } from './utils.js';
@@ -38,15 +39,11 @@ function normalizeRestMap(raw) {
   return m;
 }
 
-/** A card's block config from the active dashboard (read-only). */
+/** A card's block config (read-only), from the block registry. */
 async function blockConfigFor(card) {
   const blockId = card?.dataset?.blockId;
   if (!blockId) return {};
-  try {
-    const { dashboardConfig } = await import('./dashboard.js');
-    const layout = dashboardConfig?.dashboards?.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
-    return (layout || []).find(b => String(b.id) === String(blockId))?.config || {};
-  } catch { return {}; }
+  return blockFor(blockId)?.config || {};
 }
 
 function forecastUrlFor(source, restMap) {

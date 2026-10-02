@@ -2,470 +2,393 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Settings — Epilykos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Settings · Epilykos</title>
+  <script>
+    // Apply the saved theme before first paint ('theme' is shared with the dashboard and editor).
+    (function() {
+      var t = null;
+      try { t = localStorage.getItem('theme') || localStorage.getItem('epilykos-theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
+  <link rel="stylesheet" href="settings-shell.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  </head>
-<body>
+</head>
+<body class="st">
+<a class="st-skip" href="#st-main">Skip to settings</a>
 
-<div class="app-shell">
+<div class="st-shell">
 
-  <!-- ── MOBILE HAMBURGER ──────────────────────────────── -->
-  <button class="hamburger" id="hamburger" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-
-  <!-- ── MOBILE HEADER ─────────────────────────────────── -->
-  <div class="mobile-header" id="mobile-header">
-    Epilykos Settings
-    <button class="mobile-theme-toggle" id="mobile-theme-toggle" aria-label="Toggle theme">☾</button>
-  </div>
-
-  <!-- ── MOBILE OVERLAY ────────────────────────────────── -->
-  <div class="mobile-overlay" id="mobile-overlay"></div>
-
-  <!-- ═══════════════════════════════════════════════════ -->
-  <!-- SIDEBAR                                             -->
-  <!-- ═══════════════════════════════════════════════════ -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <a href="/" class="sidebar-logo">
-        <img class="logo-icon" src="/icons/epilykos-mark.svg" alt="">
-        Epilykos
-      </a>
-      <button class="sidebar-close" id="sidebar-close" aria-label="Close menu">&times;</button>
+  <!-- ── Navigation ─────────────────────────────────────── -->
+  <nav class="st-nav" id="st-nav" aria-label="Settings">
+    <div class="st-nav-top">
+      <a href="/" class="st-back" id="st-back-link" data-icon="back" data-size="16">Dashboard</a>
+      <button type="button" class="st-icon-btn st-only-narrow" id="st-nav-close" aria-label="Close menu" data-icon="close"></button>
     </div>
-
-    <div class="sidebar-search">
-      <div class="search-wrap">
-        <span class="search-icon">⌕</span>
-        <input type="text" class="search-input" id="global-search"
-               placeholder="Search settings..." autocomplete="off">
-      </div>
+    <p class="st-nav-title">Settings</p>
+    <div class="st-search" role="search">
+      <span data-icon="search" data-size="16"></span>
+      <label for="st-search-input" class="st-visually-hidden">Search settings</label>
+      <input id="st-search-input" type="search" autocomplete="off" placeholder="Search settings"
+             role="combobox" aria-expanded="false" aria-controls="st-search-results" aria-autocomplete="list">
+      <kbd class="st-kbd st-only-wide" aria-hidden="true">/</kbd>
+      <div class="st-search-results" id="st-search-results" role="listbox" hidden></div>
     </div>
-
-    <div class="sidebar-nav" id="sidebar-nav">
-      <!-- Group: Data & Sources -->
-      <div class="nav-group" data-group="connect">
-        <div class="nav-group-header" data-group-toggle="connect">
-          Data & Sources
-          <span class="group-arrow open">▶</span>
-        </div>
-        <div class="nav-group-items" data-group-items="connect">
-          <button class="nav-item active" data-section="data-sources">
-            <span class="nav-icon">⌁</span> Data Sources
-            <span class="nav-status ok"></span>
-          </button>
-        </div>
+    <ul class="st-nav-list" id="st-nav-list">
+      <li><a href="#sources" class="st-nav-link" data-section="sources"><span data-icon="plug" data-size="18"></span><span class="st-nav-label">Sources</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#metrics" class="st-nav-link" data-section="metrics"><span data-icon="list" data-size="18"></span><span class="st-nav-label">Metrics</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#forecast" class="st-nav-link" data-section="forecast"><span data-icon="sun" data-size="18"></span><span class="st-nav-label">Forecast and weather</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#savings" class="st-nav-link" data-section="savings"><span data-icon="coin" data-size="18"></span><span class="st-nav-label">Savings</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#appearance" class="st-nav-link" data-section="appearance"><span data-icon="monitor" data-size="18"></span><span class="st-nav-label">Appearance</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#backup" class="st-nav-link" data-section="backup"><span data-icon="database" data-size="18"></span><span class="st-nav-label">Backup and restore</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#help" class="st-nav-link" data-section="help"><span data-icon="help" data-size="18"></span><span class="st-nav-label">Help</span><span class="st-nav-meta"></span></a></li>
+    </ul>
+    <div class="st-nav-foot">
+      <span class="st-nav-foot-label" id="st-theme-label">Theme</span>
+      <div class="st-seg" role="radiogroup" aria-labelledby="st-theme-label" id="st-theme">
+        <button type="button" role="radio" data-theme-choice="light" aria-checked="false">Light</button>
+        <button type="button" role="radio" data-theme-choice="dark" aria-checked="false">Dark</button>
+        <button type="button" role="radio" data-theme-choice="auto" aria-checked="false">Auto</button>
       </div>
-
-      <!-- Group: Dashboard & Display -->
-      <div class="nav-group" data-group="display">
-        <div class="nav-group-header" data-group-toggle="display">
-          Dashboard & Display
-          <span class="group-arrow open">▶</span>
-        </div>
-        <div class="nav-group-items" data-group-items="display">
-          <button class="nav-item" data-section="dashboard">
-            <span class="nav-icon">■</span> Dashboard Layout
-          </button>
-          <button class="nav-item" data-section="branding">
-            <span class="nav-icon">✎</span> Branding
-          </button>
-        </div>
-      </div>
-
-      <!-- Group: Monitoring -->
-      <div class="nav-group" data-group="monitoring">
-        <div class="nav-group-header" data-group-toggle="monitoring">
-          Monitoring
-          <span class="group-arrow open">▶</span>
-        </div>
-        <div class="nav-group-items" data-group-items="monitoring">
-          <button class="nav-item" data-section="metrics">
-            <span class="nav-icon">≡</span> Metrics
-          </button>
-          <button class="nav-item" data-section="solar">
-            <span class="nav-icon">☀</span> Solar Forecast
-          </button>
-          <button class="nav-item" data-section="savings">
-            <span class="nav-icon">¤</span> Savings
-          </button>
-        </div>
-      </div>
-
-      <!-- Group: System -->
-      <div class="nav-group" data-group="system">
-        <div class="nav-group-header" data-group-toggle="system">
-          System
-          <span class="group-arrow open">▶</span>
-        </div>
-        <div class="nav-group-items" data-group-items="system">
-          <button class="nav-item" data-section="backup">
-            <span class="nav-icon">⇩</span> Backup & Restore
-          </button>
-          <button class="nav-item" data-section="network">
-            <span class="nav-icon">⌀</span> Network
-          </button>
-          <button class="nav-item" data-section="help">
-            <span class="nav-icon">?</span> Help
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="sidebar-footer">
-      <a href="/" class="back-link">← Dashboard</a>
-      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode">☾</button>
     </div>
   </nav>
+  <div class="st-scrim" id="st-scrim" hidden></div>
 
-  <!-- ═══════════════════════════════════════════════════ -->
-  <!-- MAIN CONTENT                                        -->
-  <!-- ═══════════════════════════════════════════════════ -->
-  <main class="main-content" id="main-content">
-    <form id="settings-form">
+  <!-- ── Main ───────────────────────────────────────────── -->
+  <div class="st-main-wrap">
+    <header class="st-mobilebar st-only-narrow">
+      <button type="button" class="st-icon-btn" id="st-nav-open" aria-label="Open settings menu" aria-controls="st-nav" aria-expanded="false" data-icon="menu"></button>
+      <span class="st-mobilebar-title" id="st-mobile-title">Settings</span>
+      <a href="/" class="st-icon-btn" aria-label="Back to dashboard" data-icon="home"></a>
+    </header>
 
-      <!-- ================================================= -->
-      <!-- DATA SOURCES                                      -->
-      <!-- ================================================= -->
-      <section class="settings-section active" id="section-data-sources">
-        <div class="section-header">
-          <h1>Data Sources</h1>
-          <p>Configure where Epilykos reads metrics from</p>
-          <a href="/setup" class="setup-wizard-entry">⚙️ Setup wizard</a>
-        </div>
-        <div class="subnav" id="data-source-subnav">
-          <button class="subnav-btn active" data-subtab="ha">Home Assistant</button>
-          <button class="subnav-btn" data-subtab="mqtt">MQTT</button>
-          <button class="subnav-btn" data-subtab="modbus">Modbus (RS485 / TCP)</button>
-          <button class="subnav-btn" data-subtab="rs232">RS232 (direct serial)</button>
-          <button class="subnav-btn" data-subtab="external">REST API</button>
-          <button class="subnav-btn" data-subtab="bms">BMS</button>
-          <button class="subnav-btn" data-subtab="dongle">Inverter — Dongle</button>
-          <button class="subnav-btn" data-subtab="tuya">Tuya</button>
-          <button class="subnav-btn" data-subtab="pvoutput">PVOutput</button>
-        </div>
+    <main class="st-main" id="st-main" tabindex="-1">
+      <div id="main-content">
+      <form id="settings-form" novalidate autocomplete="off">
 
-        <div id="subtab-ha" class="subtab-content active">
-          <div id="ha-devices-container"></div>
-          <button type="button" id="add-ha-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add HA Device</button>
-        </div>
-        <div id="subtab-mqtt" class="subtab-content">
-          <div id="mqtt-devices-container"></div>
-          <button type="button" id="add-mqtt-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add MQTT Broker</button>
-        </div>
-        <div id="subtab-modbus" class="subtab-content">
-          <div id="modbus-devices-container"></div>
-          <button type="button" id="add-modbus-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Modbus Device</button>
-        </div>
-        <div id="subtab-rs232" class="subtab-content">
-          <div id="rs232-devices-container"></div>
-          <button type="button" id="add-rs232-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add RS232 Device</button>
-          <div class="form-row" style="margin-top:1rem;">
-            <div class="form-group">
-              <label for="rs232-poll-interval">Global Poll Interval (seconds)</label>
-              <input class="input" id="rs232-poll-interval" name="rs232_poll_interval" value="30">
+        <!-- ════════════ SOURCES ════════════ -->
+        <section class="st-section" id="section-sources" data-section="sources" aria-labelledby="h-sources" hidden>
+          <div class="st-section-head">
+            <div>
+              <h1 id="h-sources">Sources</h1>
+              <p class="st-lede" id="sources-summary">Where Epilykos reads metrics from.</p>
+            </div>
+            <div class="st-head-actions">
+              <a href="/setup" class="st-btn">Setup wizard</a>
+              <button type="button" class="st-btn st-btn-primary" id="st-add-source"><span data-icon="plus" data-size="16"></span>Add source</button>
             </div>
           </div>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">RS232 devices require a USB-to-serial adapter. Available ports are auto-detected. Supported profiles: Voltronic (covers Infinisolar, Phocos, MUST, Sako), Victron VE.Direct (streaming), SolaX Pocket USB (AA55 binary).</p>
-        </div>
-        <div id="subtab-external" class="subtab-content">
-          <div id="external-sources-container"></div>
-          <button type="button" id="add-external-source" class="btn btn-sm" style="margin-top:0.75rem;">+ Add External Source</button>
-          <div class="form-group" style="margin-top:1rem;"><label for="external-poll-interval">Global Poll Interval (seconds)</label><input class="input" id="external-poll-interval" name="external_poll_interval" value="60"></div>
-        </div>
-        <div id="subtab-bms" class="subtab-content">
-          <div id="bms-devices-container"></div>
-          <button type="button" id="add-bms-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add BMS Device</button>
-          <p class="note" id="bluetooth-status" style="font-size:0.775rem;color:var(--text-tertiary);">Bluetooth uses the host's adapter — mount <code>/run/dbus</code> into the container.</p>
-          <div class="section-divider">🔌 BMS — Wired</div>
-          <div id="bms-wired-devices-container"></div>
-          <button type="button" id="add-bms-wired-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Wired BMS</button>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Wired BMS devices connect over RS485/RS232 (Modbus-RTU). Select the serial port, profile, and Modbus unit ID.</p>
 
-          <div class="section-divider">🔋 BMS Bank Aggregation</div>
-          <div id="bms-banks-container"></div>
-          <button type="button" id="add-bms-bank" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Bank</button>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Combine multiple BMS devices into a virtual battery bank with computed metrics (weighted SOC, total power, etc.).</p>
-        </div>
-        <div id="subtab-dongle" class="subtab-content">
-          <div id="dongle-devices-container"></div>
-          <button type="button" id="add-dongle-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Dongle Instance</button>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);">Direct TCP connection to your inverter's WiFi module.</p>
-        </div>
-        <div id="subtab-tuya" class="subtab-content">
+          <div class="st-sources">
+            <div class="st-sources-list" id="sources-list" aria-label="Your sources"></div>
 
-          <!-- EXPLANATORY HEADER -->
-          <div class="tuya-intro" style="margin-bottom:1.25rem;padding:0.85rem 1rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:0.825rem;color:var(--text-secondary);line-height:1.65;">
+            <div class="st-sources-detail" id="sources-detail">
+              <a href="#sources" class="st-btn st-only-narrow st-back-to-list" data-back-to-list><span data-icon="back" data-size="16"></span>All sources</a>
+              <div class="st-sources-empty" id="sources-empty" hidden>
+                <h2>No sources yet</h2>
+                <p>Add the inverter, battery or home-automation system Epilykos should read from. The setup wizard can detect common hardware for you.</p>
+                <div class="st-head-actions"><button type="button" class="st-btn st-btn-primary" data-open-add-source>Add source</button><a href="/setup" class="st-btn">Open setup wizard</a></div>
+              </div>
+
+              <div class="st-type-panel" id="subtab-ha" data-type="ha" hidden>
+                <div class="st-type-head st-type-extra"><h2>Home Assistant</h2><p class="st-help">Reads entities with a long-lived access token.</p></div>
+                <div id="ha-devices-container"></div>
+                <button type="button" id="add-ha-device" class="st-btn st-add-btn st-type-extra">+ Add Home Assistant server</button>
+              </div>
+
+              <div class="st-type-panel" id="subtab-mqtt" data-type="mqtt" hidden>
+                <div class="st-type-head st-type-extra"><h2>MQTT</h2><p class="st-help">Subscribes to topics on a broker.</p></div>
+                <div id="mqtt-devices-container"></div>
+                <button type="button" id="add-mqtt-device" class="st-btn st-add-btn st-type-extra">+ Add MQTT broker</button>
+              </div>
+
+              <div class="st-type-panel" id="subtab-modbus" data-type="modbus" hidden>
+                <div class="st-type-head st-type-extra"><h2>Modbus (RS485 or TCP)</h2><p class="st-help">Most hybrid inverters. Pick the profile that matches your model.</p></div>
+                <div id="modbus-devices-container"></div>
+                <button type="button" id="add-modbus-device" class="st-btn st-add-btn st-type-extra">+ Add Modbus device</button>
+              </div>
+
+              <div class="st-type-panel" id="subtab-rs232" data-type="rs232" hidden>
+                <div class="st-type-head st-type-extra"><h2>RS232 serial</h2><p class="st-help">Needs a USB-to-serial adapter. Ports are detected automatically. Profiles: Voltronic (also Infinisolar, Phocos, MUST, Sako), Victron VE.Direct, SolaX Pocket USB.</p></div>
+                <div id="rs232-devices-container"></div>
+                <button type="button" id="add-rs232-device" class="st-btn st-add-btn st-type-extra">+ Add RS232 device</button>
+                <div class="st-field st-type-setting">
+                  <label for="rs232-poll-interval">Read all RS232 devices every</label>
+                  <div class="st-input-unit"><input class="input" id="rs232-poll-interval" name="rs232_poll_interval" type="number" min="1" step="1" value="30"><span>seconds</span></div>
+                </div>
+              </div>
+
+              <div class="st-type-panel" id="subtab-external" data-type="external" hidden>
+                <div class="st-type-head st-type-extra"><h2>REST API</h2><p class="st-help">Reads values from any JSON endpoint by path.</p></div>
+                <div id="external-sources-container"></div>
+                <button type="button" id="add-external-source" class="st-btn st-add-btn st-type-extra">+ Add REST source</button>
+                <div class="st-field st-type-setting">
+                  <label for="external-poll-interval">Read all REST sources every</label>
+                  <div class="st-input-unit"><input class="input" id="external-poll-interval" name="external_poll_interval" type="number" min="5" step="1" value="60"><span>seconds</span></div>
+                </div>
+              </div>
+
+              <div class="st-type-panel" id="subtab-bms" data-type="bms" hidden>
+                <div class="st-type-head st-type-extra"><h2>Battery management (BMS)</h2><p class="st-help" id="bluetooth-status">Bluetooth uses the host's adapter. In Docker, mount <code>/run/dbus</code> into the container.</p></div>
+                <div id="bms-devices-container"></div>
+                <button type="button" id="add-bms-device" class="st-btn st-add-btn st-type-extra">+ Add Bluetooth BMS</button>
+                <h3 class="st-subhead st-type-extra">Wired BMS</h3>
+                <p class="st-help st-type-extra">Connects over RS485 or RS232 (Modbus-RTU). Pick the serial port, profile and unit ID.</p>
+                <div id="bms-wired-devices-container"></div>
+                <button type="button" id="add-bms-wired-device" class="st-btn st-add-btn st-type-extra">+ Add wired BMS</button>
+                <h3 class="st-subhead st-type-extra">Battery banks</h3>
+                <p class="st-help st-type-extra">Combine several BMS devices into one virtual battery with computed metrics (weighted state of charge, total power and so on).</p>
+                <div id="bms-banks-container"></div>
+                <button type="button" id="add-bms-bank" class="st-btn st-add-btn st-type-extra">+ Add battery bank</button>
+              </div>
+
+              <div class="st-type-panel" id="subtab-dongle" data-type="dongle" hidden>
+                <div class="st-type-head st-type-extra"><h2>WiFi dongle</h2><p class="st-help">Talks directly to the inverter's WiFi stick over your network.</p></div>
+                <div id="dongle-devices-container"></div>
+                <button type="button" id="add-dongle-device" class="st-btn st-add-btn st-type-extra">+ Add dongle</button>
+              </div>
+
+              <div class="st-type-panel" id="subtab-tuya" data-type="tuya" hidden>
+                <!-- EXPLANATORY HEADER -->
+          <div class="st-type-head st-type-extra"><h2>Tuya</h2></div>
+          <div class="tuya-intro st-note st-type-extra">
             <strong style="color:var(--text);">All-Local LAN Protocol</strong> — Tuya devices are polled directly on your network via encrypted TCP (port 6668). No cloud dependency for runtime data.<br>
             <strong>One-time setup:</strong> Devices encrypt their IDs and AES keys — fetch them <em>once</em> from the Tuya Cloud using your Smart Life UID + API credentials. After that, everything runs locally.
           </div>
 
           <!-- STEP-BY-STEP GUIDE -->
-          <div class="tuya-guide" style="margin-bottom:1.25rem;padding:1rem 1.25rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:0.825rem;color:var(--text-secondary);line-height:1.8;">
-            <div style="font-weight:700;color:var(--text);margin-bottom:0.5rem;">Setup Workflow</div>
+          <div class="tuya-guide st-note st-type-extra">
+            <div class="st-note-title">Setup steps</div>
             <div class="tuya-guide-step"><span class="help-step-num">1</span> Enter your <strong>Smart Life UID</strong>, generate QR code and scan with the Smart Life app</div>
             <div class="tuya-guide-step"><span class="help-step-num">2</span> Devices are populated automatically — local keys, DP labels, and LAN IPs are matched</div>
             <div class="tuya-guide-step"><span class="help-step-num">3</span> Map DP rows to metric names using the dropdowns</div>
             <div class="tuya-guide-step"><span class="help-step-num">4</span> Click <strong>Verify All</strong> to test connectivity for all devices at once</div>
-            <div class="tuya-guide-step"><span class="help-step-num">5</span> Click <strong>Save</strong> at the bottom of the page</div>
+            <div class="tuya-guide-step"><span class="help-step-num">5</span> Press <strong>Save changes</strong> in the bar at the bottom</div>
           </div>
 
           <!-- QR Code Login (centered, full-width) -->
-          <div class="tuya-panel" style="margin-bottom:1.5rem;">
-            <div class="section-divider"><span class="stg-divider-icon">🔐</span> Smart Life Login</div>
-            <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-bottom:0.75rem;">
+          <div class="tuya-panel st-type-extra">
+            <h3 class="st-subhead">Smart Life login</h3>
+            <p class="st-help">
               Enter your <strong>Smart Life UID</strong> (find it in Smart Life app → Me → ⚙ → Account → User ID).<br>
               Scan the QR code with the Smart Life app to log in. Devices, local keys, and DP labels are fetched automatically.
             </p>
             <div class="form-row" style="margin-bottom:0.75rem;">
-              <input type="text" id="tuya-uid" placeholder="" style="flex:1;" autocomplete="off">
+              <label for="tuya-uid" class="st-visually-hidden">Smart Life UID</label><input type="text" id="tuya-uid" class="input" placeholder="Smart Life UID" style="flex:1;" autocomplete="off">
               <button type="button" id="tuya-generate-qr-btn" class="btn btn-sm">Generate QR Code</button>
             </div>
             <div id="tuya-qr-container" style="display:none;text-align:center;margin:1rem 0;">
               <canvas id="tuya-qr-canvas" style="border:8px solid #fff;border-radius:8px;"></canvas>
-              <p class="note" style="margin-top:0.5rem;color:var(--accent);">Scan with Smart Life app → Me → + → Scan QR Code</p>
+              <p class="st-help">Scan with Smart Life app → Me → + → Scan QR Code</p>
             </div>
             <div id="tuya-oauth-status" class="test-status"></div>
           </div>
 
           <!-- DEVICE CARDS (2–3 across) -->
-          <div class="section-divider"><span class="stg-divider-icon">📡</span> Tuya Devices</div>
-          <div class="test-row" style="margin-bottom:0.75rem;">
-            <button type="button" id="tuya-verify-all-btn" class="btn btn-sm">🔍 Verify All</button>
+          <h3 class="st-subhead st-type-extra">Tuya devices</h3>
+          <div class="test-row st-type-extra">
+            <button type="button" id="tuya-verify-all-btn" class="btn btn-sm">Verify all devices</button>
             <span class="test-status" id="tuya-verify-all-status"></span>
           </div>
           <div id="tuya-devices-container" class="tuya-grid"></div>
           <button type="button" id="add-tuya-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Tuya Device Manually</button>
-          <p class="note" style="font-size:0.775rem;color:var(--text-tertiary);margin-top:0.5rem;">
+          <p class="st-help st-type-extra">
             All communication is 100% local (encrypted TCP on port 6668) after initial cloud key retrieval.
           </p>
-        </div>
-        <div id="subtab-pvoutput" class="subtab-content">
-          <div class="card">
-            <div class="card-header"><span class="card-title">PVOutput.org Upload</span></div>
-            <div class="toggle-wrap" style="margin-bottom:0.75rem;">
-              <label class="toggle-switch"><input type="checkbox" id="pvoutput-enabled"><span class="slider"></span></label>
-              <label for="pvoutput-enabled">Enable PVOutput Upload</label>
+              </div>
             </div>
-            <div class="form-row">
-              <div class="form-group"><label for="pvoutput-api-key">API Key</label><input type="password" id="pvoutput-api-key" class="input" placeholder="Your PVOutput API key"></div>
-              <div class="form-group"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="input" placeholder="12345"></div>
+          </div>
+        </section>
+
+        <!-- ════════════ METRICS ════════════ -->
+        <section class="st-section" id="section-metrics" data-section="metrics" aria-labelledby="h-metrics" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-metrics">Metrics</h1><p class="st-lede">Every value Epilykos records, and which ones play each role in charts and blocks.</p></div>
+            <div class="st-head-actions"><button type="button" class="st-btn st-btn-primary" id="st-new-metric"><span data-icon="plus" data-size="16"></span>New metric</button></div>
+          </div>
+          <div class="st-card">
+            <div class="st-card-head">
+              <h2>All metrics</h2>
+              <div class="st-filter"><label for="metrics-search" class="st-visually-hidden">Filter metrics</label><input type="search" class="input" id="metrics-search" placeholder="Filter metrics"></div>
             </div>
-            <div class="form-row">
-              <div class="form-group"><label for="pvoutput-timezone">Timezone</label><input type="text" id="pvoutput-timezone" class="input" placeholder="e.g. Africa/Lagos"><span class="note">Auto-detected on test, or enter manually.</span></div>
-              <div class="form-group"><label for="pvoutput-interval">Upload Interval (min)</label><select id="pvoutput-interval" class="select-input"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div>
+            <div class="table-wrap">
+              <table class="mapping-table st-table" id="metrics-table">
+                <thead><tr><th scope="col">Metric</th><th scope="col">Current value</th><th scope="col">Last updated</th><th scope="col">Unit</th><th scope="col"><span class="st-visually-hidden">Actions</span></th></tr></thead>
+                <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics…</td></tr></tbody>
+              </table>
             </div>
-            <div class="form-group"><label for="pvoutput-system-size">System Size (W)</label><input type="number" id="pvoutput-system-size" class="input" placeholder="5000"></div>
-            <div class="test-row"><button type="button" id="pvoutput-test-btn" class="btn btn-sm">Test Connection</button><span id="pvoutput-test-status" class="test-status"></span></div>
-            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Metric Mapping</h4>
+          </div>
+          <div class="st-card">
+            <div class="st-card-head"><h2>Metric roles</h2></div>
+            <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
+            <div id="role-metrics-container" class="st-roles"></div>
+          </div>
+        </section>
+
+        <!-- ════════════ FORECAST ════════════ -->
+        <section class="st-section" id="section-forecast" data-section="forecast" aria-labelledby="h-forecast" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-forecast">Forecast and weather</h1><p class="st-lede">Solar production forecast and weather for your location.</p></div>
+          </div>
+          <div class="st-card">
+            <div class="st-toggle-row">
+              <span class="toggle-wrap"><label class="toggle-switch"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"><span class="slider"></span></label><label for="forecast-enabled">Show the solar forecast</label></span>
+            </div>
+            <h2 class="st-card-subhead">Location</h2>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="solar-latitude">Latitude</label><input id="solar-latitude" class="input" name="solar_latitude" type="number" min="-90" max="90" step="any" inputmode="decimal"></div>
+              <div class="st-field"><label for="solar-longitude">Longitude</label><input id="solar-longitude" class="input" name="solar_longitude" type="number" min="-180" max="180" step="any" inputmode="decimal"></div>
+            </div>
+            <div class="st-inline-actions"><button type="button" class="st-btn" id="st-use-location"><span data-icon="pin" data-size="16"></span>Use my location</button><span class="status" id="st-location-status" role="status"></span></div>
+            <h2 class="st-card-subhead">Panels</h2>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="solar-tilt">Tilt</label><div class="st-input-unit"><input id="solar-tilt" class="input" name="solar_tilt" type="number" min="0" max="90" step="any" value="30"><span>°</span></div><span class="st-help">0° is flat, 90° is vertical.</span></div>
+              <div class="st-field"><label for="solar-azimuth">Azimuth</label><div class="st-input-unit"><input id="solar-azimuth" class="input" name="solar_azimuth" type="number" min="0" max="360" step="any" value="180"><span>°</span></div><span class="st-help">Direction the panels face: 180° is south, 0° is north.</span></div>
+              <div class="st-field"><label for="solar-capacity">Peak capacity</label><div class="st-input-unit"><input id="solar-capacity" class="input" name="solar_capacity_kwp" type="number" min="0" step="any"><span>kWp</span></div></div>
+              <div class="st-field"><label for="solar-loss-factor">Loss factor</label><input id="solar-loss-factor" class="input" name="solar_loss_factor" type="number" min="0" max="1" step="0.01" value="0.9"><span class="st-help">Share of rated output you actually get, from 0 to 1. 0.9 suits most systems.</span></div>
+              <div class="st-field"><label for="solar-install-date">Installation date</label><input id="solar-install-date" class="input" name="solar_install_date" type="date"></div>
+            </div>
+            <h2 class="st-card-subhead">Providers</h2>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="forecast-default-source">Forecast provider</label><select id="forecast-default-source" class="input" name="forecast_default_source"><option value="auto">Auto (Solcast when set up, else Open-Meteo)</option><option value="solcast">Solcast</option><option value="open-meteo">Open-Meteo (free, no key)</option></select></div>
+              <div class="st-field"><label for="weather-default-source">Weather provider</label><select id="weather-default-source" class="input" name="weather_default_source"><option value="auto">Auto (Solcast when set up, else Open-Meteo)</option><option value="solcast">Solcast</option><option value="open-meteo">Open-Meteo (free, no key)</option></select></div>
+            </div>
+            <div class="st-grid-2" id="st-solcast-fields">
+              <div class="st-field"><label for="solcast-api-key">Solcast API key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div>
+              <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your rooftop site in the Solcast toolkit.</span></div>
+            </div>
+            <div class="st-inline-actions"><button type="button" id="test-forecast" class="st-btn">Test forecast</button><span id="forecast-test-status" class="test-status" role="status"></span></div>
+          </div>
+        </section>
+
+        <!-- ════════════ SAVINGS ════════════ -->
+        <section class="st-section" id="section-savings" data-section="savings" aria-labelledby="h-savings" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-savings">Savings</h1><p class="st-lede">How much your solar generation saves you.</p></div>
+          </div>
+          <div class="st-card">
+            <div class="st-grid-2">
+              <div class="st-field"><label for="savings-currency">Currency symbol</label><input id="savings-currency" class="input" name="savings_currency" value="€" maxlength="6"></div>
+              <div class="st-field"><label for="savings-rate">Price per kWh</label><input id="savings-rate" class="input" name="savings_rate" type="number" min="0" step="any" value="0.30" inputmode="decimal"><span class="st-help">What you'd pay the grid for one kWh.</span></div>
+            </div>
+            <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names" placeholder="Detect automatically"><span class="st-help">The metric that counts solar energy produced today. Leave empty to detect it.</span></div>
+          </div>
+        </section>
+
+        <!-- ════════════ APPEARANCE ════════════ -->
+        <section class="st-section" id="section-appearance" data-section="appearance" aria-labelledby="h-appearance" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-appearance">Appearance</h1><p class="st-lede">How the dashboard looks and which dashboard opens on each device.</p></div>
+            <div class="st-head-actions"><a href="/editor" class="st-btn">Edit layouts</a></div>
+          </div>
+          <div class="st-card">
+            <h2 class="st-card-subhead st-first">Branding</h2>
+            <div class="st-field"><label for="dashboard-title">Dashboard title</label><input id="dashboard-title" class="input" name="dashboard_title" value="Epilykos" placeholder="My solar dashboard"></div>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="input" name="dashboard_logo" type="url" placeholder="https://example.com/logo.png"></div>
+              <div class="st-field"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="input" name="dashboard_favicon" type="url" placeholder="https://example.com/favicon.ico"></div>
+            </div>
+            <h2 class="st-card-subhead">Background and blocks</h2>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="dashboard-bg-color-light">Background in light mode</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color" value="#f8fafc" class="st-color"></div>
+              <div class="st-field"><label for="dashboard-bg-color-dark">Background in dark mode</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" value="#0f172a" class="st-color"></div>
+            </div>
+            <div class="st-field"><label for="dashboard-bg-image">Background image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" type="url" placeholder="https://…"></div>
+            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="transparent-blocks" name="transparent_blocks"><span class="slider"></span></label><label for="transparent-blocks">Transparent blocks</label></span></div>
+            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names" placeholder="grid_status"><span class="st-help">The metric that says whether the grid is up. Used by the grid status block.</span></div>
+            <h2 class="st-card-subhead">Default dashboards</h2>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="desktop-dashboard">On computers</label><select id="desktop-dashboard" class="input" name="desktop_dashboard"></select></div>
+              <div class="st-field"><label for="mobile-dashboard">On phones</label><select id="mobile-dashboard" class="input" name="mobile_dashboard"></select></div>
+            </div>
+            <p class="st-help">Rename, add, delete, import or export dashboards in the <a href="/editor">layout editor</a>.</p>
+          </div>
+        </section>
+
+        <!-- ════════════ UPLOADS ════════════ -->
+        <section class="st-section" id="section-uploads" data-section="uploads" aria-labelledby="h-uploads" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-uploads">Uploads</h1><p class="st-lede">Send your data to other services.</p></div>
+          </div>
+          <div class="st-card">
+            <div class="st-card-head"><h2>PVOutput.org</h2></div>
+            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="pvoutput-enabled"><span class="slider"></span></label><label for="pvoutput-enabled">Upload to PVOutput</label></span></div>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="pvoutput-api-key">API key</label><input type="password" id="pvoutput-api-key" class="input" autocomplete="off"></div>
+              <div class="st-field"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="input" inputmode="numeric" placeholder="12345"></div>
+              <div class="st-field"><label for="pvoutput-timezone">Time zone</label><input type="text" id="pvoutput-timezone" class="input" placeholder="Africa/Lagos"><span class="st-help">Detected when you test the connection, or enter it yourself.</span></div>
+              <div class="st-field"><label for="pvoutput-interval">Upload every</label><select id="pvoutput-interval" class="input"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option></select></div>
+              <div class="st-field"><label for="pvoutput-system-size">System size</label><div class="st-input-unit"><input type="number" id="pvoutput-system-size" class="input" min="0" placeholder="5000"><span>W</span></div></div>
+            </div>
+            <div class="st-inline-actions"><button type="button" id="pvoutput-test-btn" class="st-btn">Test connection</button><span id="pvoutput-test-status" class="test-status" role="status"></span></div>
+            <h3 class="st-card-subhead">Metric mapping</h3>
             <div class="form-row" id="pvoutput-metrics-container"></div>
-            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Upload Mode</h4>
-            <div class="toggle-wrap">
-              <label class="toggle-switch"><input type="radio" name="pvoutput-mode" value="cumulative" checked><span class="slider"></span></label>
-              <label>Cumulative (c1) — daily running totals</label>
-            </div>
-            <span class="note" style="margin:-0.25rem 0 0.5rem 1.7rem;">Only change if your inverter reports net metering values.</span>
-            <div class="toggle-wrap">
-              <label class="toggle-switch"><input type="radio" name="pvoutput-mode" value="net"><span class="slider"></span></label>
-              <label>Net data (n) — v2/v4 are net export/import</label>
-            </div>
-            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Upload Queue</h4>
-            <div id="pvoutput-queue-status" style="font-size:0.85rem;"></div>
-            <div class="btn-group" style="margin-top:0.5rem;"><button type="button" id="pvoutput-backfill-btn" class="btn btn-sm">Run Backfill</button><button type="button" id="pvoutput-view-queue-btn" class="btn btn-sm">View Queue</button></div>
-            <h4 style="margin-top:1.25rem;font-size:0.9rem;">Notifications (optional)</h4>
-            <div class="form-group"><label for="pvoutput-webhook-url">Webhook URL</label><input type="text" id="pvoutput-webhook-url" class="input" placeholder="https://energy.yourdomain.com/api/pvoutput/webhook"><span class="note">Requires a public URL. Leave empty to skip.</span></div>
+            <h3 class="st-card-subhead">Upload mode</h3>
+            <fieldset class="st-choices">
+              <legend class="st-visually-hidden">Upload mode</legend>
+              <label class="st-choice"><input type="radio" name="pvoutput-mode" value="cumulative" checked><span><span class="st-choice-title">Cumulative (c1)</span><span class="st-choice-desc">Daily running totals. Right for most inverters.</span></span></label>
+              <label class="st-choice"><input type="radio" name="pvoutput-mode" value="net"><span><span class="st-choice-title">Net data (n)</span><span class="st-choice-desc">v2 and v4 are net export and import. Only if your inverter reports net metering values.</span></span></label>
+            </fieldset>
+            <h3 class="st-card-subhead">Upload queue</h3>
+            <div id="pvoutput-queue-status" class="st-help"></div>
+            <div class="st-inline-actions"><button type="button" id="pvoutput-backfill-btn" class="st-btn">Run backfill</button><button type="button" id="pvoutput-view-queue-btn" class="st-btn">View queue</button></div>
+            <h3 class="st-card-subhead">Notifications</h3>
+            <div class="st-field"><label for="pvoutput-webhook-url">Webhook URL (optional)</label><input type="url" id="pvoutput-webhook-url" class="input" placeholder="https://energy.example.com/api/pvoutput/webhook"><span class="st-help">Needs a public URL. Leave empty to skip.</span></div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ================================================= -->
-      <!-- DASHBOARD LAYOUT                                   -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-dashboard">
-        <div class="section-header">
-          <h1>Dashboard Layout</h1>
-          <p>Manage dashboards, defaults, and display settings</p>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Dashboards</span></div>
-          <div id="dashboards-list"></div>
-          <button type="button" id="add-dashboard-btn" class="btn btn-sm" style="margin-top:0.5rem;">+ New Dashboard</button>
-          <div class="form-row" style="margin-top:0.75rem;">
-            <div class="form-group"><label for="desktop-dashboard">Default for Desktop</label><select id="desktop-dashboard" class="select-input" name="desktop_dashboard"></select></div>
-            <div class="form-group"><label for="mobile-dashboard">Default for Mobile</label><select id="mobile-dashboard" class="select-input" name="mobile_dashboard"></select></div>
+        <!-- ════════════ NETWORK ════════════ -->
+        <section class="st-section" id="section-network" data-section="network" aria-labelledby="h-network" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-network">Network</h1><p class="st-lede">The installed app picks the fastest of these addresses on its own.</p></div>
           </div>
-          <div id="active-dashboard-editor" style="margin-top:1rem;"></div>
-          <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
-            <h4 style="margin:0 0 0.75rem;color:var(--text);font-size:0.9rem;">Display</h4>
-            <div class="toggle-wrap" style="margin-bottom:0.5rem;">
-              <label class="toggle-switch"><input type="checkbox" name="transparent_blocks"><span class="slider"></span></label>
-              <label>Transparent blocks</label>
-            </div>
-            <div class="form-row"><div class="form-group"><label for="dashboard-bg-color-light">Background Colour (Light)</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color" value="#f8fafc" style="width:100%;height:36px;"></div><div class="form-group"><label for="dashboard-bg-color-dark">Background Colour (Dark)</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" value="#0f172a" style="width:100%;height:36px;"></div></div>
-            <div class="form-group"><label for="dashboard-bg-image">Background Image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" placeholder="https://..."></div>
-            <div class="form-group"><label for="grid-status-entity">Grid Status Metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" placeholder="e.g. grid_status"></div>
-            <p class="note">Visual layout: use the <a href="/editor" style="color:var(--accent);">Editor</a>.</p>
+          <div class="st-card">
+            <div class="st-field"><label for="network-local-url">Address at home</label><input id="network-local-url" class="input" name="network_local_url" type="url" placeholder="http://192.168.1.10:3000"><span class="st-help">Used when your phone or computer is on your home network. Fast, and works without internet.</span></div>
+            <div class="st-field"><label for="network-remote-url">Address away from home</label><input id="network-remote-url" class="input" name="network_remote_url" type="url" placeholder="https://energy.example.com"><span class="st-help">Used everywhere else.</span></div>
+            <p class="st-help">Save these, then install Epilykos to your home screen to get automatic switching.</p>
           </div>
-        </div>
-        <div class="btn-group" style="margin-top:0.75rem;"><button type="button" id="export-layout-btn" class="btn">Export Layout</button><button type="button" id="import-layout-btn" class="btn">Import Layout</button><input type="file" id="import-layout-file" accept=".json" style="display:none;"></div>
-      </section>
+        </section>
 
-      <!-- ================================================= -->
-      <!-- BRANDING                                           -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-branding">
-        <div class="section-header">
-          <h1>Branding</h1>
-          <p>Customise the dashboard appearance</p>
-        </div>
-        <div class="card">
-          <div class="form-group"><label for="dashboard-title">Dashboard Title</label><input id="dashboard-title" class="input" name="dashboard_title" value="⚡ Epilykos" placeholder="My Solar Dashboard"></div>
-          <div class="form-group"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="input" name="dashboard_logo" placeholder="https://example.com/logo.png"></div>
-          <div class="form-group"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="input" name="dashboard_favicon" placeholder="https://example.com/favicon.ico"></div>
-        </div>
-      </section>
-
-      <!-- ================================================= -->
-      <!-- METRICS                                            -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-metrics">
-        <div class="section-header">
-          <h1>Metrics</h1>
-          <p>Manage custom metrics and view current values</p>
-        </div>
-        <div class="card">
-          <div class="toolbar">
-            <input type="text" class="input" id="metrics-search" style="max-width:280px;" placeholder="Filter metrics...">
-            <span class="toolbar-spacer"></span>
-            <button type="button" id="create-metric-btn" class="stg-btn primary" style="font-size:0.82rem; padding: 0.4rem 0.9rem;">+ New Metric</button>
+        <!-- ════════════ BACKUP ════════════ -->
+        <section class="st-section" id="section-backup" data-section="backup" aria-labelledby="h-backup" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-backup">Backup and restore</h1><p class="st-lede">Your settings, metrics and history live in one database file.</p></div>
           </div>
-          <div class="table-wrap">
-            <table class="mapping-table" id="metrics-table">
-              <thead><tr><th>Metric Name</th><th>Current Value</th><th>Last Updated</th><th>Unit</th><th>Actions</th></tr></thead>
-              <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics...</td></tr></tbody>
-            </table>
+          <div class="st-card">
+            <div class="st-card-head"><h2>Backup file</h2></div>
+            <div class="st-inline-actions"><button type="button" id="backup-btn" class="st-btn st-btn-primary"><span data-icon="download" data-size="16"></span>Download backup</button><button type="button" id="restore-btn" class="st-btn">Restore from file…</button><input type="file" id="restore-file" accept=".db" hidden></div>
+            <div id="backup-status" class="test-status" role="status"></div>
           </div>
-        </div>
-      </section>
-
-      <!-- ================================================= -->
-      <!-- SOLAR FORECAST                                     -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-solar">
-        <div class="section-header">
-          <h1>Solar Forecast</h1>
-          <p>Configure PV forecast via Solcast or Open-Meteo</p>
-        </div>
-        <div class="card">
-          <div class="toggle-wrap" style="margin-bottom:1rem;">
-            <label class="toggle-switch"><input id="forecast-enabled" type="checkbox" name="forecast_enabled"><span class="slider"></span></label>
-            <label for="forecast-enabled">Enable Solar Forecast</label>
+          <div class="st-card">
+            <div class="st-card-head"><h2>Automatic snapshots</h2></div>
+            <p class="st-help">Taken daily. The last two are kept.</p>
+            <div id="snapshot-list" class="st-snapshots"><p class="st-help">Loading snapshots…</p></div>
+            <div id="snapshot-status" class="test-status" role="status"></div>
           </div>
-          <div class="form-row"><div class="form-group"><label for="solar-latitude">Latitude</label><input id="solar-latitude" class="input" name="solar_latitude"></div><div class="form-group"><label for="solar-longitude">Longitude</label><input id="solar-longitude" class="input" name="solar_longitude"></div></div>
-          <div class="form-row"><div class="form-group"><label for="solar-tilt">Panel Tilt (°)</label><input id="solar-tilt" class="input" name="solar_tilt" value="30"></div><div class="form-group"><label for="solar-azimuth">Panel Azimuth (°)</label><input id="solar-azimuth" class="input" name="solar_azimuth" value="180"></div></div>
-          <div class="form-row"><div class="form-group"><label for="solar-capacity">Capacity (kWp)</label><input id="solar-capacity" class="input" name="solar_capacity_kwp"><span class="note">Peak power</span></div><div class="form-group"><label for="solcast-api-key">Solcast API Key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div></div>
-          <div class="form-row"><div class="form-group"><label for="solcast-resource-id">Solcast Resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"></div><div class="form-group"><label for="solar-loss-factor">Loss Factor</label><input id="solar-loss-factor" class="input" name="solar_loss_factor" value="0.9"></div></div>
-          <div class="form-row"><div class="form-group"><label for="forecast-default-source">Default Forecast Source</label><select id="forecast-default-source" class="input" name="forecast_default_source"><option value="auto">Auto (default)</option><option value="solcast">Solcast</option><option value="open-meteo">Open-Meteo</option></select></div><div class="form-group"><label for="weather-default-source">Default Weather Source</label><select id="weather-default-source" class="input" name="weather_default_source"><option value="auto">Auto (default)</option><option value="solcast">Solcast</option><option value="open-meteo">Open-Meteo</option></select></div></div>
-          <div class="form-row"><div class="form-group"><label for="solar-install-date">Installation Date</label><input id="solar-install-date" class="input" name="solar_install_date" placeholder="2020-01-01"></div></div>
-          <div class="test-row"><button type="button" id="test-forecast" class="btn btn-sm">Test Forecast</button><span id="forecast-test-status" class="test-status"></span></div>
-        </div>
-        <div class="card" style="margin-top:1rem;">
-          <div class="card-header"><span class="card-title">📊 Metric Roles</span></div>
-          <p class="note" style="margin:0 0 0.75rem;">Map your metric names to system roles (used by power chart, history, dashboard blocks).</p>
-          <div id="role-metrics-container"></div>
-          <button type="button" id="save-role-metrics" class="btn btn-sm" style="margin-top:0.75rem;">Save Metric Roles</button>
-          <span id="role-metrics-status" class="test-status"></span>
-        </div>
-      </section>
+        </section>
 
-      <!-- ================================================= -->
-      <!-- SAVINGS                                            -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-savings">
-        <div class="section-header">
-          <h1>Savings</h1>
-          <p>Calculate cost savings from solar generation</p>
-        </div>
-        <div class="card">
-          <div class="form-row"><div class="form-group"><label for="savings-currency">Currency</label><input id="savings-currency" class="input" name="savings_currency" value="€"></div><div class="form-group"><label for="savings-rate">Rate per kWh</label><input id="savings-rate" class="input" name="savings_rate" value="0.30"></div></div>
-          <div class="form-group"><label for="savings-solar-metric">Solar Metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" placeholder="e.g. Solar Gen Today"><span class="note">Which metric tracks solar generation for savings. Leave empty to auto-detect.</span></div>
-        </div>
-      </section>
-
-      <!-- ================================================= -->
-      <!-- BACKUP & RESTORE                                   -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-backup">
-        <div class="section-header">
-          <h1>Backup &amp; Restore</h1>
-          <p>Download, schedule snapshots, or restore your database</p>
-        </div>
-        <div class="card">
-          <div class="btn-group"><button type="button" id="backup-btn" class="btn btn-primary">Download Backup</button><button type="button" id="restore-btn" class="btn">Restore from File</button><input type="file" id="restore-file" accept=".db" style="display:none;"></div>
-          <div id="backup-status" class="test-status" style="margin-top:0.75rem;"></div>
-        </div>
-        <div class="card" style="margin-top:1rem;">
-          <div class="card-header"><span class="card-title">📸 Automatic Snapshots</span></div>
-          <p class="note" style="margin:0 0 0.75rem;">Created daily, last 2 retained. Click to restore.</p>
-          <div id="snapshot-list"><p class="note" style="margin:0;font-style:italic;">Loading snapshots...</p></div>
-          <div id="snapshot-status" class="test-status" style="margin-top:0.5rem;"></div>
-        </div>
-      </section>
-
-      <!-- ================================================= -->
-      <!-- NETWORK                                            -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-network">
-        <div class="section-header">
-          <h1>Network</h1>
-          <p>Configure LAN and remote URLs for auto-switching</p>
-        </div>
-        <div class="card">
-          <div class="form-group">
-            <label for="network-local-url">Local URL (LAN / WiFi)</label>
-            <input id="network-local-url" class="input" name="network_local_url" placeholder="http://local-ip:port">
-            <span class="note">Used when your device is on the same home network. Direct, fast, no internet needed.</span>
+        <!-- ════════════ HELP ════════════ -->
+        <section class="st-section" id="section-help" data-section="help" aria-labelledby="h-help" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-help">Help</h1><p class="st-lede">Setup guides, conventions and troubleshooting.</p></div>
           </div>
-          <div class="form-group">
-            <label for="network-remote-url">Remote URL (Internet)</label>
-            <input id="network-remote-url" class="input" name="network_remote_url" placeholder="https://domain-name.tld">
-            <span class="note">Used when away from home.</span>
-          </div>
-          <div class="info-banner">
-            💡 <strong>How it works:</strong> The PWA detects which network you're on and routes API calls through the fastest URL automatically. Save these settings, then install Epilykos to your home screen for the full app experience.
-          </div>
-        </div>
-      </section>
-
-      <!-- ================================================= -->
-      <!-- HELP                                               -->
-      <!-- ================================================= -->
-      <section class="settings-section" id="section-help">
-        <div class="section-header">
-          <h1>Help</h1>
-          <p>Setup guides, conventions, and troubleshooting</p>
-        </div>
-
-        <!-- Search -->
-        <div class="search-wrap" style="margin-bottom:0.75rem;max-width:420px;">
-          <span class="search-icon">⌕</span>
-          <input type="text" class="search-input" id="help-search" placeholder="Filter topics... (e.g. Modbus, forecast, troubleshooting)" style="width:100%;">
-        </div>
-
-        <!-- ── 1. Quick Start ──────────────────────────────── -->
+          <div class="st-filter st-help-filter"><label for="help-search" class="st-visually-hidden">Filter help topics</label><input type="search" class="input" id="help-search" placeholder="Filter topics, e.g. Modbus or forecast"></div>
+          <!-- ── 1. Quick Start ──────────────────────────────── -->
         <details class="help-accordion" open>
-          <summary class="help-summary"><span class="help-icon">🚀</span> Quick Start — 5 minutes to your first dashboard</summary>
+          <summary class="help-summary">Quick Start — 5 minutes to your first dashboard</summary>
           <div class="help-body">
             <div class="help-steps">
               <div class="help-step"><span class="help-step-num">1</span>
                 <div><strong>Add a data source</strong><br>
-                Go to <span class="help-link" onclick="navigateTo('data-sources','modbus')">Data Sources → Modbus</span> (or HA, MQTT, RS232, Dongle, BMS, REST). Enter connection details and pick a profile matching your hardware.</div>
+                Go to <a class="help-link" href="#sources/modbus">Sources → Add source → Modbus</a> (or Home Assistant, MQTT, RS232, dongle, BMS, REST). Enter connection details and pick a profile matching your hardware.</div>
               </div>
               <div class="help-step"><span class="help-step-num">2</span>
                 <div><strong>Map registers/fields to metric names</strong><br>
@@ -473,24 +396,24 @@
               </div>
               <div class="help-step"><span class="help-step-num">3</span>
                 <div><strong>Build a dashboard</strong><br>
-                Open the <a href="/editor" class="help-link">Editor</a>. Drag a <strong>Flow Card</strong> onto the canvas. Click <em>Config</em> on the block, then select which metrics feed each role (solar, consumption, battery, grid).</div>
+                Open the <a href="/editor" class="help-link">Editor</a>. Drag a <strong>Flow card</strong> onto the layout. Select the block, then pick which metrics feed each role on its Data tab (solar, consumption, battery, grid).</div>
               </div>
               <div class="help-step"><span class="help-step-num">4</span>
                 <div><strong>See live data</strong><br>
                 Data polls every 30s by default. Values update automatically. The Power Chart shows 24h history — it populates as polling continues.</div>
               </div>
             </div>
-            <p class="note" style="margin-top:0.75rem;">💡 <strong>Prerequisite:</strong> You need at least one connected device (inverter, sensor, or external API). Start with the data source that matches your hardware.</p>
+            <p class="note" style="margin-top:0.75rem;"><strong>Prerequisite:</strong> You need at least one connected device (inverter, sensor, or external API). Start with the data source that matches your hardware.</p>
           </div>
         </details>
 
         <!-- ── 2. Data Source Guides ────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">📡</span> Data Source Guides — setup each type step by step</summary>
+          <summary class="help-summary">Data Source Guides — setup each type step by step</summary>
           <div class="help-body">
             <!-- HA -->
             <details class="help-sub">
-              <summary class="help-sub-summary">🏠 Home Assistant</summary>
+              <summary class="help-sub-summary">Home Assistant</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Pull sensor values from an existing Home Assistant instance over HTTP.</p>
                 <div class="help-checklist">
@@ -501,7 +424,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','ha')">Data Sources → Home Assistant</span></li>
+                  <li>Go to <a class="help-link" href="#sources/ha">Sources → Home Assistant</a></li>
                   <li>Enter HA URL and token → click <em>Fetch Entities</em> to load your sensor list</li>
                   <li>Click <em>+ Add Metric Mapping</em> for each value you want</li>
                   <li>Pick a metric name (e.g. <code>grid_power</code>) and an entity (e.g. <code>sensor.shelly_em_grid_power</code>)</li>
@@ -511,7 +434,7 @@
             </details>
             <!-- MQTT -->
             <details class="help-sub">
-              <summary class="help-sub-summary">📨 MQTT</summary>
+              <summary class="help-sub-summary">MQTT</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Subscribe to MQTT topics from any broker (Mosquitto, EMQX, Tasmota devices, etc.).</p>
                 <div class="help-checklist">
@@ -520,7 +443,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','mqtt')">Data Sources → MQTT</span></li>
+                  <li>Go to <a class="help-link" href="#sources/mqtt">Sources → MQTT</a></li>
                   <li>Enter broker URL → click <em>Test Broker</em></li>
                   <li>Use <em>Discover Topics</em> to find available topics, or enter manually</li>
                   <li>Click <em>+ Add Metric Mapping</em> → pick a metric name, enter the topic</li>
@@ -529,7 +452,7 @@
             </details>
             <!-- Modbus -->
             <details class="help-sub">
-              <summary class="help-sub-summary">🔌 Modbus (RTU / TCP)</summary>
+              <summary class="help-sub-summary">Modbus (RTU / TCP)</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Direct serial (RS485/USB) or TCP connection to inverters and charge controllers.</p>
                 <div class="help-checklist">
@@ -561,7 +484,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','modbus')">Data Sources → Modbus</span></li>
+                  <li>Go to <a class="help-link" href="#sources/modbus">Sources → Modbus</a></li>
                   <li>Select transport (TCP or Serial), enter connection details</li>
                   <li>Pick a profile from the dropdown matching your hardware</li>
                   <li>Click <em>Load Profile Fields</em> → map each register to a metric name</li>
@@ -571,7 +494,7 @@
             </details>
             <!-- RS232 -->
             <details class="help-sub">
-              <summary class="help-sub-summary">🔌 RS232 (Serial ASCII / Binary)</summary>
+              <summary class="help-sub-summary">RS232 (Serial ASCII / Binary)</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Direct serial connection to inverters using ASCII query/response or binary protocols.</p>
                 <div class="help-checklist">
@@ -592,7 +515,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','rs232')">Data Sources → RS232</span></li>
+                  <li>Go to <a class="help-link" href="#sources/rs232">Sources → RS232</a></li>
                   <li>Select serial port and baud rate (match profile defaults above)</li>
                   <li>Pick a profile from the dropdown</li>
                   <li>Click <em>Load Profile Fields</em> → map each field to a metric name</li>
@@ -602,7 +525,7 @@
             </details>
             <!-- Dongle -->
             <details class="help-sub">
-              <summary class="help-sub-summary">📶 Dongle (WiFi Data Loggers)</summary>
+              <summary class="help-sub-summary">Dongle (WiFi Data Loggers)</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Inverters with built-in WiFi loggers (Solarman, Felicity TCP). Connects over your local network — no USB cable needed.</p>
                 <div class="help-checklist">
@@ -612,7 +535,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','dongle')">Data Sources → Dongle</span></li>
+                  <li>Go to <a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a></li>
                   <li>Enter IP, port (default 8899 for Solarman, 502 for Felicity TCP), and serial number</li>
                   <li>Pick a profile matching your inverter</li>
                   <li>Click <em>Load Profile Registers</em> → map to metric names</li>
@@ -622,7 +545,7 @@
             </details>
             <!-- BMS -->
             <details class="help-sub">
-              <summary class="help-sub-summary">🔋 BMS (Battery Management System)</summary>
+              <summary class="help-sub-summary">BMS (Battery Management System)</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Direct connection to a BMS over serial (RS485/USB) for battery-level data.</p>
                 <div class="help-checklist">
@@ -631,7 +554,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','bms')">Data Sources → BMS</span></li>
+                  <li>Go to <a class="help-link" href="#sources/bms">Sources → BMS</a></li>
                   <li>Enter serial port path and BMS address</li>
                   <li>Enable the device and save</li>
                 </ol>
@@ -639,7 +562,7 @@
             </details>
             <!-- External / REST -->
             <details class="help-sub">
-              <summary class="help-sub-summary">🌐 External / REST API</summary>
+              <summary class="help-sub-summary">External / REST API</summary>
               <div class="help-sub-body">
                 <p><strong>What it's for:</strong> Pull data from any HTTP JSON API (weather services, energy monitors, custom endpoints).</p>
                 <div class="help-checklist">
@@ -648,7 +571,7 @@
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <span class="help-link" onclick="navigateTo('data-sources','external')">Data Sources → External</span></li>
+                  <li>Go to <a class="help-link" href="#sources/external">Sources → REST API</a></li>
                   <li>Enter URL, click <em>+ Add Metric Mapping</em> for each value</li>
                   <li>Enter JSON path and pick a metric name</li>
                 </ol>
@@ -659,7 +582,7 @@
 
         <!-- ── 3. Metric Naming ─────────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">🏷️</span> Metric Names — naming conventions and system roles</summary>
+          <summary class="help-summary">Metric Names — naming conventions and system roles</summary>
           <div class="help-body">
             <p>Metric names are the labels that identify your data throughout the system. Choose them carefully — they connect your hardware to the dashboard.</p>
             <h4>Conventions</h4>
@@ -693,7 +616,7 @@
 
         <!-- ── 4. Dashboard Builder ─────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">🧱</span> Dashboard Builder — block types and tips</summary>
+          <summary class="help-summary">Dashboard Builder — block types and tips</summary>
           <div class="help-body">
             <p>Open the <a href="/editor" class="help-link">Editor</a> to build your dashboard. Each block type serves a different purpose:</p>
             <div class="table-wrap">
@@ -717,9 +640,8 @@
             </div>
             <h4>Tips</h4>
             <ul>
-              <li><strong>Drag between dashboards:</strong> In the editor, drag a block to a different dashboard tab in the sidebar</li>
-              <li><strong>Resize:</strong> Drag the bottom-right corner of any block</li>
-              <li><strong>Clone:</strong> Use the clone button to duplicate a configured block</li>
+              <li><strong>Resize:</strong> Drag any edge or corner of a block, or select it and press Shift + arrow keys</li>
+              <li><strong>Duplicate:</strong> Select a block and press Duplicate in its toolbar</li>
               <li><strong>Multiple dashboards:</strong> Create separate views (e.g. "Overview", "Battery Detail", "TV Display")</li>
             </ul>
           </div>
@@ -727,9 +649,9 @@
 
         <!-- ── 5. Solar Forecast ────────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">☀️</span> Solar Forecast — setup and accuracy</summary>
+          <summary class="help-summary">Solar Forecast — setup and accuracy</summary>
           <div class="help-body">
-            <p>Go to <span class="help-link" onclick="navigateTo('solar')">Settings → Solar</span> to configure.</p>
+            <p>Go to <a class="help-link" href="#forecast">Forecast and weather</a> to configure.</p>
             <h4>Free vs Paid</h4>
             <div class="table-wrap">
             <table class="help-table">
@@ -745,24 +667,24 @@
 
         <!-- ── 6. Appearance ────────────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">🎨</span> Appearance &amp; Theming</summary>
+          <summary class="help-summary">Appearance &amp; Theming</summary>
           <div class="help-body">
-            <p>Go to <span class="help-link" onclick="navigateTo('branding')">Settings → Branding</span> for visual options.</p>
+            <p>Go to <a class="help-link" href="#appearance">Appearance</a> for visual options.</p>
             <ul>
               <li><strong>Background:</strong> Solid color, gradient, or image URL</li>
               <li><strong>Transparent blocks:</strong> Makes block backgrounds see-through for a cleaner look with background images</li>
               <li><strong>Title &amp; Logo:</strong> Set a dashboard title and upload a logo (appears top-left)</li>
               <li><strong>Favicon:</strong> Browser tab icon</li>
-              <li><strong>Dark/Light theme:</strong> Toggle with the ☀/☾ button in the sidebar</li>
+              <li><strong>Dark/Light theme:</strong> Choose Light, Dark or Auto at the bottom of the settings menu</li>
             </ul>
           </div>
         </details>
 
         <!-- ── 7. Backup & Restore ──────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">💾</span> Backup &amp; Restore</summary>
+          <summary class="help-summary">Backup &amp; Restore</summary>
           <div class="help-body">
-            <p>Go to <span class="help-link" onclick="navigateTo('backup')">Settings → Backup</span>.</p>
+            <p>Go to <a class="help-link" href="#backup">Backup and restore</a>.</p>
             <ul>
               <li><strong>Manual backup:</strong> Click <em>Download Backup</em> to save your entire database to a <code>.db</code> file</li>
               <li><strong>Restore:</strong> Upload a backup file to replace all current data</li>
@@ -773,10 +695,10 @@
 
         <!-- ── 8. Troubleshooting ───────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary"><span class="help-icon">🔧</span> Troubleshooting — common issues and fixes</summary>
+          <summary class="help-summary">Troubleshooting — common issues and fixes</summary>
           <div class="help-body">
             <details class="help-sub">
-              <summary class="help-sub-summary">🔌 Modbus Issues</summary>
+              <summary class="help-sub-summary">Modbus Issues</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
@@ -794,7 +716,7 @@
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">🔌 RS232 Issues</summary>
+              <summary class="help-sub-summary">RS232 Issues</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
@@ -809,7 +731,7 @@
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">📶 Dongle Issues</summary>
+              <summary class="help-sub-summary">Dongle Issues</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
@@ -824,7 +746,7 @@
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">📨 MQTT Issues</summary>
+              <summary class="help-sub-summary">MQTT Issues</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
@@ -839,7 +761,7 @@
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">🔧 General Issues</summary>
+              <summary class="help-sub-summary">General Issues</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
@@ -855,420 +777,50 @@
             </details>
           </div>
         </details>
-      </section>
+        </section>
 
-      <!-- ── Save Bar ──────────────────────────────────────── -->
-      <div class="stg-savebar" id="stg-savebar">
-        <span class="stg-dirty-count" id="stg-dirty-count">Unsaved changes</span>
-        <span class="stg-save-status" id="save-status"></span>
-        <button type="button" id="stg-save-btn" class="btn btn-primary">💾 Save All Settings</button>
+        <datalist id="st-metric-names"></datalist>
+      </form>
       </div>
+    </main>
 
-    </form>
-  </main>
-
-  <!-- ── Metric Modal ──────────────────────────────────── -->
-  <div class="stg-modal" id="metric-modal">
-    <div class="stg-modal-box">
-      <h3 style="margin:0 0 1rem;">Create New Metric</h3>
-      <div class="form-group"><label for="new-metric-name">Metric Name</label><input type="text" id="new-metric-name" class="input"></div>
-      <div class="form-group"><label for="new-metric-unit">Unit (optional)</label><input type="text" id="new-metric-unit" class="input"></div>
-      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
-        <button type="button" id="modal-cancel" class="stg-btn">Cancel</button>
-        <button type="button" id="modal-create" class="stg-btn primary">Create</button>
-      </div>
+    <!-- Save bar for the open section -->
+    <div class="st-savebar" id="st-savebar" role="region" aria-label="Unsaved changes" hidden>
+      <span class="st-savebar-dot" aria-hidden="true"></span>
+      <span class="st-savebar-text" id="st-savebar-text">Unsaved changes</span>
+      <span class="st-savebar-status" id="save-status" role="status" aria-live="polite"></span>
+      <button type="button" class="st-btn" id="st-discard">Discard</button>
+      <button type="button" class="st-btn st-btn-primary" id="st-save">Save changes</button>
     </div>
   </div>
-
-  <!-- ── BMS Scan Modal ──────────────────────────────────── -->
-  <div class="stg-modal" id="bms-scan-modal">
-    <div class="stg-modal-box bms-scan-box">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-        <h3 style="margin:0;">BLE Device Scan</h3>
-        <button type="button" class="btn bms-scan-close" style="padding:0.25rem 0.5rem;">✕</button>
-      </div>
-      <div id="bms-scan-status" class="note" style="margin-bottom:0.75rem;"></div>
-      <div id="bms-scan-list" style="max-height:320px; overflow-y:auto; margin-bottom:0.75rem;"></div>
-      <div style="display:flex; gap:0.75rem; justify-content:space-between; align-items:center;">
-        <div id="bms-scan-cache-badge" class="note" style="margin:0;"></div>
-        <div style="display:flex; gap:0.75rem;">
-          <button type="button" class="btn bms-scan-refresh">🔄 Scan Again</button>
-          <button type="button" class="btn bms-scan-cancel">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- ═══════════════════════════════════════════════════════ -->
-<!-- INLINE JAVASCRIPT                                       -->
-<!-- ═══════════════════════════════════════════════════════ -->
-<script>
-(function() {
-  // ── DOM refs ──────────────────────────────────────────
-  var sidebar = document.getElementById('sidebar');
-  var overlay = document.getElementById('mobile-overlay');
-  var hamburger = document.getElementById('hamburger');
-  var searchInput = document.getElementById('global-search');
-  var themeToggle = document.getElementById('theme-toggle');
-  var mobileThemeToggle = document.getElementById('mobile-theme-toggle');
-  var html = document.documentElement;
+<div id="st-toast-region" class="st-toast-region" role="status" aria-live="polite"></div>
 
-  // ── Mobile sidebar toggle ─────────────────────────────
-  function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
-  function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
-  hamburger.addEventListener('click', function(e) {
-    e.stopPropagation();
-    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-  });
-  overlay.addEventListener('click', closeSidebar);
-  var sidebarClose = document.getElementById('sidebar-close');
-  if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
-  sidebar.addEventListener('click', function(e) {
-    if (e.target.closest('.nav-item') && window.innerWidth <= 768) {
-      closeSidebar();
-    }
-  });
+<!-- BLE scan dialog (driven by the BMS code) -->
+<div class="stg-modal" id="bms-scan-modal" role="dialog" aria-modal="true" aria-labelledby="bms-scan-title">
+  <div class="stg-modal-box bms-scan-box">
+    <div class="st-modal-head">
+      <h2 id="bms-scan-title">Find Bluetooth devices</h2>
+      <button type="button" class="st-icon-btn bms-scan-close" aria-label="Close" data-icon="close"></button>
+    </div>
+    <div id="bms-scan-status" class="st-help"></div>
+    <div id="bms-scan-list" class="st-scan-list"></div>
+    <div class="st-modal-foot">
+      <div id="bms-scan-cache-badge" class="st-help"></div>
+      <div class="st-head-actions">
+        <button type="button" class="st-btn bms-scan-refresh">Scan again</button>
+        <button type="button" class="st-btn bms-scan-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  // ── Theme toggle (with localStorage migration) ────────
-  function setTheme(theme) {
-    html.setAttribute('data-theme', theme);
-    localStorage.setItem('epilykos-theme', theme);
-    // Also update old key for backward compat
-    try { localStorage.setItem('theme', theme); } catch(e) {}
-    var icon = theme === 'dark' ? '☀' : '☾';
-    themeToggle.textContent = icon;
-    if (mobileThemeToggle) mobileThemeToggle.textContent = icon;
-  }
-  // Migration: read old key if new key not set
-  var saved = localStorage.getItem('epilykos-theme');
-  if (!saved) {
-    saved = localStorage.getItem('theme');
-    if (!saved) {
-      saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-  }
-  setTheme(saved);
-  themeToggle.addEventListener('click', function() {
-    setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-  });
-  if (mobileThemeToggle) {
-    mobileThemeToggle.addEventListener('click', function() {
-      setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-    });
-  }
-
-  // ── Navigation ─────────────────────────────────────────
-  var navItems = document.querySelectorAll('.nav-item');
-  var sections = document.querySelectorAll('.settings-section');
-  var activeSection = 'data-sources';
-
-  function navigateTo(sectionId, subtabId) {
-    activateSection(sectionId);
-    if (subtabId) activateSubtab(subtabId);
-  }
-
-  function activateSection(sectionId) {
-    activeSection = sectionId;
-    sections.forEach(function(s) { s.classList.remove('active'); });
-    navItems.forEach(function(n) { n.classList.remove('active'); });
-
-    var section = document.getElementById('section-' + sectionId);
-    if (section) section.classList.add('active');
-
-    var navBtn = document.querySelector('[data-section="' + sectionId + '"]');
-    if (navBtn) navBtn.classList.add('active');
-
-    try { localStorage.setItem('epilykos-settings-section', sectionId); } catch(e) {}
-  }
-
-  navItems.forEach(function(item) {
-    item.addEventListener('click', function() {
-      activateSection(this.getAttribute('data-section'));
-      if (this.getAttribute('data-section') === 'data-sources') {
-        activateSubtab('ha');
-      }
-    });
-  });
-
-  // ── Sub-tabs (Data Sources) ────────────────────────────
-  var subnavBtns = document.querySelectorAll('.subnav-btn');
-  var subtabContents = document.querySelectorAll('.subtab-content');
-
-  function activateSubtab(subtabId) {
-    subnavBtns.forEach(function(b) { b.classList.remove('active'); });
-    subtabContents.forEach(function(s) { s.classList.remove('active'); });
-    var btn = document.querySelector('[data-subtab="' + subtabId + '"]');
-    if (btn) btn.classList.add('active');
-    var content = document.getElementById('subtab-' + subtabId);
-    if (content) content.classList.add('active');
-    try { localStorage.setItem('stg-active-subtab', subtabId); } catch(e) {}
-  }
-
-  subnavBtns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = this.getAttribute('data-subtab');
-      if (!id) return;
-      activateSubtab(id);
-    });
-  });
-
-  // ── Restore last section ──────────────────────────────
-  var savedSection = localStorage.getItem('epilykos-settings-section');
-  if (!savedSection) savedSection = localStorage.getItem('stg-active-section');
-  if (savedSection) activateSection(savedSection);
-  var savedSubtab = localStorage.getItem('stg-active-subtab');
-  if (savedSubtab) activateSubtab(savedSubtab);
-
-  // ── Global search ──────────────────────────────────────
-  if (searchInput) {
-    searchInput.addEventListener('input', function() {
-      var query = this.value.toLowerCase().trim();
-      navItems.forEach(function(item) {
-        var text = item.textContent.toLowerCase();
-        if (!query || text.indexOf(query) !== -1) {
-          item.classList.remove('hidden-by-search');
-        } else {
-          item.classList.add('hidden-by-search');
-        }
-      });
-      document.querySelectorAll('.nav-group').forEach(function(group) {
-        var visibleItems = group.querySelectorAll('.nav-item:not(.hidden-by-search)');
-        if (visibleItems.length === 0 && query) {
-          group.classList.add('hidden-by-search');
-        } else {
-          group.classList.remove('hidden-by-search');
-        }
-      });
-    });
-  }
-
-  // ── Group collapse/expand ──────────────────────────────
-  document.querySelectorAll('[data-group-toggle]').forEach(function(header) {
-    header.addEventListener('click', function() {
-      var groupName = this.getAttribute('data-group-toggle');
-      var items = document.querySelector('[data-group-items="' + groupName + '"]');
-      var arrow = this.querySelector('.group-arrow');
-      if (items) {
-        items.classList.toggle('collapsed');
-        arrow.classList.toggle('open');
-      }
-    });
-  });
-
-  // ── Device card expand (delegated) ─────────────────────
-  document.addEventListener('click', function(e) {
-    var header = e.target.closest('.device-card-header');
-    if (header) {
-      var card = header.closest('.device-card');
-      if (card) card.classList.toggle('open');
-    }
-  });
-
-  // ── Dirty state tracking ───────────────────────────────
-  var stgForm = document.getElementById('settings-form');
-  var saveStatusEl = document.getElementById('save-status');
-  var dirtyCount = document.getElementById('stg-dirty-count');
-  var dirtyFields = new Set();
-
-  stgForm.addEventListener('change', function(e) {
-    var el = e.target;
-    if (el.name || el.id) {
-      dirtyFields.add(el.name || el.id);
-      dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
-      dirtyCount.classList.add('show');
-    }
-  });
-  stgForm.addEventListener('input', function(e) {
-    var el = e.target;
-    if ((el.name || el.id) && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-      dirtyFields.add(el.name || el.id);
-      dirtyCount.textContent = dirtyFields.size + ' unsaved change' + (dirtyFields.size > 1 ? 's' : '');
-      dirtyCount.classList.add('show');
-    }
-  });
-
-  // ── Save button ────────────────────────────────────────
-  var saveBtn = document.getElementById('stg-save-btn');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', function() {
-      stgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
-  }
-  document.addEventListener('stg-save-complete', function() {
-    dirtyFields.clear();
-  });
-
-  // ── Metrics search ────────────────────────────────────
-  var metricsSearch = document.getElementById('metrics-search');
-  if (metricsSearch) {
-    metricsSearch.addEventListener('input', function() {
-      var q = this.value.toLowerCase();
-      var rows = document.querySelectorAll('#metrics-table-body tr');
-      rows.forEach(function(row) {
-        var text = row.textContent.toLowerCase();
-        row.classList.toggle('stg-row-hidden', q && !text.includes(q));
-      });
-    });
-  }
-
-  // ── Backup & Restore ──────────────────────────────────
-  var backupBtn = document.getElementById('backup-btn');
-  var restoreBtn = document.getElementById('restore-btn');
-  var restoreFile = document.getElementById('restore-file');
-  var backupStatusEl = document.getElementById('backup-status');
-
-  if (backupBtn) backupBtn.addEventListener('click', function() {
-    if (backupStatusEl) { backupStatusEl.textContent = 'Downloading backup...'; backupStatusEl.className = 'test-status'; }
-    window.location.href = '/api/backup';
-  });
-  if (restoreBtn && restoreFile) {
-    restoreBtn.addEventListener('click', function() {
-      if (!confirm('Restore will replace ALL current data with the uploaded backup. This cannot be undone. Continue?')) return;
-      restoreFile.click();
-    });
-    restoreFile.addEventListener('change', async function() {
-      if (!this.files || !this.files[0]) return;
-      var fd = new FormData();
-      fd.append('dbfile', this.files[0]);
-      try {
-        if (backupStatusEl) { backupStatusEl.textContent = 'Restoring...'; backupStatusEl.className = 'test-status'; }
-        var r = await fetch('/api/restore', { method: 'POST', body: fd });
-        if (r.ok) {
-          if (backupStatusEl) { backupStatusEl.textContent = 'Restored — reloading...'; backupStatusEl.className = 'test-status success'; }
-          setTimeout(function() { location.reload(); }, 1500);
-        } else {
-          var err = await r.json().catch(function() { return {}; });
-          if (backupStatusEl) { backupStatusEl.textContent = err.error || 'Restore failed'; backupStatusEl.className = 'test-status error'; }
-        }
-      } catch(e) {
-        if (backupStatusEl) { backupStatusEl.textContent = e.message; backupStatusEl.className = 'test-status error'; }
-      }
-    });
-  }
-
-  // ── Snapshots UI ──────────────────────────────────────
-  var snapList = document.getElementById('snapshot-list');
-  var snapStatus = document.getElementById('snapshot-status');
-  var snapSection = document.getElementById('section-backup');
-
-  async function loadSnapshots() {
-    if (!snapList) return;
-    try {
-      var r = await fetch('/api/snapshots');
-      if (!r.ok) { snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">Failed to load snapshots</p>'; return; }
-      var snaps = await r.json();
-      if (!snaps.length) {
-        snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">No snapshots yet — first one created within 24h of startup.</p>';
-        return;
-      }
-      snapList.innerHTML = snaps.map(function(s) {
-        var date = new Date(s.time).toLocaleString();
-        var size = s.size > 1048576 ? (s.size / 1048576).toFixed(1) + ' MB' : s.size > 1024 ? (s.size / 1024).toFixed(1) + ' KB' : s.size + ' B';
-        return '<div class="snapshot-item">' +
-          '<div><strong style="font-size:0.85rem;">' + date + '</strong><span class="note" style="margin-left:0.75rem;font-size:0.75rem;">(' + size + ')</span></div>' +
-          '<button type="button" class="btn btn-sm snap-restore-btn" data-name="' + s.name.replace(/"/g, '&quot;') + '">Restore</button>' +
-          '</div>';
-      }).join('');
-      snapList.querySelectorAll('.snap-restore-btn').forEach(function(btn) {
-        btn.addEventListener('click', async function() {
-          var name = this.dataset.name;
-          if (!confirm('Restore snapshot "' + name + '"? This will replace ALL current data. Cannot be undone.')) return;
-          if (snapStatus) { snapStatus.textContent = 'Restoring from snapshot...'; snapStatus.className = 'test-status'; }
-          try {
-            var r = await fetch('/api/snapshots/restore/' + encodeURIComponent(name), { method: 'POST' });
-            var data = await r.json();
-            if (r.ok) {
-              if (snapStatus) { snapStatus.textContent = 'Snapshot restored — reloading...'; snapStatus.className = 'test-status success'; }
-              setTimeout(function() { location.reload(); }, 1500);
-            } else {
-              if (snapStatus) { snapStatus.textContent = data.error || 'Restore failed'; snapStatus.className = 'test-status error'; }
-            }
-          } catch(e) {
-            if (snapStatus) { snapStatus.textContent = e.message; snapStatus.className = 'test-status error'; }
-          }
-        });
-      });
-    } catch(e) {
-      snapList.innerHTML = '<p class="note" style="margin:0;font-style:italic;">Error: ' + e.message + '</p>';
-    }
-  }
-
-  loadSnapshots();
-  if (snapSection) {
-    var observer = new MutationObserver(function() {
-      if (snapSection.style.display !== 'none') loadSnapshots();
-    });
-    observer.observe(snapSection, { attributes: true, attributeFilter: ['style'] });
-  }
-
-  // ── Mappings filter ──────────────────────
-  function applyMappingFilterAndPagination(containerId) {
-    var list = document.getElementById(containerId);
-    if (!list) return;
-    var rows = Array.from(list.querySelectorAll('.metric-row'));
-    var filterInput = document.querySelector('.mappings-filter-input[data-container=' + containerId + ']');
-    var filterText = filterInput ? filterInput.value.toLowerCase().trim() : '';
-    if (filterText) {
-      rows.forEach(function(row) {
-        row.style.display = row.textContent.toLowerCase().includes(filterText) ? '' : 'none';
-      });
-    } else {
-      rows.forEach(function(row) { row.style.display = ''; });
-    }
-  }
-  document.getElementById('settings-form').addEventListener('input', function(e) {
-    var input = e.target.closest('.mappings-filter-input');
-    if (input) {
-      var containerId = input.dataset.container;
-      applyMappingFilterAndPagination(containerId);
-    }
-  });
-
-  var paginationTimer = null;
-  var paginationObserver = new MutationObserver(function() {
-    if (paginationTimer) clearTimeout(paginationTimer);
-    paginationTimer = setTimeout(function() {
-      document.querySelectorAll('.mappings-filter-input').forEach(function(input) {
-        var containerId = input.dataset.container;
-        if (containerId) applyMappingFilterAndPagination(containerId);
-      });
-    }, 50);
-  });
-  paginationObserver.observe(document.getElementById('settings-form'), { childList: true, subtree: true });
-
-  // ── Help Search Filter ────────────────────────────────
-  (function() {
-    var helpSearchInput = document.getElementById('help-search');
-    if (!helpSearchInput) return;
-    helpSearchInput.addEventListener('input', function() {
-      var q = this.value.toLowerCase().trim();
-      var accordions = document.querySelectorAll('#section-help details.help-accordion');
-      accordions.forEach(function(acc) {
-        if (!q) { acc.classList.remove('help-hidden'); return; }
-        var text = (acc.textContent || '').toLowerCase();
-        var summary = (acc.querySelector('.help-summary')?.textContent || '').toLowerCase();
-        var visible = summary.includes(q) || text.includes(q);
-        acc.classList.toggle('help-hidden', !visible);
-        if (visible) {
-          acc.open = true;
-          acc.querySelectorAll('details.help-sub').forEach(function(sub) {
-            var subText = (sub.textContent || '').toLowerCase();
-            sub.classList.toggle('help-hidden', !subText.includes(q));
-            if (subText.includes(q)) sub.open = true;
-          });
-        }
-      });
-    });
-  })();
-
-})();
-</script>
 <script src="/js/csrf.js"></script>
 <script src="js/source-labels.js"></script>
 <script src="js/pvoutput-units.js?v=1"></script>
-<script src="settings.js?v=10"></script>
+<script src="settings.js?v=11"></script>
 <script src="js/catalog-ui.js?v=1"></script>
+<script src="js/settings-shell.js?v=1"></script>
 </body>
 </html>

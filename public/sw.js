@@ -18,11 +18,16 @@ const CACHE_NAME = 'epilykos-shell';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
+  '/cards.css',
   '/js/main.js',
   '/js/dashboard.js',
   '/js/charts.js',
   '/js/updater.js',
+  '/js/cards-update.js',
   '/js/editor.js',
+  '/js/editor-catalog.js',
+  '/js/editor-ui.js',
+  '/editor.css',
   '/js/csrf.js',
   '/js/theme.js',
   '/manifest.json',
@@ -34,7 +39,9 @@ const STATIC_ASSETS = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-192.png',
-  '/icons/icon-maskable-512.png'
+  '/icons/icon-maskable-512.png',
+  '/icons/splash-1024.png',
+  '/icons/splash-1024-dark.png'
 ];
 
 // ── Runtime state (received via postMessage) ──────────────────────────

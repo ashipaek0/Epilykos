@@ -15,6 +15,8 @@
  * @module systemTopology
  */
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
+import { formatMetric } from './format.js';
+const watts = (w) => formatMetric(w, 'W').text;
 import { uid } from '../utils/uid.js';
 
 const flowLineObservers = new Map();
@@ -42,19 +44,19 @@ export function buildSystemTopology(block = {}) {
     <div class="topo-grid">
       <div class="topo-node topo-solar" id="${uid('topo-solar',id)}">
         <span class="topo-label">Solar</span>
-        <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">0 W</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
+        <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">—</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
       </div>
       <div class="topo-node topo-grid-node" id="${uid('topo-grid-node',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">—</span></div>
         <span class="topo-label">Grid</span>
       </div>
       <div class="topo-center" id="${uid('topo-center',id)}"><div class="topo-hub"${config.inverter_image ? ` style="background-image:url(${escapeHtml(config.inverter_image)})"` : ''}>${config.inverter_image ? '' : 'INV'}</div></div>
       <div class="topo-node topo-home" id="${uid('topo-home',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-home',id)}" class="fi fi-sr-home"></i><span class="topo-value" data-metric="${escapeHtml(metrics.consumption)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-home',id)}" class="fi fi-sr-home"></i><span class="topo-value" data-metric="${escapeHtml(metrics.consumption)}">—</span></div>
         <span class="topo-label">Home</span>
       </div>
       <div class="topo-node topo-battery" id="${uid('topo-battery',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">0 W</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">—</span></div>
         <span class="topo-label">Battery</span>
       </div>
       <div class="topo-line topo-line-solar"></div><div class="topo-line topo-line-grid"></div><div class="topo-line topo-line-home"></div><div class="topo-line topo-line-battery"></div>
@@ -90,12 +92,12 @@ export function updateSystemTopology(state) {
     const battIsSource = battDischarge > 10;
     const transparent = container.style.getPropertyValue('--card-bg') === 'transparent';
     const el = (s) => document.getElementById(uid(s, id));
-    const sv = container.querySelector('.topo-solar .topo-value'); if (sv) sv.textContent = rawTextOf('solar') ?? (Math.round(solar) + ' W');
+    const sv = container.querySelector('.topo-solar .topo-value'); if (sv) sv.textContent = rawTextOf('solar') ?? (watts(solar));
     const sp = el('topo-solar-pct'); if (sp) { const cap = window.systemCapacityKwp || 2.1; const pct = Math.min(100, Math.round((solar / (cap * 1000)) * 100)); sp.textContent = pct + '%'; }
-    const gv2 = container.querySelector('.topo-grid-node .topo-value'); if (gv2) { gv2.textContent = gridExport > grid ? Math.round(gridExport) + ' W out' : Math.round(grid) + ' W in'; }
-    const hv = container.querySelector('.topo-home .topo-value'); if (hv) hv.textContent = rawTextOf('consumption') ?? (Math.round(consumption) + ' W');
+    const gv2 = container.querySelector('.topo-grid-node .topo-value'); if (gv2) { gv2.textContent = gridExport > grid ? watts(gridExport) + ' out' : watts(grid) + ' in'; }
+    const hv = container.querySelector('.topo-home .topo-value'); if (hv) hv.textContent = rawTextOf('consumption') ?? (watts(consumption));
     const so = el('topo-battery-soc'); if (so) so.textContent = rawTextOf('battery_soc') ?? (Math.round(battSoc) + '%');
-    const bp = el('topo-battery-power'); if (bp) { if (battPower > 10) bp.textContent = '↑ ' + Math.round(battPower) + ' W'; else if (battDischarge > 10) bp.textContent = '↓ ' + Math.round(battDischarge) + ' W'; else bp.textContent = '0 W'; }
+    const bp = el('topo-battery-power'); if (bp) { if (battPower > 10) bp.textContent = '↑ ' + watts(battPower); else if (battDischarge > 10) bp.textContent = '↓ ' + watts(battDischarge); else bp.textContent = watts(0); }
     [['topo-icon-solar', solar > 10 ? 'var(--solar)' : 'var(--text-secondary)']].forEach(([k, v]) => { const e = el(k); if (e) e.style.color = v; });
     const ih = el('topo-icon-home'); if (ih) { if (solar > 10) ih.style.color = 'var(--solar)'; else if (battIsSource) ih.style.color = 'var(--discharge)'; else if (grid > 10) ih.style.color = 'var(--grid)'; else ih.style.color = 'var(--text-secondary)'; }
     const ig = el('topo-icon-grid'); if (ig) { if (gridExport > 10) ig.style.color = 'var(--export)'; else if (grid > 10) ig.style.color = 'var(--grid)'; else ig.style.color = 'var(--text-secondary)'; }
@@ -180,7 +182,18 @@ export function updateSystemTopology(state) {
 function positionFlowLines(container) {
   const grid = container.querySelector('.topo-grid');
   if (!grid) return;
+  // Measure relative to .topo-grid in layout pixels. The card may sit inside
+  // a CSS transform (the layout editor scales previews), so divide by the
+  // on-screen scale.
   const gridRect = grid.getBoundingClientRect();
+  const scale = grid.offsetWidth ? gridRect.width / grid.offsetWidth || 1 : 1;
+  const rel = (el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      left: (r.left - gridRect.left) / scale, right: (r.right - gridRect.left) / scale,
+      top: (r.top - gridRect.top) / scale, bottom: (r.bottom - gridRect.top) / scale
+    };
+  };
 
   const hub = container.querySelector('.topo-hub');
   const solarCircle = container.querySelector('.topo-solar .topo-node-circle');
@@ -190,20 +203,20 @@ function positionFlowLines(container) {
 
   if (!hub || !solarCircle || !gridCircle || !homeCircle || !battCircle) return;
 
-  const hubR = hub.getBoundingClientRect();
-  const solarR = solarCircle.getBoundingClientRect();
-  const gridR = gridCircle.getBoundingClientRect();
-  const homeR = homeCircle.getBoundingClientRect();
-  const battR = battCircle.getBoundingClientRect();
+  const hubR = rel(hub);
+  const solarR = rel(solarCircle);
+  const gridR = rel(gridCircle);
+  const homeR = rel(homeCircle);
+  const battR = rel(battCircle);
 
   const lineW = 3; // line thickness
 
   // Solar → Hub (vertical: solar bottom-center to hub top-center)
   const solarLine = container.querySelector('.topo-line-solar');
   if (solarLine) {
-    const cx = (solarR.left + solarR.right) / 2 - gridRect.left;
-    const y1 = solarR.bottom - gridRect.top;
-    const y2 = hubR.top - gridRect.top;
+    const cx = (solarR.left + solarR.right) / 2;
+    const y1 = solarR.bottom;
+    const y2 = hubR.top;
     Object.assign(solarLine.style, {
       left: (cx - lineW / 2) + 'px', top: y1 + 'px',
       width: lineW + 'px', height: Math.max(0, y2 - y1) + 'px',
@@ -214,9 +227,9 @@ function positionFlowLines(container) {
   // Hub → Battery (vertical: hub bottom-center to battery top-center)
   const battLine = container.querySelector('.topo-line-battery');
   if (battLine) {
-    const cx = (hubR.left + hubR.right) / 2 - gridRect.left;
-    const y1 = hubR.bottom - gridRect.top;
-    const y2 = battR.top - gridRect.top;
+    const cx = (hubR.left + hubR.right) / 2;
+    const y1 = hubR.bottom;
+    const y2 = battR.top;
     Object.assign(battLine.style, {
       left: (cx - lineW / 2) + 'px', top: y1 + 'px',
       width: lineW + 'px', height: Math.max(0, y2 - y1) + 'px',
@@ -227,9 +240,9 @@ function positionFlowLines(container) {
   // Grid → Hub (horizontal: grid right-center to hub left-center)
   const gridLine = container.querySelector('.topo-line-grid');
   if (gridLine) {
-    const cy = (gridR.top + gridR.bottom) / 2 - gridRect.top;
-    const x1 = gridR.right - gridRect.left;
-    const x2 = hubR.left - gridRect.left;
+    const cy = (gridR.top + gridR.bottom) / 2;
+    const x1 = gridR.right;
+    const x2 = hubR.left;
     Object.assign(gridLine.style, {
       left: x1 + 'px', top: (cy - lineW / 2) + 'px',
       width: Math.max(0, x2 - x1) + 'px', height: lineW + 'px',
@@ -240,9 +253,9 @@ function positionFlowLines(container) {
   // Hub → Home (horizontal: hub right-center to home left-center)
   const homeLine = container.querySelector('.topo-line-home');
   if (homeLine) {
-    const cy = (homeR.top + homeR.bottom) / 2 - gridRect.top;
-    const x1 = hubR.right - gridRect.left;
-    const x2 = homeR.left - gridRect.left;
+    const cy = (homeR.top + homeR.bottom) / 2;
+    const x1 = hubR.right;
+    const x2 = homeR.left;
     Object.assign(homeLine.style, {
       left: x1 + 'px', top: (cy - lineW / 2) + 'px',
       width: Math.max(0, x2 - x1) + 'px', height: lineW + 'px',

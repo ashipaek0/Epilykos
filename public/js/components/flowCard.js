@@ -1,5 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
+import { formatMetric } from './format.js';
+const watts = (w) => formatMetric(w, 'W').text;
 
 
 export function buildFlowCard(block = {}) {
@@ -13,7 +15,7 @@ export function buildFlowCard(block = {}) {
   card.dataset.metricMap = JSON.stringify(metrics);
   card.dataset.blockId = id;
 
-  card.innerHTML = `<div class="flow-item solar"><div class="flow-icon"><i id="${uid('icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div><div class="flow-label">Solar</div><div class="flow-value" data-metric="${escapeHtml(metrics.solar)}" id="${uid('flow-solar',id)}">0 W</div>${showGauge?`<div class="solar-now-gauge" id="${uid('solar-now-gauge',id)}"><div class="gauge-bar-bg"><div class="gauge-bar-fill" id="${uid('gauge-bar-fill',id)}"></div></div><span class="gauge-percent" id="${uid('gauge-percent',id)}">0%</span></div>`:''}</div><div class="flow-arrow solar-home">→</div><div class="flow-item battery"><div class="flow-icon"><i id="${uid('icon-battery',id)}" class="fi fi-sr-battery-full"></i></div><div class="flow-label">Battery</div><div class="flow-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('flow-battery-soc',id)}">--%</div><div class="flow-sub" id="${uid('flow-battery-power',id)}">0 W</div></div><div class="flow-arrow battery">⇄</div><div class="flow-item home"><div class="flow-icon"><i id="${uid('icon-home',id)}" class="fi fi-sr-home"></i></div><div class="flow-label">Home</div><div class="flow-value" data-metric="${escapeHtml(metrics.consumption)}" id="${uid('flow-home',id)}">0 W</div></div><div class="flow-arrow grid">⇄</div><div class="flow-item grid"><div class="flow-icon"><svg id="${uid('icon-grid',id)}" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor"><path d="M426.5 480h-341l34.3-113.3h272.4L426.5 480zM144.8 334.7l34.3-113.4h153.8l34.3 113.4H144.8zM256 92.2l76.3 99.1h-152.6L256 92.2zM32 32h448v40H32z"/></svg></div><div class="flow-label">Grid</div><div class="flow-value" id="${uid('flow-grid',id)}">0 W</div><div class="flow-sub" id="${uid('flow-grid-direction',id)}">Import</div></div>`;
+  card.innerHTML = `<div class="flow-item solar"><div class="flow-icon"><i id="${uid('icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div><div class="flow-label">Solar</div><div class="flow-value" data-metric="${escapeHtml(metrics.solar)}" id="${uid('flow-solar',id)}">—</div>${showGauge?`<div class="solar-now-gauge" id="${uid('solar-now-gauge',id)}"><div class="gauge-bar-bg"><div class="gauge-bar-fill" id="${uid('gauge-bar-fill',id)}"></div></div><span class="gauge-percent" id="${uid('gauge-percent',id)}">0%</span></div>`:''}</div><div class="flow-arrow solar-home">→</div><div class="flow-item battery"><div class="flow-icon"><i id="${uid('icon-battery',id)}" class="fi fi-sr-battery-full"></i></div><div class="flow-label">Battery</div><div class="flow-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('flow-battery-soc',id)}">--%</div><div class="flow-sub" id="${uid('flow-battery-power',id)}">—</div></div><div class="flow-arrow battery">⇄</div><div class="flow-item home"><div class="flow-icon"><i id="${uid('icon-home',id)}" class="fi fi-sr-home"></i></div><div class="flow-label">Home</div><div class="flow-value" data-metric="${escapeHtml(metrics.consumption)}" id="${uid('flow-home',id)}">—</div></div><div class="flow-arrow grid">⇄</div><div class="flow-item grid"><div class="flow-icon"><svg id="${uid('icon-grid',id)}" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor"><path d="M426.5 480h-341l34.3-113.3h272.4L426.5 480zM144.8 334.7l34.3-113.4h153.8l34.3 113.4H144.8zM256 92.2l76.3 99.1h-152.6L256 92.2zM32 32h448v40H32z"/></svg></div><div class="flow-label">Grid</div><div class="flow-value" id="${uid('flow-grid',id)}">—</div><div class="flow-sub" id="${uid('flow-grid-direction',id)}">Import</div></div>`;
   return card;
 }
 export function updateFlowCard(state) {
@@ -31,13 +33,13 @@ export function updateFlowCard(state) {
     const rawTextOf = (r) => { const v = entryOf(r)?.value; return (typeof v === 'string' || typeof v === 'boolean') ? formatValueText(v) : null; };
     const sw = Math.round(numOf('solar')), cw = Math.round(numOf('consumption')), bc = Math.round(numOf('battery_charge')), bd = Math.round(numOf('battery_discharge')), gi = Math.round(numOf('grid_import')), ge = Math.round(numOf('grid_export')), bs = numOf('battery_soc');
     const el = (s) => document.getElementById(uid(s, id));
-    const sf = el('flow-solar'); if (sf) sf.textContent = rawTextOf('solar') ?? (sw + ' W');
+    const sf = el('flow-solar'); if (sf) sf.textContent = rawTextOf('solar') ?? (watts(sw));
     const so = el('flow-battery-soc'); if (so) so.textContent = rawTextOf('battery_soc') ?? (Math.round(bs) + '%');
     const bn = bc - bd, bSign = bn >= 0 ? '↑' : '↓', bCol = bn >= 0 ? 'var(--battery)' : 'var(--discharge)';
-    const be = el('flow-battery-power'); if (be) { be.innerHTML = ''; const s = document.createElement('span'); s.style.color = bCol; s.textContent = `${bSign} ${Math.abs(bn)} W`; be.appendChild(s); }
-    const he = el('flow-home'); if (he) he.textContent = rawTextOf('consumption') ?? (cw + ' W');
+    const be = el('flow-battery-power'); if (be) { be.innerHTML = ''; const s = document.createElement('span'); s.style.color = bCol; s.textContent = `${bSign} ${watts(Math.abs(bn))}`; be.appendChild(s); }
+    const he = el('flow-home'); if (he) he.textContent = rawTextOf('consumption') ?? (watts(cw));
     const gn = gi - ge, gDir = gn >= 0 ? 'Import' : 'Export', gCol = gn >= 0 ? 'var(--grid)' : 'var(--export)';
-    const ge2 = el('flow-grid'); if (ge2) { ge2.innerHTML = ''; const s = document.createElement('span'); s.style.color = gCol; s.textContent = Math.abs(gn) + ' W'; ge2.appendChild(s); }
+    const ge2 = el('flow-grid'); if (ge2) { ge2.innerHTML = ''; const s = document.createElement('span'); s.style.color = gCol; s.textContent = watts(Math.abs(gn)); ge2.appendChild(s); }
     const gd = el('flow-grid-direction'); if (gd) gd.textContent = gDir;
     [['icon-solar', sw > 0 ? 'var(--solar)' : 'var(--text)'], ['icon-home', cw > 0 ? 'var(--home)' : 'var(--text)'], ['icon-grid', gn > 0 ? 'var(--grid)' : gn < 0 ? 'var(--export)' : 'var(--text)']].forEach(([k, v]) => { const e = el(k); if (e) e.style.color = v; });
     const bi = el('icon-battery'); if (bi) {

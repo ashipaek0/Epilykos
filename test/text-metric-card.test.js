@@ -308,7 +308,8 @@ const MODULE_PATH = path.join(__dirname, '..', 'public', 'js', 'components', 'te
   // updater dispatch, palette label, and editor form <-> serialize field ids.
   const read = (rel) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
   const indexSrc = read('public/js/components/index.js');
-  const updaterSrc = read('public/js/updater.js');
+  // The per-type dispatch lives in cards-update.js; updater.js calls updateCards().
+  const updaterSrc = read('public/js/cards-update.js');
   const editorSrc = read('public/js/editor.js');
 
   check('builder is registered in componentBuilders', () =>
@@ -318,14 +319,13 @@ const MODULE_PATH = path.join(__dirname, '..', 'public', 'js', 'components', 'te
     ok(/export function buildTextMetricCard/.test(src), 'buildTextMetricCard not exported');
     ok(/export function updateTextMetricCard/.test(src), 'updateTextMetricCard not exported');
   });
-  check('updateWithState dispatches the updater (the "never receives data" gate)', () =>
+  check('updateCards dispatches the updater (the "never receives data" gate)', () =>
     ok(/blockTypes\.has\('text-metric'\)\)\s*updateTextMetricCard\(state\)/.test(updaterSrc),
-      'no dispatch line in public/js/updater.js'));
-  check('palette label is "\uD83D\uDCDD Text Metric" and text-card keeps "\uD83D\uDCDD Text"', () => {
-    // editor.js stores the palette labels as \uXXXX escape text — decode before matching.
-    const pal = editorSrc.replace(/\\u([0-9A-Fa-f]{4})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
-    ok(/'text-metric':'\uD83D\uDCDD Text Metric'/.test(pal), 'missing text-metric palette label');
-    ok(/'text-card':'\uD83D\uDCDD Text'/.test(pal), 'static text-card palette label changed');
+      'no dispatch line in public/js/cards-update.js'));
+  check('block library names text-metric "Text metric" and keeps text-card as "Text"', () => {
+    const catalogSrc = read('public/js/editor-catalog.js');
+    ok(/'text-metric':\s*\{ group: 'values', name: 'Text metric'/.test(catalogSrc), 'missing text-metric library entry');
+    ok(/'text-card':\s*\{ group: 'content', name: 'Text'/.test(catalogSrc), 'static text-card library entry changed');
   });
   check('editor form case, serialize case and field ids agree', () => {
     ok(/case 'text-metric':\s*\n\s*html \+= buildTextMetricForm\(block\)/.test(editorSrc), 'no form case');

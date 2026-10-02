@@ -1,15 +1,18 @@
 import { escapeHtml } from '../utils.js';
+
+/** Another web page in a frame (sandboxed: scripts only). */
 export function buildIframeCard(block = {}) {
   const config = block.config || {};
   const url = config.url || '';
   const container = document.createElement('div');
-  container.className = 'iframe-card';
-  container.style.width = '100%'; container.style.height = '100%'; container.style.minHeight = '300px';
+  container.className = 'iframe-card ep-card ep-card-flush';
   if (url) {
-    container.innerHTML = `<iframe src="${escapeHtml(url)}" style="width:100%;height:100%;min-height:300px;border:none;border-radius:var(--radius);" sandbox="allow-scripts"><!-- sandbox allows scripts only; add allow-popups if needed --></iframe>`;
+    container.innerHTML = `<iframe src="${escapeHtml(url)}" title="${escapeHtml(config.title || 'Embedded page')}" loading="lazy" sandbox="allow-scripts"><!-- sandbox allows scripts only; add allow-popups if needed --></iframe>`;
   } else {
-    container.innerHTML = '<div style="padding:1rem;color:var(--text-secondary);text-align:center;">Configure URL in settings</div>';
+    container.classList.add('ep-card-empty');
+    container.textContent = 'Add the page address for this block in the layout editor.';
   }
   return container;
 }
+
 export function updateIframeCard(state) { /* static */ }

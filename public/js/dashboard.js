@@ -21,6 +21,7 @@ import { clearSparklineCharts } from './forecast.js';
 import { updateAllComponents, updateWithState } from './updater.js';
 import { ensureBlockIds } from './utils/blockId.js';
 import { ensureChartJS } from './chartLoader.js';
+import { applyBlockStyle } from './components/blockStyle.js';
 
 let dashboardConfig;
 
@@ -196,45 +197,7 @@ function renderDashboard() {
     wrapper.style.width = `calc(${((w / 12) * 100)}% - ${GAP * 2}px)`;
     wrapper.style.height = (h * ROW_HEIGHT - GAP * 2) + 'px';
 
-    if (block.bgColor && block.bgColor !== '#ffffff') {
-      content.style.setProperty('background-color', block.bgColor, 'important');
-    }
-    if (block.innerBgColor && block.innerBgColor !== '#ffffff') {
-      content.style.setProperty('--card-bg', block.innerBgColor, 'important');
-      content.style.setProperty('--bg', block.innerBgColor, 'important');
-    }
-    if (block.fontColor && block.fontColor !== '#000000') {
-      content.style.setProperty('color', block.fontColor, 'important');
-    }
-    if (block.fontSize) {
-      content.style.fontSize = block.fontSize;
-      // Scale down children that use rem units by adjusting the root for this block
-      const scale = parseFloat(block.fontSize) / 1;
-      content.style.setProperty('--fs-small', (0.85 * scale) + 'rem', 'important');
-      content.style.setProperty('--fs-medium', (1.1 * scale) + 'rem', 'important');
-      content.style.setProperty('--fs-large', (1.5 * scale) + 'rem', 'important');
-    }
-    if (block.transparent) {
-      content.style.background = 'transparent';
-      content.style.borderColor = 'transparent';
-      content.style.boxShadow = 'none';
-      // Override CSS variables so all children using var(--card-bg) / var(--bg) become transparent
-      content.style.setProperty('--card-bg', 'transparent');
-      content.style.setProperty('--bg', 'transparent');
-      // Also clear inner cards, circles, and chart containers
-      content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
-        el.style.background = 'transparent';
-        el.style.borderColor = 'transparent';
-        el.style.boxShadow = 'none';
-      });
-      // .topo-hub carries the inverter image via background-image (inline, from config) —
-      // clear backgroundColor only so the shorthand doesn't wipe the image
-      content.querySelectorAll('.topo-hub').forEach(el => {
-        el.style.backgroundColor = 'transparent';
-        el.style.borderColor = 'transparent';
-        el.style.boxShadow = 'none';
-      });
-    }
+    applyBlockStyle(content, block);
     wrapper.appendChild(content);
     container.appendChild(wrapper);
 
@@ -267,7 +230,11 @@ function renderDashboard() {
 
         // Add editor link to tab bar
         const editorLink = document.createElement('a');
-        editorLink.href = `/editor?tab=${dashboardConfig.activeDashboard}`;
+        editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
+        // Tabs switch without a reload, so point at the tab shown at click time.
+        editorLink.addEventListener('click', () => {
+          editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
+        });
         editorLink.className = 'settings-link';
         editorLink.textContent = ' Edit Layout';
         editorLink.style.marginLeft = '0.5rem';
