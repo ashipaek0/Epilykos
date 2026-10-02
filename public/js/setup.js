@@ -598,7 +598,6 @@
   // explains what's missing instead (see onNext).
   function canGoNext(step) {
     if (step === 1) return state.status ? (state.status.passwordEnvManaged ? true : validNewPassword()) : false;
-    if (step === 2) return selectedSourcesCount() > 0;
     return true;
   }
   function unassignedCount() {
@@ -625,7 +624,7 @@
     var hintEl = $('#nav-hint');
     if (hintEl && !hintEl.classList.contains('is-error')) {
       var hint = '';
-      if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Pick a source to continue, or skip and add one in Settings.';
+      if (state.currentStep === 2 && selectedSourcesCount() === 0) hint = 'Nothing picked: Continue skips this. Add sources in Settings any time.';
       else if (state.currentStep === 3) hint = roleCountLabel();
       hintEl.textContent = hint;
     }
@@ -1057,6 +1056,7 @@
     return protocol !== 'luxpower-tcp' && protocol !== 'felicity-tcp' && protocol !== 'ble-gatt' && String(p.transport || '').toLowerCase() !== 'growatt';
   }
   // Read-only Bluetooth devices that publish values directly (e.g. Phocos Any-Grid).
+  function isBluetoothOnlyProfile(p) { return !!p && (isBleGattDongleProfile(p) || p.connection === 'bluetooth'); }
   function isBleGattDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'ble-gatt'; }
   // LuxPower dongles: same frames over Wi-Fi (TCP 8000) or Bluetooth, addressed by dongle + inverter serial.
   function isLuxDongleProfile(p) { return !!p && String(p.protocol || '').toLowerCase() === 'luxpower-tcp'; }
@@ -1070,11 +1070,15 @@
     if (!sel || !d.profiles) return;
     var bt = d.link === 'bluetooth';
     var html = '<option value="">Select a profile…</option>';
+    var btOnly = '';
     d.profiles.forEach(function (p) {
       if (bt && !isRegisterDongleProfile(p) && !isBleGattDongleProfile(p) && !isLuxDongleProfile(p)) return;
-      if (!bt && (isBleGattDongleProfile(p) || p.connection === 'bluetooth')) return;
-      html += '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      var opt = '<option value="' + esc(p.id) + '"' + (d.profile === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      // On WiFi, Bluetooth-only profiles (e.g. Phocos Any-Grid) are still
+      // listed in their own group; picking one switches to Bluetooth.
+      if (!bt && isBluetoothOnlyProfile(p)) btOnly += opt; else html += opt;
     });
+    if (btOnly) html += '<optgroup label="Bluetooth only">' + btOnly + '</optgroup>';
     sel.innerHTML = html;
     if (d.profile && sel.value !== d.profile) { d.profile = ''; d.mappings = {}; d.entities = []; }
   }
@@ -1242,6 +1246,10 @@
     var d = state.sources.dongle;
     var prof = (d.profiles || []).filter(function (p) { return p.id === id; })[0];
     if (userChange) { d.mappings = {}; d.entities = []; }
+    if (prof && isBluetoothOnlyProfile(prof) && d.link !== 'bluetooth') {
+      setFieldValue('sources.dongle.link', 'bluetooth');
+      syncDongleLink();
+    }
     if (prof) {
       d.transport = dongleTransport();
       syncDongleBleFields();
@@ -2541,6 +2549,10 @@
     var done = function () { setBusy(false); if (next) next.classList.remove('is-busy'); };
     var proceed = function () { done(); delete state.skipped[step]; gotoStep(step + 1); };
     var stay = function (msg) { done(); updateNav(); if (msg) setNavHint(msg, true); };
+    if (step === 2 && selectedSourcesCount() === 0) {
+      // Nothing picked: same as Skip, no sources are saved.
+      done(); skipStep(); return;
+    }
     if (step === 2) {
       saveSources().then(function (ok) {
         if (ok) { proceed(); return; }
