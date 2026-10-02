@@ -103,7 +103,7 @@ async function fetchHAEntities(url, token) {
     redirect: 'error', // never forward the HA token to a redirect target
     signal: AbortSignal.timeout(5000)
   });
-  if (!response.ok) throw new Error(`HA error ${response.status} for GET ${u.toString()}`);
+  if (!response.ok) throw Object.assign(new Error(`HA error ${response.status} for GET ${u.toString()}`), { haStatus: response.status });
   const data = await response.json();
   return data.filter(e => 
     e.entity_id.startsWith('sensor.') || 

@@ -682,6 +682,36 @@ function stringFields(obj) {
   return out;
 }
 
+// Settings pages receive saved secrets still encrypted ($enc1$…) and send
+// them back as-is when you press a Test / Fetch button. Swap such a value for
+// the real secret, but only when it's one this server stored under one of
+// `configKeys` — an arbitrary envelope is passed through untouched.
+const { isEncrypted, decryptString } = require('./modules/encryption');
+function resolveStoredSecret(value, configKeys) {
+  if (typeof value !== 'string' || !isEncrypted(value)) return value;
+  for (const key of configKeys) {
+    const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
+    if (row && typeof row.value === 'string' && row.value.includes(value)) {
+      try { return decryptString(value); } catch (err) { logger.warn(`Stored secret for ${key} failed to decrypt: ${err.message}`); return value; }
+    }
+  }
+  return value;
+}
+
+// Plain-language reason a Home Assistant request failed, for the UI.
+function haErrorResponse(err, url) {
+  const status = err && err.haStatus;
+  if (status === 401 || status === 403) return { code: 502, error: 'Home Assistant rejected the access token. Create a new long-lived token and paste it in.' };
+  if (status === 404) return { code: 502, error: `Home Assistant's API wasn't found at ${url}. Check the address (it usually ends in :8123).` };
+  if (status) return { code: 502, error: `Home Assistant answered with error ${status}.` };
+  const cause = (err && err.cause && err.cause.code) || (err && err.name);
+  if (cause === 'TimeoutError' || cause === 'UND_ERR_CONNECT_TIMEOUT') return { code: 504, error: `Home Assistant at ${url} didn't answer within 5 seconds.` };
+  if (cause === 'ECONNREFUSED') return { code: 502, error: `Nothing is listening at ${url}. Check the address and port.` };
+  if (cause === 'ENOTFOUND' || cause === 'EAI_AGAIN') return { code: 502, error: `Couldn't find ${url}. Check the address.` };
+  if (cause === 'ECONNRESET' || cause === 'EPROTO' || /SSL|TLS|certificate/i.test(String(err && err.cause && err.cause.message))) return { code: 502, error: `The connection to ${url} failed. If it starts with https, try http (or the reverse).` };
+  return { code: 500, error: 'Internal server error' };
+}
+
 // ---------- Protected API (session + CSRF) – no rate limit ----------
 // Test/discovery routes that carry credentials (passwords, tokens, API keys)
 // are POST with a JSON body, so secrets never land in URLs, access logs or
@@ -689,6 +719,7 @@ function stringFields(obj) {
 app.use('/api/test-forecast', isAuthenticated);
 app.post('/api/test-forecast', async (req, res) => {
   const body = stringFields(req.body);
+  if (body.api_key) body.api_key = resolveStoredSecret(body.api_key, ['solcast_api_key']);
   try {
     res.json(await testForecast(body));
   } catch (err) {
@@ -713,7 +744,8 @@ app.post('/api/role-metrics', (req, res) => {
 app.use('/api/ha-device-entities', isAuthenticated);
 app.post('/api/ha-device-entities', async (req, res) => {
   const body = stringFields(req.body);
-  const { url, token } = body;
+  const { url } = body;
+  const token = resolveStoredSecret(body.token, ['ha_devices', 'ha_token']);
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
@@ -721,7 +753,8 @@ app.post('/api/ha-device-entities', async (req, res) => {
     res.json(await fetchHAEntities(safeUrl, token));
   } catch (err) {
     logger.error('Error fetching HA entities:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    const { code, error: msg } = haErrorResponse(err, url);
+    res.status(code).json({ error: msg });
   }
 });
 
@@ -733,7 +766,8 @@ app.post('/api/ha-device-entities', async (req, res) => {
 app.use('/api/ha/entities', isAuthenticated);
 app.post('/api/ha/entities', async (req, res) => {
   const body = stringFields(req.body);
-  const { url, token } = body;
+  const { url } = body;
+  const token = resolveStoredSecret(body.token, ['ha_devices', 'ha_token']);
   if (!url || !token) return res.status(400).json({ error: 'HA URL and token required' });
   const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
   if (!ok) return res.status(400).json({ error });
@@ -754,12 +788,13 @@ app.post('/api/ha/entities', async (req, res) => {
       redirect: 'error', // never forward the HA token to a redirect target
       signal: AbortSignal.timeout(5000)
     });
-    if (!response.ok) throw new Error(`HA error ${response.status} for GET ${u.toString()}`);
+    if (!response.ok) throw Object.assign(new Error(`HA error ${response.status} for GET ${u.toString()}`), { haStatus: response.status });
     const states = await response.json();
     res.json(haStatesToCatalog(states));
   } catch (err) {
     logger.error('Error fetching HA entity catalog:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    const { code, error: msg } = haErrorResponse(err, url);
+    res.status(code).json({ error: msg });
   }
 });
 
@@ -870,7 +905,7 @@ app.post('/api/test-mqtt', async (req, res) => {
     return device?.broker;
   })();
   const username = body.username || null;
-  const password = body.password || null;
+  const password = resolveStoredSecret(body.password, ['mqtt_devices', 'mqtt_password']) || null;
   if (!broker) return res.status(400).json({ error: 'No MQTT broker configured. Enter a broker URL first.' });
   const options = {};
   if (username) options.username = username;
@@ -907,7 +942,7 @@ app.post('/api/test-mqtt-topic', async (req, res) => {
     return device?.broker;
   })();
   const username = body.username || null;
-  const password = body.password || null;
+  const password = resolveStoredSecret(body.password, ['mqtt_devices', 'mqtt_password']) || null;
   if (!broker) return res.status(400).json({ error: 'No MQTT broker configured' });
   const options = {};
   if (username) options.username = username;
@@ -945,7 +980,7 @@ app.post('/api/mqtt-discover-topics', async (req, res) => {
   const body = stringFields(req.body);
   const broker = body.broker;
   const username = body.username || null;
-  const password = body.password || null;
+  const password = resolveStoredSecret(body.password, ['mqtt_devices', 'mqtt_password']) || null;
   if (!broker) return res.status(400).json({ error: 'Broker URL required' });
   const safe = assertSafeBrokerUrl(broker);
   if (!safe.ok) return res.status(400).json({ error: safe.error });
