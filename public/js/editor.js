@@ -7,6 +7,7 @@ import { updateCards } from './cards-update.js';
 import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
+import { applyBlockStyle, fontScale } from './components/blockStyle.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
 const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
@@ -218,6 +219,20 @@ function metricSelect(selectedName, existingId, extraOptions) {
   return sel;
 }
 
+// Text size choices, saved as a percentage. Older free-text values
+// ("1.2rem", "18px") still work and show as a custom choice.
+var FONT_SIZES = [['', 'Default'], ['80%', 'Smaller (80%)'], ['90%', 'Small (90%)'], ['115%', 'Large (115%)'], ['130%', 'Larger (130%)'], ['150%', 'Extra large (150%)'], ['175%', 'Huge (175%)']];
+function fontSizeSelect(current) {
+  var cur = String(current || '');
+  var known = FONT_SIZES.some(function(o) { return o[0] === cur; });
+  var opts = FONT_SIZES.map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? ' selected' : '') + '>' + o[1] + '</option>'; });
+  if (!known) {
+    var k = fontScale(cur);
+    opts.push('<option value="' + escHtml(cur) + '" selected>Custom (' + escHtml(cur) + (k ? ', ' + Math.round(k * 100) + '%' : '') + ')</option>');
+  }
+  return '<select id="modal-fontsize" data-ui="input">' + opts.join('') + '</select>';
+}
+
 /** Build common appearance fields: transparent, bgColor, fontColor, fontSize (Style tab) */
 function buildAppearanceFields(block) {
   var config = block.config || {};
@@ -233,7 +248,7 @@ function buildAppearanceFields(block) {
     '<label data-ui="label">Bg Color <input type="color" id="modal-bgcolor" value="' + escHtml(bgColor) + '" data-dirty="false" data-ui="color"></label>',
     '<label data-ui="label">Font Color <input type="color" id="modal-fontcolor" value="' + escHtml(fontColor) + '" data-dirty="false" data-ui="color"></label>',
     '</div>',
-    '<label data-ui="field">Font Size <input type="text" id="modal-fontsize" value="' + escHtml(fontSize) + '" placeholder="e.g. 0.9rem" data-ui="input"></label>',
+    '<label data-ui="field">Text size ' + fontSizeSelect(fontSize) + '</label>',
     '</fieldset>'
   ].join('\n');
 }
@@ -1753,34 +1768,8 @@ function readSettingsForm(block) {
 
 var FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'weather-block'];
 
-/** Apply a block's saved styling to its rendered content (mirrors dashboard.js). */
-function applyBlockStyling(content, block) {
-  if (block.bgColor && block.bgColor !== '#ffffff') {
-    content.style.setProperty('background-color', block.bgColor, 'important');
-  }
-  if (block.innerBgColor && block.innerBgColor !== '#ffffff') {
-    content.style.setProperty('--card-bg', block.innerBgColor, 'important');
-    content.style.setProperty('--bg', block.innerBgColor, 'important');
-  }
-  if (block.fontColor && block.fontColor !== '#000000') {
-    content.style.setProperty('color', block.fontColor, 'important');
-  }
-  if (block.fontSize) {
-    content.style.fontSize = block.fontSize;
-  }
-  if (block.transparent) {
-    content.style.background = 'transparent';
-    content.style.borderColor = 'transparent';
-    content.style.boxShadow = 'none';
-    content.style.setProperty('--card-bg', 'transparent');
-    content.style.setProperty('--bg', 'transparent');
-    content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(function(el) {
-      el.style.background = 'transparent';
-      el.style.borderColor = 'transparent';
-      el.style.boxShadow = 'none';
-    });
-  }
-}
+/** Apply a block's saved styling to its rendered content (shared with the dashboard). */
+function applyBlockStyling(content, block) { applyBlockStyle(content, block); }
 
 /** Render a block's component, or null when its type is unknown. */
 function buildBlockContent(block) {

@@ -96,7 +96,7 @@ export function buildBarThresholdCard(block) {
 
   const valueEl = document.createElement('div');
   valueEl.className = 'bar-threshold-value';
-  valueEl.style.cssText = 'position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:var(--text-primary);font-weight:600;font-size:0.85rem;pointer-events:none;';
+  valueEl.style.cssText = 'position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:var(--text-primary);font-weight:600;font-size:calc(0.85rem * var(--card-font-scale, 1));pointer-events:none;';
   valueEl.textContent = cfg.metric ? EMPTY_TEXT : NO_METRIC_TEXT;
   container.appendChild(valueEl);
 
