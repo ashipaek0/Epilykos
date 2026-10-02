@@ -276,6 +276,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | **Inverter dongle timeout** | Ping the dongle IP from the server and verify the port is reachable |
 | **Charts are blank** | Open the browser console (`F12`) and check for JavaScript errors |
 | **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |
+| **`EACCES` on `/app/data` / `SQLITE_CANTOPEN` at startup** | Fixed in current images (the container now makes `./data` writable itself). On an older image: `sudo chown -R 1000:1000 ./data` then `docker compose up -d` |
 | **RS232 permission denied** | `sudo usermod -a -G dialout $USER` then log out and back in |
 | **RS232 scan error (ENOENT)** | Ensure the container has `udev` installed — the Docker image includes it by default |
 | **WebSocket fails ("closed before connection is established")** | If using the PWA, unregister the old Service Worker and reload; also check [WebSocket reverse proxy configuration](#websocket-support) |
