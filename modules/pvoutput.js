@@ -12,7 +12,7 @@
  * @module pvoutput
  */
 const express = require('express');
-const { getConfig, getDb } = require('./database');
+const { getConfig, getDb, resolveStoredSecret } = require('./database');
 const { logger } = require('./logger');
 const { init: initRateLimiter, canCall } = require('./pvoutput/rateLimiter');
 const { PVOutputClient } = require('./pvoutput/client');
@@ -90,7 +90,9 @@ apiRouter.get('/status', (req, res) => {
 });
 
 apiRouter.post('/test', async (req, res) => {
-  const { api_key, system_id } = req.body;
+  const { system_id } = req.body || {};
+  // Settings sends a saved key back still encrypted; use the real one.
+  const api_key = resolveStoredSecret(req.body && req.body.api_key, ['pvoutput_config']);
   if (!api_key || !system_id) return res.status(400).json({ error: 'API key and system ID required' });
   try {
     const testClient = new PVOutputClient(api_key, system_id);
