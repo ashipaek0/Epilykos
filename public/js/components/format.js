@@ -95,13 +95,13 @@ export function renderValue(el, formatted) {
   el.classList.toggle('is-text', !!formatted.isText);
 }
 
-/** Hours as "3 h 12 min", "45 min" or "0 min". */
+/** Duration as "3 h 12", "45" or "0" (and "3 h" for whole hours). */
 export function formatDuration(hours) {
   const total = Math.max(0, Math.round((Number(hours) || 0) * 60));
   const h = Math.floor(total / 60), m = total % 60;
-  if (h && m) return `${h} h ${m} min`;
+  if (h && m) return `${h} h ${m}`;
   if (h) return `${h} h`;
-  return `${m} min`;
+  return `${m}`;
 }
 
 /** Money: two decimals below 100, whole numbers above. */
