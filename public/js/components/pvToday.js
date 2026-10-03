@@ -119,6 +119,7 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
         // kWh in this period (Solcast periods are 30 min; energy_kwh from the backend)
         kwh: h.energy_kwh != null ? h.energy_kwh : (h.pv_estimate || 0),
         cloud: h.cloud_cover != null ? h.cloud_cover : null,
+        periodMs: /^PT30M$/i.test(h.period || '') ? 1800000 : 3600000,
         code: h.weather_code != null ? h.weather_code : null,
         isDay: h.is_day
       }));
@@ -339,10 +340,16 @@ function cloudToCode(cloud) {
 
 function renderTimeline(iconsEl, barEl, hourly, win) {
   if (!iconsEl || !barEl) return;
-  // Five evenly spaced slots across the daylight window.
-  const slots = [0, 0.25, 0.5, 0.75, 1].map(f => win.start + f * (win.end - win.start));
+  // One slot per hour of the daylight window: an icon above, a cloud bar below.
+  const slots = [];
+  for (let t = win.start; t < win.end; t += 3600000) slots.push(t + 1800000);
   const timelineData = slots.map(t => {
-    const entry = hourly.reduce((best, cur) => (!best || Math.abs(cur.x - t) < Math.abs(best.x - t) ? cur : best), null);
+    let entry = null;
+    for (const cur of hourly) {
+      // Periods are stamped at their end; compare against their middle.
+      const mid = cur.x - (cur.periodMs || 3600000) / 2;
+      if (Math.abs(mid - t) <= 3600000 && (!entry || Math.abs(mid - t) < Math.abs(entry.mid - t))) entry = { ...cur, mid };
+    }
     const code = entry ? (entry.code != null ? entry.code : cloudToCode(entry.cloud)) : null;
     return { t, cloud: entry ? entry.cloud : null, code, isDay: entry ? entry.isDay : null };
   });
@@ -365,9 +372,7 @@ function renderTimeline(iconsEl, barEl, hourly, win) {
     if (d.cloud > 20) return cloudLight;
     return cloudClear;
   });
-  barEl.innerHTML = colors.map(c =>
-    `<div class="pvt-timeline-seg" style="background:${c};flex:1;height:3px;border-radius:1px;margin:0 1px;"></div>`
-  ).join('');
+  barEl.innerHTML = colors.map(c => `<div class="pvt-timeline-seg" style="background:${c}"></div>`).join('');
 }
 
 function getHourTimestamp(hour) {
