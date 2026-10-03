@@ -97,9 +97,10 @@ function renderSummary(card, data, cfg) {
 
   // Today: remaining forecast energy, with produced / expected context
   const valueEl = q('.fc-today-value');
-  if (valueEl) valueEl.textContent = remaining != null ? fmtKwh(remaining) : fmtKwh(total);
+  if (valueEl) valueEl.firstChild.textContent = `${remaining != null ? fmtKwh(remaining) : fmtKwh(total)}`;
+  const remainingEl = q('.fc-today-remaining');
+  if (remainingEl) remainingEl.hidden = remaining == null;
   const sub = [];
-  if (remaining != null) sub.push('remaining');
   if (actual != null && actual > 0) sub.push(`${fmtNum(actual, 1)} produced`);
   if (total != null) sub.push(`${fmtNum(total, 1)} expected`);
   const subEl = q('.fc-today-sub');
