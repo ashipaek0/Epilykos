@@ -1745,7 +1745,8 @@ details.help-sub.help-hidden { display: none; }
 
 .fc-today { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .fc-today-label { font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
-.fc-today-value { font-size: calc(clamp(1.4rem, 8cqi, 2.2rem) * var(--card-font-scale, 1)); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-today-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.45rem; min-width: 0; font-size: calc(clamp(1.4rem, 8cqi, 2.2rem) * var(--card-font-scale, 1)); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fc-today-remaining { font-size: calc(0.75rem * var(--card-font-scale, 1)); color: var(--text-secondary); font-weight: 400; }
 .fc-today-sub { font-size: calc(0.75rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
 .fc-progress { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 0.3rem; }
 .fc-progress span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.6s ease; }
