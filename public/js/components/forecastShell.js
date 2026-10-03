@@ -29,7 +29,7 @@ export function buildForecastShell(block, opts) {
       ${opts.summary ? `
       <section class="fc-today">
         <div class="fc-today-label">Today</div>
-        <div class="fc-today-value">-- kWh</div>
+        <div class="fc-today-value">-- kWh<span class="fc-today-remaining" hidden>remaining</span></div>
         <div class="fc-today-sub"></div>
         <div class="fc-progress" hidden><span></span></div>
       </section>

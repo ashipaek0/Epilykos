@@ -45,6 +45,9 @@ let autoHideTimer = null;     // setTimeout handle for the pill auto-hide countd
 let indicatorHidden = false;  // current hidden state of the pill (drives the handle's aria-expanded)
 let pillFocused = false;      // true while focus is inside the pill -> auto-hide suspended (P2b.7)
 let hideToken = 0;            // invalidates a pending faded-hide so it can never hide a re-revealed pill
+let lastKnownLabel = null;    // last rendered badge/handle state label — used to detect a REAL state
+                               // change (vs. a same-state periodic tick) so a fully-hidden handle can
+                               // auto-reveal itself only when something actually changed
 
 // ── Mode helpers ──────────────────────────────────────────────────────
 function getNetworkMode() {
@@ -301,6 +304,7 @@ function updateIndicator(resolved) {
   if (offlineFlag) {
     setBadge('Offline', '#b91c1c');
     setHandleCue('#b91c1c', HANDLE_STATE_GLYPH.Offline, 'Offline');
+    announceStateChange('Offline');
     return;
   }
 
@@ -316,6 +320,21 @@ function updateIndicator(resolved) {
   setBadge(label, color);
   // P2b.7(5): distinct glyph per state (Local / Remote / Active) — never colour alone.
   setHandleCue(color, HANDLE_STATE_GLYPH[label] || HANDLE_STATE_GLYPH.Active, label);
+  announceStateChange(label);
+}
+
+// P2b-revised: once the pill+handle are fully hidden, the ONLY way back is a
+// REAL state change (e.g. Local -> Offline, Active -> Remote) — a same-state
+// periodic tick must never re-reveal it. Compares against lastKnownLabel so
+// repeats are silently ignored; a genuine change reveals + restarts the
+// countdown so the new state is visible for AUTO_HIDE_MS before re-hiding.
+function announceStateChange(label) {
+  const changed = lastKnownLabel !== null && lastKnownLabel !== label;
+  lastKnownLabel = label;
+  if (changed && indicatorHidden) {
+    revealIndicator();
+    scheduleAutoHide();
+  }
 }
 
 function updateIndicatorOffline() {
@@ -332,8 +351,12 @@ function updateIndicatorOffline() {
 // This mechanism owns its OWN timer and must never touch checkTimer,
 // startRecheck() or stopRecheck() (R1).
 
-function getAutoHideTarget() {
-  return document.querySelector(AUTO_HIDE_TARGET);
+function getAutoHideTargets() {
+  // P2b-revised: the HANDLE now hides too (fully invisible), so both the pill
+  // and the handle move together as one auto-hide unit.
+  const pill = document.querySelector(AUTO_HIDE_TARGET);
+  const handle = document.getElementById('epilykos-network-handle');
+  return [pill, handle].filter(Boolean);
 }
 
 function prefersReducedMotion() {
@@ -385,7 +408,7 @@ function cancelAutoHide() {
 function scheduleAutoHide() {
   cancelAutoHide();
   if (pillFocused) return;             // P2b.7(1): never hide under focus
-  if (!getAutoHideTarget()) return;    // pill not built yet
+  if (!getAutoHideTargets().length) return;    // pill not built yet
   autoHideTimer = setTimeout(() => {
     autoHideTimer = null;
     if (pillFocused) return;           // focus arrived after scheduling (defensive)
@@ -394,27 +417,29 @@ function scheduleAutoHide() {
 }
 
 function revealIndicator() {
-  const target = getAutoHideTarget();
-  if (!target) return;
+  const targets = getAutoHideTargets();
+  if (!targets.length) return;
   indicatorHidden = false;
   hideToken++;   // any pending faded-hide callback is now stale
   // Genuine visibility is restored (not bare opacity), so a following Tab lands
   // on #epilykos-network-mode-select when shown and never when hidden (P2b.7(3)).
-  target.style.transition = prefersReducedMotion() ? 'none' : 'opacity 200ms ease';
-  target.style.visibility = 'visible';
-  target.style.opacity = '1';
-  target.style.pointerEvents = 'auto';
+  targets.forEach(target => {
+    target.style.transition = prefersReducedMotion() ? 'none' : 'opacity 200ms ease';
+    target.style.visibility = 'visible';
+    target.style.opacity = '1';
+    target.style.pointerEvents = 'auto';
+  });
   syncHandleState();
 }
 
 // animate=true: the auto-hide path fades (~200ms) then goes visibility:hidden,
-// which removes the pill and its descendants from the tab order and a11y tree
-// while leaving textContent/style updates working (P2b.6).
+// which removes the pill (and now the handle too) and its descendants from the
+// tab order and a11y tree while leaving textContent/style updates working (P2b.6).
 // animate=false: the user's explicit "close" hides instantly — a fade there is
 // only delay.
 function hideIndicator(animate) {
-  const target = getAutoHideTarget();
-  if (!target) return;
+  const targets = getAutoHideTargets();
+  if (!targets.length) return;
   cancelAutoHide();
   indicatorHidden = true;
   // P2b.7(1) hardening: a hide must NEVER leave the focus-suspension flag stuck.
@@ -424,22 +449,28 @@ function hideIndicator(animate) {
   // returned early — a re-revealed pill could then never auto-hide. The pill is
   // being hidden, so re-derive the flag from the live DOM instead of trusting
   // the callback (a focused node inside the hidden pill no longer holds focus).
-  pillFocused = !indicatorHidden && target.contains(document.activeElement);
+  pillFocused = !indicatorHidden && targets.some(t => t.contains(document.activeElement));
   const token = ++hideToken;   // invalidates any earlier pending faded-hide
-  target.style.pointerEvents = 'none';
+  targets.forEach(target => { target.style.pointerEvents = 'none'; });
   if (animate && !prefersReducedMotion()) {
-    target.style.transition = 'opacity 200ms ease';
-    target.style.opacity = '0';
-    // After the fade, take the pill (and its descendants) out of the tab order
-    // and the a11y tree. The token makes a stale callback a no-op if the pill
-    // was re-revealed in the meantime.
+    targets.forEach(target => {
+      target.style.transition = 'opacity 200ms ease';
+      target.style.opacity = '0';
+    });
+    // After the fade, take the pill+handle (and descendants) out of the tab
+    // order and the a11y tree. The token makes a stale callback a no-op if the
+    // pill was re-revealed in the meantime.
     setTimeout(() => {
-      if (token === hideToken && indicatorHidden) target.style.visibility = 'hidden';
+      if (token === hideToken && indicatorHidden) {
+        targets.forEach(target => { target.style.visibility = 'hidden'; });
+      }
     }, 200);
   } else {
-    target.style.transition = 'none';
-    target.style.opacity = '0';
-    target.style.visibility = 'hidden';
+    targets.forEach(target => {
+      target.style.transition = 'none';
+      target.style.opacity = '0';
+      target.style.visibility = 'hidden';
+    });
   }
   syncHandleState();
 }
@@ -447,7 +478,7 @@ function hideIndicator(animate) {
 // Toggle semantics (P2b.4): hidden -> reveal + (re)start the countdown;
 // shown -> hide immediately and cancel the pending timer.
 function toggleIndicator() {
-  if (!getAutoHideTarget()) return;
+  if (!getAutoHideTargets().length) return;
   if (indicatorHidden) {
     revealIndicator();
     scheduleAutoHide();
