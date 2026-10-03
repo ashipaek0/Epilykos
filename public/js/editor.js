@@ -1892,7 +1892,7 @@ function updateEmptyState() {
 
 // GRID_MARGIN applies to each side of a block, so blocks sit 2 × GRID_MARGIN apart,
 // the same as the dashboard (GAP in dashboard.js).
-var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 2;
+var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 1;
 var previewScale = 1;
 
 /** Width the dashboard's block area has in this browser window. */
