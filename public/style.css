@@ -297,7 +297,7 @@ h1, h2, h3, h4,
     height: auto !important;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
   .dashboard-block {
     position: relative !important;
@@ -1596,8 +1596,10 @@ details.help-sub.help-hidden { display: none; }
 .setup-banner {
   display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
   margin: 0.75rem 0; padding: 0.75rem 1rem;
-  background: var(--accent-light, #ffede0); color: inherit;
-  border: 1px solid var(--border, #d4d2cc); border-radius: var(--radius, 12px);
+  /* Own text colour: inheriting the page's light text in dark mode left it
+     unreadable on the light background. */
+  background: #fff4e6; color: #3d2a12;
+  border: 1px solid #f3d9b8; border-radius: var(--radius, 12px);
   font-size: calc(0.95rem * var(--card-font-scale, 1));
 }
 .setup-banner-btn {
@@ -1611,6 +1613,7 @@ details.help-sub.help-hidden { display: none; }
   font-size: calc(1rem * var(--card-font-scale, 1)); line-height: 1; color: inherit; opacity: 0.7;
 }
 .setup-banner-dismiss:hover { opacity: 1; }
+[data-theme="dark"] .setup-banner { background: #2a1f08; color: #fde7c7; border-color: #4a3410; }
 .setup-wizard-entry {
   display: inline-block; margin-top: 0.5rem; padding: 0.4rem 0.9rem;
   border: 1px solid var(--border, #d4d2cc); border-radius: 8px;
