@@ -95,13 +95,11 @@ export function renderValue(el, formatted) {
   el.classList.toggle('is-text', !!formatted.isText);
 }
 
-/** Duration as "3 h 12", "45" or "0" (and "3 h" for whole hours). */
+/** Duration as H:MM, with unpadded hours and zero-hour durations shown as 00:MM. */
 export function formatDuration(hours) {
   const total = Math.max(0, Math.round((Number(hours) || 0) * 60));
   const h = Math.floor(total / 60), m = total % 60;
-  if (h && m) return `${h} h ${m}`;
-  if (h) return `${h} h`;
-  return `${m}`;
+  return `${h || '00'}:${String(m).padStart(2, '0')}`;
 }
 
 /** Money: two decimals below 100, whole numbers above. */
