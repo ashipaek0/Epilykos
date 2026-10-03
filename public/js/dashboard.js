@@ -135,7 +135,7 @@ function renderDashboard() {
 
   // Render blocks with absolute positioning based on GridStack coordinates
   const ROW_HEIGHT = 50; // matches editor cellHeight
-  const GAP = 5; // half of GridStack's ~10px default margin between items
+  const GAP = 2; // px on each side of a card, so cards sit 4px apart (editor: GRID_MARGIN)
 
   // Build position descriptors sorted by gridY for overlap prevention
   const positioned = [];

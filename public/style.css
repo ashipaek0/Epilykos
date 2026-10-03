@@ -297,7 +297,7 @@ h1, h2, h3, h4,
     height: auto !important;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 4px;
   }
   .dashboard-block {
     position: relative !important;
