@@ -1876,3 +1876,120 @@ details.help-sub.help-hidden { display: none; }
 /* A card whose source failed before it ever rendered shows only the error. */
 .fc-card.fc-failed .fc-body, .wx-card.wx-failed .wx-body,
 .wx-card.wx-failed .wx-hourly, .wx-card.wx-failed .wx-charts { display: none; }
+
+/* Metric Trend — keep the title band neutral and isolate user fill to the body. */
+.metric-trend-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  background: var(--surface-raised, var(--card-bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 14px);
+  box-shadow: none;
+  text-align: left;
+  font-family: var(--font, 'Manrope', system-ui, sans-serif);
+}
+.metric-trend-card *, .metric-trend-card *::before, .metric-trend-card *::after { box-sizing: border-box; }
+.metric-trend-header {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin: 0;
+  gap: .55rem;
+  min-width: 0;
+  padding: .7rem .85rem;
+  color: var(--text-primary);
+  background: var(--surface-raised, var(--card-bg));
+  border-bottom: 1px solid var(--border);
+}
+.metric-trend-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+.metric-trend-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: calc(clamp(.85rem, 2.6vw, 1.1rem) * var(--card-font-scale, 1));
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metric-trend-body {
+  position: relative;
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "readout" "context" "graph";
+  align-items: center;
+  justify-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: .5rem .75rem;
+  overflow: hidden;
+  background: transparent;
+}
+.metric-trend-readout {
+  grid-area: readout;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: .2em;
+  align-self: center;
+  max-width: 100%;
+  min-width: 0;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+.metric-trend-value {
+  min-width: 0;
+  font-size: calc(clamp(1.5rem, 6vw, 3rem) * var(--card-font-scale, 1));
+  font-weight: 600;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+.metric-trend-unit { flex: 0 1 auto; font-size: calc(clamp(.85rem, 3vw, 1.5rem) * var(--card-font-scale, 1)); font-weight: 500; }
+.metric-trend-status { max-width: 100%; color: var(--text-secondary); font-size: calc(var(--fs-small, .85rem) * var(--card-font-scale, 1)); text-align: center; }
+.metric-trend-context { grid-area: context; z-index: 1; max-width: 100%; color: var(--text-secondary); font-size: calc(var(--fs-small, .85rem) * var(--card-font-scale, 1)); line-height: 1.2; text-align: center; }
+.metric-trend-graph-wrap {
+  grid-area: graph;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.metric-trend-graph-wrap[hidden] { display: none; }
+.metric-trend-graph {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  overflow: hidden;
+}
+.metric-trend-graph path { vector-effect: non-scaling-stroke; }
+.metric-trend-line:not([stroke]) { stroke: var(--text-secondary); }
+.metric-trend-area:not([fill]) { fill: var(--text-secondary); }
+.metric-trend-graph-unit { flex: 0 0 auto; align-self: flex-end; color: var(--text-secondary); font-size: calc(.7rem * var(--card-font-scale, 1)); line-height: 1.1; }
+.metric-trend-card.metric-trend-subtle-area .metric-trend-body { background: transparent; }
+.metric-trend-card.metric-trend-filled-body .metric-trend-body { background-color: transparent; }
+@media (max-width: 480px) {
+  .metric-trend-header { gap: .4rem; padding: .55rem .6rem; }
+  .metric-trend-body { padding: .4rem .55rem; }
+  .metric-trend-value { font-size: calc(clamp(1.2rem, 7vw, 2rem) * var(--card-font-scale, 1)); }
+  .metric-trend-unit { font-size: calc(clamp(.75rem, 3.5vw, 1.1rem) * var(--card-font-scale, 1)); }
+  .metric-trend-context { font-size: calc(.72rem * var(--card-font-scale, 1)); }
+}
