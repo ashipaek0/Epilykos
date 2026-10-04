@@ -89,6 +89,7 @@ export const BLOCKS = {
   'savings-summary':    { group: 'values', name: 'Savings', desc: 'Savings today, this week, month and all time', icon: 'coin', w: 4, h: 4 },
 
   'gauge-card':         { group: 'gauges', name: 'Gauge', desc: 'One value on a round dial', icon: 'gauge', w: 3, h: 5 },
+  'configurable-gauge': { group: 'gauges', name: 'Configurable Gauge', desc: 'A fully configurable dial with bands and history', icon: 'gauge', w: 4, h: 5 },
   'half-gauge':         { group: 'gauges', name: 'Half gauge', desc: 'One value on a semicircle', icon: 'halfGauge', w: 3, h: 3 },
   'half-gauge-2':       { group: 'gauges', name: 'Half gauge, centre zero', desc: 'Zero at the top; fills right or left for negative values', icon: 'halfGauge', w: 3, h: 3 },
   'bar-gauge':          { group: 'gauges', name: 'Bar gauge', desc: 'Horizontal bars for several metrics', icon: 'bars', w: 4, h: 4 },

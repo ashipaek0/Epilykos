@@ -395,6 +395,71 @@ h1, h2, h3, h4,
 .stat-value { font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); opacity: 0.7; margin-top: 0.25rem; }
 
+/* Configurable gauge card — styles stay scoped to this component. */
+.configurable-gauge-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  color: var(--text);
+}
+.configurable-gauge-title {
+  width: 100%;
+  overflow-wrap: anywhere;
+  font-size: calc(var(--fs-small) * var(--card-font-scale, 1));
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.configurable-gauge-viz {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+.configurable-gauge-card *, .configurable-gauge-card *::before, .configurable-gauge-card *::after { box-sizing: border-box; }
+.configurable-gauge-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.configurable-gauge-fill,
+.configurable-gauge-segment-fill {
+  transition: stroke-dasharray 180ms ease, visibility 180ms ease;
+}
+.configurable-gauge-readout {
+  pointer-events: none;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.configurable-gauge-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.configurable-gauge-unit {
+  margin-left: 0.2em;
+  font-size: 0.65em;
+  color: var(--text-secondary);
+}
+.configurable-gauge-history {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-height: 3rem;
+  overflow: visible;
+}
+.configurable-gauge-history-line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (max-width: 480px) {
+  .configurable-gauge-card { padding: 0.45rem 0.55rem; }
+  .configurable-gauge-title { font-size: calc(0.75rem * var(--card-font-scale, 1)); }
+  .configurable-gauge-history { max-height: 2.25rem; }
+}
+
 /* Bar Gauge Card */
 .bar-gauge-card {
   background: var(--card-bg); border-radius: var(--radius);

@@ -1230,6 +1230,31 @@ function renderStateSelectRows(container) {
   }
 }
 
+function buildConfigurableGaugeForm(block) {
+  var c = block.config || {}, b = c.band || {}, g = c.graph || {};
+  function field(key, label, value, type, attrs) {
+    var id = 'cg-' + key.replace(/[^a-z0-9]/gi, '-');
+    return '<label data-ui="field">' + label + ' <input id="' + id + '" type="' + (type || 'text') + '" value="' + escHtml(value == null ? '' : value) + '" ' + (attrs || 'data-ui="input"') + '></label>';
+  }
+  function select(key, label, value, choices) {
+    return '<label data-ui="field">' + label + ' <select id="cg-' + key + '" data-ui="input">' + choices.map(function(x) { return '<option value="' + x[0] + '"' + (x[0] === value ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>';
+  }
+  function optionalColor(key, label, value) { return field(key, label, value, 'text', 'placeholder="Use theme default" data-ui="input"'); }
+  function check(key, label, value) { return '<label><input id="cg-' + key + '" type="checkbox"' + (value ? ' checked' : '') + '> ' + label + '</label>'; }
+  var h = '<fieldset data-ui="section"><legend data-ui="legend">Metric and readout</legend><label data-ui="field">Metric ' + metricSelect(c.metric || '', 'cg-metric') + '</label>';
+  h += field('title','Title',c.title) + field('unit','Unit',c.unit) + field('min','Minimum',c.min == null ? 0 : c.min,'number','step="any" data-ui="input"') + field('max','Maximum',c.max == null ? 100 : c.max,'number','step="any" data-ui="input"');
+  h += field('precision','Precision',c.precision == null ? 0 : c.precision,'number','min="0" max="6" data-ui="input"') + check('showReadout','Show readout',c.showReadout !== false) + field('readoutColor','Readout color',c.readoutColor,'text','placeholder="Use theme default" data-ui="input"') + field('readoutSize','Readout size',c.readoutSize == null ? 24 : c.readoutSize,'number');
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Outer band</legend>' + check('band-show','Show band',b.show) + field('band-thickness','Thickness',b.thickness == null ? 8 : b.thickness,'number') + field('band-spacing','Spacing',b.spacing == null ? 3 : b.spacing,'number') + optionalColor('band-trackColor','Track color',b.trackColor);
+  h += '<div id="cg-threshold-rows">' + (Array.isArray(b.thresholds) ? b.thresholds : []).map(function(t,i){return '<div data-ui="row" data-threshold-index="' + i + '"><label>Threshold ' + (i+1) + ' <input class="cg-threshold-value" type="number" step="any" value="' + escHtml(t.value) + '"></label><label>Color <input class="cg-threshold-color" type="text" placeholder="Use theme default" value="' + escHtml(t.color || '') + '"></label></div>';}).join('') + '</div><button type="button" id="cg-threshold-add" data-ui="add">Add threshold</button></fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Inner ring</legend>' + select('preset','Preset',c.preset || 'continuous',[['continuous','Continuous'],['segmented','Segmented']]) + select('style','Style',c.style || 'flat',[['flat','Flat'],['gradient','Gradient'],['glow','Glow']]);
+  h += field('segmentCount','Segment count',c.segmentCount == null ? 12 : c.segmentCount,'number') + field('segmentGap','Segment gap',c.segmentGap == null ? 2 : c.segmentGap,'number') + field('segmentColors','Segment colors (comma-separated)',Array.isArray(c.segmentColors) ? c.segmentColors.join(', ') : '') + optionalColor('arcColor','Arc color',c.arcColor) + optionalColor('gradientEnd','Gradient end',c.gradientEnd) + field('arcThickness','Arc thickness',c.arcThickness == null ? 12 : c.arcThickness,'number') + optionalColor('trackColor','Track color',c.trackColor) + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Geometry</legend>' + field('opening','Opening angle',c.opening == null ? 90 : c.opening,'number') + field('rotation','Rotation',c.rotation == null ? 0 : c.rotation,'number') + field('size','Gauge size',c.size == null ? 200 : c.size,'number') + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Mini graph</legend>' + check('graph-show','Show graph',g.show) + '<label data-ui="field">Graph metric ' + metricSelect(g.metric || '', 'cg-graph-metric') + '</label>' + select('graph-window','History window',g.window || '1h',[['1h','1 hour'],['6h','6 hours'],['24h','24 hours'],['7d','7 days']]) + select('graph-mode','Graph style',g.mode || 'line',[['line','Line'],['area','Area']]);
+  h += field('graph-thickness','Line thickness',g.thickness == null ? 2 : g.thickness,'number') + optionalColor('graph-color','Graph color',g.color) + field('graph-opacity','Fill opacity',g.opacity == null ? .2 : g.opacity,'number','min="0" max="1" step="0.05" data-ui="input"') + check('graph-marker','Endpoint marker',g.marker) + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Card surface</legend>' + optionalColor('background','Background',c.background) + optionalColor('borderColor','Border color',c.borderColor) + field('borderWidth','Border width',c.borderWidth == null ? 0 : c.borderWidth,'number') + field('radius','Corner radius',c.radius == null ? 12 : c.radius,'number') + '</fieldset>';
+  return h;
+}
+
 /** Main entry: build the settings form for a given block type */
 function buildSettingsForm(block) {
   var type = block.type;
@@ -1264,6 +1289,9 @@ function buildSettingsForm(block) {
       break;
     case 'bar-threshold':
       html += buildBarThresholdForm(block);
+      break;
+    case 'configurable-gauge':
+      html += buildConfigurableGaugeForm(block);
       break;
     case 'gauge-card':
     case 'half-gauge':
@@ -1318,7 +1346,15 @@ function buildSettingsForm(block) {
 
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
-  var config = block.config || {};
+  var config = Object.assign({}, block.config || {});
+  if (block.type === 'configurable-gauge') {
+    var minField = document.getElementById('cg-min'), maxField = document.getElementById('cg-max');
+    var minRaw = minField ? String(minField.value).trim() : String(config.min == null ? 0 : config.min).trim();
+    var maxRaw = maxField ? String(maxField.value).trim() : String(config.max == null ? 100 : config.max).trim();
+    var minValue = minRaw === '' ? NaN : Number(minRaw);
+    var maxValue = maxRaw === '' ? NaN : Number(maxRaw);
+    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || minValue >= maxValue) return 'Minimum and maximum must be finite numbers, and minimum must be less than maximum.';
+  }
   // Common appearance
   config.enabled = document.getElementById('modal-enabled')?.checked !== false;
   config.transparent = document.getElementById('modal-transparent')?.checked || false;
@@ -1525,10 +1561,23 @@ function readSettingsForm(block) {
         var btColVal = allBtColors[bti] ? allBtColors[bti].value : '';
         btBandsOut.push({ to: btToVal, color: btColVal || BAR_THRESHOLD_WARM[bti % BAR_THRESHOLD_WARM.length] });
       }
-      if (!btBandsOut.length) {
-        btBandsOut = BAR_THRESHOLD_WARM.map(function(c, i) { return { to: (i + 1) * 25, color: c }; });
-      }
+      if (!btBandsOut.length) btBandsOut = BAR_THRESHOLD_WARM.map(function(c, i) { return { to: (i + 1) * 25, color: c }; });
       config.bands = btBandsOut;
+      break;
+    }
+    case 'configurable-gauge': {
+      function val(key) { var el = document.getElementById('cg-' + key); return el ? el.value : ''; }
+      function num(key, fallback) { var n = Number(val(key)); return Number.isFinite(n) ? n : fallback; }
+      function checked(key) { var el = document.getElementById('cg-' + key); return !!(el && el.checked); }
+      config.metric = val('metric'); config.title = val('title'); config.unit = val('unit'); config.min = Number(val('min')); config.max = Number(val('max'));
+      config.precision = num('precision', 0); config.showReadout = checked('showReadout'); config.readoutColor = val('readoutColor'); config.readoutSize = num('readoutSize', 24);
+      var thresholdRows = document.querySelectorAll('#cg-threshold-rows [data-ui="row"]');
+      config.band = Object.assign({}, config.band || {}, { show: checked('band-show'), thickness: num('band-thickness', 8), spacing: num('band-spacing', 3), trackColor: val('band-trackColor'), thresholds: Array.from(thresholdRows).map(function(row) { var index = row.getAttribute('data-threshold-index'); var prior = index == null ? {} : ((config.band && config.band.thresholds || [])[Number(index)] || {}); var rawValue = row.querySelector('.cg-threshold-value').value; return Object.assign({}, prior, { value: rawValue.trim() === '' ? NaN : Number(rawValue), color: row.querySelector('.cg-threshold-color').value }); }).filter(function(t) { return Number.isFinite(t.value); }) });
+      config.preset = val('preset'); config.segmentCount = num('segmentCount', 12); config.segmentGap = num('segmentGap', 2); config.segmentColors = val('segmentColors').split(',').map(function(x) { return x.trim(); }).filter(Boolean);
+      config.style = val('style'); config.arcColor = val('arcColor'); config.gradientEnd = val('gradientEnd'); config.arcThickness = num('arcThickness', 12); config.trackColor = val('trackColor');
+      config.opening = num('opening', 90); config.rotation = num('rotation', 0); config.size = num('size', 200);
+      config.graph = Object.assign({}, config.graph || {}, { show: checked('graph-show'), metric: val('graph-metric'), window: val('graph-window'), mode: val('graph-mode'), thickness: num('graph-thickness', 2), color: val('graph-color'), opacity: num('graph-opacity', .2), marker: checked('graph-marker') });
+      config.background = val('background'); config.borderColor = val('borderColor'); config.borderWidth = num('borderWidth', 0); config.radius = num('radius', 12);
       break;
     }
     case 'gauge-card':
@@ -2349,6 +2398,18 @@ function wireInspector(aside, block) {
   var body = $('ins-body');
   body.addEventListener('submit', function(e) { e.preventDefault(); });
   wireSettingsForm(body, block);
+  var cgAddThreshold = body.querySelector('#cg-threshold-add');
+  if (cgAddThreshold) cgAddThreshold.addEventListener('click', function() {
+    var rows = body.querySelector('#cg-threshold-rows');
+    var row = document.createElement('div'); row.setAttribute('data-ui', 'row');
+    row.innerHTML = '<label>Threshold <input class="cg-threshold-value" type="number" step="any" value=""></label><label>Color <input class="cg-threshold-color" type="text" placeholder="Use theme default" value=""></label><button type="button" aria-label="Remove threshold">Remove</button>';
+    row.querySelector('button').addEventListener('click', function() { row.remove(); scheduleApply(0); });
+    rows.appendChild(row); scheduleApply(0);
+  });
+  body.querySelectorAll('#cg-threshold-rows [data-ui="row"]').forEach(function(row) {
+    var remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.setAttribute('aria-label', 'Remove threshold');
+    remove.addEventListener('click', function() { row.remove(); scheduleApply(0); }); row.appendChild(remove);
+  });
   if (readOnly) return;
 
   body.addEventListener('input', function(e) {
