@@ -1,6 +1,7 @@
 const { getConfig, getDb } = require('./database');
 const { computeTodaySolar } = require('./solar');
-const { SQL_LOCAL_DAY, localDateString } = require('./localTime');
+const { localDateString } = require('./localTime');
+const { readDailySnapshots } = require('./timeseriesReader');
 
 async function getSavings() {
   const db = getDb();
@@ -27,19 +28,12 @@ async function getSavings() {
   const weekStartUnix = Math.floor(weekStart.getTime() / 1000);
   const todayEndUnix = Math.floor(now.getTime() / 1000);
 
-  const weekRows = db.prepare(`
-    SELECT ${SQL_LOCAL_DAY} AS day, MAX(daily_solar) AS max_solar
-    FROM history WHERE timestamp >= ? AND timestamp <= ? AND daily_solar IS NOT NULL
-    GROUP BY day ORDER BY day ASC
-  `).all(weekStartUnix, todayEndUnix);
+  const rows = readDailySnapshots(db, { from: Math.min(weekStartUnix, Math.floor(new Date(monthStartStr + 'T00:00:00').getTime() / 1000)), to: todayEndUnix, toInclusive: true, fields: ['daily_solar'] });
 
   // Month rows from the same data — just aggregate differently
   const monthStartUnix = Math.floor(new Date(monthStartStr + 'T00:00:00').getTime() / 1000);
-  const monthRows = db.prepare(`
-    SELECT ${SQL_LOCAL_DAY} AS day, MAX(daily_solar) AS max_solar
-    FROM history WHERE timestamp >= ? AND timestamp <= ? AND daily_solar IS NOT NULL
-    GROUP BY day ORDER BY day ASC
-  `).all(monthStartUnix, todayEndUnix);
+  const weekRows = rows.filter(row => row.day >= localDateString(weekStart) && row.day <= todayStr).map(row => ({ day: row.day, max_solar: row.daily_solar }));
+  const monthRows = rows.filter(row => row.day >= monthStartStr && row.day <= todayStr).map(row => ({ day: row.day, max_solar: row.daily_solar }));
 
   // Sum past days from the DB and use the live value for today (counted even
   // when no history row has been written for today yet).
@@ -54,7 +48,7 @@ async function getSavings() {
   const monthSolar = sumWithLiveToday(monthRows);
 
   // All-time aggregation
-  const dayRows = db.prepare(`SELECT ${SQL_LOCAL_DAY} AS day, MAX(daily_solar) AS max_solar FROM history WHERE daily_solar IS NOT NULL GROUP BY day ORDER BY day ASC`).all();
+  const dayRows = readDailySnapshots(db, { fields: ['daily_solar'] }).map(row => ({ day: row.day, max_solar: row.daily_solar }));
   const allTimeSolar = dayRows.reduce((sum, row) => sum + (row.max_solar || 0), 0);
   const allTimeSavings = allTimeSolar * rate;
 

@@ -2,6 +2,7 @@ const { logger } = require('./logger');
 const https = require('https');
 const { getConfig, setConfig, getDb, flushMetrics } = require('./database');
 const { localDateString } = require('./localTime');
+const { readMetricSeries, readHistorySeries, readDailySnapshots } = require('./timeseriesReader');
 
 let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
 let solarCache = { value: 0, timestamp: 0 };
@@ -48,7 +49,7 @@ function computeSolarForDate(dateStr) {
   const endOfDay = new Date(dateStr + 'T23:59:59');
   const startUnix = Math.floor(startOfDay.getTime() / 1000);
   const endUnix = Math.floor(endOfDay.getTime() / 1000);
-  const rows = db.prepare('SELECT timestamp, solar FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, endUnix);
+  const rows = readHistorySeries(db, { from: startUnix, to: endUnix, toInclusive: true, fields: ['solar'] });
   let totalKwh = 0;
   if (rows.length >= 2) {
     for (let i = 0; i < rows.length - 1; i++) {
@@ -62,8 +63,8 @@ function computeSolarForDate(dateStr) {
   }
   // Fallback: if integration returned nothing, use daily_solar from history
   if (totalKwh <= 0) {
-    const ds = db.prepare('SELECT MAX(daily_solar) as max_kwh FROM history WHERE timestamp >= ? AND timestamp <= ?').get(startUnix, endUnix);
-    if (ds && ds.max_kwh && ds.max_kwh > 0) totalKwh = ds.max_kwh;
+    const ds = readDailySnapshots(db, { from: startUnix, to: endUnix, toInclusive: true, fields: ['daily_solar'] }).reduce((best, row) => Math.max(best, row.daily_solar || 0), 0);
+    if (ds > 0) totalKwh = ds;
   }
   return totalKwh;
 }
@@ -92,10 +93,8 @@ function computeTodaySolar() {
     const row = db.prepare('SELECT value FROM latest_metrics WHERE metric = ?').get(configured);
     if (row && row.value > 0) { computed = row.value; done = true; }
     if (!done) {
-      const rows = db.prepare(
-        'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-      ).all(configured, startUnix, endUnix);
-      if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; }
+      const rows = readMetricSeries(db, { metric: configured, from: startUnix, to: endUnix, toInclusive: true });
+      if (rows.length >= 2) { computed = integrateWattsToKwh(rows.map(row => ({ timestamp: row.timestamp, value: row.value })), endUnix); done = true; }
     }
   }
 
@@ -116,10 +115,8 @@ function computeTodaySolar() {
       for (let i = 0; i < allMetrics.length; i++) {
         var n = allMetrics[i].metric.toLowerCase();
         if (n.indexOf('solar') !== -1 && (n.indexOf('power') !== -1 || n.indexOf('watts') !== -1 || n.indexOf('kw') !== -1)) {
-          const rows = db.prepare(
-            'SELECT timestamp, value FROM metrics WHERE metric = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-          ).all(allMetrics[i].metric, startUnix, endUnix);
-          if (rows.length >= 2) { computed = integrateWattsToKwh(rows, endUnix); done = true; break; }
+          const rows = readMetricSeries(db, { metric: allMetrics[i].metric, from: startUnix, to: endUnix, toInclusive: true });
+          if (rows.length >= 2) { computed = integrateWattsToKwh(rows.map(row => ({ timestamp: row.timestamp, value: row.value })), endUnix); done = true; break; }
         }
       }
     }
@@ -127,9 +124,7 @@ function computeTodaySolar() {
 
   // 4. Fall back to history table (HA/MQTT legacy path)
   if (!done) {
-    const histRows = db.prepare(
-      'SELECT timestamp, solar as value FROM history WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-    ).all(startUnix, endUnix);
+    const histRows = readHistorySeries(db, { from: startUnix, to: endUnix, toInclusive: true, fields: ['solar'] }).map(row => ({ timestamp: row.timestamp, value: row.solar }));
     if (histRows.length >= 2) computed = integrateWattsToKwh(histRows, endUnix);
   }
 
@@ -777,11 +772,19 @@ async function getSolarForecast(sourceParam, restMap) {
   const now = Date.now();
   const cached = forecastCache[selector];
   if (cached && cached.data && (now - cached.timestamp) < FORECAST_CACHE_MS) {
-    // The PV forecast is kept for 3 h (Solcast quota), but the day it starts
-    // on must still be today; weather is refreshed on its own 15-min cadence.
+    // The PV forecast curve is kept for 3 h (Solcast quota), but
+    // `actual_so_far` is live telemetry (computeTodaySolar(), itself only
+    // 30s-cached) -- it must never be frozen for the full forecast TTL, or
+    // "produced" on the card goes stale for up to 3h. Refresh it on every
+    // cache hit, same as weather.
     if (cached.data.daily[0]?.date !== localDateString()) {
       delete forecastCache[selector];
     } else {
+      const todayDate = localDateString();
+      const actualTodayKwh = computeTodaySolar();
+      for (const dayEntry of cached.data.daily) {
+        if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
+      }
       await attachWeather(cached.data, cached.ctx);
       return cached.data;
     }
