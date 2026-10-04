@@ -54,6 +54,19 @@ function forecastUrlFor(source, restMap) {
   return url;
 }
 
+// Shared in-flight request seam for every forecast card family. The backend's
+// selector/REST mapping and cache remain authoritative; this only coalesces
+// simultaneous identical frontend requests.
+const forecastInflight = new Map();
+export function getSharedForecastData(source = 'auto', restMap = {}) {
+  const url = forecastUrlFor(source || 'auto', normalizeRestMap(restMap));
+  if (!forecastInflight.has(url)) {
+    const request = fetch(url).then(response => response.json()).finally(() => forecastInflight.delete(url));
+    forecastInflight.set(url, request);
+  }
+  return forecastInflight.get(url);
+}
+
 /** Per-card inline error (AC8). Never hides the card itself. */
 function setCardError(card, message) {
   const err = card.querySelector('.fc-error');
@@ -264,7 +277,7 @@ export async function updateForecast() {
 
   const entries = [...groups.values()];
   const results = await Promise.all(entries.map(async (g) => {
-    try { return await (await fetch(forecastUrlFor(g.src, g.restMap))).json(); }
+    try { return await getSharedForecastData(g.src, g.restMap); }
     catch { return { error: true, source: g.src }; }
   }));
   let historyData = null;

@@ -40,6 +40,7 @@ const ICON_PATHS = {
   plug: '<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 01-10 0V8zM12 16v5"/>',
   coin: '<circle cx="12" cy="12" r="8"/><path d="M14.5 9.5a2.5 2 0 00-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 01-2.5-1.5M12 6.5v11"/>',
   gauge: '<path d="M4.5 17a8.5 8.5 0 1115 0"/><path d="M12 13l4-4"/>',
+  metricTrend: '<path d="M3 18l5-6 4 3 8-9"/><path d="M3 21h18"/>',
   halfGauge: '<path d="M4 16a8 8 0 0116 0"/><path d="M12 16l4-5"/>',
   bars: '<path d="M4 7h12M4 12h16M4 17h8"/>',
   segments: '<path d="M4 8v8M8 8v8M12 8v8M16 8v8M20 8v8" stroke-dasharray="2 1"/>',
@@ -83,6 +84,7 @@ export const BLOCKS = {
   'flow-card-square-2': { group: 'flow', name: 'Flow square, alternate', desc: 'Square flow layout without the inverter image', icon: 'square', w: 4, h: 6 },
 
   'metric-cards':       { group: 'values', name: 'Metric cards', desc: 'A row of large single values', icon: 'cards', w: 12, h: 3 },
+  'metric-trend':       { group: 'values', name: 'Metric Trend', desc: 'A live metric with an optional history or forecast graph', icon: 'metricTrend', w: 4, h: 4 },
   'multi-value':        { group: 'values', name: 'Multi-value list', desc: 'Label, value and unit rows', icon: 'list', w: 4, h: 4 },
   'text-metric':        { group: 'values', name: 'Text metric', desc: "One metric's current value as text", icon: 'text', w: 4, h: 2 },
   'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 4, h: 4 },

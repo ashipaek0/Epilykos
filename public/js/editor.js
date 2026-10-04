@@ -1255,6 +1255,59 @@ function buildConfigurableGaugeForm(block) {
   return h;
 }
 
+function buildMetricTrendForm(block) {
+  var c = block.config || {}, v = c.value || {}, g = c.graph || {}, d = c.display || {}, s = c.style || {};
+  function field(id, label, value, type, attrs) {
+    return '<label data-ui="field">' + label + ' <input id="mt-' + id + '" type="' + (type || 'text') + '" value="' + escHtml(value == null ? '' : value) + '" ' + (attrs || 'data-ui="input"') + '></label>';
+  }
+  function select(id, label, value, options) {
+    return '<label data-ui="field">' + label + ' <select id="mt-' + id + '" data-ui="input">' + options.map(function(o) { return '<option value="' + escHtml(o[0]) + '"' + (o[0] === value ? ' selected' : '') + '>' + escHtml(o[1]) + '</option>'; }).join('') + '</select></label>';
+  }
+  function check(id, label, checked) { return '<label data-ui="field"><input id="mt-' + id + '" type="checkbox"' + (checked ? ' checked' : '') + '> ' + label + '</label>'; }
+  function sourceSelect(id, source, restMap) {
+    var options = [['default','Default source'],['solcast','Solcast'],['open-meteo','Open-Meteo']];
+    availableRestSources.forEach(function(n) { options.push(['rest:' + n, n + ' (REST)']); });
+    var selected = source || 'default';
+    var known = options.some(function(o) { return o[0] === selected; });
+    var h = '<label data-ui="field">Forecast source <select id="mt-' + id + '-source-select" data-ui="input">';
+    if (!known) h += '<option value="' + escHtml(selected) + '" selected>' + escHtml(selected) + '</option>';
+    h += options.map(function(o) { return '<option value="' + escHtml(o[0]) + '"' + (o[0] === selected ? ' selected' : '') + '>' + escHtml(o[1]) + '</option>'; }).join('') + '</select></label>';
+    h += '<label data-ui="field">REST field map (JSON) <textarea id="mt-' + id + '-rest-map" data-ui="input textarea">' + escHtml(restMap && typeof restMap === 'object' ? JSON.stringify(restMap) : (restMap || '')) + '</textarea></label>';
+    return h;
+  }
+  var h = '<fieldset data-ui="section"><legend data-ui="legend">Metric Trend</legend>';
+  h += select('preset','Preset',c.preset || 'subtle-area',[['subtle-area','Subtle area'],['filled-body','Filled body']]);
+  h += field('title','Title',c.title);
+  h += '<label data-ui="field">Icon ID <select id="mt-icon" data-ui="input">';
+  var iconIds = ['', 'sun', 'sunLine', 'panel', 'battery', 'plug', 'flow', 'chartLine', 'chartArea', 'metricTrend'];
+  iconIds.forEach(function(id) { h += '<option value="' + id + '"' + (id === (c.icon || '') ? ' selected' : '') + '>' + (id || 'Default') + '</option>'; });
+  h += '</select></label>';
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Value</legend>';
+  h += select('value-source','Value source',v.source || 'metric',[['metric','Metric'],['solar-forecast','Solar forecast']]);
+  h += '<label data-ui="field">Metric ' + metricSelect(v.metric || '', 'mt-value-metric') + '</label>';
+  h += select('forecast-value','Forecast value',v.forecastValue || 'today-total',[['today-total','Today total'],['today-remaining','Today remaining'],['tomorrow-total','Tomorrow total']]);
+  h += field('value-unit','Unit override',v.unit,'text','placeholder="Optional supported conversion only" data-ui="input"');
+  h += sourceSelect('value',v.forecastSource,v.restMap);
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Optional graph</legend>';
+  h += check('graph-enabled','Show graph',!!g.enabled) + select('graph-source','Graph source',g.source || 'none',[['none','None'],['metric-history','Metric history'],['solar-forecast','Solar forecast']]);
+  h += '<label data-ui="field">Graph metric ' + metricSelect(g.metric || v.metric || '', 'mt-graph-metric') + '</label>';
+  h += select('graph-window','History window',g.window || '1h',[['1h','1 hour'],['6h','6 hours'],['24h','24 hours'],['7d','7 days']]);
+  h += select('graph-period','Forecast period',g.forecastPeriod || 'today',[['today','Today'],['tomorrow','Tomorrow']]) + sourceSelect('graph',g.forecastSource,g.restMap);
+  h += select('graph-line-style','Line style',g.lineStyle || 'area',[['area','Area'],['line','Line']]);
+  h += field('graph-line-width','Line width',g.lineWidth == null ? 2 : g.lineWidth,'number','min="0.5" max="8" step="0.5" data-ui="input"') + check('graph-marker','Marker',!!g.marker);
+  h += select('graph-scale','Scale',g.scale || 'auto',[['auto','Automatic'],['manual','Manual']]);
+  h += field('graph-min','Minimum',g.min == null ? 0 : g.min,'number','step="any" data-ui="input"') + field('graph-max','Maximum',g.max == null ? 100 : g.max,'number','step="any" data-ui="input"');
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Display</legend>';
+  h += field('precision','Precision',d.precision == null ? 1 : d.precision,'number','min="0" max="6" step="1" data-ui="input"') + check('compact','Compact number',!!d.compact);
+  h += field('value-font-size','Value font size',d.valueFontSize == null ? 40 : d.valueFontSize,'number','min="12" max="96" data-ui="input"') + field('unit-font-size','Unit font size',d.unitFontSize == null ? 16 : d.unitFontSize,'number','min="12" max="96" data-ui="input"');
+  h += select('align','Readout alignment',d.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Independent styling</legend>';
+  [['header-color','Header color',s.headerColor],['header-text-color','Header text color',s.headerTextColor],['body-fill','Body fill',s.bodyFill],['body-fill-end','Body fill end',s.bodyFillEnd],['value-color','Value color',s.valueColor],['unit-color','Unit color',s.unitColor],['graph-line-color','Graph line color',s.graphLineColor],['graph-fill-color','Graph fill color',s.graphFillColor],['border-color','Border color',s.borderColor]].forEach(function(x) { h += field(x[0],x[1],x[2],'text','placeholder="Use theme default" data-ui="input"'); });
+  h += field('gradient-angle','Gradient angle',s.gradientAngle == null ? 180 : s.gradientAngle,'number','min="0" max="360" data-ui="input"') + field('graph-fill-opacity','Graph fill opacity',s.graphFillOpacity == null ? .2 : s.graphFillOpacity,'number','min="0" max="1" step="0.05" data-ui="input"');
+  h += field('border-width','Border width',s.borderWidth == null ? 0 : s.borderWidth,'number','min="0" max="8" data-ui="input"') + field('radius','Corner radius',s.radius == null ? 12 : s.radius,'number','min="0" max="32" data-ui="input"') + field('padding','Padding',s.padding == null ? 16 : s.padding,'number','min="0" max="32" data-ui="input"') + '</fieldset>';
+  return h;
+}
+
 /** Main entry: build the settings form for a given block type */
 function buildSettingsForm(block) {
   var type = block.type;
@@ -1289,6 +1342,9 @@ function buildSettingsForm(block) {
       break;
     case 'bar-threshold':
       html += buildBarThresholdForm(block);
+      break;
+    case 'metric-trend':
+      html += buildMetricTrendForm(block);
       break;
     case 'configurable-gauge':
       html += buildConfigurableGaugeForm(block);
@@ -1347,6 +1403,51 @@ function buildSettingsForm(block) {
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
   var config = Object.assign({}, block.config || {});
+  if (block.type === 'metric-trend') {
+    var mtGet = function(id) { return document.getElementById('mt-' + id); };
+    var mtRaw = function(id, fallback) { var el = mtGet(id); return el ? String(el.value).trim() : String(fallback); };
+    var mtNum = function(id, fallback, min, max, integer) {
+      var raw = mtRaw(id, fallback), n = raw === '' ? NaN : Number(raw);
+      if (!Number.isFinite(n) || (integer && !Number.isInteger(n)) || n < min || n > max) return null;
+      return n;
+    };
+    var priorValue = config.value || {}, priorGraph = config.graph || {}, priorDisplay = config.display || {}, priorStyle = config.style || {};
+    var mtScale = mtRaw('graph-scale', priorGraph.scale || 'auto');
+    var graphMin = mtNum('graph-min', priorGraph.min == null ? 0 : priorGraph.min, -Infinity, Infinity, false);
+    var graphMax = mtNum('graph-max', priorGraph.max == null ? 100 : priorGraph.max, -Infinity, Infinity, false);
+    var numeric = [
+      [mtNum('precision',priorDisplay.precision == null ? 1 : priorDisplay.precision,0,6,true),'Precision must be an integer from 0 to 6.'],
+      [mtNum('value-font-size',priorDisplay.valueFontSize == null ? 40 : priorDisplay.valueFontSize,12,96,false),'Value font size must be between 12 and 96.'],
+      [mtNum('unit-font-size',priorDisplay.unitFontSize == null ? 16 : priorDisplay.unitFontSize,12,96,false),'Unit font size must be between 12 and 96.'],
+      [mtNum('graph-line-width',priorGraph.lineWidth == null ? 2 : priorGraph.lineWidth,.5,8,false),'Graph line width must be between 0.5 and 8.'],
+      [mtNum('graph-fill-opacity',priorStyle.graphFillOpacity == null ? .2 : priorStyle.graphFillOpacity,0,1,false),'Graph fill opacity must be between 0 and 1.'],
+      [mtNum('gradient-angle',priorStyle.gradientAngle == null ? 180 : priorStyle.gradientAngle,0,360,false),'Gradient angle must be between 0 and 360.'],
+      [mtNum('border-width',priorStyle.borderWidth == null ? 0 : priorStyle.borderWidth,0,8,false),'Border width must be between 0 and 8.'],
+      [mtNum('radius',priorStyle.radius == null ? 12 : priorStyle.radius,0,32,false),'Corner radius must be between 0 and 32.'],
+      [mtNum('padding',priorStyle.padding == null ? 16 : priorStyle.padding,0,32,false),'Padding must be between 0 and 32.']
+    ];
+    for (var mi = 0; mi < numeric.length; mi++) if (numeric[mi][0] === null) return numeric[mi][1];
+    if (mtScale === 'manual' && (graphMin === null || graphMax === null || graphMin >= graphMax)) return 'Manual graph minimum and maximum must be finite numbers, and minimum must be less than maximum.';
+    var mtParseMap = function(id, prior) {
+      var el = mtGet(id), text = el ? el.value.trim() : '';
+      if (!text) return {};
+      var result;
+      try { result = JSON.parse(text); } catch (e) { return null; }
+      if (!result || typeof result !== 'object' || Array.isArray(result) || Object.keys(result).some(function(k) { return typeof result[k] !== 'string'; })) return null;
+      return result;
+    };
+    var valueRest = mtParseMap('value-rest-map', priorValue.restMap), graphRest = mtParseMap('graph-rest-map', priorGraph.restMap);
+    if (valueRest === null || graphRest === null) return 'Forecast field maps must be JSON objects with string values.';
+    var nextValue = Object.assign({}, priorValue, {source:mtRaw('value-source',priorValue.source || 'metric'), metric:mtRaw('value-metric',priorValue.metric || ''), forecastValue:mtRaw('forecast-value',priorValue.forecastValue || 'today-total'), unit:mtRaw('value-unit',priorValue.unit || ''), forecastSource:mtRaw('value-source-select',priorValue.forecastSource || 'default'), restMap:valueRest});
+    var nextGraph = Object.assign({}, priorGraph, {enabled:!!(mtGet('graph-enabled') ? mtGet('graph-enabled').checked : priorGraph.enabled), source:mtRaw('graph-source',priorGraph.source || 'none'), metric:mtRaw('graph-metric',priorGraph.metric || nextValue.metric || ''), window:mtRaw('graph-window',priorGraph.window || '1h'), forecastPeriod:mtRaw('graph-period',priorGraph.forecastPeriod || 'today'), forecastSource:mtRaw('graph-source-select',priorGraph.forecastSource || 'default'), restMap:graphRest, lineStyle:mtRaw('graph-line-style',priorGraph.lineStyle || 'area'), lineWidth:numeric[3][0], marker:!!(mtGet('graph-marker') ? mtGet('graph-marker').checked : priorGraph.marker), scale:mtScale});
+    if (mtScale === 'manual') { nextGraph.min = graphMin; nextGraph.max = graphMax; }
+    var nextDisplay = Object.assign({}, priorDisplay, {precision:numeric[0][0], compact:!!(mtGet('compact') ? mtGet('compact').checked : priorDisplay.compact), valueFontSize:numeric[1][0], unitFontSize:numeric[2][0], align:mtRaw('align',priorDisplay.align || 'center')});
+    var nextStyle = Object.assign({}, priorStyle);
+    [['headerColor','header-color'],['headerTextColor','header-text-color'],['bodyFill','body-fill'],['bodyFillEnd','body-fill-end'],['valueColor','value-color'],['unitColor','unit-color'],['graphLineColor','graph-line-color'],['graphFillColor','graph-fill-color'],['borderColor','border-color']].forEach(function(pair) { nextStyle[pair[0]] = mtRaw(pair[1],priorStyle[pair[0]] || ''); });
+    nextStyle.graphFillOpacity = numeric[4][0]; nextStyle.gradientAngle = numeric[5][0]; nextStyle.borderWidth = numeric[6][0]; nextStyle.radius = numeric[7][0]; nextStyle.padding = numeric[8][0];
+    config.preset = mtRaw('preset',config.preset || 'subtle-area'); config.title = mtRaw('title',config.title || ''); config.icon = mtRaw('icon',config.icon || '');
+    config.value = nextValue; config.graph = nextGraph; config.display = nextDisplay; config.style = nextStyle;
+  }
   if (block.type === 'configurable-gauge') {
     var minField = document.getElementById('cg-min'), maxField = document.getElementById('cg-max');
     var minRaw = minField ? String(minField.value).trim() : String(config.min == null ? 0 : config.min).trim();
