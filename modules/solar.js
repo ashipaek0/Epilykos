@@ -757,6 +757,7 @@ function resolveRestSource(name, restMap) {
     source_label: src.name,
     weather_source: key,
     weather, daily, hourly: [],
+    server_today: localDateString(),
     pv_estimate: pv
   };
 }
@@ -781,6 +782,7 @@ async function getSolarForecast(sourceParam, restMap) {
       delete forecastCache[selector];
     } else {
       const todayDate = localDateString();
+      cached.data.server_today = todayDate;
       const actualTodayKwh = computeTodaySolar();
       for (const dayEntry of cached.data.daily) {
         if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
@@ -916,7 +918,11 @@ async function getSolarForecast(sourceParam, restMap) {
   // All of today's periods (including the earlier ones) plus the next 48 h.
   const earlierCount = forecastData.filter(f => f.earlier).length;
   const hourly = forecastData.slice(0, 96 + earlierCount);
-  const result = { daily, hourly, source, source_label: SOURCE_LABELS[source] || source };
+  for (const period of hourly) {
+    const end = new Date(period.period_end);
+    period.date = Number.isFinite(end.getTime()) ? localDateString(end) : null;
+  }
+  const result = { daily, hourly, source, source_label: SOURCE_LABELS[source] || source, server_today: todayDate };
 
   // D4: effective source is Solcast and its payload carries air_temp /
   // relative_humidity -> prefer them for weather temp/humidity.
