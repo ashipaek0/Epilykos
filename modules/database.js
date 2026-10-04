@@ -109,6 +109,38 @@ function initializeDatabase() {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metrics_5m (
+      bucket_start INTEGER NOT NULL,
+      metric       TEXT    NOT NULL,
+      value_avg    REAL,
+      value_min    REAL,
+      value_max    REAL,
+      value_count  INTEGER NOT NULL CHECK (value_count >= 0),
+      PRIMARY KEY (bucket_start, metric)
+    );
+    CREATE INDEX IF NOT EXISTS idx_metrics_5m_metric_bucket ON metrics_5m(metric, bucket_start);
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS history_5m (
+      bucket_start INTEGER PRIMARY KEY,
+      consumption_avg REAL, consumption_min REAL, consumption_max REAL, consumption_count INTEGER NOT NULL CHECK (consumption_count >= 0),
+      solar_avg REAL, solar_min REAL, solar_max REAL, solar_count INTEGER NOT NULL CHECK (solar_count >= 0),
+      battery_charge_avg REAL, battery_charge_min REAL, battery_charge_max REAL, battery_charge_count INTEGER NOT NULL CHECK (battery_charge_count >= 0),
+      battery_discharge_avg REAL, battery_discharge_min REAL, battery_discharge_max REAL, battery_discharge_count INTEGER NOT NULL CHECK (battery_discharge_count >= 0),
+      grid_import_avg REAL, grid_import_min REAL, grid_import_max REAL, grid_import_count INTEGER NOT NULL CHECK (grid_import_count >= 0),
+      grid_export_avg REAL, grid_export_min REAL, grid_export_max REAL, grid_export_count INTEGER NOT NULL CHECK (grid_export_count >= 0),
+      battery_soc_avg REAL, battery_soc_min REAL, battery_soc_max REAL, battery_soc_count INTEGER NOT NULL CHECK (battery_soc_count >= 0),
+      daily_consumption_last REAL,
+      daily_solar_last REAL,
+      daily_battery_charge_last REAL,
+      daily_battery_discharge_last REAL,
+      daily_grid_import_last REAL,
+      daily_grid_export_last REAL
+    );
+  `);
+
   const hasColumn = (tableName, columnName) => {
     const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
     return columns.some(c => c.name === columnName);
