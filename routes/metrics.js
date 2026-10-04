@@ -14,13 +14,45 @@ const { getGridHours, getGridTimeline, getCurrentGridStatus } = require('../modu
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
-const { SQL_LOCAL_DAY, localDateString } = require('../modules/localTime');
+const { localDateString } = require('../modules/localTime');
+const { readHistorySeries, readDailySnapshots } = require('../modules/timeseriesReader');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
 const router = express.Router();
 
 const POWER_HISTORY_BUCKET_SECONDS = 600;
+const POWER_HISTORY_FIELDS = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc'];
+
+/**
+ * Re-bucket readHistorySeries() instant rows (5-min aggregate avgs + raw
+ * points, each carrying a `<field>_count`) into POWER_HISTORY_BUCKET_SECONDS
+ * (10-min) buckets using count-weighted averaging — a naive mean-of-means
+ * would under-weight a 5-min aggregate bucket (count=60) against a lone raw
+ * point (count=1) that happens to land in the same 10-min window.
+ */
+function bucketPowerHistory(rows) {
+  const buckets = new Map();
+  for (const row of rows) {
+    const timestamp = Math.floor(row.timestamp / POWER_HISTORY_BUCKET_SECONDS) * POWER_HISTORY_BUCKET_SECONDS;
+    let bucket = buckets.get(timestamp);
+    if (!bucket) { bucket = { timestamp, sums: {}, counts: {} }; buckets.set(timestamp, bucket); }
+    for (const field of POWER_HISTORY_FIELDS) {
+      const value = row[field];
+      if (value == null) continue;
+      const count = row[`${field}_count`] || 1;
+      bucket.sums[field] = (bucket.sums[field] || 0) + value * count;
+      bucket.counts[field] = (bucket.counts[field] || 0) + count;
+    }
+  }
+  return [...buckets.values()]
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(bucket => {
+      const out = { timestamp: bucket.timestamp };
+      for (const field of POWER_HISTORY_FIELDS) out[field] = bucket.counts[field] ? bucket.sums[field] / bucket.counts[field] : null;
+      return out;
+    });
+}
 
 /**
  * Latest history row projected to the dashboard's "current" shape (kW / kWh,
@@ -32,7 +64,7 @@ function buildCurrentData(db) {
   const dailySolarKwh = computeTodaySolar();
   const rate = parseFloat(getConfig('savings_rate')) || 0.30;
   const curr = getConfig('savings_currency') || '€';
-  const allTimeSolar = db.prepare(`SELECT SUM(daily_solar) as total FROM (SELECT MAX(daily_solar) as daily_solar FROM history GROUP BY ${SQL_LOCAL_DAY})`).get();
+  const allTimeSolar = { total: readDailySnapshots(db, { fields: ["daily_solar"] }).reduce((sum, row) => sum + (row.daily_solar || 0), 0) };
   const allTimeSavings = (allTimeSolar?.total || 0) * rate;
   return {
     consumption_kw: latest.consumption / 1000,
@@ -70,31 +102,8 @@ async function buildDashboardState() {
   const [metrics, savings, historyRows, barRows] = await Promise.all([
     getCurrentMetrics(),
     getSavings(),
-    Promise.resolve(db.prepare(`
-      SELECT
-        (timestamp / ${POWER_HISTORY_BUCKET_SECONDS}) * ${POWER_HISTORY_BUCKET_SECONDS} as timestamp,
-        AVG(consumption) as consumption,
-        AVG(solar) as solar,
-        AVG(battery_charge) as battery_charge,
-        AVG(battery_discharge) as battery_discharge,
-        AVG(grid_import) as grid_import,
-        AVG(grid_export) as grid_export,
-        AVG(battery_soc) as battery_soc
-      FROM history WHERE timestamp >= ?
-      GROUP BY (timestamp / ${POWER_HISTORY_BUCKET_SECONDS})
-      ORDER BY timestamp ASC
-    `).all(powerHistorySince)),
-    Promise.resolve(db.prepare(`
-      SELECT ${SQL_LOCAL_DAY} as day,
-        MAX(daily_solar) as solar_kwh,
-        MAX(daily_consumption) as consumption_kwh,
-        MAX(daily_battery_charge) as battery_charge_kwh,
-        MAX(daily_battery_discharge) as battery_discharge_kwh,
-        MAX(daily_grid_import) as grid_import_kwh,
-        MAX(daily_grid_export) as grid_export_kwh
-      FROM history WHERE timestamp >= ?
-      GROUP BY day ORDER BY day ASC
-    `).all(barSince))
+    Promise.resolve(bucketPowerHistory(readHistorySeries(db, { from: powerHistorySince, to: now, toInclusive: true, fields: POWER_HISTORY_FIELDS }))),
+    Promise.resolve(readDailySnapshots(db, { from: barSince, to: now, toInclusive: true, fields: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }).map(r => ({ day: r.day, solar_kwh: r.daily_solar, consumption_kwh: r.daily_consumption, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export })))
   ]);
 
   const [gridHoursDay, gridHoursWeek, gridHoursMonth, gridHoursYear, gridTimeline] = gridStatus.configured
@@ -188,9 +197,14 @@ router.get('/history', async (req, res) => {
   const since = now - (days * 24 * 3600);
   try {
     const db = getDb();
-    const rows = db.prepare(`SELECT * FROM history WHERE timestamp >= ? ORDER BY timestamp ASC`).all(since);
+    const rows = readHistorySeries(db, { from: since, to: now, toInclusive: true, fields: ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] });
     res.json(rows.map(r => ({
-      ...r,
+      timestamp: r.timestamp,
+      consumption: r.consumption, solar: r.solar, battery_charge: r.battery_charge,
+      battery_discharge: r.battery_discharge, grid_import: r.grid_import, grid_export: r.grid_export,
+      battery_soc: r.battery_soc, daily_consumption: r.daily_consumption, daily_solar: r.daily_solar,
+      daily_battery_charge: r.daily_battery_charge, daily_battery_discharge: r.daily_battery_discharge,
+      daily_grid_import: r.daily_grid_import, daily_grid_export: r.daily_grid_export,
       consumption_kw: r.consumption / 1000,
       solar_kw: r.solar / 1000,
       battery_charge_kw: r.battery_charge / 1000,
@@ -221,19 +235,7 @@ router.get('/daily', async (req, res) => {
   const endUnix = Math.floor(now.getTime() / 1000);
   try {
     const db = getDb();
-    const rows = db.prepare(`
-      SELECT ${SQL_LOCAL_DAY} as day,
-        MAX(daily_consumption) as consumption_kwh,
-        MAX(daily_solar) as solar_kwh,
-        MAX(daily_battery_charge) as battery_charge_kwh,
-        MAX(daily_battery_discharge) as battery_discharge_kwh,
-        MAX(daily_grid_import) as grid_import_kwh,
-        MAX(daily_grid_export) as grid_export_kwh
-      FROM history
-      WHERE timestamp >= ? AND timestamp <= ?
-      GROUP BY day
-      ORDER BY day ASC
-    `).all(startUnix, endUnix);
+    const rows = readDailySnapshots(db, { from: startUnix, to: endUnix, toInclusive: true, fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }).map(r => ({ day: r.day, consumption_kwh: r.daily_consumption, solar_kwh: r.daily_solar, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export }));
     const dataMap = {};
     rows.forEach(r => { dataMap[r.day] = r; });
     const result = dateArray.map(date => {
@@ -268,26 +270,15 @@ router.get('/monthly', async (req, res) => {
       });
     }
     const db = getDb();
-    const rows = db.prepare(`
-      WITH daily_max AS (
-        SELECT ${SQL_LOCAL_DAY} as day,
-          MAX(daily_consumption) as consumption,
-          MAX(daily_solar) as solar,
-          MAX(daily_battery_charge) as battery_charge,
-          MAX(daily_battery_discharge) as battery_discharge,
-          MAX(daily_grid_import) as grid_import,
-          MAX(daily_grid_export) as grid_export
-        FROM history GROUP BY day
-      )
-      SELECT strftime('%Y-%m', day) as month,
-        SUM(consumption) as consumption_kwh,
-        SUM(solar) as solar_kwh,
-        SUM(battery_charge) as battery_charge_kwh,
-        SUM(battery_discharge) as battery_discharge_kwh,
-        SUM(grid_import) as grid_import_kwh,
-        SUM(grid_export) as grid_export_kwh
-      FROM daily_max GROUP BY month ORDER BY month DESC LIMIT 12
-    `).all();
+    const dailyRows = readDailySnapshots(db, { fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] });
+    const monthTotals = new Map();
+    for (const r of dailyRows) {
+      const month = r.day.slice(0, 7);
+      const total = monthTotals.get(month) || { month, consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0 };
+      total.consumption_kwh += r.daily_consumption || 0; total.solar_kwh += r.daily_solar || 0; total.battery_charge_kwh += r.daily_battery_charge || 0; total.battery_discharge_kwh += r.daily_battery_discharge || 0; total.grid_import_kwh += r.daily_grid_import || 0; total.grid_export_kwh += r.daily_grid_export || 0;
+      monthTotals.set(month, total);
+    }
+    const rows = [...monthTotals.values()].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 12);
     const dataMap = {};
     rows.forEach(r => { dataMap[r.month] = r; });
     const result = months.map(m => {
