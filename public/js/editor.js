@@ -1890,7 +1890,9 @@ function updateEmptyState() {
 // a scaled-down dashboard: rows and gaps shrink by the same factor as the
 // columns, and each card is laid out at full size and scaled with CSS.
 
-var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 10;
+// GRID_MARGIN applies to each side of a block, so blocks sit 2 × GRID_MARGIN apart,
+// the same as the dashboard (GAP in dashboard.js).
+var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 1;
 var previewScale = 1;
 
 /** Width the dashboard's block area has in this browser window. */
