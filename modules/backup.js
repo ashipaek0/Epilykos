@@ -3,7 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const { getDb, DB_PATH, initializeDatabase, flushMetrics } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
+const { acquireLock } = require('./maintenanceLock');
 
+const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
 
 /**
@@ -64,25 +66,25 @@ function createBackupSnapshot(tmpPath) {
 }
 
 async function backupDatabase(res) {
+  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
   const tmpPath = DB_PATH + '.backup-tmp';
   try {
+    try { flushMetrics(); } catch (e) { logger.warn(`Backup: metric flush failed: ${e.message}`); }
     createBackupSnapshot(tmpPath);
     res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
-      // Clean up temp snapshot after download completes (or fails)
       try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
       if (err) logger.error('Backup download error:', err);
     });
   } catch (err) {
-    // Clean up on error
     try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
     logger.error('Backup failed:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Backup failed: ' + err.message });
-    }
+    if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
+  } finally {
+    release();
   }
 }
 
-async function restoreDatabase(filePath) {
+async function restoreDatabaseUnlocked(filePath) {
   const backupPath = DB_PATH + '.bak';
 
   // Step 1: validate uploaded file
@@ -157,6 +159,11 @@ async function restoreDatabase(filePath) {
   }
 }
 
+async function restoreDatabase(filePath) {
+  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+  try { return await restoreDatabaseUnlocked(filePath); } finally { release(); }
+}
+
 // ── Daily Snapshot Scheduler ──────────────────────────────────────
 
 let snapshotInterval = null;
@@ -195,7 +202,7 @@ function pruneSnapshots() {
   }
 }
 
-async function createSnapshot() {
+async function createSnapshotUnlocked() {
   const snapDir = SNAPSHOT_DIR;
   try {
     if (!fs.existsSync(snapDir)) fs.mkdirSync(snapDir, { recursive: true });
@@ -213,6 +220,25 @@ async function createSnapshot() {
     pruneSnapshots();
   } catch (err) {
     logger.error('Snapshot: creation failed:', err.message);
+  }
+}
+
+async function createSnapshot() {
+  let release;
+  try {
+    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+  } catch (err) {
+    logger.error('Snapshot: lock acquisition failed:', err.message);
+    return;
+  }
+
+  try {
+    try { flushMetrics(); } catch (e) { logger.warn(`Snapshot: metric flush failed: ${e.message}`); }
+    return await createSnapshotUnlocked();
+  } catch (err) {
+    logger.error('Snapshot: creation failed:', err.message);
+  } finally {
+    if (release) release();
   }
 }
 
