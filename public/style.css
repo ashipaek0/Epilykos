@@ -2128,12 +2128,12 @@ details.help-sub.help-hidden { display: none; }
 .power-stats { display: block; width: 100%; max-width: 100%; min-width: 0; margin: .35rem 0 0; padding: .45rem 0 0; color: var(--text, inherit); border-top: 1px solid var(--border, currentColor); }
 .power-stats[hidden] { display: none; }
 .power-stats h4 { margin: 0 0 .35rem; padding: 0; color: inherit; font-size: .95rem; font-weight: 600; line-height: 1.25; }
-.power-stats-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0 var(--power-stats-row-spacing, 8px); color: inherit; font-size: 14px; text-align: start; }
-.power-stats-table thead th, .power-stats-table tbody th, .power-stats-table td { padding: .35rem .5rem; vertical-align: top; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+.power-stats-table { width: max-content; min-width: 100%; border-collapse: collapse; border-spacing: 0; color: inherit; font-size: 14px; text-align: start; }
+.power-stats-table thead th, .power-stats-table tbody th, .power-stats-table td { padding: .35rem .5rem; vertical-align: baseline; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
 .power-stats-table thead th { font-weight: 600; text-align: var(--power-stats-header-align, start); }
 .power-stats-table tbody th { min-width: 8rem; text-align: var(--power-stats-label-align, start); white-space: normal; overflow-wrap: break-word; word-break: normal; }
 .power-stats-table tbody td { text-align: var(--power-stats-value-align, end); font-variant-numeric: tabular-nums; }
-.power-stats-table time { display: block; margin-top: .2rem; color: var(--text-secondary, inherit); font-size: .78em; font-variant-numeric: tabular-nums; }
+.power-stats-table time { display: inline; margin-left: .3em; color: var(--text-secondary, inherit); font-size: .78em; font-variant-numeric: tabular-nums; }
 .power-stats { overflow-x: auto; overscroll-behavior-inline: contain; }
 .power-stats-table th, .power-stats-table td { min-width: 0; }
 .power-stats-table.density-compact { border-spacing: 0; }
