@@ -41,8 +41,9 @@ test('power statistics table styles honor alignment, density, and local overflow
 test('power chart stats form exposes typed, documented feature settings', () => {
   const c = sandbox();
   const html = c.buildPowerStatsForm({stats:{enabled:true,columns:[{key:'last',label:'Latest',precision:2,showTimestamp:true,staleAfterSeconds:60}]}});
-  for (const field of ['ps-enabled','ps-title-visible','ps-header-visible','ps-hidden-series','ps-density','ps-locale','ps-grouping','ps-zero','ps-nodata','headerAlign','labelAlign','valueAlign','fontWeight','border','ps-fontsize','ps-spacing','ps-color','ps-swatches','ps-tooltip','ps-columns-data']) assert.match(html,new RegExp(field));
+  for (const field of ['ps-enabled','ps-title-visible','ps-header-visible','ps-hidden-series','ps-density','ps-locale','ps-grouping','ps-zero','ps-nodata','labelAlign','valueAlign','fontWeight','border','ps-fontsize','ps-spacing','ps-color','ps-swatches','ps-tooltip','ps-columns-data']) assert.match(html,new RegExp(field));
   assert.match(source,/class="ps-stale"/);
+  assert.doesNotMatch(html,/data-ps-style="headerAlign"/,'headings follow their column alignment');
   assert.match(source,/class="ps-precision" type="number"[^>]*placeholder="Auto"/);
   assert.match(source,/value="' \+ escHtml\(c\.precision == null \? '' : c\.precision\)/);
   assert.match(html,/Latest/);
