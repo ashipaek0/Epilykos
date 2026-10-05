@@ -25,6 +25,7 @@ function editorHarness(values, metrics = ['solar_kw', 'load_kw']) {
   const context = { availableMetrics: metrics, availableRestSources: ['roof'], WX_SOURCE_TYPES: [], WX_DISPLAY_FIELDS: [], escHtml: s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
     document: { getElementById: id => els.get(id) || null } };
   vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('function hexForPicker('), source.indexOf('\nfunction buildConfigurableGaugeForm(')), context);
   vm.runInContext(extract('metricSelect'), context);
   vm.runInContext(extract('buildMetricTrendForm'), context);
   vm.runInContext(extract('buildSettingsForm'), context);
