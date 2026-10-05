@@ -1810,7 +1810,11 @@ details.help-sub.help-hidden { display: none; }
 .fc-source { font-size: calc(0.68rem * var(--card-font-scale, 1)); color: var(--text-secondary); text-align: right; margin-top: auto; }
 .fc-source:empty { display: none; }
 
-.fc-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem 1.25rem; min-width: 0; flex: 1 0 auto; }
+/* Summary (today, weather, day tiles) at its natural height; the chart takes
+   whatever height is left. A grid over all sections shared spare height
+   between every row, which showed up as blank bands between them. */
+.fc-body { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; flex: 1 1 auto; min-height: 0; }
+.fc-summary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem 1.25rem; min-width: 0; flex: 0 0 auto; }
 
 .fc-today { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .fc-today-label { font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -1840,29 +1844,26 @@ details.help-sub.help-hidden { display: none; }
 .fc-day-temp small { font-size: inherit; opacity: 0.8; }
 .fc-day-rain { color: #3b82f6; }
 
-.fc-chart { position: relative; min-height: 120px; min-width: 0; width: 100%; align-self: stretch; justify-self: stretch; }
+.fc-chart { position: relative; flex: 1 1 auto; min-height: 120px; min-width: 0; width: 100%; }
 .fc-chart canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 .fc-chart-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(0.8rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
-/* Sparkline-only card: the chart takes all remaining height. */
-.fc-spark .fc-body { display: flex; flex-direction: column; }
-.fc-spark .fc-chart { flex: 1 1 auto; }
 
 /* ≥ 360px: today + weather side by side; days and chart full width below. */
 @container fc (min-width: 360px) {
-  .fc-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
-  .fc-days, .fc-chart { grid-column: 1 / -1; }
+  .fc-summary { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+  .fc-days { grid-column: 1 / -1; }
 }
 /* ≥ 820px (banner/info): today | weather | days in one row, chart below. */
 @container fc (min-width: 820px) {
-  .fc-body { grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 0.9fr) minmax(0, 2fr); }
+  .fc-summary { grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 0.9fr) minmax(0, 2fr); }
   .fc-days { grid-column: auto; }
   .fc-chart { min-height: 140px; }
 }
 /* Very wide banners: put the chart in the same row as well. */
 @container fc (min-width: 1150px) {
-  .fc-banner .fc-body { grid-template-columns: minmax(10.5rem, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.6fr) minmax(0, 2fr); align-items: stretch; column-gap: 1.25rem; }
-  .fc-banner .fc-chart { grid-column: auto; }
-  .fc-banner .fc-today, .fc-banner .fc-now, .fc-banner .fc-days { align-self: center; }
+  .fc-banner .fc-body { flex-direction: row; align-items: stretch; gap: 1.25rem; }
+  .fc-banner .fc-summary { flex: 3.2 1 0; align-self: center; grid-template-columns: minmax(10.5rem, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.6fr); }
+  .fc-banner .fc-chart { flex: 2 1 0; }
 }
 
 /* PV Today timeline icons */
