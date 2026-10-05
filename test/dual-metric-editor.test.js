@@ -17,6 +17,7 @@ function harness(values = {}, metrics = ['solar_kw', 'load_kw']) {
     escHtml: s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
     document: {getElementById: id => els.get(id) || null}};
   vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('function hexForPicker('), source.indexOf('\nfunction buildConfigurableGaugeForm(')), context);
   vm.runInContext(extract('metricSelect', '\n// Text size choices'), context);
   vm.runInContext(extract('buildDualMetricForm', '\n/** Main entry:'), context);
   vm.runInContext(extract('buildSettingsForm', '\n/** Read all form values'), context);

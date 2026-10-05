@@ -30,7 +30,7 @@ const context = {
   BAR_THRESHOLD_WARM: ['#a', '#b'], Array, Object, Number, String, Math, JSON
 };
 vm.createContext(context);
-vm.runInContext(functionSource('buildConfigurableGaugeForm') + '\n' + functionSource('readSettingsForm'), context);
+vm.runInContext(source.slice(source.indexOf('function hexForPicker('), source.indexOf('\nfunction buildConfigurableGaugeForm(')) + '\n' + functionSource('buildConfigurableGaugeForm') + '\n' + functionSource('readSettingsForm'), context);
 let passed = 0;
 function test(name, fn) { fn(); passed++; console.log('✓ ' + name); }
 function setFields(values) {
@@ -70,14 +70,16 @@ test('non-finite and unordered bounds reject', () => {
     assert.match(context.readSettingsForm({ type: 'configurable-gauge', config: {} }), /finite numbers/);
   }
 });
-test('form emits every documented field and optional color text inputs', () => {
-  const html = context.buildConfigurableGaugeForm({ config: { opaqueRoot: { x: 1 }, band: {}, graph: {} } });
+test('form emits every documented field and optional colors as pickers with a theme default', () => {
+  const html = context.buildConfigurableGaugeForm({ config: { opaqueRoot: { x: 1 }, band: {}, graph: {}, arcColor: '#abc' } });
   for (const id of ['cg-metric','cg-title','cg-unit','cg-min','cg-max','cg-precision','cg-showReadout','cg-readoutColor','cg-readoutSize','cg-band-show','cg-band-thickness','cg-band-spacing','cg-band-trackColor','cg-preset','cg-style','cg-segmentCount','cg-segmentGap','cg-segmentColors','cg-arcColor','cg-gradientEnd','cg-arcThickness','cg-trackColor','cg-opening','cg-rotation','cg-size','cg-graph-show','cg-graph-metric','cg-graph-window','cg-graph-mode','cg-graph-thickness','cg-graph-color','cg-graph-opacity','cg-graph-marker','cg-background','cg-borderColor','cg-borderWidth','cg-radius']) assert(html.includes('id="' + id + '"'), 'missing ' + id);
-  for (const id of ['cg-readoutColor','cg-band-trackColor','cg-arcColor','cg-gradientEnd']) {
-    const control = html.match(new RegExp('<input id="' + id + '"[^>]*>'))[0];
-    assert.match(control, /type="text"/); assert.match(control, /Use theme default/);
+  for (const id of ['cg-readoutColor','cg-band-trackColor','cg-gradientEnd','cg-trackColor','cg-graph-color','cg-background','cg-borderColor']) {
+    const control = html.match(new RegExp('<input type="hidden" id="' + id + '"[^>]*>'))[0];
+    assert.match(control, /value=""/, id + ' stays unset (theme default) until a colour is picked');
   }
-  assert(!/type="color"/.test(html), 'browser color inputs coerce unset theme defaults to black');
+  assert.match(html, /<input type="hidden" id="cg-arcColor" value="#abc">/);
+  assert.match(html, /<input type="color" class="color-opt-picker" value="#aabbcc"/, 'a set colour shows in its picker');
+  assert(!/type="color"[^>]*id="cg-/.test(html), 'browser color inputs never carry the saved value (they coerce unset to black)');
 });
 test('valid save/reopen round-trips all configurable-gauge fields and isolates peer blocks', () => {
   const original = {
@@ -106,7 +108,7 @@ test('valid save/reopen round-trips all configurable-gauge fields and isolates p
   });
   const reopened = context.buildConfigurableGaugeForm({ config: saved });
   for (const [id, value] of Object.entries({ 'cg-title': 'Solar', 'cg-unit': 'kW', 'cg-min': '0', 'cg-max': '850', 'cg-readoutColor': '#123456', 'cg-readoutSize': '31', 'cg-band-trackColor': '#111111', 'cg-segmentColors': '#112233, #445566', 'cg-arcColor': '#abcdef', 'cg-gradientEnd': '#fedcba', 'cg-trackColor': '#222222', 'cg-opening': '120', 'cg-rotation': '15', 'cg-size': '240', 'cg-graph-color': '#334455', 'cg-graph-opacity': '0.35', 'cg-background': '#010203', 'cg-borderColor': '#040506', 'cg-borderWidth': '2', 'cg-radius': '18' })) {
-    assert.match(reopened, new RegExp('<input id="' + id + '"[^>]*value="' + value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"'), 'reopen missing ' + id);
+    assert.match(reopened, new RegExp('<input (?:type="hidden" )?id="' + id + '"[^>]*value="' + value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"'), 'reopen missing ' + id);
   }
   assert.match(reopened, /value="430"/); assert.match(reopened, /value="#778899"/);
   // metricSelect is deliberately a stub here: this checks field persistence, not option rendering.
