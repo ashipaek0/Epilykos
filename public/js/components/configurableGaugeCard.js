@@ -50,7 +50,7 @@ export function gaugeMarkup(c, id) {
     layers += path(arcPath(100, 100, radius, start, end), effectColor, ringWidth, 'configurable-gauge-fill', `style="visibility:hidden" ${effect}`);
   }
   if (c.style === 'gradient' && c.preset !== 'segmented') defs.push(`<linearGradient id="${id}-gradient"><stop stop-color="${esc(c.arcColor || 'var(--accent)')}"/><stop offset="1" stop-color="${esc(c.gradientEnd || 'var(--accent)')}"/></linearGradient>`);
-  if (c.style === 'glow') defs.push(`<filter id="${id}-glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
+  if (c.style === 'glow') defs.push(`<filter id="${id}-glow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="240" height="240"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
   return `<svg class="configurable-gauge-svg" viewBox="0 0 200 200" role="img" aria-label="Gauge"><defs>${defs.join('')}</defs>${layers}</svg>`;
 }
 function requestFor(key, url) {
@@ -85,8 +85,23 @@ async function refreshHistory(root, c) {
     if (root.isConnected && root._gaugeGeneration === generation && root._gaugeHistoryKey === key) paintHistory(root, c, data || []);
   } catch (_) { if (root.isConnected && root._gaugeGeneration === generation) paintHistory(root, c, []); }
 }
+/**
+ * Inner-circle layout in % of the dial (the SVG is 200 units wide, ring
+ * centred on r = 68). Readout and history line sit inside the ring's hole, so
+ * a thicker ring shrinks them instead of letting them overlap the arc.
+ */
+export function innerLayout(c) {
+  const ring = Math.min(c.arcThickness, 62), inner = Math.max(12, 68 - ring / 2 - 2); // radius in SVG units
+  const R = inner / 2; // as % of the dial's width/height
+  const pct = v => `${v.toFixed(2)}%`;
+  return {
+    readout: `left:${pct(50 - 0.9 * R)};width:${pct(1.8 * R)};top:${pct(50 - (c.graph.show ? 0.62 : 0.32) * R)};height:${pct(0.64 * R)};font-size:calc(${(0.46 * R).toFixed(2)}cqi * var(--card-font-scale, 1));`,
+    history: `left:${pct(50 - 0.72 * R)};width:${pct(1.44 * R)};top:${pct(50 + 0.12 * R)};height:${pct(0.42 * R)};`
+  };
+}
 export function buildConfigurableGaugeCard(block = {}) {
   const c = normalizeConfig(block.config), root = document.createElement('div'), id = `configurable-gauge-${++instanceSequence}`;
+  const layout = innerLayout(c);
   root.className = 'configurable-gauge-card stat-card'; root.dataset.blockId = block.id || ''; root.dataset.instanceId = id; root.dataset.config = JSON.stringify(c);
   root.style.minWidth = '0'; root.style.overflow = 'hidden'; root.style.boxSizing = 'border-box';
   // Only what the person set: otherwise the card keeps the shared card
@@ -95,7 +110,7 @@ export function buildConfigurableGaugeCard(block = {}) {
   if (c.borderColor && c.borderWidth > 0) { root.style.borderColor = c.borderColor; root.style.borderWidth = `${c.borderWidth}px`; root.style.borderStyle = 'solid'; }
   if (c.radius !== 12) root.style.borderRadius = `${c.radius}px`;
   root.style.setProperty('--cg-size', `${c.size}px`);
-  root.innerHTML = `<div class="configurable-gauge-title">${esc(c.title || c.metric || 'Gauge')}</div><div class="configurable-gauge-viz">${gaugeMarkup(c, id)}<div class="configurable-gauge-readout" style="${c.readoutSize ? `font-size:calc(${c.readoutSize}px * var(--card-font-scale, 1));` : ''}${c.readoutColor ? `color:${esc(c.readoutColor)};` : ''}${c.showReadout ? '' : 'display:none'}"><span class="configurable-gauge-value">—</span><span class="configurable-gauge-unit">${esc(c.unit)}</span></div><svg class="configurable-gauge-history" viewBox="0 0 100 30" preserveAspectRatio="none" aria-label="Metric history" style="display:${c.graph.show ? 'block' : 'none'}"><path class="configurable-gauge-history-area" fill="${esc(c.graph.color || 'var(--accent)')}" fill-opacity="${c.graph.opacity}"/><path class="configurable-gauge-history-line" fill="none" stroke="${esc(c.graph.color || 'var(--accent)')}" stroke-width="${c.graph.thickness}"/><circle class="configurable-gauge-history-marker" r="1.5" fill="${esc(c.graph.color || 'var(--accent)')}" style="display:none"/></svg></div>`;
+  root.innerHTML = `<div class="configurable-gauge-title">${esc(c.title || c.metric || 'Gauge')}</div><div class="configurable-gauge-viz">${gaugeMarkup(c, id)}<div class="configurable-gauge-readout" style="${layout.readout}${c.readoutSize ? `font-size:calc(${c.readoutSize}px * var(--card-font-scale, 1));` : ''}${c.readoutColor ? `color:${esc(c.readoutColor)};` : ''}${c.showReadout ? '' : 'display:none'}"><span class="configurable-gauge-value">—</span><span class="configurable-gauge-unit">${esc(c.unit)}</span></div><svg class="configurable-gauge-history" viewBox="0 0 100 30" preserveAspectRatio="none" aria-label="Metric history" style="${layout.history}display:${c.graph.show ? 'block' : 'none'}"><path class="configurable-gauge-history-area" fill="${esc(c.graph.color || 'var(--accent)')}" fill-opacity="${c.graph.opacity}"/><path class="configurable-gauge-history-line" fill="none" stroke="${esc(c.graph.color || 'var(--accent)')}" stroke-width="${c.graph.thickness}"/><circle class="configurable-gauge-history-marker" r="1.5" fill="${esc(c.graph.color || 'var(--accent)')}" style="display:none"/></svg></div>`;
   root._gaugeGeneration = 0; root._gaugeHistoryKey = ''; root._gaugeRefreshAt = 0;
   return root;
 }
