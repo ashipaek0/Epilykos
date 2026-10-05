@@ -13,6 +13,7 @@ import { updateMultiValueCard } from './components/multiValueCard.js';
 import { updateGaugeCard } from './components/gaugeCard.js';
 import { updateConfigurableGaugeCards } from './components/configurableGaugeCard.js';
 import { updateMetricTrendCards } from './components/metricTrendCard.js';
+import { updateDualMetricCards } from './components/dualMetricCard.js';
 import { updateHalfGaugeCard } from './components/halfGaugeCard.js';
 import { updateHalfGauge2Card } from './components/halfGauge2Card.js';
 import { updateBarGauge } from './components/barGauge.js';
@@ -46,6 +47,7 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('gauge-card')) updateGaugeCard(state);
   if (blockTypes.has('configurable-gauge')) updateConfigurableGaugeCards(state);
   if (blockTypes.has('metric-trend')) updateMetricTrendCards(state);
+  if (blockTypes.has('dual-metric')) updateDualMetricCards(state);
   if (blockTypes.has('half-gauge')) updateHalfGaugeCard(state);
   if (blockTypes.has('half-gauge-2')) updateHalfGauge2Card(state);
   if (blockTypes.has('bar-gauge')) updateBarGauge(state);

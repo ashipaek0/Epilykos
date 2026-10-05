@@ -71,12 +71,22 @@ await checkAsync('getSavings: raw-only data (week/month/all) matches pre-routing
 
   assert.strictEqual(result.currency, '£');
   assert.ok(Math.abs(result.rate - 0.40) < 1e-9);
-  // Pre-routing reference: week/month/all = (sum of past days' MAX(daily_solar) + live today) * rate.
-  // computeTodaySolar() with no metrics/history seeded for today returns 0,
-  // so today contributes 0; yesterday's 10.0 is the only non-today day.
-  assert.ok(result.week >= 10.0 * 0.40 - 1e-6, `week should include yesterday's 10.0*0.40, got ${result.week}`);
-  assert.ok(result.month >= 10.0 * 0.40 - 1e-6, `month should include yesterday's 10.0*0.40, got ${result.month}`);
-  assert.ok(result.all >= 10.0 * 0.40 - 1e-6, `all-time should include yesterday's 10.0*0.40, got ${result.all}`);
+  // The ranges use calendar boundaries: on Monday, yesterday is outside the
+  // Monday-based week; on the first of a month, it is outside the month too.
+  // Today's live value is zero in this fixture, so compare each range against
+  // the exact contribution yesterday should make for the date this test runs.
+  const weekStart = new Date(now);
+  const weekDiff = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  weekStart.setDate(now.getDate() - weekDiff);
+  weekStart.setHours(0, 0, 0, 0);
+  const yesterdayInWeek = yesterday >= weekStart;
+  const yesterdayInMonth = yesterday.getMonth() === now.getMonth() && yesterday.getFullYear() === now.getFullYear();
+  const contribution = 10.0 * 0.40;
+  assert.ok(Math.abs(result.week - (yesterdayInWeek ? contribution : 0)) < 1e-6,
+    `week should ${yesterdayInWeek ? 'include' : 'exclude'} yesterday's contribution, got ${result.week}`);
+  assert.ok(Math.abs(result.month - (yesterdayInMonth ? contribution : 0)) < 1e-6,
+    `month should ${yesterdayInMonth ? 'include' : 'exclude'} yesterday's contribution, got ${result.month}`);
+  assert.ok(result.all >= contribution - 1e-6, `all-time should include yesterday's 10.0*0.40, got ${result.all}`);
 });
 
 await checkAsync('getSavings: rollup bucket (daily_solar_last) + raw row merge at the raw/aggregate boundary feeds all-time correctly', async () => {

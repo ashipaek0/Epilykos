@@ -85,6 +85,7 @@ export const BLOCKS = {
 
   'metric-cards':       { group: 'values', name: 'Metric cards', desc: 'A row of large single values', icon: 'cards', w: 12, h: 3 },
   'metric-trend':       { group: 'values', name: 'Metric Trend', desc: 'A live metric with an optional history or forecast graph', icon: 'metricTrend', w: 4, h: 4 },
+  'dual-metric':        { group: 'values', name: 'Dual Metric', desc: 'Compare two live metric values side by side', icon: 'cards', w: 4, h: 3 },
   'multi-value':        { group: 'values', name: 'Multi-value list', desc: 'Label, value and unit rows', icon: 'list', w: 4, h: 4 },
   'text-metric':        { group: 'values', name: 'Text metric', desc: "One metric's current value as text", icon: 'text', w: 4, h: 2 },
   'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 4, h: 4 },

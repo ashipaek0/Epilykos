@@ -15,7 +15,7 @@ const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
 const { localDateString } = require('../modules/localTime');
-const { readHistorySeries, readDailySnapshots } = require('../modules/timeseriesReader');
+const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
@@ -187,6 +187,20 @@ router.get('/current', async (req, res) => {
     logger.error('Error in /api/current:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+router.get('/history/power-stats', (req, res) => {
+  const invalid = message => res.status(400).json({ error: { code: 'invalid_request', message } });
+  const integerParam = value => typeof value === 'string' && /^-?(0|[1-9][0-9]*)$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
+  const from = integerParam(req.query.from), to = integerParam(req.query.to);
+  if (from === null || to === null) return invalid('from and to must be safe integer Unix epoch seconds');
+  if (from >= to) return invalid('from must be less than to');
+  if (to - from > 7 * 86400) return invalid('range must not exceed 7 days');
+  if (typeof req.query.fields !== 'string' || !req.query.fields.trim()) return invalid('fields must be a comma-separated list');
+  const fields = [...new Set(req.query.fields.split(',').map(value => value.trim()).filter(Boolean))];
+  if (!fields.length || fields.length > 7) return invalid('fields must contain 1 to 7 unique field IDs');
+  try { res.json(readPowerStats(getDb(), { from, to, fields })); }
+  catch (err) { logger.error('Error in /api/history/power-stats:', err); res.status(500).json({ error: { code: 'internal_error', message: 'Internal server error' } }); }
 });
 
 router.get('/history', async (req, res) => {

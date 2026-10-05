@@ -16,6 +16,7 @@
 import { fetchDashboardState } from './api.js';
 import { destroyPvTodayCharts } from './components/pvToday.js';
 import { chartJSReady } from './chartLoader.js';
+import { normalizePowerStatsConfig, buildPowerStatsSection, updatePowerStatsSection, resolvePowerStatsField, createPowerStatsRequestGate } from './components/powerChartStats.js';
 
 /** canvas element → { chart, kind } */
 const instances = new Map();
@@ -103,10 +104,14 @@ export function destroyCharts() {
 
 function lineOptions(cfg, yTitle) {
   const { grid, text } = themeColors();
+  const appearance = cfg.appearance || {};
+  const valid = (v, fallback, min, max) => v !== '' && v != null && Number.isFinite(Number(v)) ? Math.min(max, Math.max(min, Number(v))) : fallback;
+  const min = valid(appearance.axisMin, undefined, -1e12, 1e12);
+  const max = valid(appearance.axisMax, undefined, -1e12, 1e12);
   return {
     responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
     interaction: { mode: 'index', intersect: false },
-    elements: { line: { borderWidth: 2, tension: 0.35 }, point: { radius: 0, hoverRadius: 4 } },
+    elements: { line: { borderWidth: valid(appearance.lineWidth, 2, 0.5, 8), tension: 0.35 }, point: { radius: appearance.markers === true ? 2 : 0, hoverRadius: 4 } },
     scales: {
       x: { type: 'time', time: { unit: 'hour' }, grid: { color: grid, display: !cfg.hideGrid }, ticks: { color: text, maxRotation: 0, autoSkipPadding: 12 } },
       y: { title: { display: true, text: yTitle, color: text }, grid: { color: grid, display: !cfg.hideGrid }, ticks: { color: text }, grace: '5%' }
@@ -125,6 +130,11 @@ function initKind(kind) {
     if (instances.has(canvas)) return;
     const container = canvas.closest('.chart-container');
     const cfg = getChartConfig(container);
+    const chartHeight = cfg.appearance?.height;
+    const boundedHeight = chartHeight !== '' && chartHeight != null && Number.isFinite(Number(chartHeight))
+      ? Math.min(1000, Math.max(120, Number(chartHeight))) : null;
+    const canvasWrap = canvas.closest('.power-chart-canvas-wrap');
+    if (kind === 'power' && boundedHeight !== null && canvasWrap) canvasWrap.style.height = `${boundedHeight}px`;
     container?.querySelector('.chart-loading')?.remove();
     canvas.style.display = '';
     let chart;
@@ -139,7 +149,16 @@ function initKind(kind) {
           plugins: { legend: { labels: { color: text, boxWidth: 12, boxHeight: 12, usePointStyle: true } }, tooltip: { mode: 'index', intersect: false } } }
       });
     } else if (kind === 'power') {
-      chart = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: [] }, options: lineOptions(cfg, 'Power (kW)'), plugins: cfg.hideGrid ? [] : [zonePlugin] });
+      const appearance = cfg.appearance || {}, axes = appearance.axes || {};
+      const yUnit = appearance.axisUnit === 'W' ? 'W' : 'kW';
+      const opts = lineOptions(cfg, `Power (${yUnit})`);
+      for (const id of ['left', 'right']) {
+        const axis = axes[id] || {};
+        opts.scales[id === 'left' ? 'y' : 'yRight'] = { type: 'linear', position: id, display: id === 'left' || !!axes.right, title: { display: !!axes.right || id === 'left', text: `Power (${axis.unit === 'W' ? 'W' : yUnit})` }, grid: { color: themeColors().grid, display: !cfg.hideGrid && id === 'left' }, ticks: { color: themeColors().text } };
+        if (axis.min !== '' && axis.min != null && Number.isFinite(Number(axis.min))) opts.scales[id === 'left' ? 'y' : 'yRight'].min = Number(axis.min);
+        if (axis.max !== '' && axis.max != null && Number.isFinite(Number(axis.max))) opts.scales[id === 'left' ? 'y' : 'yRight'].max = Number(axis.max);
+      }
+      chart = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: [] }, options: opts, plugins: cfg.hideGrid ? [] : [zonePlugin] });
     } else {
       const ds = getDatasets(container) || [];
       const yTitle = (ds[0] && ds[0].unit) ? ds[0].unit : (cfg.yAxis?.unit || 'Value');
@@ -185,26 +204,69 @@ async function powerHistoryFor(range) {
   return s.powerHistory;
 }
 
-function updatePowerChartData(chart, container, data) {
-  if (!data || !data.length) return;
+export function updatePowerChartData(chart, container, data) {
   const cfg = getChartConfig(container);
   const ds = getDatasets(container) || defaultPower();
+  const appearance = cfg.appearance || {};
   const existing = chart.data.datasets;
+  const axisConfigs = appearance.axes || {};
   ds.forEach((d, i) => {
     const f = resolvePowerField(d.metric);
-    const pts = data.map(p => ({ x: p.timestamp, y: f ? (p[f] ?? 0) : 0 }));
-    if (i < existing.length) { existing[i].label = d.label; existing[i].data = pts; existing[i].borderColor = resolveColor(d.color); existing[i].fill = cfg.fill !== false; }
-    else existing.push({ label: d.label, data: pts, borderColor: resolveColor(d.color), fill: cfg.fill !== false, tension: 0.35, borderWidth: 2 });
+    const axis = d.axis === 'right' ? 'right' : 'left', axisCfg = axisConfigs[axis] || {};
+    const plotUnit = axisCfg.unit === 'W' || axisCfg.unit === 'kW' ? axisCfg.unit : (appearance.axisUnit === 'W' ? 'W' : 'kW');
+    const unit = d.unit === 'W' || d.unit === 'kW' ? d.unit : plotUnit;
+    const pts = data.map(p => ({ x: p.timestamp, y: f ? ((p[f] ?? 0) * (plotUnit === 'W' ? 1000 : 1)) : 0 }));
+    const color = resolveColor(d.color), opacity = Number.isFinite(Number(d.opacity ?? appearance.opacity)) ? Math.min(1, Math.max(0, Number(d.opacity ?? appearance.opacity))) : 1;
+    const lineWidth = Number.isFinite(Number(d.lineWidth ?? appearance.lineWidth)) && Number(d.lineWidth ?? appearance.lineWidth) > 0 ? Math.min(8, Math.max(0.5, Number(d.lineWidth ?? appearance.lineWidth))) : 2;
+    const lineStyle = d.lineStyle || appearance.lineStyle;
+    const style = { yAxisID: axis === 'right' ? 'yRight' : 'y', borderColor: opacity < 1 && /^#[0-9a-f]{6}$/i.test(color) ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${opacity})` : color, fill: cfg.fill !== false, borderWidth: lineWidth, borderDash: lineStyle === 'dashed' ? [6, 4] : (lineStyle === 'dotted' ? [2, 3] : []), borderCapStyle: 'round', pointRadius: (d.markers ?? appearance.markers) === true ? 2 : 0, unit };
+    if (i < existing.length) { Object.assign(existing[i], style, { label: d.label, data: pts }); }
+    else existing.push({ label: d.label, data: pts, ...style, tension: 0.35 });
   });
   while (existing.length > ds.length) existing.pop();
   chart.options.scales.x.time.unit = rangeOf(container, 'power') === '3d' ? 'day' : 'hour';
+  for (const axis of ['left', 'right']) {
+    const scale = chart.options.scales[axis === 'left' ? 'y' : 'yRight'], axisCfg = appearance.axes?.[axis] || {};
+    const fallbackMin = axis === 'left' ? appearance.axisMin : undefined, fallbackMax = axis === 'left' ? appearance.axisMax : undefined;
+    const min = axisCfg.min !== '' && axisCfg.min != null ? axisCfg.min : fallbackMin, max = axisCfg.max !== '' && axisCfg.max != null ? axisCfg.max : fallbackMax;
+    if (min !== '' && min != null && Number.isFinite(Number(min))) scale.min = Number(min); else delete scale.min;
+    if (max !== '' && max != null && Number.isFinite(Number(max))) scale.max = Number(max); else delete scale.max;
+    scale.title.text = `Power (${axisCfg.unit === 'W' ? 'W' : axisCfg.unit === 'kW' ? 'kW' : appearance.axisUnit === 'W' ? 'W' : 'kW'})`;
+  }
+  chart.options.plugins.legend.display = appearance.legend !== false;
+  const legend = chart.options.plugins.legend;
+  legend.onClick = (event, item, data) => { const standard = Chart.defaults?.plugins?.legend?.onClick; if (standard) standard.call(legend, event, item, data); else { const i=item.datasetIndex; chart.getDatasetMeta(i).hidden = chart.isDatasetVisible(i); chart.update(); } };
+  chart.options.plugins.tooltip.enabled = appearance.tooltip !== false;
   chart.update();
   if (cfg.fill !== false) applyGradientFills(chart);
 }
+function styleOpacityWidth(width) { return width; }
 
-async function refreshPowerChartFor({ chart, container }) {
-  try { updatePowerChartData(chart, container, await powerHistoryFor(rangeOf(container, 'power'))); }
-  catch (e) { console.warn('[charts] power refresh failed:', e); }
+const powerRequestGates = new WeakMap();
+export async function refreshPowerChartFor({ chart, container }, suppliedState) {
+  const cfg = getChartConfig(container), statsCfg = normalizePowerStatsConfig(cfg);
+  let gate = powerRequestGates.get(container);
+  if (!gate) { gate = createPowerStatsRequestGate(); powerRequestGates.set(container, gate); }
+  const range = rangeOf(container, 'power'), to = Math.floor(Date.now() / 1000), from = to - (range === '3d' ? 72 : 24) * 3600;
+  const snapshot = gate.capture({ from, to, range, config: JSON.stringify(cfg), datasets: JSON.stringify(getDatasets(container) || defaultPower()) });
+  try {
+    const data = suppliedState?.powerHistory || await powerHistoryFor(range);
+    if (!gate.isCurrent(snapshot) || snapshot.config !== JSON.stringify(getChartConfig(container)) || snapshot.datasets !== JSON.stringify(getDatasets(container) || defaultPower()) || snapshot.range !== rangeOf(container, 'power')) return;
+    const points = (data || []).filter(p => { const t = Number(p.timestamp), seconds = t > 1e11 ? t / 1000 : t; return seconds >= from && seconds < to; });
+    updatePowerChartData(chart, container, points);
+    const mount = container.querySelector('.power-stats');
+    if (!statsCfg.enabled || !mount) return;
+    const ds = JSON.parse(snapshot.datasets), fields = [...new Set(ds.map(d => resolvePowerStatsField(d.metric)).filter(Boolean))];
+    if (!fields.length) { mount.hidden = false; const body=mount.querySelector('tbody'); if(body)body.replaceChildren(); return; }
+    const r = await fetch(`/api/history/power-stats?from=${from}&to=${to}&fields=${encodeURIComponent(fields.join(','))}`);
+    if (!r.ok) throw new Error(`Statistics request failed (HTTP ${r.status})`);
+    const response = await r.json();
+    if (!gate.isCurrent(snapshot) || snapshot.config !== JSON.stringify(getChartConfig(container)) || snapshot.datasets !== JSON.stringify(getDatasets(container) || defaultPower()) || snapshot.range !== rangeOf(container, 'power')) return;
+    const legend = chart.options.plugins.legend;
+    legend.onClick = (event, item, data) => { const standard = Chart.defaults?.plugins?.legend?.onClick; if (standard) standard.call(legend, event, item, data); else { const i=item.datasetIndex; chart.getDatasetMeta(i).hidden = chart.isDatasetVisible(i); chart.update(); } };
+    chart.update();
+    if (mount && statsCfg.enabled) updatePowerStatsSection(mount, response, ds, { from, to }, { isHidden: i => !chart.isDatasetVisible(i), resolveColor: i => chart.data.datasets[i]?.borderColor || chart.data.datasets[i]?.backgroundColor, toggleSeries: i => { if (chart.isDatasetVisible(i)) chart.hide(i); else chart.show(i); chart.update(); refreshPowerChartFor({chart,container}); } });
+  } catch (e) { if (gate.isCurrent(snapshot) && snapshot.config === JSON.stringify(getChartConfig(container)) && snapshot.datasets === JSON.stringify(getDatasets(container) || defaultPower()) && snapshot.range === rangeOf(container, 'power') && statsCfg.enabled) { const mount = container.querySelector('.power-stats'); if (mount) { mount.hidden = false; let notice=mount.querySelector('.power-stats-unavailable'); if(!notice){notice=document.createElement('p');notice.className='power-stats-unavailable';notice.setAttribute('role','status');mount.append(notice);} notice.textContent=`Statistics unavailable: ${e.message || 'request failed'}.`; const body=mount.querySelector('tbody');if(body)body.replaceChildren(); } } console.warn('[charts] power refresh failed:', e); }
 }
 
 export async function refreshPowerChart() { for (const c of chartsOf('power')) await refreshPowerChartFor(c); }
@@ -224,7 +286,7 @@ export function updatePowerChartFromState(state) {
   initKind('power');
   for (const c of chartsOf('power')) {
     if (rangeOf(c.container, 'power') !== '24h') { refreshPowerChartFor(c); continue; }
-    updatePowerChartData(c.chart, c.container, state.powerHistory);
+    refreshPowerChartFor(c, state);
   }
 }
 
