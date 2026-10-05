@@ -332,10 +332,11 @@
   aspect-ratio: 1; container-type: inline-size;
 }
 .configurable-gauge-readout {
-  position: absolute; inset: 40% 0 auto; text-align: center; color: var(--text);
-  font-size: calc(15cqi * var(--card-font-scale, 1));
+  /* Position and default size come from innerLayout() (inside the ring's hole). */
+  position: absolute; display: flex; align-items: center; justify-content: center; gap: 0.15em;
+  text-align: center; color: var(--text); white-space: nowrap; line-height: 1;
 }
-.configurable-gauge-history { position: absolute; left: 22%; width: 56%; top: 62%; height: 14%; max-height: none !important; }
+.configurable-gauge-history { position: absolute; max-height: none !important; overflow: hidden; }
 
 /* ── Metric Trend / Dual metric: text follows the card size and the
    Text size setting unless the person set an explicit size. ── */
