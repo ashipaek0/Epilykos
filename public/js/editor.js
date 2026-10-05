@@ -1283,6 +1283,37 @@ function renderStateSelectRows(container) {
   }
 }
 
+// An optional colour: a picker like the other cards' colour settings, plus a
+// "theme default" state. A browser colour input always holds a colour (black
+// when unset), so the saved value lives in a hidden input under the field's id
+// and stays '' until a colour is picked. wireOptionalColors() keeps them in step.
+function hexForPicker(value) {
+  var v = String(value || '').trim();
+  var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+  if (m) return m[1].length === 3 ? '#' + m[1].replace(/./g, '$&$&').toLowerCase() : v.toLowerCase();
+  if (!v || typeof document === 'undefined' || !document.createElement) return '';
+  try {
+    var ctx = document.createElement('canvas').getContext('2d');
+    ctx.fillStyle = '#000000'; ctx.fillStyle = v;
+    var out = String(ctx.fillStyle);
+    if (/^#[0-9a-f]{6}$/i.test(out)) return out;
+    var rgb = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(out);
+    if (rgb) return '#' + [rgb[1], rgb[2], rgb[3]].map(function(n) { return ('0' + Number(n).toString(16)).slice(-2); }).join('');
+  } catch (e) {}
+  return '';
+}
+function optionalColorControl(id, value, valueClass) {
+  var v = value == null ? '' : String(value);
+  return '<span class="color-opt' + (v ? '' : ' is-default') + '" data-ui="color-opt">' +
+    '<input type="color" class="color-opt-picker" value="' + escHtml(hexForPicker(v) || '#888888') + '" data-ui="color">' +
+    '<input type="hidden"' + (id ? ' id="' + id + '"' : '') + (valueClass ? ' class="' + valueClass + '"' : '') + ' value="' + escHtml(v) + '">' +
+    '<span class="color-opt-note">Theme default</span>' +
+    '<button type="button" class="color-opt-reset" title="Go back to the theme colour">Reset</button></span>';
+}
+function optionalColorField(id, label, value) {
+  return '<label data-ui="field">' + label + ' ' + optionalColorControl(id, value) + '</label>';
+}
+
 function buildConfigurableGaugeForm(block) {
   var c = block.config || {}, b = c.band || {}, g = c.graph || {};
   function field(key, label, value, type, attrs) {
@@ -1292,13 +1323,13 @@ function buildConfigurableGaugeForm(block) {
   function select(key, label, value, choices) {
     return '<label data-ui="field">' + label + ' <select id="cg-' + key + '" data-ui="input">' + choices.map(function(x) { return '<option value="' + x[0] + '"' + (x[0] === value ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>';
   }
-  function optionalColor(key, label, value) { return field(key, label, value, 'text', 'placeholder="Use theme default" data-ui="input"'); }
+  function optionalColor(key, label, value) { return optionalColorField('cg-' + key.replace(/[^a-z0-9]/gi, '-'), label, value); }
   function check(key, label, value) { return '<label><input id="cg-' + key + '" type="checkbox"' + (value ? ' checked' : '') + '> ' + label + '</label>'; }
   var h = '<fieldset data-ui="section"><legend data-ui="legend">Metric and readout</legend><label data-ui="field">Metric ' + metricSelect(c.metric || '', 'cg-metric') + '</label>';
   h += field('title','Title',c.title) + field('unit','Unit',c.unit) + field('min','Minimum',c.min == null ? 0 : c.min,'number','step="any" data-ui="input"') + field('max','Maximum',c.max == null ? 100 : c.max,'number','step="any" data-ui="input"');
-  h += field('precision','Decimals',c.precision,'number','min="0" max="6" placeholder="Auto" data-ui="input"') + check('showReadout','Show readout',c.showReadout !== false) + field('readoutColor','Readout color',c.readoutColor,'text','placeholder="Use theme default" data-ui="input"') + field('readoutSize','Readout size (px)',c.readoutSize,'number','min="8" max="48" placeholder="Auto" data-ui="input"');
+  h += field('precision','Decimals',c.precision,'number','min="0" max="6" placeholder="Auto" data-ui="input"') + check('showReadout','Show readout',c.showReadout !== false) + optionalColor('readoutColor','Readout color',c.readoutColor) + field('readoutSize','Readout size (px)',c.readoutSize,'number','min="8" max="48" placeholder="Auto" data-ui="input"');
   h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Outer band</legend>' + check('band-show','Show band',b.show) + field('band-thickness','Thickness',b.thickness == null ? 8 : b.thickness,'number') + field('band-spacing','Spacing',b.spacing == null ? 3 : b.spacing,'number') + optionalColor('band-trackColor','Track color',b.trackColor);
-  h += '<div id="cg-threshold-rows">' + (Array.isArray(b.thresholds) ? b.thresholds : []).map(function(t,i){return '<div data-ui="row" data-threshold-index="' + i + '"><label>Threshold ' + (i+1) + ' <input class="cg-threshold-value" type="number" step="any" value="' + escHtml(t.value) + '"></label><label>Color <input class="cg-threshold-color" type="text" placeholder="Use theme default" value="' + escHtml(t.color || '') + '"></label></div>';}).join('') + '</div><button type="button" id="cg-threshold-add" data-ui="add">Add threshold</button></fieldset>';
+  h += '<div id="cg-threshold-rows">' + (Array.isArray(b.thresholds) ? b.thresholds : []).map(function(t,i){return '<div data-ui="row" data-threshold-index="' + i + '"><label>Threshold ' + (i+1) + ' <input class="cg-threshold-value" type="number" step="any" value="' + escHtml(t.value) + '"></label><label>Color ' + optionalColorControl('', t.color || '', 'cg-threshold-color') + '</label></div>';}).join('') + '</div><button type="button" id="cg-threshold-add" data-ui="add">Add threshold</button></fieldset>';
   h += '<fieldset data-ui="section"><legend data-ui="legend">Inner ring</legend>' + select('preset','Preset',c.preset || 'continuous',[['continuous','Continuous'],['segmented','Segmented']]) + select('style','Style',c.style || 'flat',[['flat','Flat'],['gradient','Gradient'],['glow','Glow']]);
   h += field('segmentCount','Segment count',c.segmentCount == null ? 12 : c.segmentCount,'number') + field('segmentGap','Segment gap',c.segmentGap == null ? 2 : c.segmentGap,'number') + field('segmentColors','Segment colors (comma-separated)',Array.isArray(c.segmentColors) ? c.segmentColors.join(', ') : '') + optionalColor('arcColor','Arc color',c.arcColor) + optionalColor('gradientEnd','Gradient end',c.gradientEnd) + field('arcThickness','Arc thickness',c.arcThickness == null ? 12 : c.arcThickness,'number') + optionalColor('trackColor','Track color',c.trackColor) + '</fieldset>';
   h += '<fieldset data-ui="section"><legend data-ui="legend">Geometry</legend>' + field('opening','Opening angle',c.opening == null ? 90 : c.opening,'number') + field('rotation','Rotation',c.rotation == null ? 0 : c.rotation,'number') + field('size','Gauge size',c.size == null ? 200 : c.size,'number') + '</fieldset>';
@@ -1318,12 +1349,12 @@ function buildDualMetricForm(block) {
   ['left','right'].forEach(function(side) { var p = panes[side] || {}, cap = side === 'left' ? 'Left' : 'Right';
     h += '<fieldset data-ui="section"><legend data-ui="legend">' + cap + ' pane</legend><label data-ui="field">Metric ' + metricSelect(p.metric || '', 'dm-' + side + '-metric') + '</label>';
     h += field(side + '-label','Label',p.label) + field(side + '-unit','Unit override',p.unit) + field(side + '-precision','Decimals',p.precision,'number','min="0" max="6" step="1" placeholder="Auto" data-ui="input"');
-    h += field(side + '-value-color','Value color',p.valueColor) + field(side + '-fill-color','Fill color',p.fillColor) + field(side + '-label-color','Label color',p.labelColor) + field(side + '-unit-color','Unit color',p.unitColor);
+    h += optionalColorField('dm-' + side + '-value-color','Value color',p.valueColor) + optionalColorField('dm-' + side + '-fill-color','Fill color',p.fillColor) + optionalColorField('dm-' + side + '-label-color','Label color',p.labelColor) + optionalColorField('dm-' + side + '-unit-color','Unit color',p.unitColor);
     h += field(side + '-value-font-size','Value font size (px)',p.valueFontSize,'number','min="12" max="96" step="1" placeholder="Auto" data-ui="input"') + field(side + '-label-font-size','Label font size (px)',p.labelFontSize,'number','min="10" max="32" step="1" placeholder="Auto" data-ui="input"') + field(side + '-unit-font-size','Unit font size (px)',p.unitFontSize,'number','min="10" max="32" step="1" placeholder="Auto" data-ui="input"');
     h += select(side + '-align','Alignment',p.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
   });
   h += '<fieldset data-ui="section"><legend data-ui="legend">Shared style</legend>';
-  [['border-color','Border color',style.borderColor],['divider-color','Divider color',style.dividerColor],['header-color','Header color',style.headerColor],['header-text-color','Header text color',style.headerTextColor]].forEach(function(x) { h += field(x[0],x[1],x[2]); });
+  [['border-color','Border color',style.borderColor],['divider-color','Divider color',style.dividerColor],['header-color','Header color',style.headerColor],['header-text-color','Header text color',style.headerTextColor]].forEach(function(x) { h += optionalColorField('dm-' + x[0],x[1],x[2]); });
   h += field('border-width','Border width',style.borderWidth == null ? 0 : style.borderWidth,'number','min="0" max="8" step="1" data-ui="input"') + field('radius','Corner radius',style.radius == null ? 12 : style.radius,'number','min="0" max="32" step="1" data-ui="input"') + field('padding','Padding',style.padding == null ? 16 : style.padding,'number','min="0" max="32" step="1" data-ui="input"') + field('pane-gap','Pane gap',style.paneGap == null ? 0 : style.paneGap,'number','min="0" max="16" step="1" data-ui="input"') + field('divider-width','Divider width',style.dividerWidth == null ? 2 : style.dividerWidth,'number','min="0" max="8" step="1" data-ui="input"') + '</fieldset>';
   return h;
 }
@@ -1375,7 +1406,7 @@ function buildMetricTrendForm(block) {
   h += field('value-font-size','Value font size (px)',d.valueFontSize,'number','min="12" max="96" placeholder="Auto" data-ui="input"') + field('unit-font-size','Unit font size (px)',d.unitFontSize,'number','min="12" max="96" placeholder="Auto" data-ui="input"');
   h += select('align','Readout alignment',d.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
   h += '<fieldset data-ui="section"><legend data-ui="legend">Independent styling</legend>';
-  [['header-color','Header color',s.headerColor],['header-text-color','Header text color',s.headerTextColor],['body-fill','Body fill',s.bodyFill],['body-fill-end','Body fill end',s.bodyFillEnd],['value-color','Value color',s.valueColor],['unit-color','Unit color',s.unitColor],['graph-line-color','Graph line color',s.graphLineColor],['graph-fill-color','Graph fill color',s.graphFillColor],['border-color','Border color',s.borderColor]].forEach(function(x) { h += field(x[0],x[1],x[2],'text','placeholder="Use theme default" data-ui="input"'); });
+  [['header-color','Header color',s.headerColor],['header-text-color','Header text color',s.headerTextColor],['body-fill','Body fill',s.bodyFill],['body-fill-end','Body fill end',s.bodyFillEnd],['value-color','Value color',s.valueColor],['unit-color','Unit color',s.unitColor],['graph-line-color','Graph line color',s.graphLineColor],['graph-fill-color','Graph fill color',s.graphFillColor],['border-color','Border color',s.borderColor]].forEach(function(x) { h += optionalColorField('mt-' + x[0],x[1],x[2]); });
   h += field('gradient-angle','Gradient angle',s.gradientAngle == null ? 180 : s.gradientAngle,'number','min="0" max="360" data-ui="input"') + field('graph-fill-opacity','Graph fill opacity',s.graphFillOpacity == null ? .2 : s.graphFillOpacity,'number','min="0" max="1" step="0.05" data-ui="input"');
   h += field('border-width','Border width',s.borderWidth == null ? 0 : s.borderWidth,'number','min="0" max="8" data-ui="input"') + field('radius','Corner radius',s.radius == null ? 12 : s.radius,'number','min="0" max="32" data-ui="input"') + field('padding','Padding',s.padding == null ? 16 : s.padding,'number','min="0" max="32" data-ui="input"') + '</fieldset>';
   return h;
@@ -2659,10 +2690,11 @@ function wireInspector(aside, block) {
   if (cgAddThreshold) cgAddThreshold.addEventListener('click', function() {
     var rows = body.querySelector('#cg-threshold-rows');
     var row = document.createElement('div'); row.setAttribute('data-ui', 'row');
-    row.innerHTML = '<label>Threshold <input class="cg-threshold-value" type="number" step="any" value=""></label><label>Color <input class="cg-threshold-color" type="text" placeholder="Use theme default" value=""></label><button type="button" aria-label="Remove threshold">Remove</button>';
+    row.innerHTML = '<label>Threshold <input class="cg-threshold-value" type="number" step="any" value=""></label><label>Color ' + optionalColorControl('', '', 'cg-threshold-color') + '</label><button type="button" aria-label="Remove threshold">Remove</button>';
     row.querySelector('button').addEventListener('click', function() { row.remove(); scheduleApply(0); });
     rows.appendChild(row); scheduleApply(0);
   });
+  wireOptionalColors(body, function() { scheduleApply(0); });
   body.querySelectorAll('#cg-threshold-rows [data-ui="row"]').forEach(function(row) {
     var remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.setAttribute('aria-label', 'Remove threshold');
     remove.addEventListener('click', function() { row.remove(); scheduleApply(0); }); row.appendChild(remove);
@@ -2715,6 +2747,26 @@ function resizeFromInspector(block) {
 }
 
 /** Hook up the dynamic parts of a block's settings form. */
+// Optional colour pickers (see optionalColorControl): picking a colour stores
+// it, Reset stores '' so the card goes back to the theme colour.
+function wireOptionalColors(body, onReset) {
+  body.addEventListener('input', function(e) {
+    var picker = e.target;
+    if (!picker.classList || !picker.classList.contains('color-opt-picker')) return;
+    var wrap = picker.parentNode, store = wrap.querySelector('input[type="hidden"]');
+    store.value = picker.value; wrap.classList.remove('is-default');
+  });
+  body.addEventListener('click', function(e) {
+    var reset = e.target.closest && e.target.closest('.color-opt-reset');
+    if (!reset) return;
+    e.preventDefault();
+    var wrap = reset.parentNode;
+    wrap.querySelector('input[type="hidden"]').value = '';
+    wrap.classList.add('is-default');
+    if (onReset) onReset();
+  });
+}
+
 function wireSettingsForm(body, block) {
   // Color inputs are only saved once the person has actually picked a color.
   ['modal-bgcolor', 'modal-fontcolor', 'modal-switch-oncolor', 'modal-switch-offcolor'].forEach(function(id) {
