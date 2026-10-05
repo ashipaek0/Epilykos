@@ -9,7 +9,8 @@ const make = (tag, className, value) => {
   if (value != null) el.textContent = value;
   return el;
 };
-const variable = (el, name, value) => el.style.setProperty(name, `${value}px`);
+// Sizes left on Auto (null) fall back to the card's responsive defaults.
+const variable = (el, name, value) => { if (value !== null && value !== undefined) el.style.setProperty(name, `${value}px`); };
 function setColor(el, property, value) { if (value) el.style[property] = value; }
 function makePane(side, config, preset) {
   const pane = make('section', `dual-metric-pane dual-metric-pane-${side}`);

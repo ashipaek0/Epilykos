@@ -196,7 +196,8 @@ body {
   margin: 0 auto;
 }
 
-header {
+/* The dashboard's page header only; cards that use <header> elements set their own layout. */
+.container > header {
   display: flex;
   justify-content: space-between;
   align-items: center;
