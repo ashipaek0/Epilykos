@@ -13,6 +13,7 @@ function extract(name, next) {
 function sandbox() {
   const context = { availableMetrics: ['PV Power', 'Grid Power'], escHtml: s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), Intl, Set, Array, Number, String, Object, JSON, isFinite };
   vm.createContext(context);
+  vm.runInContext(extract('hexForPicker', '\nfunction buildConfigurableGaugeForm('), context);
   vm.runInContext(extract('buildPowerStatsForm', '\nfunction renderPowerStatsColumns'), context);
   vm.runInContext(extract('readSettingsForm', '\n// ── Block content'), context);
   return context;
@@ -42,7 +43,7 @@ test('power chart stats form exposes typed, documented feature settings', () => 
   const html = c.buildPowerStatsForm({stats:{enabled:true,columns:[{key:'last',label:'Latest',precision:2,showTimestamp:true,staleAfterSeconds:60}]}});
   for (const field of ['ps-enabled','ps-title-visible','ps-header-visible','ps-hidden-series','ps-density','ps-locale','ps-grouping','ps-zero','ps-nodata','headerAlign','labelAlign','valueAlign','fontWeight','border','ps-fontsize','ps-spacing','ps-color','ps-swatches','ps-tooltip','ps-columns-data']) assert.match(html,new RegExp(field));
   assert.match(source,/class="ps-stale"/);
-  assert.match(source,/placeholder="Inherit \(row precision: 1\)"/);
+  assert.match(source,/class="ps-precision" type="number"[^>]*placeholder="Auto"/);
   assert.match(source,/value="' \+ escHtml\(c\.precision == null \? '' : c\.precision\)/);
   assert.match(html,/Latest/);
 });
