@@ -84,15 +84,15 @@ export const BLOCKS = {
   'flow-card-square-2': { group: 'flow', name: 'Flow square, alternate', desc: 'Square flow layout without the inverter image', icon: 'square', w: 4, h: 6 },
 
   'metric-cards':       { group: 'values', name: 'Metric cards', desc: 'A row of large single values', icon: 'cards', w: 12, h: 3 },
-  'metric-trend':       { group: 'values', name: 'Metric Trend', desc: 'A live metric with an optional history or forecast graph', icon: 'metricTrend', w: 4, h: 4 },
-  'dual-metric':        { group: 'values', name: 'Dual Metric', desc: 'Compare two live metric values side by side', icon: 'cards', w: 4, h: 3 },
+  'metric-trend':       { group: 'values', name: 'Metric trend', desc: 'A live metric with an optional history or forecast graph', icon: 'metricTrend', w: 4, h: 4 },
+  'dual-metric':        { group: 'values', name: 'Dual metric', desc: 'Compare two live metric values side by side', icon: 'cards', w: 4, h: 3 },
   'multi-value':        { group: 'values', name: 'Multi-value list', desc: 'Label, value and unit rows', icon: 'list', w: 4, h: 4 },
   'text-metric':        { group: 'values', name: 'Text metric', desc: "One metric's current value as text", icon: 'text', w: 4, h: 2 },
   'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 4, h: 4 },
   'savings-summary':    { group: 'values', name: 'Savings', desc: 'Savings today, this week, month and all time', icon: 'coin', w: 4, h: 4 },
 
   'gauge-card':         { group: 'gauges', name: 'Gauge', desc: 'One value on a round dial', icon: 'gauge', w: 3, h: 5 },
-  'configurable-gauge': { group: 'gauges', name: 'Configurable Gauge', desc: 'A fully configurable dial with bands and history', icon: 'gauge', w: 4, h: 5 },
+  'configurable-gauge': { group: 'gauges', name: 'Configurable gauge', desc: 'A fully configurable dial with bands and history', icon: 'gauge', w: 4, h: 5 },
   'half-gauge':         { group: 'gauges', name: 'Half gauge', desc: 'One value on a semicircle', icon: 'halfGauge', w: 3, h: 3 },
   'half-gauge-2':       { group: 'gauges', name: 'Half gauge, centre zero', desc: 'Zero at the top; fills right or left for negative values', icon: 'halfGauge', w: 3, h: 3 },
   'bar-gauge':          { group: 'gauges', name: 'Bar gauge', desc: 'Horizontal bars for several metrics', icon: 'bars', w: 4, h: 4 },

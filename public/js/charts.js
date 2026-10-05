@@ -167,6 +167,11 @@ function initKind(kind) {
     instances.set(canvas, { chart, kind });
     created.push({ canvas, chart, container });
   });
+  // A new chart fetches its own data. Waiting for the next live update left it
+  // empty when Chart.js loaded after the first full update (updates in between
+  // are deltas without history), or when no source sends updates at all.
+  const refresh = { power: refreshPowerChartFor, energy: refreshEnergyChartFor, metric: refreshMetricChartFor }[kind];
+  created.forEach(c => { if (refresh) refresh(c); });
   return created;
 }
 
@@ -240,9 +245,12 @@ export function updatePowerChartData(chart, container, data) {
   chart.update();
   if (cfg.fill !== false) applyGradientFills(chart);
 }
-function styleOpacityWidth(width) { return width; }
 
 const powerRequestGates = new WeakMap();
+const powerStatsCache = new WeakMap(); // container → { key, at, response, range }
+const POWER_STATS_TTL_MS = 60_000;
+const powerFetchedAt = new WeakMap(); // container → last 3-day history fetch
+const powerFetchInFlight = new WeakSet(); // containers with a history fetch running
 export async function refreshPowerChartFor({ chart, container }, suppliedState) {
   const cfg = getChartConfig(container), statsCfg = normalizePowerStatsConfig(cfg);
   let gate = powerRequestGates.get(container);
@@ -250,7 +258,11 @@ export async function refreshPowerChartFor({ chart, container }, suppliedState) 
   const range = rangeOf(container, 'power'), to = Math.floor(Date.now() / 1000), from = to - (range === '3d' ? 72 : 24) * 3600;
   const snapshot = gate.capture({ from, to, range, config: JSON.stringify(cfg), datasets: JSON.stringify(getDatasets(container) || defaultPower()) });
   try {
-    const data = suppliedState?.powerHistory || await powerHistoryFor(range);
+    let data = suppliedState?.powerHistory;
+    if (!data) {
+      powerFetchInFlight.add(container);
+      try { data = await powerHistoryFor(range); } finally { powerFetchInFlight.delete(container); }
+    }
     if (!gate.isCurrent(snapshot) || snapshot.config !== JSON.stringify(getChartConfig(container)) || snapshot.datasets !== JSON.stringify(getDatasets(container) || defaultPower()) || snapshot.range !== rangeOf(container, 'power')) return;
     const points = (data || []).filter(p => { const t = Number(p.timestamp), seconds = t > 1e11 ? t / 1000 : t; return seconds >= from && seconds < to; });
     updatePowerChartData(chart, container, points);
@@ -258,14 +270,23 @@ export async function refreshPowerChartFor({ chart, container }, suppliedState) 
     if (!statsCfg.enabled || !mount) return;
     const ds = JSON.parse(snapshot.datasets), fields = [...new Set(ds.map(d => resolvePowerStatsField(d.metric)).filter(Boolean))];
     if (!fields.length) { mount.hidden = false; const body=mount.querySelector('tbody'); if(body)body.replaceChildren(); return; }
-    const r = await fetch(`/api/history/power-stats?from=${from}&to=${to}&fields=${encodeURIComponent(fields.join(','))}`);
-    if (!r.ok) throw new Error(`Statistics request failed (HTTP ${r.status})`);
-    const response = await r.json();
+    // Live updates arrive every few seconds; statistics over 24 h / 3 d don't
+    // need re-querying that often. Reuse a response for a minute, with its range.
+    const statsKey = `${range}|${fields.join(',')}`, cachedStats = powerStatsCache.get(container);
+    let response, statsRange = { from, to };
+    if (!suppliedState?.forceStats && cachedStats && cachedStats.key === statsKey && Date.now() - cachedStats.at < POWER_STATS_TTL_MS) {
+      response = cachedStats.response; statsRange = cachedStats.range;
+    } else {
+      const r = await fetch(`/api/history/power-stats?from=${from}&to=${to}&fields=${encodeURIComponent(fields.join(','))}`);
+      if (!r.ok) throw new Error(`Statistics request failed (HTTP ${r.status})`);
+      response = await r.json();
+      powerStatsCache.set(container, { key: statsKey, at: Date.now(), response, range: statsRange });
+    }
     if (!gate.isCurrent(snapshot) || snapshot.config !== JSON.stringify(getChartConfig(container)) || snapshot.datasets !== JSON.stringify(getDatasets(container) || defaultPower()) || snapshot.range !== rangeOf(container, 'power')) return;
     const legend = chart.options.plugins.legend;
     legend.onClick = (event, item, data) => { const standard = Chart.defaults?.plugins?.legend?.onClick; if (standard) standard.call(legend, event, item, data); else { const i=item.datasetIndex; chart.getDatasetMeta(i).hidden = chart.isDatasetVisible(i); chart.update(); } };
     chart.update();
-    if (mount && statsCfg.enabled) updatePowerStatsSection(mount, response, ds, { from, to }, { isHidden: i => !chart.isDatasetVisible(i), resolveColor: i => chart.data.datasets[i]?.borderColor || chart.data.datasets[i]?.backgroundColor, toggleSeries: i => { if (chart.isDatasetVisible(i)) chart.hide(i); else chart.show(i); chart.update(); refreshPowerChartFor({chart,container}); } });
+    if (mount && statsCfg.enabled) updatePowerStatsSection(mount, response, ds, statsRange, { isHidden: i => !chart.isDatasetVisible(i), resolveColor: i => chart.data.datasets[i]?.borderColor || chart.data.datasets[i]?.backgroundColor, toggleSeries: i => { if (chart.isDatasetVisible(i)) chart.hide(i); else chart.show(i); chart.update(); refreshPowerChartFor({chart,container}, { forceStats: false }); } });
   } catch (e) { if (gate.isCurrent(snapshot) && snapshot.config === JSON.stringify(getChartConfig(container)) && snapshot.datasets === JSON.stringify(getDatasets(container) || defaultPower()) && snapshot.range === rangeOf(container, 'power') && statsCfg.enabled) { const mount = container.querySelector('.power-stats'); if (mount) { mount.hidden = false; let notice=mount.querySelector('.power-stats-unavailable'); if(!notice){notice=document.createElement('p');notice.className='power-stats-unavailable';notice.setAttribute('role','status');mount.append(notice);} notice.textContent=`Statistics unavailable: ${e.message || 'request failed'}.`; const body=mount.querySelector('tbody');if(body)body.replaceChildren(); } } console.warn('[charts] power refresh failed:', e); }
 }
 
@@ -285,8 +306,19 @@ export function updatePowerChartFromState(state) {
   if (!state) return;
   initKind('power');
   for (const c of chartsOf('power')) {
-    if (rangeOf(c.container, 'power') !== '24h') { refreshPowerChartFor(c); continue; }
-    refreshPowerChartFor(c, state);
+    if (rangeOf(c.container, 'power') !== '24h') {
+      // The 3-day history is a large download; live updates every few seconds
+      // don't change it meaningfully, so refresh it at most once a minute.
+      if (Date.now() - (powerFetchedAt.get(c.container) || 0) < POWER_STATS_TTL_MS) continue;
+      powerFetchedAt.set(c.container, Date.now());
+      refreshPowerChartFor(c);
+      continue;
+    }
+    // Most live updates are deltas without powerHistory. Only those that carry
+    // it redraw the chart; an empty chart fetches once. Fetching on every delta
+    // made each request supersede the last, so the chart never filled.
+    if (Array.isArray(state.powerHistory) && state.powerHistory.length) refreshPowerChartFor(c, state);
+    else if (!c.chart.data.datasets.some(d => d.data && d.data.length) && !powerFetchInFlight.has(c.container)) refreshPowerChartFor(c);
   }
 }
 
@@ -325,11 +357,18 @@ export function setEnergyRange(range, container) {
   });
 }
 
+const energyFetchedAt = new WeakMap();
 export function updateEnergyChartFromState(state) {
   if (!state) return;
   initKind('energy');
   for (const c of chartsOf('energy')) {
-    if (rangeOf(c.container, 'energy') !== '7d') { refreshEnergyChartFor(c); continue; }
+    if (rangeOf(c.container, 'energy') !== '7d') {
+      // 30/90-day ranges are fetched; once a minute is plenty for daily totals.
+      if (Date.now() - (energyFetchedAt.get(c.container) || 0) < 60_000) continue;
+      energyFetchedAt.set(c.container, Date.now());
+      refreshEnergyChartFor(c);
+      continue;
+    }
     if (state.dailyEnergyBar) updateEnergyChartData(c.chart, c.container, state.dailyEnergyBar);
   }
 }

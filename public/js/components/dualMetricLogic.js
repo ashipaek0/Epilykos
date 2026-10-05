@@ -3,8 +3,9 @@ import { formatMetric } from './format.js';
 export const DEFAULT_DUAL_METRIC_CONFIG = Object.freeze({
   preset: 'neutral', title: '', icon: '', helpText: '',
   panes: {
-    left: { metric: '', label: '', unit: '', precision: 1, valueColor: '', fillColor: '', labelColor: '', unitColor: '', valueFontSize: 40, labelFontSize: 14, unitFontSize: 16, align: 'center' },
-    right: { metric: '', label: '', unit: '', precision: 1, valueColor: '', fillColor: '', labelColor: '', unitColor: '', valueFontSize: 40, labelFontSize: 14, unitFontSize: 16, align: 'center' }
+    // precision / font sizes null = automatic (decimals by magnitude, text scaled to the pane).
+    left: { metric: '', label: '', unit: '', precision: null, valueColor: '', fillColor: '', labelColor: '', unitColor: '', valueFontSize: null, labelFontSize: null, unitFontSize: null, align: 'center' },
+    right: { metric: '', label: '', unit: '', precision: null, valueColor: '', fillColor: '', labelColor: '', unitColor: '', valueFontSize: null, labelFontSize: null, unitFontSize: null, align: 'center' }
   },
   style: { borderColor: '', borderWidth: 0, radius: 12, padding: 16, paneGap: 0, dividerWidth: 2, dividerColor: '', headerColor: '', headerTextColor: '' }
 });
@@ -26,11 +27,12 @@ function merge(base, value) { return { ...base, ...object(value) }; }
 function normalizePane(value, base) {
   const p = merge(base, value);
   p.metric = text(p.metric); p.label = text(p.label); p.unit = text(p.unit);
-  p.precision = bounded(p.precision, base.precision, 0, 6, true);
+  const auto = v => v === null || v === undefined || v === '';
+  p.precision = auto(p.precision) ? null : bounded(p.precision, 1, 0, 6, true);
   for (const key of ['valueColor', 'fillColor', 'labelColor', 'unitColor']) p[key] = safeDualMetricColor(p[key]);
-  p.valueFontSize = bounded(p.valueFontSize, base.valueFontSize, 12, 96);
-  p.labelFontSize = bounded(p.labelFontSize, base.labelFontSize, 10, 32);
-  p.unitFontSize = bounded(p.unitFontSize, base.unitFontSize, 10, 32);
+  p.valueFontSize = auto(p.valueFontSize) ? null : bounded(p.valueFontSize, 40, 12, 96);
+  p.labelFontSize = auto(p.labelFontSize) ? null : bounded(p.labelFontSize, 14, 10, 32);
+  p.unitFontSize = auto(p.unitFontSize) ? null : bounded(p.unitFontSize, 16, 10, 32);
   p.align = ['left', 'center', 'right'].includes(p.align) ? p.align : 'center';
   return p;
 }
@@ -56,5 +58,6 @@ export function resolveDualMetricPane(state, pane = {}) {
   if (entry?.quality === 'unavailable') return { status: 'Unavailable', formatted: null, entry };
   if (!entry || typeof entry.value !== 'number' || !Number.isFinite(entry.value)) return { status: 'Missing', formatted: null, entry };
   const unit = pane.unit || entry.unit || '';
-  return { status: '', formatted: formatMetric(entry.value, unit, { decimals: bounded(pane.precision, 1, 0, 6, true) }), entry };
+  const decimals = pane.precision === null || pane.precision === undefined || pane.precision === '' ? undefined : bounded(pane.precision, 1, 0, 6, true);
+  return { status: '', formatted: formatMetric(entry.value, unit, { decimals }), entry };
 }

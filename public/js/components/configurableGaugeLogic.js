@@ -1,7 +1,8 @@
 /** Pure helpers for the configurable gauge card. */
 export const DEFAULT_CONFIG = Object.freeze({
-  metric: '', title: '', unit: '', min: 0, max: 100, precision: 0,
-  showReadout: true, readoutColor: '', readoutSize: 24,
+  // precision / readoutSize null = automatic (decimals by magnitude, text scaled to the dial).
+  metric: '', title: '', unit: '', min: 0, max: 100, precision: null,
+  showReadout: true, readoutColor: '', readoutSize: null,
   band: { show: false, thresholds: [], thickness: 8, spacing: 3, trackColor: '' },
   preset: 'continuous', segmentCount: 12, segmentColors: [], segmentGap: 2,
   style: 'flat', arcColor: '', gradientEnd: '', arcThickness: 12,
@@ -11,6 +12,7 @@ export const DEFAULT_CONFIG = Object.freeze({
 });
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function bounded(value, fallback, lo, hi) {
+  if (value === null || value === undefined || value === '') return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? clamp(number, lo, hi) : fallback;
 }
@@ -37,7 +39,7 @@ export function normalizeConfig(input = {}) {
   n.max = Number.isFinite(Number(c.max)) ? Number(c.max) : d.max;
   n.validScale = n.min < n.max;
   n.metric = text(c.metric); n.title = text(c.title); n.unit = text(c.unit);
-  n.precision = Math.round(bounded(c.precision, d.precision, 0, 6));
+  n.precision = c.precision == null || c.precision === '' ? null : Math.round(bounded(c.precision, 0, 0, 6));
   n.showReadout = c.showReadout !== false;
   n.readoutColor = safeColor(c.readoutColor);
   n.readoutSize = bounded(c.readoutSize, d.readoutSize, 8, 48);
