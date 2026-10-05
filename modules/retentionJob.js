@@ -51,7 +51,8 @@ function runMetricsBatch(db, cutoff) {
 
 function runHistoryBatch(db, cutoff) {
   let cursor = -Infinity;
-  const columns = [...INSTANT_FIELDS.flatMap(f => [`${f}_avg`, `${f}_min`, `${f}_max`, `${f}_count`]), ...DAILY_FIELDS.map(f => `${f}_last`)];
+  const columns = [...INSTANT_FIELDS.flatMap(f => [`${f}_avg`, `${f}_min`, `${f}_max`, `${f}_count`, `${f}_last_value`, `${f}_last_timestamp`]),
+    ...DAILY_FIELDS.map(f => `${f}_last`), 'battery_power_sum', 'battery_power_avg', 'battery_power_min', 'battery_power_max', 'battery_power_count', 'battery_power_last_value', 'battery_power_last_timestamp'];
   const updates = columns.map(c => `${c}=excluded.${c}`).join(', ');
   const historyUpsert = db.prepare(`INSERT INTO history_5m (bucket_start, ${columns.join(', ')}) VALUES (${Array(columns.length + 1).fill('?').join(', ')})
     ON CONFLICT(bucket_start) DO UPDATE SET ${updates}`);
@@ -70,12 +71,22 @@ function runHistoryBatch(db, cutoff) {
       selected.push(...rows.map(r => r.timestamp));
       const values = [bucket_start];
       for (const field of INSTANT_FIELDS) {
-        const nums = rows.map(r => r[field]).filter(v => v !== null);
+        const nums = rows.map(r => r[field]).filter(v => v !== null && Number.isFinite(v));
+        const latest = [...rows].reverse().find(r => r[field] !== null && Number.isFinite(r[field]));
         values.push(nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null,
-          nums.length ? Math.min(...nums) : null, nums.length ? Math.max(...nums) : null, nums.length);
+          nums.length ? Math.min(...nums) : null, nums.length ? Math.max(...nums) : null, nums.length,
+          latest ? latest[field] : null, latest ? latest.timestamp : null);
       }
       const last = rows[rows.length - 1];
       for (const field of DAILY_FIELDS) values.push(last[field]);
+      const paired = rows.filter(r => Number.isFinite(r.battery_charge) && Number.isFinite(r.battery_discharge))
+        .map(r => ({ timestamp: r.timestamp, value: r.battery_charge - r.battery_discharge }));
+      const netLast = paired[paired.length - 1];
+      const netValues = paired.map(r => r.value);
+      values.push(netValues.length ? netValues.reduce((a, b) => a + b, 0) : null,
+        netValues.length ? netValues.reduce((a, b) => a + b, 0) / netValues.length : null,
+        netValues.length ? Math.min(...netValues) : null, netValues.length ? Math.max(...netValues) : null,
+        netValues.length, netLast ? netLast.value : null, netLast ? netLast.timestamp : null);
       historyUpsert.run(...values);
       cursor = bucket_start;
     }
@@ -146,4 +157,4 @@ class RetentionManager {
   }
 }
 
-module.exports = { RetentionManager, ROLLUP_INTERVAL_MS, runRollupOnce };
+module.exports = { RetentionManager, ROLLUP_INTERVAL_MS, runRollupOnce, runHistoryBatch };

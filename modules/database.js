@@ -36,6 +36,24 @@ function getDb() {
   return db;
 }
 
+function migratePowerStatsSchema(handle) {
+  const columns = new Set(handle.prepare('PRAGMA table_info(history_5m)').all().map(column => column.name));
+  const fields = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc'];
+  for (const field of fields) {
+    for (const suffix of ['last_value', 'last_timestamp']) {
+      const name = `${field}_${suffix}`;
+      if (!columns.has(name)) handle.exec(`ALTER TABLE history_5m ADD COLUMN ${name} ${suffix === 'last_timestamp' ? 'INTEGER' : 'REAL'}`);
+    }
+  }
+  for (const [name, type] of Object.entries({
+    battery_power_sum: 'REAL', battery_power_avg: 'REAL', battery_power_min: 'REAL',
+    battery_power_max: 'REAL', battery_power_count: 'INTEGER',
+    battery_power_last_value: 'REAL', battery_power_last_timestamp: 'INTEGER'
+  })) {
+    if (!columns.has(name)) handle.exec(`ALTER TABLE history_5m ADD COLUMN ${name} ${type}`);
+  }
+}
+
 function initializeDatabase() {
   const dataDir = path.dirname(DB_PATH);
   let dbFile = DB_PATH;
@@ -153,6 +171,7 @@ function initializeDatabase() {
   };
 
   // Safe schema migrations with explicit PRAGMA column checking
+  migratePowerStatsSchema(db);
   addColumnIfNotExists('latest_metrics', 'unit', 'TEXT');
   addColumnIfNotExists('latest_metrics', 'value_text', 'TEXT');
   addColumnIfNotExists('latest_metrics', 'value_type', "TEXT DEFAULT 'number'");
@@ -796,6 +815,7 @@ function resolveStoredSecret(value, configKeys) {
 
 module.exports = {
   initializeDatabase,
+  migratePowerStatsSchema,
   resolveStoredSecret,
   getConfig,
   setConfig,

@@ -14,6 +14,7 @@ import { buildMultiValueCard, updateMultiValueCard } from './multiValueCard.js';
 import { buildGaugeCard, updateGaugeCard } from './gaugeCard.js';
 import { buildConfigurableGaugeCard } from './configurableGaugeCard.js';
 import { buildMetricTrendCard } from './metricTrendCard.js';
+import { buildDualMetricCard } from './dualMetricCard.js';
 import { buildTextCard } from './textCard.js';
 import { buildIframeCard } from './iframeCard.js';
 import { buildForecastSparkline } from './forecastSparkline.js';
@@ -52,6 +53,7 @@ export const componentBuilders = {
   'gauge-card': buildGaugeCard,
   'configurable-gauge': buildConfigurableGaugeCard,
   'metric-trend': buildMetricTrendCard,
+  'dual-metric': buildDualMetricCard,
   'half-gauge': buildHalfGaugeCard,
   'half-gauge-2': buildHalfGauge2Card,
   'flow-card-square': buildFlowCardSquare,
