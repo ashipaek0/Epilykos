@@ -152,9 +152,11 @@ function initKind(kind) {
       const appearance = cfg.appearance || {}, axes = appearance.axes || {};
       const yUnit = appearance.axisUnit === 'W' ? 'W' : 'kW';
       const opts = lineOptions(cfg, `Power (${yUnit})`);
+      // The right axis only shows when a series is plotted on it.
+      const usesRight = (getDatasets(container) || defaultPower()).some(d => d && d.axis === 'right');
       for (const id of ['left', 'right']) {
         const axis = axes[id] || {};
-        opts.scales[id === 'left' ? 'y' : 'yRight'] = { type: 'linear', position: id, display: id === 'left' || !!axes.right, title: { display: !!axes.right || id === 'left', text: `Power (${axis.unit === 'W' ? 'W' : yUnit})` }, grid: { color: themeColors().grid, display: !cfg.hideGrid && id === 'left' }, ticks: { color: themeColors().text } };
+        opts.scales[id === 'left' ? 'y' : 'yRight'] = { type: 'linear', position: id, display: id === 'left' || usesRight, title: { display: true, color: themeColors().text, text: `Power (${axis.unit === 'W' ? 'W' : yUnit})` }, grid: { color: themeColors().grid, display: !cfg.hideGrid && id === 'left' }, ticks: { color: themeColors().text } };
         if (axis.min !== '' && axis.min != null && Number.isFinite(Number(axis.min))) opts.scales[id === 'left' ? 'y' : 'yRight'].min = Number(axis.min);
         if (axis.max !== '' && axis.max != null && Number.isFinite(Number(axis.max))) opts.scales[id === 'left' ? 'y' : 'yRight'].max = Number(axis.max);
       }
@@ -181,7 +183,7 @@ export function initMetricChart() { return initKind('metric'); }
 
 function resolveColor(color) { if (!color) return '#ccc'; if (color.startsWith('#')) return color; return '#ccc'; }
 
-export function applyGradientFills(chart) { if (!chart || !chart.ctx) return; requestAnimationFrame(() => { const ctx = chart.ctx, ca = chart.chartArea; if (!ca) { setTimeout(() => applyGradientFills(chart), 50); return; } chart.data.datasets.forEach((ds, i) => { if (!chart.getDatasetMeta(i).hidden && ds.data.length) { const g = ctx.createLinearGradient(0, ca.bottom, 0, ca.top), hx = resolveColor(ds.borderColor || '#ccc'), r = parseInt(hx.slice(1, 3), 16), gv = parseInt(hx.slice(3, 5), 16), b = parseInt(hx.slice(5, 7), 16); g.addColorStop(0, `rgba(${r},${gv},${b},0.03)`); g.addColorStop(0.5, `rgba(${r},${gv},${b},0.08)`); g.addColorStop(1, `rgba(${r},${gv},${b},0.16)`); ds.backgroundColor = g; } }); chart.update(); }); }
+export function applyGradientFills(chart) { if (!chart || !chart.ctx) return; requestAnimationFrame(() => { const ctx = chart.ctx, ca = chart.chartArea; if (!ca) { setTimeout(() => applyGradientFills(chart), 50); return; } chart.data.datasets.forEach((ds, i) => { if (!chart.getDatasetMeta(i).hidden && ds.data.length) { const g = ctx.createLinearGradient(0, ca.bottom, 0, ca.top), hx = resolveColor(ds.baseColor || ds.borderColor || '#ccc'), r = parseInt(hx.slice(1, 3), 16), gv = parseInt(hx.slice(3, 5), 16), b = parseInt(hx.slice(5, 7), 16); g.addColorStop(0, `rgba(${r},${gv},${b},0.03)`); g.addColorStop(0.5, `rgba(${r},${gv},${b},0.08)`); g.addColorStop(1, `rgba(${r},${gv},${b},0.16)`); ds.backgroundColor = g; } }); chart.update(); }); }
 
 export function updateChartColors() {
   sweep();
@@ -224,14 +226,16 @@ export function updatePowerChartData(chart, container, data) {
     const color = resolveColor(d.color), opacity = Number.isFinite(Number(d.opacity ?? appearance.opacity)) ? Math.min(1, Math.max(0, Number(d.opacity ?? appearance.opacity))) : 1;
     const lineWidth = Number.isFinite(Number(d.lineWidth ?? appearance.lineWidth)) && Number(d.lineWidth ?? appearance.lineWidth) > 0 ? Math.min(8, Math.max(0.5, Number(d.lineWidth ?? appearance.lineWidth))) : 2;
     const lineStyle = d.lineStyle || appearance.lineStyle;
-    const style = { yAxisID: axis === 'right' ? 'yRight' : 'y', borderColor: opacity < 1 && /^#[0-9a-f]{6}$/i.test(color) ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${opacity})` : color, fill: cfg.fill !== false, borderWidth: lineWidth, borderDash: lineStyle === 'dashed' ? [6, 4] : (lineStyle === 'dotted' ? [2, 3] : []), borderCapStyle: 'round', pointRadius: (d.markers ?? appearance.markers) === true ? 2 : 0, unit };
+    const style = { yAxisID: axis === 'right' ? 'yRight' : 'y', borderColor: opacity < 1 && /^#[0-9a-f]{6}$/i.test(color) ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${opacity})` : color, fill: cfg.fill !== false, borderWidth: lineWidth, borderDash: lineStyle === 'dashed' ? [6, 4] : (lineStyle === 'dotted' ? [2, 3] : []), borderCapStyle: 'round', pointRadius: (d.markers ?? appearance.markers) === true ? 2 : 0, unit, baseColor: color };
     if (i < existing.length) { Object.assign(existing[i], style, { label: d.label, data: pts }); }
     else existing.push({ label: d.label, data: pts, ...style, tension: 0.35 });
   });
   while (existing.length > ds.length) existing.pop();
   chart.options.scales.x.time.unit = rangeOf(container, 'power') === '3d' ? 'day' : 'hour';
+  const usesRight = ds.some(d => d && d.axis === 'right');
   for (const axis of ['left', 'right']) {
     const scale = chart.options.scales[axis === 'left' ? 'y' : 'yRight'], axisCfg = appearance.axes?.[axis] || {};
+    if (axis === 'right') scale.display = usesRight;
     const fallbackMin = axis === 'left' ? appearance.axisMin : undefined, fallbackMax = axis === 'left' ? appearance.axisMax : undefined;
     const min = axisCfg.min !== '' && axisCfg.min != null ? axisCfg.min : fallbackMin, max = axisCfg.max !== '' && axisCfg.max != null ? axisCfg.max : fallbackMax;
     if (min !== '' && min != null && Number.isFinite(Number(min))) scale.min = Number(min); else delete scale.min;
