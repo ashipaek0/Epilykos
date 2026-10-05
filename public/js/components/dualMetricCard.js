@@ -54,6 +54,7 @@ function applyConfig(root, c) {
     setColor(header, 'color', c.style.headerTextColor);
     const title = header.querySelector('.dual-metric-title');
     if (title) title.textContent = c.title;
+    header.hidden = !c.title && !header.querySelector('.dual-metric-icon, .dual-metric-help');
   }
   const body = root.querySelector('.dual-metric-body');
   if (body) setColor(body, 'backgroundColor', c.preset === 'split-fill' ? c.style.dividerColor : '');
@@ -96,6 +97,8 @@ export function buildDualMetricCard(block = {}) {
   }
   const body = make('div', 'dual-metric-body');
   body.append(makePane('left', c.panes.left, c.preset), makePane('right', c.panes.right, c.preset));
+  // No title, icon or help: no empty header bar.
+  header.hidden = !c.title && !header.querySelector('.dual-metric-icon, .dual-metric-help');
   root.append(header, body);
   applyConfig(root, c);
   return root;

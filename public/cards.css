@@ -349,6 +349,7 @@
 
 .dual-metric-title { font-size: calc(clamp(0.9rem, 1rem + 0.5cqi, 1.15rem) * var(--card-font-scale, 1)) !important; }
 .dual-metric-card { container-type: inline-size; }
+.dual-metric-header[hidden] { display: none !important; }
 .dual-metric-header { padding: 10px var(--dual-padding, 14px) !important; }
 .dual-metric-header .dual-metric-title { flex: 1 1 auto; }
 .dual-metric-help { flex: 0 0 28px !important; width: 28px !important; height: 28px !important; min-height: 28px !important; margin: -4px -6px -4px 0; border: 1px solid var(--border) !important; font-weight: 700; color: var(--text-secondary) !important; }

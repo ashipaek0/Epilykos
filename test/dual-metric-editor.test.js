@@ -53,9 +53,20 @@ test('all Dual Metric fields round-trip repeatedly while unknown nested keys sur
   assert.equal(JSON.stringify(block.config), JSON.stringify(once));
 });
 
-test('invalid required fields, enums, numbers, ranges, and colors reject without any block mutation', () => {
+test('a new card saves with no title and one metric picked', () => {
+  const {context} = harness({'dm-left-metric':'solar_kw'}); const block = {type:'dual-metric',config:{}};
+  assert.equal(context.readSettingsForm(block), null);
+  assert.equal(block.config.title, ''); assert.equal(block.config.panes.left.metric, 'solar_kw'); assert.equal(block.config.panes.right.metric, '');
+});
+
+test('a saved metric that is not reporting right now still saves', () => {
+  const {context} = harness({'dm-left-metric':'old_sensor','dm-right-metric':'load_kw'}); const block = {type:'dual-metric',config:{title:'T',panes:{left:{metric:'old_sensor'},right:{}}}};
+  assert.equal(context.readSettingsForm(block), null); assert.equal(block.config.panes.left.metric, 'old_sensor');
+});
+
+test('invalid enums, numbers, ranges, and colors reject without any block mutation', () => {
   const before = {preset:'neutral',title:'Saved',panes:{left:{metric:'solar_kw'},right:{metric:'load_kw'}},style:{borderWidth:1},keep:true};
-  for (const [key,value] of Object.entries({'dm-title':'','dm-left-metric':'','dm-right-metric':'unknown','dm-preset':'other','dm-left-precision':'1.5','dm-right-value-font-size':'NaN','dm-left-label-font-size':'9','dm-pane-gap':'17','dm-border-width':'Infinity','dm-left-value-color':'red; background:url(javascript:1)'})) {
+  for (const [key,value] of Object.entries({'dm-right-metric':'unknown','dm-preset':'other','dm-left-precision':'1.5','dm-right-value-font-size':'NaN','dm-left-label-font-size':'9','dm-pane-gap':'17','dm-border-width':'Infinity','dm-left-value-color':'red; background:url(javascript:1)'})) {
     const {context} = harness({[key]:value}); const block = {type:'dual-metric',config:structuredClone(before)};
     assert.match(context.readSettingsForm(block),/required|metric|preset|precision|font|range|color|finite/i, key);
     assert.deepEqual(block.config,before,key); assert.equal(block.enabled,undefined,key);

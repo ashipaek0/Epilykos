@@ -880,10 +880,11 @@ function buildPowerStatsForm(cfg) {
   h += '<details class="ps-more"><summary>Table style</summary>';
   h += select('id="ps-density"', 'Density', s.density === 'compact' ? 'compact' : 'comfortable', [['comfortable','Comfortable'],['compact','Compact']]);
   h += '<div data-ui="grid2">';
-  h += select('data-ps-style="headerAlign"', 'Headings', st.headerAlign || 'start', align) + select('data-ps-style="labelAlign"', 'Series names', st.labelAlign || 'start', align);
-  h += select('data-ps-style="valueAlign"', 'Values', st.valueAlign || 'end', align) + select('data-ps-style="fontWeight"', 'Font weight', st.fontWeight || 'normal', [['normal','Normal'],['medium','Medium'],['semibold','Semibold'],['bold','Bold']]);
+  // Headings follow the alignment of the column below them.
+  h += select('data-ps-style="labelAlign"', 'Series names', st.labelAlign || 'start', align) + select('data-ps-style="valueAlign"', 'Values', st.valueAlign || 'end', align);
+  h += select('data-ps-style="fontWeight"', 'Font weight', st.fontWeight || 'normal', [['normal','Normal'],['medium','Medium'],['semibold','Semibold'],['bold','Bold']]) + select('data-ps-style="border"', 'Row lines', st.border || 'subtle', [['none','None'],['subtle','Subtle'],['strong','Strong']]);
   h += number('ps-fontsize', 'Font size (px)', st.fontSizePx == null ? 14 : st.fontSizePx, 10, 24, 1) + number('ps-spacing', 'Row spacing (px)', st.rowSpacingPx == null ? 8 : st.rowSpacingPx, 0, 32, 1);
-  h += '</div>' + select('data-ps-style="border"', 'Row lines', st.border || 'subtle', [['none','None'],['subtle','Subtle'],['strong','Strong']]);
+  h += '</div>';
   h += '<label data-ui="field">Text color ' + optionalColorControl('ps-color', st.textColor && st.textColor !== 'theme' ? st.textColor : '') + '</label>';
   h += '<div class="ps-toggles">' + toggle('ps-swatches', 'Colour dot by each series', st.showSwatches !== false) + toggle('ps-tooltip', 'Data-quality tips on hover', st.tooltip !== false) + '</div>';
   h += '</details><details class="ps-more"><summary>Number format</summary>';
@@ -1597,14 +1598,14 @@ function readSettingsForm(block) {
     var dmColor = function(value) { if (!value) return true; if (typeof CSS !== 'undefined' && CSS.supports) return CSS.supports('color', value); return /^(#[0-9a-f]{3,8}|[a-z]{1,30})$/i.test(value); };
     var priorPanes = config.panes || {}, priorStyle = config.style || {}, dmPreset = dmRaw('preset',config.preset || 'neutral'), dmTitle = dmRaw('title',config.title || ''), dmIcon = dmRaw('icon',config.icon || '');
     if (dmPreset !== 'neutral' && dmPreset !== 'split-fill') return 'Preset must be Neutral or Split-fill.';
-    if (!dmTitle) return 'Title is required.';
     if (dmIcon && ['sun','sunLine','panel','battery','plug','flow','chartLine','chartArea','metricTrend'].indexOf(dmIcon) < 0) return 'Icon must be selected from the allowed icon list.';
     var nextPanes = Object.assign({}, priorPanes);
     ['left','right'].forEach(function(side) { var prior = priorPanes[side] || {}; nextPanes[side] = Object.assign({}, prior); });
     var nextValues = {}, dmErrors = [];
     ['left','right'].forEach(function(side) {
       var prior = priorPanes[side] || {}, metric = dmRaw(side + '-metric',prior.metric || ''), label = dmRaw(side + '-label',prior.label || ''), unit = dmRaw(side + '-unit',prior.unit || '');
-      if (!metric || availableMetrics.indexOf(metric) < 0) dmErrors.push(side + ' pane metric must be selected from the available metrics.');
+      // A pane can wait for its metric; a saved one that is not reporting right now stays.
+      if (metric && availableMetrics.indexOf(metric) < 0 && metric !== prior.metric) dmErrors.push(side + ' pane metric must be selected from the available metrics.');
       var precision = dmOpt(side + '-precision',prior.precision,0,6,true), valueFontSize = dmOpt(side + '-value-font-size',prior.valueFontSize,12,96,false), labelFontSize = dmOpt(side + '-label-font-size',prior.labelFontSize,10,32,false), unitFontSize = dmOpt(side + '-unit-font-size',prior.unitFontSize,10,32,false);
       if (precision === undefined) dmErrors.push('Precision must be an integer from 0 to 6, or blank for Auto.');
       if (valueFontSize === undefined) dmErrors.push('Value font size must be between 12 and 96, or blank for Auto.');
@@ -2000,7 +2001,7 @@ function readSettingsForm(block) {
         var locale=document.getElementById('ps-locale').value.trim()||'auto';if(locale!=='auto'){try{new Intl.NumberFormat(locale);}catch(e){return 'Enter a valid formatting locale.';}}
         var fontSize=numField('ps-fontsize',14,10,24), spacing=numField('ps-spacing',8,0,32);if(fontSize===null||spacing===null)return 'Statistics font size or row spacing is out of range.';
         var textColor=(document.getElementById('ps-color')?.value||'').trim();if(textColor&&textColor!=='theme'&&!/^#[0-9a-f]{6}$/i.test(textColor))return 'Text color must be theme or a six-digit hex color.';
-        var oldStyle=stat.tableStyle||{}, tableStyle=Object.assign({},oldStyle,{headerAlign:document.querySelector('[data-ps-style="headerAlign"]').value,labelAlign:document.querySelector('[data-ps-style="labelAlign"]').value,valueAlign:document.querySelector('[data-ps-style="valueAlign"]').value,fontWeight:document.querySelector('[data-ps-style="fontWeight"]').value,border:document.querySelector('[data-ps-style="border"]').value,fontSizePx:fontSize,rowSpacingPx:spacing,textColor:textColor||'theme',showSwatches:document.getElementById('ps-swatches').checked,tooltip:document.getElementById('ps-tooltip').checked});
+        var oldStyle=stat.tableStyle||{}, tableStyle=Object.assign({},oldStyle,{headerAlign:document.querySelector('[data-ps-style="headerAlign"]')?.value||oldStyle.headerAlign||'start',labelAlign:document.querySelector('[data-ps-style="labelAlign"]').value,valueAlign:document.querySelector('[data-ps-style="valueAlign"]').value,fontWeight:document.querySelector('[data-ps-style="fontWeight"]').value,border:document.querySelector('[data-ps-style="border"]').value,fontSizePx:fontSize,rowSpacingPx:spacing,textColor:textColor||'theme',showSwatches:document.getElementById('ps-swatches').checked,tooltip:document.getElementById('ps-tooltip').checked});
         stat=Object.assign(stat,{enabled:document.getElementById('ps-enabled').checked,titleVisible:document.getElementById('ps-title-visible').checked,headerVisible:document.getElementById('ps-header-visible').checked,includeHiddenSeries:document.getElementById('ps-hidden-series').checked,title:document.getElementById('ps-title').value.slice(0,80),density:document.getElementById('ps-density').value,columns:nextCols,format:Object.assign({},stat.format||{},{locale:locale,grouping:document.getElementById('ps-grouping').checked,zeroDisplay:document.getElementById('ps-zero').value,noData:document.getElementById('ps-nodata').value}),tableStyle:tableStyle});
         var checkedOr=function(id,fallback){var el=document.getElementById(id);return el?el.checked:fallback;};
         nextAppearance=Object.assign(nextAppearance,{lineStyle:globalLineStyle,markers:checkedOr('pca-markers',nextAppearance.markers===true),axisUnit:defaultUnit,legend:checkedOr('pca-legend',nextAppearance.legend!==false),tooltip:checkedOr('pca-tooltip',nextAppearance.tooltip!==false),axes:nextAxes});
