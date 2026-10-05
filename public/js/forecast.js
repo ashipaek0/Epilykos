@@ -206,8 +206,9 @@ async function renderChart(card, data, historyData) {
   const datasets = [];
   if (band.length) {
     datasets.push(
-      { label: 'P10', data: band.map(p => ({ x: p.x, y: p.lo })), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.4 },
-      { label: 'P10–P90', data: band.map(p => ({ x: p.x, y: p.hi })), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.4 }
+      // Solcast's P10-P90 band: output should land in this range 8 times in 10.
+      { label: 'Low estimate', bandEdge: 'lo', data: band.map(p => ({ x: p.x, y: p.lo })), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.4 },
+      { label: 'Likely range', bandEdge: 'hi', data: band.map(p => ({ x: p.x, y: p.hi })), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.4 }
     );
   }
   datasets.push(
@@ -223,10 +224,13 @@ async function renderChart(card, data, historyData) {
       y: { beginAtZero: true, suggestedMax: capacity || undefined, grid: { color: grid }, ticks: { color: muted, maxTicksLimit: 4, font: { size: 10 }, callback: v => `${v} kW` } }
     },
     plugins: {
-      legend: { display: true, labels: { color: muted, boxWidth: 12, font: { size: 10 }, filter: i => i.text !== 'P10' } },
+      legend: { display: true, labels: { color: muted, boxWidth: 12, font: { size: 10 }, filter: (i, data) => data.datasets[i.datasetIndex]?.bandEdge !== 'lo' } },
       tooltip: {
-        filter: i => i.dataset.label !== 'P10',
-        callbacks: { label: (c) => `${c.dataset.label}: ${Number(c.parsed.y).toFixed(2)} kW` }
+        filter: i => i.dataset.bandEdge !== 'lo',
+        callbacks: { label: (c) => {
+          if (c.dataset.bandEdge === 'hi') { const lo = band[c.dataIndex]?.lo; return `Likely range: ${Number(lo).toFixed(2)}–${Number(c.parsed.y).toFixed(2)} kW`; }
+          return `${c.dataset.label}: ${Number(c.parsed.y).toFixed(2)} kW`;
+        } }
       }
     }
   };
