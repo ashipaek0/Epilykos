@@ -48,7 +48,10 @@ const fs = require('fs'), path = require('path'), assert = require('assert');
   await test('component renders separate unique SVG effects, in-gauge readout, and line/area mode branches', () => {
     const component = fs.readFileSync(path.join(__dirname, '../public/js/components/configurableGaugeCard.js'), 'utf8');
     assert.match(component, /configurable-gauge-\$\{\+\+instanceSequence\}/);
-    assert.match(component, /position:relative;width:min\(100%,\$\{c\.size\}px\)/);
+    // The size cap is passed to CSS, which fits the dial to the block's width and height.
+    assert.match(component, /setProperty\('--cg-size', `\$\{c\.size\}px`\)/);
+    const css = fs.readFileSync(path.join(__dirname, '../public/cards.css'), 'utf8');
+    assert.match(css, /\.configurable-gauge-viz \{[^}]*width: min\([^}]*var\(--cg-size[^}]*100cqh/);
     assert.match(component, /c\.graph\.mode === 'area' \? historyAreaPath/);
     assert.match(component, /url\(#\$\{id\}-gradient\)/);
     assert.match(component, /root\.isConnected && root\._gaugeGeneration === generation/);

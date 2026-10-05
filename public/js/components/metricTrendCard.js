@@ -38,8 +38,8 @@ export function buildMetricTrendCard(block = {}) {
   const body=makeNode('div','metric-trend-body'); body.style.padding=`${c.style.padding}px`; body.style.flex='1'; body.style.minHeight='0';
   if(c.style.bodyFill){body.style.backgroundColor=c.style.bodyFill;if(c.style.bodyFillEnd)body.style.backgroundImage=`linear-gradient(${c.style.gradientAngle}deg, ${c.style.bodyFill}, ${c.style.bodyFillEnd})`;}
   const readout=makeNode('div','metric-trend-readout'); readout.style.textAlign=c.display.align; if(c.display.compact)readout.classList.add('is-compact');
-  const value=makeNode('span','metric-trend-value','—'); value.style.fontSize=`${c.display.valueFontSize}px`; setStyle(value,'color',c.style.valueColor);
-  const unit=makeNode('span','metric-trend-unit'); unit.style.fontSize=`${c.display.unitFontSize}px`; setStyle(unit,'color',c.style.unitColor);
+  const value=makeNode('span','metric-trend-value','—'); if(c.display.valueFontSize)root.style.setProperty('--mt-value-size',`${c.display.valueFontSize}px`); setStyle(value,'color',c.style.valueColor);
+  const unit=makeNode('span','metric-trend-unit'); if(c.display.unitFontSize)root.style.setProperty('--mt-unit-size',`${c.display.unitFontSize}px`); setStyle(unit,'color',c.style.unitColor);
   const status=makeNode('span','metric-trend-status',''); readout.append(value,unit,status);
   const context=makeNode('div','metric-trend-context');
   const graphWrap=makeNode('div','metric-trend-graph-wrap'); graphWrap.hidden=!(c.graph.enabled&&c.graph.source!=='none');
@@ -55,7 +55,8 @@ function paint(root,c,points,unit,meaning){
   if(c.style.graphLineColor)line.setAttribute('stroke',c.style.graphLineColor); else line.removeAttribute('stroke');
   area.setAttribute('d',c.graph.lineStyle==='area'?historyTrendAreaPath(d):''); if(c.style.graphFillColor)area.setAttribute('fill',c.style.graphFillColor); else area.removeAttribute('fill'); area.setAttribute('fill-opacity',String(c.style.graphFillOpacity));
   if(marker){const endpoint=[...d.matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g)].at(-1);if(c.graph.marker&&endpoint){marker.setAttribute('cx',endpoint[1]);marker.setAttribute('cy',endpoint[2]);marker.setAttribute('display','');}else marker.setAttribute('display','none');}
-  const label=root.querySelector('.metric-trend-context'); label.textContent=meaning==='forecast'?'Forecast':'Historical'; const unitNode=root.querySelector('.metric-trend-graph-unit'); if(unitNode)unitNode.textContent=unit||'';
+  // Say which period the graph covers rather than just 'Historical'.
+  const label=root.querySelector('.metric-trend-context'); label.textContent=meaning==='forecast'?(c.graph.forecastPeriod==='tomorrow'?'Forecast for tomorrow':'Forecast for today'):({'1h':'Last hour','6h':'Last 6 hours','24h':'Last 24 hours','7d':'Last 7 days'})[c.graph.window]||'History'; const unitNode=root.querySelector('.metric-trend-graph-unit'); if(unitNode)unitNode.textContent=unit||'';
   svg.setAttribute('aria-label',`${meaning==='forecast'?'Forecast':'Historical'} graph${unit?` in ${unit}`:''}`);
 }
 async function refreshGraph(root,c,graphUnit=''){
@@ -85,14 +86,17 @@ export function updateMetricTrendCards(state = {}) {
       if(statusNode)statusNode.textContent=raw===null?(entry?.quality==='stale'?'Stale':'Unavailable'):'';
     } else {
       const key=`value|${c.value.forecastSource}|${c.value.forecastValue}|${JSON.stringify(c.value.restMap)}`;
-      if(root._metricTrendValueKey!==key){root._metricTrendValueKey=key;root._metricTrendValueGeneration=(root._metricTrendValueGeneration||0)+1;}
+      if(root._metricTrendValueKey!==key){root._metricTrendValueKey=key;root._metricTrendValueGeneration=(root._metricTrendValueGeneration||0)+1;root._metricTrendHasValue=false;}
       const generation=root._metricTrendValueGeneration;
-      if(statusNode)statusNode.textContent='Loading';if(valueNode)valueNode.textContent='—';if(unitNode)unitNode.textContent='';
+      // Only show 'Loading' before the first value; later updates keep the
+      // current value on screen until the new one arrives (no flicker).
+      if(!root._metricTrendHasValue){if(statusNode)statusNode.textContent='Loading';if(valueNode)valueNode.textContent='—';if(unitNode)unitNode.textContent='';}
       const record=requestForecast(c.value.forecastSource,c.value.restMap);
       Promise.resolve(record.promise||record.data).then(data=>{
         if(!root.isConnected||root._metricTrendValueGeneration!==generation)return;
         const date=serverForecastDate(data), raw=forecastValue(data,c.value.forecastValue,date);
         const formatted=raw===null?null:formatTrendValue(raw,'kWh',c.display.precision,c.display.compact);
+        root._metricTrendHasValue=!!formatted;
         if(valueNode)valueNode.textContent=formatted?.value||'—';if(unitNode)unitNode.textContent=formatted?.unit||'';if(statusNode)statusNode.textContent=formatted?'': 'Unavailable';
       }).catch(()=>{if(root.isConnected&&root._metricTrendValueGeneration===generation&&statusNode)statusNode.textContent='Unavailable';});
     }

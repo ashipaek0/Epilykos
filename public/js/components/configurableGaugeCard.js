@@ -89,11 +89,13 @@ export function buildConfigurableGaugeCard(block = {}) {
   const c = normalizeConfig(block.config), root = document.createElement('div'), id = `configurable-gauge-${++instanceSequence}`;
   root.className = 'configurable-gauge-card stat-card'; root.dataset.blockId = block.id || ''; root.dataset.instanceId = id; root.dataset.config = JSON.stringify(c);
   root.style.minWidth = '0'; root.style.overflow = 'hidden'; root.style.boxSizing = 'border-box';
-  root.style.backgroundColor = c.background;
-  root.style.borderColor = c.borderColor; root.style.borderWidth = `${c.borderWidth}px`;
-  root.style.borderStyle = c.borderColor && c.borderWidth > 0 ? 'solid' : 'none';
-  root.style.borderRadius = `${c.radius}px`;
-  root.innerHTML = `<div class="configurable-gauge-title">${esc(c.title || c.metric || 'Gauge')}</div><div class="configurable-gauge-viz" style="position:relative;width:min(100%,${c.size}px);margin:auto">${gaugeMarkup(c, id)}<div class="configurable-gauge-readout" style="position:absolute;inset:42% 0 auto;text-align:center;font-size:${c.readoutSize}px;color:${esc(c.readoutColor || 'var(--text)')};${c.showReadout ? '' : 'display:none'}"><span class="configurable-gauge-value">—</span><span class="configurable-gauge-unit">${esc(c.unit)}</span></div><svg class="configurable-gauge-history" viewBox="0 0 100 30" preserveAspectRatio="none" aria-label="Metric history" style="position:absolute;left:20%;top:64%;display:${c.graph.show ? 'block' : 'none'};width:60%;height:22px"><path class="configurable-gauge-history-area" fill="${esc(c.graph.color || 'var(--accent)')}" fill-opacity="${c.graph.opacity}"/><path class="configurable-gauge-history-line" fill="none" stroke="${esc(c.graph.color || 'var(--accent)')}" stroke-width="${c.graph.thickness}"/><circle class="configurable-gauge-history-marker" r="1.5" fill="${esc(c.graph.color || 'var(--accent)')}" style="display:none"/></svg></div>`;
+  // Only what the person set: otherwise the card keeps the shared card
+  // surface (background, 1px border, radius) like every other card.
+  if (c.background) root.style.backgroundColor = c.background;
+  if (c.borderColor && c.borderWidth > 0) { root.style.borderColor = c.borderColor; root.style.borderWidth = `${c.borderWidth}px`; root.style.borderStyle = 'solid'; }
+  if (c.radius !== 12) root.style.borderRadius = `${c.radius}px`;
+  root.style.setProperty('--cg-size', `${c.size}px`);
+  root.innerHTML = `<div class="configurable-gauge-title">${esc(c.title || c.metric || 'Gauge')}</div><div class="configurable-gauge-viz">${gaugeMarkup(c, id)}<div class="configurable-gauge-readout" style="${c.readoutSize ? `font-size:calc(${c.readoutSize}px * var(--card-font-scale, 1));` : ''}${c.readoutColor ? `color:${esc(c.readoutColor)};` : ''}${c.showReadout ? '' : 'display:none'}"><span class="configurable-gauge-value">—</span><span class="configurable-gauge-unit">${esc(c.unit)}</span></div><svg class="configurable-gauge-history" viewBox="0 0 100 30" preserveAspectRatio="none" aria-label="Metric history" style="display:${c.graph.show ? 'block' : 'none'}"><path class="configurable-gauge-history-area" fill="${esc(c.graph.color || 'var(--accent)')}" fill-opacity="${c.graph.opacity}"/><path class="configurable-gauge-history-line" fill="none" stroke="${esc(c.graph.color || 'var(--accent)')}" stroke-width="${c.graph.thickness}"/><circle class="configurable-gauge-history-marker" r="1.5" fill="${esc(c.graph.color || 'var(--accent)')}" style="display:none"/></svg></div>`;
   root._gaugeGeneration = 0; root._gaugeHistoryKey = ''; root._gaugeRefreshAt = 0;
   return root;
 }
@@ -114,8 +116,10 @@ export function updateConfigurableGaugeCards(state = {}) {
     let c; try { c = normalizeConfig(JSON.parse(root.dataset.config || '{}')); } catch (_) { c = normalizeConfig(); }
     const entry = state?.metrics?.[c.metric], value = finiteMetric(entry?.value);
     const valueNode = root.querySelector('.configurable-gauge-value'), unitNode = root.querySelector('.configurable-gauge-unit');
-    if (valueNode) valueNode.textContent = value === null ? '—' : formatMetric(value, c.unit || entry?.unit || '', { decimals: c.precision }).value;
-    if (unitNode) unitNode.textContent = value === null ? '' : c.unit || entry?.unit || '';
+    // formatMetric picks the shown unit too (W → kW from 1000 up).
+    const shown = value === null ? null : formatMetric(value, c.unit || entry?.unit || '', { decimals: c.precision ?? undefined });
+    if (valueNode) valueNode.textContent = shown ? shown.value : '—';
+    if (unitNode) unitNode.textContent = shown ? shown.unit : '';
     setFill(root, c, c.validScale ? scaleRatio(value, c.min, c.max) : null);
     const graph = root.querySelector('.configurable-gauge-history'), key = `${c.graph.metric || c.metric}|${c.graph.window}`;
     if (graph) graph.style.display = c.graph.show ? '' : 'none';

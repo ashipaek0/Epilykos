@@ -314,3 +314,69 @@
 .pvt-timeline-icons > .pvt-timeline-icon .wx-ic { font-size: inherit !important; }
 .pvt-timeline-bar { display: flex; gap: 2px; margin-bottom: 6px; }
 .pvt-timeline-seg { flex: 1 1 0; height: 4px; border-radius: 2px; }
+
+/* ── Configurable gauge ──────────────────────────────────────
+   Shared card surface; the dial fits the block's width AND height
+   (it used to be sized by width only and got cut off in short blocks);
+   the readout scales with the dial unless a size is set. */
+.configurable-gauge-card {
+  display: flex; flex-direction: column; align-items: center;
+  container-type: size;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius, 12px);
+  padding: var(--card-pad) !important; gap: 4px !important;
+}
+.configurable-gauge-title { align-self: stretch; text-align: left; }
+.configurable-gauge-viz {
+  position: relative; flex: 0 0 auto; margin: auto;
+  width: min(100cqw - 2 * var(--card-pad), var(--cg-size, 400px), 100cqh - 2 * var(--card-pad) - 1.6em);
+  aspect-ratio: 1; container-type: inline-size;
+}
+.configurable-gauge-readout {
+  position: absolute; inset: 40% 0 auto; text-align: center; color: var(--text);
+  font-size: calc(15cqi * var(--card-font-scale, 1));
+}
+.configurable-gauge-history { position: absolute; left: 22%; width: 56%; top: 62%; height: 14%; max-height: none !important; }
+
+/* ── Metric Trend / Dual metric: text follows the card size and the
+   Text size setting unless the person set an explicit size. ── */
+.metric-trend-card .metric-trend-value { font-size: calc(var(--mt-value-size, clamp(1.4rem, 15cqi, 3.2rem)) * var(--card-font-scale, 1)); }
+.metric-trend-card .metric-trend-unit { font-size: calc(var(--mt-unit-size, clamp(0.8rem, 6cqi, 1.4rem)) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.metric-trend-card { container-type: inline-size; }
+.metric-trend-header .metric-trend-title { flex: 1 1 auto; }
+.metric-trend-graph-unit { display: none; }
+.metric-trend-context { font-size: calc(0.75rem * var(--card-font-scale, 1)); }
+
+.dual-metric-title { font-size: calc(clamp(0.9rem, 1rem + 0.5cqi, 1.15rem) * var(--card-font-scale, 1)) !important; }
+.dual-metric-card { container-type: inline-size; }
+.dual-metric-header { padding: 10px var(--dual-padding, 14px) !important; }
+.dual-metric-header .dual-metric-title { flex: 1 1 auto; }
+.dual-metric-help { flex: 0 0 28px !important; width: 28px !important; height: 28px !important; min-height: 28px !important; margin: -4px -6px -4px 0; border: 1px solid var(--border) !important; font-weight: 700; color: var(--text-secondary) !important; }
+.dual-metric-help-text { flex-basis: 100%; font-size: calc(0.8rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.dual-metric-header { flex-wrap: wrap; }
+.dual-metric-pane { padding: 8px var(--dual-padding, 14px) !important; }
+.dual-metric-label { font-size: calc(var(--dual-label-size, clamp(0.72rem, 7cqi, 0.95rem)) * var(--card-font-scale, 1)) !important; color: var(--text-secondary); font-weight: 600; }
+.dual-metric-value { font-size: calc(var(--dual-value-size, clamp(1.1rem, 17cqi, 2.6rem)) * var(--card-font-scale, 1)) !important; }
+.dual-metric-unit { font-size: calc(var(--dual-unit-size, clamp(0.75rem, 7cqi, 1.1rem)) * var(--card-font-scale, 1)) !important; color: var(--text-secondary); }
+
+/* ── Power chart with statistics ─────────────────────────────
+   Inside a dashboard block (fixed height) the chart takes the free
+   space and the table scrolls, instead of the table being cut off at
+   the block's edge. A chart height set in the editor still wins. */
+.dashboard-block > .chart-container:has(.power-stats) { display: flex; flex-direction: column; height: 100% !important; overflow: hidden; }
+.dashboard-block > .chart-container:has(.power-stats) > .power-chart-canvas-wrap:not([style*="height"]) { flex: 1 1 auto; height: auto; min-height: 140px; }
+.dashboard-block > .chart-container:has(.power-stats) > .power-stats { flex: 0 1 auto; min-height: 0; max-height: 45%; overflow: auto; }
+.power-stats h4 { font-size: calc(0.75rem * var(--card-font-scale, 1)) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary) !important; }
+.power-stats-table thead th { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+.power-stats-table tbody tr { cursor: pointer; }
+.power-stats-table tbody tr:hover th, .power-stats-table tbody tr:hover td { background: var(--hover, rgba(127,127,127,0.06)); }
+.power-stats-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.power-stats-table tbody tr[aria-pressed="false"] { opacity: 0.45; }
+.power-stats-warning, .power-stats-unavailable { margin: 6px 0 0; font-size: 0.75rem; color: var(--text-secondary); }
+
+/* Phones: blocks stack and take their content's height, so cards that size
+   themselves to the block need a height of their own. */
+@media (max-width: 768px) {
+  .dashboard-block > .configurable-gauge-card { height: 260px !important; }
+  .dashboard-block > .metric-trend-card { height: 220px !important; }
+  .dashboard-block > .dual-metric-card { min-height: 130px; }
+}

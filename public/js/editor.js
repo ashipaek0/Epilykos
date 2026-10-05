@@ -1296,7 +1296,7 @@ function buildConfigurableGaugeForm(block) {
   function check(key, label, value) { return '<label><input id="cg-' + key + '" type="checkbox"' + (value ? ' checked' : '') + '> ' + label + '</label>'; }
   var h = '<fieldset data-ui="section"><legend data-ui="legend">Metric and readout</legend><label data-ui="field">Metric ' + metricSelect(c.metric || '', 'cg-metric') + '</label>';
   h += field('title','Title',c.title) + field('unit','Unit',c.unit) + field('min','Minimum',c.min == null ? 0 : c.min,'number','step="any" data-ui="input"') + field('max','Maximum',c.max == null ? 100 : c.max,'number','step="any" data-ui="input"');
-  h += field('precision','Precision',c.precision == null ? 0 : c.precision,'number','min="0" max="6" data-ui="input"') + check('showReadout','Show readout',c.showReadout !== false) + field('readoutColor','Readout color',c.readoutColor,'text','placeholder="Use theme default" data-ui="input"') + field('readoutSize','Readout size',c.readoutSize == null ? 24 : c.readoutSize,'number');
+  h += field('precision','Decimals',c.precision,'number','min="0" max="6" placeholder="Auto" data-ui="input"') + check('showReadout','Show readout',c.showReadout !== false) + field('readoutColor','Readout color',c.readoutColor,'text','placeholder="Use theme default" data-ui="input"') + field('readoutSize','Readout size (px)',c.readoutSize,'number','min="8" max="48" placeholder="Auto" data-ui="input"');
   h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Outer band</legend>' + check('band-show','Show band',b.show) + field('band-thickness','Thickness',b.thickness == null ? 8 : b.thickness,'number') + field('band-spacing','Spacing',b.spacing == null ? 3 : b.spacing,'number') + optionalColor('band-trackColor','Track color',b.trackColor);
   h += '<div id="cg-threshold-rows">' + (Array.isArray(b.thresholds) ? b.thresholds : []).map(function(t,i){return '<div data-ui="row" data-threshold-index="' + i + '"><label>Threshold ' + (i+1) + ' <input class="cg-threshold-value" type="number" step="any" value="' + escHtml(t.value) + '"></label><label>Color <input class="cg-threshold-color" type="text" placeholder="Use theme default" value="' + escHtml(t.color || '') + '"></label></div>';}).join('') + '</div><button type="button" id="cg-threshold-add" data-ui="add">Add threshold</button></fieldset>';
   h += '<fieldset data-ui="section"><legend data-ui="legend">Inner ring</legend>' + select('preset','Preset',c.preset || 'continuous',[['continuous','Continuous'],['segmented','Segmented']]) + select('style','Style',c.style || 'flat',[['flat','Flat'],['gradient','Gradient'],['glow','Glow']]);
@@ -1317,9 +1317,9 @@ function buildDualMetricForm(block) {
   h += field('title','Title',c.title) + field('icon','Icon ID',c.icon) + '<label data-ui="field">Help text <textarea id="dm-help" data-ui="input textarea">' + escHtml(c.helpText || '') + '</textarea></label></fieldset>';
   ['left','right'].forEach(function(side) { var p = panes[side] || {}, cap = side === 'left' ? 'Left' : 'Right';
     h += '<fieldset data-ui="section"><legend data-ui="legend">' + cap + ' pane</legend><label data-ui="field">Metric ' + metricSelect(p.metric || '', 'dm-' + side + '-metric') + '</label>';
-    h += field(side + '-label','Label',p.label) + field(side + '-unit','Unit override',p.unit) + field(side + '-precision','Precision',p.precision == null ? 1 : p.precision,'number','min="0" max="6" step="1" data-ui="input"');
+    h += field(side + '-label','Label',p.label) + field(side + '-unit','Unit override',p.unit) + field(side + '-precision','Decimals',p.precision,'number','min="0" max="6" step="1" placeholder="Auto" data-ui="input"');
     h += field(side + '-value-color','Value color',p.valueColor) + field(side + '-fill-color','Fill color',p.fillColor) + field(side + '-label-color','Label color',p.labelColor) + field(side + '-unit-color','Unit color',p.unitColor);
-    h += field(side + '-value-font-size','Value font size',p.valueFontSize == null ? 40 : p.valueFontSize,'number','min="12" max="96" step="1" data-ui="input"') + field(side + '-label-font-size','Label font size',p.labelFontSize == null ? 14 : p.labelFontSize,'number','min="10" max="32" step="1" data-ui="input"') + field(side + '-unit-font-size','Unit font size',p.unitFontSize == null ? 16 : p.unitFontSize,'number','min="10" max="32" step="1" data-ui="input"');
+    h += field(side + '-value-font-size','Value font size (px)',p.valueFontSize,'number','min="12" max="96" step="1" placeholder="Auto" data-ui="input"') + field(side + '-label-font-size','Label font size (px)',p.labelFontSize,'number','min="10" max="32" step="1" placeholder="Auto" data-ui="input"') + field(side + '-unit-font-size','Unit font size (px)',p.unitFontSize,'number','min="10" max="32" step="1" placeholder="Auto" data-ui="input"');
     h += select(side + '-align','Alignment',p.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
   });
   h += '<fieldset data-ui="section"><legend data-ui="legend">Shared style</legend>';
@@ -1371,8 +1371,8 @@ function buildMetricTrendForm(block) {
   h += select('graph-scale','Scale',g.scale || 'auto',[['auto','Automatic'],['manual','Manual']]);
   h += field('graph-min','Minimum',g.min == null ? 0 : g.min,'number','step="any" data-ui="input"') + field('graph-max','Maximum',g.max == null ? 100 : g.max,'number','step="any" data-ui="input"');
   h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Display</legend>';
-  h += field('precision','Precision',d.precision == null ? 1 : d.precision,'number','min="0" max="6" step="1" data-ui="input"') + check('compact','Compact number',!!d.compact);
-  h += field('value-font-size','Value font size',d.valueFontSize == null ? 40 : d.valueFontSize,'number','min="12" max="96" data-ui="input"') + field('unit-font-size','Unit font size',d.unitFontSize == null ? 16 : d.unitFontSize,'number','min="12" max="96" data-ui="input"');
+  h += field('precision','Decimals',d.precision,'number','min="0" max="6" step="1" placeholder="Auto" data-ui="input"') + check('compact','Compact number',!!d.compact);
+  h += field('value-font-size','Value font size (px)',d.valueFontSize,'number','min="12" max="96" placeholder="Auto" data-ui="input"') + field('unit-font-size','Unit font size (px)',d.unitFontSize,'number','min="12" max="96" placeholder="Auto" data-ui="input"');
   h += select('align','Readout alignment',d.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
   h += '<fieldset data-ui="section"><legend data-ui="legend">Independent styling</legend>';
   [['header-color','Header color',s.headerColor],['header-text-color','Header text color',s.headerTextColor],['body-fill','Body fill',s.bodyFill],['body-fill-end','Body fill end',s.bodyFillEnd],['value-color','Value color',s.valueColor],['unit-color','Unit color',s.unitColor],['graph-line-color','Graph line color',s.graphLineColor],['graph-fill-color','Graph fill color',s.graphFillColor],['border-color','Border color',s.borderColor]].forEach(function(x) { h += field(x[0],x[1],x[2],'text','placeholder="Use theme default" data-ui="input"'); });
@@ -1483,6 +1483,8 @@ function readSettingsForm(block) {
     var dmGet = function(id) { return document.getElementById('dm-' + id); };
     var dmRaw = function(id, fallback) { var el = dmGet(id); return el ? String(el.value).trim() : String(fallback == null ? '' : fallback); };
     var dmNum = function(id, fallback, min, max, integer) { var raw = dmRaw(id, fallback), n = raw === '' ? NaN : Number(raw); return Number.isFinite(n) && (!integer || Number.isInteger(n)) && n >= min && n <= max ? n : null; };
+    // Optional numbers: blank = Auto (saved as null); otherwise must be in range (undefined = invalid).
+    var dmOpt = function(id, prior, min, max, integer) { var raw = dmRaw(id, prior == null ? '' : prior); if (raw === '') return null; var n = Number(raw); return Number.isFinite(n) && (!integer || Number.isInteger(n)) && n >= min && n <= max ? n : undefined; };
     var dmColor = function(value) { if (!value) return true; if (typeof CSS !== 'undefined' && CSS.supports) return CSS.supports('color', value); return /^(#[0-9a-f]{3,8}|[a-z]{1,30})$/i.test(value); };
     var priorPanes = config.panes || {}, priorStyle = config.style || {}, dmPreset = dmRaw('preset',config.preset || 'neutral'), dmTitle = dmRaw('title',config.title || ''), dmIcon = dmRaw('icon',config.icon || '');
     if (dmPreset !== 'neutral' && dmPreset !== 'split-fill') return 'Preset must be Neutral or Split-fill.';
@@ -1494,10 +1496,10 @@ function readSettingsForm(block) {
     ['left','right'].forEach(function(side) {
       var prior = priorPanes[side] || {}, metric = dmRaw(side + '-metric',prior.metric || ''), label = dmRaw(side + '-label',prior.label || ''), unit = dmRaw(side + '-unit',prior.unit || '');
       if (!metric || availableMetrics.indexOf(metric) < 0) dmErrors.push(side + ' pane metric must be selected from the available metrics.');
-      var precision = dmNum(side + '-precision',prior.precision == null ? 1 : prior.precision,0,6,true), valueFontSize = dmNum(side + '-value-font-size',prior.valueFontSize == null ? 40 : prior.valueFontSize,12,96,false), labelFontSize = dmNum(side + '-label-font-size',prior.labelFontSize == null ? 14 : prior.labelFontSize,10,32,false), unitFontSize = dmNum(side + '-unit-font-size',prior.unitFontSize == null ? 16 : prior.unitFontSize,10,32,false);
-      if (precision === null) dmErrors.push('Precision must be an integer from 0 to 6.');
-      if (valueFontSize === null) dmErrors.push('Value font size must be between 12 and 96.');
-      if (labelFontSize === null || unitFontSize === null) dmErrors.push('Label and unit font sizes must be between 10 and 32.');
+      var precision = dmOpt(side + '-precision',prior.precision,0,6,true), valueFontSize = dmOpt(side + '-value-font-size',prior.valueFontSize,12,96,false), labelFontSize = dmOpt(side + '-label-font-size',prior.labelFontSize,10,32,false), unitFontSize = dmOpt(side + '-unit-font-size',prior.unitFontSize,10,32,false);
+      if (precision === undefined) dmErrors.push('Precision must be an integer from 0 to 6, or blank for Auto.');
+      if (valueFontSize === undefined) dmErrors.push('Value font size must be between 12 and 96, or blank for Auto.');
+      if (labelFontSize === undefined || unitFontSize === undefined) dmErrors.push('Label and unit font sizes must be between 10 and 32, or blank for Auto.');
       var align = dmRaw(side + '-align',prior.align || 'center'); if (['left','center','right'].indexOf(align) < 0) dmErrors.push('Alignment must be left, center, or right.');
       var pane = {metric:metric,label:label,unit:unit,precision:precision,valueColor:dmRaw(side + '-value-color',prior.valueColor || ''),fillColor:dmRaw(side + '-fill-color',prior.fillColor || ''),labelColor:dmRaw(side + '-label-color',prior.labelColor || ''),unitColor:dmRaw(side + '-unit-color',prior.unitColor || ''),valueFontSize:valueFontSize,labelFontSize:labelFontSize,unitFontSize:unitFontSize,align:align};
       ['valueColor','fillColor','labelColor','unitColor'].forEach(function(k) { if (!dmColor(pane[k])) dmErrors.push('Pane colors must be valid CSS colors.'); });
@@ -1524,10 +1526,12 @@ function readSettingsForm(block) {
     var mtScale = mtRaw('graph-scale', priorGraph.scale || 'auto');
     var graphMin = mtNum('graph-min', priorGraph.min == null ? 0 : priorGraph.min, -Infinity, Infinity, false);
     var graphMax = mtNum('graph-max', priorGraph.max == null ? 100 : priorGraph.max, -Infinity, Infinity, false);
+    // Optional numbers: blank = Auto (null); a typed value must be in range.
+    var mtOpt = function(id, prior, min, max, integer) { var raw = mtRaw(id, prior == null ? '' : prior); if (raw === '') return { auto: true }; var n = mtNum(id, raw, min, max, integer); return n === null ? null : n; };
     var numeric = [
-      [mtNum('precision',priorDisplay.precision == null ? 1 : priorDisplay.precision,0,6,true),'Precision must be an integer from 0 to 6.'],
-      [mtNum('value-font-size',priorDisplay.valueFontSize == null ? 40 : priorDisplay.valueFontSize,12,96,false),'Value font size must be between 12 and 96.'],
-      [mtNum('unit-font-size',priorDisplay.unitFontSize == null ? 16 : priorDisplay.unitFontSize,12,96,false),'Unit font size must be between 12 and 96.'],
+      [mtOpt('precision',priorDisplay.precision,0,6,true),'Precision must be an integer from 0 to 6, or blank for Auto.'],
+      [mtOpt('value-font-size',priorDisplay.valueFontSize,12,96,false),'Value font size must be between 12 and 96, or blank for Auto.'],
+      [mtOpt('unit-font-size',priorDisplay.unitFontSize,12,96,false),'Unit font size must be between 12 and 96, or blank for Auto.'],
       [mtNum('graph-line-width',priorGraph.lineWidth == null ? 2 : priorGraph.lineWidth,.5,8,false),'Graph line width must be between 0.5 and 8.'],
       [mtNum('graph-fill-opacity',priorStyle.graphFillOpacity == null ? .2 : priorStyle.graphFillOpacity,0,1,false),'Graph fill opacity must be between 0 and 1.'],
       [mtNum('gradient-angle',priorStyle.gradientAngle == null ? 180 : priorStyle.gradientAngle,0,360,false),'Gradient angle must be between 0 and 360.'],
@@ -1550,7 +1554,8 @@ function readSettingsForm(block) {
     var nextValue = Object.assign({}, priorValue, {source:mtRaw('value-source',priorValue.source || 'metric'), metric:mtRaw('value-metric',priorValue.metric || ''), forecastValue:mtRaw('forecast-value',priorValue.forecastValue || 'today-total'), unit:mtRaw('value-unit',priorValue.unit || ''), forecastSource:mtRaw('value-source-select',priorValue.forecastSource || 'default'), restMap:valueRest});
     var nextGraph = Object.assign({}, priorGraph, {enabled:!!(mtGet('graph-enabled') ? mtGet('graph-enabled').checked : priorGraph.enabled), source:mtRaw('graph-source',priorGraph.source || 'none'), metric:mtRaw('graph-metric',priorGraph.metric || nextValue.metric || ''), window:mtRaw('graph-window',priorGraph.window || '1h'), forecastPeriod:mtRaw('graph-period',priorGraph.forecastPeriod || 'today'), forecastSource:mtRaw('graph-source-select',priorGraph.forecastSource || 'default'), restMap:graphRest, lineStyle:mtRaw('graph-line-style',priorGraph.lineStyle || 'area'), lineWidth:numeric[3][0], marker:!!(mtGet('graph-marker') ? mtGet('graph-marker').checked : priorGraph.marker), scale:mtScale});
     if (mtScale === 'manual') { nextGraph.min = graphMin; nextGraph.max = graphMax; }
-    var nextDisplay = Object.assign({}, priorDisplay, {precision:numeric[0][0], compact:!!(mtGet('compact') ? mtGet('compact').checked : priorDisplay.compact), valueFontSize:numeric[1][0], unitFontSize:numeric[2][0], align:mtRaw('align',priorDisplay.align || 'center')});
+    var autoOr = function(v) { return v && v.auto ? null : v; };
+    var nextDisplay = Object.assign({}, priorDisplay, {precision:autoOr(numeric[0][0]), compact:!!(mtGet('compact') ? mtGet('compact').checked : priorDisplay.compact), valueFontSize:autoOr(numeric[1][0]), unitFontSize:autoOr(numeric[2][0]), align:mtRaw('align',priorDisplay.align || 'center')});
     var nextStyle = Object.assign({}, priorStyle);
     [['headerColor','header-color'],['headerTextColor','header-text-color'],['bodyFill','body-fill'],['bodyFillEnd','body-fill-end'],['valueColor','value-color'],['unitColor','unit-color'],['graphLineColor','graph-line-color'],['graphFillColor','graph-fill-color'],['borderColor','border-color']].forEach(function(pair) { nextStyle[pair[0]] = mtRaw(pair[1],priorStyle[pair[0]] || ''); });
     nextStyle.graphFillOpacity = numeric[4][0]; nextStyle.gradientAngle = numeric[5][0]; nextStyle.borderWidth = numeric[6][0]; nextStyle.radius = numeric[7][0]; nextStyle.padding = numeric[8][0];
@@ -1777,15 +1782,16 @@ function readSettingsForm(block) {
     }
     case 'configurable-gauge': {
       function val(key) { var el = document.getElementById('cg-' + key); return el ? el.value : ''; }
-      function num(key, fallback) { var n = Number(val(key)); return Number.isFinite(n) ? n : fallback; }
+      // A blank field keeps its default; Number('') would otherwise save 0.
+      function num(key, fallback) { var raw = String(val(key)).trim(); if (raw === '') return fallback; var n = Number(raw); return Number.isFinite(n) ? n : fallback; }
       function checked(key) { var el = document.getElementById('cg-' + key); return !!(el && el.checked); }
-      config.metric = val('metric'); config.title = val('title'); config.unit = val('unit'); config.min = Number(val('min')); config.max = Number(val('max'));
-      config.precision = num('precision', 0); config.showReadout = checked('showReadout'); config.readoutColor = val('readoutColor'); config.readoutSize = num('readoutSize', 24);
+      config.metric = val('metric'); config.title = val('title'); config.unit = val('unit'); config.min = num('min', 0); config.max = num('max', 100);
+      config.precision = num('precision', null); config.showReadout = checked('showReadout'); config.readoutColor = val('readoutColor'); config.readoutSize = num('readoutSize', null);
       var thresholdRows = document.querySelectorAll('#cg-threshold-rows [data-ui="row"]');
       config.band = Object.assign({}, config.band || {}, { show: checked('band-show'), thickness: num('band-thickness', 8), spacing: num('band-spacing', 3), trackColor: val('band-trackColor'), thresholds: Array.from(thresholdRows).map(function(row) { var index = row.getAttribute('data-threshold-index'); var prior = index == null ? {} : ((config.band && config.band.thresholds || [])[Number(index)] || {}); var rawValue = row.querySelector('.cg-threshold-value').value; return Object.assign({}, prior, { value: rawValue.trim() === '' ? NaN : Number(rawValue), color: row.querySelector('.cg-threshold-color').value }); }).filter(function(t) { return Number.isFinite(t.value); }) });
       config.preset = val('preset'); config.segmentCount = num('segmentCount', 12); config.segmentGap = num('segmentGap', 2); config.segmentColors = val('segmentColors').split(',').map(function(x) { return x.trim(); }).filter(Boolean);
       config.style = val('style'); config.arcColor = val('arcColor'); config.gradientEnd = val('gradientEnd'); config.arcThickness = num('arcThickness', 12); config.trackColor = val('trackColor');
-      config.opening = num('opening', 90); config.rotation = num('rotation', 0); config.size = num('size', 200);
+      config.opening = num('opening', 90); config.rotation = num('rotation', 0); config.size = num('size', 400);
       config.graph = Object.assign({}, config.graph || {}, { show: checked('graph-show'), metric: val('graph-metric'), window: val('graph-window'), mode: val('graph-mode'), thickness: num('graph-thickness', 2), color: val('graph-color'), opacity: num('graph-opacity', .2), marker: checked('graph-marker') });
       config.background = val('background'); config.borderColor = val('borderColor'); config.borderWidth = num('borderWidth', 0); config.radius = num('radius', 12);
       break;
