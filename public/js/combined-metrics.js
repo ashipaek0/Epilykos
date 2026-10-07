@@ -200,9 +200,12 @@
     if (t.classList.contains('cm-suggest')) { var s = $('cm-suggestions')._suggestions[Number(t.dataset.s)]; if (s) openEditor(s.def, null); return; }
     if (t.classList.contains('cm-edit')) { openEditor(state.defs[i], i); return; }
     if (t.classList.contains('cm-del')) {
-      if (!confirm('Delete the combined metric "' + state.defs[i].name + '"? Its past readings stay.')) return;
-      var next = state.defs.filter(function (_, k) { return k !== i; });
-      saveAll(next).then(function () { cardStatus('Deleted.', 'success'); }).catch(function (err) { cardStatus(err.message, 'error'); });
+      var name = state.defs[i].name;
+      window.stConfirm({ message: 'Delete the combined metric "' + name + '"? Its past readings stay, but it is no longer worked out.' }).then(function (yes) {
+        if (!yes) return;
+        var next = state.defs.filter(function (d) { return d.name !== name; });
+        saveAll(next).then(function () { cardStatus('Deleted ' + name + '.', 'success'); }).catch(function (err) { cardStatus(err.message, 'error'); });
+      });
       return;
     }
     if (!state.editing) return;
