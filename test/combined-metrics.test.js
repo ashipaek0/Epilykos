@@ -116,4 +116,19 @@ check('Sources links to Combined metrics; the wizard offers energy from power', 
   assert.match(wz, /map\[o\.daily\] = o\.name/);
   assert.match(wz, /return saveEnergyOffers\(map\)\.then/);
 });
+check('any number of inverters: 64 inputs allowed, 65 refused plainly, duplicates refused', () => {
+  const many = n => Array.from({ length: n }, (_, i) => `inv${i + 1}_pv_power`);
+  assert.deepStrictEqual(cm.validateDefinition(def('sum', many(64))), []);
+  assert.match(cm.validateDefinition(def('sum', many(65))).join(' '), /Up to 64 inputs \(this has 65\)/);
+  assert.match(cm.validateDefinition(def('sum', ['a', 'a'])).join(' '), /only be used once/);
+  const six = Object.fromEntries(many(6).map((n, i) => [n, 900 + i * 20]));
+  assert.strictEqual(cm.evaluate(def('sum', many(6)), reader(six), null, T0).value, 5700);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.doesNotMatch(src, /inputs:[^\n]*\.slice\(0, 16\)/, 'no silent cut to 16 inputs');
+});
+check('editor: add all metrics that match a name or pattern', () => {
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/combined-metrics.js'), 'utf8');
+  assert.match(js, /id="cm-match"/); assert.match(js, /function matchNames\(text\)/); assert.match(js, /q\.split\('\*'\)/);
+  assert.match(js, /\(isRecent\(m\) \? ' checked' : ''\)/, 'metrics without recent readings start unticked');
+});
 console.log(`combined-metrics: ${passed} checks passed`);
