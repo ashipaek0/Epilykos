@@ -107,4 +107,13 @@ check('Settings: own-save card, server validation, loops refused, units listed',
   assert.match(server, /use each other in a loop/); assert.match(server, /combined: true/);
   assert.match(read('public/js/combined-metrics.js'), /now - t < 3600/, 'suggestions use metrics with recent readings only');
 });
+check('Sources links to Combined metrics; the wizard offers energy from power', () => {
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  assert.match(read('public/settings.html'), /id="st-combine-callout"[\s\S]*href="#metrics\/combined"/);
+  const wz = read('public/js/setup.js');
+  assert.match(wz, /\{ power: 'solar', daily: 'daily_solar', name: 'solar_energy_today'/);
+  assert.match(wz, /fn: 'energy_today', inputs: \[map\[o\.power\]\]/);
+  assert.match(wz, /map\[o\.daily\] = o\.name/);
+  assert.match(wz, /return saveEnergyOffers\(map\)\.then/);
+});
 console.log(`combined-metrics: ${passed} checks passed`);

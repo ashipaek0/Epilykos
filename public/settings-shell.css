@@ -482,3 +482,7 @@ body.st {
   .cm-row { grid-template-columns: auto minmax(0, 1fr) auto; }
   .cm-state { grid-column: 2 / -1; text-align: left; max-width: none; }
 }
+.st-callout { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0 0 14px; border: 1px solid var(--st-line); border-left: 3px solid var(--st-amber); border-radius: 10px; background: var(--st-panel); }
+.st-callout > [data-icon] { color: var(--st-amber-text); flex-shrink: 0; }
+.st-callout p { margin: 0; flex: 1; min-width: 0; font-size: 0.9rem; }
+@media (max-width: 640px) { .st-callout { flex-wrap: wrap; } }

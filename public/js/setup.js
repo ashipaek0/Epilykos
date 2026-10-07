@@ -2032,11 +2032,55 @@
       });
       html += '</div></div>';
     });
+    // Power with no energy reading (e.g. Phocos over Bluetooth): offer to work
+    // out today's kWh from power (renderEnergyOffers keeps it in step with the roles).
+    html += '<div id="energy-offers"></div>';
     html += '<datalist id="role-suggestions">' + suggestions.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>'
       + '<div class="wz-alert is-error" id="metrics-error" role="alert" hidden></div>';
     body.innerHTML = html;
+    renderEnergyOffers();
     body._known = known;
     body._hasSuggestions = suggestions.length > 0;
+  }
+
+  // Daily roles that can be worked out from a power role.
+  var ENERGY_FROM_POWER = [
+    { power: 'solar', daily: 'daily_solar', name: 'solar_energy_today', label: 'Solar energy today' },
+    { power: 'consumption', daily: 'daily_consumption', name: 'load_energy_today', label: 'Home energy today' },
+    { power: 'battery_charge', daily: 'daily_battery_charge', name: 'battery_charge_energy_today', label: 'Battery charge energy today' },
+    { power: 'battery_discharge', daily: 'daily_battery_discharge', name: 'battery_discharge_energy_today', label: 'Battery discharge energy today' },
+    { power: 'grid_import', daily: 'daily_grid_import', name: 'grid_import_energy_today', label: 'Grid import energy today' },
+    { power: 'grid_export', daily: 'daily_grid_export', name: 'grid_export_energy_today', label: 'Grid export energy today' }
+  ];
+  function renderEnergyOffers() {
+    var box = $('#energy-offers'); if (!box) return;
+    var offers = ENERGY_FROM_POWER.filter(function (o) { return (state.roleMetrics[o.power] || '').trim() && !(state.roleMetrics[o.daily] || '').trim(); });
+    state.energyOffers = state.energyOffers || {};
+    if (!offers.length) { box.innerHTML = ''; return; }
+    var html = '<h2 class="wz-section-title">Energy from power</h2><p class="wz-hint" style="margin:-6px 0 10px">These readings have power but no daily energy. Epilykos can work out today\'s kWh from power and use it for daily totals and savings. Change this later in Settings \u203a Metrics \u203a Combined metrics.</p><div class="wz-card"><div class="wz-card-body">';
+    offers.forEach(function (o) {
+      html += '<label class="wz-check"><input type="checkbox" data-energy-offer="' + o.power + '"' + (state.energyOffers[o.power] !== false ? ' checked' : '') + '> ' + esc(o.label) + ' <span class="wz-hint">from ' + esc(state.roleMetrics[o.power]) + '</span></label>';
+    });
+    box.innerHTML = html + '</div></div>';
+  }
+  /** Add the ticked energy-from-power Combined metrics and point the daily roles at them. */
+  function saveEnergyOffers(map) {
+    var picks = ENERGY_FROM_POWER.filter(function (o) { return map[o.power] && !map[o.daily] && state.energyOffers && state.energyOffers[o.power] !== false && document.querySelector('[data-energy-offer="' + o.power + '"]'); });
+    if (!picks.length) return Promise.resolve(true);
+    return api('/api/combined-metrics').then(function (res) {
+      var defs = (res.data && res.data.definitions) || [];
+      picks.forEach(function (o) {
+        var existing = defs.find(function (d) { return d.name === o.name; });
+        if (!existing) defs.push({ name: o.name, unit: 'kWh', fn: 'energy_today', inputs: [map[o.power]], input_unit: 'W', enabled: true, note: 'Added by the setup wizard' });
+        else { existing.inputs = [map[o.power]]; existing.enabled = true; }
+        map[o.daily] = o.name;
+      });
+      return api('/api/combined-metrics', { method: 'POST', body: JSON.stringify({ definitions: defs }) });
+    }).then(function (res) {
+      if (res.ok) return true;
+      var el = $('#metrics-error'); if (el) { el.textContent = 'Could not set up energy from power: ' + apiErrMsg(res, 'Server'); el.hidden = false; }
+      return false;
+    });
   }
 
   function saveRoleMetrics() {
@@ -2055,7 +2099,10 @@
         var e1 = $('#metrics-error'); if (e1) { e1.textContent = 'Could not save the Home Assistant entities for these roles.'; e1.hidden = false; }
         return { sourcesFailed: true };
       }
-      return api('/api/role-metrics', { method: 'POST', body: JSON.stringify(map) });
+      return saveEnergyOffers(map).then(function (ok) {
+        if (!ok) return { sourcesFailed: true };
+        return api('/api/role-metrics', { method: 'POST', body: JSON.stringify(map) });
+      });
     }).then(function (res) {
       if (res.sourcesFailed) return false;
       if (res.ok && res.data && res.data.success) return true;
@@ -2413,10 +2460,12 @@
         updateNav();
         var f = t.closest('.wz-field'); if (f) f.classList.remove('has-error');
       }
+      if (t.matches('[data-energy-offer]')) { state.energyOffers = state.energyOffers || {}; state.energyOffers[t.getAttribute('data-energy-offer')] = t.checked; }
       if (t.matches('[data-metric-role]')) {
         var role = t.getAttribute('data-metric-role');
         state.roleMetrics[role] = t.value;
         syncRoleWarning(t);
+        renderEnergyOffers();
         updateNav();
       }
       if (e.type === 'change' && t.matches('[data-source-pick]')) toggleSource(t.getAttribute('data-source-pick'), t.checked);
