@@ -419,3 +419,30 @@
 .ed-swatch-dots { border-top-style: dotted; }
 .ed-status { margin: 0; flex-shrink: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
 .ed-status:empty { display: none; }
+
+/* ── Day totals card ───────────────────────────────────────────────────── */
+.energy-totals-card { height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; min-height: 0; container-type: inline-size; }
+.et-title { margin: 0; font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text); }
+.et-tiles { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 2px; }
+.et-tile {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: var(--card-pad, 12px); min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden;
+}
+.et-label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: calc(0.8rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); }
+.et-icon { display: inline-flex; color: var(--et-c); }
+.et-icon svg { width: 16px; height: 16px; }
+.et-value { margin: 0; color: var(--text); line-height: 1.1; }
+.et-num { font-size: calc(clamp(1.4rem, 1rem + 2cqi, 2rem) * var(--card-font-scale, 1)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.et-unit { font-size: calc(0.9rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.et-compare { display: flex; flex-direction: column; gap: 3px; margin-top: auto; }
+.et-compare[hidden] { display: none; }
+.et-row { display: flex; justify-content: space-between; gap: 8px; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.et-row span:last-child { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.et-track { position: relative; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.et-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 3px; background: var(--et-c); }
+.et-band {
+  position: absolute; top: 0; bottom: 0; border-radius: 3px;
+  background: repeating-linear-gradient(135deg, var(--et-c) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--et-c);
+}
+.et-status { margin: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.et-status:empty { display: none; }

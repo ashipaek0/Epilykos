@@ -1226,6 +1226,14 @@ function buildSimpleForm(block) {
     html += '<span data-ui="row-label">Metric</span>';
     html += '<div data-ui="grow">' + metricSelect((cfg.metrics || {}).generated || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
+  } else if (block.type === 'energy-totals') {
+    var etPicked = Array.isArray(cfg.show) && cfg.show.length ? cfg.show : ['grid_export', 'grid_import', 'consumption', 'solar'];
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
+    html += '<p data-ui="help">Show</p><div class="ps-toggles">';
+    [['grid_export', 'To grid'], ['grid_import', 'From grid'], ['consumption', 'Consumption (with forecast)'], ['solar', 'Solar (with forecast)'], ['battery_charge', 'Battery in'], ['battery_discharge', 'Battery out']].forEach(function(t) {
+      html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="et-pick" data-key="' + t[0] + '" id="modal-et-' + t[0] + '"' + (etPicked.indexOf(t[0]) !== -1 ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-et-' + t[0] + '">' + t[1] + '</label></span>';
+    });
+    html += '</div>';
   } else if (block.type === 'energy-day') {
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Energy" data-ui="input"></label>';
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
@@ -2103,6 +2111,11 @@ function readSettingsForm(block) {
       if (titleEl) {
         if (type === 'forecast-pvtoday') config.location_name = titleEl.value;
         else config.title = titleEl.value;
+      }
+      if (type === 'energy-totals') {
+        var etKeys = Array.from(document.querySelectorAll('.et-pick')).filter(function(el) { return el.checked; }).map(function(el) { return el.dataset.key; });
+        if (!etKeys.length) return 'Pick at least one value to show.';
+        config.show = etKeys;
       }
       if (type === 'energy-day') {
         var edF = document.getElementById('modal-ed-forecast'), edB = document.getElementById('modal-ed-battery');
