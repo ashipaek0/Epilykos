@@ -40,7 +40,7 @@ function flatten(parts, depth, parent) {
   for (const p of parts || []) {
     const label = parent ? `${parent} ${p.label}` : p.label;
     if (depth === 'all' && Array.isArray(p.parts) && p.parts.length) out.push(...flatten(p.parts, depth, label));
-    else out.push({ label, metric: p.metric });
+    else out.push({ label, metric: p.metric, value: p.value });
   }
   return out;
 }
@@ -59,9 +59,10 @@ export function nodeRows(state, specs, depth = 'one') {
     if (!total || seen.has(total.name)) continue;
     seen.add(total.name);
     for (const part of flatten(total.parts, depth)) {
-      const entry = state.metrics && state.metrics[part.metric];
+      // Energy parts come with today's kWh; other parts are read live.
+      const entry = part.value != null ? { value: part.value, unit: total.unit } : state.metrics && state.metrics[part.metric];
       const n = Number(entry && entry.value);
-      const unit = (entry && entry.unit) || total.unit || spec.unit || '';
+      const unit = part.value != null ? total.unit : (entry && entry.unit) || total.unit || spec.unit || '';
       const text = entry && entry.value != null && Number.isFinite(n) ? (spec.format ? spec.format(n, entry) : formatMetric(n, unit).text) : '—';
       if (!rows.has(part.label)) rows.set(part.label, []);
       rows.get(part.label).push(text);
@@ -92,6 +93,8 @@ export function applyBreakdowns(card, state, nodes) {
 /** Battery power parts: arrows for charging and discharging. */
 export const chargeFormat = (n) => `${n > 0 ? '↑ ' : n < 0 ? '↓ ' : ''}${formatMetric(Math.abs(n), 'W').text}`;
 export const dischargeFormat = (n) => `${n > 0 ? '↓ ' : ''}${formatMetric(Math.abs(n), 'W').text}`;
+/** Energy parts in the tile's own style: number only, the tile already says kWh. */
+export const kwhFormat = (n) => `${n === 0 ? '0' : n >= 100 ? Math.round(n) : n >= 10 ? n.toFixed(1) : n.toFixed(2)} kWh`;
 export const socFormat = (n) => `${Math.round(n)}%`;
 export const exportFormat = (n) => `${formatMetric(Math.abs(n), 'W').text} out`;
 
