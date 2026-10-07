@@ -1248,6 +1248,10 @@ function buildSimpleForm(block) {
     var soExtras = Array.isArray(cfg.extras) ? cfg.extras : [];
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
     html += '<label data-ui="field">Inverter image URL <input type="text" id="modal-so-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="Optional, https://..." data-ui="input"></label>';
+    var soPv = cfg.pv || {};
+    html += '<h4 class="ps-subhead">PV split</h4><p data-ui="help">If you have both AC-coupled PV inverters and DC solar chargers (MPPTs), pick a power metric for each to show them separately, with Total solar beside the diagram. Leave both blank for a single Solar value.</p>';
+    html += '<div data-ui="grid2"><label data-ui="field">PV inverter ' + metricSelect(soPv.inverter || '', 'modal-so-pvi') + '</label><label data-ui="field">PV charger ' + metricSelect(soPv.charger || '', 'modal-so-pvc') + '</label></div>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-so-weather"' + (cfg.showWeather === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-so-weather">Weather (from your forecast source)</label></span>';
     html += '<h4 class="ps-subhead">Extra values</h4><p data-ui="help">Up to three more values beside the diagram, such as a temperature.</p>';
     for (var soi = 0; soi < 3; soi++) {
       var sx = soExtras[soi] || {};
@@ -2167,6 +2171,13 @@ function readSettingsForm(block) {
           if (sm && sm.value) soOut.push({ metric: sm.value, label: (document.getElementById('modal-so-label-' + soj) || {}).value || '', unit: (document.getElementById('modal-so-unit-' + soj) || {}).value || '' });
         }
         config.extras = soOut;
+        var pvi = document.getElementById('modal-so-pvi'), pvc = document.getElementById('modal-so-pvc');
+        if (pvi && pvc) {
+          if (!!pvi.value !== !!pvc.value) return 'For the PV split, pick both a PV inverter and a PV charger metric, or neither.';
+          if (pvi.value && pvi.value === pvc.value) return 'PV inverter and PV charger need different metrics.';
+          if (pvi.value) config.pv = { inverter: pvi.value, charger: pvc.value }; else delete config.pv;
+        }
+        var wx = document.getElementById('modal-so-weather'); if (wx) config.showWeather = wx.checked;
       }
       if (type === 'energy-day' || type === 'energy-flows' || type === 'energy-costs') {
         var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;

@@ -508,7 +508,7 @@
 .so-strip-inverter { display: none !important; }
 @container (max-width: 620px) {
   .so-body.has-extras { grid-template-columns: 1fr; }
-  .so-extras { flex-direction: row; }
+  .so-extras { display: grid; grid-template-columns: 1fr 1fr; }
   .so-diagram { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; }
   .so-diagram .so-col { display: contents; }
   .so-hub, .so-lines { display: none; }
@@ -547,3 +547,8 @@
   .etabs-list { padding-right: 330px; }
   .etabs-panel > .energy-day-card .ed-header { position: absolute; right: var(--card-pad, 12px); top: calc(var(--etabs-row-top, 0px) + 2px); }
 }
+/* PV split: three tiles on the right (PV inverter, Home, PV charger). */
+.so-body.is-split .so-right { grid-template-rows: repeat(3, 1fr); }
+.so-weather .so-value { display: flex; align-items: baseline; gap: 4px; }
+.so-wx-icon { margin-left: auto; font-size: calc(1.8rem * var(--card-font-scale, 1)); color: var(--accent); line-height: 1; }
+.so-wx-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
