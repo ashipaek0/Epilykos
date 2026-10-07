@@ -57,7 +57,8 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     if (pct >= 4) el.textContent = seg.state === 1 ? 'ON' : 'OFF';
 
     // Details on hover, keyboard focus and tap (not mouse-only), read out too.
-    const span = Math.round(duration / 60000), dur = span >= 60 ? `${Math.floor(span / 60)} h${span % 60 ? ` ${span % 60} min` : ''}` : `${span} min`;
+    // The whole period, also the part before the window (it may have begun days ago).
+    const span = Math.round((segEnd - seg.start) / 60000), dur = span >= 60 ? `${Math.floor(span / 60)} h${span % 60 ? ` ${span % 60} min` : ''}` : `${span} min`;
     const text = `Grid ${seg.state === 1 ? 'on' : 'off'} from ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'now'}, ${dur}`;
     el.tabIndex = 0;
     el.setAttribute('role', 'img');

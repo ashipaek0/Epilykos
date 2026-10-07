@@ -2425,10 +2425,13 @@
     var b = state.basics;
     var payload = { savings_currency: b.savings_currency, dashboard_title: b.dashboard_title };
     var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
-    if (!(b.arrays && b.arrays.length > 1) && cap !== '') {
-      payload.solar_capacity_kwp = Number(cap);
-      // One saved array: the forecast reads the list, so keep it in step.
-      if (b.arrays && b.arrays.length === 1) payload.solar_arrays = JSON.stringify([Object.assign({}, b.arrays[0], { kwp: Number(cap) })]);
+    if (!(b.arrays && b.arrays.length > 1)) {
+      // An emptied size clears it (no solar, or not known yet), rather than
+      // leaving the old value in place.
+      payload.solar_capacity_kwp = cap === '' ? '' : Number(cap);
+      // One saved array: the forecast reads the list, so keep it in step
+      // (an array without capacity is left out of the forecast).
+      if (b.arrays && b.arrays.length === 1) payload.solar_arrays = JSON.stringify([Object.assign({}, b.arrays[0], { kwp: cap === '' ? 0 : Number(cap) })]);
     }
     return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
       if (res.ok) return true;

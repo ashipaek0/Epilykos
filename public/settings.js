@@ -4928,7 +4928,7 @@ function renderMetricsTable() {
     const action = metric.combined
       ? `<a class="st-btn" href="#metrics/combined" aria-label="Edit ${name} under Combined metrics">Edit</a>`
       : `<button type="button" class="st-btn st-btn-danger-text delete-metric-btn" data-name="${name}" aria-label="Delete ${name}">Delete</button>`;
-    return `<tr${metric.timestamp ? '' : ' class="is-never"'}>
+    return `<tr data-filter="${escapeHtml((metric.name + ' ' + (metric.unit || '')).toLowerCase())}"${metric.timestamp ? '' : ' class="is-never"'}>
       <td>${name.replace(/_/g, '_<wbr>')}${metric.combined ? ' <span class="st-chip">Combined</span>' : ''}<span class="st-metric-age">${escapeHtml(age.text)}</span></td>
       <td class="num">${escapeHtml(formatMetricReading(metric.value, metric.unit))}</td>
       <td${age.title ? ` title="${escapeHtml(age.title)}"` : ''}>${escapeHtml(age.text)}</td>

@@ -108,7 +108,8 @@ function startDonglePolling() {
         // explicit poll_interval (seconds) when the instance sets one. Over
         // Bluetooth a full cycle takes several seconds, so default to 15s.
         const intervalMs = (inst.poll_interval || (inst.transport === 'ble-luxpower' ? 15 : 5)) * 1000;
-        const poll = singleFlight(inst, () => pollLuxpowerInstance(inst, transport, profile));
+        // pollLuxpowerInstance has its own one-at-a-time guard (_luxPollBusy).
+        const poll = () => pollLuxpowerInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`));
         const id = setInterval(poll, intervalMs);
         luxpowerPollers.push({ instance: inst, transport, intervalId: id });
         transport.start();

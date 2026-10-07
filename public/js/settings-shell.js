@@ -1051,7 +1051,8 @@
     ms.addEventListener('input', function () {
       var q = ms.value.toLowerCase();
       document.querySelectorAll('#metrics-table-body tr').forEach(function (row) {
-        row.hidden = !!q && row.textContent.toLowerCase().indexOf(q) === -1;
+        // The name and unit only: not '5 min ago' or the button text.
+        row.hidden = !!q && (row.dataset.filter != null ? row.dataset.filter : row.textContent.toLowerCase()).indexOf(q) === -1;
       });
     });
     var hs = $('help-search');

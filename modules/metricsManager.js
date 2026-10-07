@@ -25,17 +25,21 @@ function getAllMetrics() {
         name: m.name,
         value: null,
         timestamp: null,
-        unit: m.unit || '',
-        combined: m.combined === true || undefined
+        unit: m.unit || ''
       });
     } else {
       // Update unit for existing metric if user-defined
       const existing = metricMap.get(m.name);
       existing.unit = m.unit || existing.unit;
-      if (m.combined === true) existing.combined = true;
     }
   });
 
+  // Combined: only while a definition of that name exists (the user_metrics
+  // flag outlives a deleted or renamed definition, which must stay deletable).
+  try {
+    const names = new Set(require('./combinedMetrics').loadDefinitions().filter(Boolean).map(d => String(d.name).trim()));
+    for (const m of metricMap.values()) if (names.has(m.name)) m.combined = true;
+  } catch (_) { /* definitions unreadable: list without the flag */ }
   return Array.from(metricMap.values());
 }
 
