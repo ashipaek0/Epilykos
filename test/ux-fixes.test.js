@@ -84,5 +84,15 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(js, /a\[href="#metrics\/combined"\]/, 'every link to the card opens it');
   });
 
+  await check('wizard: array size optional and aware of several PV arrays; fresh installs keep the default; no 401 probe', () => {
+    const wz = read('public/js/setup.js');
+    assert.match(wz, /\(cap === '' \|\| \(!isNaN\(Number\(cap\)\) && Number\(cap\) >= 0\)\)/, 'empty size allowed');
+    assert.match(wz, /var set = function \(v\) \{ return v != null && String\(v\)\.trim\(\) !== ''; \};/, 'empty saved values keep the defaults');
+    assert.match(wz, /b\.arrays && b\.arrays\.length > 1\s*\? field\('Solar arrays'/, 'several arrays: shown, changed in Settings');
+    assert.match(wz, /payload\.solar_arrays = JSON\.stringify\(\[Object\.assign\(\{\}, b\.arrays\[0\], \{ kwp: Number\(cap\) \}\)\]\)/, 'one saved array kept in step');
+    assert.match(wz, /api\('\/api\/auth\/status'\)\.then\(function \(res\) \{\s*return !!\(res\.ok && res\.data && res\.data\.authenticated\);/);
+    assert.doesNotMatch(wz, /Finish to open your dashboard/);
+  });
+
   console.log(`ux-fixes: ${passed} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

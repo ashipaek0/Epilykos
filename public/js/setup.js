@@ -105,7 +105,7 @@
     { label: 'Dashboard', sub: 'Starting layout', title: 'Choose a starting dashboard', lede: 'Start with everything or a short, simple layout. You can add, remove and rearrange cards later in the layout editor.' },
     { label: 'Basics', sub: 'Name, currency, size', title: 'A few basics', lede: 'Used for the dashboard title, savings figures and the solar forecast.' },
     { label: 'Extras', sub: 'Optional', title: 'Optional extras', lede: 'Upload to PVOutput, forecast solar production, and set the addresses the app uses at home and away. Skip any of these; they\'re all in Settings later.' },
-    { label: 'Finish', sub: 'Review and go', title: 'Review and finish', lede: 'Here\'s what\'s set up. Finish to open your dashboard.' }
+    { label: 'Finish', sub: 'Review and go', title: 'Review and finish', lede: 'Here\'s what\'s set up. Finish setup, then open your dashboard.' }
   ];
   var LAST_STEP = STEPS.length;
 
@@ -444,9 +444,16 @@
     state.dashboard.blockCount = state.dashboard.mainBlocks.length;
   }
   function prefillBasics(cfg) {
-    if (cfg.savings_currency != null) state.basics.savings_currency = cfg.savings_currency;
-    if (cfg.solar_capacity_kwp != null) state.basics.solar_capacity_kwp = String(cfg.solar_capacity_kwp);
-    if (cfg.dashboard_title != null) state.basics.dashboard_title = cfg.dashboard_title;
+    // Only values someone saved replace the defaults (a fresh install stores
+    // these keys empty, which used to blank the fields and block Continue).
+    var set = function (v) { return v != null && String(v).trim() !== ''; };
+    if (set(cfg.savings_currency)) state.basics.savings_currency = cfg.savings_currency;
+    if (set(cfg.solar_capacity_kwp)) state.basics.solar_capacity_kwp = String(cfg.solar_capacity_kwp);
+    if (set(cfg.dashboard_title)) state.basics.dashboard_title = cfg.dashboard_title;
+    // PV arrays from Settings › Forecast: the forecast uses this list when present.
+    var arrays = [];
+    try { arrays = typeof cfg.solar_arrays === 'string' ? JSON.parse(cfg.solar_arrays || '[]') : (cfg.solar_arrays || []); } catch (e) { arrays = []; }
+    state.basics.arrays = Array.isArray(arrays) ? arrays.filter(function (a) { return a && Number(a.kwp) > 0; }) : [];
   }
   function prefillOptional(cfg) {
     // Defensive: this must never throw, even on malformed / partial config.
@@ -516,10 +523,10 @@
   }
 
   // ── Auth probe ────────────────────────────────────────────
+  // /api/auth/status answers either way (a protected call would log a 401 on every first visit).
   function isAuthenticated() {
-    return api('/api/role-metrics').then(function (res) {
-      if (!res.ok) return false;
-      return !!res.data && typeof res.data === 'object';
+    return api('/api/auth/status').then(function (res) {
+      return !!(res.ok && res.data && res.data.authenticated);
     }).catch(function () { return false; });
   }
 
@@ -628,8 +635,8 @@
   }
   function basicsValid() {
     var b = state.basics;
-    var cap = String(b.solar_capacity_kwp).trim();
-    return b.savings_currency.trim() !== '' && cap !== '' && !isNaN(Number(cap)) && b.dashboard_title.trim() !== '';
+    var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
+    return b.savings_currency.trim() !== '' && (cap === '' || (!isNaN(Number(cap)) && Number(cap) >= 0)) && b.dashboard_title.trim() !== '';
   }
   // Whether Continue is enabled. Missing fields don't disable it: pressing it
   // explains what's missing instead (see onNext).
@@ -2393,7 +2400,9 @@
       + field('Dashboard title', inp('basics.dashboard_title', b.dashboard_title, { placeholder: 'My Solar', id: 'basics-title' }), { forId: 'basics-title', hint: 'Shown at the top of the dashboard.' })
       + grid(
         field('Currency symbol', inp('basics.savings_currency', b.savings_currency, { placeholder: '€', id: 'basics-currency', attrs: ' maxlength="4"' }), { forId: 'basics-currency', hint: 'For savings, e.g. €, $, £ or ₦.' }),
-        field('Solar array size (kWp)', inp('basics.solar_capacity_kwp', b.solar_capacity_kwp, { type: 'number', id: 'basics-kwp', attrs: ' step="0.01" min="0"' }), { forId: 'basics-kwp', hint: 'Total panel capacity. Used for the solar forecast.' })
+        (b.arrays && b.arrays.length > 1
+          ? field('Solar arrays', '<p class="wz-static">' + b.arrays.length + ' arrays, ' + (+b.arrays.reduce(function (t, a) { return t + Number(a.kwp); }, 0).toFixed(2)) + ' kWp in total</p>', { hint: 'Change them in Settings › Forecast and weather › Panels.' })
+          : field('Solar array size (kWp)', inp('basics.solar_capacity_kwp', b.solar_capacity_kwp, { type: 'number', id: 'basics-kwp', attrs: ' step="0.01" min="0"' }), { forId: 'basics-kwp', optional: true, hint: 'Total panel capacity, for the solar forecast. Leave it empty if you have no solar or don\'t know yet.' }))
       )
       + '</div></div>'
       + '<div class="wz-card"><div class="wz-card-body wz-row-between">'
@@ -2406,13 +2415,15 @@
   }
 
   function saveBasics() {
-    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title, currency and array size (a number) to continue.'; el.hidden = false; } return Promise.resolve(false); }
+    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title and currency to continue. The array size, if you give one, must be a number.'; el.hidden = false; } return Promise.resolve(false); }
     var b = state.basics;
-    var payload = {
-      savings_currency: b.savings_currency,
-      solar_capacity_kwp: Number(b.solar_capacity_kwp),
-      dashboard_title: b.dashboard_title
-    };
+    var payload = { savings_currency: b.savings_currency, dashboard_title: b.dashboard_title };
+    var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
+    if (!(b.arrays && b.arrays.length > 1) && cap !== '') {
+      payload.solar_capacity_kwp = Number(cap);
+      // One saved array: the forecast reads the list, so keep it in step.
+      if (b.arrays && b.arrays.length === 1) payload.solar_arrays = JSON.stringify([Object.assign({}, b.arrays[0], { kwp: Number(cap) })]);
+    }
     return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
       if (res.ok) return true;
       var el = $('#basics-error'); if (el) { el.textContent = 'Could not save basics (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Server'); el.hidden = false; }
@@ -2475,7 +2486,7 @@
         field('Solcast API key', inp('optional.forecast.solcast_api_key', fc.solcast_api_key, { type: 'password', attrs: ' autocomplete="off"' }), { optional: true }),
         field('Solcast site ID', inp('optional.forecast.solcast_resource_id', fc.solcast_resource_id), { optional: true })
       )
-      + '<p class="wz-hint">Uses the array size from Basics (' + esc(state.basics.solar_capacity_kwp || '?') + ' kWp). Without Solcast, Epilykos uses the free Open-Meteo forecast.</p>', fcOn);
+      + '<p class="wz-hint">' + (state.basics.arrays && state.basics.arrays.length > 1 ? 'Uses your ' + state.basics.arrays.length + ' PV arrays from Settings.' : String(state.basics.solar_capacity_kwp || '').trim() ? 'Uses the array size from Basics (' + esc(state.basics.solar_capacity_kwp) + ' kWp).' : 'Needs the array size: add it in Basics, or later in Settings.') + ' Without Solcast, Epilykos uses the free Open-Meteo forecast.</p>', fcOn);
 
     html += extraCard('network', 'wifi', 'App addresses', 'So the installed app finds Epilykos at home and away.',
       '',
@@ -2564,7 +2575,7 @@
       + row('plug', state.skipped[2] ? 'Sources' : src.length + ' source' + (src.length === 1 ? '' : 's'), srcText || 'None', 2)
       + row('list', 'Metric roles', mapped + ' of ' + ROLES.length + ' matched', 3)
       + row('layout', 'Dashboard', state.dashboard.choice === 'minimal' ? 'Simple' : 'Everything', 4)
-      + row('sliders', state.skipped[5] ? 'Basics' : (state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp', 5)
+      + row('sliders', state.skipped[5] ? 'Basics' : (state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + (state.basics.arrays && state.basics.arrays.length > 1 ? ' · ' + state.basics.arrays.length + ' PV arrays' : String(state.basics.solar_capacity_kwp || '').trim() ? ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp' : ''), 5)
       + row('sun', 'Extras', extras.length ? esc(extras.join(', ')) : 'None', 6)
       + '</ul></div>';
   }
