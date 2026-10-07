@@ -932,6 +932,12 @@
         + moreConnFields(kind, s, m, base, i)
         + '<button class="wz-btn wz-btn-sm" type="button" data-action="remove-inverter" data-source="' + kind + '" data-i="' + i + '">Remove</button></div>';
     });
+    // Several units on one Bluetooth adapter are read one at a time (~10 s each).
+    if (bt && (s.more || []).length) {
+      var units = s.more.length + 1, every = parseInt(s.poll_interval, 10) || 30, need = Math.max(30, units * 10);
+      html += '<p class="wz-hint' + (every < need ? ' is-warn' : '') + '" id="dongle-bt-interval-hint">' + units + ' units on one Bluetooth adapter are read one at a time, about 10 seconds each. '
+        + (every < need ? 'Set Read every to at least ' + need + ' seconds (now ' + every + ').' : 'Read every ' + every + ' seconds leaves enough time.') + '</p>';
+    }
     return html + '<button class="wz-btn wz-btn-sm" type="button" data-action="add-inverter" data-source="' + kind + '">' + icon('plus', 16) + 'Add another inverter</button></div>';
   }
   // MAC input + "Scan" button + pick list, shared by the Bluetooth cards.
@@ -2662,6 +2668,8 @@
         var field = t.getAttribute('data-field');
         setPath(state, field, t.type === 'checkbox' ? t.checked : t.value);
         afterFieldChange(field);
+        // The Bluetooth timing hint under More inverters follows Read every.
+        if (field === 'sources.dongle.poll_interval' && $('#dongle-bt-interval-hint')) { var dm = $('#dongle-more'); if (dm) dm.outerHTML = moreInvertersHtml('dongle'); }
         updateTestButtons();
         updateNav();
         var f = t.closest('.wz-field'); if (f) f.classList.remove('has-error');

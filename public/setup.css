@@ -460,3 +460,4 @@ button.wz-list-item:hover { background: var(--wz-hover); }
 .wz-more-title { margin: 0 0 4px; font-size: 0.95rem; }
 .wz-more-row { margin: 12px 0; padding: 12px; border: 1px solid var(--wz-line, rgba(0,0,0,.12)); border-radius: 12px; }
 .wz-static { margin: 6px 0 0; font-weight: 600; }
+.wz-hint.is-warn { color: var(--wz-amber-text); font-weight: 600; }

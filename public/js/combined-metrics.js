@@ -18,7 +18,7 @@
     product: { label: 'Multiply', help: 'Inputs multiplied, e.g. voltage × current = power.', many: true },
     weighted_mean: { label: 'Weighted average', help: 'Each input counts by its weight, e.g. battery charge weighted by capacity (Ah or kWh).', many: true, weights: true },
     scale: { label: 'Scale', help: 'One input × factor + offset, e.g. Wh to kWh (factor 0.001).', single: true },
-    energy_today: { label: 'Energy today from power', help: 'kWh so far today from a power reading (inputs are added first). Resets at midnight.', many: true, energy: true },
+    energy_today: { label: 'Energy today from power', help: 'kWh so far today from a power reading (inputs are added first). Resets at midnight. When the input is an Add up, each part\u2019s kWh is counted too, for cards that list parts; that starts when you save it, so earlier days show no parts.', many: true, energy: true },
     energy_total: { label: 'Lifetime energy from power', help: 'A kWh total that only goes up. Set a starting value to match a meter.', many: true, energy: true, start: true },
     counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true }
   };
