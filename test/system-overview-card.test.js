@@ -25,4 +25,15 @@ check('the dashboard sends battery charge history for the battery sparkline', ()
 check('up to three extra values, saved from the editor', () => {
   assert.match(src, /\.slice\(0, 3\)/); assert.match(read('public/js/editor.js'), /config\.extras = soOut/);
 });
+check('PV split: PV inverter and PV charger tiles with lines to the hub, Total solar beside', () => {
+  assert.match(src, /split = !!\(pv\.inverter && pv\.charger\)/);
+  assert.match(src, /tileHtml\('pvi'\) \+ tileHtml\('home'\) \+ tileHtml\('pvc'\)/);
+  assert.match(src, /Total solar/); assert.match(src, /set\('pvi', card\._soPv\?\.inverter, true\)/);
+  assert.match(src, /\/api\/metrics\/history\?metric=/);
+  const ed = read('public/js/editor.js');
+  assert.match(ed, /pick both a PV inverter and a PV charger metric, or neither/); assert.match(ed, /PV inverter and PV charger need different metrics/);
+});
+check('weather tile reads the shared forecast fetch and says when it is unavailable', () => {
+  assert.match(src, /getSharedForecastData\('auto'/); assert.match(src, /'Unavailable'/); assert.match(src, /config\.showWeather === true/);
+});
 console.log(`system-overview-card: ${passed} checks passed`);
