@@ -285,7 +285,8 @@
     var el = sectionEl(sec);
     if (!el) return [];
     return Array.from(el.querySelectorAll('input, select, textarea')).filter(function (c) {
-      return c.type !== 'file' && c.type !== 'search' && !c.closest('.mappings-filter-bar') && !c.classList.contains('mappings-filter-input');
+      // [data-own-save] cards (Combined metrics) save themselves, outside the save bar.
+      return c.type !== 'file' && c.type !== 'search' && !c.closest('.mappings-filter-bar') && !c.closest('[data-own-save]') && !c.classList.contains('mappings-filter-input');
     });
   }
   function snapshotSection(sec) {

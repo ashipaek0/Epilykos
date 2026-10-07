@@ -725,6 +725,66 @@ app.post('/api/role-metrics', (req, res) => {
   res.json({ success: true });
 });
 
+// Combined metrics (Settings > Metrics): definitions, last-cycle status, preview.
+app.use('/api/combined-metrics', isAuthenticated);
+app.get('/api/combined-metrics', (req, res) => {
+  const cm = require('./modules/combinedMetrics');
+  res.json({ definitions: cm.loadDefinitions(), status: cm.getCombinedStatus(), functions: cm.FNS });
+});
+app.post('/api/combined-metrics', (req, res) => {
+  const cm = require('./modules/combinedMetrics');
+  const defs = Array.isArray(req.body?.definitions) ? req.body.definitions : null;
+  if (!defs || defs.length > 100) return res.status(400).json({ error: 'Expected up to 100 definitions.' });
+  const clean = [];
+  for (const raw of defs) {
+    const def = {
+      id: typeof raw.id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(raw.id) ? raw.id : `cm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name: String(raw.name || '').trim(), unit: String(raw.unit || '').trim().slice(0, 12), enabled: raw.enabled !== false,
+      fn: raw.fn, inputs: (Array.isArray(raw.inputs) ? raw.inputs : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 16)
+    };
+    for (const k of ['weights', 'factor', 'offset', 'input_unit', 'start', 'stale_seconds', 'missing', 'note']) if (raw[k] !== undefined && raw[k] !== '') def[k] = raw[k];
+    if (def.weights) def.weights = def.weights.map(Number);
+    for (const k of ['factor', 'offset', 'start', 'stale_seconds']) if (def[k] !== undefined) def[k] = Number(def[k]);
+    if (typeof def.note === 'string') def.note = def.note.slice(0, 200);
+    const errors = cm.validateDefinition(def, clean);
+    if (errors.length) return res.status(400).json({ error: `${def.name || 'A combined metric'}: ${errors[0]}`, errors });
+    clean.push(def);
+  }
+  const { cyclic } = cm.orderDefinitions(clean);
+  if (cyclic.length) return res.status(400).json({ error: `These combined metrics use each other in a loop: ${cyclic.join(', ')}.` });
+  setConfig(cm.CONFIG_KEY, JSON.stringify(clean));
+  // List each combined metric with its unit, so pickers and the data-spike guard know it.
+  try {
+    const list = JSON.parse(getConfig('user_metrics') || '[]');
+    let changed = false;
+    for (const d of clean) {
+      const row = list.find(m => m && m.name === d.name);
+      if (!row) { list.push({ name: d.name, unit: d.unit, createdAt: Date.now(), combined: true }); changed = true; }
+      else if (d.unit && row.unit !== d.unit) { row.unit = d.unit; changed = true; }
+    }
+    if (changed) setConfig('user_metrics', JSON.stringify(list));
+  } catch (err) { logger.warn('[combined] could not list metrics:', err.message); }
+  logger.info(`[combined] saved ${clean.length} combined metrics`);
+  res.json({ success: true, definitions: clean });
+});
+app.post('/api/combined-metrics/preview', (req, res) => {
+  const cm = require('./modules/combinedMetrics');
+  const def = req.body || {};
+  const errors = cm.validateDefinition(def);
+  if (errors.length) return res.status(400).json({ error: errors[0], errors });
+  const { flushMetrics } = require('./modules/database');
+  flushMetrics();
+  const stmt = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?'), now = Math.floor(Date.now() / 1000);
+  const inputs = def.inputs.map(name => {
+    const row = stmt.get(String(name).trim());
+    const ts = row ? (Number(row.timestamp) > 1e12 ? Math.floor(row.timestamp / 1000) : Number(row.timestamp)) : null;
+    return { name, value: row ? row.value : null, age: ts == null ? null : now - ts };
+  });
+  const result = cm.evaluate(def, name => { const r = stmt.get(String(name).trim()); if (!r || r.value == null) return null; return { value: Number(r.value), timestamp: Number(r.timestamp) > 1e12 ? Math.floor(r.timestamp / 1000) : Number(r.timestamp) }; }, null, now);
+  const energy = ['energy_today', 'energy_total', 'counter_today'].includes(def.fn);
+  res.json({ inputs, value: result.skip ? null : result.value, skip: result.skip || null, note: energy ? 'Energy and daily counters start counting once saved.' : null });
+});
+
 app.use('/api/ha-device-entities', isAuthenticated);
 app.post('/api/ha-device-entities', async (req, res) => {
   const body = stringFields(req.body);

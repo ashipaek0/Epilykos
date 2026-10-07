@@ -22,6 +22,9 @@ function defaultRegistry() {
     { id: 'modbus', pollFn: () => require('../modules/modbus').pollModbus() },
     { id: 'tuya', pollFn: () => require('../modules/tuya').pollTuyaDevices() },
     { id: 'rs232', pollFn: () => require('../modules/rs232').pollRs232() },
+    // Combined metrics (sums, energy from power, ...) before history, so a role
+    // mapped to a combined metric gets this cycle's value.
+    { id: 'combined', pollFn: () => require('../modules/combinedMetrics').runCombinedMetrics() },
     { id: 'history', pollFn: () => require('../modules/history').pollLegacyHistory() },
     { id: 'grid', pollFn: () => require('../modules/grid').pollGridStatus() },
   ];

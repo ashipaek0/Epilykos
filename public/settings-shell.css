@@ -448,3 +448,37 @@ body.st {
 
 .st #settings-form .device-card .form-row > button,
 .st #settings-form .device-card .form-row > .fetch-btn { align-self: end; }
+
+/* ── Combined metrics (Settings > Metrics) ─────────────────────────────── */
+.cm-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 10px; }
+.cm-suggestions .st-help { margin: 0 4px 0 0; }
+.st-chip { border: 1px dashed var(--st-line); background: var(--st-panel); color: var(--st-text); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.st-chip:hover { border-style: solid; background: var(--st-hover); }
+.cm-list { display: flex; flex-direction: column; gap: 6px; }
+.cm-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--st-line-soft); border-radius: 10px; }
+.cm-main { min-width: 0; display: flex; flex-direction: column; }
+.cm-main strong { overflow-wrap: anywhere; }
+.cm-unit { color: var(--st-muted); font-size: 0.8rem; }
+.cm-sum { color: var(--st-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-state { font-size: 0.82rem; color: var(--st-muted); font-variant-numeric: tabular-nums; max-width: 22ch; text-align: right; }
+.cm-state.is-ok { color: var(--st-text); font-weight: 700; }
+.cm-state.is-warn { color: var(--st-amber-text); }
+.cm-state.is-off { color: var(--st-off); }
+.cm-editor { margin-top: 12px; padding: 14px; border: 1px solid var(--st-line); border-radius: 12px; background: var(--st-hover); }
+.cm-editor h3 { margin: 0 0 10px; font-size: 1rem; }
+.cm-label { display: block; font-weight: 600; margin-bottom: 4px; }
+.cm-inputs { margin: 0 0 6px; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
+.cm-input { display: flex; align-items: center; gap: 8px; }
+.cm-input-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cm-input em { color: var(--st-muted); font-style: normal; }
+.cm-weight { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; }
+.cm-weight .input { width: 6em; }
+.cm-more { margin: 6px 0; }
+.cm-more summary { cursor: pointer; font-weight: 600; }
+.cm-preview p { margin: 4px 0; font-size: 0.88rem; }
+.cm-spacer { flex: 1; }
+.st-help.is-error { color: var(--st-err); }
+@media (max-width: 640px) {
+  .cm-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .cm-state { grid-column: 2 / -1; text-align: left; max-width: none; }
+}
