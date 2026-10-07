@@ -643,7 +643,7 @@ app.get('/setup', (req, res) => {
 
 // "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
-  for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices']) {
+  for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
     setConfig(k, '[]');
   }
   setConfig('role_metrics', '{}');
