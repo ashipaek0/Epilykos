@@ -289,6 +289,10 @@ function attachParts(rows, fromDay, toDay, daysOf) {
         return o;
       });
       (row.parts = row.parts || {})[field] = fill(info.tree);
+      // A month whose parts start part-way (recording began then, or gaps):
+      // say from when, since its total covers every day.
+      const all = daysOf(row), today = localDateString();
+      if (all.length > 1 && all.some(d => d < days[0] && d <= today)) (row.partsSince = row.partsSince || {})[field] = days[0];
     }
   }
 }

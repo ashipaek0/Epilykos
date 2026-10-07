@@ -50,6 +50,26 @@ function loadState() {
   try { const v = JSON.parse(getConfig(STATE_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; }
 }
 
+/** Seconds after which an input counts as late (default 300). */
+function staleSecondsOf(def) { return Number(def && def.stale_seconds) >= 10 ? Number(def.stale_seconds) : 300; }
+
+/**
+ * Every metric in a sum's tree (its inputs, and inputs of sums inside it),
+ * each once, down to MAX_DEPTH. `sums`: Map name -> sum definition.
+ */
+function sumTreeMetrics(sums, name) {
+  const out = [];
+  const walk = (n, depth) => {
+    for (const m of sums.get(n).inputs.map(x => String(x).trim())) {
+      if (out.includes(m)) continue;
+      out.push(m);
+      if (sums.has(m) && depth < MAX_DEPTH) walk(m, depth + 1);
+    }
+  };
+  walk(name, 1);
+  return out;
+}
+
 /** Problems with one definition, as plain sentences ([] when fine). */
 function validateDefinition(def, others = []) {
   const errors = [];
@@ -102,7 +122,7 @@ function orderDefinitions(defs) {
  * Returns { value } to write, or { skip: reason }.
  */
 function evaluate(def, read, prevState, now) {
-  const stale = Number(def.stale_seconds) >= 10 ? Number(def.stale_seconds) : 300;
+  const stale = staleSecondsOf(def);
   const zeroMissing = def.missing === 'zero';
   const inputs = (def.inputs || []).map(s => String(s).trim()).filter(Boolean);
   const vals = [];
@@ -188,9 +208,6 @@ function runCombinedMetrics(now = Math.floor(Date.now() / 1000)) {
     status[key] = { ok: true, value: result.value, at: now };
     written++;
   }
-  // State of deleted definitions (energy counters, per-part kWh) goes with them.
-  const ids = new Set(loadDefinitions().filter(Boolean).map(d => String(d.id || d.name)));
-  for (const k of Object.keys(state)) if (!ids.has(k.split('#')[0])) { delete state[k]; stateChanged = true; }
   if (stateChanged) setConfig(STATE_KEY, JSON.stringify(state));
   try { recordPartDays(defs, state, computed, read, now); } catch (err) { logger.warn('[combined] could not record daily parts:', err.message); }
   lastStatus = status;
@@ -316,14 +333,7 @@ function partEnergy(def, read, prev, now, defs) {
   if (inputs.length !== 1) return null;
   const sums = new Map(defs.filter(d => d.fn === 'sum').map(d => [String(d.name).trim(), d]));
   if (!sums.has(inputs[0])) return null;
-  const metrics = [], walk = (name, depth) => {
-    for (const m of sums.get(name).inputs.map(x => String(x).trim())) {
-      if (metrics.includes(m)) continue;
-      metrics.push(m);
-      if (sums.has(m) && depth < MAX_DEPTH) walk(m, depth + 1);
-    }
-  };
-  walk(inputs[0], 1);
+  const metrics = sumTreeMetrics(sums, inputs[0]);
   const out = {};
   for (const m of metrics) {
     const r = evaluate({ fn: 'energy_today', inputs: [m], input_unit: def.input_unit, stale_seconds: def.stale_seconds }, read, prev && prev[m], now);
@@ -341,35 +351,46 @@ function partEnergy(def, read, prev, now, defs) {
  * Rows older than PART_DAYS_KEPT days are removed once a day.
  */
 const PART_DAYS_KEPT = 400;
+const PART_WRITE_MS = 5 * 60 * 1000;   // write at most this often (and at each new day)
 let lastPrune = '';
+const pendingParts = new Map();        // 'day|total|part' -> [day, total, part, kwh]
+let pendingDay = '', lastPartWrite = 0;
 function recordPartDays(defs, state, computed, read, now) {
   const today = localDateString(new Date(now * 1000));
   const sums = new Map(defs.filter(d => d.fn === 'sum').map(d => [String(d.name).trim(), d]));
-  const rows = [];
-  const walk = (name, depth, visit) => {
-    for (const m of sums.get(name).inputs.map(x => String(x).trim())) { visit(m); if (sums.has(m) && depth < MAX_DEPTH) walk(m, depth + 1, visit); }
-  };
+  const keep = (day, total, part, kwh) => pendingParts.set(`${day}|${total}|${part}`, [day, total, part, kwh]);
   for (const d of defs) {
     const total = String(d.name).trim();
     if (d.fn === 'energy_today') {
       const input = String((d.inputs || [])[0] || '').trim();
       const kwh = state[`${d.id || d.name}#parts`];
       if ((d.inputs || []).length !== 1 || !sums.has(input) || !kwh) continue;
-      walk(input, 1, m => { const s = kwh[m]; if (s && s.day === today && Number.isFinite(s.kwh)) rows.push([today, total, m, Math.round(s.kwh * 1000) / 1000]); });
+      for (const m of sumTreeMetrics(sums, input)) { const s = kwh[m]; if (s && s.day === today && Number.isFinite(s.kwh)) keep(today, total, m, Math.round(s.kwh * 1000) / 1000); }
     } else if (d.fn === 'sum' && String(d.unit || '').toLowerCase() === 'kwh' && computed.has(total)) {
-      walk(total, 1, m => { const r = read(m); if (r && Number.isFinite(r.value) && now - r.timestamp <= (Number(d.stale_seconds) >= 10 ? Number(d.stale_seconds) : 300)) rows.push([today, total, m, r.value]); });
+      for (const m of sumTreeMetrics(sums, total)) { const r = read(m); if (r && Number.isFinite(r.value) && now - r.timestamp <= staleSecondsOf(d)) keep(today, total, m, r.value); }
     }
   }
-  const db = getDb();
-  if (rows.length) {
-    const up = db.prepare('INSERT INTO combined_part_daily (day, total, part, kwh) VALUES (?, ?, ?, ?) ON CONFLICT(day, total, part) DO UPDATE SET kwh = excluded.kwh');
-    db.transaction(list => { for (const r of list) up.run(...r); })(rows);
-  }
+  // Values change every cycle; storing them every few minutes is enough, but
+  // a new day writes the last values of the old one first.
+  const dayChanged = pendingDay && pendingDay !== today;
+  pendingDay = today;
+  if (dayChanged || Date.now() - lastPartWrite >= PART_WRITE_MS) flushPartDays();
   if (lastPrune !== today) {
     lastPrune = today;
     const cutoff = localDateString(new Date((now - PART_DAYS_KEPT * 86400) * 1000));
-    db.prepare('DELETE FROM combined_part_daily WHERE day < ?').run(cutoff);
+    getDb().prepare('DELETE FROM combined_part_daily WHERE day < ?').run(cutoff);
   }
+}
+let upsertFor = null, upsertStmt = null;
+/** Write the buffered per-part values (also before the tables read them). */
+function flushPartDays() {
+  lastPartWrite = Date.now();
+  if (!pendingParts.size) return;
+  const db = getDb();
+  if (upsertFor !== db) { upsertFor = db; upsertStmt = db.prepare('INSERT INTO combined_part_daily (day, total, part, kwh) VALUES (?, ?, ?, ?) ON CONFLICT(day, total, part) DO UPDATE SET kwh = excluded.kwh'); }
+  const rows = [...pendingParts.values()];
+  pendingParts.clear();
+  db.transaction(list => { for (const r of list) upsertStmt.run(...r); })(rows);
 }
 
 /**
@@ -378,6 +399,7 @@ function recordPartDays(defs, state, computed, read, now) {
  * Only roles that point at a daily total with recorded parts are included.
  */
 function partDays(fromDay, toDay) {
+  try { flushPartDays(); } catch (err) { logger.warn('[combined] could not write daily parts:', err.message); }
   const b = buildBreakdowns();
   const out = {};
   const stmt = getDb().prepare('SELECT day, part, kwh FROM combined_part_daily WHERE total = ? AND day >= ? AND day <= ?');
@@ -390,6 +412,20 @@ function partDays(fromDay, toDay) {
   return out;
 }
 function stripValues(p) { const o = { metric: p.metric, label: p.label }; if (p.parts) o.parts = p.parts.map(stripValues); return o; }
+
+/**
+ * After the definitions are saved: drop the state of deleted ones (energy
+ * counters, per-part kWh). Switched-off ones keep theirs, so switching one
+ * back on carries on counting.
+ */
+function pruneState(defs = loadDefinitions()) {
+  const ids = new Set((defs || []).filter(Boolean).map(d => String(d.id || d.name)));
+  const state = loadState();
+  let changed = false;
+  for (const k of Object.keys(state)) if (!ids.has(k.split('#')[0])) { delete state[k]; changed = true; }
+  if (changed) setConfig(STATE_KEY, JSON.stringify(state));
+  return changed;
+}
 
 let lastStatus = {};
 /** What each definition did on the last cycle: { [id]: { ok, value | reason, at } }. */
@@ -407,4 +443,4 @@ function autoLabels() {
   return out;
 }
 
-module.exports = { buildBreakdowns, partLabels, autoLabels, partDays, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
+module.exports = { buildBreakdowns, partLabels, autoLabels, partDays, flushPartDays, pruneState, staleSecondsOf, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };

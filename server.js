@@ -762,6 +762,7 @@ app.post('/api/combined-metrics', (req, res) => {
   const { cyclic } = cm.orderDefinitions(clean);
   if (cyclic.length) return res.status(400).json({ error: `These combined metrics use each other in a loop: ${cyclic.join(', ')}.` });
   setConfig(cm.CONFIG_KEY, JSON.stringify(clean));
+  try { cm.pruneState(clean); } catch (err) { logger.warn('[combined] could not tidy state:', err.message); }
   // List each combined metric with its unit, so pickers and the data-spike guard know it.
   try {
     const list = JSON.parse(getConfig('user_metrics') || '[]');
