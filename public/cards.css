@@ -446,3 +446,12 @@
 }
 .et-status { margin: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
 .et-status:empty { display: none; }
+
+/* ── Costs and earnings card ───────────────────────────────────────────── */
+.ec-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; flex-shrink: 0; }
+.ec-total { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; min-width: 0; background: var(--bg); }
+.ec-total h4 { margin: 0 0 2px; font-size: calc(0.72rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); }
+.ec-amount { margin: 0; font-size: calc(clamp(1.05rem, 0.9rem + 0.8cqi, 1.4rem) * var(--card-font-scale, 1)); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-sub { margin: 0; font-size: calc(0.7rem * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ec-prices { margin: 0; flex-shrink: 0; font-size: calc(0.7rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.energy-costs-card { container-type: inline-size; }

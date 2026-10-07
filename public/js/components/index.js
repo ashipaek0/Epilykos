@@ -27,6 +27,7 @@ import { buildPvToday } from './pvToday.js';
 import { buildEnergyDay } from './energyDay.js';
 import { buildEnergyTotals } from './energyTotals.js';
 import { buildEnergyFlows } from './energyFlows.js';
+import { buildEnergyCosts } from './energyCosts.js';
 import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
 import { buildBarSingleCard } from './barSingleCard.js';
@@ -67,6 +68,7 @@ export const componentBuilders = {
   'energy-day': buildEnergyDay,
   'energy-totals': buildEnergyTotals,
   'energy-flows': buildEnergyFlows,
+  'energy-costs': buildEnergyCosts,
   'bar-gauge': buildBarGauge,
   'bar-gauge-retro': buildBarGaugeRetro,
   'bar-single': buildBarSingleCard,
