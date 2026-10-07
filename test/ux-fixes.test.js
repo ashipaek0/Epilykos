@@ -95,6 +95,21 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.doesNotMatch(wz, /Finish to open your dashboard/);
   });
 
+  await check('Settings asks in its own dialog, never the browser\'s confirm/alert/prompt', () => {
+    for (const f of ['public/settings.js', 'public/js/settings-shell.js', 'public/js/combined-metrics.js', 'public/js/pv-arrays.js']) {
+      const code = read(f).split('\n').filter(l => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+      assert.doesNotMatch(code, /(^|[^.\w])(confirm|alert|prompt)\(/, `${f} uses a browser dialog`);
+    }
+    const js = read('public/settings.js');
+    assert.match(js, /if \(typeof window\.stConfirm === 'function'\) return window\.stConfirm\(/);
+    assert.match(js, /return Promise\.resolve\(false\);/, 'no dialog: refuse rather than act unasked');
+    assert.strictEqual((js.match(/await showConfirm\(/g) || []).length, 18, 'every caller waits for the answer');
+    assert.match(js, /if \(!\(await confirmImplicitToExplicitNoneFlips\(\)\)\)/);
+    const shell = read('public/js/settings-shell.js');
+    assert.match(shell, /window\.stConfirm = stConfirm;/);
+    assert.match(shell, /alert: true, actions: \[\{ label: 'Cancel', value: null \}/, 'Cancel first and focused');
+  });
+
   console.log(`ux-fixes: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });
