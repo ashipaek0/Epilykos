@@ -1658,8 +1658,8 @@ function buildSettingsForm(block) {
   return html;
 }
 
-/** Gauges and stat cards that can list the parts of a combined total (flow and energy cards add the fields in their own forms). */
-var BREAKDOWN_VALUE_TYPES = ['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric'];
+/** Gauges, stat cards and the totals tables that can list the parts of a combined total (flow and energy cards add the fields in their own forms). */
+var BREAKDOWN_VALUE_TYPES = ['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric', 'data-table-daily', 'data-table-monthly'];
 
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
