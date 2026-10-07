@@ -518,3 +518,32 @@
   .so-tile header { flex-wrap: wrap; }
   .so-spark { height: 28%; opacity: .7; }
 }
+
+/* ── Energy, tabbed ─────────────────────────────────────────────────────── */
+.energy-tabs-card {
+  background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: var(--card-pad, 12px); height: 100%; width: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden;
+}
+.etabs-title { margin: 0; font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text); }
+.etabs-list { display: flex; gap: 2px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+.etabs-tab {
+  appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: 8px 12px; min-height: 36px; font: inherit; font-size: calc(0.82rem * var(--card-font-scale, 1)); font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+}
+.etabs-tab:hover { color: var(--text); }
+.etabs-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.etabs-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px 6px 0 0; }
+.etabs-panel { flex: 1 1 auto; min-height: 0; display: flex; }
+.etabs-panel[hidden] { display: none; }
+/* The card inside a tab drops its own frame: the tabbed card is the frame. */
+.etabs-panel > .energy-day-card, .etabs-panel > .energy-totals-card { border: 0; box-shadow: none; background: none; padding: 0; border-radius: 0; }
+.etabs-panel > .energy-day-card .ed-header { justify-content: flex-end; }
+.etabs-panel > .energy-totals-card .et-tiles { flex: 0 0 auto; align-content: start; }
+/* Wide cards: the tab's controls sit at the right end of the tab bar. */
+.energy-tabs-card { position: relative; container-type: inline-size; }
+@container (min-width: 760px) {
+  .etabs-list { padding-right: 330px; }
+  .etabs-panel > .energy-day-card .ed-header { position: absolute; right: var(--card-pad, 12px); top: calc(var(--etabs-row-top, 0px) + 2px); }
+}
