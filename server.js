@@ -1376,6 +1376,12 @@ app.post('/api/settings', (req, res) => {
       const clash = require('./modules/sourceChecks').dongleNameClash(devices);
       if (clash) return res.status(400).json({ error: clash });
     }
+    if (filteredUpdates.bms_banks !== undefined) {
+      let banks = filteredUpdates.bms_banks;
+      if (typeof banks === 'string') { try { banks = JSON.parse(banks || '[]'); } catch (_) { banks = []; } }
+      const clash = require('./modules/sourceChecks').bankOutputClash(banks);
+      if (clash) return res.status(400).json({ error: clash });
+    }
     const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
     const saved = [];
     for (const [key, value] of Object.entries(filteredUpdates)) {
