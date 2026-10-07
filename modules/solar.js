@@ -422,6 +422,80 @@ async function getOpenMeteoData(lat, lon, capacityKwp, lossFactor) {
   return { forecasts, source: 'open-meteo' };
 }
 
+/**
+ * The PV arrays to forecast. Config `solar_arrays` (Settings > Forecast) is a
+ * list of { name, kwp, tilt, azimuth, solcast_resource_id }; azimuth is the
+ * compass direction the panels face (180 = south). Without it, the single
+ * array from solar_capacity_kwp / solar_tilt / solar_azimuth is used.
+ * `override` (Test forecast) can pass `arrays`, or capacity/tilt/azimuth.
+ */
+function getArrays(override = {}) {
+  const fromList = list => (Array.isArray(list) ? list : [])
+    .map((a, i) => ({ name: String(a?.name || `Array ${i + 1}`).slice(0, 40), kwp: Number(a?.kwp), tilt: Number.isFinite(Number(a?.tilt)) ? Number(a.tilt) : 30, azimuth: Number.isFinite(Number(a?.azimuth)) ? Number(a.azimuth) : 180, solcast_resource_id: String(a?.solcast_resource_id || '').trim() }))
+    .filter(a => a.kwp > 0 && a.tilt >= 0 && a.tilt <= 90);
+  if (Array.isArray(override.arrays)) return fromList(override.arrays);
+  if (override.capacity != null) return fromList([{ kwp: override.capacity, tilt: override.tilt ?? 30, azimuth: override.azimuth ?? 180 }]);
+  let saved = [];
+  try { saved = JSON.parse(getConfig('solar_arrays') || '[]'); } catch (_) { saved = []; }
+  const list = fromList(saved);
+  if (list.length) return list;
+  return fromList([{ kwp: getConfig('solar_capacity_kwp'), tilt: parseFloat(getConfig('solar_tilt')) || 30, azimuth: parseFloat(getConfig('solar_azimuth')) || 180 }]);
+}
+
+/** Compass azimuth (180 = south) to Open-Meteo's (0 = south, -90 east, 90 west). */
+function openMeteoAzimuth(compass) {
+  let a = Number(compass) - 180;
+  while (a > 180) a -= 360;
+  while (a < -180) a += 360;
+  return a;
+}
+
+const tiltedCache = new Map(); // key -> { at, byMs: Map(ms -> W/m2) }
+/** Hourly irradiance on a tilted plane (W/m2, mean of the preceding hour), keyed by time. */
+async function fetchTiltedIrradiance(lat, lon, tilt, azimuth) {
+  const key = `${lat},${lon},${tilt},${azimuth}`, now = Date.now(), hit = tiltedCache.get(key);
+  if (hit && now - hit.at < OPEN_METEO_CACHE_MS) return hit.byMs;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=auto&timeformat=unixtime&forecast_days=7`
+    + `&hourly=global_tilted_irradiance&tilt=${tilt}&azimuth=${openMeteoAzimuth(azimuth)}`;
+  const raw = await httpsGetJson(url);
+  const t = raw?.hourly?.time || [], g = raw?.hourly?.global_tilted_irradiance || [];
+  const byMs = new Map(t.map((x, i) => [x * 1000, numOrNull(g[i])]));
+  tiltedCache.set(key, { at: now, byMs });
+  while (tiltedCache.size > 16) tiltedCache.delete(tiltedCache.keys().next().value);
+  return byMs;
+}
+
+/**
+ * Open-Meteo forecast for several arrays: each array's tilted irradiance x its
+ * kWp x the loss factor, added up. An array whose tilted request fails falls
+ * back to horizontal irradiance rather than dropping out.
+ */
+async function getOpenMeteoArrays(lat, lon, arrays, lossFactor) {
+  const base = await getOpenMeteoData(lat, lon, 0, lossFactor);  // periods + weather, pv set below
+  const loss = lossFactor || 0.9;
+  const tilted = await Promise.all(arrays.map(a => fetchTiltedIrradiance(lat, lon, a.tilt, a.azimuth).catch(err => { logger.debug(`[forecast] tilted irradiance for ${a.name} unavailable: ${err.message}`); return null; })));
+  base.forecasts.forEach(f => {
+    const ms = new Date(f.period_end).getTime();
+    f.pv_estimate = arrays.reduce((sum, a, i) => {
+      const gti = tilted[i] ? tilted[i].get(ms) : null;
+      return sum + (gti != null ? gti : (f.shortwave_radiation || 0)) * (a.kwp / 1000) * loss;
+    }, 0);
+  });
+  base.arrays = arrays.map((a, i) => ({ name: a.name, kwp: a.kwp, tilted: !!tilted[i] }));
+  return base;
+}
+
+/** Add Solcast forecasts from several arrays period by period (estimates and P10/P90 bands). */
+function sumForecastPeriods(lists) {
+  const byEnd = new Map();
+  for (const list of lists) for (const f of list || []) {
+    const key = f.period_end, prev = byEnd.get(key);
+    if (!prev) { byEnd.set(key, { ...f }); continue; }
+    for (const k of ['pv_estimate', 'pv_estimate10', 'pv_estimate90']) if (f[k] != null) prev[k] = (prev[k] || 0) + Number(f[k]);
+  }
+  return [...byEnd.values()].sort((a, b) => new Date(a.period_end) - new Date(b.period_end));
+}
+
 /** Hours covered by one forecast period ('PT30M' → 0.5); default 1 h. */
 function periodHours(f) {
   const m = /^PT(\d+(?:\.\d+)?)([HM])$/i.exec(String((f && f.period) || ''));
@@ -581,7 +655,7 @@ function pickSolcastWeather(periods) {
 // Test hook (no prod callers): drop all per-selector cache entries.
 function clearForecastCache() {
   forecastCache = {}; solcastNegativeCache = {}; solcastLastUpstreamAttempt = 0;
-  openMeteoCache = { key: null, data: null, timestamp: 0 }; lastGoodWeather = null;
+  openMeteoCache = { key: null, data: null, timestamp: 0 }; lastGoodWeather = null; tiltedCache.clear();
 }
 
 // ---- Issue #127 follow-up: Solcast negative-cache helpers ----
@@ -661,7 +735,7 @@ function buildCachedErrorResponse(entry, selector) {
 const FORECAST_CACHE_KEYS = [
   'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
   'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
-  'solar_loss_factor', 'solar_install_date',
+  'solar_loss_factor', 'solar_install_date', 'solar_arrays',
   'forecast_default_source', 'weather_default_source'
 ];
 
@@ -794,7 +868,8 @@ async function getSolarForecast(sourceParam, restMap) {
 
   const lat = parseFloat(getConfig('solar_latitude')) || null;
   const lon = parseFloat(getConfig('solar_longitude')) || null;
-  const capacityKwp = parseFloat(getConfig('solar_capacity_kwp')) || 0;
+  const arrays = getArrays();
+  const capacityKwp = arrays.reduce((sum, a) => sum + a.kwp, 0);
   const solcastKey = getConfig('solcast_api_key');
   const resourceId = getConfig('solcast_resource_id');
   const lossFactor = parseFloat(getConfig('solar_loss_factor')) || 0.9;
@@ -832,34 +907,34 @@ async function getSolarForecast(sourceParam, restMap) {
         recordSolcastUpstreamAttempt();
         let solcastErrText = null, solcastErrStatus = null, solcastRetryAfter = null;
 
-        if (resourceId) {
+        // One site-wide resource ID covers the whole site (Solcast sites can hold
+        // several arrays). Otherwise each array is fetched on its own (its own
+        // rooftop resource, or the world PV API with its size and direction) and
+        // the forecasts are added up. Any array failing fails the lot, so a
+        // partial total is never shown as the whole site.
+        const perArray = !resourceId && (arrays.length > 1 || arrays.some(a => a.solcast_resource_id));
+        const jobs = !perArray
+          ? [resourceId ? { url: solcastRooftopUrl(resourceId), what: 'rooftop' } : (lat && lon ? { url: solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), what: 'world PV' } : null)]
+          : arrays.map(a => (a.solcast_resource_id ? { url: solcastRooftopUrl(a.solcast_resource_id), what: `rooftop (${a.name})` }
+            : (lat && lon ? { url: solcastWorldUrl({ latitude: lat, longitude: lon, capacity: a.kwp, tilt: a.tilt, azimuth: a.azimuth, loss_factor: lossFactor, install_date: installDate }), what: `world PV (${a.name})` } : null)));
+        const results = [];
+        for (const job of jobs) {
+          if (!job) { solcastErrText = 'Solcast needs a location or a resource ID'; break; }
           try {
-            const url = solcastRooftopUrl(resourceId);
-            const res = await solcastFetch(url, solcastKey);
-            if (res.ok) {
-              const data = await res.json();
-              if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
-            } else {
-              solcastErrStatus = res.status;
-              solcastRetryAfter = res.headers.get('retry-after');
-              solcastErrText = `Solcast rooftop HTTP ${res.status}`;
-            }
-          } catch (e) { solcastErrText = `Solcast rooftop error: ${e.message}`; }
+            const res = await solcastFetch(job.url, solcastKey);
+            if (!res.ok) { solcastErrStatus = res.status; solcastRetryAfter = res.headers.get('retry-after'); solcastErrText = `Solcast ${job.what} HTTP ${res.status}`; break; }
+            const data = await res.json();
+            if (!data.forecasts) { solcastErrText = `Solcast ${job.what}: no forecast`; break; }
+            results.push(data.forecasts.map(mapSolcastPeriod));
+          } catch (e) { solcastErrText = `Solcast ${job.what} error: ${e.message}`; break; }
         }
-        if (!forecastData && lat && lon) {
+        if (results.length === jobs.length && results.length) { forecastData = results.length === 1 ? results[0] : sumForecastPeriods(results); source = 'solcast'; }
+        // A site-wide rooftop that fails still falls back to the world PV API.
+        if (!forecastData && !perArray && resourceId && lat && lon) {
           try {
-            const tilt = parseFloat(getConfig('solar_tilt')) || 30;
-            const azimuth = parseFloat(getConfig('solar_azimuth')) || 180;
-            const url = solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt, azimuth, loss_factor: lossFactor, install_date: installDate });
-            const res = await solcastFetch(url, solcastKey);
-            if (res.ok) {
-              const data = await res.json();
-              if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; }
-            } else {
-              solcastErrStatus = res.status;
-              solcastRetryAfter = res.headers.get('retry-after');
-              solcastErrText = `Solcast world PV HTTP ${res.status}`;
-            }
+            const res = await solcastFetch(solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), solcastKey);
+            if (res.ok) { const data = await res.json(); if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; } }
+            else { solcastErrStatus = res.status; solcastRetryAfter = res.headers.get('retry-after'); solcastErrText = `Solcast world PV HTTP ${res.status}`; }
           } catch (e) { solcastErrText = `Solcast world PV error: ${e.message}`; }
         }
 
@@ -882,7 +957,7 @@ async function getSolarForecast(sourceParam, restMap) {
   if (!forecastData && wantOpenMeteo) {
     if (!lat || !lon) return { error: 'Location required for Open-Meteo' };
     try {
-      const openMeteo = await getOpenMeteoData(lat, lon, capacityKwp, lossFactor);
+      const openMeteo = await getOpenMeteoArrays(lat, lon, arrays, lossFactor);
       forecastData = openMeteo.forecasts;
       source = openMeteo.source;
     } catch (e) { return { error: 'All forecast sources unavailable' }; }
@@ -1001,76 +1076,47 @@ async function testForecast(opts) {
   // Accept values directly (from form) or fall back to DB config
   const lat = parseFloat(opts?.lat ?? getConfig('solar_latitude'));
   const lon = parseFloat(opts?.lon ?? getConfig('solar_longitude'));
-  const capacityKwp = parseFloat(opts?.capacity ?? getConfig('solar_capacity_kwp'));
-  if (isNaN(lat) || isNaN(lon) || isNaN(capacityKwp) || capacityKwp <= 0) throw new Error('Invalid location or capacity');
+  let formArrays = opts?.arrays;
+  if (typeof formArrays === 'string') { try { formArrays = JSON.parse(formArrays); } catch (_) { formArrays = undefined; } }
+  const arrays = getArrays(Array.isArray(formArrays) && formArrays.length ? { arrays: formArrays } : (opts?.capacity != null && opts.capacity !== '' ? { capacity: opts.capacity, tilt: parseFloat(opts.tilt) || 30, azimuth: parseFloat(opts.azimuth) || 180 } : {}));
+  const capacityKwp = arrays.reduce((sum, a) => sum + a.kwp, 0);
+  if (isNaN(lat) || isNaN(lon) || !(capacityKwp > 0)) throw new Error('Invalid location or capacity');
   const solcastKey = opts?.api_key ?? getConfig('solcast_api_key');
   const resourceId = opts?.resource_id ?? getConfig('solcast_resource_id');
-  const tilt = parseFloat(opts?.tilt ?? getConfig('solar_tilt')) || 30;
-  const azimuth = parseFloat(opts?.azimuth ?? getConfig('solar_azimuth')) || 180;
   const lossFactor = parseFloat(opts?.loss ?? getConfig('solar_loss_factor')) || 0.9;
   const installDate = (opts?.install_date ?? getConfig('solar_install_date')) || '2020-01-01';
-  let source = 'none', dailyTotal = 0, peak = 0;
+  const today = localDateString();
+  // kWh today and the peak kW from forecast periods (periods can be 30 or 60 minutes).
+  const summarise = list => list.reduce((acc, f) => {
+    if (localDateString(new Date(f.period_end)) !== today) return acc;
+    acc.kwh += (Number(f.pv_estimate) || 0) * periodHours(f); acc.peak = Math.max(acc.peak, Number(f.pv_estimate) || 0); return acc;
+  }, { kwh: 0, peak: 0 });
+  let source = 'none', result = { kwh: 0, peak: 0 };
 
   if (solcastKey) {
-    if (resourceId) {
-      try {
-        const url = solcastRooftopUrl(resourceId);
+    const perArray = !resourceId && (arrays.length > 1 || arrays.some(a => a.solcast_resource_id));
+    const urls = !perArray
+      ? [resourceId ? solcastRooftopUrl(resourceId) : solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate })]
+      : arrays.map(a => (a.solcast_resource_id ? solcastRooftopUrl(a.solcast_resource_id) : solcastWorldUrl({ latitude: lat, longitude: lon, capacity: a.kwp, tilt: a.tilt, azimuth: a.azimuth, loss_factor: lossFactor, install_date: installDate })));
+    try {
+      const lists = [];
+      for (const url of urls) {
         const res = await solcastFetch(url, solcastKey);
-        if (res.ok) {
-          const data = await res.json();
-          const today = localDateString();
-          (data.forecasts || []).forEach(f => { if (localDateString(new Date(f.period_end)) === today) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
-          source = 'solcast';
-        }
-      } catch (e) { logger.debug(`Solcast rooftop test unavailable: ${e.message}`); }
-    }
-    if (source === 'none') {
-      try {
-        const url = solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt, azimuth, loss_factor: lossFactor, install_date: installDate });
-        const res = await solcastFetch(url, solcastKey);
-        if (res.ok) {
-          const data = await res.json();
-          const today = localDateString();
-          (data.forecasts || []).forEach(f => { if (localDateString(new Date(f.period_end)) === today) { dailyTotal += f.pv_estimate; peak = Math.max(peak, f.pv_estimate); } });
-          source = 'solcast';
-        }
-      } catch (e) { logger.debug(`Solcast world PV test unavailable: ${e.message}`); }
-    }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        lists.push(((await res.json()).forecasts || []).map(mapSolcastPeriod));
+      }
+      result = summarise(lists.length === 1 ? lists[0] : sumForecastPeriods(lists));
+      source = 'solcast';
+    } catch (e) { logger.debug(`Solcast test unavailable: ${e.message}`); }
   }
   if (source === 'none') {
     try {
-      // Use https.get instead of fetch to avoid ERR_STREAM_PREMATURE_CLOSE
-      // (Node.js fetch has stream issues with Open-Meteo in long-running Docker processes)
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&timezone=auto&forecast_days=1`;
-      const data = await new Promise((resolve, reject) => {
-        const req = https.get(url, { timeout: 10000 }, (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error(`HTTP ${res.statusCode}`));
-            return;
-          }
-          let body = '';
-          res.setEncoding('utf8');
-          res.on('data', (chunk) => { body += chunk; });
-          res.on('end', () => {
-            try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON')); }
-          });
-        });
-        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-        req.on('error', reject);
-      });
-      // Also fix the Solcast fetch calls the same way (same container, same fetch bug risk)
-      const conversionFactor = (capacityKwp / 1000) * lossFactor;
-      const today = localDateString();
-      data.hourly.time.forEach((t, i) => {
-        if (t.startsWith(today)) {
-          const pv = data.hourly.shortwave_radiation[i] * conversionFactor;
-          dailyTotal += pv; peak = Math.max(peak, pv);
-        }
-      });
+      const om = await getOpenMeteoArrays(lat, lon, arrays, lossFactor);
+      result = summarise(om.forecasts);
       source = 'open-meteo';
     } catch (e) { throw new Error('Forecast service unavailable'); }
   }
-  return { source, today_estimate_kwh: dailyTotal.toFixed(2), peak_kw: peak.toFixed(2) };
+  return { source, arrays: arrays.length, capacity_kwp: +capacityKwp.toFixed(2), today_estimate_kwh: result.kwh.toFixed(2), peak_kw: result.peak.toFixed(2) };
 }
 
-module.exports = { withTodaysEarlierPeriods, fillPeriodWeather, computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
+module.exports = { getArrays, openMeteoAzimuth, sumForecastPeriods, getOpenMeteoArrays, withTodaysEarlierPeriods, fillPeriodWeather, computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
