@@ -74,5 +74,11 @@ check('battery projection adds forecast solar minus load each hour, within limit
   assert.equal(p.hours[p.hours.length - 1].soc, 20, 'never below the lowest charge');
   assert.equal(p.hours[p.hours.length - 1].state, 'empty');
   assert.equal(projectBattery(hourly, forecast, { capacityKwh: 0, now: at(0, 11) }), null, 'needs a capacity');
+  const f0 = p.hours[0].flows;
+  assert.equal(f0.solar_to_home, 1); assert.equal(f0.solar_to_battery, 3); assert.equal(f0.grid_to_home, 0);
+  assert.ok(p.hours[1].spareSolar > 0, 'solar beyond a full battery is reported as spare');
+  const last = p.hours[p.hours.length - 1].flows;
+  assert.equal(last.solar_to_home, 0); assert.ok(last.grid_to_home > 0, 'once the battery is at its lowest charge the grid covers the home');
+  assert.ok(Math.abs(last.battery_to_home + last.grid_to_home - 1) < 1e-6);
 });
 console.log(`energy-forecast (battery): ok`);

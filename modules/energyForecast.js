@@ -114,7 +114,7 @@ function hourlyForecast(db, { date, solarForecast = null, now = Math.floor(Date.
 }
 
 /**
- * Battery charge (%) projected to the end of each remaining hour of today:
+ * Battery charge (%) and energy flows projected for each remaining hour of today:
  * start from the latest reading, then add forecast solar minus forecast
  * consumption each hour, within the lowest charge and 100%. Charging and
  * discharging each lose 5%. Charge-rate limits are not modelled.
@@ -137,13 +137,21 @@ function projectBattery(hourly, forecast, { capacityKwh, minSoc = 0, now = Math.
     const share = (h.end - Math.max(h.start, now)) / (h.end - h.start);   // what is left of this hour
     const solar = f.solar ? f.solar.expected : 0, load = f.consumption ? f.consumption.expected : null;
     if (load == null) { out.push({ start: h.start, end: h.end, soc: null }); return; }
-    const net = (solar - load) * share, before = kwh;
-    kwh += net > 0 ? net * efficiency : net / efficiency;
-    kwh = Math.min(capacity, Math.max(capacity * floor / 100, kwh));
+    // Same priorities as the measured flows: solar to home first, spare solar
+    // into the battery, then the battery covers the home, then the grid.
+    const sun = solar * share, use = load * share, before = kwh, floorKwh = capacity * floor / 100;
+    const solarToHome = Math.min(sun, use);
+    const solarToBattery = Math.max(0, Math.min(sun - solarToHome, (capacity - kwh) / efficiency));
+    kwh += solarToBattery * efficiency;
+    const batteryToHome = Math.max(0, Math.min(use - solarToHome, (kwh - floorKwh) * efficiency));
+    kwh -= batteryToHome / efficiency;
+    const r = v => Math.round(v * 1000) / 1000;
+    const flows = { solar_to_home: r(solarToHome), solar_to_battery: r(solarToBattery), battery_to_home: r(batteryToHome), grid_to_home: r(use - solarToHome - batteryToHome) };
+    const spareSolar = r(sun - solarToHome - solarToBattery);   // more solar than home and battery can take
     const soc = Math.round(kwh / capacity * 1000) / 10;
     // 'full' / 'empty': the hour ends at 100% / at the lowest charge.
     const state = soc >= 99.95 ? 'full' : soc <= floor + 0.05 ? 'empty' : kwh > before + 1e-6 ? 'charging' : kwh < before - 1e-6 ? 'discharging' : 'idle';
-    out.push({ start: h.start, end: h.end, soc, state });
+    out.push({ start: h.start, end: h.end, soc, state, flows, spareSolar });
   });
   return { from: last.soc, capacityKwh: capacity, minSoc: floor, hours: out };
 }

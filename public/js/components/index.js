@@ -26,6 +26,7 @@ import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.j
 import { buildPvToday } from './pvToday.js';
 import { buildEnergyDay } from './energyDay.js';
 import { buildEnergyTotals } from './energyTotals.js';
+import { buildEnergyFlows } from './energyFlows.js';
 import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
 import { buildBarSingleCard } from './barSingleCard.js';
@@ -65,6 +66,7 @@ export const componentBuilders = {
   'forecast-pvtoday': buildPvToday,
   'energy-day': buildEnergyDay,
   'energy-totals': buildEnergyTotals,
+  'energy-flows': buildEnergyFlows,
   'bar-gauge': buildBarGauge,
   'bar-gauge-retro': buildBarGaugeRetro,
   'bar-single': buildBarSingleCard,
