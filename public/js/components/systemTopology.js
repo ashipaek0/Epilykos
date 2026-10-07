@@ -178,6 +178,10 @@ export function updateSystemTopology(state) {
       { host: container.querySelector('.topo-battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] }
     ]);
 
+    // Parts listed above Solar and below Battery take height from the circles.
+    const rowsOf = sel => Number(container.querySelector(sel)?.style.getPropertyValue('--bd-rows')) || 0;
+    container.style.setProperty('--topo-extra', String(rowsOf('.topo-solar') + rowsOf('.topo-battery')));
+
     // Position flow lines edge-to-edge
     positionFlowLines(container);
   });

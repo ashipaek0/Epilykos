@@ -1,6 +1,7 @@
 import { normalizeConfig, finiteMetric, scaleRatio, thresholdBands, historyAreaPath, historyPath, historyUrl } from './configurableGaugeLogic.js';
 import { formatMetric } from './format.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 
 const esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const REQUEST_TTL = 30_000;
@@ -102,6 +103,7 @@ export function innerLayout(c) {
 }
 export function buildConfigurableGaugeCard(block = {}) {
   const c = normalizeConfig(block.config), root = document.createElement('div'), id = `configurable-gauge-${++instanceSequence}`;
+  if (!c.metric) return emptyBlock(undefined, block.id);
   const layout = innerLayout(c);
   root.className = 'configurable-gauge-card stat-card'; root.dataset.blockId = block.id || ''; markBreakdown(root, block.config); root.dataset.instanceId = id; root.dataset.config = JSON.stringify(c);
   root.style.minWidth = '0'; root.style.overflow = 'hidden'; root.style.boxSizing = 'border-box';

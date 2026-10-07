@@ -1,6 +1,7 @@
 import { normalizeDualMetricConfig, resolveDualMetricPane } from './dualMetricLogic.js';
 import { icon as renderIcon } from '../editor-catalog.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 
 const iconIds = new Set(['sun', 'sunLine', 'panel', 'battery', 'plug', 'flow', 'chartLine', 'chartArea', 'metricTrend']);
 let sequence = 0;
@@ -75,6 +76,7 @@ function applyConfig(root, c) {
 }
 export function buildDualMetricCard(block = {}) {
   const c = normalizeDualMetricConfig(block.config);
+  if (!c.panes.left.metric && !c.panes.right.metric) return emptyBlock('Choose the two metrics for this block in the layout editor.', block.id);
   const root = document.createElement('article');
   root.className = `dual-metric-card stat-card dual-metric-${c.preset}`;
   root.dataset.blockId = block.id || '';

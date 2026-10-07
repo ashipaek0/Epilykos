@@ -15,7 +15,7 @@
  */
 
 /** Muted placeholder for a block that has no metric configured yet (AC-2c.4a). */
-export const NO_METRIC_TEXT = 'Configure a metric';
+export const NO_METRIC_TEXT = 'Choose a metric for this block in the layout editor.';
 
 /** Token for "metric configured, but there is no value to show" (AC-2c.4b/c/d). */
 export const EMPTY_VALUE = '\u2014'; // em dash

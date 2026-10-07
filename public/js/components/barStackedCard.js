@@ -28,7 +28,7 @@ import {
 } from './barCardLogic.js';
 
 /** Placeholder for a block with no series configured yet. */
-export const NO_METRIC_TEXT = 'Configure a metric';
+export const NO_METRIC_TEXT = 'Choose a metric for this block in the layout editor.';
 
 /** Empty state: series configured but no history in range. */
 export const EMPTY_TEXT = 'No data available for the selected range';

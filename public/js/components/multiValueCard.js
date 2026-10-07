@@ -1,11 +1,13 @@
 import { escapeHtml } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 
 /** Several labelled values side by side (wrapping to rows when narrow). */
 export function buildMultiValueCard(block = {}) {
   const config = block.config || {};
   const metrics = config.metrics || [];
+  if (!metrics.some(m => m && m.metric)) return emptyBlock('Choose the metrics for this block in the layout editor.', block.id);
   const container = document.createElement('div');
   container.className = 'multi-value-card ep-tiles';
   container.dataset.metricMap = JSON.stringify(metrics);

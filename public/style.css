@@ -2190,3 +2190,44 @@ details.help-sub.help-hidden { display: none; }
 .energy-table td { white-space: nowrap; }
 .energy-table td .bd-list li { flex-wrap: wrap; justify-content: flex-end; column-gap: 0.4rem; }
 .energy-table td .bd-label { flex: 0 1 auto; overflow: visible; }
+/* System topology scales with its block: circles take a third of the height
+   left after labels (56–120px) and their text follows. On phones blocks take
+   their content's height, so fixed sizes apply there. */
+.flow-card-2 { container-type: size; --topo-d: clamp(56px, calc((100cqh - 5.5rem) / 3), 120px); }
+.flow-card-2 .topo-grid { height: 100%; grid-template-rows: auto minmax(calc(var(--topo-d) * 0.75), 1fr) auto; }
+.flow-card-2 .topo-node-circle { width: var(--topo-d); height: var(--topo-d); }
+.flow-card-2 .topo-node-circle i { font-size: calc(var(--topo-d) * 0.27 * var(--card-font-scale, 1)); }
+.flow-card-2 .topo-value, .flow-card-2 .topo-sub { font-size: calc(max(0.68rem, var(--topo-d) * 0.115) * var(--card-font-scale, 1)); }
+.flow-card-2 .topo-pct { font-size: calc(max(0.8rem, var(--topo-d) * 0.18) * var(--card-font-scale, 1)); }
+.flow-card-2 .topo-hub { height: min(78px, calc(var(--topo-d) * 0.65)); width: min(50px, calc(var(--topo-d) * 0.42)); }
+@media (max-width: 768px) {
+  .flow-card-2 { container-type: normal; --topo-d: 90px; height: auto; }
+  .flow-card-2 .topo-grid { height: auto; grid-template-rows: auto 110px auto; }
+}
+.flow-card-2 { --topo-d: clamp(44px, calc((100cqh - 5.5rem - var(--topo-extra, 0) * 0.95rem) / 3), 120px); }
+.topo-node > .bd-list { width: max-content; max-width: 16rem; }
+.flow-card-2 { --topo-d: clamp(64px, calc((100cqh - 5.5rem - var(--topo-extra, 0) * 0.95rem) / 3), 120px); }
+.flow-card-2 .topo-value, .flow-card-2 .topo-sub { white-space: nowrap; }
+.flow-card-2 .topo-hub { min-width: 34px; min-height: 40px; }
+/* Flow card: one row down to ~420px wide (smaller icons, arrows and values);
+   narrower than that, a 2×2 grid without the arrows. */
+.flow-card { container-type: inline-size; }
+@container (max-width: 820px) {
+  .flow-card .flow-item { min-width: 0; min-height: 0; flex: 1 1 0; }
+  .flow-card .flow-icon { font-size: calc(2.2rem * var(--card-font-scale, 1)); margin-bottom: 0.3rem; }
+  .flow-card .flow-arrow { font-size: calc(2rem * var(--card-font-scale, 1)); min-width: 1.4em; flex: 0 0 auto; }
+  .flow-card .flow-value { font-size: calc(1.25rem * var(--card-font-scale, 1)); }
+}
+@container (max-width: 420px) {
+  .flow-card .flow-arrow { display: none; }
+  .flow-card .flow-item { flex: 1 1 40%; }
+}
+@media (max-width: 768px) { .flow-card-2 { --topo-d: 84px; } }
+/* Grid timeline: same meaning as the status text — on is good (green), an
+   outage stands out in the grid colour. Each segment keeps its ON/OFF label. */
+.tl-segment.on { background: var(--success); color: #fff; }
+.tl-segment.off, [data-theme="dark"] .tl-segment.off { background: color-mix(in srgb, var(--color-grid) 16%, transparent); color: var(--color-grid); }
+.ep-grid-state[data-state="on"] { color: var(--success); }
+/* PV Today with nothing to show: the message over the empty chart, no legend. */
+.pvt-no-data { position: absolute; inset: 0; padding: 0 1rem; text-align: center; line-height: 1.4; }
+.pvt-is-empty .pvt-legend, .pvt-is-empty .pv-today-timeline { visibility: hidden; }
