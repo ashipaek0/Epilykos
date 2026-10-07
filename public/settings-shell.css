@@ -486,3 +486,13 @@ body.st {
 .st-callout > [data-icon] { color: var(--st-amber-text); flex-shrink: 0; }
 .st-callout p { margin: 0; flex: 1; min-width: 0; font-size: 0.9rem; }
 @media (max-width: 640px) { .st-callout { flex-wrap: wrap; } }
+
+/* ── PV arrays (Settings > Forecast > Panels) ──────────────────────────── */
+.pv-arrays { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.pv-array { border: 1px solid var(--st-line-soft); border-radius: 12px; padding: 12px; }
+.pv-array-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.pv-array-head .pv-name { flex: 1; min-width: 0; font-weight: 700; }
+.pv-array-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pv-array-grid .st-field { margin: 0; }
+@media (max-width: 860px) { .pv-array-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .pv-array-grid { grid-template-columns: 1fr; } }
