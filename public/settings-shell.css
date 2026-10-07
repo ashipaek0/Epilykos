@@ -515,3 +515,33 @@ body.st {
 .cm-matches { margin-top: 8px; padding: 10px; border: 1px dashed var(--st-line); border-radius: 10px; background: var(--st-panel); }
 .cm-match-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 12px; margin: 6px 0 10px; max-height: 260px; overflow: auto; }
 .cm-match-item { display: flex; align-items: baseline; gap: 6px; font-size: 0.88rem; overflow-wrap: anywhere; }
+
+/* Settings › Metrics: all metrics list */
+.st .status.warning { color: var(--st-amber-text); }
+.st .status.warning::before { content: "⚠ "; }
+#metrics-status:empty { display: none; }
+#metrics-status { display: block; margin: 0 0 10px; line-height: 1.45; }
+.st .st-table-scroll { max-height: min(32rem, 70vh); overflow: auto; }
+.st .st-table-scroll thead th { position: sticky; top: 0; background: var(--st-panel); z-index: 1; }
+.st #metrics-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st #metrics-table tr.is-never td { color: var(--st-muted); }
+.st #metrics-table td:last-child { text-align: right; white-space: nowrap; }
+.st #metrics-table .st-btn { min-height: 32px; padding: 0 10px; font-size: 0.8rem; }
+.st .st-count { font-weight: 600; color: var(--st-muted); font-size: 0.85em; }
+/* The old design faded Delete until the row was hovered: invisible intent on touch screens. */
+.st #metrics-table .delete-metric-btn { opacity: 1; }
+.st #metrics-table .st-metric-age { display: none; }
+@media (max-width: 600px) {
+  .st #metrics-table th:nth-child(3), .st #metrics-table td:nth-child(3),
+  .st #metrics-table th:nth-child(4), .st #metrics-table td:nth-child(4) { display: none; }
+  .st #metrics-table .st-metric-age { display: block; font-size: 0.75rem; color: var(--st-muted); margin-top: 2px; }
+  .st #metrics-table td:first-child { overflow-wrap: anywhere; }
+}
+@media (max-width: 600px) {
+  .st #metrics-table { min-width: 0; width: 100%; table-layout: auto; }
+  .st #metrics-table td, .st #metrics-table th { padding-left: 6px; padding-right: 6px; }
+  .st #metrics-table td:first-child { overflow-wrap: normal; word-break: normal; }
+}
+@media (max-width: 600px) { .st #metrics-table th { white-space: normal; } }
+@media (max-width: 600px) { .st #metrics-table td.num { white-space: normal; } }
+#cm-status:empty { display: none; } #cm-status { display: block; margin: 0 0 8px; }
