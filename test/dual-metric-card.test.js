@@ -21,7 +21,7 @@ const logicSrc=fs.readFileSync(path.join(project,'public/js/components/dualMetri
 const logicBox={formatMetric:formatBox.formatMetric}; vm.runInNewContext(`${logicSrc};globalThis.normalizeDualMetricConfig=normalizeDualMetricConfig;globalThis.resolveDualMetricPane=resolveDualMetricPane;`,logicBox);
 let cards=[];
 const cardSrc=fs.readFileSync(path.join(project,'public/js/components/dualMetricCard.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/export function /g,'function ');
-const sandbox={document:{createElement:t=>new Node(t),querySelectorAll:()=>cards},normalizeDualMetricConfig:logicBox.normalizeDualMetricConfig,resolveDualMetricPane:logicBox.resolveDualMetricPane,renderIcon:id=>id==='battery'?'<svg></svg>':''};
+const sandbox={markBreakdown:()=>{},applyBreakdowns:()=>{},document:{createElement:t=>new Node(t),querySelectorAll:()=>cards},normalizeDualMetricConfig:logicBox.normalizeDualMetricConfig,resolveDualMetricPane:logicBox.resolveDualMetricPane,renderIcon:id=>id==='battery'?'<svg></svg>':''};
 vm.runInNewContext(`${cardSrc};globalThis.build=buildDualMetricCard;globalThis.update=updateDualMetricCards;`,sandbox);
 
 test('builder creates exactly two independently bound panes and safe authored text/styles', () => {

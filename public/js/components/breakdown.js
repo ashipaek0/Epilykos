@@ -109,7 +109,7 @@ export function renderBreakdown(host, rows, mode, title = '', before = null) {
   if (!host) return;
   let list = host.querySelector(':scope > .bd-list');
   const sr = host.querySelector(':scope > .bd-sr');
-  if (mode !== 'inline' || !rows.length) { if (list) list.remove(); }
+  if (mode !== 'inline' || !rows.length) { if (list) list.remove(); host.style.removeProperty('--bd-rows'); }
   if (mode !== 'hover' || !rows.length) {
     if (sr) sr.remove();
     if (host.classList.contains('bd-host')) {
@@ -123,6 +123,7 @@ export function renderBreakdown(host, rows, mode, title = '', before = null) {
     if (!list) { list = document.createElement('ul'); list.className = 'bd-list'; host.insertBefore(list, before && before.parentNode === host ? before : null); }
     const html = rowsHtml(rows);
     if (list.innerHTML !== html) list.innerHTML = html;
+    host.style.setProperty('--bd-rows', String(rows.length));   // lets fixed-size layouts (e.g. a dial) make room
     return;
   }
   // hover / focus / tap

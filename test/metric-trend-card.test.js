@@ -17,7 +17,7 @@ const source=fs.readFileSync(path.join(__dirname,'../public/js/components/metric
 const cards=[];
 let resolvePending;
 const pendingForecast=new Promise(resolve=>{resolvePending=resolve;});
-const sandbox={document:{createElement:t=>new Node(t),createElementNS:(_ns,t)=>new Node(t),querySelectorAll:()=>cards},
+const sandbox={markBreakdown:()=>{},applyBreakdowns:()=>{},document:{createElement:t=>new Node(t),createElementNS:(_ns,t)=>new Node(t),querySelectorAll:()=>cards},
  normalizeMetricTrendConfig:x=>({...{preset:'subtle-area',title:'',icon:'',value:{metric:'solar_kw'},graph:{enabled:false,source:'none'},display:{compact:false,align:'center',valueFontSize:40,unitFontSize:16},style:{padding:16,radius:12,bodyFill:'',bodyFillEnd:'',valueColor:'',unitColor:''}},...x,value:{metric:'solar_kw',...x?.value},graph:{enabled:false,source:'none',...x?.graph},display:{compact:false,align:'center',valueFontSize:40,unitFontSize:16,...x?.display},style:{padding:16,radius:12,bodyFill:'',bodyFillEnd:'',valueColor:'',unitColor:'',...x?.style}}),
  trendValueFromState:(state,c)=>state?.metrics?.[c.value.metric]?.value??null,formatTrendValue:v=>({value:String(v),unit:'W'}),historyTrendPath:()=>'',historyTrendAreaPath:()=>'',historyUrl:()=>'',forecastValue:()=>12,forecastGraphPoints:()=>[],serverForecastDate:()=> '2026-10-04',getSharedForecastData:()=>pendingForecast,renderIcon:()=>'<svg aria-hidden="true"></svg>',fetch:()=>Promise.resolve({ok:true,json:async()=>[]}),Date,Map,JSON,Promise,console};
 vm.runInNewContext(`${source}; globalThis.build=buildMetricTrendCard; globalThis.update=updateMetricTrendCards;`,sandbox);

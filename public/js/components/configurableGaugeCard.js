@@ -1,5 +1,6 @@
 import { normalizeConfig, finiteMetric, scaleRatio, thresholdBands, historyAreaPath, historyPath, historyUrl } from './configurableGaugeLogic.js';
 import { formatMetric } from './format.js';
+import { markBreakdown, applyBreakdowns } from './breakdown.js';
 
 const esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const REQUEST_TTL = 30_000;
@@ -102,7 +103,7 @@ export function innerLayout(c) {
 export function buildConfigurableGaugeCard(block = {}) {
   const c = normalizeConfig(block.config), root = document.createElement('div'), id = `configurable-gauge-${++instanceSequence}`;
   const layout = innerLayout(c);
-  root.className = 'configurable-gauge-card stat-card'; root.dataset.blockId = block.id || ''; root.dataset.instanceId = id; root.dataset.config = JSON.stringify(c);
+  root.className = 'configurable-gauge-card stat-card'; root.dataset.blockId = block.id || ''; markBreakdown(root, block.config); root.dataset.instanceId = id; root.dataset.config = JSON.stringify(c);
   root.style.minWidth = '0'; root.style.overflow = 'hidden'; root.style.boxSizing = 'border-box';
   // Only what the person set: otherwise the card keeps the shared card
   // surface (background, 1px border, radius) like every other card.
@@ -136,6 +137,7 @@ export function updateConfigurableGaugeCards(state = {}) {
     if (valueNode) valueNode.textContent = shown ? shown.value : '—';
     if (unitNode) unitNode.textContent = shown ? shown.unit : '';
     setFill(root, c, c.validScale ? scaleRatio(value, c.min, c.max) : null);
+    applyBreakdowns(root, state, [{ host: root, title: c.title || c.metric, specs: [{ name: c.metric, unit: c.unit }], before: root.querySelector('.configurable-gauge-history') }]);
     const graph = root.querySelector('.configurable-gauge-history'), key = `${c.graph.metric || c.metric}|${c.graph.window}`;
     if (graph) graph.style.display = c.graph.show ? '' : 'none';
     if (c.graph.show && (key !== root._gaugeHistoryKey || Date.now() - root._gaugeRefreshAt >= REQUEST_TTL)) {

@@ -140,5 +140,22 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(read('public/js/components/flowCardSquare.js'), /grid: mm\.grid \|\| mm\.grid_import/, 'square reads the slot names the editor saves');
   });
 
+  await check('gauges and stat cards: each value lists its parts; the editor adds the setting to all ten', () => {
+    const cards = { gaugeCard: 'container', halfGaugeCard: 'container', halfGauge2Card: 'container', configurableGaugeCard: 'root', barGauge: 'container', barGaugeRetro: 'container', metricCards: 'grid', multiValueCard: 'container', metricTrendCard: 'root', dualMetricCard: 'root' };
+    for (const [f, el] of Object.entries(cards)) {
+      const src = read(`public/js/components/${f}.js`);
+      assert.match(src, new RegExp(`markBreakdown\\(${el}, ?(block\\.)?config\\)`), `${f} keeps the setting`);
+      assert.match(src, new RegExp(`applyBreakdowns\\(${el}, ?state, ?`), `${f} draws the parts`);
+    }
+    const ed = read('public/js/editor.js');
+    assert.match(ed, /var BREAKDOWN_VALUE_TYPES = \['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric'\];/);
+    assert.match(ed, /if \(BREAKDOWN_VALUE_TYPES\.indexOf\(block\.type\) !== -1\) html \+= '<fieldset data-ui="section">' \+ buildBreakdownFields/);
+    assert.match(ed, /if \(BREAKDOWN_VALUE_TYPES\.indexOf\(block\.type\) !== -1\) readBreakdownFields\(config\);\n  block\.config = config;/);
+    const css = read('public/style.css');
+    assert.match(css, /\.bar-gauge-row > \.bd-list, \.bg-retro-row > \.bd-list \{ grid-column: 1 \/ -1;/, 'bar rows: parts span the row');
+    assert.match(css, /100cqh - 2 \* var\(--card-pad\) - 1\.6em - \(var\(--bd-rows, 0\) \* 1rem \+ 0\.5rem\)/, 'the dial makes room for the parts');
+    assert.match(read('public/js/components/breakdown.js'), /host\.style\.setProperty\('--bd-rows', String\(rows\.length\)\)/);
+  });
+
   console.log(`breakdown: ${passed} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

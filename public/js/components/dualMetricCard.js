@@ -1,5 +1,6 @@
 import { normalizeDualMetricConfig, resolveDualMetricPane } from './dualMetricLogic.js';
 import { icon as renderIcon } from '../editor-catalog.js';
+import { markBreakdown, applyBreakdowns } from './breakdown.js';
 
 const iconIds = new Set(['sun', 'sunLine', 'panel', 'battery', 'plug', 'flow', 'chartLine', 'chartArea', 'metricTrend']);
 let sequence = 0;
@@ -77,6 +78,7 @@ export function buildDualMetricCard(block = {}) {
   const root = document.createElement('article');
   root.className = `dual-metric-card stat-card dual-metric-${c.preset}`;
   root.dataset.blockId = block.id || '';
+  markBreakdown(root, block.config);
   root.dataset.instanceId = `dual-metric-${++sequence}`;
   const header = make('header', 'dual-metric-header');
   const title = make('span', 'dual-metric-title', c.title);
@@ -108,6 +110,7 @@ export function updateDualMetricCards(state = {}) {
     let c;
     try { c = normalizeDualMetricConfig(JSON.parse(root.dataset.config || '{}')); }
     catch (_) { c = normalizeDualMetricConfig(); }
+    applyBreakdowns(root, state, ['left', 'right'].map(side => ({ host: root.querySelector(`.dual-metric-pane-${side}`), title: c.panes[side].label || c.panes[side].metric, specs: [{ name: c.panes[side].metric, unit: c.panes[side].unit }], before: root.querySelector(`.dual-metric-pane-${side} .dual-metric-status`) })));
     for (const side of ['left', 'right']) {
       const pane = root.querySelector(`.dual-metric-pane-${side}`);
       if (!pane) continue;
