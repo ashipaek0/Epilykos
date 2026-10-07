@@ -2176,3 +2176,17 @@ details.help-sub.help-hidden { display: none; }
   width: min(100cqw - 2 * var(--card-pad), var(--cg-size, 400px), 100cqh - 2 * var(--card-pad) - 1.6em - (var(--bd-rows, 0) * 1rem + 0.5rem));
 }
 .configurable-gauge-card > .bd-list { flex-shrink: 0; }
+/* Daily / Monthly tables: the date is the row header; parts sit under a cell's kWh. */
+.energy-table tbody th { position: static; z-index: auto; background: none; padding: 0.5rem; text-align: left; font-weight: 500; font-size: inherit; text-transform: none; letter-spacing: normal; color: var(--text-secondary); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.energy-table td .bd-list { margin-left: auto; max-width: 12rem; }
+.energy-table td.bd-host { text-decoration: underline dotted var(--text-secondary); text-underline-offset: 3px; }
+.energy-table-empty { text-align: center !important; color: var(--text-secondary); }
+/* Phone layout: blocks take their content's height, so the tables can't fill
+   a leftover space (there is none) — give them their own, capped, height. */
+@media (max-width: 768px) {
+  .daily-breakdown-content:not(.collapsed) { flex: none; }
+  .daily-table-wrapper { flex: none; max-height: 60vh; }
+}
+.energy-table td { white-space: nowrap; }
+.energy-table td .bd-list li { flex-wrap: wrap; justify-content: flex-end; column-gap: 0.4rem; }
+.energy-table td .bd-label { flex: 0 1 auto; overflow: visible; }

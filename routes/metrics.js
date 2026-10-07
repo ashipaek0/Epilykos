@@ -268,6 +268,31 @@ router.get('/history', async (req, res) => {
   }
 });
 
+// Daily role -> table column.
+const PART_FIELDS = { daily_consumption: 'consumption_kwh', daily_solar: 'solar_kwh', daily_battery_charge: 'battery_charge_kwh', daily_battery_discharge: 'battery_discharge_kwh', daily_grid_import: 'grid_import_kwh', daily_grid_export: 'grid_export_kwh' };
+/**
+ * Add `parts` to table rows: for each column whose daily role is a combined
+ * total with recorded parts, { [field]: [{ label, value, parts? }] } with the
+ * kWh of the row's days added up. Rows without recorded parts get none.
+ */
+function attachParts(rows, fromDay, toDay, daysOf) {
+  let byRole;
+  try { byRole = require('../modules/combinedMetrics').partDays(fromDay, toDay); } catch (err) { logger.warn('[tables] parts unavailable:', err.message); return; }
+  for (const [role, info] of Object.entries(byRole)) {
+    const field = PART_FIELDS[role]; if (!field) continue;
+    for (const row of rows) {
+      const days = daysOf(row).filter(d => info.days[d]);
+      if (!days.length) continue;
+      const fill = tree => tree.map(p => {
+        const o = { label: p.label, value: Math.round(days.reduce((s, d) => s + (info.days[d][p.metric] || 0), 0) * 1000) / 1000 };
+        if (p.parts) o.parts = fill(p.parts);
+        return o;
+      });
+      (row.parts = row.parts || {})[field] = fill(info.tree);
+    }
+  }
+}
+
 router.get('/daily', async (req, res) => {
   const requestedDays = parseInt(req.query.days);
   if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-365)' });
@@ -298,6 +323,7 @@ router.get('/daily', async (req, res) => {
         grid_export_kwh: d?.grid_export_kwh || 0
       };
     });
+    attachParts(result, dateArray[0], dateArray[dateArray.length - 1], row => [row.day]);
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
@@ -342,6 +368,9 @@ router.get('/monthly', async (req, res) => {
         grid_export_kwh: d?.grid_export_kwh || 0
       };
     });
+    // Each month's parts are the sum of its days.
+    const monthDays = key => { const [y, mo] = key.split('-').map(Number); const n = new Date(y, mo, 0).getDate(); return Array.from({ length: n }, (_, i) => `${key}-${String(i + 1).padStart(2, '0')}`); };
+    attachParts(result, `${months[0].key}-01`, `${months[months.length - 1].key}-31`, row => monthDays(row.month));
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/monthly:', err);
