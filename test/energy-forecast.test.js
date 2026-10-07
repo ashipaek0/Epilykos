@@ -61,3 +61,18 @@ check('solar forecast periods are summed into kWh per hour, with the P10-P90 ran
 });
 
 console.log(`energy-forecast: ${passed} checks passed`);
+
+const { projectBattery } = require('../modules/energyForecast');
+check('battery projection adds forecast solar minus load each hour, within limits', () => {
+  const hourStart = h => at(0, h), hourly = { hours: Array.from({ length: 24 }, (_, h) => ({ start: hourStart(h), end: hourStart(h) + 3600, soc: h <= 10 ? { last: 50 } : null })) };
+  const forecast = { hours: Array.from({ length: 24 }, (_, h) => ({ consumption: { expected: 1 }, solar: { expected: h >= 11 && h < 16 ? 4 : 0 } })) };
+  const p = projectBattery(hourly, forecast, { capacityKwh: 10, minSoc: 20, now: at(0, 11) });
+  assert.equal(p.from, 50); assert.equal(p.hours[0].start, at(0, 11));
+  assert.ok(Math.abs(p.hours[0].soc - 78.5) < 0.1, `11:00 ${p.hours[0].soc}`);   // +3 kWh x 0.95
+  assert.equal(p.hours[0].state, 'charging'); assert.equal(p.hours[1].soc, 100); assert.equal(p.hours[1].state, 'full');
+  assert.equal(p.hours[2].state, 'full'); assert.equal(p.hours[6].state, 'discharging');
+  assert.equal(p.hours[p.hours.length - 1].soc, 20, 'never below the lowest charge');
+  assert.equal(p.hours[p.hours.length - 1].state, 'empty');
+  assert.equal(projectBattery(hourly, forecast, { capacityKwh: 0, now: at(0, 11) }), null, 'needs a capacity');
+});
+console.log(`energy-forecast (battery): ok`);

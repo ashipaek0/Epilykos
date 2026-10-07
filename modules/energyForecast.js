@@ -113,6 +113,41 @@ function hourlyForecast(db, { date, solarForecast = null, now = Math.floor(Date.
   };
 }
 
+/**
+ * Battery charge (%) projected to the end of each remaining hour of today:
+ * start from the latest reading, then add forecast solar minus forecast
+ * consumption each hour, within the lowest charge and 100%. Charging and
+ * discharging each lose 5%. Charge-rate limits are not modelled.
+ *
+ * @param hourly readHourlyEnergy() output for today
+ * @param forecast hourlyForecast() output for today
+ */
+function projectBattery(hourly, forecast, { capacityKwh, minSoc = 0, now = Math.floor(Date.now() / 1000), efficiency = 0.95 } = {}) {
+  const capacity = Number(capacityKwh);
+  if (!(capacity > 0)) return null;
+  const floor = Math.min(100, Math.max(0, Number(minSoc) || 0));
+  let last = null;
+  for (const h of hourly.hours) if (h.soc && h.start <= now) last = { soc: h.soc.last };
+  if (!last) return null;
+  let kwh = capacity * last.soc / 100;
+  const out = [];
+  hourly.hours.forEach((h, i) => {
+    if (h.end <= now) return;
+    const f = forecast.hours[i] || {};
+    const share = (h.end - Math.max(h.start, now)) / (h.end - h.start);   // what is left of this hour
+    const solar = f.solar ? f.solar.expected : 0, load = f.consumption ? f.consumption.expected : null;
+    if (load == null) { out.push({ start: h.start, end: h.end, soc: null }); return; }
+    const net = (solar - load) * share, before = kwh;
+    kwh += net > 0 ? net * efficiency : net / efficiency;
+    kwh = Math.min(capacity, Math.max(capacity * floor / 100, kwh));
+    const soc = Math.round(kwh / capacity * 1000) / 10;
+    // 'full' / 'empty': the hour ends at 100% / at the lowest charge.
+    const state = soc >= 99.95 ? 'full' : soc <= floor + 0.05 ? 'empty' : kwh > before + 1e-6 ? 'charging' : kwh < before - 1e-6 ? 'discharging' : 'idle';
+    out.push({ start: h.start, end: h.end, soc, state });
+  });
+  return { from: last.soc, capacityKwh: capacity, minSoc: floor, hours: out };
+}
+
 function clearForecastCache() { cache.clear(); }
 
-module.exports = { hourlyForecast, consumptionForecast, solarByHour, percentile, clearForecastCache };
+module.exports = { projectBattery, hourlyForecast, consumptionForecast, solarByHour, percentile, clearForecastCache };

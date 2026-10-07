@@ -17,7 +17,7 @@ const { getDashboardConfig } = require('../modules/dashboard-config');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
 const { readHourlyEnergy } = require('../modules/energyHourly');
-const { hourlyForecast } = require('../modules/energyForecast');
+const { hourlyForecast, projectBattery } = require('../modules/energyForecast');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
@@ -220,6 +220,7 @@ router.get('/energy/hourly', async (req, res) => {
       let solar = null;
       if (date >= localDateString()) { try { solar = await getSolarForecast(); } catch (err) { logger.warn('[energy/hourly] solar forecast unavailable:', err.message); } }
       out.forecast = hourlyForecast(getDb(), { date, solarForecast: solar });
+      if (date === localDateString()) out.forecast.battery = projectBattery(out, out.forecast, { capacityKwh: price('battery_capacity_kwh'), minSoc: price('battery_min_soc') });
     }
     res.json(out);
   } catch (err) {
