@@ -38,6 +38,13 @@ process.chdir(tmp);
 
 const { initializeDatabase, setConfig, getConfig, flushSync } = require('../modules/database');
 initializeDatabase();
+// Epilykos no longer bundles metric names, so give the guard a catalogue
+// like a real install's (names and units as earlier versions seeded them).
+setConfig('user_metrics', JSON.stringify([
+  ...['PV Energy Generated', 'Load Energy Consumed', 'Grid Energy Import', 'Grid Energy Export', 'Battery Energy (Charge)', 'Battery Energy (Discharge)', 'Battery Energy (Capacity)', 'PV Forecast Energy'].map(name => ({ name, unit: 'kWh' })),
+  ...['Battery Charge Power', 'Load Power', 'Grid Power', 'Battery Discharge Power', 'PV Power'].map(name => ({ name, unit: 'W' })),
+  { name: 'Battery SOC', unit: '%' }, { name: 'Grid Status', unit: 'On/Off' }
+]));
 
 // role_metrics: PV Energy Generated is the daily_solar counter; Load Energy
 // Consumed the daily_consumption counter. NOTE [v2]: the Load alias is NO
@@ -361,7 +368,7 @@ const INCIDENT = [
 
   // the real production catalogue is present and the six incident names are kWh
   const catalogue = JSON.parse(getConfig('user_metrics') || '[]');
-  assert.ok(Array.isArray(catalogue) && catalogue.length >= 30, 'seeded user_metrics catalogue present');
+  assert.ok(Array.isArray(catalogue) && catalogue.length >= 10, 'user_metrics catalogue present');
   for (const n of INCIDENT) {
     const row = catalogue.find(m => m.name === n);
     assert.ok(row, `${n} present in the user_metrics catalogue`);
