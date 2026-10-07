@@ -73,6 +73,8 @@ services:
     # group_add:
     #   - "dialout"                  # Serial port permissions
     #   - "108"                      # the host bluetooth group ID from `getent group bluetooth`. Uncomment and set only if Settings shows "D-Bus denied access to BlueZ"
+    security_opt:
+      - apparmor=unconfined
     #network_mode: "host"            # Host networking is only needed for Tuya LAN broadcast discovery.
 ```
 
