@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const lock = require('../modules/maintenanceLock');
 
@@ -25,4 +26,5 @@ const lock = require('../modules/maintenanceLock');
   const backupSource = require('fs').readFileSync(require('path').join(__dirname, '../modules/backup.js'), 'utf8');
   assert.match(backupSource, /acquireLock\('maintenance'/);
   console.log('ok - maintenance lock serialization, timeout, release, and backup integration');
+  checks.done();
 })().catch(err => { console.error(err); process.exitCode = 1; });

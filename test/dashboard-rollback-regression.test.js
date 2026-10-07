@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -101,3 +102,4 @@ for (const asset of [
 ]) assert.equal(fs.existsSync(path.join(root, asset)), true, `#134 asset removed: ${asset}`);
 
 console.log('dashboard rollback removal/preservation regression: PASS');
+checks.done();

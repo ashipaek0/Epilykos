@@ -14,6 +14,12 @@
  * repo root (they isolate themselves with fs.mkdtempSync where they need a scratch
  * dir — see metrics-manager-delete.test.js).
  *
+ * A fixture must also say how many checks it ran, or it fails even with exit
+ * code 0 (an await that never settles lets Node exit 0 half-way through):
+ *   - node:test files: their own TAP summary, "# pass N" (N > 0) and "# fail 0"
+ *   - plain files: "# checks: N" (N > 0) from test/_checks.js done(), printed
+ *     after the last check, or "# checks: skipped (reason)"
+ *
  * Usage: node test/run-all.js   (or `npm test`)
  * Exit code: 0 = all green, 1 = at least one fixture failed.
  */
@@ -62,23 +68,34 @@ for (const file of files) {
     env: Object.assign({}, process.env, { NODE_NO_WARNINGS: '1' })
   });
   const ms = Date.now() - t0;
-  const ok = r.status === 0;
-  results.push({ file, ok, ms });
+  const out = r.stdout || '';
+  const tapPass = /^# pass (\d+)$/m.exec(out), tapFail = /^# fail (\d+)$/m.exec(out);
+  const plain = /^# checks: (\d+|skipped \(([^)]*)\))$/m.exec(out);
+  let checks = null, skipped = null, why = '';
+  if (tapPass) { checks = Number(tapPass[1]); if (!tapFail || Number(tapFail[1]) !== 0) why = 'TAP summary shows failures'; }
+  else if (plain) { if (plain[2] !== undefined) skipped = plain[2]; else checks = Number(plain[1]); }
+  if (!why && skipped === null && !(checks > 0)) why = 'did not report how many checks ran (did it stop early?)';
+  const ok = r.status === 0 && !why;
+  results.push({ file, ok, ms, checks: checks || 0, skipped });
 
   // Stream the fixture's own output so PASS/FAIL detail stays visible inline.
   process.stdout.write(r.stdout || '');
   process.stderr.write(r.stderr || '');
   if (r.error && r.error.code === 'ETIMEDOUT') {
     console.error(`[FAIL] ${file} — timed out after ${PER_FILE_TIMEOUT_MS / 1000}s`);
-  } else if (!ok) {
+  } else if (r.status !== 0) {
     console.error(`[FAIL] ${file} — exited with status ${r.status}${r.signal ? ` (signal ${r.signal})` : ''}`);
+  } else if (!ok) {
+    console.error(`[FAIL] ${file} — ${why}`);
   } else {
-    console.log(`[PASS] ${file} — ${ms}ms\n`);
+    console.log(`[PASS] ${file} — ${skipped !== null ? `skipped: ${skipped}` : `${checks} checks`} — ${ms}ms\n`);
   }
 }
 
 const passed = results.filter(x => x.ok).length;
 const failed = results.length - passed;
 console.log('----------------------------------------');
-console.log(`run-all.js: ${passed}/${results.length} fixtures passed${failed ? `, ${failed} FAILED` : ''}`);
+const totalChecks = results.reduce((t, x) => t + (x.ok ? x.checks : 0), 0);
+const skippedFiles = results.filter(x => x.ok && x.skipped !== null).length;
+console.log(`run-all.js: ${passed}/${results.length} fixtures passed${failed ? `, ${failed} FAILED` : ''} — ${totalChecks} checks${skippedFiles ? `, ${skippedFiles} skipped` : ''}`);
 process.exit(failed ? 1 : 0);

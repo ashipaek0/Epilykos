@@ -9,6 +9,7 @@
  * gates test/run-all.js).
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -129,3 +130,4 @@ check('non-JSON blob value stored raw', () => {
 });
 
 console.log(`\nencryption-integrity.test.js: ${passed} fixture(s) passed`);
+checks.done();

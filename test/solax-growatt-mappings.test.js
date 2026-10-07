@@ -17,6 +17,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 
@@ -243,4 +244,5 @@ const GROWATT_EXPECTED_IMPLICIT = {
 }
 
 console.log('ALL PASS: solax-growatt-mappings');
+checks.done();
 process.exit(0);

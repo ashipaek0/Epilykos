@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Costs and earnings card: registered, signs, forecast costs from projected flows.
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
@@ -28,3 +29,4 @@ check('the server computes each hour\'s costs the same way', () => {
   assert.match(m, /battery_cost: round\(\(energy\.battery_charge \+ energy\.battery_discharge\) \* wear/);
 });
 console.log(`energy-costs-card: ${passed} checks passed`);
+checks.done();

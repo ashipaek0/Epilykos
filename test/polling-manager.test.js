@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/polling-manager.test.js — Phase 3 Step 1 fixture (plain-node assert,
  * auto-discovered by test/run-all.js). Uses stub pollFns only — never touches
@@ -113,4 +114,5 @@ function stubRegistry({ failId = null } = {}) {
     console.error('FAIL polling-manager:', e);
     process.exit(1);
   }
+  checks.done();
 })();

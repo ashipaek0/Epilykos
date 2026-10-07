@@ -26,6 +26,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -150,4 +151,5 @@ console.log('');
 console.log('entity-state: ' + passes + ' passed, ' + failures + ' failed');
 try { db.close(); } catch (_) { /* ignore */ }
 try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) { /* ignore */ }
+if (!failures) checks.done();
 process.exit(failures ? 1 : 0);

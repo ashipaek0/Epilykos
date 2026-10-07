@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -60,4 +61,5 @@ const eligible = Math.floor((cutoff - 301) / 300) * 300;
   held();
   assert.strictEqual(deferred.deferred, true);
   console.log('ok - retention rollup aggregation, pruning boundaries, retry, and lock deferral');
+  checks.done();
 })().catch(err => { console.error(err); process.exitCode = 1; });

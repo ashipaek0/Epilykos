@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Breakdowns: the parts behind combined totals on the flow cards.
 // Server: modules/combinedMetrics.js buildBreakdowns / partLabels.
 // Cards:  public/js/components/breakdown.js (loaded as ES modules from a copy).
@@ -188,4 +189,5 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   });
 
   console.log(`breakdown: ${passed} checks passed`);
+  checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

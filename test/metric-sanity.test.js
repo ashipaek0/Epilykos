@@ -23,6 +23,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 // Day rollover follows the process time zone; pin it so the Lagos
 // wall-clock fixtures below are deterministic on any CI host.
@@ -805,4 +806,5 @@ const INCIDENT = [
 }
 
 console.log('ALL PASS: metric-sanity');
+checks.done();
 process.exit(0);
