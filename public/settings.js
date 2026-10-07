@@ -3368,6 +3368,21 @@ function renderDongleDevice(device, idx) {
       }
     }).catch(() => {});
 
+  // A second inverter on the same profile needs its own metric prefix, or the
+  // two write the same names and overwrite each other's readings.
+  profileSelect.addEventListener('change', () => {
+    const prefixEl = card.querySelector('input[name$="[prefix]"]');
+    if (!prefixEl || prefixEl.value.trim() || !profileSelect.value) return;
+    const cards = Array.from(document.querySelectorAll('#dongle-devices-container .device-card'));
+    const twins = cards.filter(c => c !== card && c.querySelector('.dongle-profile-select')?.value === profileSelect.value);
+    if (!twins.length) return;
+    const taken = new Set(cards.map(c => (c.querySelector('input[name$="[prefix]"]')?.value || '').trim().toLowerCase()));
+    let n = twins.length + 1; while (taken.has(`inv${n}_`)) n++;
+    prefixEl.value = `inv${n}_`;
+    prefixEl.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof showToast === 'function') showToast(`Metric prefix set to inv${n}_ so this inverter's readings stay separate.`, 'info');
+  });
+
   linkSelect.addEventListener('change', () => {
     const bt = linkSelect.value === 'bluetooth';
     fillDongleProfileOptions(card, profileSelect.value);
