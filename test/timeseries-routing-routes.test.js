@@ -17,6 +17,7 @@
  * landing in the same 10-min bucket, not be averaged 50/50 with it.
  */
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -418,4 +419,5 @@ await checkAsync('buildCurrentData all_time_savings: rollup bucket (daily_solar_
 
 console.log(`\ntimeseries-routing-routes.test.js: ${passed} checks passed`);
 
+  checks.done();
 })().catch(err => { console.error(err); process.exit(1); });

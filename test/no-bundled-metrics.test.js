@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // No bundled metric names or images: new installs start empty, old installs
 // lose only the bundled names nothing uses, starter dashboards follow roles.
 const assert = require('assert');
@@ -52,3 +53,4 @@ check('role placeholders fill from the chosen roles, or stay empty', () => {
 });
 
 console.log(`no-bundled-metrics: ${passed} checks passed`);
+checks.done();

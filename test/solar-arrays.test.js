@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Several PV arrays: the list, Open-Meteo per array with tilted irradiance,
 // Solcast forecasts added up. Network and database are stubbed.
 const assert = require('assert');
@@ -77,4 +78,5 @@ const solar = require('../modules/solar');
   });
 
   console.log(`solar-arrays: ${passed} checks passed`);
+  checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

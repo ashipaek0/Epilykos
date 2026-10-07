@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Hourly energy, flow split and costs (modules/energyHourly.js).
 const assert = require('node:assert/strict');
 const { readHourlyEnergy, splitFlows, hourStarts } = require('../modules/energyHourly');
@@ -72,3 +73,4 @@ check('hours after now are marked future and hold no energy', () => {
 check('bad dates are refused', () => { assert.throws(() => readHourlyEnergy(fixture([]), { date: 'yesterday' })); });
 
 console.log(`energy-hourly: ${passed} checks passed`);
+checks.done();

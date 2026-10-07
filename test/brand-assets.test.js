@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -58,3 +59,4 @@ const sw = read('public/sw.js');
 for (const url of ['/icons/epilykos-mark.svg','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-192.png','/icons/icon-maskable-512.png','/icons/apple-touch-icon.png','/favicon.ico']) { assert.match(sw, new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))); exists(`public${url}`); }
 for (const page of ['setup','settings']) assert.doesNotMatch(read(`public/${page}.html`), /class="logo-icon">\s*⚡/);
 console.log('brand assets: all checks passed');
+checks.done();

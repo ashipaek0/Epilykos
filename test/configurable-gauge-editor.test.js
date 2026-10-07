@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Exact-source editor regression tests: load production function bodies verbatim.
 const fs = require('fs');
 const vm = require('vm');
@@ -132,3 +133,4 @@ test('threshold removal is wired for pre-existing and newly added rows', () => {
   assert.match(source, /row\.remove\(\)/);
 });
 console.log('configurable-gauge editor: ' + passed + ' passed, 0 failed');
+checks.done();

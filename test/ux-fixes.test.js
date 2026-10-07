@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Card and page fixes found by rendering every card fresh, at desktop and
 // phone width: sizes, empty states, plain messages, rate limiting.
 const assert = require('assert');
@@ -95,4 +96,5 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   });
 
   console.log(`ux-fixes: ${passed} checks passed`);
+  checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

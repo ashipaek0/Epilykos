@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const { localDateString } = require('../modules/localTime');
@@ -60,6 +61,7 @@ global.fetch = async () => {
   assert.strictEqual(rest.source, 'rest:test');
 
   console.log('metric-trend-forecast-contract: 1 test passed');
+  checks.done();
 })().catch((error) => {
   console.error(error.stack || error);
   process.exitCode = 1;

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Day totals card: registered, in the library, tiles pick and save.
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
@@ -20,3 +21,4 @@ check('editor saves the picked values and refuses none', () => {
   assert.match(ed, /class="et-pick" data-key="/); assert.match(ed, /config\.show = etKeys/); assert.match(ed, /Pick at least one value to show\./);
 });
 console.log(`energy-totals-card: ${passed} checks passed`);
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Consumption, base load and solar forecasts per hour (modules/energyForecast.js).
 const assert = require('node:assert/strict');
 
@@ -82,3 +83,4 @@ check('battery projection adds forecast solar minus load each hour, within limit
   assert.ok(Math.abs(last.battery_to_home + last.grid_to_home - 1) < 1e-6);
 });
 console.log(`energy-forecast (battery): ok`);
+checks.done();

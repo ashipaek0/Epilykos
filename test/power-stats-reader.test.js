@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('node:assert/strict');
 const { readPowerStats } = require('../modules/timeseriesReader');
 
@@ -104,3 +105,4 @@ assert.deepEqual(mixed.last, { timestamp: cutoff + 20, value: 7 });
 assert.ok(!mixed.fidelity.warnings.some(w => w.code === 'legacy_rollup_lacks_last'));
 
 console.log('ok - power stats reader raw, rollup, mixed-source, boundary, and overflow oracles');
+checks.done();

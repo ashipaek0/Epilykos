@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('node:assert');
 const { getBreaker, resetAll, FAILURE_THRESHOLD, RESET_TIMEOUT_MS } = require('../modules/circuitBreaker');
 
@@ -124,4 +125,5 @@ function restoreNow() { Date.now = realNow; }
     console.error(e.stack);
     process.exit(1);
   }
+  checks.done();
 })();

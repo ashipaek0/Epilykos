@@ -20,6 +20,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const EventEmitter = require('events');
@@ -222,6 +223,7 @@ https.get = fakeGet;
   });
 
   console.log(`\nPASS solar-forecast-s1prime: ${passed} checks`);
+  checks.done();
 })().catch((e) => {
   console.error(`FAIL: ${e.stack || e}`);
   process.exit(1);

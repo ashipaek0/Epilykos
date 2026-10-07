@@ -10,6 +10,7 @@
  * Slice 1 data:-URL pattern — both modules are import-free after the strip).
  */
 'use strict';
+const checks = require('./_checks');
 
 const fs = require('fs');
 const path = require('path');
@@ -227,6 +228,7 @@ const H = 60 * 60 * 1000;
 
   console.log('');
   console.log('bar-stacked: ' + passes + ' passed, ' + failures + ' failed');
+  if (!failures) checks.done(passes);   // own check() helper, not assert
   process.exit(failures ? 1 : 0);
 })().catch(e => {
   console.error('bar-stacked test crashed: ' + (e && e.stack || e));

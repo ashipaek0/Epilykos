@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -77,3 +78,4 @@ const corrupt = responseFor(ranges[0], valuesFor(-250));
 corrupt[corrupt.length - 1] ^= 0xff;
 assert.throws(() => parseModbusReadResponse(corrupt), /CRC mismatch/);
 console.log('ok - Cworth CE-H6K wired BMS profile and Modbus decoding');
+checks.done();

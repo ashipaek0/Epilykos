@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/phocos-ble.test.js — Phocos Any-Grid over Bluetooth (read-only GATT
  * profile). Fixtures are characteristic values captured from an Any-Grid
@@ -92,4 +93,5 @@ function metricsFrom(data) {
   console.log('ok - entity catalog');
 
   console.log('# phocos-ble: all passed');
+  checks.done();
 })().catch(err => { console.error('not ok -', err); process.exit(1); });

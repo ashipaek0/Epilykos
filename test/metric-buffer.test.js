@@ -17,6 +17,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -120,3 +121,4 @@ assert.strictEqual(flushSync(), 0, 'empty flush returns 0');
 console.log('PASS 6: auto-flush guard + stop/restart + empty flush');
 
 console.log('\nmetric-buffer.test.js: all 6 checks PASS');
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Two inverters on the same profile must not write the same metric names.
 const assert = require('assert');
 const { dongleNameClash } = require('../modules/sourceChecks');
@@ -42,3 +43,4 @@ check('battery banks: plain calculation names, one-click usual metrics, saves re
   assert.match(read('server.js'), /bankOutputClash\(banks\);\s*if \(clash\) return res\.status\(400\)/);
 });
 console.log(`source-checks: ${passed} checks passed`);
+checks.done();

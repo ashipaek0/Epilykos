@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -63,3 +64,4 @@ assert.deepStrictEqual(readMetricSeries(db, { metric: 'absent', from: now, to: n
 assert.deepStrictEqual(readHistorySeries(db, { from: now, to: now + 1, fields: ['solar'] }), []);
 assert.deepStrictEqual(readDailySnapshots(db, { from: now, to: now + 1, fields: ['daily_solar'] }), []);
 console.log('ok - timeseries reader raw, rollup, boundaries, history mapping, local-day snapshots, and empty tables');
+checks.done();

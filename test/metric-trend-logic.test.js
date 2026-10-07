@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -48,4 +49,5 @@ const path = require('path');
   assert.equal(m.serverForecastDate({server_today:'2026-02-30',daily:[{date:'2026-10-04',actual_so_far:0}]}), '2026-10-04');
   assert.equal(m.forecastValue({ daily:[], hourly:[] }, 'tomorrow-total', '2026-10-04'), null);
   console.log('metric trend logic tests passed');
+  checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/ble-modbus-transport.test.js — modules/dongle/bleModbus.js frame
  * building/checking with a stubbed exchange (no Bluetooth needed).
@@ -89,4 +90,5 @@ function stub(response) {
   }
 
   console.log('# ble-modbus transport: all passed');
+  checks.done();
 })().catch(err => { console.error('not ok -', err); process.exit(1); });

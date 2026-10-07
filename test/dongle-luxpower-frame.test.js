@@ -19,6 +19,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -479,4 +480,5 @@ function parseAndCheck(buf, expect, label) {
 }
 
 console.log('PASS: dongle-luxpower-frame.test.js — AC1, AC2, AC3, AC4, AC6, AC15 (167/58/20), R4 (76522s golden), AC9-AC12 (issue #109 decode spot-checks), AC27 (buildWriteFrame) all green');
+checks.done();
 process.exitCode = 0;

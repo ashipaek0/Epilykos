@@ -1,3 +1,4 @@
+const checks = require('./_checks');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
@@ -61,4 +62,5 @@ const { pathToFileURL } = require('node:url');
       assert.equal(updateCount, 1, 'later failure does not trigger component update');
     } finally { console.error = oldError; }
   } finally { global.fetch = originalFetch; }
+  checks.done();
 })().catch(error => { console.error(error); process.exitCode = 1; });

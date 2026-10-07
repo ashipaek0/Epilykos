@@ -12,6 +12,7 @@
  * inside the all-time range merge correctly.
  */
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -109,4 +110,5 @@ await checkAsync('getSavings: rollup bucket (daily_solar_last) + raw row merge a
 
 console.log(`\ntimeseries-routing-savings.test.js: ${passed} checks passed`);
 
+  checks.done();
 })().catch(err => { console.error(err); process.exit(1); });

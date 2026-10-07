@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -43,4 +44,5 @@ console.log('metric trend card tests passed (runtime DOM structure)');
  assert.equal(card.querySelector('.metric-trend-unit').textContent,'W');
  assert.equal(card.querySelector('.metric-trend-status').textContent,'');
  console.log('metric trend async source-switch regression passed');
+  checks.done();
 })().catch(e=>{console.error(e);process.exitCode=1;});

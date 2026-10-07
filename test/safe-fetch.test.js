@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/safe-fetch.test.js — modules/utils.js safeFetch (SSRF guard on every
  * redirect hop) and trimSlashes (linear-time slash trimming). fetch is stubbed;
@@ -75,4 +76,5 @@ async function test(name, fn) {
   });
 
   if (failed) process.exit(1);
+  checks.done();
 })();

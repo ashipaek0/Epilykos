@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const fs = require('fs'), path = require('path'), assert = require('assert');
 (async () => {
   const logicPath = path.join(__dirname, '../public/js/components/configurableGaugeLogic.js');
@@ -122,4 +123,5 @@ const fs = require('fs'), path = require('path'), assert = require('assert');
     assert.match(component, /root\.style\.borderStyle\s*=/);
   });
   console.log(`${passed} passed`);
+  checks.done();
 })().catch(error => { console.error(error); process.exit(1); });

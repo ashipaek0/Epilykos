@@ -25,6 +25,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const EventEmitter = require('events');
@@ -262,6 +263,7 @@ check('radar absence: editor.js iframe hits confined to generic embed-card path'
   });
 
   console.log(`\nPASS solar-forecast-s6prime: ${passed} checks`);
+  checks.done();
 })().catch((e) => {
   console.error(`FAIL: ${e.stack || e}`);
   process.exit(1);
