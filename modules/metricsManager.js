@@ -4,7 +4,7 @@ const { logger } = require('./logger');
 // Get all metrics (from latest_metrics + user_metrics)
 function getAllMetrics() {
   const db = getDb();
-  const latest = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+  const latest = db.prepare('SELECT metric, value, value_text, timestamp, unit FROM latest_metrics').all();
   const userMetrics = JSON.parse(getConfig('user_metrics') || '[]');
   const metricMap = new Map();
 
@@ -12,9 +12,9 @@ function getAllMetrics() {
   latest.forEach(m => {
     metricMap.set(m.metric, {
       name: m.metric,
-      value: m.value,
+      value: m.value_text != null ? m.value_text : m.value,
       timestamp: m.timestamp,
-      unit: null
+      unit: m.unit || null   // the unit the source reported, if any
     });
   });
 
@@ -25,12 +25,14 @@ function getAllMetrics() {
         name: m.name,
         value: null,
         timestamp: null,
-        unit: m.unit || ''
+        unit: m.unit || '',
+        combined: m.combined === true || undefined
       });
     } else {
       // Update unit for existing metric if user-defined
       const existing = metricMap.get(m.name);
       existing.unit = m.unit || existing.unit;
+      if (m.combined === true) existing.combined = true;
     }
   });
 

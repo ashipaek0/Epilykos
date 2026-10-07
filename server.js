@@ -2436,8 +2436,22 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   try {
     const { deleteMetric } = require('./modules/metricsManager');
     const { name } = req.params;
+    // A combined metric is written again every cycle while its definition exists.
+    const cm = require('./modules/combinedMetrics');
+    if (cm.loadDefinitions().some(d => d && String(d.name).trim() === name)) {
+      return res.status(409).json({ error: `${name} is a combined metric. Delete it under Combined metrics, or it is worked out again on the next reading.` });
+    }
     deleteMetric(name);
-    res.json({ success: true });
+    // Roles pointing at it would point at nothing: clear them. Combined metrics
+    // that add it up are left for the person to change, but named.
+    let rolesCleared = [];
+    try {
+      const roles = JSON.parse(getConfig('role_metrics') || '{}') || {};
+      rolesCleared = Object.keys(roles).filter(r => roles[r] === name);
+      if (rolesCleared.length) { rolesCleared.forEach(r => { roles[r] = ''; }); setConfig('role_metrics', JSON.stringify(roles)); }
+    } catch (_) { /* roles unreadable: nothing to clear */ }
+    const usedBy = cm.loadDefinitions().filter(d => d && (d.inputs || []).map(x => String(x).trim()).includes(name)).map(d => d.name);
+    res.json({ success: true, roles_cleared: rolesCleared, used_by: usedBy });
   } catch (err) {
     logger.error('Error deleting metric:', err);
     res.status(500).json({ error: 'Internal server error' });

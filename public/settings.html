@@ -221,28 +221,31 @@
             <div class="st-head-actions"><button type="button" class="st-btn st-btn-primary" id="st-new-metric"><span data-icon="plus" data-size="16"></span>New metric</button></div>
           </div>
           <div class="st-card">
-            <div class="st-card-head">
-              <h2>All metrics</h2>
-              <div class="st-filter"><label for="metrics-search" class="st-visually-hidden">Filter metrics</label><input type="search" class="input" id="metrics-search" placeholder="Filter metrics"></div>
-            </div>
-            <div class="table-wrap">
-              <table class="mapping-table st-table" id="metrics-table">
-                <thead><tr><th scope="col">Metric</th><th scope="col">Current value</th><th scope="col">Last updated</th><th scope="col">Unit</th><th scope="col"><span class="st-visually-hidden">Actions</span></th></tr></thead>
-                <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics…</td></tr></tbody>
-              </table>
-            </div>
+            <div class="st-card-head"><h2>Metric roles</h2></div>
+            <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
+            <div id="role-metrics-container" class="st-roles"></div>
           </div>
           <div class="st-card" id="combined-card" data-own-save>
             <div class="st-card-head"><h2>Combined metrics</h2><button type="button" class="st-btn" id="cm-add"><span data-icon="plus" data-size="16"></span>Add combined metric</button></div>
             <p class="st-help">Add up readings from several inverters, MPPTs or batteries, or work out energy from power. Each result is a new metric you can pick in roles and cards. Switch one off to stop computing it. Several BMS packs that make up one battery go in a <a href="#sources/bms">battery bank</a> (weighted charge by capacity); its bank_ metrics can be used here too.</p>
             <div id="cm-suggestions" class="cm-suggestions" hidden></div>
+            <p class="status" id="cm-status" role="status"></p>
             <div id="cm-list" class="cm-list"><p class="st-help">Loading…</p></div>
             <div id="cm-editor" class="cm-editor" hidden></div>
           </div>
           <div class="st-card">
-            <div class="st-card-head"><h2>Metric roles</h2></div>
-            <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
-            <div id="role-metrics-container" class="st-roles"></div>
+            <div class="st-card-head">
+              <h2>All metrics <span class="st-count" id="metrics-count"></span></h2>
+              <div class="st-filter"><label for="metrics-search" class="st-visually-hidden">Filter metrics</label><input type="search" class="input" id="metrics-search" placeholder="Filter metrics"></div>
+            </div>
+            <p class="st-help">Everything your sources and combined metrics report, newest reading first. Metrics with no reading yet are listed last.</p>
+            <p class="status" id="metrics-status" role="status"></p>
+            <div class="table-wrap st-table-scroll">
+              <table class="mapping-table st-table" id="metrics-table">
+                <thead><tr><th scope="col">Metric</th><th scope="col">Current value</th><th scope="col">Last updated</th><th scope="col">Unit</th><th scope="col"><span class="st-visually-hidden">Actions</span></th></tr></thead>
+                <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics…</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -844,10 +847,10 @@
 <script src="/js/csrf.js"></script>
 <script src="js/source-labels.js"></script>
 <script src="js/pvoutput-units.js?v=1"></script>
-<script src="settings.js?v=11"></script>
+<script src="settings.js?v=14"></script>
 <script src="js/catalog-ui.js?v=1"></script>
 <script src="js/settings-shell.js?v=1"></script>
-<script src="js/combined-metrics.js?v=2"></script>
+<script src="js/combined-metrics.js?v=6"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 </body>
 </html>

@@ -109,7 +109,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.strictEqual(cm.autoLabels().c.inv1_pv, 'Phocos 1', 'from the source name, ignoring custom labels');
     const ui = read('public/js/combined-metrics.js');
     assert.match(ui, /class="input cm-lbl" data-input="/); assert.match(ui, /if \(Object\.keys\(labels\)\.length\) d\.labels = labels; else delete d\.labels;/);
-    assert.match(read('public/settings.html'), /combined-metrics\.js\?v=2/);
+    assert.match(read('public/settings.html'), /combined-metrics\.js\?v=([2-9]|\d{2,})"/);
   });
 
   // Load the card helper and its imports as ES modules.
