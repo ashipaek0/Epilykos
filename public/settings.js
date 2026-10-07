@@ -2299,7 +2299,7 @@ async function refreshBluetoothStatus() {
       el.textContent = 'Bluetooth BMS: using the legacy bms-bridge container (BMS_BRIDGE_URL is set). Unset it to use built-in Bluetooth.';
     } else if (st.available) {
       const a = (st.adapters || []).find(x => x.powered) || {};
-      el.textContent = `Bluetooth ready${a.address ? ` — adapter ${a.address}` : ''}.`;
+      el.textContent = `Bluetooth ready${a.address ? ` — adapter ${a.address}` : ''}. Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth, allow about 10 seconds per device in their read intervals.`;
     } else {
       el.textContent = `Bluetooth unavailable: ${st.error || 'unknown error'}`;
     }
@@ -3346,6 +3346,7 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
+    <p class="st-help">Poll: how often it is read, in seconds. Over Bluetooth, devices on one adapter are read one at a time, so allow about 10 seconds per device (for example 60 for six). A reading that is still running when the next is due is skipped and logged.</p>
     <!-- Derived from Connection + Profile (see syncDongleTransport); not user-facing. -->
     <select name="dongle_config[${idx}][transport]" class="dongle-transport-select" hidden style="display:none;" aria-hidden="true" tabindex="-1">
       <option value="modbus-tcp" ${transport === 'modbus-tcp' ? 'selected' : ''}>TCP/IP</option>

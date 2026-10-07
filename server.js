@@ -2503,7 +2503,13 @@ app.get('/api/metrics/history', async (req, res) => {
   const metric = req.query.metric;
   if (!metric || typeof metric !== 'string' || metric.length > 128) return res.status(400).json({ error: 'metric is required (max 128 chars)' });
   const hours = parseInt(req.query.hours) || 24;
-  if (isNaN(hours) || hours < 1 || hours > 8760) return res.status(400).json({ error: 'hours must be 1-8760' });
+  // Public (dashboard) reads are capped at the 7 days the cards ask for: a
+  // year of raw readings is a heavy response anyone could request. Signed in,
+  // up to a year.
+  const signedIn = !!(req.session && req.session.authenticated);
+  const maxHours = signedIn ? 8760 : 168;
+  if (isNaN(hours) || hours < 1) return res.status(400).json({ error: `hours must be 1-${maxHours}` });
+  if (hours > maxHours) return res.status(signedIn ? 400 : 403).json({ error: signedIn ? 'hours must be 1-8760' : 'Without signing in, history covers up to 7 days (168 hours).' });
   try {
     res.json(getMetricHistory(metric, hours));
   } catch (err) {
