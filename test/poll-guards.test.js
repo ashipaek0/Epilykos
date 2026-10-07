@@ -38,7 +38,21 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     database.getDb().prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)').run('a', 1, Math.floor(Date.now() / 1000));
     database.setConfig('combined_metrics', JSON.stringify([{ id: 'keep', name: 'k', fn: 'sum', inputs: ['a'], enabled: false }, { id: 'on', name: 'o', fn: 'sum', inputs: ['a'] }]));
     cm.runCombinedMetrics();
+    assert.ok('gone' in JSON.parse(database.getConfig('combined_metrics_state')), 'not in the poll loop any more');
+    assert.strictEqual(cm.pruneState(), true);   // runs when definitions are saved
     assert.deepStrictEqual(Object.keys(JSON.parse(database.getConfig('combined_metrics_state'))).sort(), ['keep']);
+    assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /cm\.pruneState\(clean\)/);
+  });
+
+  await check('per-part daily kWh is buffered (written every few minutes, at a new day, and before tables read it)', () => {
+    const cm = require('../modules/combinedMetrics');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'modules', 'combinedMetrics.js'), 'utf8');
+    assert.match(src, /if \(dayChanged \|\| Date\.now\(\) - lastPartWrite >= PART_WRITE_MS\) flushPartDays\(\);/);
+    assert.match(src, /function partDays\(fromDay, toDay\) \{\n  try \{ flushPartDays\(\); \}/);
+    assert.strictEqual(cm.staleSecondsOf({}), 300); assert.strictEqual(cm.staleSecondsOf({ stale_seconds: 60 }), 60);
+    assert.strictEqual((src.match(/stale_seconds\) >= 10 \? /g) || []).length, 1, 'one default stale rule');
+    const dongle = fs.readFileSync(path.join(__dirname, '..', 'modules', 'dongle.js'), 'utf8');
+    assert.doesNotMatch(dongle, /singleFlight\(inst, \(\) => pollLuxpowerInstance/, 'LuxPower keeps its own guard only');
   });
 
   await check('rate limit, delete tidy-up and combined refusal are in the routes', () => {
@@ -47,7 +61,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(srv, /return res\.status\(409\)\.json\(\{ error: `\$\{name\} is a combined metric/);
   });
 
-  assert.strictEqual(passed, 3, 'every check ran');
+  assert.strictEqual(passed, 4, 'every check ran');
   console.log(`poll-guards: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

@@ -27,7 +27,11 @@ function fill(container, tbody, rows, label) {
     cols.forEach(col => {
       const parts = row.parts[col.field]; if (!parts) return;
       const td = trs[i].querySelector(`td[data-field="${CSS.escape(col.field)}"]`);
-      renderBreakdown(td, treeRows(parts, depth, partKwh), mode, `${col.label.replace(/\s*\(kWh\)$/, '')}, ${label(row)}`);
+      const rows = treeRows(parts, depth, partKwh);
+      // The month's total covers every day, its parts only from this day on.
+      const since = row.partsSince && row.partsSince[col.field];
+      if (since) rows.push({ label: 'Counted since', value: new Date(since + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) });
+      renderBreakdown(td, rows, mode, `${col.label.replace(/\s*\(kWh\)$/, '')}, ${label(row)}`);
     });
   });
 }

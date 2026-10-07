@@ -90,7 +90,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(wz, /\(cap === '' \|\| \(!isNaN\(Number\(cap\)\) && Number\(cap\) >= 0\)\)/, 'empty size allowed');
     assert.match(wz, /var set = function \(v\) \{ return v != null && String\(v\)\.trim\(\) !== ''; \};/, 'empty saved values keep the defaults');
     assert.match(wz, /b\.arrays && b\.arrays\.length > 1\s*\? field\('Solar arrays'/, 'several arrays: shown, changed in Settings');
-    assert.match(wz, /payload\.solar_arrays = JSON\.stringify\(\[Object\.assign\(\{\}, b\.arrays\[0\], \{ kwp: Number\(cap\) \}\)\]\)/, 'one saved array kept in step');
+    assert.match(wz, /payload\.solar_arrays = JSON\.stringify\(\[Object\.assign\(\{\}, b\.arrays\[0\], \{ kwp: cap === '' \? 0 : Number\(cap\) \}\)\]\)/, 'one saved array kept in step');
     assert.match(wz, /api\('\/api\/auth\/status'\)\.then\(function \(res\) \{\s*return !!\(res\.ok && res\.data && res\.data\.authenticated\);/);
     assert.doesNotMatch(wz, /Finish to open your dashboard/);
   });
@@ -136,6 +136,17 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     const wz = read('public/js/setup.js');
     assert.match(wz, /need = Math\.max\(30, units \* 10\)/); assert.match(wz, /Set Read every to at least ' \+ need \+ ' seconds/);
     assert.match(read('public/js/combined-metrics.js'), /that starts when you save it, so earlier days show no parts/);
+  });
+
+  await check('review fixes: combined flag follows definitions; filter by name; whole-period durations; size can be cleared; partial months say so', () => {
+    assert.match(read('modules/metricsManager.js'), /require\('\.\/combinedMetrics'\)\.loadDefinitions\(\)/);
+    assert.doesNotMatch(read('modules/metricsManager.js'), /combined: m\.combined === true/);
+    assert.match(read('public/settings.js'), /<tr data-filter="\$\{escapeHtml\(\(metric\.name \+ ' ' \+ \(metric\.unit \|\| ''\)\)\.toLowerCase\(\)\)\}"/);
+    assert.match(read('public/js/settings-shell.js'), /row\.dataset\.filter != null \? row\.dataset\.filter : row\.textContent\.toLowerCase\(\)/);
+    assert.match(read('public/js/grid.js'), /Math\.round\(\(segEnd - seg\.start\) \/ 60000\)/);
+    assert.match(read('public/js/setup.js'), /payload\.solar_capacity_kwp = cap === '' \? '' : Number\(cap\);/);
+    assert.match(read('routes/metrics.js'), /\(row\.partsSince = row\.partsSince \|\| \{\}\)\[field\] = days\[0\];/);
+    assert.match(read('public/js/tables.js'), /label: 'Counted since'/);
   });
 
   console.log(`ux-fixes: ${passed} checks passed`);
