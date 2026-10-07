@@ -29,7 +29,10 @@ const DB_PATH = './data/energy.db';
 
 // Default dashboard layout seeded on first run (dashboard_layouts and the
 // legacy dashboard_config blob both start from this).
-const DEFAULT_DASHBOARD_LAYOUTS_JSON = `[{"id":"main","name":"Main","layout":[{"id":"b_1784465890590_20sz","type":"forecast-pvtoday","gridX":0,"gridY":12,"gridW":12,"gridH":8,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","location_name":"Solar Forecast - Lagos","metrics":{"generated":"PV Power"}},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1784465948035_e0n4","type":"grid-card","gridX":0,"gridY":20,"gridW":12,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"#000000","fontColor":"#000000","fontSize":"","metrics":{"grid_status":"Grid Status"},"showTimeline":true}},{"id":"b_1784466238742_nhu9","type":"savings-summary","gridX":4,"gridY":10,"gridW":8,"gridH":2,"enabled":true,"config":{}},{"id":"b_1784480049598_gc1w","type":"flow-card-2","gridX":0,"gridY":0,"gridW":4,"gridH":12,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"},"inverter_image":"https://i.postimg.cc/0y66sKCR/srne.png"},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","metrics":{"solar":"PV Power","grid_import":"Grid Power","battery_charge":"Battery Charge Power","battery_soc":"Battery SOC","consumption":"Load Power","battery_discharge":"Battery Discharge Power","grid_export":"grid_export"}},{"id":"b_1784480391877_32v7","type":"metric-cards","gridX":4,"gridY":6,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"PV Voltage","metric":"PV Voltage","unit":"V"},{"title":"PV Current","metric":"PV Current","unit":"A"},{"title":"Peak PV","metric":"Peak PV Power","unit":"W"}]},{"id":"b_1784554263492_o1tm","type":"metric-cards","gridX":4,"gridY":8,"gridW":8,"gridH":2,"enabled":true,"config":{"enabled":true,"transparent":false,"bgColor":"","fontColor":"","fontSize":""},"transparent":false,"bgColor":"","fontColor":"","fontSize":"","cards":[{"title":"Batt Voltage","metric":"Battery Voltage","unit":"V"},{"title":"Batt Power","metric":"Battery Power","unit":"W"},{"title":"Batt Energy","metric":"Battery Energy (Capacity)","unit":"kWh"}]},{"id":"b_1785070489725_fqnm","type":"bar-gauge-retro","gridX":4,"gridY":0,"gridW":8,"gridH":6,"enabled":true,"config":{"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},"transparent":true,"bgColor":"","fontColor":"","fontSize":"","metrics":[{"label":"Solar","metric":"PV Energy Generated","unit":"kWh","min":0,"max":12,"color":"#f59e0b","gradient":"","segments":12},{"label":"Grid","metric":"Grid Energy Import","unit":"kWh","min":0,"max":12,"color":"#b33a2e","gradient":"","segments":12},{"label":"Batt","metric":"Battery Energy (Discharge)","unit":"kWh","min":0,"max":12,"color":"#4a6a2e","gradient":"","segments":12},{"label":"Load","metric":"Load Energy Consumed","unit":"kWh","min":0,"max":12,"color":"#474eff","gradient":"","segments":12}]},{"id":"b_1785073195659_rf7m","type":"chart-power","gridX":0,"gridY":26,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Load","metric":"Load Power","color":"#474eff"},{"label":"Solar","metric":"PV Power","color":"#f59e0b"},{"label":"Battery Charge","metric":"Battery Charge Power","color":"#4a6a2e"},{"label":"Grid Import","metric":"Grid Power","color":"#b33a2e"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""},{"id":"b_1785073219406_yp2j","type":"chart-energy","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{"datasets":[{"label":"Solar Generated","metric":"PV Energy Generated","color":"#f59e0b"},{"label":"Grid Imported","metric":"Grid Energy Import","color":"#b33a2e"},{"label":"Energy Consumed","metric":"Load Energy Consumed","color":"#474eff"}],"enabled":true,"transparent":true,"bgColor":"","fontColor":"","fontSize":"","title":"","hideGrid":true,"fill":true},"transparent":true,"bgColor":"","fontColor":"","fontSize":""}]}]`;
+// Starter dashboard: cards that read the metric roles (Settings > Metrics),
+// so it carries no metric names of its own. '{{role:...}}' is filled in from
+// the roles when the dashboard is read (dashboard-config.js).
+const DEFAULT_DASHBOARD_LAYOUTS_JSON = `[{"id":"main","name":"Main","layout":[{"id":"b_overview","type":"system-overview","gridX":0,"gridY":0,"gridW":12,"gridH":7,"enabled":true,"config":{}},{"id":"b_totals","type":"energy-totals","gridX":0,"gridY":7,"gridW":12,"gridH":3,"enabled":true,"config":{}},{"id":"b_energy","type":"energy-tabs","gridX":0,"gridY":10,"gridW":12,"gridH":9,"enabled":true,"config":{"title":"Energy"}},{"id":"b_forecast","type":"forecast-pvtoday","gridX":0,"gridY":19,"gridW":6,"gridH":7,"enabled":true,"config":{"location_name":"","metrics":{"generated":"{{role:solar}}"}}},{"id":"b_grid","type":"grid-card","gridX":6,"gridY":19,"gridW":6,"gridH":7,"enabled":true,"config":{"showTimeline":true,"metrics":{"grid_status":""}}},{"id":"b_savings","type":"savings-summary","gridX":0,"gridY":26,"gridW":4,"gridH":4,"enabled":true,"config":{}},{"id":"b_power","type":"chart-power","gridX":4,"gridY":26,"gridW":8,"gridH":8,"enabled":true,"config":{"title":"Power"}},{"id":"b_daily","type":"data-table-daily","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{}}]}]`;
 
 function getDb() {
   if (!db) throw new Error('Database not initialized');
@@ -318,50 +321,47 @@ function initializeDatabase() {
     logger.info('Initialised default dashboard configuration (legacy blob)');
   }
 
-  // Seed default metrics if none exist (user can delete/add freely)
-  if (!getConfig('user_metrics') || getConfig('user_metrics') === '[]') {
-    const defaultMetrics = [
-      { name: 'Battery Power', unit: 'W' },
-      { name: 'Battery Voltage', unit: 'V' },
-      { name: 'Battery Current', unit: 'A' },
-      { name: 'Battery Runtime', unit: 'h' },
-      { name: 'Battery Charge Power', unit: 'W' },
-      { name: 'Battery Discharge Power', unit: 'W' },
-      { name: 'Battery Energy (Capacity)', unit: 'kWh' },
-      { name: 'Battery Energy (Charge)', unit: 'kWh' },
-      { name: 'Battery Energy (Discharge)', unit: 'kWh' },
-      { name: 'Battery SOC', unit: '%' },
-      { name: 'Battery Cell Voltage (Lowest)', unit: 'V' },
-      { name: 'Battery Cell Voltage (Highest)', unit: 'V' },
-      { name: 'Battery Cell Voltage (Average)', unit: 'V' },
-      { name: 'Battery Temperature', unit: '°C' },
-      { name: 'Grid Voltage', unit: 'V' },
-      { name: 'Grid Power', unit: 'W' },
-      { name: 'Grid Current', unit: 'A' },
-      { name: 'Grid Energy Import', unit: 'kWh' },
-      { name: 'Grid Energy Export', unit: 'kWh' },
-      { name: 'Grid Status', unit: 'On/Off' },
-      { name: 'PV Power', unit: 'W' },
-      { name: 'PV Voltage', unit: 'V' },
-      { name: 'PV Energy Generated', unit: 'kWh' },
-      { name: 'PV Current', unit: 'A' },
-      { name: 'PV Forecast Energy', unit: 'kWh' },
-      { name: 'Load Power', unit: 'W' },
-      { name: 'Load Current', unit: 'A' },
-      { name: 'Load Energy Consumed', unit: 'kWh' },
-      { name: 'Load %', unit: '%' },
-      { name: 'Inverter Status', unit: '' },
-      { name: 'Inverter Temperature', unit: '°C' },
-      { name: 'Ambient Temperature', unit: '°C' },
-      { name: 'Load Voltage', unit: 'V' },
-      { name: 'Grid Frequency', unit: 'hz' },
-      { name: 'Load Frequency', unit: 'hz' }
-    ].map(m => ({ ...m, createdAt: Date.now() }));
-    setConfig('user_metrics', JSON.stringify(defaultMetrics));
-    logger.info(`Seeded ${defaultMetrics.length} default metrics`);
-  }
+  // No metric names are bundled: metrics come from the sources you add.
+  // Installs from before this change had 35 names seeded; remove the ones
+  // nothing has written to or points at (once).
+  removeUnusedSeededMetrics();
 
   logger.info('Database initialized');
+}
+
+// The metric names earlier versions seeded into every install.
+const FORMER_SEEDED_METRICS = ['Battery Power', 'Battery Voltage', 'Battery Current', 'Battery Runtime', 'Battery Charge Power',
+  'Battery Discharge Power', 'Battery Energy (Capacity)', 'Battery Energy (Charge)', 'Battery Energy (Discharge)', 'Battery SOC',
+  'Battery Cell Voltage (Lowest)', 'Battery Cell Voltage (Highest)', 'Battery Cell Voltage (Average)', 'Battery Temperature',
+  'Grid Voltage', 'Grid Power', 'Grid Current', 'Grid Energy Import', 'Grid Energy Export', 'Grid Status', 'PV Power', 'PV Voltage',
+  'PV Energy Generated', 'PV Current', 'PV Forecast Energy', 'Load Power', 'Load Current', 'Load Energy Consumed', 'Load %',
+  'Inverter Status', 'Inverter Temperature', 'Ambient Temperature', 'Load Voltage', 'Grid Frequency', 'Load Frequency'];
+
+/**
+ * Remove formerly seeded metric names that are unused: no stored readings and
+ * not mentioned in any other config value (sources, roles, dashboards,
+ * battery banks...). Runs once; anything in use stays.
+ */
+function removeUnusedSeededMetrics() {
+  if (getConfig('seeded_metrics_cleanup_v1') === 'done') return;
+  try {
+    const list = JSON.parse(getConfig('user_metrics') || '[]');
+    if (Array.isArray(list) && list.length) {
+      const seeded = new Set(FORMER_SEEDED_METRICS);
+      const others = db.prepare("SELECT key, value FROM config WHERE key NOT IN ('user_metrics', 'seeded_metrics_cleanup_v1')").all();
+      const hasData = db.prepare('SELECT 1 FROM latest_metrics WHERE metric = ? UNION SELECT 1 FROM metrics WHERE metric = ? LIMIT 1');
+      const used = name => others.some(r => typeof r.value === 'string' && (r.value === name || r.value.includes(JSON.stringify(name))))
+        || !!hasData.get(name, name);
+      const keep = list.filter(m => !(m && seeded.has(m.name)) || used(m.name));
+      if (keep.length !== list.length) {
+        setConfig('user_metrics', JSON.stringify(keep));
+        logger.info(`Removed ${list.length - keep.length} unused bundled metric names`);
+      }
+    }
+  } catch (e) {
+    logger.warn('Could not tidy bundled metric names:', e.message);
+  }
+  setConfig('seeded_metrics_cleanup_v1', 'done');
 }
 
 function migrateLegacyConfig() {
@@ -814,6 +814,7 @@ function resolveStoredSecret(value, configKeys) {
 }
 
 module.exports = {
+  DEFAULT_DASHBOARD_LAYOUTS_JSON,
   initializeDatabase,
   migratePowerStatsSchema,
   resolveStoredSecret,

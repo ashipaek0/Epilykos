@@ -235,7 +235,7 @@
     { key: 'daily_grid_import',  label: 'Daily Grid Import',  unit: 'kWh' },
     { key: 'daily_grid_export',  label: 'Daily Grid Export',  unit: 'kWh' }
   ];
-  var MINIMAL_DASH_TYPES = ['flow-card-2', 'savings-summary', 'metric-cards'];
+  var MINIMAL_DASH_TYPES = ['system-overview', 'energy-totals', 'savings-summary'];
   var ROLE_GROUPS = [
     { label: 'Live power', hint: 'What\'s flowing right now. Drives the flow card and savings.', keys: ['solar', 'consumption', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'] },
     { label: 'Battery and panels', keys: ['battery_soc', 'solar_voltage'] },
@@ -2102,8 +2102,8 @@
       return;
     }
     body.innerHTML = '<div class="wz-choices" role="radiogroup" aria-label="Starting dashboard">'
-      + option('full', 'Everything', 'Energy flow, gauges, charts, weather and savings. Remove what you don\'t need later.', main, function () { return true; })
-      + option('minimal', 'Simple', 'Just the energy flow, a row of key numbers and your savings.', main.filter(isMinimal), isMinimal)
+      + option('full', 'Everything', 'System overview, today\'s totals, energy charts, forecast, grid, savings and history. Remove what you don\'t need later.', main, function () { return true; })
+      + option('minimal', 'Simple', 'Just the system overview, today\'s totals and your savings.', main.filter(isMinimal), isMinimal)
       + '</div>';
   }
 
