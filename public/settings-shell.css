@@ -473,6 +473,8 @@ body.st {
 .cm-input em { color: var(--st-muted); font-style: normal; }
 .cm-weight { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; }
 .cm-weight .input { width: 6em; }
+.cm-lbl.input { flex: 0 1 13em; min-width: 7em; }
+@media (max-width: 600px) { .cm-input { flex-wrap: wrap; } .cm-lbl.input { flex: 1 1 100%; order: 5; } }
 .cm-more { margin: 6px 0; }
 .cm-more summary { cursor: pointer; font-weight: 600; }
 .cm-preview p { margin: 4px 0; font-size: 0.88rem; }

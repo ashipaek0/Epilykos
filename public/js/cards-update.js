@@ -33,6 +33,7 @@ import { updateWeatherBlock } from './components/weatherBlock.js';
 import { updateSwitchBlockFromState } from './components/switchBlock.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
+import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
 const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
 
@@ -66,6 +67,8 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('chart-metric')) updateMetricChartFromState(state);
   if (blockTypes.has('text-metric')) updateTextMetricCard(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
+  // Day totals also appear as a tab inside Energy, tabbed.
+  if (blockTypes.has('energy-totals') || blockTypes.has('energy-tabs')) updateEnergyTotalsFromState(state);
   if (FORECAST_TYPES.some(t => blockTypes.has(t))) updateForecast();
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
   if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);

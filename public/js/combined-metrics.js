@@ -22,7 +22,9 @@
     energy_total: { label: 'Lifetime energy from power', help: 'A kWh total that only goes up. Set a starting value to match a meter.', many: true, energy: true, start: true },
     counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true }
   };
-  var state = { defs: [], status: {}, metrics: [], editing: null };
+  // Sums and averages can be shown split into their parts on cards; each part can be renamed.
+  var SPLITTABLE = { sum: true, mean: true, weighted_mean: true };
+  var state = { defs: [], status: {}, metrics: [], editing: null, autoLabels: {} };
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function api(url, body) {
@@ -39,7 +41,7 @@
 
   function load() {
     return Promise.all([api('/api/combined-metrics'), api('/api/metrics/list')]).then(function (r) {
-      state.defs = r[0].definitions || []; state.status = r[0].status || {};
+      state.defs = r[0].definitions || []; state.status = r[0].status || {}; state.autoLabels = r[0].auto_labels || {};
       state.metrics = (Array.isArray(r[1]) ? r[1] : []).map(function (m) { return typeof m === 'string' ? { name: m } : m; }).filter(function (m) { return m && m.name; });
       renderList(); renderSuggestions();
     }).catch(function (e) { $('cm-list').innerHTML = '<p class="st-help is-error">Could not load combined metrics: ' + esc(e.message) + '</p>'; });
@@ -105,8 +107,10 @@
     var opts = Object.keys(FN_INFO).map(function (k) { return '<option value="' + k + '"' + (k === d.fn ? ' selected' : '') + '>' + esc(FN_INFO[k].label) + '</option>'; }).join('');
     var metricOpts = '<option value="">Add an input…</option>' + state.metrics.filter(function (m) { return m.name !== d.name && (d.inputs || []).indexOf(m.name) === -1; })
       .map(function (m) { return '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.unit ? ' (' + esc(m.unit) + ')' : '') + '</option>'; }).join('');
+    var auto = state.autoLabels[d.id || d.name] || {}, labels = d.labels || {};
     var inputs = (d.inputs || []).map(function (name, i) {
       return '<li class="cm-input" data-k="' + i + '"><span class="cm-input-name">' + (info.ordered && i === 0 ? '<em>From</em> ' : info.ordered ? '<em>minus</em> ' : '') + esc(name) + '</span>'
+        + (SPLITTABLE[d.fn] ? '<input class="input cm-lbl" data-input="' + esc(name) + '" value="' + esc(labels[name] || '') + '" maxlength="40" placeholder="' + esc(auto[name] ? 'Shown as ' + auto[name] : 'Shown as (automatic)') + '" aria-label="Name shown on cards for ' + esc(name) + '">' : '')
         + (info.weights ? '<label class="cm-weight">Weight <input type="number" class="input cm-w" min="0" step="any" value="' + esc((d.weights || [])[i] == null ? 1 : d.weights[i]) + '"></label>' : '')
         + (info.ordered ? '<button type="button" class="st-btn cm-up" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' : '')
         + '<button type="button" class="st-btn cm-rm" aria-label="Remove ' + esc(name) + '">Remove</button></li>';
@@ -116,7 +120,7 @@
       + '<div class="st-grid-2"><div class="st-field"><label for="cm-name">Name</label><input id="cm-name" class="input" value="' + esc(d.name) + '" maxlength="64" placeholder="e.g. pv_total_power" autocomplete="off"></div>'
       + '<div class="st-field"><label for="cm-unit">Unit</label><input id="cm-unit" class="input" value="' + esc(d.unit || '') + '" maxlength="12" placeholder="e.g. W, kWh, %"></div></div>'
       + '<div class="st-field"><label for="cm-fn">Calculation</label><select id="cm-fn" class="input">' + opts + '</select><span class="st-help">' + esc(info.help) + '</span></div>'
-      + '<div class="st-field"><span class="cm-label">Inputs</span><ol class="cm-inputs">' + (inputs || '<li class="st-help">No inputs yet.</li>') + '</ol>'
+      + '<div class="st-field"><span class="cm-label">Inputs</span>' + (SPLITTABLE[d.fn] ? '<span class="st-help">Cards set to show parts list each input by the name beside it. Leave it empty to use the name worked out from your sources.</span>' : '') + '<ol class="cm-inputs">' + (inputs || '<li class="st-help">No inputs yet.</li>') + '</ol>'
       + (full ? '' : '<select id="cm-add-input" class="input" aria-label="Add an input">' + metricOpts + '</select>'
         + (info.single ? '' : '<div class="cm-match"><input id="cm-match" class="input" placeholder="Add all that match, e.g. pv_power or inv*_pv1_power" aria-label="Add all metrics whose name matches" autocomplete="off"><button type="button" class="st-btn" id="cm-find">Find</button></div><div id="cm-matches" class="cm-matches" hidden></div>')) + '</div>'
       + (d.fn === 'scale' ? '<div class="st-grid-2"><div class="st-field"><label for="cm-factor">Factor</label><input id="cm-factor" class="input" type="number" step="any" value="' + esc(d.factor == null ? 1 : d.factor) + '"></div><div class="st-field"><label for="cm-offset">Offset</label><input id="cm-offset" class="input" type="number" step="any" value="' + esc(d.offset == null ? 0 : d.offset) + '"></div></div>' : '')
@@ -161,6 +165,12 @@
     if ($('cm-start')) d.start = Number(v('cm-start')); else delete d.start;
     if (FN_INFO[d.fn] && FN_INFO[d.fn].weights) d.weights = Array.from(document.querySelectorAll('#cm-editor .cm-w')).map(function (el) { return Number(el.value); }); else delete d.weights;
     d.stale_seconds = Number(v('cm-stale')) || 300; d.missing = v('cm-missing') || 'skip';
+    var lbls = document.querySelectorAll('#cm-editor .cm-lbl');
+    if (lbls.length) {
+      var labels = {};
+      Array.from(lbls).forEach(function (el) { var l = el.value.trim(); if (l && d.inputs.indexOf(el.dataset.input) !== -1) labels[el.dataset.input] = l; });
+      if (Object.keys(labels).length) d.labels = labels; else delete d.labels;
+    } else if (!SPLITTABLE[d.fn]) delete d.labels;
     return d;
   }
   function showError(msg) { var e = $('cm-error'); if (!e) return; e.textContent = msg || ''; e.hidden = !msg; }

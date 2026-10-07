@@ -729,7 +729,7 @@ app.post('/api/role-metrics', (req, res) => {
 app.use('/api/combined-metrics', isAuthenticated);
 app.get('/api/combined-metrics', (req, res) => {
   const cm = require('./modules/combinedMetrics');
-  res.json({ definitions: cm.loadDefinitions(), status: cm.getCombinedStatus(), functions: cm.FNS });
+  res.json({ definitions: cm.loadDefinitions(), status: cm.getCombinedStatus(), functions: cm.FNS, auto_labels: cm.autoLabels() });
 });
 app.post('/api/combined-metrics', (req, res) => {
   const cm = require('./modules/combinedMetrics');
@@ -746,6 +746,12 @@ app.post('/api/combined-metrics', (req, res) => {
     if (def.weights) def.weights = def.weights.map(Number);
     for (const k of ['factor', 'offset', 'start', 'stale_seconds']) if (def[k] !== undefined) def[k] = Number(def[k]);
     if (typeof def.note === 'string') def.note = def.note.slice(0, 200);
+    // Names shown for the inputs on cards that list the parts: { input: label }, only for inputs in use.
+    if (raw.labels && typeof raw.labels === 'object' && !Array.isArray(raw.labels)) {
+      const labels = {};
+      for (const input of def.inputs) { const l = typeof raw.labels[input] === 'string' ? raw.labels[input].trim().slice(0, 40) : ''; if (l) labels[input] = l; }
+      if (Object.keys(labels).length) def.labels = labels;
+    }
     const errors = cm.validateDefinition(def, clean);
     if (errors.length) return res.status(400).json({ error: `${def.name || 'A combined metric'}: ${errors[0]}`, errors });
     clean.push(def);

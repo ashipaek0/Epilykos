@@ -1256,6 +1256,7 @@ function buildSimpleForm(block) {
       html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="et-pick" data-key="' + t[0] + '" id="modal-et-' + t[0] + '"' + (etPicked.indexOf(t[0]) !== -1 ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-et-' + t[0] + '">' + t[1] + '</label></span>';
     });
     html += '</div>';
+    html += buildBreakdownFields(cfg);
   } else if (block.type === 'energy-tabs') {
     var etTabs = Array.isArray(cfg.tabs) && cfg.tabs.length ? cfg.tabs : [{ type: 'energy-day' }, { type: 'energy-flows' }, { type: 'energy-costs' }];
     var etTypes = [['', 'No tab'], ['energy-day', 'Energy day'], ['energy-flows', 'Energy flows'], ['energy-costs', 'Costs and earnings'], ['energy-totals', 'Day totals']];
@@ -1266,6 +1267,7 @@ function buildSimpleForm(block) {
       html += '<div data-ui="card"><div data-ui="grid2"><label data-ui="field">Tab ' + (eti + 1) + ' <select id="modal-etab-type-' + eti + '" data-ui="input">' + etTypes.map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === (et.type || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>';
       html += '<label data-ui="field">Name <input type="text" id="modal-etab-label-' + eti + '" value="' + escHtml(et.label || '') + '" placeholder="Card name" data-ui="input"></label></div></div>';
     }
+    html += buildBreakdownFields(cfg) + '<p data-ui="help">Applies to the Day totals tab.</p>';
   } else if (block.type === 'system-overview') {
     var soExtras = Array.isArray(cfg.extras) ? cfg.extras : [];
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
@@ -2174,6 +2176,7 @@ function readSettingsForm(block) {
         var etKeys = Array.from(document.querySelectorAll('.et-pick')).filter(function(el) { return el.checked; }).map(function(el) { return el.dataset.key; });
         if (!etKeys.length) return 'Pick at least one value to show.';
         config.show = etKeys;
+        readBreakdownFields(config);
       }
       if (type === 'energy-tabs') {
         var etOut = [], etPrior = Array.isArray(config.tabs) ? config.tabs : [];
@@ -2186,6 +2189,7 @@ function readSettingsForm(block) {
         }
         if (!etOut.length) return 'Pick at least one tab.';
         config.tabs = etOut;
+        readBreakdownFields(config);
       }
       if (type === 'system-overview') {
         readBreakdownFields(config);

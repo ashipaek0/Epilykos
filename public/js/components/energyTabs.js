@@ -47,7 +47,7 @@ export function buildEnergyTabs(block = {}) {
     const panel = panels[i];
     if (!panel.firstChild) {
       const t = tabs[i];
-      panel.appendChild(TAB_CARDS[t.type].build({ id: `${block.id || 'tabs'}-tab${i}`, type: t.type, config: { ...(t.config || {}), hideTitle: true } }));
+      panel.appendChild(TAB_CARDS[t.type].build({ id: `${block.id || 'tabs'}-tab${i}`, type: t.type, config: { ...(t.config || {}), hideTitle: true, breakdown: (block.config || {}).breakdown, breakdown_depth: (block.config || {}).breakdown_depth } }));
     }
     // The card's own controls (day buttons, Hide forecast) line up with the tab bar.
     card.style.setProperty('--etabs-row-top', `${card.querySelector('.etabs-list').offsetTop}px`);

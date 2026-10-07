@@ -41,10 +41,45 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
       { id: 'f', name: 'off_total', unit: 'W', fn: 'sum', inputs: ['x', 'y'], enabled: false }]));
     database.setConfig('role_metrics', JSON.stringify({ solar: 'total_pv', battery_soc: 'avg_soc', consumption: 'load' }));
     const b = cm.buildBreakdowns();
-    assert.deepStrictEqual(Object.keys(b.metrics).sort(), ['avg_soc', 'inv1_pv', 'inv2_pv', 'total_pv'], 'energy and disabled metrics have no parts to show');
+    assert.deepStrictEqual(Object.keys(b.metrics).sort(), ['avg_soc', 'inv1_pv', 'inv2_pv', 'pv_today', 'total_pv'], 'disabled metrics have no parts; energy today from a sum does');
+    assert.deepStrictEqual(b.metrics.pv_today.parts.map(p => [p.label, p.value]), [['Phocos 1', 0], ['Phocos 2', 0]], 'no kWh counted yet');
     assert.deepStrictEqual(b.metrics.total_pv.parts.map(p => p.label), ['Phocos 1', 'Phocos 2']);
     assert.deepStrictEqual(b.metrics.total_pv.parts[0].parts.map(p => p.metric), ['inv1_pv1_power', 'inv1_pv2_power']);
     assert.deepStrictEqual(b.roles, { solar: 'total_pv', battery_soc: 'avg_soc' });
+  });
+
+  await check('energy today from a sum: today\'s kWh per part, nested parts too, adding up to the total', () => {
+    const t0 = Math.floor(Date.now() / 1000) - 120;
+    const ins = database.getDb().prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+    database.setConfig('combined_metrics', JSON.stringify([
+      { id: 'a', name: 'inv1_pv', unit: 'W', fn: 'sum', inputs: ['inv1_pv1_power', 'inv1_pv2_power'] },
+      { id: 'c', name: 'total_pv', unit: 'W', fn: 'sum', inputs: ['inv1_pv', 'inv2_pv_power'] },
+      { id: 'e', name: 'pv_today', unit: 'kWh', fn: 'energy_today', inputs: ['total_pv'] }]));
+    database.setConfig('combined_metrics_state', '{}');
+    for (let k = 0; k <= 4; k++) {
+      const t = t0 + k * 30;
+      for (const [m, v] of [['inv1_pv1_power', 1200], ['inv1_pv2_power', 600], ['inv2_pv_power', 1800]]) ins.run(m, v, t);
+      cm.runCombinedMetrics(t);
+    }
+    database.flushMetrics();
+    const b = cm.buildBreakdowns().metrics.pv_today;
+    assert.strictEqual(b.unit, 'kWh');
+    // 2 minutes: 1800 W -> 0.06 kWh; 1200 W -> 0.04; 600 W -> 0.02
+    assert.deepStrictEqual(b.parts.map(p => p.value), [0.06, 0.06]);
+    assert.deepStrictEqual(b.parts[0].parts.map(p => p.value), [0.04, 0.02]);
+    const total = database.getDb().prepare('SELECT value FROM latest_metrics WHERE metric = ?').get('pv_today').value;
+    assert.ok(Math.abs(total - 0.12) < 1e-6, `total ${total}`);
+  });
+
+  await check('labels: saved only for inputs in use; automatic ones sent for the editor', () => {
+    const srv = read('server.js');
+    assert.match(srv, /for \(const input of def\.inputs\) \{ const l = typeof raw\.labels\[input\] === 'string' \? raw\.labels\[input\]\.trim\(\)\.slice\(0, 40\)/);
+    assert.match(srv, /auto_labels: cm\.autoLabels\(\)/);
+    assert.deepStrictEqual(Object.keys(cm.autoLabels().c), ['inv1_pv', 'inv2_pv_power']);
+    assert.strictEqual(cm.autoLabels().c.inv1_pv, 'Phocos 1', 'from the source name, ignoring custom labels');
+    const ui = read('public/js/combined-metrics.js');
+    assert.match(ui, /class="input cm-lbl" data-input="/); assert.match(ui, /if \(Object\.keys\(labels\)\.length\) d\.labels = labels; else delete d\.labels;/);
+    assert.match(read('public/settings.html'), /combined-metrics\.js\?v=2/);
   });
 
   // Load the card helper and its imports as ES modules.
@@ -82,15 +117,24 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(read('public/js/components/breakdown.js'), /mode === 'off' \? \[\] : nodeRows/);
   });
 
-  await check('all five flow cards use it; the editor offers it; state carries it', () => {
-    for (const f of ['systemTopology', 'flowCard', 'flowCardSquare', 'flowCardSquare2', 'systemOverview']) {
+  await check('cards: energy parts use the kWh sent with them', () => {
+    const st = { breakdowns: { metrics: { pv_today: { fn: 'energy_today', unit: 'kWh', parts: [{ metric: 'a', label: 'East', value: 1.234 }, { metric: 'b', label: 'West', value: 0 }] } }, roles: { daily_solar: 'pv_today' } }, metrics: {} };
+    assert.deepStrictEqual(bd.nodeRows(st, [{ name: 'daily_solar', format: bd.kwhFormat }]), [{ label: 'East', value: '1.23 kWh' }, { label: 'West', value: '0 kWh' }]);
+  });
+
+  await check('all flow cards and Energy totals use it; the editor offers it; state carries it', () => {
+    const et = read('public/js/components/energyTotals.js');
+    assert.match(et, /specs: \[\{ name: `daily_\$\{t\.field\}`, format: kwhFormat \}\]/, 'each tile follows its daily role');
+    assert.match(read('public/js/cards-update.js'), /blockTypes\.has\('energy-totals'\) \|\| blockTypes\.has\('energy-tabs'\)\) updateEnergyTotalsFromState\(state\)/);
+    assert.match(read('public/js/components/energyTabs.js'), /breakdown: \(block\.config \|\| \{\}\)\.breakdown/, 'the tabbed card passes its setting to Day totals');
+    for (const f of ['systemTopology', 'flowCard', 'flowCardSquare', 'flowCardSquare2', 'systemOverview', 'energyTotals']) {
       const src = read(`public/js/components/${f}.js`);
       assert.match(src, /markBreakdown\((card|container), config\)/, `${f} keeps the setting`);
       assert.match(src, /applyBreakdowns\((card|container), (state|dashboardState), \[/, `${f} draws the parts`);
     }
     const ed = read('public/js/editor.js');
-    assert.strictEqual((ed.match(/html \+= buildBreakdownFields\(cfg\)/g) || []).length, 3, 'flow card, topology/squares and overview forms');
-    assert.strictEqual((ed.match(/^\s+readBreakdownFields\(config\);/gm) || []).length, 3);
+    assert.strictEqual((ed.match(/html \+= buildBreakdownFields\(cfg\)/g) || []).length, 5, 'flow card, topology/squares, overview, Energy totals and the tabbed card');
+    assert.strictEqual((ed.match(/^\s+readBreakdownFields\(config\);/gm) || []).length, 5);
     assert.match(read('routes/metrics.js'), /breakdowns: safeBreakdowns\(\)/);
     assert.match(read('public/js/dashboard.js'), /'dailyEnergyBar', 'breakdowns',/, 'a delta with breakdowns updates in place');
     assert.match(read('public/js/components/flowCardSquare.js'), /grid: mm\.grid \|\| mm\.grid_import/, 'square reads the slot names the editor saves');
