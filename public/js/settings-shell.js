@@ -150,7 +150,7 @@
 
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
-    sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Savings',
+    sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings',
     appearance: 'Appearance', uploads: 'Uploads', network: 'Network', backup: 'Backup and restore', help: 'Help'
   };
   var SAVABLE = ['sources', 'metrics', 'forecast', 'savings', 'appearance', 'uploads', 'network'];
