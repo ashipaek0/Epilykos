@@ -18,6 +18,7 @@ import { formatMetric, formatEntry } from './format.js';
 import { icon } from '../editor-catalog.js';
 import { getSharedForecastData } from '../forecast.js';
 import { iconHtml } from '../weatherFormat.js';
+import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat } from './breakdown.js';
 
 const FLOW_MIN_W = 20;          // below this a line is drawn idle
 const STALE_MS = 5 * 60 * 1000; // data older than this marks the status as delayed
@@ -54,6 +55,7 @@ export function buildSystemOverview(block = {}) {
   const card = document.createElement('div');
   card.className = 'system-overview-card';
   card.dataset.blockId = block.id || '';
+  markBreakdown(card, config);
   card.dataset.extras = JSON.stringify(extras);
   if (split) card.dataset.pv = JSON.stringify({ inverter: pv.inverter, charger: pv.charger });
   const image = typeof config.inverter_image === 'string' && /^(https?:\/\/|\/)/i.test(config.inverter_image) ? config.inverter_image : '';
@@ -220,6 +222,14 @@ export function updateSystemOverview(dashboardState) {
         : gridW > FLOW_MIN_W ? 'Passthrough' : solarW > FLOW_MIN_W ? 'Solar' : 'Idle';
       card.querySelector('.so-hub-state').textContent = hubState;
       card.querySelector('.so-inverter').textContent = hubState;   // shown in the strip on narrow cards, where the hub is hidden
+      // Tiles follow the roles, so their parts come from the roles' combined totals.
+      const t = k => card.querySelector(`.so-tile[data-tile="${k}"]`);
+      applyBreakdowns(card, dashboardState, [
+        { host: t('grid'), title: 'Grid', specs: [{ name: 'grid_import', unit: 'W' }, { name: 'grid_export', format: exportFormat }] },
+        { host: t('battery'), title: 'Battery', specs: [{ name: 'battery_soc', unit: '%' }, { name: 'battery_charge', format: chargeFormat }, { name: 'battery_discharge', format: dischargeFormat }] },
+        { host: t('solar'), title: 'Solar', specs: [{ name: 'solar', unit: 'W' }] },
+        { host: t('home'), title: 'Home', specs: [{ name: 'consumption', unit: 'W' }] }
+      ]);
       applyFlows(card, c);
       tick(card);
     }

@@ -157,8 +157,15 @@ async function buildDashboardState() {
     gridHours,
     gridTimeline,
     powerHistory,
-    dailyEnergyBar
+    dailyEnergyBar,
+    breakdowns: safeBreakdowns()
   };
+}
+
+// The parts behind combined totals, for cards that can show them (never fails the state).
+function safeBreakdowns() {
+  try { return require('../modules/combinedMetrics').buildBreakdowns(); }
+  catch (err) { logger.warn('[dashboard] breakdowns unavailable:', err.message); return { metrics: {}, roles: {} }; }
 }
 
 router.get('/public-config', async (req, res) => {
