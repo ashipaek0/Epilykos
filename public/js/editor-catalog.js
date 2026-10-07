@@ -105,6 +105,7 @@ export const BLOCKS = {
   'chart-power':        { group: 'charts', name: 'Power chart', desc: 'Solar, load, battery and grid power over time', icon: 'chartLine', w: 12, h: 6 },
   'chart-energy':       { group: 'charts', name: 'Energy chart', desc: 'Daily solar, grid and load energy as bars', icon: 'chartArea', w: 12, h: 6 },
   'energy-day':         { group: 'charts', name: 'Energy day', desc: 'Hourly consumption and solar with forecast, and battery charge', icon: 'chartArea', w: 12, h: 7 },
+  'energy-flows':       { group: 'charts', name: 'Energy flows', desc: 'Where each hour\'s energy came from and went: solar, battery, grid, home', icon: 'stack', w: 12, h: 6 },
   'chart-metric':       { group: 'charts', name: 'Metric chart', desc: 'Any metrics over time, with units and scale', icon: 'diamond', w: 12, h: 6 },
   'data-table-daily':   { group: 'charts', name: 'Daily table', desc: 'Day-by-day energy totals', icon: 'table', w: 12, h: 6 },
   'data-table-monthly': { group: 'charts', name: 'Monthly table', desc: 'Month-by-month energy totals', icon: 'calendar', w: 12, h: 6 },
