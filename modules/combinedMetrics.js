@@ -192,8 +192,94 @@ function runCombinedMetrics(now = Math.floor(Date.now() / 1000)) {
   return { written, cyclic };
 }
 
+// ── Breakdowns: the parts behind a combined total, for cards that show them ──
+const SPLITTABLE = new Set(['sum', 'mean', 'weighted_mean']);
+const MAX_DEPTH = 4;
+
+function parseList(key) { try { const v = JSON.parse(getConfig(key) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
+
+/**
+ * Which source writes a metric: from each source's own mappings first, then by
+ * its metric prefix. Returns (metric) => { name, prefix } or null.
+ */
+function sourceLookup() {
+  const owners = new Map(), prefixes = [];
+  for (const key of ['dongle_config', 'modbus_devices', 'rs232_devices']) {
+    for (const d of parseList(key)) {
+      if (!d || !d.name) continue;
+      const src = { name: String(d.name).trim(), prefix: String(d.prefix || '').trim() };
+      for (const m of Object.keys(d.mappings && typeof d.mappings === 'object' ? d.mappings : {})) if (!owners.has(m)) owners.set(m, src);
+      if (src.prefix) prefixes.push(src);
+    }
+  }
+  for (const d of parseList('bms_devices')) {
+    if (d && d.name) prefixes.push({ name: String(d.name).trim(), prefix: `bms_${d.name}_`.replace(/[^a-zA-Z0-9_]/g, '_') });
+  }
+  prefixes.sort((a, b) => b.prefix.length - a.prefix.length);
+  return m => owners.get(m) || prefixes.find(x => m.startsWith(x.prefix)) || null;
+}
+
+const UPPER = /^(pv|mppt|ac|dc|l|bms|soc)\d*$/i;
+function humanise(tokens) {
+  return tokens.map((t, i) => (UPPER.test(t) ? t.toUpperCase() : i === 0 ? t.charAt(0).toUpperCase() + t.slice(1) : t)).join(' ');
+}
+
+/**
+ * Short labels for sibling parts: the source name when they come from
+ * different sources, plus whatever tells them apart within one source
+ * (inv1_pv1_power, inv1_pv2_power -> "PV1", "PV2"; across two inverters
+ * "Phocos 1 PV1" ...). Words every part shares ("power") are left out.
+ */
+function partLabels(metrics, sourceOf = () => null, custom = {}) {
+  const split = metrics.map(m => {
+    const p = sourceOf(m);
+    const rest = p && p.prefix && m.startsWith(p.prefix) ? m.slice(p.prefix.length) : m;
+    return { source: p ? p.name : '', tokens: rest.split(/[_\s.]+/).filter(Boolean) };
+  });
+  const common = split.length > 1 ? split[0].tokens.filter(t => split.every(s => s.tokens.includes(t))) : [];
+  const manySources = new Set(split.map(s => s.source)).size > 1;
+  return metrics.map((m, i) => {
+    if (custom[m]) return String(custom[m]);
+    const s = split[i];
+    const rest = humanise(s.tokens.filter(t => !common.includes(t)));
+    const label = [manySources || !rest ? s.source : '', rest].filter(Boolean).join(' ');
+    return label || humanise(s.tokens) || m;
+  });
+}
+
+/**
+ * { metrics: { [combined name]: { fn, unit, parts: [{ metric, label, parts? }] } },
+ *   roles: { [role]: combined name } } for enabled sums and averages. A part
+ * that is itself a combined sum or average carries its own parts.
+ */
+function buildBreakdowns() {
+  const defs = loadDefinitions().filter(d => d && d.enabled !== false && SPLITTABLE.has(d.fn) && validateDefinition(d).length === 0);
+  if (!defs.length) return { metrics: {}, roles: {} };
+  const byName = new Map(defs.map(d => [String(d.name).trim(), d]));
+  const sourceOf = sourceLookup();
+  const tree = (def, depth, seen) => {
+    const inputs = def.inputs.map(s => String(s).trim()).filter(Boolean);
+    const labels = partLabels(inputs, sourceOf, def.labels && typeof def.labels === 'object' ? def.labels : {});
+    return inputs.map((metric, i) => {
+      const part = { metric, label: labels[i] };
+      const sub = byName.get(metric);
+      if (sub && depth < MAX_DEPTH && !seen.has(metric)) part.parts = tree(sub, depth + 1, new Set([...seen, metric]));
+      return part;
+    });
+  };
+  const metrics = {};
+  for (const d of defs) {
+    const name = String(d.name).trim();
+    metrics[name] = { fn: d.fn, unit: d.unit || '', parts: tree(d, 1, new Set([name])) };
+  }
+  let roleMap = {}; try { roleMap = JSON.parse(getConfig('role_metrics') || '{}') || {}; } catch (_) { roleMap = {}; }
+  const roles = {};
+  for (const [role, name] of Object.entries(roleMap)) if (typeof name === 'string' && metrics[name.trim()]) roles[role] = name.trim();
+  return { metrics, roles };
+}
+
 let lastStatus = {};
 /** What each definition did on the last cycle: { [id]: { ok, value | reason, at } }. */
 function getCombinedStatus() { return lastStatus; }
 
-module.exports = { MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
+module.exports = { buildBreakdowns, partLabels, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
