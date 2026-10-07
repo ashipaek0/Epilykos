@@ -114,7 +114,7 @@ check('Sources links to Combined metrics; the wizard offers energy from power', 
   assert.match(wz, /\{ power: 'solar', daily: 'daily_solar', name: 'solar_energy_today'/);
   assert.match(wz, /fn: 'energy_today', inputs: \[map\[o\.power\]\]/);
   assert.match(wz, /map\[o\.daily\] = o\.name/);
-  assert.match(wz, /return saveEnergyOffers\(map\)\.then/);
+  assert.match(wz, /saveCombineOffers\(map\)\.then\(function \(ok\) \{ return ok \? saveEnergyOffers\(map\) : false; \}\)/, 'inverter totals first, then energy from them');
 });
 check('any number of inverters: 64 inputs allowed, 65 refused plainly, duplicates refused', () => {
   const many = n => Array.from({ length: n }, (_, i) => `inv${i + 1}_pv_power`);
@@ -130,5 +130,23 @@ check('editor: add all metrics that match a name or pattern', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/combined-metrics.js'), 'utf8');
   assert.match(js, /id="cm-match"/); assert.match(js, /function matchNames\(text\)/); assert.match(js, /q\.split\('\*'\)/);
   assert.match(js, /\(isRecent\(m\) \? ' checked' : ''\)/, 'metrics without recent readings start unticked');
+});
+check('wizard: any number of inverters like the first, kept sources, totals across inverters', () => {
+  const wz = fs.readFileSync(path.join(__dirname, '..', 'public/js/setup.js'), 'utf8');
+  assert.match(wz, /function moreInvertersHtml\(kind\)/); assert.match(wz, /action === 'add-inverter'/);
+  assert.match(wz, /var MORE_KINDS = \['dongle', 'modbusTcp', 'modbusSerial', 'rs232'\]/, 'not just the dongle / Bluetooth card');
+  for (const k of ['dongle', 'rs232', 'modbusSerial', 'modbusTcp']) assert.match(wz, new RegExp(`moreInvertersHtml\\('${k}'\\)`), `${k} card offers more inverters`);
+  assert.match(wz, /return withExtras\('rs232', buildRS232Device\(\)\)/); assert.match(wz, /withExtras\('modbusSerial', \{/); assert.match(wz, /withExtras\('modbusTcp', \{/);
+  assert.match(wz, /function withPrefix\(mappings, from, to\)/);
+  assert.match(wz, /return out\.concat\(state\.keep\.dongle_config \|\| \[\]\)/, 'inverters on other profiles kept');
+  assert.match(wz, /would read the same inverter twice/, 'two rows pointing at one inverter refused');
+  assert.match(wz, /Object\.keys\(bySrc\)\.forEach\(function \(k\) \{ bySrc\[k\] = asArray\(bySrc\[k\]\); \}\)/, 'saved lists parsed once, so the first Modbus unit is recognised');
+  const all = /'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources'\]/;
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'routes/auth.js'), 'utf8'), all, 'Modbus, BMS and REST count as a data source');
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), all, 'Start fresh clears every kind of source');
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'modules/modbus.js'), 'utf8'), /\(device\.prefix \|\| ''\) \+ reg\.metric/, 'Modbus honours the prefix without mappings');
+  assert.match(wz, /ha_devices: JSON\.stringify\(withKept\('ha_devices'/, 'a second Home Assistant etc. kept');
+  assert.match(wz, /function combineOffers\(\)/); assert.match(wz, /\['battery_soc', 'Battery charge \(%\)', 'mean', '%'\]/);
+  assert.match(wz, /have the same prefix, so their readings would overwrite each other/);
 });
 console.log(`combined-metrics: ${passed} checks passed`);

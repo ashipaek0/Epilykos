@@ -118,7 +118,7 @@ async function pollModbus() {
               }
             }
             const value = reg.scale ? raw * reg.scale : raw;
-            const metricName = addrToMetric ? addrToMetric[String(reg.address)] : reg.metric;
+            const metricName = addrToMetric ? addrToMetric[String(reg.address)] : (device.prefix || '') + reg.metric;
             if (metricName) results[metricName] = value;
           }
         } catch (err) { logger.error(`Modbus read error at ${startAddr}:`, err.message); }
