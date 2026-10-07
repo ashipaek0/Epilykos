@@ -2164,3 +2164,15 @@ details.help-sub.help-hidden { display: none; }
 /* Cards with lines or sparklines behind the text: keep the parts readable above them. */
 .so-tile .bd-list, .fcs2-info .bd-list { position: relative; z-index: 1; }
 .so-tile .bd-list li, .fcs2-info .bd-list li { background: var(--card-bg); border-radius: 4px; padding: 0 3px; margin: 0 -3px; }
+/* Gauges and stat cards */
+.bar-gauge-row > .bd-list, .bg-retro-row > .bd-list { grid-column: 1 / -1; max-width: none; margin-top: 0; padding-left: min(28%, 6em); box-sizing: border-box; }
+.ep-gauge > .bd-list, .configurable-gauge-card > .bd-list { margin: 0.2rem auto 0; padding: 0 0.6rem; box-sizing: border-box; }
+.dual-metric-pane > .bd-list { margin-inline: auto; }
+/* Metric trend: the parts get their own row between the value and the graph's label. */
+.metric-trend-body:has(> .bd-list) { grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-areas: "readout" "parts" "context" "graph"; }
+.metric-trend-body > .bd-list { grid-area: parts; z-index: 1; margin: 0.15rem 0 0.25rem; }
+/* Configurable gauge: the dial shrinks to leave room for the listed parts. */
+.configurable-gauge-card:has(> .bd-list) .configurable-gauge-viz {
+  width: min(100cqw - 2 * var(--card-pad), var(--cg-size, 400px), 100cqh - 2 * var(--card-pad) - 1.6em - (var(--bd-rows, 0) * 1rem + 0.5rem));
+}
+.configurable-gauge-card > .bd-list { flex-shrink: 0; }

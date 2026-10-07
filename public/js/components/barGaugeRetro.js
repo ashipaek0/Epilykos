@@ -5,6 +5,7 @@
  */
 import { escapeHtml, isNumericValue } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
+import { markBreakdown, applyBreakdowns } from './breakdown.js';
 export function buildBarGaugeRetro(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
@@ -13,6 +14,7 @@ export function buildBarGaugeRetro(block = {}) {
   const container = document.createElement('div');
   container.className = 'bar-gauge-retro-card ep-card';
   container.dataset.blockId = id;
+  markBreakdown(container, config);
   container.dataset.metricMap = JSON.stringify(rows);
 
   let html = '';
@@ -41,6 +43,7 @@ export function updateBarGaugeRetro(state) {
     try { rows = JSON.parse(container.dataset.metricMap); } catch (e) { return; }
     const id = container.dataset.blockId || '';
     const m = state.metrics || {};
+    applyBreakdowns(container, state, rows.map((cfg, i) => ({ host: container.querySelector(`.bg-retro-row[data-bgidx="${i}"]`), title: cfg.label || cfg.metric, specs: [{ name: cfg.metric, unit: cfg.unit }] })));
 
     rows.forEach((cfg, i) => {
       if (!cfg.metric) return;

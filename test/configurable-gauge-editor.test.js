@@ -20,7 +20,7 @@ function functionSource(name) {
 }
 const fields = {};
 let thresholdRows = [];
-const context = {
+const context = { BREAKDOWN_VALUE_TYPES: [], buildBreakdownFields: () => '', readBreakdownFields: () => {},
   document: {
     getElementById(id) { return fields[id] || null; },
     querySelectorAll(selector) { return selector === '#cg-threshold-rows [data-ui="row"]' ? thresholdRows : []; }
