@@ -2,6 +2,7 @@ import { normalizeMetricTrendConfig, trendValueFromState, formatTrendValue, hist
 import { getSharedForecastData } from '../forecast.js';
 import { icon as renderIcon } from '../editor-catalog.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const REQUEST_TTL = 30_000;
@@ -28,6 +29,7 @@ function setStyle(el, property, value) { if (value !== '' && value != null) el.s
 function makeNode(tag, className, text) { const el=document.createElement(tag); el.className=className; if(text!=null)el.textContent=text; return el; }
 export function buildMetricTrendCard(block = {}) {
   const c=normalizeMetricTrendConfig(block.config), root=document.createElement('article');
+  if(c.value.source==='metric'&&!c.value.metric)return emptyBlock(undefined,block.id);
   root.className='metric-trend-card stat-card'; root.dataset.blockId=block.id||''; markBreakdown(root,block.config); root.dataset.config=JSON.stringify(c); root.dataset.instanceId=`metric-trend-${++sequence}`;
   root.style.minWidth='0'; root.style.overflow='hidden'; root.style.boxSizing='border-box'; root.style.borderRadius=`${c.style.radius}px`; root.style.padding='0'; root.style.display='flex'; root.style.flexDirection='column';
   if(c.style.padding)root.style.setProperty('--metric-trend-padding',`${c.style.padding}px`);

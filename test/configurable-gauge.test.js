@@ -78,7 +78,7 @@ const fs = require('fs'), path = require('path'), assert = require('assert');
     const componentPath = path.join(__dirname, '../public/js/components/configurableGaugeCard.js');
     let componentSource = fs.readFileSync(componentPath, 'utf8');
     const logicUrl = 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-    componentSource = componentSource.replace("'./configurableGaugeLogic.js'", `'${logicUrl}'`).replace("import { formatMetric } from './format.js';", 'const formatMetric = () => "";').replace("import { markBreakdown, applyBreakdowns } from './breakdown.js';", 'const markBreakdown = () => {}, applyBreakdowns = () => {};');
+    componentSource = componentSource.replace("'./configurableGaugeLogic.js'", `'${logicUrl}'`).replace("import { formatMetric } from './format.js';", 'const formatMetric = () => "";').replace("import { markBreakdown, applyBreakdowns } from './breakdown.js';", 'const markBreakdown = () => {}, applyBreakdowns = () => {};').replace("import { emptyBlock } from './emptyState.js';", 'const emptyBlock = () => ({ empty: true });');
     const componentUrl = 'data:text/javascript;base64,' + Buffer.from(componentSource).toString('base64');
     const gauge = await import(componentUrl);
     const colors = ['#e11', '#1a2', '#33f'];

@@ -89,7 +89,7 @@ export const BLOCKS = {
   'dual-metric':        { group: 'values', name: 'Dual metric', desc: 'Compare two live metric values side by side', icon: 'cards', w: 4, h: 3 },
   'multi-value':        { group: 'values', name: 'Multi-value list', desc: 'Label, value and unit rows', icon: 'list', w: 4, h: 4 },
   'text-metric':        { group: 'values', name: 'Text metric', desc: "One metric's current value as text", icon: 'text', w: 4, h: 2 },
-  'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 4, h: 4 },
+  'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 6, h: 6 },
   'energy-totals':      { group: 'values', name: 'Day totals', desc: 'Energy to and from the grid, consumption and solar today, against forecast', icon: 'cards', w: 12, h: 3 },
   'savings-summary':    { group: 'values', name: 'Savings', desc: 'Savings today, this week, month and all time', icon: 'coin', w: 4, h: 4 },
 
@@ -120,7 +120,7 @@ export const BLOCKS = {
   'weather-block':      { group: 'forecast', name: 'Weather', desc: 'Conditions, forecast and alerts', icon: 'cloud', w: 6, h: 5 },
 
   'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns a Home Assistant entity on or off', icon: 'toggle', w: 3, h: 2 },
-  'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity', icon: 'select', w: 4, h: 2 },
+  'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity', icon: 'select', w: 4, h: 3 },
 
   'text-card':          { group: 'content', name: 'Text', desc: 'A note or heading you write', icon: 'text', w: 6, h: 2 },
   'iframe-card':        { group: 'content', name: 'Embed', desc: 'Another web page in a frame', icon: 'embed', w: 6, h: 6 }

@@ -13,6 +13,7 @@ import { updatePvToday } from './components/pvToday.js';
 import { ensureChartJS } from './chartLoader.js';
 import { escapeHtml } from './utils.js';
 import { fmtTemp, fmtKwh, fmtNum, dayLabel, localDate, iconHtml } from './weatherFormat.js';
+import { forecastProblem } from './forecastProblem.js';
 
 const charts = new Set();
 export function clearSparklineCharts() {
@@ -303,7 +304,7 @@ export async function updateForecast() {
       card.classList.toggle('fc-failed', !!failed && !card._fcRendered);
       if (failed) {
         const lastGood = lastGoodBySource[g.src];
-        setCardError(card, `Source ${label || g.src} unavailable${lastGood ? ` — last good ${lastGood}` : ''}${data && typeof data.error === 'string' ? ` (${data.error})` : ''}`);
+        setCardError(card, forecastProblem({ label, error: data && typeof data.error === 'string' ? data.error : 'unavailable', lastGood }));
         continue;
       }
       setCardError(card, '');

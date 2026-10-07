@@ -7,11 +7,13 @@ import { escapeHtml, isNumericValue } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { arcPath, gaugeSvg, setArc, negativeColor } from './gaugeArc.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 
 export function buildHalfGauge2Card(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const metric = config.metric || '';
+  if (!metric) return emptyBlock(undefined, block.id);
   const min = config.min ?? -100;
   const max = config.max ?? 100;
   const color = config.color || 'var(--color-solar)';
