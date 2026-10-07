@@ -1370,6 +1370,12 @@ app.post('/api/settings', (req, res) => {
       }
       filteredUpdates[key] = value;
     }
+    if (filteredUpdates.dongle_config !== undefined) {
+      let devices = filteredUpdates.dongle_config;
+      if (typeof devices === 'string') { try { devices = JSON.parse(devices || '[]'); } catch (_) { devices = []; } }
+      const clash = require('./modules/sourceChecks').dongleNameClash(devices);
+      if (clash) return res.status(400).json({ error: clash });
+    }
     const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
     const saved = [];
     for (const [key, value] of Object.entries(filteredUpdates)) {
