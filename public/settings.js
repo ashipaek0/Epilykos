@@ -4747,6 +4747,7 @@ if (forecastTestBtn) {
       const params = {
         lat: document.getElementById('solar-latitude')?.value || '',
         lon: document.getElementById('solar-longitude')?.value || '',
+        arrays: document.getElementById('solar-arrays')?.value || '',
         capacity: document.getElementById('solar-capacity')?.value || '',
         tilt: document.getElementById('solar-tilt')?.value || '30',
         azimuth: document.getElementById('solar-azimuth')?.value || '180',
@@ -4757,7 +4758,7 @@ if (forecastTestBtn) {
       };
       const res = await fetch('/api/test-forecast', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
-      if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
+      if (res.ok) showStatus(statusEl, `✅ ${data.source}${data.arrays > 1 ? ` (${data.arrays} arrays, ${data.capacity_kwp} kWp)` : ''}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
       else showStatus(statusEl, `❌ ${data.error}`, 'error');
     } catch (e) {
       showStatus(statusEl, `❌ Error: ${e.message}`, 'error');

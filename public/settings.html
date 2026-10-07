@@ -262,10 +262,15 @@
             </div>
             <div class="st-inline-actions"><button type="button" class="st-btn" id="st-use-location"><span data-icon="pin" data-size="16"></span>Use my location</button><span class="status" id="st-location-status" role="status"></span></div>
             <h2 class="st-card-subhead">Panels</h2>
-            <div class="st-grid-2">
-              <div class="st-field"><label for="solar-tilt">Tilt</label><div class="st-input-unit"><input id="solar-tilt" class="input" name="solar_tilt" type="number" min="0" max="90" step="any" value="30"><span>°</span></div><span class="st-help">0° is flat, 90° is vertical.</span></div>
-              <div class="st-field"><label for="solar-azimuth">Azimuth</label><div class="st-input-unit"><input id="solar-azimuth" class="input" name="solar_azimuth" type="number" min="0" max="360" step="any" value="180"><span>°</span></div><span class="st-help">Direction the panels face: 180° is south, 0° is north.</span></div>
-              <div class="st-field"><label for="solar-capacity">Peak capacity</label><div class="st-input-unit"><input id="solar-capacity" class="input" name="solar_capacity_kwp" type="number" min="0" step="any"><span>kWp</span></div></div>
+            <p class="st-help">Add each group of panels that has its own size, tilt or direction (for example an east and a west roof). The forecast works each one out and adds them up.</p>
+            <!-- Row controls stay out of the save bar check; changes reach it through the hidden fields below. -->
+            <div id="pv-arrays" class="pv-arrays" data-own-save></div>
+            <button type="button" class="st-btn" id="pv-add-array"><span data-icon="plus" data-size="16"></span>Add array</button>
+            <input type="hidden" id="solar-arrays" name="solar_arrays">
+            <input type="hidden" id="solar-capacity" name="solar_capacity_kwp">
+            <input type="hidden" id="solar-tilt" name="solar_tilt" value="30">
+            <input type="hidden" id="solar-azimuth" name="solar_azimuth" value="180">
+            <div class="st-grid-2" style="margin-top:14px">
               <div class="st-field"><label for="solar-loss-factor">Loss factor</label><input id="solar-loss-factor" class="input" name="solar_loss_factor" type="number" min="0" max="1" step="0.01" value="0.9"><span class="st-help">Share of rated output you actually get, from 0 to 1. 0.9 suits most systems.</span></div>
               <div class="st-field"><label for="solar-install-date">Installation date</label><input id="solar-install-date" class="input" name="solar_install_date" type="date"></div>
             </div>
@@ -276,7 +281,7 @@
             </div>
             <div class="st-grid-2" id="st-solcast-fields">
               <div class="st-field"><label for="solcast-api-key">Solcast API key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div>
-              <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your rooftop site in the Solcast toolkit.</span></div>
+              <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your rooftop site in the Solcast toolkit. If one site covers all your arrays, put it here; otherwise give each array its own above.</span></div>
             </div>
             <div class="st-inline-actions"><button type="button" id="test-forecast" class="st-btn">Test forecast</button><span id="forecast-test-status" class="test-status" role="status"></span></div>
           </div>
@@ -843,5 +848,6 @@
 <script src="js/catalog-ui.js?v=1"></script>
 <script src="js/settings-shell.js?v=1"></script>
 <script src="js/combined-metrics.js?v=1"></script>
+<script src="js/pv-arrays.js?v=1"></script>
 </body>
 </html>
