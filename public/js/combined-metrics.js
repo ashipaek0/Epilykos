@@ -117,7 +117,8 @@
       + '<div class="st-field"><label for="cm-unit">Unit</label><input id="cm-unit" class="input" value="' + esc(d.unit || '') + '" maxlength="12" placeholder="e.g. W, kWh, %"></div></div>'
       + '<div class="st-field"><label for="cm-fn">Calculation</label><select id="cm-fn" class="input">' + opts + '</select><span class="st-help">' + esc(info.help) + '</span></div>'
       + '<div class="st-field"><span class="cm-label">Inputs</span><ol class="cm-inputs">' + (inputs || '<li class="st-help">No inputs yet.</li>') + '</ol>'
-      + (full ? '' : '<select id="cm-add-input" class="input" aria-label="Add an input">' + metricOpts + '</select>') + '</div>'
+      + (full ? '' : '<select id="cm-add-input" class="input" aria-label="Add an input">' + metricOpts + '</select>'
+        + (info.single ? '' : '<div class="cm-match"><input id="cm-match" class="input" placeholder="Add all that match, e.g. pv_power or inv*_pv1_power" aria-label="Add all metrics whose name matches" autocomplete="off"><button type="button" class="st-btn" id="cm-find">Find</button></div><div id="cm-matches" class="cm-matches" hidden></div>')) + '</div>'
       + (d.fn === 'scale' ? '<div class="st-grid-2"><div class="st-field"><label for="cm-factor">Factor</label><input id="cm-factor" class="input" type="number" step="any" value="' + esc(d.factor == null ? 1 : d.factor) + '"></div><div class="st-field"><label for="cm-offset">Offset</label><input id="cm-offset" class="input" type="number" step="any" value="' + esc(d.offset == null ? 0 : d.offset) + '"></div></div>' : '')
       + (info.energy ? '<div class="st-grid-2"><div class="st-field"><label for="cm-iu">Input power is in</label><select id="cm-iu" class="input"><option value="W"' + (d.input_unit !== 'kW' ? ' selected' : '') + '>W</option><option value="kW"' + (d.input_unit === 'kW' ? ' selected' : '') + '>kW</option></select></div>'
         + (info.start ? '<div class="st-field"><label for="cm-start">Start at (kWh)</label><input id="cm-start" class="input" type="number" step="any" min="0" value="' + esc(d.start == null ? 0 : d.start) + '"></div>' : '') + '</div>' : '')
@@ -128,6 +129,30 @@
       + '<p class="st-help is-error" id="cm-error" role="alert" hidden></p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" id="cm-try">Preview</button><span class="cm-spacer"></span><button type="button" class="st-btn" id="cm-cancel">Cancel</button><button type="button" class="st-btn st-btn-primary" id="cm-save">Save</button></div>';
   }
+  // "Add all that match": part of a name, or a pattern with * (case-insensitive).
+  function matchNames(text) {
+    var q = String(text || '').trim(); if (!q) return [];
+    var re;
+    if (q.indexOf('*') !== -1) re = new RegExp('^' + q.split('*').map(function (p) { return p.replace(/[.+?^${}()|[\]\\]/g, '\\$&'); }).join('.*') + '$', 'i');
+    var d = state.editing.def, lower = q.toLowerCase();
+    return state.metrics.filter(function (m) {
+      if (m.name === d.name || (d.inputs || []).indexOf(m.name) !== -1) return false;
+      return re ? re.test(m.name) : m.name.toLowerCase().indexOf(lower) !== -1;
+    });
+  }
+  function isRecent(m) { var t = Number(m.timestamp); if (t > 1e12) t /= 1000; return t && Date.now() / 1000 - t < 3600; }
+  function showMatches() {
+    var box = $('cm-matches'); if (!box) return;
+    var found = matchNames($('cm-match').value);
+    box.hidden = false;
+    if (!found.length) { box.innerHTML = '<p class="st-help">No other metrics match.</p>'; return; }
+    box.innerHTML = '<p class="st-help">' + found.length + ' match' + (found.length === 1 ? '' : 'es') + '. Ones without a reading in the last hour are left unticked.</p>'
+      + '<div class="cm-match-list">' + found.map(function (m) {
+        return '<label class="cm-match-item"><input type="checkbox" class="cm-match-cb" value="' + esc(m.name) + '"' + (isRecent(m) ? ' checked' : '') + '> ' + esc(m.name)
+          + (isRecent(m) ? ' <span class="cm-unit">' + esc(fmt(m.value, m.unit || '')) + '</span>' : ' <span class="cm-unit">no recent reading</span>') + '</label>';
+      }).join('') + '</div><button type="button" class="st-btn st-btn-primary" id="cm-add-matches">Add ticked</button>';
+  }
+
   function readEditor() {
     var d = state.editing.def, v = function (id) { var el = $(id); return el ? el.value : undefined; };
     d.name = (v('cm-name') || '').trim(); d.unit = (v('cm-unit') || '').trim();
@@ -160,6 +185,15 @@
     if (t.classList.contains('cm-rm')) { readEditor(); var k = Number(t.closest('.cm-input').dataset.k); d.inputs.splice(k, 1); if (d.weights) d.weights.splice(k, 1); renderEditor(); return; }
     if (t.classList.contains('cm-up')) { readEditor(); var j = Number(t.closest('.cm-input').dataset.k); d.inputs.splice(j - 1, 0, d.inputs.splice(j, 1)[0]); if (d.weights) d.weights.splice(j - 1, 0, d.weights.splice(j, 1)[0]); renderEditor(); return; }
     if (t.id === 'cm-cancel') { closeEditor(); return; }
+    if (t.id === 'cm-find') { showMatches(); return; }
+    if (t.id === 'cm-add-matches') {
+      readEditor();
+      var picked = Array.from(document.querySelectorAll('#cm-matches .cm-match-cb:checked')).map(function (cb) { return cb.value; });
+      picked.forEach(function (n) { if (d.inputs.indexOf(n) === -1) { d.inputs.push(n); if (d.weights) d.weights.push(1); } });
+      if (!d.unit && picked.length && !FN_INFO[d.fn].energy) d.unit = unitOf(picked[0]);
+      renderEditor();
+      return;
+    }
     if (t.id === 'cm-try') {
       readEditor(); showError('');
       api('/api/combined-metrics/preview', d).then(function (r) {
@@ -193,6 +227,12 @@
       if (!d.unit && !FN_INFO[d.fn].energy) d.unit = unitOf(e.target.value);
       renderEditor();
     }
+  });
+
+  // Enter in "Add all that match" searches (instead of saving the section).
+  var cardEl = $('combined-card');
+  if (cardEl) cardEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.id === 'cm-match') { e.preventDefault(); e.stopPropagation(); showMatches(); }
   });
 
   // Refresh live values while the Metrics section is open.

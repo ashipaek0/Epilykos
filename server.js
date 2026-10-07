@@ -740,7 +740,7 @@ app.post('/api/combined-metrics', (req, res) => {
     const def = {
       id: typeof raw.id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(raw.id) ? raw.id : `cm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       name: String(raw.name || '').trim(), unit: String(raw.unit || '').trim().slice(0, 12), enabled: raw.enabled !== false,
-      fn: raw.fn, inputs: (Array.isArray(raw.inputs) ? raw.inputs : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 16)
+      fn: raw.fn, inputs: (Array.isArray(raw.inputs) ? raw.inputs : []).map(x => String(x || '').trim()).filter(Boolean)
     };
     for (const k of ['weights', 'factor', 'offset', 'input_unit', 'start', 'stale_seconds', 'missing', 'note']) if (raw[k] !== undefined && raw[k] !== '') def[k] = raw[k];
     if (def.weights) def.weights = def.weights.map(Number);
