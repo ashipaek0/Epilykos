@@ -71,6 +71,14 @@ export function nodeRows(state, specs, depth = 'one') {
   return [...rows].map(([label, values]) => ({ label, value: values.join(' · ') }));
 }
 
+/**
+ * Rows from a parts tree that already carries values ([{ label, value, parts? }]),
+ * e.g. a table cell's parts: one level, or every level with labels joined.
+ */
+export function treeRows(parts, depth = 'one', format = n => formatMetric(n, 'kWh').text) {
+  return flatten(parts, depth).map(p => ({ label: p.label, value: Number.isFinite(Number(p.value)) ? format(Number(p.value)) : '—' }));
+}
+
 /** Keep the card's breakdown settings on its element, for the updater. */
 export function markBreakdown(el, config) {
   el.dataset.breakdown = breakdownMode(config);

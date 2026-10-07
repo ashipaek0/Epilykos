@@ -71,6 +71,36 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.ok(Math.abs(total - 0.12) < 1e-6, `total ${total}`);
   });
 
+  await check('tables: each part\'s daily kWh is kept per day, for energy from a sum and for sums of kWh', () => {
+    const day = new Date().toLocaleDateString('en-CA');
+    database.setConfig('role_metrics', JSON.stringify({ daily_solar: 'pv_today', daily_consumption: 'load_today' }));
+    // pv_today was integrated by the previous check; add a sum of two inverters' own daily kWh.
+    const defs = JSON.parse(database.getConfig('combined_metrics'));
+    defs.push({ id: 'k', name: 'load_today', unit: 'kWh', fn: 'sum', inputs: ['inv1_load_today', 'inv2_load_today'] });
+    database.setConfig('combined_metrics', JSON.stringify(defs));
+    const t = Math.floor(Date.now() / 1000);
+    const ins = database.getDb().prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)');
+    for (const [m, v] of [['inv1_pv1_power', 1200], ['inv1_pv2_power', 600], ['inv2_pv_power', 1800], ['inv1_load_today', 3.5], ['inv2_load_today', 4.25]]) ins.run(m, v, t);
+    cm.runCombinedMetrics(t);
+    const parts = cm.partDays(day, day);
+    assert.deepStrictEqual(Object.keys(parts).sort(), ['daily_consumption', 'daily_solar']);
+    assert.deepStrictEqual(parts.daily_consumption.days[day], { inv1_load_today: 3.5, inv2_load_today: 4.25 });
+    assert.ok(parts.daily_solar.days[day].inv1_pv1_power > 0 && parts.daily_solar.days[day].inv1_pv > 0, 'nested parts kept too');
+    assert.deepStrictEqual(parts.daily_solar.tree.map(p => p.label), ['Phocos 1', 'Phocos 2']);
+    const route = read('routes/metrics.js');
+    assert.match(route, /attachParts\(result, dateArray\[0\], dateArray\[dateArray\.length - 1\], row => \[row\.day\]\);/);
+    assert.match(route, /attachParts\(result, `\$\{months\[0\]\.key\}-01`/, 'months add up their days');
+    assert.match(read('modules/database.js'), /CREATE TABLE IF NOT EXISTS combined_part_daily/);
+  });
+
+  await check('tables: one shared response is not reversed per table; months use their label; refresh every 5 minutes', () => {
+    const js = read('public/js/tables.js');
+    assert.match(js, /data\.slice\(\)\.reverse\(\)/); assert.doesNotMatch(js, /data\.reverse\(\)/);
+    assert.match(js, /row\.display \|\| row\.month/);
+    assert.match(js, /REFRESH_MS = 5 \* 60 \* 1000/);
+    for (const f of ['Daily', 'Monthly']) assert.match(read(`public/js/components/dataTable${f}.js`), /aria-expanded="true" aria-label="Hide table"/);
+  });
+
   await check('labels: saved only for inputs in use; automatic ones sent for the editor', () => {
     const srv = read('server.js');
     assert.match(srv, /for \(const input of def\.inputs\) \{ const l = typeof raw\.labels\[input\] === 'string' \? raw\.labels\[input\]\.trim\(\)\.slice\(0, 40\)/);
@@ -148,7 +178,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
       assert.match(src, new RegExp(`applyBreakdowns\\(${el}, ?state, ?`), `${f} draws the parts`);
     }
     const ed = read('public/js/editor.js');
-    assert.match(ed, /var BREAKDOWN_VALUE_TYPES = \['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric'\];/);
+    assert.match(ed, /var BREAKDOWN_VALUE_TYPES = \['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric', 'data-table-daily', 'data-table-monthly'\];/);
     assert.match(ed, /if \(BREAKDOWN_VALUE_TYPES\.indexOf\(block\.type\) !== -1\) html \+= '<fieldset data-ui="section">' \+ buildBreakdownFields/);
     assert.match(ed, /if \(BREAKDOWN_VALUE_TYPES\.indexOf\(block\.type\) !== -1\) readBreakdownFields\(config\);\n  block\.config = config;/);
     const css = read('public/style.css');

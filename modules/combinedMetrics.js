@@ -189,6 +189,7 @@ function runCombinedMetrics(now = Math.floor(Date.now() / 1000)) {
     written++;
   }
   if (stateChanged) setConfig(STATE_KEY, JSON.stringify(state));
+  try { recordPartDays(defs, state, computed, read, now); } catch (err) { logger.warn('[combined] could not record daily parts:', err.message); }
   lastStatus = status;
   return { written, cyclic };
 }
@@ -220,6 +221,7 @@ function sourceLookup() {
   return m => owners.get(m) || prefixes.find(x => m.startsWith(x.prefix)) || null;
 }
 
+const NOISE_WORDS = new Set(['power', 'energy', 'today', 'total', 'daily', 'kwh', 'kw', 'w', 'wh', 'watts', 'value']);
 const UPPER = /^(pv|mppt|ac|dc|l|bms|soc)\d*$/i;
 function humanise(tokens) {
   return tokens.map((t, i) => (UPPER.test(t) ? t.toUpperCase() : i === 0 ? t.charAt(0).toUpperCase() + t.slice(1) : t)).join(' ');
@@ -238,6 +240,11 @@ function partLabels(metrics, sourceOf = () => null, custom = {}) {
     return { source: p ? p.name : '', tokens: rest.split(/[_\s.]+/).filter(Boolean) };
   });
   const common = split.length > 1 ? split[0].tokens.filter(t => split.every(s => s.tokens.includes(t))) : [];
+  // Words that describe the quantity, not which part it is (inv1_pv vs inv2_pv_power).
+  for (const sp of split) {
+    const kept = sp.tokens.filter(t => !NOISE_WORDS.has(t.toLowerCase()));
+    if (kept.length) sp.tokens = kept;
+  }
   const manySources = new Set(split.map(s => s.source)).size > 1;
   return metrics.map((m, i) => {
     if (custom[m]) return String(custom[m]);
@@ -323,6 +330,64 @@ function partEnergy(def, read, prev, now, defs) {
   return out;
 }
 
+/**
+ * Today's kWh of every part of each daily total, kept per day for the Daily and
+ * Monthly tables (table combined_part_daily). A daily total is either energy
+ * today from a sum of power (parts from partEnergy) or a sum in kWh, such as
+ * each inverter's own daily yield added up (parts are their readings).
+ * Rows older than PART_DAYS_KEPT days are removed once a day.
+ */
+const PART_DAYS_KEPT = 400;
+let lastPrune = '';
+function recordPartDays(defs, state, computed, read, now) {
+  const today = localDateString(new Date(now * 1000));
+  const sums = new Map(defs.filter(d => d.fn === 'sum').map(d => [String(d.name).trim(), d]));
+  const rows = [];
+  const walk = (name, depth, visit) => {
+    for (const m of sums.get(name).inputs.map(x => String(x).trim())) { visit(m); if (sums.has(m) && depth < MAX_DEPTH) walk(m, depth + 1, visit); }
+  };
+  for (const d of defs) {
+    const total = String(d.name).trim();
+    if (d.fn === 'energy_today') {
+      const input = String((d.inputs || [])[0] || '').trim();
+      const kwh = state[`${d.id || d.name}#parts`];
+      if ((d.inputs || []).length !== 1 || !sums.has(input) || !kwh) continue;
+      walk(input, 1, m => { const s = kwh[m]; if (s && s.day === today && Number.isFinite(s.kwh)) rows.push([today, total, m, Math.round(s.kwh * 1000) / 1000]); });
+    } else if (d.fn === 'sum' && String(d.unit || '').toLowerCase() === 'kwh' && computed.has(total)) {
+      walk(total, 1, m => { const r = read(m); if (r && Number.isFinite(r.value) && now - r.timestamp <= (Number(d.stale_seconds) >= 10 ? Number(d.stale_seconds) : 300)) rows.push([today, total, m, r.value]); });
+    }
+  }
+  const db = getDb();
+  if (rows.length) {
+    const up = db.prepare('INSERT INTO combined_part_daily (day, total, part, kwh) VALUES (?, ?, ?, ?) ON CONFLICT(day, total, part) DO UPDATE SET kwh = excluded.kwh');
+    db.transaction(list => { for (const r of list) up.run(...r); })(rows);
+  }
+  if (lastPrune !== today) {
+    lastPrune = today;
+    const cutoff = localDateString(new Date((now - PART_DAYS_KEPT * 86400) * 1000));
+    db.prepare('DELETE FROM combined_part_daily WHERE day < ?').run(cutoff);
+  }
+}
+
+/**
+ * Parts of the daily roles for a range of days, for the tables:
+ * { [role]: { total, tree: [{ metric, label, parts? }], days: { [day]: { [metric]: kwh } } } }.
+ * Only roles that point at a daily total with recorded parts are included.
+ */
+function partDays(fromDay, toDay) {
+  const b = buildBreakdowns();
+  const out = {};
+  const stmt = getDb().prepare('SELECT day, part, kwh FROM combined_part_daily WHERE total = ? AND day >= ? AND day <= ?');
+  for (const [role, total] of Object.entries(b.roles)) {
+    if (!/^daily_/.test(role) || !b.metrics[total]) continue;
+    const days = {};
+    for (const r of stmt.all(total, fromDay, toDay)) (days[r.day] = days[r.day] || {})[r.part] = r.kwh;
+    if (Object.keys(days).length) out[role] = { total, tree: b.metrics[total].parts.map(stripValues), days };
+  }
+  return out;
+}
+function stripValues(p) { const o = { metric: p.metric, label: p.label }; if (p.parts) o.parts = p.parts.map(stripValues); return o; }
+
 let lastStatus = {};
 /** What each definition did on the last cycle: { [id]: { ok, value | reason, at } }. */
 function getCombinedStatus() { return lastStatus; }
@@ -339,4 +404,4 @@ function autoLabels() {
   return out;
 }
 
-module.exports = { buildBreakdowns, partLabels, autoLabels, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
+module.exports = { buildBreakdowns, partLabels, autoLabels, partDays, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };

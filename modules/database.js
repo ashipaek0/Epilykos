@@ -247,6 +247,17 @@ function initializeDatabase() {
       status_interval INTEGER,
       fetched_at   TEXT
     );
+
+    -- Daily kWh of each part of a combined total (modules/combinedMetrics.js),
+    -- for the Daily and Monthly tables. total = the combined metric, part = a
+    -- metric anywhere in its tree.
+    CREATE TABLE IF NOT EXISTS combined_part_daily (
+      day   TEXT NOT NULL,
+      total TEXT NOT NULL,
+      part  TEXT NOT NULL,
+      kwh   REAL NOT NULL,
+      PRIMARY KEY (day, total, part)
+    );
   `);
 
   // Ensure essential keys exist
