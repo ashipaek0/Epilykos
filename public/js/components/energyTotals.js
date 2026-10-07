@@ -14,6 +14,7 @@
  */
 import { escapeHtml } from '../utils.js';
 import { icon } from '../editor-catalog.js';
+import { markBreakdown, applyBreakdowns, kwhFormat } from './breakdown.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 export const ENERGY_TOTAL_TILES = {
@@ -35,6 +36,7 @@ export function buildEnergyTotals(block = {}) {
   const card = document.createElement('div');
   card.className = 'energy-totals-card';
   card.dataset.blockId = block.id || '';
+  markBreakdown(card, config);
   card.innerHTML = (config.title ? `<h3 class="et-title">${escapeHtml(config.title)}</h3>` : '') +
     `<div class="et-tiles">${keys.map(k => {
       const t = ENERGY_TOTAL_TILES[k];
@@ -63,6 +65,21 @@ export function buildEnergyTotals(block = {}) {
   requestAnimationFrame(load);
   const timer = setInterval(() => { if (!card.isConnected) clearInterval(timer); else load(); }, REFRESH_MS);
   return card;
+}
+
+/**
+ * Parts of each tile's daily total (e.g. today's kWh per MPPT or inverter),
+ * from the dashboard state. Each tile follows its daily role, so a tile shows
+ * parts when that role is a combined metric: a sum of daily kWh, or energy
+ * today from a sum of power.
+ */
+export function updateEnergyTotalsFromState(state) {
+  document.querySelectorAll('.energy-totals-card').forEach(card => {
+    applyBreakdowns(card, state, [...card.querySelectorAll('.et-tile')].map(tile => {
+      const t = ENERGY_TOTAL_TILES[tile.dataset.tile];
+      return { host: tile, title: `${t.label} today`, specs: [{ name: `daily_${t.field}`, format: kwhFormat }], before: tile.querySelector('.et-compare') };
+    }));
+  });
 }
 
 export function render(card, data) {

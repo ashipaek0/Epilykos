@@ -182,6 +182,7 @@ function runCombinedMetrics(now = Math.floor(Date.now() / 1000)) {
     if (result.state) { state[key] = result.state; stateChanged = true; }
     if (result.skip) { status[key] = { ok: false, reason: result.skip, at: now }; continue; }
     if (!Number.isFinite(result.value)) { status[key] = { ok: false, reason: 'not a number', at: now }; continue; }
+    if (def.fn === 'energy_today') { const parts = partEnergy(def, read, state[`${key}#parts`], now, defs); if (parts) { state[`${key}#parts`] = parts; stateChanged = true; } }
     computed.set(String(def.name).trim(), result.value);
     queueMetricValue(String(def.name).trim(), result.value, now);
     status[key] = { ok: true, value: result.value, at: now };
@@ -272,14 +273,70 @@ function buildBreakdowns() {
     const name = String(d.name).trim();
     metrics[name] = { fn: d.fn, unit: d.unit || '', parts: tree(d, 1, new Set([name])) };
   }
+  // Energy today from a sum's power: the sum's parts, with today's kWh of each.
+  const state = loadState(), today = localDateString(new Date());
+  for (const d of loadDefinitions()) {
+    if (!d || d.enabled === false || d.fn !== 'energy_today' || validateDefinition(d).length) continue;
+    const input = String((d.inputs || [])[0] || '').trim(), sum = byName.get(input);
+    if ((d.inputs || []).length !== 1 || !sum || sum.fn !== 'sum') continue;
+    const kwh = state[`${d.id || d.name}#parts`] || {};
+    const withValues = parts => parts.map(p => {
+      const s = kwh[p.metric];
+      const out = { ...p, value: s && s.day === today && Number.isFinite(s.kwh) ? Math.round(s.kwh * 1000) / 1000 : 0 };
+      if (p.parts) out.parts = withValues(p.parts);
+      return out;
+    });
+    metrics[String(d.name).trim()] = { fn: d.fn, unit: 'kWh', parts: withValues(metrics[input].parts) };
+  }
   let roleMap = {}; try { roleMap = JSON.parse(getConfig('role_metrics') || '{}') || {}; } catch (_) { roleMap = {}; }
   const roles = {};
   for (const [role, name] of Object.entries(roleMap)) if (typeof name === 'string' && metrics[name.trim()]) roles[role] = name.trim();
   return { metrics, roles };
 }
 
+/**
+ * Energy today from a total's power, per part of that total: when the input of
+ * an energy_today metric is a combined sum, each metric in the sum (and in sums
+ * inside it) is integrated the same way, so cards can show today's kWh per MPPT
+ * or inverter. Kept in the state only; no metrics are written.
+ * Returns the new { [metric]: state } or null when the input is not a sum.
+ */
+function partEnergy(def, read, prev, now, defs) {
+  const inputs = (def.inputs || []).map(s => String(s).trim()).filter(Boolean);
+  if (inputs.length !== 1) return null;
+  const sums = new Map(defs.filter(d => d.fn === 'sum').map(d => [String(d.name).trim(), d]));
+  if (!sums.has(inputs[0])) return null;
+  const metrics = [], walk = (name, depth) => {
+    for (const m of sums.get(name).inputs.map(x => String(x).trim())) {
+      if (metrics.includes(m)) continue;
+      metrics.push(m);
+      if (sums.has(m) && depth < MAX_DEPTH) walk(m, depth + 1);
+    }
+  };
+  walk(inputs[0], 1);
+  const out = {};
+  for (const m of metrics) {
+    const r = evaluate({ fn: 'energy_today', inputs: [m], input_unit: def.input_unit, stale_seconds: def.stale_seconds }, read, prev && prev[m], now);
+    out[m] = r.state || (prev && prev[m]) || null;
+    if (!out[m]) delete out[m];
+  }
+  return out;
+}
+
 let lastStatus = {};
 /** What each definition did on the last cycle: { [id]: { ok, value | reason, at } }. */
 function getCombinedStatus() { return lastStatus; }
 
-module.exports = { buildBreakdowns, partLabels, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
+/** The labels cards would show for each definition's inputs, ignoring custom ones: { [id]: { input: label } }. */
+function autoLabels() {
+  const sourceOf = sourceLookup(), out = {};
+  for (const d of loadDefinitions()) {
+    if (!d || !SPLITTABLE.has(d.fn)) continue;
+    const inputs = (d.inputs || []).map(s => String(s).trim()).filter(Boolean);
+    const labels = partLabels(inputs, sourceOf);
+    out[d.id || d.name] = Object.fromEntries(inputs.map((m, i) => [m, labels[i]]));
+  }
+  return out;
+}
+
+module.exports = { buildBreakdowns, partLabels, autoLabels, MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
