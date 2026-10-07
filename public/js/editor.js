@@ -1226,6 +1226,11 @@ function buildSimpleForm(block) {
     html += '<span data-ui="row-label">Metric</span>';
     html += '<div data-ui="grow">' + metricSelect((cfg.metrics || {}).generated || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
+  } else if (block.type === 'energy-day') {
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Energy" data-ui="input"></label>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-battery"' + (cfg.showBattery !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-battery">Battery charge panel</label></span>';
+    html += '<p data-ui="help">Forecasts use Settings \u203a Prices and savings (battery capacity and lowest charge) and your solar forecast source. The consumption forecast starts after 3 days of history.</p>';
   } else if (block.type === 'weather-block') {
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   } else if (block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline') {
@@ -2098,6 +2103,11 @@ function readSettingsForm(block) {
       if (titleEl) {
         if (type === 'forecast-pvtoday') config.location_name = titleEl.value;
         else config.title = titleEl.value;
+      }
+      if (type === 'energy-day') {
+        var edF = document.getElementById('modal-ed-forecast'), edB = document.getElementById('modal-ed-battery');
+        if (edF) config.showForecast = edF.checked;
+        if (edB) config.showBattery = edB.checked;
       }
       var metEl = document.getElementById('modal-simple-metric');
       if (metEl) {
