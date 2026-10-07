@@ -226,6 +226,13 @@
               </table>
             </div>
           </div>
+          <div class="st-card" id="combined-card" data-own-save>
+            <div class="st-card-head"><h2>Combined metrics</h2><button type="button" class="st-btn" id="cm-add"><span data-icon="plus" data-size="16"></span>Add combined metric</button></div>
+            <p class="st-help">Add up readings from several inverters, MPPTs or batteries, or work out energy from power. Each result is a new metric you can pick in roles and cards. Switch one off to stop computing it.</p>
+            <div id="cm-suggestions" class="cm-suggestions" hidden></div>
+            <div id="cm-list" class="cm-list"><p class="st-help">Loading…</p></div>
+            <div id="cm-editor" class="cm-editor" hidden></div>
+          </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Metric roles</h2></div>
             <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
@@ -829,5 +836,6 @@
 <script src="settings.js?v=11"></script>
 <script src="js/catalog-ui.js?v=1"></script>
 <script src="js/settings-shell.js?v=1"></script>
+<script src="js/combined-metrics.js?v=1"></script>
 </body>
 </html>
