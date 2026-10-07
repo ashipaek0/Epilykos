@@ -508,3 +508,8 @@ body.st {
 .bank-fn-weight-note { margin: 4px 0 0; }
 .bank-function-row { padding: 10px 0; }
 @media (max-width: 560px) { .bank-fn-top { grid-template-columns: 1fr; } }
+.cm-match { display: flex; gap: 8px; margin-top: 8px; }
+.cm-match .input { flex: 1; min-width: 0; }
+.cm-matches { margin-top: 8px; padding: 10px; border: 1px dashed var(--st-line); border-radius: 10px; background: var(--st-panel); }
+.cm-match-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 12px; margin: 6px 0 10px; max-height: 260px; overflow: auto; }
+.cm-match-item { display: flex; align-items: baseline; gap: 6px; font-size: 0.88rem; overflow-wrap: anywhere; }

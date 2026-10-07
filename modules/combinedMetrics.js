@@ -40,6 +40,7 @@ const STATE_KEY = 'combined_metrics_state';
 const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today'];
 const ENERGY_FNS = new Set(['energy_today', 'energy_total']);
 const MAX_GAP_SECONDS = 600;
+const MAX_INPUTS = 64;   // e.g. 6 inverters x 4 MPPTs fits with room to spare
 const NAME_RE = /^[A-Za-z0-9_.:\- ()%]+$/;
 
 function loadDefinitions() {
@@ -61,6 +62,8 @@ function validateDefinition(def, others = []) {
   const inputs = Array.isArray(def.inputs) ? def.inputs.map(s => String(s || '').trim()).filter(Boolean) : [];
   const single = ['scale', 'counter_today'].includes(def.fn);
   if (!inputs.length) errors.push('Pick at least one input metric.');
+  if (inputs.length > MAX_INPUTS) errors.push(`Up to ${MAX_INPUTS} inputs (this has ${inputs.length}). Split them into groups, then add the groups together.`);
+  if (new Set(inputs).size !== inputs.length) errors.push('Each input can only be used once.');
   if (single && inputs.length > 1) errors.push('This calculation takes one input.');
   if (['difference'].includes(def.fn) && inputs.length < 2) errors.push('A difference needs two or more inputs.');
   if (inputs.includes(name)) errors.push('A combined metric cannot use itself as an input.');
@@ -193,4 +196,4 @@ let lastStatus = {};
 /** What each definition did on the last cycle: { [id]: { ok, value | reason, at } }. */
 function getCombinedStatus() { return lastStatus; }
 
-module.exports = { runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
+module.exports = { MAX_INPUTS, runCombinedMetrics, evaluate, validateDefinition, orderDefinitions, loadDefinitions, getCombinedStatus, FNS, CONFIG_KEY, STATE_KEY };
