@@ -132,7 +132,8 @@ async function buildDashboardState() {
     battery_discharge_kw: r.battery_discharge / 1000,
     battery_power_kw: (r.battery_charge - r.battery_discharge) / 1000,
     grid_import_kw: r.grid_import / 1000,
-    grid_export_kw: r.grid_export / 1000
+    grid_export_kw: r.grid_export / 1000,
+    battery_soc: r.battery_soc ?? null
   }));
 
   const dailyEnergyBar = barRows.map(r => ({
