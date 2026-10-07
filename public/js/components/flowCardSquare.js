@@ -1,6 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
+import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
 const watts = (w) => formatMetric(w, 'W').text;
 
 
@@ -14,6 +15,7 @@ export function buildFlowCardSquare(block = {}) {
   card.className = 'flow-card-square';
   card.dataset.metricMap = JSON.stringify(metrics);
   card.dataset.blockId = id;
+  markBreakdown(card, config);
 
   card.innerHTML = `
     <div class="fcs-grid">
@@ -53,6 +55,8 @@ export function updateFlowCardSquare(state) {
   document.querySelectorAll('.flow-card-square').forEach(card => {
     const id = card.dataset.blockId || '';
     let mm; try{mm=JSON.parse(card.dataset.metricMap);}catch(e){return;}
+    // The editor saves grid_import / battery_charge; older layouts use grid / battery_power.
+    mm = { ...mm, grid: mm.grid || mm.grid_import, battery_power: mm.battery_power || mm.battery_charge };
     const m = state.metrics || {};
     // Issue #61 Phase 2 (D1/D4/D6): identical guard to flowCard — coerce every
     // slot through the shared numeric predicate before Math.round(), render the
@@ -102,6 +106,12 @@ export function updateFlowCardSquare(state) {
       else if (gridExport > 50) gi.style.color = 'var(--export)';
       else gi.style.color = 'var(--text-secondary)';
     }
+
+    applyBreakdowns(card, state, [
+      { host: card.querySelector(`#${uid('fcs-solar',id)} .fcs-info`), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }] },
+      { host: card.querySelector(`#${uid('fcs-battery',id)} .fcs-info`), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_power, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] },
+      { host: card.querySelector(`#${uid('fcs-grid',id)} .fcs-info`), title: 'Grid', specs: [{ name: mm.grid, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] }
+    ]);
 
     // Inverter mode
     const im = el('fcs-inverter-mode');

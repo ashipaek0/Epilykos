@@ -2141,3 +2141,26 @@ details.help-sub.help-hidden { display: none; }
 .power-stats[data-density="compact"] .power-stats-table { border-spacing: 0; }
 .chart-container:has(.power-stats) { height: auto !important; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .power-stats *, .power-chart-canvas-wrap * { scroll-behavior: auto !important; transition-duration: 0s !important; } }
+/* Breakdown: the parts behind a combined total (components/breakdown.js) */
+.bd-list {
+  list-style: none; margin: 0.3rem 0 0; padding: 0;
+  display: grid; gap: 0.1rem; width: 100%; max-width: 15rem;
+  font-size: calc(0.68rem * var(--card-font-scale, 1)); line-height: 1.3; color: var(--text-secondary);
+}
+.bd-list li { display: flex; justify-content: space-between; gap: 0.6rem; min-width: 0; }
+.bd-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bd-value { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bd-host { cursor: pointer; border-radius: var(--radius-xs); }
+.bd-host:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.bd-pop {
+  position: absolute; z-index: 1000; min-width: 10rem; max-width: min(18rem, calc(100vw - 16px));
+  padding: 0.55rem 0.7rem; border-radius: var(--radius-sm);
+  background: var(--card-bg); color: var(--text); border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18); pointer-events: none;
+}
+.bd-pop[hidden] { display: none; }
+.bd-pop-title { margin: 0 0 0.3rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.bd-pop .bd-list { margin: 0; max-width: none; font-size: 0.8rem; gap: 0.2rem; }
+/* Cards with lines or sparklines behind the text: keep the parts readable above them. */
+.so-tile .bd-list, .fcs2-info .bd-list { position: relative; z-index: 1; }
+.so-tile .bd-list li, .fcs2-info .bd-list li { background: var(--card-bg); border-radius: 4px; padding: 0 3px; margin: 0 -3px; }

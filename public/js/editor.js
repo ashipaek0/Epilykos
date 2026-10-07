@@ -273,8 +273,29 @@ function buildFlowCardForm(block) {
     html += '</div>';
   }
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-showgauge"' + (cfg.showGauge !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-showgauge">Show solar gauge</label></span>';
+  html += buildBreakdownFields(cfg);
   html += '</fieldset>';
   return html;
+}
+
+/**
+ * Flow cards: show the parts behind a combined total (e.g. PV1 / PV2 behind
+ * the solar total). Off by default, so the card shows only the total.
+ */
+function buildBreakdownFields(cfg) {
+  var mode = cfg.breakdown === 'inline' || cfg.breakdown === 'hover' ? cfg.breakdown : 'off';
+  var depth = cfg.breakdown_depth === 'all' ? 'all' : 'one';
+  var opt = function(v, l, cur) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + l + '</option>'; };
+  var html = '<h4 class="ps-subhead">Parts of combined totals</h4><p data-ui="help">When a value is a combined metric, such as the solar total of several MPPTs or inverters, this can also list its parts. Off shows only the total.</p>';
+  html += '<div data-ui="grid2"><label data-ui="field">Show parts <select id="modal-breakdown" data-ui="input">' + opt('off', 'Off', mode) + opt('inline', 'Under the value', mode) + opt('hover', 'Tap or hover', mode) + '</select></label>';
+  html += '<label data-ui="field">Nested totals <select id="modal-breakdown-depth" data-ui="input">' + opt('one', 'First level only', depth) + opt('all', 'Every level', depth) + '</select></label></div>';
+  return html;
+}
+function readBreakdownFields(config) {
+  var m = document.getElementById('modal-breakdown'), d = document.getElementById('modal-breakdown-depth');
+  if (!m) return;
+  if (m.value === 'inline' || m.value === 'hover') config.breakdown = m.value; else delete config.breakdown;
+  if (d && d.value === 'all') config.breakdown_depth = 'all'; else delete config.breakdown_depth;
 }
 
 /** System Topology (flow-card-2) / Flow Card Square / Flow Card Square 2: same metrics shape */
@@ -293,6 +314,7 @@ function buildSystemTopologyForm(block) {
     html += '</div>';
   }
   html += '<label data-ui="field">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="https://..." data-ui="input"></label>';
+  html += buildBreakdownFields(cfg);
   html += '</fieldset>';
   return html;
 }
@@ -1252,6 +1274,7 @@ function buildSimpleForm(block) {
     html += '<h4 class="ps-subhead">PV split</h4><p data-ui="help">If you have both AC-coupled PV inverters and DC solar chargers (MPPTs), pick a power metric for each to show them separately, with Total solar beside the diagram. Leave both blank for a single Solar value.</p>';
     html += '<div data-ui="grid2"><label data-ui="field">PV inverter ' + metricSelect(soPv.inverter || '', 'modal-so-pvi') + '</label><label data-ui="field">PV charger ' + metricSelect(soPv.charger || '', 'modal-so-pvc') + '</label></div>';
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-so-weather"' + (cfg.showWeather === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-so-weather">Weather (from your forecast source)</label></span>';
+    html += buildBreakdownFields(cfg);
     html += '<h4 class="ps-subhead">Extra values</h4><p data-ui="help">Up to three more values beside the diagram, such as a temperature.</p>';
     for (var soi = 0; soi < 3; soi++) {
       var sx = soExtras[soi] || {};
@@ -1755,6 +1778,7 @@ function readSettingsForm(block) {
       block.metrics = metrics;
       config.metrics = metrics;
       config.showGauge = document.getElementById('modal-showgauge')?.checked !== false;
+      readBreakdownFields(config);
       break;
     }
     case 'flow-card-2':
@@ -1769,6 +1793,7 @@ function readSettingsForm(block) {
       block.metrics = fmetrics;
       config.metrics = fmetrics;
       config.inverter_image = document.getElementById('modal-inverter-image')?.value || '';
+      readBreakdownFields(config);
       break;
     }
     case 'multi-value': {
@@ -2163,6 +2188,7 @@ function readSettingsForm(block) {
         config.tabs = etOut;
       }
       if (type === 'system-overview') {
+        readBreakdownFields(config);
         var soImg = document.getElementById('modal-so-image');
         if (soImg) { var url = soImg.value.trim(); if (url && !/^(https?:)?\/\//i.test(url) && url.charAt(0) !== '/') return 'Inverter image must be a web address (https://...) or a path starting with /.'; if (url) config.inverter_image = url; else delete config.inverter_image; }
         var soOut = [];
