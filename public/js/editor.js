@@ -1234,6 +1234,16 @@ function buildSimpleForm(block) {
       html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="et-pick" data-key="' + t[0] + '" id="modal-et-' + t[0] + '"' + (etPicked.indexOf(t[0]) !== -1 ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-et-' + t[0] + '">' + t[1] + '</label></span>';
     });
     html += '</div>';
+  } else if (block.type === 'energy-tabs') {
+    var etTabs = Array.isArray(cfg.tabs) && cfg.tabs.length ? cfg.tabs : [{ type: 'energy-day' }, { type: 'energy-flows' }, { type: 'energy-costs' }];
+    var etTypes = [['', 'No tab'], ['energy-day', 'Energy day'], ['energy-flows', 'Energy flows'], ['energy-costs', 'Costs and earnings'], ['energy-totals', 'Day totals']];
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
+    html += '<h4 class="ps-subhead">Tabs</h4><p data-ui="help">Up to four, in order. Leave a tab\u2019s name blank to use the card\u2019s name.</p>';
+    for (var eti = 0; eti < 4; eti++) {
+      var et = etTabs[eti] || {};
+      html += '<div data-ui="card"><div data-ui="grid2"><label data-ui="field">Tab ' + (eti + 1) + ' <select id="modal-etab-type-' + eti + '" data-ui="input">' + etTypes.map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === (et.type || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>';
+      html += '<label data-ui="field">Name <input type="text" id="modal-etab-label-' + eti + '" value="' + escHtml(et.label || '') + '" placeholder="Card name" data-ui="input"></label></div></div>';
+    }
   } else if (block.type === 'system-overview') {
     var soExtras = Array.isArray(cfg.extras) ? cfg.extras : [];
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
@@ -2135,6 +2145,18 @@ function readSettingsForm(block) {
         var etKeys = Array.from(document.querySelectorAll('.et-pick')).filter(function(el) { return el.checked; }).map(function(el) { return el.dataset.key; });
         if (!etKeys.length) return 'Pick at least one value to show.';
         config.show = etKeys;
+      }
+      if (type === 'energy-tabs') {
+        var etOut = [], etPrior = Array.isArray(config.tabs) ? config.tabs : [];
+        for (var etj = 0; etj < 4; etj++) {
+          var tEl = document.getElementById('modal-etab-type-' + etj);
+          if (!tEl || !tEl.value) continue;
+          if (['energy-day', 'energy-flows', 'energy-costs', 'energy-totals'].indexOf(tEl.value) === -1) return 'Pick a card for each tab from the list.';
+          var prior = etPrior.find(function(p) { return p && p.type === tEl.value; }) || {};
+          etOut.push(Object.assign({}, prior, { type: tEl.value, label: ((document.getElementById('modal-etab-label-' + etj) || {}).value || '').trim().slice(0, 40) }));
+        }
+        if (!etOut.length) return 'Pick at least one tab.';
+        config.tabs = etOut;
       }
       if (type === 'system-overview') {
         var soImg = document.getElementById('modal-so-image');

@@ -56,7 +56,7 @@ export function buildEnergyFlows(block = {}) {
   card.dataset.blockId = block.id || '';
   card.innerHTML = `
     <div class="ed-header">
-      <h3 class="ed-title">${escapeHtml(config.title || 'Energy flows')}</h3>
+      ${config.hideTitle ? '<span></span>' : `<h3 class="ed-title">${escapeHtml(config.title || 'Energy flows')}</h3>`}
       <div class="ed-controls">
         <button type="button" class="ed-btn ed-toggle-forecast" aria-pressed="false">Hide forecast</button>
         <div class="ed-daynav" role="group" aria-label="Day">

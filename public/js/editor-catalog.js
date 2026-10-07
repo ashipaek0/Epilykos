@@ -108,6 +108,7 @@ export const BLOCKS = {
   'energy-day':         { group: 'charts', name: 'Energy day', desc: 'Hourly consumption and solar with forecast, and battery charge', icon: 'chartArea', w: 12, h: 7 },
   'energy-flows':       { group: 'charts', name: 'Energy flows', desc: 'Where each hour\'s energy came from and went: solar, battery, grid, home', icon: 'stack', w: 12, h: 6 },
   'energy-costs':       { group: 'charts', name: 'Costs and earnings', desc: 'Grid costs, grid earnings and battery wear per hour, with day totals', icon: 'coin', w: 12, h: 8 },
+  'energy-tabs':        { group: 'charts', name: 'Energy, tabbed', desc: 'Energy day, flows, costs and day totals in one card, one tab each', icon: 'layers', w: 12, h: 9 },
   'chart-metric':       { group: 'charts', name: 'Metric chart', desc: 'Any metrics over time, with units and scale', icon: 'diamond', w: 12, h: 6 },
   'data-table-daily':   { group: 'charts', name: 'Daily table', desc: 'Day-by-day energy totals', icon: 'table', w: 12, h: 6 },
   'data-table-monthly': { group: 'charts', name: 'Monthly table', desc: 'Month-by-month energy totals', icon: 'calendar', w: 12, h: 6 },
