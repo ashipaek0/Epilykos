@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -50,3 +51,4 @@ assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='i
 assert.throws(() => db.prepare('INSERT INTO metrics_5m (bucket_start, metric, value_count) VALUES (?, ?, ?)').run(0, 'x', -1));
 assert.throws(() => db.prepare('INSERT INTO history_5m (bucket_start, consumption_count) VALUES (?, ?)').run(0, -1));
 console.log('ok - retention schema');
+checks.done();

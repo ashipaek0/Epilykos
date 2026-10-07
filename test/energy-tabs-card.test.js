@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Tabbed energy card: registered, only self-updating cards, built on first open.
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
@@ -26,3 +27,4 @@ check('editor saves up to four tabs and refuses none', () => {
   const ed = read('public/js/editor.js'); assert.match(ed, /config\.tabs = etOut/); assert.match(ed, /Pick at least one tab\./);
 });
 console.log(`energy-tabs-card: ${passed} checks passed`);
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('node:assert/strict');
 const dbModule = require('../modules/database');
 const originalGetDb = dbModule.getDb;
@@ -39,4 +40,5 @@ async function request(query) {
   assert.ok(Number.isFinite(special.body.fields.pv_power.mean));
   assert.deepEqual(Object.keys(JSON.parse(JSON.stringify(special.body.fields))), ['__proto__', 'constructor', 'prototype', 'toString', 'pv_power']);
   console.log('ok - power stats route validation, deduplication, and typed unsupported response');
+  checks.done();
 })().catch(error => { console.error(error); process.exitCode = 1; });

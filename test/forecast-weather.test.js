@@ -15,6 +15,7 @@
  * global.fetch and https.get are stubbed.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const { EventEmitter } = require('events');
@@ -191,6 +192,7 @@ https.get = function fakeGet(url, opts, cb) {
   });
 
   console.log(`\nPASS forecast-weather: ${passed} checks`);
+  checks.done();
   process.exit(0);
 })().catch((e) => {
   console.error(`FAIL: ${e.stack || e}`);

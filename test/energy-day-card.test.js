@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Energy day card is registered, in the library, and its settings save.
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
@@ -26,3 +27,4 @@ check('settings form has the forecast and battery toggles and reads them back', 
   assert.match(ed, /config\.showForecast = edF\.checked/); assert.match(ed, /config\.showBattery = edB\.checked/);
 });
 console.log(`energy-day-card: ${passed} checks passed`);
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Energy flows card: registered, signed axis, every flow drawn, forecast from the projection.
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
@@ -25,3 +26,4 @@ check('the projection reports the flows the card draws', () => {
   assert.match(read('modules/energyForecast.js'), /flows = \{ solar_to_home: [^}]*battery_to_home: [^}]*grid_to_home:/);
 });
 console.log(`energy-flows-card: ${passed} checks passed`);
+checks.done();

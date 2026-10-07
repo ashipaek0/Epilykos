@@ -8,6 +8,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -112,4 +113,5 @@ console.log('PASS: Anern EVO4200L profile coherence + LE byte-swap + 24V-range d
 console.log(`  protocol=${profile.protocol} transport=${profile.transport} byte_order=${profile.byte_order} metrics=${profile.metrics.length}`);
 console.log(`  swap(0xE600)=${swap(0xE600)} swap(0x1801)=${swap(0x1801)} swap(0x4A00)=${swap(0x4A00)}`);
 console.log(`  battery_voltage=${bv}V battery_soc=${soc}% grid_frequency=${gf}Hz`);
+checks.done();
 process.exitCode = 0;

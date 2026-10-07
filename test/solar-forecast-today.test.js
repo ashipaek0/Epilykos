@@ -12,6 +12,7 @@
  * require cache before modules/solar.js loads (as in the other solar tests).
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 
@@ -88,3 +89,4 @@ check('weather is filled from Open-Meteo hourly where a period lacks it', () => 
 });
 
 console.log(`solar-forecast-today: ${passed} checks passed`);
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Server-side guards found in review: one dongle poll at a time, state of
 // deleted combined metrics removed, deleting a metric tidies its roles.
 const assert = require('assert');
@@ -48,4 +49,5 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
 
   assert.strictEqual(passed, 3, 'every check ran');
   console.log(`poll-guards: ${passed} checks passed`);
+  checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

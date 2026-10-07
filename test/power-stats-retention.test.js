@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const Database = require('better-sqlite3');
 const { migratePowerStatsSchema } = require('../modules/database');
@@ -48,3 +49,4 @@ assert.deepStrictEqual([row.solar_last_value, row.solar_last_timestamp], [300, 1
 assert.strictEqual(db.prepare('SELECT COUNT(*) n FROM history').get().n, 0, 'rolled raw observations are pruned');
 console.log('ok - power stats migration and paired battery retention rollups');
 db.close();
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // System overview card: registered, live-updated, safe image, battery history sent.
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
@@ -37,3 +38,4 @@ check('weather tile reads the shared forecast fetch and says when it is unavaila
   assert.match(src, /getSharedForecastData\('auto'/); assert.match(src, /'Unavailable'/); assert.match(src, /config\.showWeather === true/);
 });
 console.log(`system-overview-card: ${passed} checks passed`);
+checks.done();

@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 // Combined metrics engine (modules/combinedMetrics.js).
 process.env.TZ = 'Africa/Lagos';
 const assert = require('assert');
@@ -150,3 +151,4 @@ check('wizard: any number of inverters like the first, kept sources, totals acro
   assert.match(wz, /have the same prefix, so their readings would overwrite each other/);
 });
 console.log(`combined-metrics: ${passed} checks passed`);
+checks.done();
