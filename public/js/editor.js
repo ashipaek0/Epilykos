@@ -1234,6 +1234,10 @@ function buildSimpleForm(block) {
       html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="et-pick" data-key="' + t[0] + '" id="modal-et-' + t[0] + '"' + (etPicked.indexOf(t[0]) !== -1 ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-et-' + t[0] + '">' + t[1] + '</label></span>';
     });
     html += '</div>';
+  } else if (block.type === 'energy-costs') {
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Costs and earnings" data-ui="input"></label>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
+    html += '<p data-ui="help">Uses your prices from Settings \u203a Prices and savings: grid buy and sell price, and battery wear cost. Earlier days are worked out at today\u2019s prices.</p>';
   } else if (block.type === 'energy-flows') {
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Energy flows" data-ui="input"></label>';
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
@@ -2121,7 +2125,7 @@ function readSettingsForm(block) {
         if (!etKeys.length) return 'Pick at least one value to show.';
         config.show = etKeys;
       }
-      if (type === 'energy-day' || type === 'energy-flows') {
+      if (type === 'energy-day' || type === 'energy-flows' || type === 'energy-costs') {
         var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;
         if (edF) config.showForecast = edF.checked;
         if (edB) config.showBattery = edB.checked;
