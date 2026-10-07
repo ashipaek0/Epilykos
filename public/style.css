@@ -2231,3 +2231,7 @@ details.help-sub.help-hidden { display: none; }
 /* PV Today with nothing to show: the message over the empty chart, no legend. */
 .pvt-no-data { position: absolute; inset: 0; padding: 0 1rem; text-align: center; line-height: 1.4; }
 .pvt-is-empty .pvt-legend, .pvt-is-empty .pv-today-timeline { visibility: hidden; }
+/* Grid timeline periods: reachable by keyboard; details also on tap. */
+.tl-segment { cursor: pointer; }
+.tl-segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; position: relative; z-index: 1; }
+.tl-tooltip { white-space: nowrap; max-width: calc(100vw - 32px); transform: translateX(-50%); }

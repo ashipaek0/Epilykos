@@ -110,6 +110,18 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(shell, /alert: true, actions: \[\{ label: 'Cancel', value: null \}/, 'Cancel first and focused');
   });
 
+  await check('metric chart asks for a metric; grid timeline details on touch and keyboard too', () => {
+    const cm = read('public/js/components/chartMetric.js');
+    assert.doesNotMatch(cm, /metric: 'consumption_kw'/, 'no invented default series');
+    assert.match(cm, /if \(!datasets\.length\) return emptyBlock\('Choose the metrics for this chart in the layout editor\.', id\);/);
+    const g = read('public/js/grid.js');
+    assert.match(g, /el\.tabIndex = 0;/); assert.match(g, /el\.setAttribute\('aria-label', text\);/);
+    assert.match(g, /el\.addEventListener\('focus', show\);/); assert.match(g, /e\.key === 'Enter' \|\| e\.key === ' '/);
+    assert.match(g, /pointerenter', e => \{ if \(e\.pointerType === 'mouse'\) show\(\);/, 'hover for a mouse only');
+    assert.match(g, /Date\.now\(\) - tooltip\._shownAt > 400/, 'a tap opens rather than flickering shut');
+    assert.match(read('public/style.css'), /\.tl-tooltip \{ white-space: nowrap; max-width: calc\(100vw - 32px\); transform: translateX\(-50%\); \}/);
+  });
+
   console.log(`ux-fixes: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });
