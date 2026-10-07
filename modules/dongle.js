@@ -27,6 +27,22 @@ let growattServer = null;
 let luxpowerPollers = [];
 const profileCache = new Map();
 
+
+/**
+ * One poll per device at a time. A poll that runs past its interval (a slow
+ * Bluetooth connect, a timeout) makes the next tick a no-op instead of
+ * queueing behind it: with several units on one Bluetooth adapter, queued
+ * polls otherwise pile up and the readings fall further and further behind.
+ */
+function singleFlight(inst, poll) {
+  let running = null;
+  return () => {
+    if (running) { inst._skippedPolls = (inst._skippedPolls || 0) + 1; if (inst._skippedPolls % 10 === 1) logger.warn(`[dongle] ${inst.name}: poll still running, skipping (${inst._skippedPolls} so far); a longer interval may suit this device`); return running; }
+    running = Promise.resolve().then(poll).catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`)).finally(() => { running = null; });
+    return running;
+  };
+}
+
 function startDonglePolling() {
   stopDonglePolling();
 
@@ -59,18 +75,18 @@ function startDonglePolling() {
         continue;
       }
       const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
-      const id = setInterval(() => pollJsonInstance(inst, transport, profile), intervalMs);
-      pollIntervals.push(id);
-      pollJsonInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+      const poll = singleFlight(inst, () => pollJsonInstance(inst, transport, profile));
+      pollIntervals.push(setInterval(poll, intervalMs));
+      poll();
       continue;
     }
 
     if (profile.protocol === 'felicity-tcp') {
       const transport = new FelicityTcpTransport(inst);
       const intervalMs = (inst.poll_interval || 30) * 1000;
-      const id = setInterval(() => pollJsonInstance(inst, transport, profile), intervalMs);
-      pollIntervals.push(id);
-      pollJsonInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+      const poll = singleFlight(inst, () => pollJsonInstance(inst, transport, profile));
+      pollIntervals.push(setInterval(poll, intervalMs));
+      poll();
       continue;
     }
 
@@ -92,10 +108,11 @@ function startDonglePolling() {
         // explicit poll_interval (seconds) when the instance sets one. Over
         // Bluetooth a full cycle takes several seconds, so default to 15s.
         const intervalMs = (inst.poll_interval || (inst.transport === 'ble-luxpower' ? 15 : 5)) * 1000;
-        const id = setInterval(() => pollLuxpowerInstance(inst, transport, profile), intervalMs);
+        const poll = singleFlight(inst, () => pollLuxpowerInstance(inst, transport, profile));
+        const id = setInterval(poll, intervalMs);
         luxpowerPollers.push({ instance: inst, transport, intervalId: id });
         transport.start();
-        pollLuxpowerInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+        poll();
       } catch (err) {
         if (transport) { try { transport.stop(); } catch (_) {} }
         logger.warn(`[dongle] ${inst.name}: luxpower instance skipped — ${err.message}`);
@@ -118,9 +135,9 @@ function startDonglePolling() {
     }
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
-    const id = setInterval(() => pollInstance(inst, transport, profile), intervalMs);
-    pollIntervals.push(id);
-    pollInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: initial poll failed — ${err.message}`));
+    const poll = singleFlight(inst, () => pollInstance(inst, transport, profile));
+    pollIntervals.push(setInterval(poll, intervalMs));
+    poll();
   }
 
   if (growattInstances.length > 0) {
@@ -850,6 +867,7 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
 }
 
 module.exports = {
+  singleFlight,
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
   getByPathForTest: getByPath,

@@ -188,6 +188,9 @@ function runCombinedMetrics(now = Math.floor(Date.now() / 1000)) {
     status[key] = { ok: true, value: result.value, at: now };
     written++;
   }
+  // State of deleted definitions (energy counters, per-part kWh) goes with them.
+  const ids = new Set(loadDefinitions().filter(Boolean).map(d => String(d.id || d.name)));
+  for (const k of Object.keys(state)) if (!ids.has(k.split('#')[0])) { delete state[k]; stateChanged = true; }
   if (stateChanged) setConfig(STATE_KEY, JSON.stringify(state));
   try { recordPartDays(defs, state, computed, read, now); } catch (err) { logger.warn('[combined] could not record daily parts:', err.message); }
   lastStatus = status;
