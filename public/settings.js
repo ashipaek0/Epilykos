@@ -2825,6 +2825,18 @@ if (addBmsWiredBtn) addBmsWiredBtn.addEventListener('click', () => {
 // ======================== BMS BANK AGGREGATION ========================
 let bmsBankCounter = 0;
 const BANK_FUNCTIONS = ['sum', 'mean', 'min', 'max', 'weighted_soc', 'sum_weighted', 'last'];
+const BANK_FN_LABELS = { sum: 'Add up', mean: 'Average', min: 'Lowest', max: 'Highest', weighted_soc: 'Charge, weighted by capacity', sum_weighted: 'Add up, weighted by capacity', last: 'Newest reading' };
+// The usual bank metrics: output suffix, calculation and the BMS keys that can feed it.
+const BANK_STARTER = [
+  ['soc', 'weighted_soc', ['battery_level', 'soc']],
+  ['voltage', 'mean', ['voltage']],
+  ['current', 'sum', ['current']],
+  ['power', 'sum', ['power']],
+  ['temperature', 'max', ['temperature']],
+  ['cell_voltage_min', 'min', ['min_cell_voltage']],
+  ['cell_voltage_max', 'max', ['max_cell_voltage']]
+];
+function bankSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'bank'; }
 // Boolean functions (or, and) implemented server-side but hidden from UI for v1
 
 function buildBmsBankList(banks) {
@@ -2851,18 +2863,19 @@ function renderBmsBank(bank, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bank">✕</button>
     </div>
-    ${isSingleDevice ? '<div class="note" style="margin:0 0 8px 0;">Single-device bank — aggregation is a passthrough. No computation applied.</div>' : ''}
+    ${isSingleDevice ? '<p class="st-help" style="margin:0 0 8px 0;">One device: the bank passes its readings through unchanged.</p>' : ''}
 
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Devices</div>
+    <h4 class="bank-subhead">Batteries in this bank</h4>
     <div class="bank-devices-list" id="bank-devices-${idx}"></div>
 
-    <div class="section-divider"><span class="stg-divider-icon">📊</span> Computed Metrics</div>
+    <h4 class="bank-subhead">Bank metrics</h4>
+    <p class="st-help">Each one is saved as <code>bank_</code> + its name (for example <code>bank_${escapeHtml(bankSlug(bank.name))}_soc</code>) and can be used in roles, cards and Combined metrics. Weighted charge uses each battery's capacity.</p>
     <div class="bank-functions-list" id="bank-functions-${idx}"></div>
-    <button type="button" class="fetch-btn add-bank-function" data-bank="${idx}">+ Add Function</button>
-
-    <div style="margin-top:8px;">
-      <button type="button" class="fetch-btn test-bank" data-bank="${idx}">Test Aggregation</button>
-      <span class="test-status" id="bank-test-status-${idx}"></span>
+    <div class="bank-actions">
+      <button type="button" class="st-btn add-bank-starter" data-bank="${idx}">Add the usual battery metrics</button>
+      <button type="button" class="st-btn add-bank-function" data-bank="${idx}">+ Add metric</button>
+      <button type="button" class="st-btn test-bank" data-bank="${idx}">Test bank</button>
+      <span class="test-status" id="bank-test-status-${idx}" role="status"></span>
     </div>
   `;
   container.appendChild(card);
@@ -2891,6 +2904,33 @@ function renderBmsBank(bank, idx) {
   });
 
   card.querySelector('.test-bank').addEventListener('click', () => testBank(card, idx));
+
+  // Fill in the usual bank metrics from the keys each ticked battery reports.
+  card.querySelector('.add-bank-starter').addEventListener('click', async () => {
+    const status = card.querySelector(`#bank-test-status-${idx}`);
+    const devices = Array.from(card.querySelectorAll('.bank-device-cb:checked')).map(cb => cb.value);
+    if (!devices.length) { status.textContent = 'Tick the batteries in this bank first.'; return; }
+    const keysBy = {};
+    await Promise.all(devices.map(async d => {
+      try { const r = await fetch(`/api/bms/device-metrics/${encodeURIComponent(d)}`, { credentials: 'include' }); const items = r.ok ? await r.json() : []; keysBy[d] = new Set((items || []).map(i => (typeof i === 'string' ? i : i.key))); }
+      catch (_) { keysBy[d] = new Set(); }
+    }));
+    const slug = bankSlug(card.querySelector('.bank-name').value);
+    const existing = new Set(Array.from(card.querySelectorAll('.bank-fn-output')).map(i => i.value.trim()));
+    let added = 0;
+    for (const [suffix, fnName, keys] of BANK_STARTER) {
+      const output = `${slug}_${suffix}`;
+      if (existing.has(output)) continue;
+      const sources = {};
+      for (const d of devices) { const k = keys.find(x => keysBy[d].has(x)); if (k) sources[d] = k; }
+      if (!Object.keys(sources).length) continue;
+      renderBankFunctionRow(fnContainer, idx, card.querySelectorAll('.bank-function-row').length, { output, fn: fnName, sources });
+      added++;
+    }
+    status.textContent = added ? `Added ${added} metric${added === 1 ? '' : 's'}. Save to start computing them.`
+      : (Object.values(keysBy).every(k => !k.size) ? 'No readings from these batteries yet. Test each battery first.' : 'Nothing new to add.');
+    card.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 
   bmsBankCounter++;
 }
@@ -2925,7 +2965,7 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
           <label class="toggle-switch"><input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}><span class="slider"></span></label>
           <label style="cursor:pointer;">${escapeHtml(name)}</label>
         </span>
-        <input type="number" class="bank-device-capacity" placeholder="Ah override" value="${capOverride}" style="width:100px; font-size:0.85em;" title="Manual capacity override. Leave blank to auto-detect from BMS design_capacity.">
+        <input type="number" class="bank-device-capacity input" placeholder="Capacity (Ah), auto" aria-label="Capacity in Ah" value="${capOverride}" style="width:170px; font-size:0.85em;" title="Leave blank to use the capacity the BMS reports.">
       </div>`;
   }).join('');
 }
@@ -2933,7 +2973,6 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
 function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   const row = document.createElement('div');
   row.className = 'bank-function-row';
-  row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap;';
 
   const outputName = fn.output || '';
   const selectedFn = fn.fn || 'sum';
@@ -2946,43 +2985,33 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   const checkedCbs = card.querySelectorAll('.bank-device-cb:checked');
   const checkedDevices = Array.from(checkedCbs).map(cb => cb.value);
 
+  // Line 1: name, calculation, remove. Line 2: which reading of each battery.
+  // Weighted calculations always weigh by capacity (bmsAggregator.resolveCapacity);
+  // weight_by is kept as-is for saved banks but not offered.
   let html = `
-    <input type="text" class="bank-fn-output" placeholder="output name" value="${escapeHtml(outputName)}" style="width:120px; font-size:0.85em;" title="Output metric name (e.g., 'soc'). Full metric: bank_<output>">
-    <span style="font-size:0.8em; color:var(--muted);">←</span>
-    <select class="bank-fn-type" style="width:130px; font-size:0.85em;">
-      ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${f}</option>`).join('')}
-    </select>
-    <span style="font-size:0.8em;">(</span>`;
-
-  // One source dropdown per checked BMS device, labeled with device name
+    <div class="bank-fn-top">
+      <label class="bank-fn-field">Name <input type="text" class="bank-fn-output input" placeholder="e.g. house_soc" value="${escapeHtml(outputName)}" title="Saved as bank_ + this name"></label>
+      <label class="bank-fn-field">Calculation <select class="bank-fn-type input">
+        ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${escapeHtml(BANK_FN_LABELS[f] || f)}</option>`).join('')}
+      </select></label>
+      <button type="button" class="st-btn remove-bank-fn" aria-label="Remove this metric">Remove</button>
+    </div>
+    <input type="hidden" class="bank-fn-weightby" value="${escapeHtml(weightBy)}">
+    <p class="st-help bank-fn-weight-note"${selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted' ? '' : ' hidden'}>Weighted by each battery's capacity: its Ah override, or the capacity it reports.</p>
+    <div class="bank-fn-sources">`;
   if (checkedDevices.length === 0) {
-    html += `<span style="font-size:0.8em; color:var(--muted);">check devices above</span>`;
+    html += `<span class="st-help">Tick the batteries in this bank above.</span>`;
   } else {
     for (const devName of checkedDevices) {
-      const selKey = sources[devName] || '';
-      html += `<span style="font-size:0.75em; color:var(--muted);">${escapeHtml(devName)}:</span>`;
-      html += `<select class="bank-fn-source" data-device="${escapeHtml(devName)}" style="width:130px; font-size:0.85em;">
-        <option value="">-- source --</option>
-      </select>`;
+      html += `<label class="bank-fn-field">${escapeHtml(devName)} reading <select class="bank-fn-source input" data-device="${escapeHtml(devName)}"><option value="">-- source --</option></select></label>`;
     }
   }
-
-  html += `
-    <span class="bank-fn-weight-wrap" style="display:${selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted' ? '' : 'none'};">
-      <span style="font-size:0.8em; color:var(--muted);">×</span>
-      <select class="bank-fn-weightby" style="width:140px; font-size:0.85em;">
-        <option value="">-- weight --</option>
-      </select>
-    </span>
-    <span style="font-size:0.8em;">)</span>
-    <button type="button" class="remove-btn remove-metric remove-bank-fn" style="font-size:0.8em; padding:2px 6px;">×</button>
-  `;
+  html += `</div>`;
   row.innerHTML = html;
   container.appendChild(row);
 
   const fnType = row.querySelector('.bank-fn-type');
-  const fnWeightBy = row.querySelector('.bank-fn-weightby');
-  const weightWrap = row.querySelector('.bank-fn-weight-wrap');
+  const weightNote = row.querySelector('.bank-fn-weight-note');
 
   // Helper: load metrics for a specific device into a select element
   async function loadSourceKeysForDevice(selectEl, deviceName, selectedKey) {
@@ -3015,22 +3044,12 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
     loadSourceKeysForDevice(sel, devName, selKey);
   });
 
-  // Weight dropdown loads from first checked device's metrics
-  if (selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted') {
-    loadSourceKeysForDevice(fnWeightBy, checkedDevices[0] || '', weightBy);
-  }
-
-  // Show/hide weight when function type changes
+  // Weighted calculations: say how they weigh.
   fnType.addEventListener('change', () => {
-    const needsWeight = fnType.value === 'weighted_soc' || fnType.value === 'sum_weighted';
-    weightWrap.style.display = needsWeight ? '' : 'none';
-    if (needsWeight) {
-      const firstDev = Array.from(card.querySelectorAll('.bank-device-cb:checked')).map(cb => cb.value)[0] || '';
-      loadSourceKeysForDevice(fnWeightBy, firstDev, weightBy);
-    }
+    weightNote.hidden = !(fnType.value === 'weighted_soc' || fnType.value === 'sum_weighted');
   });
 
-  // ✕ button
+  // Remove button
   row.querySelector('.remove-bank-fn').addEventListener('click', () => row.remove());
 }
 

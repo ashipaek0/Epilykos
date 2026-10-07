@@ -29,4 +29,26 @@ function dongleNameClash(devices) {
   return null;
 }
 
-module.exports = { dongleNameClash };
+/**
+ * Every bank metric is saved as bank_<output>, so two outputs with the same
+ * name (in one bank or across banks) overwrite each other. Returns a sentence
+ * naming the clash, or null.
+ */
+function bankOutputClash(banks) {
+  const seen = new Map();
+  for (const bank of Array.isArray(banks) ? banks : []) {
+    if (!bank || bank.enabled === false) continue;
+    for (const fn of Array.isArray(bank.functions) ? bank.functions : []) {
+      const out = String(fn && fn.output || '').trim();
+      if (!out) continue;
+      const key = out.toLowerCase(), where = seen.get(key), name = String(bank.name || 'A battery bank').trim();
+      if (where) return where === name
+        ? `The battery bank "${name}" has two metrics called "${out}". Give each its own name.`
+        : `The battery banks "${where}" and "${name}" both have a metric called "${out}", so one would overwrite the other (both save as bank_${out}). Rename one, for example ${out.replace(/^/, `${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_`)}.`;
+      seen.set(key, name);
+    }
+  }
+  return null;
+}
+
+module.exports = { dongleNameClash, bankOutputClash };

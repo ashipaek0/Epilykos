@@ -24,4 +24,21 @@ check('the settings save refuses a clash, and Settings suggests a prefix', () =>
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'public/settings.js'), 'utf8'), /prefixEl\.value = `inv\$\{n\}_`/);
 });
+const { bankOutputClash } = require('../modules/sourceChecks');
+check('battery bank metrics must have unique names across banks', () => {
+  const bank = (name, outputs, extra = {}) => ({ name, enabled: true, functions: outputs.map(output => ({ output, fn: 'sum' })), ...extra });
+  assert.strictEqual(bankOutputClash([bank('House', ['house_soc', 'house_voltage']), bank('Shed', ['shed_soc'])]), null);
+  assert.match(bankOutputClash([bank('House', ['soc']), bank('Shed', ['SOC'])]), /"House" and "Shed" both have a metric called "SOC".*bank_SOC/);
+  assert.match(bankOutputClash([bank('House', ['soc', 'soc'])]), /two metrics called "soc"/);
+  assert.strictEqual(bankOutputClash([bank('House', ['soc']), bank('Old', ['soc'], { enabled: false })]), null);
+});
+check('battery banks: plain calculation names, one-click usual metrics, saves refuse clashes', () => {
+  const fs = require('fs'), path = require('path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const js = read('public/settings.js');
+  assert.match(js, /weighted_soc: 'Charge, weighted by capacity'/);
+  assert.match(js, /\['soc', 'weighted_soc', \['battery_level', 'soc'\]\]/);
+  assert.match(js, /class="st-btn add-bank-starter"/);
+  for (const cls of ['bank-fn-output', 'bank-fn-type', 'bank-fn-source', 'bank-fn-weightby', 'remove-bank-fn']) assert.ok(js.includes(cls), cls + ' kept for the save collectors');
+  assert.match(read('server.js'), /bankOutputClash\(banks\);\s*if \(clash\) return res\.status\(400\)/);
+});
 console.log(`source-checks: ${passed} checks passed`);

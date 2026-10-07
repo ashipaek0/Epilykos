@@ -496,3 +496,15 @@ body.st {
 .pv-array-grid .st-field { margin: 0; }
 @media (max-width: 860px) { .pv-array-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .pv-array-grid { grid-template-columns: 1fr; } }
+
+/* ── Battery banks (Sources > BMS) ─────────────────────────────────────── */
+.bank-subhead { margin: 14px 0 6px; font-size: 0.78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--st-muted); }
+.bank-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.bank-function-row { padding: 6px 0; border-bottom: 1px solid var(--st-line-soft); }
+.bank-fn-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.bank-fn-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 6px; }
+.bank-fn-field { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; font-weight: 600; color: var(--st-muted); min-width: 0; }
+.bank-fn-field .input { width: 100%; min-width: 0; }
+.bank-fn-weight-note { margin: 4px 0 0; }
+.bank-function-row { padding: 10px 0; }
+@media (max-width: 560px) { .bank-fn-top { grid-template-columns: 1fr; } }
