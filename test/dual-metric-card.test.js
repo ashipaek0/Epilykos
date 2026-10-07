@@ -21,7 +21,7 @@ const logicSrc=fs.readFileSync(path.join(project,'public/js/components/dualMetri
 const logicBox={formatMetric:formatBox.formatMetric}; vm.runInNewContext(`${logicSrc};globalThis.normalizeDualMetricConfig=normalizeDualMetricConfig;globalThis.resolveDualMetricPane=resolveDualMetricPane;`,logicBox);
 let cards=[];
 const cardSrc=fs.readFileSync(path.join(project,'public/js/components/dualMetricCard.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/export function /g,'function ');
-const sandbox={markBreakdown:()=>{},applyBreakdowns:()=>{},document:{createElement:t=>new Node(t),querySelectorAll:()=>cards},normalizeDualMetricConfig:logicBox.normalizeDualMetricConfig,resolveDualMetricPane:logicBox.resolveDualMetricPane,renderIcon:id=>id==='battery'?'<svg></svg>':''};
+const sandbox={markBreakdown:()=>{},applyBreakdowns:()=>{},emptyBlock:m=>{const n=new Node('div');n.className='ep-card ep-card-empty';n.textContent=m;return n;},document:{createElement:t=>new Node(t),querySelectorAll:()=>cards},normalizeDualMetricConfig:logicBox.normalizeDualMetricConfig,resolveDualMetricPane:logicBox.resolveDualMetricPane,renderIcon:id=>id==='battery'?'<svg></svg>':''};
 vm.runInNewContext(`${cardSrc};globalThis.build=buildDualMetricCard;globalThis.update=updateDualMetricCards;`,sandbox);
 
 test('builder creates exactly two independently bound panes and safe authored text/styles', () => {
@@ -74,8 +74,13 @@ test('value, label and unit colors are independent and readout alignment follows
 });
 
 test('help affordance is omitted when empty; neutral ignores pane fill and clamps style variables', () => {
-  const card=sandbox.build({config:{panes:{left:{fillColor:'#123456'},right:{}},style:{padding:200,dividerWidth:200}}});
+  const card=sandbox.build({config:{panes:{left:{metric:'pv',fillColor:'#123456'},right:{}},style:{padding:200,dividerWidth:200}}});
   assert.equal(card.querySelector('.dual-metric-help'),null);
   assert.equal(card.style['--dual-padding'],'32px'); assert.equal(card.style['--dual-divider-width'],'0px');
   assert.equal(card.querySelector('.dual-metric-pane-left').style.backgroundColor,'');
+});
+test('no metrics on either side: the card says what to choose instead of two empty panes', () => {
+  const card=sandbox.build({config:{panes:{left:{},right:{}}}});
+  assert.equal(card.className,'ep-card ep-card-empty');
+  assert.match(card.textContent,/Choose the two metrics for this block in the layout editor/);
 });

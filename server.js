@@ -381,8 +381,11 @@ const PORT = process.env.PORT || 3000;
 // polled every 30 s by Docker/Podman).
 app.use(require('./routes/health').router);
 
-// Global rate limiter — 2000 requests per 15 min per IP
-const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false });
+// Global rate limiter — 2000 API requests per 15 min per IP. Pages and their
+// files don't count: one dashboard load fetches ~100 scripts, styles and
+// images, so counting them locked people out (a blank 429 page) after a dozen
+// reloads, and everyone at once behind a reverse proxy. Login has its own limit.
+const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false, skip: req => (req.method === 'GET' || req.method === 'HEAD') && !req.path.startsWith('/api/') });
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)

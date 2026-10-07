@@ -1,10 +1,13 @@
 import { escapeHtml } from '../utils.js';
+import { emptyBlock } from './emptyState.js';
 
 const SWITCH_TIMEOUT_MS = 8000;
 
 export function buildSwitchBlock(block = {}) {
   const config = block.config || {};
   const id = block.id || '';
+  // No entity: nothing to switch, so no toggle that would send an empty action.
+  if (!config.entity) return emptyBlock('Choose the switch for this block in the layout editor.', id);
   const container = document.createElement('div');
   container.className = 'switch-block';
   container.dataset.blockId = id;

@@ -5,10 +5,12 @@
 import { escapeHtml, isNumericValue } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 export function buildBarGauge(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
   const rows = (config.metrics && config.metrics.length ? config.metrics : [{ label: '', metric: '', unit: '', min: 0, max: 100, color: '' }]);
+  if (!rows.some(r => r && r.metric)) return emptyBlock('Choose the metrics for this block in the layout editor.', id);
 
   const container = document.createElement('div');
   container.className = 'bar-gauge-card ep-card';

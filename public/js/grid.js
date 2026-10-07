@@ -78,6 +78,9 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     const tick = document.createElement('div');
     tick.className = 'tl-tick';
     tick.style.left = pct + '%';
+    // Labels near the ends line up with the edge instead of hanging over it.
+    if (pct < 6) { tick.style.transform = 'none'; tick.style.alignItems = 'flex-start'; }
+    else if (pct > 94) { tick.style.transform = 'translateX(-100%)'; tick.style.alignItems = 'flex-end'; }
     const d = new Date(t);
     const timeSpan = document.createElement('span');
     timeSpan.className = 'tl-time';

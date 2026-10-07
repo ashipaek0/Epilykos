@@ -5,6 +5,7 @@ import { escapeHtml } from '../utils.js';
 import { uid } from '../utils/uid.js';
 import { ensureChartJS } from '../chartLoader.js';
 import { iconHtml, iconForCode, localDate } from '../weatherFormat.js';
+import { forecastProblem } from '../forecastProblem.js';
 
 const pvTodayCharts = {};
 const pvTodayObservers = {};
@@ -147,12 +148,12 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     if (!hasData) {
       // Inline per-card error (AC8): card stays visible, never display:none.
       const label = pvSourceLabel(forecastData);
-      const msg = forecastData && forecastData.error
-        ? `Source ${label || 'forecast'} unavailable${lastGoodTime ? ` — last good ${lastGoodTime}` : ''}`
-        : 'No forecast data';
+      const msg = forecastProblem({ label, error: forecastData && forecastData.error, lastGood: lastGoodTime });
       if (emptyEl) { emptyEl.textContent = msg; emptyEl.style.display = 'flex'; }
+      card.classList.add('pvt-is-empty');
       continue;
     }
+    card.classList.remove('pvt-is-empty');
     if (emptyEl) emptyEl.style.display = 'none';
     if (canvas) canvas.style.display = '';
 
