@@ -17,6 +17,7 @@ const { getDashboardConfig } = require('../modules/dashboard-config');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
 const { readHourlyEnergy } = require('../modules/energyHourly');
+const { hourlyForecast } = require('../modules/energyForecast');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
@@ -205,7 +206,7 @@ router.get('/history/power-stats', (req, res) => {
 });
 
 // Hourly kWh, energy flows, battery charge and costs for one local day.
-router.get('/energy/hourly', (req, res) => {
+router.get('/energy/hourly', async (req, res) => {
   const date = req.query.date ? String(req.query.date) : localDateString();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(date + 'T12:00:00').getTime())) {
     return res.status(400).json({ error: { code: 'invalid_request', message: 'date must be YYYY-MM-DD' } });
@@ -214,6 +215,12 @@ router.get('/energy/hourly', (req, res) => {
   try {
     const out = readHourlyEnergy(getDb(), { date, prices: { buy: price('savings_rate'), sell: price('energy_sell_price'), batteryWear: price('battery_wear_cost') } });
     out.currency = getConfig('savings_currency') || '';
+    // ?forecast=1 adds consumption, base load and solar forecasts per hour.
+    if (req.query.forecast === '1') {
+      let solar = null;
+      if (date >= localDateString()) { try { solar = await getSolarForecast(); } catch (err) { logger.warn('[energy/hourly] solar forecast unavailable:', err.message); } }
+      out.forecast = hourlyForecast(getDb(), { date, solarForecast: solar });
+    }
     res.json(out);
   } catch (err) {
     logger.error('Error in /api/energy/hourly:', err);
