@@ -122,6 +122,22 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(read('public/style.css'), /\.tl-tooltip \{ white-space: nowrap; max-width: calc\(100vw - 32px\); transform: translateX\(-50%\); \}/);
   });
 
+  await check('public history capped at the 7 days cards use; Bluetooth timing and per-part start explained', () => {
+    const srv = read('server.js');
+    assert.match(srv, /const maxHours = signedIn \? 8760 : 168;/);
+    assert.match(srv, /Without signing in, history covers up to 7 days \(168 hours\)\./);
+    for (const f of ['public/js/components/metricTrendLogic.js', 'public/js/components/configurableGaugeLogic.js', 'public/js/components/barCardLogic.js']) {
+      const hours = [...read(f).matchAll(/'(?:1h|6h|24h|3d|7d)'\s*:\s*(\d+)/g)].map(m => Number(m[1]));
+      assert.ok(hours.length && Math.max(...hours) <= 168, `${f} asks for no more than the public cap`);
+    }
+    const st = read('public/settings.js');
+    assert.match(st, /devices on one adapter are read one at a time, so allow about 10 seconds per device/);
+    assert.match(st, /Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth/, 'kept when Bluetooth reports ready');
+    const wz = read('public/js/setup.js');
+    assert.match(wz, /need = Math\.max\(30, units \* 10\)/); assert.match(wz, /Set Read every to at least ' \+ need \+ ' seconds/);
+    assert.match(read('public/js/combined-metrics.js'), /that starts when you save it, so earlier days show no parts/);
+  });
+
   console.log(`ux-fixes: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

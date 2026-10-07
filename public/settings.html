@@ -143,7 +143,7 @@
               </div>
 
               <div class="st-type-panel" id="subtab-bms" data-type="bms" hidden>
-                <div class="st-type-head st-type-extra"><h2>Battery management (BMS)</h2><p class="st-help" id="bluetooth-status">Bluetooth uses the host's adapter. In Docker, mount <code>/run/dbus</code> into the container.</p></div>
+                <div class="st-type-head st-type-extra"><h2>Battery management (BMS)</h2><p class="st-help" id="bluetooth-status">Bluetooth uses the host's adapter. In Docker, mount <code>/run/dbus</code> into the container. Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth, allow about 10 seconds per device in their read intervals.</p></div>
                 <div id="bms-devices-container"></div>
                 <button type="button" id="add-bms-device" class="st-btn st-add-btn st-type-extra">+ Add Bluetooth BMS</button>
                 <h3 class="st-subhead st-type-extra">Wired BMS</h3>
@@ -847,10 +847,10 @@
 <script src="/js/csrf.js"></script>
 <script src="js/source-labels.js"></script>
 <script src="js/pvoutput-units.js?v=1"></script>
-<script src="settings.js?v=15"></script>
+<script src="settings.js?v=16"></script>
 <script src="js/catalog-ui.js?v=1"></script>
 <script src="js/settings-shell.js?v=2"></script>
-<script src="js/combined-metrics.js?v=7"></script>
+<script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 </body>
 </html>
