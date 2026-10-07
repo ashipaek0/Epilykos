@@ -451,3 +451,7 @@ button.wz-list-item:hover { background: var(--wz-hover); }
 .wz-step.is-skipped:not(:last-child)::after { background: var(--wz-line-soft); }
 .wz-summary li.is-skipped .wz-icon-tile { background: var(--wz-press); color: var(--wz-muted); }
 .wz-summary li.is-skipped em { font-style: normal; font-weight: 700; color: var(--wz-text); }
+/* Energy from power offers (Metrics step). */
+.wz-check { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; font-weight: 600; cursor: pointer; }
+.wz-check input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent, #f59e0b); transform: translateY(3px); }
+.wz-check .wz-hint { font-weight: 400; margin: 0; }

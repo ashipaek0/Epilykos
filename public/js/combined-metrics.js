@@ -201,5 +201,17 @@
     if (!sec || sec.hidden || state.editing) return;
     api('/api/combined-metrics').then(function (r) { state.status = r.status || {}; renderList(); }).catch(function () {});
   }, 30000);
+  // Sources > "Combine readings": how many there are, and the link opens the card.
+  function updateCallout() {
+    var c = $('st-combine-count'); if (!c) return;
+    var on = state.defs.filter(function (d) { return d.enabled !== false; }).length;
+    c.textContent = state.defs.length ? (on + ' combined metric' + (on === 1 ? '' : 's') + ' in use.') : '';
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#st-combine-link')) return;
+    setTimeout(function () { var card = $('combined-card'); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); var b = $('cm-add'); if (b) b.focus({ preventScroll: true }); } }, 150);
+  });
+  var baseRender = renderList;
+  renderList = function () { baseRender(); updateCallout(); };
   if ($('combined-card')) load();
 })();
