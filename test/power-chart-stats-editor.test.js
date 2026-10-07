@@ -11,7 +11,7 @@ function extract(name, next) {
   return source.slice(start, end);
 }
 function sandbox() {
-  const context = { availableMetrics: ['PV Power', 'Grid Power'], escHtml: s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), Intl, Set, Array, Number, String, Object, JSON, isFinite };
+  const context = { BREAKDOWN_VALUE_TYPES: [], buildBreakdownFields: () => '', readBreakdownFields: () => {}, availableMetrics: ['PV Power', 'Grid Power'], escHtml: s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), Intl, Set, Array, Number, String, Object, JSON, isFinite };
   vm.createContext(context);
   vm.runInContext(extract('hexForPicker', '\nfunction buildConfigurableGaugeForm('), context);
   vm.runInContext(extract('buildPowerStatsForm', '\nfunction renderPowerStatsColumns'), context);

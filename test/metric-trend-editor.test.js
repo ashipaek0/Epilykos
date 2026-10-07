@@ -22,7 +22,7 @@ function extract(name) {
 }
 function editorHarness(values, metrics = ['solar_kw', 'load_kw']) {
   const els = new Map(Object.entries(values || {}).map(([id, value]) => [id, typeof value === 'object' ? value : {value: String(value)}]));
-  const context = { availableMetrics: metrics, availableRestSources: ['roof'], WX_SOURCE_TYPES: [], WX_DISPLAY_FIELDS: [], escHtml: s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
+  const context = { BREAKDOWN_VALUE_TYPES: [], buildBreakdownFields: () => '', readBreakdownFields: () => {}, availableMetrics: metrics, availableRestSources: ['roof'], WX_SOURCE_TYPES: [], WX_DISPLAY_FIELDS: [], escHtml: s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
     document: { getElementById: id => els.get(id) || null } };
   vm.createContext(context);
   vm.runInContext(source.slice(source.indexOf('function hexForPicker('), source.indexOf('\nfunction buildConfigurableGaugeForm(')), context);

@@ -1653,9 +1653,13 @@ function buildSettingsForm(block) {
       html += buildSimpleForm(block);
       break;
   }
+  if (BREAKDOWN_VALUE_TYPES.indexOf(block.type) !== -1) html += '<fieldset data-ui="section">' + buildBreakdownFields(block.config || {}) + '</fieldset>';
 
   return html;
 }
+
+/** Gauges and stat cards that can list the parts of a combined total (flow and energy cards add the fields in their own forms). */
+var BREAKDOWN_VALUE_TYPES = ['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric'];
 
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
@@ -2295,6 +2299,7 @@ function readSettingsForm(block) {
     }
   }
 
+  if (BREAKDOWN_VALUE_TYPES.indexOf(block.type) !== -1) readBreakdownFields(config);
   block.config = config;
   return null;
 }

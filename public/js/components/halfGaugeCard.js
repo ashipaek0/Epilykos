@@ -6,6 +6,7 @@
 import { escapeHtml, isNumericValue } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { arcPath, gaugeSvg, setArc, negativeColor } from './gaugeArc.js';
+import { markBreakdown, applyBreakdowns } from './breakdown.js';
 
 export function buildHalfGaugeCard(block = {}) {
   const id = block.id || '';
@@ -19,6 +20,7 @@ export function buildHalfGaugeCard(block = {}) {
   container.className = 'half-gauge-card stat-card ep-card ep-gauge';
   container.dataset.metricMap = JSON.stringify({ value: metric, min, max, color });
   container.dataset.blockId = id;
+  markBreakdown(container, config);
   container.innerHTML = `
     <div class="ep-gauge-wrap ep-gauge-half">
       ${gaugeSvg({ viewBox: '0 0 200 112', d: arcPath(100, 100, 82, -90, 90), width: 18, color: escapeHtml(color) })}
@@ -33,6 +35,7 @@ export function buildHalfGaugeCard(block = {}) {
 export function updateHalfGaugeCard(state) {
   document.querySelectorAll('.half-gauge-card').forEach(container => {
     let cfg; try { cfg = JSON.parse(container.dataset.metricMap); } catch (e) { return; }
+    applyBreakdowns(container, state, [{ host: container, title: container.querySelector('.ep-label')?.textContent || '', specs: [{ name: cfg.value }] }]);
     const entry = state.metrics?.[cfg.value];
     const v = entry?.value;
     if (v === undefined || v === null) return;

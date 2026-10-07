@@ -13,7 +13,7 @@ function extract(name, endMarker) {
 }
 function harness(values = {}, metrics = ['solar_kw', 'load_kw']) {
   const els = new Map(Object.entries(values).map(([id, value]) => [id, typeof value === 'object' ? value : {value: String(value)}]));
-  const context = {availableMetrics: metrics, availableRestSources: [], WX_SOURCE_TYPES: [], WX_DISPLAY_FIELDS: [],
+  const context = {BREAKDOWN_VALUE_TYPES: [], buildBreakdownFields: () => '', readBreakdownFields: () => {}, availableMetrics: metrics, availableRestSources: [], WX_SOURCE_TYPES: [], WX_DISPLAY_FIELDS: [],
     escHtml: s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
     document: {getElementById: id => els.get(id) || null}};
   vm.createContext(context);
