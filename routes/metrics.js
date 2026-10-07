@@ -16,6 +16,7 @@ const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
+const { readHourlyEnergy } = require('../modules/energyHourly');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
@@ -201,6 +202,23 @@ router.get('/history/power-stats', (req, res) => {
   if (!fields.length || fields.length > 7) return invalid('fields must contain 1 to 7 unique field IDs');
   try { res.json(readPowerStats(getDb(), { from, to, fields })); }
   catch (err) { logger.error('Error in /api/history/power-stats:', err); res.status(500).json({ error: { code: 'internal_error', message: 'Internal server error' } }); }
+});
+
+// Hourly kWh, energy flows, battery charge and costs for one local day.
+router.get('/energy/hourly', (req, res) => {
+  const date = req.query.date ? String(req.query.date) : localDateString();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(date + 'T12:00:00').getTime())) {
+    return res.status(400).json({ error: { code: 'invalid_request', message: 'date must be YYYY-MM-DD' } });
+  }
+  const price = key => { const n = parseFloat(getConfig(key)); return Number.isFinite(n) && n >= 0 ? n : 0; };
+  try {
+    const out = readHourlyEnergy(getDb(), { date, prices: { buy: price('savings_rate'), sell: price('energy_sell_price'), batteryWear: price('battery_wear_cost') } });
+    out.currency = getConfig('savings_currency') || '';
+    res.json(out);
+  } catch (err) {
+    logger.error('Error in /api/energy/hourly:', err);
+    res.status(500).json({ error: { code: 'internal_error', message: 'Internal server error' } });
+  }
 });
 
 router.get('/history', async (req, res) => {

@@ -44,7 +44,7 @@
       <li><a href="#sources" class="st-nav-link" data-section="sources"><span data-icon="plug" data-size="18"></span><span class="st-nav-label">Sources</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#metrics" class="st-nav-link" data-section="metrics"><span data-icon="list" data-size="18"></span><span class="st-nav-label">Metrics</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#forecast" class="st-nav-link" data-section="forecast"><span data-icon="sun" data-size="18"></span><span class="st-nav-label">Forecast and weather</span><span class="st-nav-meta"></span></a></li>
-      <li><a href="#savings" class="st-nav-link" data-section="savings"><span data-icon="coin" data-size="18"></span><span class="st-nav-label">Savings</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#savings" class="st-nav-link" data-section="savings"><span data-icon="coin" data-size="18"></span><span class="st-nav-label">Prices and savings</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#appearance" class="st-nav-link" data-section="appearance"><span data-icon="monitor" data-size="18"></span><span class="st-nav-label">Appearance</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
@@ -272,14 +272,21 @@
         <!-- ════════════ SAVINGS ════════════ -->
         <section class="st-section" id="section-savings" data-section="savings" aria-labelledby="h-savings" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-savings">Savings</h1><p class="st-lede">How much your solar generation saves you.</p></div>
+            <div><h1 id="h-savings">Prices and savings</h1><p class="st-lede">Energy prices, battery wear and how much your solar saves you.</p></div>
           </div>
           <div class="st-card">
             <div class="st-grid-2">
               <div class="st-field"><label for="savings-currency">Currency symbol</label><input id="savings-currency" class="input" name="savings_currency" value="€" maxlength="6"></div>
-              <div class="st-field"><label for="savings-rate">Price per kWh</label><input id="savings-rate" class="input" name="savings_rate" type="number" min="0" step="any" value="0.30" inputmode="decimal"><span class="st-help">What you'd pay the grid for one kWh.</span></div>
+              <div class="st-field"><label for="savings-rate">Grid buy price per kWh</label><input id="savings-rate" class="input" name="savings_rate" type="number" min="0" step="any" value="0.30" inputmode="decimal"><span class="st-help">What you pay the grid for one kWh. Also used for solar savings.</span></div>
+              <div class="st-field"><label for="energy-sell-price">Grid sell price per kWh</label><input id="energy-sell-price" class="input" name="energy_sell_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">What the grid pays you for one exported kWh. Leave 0 if you aren't paid for export.</span></div>
+              <div class="st-field"><label for="battery-wear-cost">Battery wear cost per kWh</label><input id="battery-wear-cost" class="input" name="battery_wear_cost" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">Charged on every kWh into or out of the battery. Battery price &divide; (usable kWh &times; rated cycles &times; 2). Example: 3,000,000 &divide; (15 &times; 6,000 &times; 2) = 17.</span></div>
             </div>
             <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names" placeholder="Detect automatically"><span class="st-help">The metric that counts solar energy produced today. Leave empty to detect it.</span></div>
+            <h2 class="st-card-subhead">Battery</h2>
+            <div class="st-grid-2">
+              <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" placeholder="e.g. 15" inputmode="decimal"><span class="st-help">Used to project battery charge for the rest of the day.</span></div>
+              <div class="st-field"><label for="battery-min-soc">Lowest charge (%)</label><input id="battery-min-soc" class="input" name="battery_min_soc" type="number" min="0" max="100" step="1" placeholder="e.g. 20" inputmode="numeric"><span class="st-help">The charge your inverter stops discharging at.</span></div>
+            </div>
           </div>
         </section>
 
