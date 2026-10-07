@@ -89,6 +89,15 @@
     if (socs.length >= 2 && !taken.battery_soc_average) out.push({ label: 'Average battery charge from ' + socs.length + ' readings', def: { name: 'battery_soc_average', unit: '%', fn: 'mean', inputs: socs } });
     var pvSource = taken.pv_total_power || pv.length >= 2 ? 'pv_total_power' : (pvTotals[0] || null);
     if (pvSource && !taken.pv_energy_today) out.push({ label: 'Solar energy today from ' + pvSource, def: { name: 'pv_energy_today', unit: 'kWh', fn: 'energy_today', inputs: [pvSource], input_unit: 'W' } });
+    // Drop suggestions an existing combined metric already covers (same inputs,
+    // whatever it is called), and energy suggestions whose source doesn't exist.
+    var covered = function (inputs) { return state.defs.some(function (d) { return (d.inputs || []).length && inputs.every(function (n) { return d.inputs.indexOf(n) !== -1; }); }); };
+    var known = {}; state.metrics.forEach(function (m) { known[m.name] = true; }); state.defs.forEach(function (d) { known[d.name] = true; });
+    // ...and kinds already done under another name (a PV total built from MPPT sums, say).
+    var hasKind = function (fns, re) { return state.defs.some(function (d) { return fns.indexOf(d.fn) !== -1 && re.test(d.name); }); };
+    var kindDone = { pv_total_power: hasKind(['sum'], /(pv|solar)/i), load_total_power: hasKind(['sum'], /(load|output|consumption)/i), battery_soc_average: hasKind(['mean', 'weighted_mean'], /(soc|charge)/i), pv_energy_today: hasKind(['energy_today', 'counter_today'], /(pv|solar)/i) };
+    out = out.filter(function (o) { return !kindDone[o.def.name]; });
+    out = out.filter(function (o) { return o.def.fn === 'energy_today' ? known[o.def.inputs[0]] && !state.defs.some(function (d) { return d.fn === 'energy_today' && d.inputs[0] === o.def.inputs[0]; }) : !covered(o.def.inputs); });
     box.hidden = !out.length;
     box.innerHTML = out.length ? '<p class="st-help">Suggested from your metrics:</p>' + out.map(function (s, i) { return '<button type="button" class="st-chip cm-suggest" data-s="' + i + '">' + esc(s.label) + '</button>'; }).join('') : '';
     box._suggestions = out;
@@ -173,6 +182,12 @@
     } else if (!SPLITTABLE[d.fn]) delete d.labels;
     return d;
   }
+  // Outcome of list actions (switch on/off, delete), in the card's status line.
+  function cardStatus(msg, type) {
+    var el = $('cm-status'); if (!el) return;
+    clearTimeout(el._t); el.textContent = msg; el.className = 'status ' + (type || '');
+    if (type === 'success') el._t = setTimeout(function () { el.textContent = ''; el.className = 'status'; }, 5000);
+  }
   function showError(msg) { var e = $('cm-error'); if (!e) return; e.textContent = msg || ''; e.hidden = !msg; }
   function saveAll(defs) {
     return api('/api/combined-metrics', { definitions: defs }).then(function (r) { state.defs = r.definitions || defs; renderList(); renderSuggestions(); return true; });
@@ -187,7 +202,7 @@
     if (t.classList.contains('cm-del')) {
       if (!confirm('Delete the combined metric "' + state.defs[i].name + '"? Its past readings stay.')) return;
       var next = state.defs.filter(function (_, k) { return k !== i; });
-      saveAll(next).catch(function (err) { alert(err.message); });
+      saveAll(next).then(function () { cardStatus('Deleted.', 'success'); }).catch(function (err) { cardStatus(err.message, 'error'); });
       return;
     }
     if (!state.editing) return;
@@ -225,7 +240,7 @@
     if (e.target.classList.contains('cm-enabled')) {
       var i = Number(e.target.closest('.cm-row').dataset.i), defs = state.defs.slice();
       defs[i] = Object.assign({}, defs[i], { enabled: e.target.checked });
-      saveAll(defs).catch(function (err) { alert(err.message); e.target.checked = !e.target.checked; });
+      saveAll(defs).then(function () { cardStatus(defs[i].name + (e.target.checked ? ' is computed again.' : ' is switched off.'), 'success'); }).catch(function (err) { cardStatus(err.message, 'error'); e.target.checked = !e.target.checked; });
       return;
     }
     if (!state.editing) return;
@@ -258,7 +273,8 @@
     c.textContent = state.defs.length ? (on + ' combined metric' + (on === 1 ? '' : 's') + ' in use.') : '';
   }
   document.addEventListener('click', function (e) {
-    if (!e.target.closest('#st-combine-link')) return;
+    // Any link to Combined metrics (the Sources callout, Edit in All metrics) opens the card.
+    if (!e.target.closest('a[href="#metrics/combined"]')) return;
     setTimeout(function () { var card = $('combined-card'); if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); var b = $('cm-add'); if (b) b.focus({ preventScroll: true }); } }, 150);
   });
   var baseRender = renderList;

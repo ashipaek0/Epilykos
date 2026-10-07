@@ -4884,47 +4884,85 @@ async function loadMetricsList() {
     if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
   }
 }
+// A reading as people read it: rounded by size, W → kW from 1000, text as is.
+function formatMetricReading(value, unit) {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (typeof value === 'string' && !Number.isFinite(n)) return value.length > 40 ? value.slice(0, 39) + '…' : value;
+  if (!Number.isFinite(n)) return String(value);
+  let v = n, u = unit || '';
+  if ((u === 'W' || u === 'Wh') && Math.abs(v) >= 1000) { v /= 1000; u = 'k' + u; }
+  const a = Math.abs(v), d = Number.isInteger(v) ? 0 : a >= 100 ? 0 : a >= 10 ? 1 : 2;
+  return v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: d }) + (u ? ' ' + u : '');
+}
+function readingAge(ts) {
+  if (!ts) return { text: 'No reading yet', title: '' };
+  const t = ts > 1e12 ? ts : ts * 1000, age = Date.now() - t, when = new Date(t);
+  const text = age < 60e3 ? 'Just now' : age < 3600e3 ? `${Math.round(age / 60e3)} min ago` : age < 86400e3 ? `${Math.round(age / 3600e3)} h ago` : when.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: when.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  return { text, title: when.toLocaleString() };
+}
 function renderMetricsTable() {
   const tbody = document.getElementById('metrics-table-body');
   if (!tbody) return;
+  const count = document.getElementById('metrics-count');
+  if (count) count.textContent = metricsList.length ? `(${metricsList.length})` : '';
   if (!metricsList.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. They appear here once a source reports, or add one with New metric.</td></tr>';
     return;
   }
-  tbody.innerHTML = '';
-  metricsList.forEach(metric => {
-    const row = document.createElement('tr');
-    const lastUpdated = metric.timestamp ? new Date(metric.timestamp * 1000).toLocaleString() : 'Never';
-    row.innerHTML = `
-      <td>${escapeHtml(metric.name)}</td>
-      <td>${metric.value !== null ? metric.value : '-'}</td>
-      <td>${lastUpdated}</td>
-      <td>${escapeHtml(metric.unit || '-')}</td>
-      <td><button class="delete-metric-btn remove-btn" data-name="${escapeHtml(metric.name)}" title="Delete">✕</button></td>
-    `;
-    tbody.appendChild(row);
-  });
-  document.querySelectorAll('.delete-metric-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+  // Newest reading first; never-read metrics last, by name.
+  const ts = m => (m.timestamp ? (m.timestamp > 1e12 ? m.timestamp / 1000 : m.timestamp) : 0);
+  const rows = metricsList.slice().sort((a, b) => (ts(b) - ts(a)) || a.name.localeCompare(b.name));
+  tbody.innerHTML = rows.map(metric => {
+    const age = readingAge(metric.timestamp);
+    const name = escapeHtml(metric.name);
+    const action = metric.combined
+      ? `<a class="st-btn" href="#metrics/combined" aria-label="Edit ${name} under Combined metrics">Edit</a>`
+      : `<button type="button" class="st-btn st-btn-danger-text delete-metric-btn" data-name="${name}" aria-label="Delete ${name}">Delete</button>`;
+    return `<tr${metric.timestamp ? '' : ' class="is-never"'}>
+      <td>${name.replace(/_/g, '_<wbr>')}${metric.combined ? ' <span class="st-chip">Combined</span>' : ''}<span class="st-metric-age">${escapeHtml(age.text)}</span></td>
+      <td class="num">${escapeHtml(formatMetricReading(metric.value, metric.unit))}</td>
+      <td${age.title ? ` title="${escapeHtml(age.title)}"` : ''}>${escapeHtml(age.text)}</td>
+      <td>${escapeHtml(metric.unit || '—')}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+  // Keep the filter applied across reloads of the list.
+  const ms = document.getElementById('metrics-search');
+  if (ms && ms.value) ms.dispatchEvent(new Event('input'));
+  const status = document.getElementById('metrics-status');
+  tbody.querySelectorAll('.delete-metric-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
       const name = btn.dataset.name;
-      if (showConfirm(`Delete metric "${name}"? This will remove it from all mappings and cannot be undone.`)) {
-        try {
-          const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
-          if (res.ok) {
-            showStatus(backupStatus, `Metric "${name}" deleted`, 'success');
-            await loadMetricsList();
-            await refreshAllMetricDropdowns();
-          } else {
-            const err = await res.json();
-            showStatus(backupStatus, err.error || 'Delete failed', 'error');
-          }
-        } catch (err) {
-          showStatus(backupStatus, err.message, 'error');
+      if (!showConfirm(`Delete the metric "${name}"? It is removed from every source mapping and role, and its readings are deleted. This can't be undone.`)) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const notes = [];
+          if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length === 1 ? 'The role it filled is' : 'The roles it filled are'} now not mapped.`);
+          if (body.used_by && body.used_by.length) notes.push(`Still an input of ${body.used_by.join(', ')}: edit ${body.used_by.length === 1 ? 'it' : 'them'} under Combined metrics, or ${body.used_by.length === 1 ? 'it waits' : 'they wait'} for a reading that won't come.`);
+          showStatus(status, [`Deleted ${name}.`].concat(notes).join(' '), notes.length ? 'warning' : 'success');
+          if (body.roles_cleared && body.roles_cleared.length && typeof loadRoleMetrics === 'function') loadRoleMetrics();
+          await loadMetricsList();
+          await refreshAllMetricDropdowns();
+        } else {
+          showStatus(status, body.error || `Couldn't delete ${name} (error ${res.status}).`, 'error');
+          btn.disabled = false;
         }
+      } catch (err) {
+        showStatus(status, `Couldn't reach the server to delete ${name}.`, 'error');
+        btn.disabled = false;
       }
     });
   });
 }
+// Keep "Current value" and "Last updated" current while Metrics is open.
+setInterval(() => {
+  const sec = document.getElementById('section-metrics');
+  if (sec && !sec.hidden && document.visibilityState === 'visible') loadMetricsList();
+}, 60000);
 function populateDashboardSelects(config, savedDesktop, savedMobile) {
   const dashboards = config?.dashboards || [];
   const saved = { 'desktop-dashboard': savedDesktop, 'mobile-dashboard': savedMobile };

@@ -60,5 +60,29 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(css, /\.ep-grid-state\[data-state="on"\] \{ color: var\(--success\); \}/);
   });
 
+  await check('Settings › Metrics: roles first, readable values, a delete you can see and that explains itself', () => {
+    const html = read('public/settings.html');
+    const sec = html.slice(html.indexOf('id="section-metrics"'), html.indexOf('id="section-forecast"'));
+    assert.ok(sec.indexOf('Metric roles') < sec.indexOf('Combined metrics') && sec.indexOf('Combined metrics') < sec.indexOf('All metrics'), 'roles, combined, then the full list');
+    assert.match(sec, /<p class="status" id="metrics-status" role="status"><\/p>/); assert.match(sec, /<p class="status" id="cm-status" role="status"><\/p>/);
+    const js = read('public/settings.js');
+    assert.match(js, /function formatMetricReading\(value, unit\)/); assert.match(js, /function readingAge\(ts\)/);
+    assert.match(js, /aria-label="Delete \$\{name\}">Delete<\/button>/, 'labelled Delete, not a bare ✕');
+    assert.match(js, /showStatus\(status, body\.error \|\| `Couldn't delete/, 'feedback in the Metrics card (it went to the hidden Backup section)');
+    assert.match(js, /if \(ms && ms\.value\) ms\.dispatchEvent\(new Event\('input'\)\)/, 'filter survives a reload of the list');
+    assert.match(read('public/settings-shell.css'), /\.st #metrics-table \.delete-metric-btn \{ opacity: 1; \}/);
+    assert.doesNotMatch(read('public/js/combined-metrics.js'), /alert\(/);
+    const srv = read('server.js');
+    assert.match(srv, /is a combined metric\. Delete it under Combined metrics/);
+    assert.match(srv, /res\.json\(\{ success: true, roles_cleared: rolesCleared, used_by: usedBy \}\)/);
+    assert.match(read('modules/metricsManager.js'), /SELECT metric, value, value_text, timestamp, unit FROM latest_metrics/, 'units the sources reported are listed');
+  });
+
+  await check('combined metric suggestions skip what already exists under another name', () => {
+    const js = read('public/js/combined-metrics.js');
+    assert.match(js, /var covered = function \(inputs\)/); assert.match(js, /pv_total_power: hasKind\(\['sum'\], \/\(pv\|solar\)\/i\)/);
+    assert.match(js, /a\[href="#metrics\/combined"\]/, 'every link to the card opens it');
+  });
+
   console.log(`ux-fixes: ${passed} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });
