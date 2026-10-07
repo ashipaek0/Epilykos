@@ -56,15 +56,36 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     el.style.flexBasis = '0px';
     if (pct >= 4) el.textContent = seg.state === 1 ? 'ON' : 'OFF';
 
-    el.addEventListener('mouseenter', () => {
+    // Details on hover, keyboard focus and tap (not mouse-only), read out too.
+    const span = Math.round(duration / 60000), dur = span >= 60 ? `${Math.floor(span / 60)} h${span % 60 ? ` ${span % 60} min` : ''}` : `${span} min`;
+    const text = `Grid ${seg.state === 1 ? 'on' : 'off'} from ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'now'}, ${dur}`;
+    el.tabIndex = 0;
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', text);
+    const show = () => {
       tooltip.style.display = 'block';
-      tooltip.textContent = `${seg.state === 1 ? 'ON' : 'OFF'} since ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'Now'}`;
-      const barRect = bar.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      tooltip.style.left = (elRect.left - barRect.left + elRect.width / 2) + 'px';
+      tooltip.textContent = text;
+      const barRect = bar.getBoundingClientRect(), elRect = el.getBoundingClientRect(), half = tooltip.offsetWidth / 2;
+      // Centred on the period, but kept inside the bar at either end.
+      const x = Math.max(half, Math.min(barRect.width - half, elRect.left - barRect.left + elRect.width / 2));
+      tooltip.style.left = x + 'px';
       tooltip.style.top = (-tooltip.offsetHeight - 8) + 'px';
+      if (tooltip._for !== el) tooltip._shownAt = Date.now();
+      tooltip._for = el;
+    };
+    const hide = () => { if (tooltip._for === el) { tooltip.style.display = 'none'; tooltip._for = null; } };
+    // Hover is for a mouse only: a tap also sends compatibility mouse events,
+    // including a leave right after the click, which would close it at once.
+    el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') show(); });
+    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+    el.addEventListener('focus', show);
+    el.addEventListener('blur', hide);
+    // A tap focuses (which opens) then clicks: only a later tap closes.
+    el.addEventListener('click', () => { if (tooltip._for === el && tooltip.style.display === 'block' && Date.now() - tooltip._shownAt > 400) hide(); else show(); });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hide();
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); }
     });
-    el.addEventListener('mouseleave', () => tooltip.style.display = 'none');
     bar.appendChild(el);
   });
   container.appendChild(bar);
