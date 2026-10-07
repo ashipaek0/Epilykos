@@ -9,6 +9,7 @@
  */
 import { updateFlowCard } from './components/flowCard.js';
 import { updateSystemTopology } from './components/systemTopology.js';
+import { updateSystemOverview } from './components/systemOverview.js';
 import { updateMultiValueCard } from './components/multiValueCard.js';
 import { updateGaugeCard } from './components/gaugeCard.js';
 import { updateConfigurableGaugeCards } from './components/configurableGaugeCard.js';
@@ -43,6 +44,7 @@ export function updateCards(state, blockTypes) {
   if (!state) return;
   if (blockTypes.has('flow-card')) updateFlowCard(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
+  if (blockTypes.has('system-overview')) updateSystemOverview(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);
   if (blockTypes.has('gauge-card')) updateGaugeCard(state);
   if (blockTypes.has('configurable-gauge')) updateConfigurableGaugeCards(state);

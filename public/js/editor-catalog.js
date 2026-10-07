@@ -79,6 +79,7 @@ export const GROUPS = [
 // w × h are GridStack columns (of 12) × rows (50 px each).
 export const BLOCKS = {
   'flow-card-2':        { group: 'flow', name: 'System topology', desc: 'Animated flow between solar, battery, grid and home', icon: 'topology', w: 8, h: 7 },
+  'system-overview':    { group: 'flow', name: 'System overview', desc: 'Grid, battery, solar and home tiles with 24-hour sparklines, around the inverter', icon: 'topology', w: 12, h: 7 },
   'flow-card':          { group: 'flow', name: 'Flow card', desc: 'Power flow with an optional solar gauge', icon: 'flow', w: 6, h: 6 },
   'flow-card-square':   { group: 'flow', name: 'Flow square', desc: 'Square flow layout with your inverter image', icon: 'square', w: 4, h: 6 },
   'flow-card-square-2': { group: 'flow', name: 'Flow square, alternate', desc: 'Square flow layout without the inverter image', icon: 'square', w: 4, h: 6 },

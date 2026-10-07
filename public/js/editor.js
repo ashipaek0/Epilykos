@@ -1234,6 +1234,17 @@ function buildSimpleForm(block) {
       html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="et-pick" data-key="' + t[0] + '" id="modal-et-' + t[0] + '"' + (etPicked.indexOf(t[0]) !== -1 ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-et-' + t[0] + '">' + t[1] + '</label></span>';
     });
     html += '</div>';
+  } else if (block.type === 'system-overview') {
+    var soExtras = Array.isArray(cfg.extras) ? cfg.extras : [];
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
+    html += '<label data-ui="field">Inverter image URL <input type="text" id="modal-so-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="Optional, https://..." data-ui="input"></label>';
+    html += '<h4 class="ps-subhead">Extra values</h4><p data-ui="help">Up to three more values beside the diagram, such as a temperature.</p>';
+    for (var soi = 0; soi < 3; soi++) {
+      var sx = soExtras[soi] || {};
+      html += '<div class="so-extra-row" data-ui="card"><label data-ui="field">Metric ' + metricSelect(sx.metric || '', 'modal-so-metric-' + soi) + '</label>';
+      html += '<div data-ui="grid2"><label data-ui="field">Label <input type="text" id="modal-so-label-' + soi + '" value="' + escHtml(sx.label || '') + '" placeholder="Metric name" data-ui="input"></label>';
+      html += '<label data-ui="field">Unit <input type="text" id="modal-so-unit-' + soi + '" value="' + escHtml(sx.unit || '') + '" placeholder="Auto" data-ui="input"></label></div></div>';
+    }
   } else if (block.type === 'energy-costs') {
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Costs and earnings" data-ui="input"></label>';
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
@@ -2124,6 +2135,16 @@ function readSettingsForm(block) {
         var etKeys = Array.from(document.querySelectorAll('.et-pick')).filter(function(el) { return el.checked; }).map(function(el) { return el.dataset.key; });
         if (!etKeys.length) return 'Pick at least one value to show.';
         config.show = etKeys;
+      }
+      if (type === 'system-overview') {
+        var soImg = document.getElementById('modal-so-image');
+        if (soImg) { var url = soImg.value.trim(); if (url && !/^(https?:)?\/\//i.test(url) && url.charAt(0) !== '/') return 'Inverter image must be a web address (https://...) or a path starting with /.'; if (url) config.inverter_image = url; else delete config.inverter_image; }
+        var soOut = [];
+        for (var soj = 0; soj < 3; soj++) {
+          var sm = document.getElementById('modal-so-metric-' + soj);
+          if (sm && sm.value) soOut.push({ metric: sm.value, label: (document.getElementById('modal-so-label-' + soj) || {}).value || '', unit: (document.getElementById('modal-so-unit-' + soj) || {}).value || '' });
+        }
+        config.extras = soOut;
       }
       if (type === 'energy-day' || type === 'energy-flows' || type === 'energy-costs') {
         var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;
