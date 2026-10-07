@@ -28,9 +28,17 @@ function showStatusHtml(element, msg, type) {
 }
 
 // ── Utility helpers ────────────────────────────────────────────────────
-function showConfirm(message) {
-  // Centralized confirm() wrapper — replace body with custom modal later
-  return confirm(message);
+/**
+ * Ask before something destructive, in the Settings page's own dialog
+ * (js/settings-shell.js stConfirm), never the browser's confirm box.
+ * Resolves true for the confirming button, false for Cancel / Escape.
+ * opts: { title, confirmLabel, danger } (danger defaults to true).
+ */
+function showConfirm(message, opts = {}) {
+  if (typeof window.stConfirm === 'function') return window.stConfirm(Object.assign({ message }, opts));
+  // The shell always loads with this page; refuse rather than act unasked if it didn't.
+  console.error('Settings dialog unavailable; action not confirmed:', message);
+  return Promise.resolve(false);
 }
 
 // ── Load existing settings ─────────────────────────────────────────────────
@@ -261,8 +269,8 @@ function renderHaDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   const removeHaBtn = card.querySelector('[data-action="remove-ha"]');
-  if (removeHaBtn) removeHaBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this Home Assistant device and all its entity mappings?')) {
+  if (removeHaBtn) removeHaBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this Home Assistant device and all its entity mappings?')) {
       card.remove();
       reindexHa();
       refreshAllMetricDropdowns();
@@ -809,8 +817,8 @@ function renderMqttDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   const removeMqttBtn = card.querySelector('[data-action="remove-mqtt"]');
-  if (removeMqttBtn) removeMqttBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this MQTT broker and all its topic mappings?')) {
+  if (removeMqttBtn) removeMqttBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this MQTT broker and all its topic mappings?')) {
       card.remove();
       reindexMqtt();
       refreshAllMetricDropdowns();
@@ -1241,8 +1249,8 @@ function renderModbusDevice(device, idx) {
     fillModbusProfiles();
   });
   const removeModbusBtn = card.querySelector('[data-action="remove-modbus"]');
-  if (removeModbusBtn) removeModbusBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this Modbus device and all its register mappings?')) {
+  if (removeModbusBtn) removeModbusBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this Modbus device and all its register mappings?')) {
       card.remove();
       reindexModbus();
     }
@@ -1277,11 +1285,11 @@ function renderModbusDevice(device, idx) {
   // list shows a hint (nothing is auto-created or pre-bound), the legacy
   // 'Load Profile Registers' button stays alongside Fetch/Add for the
   // import-style flow.
-  profileSelect.addEventListener('change', () => {
+  profileSelect.addEventListener('change', async () => {
     const profileId = profileSelect.value;
     const mappingsList = card.querySelector('.mappings-list');
     if (!mappingsList) return;
-    if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
+    if (mappingsList.children.length > 0 && !(await showConfirm('Changing profile will replace existing register mappings. Continue?'))) {
       profileSelect.value = device.profile || '';
       return;
     }
@@ -1711,10 +1719,10 @@ function renderRs232Device(device, idx) {
     // profile's serial defaults, reset the mapping list to the explicit
     // catalog UI (nothing auto-created/pre-bound). The legacy 'Load Profile
     // Fields' button stays alongside Fetch/Add.
-    profileSelect.addEventListener('change', () => {
+    profileSelect.addEventListener('change', async () => {
       const mappingsList = card.querySelector('.mappings-list');
       if (!mappingsList) return;
-      if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing field mappings. Continue?')) {
+      if (mappingsList.children.length > 0 && !(await showConfirm('Changing profile will replace existing field mappings. Continue?'))) {
         profileSelect.value = device.profile || '';
         return;
       }
@@ -1758,8 +1766,8 @@ function renderRs232Device(device, idx) {
   });
 
   const removeRs232Btn = card.querySelector('[data-action="remove-rs232"]');
-  if (removeRs232Btn) removeRs232Btn.addEventListener('click', () => {
-    if (showConfirm('Remove this RS232 device?')) {
+  if (removeRs232Btn) removeRs232Btn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this RS232 device?')) {
       card.remove();
       reindexRs232();
     }
@@ -1970,8 +1978,8 @@ function renderExternalSource(source, idx) {
   `;
   container.appendChild(card);
   const removeExtBtn = card.querySelector('[data-action="remove-external"]');
-  if (removeExtBtn) removeExtBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this external source and all its metric mappings?')) {
+  if (removeExtBtn) removeExtBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this external source and all its metric mappings?')) {
       card.remove();
       reindexExternal();
       refreshAllMetricDropdowns();
@@ -2343,8 +2351,8 @@ function renderBmsDevice(device, idx) {
   `;
   container.appendChild(card);
   const removeBmsBtn = card.querySelector('[data-action="remove-bms"]');
-  if (removeBmsBtn) removeBmsBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this BMS device and all its metric mappings?')) {
+  if (removeBmsBtn) removeBmsBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this BMS device and all its metric mappings?')) {
       card.remove();
       reindexBms();
     }
@@ -2396,7 +2404,7 @@ function renderBmsDevice(device, idx) {
       return;
     }
     const mappingsList = card.querySelector('.mappings-list');
-    if (mappingsList.children.length > 0 && !showConfirm('Loading metrics will replace existing mappings. Continue?')) return;
+    if (mappingsList.children.length > 0 && !(await showConfirm('Loading metrics will replace existing mappings. Continue?'))) return;
     try {
       const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`, { credentials: 'include' });
       if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
@@ -2591,8 +2599,8 @@ function renderBmsWiredDevice(device, idx) {
   }).catch(() => {});
 
   const removeBtn = card.querySelector('[data-action="remove-bms-wired"]');
-  if (removeBtn) removeBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this wired BMS device and all its metric mappings?')) {
+  if (removeBtn) removeBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this wired BMS device and all its metric mappings?')) {
       card.remove();
       reindexBmsWired();
     }
@@ -2632,7 +2640,7 @@ function renderBmsWiredDevice(device, idx) {
       return;
     }
     const mappingsList = card.querySelector('.mappings-list');
-    if (mappingsList.children.length > 0 && !showConfirm('Loading metrics will replace existing mappings. Continue?')) return;
+    if (mappingsList.children.length > 0 && !(await showConfirm('Loading metrics will replace existing mappings. Continue?'))) return;
     try {
       const res = await fetch(`/api/bms-wired/fields/${encodeURIComponent(profileValue)}`, { credentials: 'include' });
       if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
@@ -2891,8 +2899,8 @@ function renderBmsBank(bank, idx) {
 
   // Wire events
   const removeBankBtn = card.querySelector('[data-action="remove-bank"]');
-  if (removeBankBtn) removeBankBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
+  if (removeBankBtn) removeBankBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
       card.remove();
       reindexBmsBanks();
     }
@@ -3440,7 +3448,7 @@ function renderDongleDevice(device, idx) {
     // legacy Load button stays as the only auto-creating entry point.
     const mappingsList = card.querySelector('.mappings-list');
     if (mappingsList) {
-      if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
+      if (mappingsList.children.length > 0 && !(await showConfirm('Changing profile will replace existing register mappings. Continue?'))) {
         profileSelect.value = device.profile || '';
         return;
       }
@@ -3480,8 +3488,8 @@ function renderDongleDevice(device, idx) {
   });
 
   const removeDongleBtn = card.querySelector('[data-action="remove-dongle"]');
-  if (removeDongleBtn) removeDongleBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this dongle instance?')) {
+  if (removeDongleBtn) removeDongleBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this dongle instance?')) {
       card.remove();
       reindexDongle();
     }
@@ -4336,7 +4344,7 @@ document.addEventListener('catalog-rows-changed', (e) => {
 // Warn when that would happen. Devices already carrying a `mappings` key are
 // already explicit (an existing `{}` is explicit-none, no flip); brand-new
 // cards (no stored device) were never implicit, so they never warn.
-function confirmImplicitToExplicitNoneFlips() {
+async function confirmImplicitToExplicitNoneFlips() {
   const flagged = [];
   ['modbus-devices-container', 'rs232-devices-container', 'dongle-devices-container'].forEach(id => {
     const container = document.getElementById(id);
@@ -4351,7 +4359,7 @@ function confirmImplicitToExplicitNoneFlips() {
   });
   if (flagged.length === 0) return true;
   const list = flagged.map(n => `“${n}”`).join(', ');
-  return showConfirm(
+  return await showConfirm(
     `Saving will flip ${flagged.length === 1 ? 'a device' : flagged.length + ' devices'} from implicit ` +
     `profile-default polling to explicit-none (polling stops) because it has no mapped metrics: ${list}. ` +
     `Map at least one metric to keep it polling. Save anyway?`
@@ -4410,7 +4418,7 @@ function dongleRegisterResetNote() {
 
 // Write Controls — luxpower-tcp only, when the profile has capabilities.write
 // and a non-empty writable_registers list. Per writable entry: a human label
-// (unit + min/max/step), a number input and a Write button that confirm()s and
+// (unit + min/max/step), a number input and a Write button that asks first (showConfirm) and
 // POSTs /api/action { source:'dongle', device:<card instance name>,
 // action:'write', entity:'holding:0xNNNN', params:{value} } with an inline
 // status (8s timeout). Preset buttons render from entry.actions when present.
@@ -4484,12 +4492,12 @@ async function populateDongleWriteControls(card, profileId, profile) {
     statusEl.style.fontSize = '0.75em';
     row.appendChild(statusEl);
 
-    const runWrite = () => {
+    const runWrite = async () => {
       const rawVal = input.value.trim();
       if (rawVal === '') { showStatus(statusEl, 'Enter a value first', 'error'); return; }
       const val = Number(rawVal);
       if (isNaN(val)) { showStatus(statusEl, 'Not a number', 'error'); return; }
-      if (!showConfirm(`Write ${val} to ${label} (${id})?`)) return;
+      if (!(await showConfirm(`Write ${val} to ${label} (${id})?`))) return;
       sendDongleRegisterWrite(card, id, val, 'write', statusEl);
     };
     writeBtn.addEventListener('click', runWrite);
@@ -4934,7 +4942,7 @@ function renderMetricsTable() {
   tbody.querySelectorAll('.delete-metric-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const name = btn.dataset.name;
-      if (!showConfirm(`Delete the metric "${name}"? It is removed from every source mapping and role, and its readings are deleted. This can't be undone.`)) return;
+      if (!(await showConfirm(`Delete the metric "${name}"? It is removed from every source mapping and role, and its readings are deleted. This can't be undone.`))) return;
       btn.disabled = true;
       try {
         const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
@@ -5030,8 +5038,8 @@ function renderTuyaDevice(device, idx) {
 
   // Remove button handler
   const removeTuyaBtn = card.querySelector('[data-action="remove-tuya"]');
-  if (removeTuyaBtn) removeTuyaBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this Tuya device and all its DP mappings?')) {
+  if (removeTuyaBtn) removeTuyaBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this Tuya device and all its DP mappings?')) {
       card.remove();
       reindexTuya();
       refreshAllMetricDropdowns();
@@ -5711,7 +5719,7 @@ async function buildSourcesPayload() {
   // AC-29: an implicit-polling device (stored config has no `mappings` key)
   // that saves with zero mapped rows would flip to explicit-none and stop
   // polling — confirm before persisting that.
-  if (!confirmImplicitToExplicitNoneFlips()) {
+  if (!(await confirmImplicitToExplicitNoneFlips())) {
     const err = new Error('Save cancelled — a device would flip from implicit profile-default polling to explicit-none (polling stops). Map at least one metric for it first.');
     err.cancelled = true;
     throw err;

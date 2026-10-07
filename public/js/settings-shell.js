@@ -148,6 +148,31 @@
     });
   }
 
+  /**
+   * Confirmation in the page's own dialog (never the browser's confirm box):
+   * window.stConfirm({ message, title?, confirmLabel?, danger? }) → Promise<boolean>.
+   * Without a title, the message's question becomes the title and the rest
+   * its explanation ("Remove this bank? Historical data … remains."). Cancel
+   * has focus first, so Enter doesn't destroy anything by accident.
+   */
+  function stConfirm(o) {
+    o = o || {};
+    var msg = String(o.message || '');
+    var title = o.title, rest = msg;
+    if (!title) {
+      var m = /^(.*?\?)(\s+|$)([\s\S]*)$/.exec(msg);
+      if (m && m[1].length <= 140) { title = m[1]; rest = m[3]; }
+      else { var q = /([^.?!]*\?)\s*$/.exec(msg); title = q ? q[1].trim() : 'Are you sure?'; rest = q ? msg.slice(0, q.index).trim() : msg; }
+    }
+    var verb = /^(Remove|Delete|Write)\b/.exec(msg);
+    var label = o.confirmLabel || (verb ? verb[1] : /Save anyway\?$/.test(msg) ? 'Save anyway' : 'Continue');
+    var body = document.createElement('div');
+    if (rest) { var p = document.createElement('p'); p.textContent = rest; body.appendChild(p); }
+    return openDialog({ title: title, body: body, alert: true, actions: [{ label: 'Cancel', value: null }, { label: label, value: 'ok', kind: o.danger === false ? 'primary' : 'danger' }] })
+      .then(function (r) { return r.value === 'ok'; });
+  }
+  window.stConfirm = stConfirm;
+
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
     sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings',
