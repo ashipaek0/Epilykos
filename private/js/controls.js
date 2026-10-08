@@ -110,26 +110,24 @@ $('ct-expert').addEventListener('click', () => flip('expert'));
 let cardTypes = new Set();
 async function loadCards() {
   const box = $('ct-cards');
-  let config;
-  try { config = await (await fetch('/api/dashboard-config')).json(); } catch { config = null; }
-  const blocks = [];
-  for (const dash of (config && config.dashboards) || []) {
-    for (const b of dash.layout || []) if (b && controlBuilders[b.type] && b.enabled !== false) blocks.push({ dash: dash.name || dash.id, block: b });
-  }
+  const r = await api('/layout');
+  const blocks = ((r.data && r.data.layout) || [])
+    .filter(b => b && controlBuilders[b.type] && b.enabled !== false)
+    .sort((a, b) => (a.gridY || 0) - (b.gridY || 0) || (a.gridX || 0) - (b.gridX || 0));
   box.replaceChildren();
   if (!blocks.length) {
     const p = document.createElement('p'); p.className = 'ct-empty';
-    p.textContent = 'No switch or selector cards yet. Add a "Toggle switch" or "State select" block in the layout editor and it shows here.';
+    p.innerHTML = 'No switches or selectors yet. <a href="/editor?tab=controls-page">Add them in the layout editor</a>, under Controls page.';
     box.appendChild(p); return;
   }
-  cardTypes = new Set(blocks.map(x => x.block.type));
-  for (const { dash, block } of blocks) {
+  cardTypes = new Set(blocks.map(b => b.type));
+  for (const block of blocks) {
     const item = document.createElement('div');
     item.className = 'ct-card';
-    const where = document.createElement('div');
-    where.className = 'ct-card-where'; where.textContent = dash;
-    const content = controlBuilders[block.type](block);
-    item.append(where, content);
+    // Same place and size as in the layout editor (12 columns, 50 px rows).
+    item.style.gridColumn = `${(block.gridX || 0) + 1} / span ${Math.min(12, block.gridW || 3)}`;
+    item.style.gridRow = `${(block.gridY || 0) + 1} / span ${block.gridH || 2}`;
+    item.appendChild(controlBuilders[block.type](block));
     box.appendChild(item);
   }
   refreshState();
