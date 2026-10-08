@@ -195,7 +195,11 @@ Two pages for signed-in use only. Signed out, every address under them (the page
   - **Expert register writes** (off by default) allow any register number, for registers you have checked in your device's manual.
   - Every attempt, refused ones included, is kept in the change log.
 
-Settings available so far: LuxPower (GETA dongle, Wi-Fi or Bluetooth) battery charge-level limits.
+Settings available so far:
+
+- **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits.
+- **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
+- **Phocos Any-Grid** (Bluetooth): read-only for now; how its Bluetooth link takes settings is not known yet.
 
 ---
 

@@ -109,7 +109,7 @@ function settingsOf(profile) {
   return (Array.isArray(profile.writable_registers) ? profile.writable_registers : [])
     .filter(w => w && w.name && w.register && (w.kind || 'value') === 'value')
     .map(w => ({
-      name: w.name, label: w.label || w.name, description: w.description || '', unit: w.unit || '',
+      type: 'number', name: w.name, label: w.label || w.name, description: w.description || '', unit: w.unit || '',
       register: w.register, register_type: w.register_type || 'holding',
       min: Number(w.min), max: Number(w.max), step: Number(w.step) > 0 ? Number(w.step) : 1, scale: Number(w.scale) > 0 ? Number(w.scale) : 1,
       below: w.below || null, above: w.above || null
@@ -127,7 +127,15 @@ function listDevices() {
     out.push({ name: d.name, kind: 'dongle', profile: d.profile || '', profileName: (profile && profile.name) || d.profile || '',
       transport: d.transport || (profile && profile.transport) || '', settings,
       rawWrites: !!profile && !['growatt', 'felicity-tcp', 'ble-gatt'].includes(profile.protocol || d.transport),
-      rawReads: !!profile && profile.protocol === 'luxpower-tcp' });
+      rawReads: !!profile && profile.protocol === 'luxpower-tcp',
+      note: settings.length ? '' : (profile && profile.protocol === 'ble-gatt' ? 'how its Bluetooth link takes settings is not known yet' : 'no settings list for this profile yet') });
+  }
+  for (const d of bmsDevices()) {
+    const kind = bmsKindOf(d);
+    out.push({ name: d.name, kind: 'bms', address: d.address, profile: d.bms_type || '', transport: 'bluetooth',
+      profileName: kind === 'jbd' ? 'JBD BMS' : kind === 'jk' ? 'JK BMS' : (d.bms_type || 'Bluetooth BMS'),
+      settings: kind ? BMS_SETTINGS : [], rawWrites: false, rawReads: false,
+      note: kind ? '' : (process.env.BMS_BRIDGE_URL ? 'not available through the legacy BMS bridge' : (d.bms_type ? 'switching is available for JBD and JK packs only' : 'its settings show once it has been read: set its type, or wait for the next poll')) });
   }
   let modbus = [];
   try { modbus = JSON.parse(getConfig('modbus_devices') || '[]').filter(d => d && d.enabled); } catch { modbus = []; }
@@ -135,8 +143,82 @@ function listDevices() {
   return out;
 }
 
+// ── Bluetooth BMS (JBD, JK): charging and discharging on/off ──────────────
+
+const BMS_SETTINGS = [
+  { type: 'switch', name: 'charging', label: 'Charging', description: 'Whether the pack accepts charge (its charge switch).', field: 'chrg_mosfet', which: 'charge' },
+  { type: 'switch', name: 'discharging', label: 'Discharging', description: 'Whether the pack supplies power. Off cuts everything this battery powers.', field: 'dischrg_mosfet', which: 'discharge' }
+];
+const BMS_TYPE_KIND = { jbd_bms: 'jbd', jikong_bms: 'jk' };
+
+function bmsDevices() {
+  try { return JSON.parse(getConfig('bms_devices') || '[]').filter(d => d && d.enabled && d.address && d.name); } catch { return []; }
+}
+/** 'jbd' / 'jk' when the pack can be switched from here, else ''. */
+function bmsKindOf(d) {
+  if (process.env.BMS_BRIDGE_URL) return '';
+  if (d.bms_type) return BMS_TYPE_KIND[d.bms_type] || '';
+  return BMS_TYPE_KIND[require('./ble').bmsKind(d.address)] || '';
+}
+
+/** Both switch states now: { charging: 'on'|'off', discharging: 'on'|'off' }. */
+async function readBmsSwitches(dev) {
+  let data;
+  try { data = await require('./ble').readBms(dev.address, { bmsType: dev.profile }); }
+  catch (e) { return { error: e.message }; }
+  const out = {};
+  for (const s of BMS_SETTINGS) {
+    const v = data && data[s.field];
+    if (v !== 0 && v !== 1) return { error: `The pack did not report its ${s.label.toLowerCase()} state` };
+    out[s.name] = v === 1 ? 'on' : 'off';
+  }
+  return out;
+}
+
+async function changeBmsSwitch(p, dev, setting, req) {
+  const base = { source: 'controls', device: dev.name, target: setting.name, label: setting.label, newValue: p.value };
+  const refuse = (detail, extra = {}) => { logAttempt({ ...base, ...extra, outcome: 'refused', detail }, req); return { success: false, error: detail, ...extra }; };
+  const off = writeRefusal();
+  if (off) return refuse(off);
+  if (p.value !== 'on' && p.value !== 'off') return refuse('Choose on or off');
+  const now = await readBmsSwitches(dev);
+  if (now.error) return refuse(`Could not read the pack first: ${now.error}`);
+  base.oldValue = now[setting.name];
+  if (p.expected !== undefined && p.expected !== null && p.expected !== '' && p.expected !== now[setting.name]) {
+    return refuse(`It changed since you looked: it is now ${now[setting.name]}. Check and try again.`, { current: now[setting.name] });
+  }
+  if (now[setting.name] === p.value) {
+    logAttempt({ ...base, outcome: 'done', detail: 'Already set; nothing sent' }, req);
+    return { success: true, value: p.value, unchanged: true };
+  }
+  try {
+    await require('./ble').bmsSwitch(dev.address, { bmsType: dev.profile, which: setting.which, on: p.value === 'on',
+      chargeOn: now.charging === 'on', dischargeOn: now.discharging === 'on' });
+  } catch (e) {
+    logAttempt({ ...base, outcome: 'failed', detail: e.message }, req);
+    return { success: false, error: e.message };
+  }
+  const back = await readBmsSwitches(dev);
+  if (back.error) {
+    logAttempt({ ...base, outcome: 'unverified', detail: `Sent, but reading it back failed: ${back.error}` }, req);
+    return { success: false, written: true, error: `The change was sent, but reading the pack back failed (${back.error}). Read it again to check.` };
+  }
+  const other = BMS_SETTINGS.find(s => s !== setting);
+  if (back[other.name] !== now[other.name]) {
+    logAttempt({ ...base, outcome: 'failed', detail: `${other.label} also changed, to ${back[other.name]}` }, req);
+    return { success: false, written: true, value: back[setting.name], error: `${other.label} changed too (now ${back[other.name]}). Check the pack.` };
+  }
+  if (back[setting.name] !== p.value) {
+    const why = p.value === 'on' ? ' The pack may be protecting itself (for example a cell is too high, too low or too hot), or it did not accept the command.' : ' It did not accept the command.';
+    logAttempt({ ...base, outcome: 'failed', detail: `Read back ${back[setting.name]}` }, req);
+    return { success: false, written: true, value: back[setting.name], error: `The pack still reports ${setting.label.toLowerCase()} ${back[setting.name]}.${why}` };
+  }
+  logAttempt({ ...base, outcome: 'done', detail: 'Read back and matched' }, req);
+  return { success: true, value: back[setting.name] };
+}
+
 function findSetting(deviceName, settingName) {
-  const dev = listDevices().find(d => d.kind === 'dongle' && d.name === deviceName);
+  const dev = listDevices().find(d => (d.kind === 'dongle' || d.kind === 'bms') && d.name === deviceName);
   if (!dev) return { error: 'Device not found or turned off' };
   const setting = dev.settings.find(s => s.name === settingName);
   if (!setting) return { error: 'That setting is not in this device\'s list' };
@@ -163,6 +245,10 @@ async function readSetting(deviceName, settingName) {
   const found = findSetting(deviceName, settingName);
   if (found.error) return found;
   const { dev, setting } = found;
+  if (dev.kind === 'bms') {
+    const r = await readBmsSwitches(dev);
+    return r.error ? r : { value: r[setting.name], inRange: true };
+  }
   const raw = await require('./dongle').readDongleRegister(dev.name, setting.register, setting.register_type);
   if (raw.error) return raw;
   const value = toValue(setting, raw.value);
@@ -181,6 +267,7 @@ async function changeSetting(p, req) {
   const found = findSetting(p.device, p.setting);
   if (found.error) return refuse(found.error);
   const { dev, setting } = found;
+  if (dev.kind === 'bms') return changeBmsSwitch(p, dev, setting, req);
   base.label = setting.label;
   const want = toRaw(setting, p.value);
   if (want.error) return refuse(want.error);
