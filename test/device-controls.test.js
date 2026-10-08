@@ -229,6 +229,77 @@ const lastLog = () => controls.recentLog(1)[0];
       assert.strictEqual(fake.connections.opened, opened + 1);
     });
 
+    await check('Bluetooth packs: JBD and JK charging/discharging, read first, read back', async () => {
+      // A fake Bluetooth helper with two packs; it records what it is asked to send.
+      const packs = {
+        'AA:BB:CC:00:00:01': { kind: 'jbd_bms', chrg_mosfet: 1, dischrg_mosfet: 1 },
+        'AA:BB:CC:00:00:02': { kind: 'jikong_bms', chrg_mosfet: 1, dischrg_mosfet: 1 },
+        'AA:BB:CC:00:00:03': { kind: 'daly_bms', chrg_mosfet: 1, dischrg_mosfet: 1 }
+      };
+      const sent = [];
+      let protect = false, failNext = null, flipOther = false;
+      const ble = require('../modules/ble');
+      ble._setHelperForTests({ request: async (cmd, args) => {
+        const p = packs[args.address];
+        if (cmd === 'read_bms') return { voltage: 53.1, battery_level: 80, chrg_mosfet: p.chrg_mosfet, dischrg_mosfet: p.dischrg_mosfet, __kind: p.kind };
+        if (cmd === 'bms_switch') {
+          sent.push(args);
+          if (failNext) { const e = new Error(failNext); failNext = null; throw e; }
+          const field = args.switch === 'charge' ? 'chrg_mosfet' : 'dischrg_mosfet';
+          if (!(protect && args.on)) p[field] = args.on ? 1 : 0;
+          if (flipOther) { const o = field === 'chrg_mosfet' ? 'dischrg_mosfet' : 'chrg_mosfet'; p[o] = 1 - p[o]; }
+          return { kind: p.kind === 'jbd_bms' ? 'jbd' : 'jk' };
+        }
+        throw new Error('unexpected ' + cmd);
+      } });
+      database.setConfig('bms_devices', JSON.stringify([
+        { name: 'Pack A', address: 'AA:BB:CC:00:00:01', bms_type: 'jbd_bms', enabled: true },
+        { name: 'Pack B', address: 'AA:BB:CC:00:00:02', bms_type: '', enabled: true },
+        { name: 'Pack C', address: 'AA:BB:CC:00:00:03', bms_type: 'daly_bms', enabled: true }
+      ]));
+      const list = () => controls.listDevices().filter(d => d.kind === 'bms');
+      assert.deepStrictEqual(list().map(d => [d.name, d.settings.length]), [['Pack A', 2], ['Pack B', 0], ['Pack C', 0]], 'auto-typed pack waits for a read');
+      assert.match(list().find(d => d.name === 'Pack C').note, /JBD and JK/);
+      await ble.readBms('AA:BB:CC:00:00:02');   // a poll identifies Pack B
+      assert.strictEqual(list().find(d => d.name === 'Pack B').settings.length, 2);
+      assert.strictEqual(list().find(d => d.name === 'Pack B').profileName, 'JK BMS');
+      assert.ok(!('__kind' in await ble.readBms('AA:BB:CC:00:00:01')), 'the type marker never reaches metrics');
+
+      assert.deepStrictEqual(await controls.readSetting('Pack A', 'charging'), { value: 'on', inRange: true });
+      controls.setSwitches({ enabled: false });
+      assert.match((await controls.changeSetting({ device: 'Pack A', setting: 'charging', value: 'off' }, req)).error, /turned off/);
+      assert.strictEqual(sent.length, 0);
+      controls.setSwitches({ enabled: true });
+
+      const r = await controls.changeSetting({ device: 'Pack A', setting: 'charging', value: 'off', expected: 'on' }, req);
+      assert.deepStrictEqual(r, { success: true, value: 'off' });
+      assert.deepStrictEqual(sent[0], { address: 'AA:BB:CC:00:00:01', bms_type: 'jbd_bms', switch: 'charge', on: false, charge_on: true, discharge_on: true, timeout: 25 },
+        'JBD gets both current states (one command sets both)');
+      assert.strictEqual(packs['AA:BB:CC:00:00:01'].dischrg_mosfet, 1, 'discharging untouched');
+      assert.strictEqual(lastLog().outcome, 'done'); assert.strictEqual(lastLog().old_value, 'on'); assert.strictEqual(lastLog().new_value, 'off');
+
+      assert.deepStrictEqual(await controls.changeSetting({ device: 'Pack A', setting: 'charging', value: 'off' }, req), { success: true, value: 'off', unchanged: true });
+      assert.strictEqual(sent.length, 1, 'already off: nothing sent');
+      for (const bad of ['maybe', '', 1, true, null]) assert.match((await controls.changeSetting({ device: 'Pack A', setting: 'charging', value: bad }, req)).error, /on or off/);
+      const stale = await controls.changeSetting({ device: 'Pack A', setting: 'charging', value: 'on', expected: 'on' }, req);
+      assert.match(stale.error, /changed since you looked/); assert.strictEqual(stale.current, 'off');
+
+      protect = true;
+      const prot = await controls.changeSetting({ device: 'Pack A', setting: 'charging', value: 'on' }, req);
+      assert.strictEqual(prot.success, false); assert.strictEqual(prot.written, true); assert.match(prot.error, /still reports charging off.*protecting/);
+      protect = false;
+      flipOther = true;
+      const both = await controls.changeSetting({ device: 'Pack B', setting: 'discharging', value: 'off' }, req);
+      assert.strictEqual(both.success, false); assert.match(both.error, /Charging changed too/);
+      flipOther = false;
+      failNext = 'Device AA:BB:CC:00:00:02 not found — is it powered and in range?';
+      const gone = await controls.changeSetting({ device: 'Pack B', setting: 'charging', value: 'on' }, req);
+      assert.strictEqual(gone.success, false); assert.match(gone.error, /not found/); assert.strictEqual(lastLog().outcome, 'failed');
+      assert.match((await controls.changeSetting({ device: 'Pack C', setting: 'charging', value: 'off' }, req)).error, /not in this device's list/);
+      assert.strictEqual(sent.filter(a => a.address === 'AA:BB:CC:00:00:03').length, 0, 'never sent to an unsupported pack');
+      ble._setHelperForTests(null);
+    });
+
     await check('server.js: /api/action needs the unlock and logs; Settings no longer writes directly', () => {
       const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
       assert.match(src, /app\.post\('\/api\/action', isAuthenticated, deviceControls\.requireUnlocked,/);

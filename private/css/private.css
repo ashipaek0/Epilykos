@@ -105,7 +105,7 @@
 .ct-raw .ct-field:first-child { flex-basis: 16rem; }
 .ct-field label { color: var(--text-secondary); }
 .ct-raw-actions { display: flex; gap: .5rem; }
-.ct-dialog { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); color: var(--text); max-width: min(30rem, calc(100vw - 2rem)); padding: 1.25rem; }
+.ct-dialog { margin: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); color: var(--text); max-width: min(30rem, calc(100vw - 2rem)); padding: 1.25rem; }
 .ct-dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .ct-dialog h2 { font-size: 1.1rem; margin: 0 0 .5rem; }
 .ct-dialog p { margin: 0 0 1rem; line-height: 1.5; color: var(--text-secondary); }
