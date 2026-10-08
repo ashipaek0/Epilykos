@@ -199,12 +199,25 @@ body {
 /* The dashboard's page header only; cards that use <header> elements set their own layout. */
 .container > header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
-.header-left { display: flex; align-items: center; }
-.header-right { display: flex; align-items: center; gap: 1rem; }
+.header-left { display: flex; align-items: center; min-width: 0; }
+.header-right { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 0.75rem; }
+/* Phones: the signed-in links wrap onto their own row under the title instead
+   of pushing the page wider than the screen. */
+@media (max-width: 640px) {
+  .header-right {
+    width: 100%; justify-content: flex-start; gap: 0.5rem; flex-wrap: nowrap;
+    overflow-x: auto; scrollbar-width: none; padding: 2px 2px 6px; margin: -2px -2px 0;
+  }
+  .header-right::-webkit-scrollbar { display: none; }
+  .header-right > * { flex: none; }
+  .header-right .settings-link { padding: 0.45rem 0.75rem; }
+}
 #logo-img { height: 40px; margin-right: 1rem; border-radius: var(--radius-sm); }
 
 h1, h2, h3, h4,
@@ -227,6 +240,7 @@ h1, h2, h3, h4,
 .skip-link:focus { left: 0; }
 
 .settings-link {
+  display: inline-flex; align-items: center; min-height: 40px; box-sizing: border-box; white-space: nowrap;
   color: var(--text); text-decoration: none; background: var(--card-bg); padding: 0.5rem 1rem;
   border-radius: var(--radius); font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); border: 1px solid var(--border);
   box-shadow: var(--shadow); transition: background 0.2s;

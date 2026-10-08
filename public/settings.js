@@ -53,6 +53,7 @@ async function loadSettings() {
 
     // THEN fetch all settings
     const res = await fetch('/api/settings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key.startsWith('tuya_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'bms_banks' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
@@ -114,7 +115,7 @@ async function loadSettings() {
     }
   } catch (e) {
     console.error('Failed to load settings:', e);
-    showStatus(saveStatus, 'Failed to load settings', 'error');
+    showStatus(saveStatus, /429|Too many/i.test(String(e && e.message)) ? 'Too many requests just now. Wait a minute, then reload the page.' : 'Settings could not load. Reload the page to try again.', 'error');
   }
   syncAllMetricDropdowns();
 }

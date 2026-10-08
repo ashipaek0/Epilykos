@@ -93,9 +93,14 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
 
   const labelRow = document.createElement('div');
   labelRow.className = 'tl-labels';
-  const tickInterval = 4 * 60 * 60 * 1000;
-  const firstTick = Math.ceil(windowStart / 3600000) * 3600000;
-  for (let t = firstTick; t <= windowEnd; t += tickInterval) {
+  // Ticks on local hours that divide by 4 (00:00, 04:00, …), stepping with
+  // setHours so a DST change keeps them on the hour.
+  const tickAt = new Date(windowStart);
+  tickAt.setMinutes(0, 0, 0);
+  if (tickAt.getTime() < windowStart) tickAt.setHours(tickAt.getHours() + 1);
+  while (tickAt.getHours() % 4 !== 0) tickAt.setHours(tickAt.getHours() + 1);
+  for (; tickAt.getTime() <= windowEnd; tickAt.setHours(tickAt.getHours() + 4)) {
+    const t = tickAt.getTime();
     const pct = ((t - windowStart) / totalMs) * 100;
     const tick = document.createElement('div');
     tick.className = 'tl-tick';
@@ -117,4 +122,28 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     labelRow.appendChild(tick);
   }
   container.appendChild(labelRow);
+  hideCrowdedTicks(labelRow);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => hideCrowdedTicks(labelRow)).observe(labelRow);
+}
+
+/** Hide tick labels that would overlap the one before them (narrow cards). */
+function hideCrowdedTicks(labelRow) {
+  requestAnimationFrame(() => {
+    const ticks = [...labelRow.querySelectorAll('.tl-tick')];
+    const row = labelRow.getBoundingClientRect();
+    ticks.forEach(t => {
+      t.style.visibility = '';
+      // A centred label that would hang past an edge lines up with it instead.
+      const r = t.getBoundingClientRect();
+      if (r.left < row.left) { t.style.transform = 'none'; t.style.alignItems = 'flex-start'; }
+      else if (r.right > row.right) { t.style.transform = 'translateX(-100%)'; t.style.alignItems = 'flex-end'; }
+    });
+    let lastRight = -Infinity;
+    for (const t of ticks) {
+      const r = t.getBoundingClientRect();
+      if (!r.width) continue;
+      if (r.left < lastRight + 6) { t.style.visibility = 'hidden'; continue; }
+      lastRight = r.right;
+    }
+  });
 }
