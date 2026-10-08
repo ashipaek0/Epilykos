@@ -5,7 +5,7 @@ const { readPowerStats } = require('../modules/timeseriesReader');
 
 class FixtureDb {
   constructor(raw = [], rollups = []) { this.raw = raw; this.rollups = rollups; }
-  prepare(sql) { return { all: (...args) => sql.includes('history_5m') ? this.rollups.filter(r => r.bucket_start < args[0] && r.bucket_start + args[1] > args[2]) : this.raw.filter(r => r.timestamp >= args[0] && r.timestamp < args[1]) }; }
+  prepare(sql) { return { all: (...args) => sql.includes('history_5m') ? this.rollups.filter(r => r.bucket_start < args[0] && r.bucket_start > args[1]) : this.raw.filter(r => r.timestamp >= args[0] && r.timestamp < args[1]) }; }
 }
 const from = Math.floor(Date.now() / 1000), to = from + 600;
 const db = new FixtureDb([

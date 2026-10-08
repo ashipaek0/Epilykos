@@ -25,4 +25,11 @@ function timeZoneName() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (_) { return 'UTC'; }
 }
 
-module.exports = { SQL_LOCAL_DAY, localDateString, timeZoneName };
+/** [start, end) unix seconds of the local day containing `date` (DST-aware). */
+function localDayBounds(date = new Date()) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  return [Math.floor(start.getTime() / 1000), Math.floor(end.getTime() / 1000)];
+}
+
+module.exports = { SQL_LOCAL_DAY, localDateString, localDayBounds, timeZoneName };
