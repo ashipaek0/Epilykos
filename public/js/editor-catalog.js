@@ -119,8 +119,8 @@ export const BLOCKS = {
   'forecast-pvtoday':   { group: 'forecast', name: 'PV today', desc: 'Summary bar, weather timeline and chart', icon: 'panel', w: 6, h: 6 },
   'weather-block':      { group: 'forecast', name: 'Weather', desc: 'Conditions, forecast and alerts', icon: 'cloud', w: 6, h: 5 },
 
-  'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns a Home Assistant entity on or off', icon: 'toggle', w: 3, h: 2 },
-  'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity', icon: 'select', w: 4, h: 3 },
+  'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns an entity on or off; works on the Controls page', icon: 'toggle', w: 3, h: 2 },
+  'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity; works on the Controls page', icon: 'select', w: 4, h: 3 },
 
   'text-card':          { group: 'content', name: 'Text', desc: 'A note or heading you write', icon: 'text', w: 6, h: 2 },
   'iframe-card':        { group: 'content', name: 'Embed', desc: 'Another web page in a frame', icon: 'embed', w: 6, h: 6 }

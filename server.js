@@ -1657,8 +1657,14 @@ function resolveActionDevice(source, device, entity) {
   return '';
 }
 
-app.post('/api/action', isAuthenticated, async (req, res) => {
+// Device actions (switches, selectors, register writes) need the Controls
+// unlock (password again within a few minutes), and every attempt is logged.
+const deviceControls = require('./modules/deviceControls');
+app.use('/api/controls', isAuthenticated, require('./routes/controls'));
+app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (req, res) => {
   const { source, action, entity, params } = req.body;
+  const logged = (outcome, detail) => deviceControls.logAttempt({ source: 'action:' + String(source || ''), device: req.body.device, target: entity, label: action,
+    newValue: params && (params.value !== undefined ? params.value : params.payload), outcome, detail }, req);
 
   if (!source || !action) {
     return res.status(400).json({ success: false, error: 'source and action are required' });
@@ -1754,11 +1760,14 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
     }
     
     if (result?.error) {
+      logged('failed', result.error);
       return res.status(502).json({ success: false, ...result });
     }
+    logged('done', '');
     res.json(result);
   } catch (e) {
     logger.error('Action error:', e);
+    logged('failed', e.message);
     res.status(500).json({ success: false, error: 'Action failed' });
   }
 });
