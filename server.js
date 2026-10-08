@@ -463,8 +463,13 @@ const upload = multer({
 });
 
 // Middleware
-// Redirect raw editor.html to the protected /editor route (auth gate — issue #87)
+// Redirect raw editor.html / settings.html to their protected routes (auth gate — issue #87)
 app.get('/editor.html', (req, res) => res.redirect('/editor'));
+app.get('/settings.html', (req, res) => res.redirect('/settings'));
+// Signed-in pages (card showcase, device controls) and their files — every
+// request under them needs a session, whatever the method or sub path.
+const { mountPrivatePages, ownsPrivatePath } = require('./routes/privatePages');
+mountPrivatePages(app);
 // Serve static files with 1h browser cache
 // Pages, scripts and styles revalidate on every load (ETag → 304 when unchanged)
 // so an image update is visible at once; icons/fonts keep the 1 h cache.
@@ -2532,7 +2537,7 @@ app.get('/api/metrics/names', async (req, res) => {
 
 // ---------- Catch-all for SPA ----------
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  if (ownsPrivatePath(req.path) || req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

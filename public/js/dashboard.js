@@ -219,6 +219,14 @@ function renderDashboard() {
         if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
+        // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).
+        if (settingsBtn && !document.getElementById('showcase-link')) {
+          for (const [id, href, text] of [['showcase-link', '/showcase', 'Card showcase'], ['controls-link', '/controls', 'Controls']]) {
+            const a = document.createElement('a');
+            a.id = id; a.href = href; a.className = 'settings-link'; a.textContent = text;
+            settingsBtn.before(a);
+          }
+        }
         const setupLink = document.getElementById('setup-link');
         if (setupLink) setupLink.style.display = '';
         const themeToggle = document.getElementById('theme-toggle');

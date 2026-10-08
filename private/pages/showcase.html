@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Card showcase · Epilykos</title>
+  <script>
+    // Apply the saved theme before first paint (same rules as js/theme.js).
+    (function() {
+      var t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) {}
+      if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/cards.css">
+  <link rel="stylesheet" href="/private/css/private.css">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
+</head>
+<body class="pv-page">
+  <a class="pv-skip" href="#sc-main">Skip to the cards</a>
+  <header class="pv-top">
+    <div class="pv-top-start">
+      <a href="/" class="pv-back">← Dashboard</a>
+      <h1>Card showcase</h1>
+    </div>
+    <div class="pv-top-end">
+      <a href="/controls" class="pv-link">Controls</a>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between light and dark"><span class="theme-icon">☾</span></button>
+    </div>
+  </header>
+  <p class="pv-note" role="note">Every card the dashboard offers, with made-up readings from an imaginary home that update every few seconds. None of this is your data, and the switch and selector here don't control anything. Open <strong>Try options</strong> on a card to change it; changes stay on this page.</p>
+  <nav id="sc-nav" class="sc-nav" aria-label="Card groups"></nav>
+  <main id="sc-main" class="sc-main" tabindex="-1"></main>
+  <script type="module" src="/private/js/showcase.js"></script>
+</body>
+</html>
