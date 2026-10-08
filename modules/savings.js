@@ -48,7 +48,7 @@ async function getSavings() {
   const monthSolar = sumWithLiveToday(monthRows);
 
   // All-time aggregation
-  const dayRows = readDailySnapshots(db, { fields: ['daily_solar'] }).map(row => ({ day: row.day, max_solar: row.daily_solar }));
+  const dayRows = readDailySnapshots(db, { fields: ['daily_solar'], cached: true }).map(row => ({ day: row.day, max_solar: row.daily_solar }));
   const allTimeSolar = dayRows.reduce((sum, row) => sum + (row.max_solar || 0), 0);
   const allTimeSavings = allTimeSolar * rate;
 
