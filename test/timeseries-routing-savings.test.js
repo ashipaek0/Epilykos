@@ -24,6 +24,9 @@ process.chdir(tmp);
 const { initializeDatabase, getDb, setConfig } = require(path.join(REPO, 'modules/database'));
 initializeDatabase();
 const db = getDb();
+// All-time totals cache finished days; these helpers write straight into past
+// days (the app itself only writes the current time), so they clear it.
+const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesReader'));
 
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log(`ok - ${name}`); }
@@ -35,6 +38,7 @@ function insertHistoryRow(ts, overrides = {}) {
   const cols = ['timestamp', ...HISTORY_FIELDS];
   db.prepare(`INSERT INTO history(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
     .run(ts, ...HISTORY_FIELDS.map(f => row[f]));
+  clearDailySnapshotCache(db);
 }
 function insertHistory5m(bucketStart, overrides = {}) {
   const cols = ['bucket_start',
@@ -51,6 +55,7 @@ function insertHistory5m(bucketStart, overrides = {}) {
   const row = { ...defaults, bucket_start: bucketStart, ...overrides };
   db.prepare(`INSERT INTO history_5m(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
     .run(...cols.map(c => row[c]));
+  clearDailySnapshotCache(db);
 }
 
 const RETENTION_SECONDS = 30 * 24 * 60 * 60;

@@ -11,7 +11,7 @@ const { buildStatusPayload, validatePayload, resolveEnergyUnit } = require('./ma
 const { canCall, isRateLimitError } = require('./rateLimiter');
 const { logger } = require('../logger');
 const metricSanity = require('../metricSanity');
-const { SQL_LOCAL_DAY, localDateString } = require('../localTime');
+const { localDateString, localDayBounds } = require('../localTime');
 
 let pushInterval = null;
 let eodInterval = null;
@@ -142,19 +142,20 @@ async function uploadEod(db, client, config) {
   }
   try {
     const todayStr = localDateString();
+    const [dayStart, dayEnd] = localDayBounds();
     // NC2: all EOD data from Epilykos history table
     const stats = db.prepare(
       `SELECT MAX(daily_solar) as daily_solar, MAX(solar) as peak_watts,
               MAX(daily_consumption) as daily_con
-       FROM history WHERE ${SQL_LOCAL_DAY} = ?`
-    ).get(todayStr);
+       FROM history WHERE timestamp >= ? AND timestamp < ?`
+    ).get(dayStart, dayEnd);
     if (!stats || stats.daily_solar == null) {
       logger.debug('[pvoutput] no history data for today, skipping EOD');
       return;
     }
     const peakRow = db.prepare(
-      `SELECT timestamp FROM history WHERE ${SQL_LOCAL_DAY} = ? ORDER BY solar DESC LIMIT 1`
-    ).get(todayStr);
+      `SELECT timestamp FROM history WHERE timestamp >= ? AND timestamp < ? ORDER BY solar DESC LIMIT 1`
+    ).get(dayStart, dayEnd);
     let pt = '';
     if (peakRow) {
       const peakDate = new Date(peakRow.timestamp * 1000);

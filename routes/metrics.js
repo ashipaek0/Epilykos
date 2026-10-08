@@ -66,7 +66,7 @@ function buildCurrentData(db) {
   const dailySolarKwh = computeTodaySolar();
   const rate = parseFloat(getConfig('savings_rate')) || 0.30;
   const curr = getConfig('savings_currency') || '€';
-  const allTimeSolar = { total: readDailySnapshots(db, { fields: ["daily_solar"] }).reduce((sum, row) => sum + (row.daily_solar || 0), 0) };
+  const allTimeSolar = { total: readDailySnapshots(db, { fields: ["daily_solar"], cached: true }).reduce((sum, row) => sum + (row.daily_solar || 0), 0) };
   const allTimeSavings = (allTimeSolar?.total || 0) * rate;
   return {
     consumption_kw: latest.consumption / 1000,
@@ -160,6 +160,21 @@ async function buildDashboardState() {
     dailyEnergyBar,
     breakdowns: safeBreakdowns()
   };
+}
+
+/**
+ * The dashboard state for page loads: a page asks for it over HTTP and again
+ * when its live connection opens, and the editor asks twice, so builds a
+ * moment apart share one. The polling broadcast still builds fresh.
+ */
+const SHARED_STATE_MS = 2000;
+let sharedState = null;   // { at, promise }
+function sharedDashboardState() {
+  if (sharedState && Date.now() - sharedState.at < SHARED_STATE_MS) return sharedState.promise;
+  const entry = { at: Date.now(), promise: buildDashboardState() };
+  entry.promise.catch(() => { if (sharedState === entry) sharedState = null; });
+  sharedState = entry;
+  return entry.promise;
 }
 
 // The parts behind combined totals, for cards that can show them (never fails the state).
@@ -348,7 +363,7 @@ router.get('/monthly', async (req, res) => {
       });
     }
     const db = getDb();
-    const dailyRows = readDailySnapshots(db, { fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] });
+    const dailyRows = readDailySnapshots(db, { fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'], cached: true });
     const monthTotals = new Map();
     for (const r of dailyRows) {
       const month = r.day.slice(0, 7);
@@ -447,7 +462,7 @@ router.get('/solar/intraday', async (req, res) => {
 
 router.get('/dashboard-state', async (req, res) => {
   try {
-    const state = await buildDashboardState();
+    const state = await sharedDashboardState();
     res.json(state);
   } catch (err) {
     logger.error('Aggregated state error:', err);
@@ -470,4 +485,4 @@ router.get('/dashboard-config', async (req, res) => {
   }
 });
 
-module.exports = { router, buildDashboardState };
+module.exports = { router, buildDashboardState, sharedDashboardState };

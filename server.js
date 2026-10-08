@@ -129,7 +129,7 @@ const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./module
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
-const { router: metricsRouter, buildDashboardState } = require('./routes/metrics');
+const { router: metricsRouter, buildDashboardState, sharedDashboardState } = require('./routes/metrics');
 // Issue #108 (AC-1..13): dongle projections live in the pure module; the
 // remaining per-family projections are route-level pure helpers below (server
 // wave touches server.js only). All catalog routes are thin wrappers.
@@ -470,6 +470,10 @@ app.get('/settings.html', (req, res) => res.redirect('/settings'));
 // request under them needs a session, whatever the method or sub path.
 const { mountPrivatePages, ownsPrivatePath } = require('./routes/privatePages');
 mountPrivatePages(app);
+// The dashboard page, with its modules listed up front (modules/pagePreload.js).
+// Ahead of express.static, which would otherwise answer / with the plain file.
+const { sendPage } = require('./modules/pagePreload');
+app.get(['/', '/index.html'], (req, res) => sendPage(res, path.join(__dirname, 'public', 'index.html'), '/'));
 // Serve static files with 1h browser cache
 // Pages, scripts and styles revalidate on every load (ETag → 304 when unchanged)
 // so an image update is visible at once; icons/fonts keep the 1 h cache.
@@ -478,6 +482,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (/\.(html|js|css|json|webmanifest)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
   }
+}));
+// The editor's grid library, from the installed package rather than a CDN
+// (a slow or blocked CDN left the editor blank; its script is render-blocking).
+app.use('/vendor/gridstack', express.static(path.join(__dirname, 'node_modules', 'gridstack', 'dist'), {
+  maxAge: '1h', index: false,
+  setHeaders(res, filePath) { if (/\.(js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
 }));
 app.use(express.json());
 app.use('/api', csrfProtection);
@@ -575,7 +585,7 @@ wss.on('connection', (ws) => {
   
   (async () => {
     try {
-      const state = await buildDashboardState();
+      const state = await sharedDashboardState();
       ws.send(JSON.stringify({ type: 'dashboard-state', data: state }));
     } catch (err) {
       logger.error('Error sending initial state via WebSocket:', err);
@@ -634,6 +644,8 @@ async function pollAllSources() {
 }
 pollAllSources();
 const pollInterval = setInterval(pollAllSources, 30000);
+// Read the all-time daily totals once now, so the first page load doesn't pay for it.
+setTimeout(() => { buildDashboardState().catch(() => {}); }, 2000).unref();
 
 // ---------- Public API (no auth) ----------
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -2476,7 +2488,7 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
 // ---------- Visual Editor (protected) ----------
 app.get('/editor', (req, res) => {
   if (!req.session || !req.session.authenticated) return res.redirect('/login');
-  res.sendFile(path.join(__dirname, 'public', 'editor.html'));
+  sendPage(res, path.join(__dirname, 'public', 'editor.html'), '/editor');
 });
 
 // ---------- Network config (public, read-only) ----------
@@ -2499,10 +2511,7 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// ---------- Root route (public) ----------
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// (The root route, /, is served ahead of the static files, near the top.)
 
 // ---------- Metrics endpoints ----------
 app.get('/api/metrics/current', async (req, res) => {
@@ -2549,7 +2558,7 @@ app.use((req, res, next) => {
   if (ownsPrivatePath(req.path) || req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  sendPage(res, path.join(__dirname, 'public', 'index.html'), '/');
 });
 
 // Start HTTP server with WebSocket support

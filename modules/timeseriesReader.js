@@ -1,6 +1,6 @@
 'use strict';
 
-const { SQL_LOCAL_DAY } = require('./localTime');
+const { localDateString } = require('./localTime');
 
 const BUCKET_SECONDS = 300;
 const RETENTION_SECONDS = 30 * 24 * 60 * 60;
@@ -13,7 +13,7 @@ function readMetricSeries(db, { metric, from, to, toInclusive = false }) {
   const cutoff = cutoffNow();
   const op = toOperator(toInclusive);
   const aggregates = db.prepare(`SELECT bucket_start AS timestamp, value_avg AS value, value_count AS count
-    FROM metrics_5m WHERE metric = ? AND bucket_start + ? > ? AND bucket_start ${op} ?`).all(metric, BUCKET_SECONDS, from, Math.min(to, cutoff));
+    FROM metrics_5m WHERE metric = ? AND bucket_start > ? AND bucket_start ${op} ?`).all(metric, from - BUCKET_SECONDS, Math.min(to, cutoff));
   const rolledBuckets = new Set(aggregates.map(row => row.timestamp));
   const raw = db.prepare(`SELECT timestamp, value, 1 AS count FROM metrics WHERE metric = ?
     AND timestamp >= ? AND timestamp ${op} ?`).all(metric, Math.max(from, cutoff), to)
@@ -40,7 +40,7 @@ function readHistorySeries(db, { from, to, toInclusive = false, fields }) {
       rows.set(row.timestamp, { output, aggregate: false });
     }
     const aggCols = ['bucket_start AS timestamp', ...instantaneous.flatMap(field => [`${field}_avg AS ${field}`, `${field}_count AS ${field}_count`]), ...daily.map(field => `${field}_last AS ${field}`)].join(', ');
-    const aggregates = db.prepare(`SELECT ${aggCols} FROM history_5m WHERE bucket_start + ? > ? AND bucket_start ${op} ?`).all(BUCKET_SECONDS, from, Math.min(to, cutoff));
+    const aggregates = db.prepare(`SELECT ${aggCols} FROM history_5m WHERE bucket_start > ? AND bucket_start ${op} ?`).all(from - BUCKET_SECONDS, Math.min(to, cutoff));
     for (const row of aggregates) {
       const output = { timestamp: row.timestamp };
       for (const field of requested) { output[field] = row[field]; if (INSTANT_FIELDS.has(field)) output[`${field}_count`] = row[`${field}_count`]; }
@@ -54,27 +54,67 @@ function readHistorySeries(db, { from, to, toInclusive = false, fields }) {
   return [...rows.values()].map(item => item.output).sort((a, b) => a.timestamp - b.timestamp);
 }
 
-function readDailySnapshots(db, { from, to, toInclusive = false, fields }) {
+// Every time zone in use is a whole number of 15 minutes from UTC (and DST
+// moves by 30 or 60 minutes), so a 15-minute bucket never straddles a local
+// midnight. Grouping by bucket in SQL is cheap integer arithmetic; SQLite's
+// 'localtime' per row (the old way) took seconds over a month of readings.
+const DAY_PART_SECONDS = 900;
+
+// All-time reads (no from/to) with `cached: true` keep the finished days for a
+// while and only re-read today: the dashboard asks for all-time totals on every
+// load, and past days don't change. Refreshed every few minutes and when the
+// local day changes, so an import or late rollup still shows up.
+const ALL_TIME_CACHE_MS = 10 * 60 * 1000;
+const allTimeCache = new WeakMap();   // db -> Map(fields key -> { today, at, past })
+
+function readDailySnapshots(db, { from, to, toInclusive = false, fields, cached = false }) {
+  if (cached && (from === undefined || from === null) && (to === undefined || to === null)) return readAllTimeCached(db, fields);
   const requested = [...new Set(fields || [])];
   for (const field of requested) if (!DAILY_FIELDS.has(field)) throw new Error(`Unsupported daily field: ${field}`);
   if (!requested.length) return [];
   const op = toOperator(toInclusive);
-  const rawBound = from !== undefined && from !== null ? ` AND timestamp >= ${Number(from)}` : '';
-  const rawUpper = to !== undefined && to !== null ? ` AND timestamp ${op} ${Number(to)}` : '';
-  const aggBound = from !== undefined && from !== null ? ` AND bucket_start + ${BUCKET_SECONDS} > ${Number(from)}` : '';
-  const aggUpper = to !== undefined && to !== null ? ` AND bucket_start ${op} ${Number(to)}` : '';
-  const selects = requested.map(field => `MAX(${field}) AS ${field}`).join(', ');
-  const aggSelects = requested.map(field => `MAX(${field}_last) AS ${field}`).join(', ');
-  const rows = db.prepare(`SELECT day, ${requested.map(field => `MAX(${field}) AS ${field}`).join(', ')} FROM (
-    SELECT ${SQL_LOCAL_DAY} AS day, ${requested.join(', ')} FROM history WHERE 1=1${rawBound}${rawUpper}
+  const hasFrom = from !== undefined && from !== null, hasTo = to !== undefined && to !== null;
+  const rawWhere = [hasFrom ? 'timestamp >= @from' : '', hasTo ? `timestamp ${op} @to` : ''].filter(Boolean).join(' AND ') || '1=1';
+  const aggWhere = [hasFrom ? 'bucket_start > @fromBucket' : '', hasTo ? `bucket_start ${op} @to` : ''].filter(Boolean).join(' AND ') || '1=1';
+  const params = {};
+  if (hasFrom) { params.from = Number(from); params.fromBucket = Number(from) - BUCKET_SECONDS; }
+  if (hasTo) params.to = Number(to);
+  const parts = db.prepare(`SELECT part, ${requested.map(field => `MAX(${field}) AS ${field}`).join(', ')} FROM (
+    SELECT timestamp / ${DAY_PART_SECONDS} AS part, ${requested.join(', ')} FROM history WHERE ${rawWhere}
     UNION ALL
-    SELECT ${SQL_LOCAL_DAY.replaceAll('timestamp', 'bucket_start')} AS day, ${requested.map(field => `${field}_last AS ${field}`).join(', ')} FROM history_5m WHERE 1=1${aggBound}${aggUpper}
-  ) GROUP BY day ORDER BY day ASC`).all();
-  return rows.map(row => {
-    const output = { day: row.day };
-    for (const field of requested) output[field] = row[field];
-    return output;
-  });
+    SELECT bucket_start / ${DAY_PART_SECONDS} AS part, ${requested.map(field => `${field}_last AS ${field}`).join(', ')} FROM history_5m WHERE ${aggWhere}
+  ) GROUP BY part ORDER BY part ASC`).all(params);
+  const days = new Map();
+  for (const row of parts) {
+    const day = localDateString(new Date(row.part * DAY_PART_SECONDS * 1000));
+    let out = days.get(day);
+    if (!out) { out = { day }; for (const field of requested) out[field] = null; days.set(day, out); }
+    for (const field of requested) {
+      const v = row[field];
+      if (v !== null && v !== undefined && (out[field] === null || v > out[field])) out[field] = v;
+    }
+  }
+  return [...days.values()];
+}
+
+/** Forget cached finished days (after writing into past days directly). */
+function clearDailySnapshotCache(db) { if (db) allTimeCache.delete(db); }
+
+function readAllTimeCached(db, fields) {
+  const key = [...new Set(fields || [])].sort().join(',');
+  const now = new Date();
+  const today = localDateString(now);
+  const todayStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
+  let byFields = allTimeCache.get(db);
+  if (!byFields) { byFields = new Map(); allTimeCache.set(db, byFields); }
+  let entry = byFields.get(key);
+  if (!entry || entry.today !== today || Date.now() - entry.at > ALL_TIME_CACHE_MS) {
+    const all = readDailySnapshots(db, { fields });
+    entry = { today, at: Date.now(), past: all.filter(row => row.day < today) };
+    byFields.set(key, entry);
+  }
+  const current = readDailySnapshots(db, { from: todayStart, fields }).filter(row => row.day >= today);
+  return entry.past.concat(current);
 }
 
 const POWER_STATS_FIELDS = Object.freeze({
@@ -93,7 +133,7 @@ function readPowerStats(db, { from, to, fields }) {
     const cols = supported.flatMap(f => { const s = POWER_STATS_FIELDS[f]; return f === 'battery_power'
       ? ['battery_power_sum AS battery_power_sum', 'battery_power_avg AS battery_power_avg', 'battery_power_min AS battery_power_min', 'battery_power_max AS battery_power_max', 'battery_power_count AS battery_power_count', 'battery_power_last_value AS battery_power_last_value', 'battery_power_last_timestamp AS battery_power_last_timestamp']
       : [`${s}_avg AS ${f}_avg`, `${s}_min AS ${f}_min`, `${s}_max AS ${f}_max`, `${s}_count AS ${f}_count`, `${s}_last_value AS ${f}_last_value`, `${s}_last_timestamp AS ${f}_last_timestamp`]; });
-    rollups = db.prepare(`SELECT bucket_start, ${cols.join(', ')} FROM history_5m WHERE bucket_start < ? AND bucket_start + ? > ?`).all(Math.min(to, cutoff), BUCKET_SECONDS, from);
+    rollups = db.prepare(`SELECT bucket_start, ${cols.join(', ')} FROM history_5m WHERE bucket_start < ? AND bucket_start > ?`).all(Math.min(to, cutoff), from - BUCKET_SECONDS);
   }
   const rolledBuckets = new Set(rollups.map(row => row.bucket_start));
   const raw = supported.length && to > cutoff
@@ -184,4 +224,4 @@ function emptyPowerStat(status, warnings) {
   return { status, unit: 'W', sum: null, count: 0, mean: null, min: null, max: null, last: null, fidelity: { mean: 'unavailable', min: 'unavailable', max: 'unavailable', last: 'unavailable', warnings } };
 }
 
-module.exports = { readMetricSeries, readHistorySeries, readDailySnapshots, readPowerStats };
+module.exports = { readMetricSeries, readHistorySeries, readDailySnapshots, readPowerStats, clearDailySnapshotCache };
