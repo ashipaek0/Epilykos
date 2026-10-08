@@ -147,15 +147,19 @@ let devices = [];
 function settingRow(dev, s) {
   const row = document.createElement('tr');
   const id = `ct-${dev.name}-${s.name}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const isSwitch = s.type === 'switch';
   row.innerHTML = `<th scope="row"><div class="ct-set-name"></div><div class="ct-help"></div></th>
     <td class="ct-current" aria-live="polite">—</td>
-    <td><label class="pv-visually-hidden" for="${id}"></label><input type="number" id="${id}" class="ct-input"></td>
+    <td><label class="pv-visually-hidden" for="${id}"></label>${isSwitch
+      ? `<select id="${id}" class="ct-input"><option value="">Choose</option><option value="on">On</option><option value="off">Off</option></select>`
+      : `<input type="number" id="${id}" class="ct-input">`}</td>
     <td class="ct-row-actions"><button type="button" class="ct-btn ct-read">Read</button> <button type="button" class="ct-btn ct-btn-primary ct-change" data-needs-unlock>Change</button></td>`;
   row.querySelector('.ct-set-name').textContent = s.label;
-  row.querySelector('.ct-help').textContent = `${s.description} Range ${s.min}–${s.max}${s.unit ? ' ' + s.unit : ''}.`;
+  row.querySelector('.ct-help').textContent = isSwitch ? s.description : `${s.description} Range ${s.min}–${s.max}${s.unit ? ' ' + s.unit : ''}.`;
   row.querySelector('label').textContent = `New value for ${s.label}`;
-  const input = row.querySelector('input');
-  Object.assign(input, { min: s.min, max: s.max, step: s.step });
+  const input = row.querySelector('input, select');
+  if (!isSwitch) Object.assign(input, { min: s.min, max: s.max, step: s.step });
+  const show = v => (isSwitch ? (v === 'on' ? 'On' : v === 'off' ? 'Off' : '—') : fmt(v, s.unit));
   const cur = row.querySelector('.ct-current');
   const msg = document.createElement('tr');
   msg.className = 'ct-row-msg'; msg.innerHTML = '<td colspan="4" role="status" aria-live="polite"></td>';
@@ -166,7 +170,7 @@ function settingRow(dev, s) {
     const r = await api('/read', { device: dev.name, setting: s.name });
     if (!r.ok) { cur.textContent = '—'; say(r.data.error || 'Could not read it.', true); return null; }
     shown = r.data.value;
-    cur.textContent = fmt(shown, s.unit);
+    cur.textContent = show(shown);
     if (!r.data.inRange) say(`The device reports a value outside ${s.min}–${s.max}${s.unit ? ' ' + s.unit : ''}. This setting can't be changed here until that's checked.`, true);
     else say('');
     if (input.value === '') input.value = shown;
@@ -175,17 +179,27 @@ function settingRow(dev, s) {
   row.querySelector('.ct-read').addEventListener('click', read);
   row.querySelector('.ct-change').addEventListener('click', async () => {
     const value = input.value.trim();
-    if (value === '' || !input.checkValidity()) { say(`Enter a value from ${s.min} to ${s.max}${s.unit ? ' ' + s.unit : ''}, in steps of ${s.step}.`, true); input.focus(); return; }
+    if (isSwitch && value === '') { say('Choose On or Off.', true); input.focus(); return; }
+    if (!isSwitch && (value === '' || !input.checkValidity())) { say(`Enter a value from ${s.min} to ${s.max}${s.unit ? ' ' + s.unit : ''}, in steps of ${s.step}.`, true); input.focus(); return; }
     if (shown === null && (await read()) === null) return;
-    if (Number(value) === shown) { say('That is already the current value.'); return; }
-    const yes = await ask({ title: `Change ${s.label}?`, text: `${dev.name}: from ${fmt(shown, s.unit)} to ${fmt(Number(value), s.unit)}. The inverter starts using it straight away.`, ok: 'Change', danger: true });
+    const wanted = isSwitch ? value : Number(value);
+    if (wanted === shown) { say('That is already the current value.'); return; }
+    const cutsPower = isSwitch && s.name === 'discharging' && wanted === 'off';
+    const yes = await ask({
+      title: isSwitch ? `Turn ${s.label.toLowerCase()} ${wanted}?` : `Change ${s.label}?`,
+      text: cutsPower ? `${dev.name}: the pack stops supplying power, so everything it powers goes off now (possibly including this system). You may need to reach the pack to turn it back on.`
+        : isSwitch ? `${dev.name}: ${s.label.toLowerCase()} goes from ${show(shown)} to ${show(wanted)} straight away.`
+          : `${dev.name}: from ${fmt(shown, s.unit)} to ${fmt(wanted, s.unit)}. The inverter starts using it straight away.`,
+      ok: isSwitch ? `Turn ${wanted}` : 'Change', danger: true,
+      check: cutsPower ? 'I understand this cuts the power this battery supplies' : ''
+    });
     if (!yes) return;
     say('Changing…');
-    const r = await api('/change', { device: dev.name, setting: s.name, value: Number(value), expected: shown });
-    if (r.ok) { shown = r.data.value; cur.textContent = fmt(shown, s.unit); say(r.data.unchanged ? 'It was already set to that.' : `Done. The device now reports ${fmt(shown, s.unit)}.`); }
+    const r = await api('/change', { device: dev.name, setting: s.name, value: wanted, expected: shown });
+    if (r.ok) { shown = r.data.value; cur.textContent = show(shown); say(r.data.unchanged ? 'It was already set to that.' : `Done. The device now reports ${show(shown)}.`); }
     else {
-      if (r.data.current !== undefined) { shown = r.data.current; cur.textContent = fmt(shown, s.unit); }
-      if (r.data.value !== undefined) { shown = r.data.value; cur.textContent = fmt(shown, s.unit); }
+      if (r.data.current !== undefined) { shown = r.data.current; cur.textContent = show(shown); }
+      if (r.data.value !== undefined) { shown = r.data.value; cur.textContent = show(shown); }
       say(r.data.error || 'The change failed.', true);
     }
     loadLog();
@@ -217,11 +231,11 @@ async function loadDevices() {
     card.append(head, wrap);
     box.appendChild(card);
   }
-  const without = devices.filter(d => !d.settings.length);
+  const without = devices.filter(d => !d.settings.length && d.kind !== 'modbus');
   const p = document.createElement('p');
   p.className = 'ct-empty';
   p.textContent = withSettings.length
-    ? (without.length ? `No settings list yet for: ${without.map(d => d.name).join(', ')}.` : '')
+    ? (without.length ? `No settings to change yet for: ${without.map(d => d.name + (d.note ? ` (${d.note})` : '')).join(', ')}.` : '')
     : (devices.length ? `None of your devices has a settings list yet (${devices.map(d => d.name).join(', ')}).` : 'No inverters or batteries are set up yet.');
   if (p.textContent) box.appendChild(p);
   const sel = $('ct-raw-device');
