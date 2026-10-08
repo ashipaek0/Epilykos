@@ -97,7 +97,7 @@ function renderDashboard() {
       tabToggle.textContent = '☰';
       tabToggle.title = show ? 'Hide dashboard tabs' : 'Show dashboard tabs';
     };
-    document.querySelector('header').appendChild(tabToggle);
+    (document.querySelector('header .header-right') || document.querySelector('header')).appendChild(tabToggle);
   }
   tabBar.innerHTML = '';
   dashboardConfig.dashboards.forEach(db => {
@@ -244,7 +244,7 @@ function renderDashboard() {
           editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
         });
         editorLink.className = 'settings-link';
-        editorLink.textContent = ' Edit Layout';
+        editorLink.textContent = 'Edit layout';
         editorLink.style.marginLeft = '0.5rem';
         tabBar.appendChild(editorLink);
       }

@@ -2432,12 +2432,15 @@ function updateEmptyState() {
 
 // GRID_MARGIN applies to each side of a block, so blocks sit 2 × GRID_MARGIN apart,
 // the same as the dashboard (GAP in dashboard.js).
-var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 1;
+// DASHBOARD_MIN_WIDTH: below 768 px the dashboard stacks blocks one per row,
+// so the 12-column layout only exists on wider screens; on a phone the editor
+// shows it as a miniature of a 1024 px screen instead of squeezing the cards.
+var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_MIN_WIDTH = 1024, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 1;
 var previewScale = 1;
 
-/** Width the dashboard's block area has in this browser window. */
+/** Width the dashboard's block area has in this browser window (12-column layouts). */
 function dashboardWidth() {
-  return Math.min(DASHBOARD_MAX_WIDTH, Math.max(320, window.innerWidth - DASHBOARD_PAGE_PADDING));
+  return Math.min(DASHBOARD_MAX_WIDTH, Math.max(DASHBOARD_MIN_WIDTH, window.innerWidth - DASHBOARD_PAGE_PADDING));
 }
 
 function applyPreviewScale() {

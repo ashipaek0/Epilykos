@@ -149,6 +149,24 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(read('public/js/tables.js'), /label: 'Counted since'/);
   });
 
+  await check('phones: header links stay on one swipeable row; editor previews a miniature desktop; timeline labels never overlap', () => {
+    const css = read('public/style.css');
+    assert.match(css, /\.container > header \{[^}]*flex-wrap: wrap;/);
+    assert.match(css, /@media \(max-width: 640px\) \{\s*\.header-right \{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;/);
+    assert.match(read('public/js/dashboard.js'), /\(document\.querySelector\('header \.header-right'\) \|\| document\.querySelector\('header'\)\)\.appendChild\(tabToggle\)/);
+    assert.match(read('public/js/dashboard.js'), /editorLink\.textContent = 'Edit layout';/);
+    assert.doesNotMatch(read('public/index.html'), /⚙️/);
+    const ed = read('public/js/editor.js');
+    assert.match(ed, /DASHBOARD_MIN_WIDTH = 1024/);
+    assert.match(ed, /Math\.max\(DASHBOARD_MIN_WIDTH, window\.innerWidth - DASHBOARD_PAGE_PADDING\)/);
+    const g = read('public/js/grid.js');
+    assert.match(g, /while \(tickAt\.getHours\(\) % 4 !== 0\)/, 'ticks on local 4-hour marks');
+    assert.match(g, /function hideCrowdedTicks\(labelRow\)/);
+    assert.match(g, /if \(r\.left < lastRight \+ 6\) \{ t\.style\.visibility = 'hidden'; continue; \}/);
+    assert.match(read('public/settings.js'), /if \(!res\.ok\) throw new Error\(`HTTP \$\{res\.status\}`\);/);
+    assert.match(read('private/js/showcase.js'), /refreshCards\(false\)/, 'live refresh leaves tables and charts alone');
+  });
+
   console.log(`ux-fixes: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

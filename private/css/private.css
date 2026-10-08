@@ -46,7 +46,10 @@
 .sc-frame { position: relative; width: calc(var(--sc-cols, 12) / 12 * 100%); height: var(--sc-height, 300px); overflow: hidden; }
 @media (max-width: 768px) {
   .sc-frame { width: 100%; height: auto; min-height: 0; }
-  .sc-options-body { right: auto; left: 0; }
+  /* Phones: the options open in place under the card's heading, full width. */
+  .sc-item-head { position: relative; }
+  .sc-options { position: static; }
+  .sc-options-body { left: 0; right: 0; width: auto; }
 }
 
 .pv-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

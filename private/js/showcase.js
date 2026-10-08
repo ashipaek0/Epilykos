@@ -98,17 +98,23 @@ function drawCard(item) {
 }
 
 let pending = null;
-/** Start charts and tables and push the current made-up state into every card. */
-function refreshCards() {
+/**
+ * Push the current made-up state into every card. After a card is (re)drawn
+ * (full = true) charts are started and the tables filled too; the regular
+ * refresh only updates live values, so an open table or chart isn't redrawn.
+ */
+function refreshCards(full = true) {
   if (pending) return pending;
   pending = (async () => {
     const types = typesShown();
-    if ([...CHART_TYPES].some(t => types.has(t))) {
+    if (full && [...CHART_TYPES].some(t => types.has(t))) {
       try { await ensureChartJS(); initPowerChart(); initEnergyChart(); initMetricChart(); } catch { /* charts stay empty offline */ }
     }
     try { updateCards(state, types); } catch (e) { console.warn('Showcase update failed:', e); }
-    updateDailyTable().catch(() => {});
-    updateMonthlyTable().catch(() => {});
+    if (full) {
+      updateDailyTable().catch(() => {});
+      updateMonthlyTable().catch(() => {});
+    }
   })().finally(() => { pending = null; });
   return pending;
 }
@@ -228,4 +234,4 @@ initTheme();
 document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
 render();
 refreshCards();
-setInterval(() => { state = dashboardState(); refreshCards(); }, REFRESH_MS);
+setInterval(() => { if (document.hidden) return; state = dashboardState(); refreshCards(false); }, REFRESH_MS);
