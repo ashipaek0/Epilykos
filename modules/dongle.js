@@ -689,6 +689,8 @@ async function executeDongleAction(deviceName, registerAddr, value) {
   const devices = JSON.parse(getConfig('dongle_config') || '[]');
   const device = devices.find(d => d.name === deviceName);
   if (!device || !device.enabled) return { error: 'Dongle device not found or disabled' };
+  const switchedOff = require('./deviceControls').writeRefusal();
+  if (switchedOff) return { error: switchedOff };
 
   const transportType = device.transport || 'modbus-tcp';
 
@@ -717,11 +719,13 @@ async function executeDongleAction(deviceName, registerAddr, value) {
     return executeLuxpowerWrite(device, profile, registerAddr, value);
   }
 
-  if (isNaN(parseInt(registerAddr))) {
-    return { error: 'Invalid register address' };
-  }
-  const addr = parseInt(registerAddr);
-  const val = parseInt(value) || 0;
+  // Any address on these transports is a raw register write: expert switch only.
+  const rawOff = require('./deviceControls').writeRefusal({ raw: true });
+  if (rawOff) return { error: rawOff };
+  const addr = registerWord(registerAddr);
+  if (addr === null) return { error: 'Invalid register address' };
+  const val = registerWord(value, { decimalOnly: true });
+  if (val === null) return { error: 'The value must be a whole number from 0 to 65535' };
 
   try {
     if (transportType === 'solarman-v5') {
@@ -760,6 +764,115 @@ async function executeDongleAction(deviceName, registerAddr, value) {
     return { success: true };
   } catch (e) {
     logger.error(`Dongle write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+/**
+ * A 16-bit register address or value: a whole number 0..65535, written in
+ * decimal (or 0x hex for addresses). Anything else is null — never 0, so a
+ * typo can't turn into a write of zero.
+ */
+function registerWord(input, { decimalOnly = false } = {}) {
+  const s = typeof input === 'number' ? String(input) : String(input == null ? '' : input).trim();
+  let n = null;
+  if (/^\d+$/.test(s)) n = Number(s);
+  else if (!decimalOnly && /^0x[0-9a-f]{1,4}$/i.test(s)) n = parseInt(s, 16);
+  return n !== null && Number.isInteger(n) && n >= 0 && n <= 0xFFFF ? n : null;
+}
+
+/** The connection polling already holds for a LuxPower instance, or null. */
+function luxpowerTransportFor(name) {
+  const entry = luxpowerPollers.find(e => e.instance && e.instance.name === name);
+  return entry ? entry.transport : null;
+}
+
+/**
+ * Run fn(transport) on the LuxPower instance's polling connection. The dongle
+ * (and its Bluetooth link even more so) serves one client at a time: a second
+ * connection for a write gets closed, which is how writes used to fail with
+ * "connection closed" (issue #107). Only without a running poller is a
+ * connection opened for the call and closed after it.
+ */
+async function withLuxpowerTransport(device, profile, fn) {
+  const shared = luxpowerTransportFor(device.name);
+  const transport = shared || createLuxpowerTransport(device, profile);
+  try { return await fn(transport); }
+  finally { if (!shared) { try { transport.stop(); } catch (_) {} } }
+}
+
+/** Word from a 2-byte register read, in the profile's byte order. */
+function wordFrom(buf, profile) {
+  if (!buf || buf.length < 2) return null;
+  let v = buf.readUInt16BE(0);
+  if (profile && profile.byte_order === 'le') v = ((v & 0xFF) << 8) | (v >> 8);
+  return v;
+}
+
+function dongleDevice(name) {
+  const devices = JSON.parse(getConfig('dongle_config') || '[]');
+  const device = devices.find(d => d.name === name);
+  if (!device || !device.enabled) return { error: 'Dongle device not found or disabled' };
+  const profile = getProfileById(device.profile);
+  if (!profile) return { error: 'This device has no profile' };
+  return { device, profile };
+}
+
+/** Read one register now: { value } (raw 16-bit word) or { error }. */
+async function readDongleRegister(deviceName, register, registerType = 'holding') {
+  const found = dongleDevice(deviceName);
+  if (found.error) return found;
+  const { device, profile } = found;
+  const addr = registerWord(register);
+  if (addr === null) return { error: 'Invalid register address' };
+  try {
+    if (profile.protocol === 'luxpower-tcp') {
+      const buf = await withLuxpowerTransport(device, profile, t => t.readRegisters(addr, 1, registerType === 'input' ? 0x04 : 0x03));
+      const v = wordFrom(buf, profile);
+      return v === null ? { error: 'Short reply from the device' } : { value: v };
+    }
+    return { error: 'Reading single settings is not available for this connection yet' };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/** Write one listed setting (raw word). Only registers in the profile's list. */
+async function writeDongleSetting(deviceName, register, registerType, raw) {
+  const switchedOff = require('./deviceControls').writeRefusal();
+  if (switchedOff) return { error: switchedOff };
+  const found = dongleDevice(deviceName);
+  if (found.error) return found;
+  const { device, profile } = found;
+  if (profile.protocol !== 'luxpower-tcp' || !profile.capabilities || profile.capabilities.write !== true) return { error: 'This device has no settings that can be changed' };
+  const addr = registerWord(register);
+  const listed = (profile.writable_registers || []).some(w => registerWord(w.register) === addr && (w.register_type || 'holding') === (registerType || 'holding'));
+  if (addr === null || !listed) return { error: 'That register is not in this device\'s list of settings' };
+  const value = registerWord(raw, { decimalOnly: true });
+  if (value === null) return { error: 'The value must be a whole number from 0 to 65535' };
+  try {
+    await withLuxpowerTransport(device, profile, t => t.writeRegister(addr, value));
+    return { success: true };
+  } catch (e) {
+    logger.error(`Dongle write error for ${device.name}/register ${register}: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+/** Expert register write on a LuxPower instance: any holding register (expert switch only). */
+async function writeLuxpowerRaw(deviceName, register, raw) {
+  const off = require('./deviceControls').writeRefusal({ raw: true });
+  if (off) return { error: off };
+  const found = dongleDevice(deviceName);
+  if (found.error) return found;
+  if (found.profile.protocol !== 'luxpower-tcp') return { error: 'Not a LuxPower device' };
+  const addr = registerWord(register), value = registerWord(raw, { decimalOnly: true });
+  if (addr === null) return { error: 'Invalid register address' };
+  if (value === null) return { error: 'The value must be a whole number from 0 to 65535' };
+  try {
+    await withLuxpowerTransport(found.device, found.profile, t => t.writeRegister(addr, value));
+    return { success: true };
+  } catch (e) {
     return { error: e.message };
   }
 }
@@ -840,30 +953,28 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
   if (min !== null && raw < min) raw = min;
   if (max !== null && raw > max) raw = max;
 
-  let transport = null;
   try {
-    transport = createLuxpowerTransport(device, profile);
-    let writeValue = Math.round(raw);
-    if (writeValue < 0 || writeValue > 0xFFFF) {
-      return { error: `Value ${writeValue} out of 16-bit register range` };
-    }
-    if ((entry.kind || 'value') === 'bitfield') {
-      // Read-modify-write: keep the bits outside entry.mask, set the writable
-      // bits from the requested value.
-      const buf = await transport.readRegisters(addr, 1, 0x03);
-      if (buf.length < 2) return { error: `Short read on register ${trimmed}` };
-      let cur = buf.readUInt16BE(0);
-      if (profile.byte_order === 'le') cur = ((cur & 0xFF) << 8) | (cur >> 8);
-      const mask = entry.mask !== undefined && entry.mask !== null ? Number(entry.mask) : 0xFFFF;
-      writeValue = (cur & (~mask & 0xFFFF)) | (writeValue & mask);
-    }
-    await transport.writeRegister(addr, writeValue);
-    return { success: true };
+    return await withLuxpowerTransport(device, profile, async transport => {
+      let writeValue = Math.round(raw);
+      if (writeValue < 0 || writeValue > 0xFFFF) {
+        return { error: `Value ${writeValue} out of 16-bit register range` };
+      }
+      if ((entry.kind || 'value') === 'bitfield') {
+        // Read-modify-write: keep the bits outside entry.mask, set the writable
+        // bits from the requested value.
+        const buf = await transport.readRegisters(addr, 1, 0x03);
+        if (buf.length < 2) return { error: `Short read on register ${trimmed}` };
+        let cur = buf.readUInt16BE(0);
+        if (profile.byte_order === 'le') cur = ((cur & 0xFF) << 8) | (cur >> 8);
+        const mask = entry.mask !== undefined && entry.mask !== null ? Number(entry.mask) : 0xFFFF;
+        writeValue = (cur & (~mask & 0xFFFF)) | (writeValue & mask);
+      }
+      await transport.writeRegister(addr, writeValue);
+      return { success: true };
+    });
   } catch (e) {
     logger.error(`Dongle write error for ${device.name || device.host || handle}/register ${trimmed}: ${e.message}`);
     return { error: e.message };
-  } finally {
-    if (transport) { try { transport.stop(); } catch (_) {} }
   }
 }
 
@@ -871,6 +982,7 @@ module.exports = {
   singleFlight,
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
+  readDongleRegister, writeDongleSetting, writeLuxpowerRaw, registerWord,
   getByPathForTest: getByPath,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).

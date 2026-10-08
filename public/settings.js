@@ -4418,11 +4418,9 @@ function dongleRegisterResetNote() {
 }
 
 // Write Controls — luxpower-tcp only, when the profile has capabilities.write
-// and a non-empty writable_registers list. Per writable entry: a human label
-// (unit + min/max/step), a number input and a Write button that asks first (showConfirm) and
-// POSTs /api/action { source:'dongle', device:<card instance name>,
-// action:'write', entity:'holding:0xNNNN', params:{value} } with an inline
-// status (8s timeout). Preset buttons render from entry.actions when present.
+// and a non-empty writable_registers list. Settings are changed on the
+// Controls page (password unlock, read first, read back, change log), so this
+// section only names them and links there.
 async function populateDongleWriteControls(card, profileId, profile) {
   const wrap = card.querySelector('.write-controls');
   if (!wrap || !profileId) return;
@@ -4439,131 +4437,20 @@ async function populateDongleWriteControls(card, profileId, profile) {
   const caps = p.capabilities || {};
   const writable = Array.isArray(p.writable_registers) ? p.writable_registers : [];
   if (caps.write !== true || writable.length === 0) return;
-  let entities = Array.isArray(card._dongleEntities) ? card._dongleEntities : [];
-  if (!entities.length) {
-    try { entities = await fetchDongleProfileEntities(profileId); card._dongleEntities = entities; } catch (e) {}
-  }
-  const byId = new Map();
-  entities.forEach(e => { const id = dongleLux.entityId(e); if (id) byId.set(id.toLowerCase(), e); });
-  // The user may have switched profiles while the fetches above were in flight.
+  // The user may have switched profiles while the fetch above was in flight.
   const sel = card.querySelector('.dongle-profile-select');
   if (sel && sel.value && sel.value !== profileId) return;
-
   const divider = card.querySelector('.dongle-write-divider');
   if (divider) divider.style.display = '';
   wrap.style.display = '';
-
-  writable.forEach(w => {
-    const id = `${(w.register_type || 'holding').toLowerCase()}:${w.register}`;
-    const ent = byId.get(id.toLowerCase()) || null;
-    const label = w.label || w.name || id;
-    const unit = w.unit ? ` (${w.unit})` : '';
-    const rangeParts = [];
-    if (w.min !== undefined && w.min !== null) rangeParts.push(`min ${w.min}`);
-    if (w.max !== undefined && w.max !== null) rangeParts.push(`max ${w.max}`);
-    if (w.step !== undefined && w.step !== null) rangeParts.push(`step ${w.step}`);
-    const rangeTxt = rangeParts.length ? ` · ${rangeParts.join(' · ')}` : '';
-
-    const row = document.createElement('div');
-    row.className = 'write-control-row';
-    row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;padding:0.3rem 0;';
-    const nameEl = document.createElement('span');
-    nameEl.textContent = `${label}${unit}${rangeTxt}`;
-    nameEl.title = `${id} — ${w.type || 'uint16'}${w.scale !== undefined && w.scale !== 1 ? `, scale ${w.scale}` : ''}`;
-    nameEl.style.cssText = 'flex:1;min-width:180px;font-size:0.85em;';
-    row.appendChild(nameEl);
-
-    const input = document.createElement('input');
-    input.type = 'number';
-    if (w.min !== undefined && w.min !== null) input.min = w.min;
-    if (w.max !== undefined && w.max !== null) input.max = w.max;
-    input.step = (w.step !== undefined && w.step !== null) ? w.step : 'any';
-    input.placeholder = (w.min !== undefined && w.max !== undefined) ? `${w.min} … ${w.max}` : 'value';
-    input.style.cssText = 'width:110px;';
-    row.appendChild(input);
-
-    const writeBtn = document.createElement('button');
-    writeBtn.type = 'button';
-    writeBtn.className = 'fetch-btn';
-    writeBtn.textContent = 'Write';
-    row.appendChild(writeBtn);
-
-    const statusEl = document.createElement('span');
-    statusEl.className = 'test-status';
-    statusEl.style.fontSize = '0.75em';
-    row.appendChild(statusEl);
-
-    const runWrite = async () => {
-      const rawVal = input.value.trim();
-      if (rawVal === '') { showStatus(statusEl, 'Enter a value first', 'error'); return; }
-      const val = Number(rawVal);
-      if (isNaN(val)) { showStatus(statusEl, 'Not a number', 'error'); return; }
-      if (!(await showConfirm(`Write ${val} to ${label} (${id})?`))) return;
-      sendDongleRegisterWrite(card, id, val, 'write', statusEl);
-    };
-    writeBtn.addEventListener('click', runWrite);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); runWrite(); }
-    });
-
-    // Preset actions for this entry (catalog entity first, then profile entry).
-    const actions = (ent && Array.isArray(ent.actions) && ent.actions.length) ? ent.actions
-      : (Array.isArray(w.actions) ? w.actions : []);
-    actions.forEach(a => {
-      const preset = (a && typeof a === 'object' && !Array.isArray(a)) ? a : { action: String(a), label: String(a) };
-      const pBtn = document.createElement('button');
-      pBtn.type = 'button';
-      pBtn.className = 'fetch-btn write-preset-btn';
-      pBtn.textContent = preset.label || String(preset.action || 'preset');
-      pBtn.style.cssText = 'font-size:0.72rem;padding:0.15rem 0.55rem;';
-      row.appendChild(pBtn);
-      pBtn.addEventListener('click', () => {
-        const val = (preset.value !== undefined && preset.value !== null)
-          ? preset.value
-          : (input.value.trim() !== '' ? Number(input.value) : undefined);
-        if (val === undefined) { showStatus(statusEl, 'Enter a value (or use the number box)', 'error'); return; }
-        sendDongleRegisterWrite(card, id, val, String(preset.action || 'preset'), statusEl);
-      });
-    });
-
-    wrap.appendChild(row);
-  });
-}
-
-// POST /api/action for a dongle register write. The device NAME comes from the
-// card header input — the server resolves the transport from its stored config
-// (no host/port/serials cross the wire; same SSRF-safe pattern as HA actions).
-async function sendDongleRegisterWrite(card, entityId, value, action, statusEl) {
-  const nameInput = card.querySelector('.device-header input[type="text"]');
-  const deviceName = nameInput ? nameInput.value.trim() : '';
-  if (!deviceName) { showStatus(statusEl, 'Instance name required', 'error'); return; }
-  // Disable every button in this entry's row while the write is in flight so a
-  // second click (Write or a preset) cannot fire a concurrent POST.
-  const rowEl = statusEl.closest ? statusEl.closest('.write-control-row') : null;
-  const rowBtns = rowEl ? Array.from(rowEl.querySelectorAll('button')) : [];
-  rowBtns.forEach(b => { b.disabled = true; });
-  showStatus(statusEl, 'Writing…', 'info');
-  const body = { source: 'dongle', device: deviceName, action: action || 'write', entity: entityId, params: {} };
-  if (value !== undefined && value !== null) body.params.value = value;
-  try {
-    const res = await fetch('/api/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(8000)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data && data.success !== false && !data.error) {
-      showStatus(statusEl, 'Write OK', 'success');
-    } else {
-      showStatus(statusEl, (data && data.error) ? data.error : `Write failed (HTTP ${res.status})`, 'error');
-    }
-  } catch (e) {
-    const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
-    showStatus(statusEl, timedOut ? 'Write timed out' : (e.message || 'Write failed'), 'error');
-  } finally {
-    rowBtns.forEach(b => { b.disabled = false; });
-  }
+  const note = document.createElement('p');
+  note.className = 'note';
+  note.append(`This inverter has ${writable.length} settings you can change: ${writable.map(w => w.label || w.name).join(', ')}. Change them on the `);
+  const link = document.createElement('a');
+  link.href = '/controls';
+  link.textContent = 'Controls page';
+  note.append(link, ', which asks for your password again, reads each setting first and checks it afterwards.');
+  wrap.appendChild(note);
 }
 
 // Async initialiser for a dongle card: fetch the profile to pick the mapping UI

@@ -103,7 +103,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     const js = read('public/settings.js');
     assert.match(js, /if \(typeof window\.stConfirm === 'function'\) return window\.stConfirm\(/);
     assert.match(js, /return Promise\.resolve\(false\);/, 'no dialog: refuse rather than act unasked');
-    assert.strictEqual((js.match(/await showConfirm\(/g) || []).length, 18, 'every caller waits for the answer');
+    assert.strictEqual((js.match(/await showConfirm\(/g) || []).length, 17, 'every caller waits for the answer');
     assert.match(js, /if \(!\(await confirmImplicitToExplicitNoneFlips\(\)\)\)/);
     const shell = read('public/js/settings-shell.js');
     assert.match(shell, /window\.stConfirm = stConfirm;/);

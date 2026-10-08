@@ -38,6 +38,7 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
+import { buildControlPlaceholder } from './controlPlaceholder.js';
 import { registerBlock } from './blockRegistry.js';
 
 export const componentBuilders = {
@@ -79,15 +80,25 @@ export const componentBuilders = {
   'bar-stacked': buildBarStackedCard,
   'bar-threshold': buildBarThresholdCard,
   'weather-block': buildWeatherBlock,
+  // Switches and selectors work only on the Controls page (password unlock,
+  // change log); everywhere else they show a placeholder linking there.
+  'switch-block': buildControlPlaceholder,
+  'state-select': buildControlPlaceholder
+};
+
+/** The working switch and selector cards, for the Controls page (and the showcase). */
+export const controlBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock
 };
 
 // Every build registers its block so cards can look up their own config when
 // they update (see blockRegistry.js), wherever they are rendered.
-for (const type of Object.keys(componentBuilders)) {
-  const build = componentBuilders[type];
-  componentBuilders[type] = (block = {}) => { registerBlock(block); return build(block); };
+for (const builders of [componentBuilders, controlBuilders]) {
+  for (const type of Object.keys(builders)) {
+    const build = builders[type];
+    builders[type] = (block = {}) => { registerBlock(block); return build(block); };
+  }
 }
 
 /**

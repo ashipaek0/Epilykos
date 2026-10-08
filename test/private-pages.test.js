@@ -38,7 +38,7 @@ function request(server, method, rawPath, cookie) {
 const SECRET_MARKERS = ['Card showcase', 'showcase-data', 'SHOWCASE_BLOCKS', '<title>Controls', 'pv-note', '.sc-frame'];
 const SIGNED_OUT_PATHS = [
   '/showcase', '/controls', '/showcase/', '/controls/', '/showcase/anything', '/controls/x/y', '/showcase.html', '/controls.html',
-  '/private', '/private/', '/private/js/showcase.js', '/private/js/showcase-data.js', '/private/js/showcase-api.js', '/private/js/showcase-layout.js',
+  '/private', '/private/', '/private/js/showcase.js', '/private/js/showcase-data.js', '/private/js/showcase-api.js', '/private/js/showcase-layout.js', '/private/js/controls.js',
   '/private/css/private.css', '/private/pages/showcase.html', '/private/pages/controls.html', '/private/js/../pages/showcase.html',
   '/private/js/%2e%2e/pages/showcase.html', '/private/js/..%2fpages%2fshowcase.html', '/private/js/', '/private/js/missing.js',
   '/showcase?x=1', '/private/js/showcase.js?v=1', '/SHOWCASE', '/Controls', '/PRIVATE/js/showcase.js'
@@ -78,7 +78,7 @@ const SIGNED_OUT_PATHS = [
     assert.match(page.headers['cache-control'] || '', /no-store/);
     assert.match(page.headers['x-robots-tag'] || '', /noindex/);
     assert.strictEqual((await request(server, 'GET', '/controls', cookie)).status, 200);
-    for (const f of ['showcase.js', 'showcase-data.js', 'showcase-api.js', 'showcase-layout.js']) {
+    for (const f of ['showcase.js', 'showcase-data.js', 'showcase-api.js', 'showcase-layout.js', 'controls.js']) {
       const r = await request(server, 'GET', '/private/js/' + f, cookie);
       assert.strictEqual(r.status, 200, f);
       assert.match(r.headers['content-type'] || '', /javascript/, f + ' type');

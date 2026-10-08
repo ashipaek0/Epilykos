@@ -11,7 +11,7 @@
 import './showcase-api.js';
 import { dashboardState } from './showcase-data.js';
 import { SHOWCASE_BLOCKS } from './showcase-layout.js';
-import { getBuilder } from '/js/components/index.js';
+import { getBuilder, controlBuilders } from '/js/components/index.js';
 import { GROUPS, blockInfo } from '/js/editor-catalog.js';
 import { updateCards } from '/js/cards-update.js';
 import { ensureChartJS } from '/js/chartLoader.js';
@@ -89,7 +89,8 @@ function drawCard(item) {
   frame.style.setProperty('--sc-cols', String(item.block.gridW));
   frame.style.setProperty('--sc-height', item.block.gridH * ROW_HEIGHT + 'px');
   let content;
-  try { content = getBuilder(item.block.type)(structuredClone(item.block)); }
+  const build = controlBuilders[item.block.type] || getBuilder(item.block.type);
+  try { content = build(structuredClone(item.block)); }
   catch (e) { content = document.createElement('div'); content.className = 'block-error'; content.textContent = 'This card could not be drawn.'; console.error(e); }
   if (!content) return;
   applyBlockStyle(content, item.block);

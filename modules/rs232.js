@@ -705,6 +705,9 @@ function executeRS232Action(deviceName, commandName, value) {
   const devices = JSON.parse(getConfig('rs232_devices') || '[]');
   const device = devices.find(d => d.name === deviceName);
   if (!device || !device.enabled) return { error: 'RS232 device not found or disabled' };
+  // RS232 profiles list no checked settings yet: a command sent to the device is a raw write.
+  const off = require('./deviceControls').writeRefusal({ raw: true });
+  if (off) return { error: off };
 
   const profile = loadProfile(device.profile);
   const cmd = profile?.commands?.find(c => c.name === commandName);
@@ -756,6 +759,8 @@ function executeRs232Action(deviceId, commandBytes) {
       if (!device || !device.enabled) {
         return resolve({ error: 'RS232 device not found or disabled' });
       }
+      const off = require('./deviceControls').writeRefusal({ raw: true });
+      if (off) return resolve({ error: off });
       if (commandBytes === undefined || commandBytes === null || commandBytes === '') {
         return resolve({ error: 'No command bytes provided' });
       }

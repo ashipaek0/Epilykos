@@ -552,3 +552,9 @@
 .so-weather .so-value { display: flex; align-items: baseline; gap: 4px; }
 .so-wx-icon { margin-left: auto; font-size: calc(1.8rem * var(--card-font-scale, 1)); color: var(--accent); line-height: 1; }
 .so-wx-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+
+/* Switch / selector placeholder (the working controls are on the Controls page) */
+.control-placeholder { display: flex; flex-direction: column; justify-content: center; gap: .35rem; height: 100%; box-sizing: border-box; padding: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.control-placeholder-name { font-weight: 600; color: var(--text); }
+.control-placeholder-text { margin: 0; font-size: var(--fs-small, .85rem); color: var(--text-secondary); }
+.control-placeholder-text a { color: var(--text); }
