@@ -107,10 +107,12 @@ check('AC-2: snapshot structure — item keys, namespaced ids, sort, decode-key 
       assert.ok(ord >= 0, `out of order ${e.id}`);
     }
     prevKey = { typeOrder: curTypeOrder, num: curNum };
-    // access/writable base shape (writable list empty at HEAD → all read)
-    assert.strictEqual(e.access, 'read');
-    assert.strictEqual(e.writable, false);
-    assert.strictEqual(Object.keys(e).length, baseKeys.length, `item ${e.id} should carry exactly the 12 route keys (writable empty at HEAD)`);
+    // access/writable: readwrite exactly for the profile's listed settings
+    const listed = (LUX.writable_registers || []).some(w => `${w.register_type}:${w.register}` === e.id);
+    assert.strictEqual(e.access, listed ? 'readwrite' : 'read', e.id);
+    assert.strictEqual(e.writable, listed, e.id);
+    // listed settings also carry their range and kind
+    assert.deepStrictEqual(Object.keys(e).filter(k => !baseKeys.includes(k)).sort(), listed ? ['kind', 'max', 'min', 'step'] : [], `item ${e.id} keys`);
   }
   assert.strictEqual(ids.size, LUX.metrics.length, 'ids unique, 1:1 with metrics');
   // decode-key bijection: emitted id set === set of decodeLuxpowerMetrics keys
