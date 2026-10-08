@@ -23,13 +23,25 @@ var availableMetrics = [];       // metric names from dashboard state
 var metricsPromise = null;       // fetched once per editor session
 var availableRestSources = [];   // REST source names from /api/settings external_sources (S3)
 var readOnly = false;
+// The Controls page's own layout (switch and selector cards only), edited
+// like a dashboard but saved to /api/controls/layout. Null when signed out.
+var CONTROLS_TAB_ID = 'controls-page';
+var controlsTab = null;
+var controlsSaved = '';           // last saved controls layout, as JSON
 
 function $(id) { return document.getElementById(id); }
 function isNarrow() { return window.matchMedia('(max-width: 900px)').matches; }
 
-function currentTab() {
-  return dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) || null;
+function allTabs() {
+  return controlsTab ? dashboardConfig.dashboards.concat([controlsTab]) : dashboardConfig.dashboards;
 }
+function findTab(id) {
+  return allTabs().find(function(db) { return db.id === id; }) || null;
+}
+function currentTab() { return findTab(currentTabId); }
+function onControlsTab() { return !!controlsTab && currentTabId === CONTROLS_TAB_ID; }
+/** Switch and selector cards go on the Controls page; everything else on dashboards. */
+function typeFitsTab(type) { return (blockInfo(type).group === 'controls') === onControlsTab(); }
 function findBlock(id) {
   var tab = currentTab();
   return tab ? tab.layout.find(function(b) { return b.id === id; }) || null : null;
@@ -114,7 +126,7 @@ async function flushSave() {
   while (saving) await saving;
   syncLayoutFromGrid();
   setSaveStatus('saving');
-  saving = saveDashboardConfig(dashboardConfig).then(function() { return true; }, function(e) {
+  saving = saveDashboardConfig(dashboardConfig).then(saveControlsLayout).then(function() { return true; }, function(e) {
     console.warn('Save failed:', e);
     lastSaveError = e;
     return false;
@@ -127,6 +139,23 @@ async function flushSave() {
   return ok;
 }
 
+async function saveControlsLayout() {
+  if (!controlsTab) return;
+  var json = JSON.stringify(controlsTab.layout);
+  if (json === controlsSaved) return;
+  var res = await fetch('/api/controls/layout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({ layout: controlsTab.layout })
+  });
+  if (!res.ok) {
+    var msg = 'Saving the Controls page failed (' + res.status + ')';
+    try { var err = await res.json(); if (err.error) msg = err.error + ' (' + res.status + ')'; } catch (e) {}
+    throw new Error(msg);
+  }
+  controlsSaved = json;
+}
+
 // ── Undo / redo ──────────────────────────────────────────────────────────
 // Snapshots of the whole config, taken before each change.
 
@@ -134,7 +163,7 @@ var undoStack = [], redoStack = [];
 
 function snapshot() {
   syncLayoutFromGrid();
-  return JSON.stringify({ config: dashboardConfig, tab: currentTabId, selected: selectedBlockId });
+  return JSON.stringify({ config: dashboardConfig, controls: controlsTab && controlsTab.layout, tab: currentTabId, selected: selectedBlockId });
 }
 function pushUndo() {
   if (readOnly) return;
@@ -146,7 +175,8 @@ function pushUndo() {
 function restoreSnapshot(snap) {
   var s = JSON.parse(snap);
   dashboardConfig = s.config;
-  var tabId = dashboardConfig.dashboards.some(function(db) { return db.id === s.tab; }) ? s.tab : dashboardConfig.dashboards[0].id;
+  if (controlsTab && Array.isArray(s.controls)) controlsTab.layout = s.controls;
+  var tabId = findTab(s.tab) ? s.tab : dashboardConfig.dashboards[0].id;
   loadTab(tabId, { skipSync: true, keepSelection: s.selected });
   scheduleSave(0);
 }
@@ -2421,7 +2451,15 @@ function refreshGridItem(block) {
 
 function updateEmptyState() {
   var tab = currentTab();
-  $('empty-state').hidden = !!(tab && tab.layout.length);
+  var empty = $('empty-state');
+  empty.hidden = !!(tab && tab.layout.length);
+  var h = empty.querySelector('h2'), p = empty.querySelector('p');
+  if (h && p && !empty.dataset.failed) {
+    h.textContent = onControlsTab() ? 'No switches or selectors yet' : 'This dashboard is empty';
+    p.textContent = onControlsTab()
+      ? 'Add a Toggle switch or State select from the library. They show on the Controls page, where changes need your password.'
+      : 'Add a block from the library to get started.';
+  }
 }
 
 // ── Preview scale ────────────────────────────────────────────────────────
@@ -2623,7 +2661,7 @@ function placeNewItem(block) {
  * otherwise below the selected block, or at the bottom.
  */
 function addBlock(type, at) {
-  if (readOnly || !BLOCK_BUILDERS.has(type)) return;
+  if (readOnly || !BLOCK_BUILDERS.has(type) || !typeFitsTab(type)) return;
   var tab = currentTab();
   if (!tab) return;
   var info = blockInfo(type);
@@ -3066,6 +3104,7 @@ function renderLibrary(query) {
   var shown = 0;
   libraryGroups().forEach(function(g) {
     var types = g.types.filter(function(type) {
+      if (!typeFitsTab(type)) return false;
       if (!q) return true;
       var info = blockInfo(type);
       return (info.name + ' ' + info.desc + ' ' + type + ' ' + g.label).toLowerCase().indexOf(q) !== -1;
@@ -3197,7 +3236,8 @@ function updateHeader() {
   var tab = currentTab();
   var idx = dashboardConfig.dashboards.indexOf(tab);
   $('dash-name').textContent = (tab && tab.name) || 'Dashboard';
-  $('dash-count').textContent = dashboardConfig.dashboards.length > 1 ? (idx + 1) + ' of ' + dashboardConfig.dashboards.length : '';
+  $('dash-count').textContent = idx !== -1 && dashboardConfig.dashboards.length > 1 ? (idx + 1) + ' of ' + dashboardConfig.dashboards.length : '';
+  document.body.classList.toggle('is-controls-tab', onControlsTab());
   $('dash-menu-btn').setAttribute('aria-label', 'Dashboard: ' + ((tab && tab.name) || 'Dashboard') + '. Switch, rename or manage dashboards');
   document.title = 'Edit ' + ((tab && tab.name) || 'layout') + ' · Epilykos';
   try {
@@ -3209,10 +3249,11 @@ function updateHeader() {
 
 function loadTab(tabId, opts) {
   opts = opts || {};
-  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === tabId; });
+  var tab = findTab(tabId);
   if (!tab) return;
   if (!opts.skipSync) syncLayoutFromGrid();
   currentTabId = tabId;
+  if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
   if (toolbar) toolbar.remove();
   selectedBlockId = null;
 
@@ -3243,7 +3284,7 @@ function loadTab(tabId, opts) {
 
 function renameDashboard(title) {
   var tab = currentTab();
-  if (!tab || readOnly) return Promise.resolve();
+  if (!tab || readOnly || tab.controls) return Promise.resolve();
   var wrap = document.createElement('div');
   wrap.className = 'ed-field';
   var label = document.createElement('label');
@@ -3273,7 +3314,7 @@ function renameDashboard(title) {
 function newDashboard() {
   if (readOnly) return;
   pushUndo();
-  var used = new Set(dashboardConfig.dashboards.map(function(db) { return db.id; }));
+  var used = new Set(allTabs().map(function(db) { return db.id; }));
   var id = uniqueDashboardId('db_' + Date.now(), used);
   dashboardConfig.dashboards.push({ id: id, name: 'New dashboard', layout: [] });
   loadTab(id);
@@ -3283,9 +3324,9 @@ function newDashboard() {
 
 function duplicateDashboard() {
   var tab = currentTab();
-  if (readOnly || !tab) return;
+  if (readOnly || !tab || tab.controls) return;
   pushUndo();
-  var used = new Set(dashboardConfig.dashboards.map(function(db) { return db.id; }));
+  var used = new Set(allTabs().map(function(db) { return db.id; }));
   var copy = JSON.parse(JSON.stringify(tab));
   copy.id = uniqueDashboardId(tab.id + '_copy', used);
   copy.name = (tab.name || 'Dashboard') + ' copy';
@@ -3298,7 +3339,7 @@ function duplicateDashboard() {
 
 function deleteDashboard() {
   var tab = currentTab();
-  if (readOnly || !tab || dashboardConfig.dashboards.length <= 1) return;
+  if (readOnly || !tab || tab.controls || dashboardConfig.dashboards.length <= 1) return;
   var n = tab.layout.length;
   var p = document.createElement('p');
   p.textContent = 'This removes the dashboard and its ' + n + (n === 1 ? ' block' : ' blocks') + '. You can undo this right after.';
@@ -3425,12 +3466,17 @@ function importLayout() {
 
 function openDashboardMenu() {
   var only = dashboardConfig.dashboards.length <= 1;
+  var onControls = onControlsTab();
   var items = dashboardConfig.dashboards.map(function(db) {
     return { label: db.name || db.id, checked: db.id === currentTabId, onSelect: function() { if (db.id !== currentTabId) loadTab(db.id); } };
   });
+  if (controlsTab) {
+    items.push({ separator: true });
+    items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches and selectors', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
+  }
   items.push({ separator: true });
-  items.push({ label: 'Rename…', icon: 'text', disabled: readOnly, onSelect: function() { renameDashboard(); } });
-  items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly, onSelect: duplicateDashboard });
+  items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
+  items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly || onControls, onSelect: duplicateDashboard });
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
   if (isNarrow()) {
     items.push({ separator: true });
@@ -3438,7 +3484,7 @@ function openDashboardMenu() {
     items.push({ label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout });
   }
   items.push({ separator: true });
-  items.push({ label: 'Delete dashboard…', icon: 'trash', danger: true, disabled: readOnly || only, hint: only ? 'Only one left' : '', onSelect: deleteDashboard });
+  items.push({ label: 'Delete dashboard…', icon: 'trash', danger: true, disabled: readOnly || only || onControls, hint: onControls ? '' : only ? 'Only one left' : '', onSelect: deleteDashboard });
   openMenu($('dash-menu-btn'), items, { label: 'Dashboards' });
 }
 
@@ -3520,12 +3566,13 @@ function wireTopbar() {
   $('io-btn').addEventListener('click', openIoMenu);
   $('undo-btn').addEventListener('click', undo);
   $('redo-btn').addEventListener('click', redo);
+  var exitUrl = function() { return onControlsTab() ? '/controls' : '/?tab=' + encodeURIComponent(currentTabId); };
   $('done-btn').addEventListener('click', function() {
-    leaveTo('/?tab=' + encodeURIComponent(currentTabId));
+    leaveTo(exitUrl());
   });
   $('back-link').addEventListener('click', function(e) {
     e.preventDefault();
-    leaveTo('/?tab=' + encodeURIComponent(currentTabId), { allowDiscard: true });
+    leaveTo(exitUrl(), { allowDiscard: true });
   });
   $('library-btn').addEventListener('click', function() {
     if (document.body.dataset.sheet === 'library') closeSheets(); else openSheet('library');
@@ -3562,6 +3609,18 @@ function wireKeyboard() {
   });
 }
 
+/** Signed in: the Controls page layout, shown as its own entry in the dashboard menu. */
+async function loadControlsTab() {
+  try {
+    var res = await fetch('/api/controls/layout');
+    if (!res.ok) return;
+    var data = await res.json();
+    var layout = Array.isArray(data.layout) ? data.layout : [];
+    controlsTab = { id: CONTROLS_TAB_ID, name: 'Controls page', layout: layout, controls: true };
+    controlsSaved = JSON.stringify(layout);
+  } catch (e) { controlsTab = null; }
+}
+
 async function initEditor() {
   initTheme();
   hydrateIcons(document);
@@ -3589,15 +3648,16 @@ async function initEditor() {
       dashboardConfig.activeDashboard = 'main';
     }
     dashboardConfig.dashboards.forEach(function(db) { if (!Array.isArray(db.layout)) db.layout = []; });
+    var auth = await authPromise;
+    if (auth && auth.authenticated === false) enterReadOnly();
+    else await loadControlsTab();
     var requestedTab = new URLSearchParams(window.location.search).get('tab');
-    currentTabId = dashboardConfig.dashboards.some(function(db) { return db.id === requestedTab; })
+    currentTabId = findTab(requestedTab)
       ? requestedTab
       : (dashboardConfig.dashboards.some(function(db) { return db.id === dashboardConfig.activeDashboard; })
         ? dashboardConfig.activeDashboard
         : dashboardConfig.dashboards[0].id);
 
-    var auth = await authPromise;
-    if (auth && auth.authenticated === false) enterReadOnly();
     await metricsPromise;
 
     buildToolbar();

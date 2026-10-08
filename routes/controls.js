@@ -8,6 +8,7 @@
 const express = require('express');
 const controls = require('../modules/deviceControls');
 const { verifyPassword, loginLimiter } = require('../modules/sessionAuth');
+const { getControlsLayout, saveControlsLayout } = require('../modules/dashboard-config');
 
 const router = express.Router();
 const body = req => (req.body && typeof req.body === 'object' ? req.body : {});
@@ -77,6 +78,13 @@ router.post('/raw-write', controls.requireUnlocked, async (req, res) => {
   if (!device) return res.status(400).json({ error: 'device is required' });
   const r = await controls.rawWrite({ kind: b.kind === 'modbus' ? 'modbus' : 'dongle', device, register: b.register, value: b.value, type: b.type }, req);
   res.status(r.success ? 200 : 409).json(r);
+});
+
+// The Controls page's own layout of switch and selector cards (layout editor).
+router.get('/layout', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ layout: getControlsLayout() }); });
+router.post('/layout', (req, res) => {
+  try { saveControlsLayout(body(req).layout); res.json({ success: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 router.get('/log', (req, res) => res.json({ entries: controls.recentLog(req.query.limit) }));

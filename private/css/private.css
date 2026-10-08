@@ -144,9 +144,13 @@
 [data-theme="dark"] .ct-toggle[aria-checked="true"] { background: #4da863; }
 [data-theme="dark"] .ct-toggle::before { background: #111111; }
 
-.ct-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.ct-cards { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: 50px; gap: 12px; }
+.ct-cards > .ct-empty { grid-column: 1 / -1; grid-row: auto; }
+.ct-empty a { color: var(--st-amber-text); font-weight: 700; }
+.st a.ct-btn { text-decoration: none; }
 .ct-cards.is-locked { opacity: .55; }
-.ct-card { display: flex; flex-direction: column; gap: 6px; }
+.ct-card { display: flex; flex-direction: column; min-width: 0; }
+.ct-card > * { flex: 1; min-height: 0; }
 .ct-card-where { font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--st-muted); }
 
 /* Device settings: one sub-section per device, like a Settings card subhead. */
@@ -198,6 +202,9 @@
   .ct-nav-foot { margin: 0; padding: 0; border: none; }
   .ct-nav-foot-label { display: none; }
   .ct-lock { top: 60px; }
+  /* One card per row, as on the dashboard below 768 px. */
+  .ct-cards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
+  .ct-card { grid-column: 1 / -1 !important; grid-row: auto !important; min-height: 100px; }
   .ct-section { scroll-margin-top: 200px; }
   .ct-content { padding: 20px 16px 120px; }
 }
