@@ -227,8 +227,6 @@ function renderDashboard() {
             settingsBtn.before(a);
           }
         }
-        const setupLink = document.getElementById('setup-link');
-        if (setupLink) setupLink.style.display = '';
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) themeToggle.style.display = '';
 
