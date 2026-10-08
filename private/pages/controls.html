@@ -16,40 +16,58 @@
   </script>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/cards.css">
+  <link rel="stylesheet" href="/settings-shell.css">
   <link rel="stylesheet" href="/private/css/private.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
 </head>
-<body class="pv-page">
-  <a class="pv-skip" href="#ct-main">Skip to the controls</a>
-  <header class="pv-top">
-    <div class="pv-top-start">
-      <a href="/" class="pv-back">← Dashboard</a>
-      <h1>Controls</h1>
+<body class="st ct-page">
+  <a class="st-skip" href="#ct-main">Skip to the controls</a>
+  <div class="st-shell">
+  <nav class="ct-nav" aria-label="Controls">
+    <div class="ct-nav-top">
+      <a href="/" class="ct-back">← Dashboard</a>
     </div>
-    <div class="pv-top-end">
-      <a href="/showcase" class="pv-link">Card showcase</a>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between light and dark"><span class="theme-icon">☾</span></button>
+    <p class="ct-nav-title">Controls</p>
+    <ul class="ct-nav-list">
+      <li><a href="#ct-switches" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/></svg><span>Safety switches</span></a></li>
+      <li><a href="#ct-cards-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Switches and selectors</span></a></li>
+      <li><a href="#ct-settings-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg><span>Device settings</span></a></li>
+      <li><a href="#ct-log-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Change log</span></a></li>
+      <li><a href="/showcase" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Card showcase</span></a></li>
+    </ul>
+    <div class="ct-nav-foot">
+      <span class="ct-nav-foot-label">Theme</span>
+      <button id="theme-toggle" class="theme-toggle ct-theme" type="button" aria-label="Switch between light and dark"><span class="theme-icon">☾</span></button>
     </div>
-  </header>
+  </nav>
 
-  <section class="ct-lock" id="ct-lock" aria-labelledby="ct-lock-title">
-    <div class="ct-lock-state">
-      <h2 id="ct-lock-title" class="ct-lock-title">Changes are locked</h2>
-      <p class="ct-lock-text" id="ct-lock-text">Enter your password to unlock changes for a few minutes. Reading values doesn't need it.</p>
+  <div class="st-main-wrap">
+  <main id="ct-main" class="st-main ct-main" tabindex="-1">
+   <div class="ct-content">
+    <div class="st-section-head">
+      <div>
+        <h1>Controls</h1>
+        <p class="st-lede">Change inverter and battery settings. Every change is checked, read back and written to the change log.</p>
+      </div>
     </div>
-    <form class="ct-lock-form" id="ct-unlock-form" autocomplete="off">
-      <label for="ct-password" class="pv-visually-hidden">Password</label>
-      <input id="ct-password" type="password" autocomplete="current-password" placeholder="Password" required>
-      <button type="submit" class="ct-btn ct-btn-primary">Unlock</button>
-    </form>
-    <button type="button" class="ct-btn" id="ct-lock-now" hidden>Lock now</button>
-    <p class="ct-msg" id="ct-lock-msg" role="status" aria-live="polite"></p>
-  </section>
 
-  <main id="ct-main" class="ct-main" tabindex="-1">
-    <section class="ct-section" aria-labelledby="ct-switches-title">
-      <h2 id="ct-switches-title">Safety switches</h2>
+    <section class="st-card ct-lock" id="ct-lock" aria-labelledby="ct-lock-title">
+      <div class="ct-lock-state">
+        <h2 id="ct-lock-title" class="ct-lock-title">Changes are locked</h2>
+        <p class="ct-lock-text" id="ct-lock-text">Enter your password to unlock changes for a few minutes. Reading values doesn't need it.</p>
+      </div>
+      <form class="ct-lock-form" id="ct-unlock-form" autocomplete="off">
+        <label for="ct-password" class="pv-visually-hidden">Password</label>
+        <input id="ct-password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <button type="submit" class="ct-btn ct-btn-primary">Unlock</button>
+      </form>
+      <button type="button" class="ct-btn" id="ct-lock-now" hidden>Lock now</button>
+      <p class="ct-msg" id="ct-lock-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="st-card ct-section" id="ct-switches" aria-labelledby="ct-switches-title">
+      <div class="st-card-head"><h2 id="ct-switches-title">Safety switches</h2></div>
       <div class="ct-switch-row">
         <div>
           <div class="ct-switch-name" id="ct-allow-label">Allow device changes</div>
@@ -67,20 +85,20 @@
       <p class="ct-msg" id="ct-switch-msg" role="status" aria-live="polite"></p>
     </section>
 
-    <section class="ct-section" aria-labelledby="ct-cards-title">
-      <h2 id="ct-cards-title">Switches and selectors</h2>
+    <section class="st-card ct-section" id="ct-cards-section" aria-labelledby="ct-cards-title">
+      <div class="st-card-head"><h2 id="ct-cards-title">Switches and selectors</h2></div>
       <p class="ct-help">The switch and selector cards from your dashboards. Add or edit them in the layout editor.</p>
       <div id="ct-cards" class="ct-cards"></div>
     </section>
 
-    <section class="ct-section" aria-labelledby="ct-settings-title">
-      <h2 id="ct-settings-title">Device settings</h2>
+    <section class="st-card ct-section" id="ct-settings-section" aria-labelledby="ct-settings-title">
+      <div class="st-card-head"><h2 id="ct-settings-title">Device settings</h2></div>
       <p class="ct-help">Each change reads the setting first, checks the new value against its range, and reads it back afterwards.</p>
       <div id="ct-devices"></div>
     </section>
 
-    <section class="ct-section" id="ct-expert-section" aria-labelledby="ct-raw-title" hidden>
-      <h2 id="ct-raw-title">Expert register writes</h2>
+    <section class="st-card ct-section" id="ct-expert-section" aria-labelledby="ct-raw-title" hidden>
+      <div class="st-card-head"><h2 id="ct-raw-title">Expert register writes</h2></div>
       <p class="ct-help">Register numbers in decimal or hex (0x…), values as whole numbers 0–65535 in raw register units (no scaling).</p>
       <form id="ct-raw-form" class="ct-raw" autocomplete="off">
         <div class="ct-field"><label for="ct-raw-device">Device</label><select id="ct-raw-device" required></select></div>
@@ -94,8 +112,8 @@
       <p class="ct-msg" id="ct-raw-msg" role="status" aria-live="polite"></p>
     </section>
 
-    <section class="ct-section" aria-labelledby="ct-log-title">
-      <div class="ct-section-head">
+    <section class="st-card ct-section" id="ct-log-section" aria-labelledby="ct-log-title">
+      <div class="st-card-head">
         <h2 id="ct-log-title">Change log</h2>
         <button type="button" class="ct-btn" id="ct-log-refresh">Refresh</button>
       </div>
@@ -104,7 +122,10 @@
         <tbody></tbody>
       </table></div>
     </section>
+   </div>
   </main>
+  </div>
+  </div>
 
   <dialog id="ct-dialog" class="ct-dialog" aria-labelledby="ct-dialog-title">
     <form method="dialog">
