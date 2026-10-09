@@ -1685,10 +1685,19 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
     newValue: params && (params.value !== undefined ? params.value : params.payload), outcome, detail }, req);
 
   if (!source || !action) {
+    logged('refused', 'source and action are required');
     return res.status(400).json({ success: false, error: 'source and action are required' });
+  }
+  // "Allow device changes" covers every card, whatever the source (Home
+  // Assistant, MQTT and Tuya included), not only register writes.
+  const switchedOff = deviceControls.writeRefusal();
+  if (switchedOff) {
+    logged('refused', switchedOff);
+    return res.status(403).json({ success: false, error: switchedOff });
   }
   const device = resolveActionDevice(source, req.body.device, entity);
   if (!device) {
+    logged('refused', 'No device configured for this entity');
     return res.status(400).json({ success: false, error: 'device is required (none configured for this entity)' });
   }
 
@@ -1769,11 +1778,21 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
         // register — hand only the register address to the transport. Action
         // strings other than 'write' pass through untouched (executeDongleAction
         // is write-only today; presets are reserved for later).
+        // A register in the device's list of settings goes through the same
+        // checks as the Controls page (read first, range, step, below/above,
+        // read back); changeSetting logs it, so return its answer as is.
+        const listed = deviceControls.listedSettingFor(device, entity);
+        if (listed) {
+          const raw = Number(params?.value);
+          const changed = await deviceControls.changeSetting({ device, setting: listed.name, value: Number.isFinite(raw) ? Number((raw * listed.scale).toPrecision(12)) : params?.value }, req);
+          return res.status(changed.success ? 200 : changed.written ? 502 : 400).json(changed);
+        }
         const registerAddr = typeof entity === 'string' && entity.includes(':') ? entity.split(':').pop() : entity;
         result = await executeDongleAction(device, registerAddr, params?.value);
         break;
       }
       default:
+        logged('refused', 'Source not supported');
         return res.status(501).json({ success: false, error: 'Source not yet supported' });
     }
     
