@@ -821,8 +821,8 @@ function renderMetricCardsRows(container) {
 function buildDataTableForm(block) {
   var cfg = block.config || {};
   var columns = cfg.columns || [];
-  var allColFields = ['consumption_kwh','solar_kwh','battery_charge_kwh','battery_discharge_kwh','grid_import_kwh','grid_export_kwh'];
-  var colLabels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)'};
+  var allColFields = ['consumption_kwh','solar_kwh','battery_charge_kwh','battery_discharge_kwh','grid_import_kwh','grid_export_kwh','generator_kwh'];
+  var colLabels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)',generator_kwh:'Generator (kWh)'};
   var enabledFields = {};
   columns.forEach(function(c) { enabledFields[c.field] = true; });
   // If no columns configured, all are enabled
@@ -2047,7 +2047,7 @@ function readSettingsForm(block) {
       toggles.forEach(function(t) {
         if (t.checked) {
           var f = t.dataset.field;
-          var labels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)'};
+          var labels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)',generator_kwh:'Generator (kWh)'};
           cols.push({ field: f, label: labels[f] || f });
         }
       });

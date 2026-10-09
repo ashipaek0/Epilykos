@@ -1599,7 +1599,8 @@ app.post('/api/settings/savings', isAuthenticated, (req, res) => {
     const allowed = [
       'savings_currency', 'savings_rate', 'savings_solar_metric',
       'all_time_pv_savings_override',
-      'energy_sell_price', 'battery_wear_cost', 'battery_capacity_kwh', 'battery_min_soc'
+      'energy_sell_price', 'battery_wear_cost', 'battery_capacity_kwh', 'battery_min_soc',
+      'generator_price', 'savings_method', 'grid_status_entity'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
     logger.info(`[Settings/savings] Saved: ${saved.join(', ')}`);

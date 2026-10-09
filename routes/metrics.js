@@ -16,6 +16,7 @@ const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
+const { computeSavings } = require('../modules/solarValue');
 const { readHourlyEnergy } = require('../modules/energyHourly');
 const { hourlyForecast, projectBattery } = require('../modules/energyForecast');
 
@@ -24,7 +25,7 @@ const { getCurrentMetrics } = require('../modules/metrics');
 const router = express.Router();
 
 const POWER_HISTORY_BUCKET_SECONDS = 600;
-const POWER_HISTORY_FIELDS = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc'];
+const POWER_HISTORY_FIELDS = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'generator'];
 
 /**
  * Re-bucket readHistorySeries() instant rows (5-min aggregate avgs + raw
@@ -64,10 +65,7 @@ function buildCurrentData(db) {
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   if (!latest) return null;
   const dailySolarKwh = computeTodaySolar();
-  const rate = parseFloat(getConfig('savings_rate')) || 0.30;
-  const curr = getConfig('savings_currency') || '€';
-  const allTimeSolar = { total: readDailySnapshots(db, { fields: ["daily_solar"], cached: true }).reduce((sum, row) => sum + (row.daily_solar || 0), 0) };
-  const allTimeSavings = (allTimeSolar?.total || 0) * rate;
+  const savings = computeSavings({ todaySolarKwh: dailySolarKwh, db });
   return {
     consumption_kw: latest.consumption / 1000,
     solar_kw: latest.solar / 1000,
@@ -83,10 +81,13 @@ function buildCurrentData(db) {
     daily_battery_discharge_kwh: latest.daily_battery_discharge,
     daily_grid_import_kwh: latest.daily_grid_import,
     daily_grid_export_kwh: latest.daily_grid_export,
-    savings_currency: curr,
-    savings_rate: rate,
-    today_savings: dailySolarKwh * rate,
-    all_time_savings: allTimeSavings,
+    generator_kw: (latest.generator || 0) / 1000,
+    daily_generator_kwh: latest.daily_generator,
+    savings_currency: savings.currency,
+    savings_rate: savings.rate,
+    generator_price: savings.generatorPrice,
+    today_savings: savings.today,
+    all_time_savings: savings.all,
     timestamp: latest.timestamp * 1000
   };
 }
@@ -105,7 +106,7 @@ async function buildDashboardState() {
     getCurrentMetrics(),
     getSavings(),
     Promise.resolve(bucketPowerHistory(readHistorySeries(db, { from: powerHistorySince, to: now, toInclusive: true, fields: POWER_HISTORY_FIELDS }))),
-    Promise.resolve(readDailySnapshots(db, { from: barSince, to: now, toInclusive: true, fields: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }).map(r => ({ day: r.day, solar_kwh: r.daily_solar, consumption_kwh: r.daily_consumption, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export })))
+    Promise.resolve(readDailySnapshots(db, { from: barSince, to: now, toInclusive: true, fields: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator'] }).map(r => ({ day: r.day, solar_kwh: r.daily_solar, consumption_kwh: r.daily_consumption, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export, generator_kwh: r.daily_generator })))
   ]);
 
   const [gridHoursDay, gridHoursWeek, gridHoursMonth, gridHoursYear, gridTimeline] = gridStatus.configured
@@ -133,6 +134,7 @@ async function buildDashboardState() {
     battery_power_kw: (r.battery_charge - r.battery_discharge) / 1000,
     grid_import_kw: r.grid_import / 1000,
     grid_export_kw: r.grid_export / 1000,
+    generator_kw: (r.generator || 0) / 1000,
     battery_soc: r.battery_soc ?? null
   }));
 
@@ -143,7 +145,8 @@ async function buildDashboardState() {
     battery_charge_kwh: r.battery_charge_kwh,
     battery_discharge_kwh: r.battery_discharge_kwh,
     grid_import_kwh: r.grid_import_kwh,
-    grid_export_kwh: r.grid_export_kwh
+    grid_export_kwh: r.grid_export_kwh,
+    generator_kwh: r.generator_kwh
   }));
 
   const elapsed = Date.now() - start;
@@ -236,7 +239,7 @@ router.get('/energy/hourly', async (req, res) => {
   }
   const price = key => { const n = parseFloat(getConfig(key)); return Number.isFinite(n) && n >= 0 ? n : 0; };
   try {
-    const out = readHourlyEnergy(getDb(), { date, prices: { buy: price('savings_rate'), sell: price('energy_sell_price'), batteryWear: price('battery_wear_cost') } });
+    const out = readHourlyEnergy(getDb(), { date, prices: { buy: price('savings_rate'), sell: price('energy_sell_price'), batteryWear: price('battery_wear_cost'), generator: price('generator_price') } });
     out.currency = getConfig('savings_currency') || '';
     // ?forecast=1 adds consumption, base load and solar forecasts per hour.
     if (req.query.forecast === '1') {
@@ -327,7 +330,7 @@ router.get('/daily', async (req, res) => {
   const endUnix = Math.floor(now.getTime() / 1000);
   try {
     const db = getDb();
-    const rows = readDailySnapshots(db, { from: startUnix, to: endUnix, toInclusive: true, fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }).map(r => ({ day: r.day, consumption_kwh: r.daily_consumption, solar_kwh: r.daily_solar, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export }));
+    const rows = readDailySnapshots(db, { from: startUnix, to: endUnix, toInclusive: true, fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator'] }).map(r => ({ day: r.day, consumption_kwh: r.daily_consumption, solar_kwh: r.daily_solar, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export, generator_kwh: r.daily_generator }));
     const dataMap = {};
     rows.forEach(r => { dataMap[r.day] = r; });
     const result = dateArray.map(date => {
@@ -339,7 +342,8 @@ router.get('/daily', async (req, res) => {
         battery_charge_kwh: d?.battery_charge_kwh || 0,
         battery_discharge_kwh: d?.battery_discharge_kwh || 0,
         grid_import_kwh: d?.grid_import_kwh || 0,
-        grid_export_kwh: d?.grid_export_kwh || 0
+        grid_export_kwh: d?.grid_export_kwh || 0,
+        generator_kwh: d?.generator_kwh || 0
       };
     });
     attachParts(result, dateArray[0], dateArray[dateArray.length - 1], row => [row.day]);
@@ -363,11 +367,12 @@ router.get('/monthly', async (req, res) => {
       });
     }
     const db = getDb();
-    const dailyRows = readDailySnapshots(db, { fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'], cached: true });
+    const dailyRows = readDailySnapshots(db, { fields: ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator'], cached: true });
     const monthTotals = new Map();
     for (const r of dailyRows) {
       const month = r.day.slice(0, 7);
-      const total = monthTotals.get(month) || { month, consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0 };
+      const total = monthTotals.get(month) || { month, consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0, generator_kwh: 0 };
+      total.generator_kwh += r.daily_generator || 0;
       total.consumption_kwh += r.daily_consumption || 0; total.solar_kwh += r.daily_solar || 0; total.battery_charge_kwh += r.daily_battery_charge || 0; total.battery_discharge_kwh += r.daily_battery_discharge || 0; total.grid_import_kwh += r.daily_grid_import || 0; total.grid_export_kwh += r.daily_grid_export || 0;
       monthTotals.set(month, total);
     }
@@ -384,7 +389,8 @@ router.get('/monthly', async (req, res) => {
         battery_charge_kwh: d?.battery_charge_kwh || 0,
         battery_discharge_kwh: d?.battery_discharge_kwh || 0,
         grid_import_kwh: d?.grid_import_kwh || 0,
-        grid_export_kwh: d?.grid_export_kwh || 0
+        grid_export_kwh: d?.grid_export_kwh || 0,
+        generator_kwh: d?.generator_kwh || 0
       };
     });
     // Each month's parts are the sum of its days.

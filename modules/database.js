@@ -40,8 +40,21 @@ function getDb() {
 }
 
 function migratePowerStatsSchema(handle) {
+  // Generator input (power + energy today), added after the first release.
+  const historyColumns = new Set(handle.prepare('PRAGMA table_info(history)').all().map(column => column.name));
+  for (const name of ['generator', 'daily_generator']) {
+    if (!historyColumns.has(name)) handle.exec(`ALTER TABLE history ADD COLUMN ${name} REAL`);
+  }
+  const rollupColumns = new Set(handle.prepare('PRAGMA table_info(history_5m)').all().map(column => column.name));
+  for (const [name, type] of Object.entries({
+    generator_avg: 'REAL', generator_min: 'REAL', generator_max: 'REAL',
+    generator_count: 'INTEGER NOT NULL DEFAULT 0 CHECK (generator_count >= 0)',
+    daily_generator_last: 'REAL'
+  })) {
+    if (!rollupColumns.has(name)) handle.exec(`ALTER TABLE history_5m ADD COLUMN ${name} ${type}`);
+  }
   const columns = new Set(handle.prepare('PRAGMA table_info(history_5m)').all().map(column => column.name));
-  const fields = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc'];
+  const fields = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'generator'];
   for (const field of fields) {
     for (const suffix of ['last_value', 'last_timestamp']) {
       const name = `${field}_${suffix}`;

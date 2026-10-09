@@ -4716,6 +4716,8 @@ const ROLE_LABELS = {
   daily_battery_discharge: 'Daily Battery Discharge Energy',
   daily_grid_import: 'Daily Grid Import Energy',
   daily_grid_export: 'Daily Grid Export Energy',
+  generator: 'Generator Power',
+  daily_generator: 'Daily Generator Energy',
 };
 
 async function loadRoleMetrics() {

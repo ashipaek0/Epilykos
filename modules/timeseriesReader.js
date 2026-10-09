@@ -4,8 +4,8 @@ const { localDateString } = require('./localTime');
 
 const BUCKET_SECONDS = 300;
 const RETENTION_SECONDS = 30 * 24 * 60 * 60;
-const INSTANT_FIELDS = new Set(['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc']);
-const DAILY_FIELDS = new Set(['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export']);
+const INSTANT_FIELDS = new Set(['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'generator']);
+const DAILY_FIELDS = new Set(['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator']);
 const cutoffNow = () => Math.floor(Date.now() / 1000) - RETENTION_SECONDS;
 const toOperator = inclusive => inclusive ? '<=' : '<';
 
@@ -98,7 +98,10 @@ function readDailySnapshots(db, { from, to, toInclusive = false, fields, cached 
 }
 
 /** Forget cached finished days (after writing into past days directly). */
-function clearDailySnapshotCache(db) { if (db) allTimeCache.delete(db); }
+let cacheGeneration = 0;
+function clearDailySnapshotCache(db) { if (db) allTimeCache.delete(db); cacheGeneration++; }
+/** Bumped by clearDailySnapshotCache, so other caches of past days follow it. */
+function dailyCacheGeneration() { return cacheGeneration; }
 
 function readAllTimeCached(db, fields) {
   const key = [...new Set(fields || [])].sort().join(',');
@@ -120,7 +123,8 @@ function readAllTimeCached(db, fields) {
 const POWER_STATS_FIELDS = Object.freeze({
   pv_power: 'solar', grid_power: 'grid_import', load_power: 'consumption',
   battery_charge_power: 'battery_charge', battery_discharge_power: 'battery_discharge',
-  battery_power: 'battery_power', grid_export_power: 'grid_export'
+  battery_power: 'battery_power', grid_export_power: 'grid_export',
+  generator_power: 'generator'
 });
 
 function readPowerStats(db, { from, to, fields }) {
@@ -224,4 +228,4 @@ function emptyPowerStat(status, warnings) {
   return { status, unit: 'W', sum: null, count: 0, mean: null, min: null, max: null, last: null, fidelity: { mean: 'unavailable', min: 'unavailable', max: 'unavailable', last: 'unavailable', warnings } };
 }
 
-module.exports = { readMetricSeries, readHistorySeries, readDailySnapshots, readPowerStats, clearDailySnapshotCache };
+module.exports = { readMetricSeries, readHistorySeries, readDailySnapshots, readPowerStats, clearDailySnapshotCache, dailyCacheGeneration };
