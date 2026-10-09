@@ -37,6 +37,13 @@ import logging
 import os
 import sys
 import time
+import math
+import importlib.util as _importlib_util
+from pathlib import Path as _Path
+_spec = _importlib_util.spec_from_file_location("phocos_settings", _Path(__file__).with_name("phocos_settings.py"))
+_phocos = _importlib_util.module_from_spec(_spec)
+_spec.loader.exec_module(_phocos)
+catalogue = _phocos.catalogue
 
 logging.basicConfig(
     stream=sys.stderr,
@@ -544,6 +551,88 @@ def full_uuid(u):
     raise HelperError(f"invalid UUID {u!r}", "bad_request")
 
 
+async def cmd_phocos_gatt_change(args):
+    """Validated 1810 settings RMW; no blind retry after write dispatch."""
+    address = norm_address(args.get("address"))
+    field=args.get("field")
+    if args.get("characteristic") not in (None,"2a0c","2a0d","2a0e"):
+        raise HelperError("unsupported Phocos setting characteristic","unsupported")
+    timeout=min(max(float(args.get("timeout",20)),3.0),60.0); wrote=False
+    try:
+        async with asyncio.timeout(timeout):
+            link=await _gatt_link(address,None,timeout); client=link.client
+            svc=client.services.get_service(full_uuid("1810"))
+            if svc is None: raise HelperError("Phocos service unavailable","unsupported")
+            chars={}
+            for u in ("2a02","2a05","2a0c","2a0d","2a0e"):
+                chars[u]=svc.get_characteristic(full_uuid(u))
+            for u in ("2a02","2a05"):
+                if chars[u] is None: raise HelperError("identity/ratings characteristic unavailable","unsupported")
+            identity=bytes(await client.read_gatt_char(chars["2a02"])); ratings=bytes(await client.read_gatt_char(chars["2a05"]))
+            if len(identity)<19 or len(ratings)<16: raise HelperError("short identity/ratings payload","malformed")
+            model=chr(identity[18]); nominal=int.from_bytes(ratings[14:16],"little")/10; watts=int.from_bytes(ratings[12:14],"little")
+            ac_voltage=int.from_bytes(ratings[4:6],"little")/10
+            try: spec=catalogue(model,int(nominal),watts,ac_voltage)
+            except ValueError as exc: raise HelperError(str(exc),"unsupported") from exc
+            if field not in spec: raise HelperError("unsupported Phocos setting","unsupported")
+            meta=spec[field]; u=meta["characteristic"]
+            if args.get("characteristic") not in (None,u): raise HelperError("field/characteristic mismatch","bad_request")
+            ch=chars[u]
+            if ch is None:
+                if u=="2a0e": return {"ok":False,"status":"refused","reason":"optional characteristic absent"}
+                raise HelperError("Phocos setting characteristic unavailable","unsupported")
+            if "write" not in getattr(ch,"properties",[]): raise HelperError("write-with-response unsupported","unsupported")
+            raw=bytearray(await client.read_gatt_char(ch))
+            if (u!="2a0e" and len(raw)!=20) or (u=="2a0e" and len(raw)<2): raise HelperError("invalid Phocos settings payload length","malformed")
+            off=meta.get("offset",0); width=meta["width"]
+            def decode(buf):
+                n=int.from_bytes(buf[off:off+width],"little")
+                if "bit" in meta: return bool(n & (1<<meta["bit"]))
+                if meta["type"]=="bool": return bool(n & 1)
+                return n/meta.get("scale",1)
+            current=decode(raw)
+            value=args.get("value"); expected=args.get("expected")
+            requested=value
+            def valid_number(candidate):
+                if isinstance(candidate,bool) or not isinstance(candidate,(int,float)) or not math.isfinite(candidate): return False
+                if "allowed" in meta and candidate not in meta["allowed"]: return False
+                if "min" in meta and not meta["min"]<=candidate<=meta["max"]: return False
+                scale=meta.get("scale",1); packed=candidate*scale
+                return float(packed).is_integer()
+            if meta["type"] in ("bool",):
+                if type(value) is not bool or type(expected) is not bool or type(current) is not bool: raise HelperError("boolean value and expected required","bad_request")
+            else:
+                if not valid_number(value) or not valid_number(expected) or not valid_number(current): raise HelperError("current/expected/value outside catalogue type, step, or range","bad_request")
+                scale=meta.get("scale",1); packed=value*scale
+                value=int(packed)
+            if current!=expected: return {"ok":False,"status":"refused","reason":"stale expected value","current":current}
+            if u=="2a0c":
+                other=bytearray(await client.read_gatt_char(chars[u]))
+                if len(other)!=20: raise HelperError("invalid 2a0c payload length","malformed")
+                if field=="float_voltage" and value/meta.get("scale",1)>int.from_bytes(other[8:10],"little")/10: raise HelperError("float voltage exceeds boost voltage","bad_request")
+                if field=="boost_voltage" and value/meta.get("scale",1)<int.from_bytes(other[6:8],"little")/10: raise HelperError("boost voltage below float voltage","bad_request")
+                if field=="max_utility_charging_current" and value>other[4]: raise HelperError("utility current exceeds total charging current","bad_request")
+                if field=="max_charging_current" and other[5]>value: raise HelperError("utility current exceeds total charging current","bad_request")
+            if current==requested: return {"ok":True,"status":"verified","value":current}
+            if "bit" in meta:
+                word=int.from_bytes(raw[off:off+width],"little"); mask=1<<meta["bit"]; word=(word|mask) if value else (word&~mask); raw[off:off+width]=word.to_bytes(width,"little")
+            else: raw[off:off+width]=int(value).to_bytes(width,"little")
+            try:
+                wrote=True; await client.write_gatt_char(ch,bytes(raw),response=True)
+            except Exception as exc: return {"ok":False,"status":"sent_unverified","reason":str(_map_error(exc))}
+            try: check=bytes(await client.read_gatt_char(ch))
+            except Exception as exc: return {"ok":False,"status":"sent_unverified","reason":str(_map_error(exc))}
+            if len(check)!=len(raw): return {"ok":False,"status":"sent_unverified","reason":"malformed readback"}
+            got=decode(check); return {"ok":got==requested,"status":"done" if got==requested else "mismatch","readback":got}
+    except HelperError:
+        if not KEEP_ALIVE: await _drop_gatt(address)
+        raise
+    except Exception as exc:
+        if not KEEP_ALIVE: await _drop_gatt(address)
+        if wrote: return {"ok":False,"status":"sent_unverified","reason":str(_map_error(exc))}
+        raise _map_error(exc) from exc
+
+
 async def cmd_gatt_read(args):
     """Read characteristics by (service, characteristic). Never writes.
     The service is part of the key because some devices reuse standard
@@ -676,6 +765,7 @@ COMMANDS = {
     "modbus": cmd_modbus,
     "luxpower": cmd_luxpower,
     "gatt_read": cmd_gatt_read,
+    "phocos_gatt_change": cmd_phocos_gatt_change,
     "bms_switch": cmd_bms_switch,
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
