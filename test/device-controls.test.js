@@ -237,15 +237,17 @@ const lastLog = () => controls.recentLog(1)[0];
         'AA:BB:CC:00:00:03': { kind: 'daly_bms', chrg_mosfet: 1, dischrg_mosfet: 1 }
       };
       const sent = [];
-      let protect = false, failNext = null, flipOther = false;
+      let protect = false, failNext = null, flipOther = false, applyThenFail = false, readFails = false;
       const ble = require('../modules/ble');
       ble._setHelperForTests({ request: async (cmd, args) => {
         const p = packs[args.address];
+        if (cmd === 'read_bms' && readFails === true) throw new Error('Read timed out');
         if (cmd === 'read_bms') return { voltage: 53.1, battery_level: 80, chrg_mosfet: p.chrg_mosfet, dischrg_mosfet: p.dischrg_mosfet, __kind: p.kind };
         if (cmd === 'bms_switch') {
           sent.push(args);
-          if (failNext) { const e = new Error(failNext); failNext = null; throw e; }
           const field = args.switch === 'charge' ? 'chrg_mosfet' : 'dischrg_mosfet';
+          if (failNext && applyThenFail) { p[field] = args.on ? 1 : 0; const e = new Error(failNext); failNext = null; if (readFails === 'after') readFails = true; throw e; }
+          if (failNext) { const e = new Error(failNext); failNext = null; throw e; }
           if (!(protect && args.on)) p[field] = args.on ? 1 : 0;
           if (flipOther) { const o = field === 'chrg_mosfet' ? 'dischrg_mosfet' : 'chrg_mosfet'; p[o] = 1 - p[o]; }
           return { kind: p.kind === 'jbd_bms' ? 'jbd' : 'jk' };
@@ -295,6 +297,16 @@ const lastLog = () => controls.recentLog(1)[0];
       failNext = 'Device AA:BB:CC:00:00:02 not found — is it powered and in range?';
       const gone = await controls.changeSetting({ device: 'Pack B', setting: 'charging', value: 'on' }, req);
       assert.strictEqual(gone.success, false); assert.match(gone.error, /not found/); assert.strictEqual(lastLog().outcome, 'failed');
+      // The frame went out but the reply was lost: the read-back decides.
+      applyThenFail = true; failNext = 'Timed out waiting for the reply';
+      const lost = await controls.changeSetting({ device: 'Pack B', setting: 'charging', value: 'on' }, req);
+      assert.deepStrictEqual(lost, { success: true, value: 'on' }, 'switched although the reply was lost');
+      assert.strictEqual(lastLog().outcome, 'done');
+      failNext = 'Timed out waiting for the reply'; readFails = 'after';
+      const unsure = await controls.changeSetting({ device: 'Pack B', setting: 'charging', value: 'off' }, req);
+      assert.strictEqual(unsure.success, false); assert.strictEqual(unsure.written, true, 'may have happened: never reported as nothing written');
+      assert.match(unsure.error, /may or may not/); assert.strictEqual(lastLog().outcome, 'unverified');
+      applyThenFail = false; readFails = false;
       assert.match((await controls.changeSetting({ device: 'Pack C', setting: 'charging', value: 'off' }, req)).error, /not in this device's list/);
       assert.strictEqual(sent.filter(a => a.address === 'AA:BB:CC:00:00:03').length, 0, 'never sent to an unsupported pack');
       ble._setHelperForTests(null);
@@ -309,6 +321,29 @@ const lastLog = () => controls.recentLog(1)[0];
       assert.ok(!/sendDongleRegisterWrite/.test(settings));
       assert.match(settings, /link\.href = '\/controls'/);
       for (const f of ['modules/dongle.js', 'modules/modbus.js']) assert.ok(!/parseInt\(value\) \|\| 0/.test(fs.readFileSync(path.join(__dirname, '..', f), 'utf8')), `${f}: no "0 on a typo"`);
+      // Every card source is behind "Allow device changes", checked before the device is looked up.
+      const action = src.slice(src.indexOf("app.post('/api/action'"), src.indexOf("// Bluetooth BMS — built-in"));
+      assert.ok(action.indexOf('deviceControls.writeRefusal()') > 0 && action.indexOf('deviceControls.writeRefusal()') < action.indexOf('resolveActionDevice('), 'switch checked for every source');
+      assert.ok((action.match(/logged\('refused'/g) || []).length >= 3, 'refusals are logged');
+      assert.match(action, /listedSettingFor\(device, entity\)[\s\S]*changeSetting\(/, 'listed dongle settings go through changeSetting');
+    });
+
+    await check('cards address listed settings by register; locked attempts are logged; LuxPower never clamps', async () => {
+      assert.strictEqual(controls.listedSettingFor('Lux', 'holding:0x0069').name, 'eod_soc');
+      assert.strictEqual(controls.listedSettingFor('Lux', '0x69').name, 'eod_soc');
+      assert.strictEqual(controls.listedSettingFor('Lux', 105).name, 'eod_soc');
+      assert.strictEqual(controls.listedSettingFor('Lux', 'input:0x0069'), null, 'input registers are not the setting');
+      assert.strictEqual(controls.listedSettingFor('Lux', '0x0001'), null, 'unlisted register');
+      assert.strictEqual(controls.listedSettingFor('Nope', '0x0069'), null);
+      let status = 0;
+      controls.requireUnlocked({ originalUrl: '/api/action', path: '/', body: { source: 'mqtt', entity: 'made/up/relay', action: 'turn_on' }, session: {}, ip: '127.0.0.9' },
+        { status(c) { status = c; return this; }, json() { return this; } }, () => { throw new Error('should not pass'); });
+      assert.strictEqual(status, 423);
+      assert.strictEqual(lastLog().outcome, 'refused'); assert.strictEqual(lastLog().source, 'action:mqtt'); assert.strictEqual(lastLog().target, 'made/up/relay');
+      const dsrc = fs.readFileSync(path.join(__dirname, '..', 'modules', 'dongle.js'), 'utf8');
+      const lux = dsrc.slice(dsrc.indexOf('async function executeLuxpowerWrite'), dsrc.indexOf('async function executeLuxpowerWrite') + 3000);
+      assert.ok(!/Math\.max\(raw, min\)|Math\.min\(raw, max\)/.test(lux), 'no clamping');
+      assert.match(lux, /Must be between/);
     });
   } finally {
     dongle.stopDonglePolling();

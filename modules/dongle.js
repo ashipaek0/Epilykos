@@ -978,17 +978,14 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
   const parsed = parseFloat(value);
   if (isNaN(parsed)) return { error: 'Invalid value for register write' };
 
-  // Clamp + step-round in raw register units (catalog scale is 1 by design —
-  // min/max/step match what the transport writes).
-  let raw = parsed;
+  // Refuse, never clamp: a value outside the setting's range or step is a
+  // mistake to report, not something to quietly change into another value.
+  const raw = parsed;
   const min = entry.min !== undefined && entry.min !== null ? Number(entry.min) : null;
   const max = entry.max !== undefined && entry.max !== null ? Number(entry.max) : null;
   const step = entry.step !== undefined && entry.step !== null && Number(entry.step) > 0 ? Number(entry.step) : null;
-  if (min !== null) raw = Math.max(raw, min);
-  if (max !== null) raw = Math.min(raw, max);
-  if (step !== null) raw = Math.round(raw / step) * step;
-  if (min !== null && raw < min) raw = min;
-  if (max !== null && raw > max) raw = max;
+  if ((min !== null && raw < min) || (max !== null && raw > max)) return { error: `Must be between ${min ?? '…'} and ${max ?? '…'}` };
+  if (step !== null && Math.abs((raw - (min || 0)) / step - Math.round((raw - (min || 0)) / step)) > 1e-6) return { error: `Must be in steps of ${step}` };
 
   try {
     return await withLuxpowerTransport(device, profile, async transport => {
