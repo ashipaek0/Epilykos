@@ -16,6 +16,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { bundleUrlFor } = require('./pageBundles');
 
 const ROOT = path.join(__dirname, '..');
 const CACHE_MS = 30 * 1000;
@@ -73,13 +74,45 @@ function pageWithPreloads(htmlFile, pageUrl = '/') {
   return html;
 }
 
+/** Module entry URLs of a page's <script type="module"> tags (same-site only). */
+function moduleEntries(html, pageUrl) {
+  const out = [];
+  for (const m of html.matchAll(SCRIPT_RE)) {
+    if (/^[a-z]+:\/\//i.test(m[1])) continue;
+    const u = new URL(m[1], 'http://page' + pageUrl);
+    out.push({ src: m[1], entry: u.pathname + u.search });
+  }
+  return out;
+}
+
+/**
+ * The page pointing at its one-file bundles (modules/pageBundles.js), or null
+ * while any of them isn't ready.
+ */
+const bundledCache = new Map();   // html file -> { mtimeMs, key, html }
+function pageWithBundles(htmlFile, pageUrl) {
+  const mtimeMs = fs.statSync(htmlFile).mtimeMs;
+  const raw = fs.readFileSync(htmlFile, 'utf8');
+  const entries = moduleEntries(raw, pageUrl);
+  if (!entries.length) return null;
+  const urls = entries.map(e => bundleUrlFor(e.entry));
+  if (urls.some(u => !u)) return null;
+  const key = urls.join('|');
+  const hit = bundledCache.get(htmlFile);
+  if (hit && hit.mtimeMs === mtimeMs && hit.key === key) return hit.html;
+  let html = raw;
+  entries.forEach((e, i) => { html = html.replace(`src="${e.src}"`, `src="${urls[i]}"`); });
+  bundledCache.set(htmlFile, { mtimeMs, key, html });
+  return html;
+}
+
 /** Send a page (Cache-Control no-cache, as express.static gives pages). */
 function sendPage(res, htmlFile, pageUrl = '/') {
   let html;
-  try { html = pageWithPreloads(htmlFile, pageUrl); }
+  try { html = pageWithBundles(htmlFile, pageUrl) || pageWithPreloads(htmlFile, pageUrl); }
   catch (_) { return res.sendFile(htmlFile); }
   if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'no-cache');
   res.type('html').send(html);
 }
 
-module.exports = { sendPage, pageWithPreloads, moduleGraph };
+module.exports = { sendPage, pageWithPreloads, pageWithBundles, moduleGraph, moduleEntries };

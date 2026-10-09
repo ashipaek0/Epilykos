@@ -474,6 +474,11 @@ mountPrivatePages(app);
 // Ahead of express.static, which would otherwise answer / with the plain file.
 const { sendPage } = require('./modules/pagePreload');
 app.get(['/', '/index.html'], (req, res) => sendPage(res, path.join(__dirname, 'public', 'index.html'), '/'));
+// Each module page's scripts as one file (modules/pageBundles.js); signed-in
+// pages' bundles are under /private/bundles/ (routes/privatePages.js).
+const pageBundles = require('./modules/pageBundles');
+app.get('/bundles/:file', (req, res, next) => { if (!pageBundles.serveBundle(req, res, req.path)) next(); });
+pageBundles.prebuild(['/js/main.js', '/js/editor.js', '/private/js/controls.js', '/private/js/showcase.js']);
 // Serve static files with 1h browser cache
 // Pages, scripts and styles revalidate on every load (ETag → 304 when unchanged)
 // so an image update is visible at once; icons/fonts keep the 1 h cache.
