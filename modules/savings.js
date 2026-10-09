@@ -6,8 +6,8 @@ const { computeSavings } = require('./solarValue');
  * How each kWh is valued (grid price, by grid availability, or by what was
  * bought) is set in Settings > Prices and savings; see modules/solarValue.js.
  */
-async function getSavings() {
-  const s = computeSavings({ todaySolarKwh: computeTodaySolar() });
+async function getSavings(computed) {
+  const s = computed || computeSavings({ todaySolarKwh: computeTodaySolar() });
   return {
     currency: s.currency, rate: s.rate, generatorPrice: s.generatorPrice, method: s.method, todayPrice: s.todayPrice,
     today: s.today, week: s.week, month: s.month, all: s.all

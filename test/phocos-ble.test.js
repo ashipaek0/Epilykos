@@ -24,7 +24,7 @@ const CAPTURE = {
   pv1:    '2d 2d 2d 2d 2d 2e 2d 2d 20 20 12 00 88 09 c5 01 00 00 00 00', // 1.8 A, 244.0 V, 453 W
   pv2:    '20 20 20 20 20 20 20 20 20 20 13 00 a9 09 d9 01 00 00 00 00'  // 1.9 A, 247.3 V, 473 W
 };
-const raws = profile.blocks.map(b => Buffer.from(CAPTURE[b.id].replace(/ /g, ''), 'hex'));
+const raws = profile.blocks.map(b => CAPTURE[b.id] ? Buffer.from(CAPTURE[b.id].replace(/ /g, ''), 'hex') : null);
 
 function metricsFrom(data) {
   const out = {};
@@ -38,12 +38,14 @@ function metricsFrom(data) {
 (async () => {
   // Profile shape
   assert.strictEqual(profile.protocol, 'ble-gatt');
-  assert.strictEqual(profile.read_only, true);
-  assert.deepStrictEqual(profile.blocks.map(b => `${b.service}/${b.characteristic}`), ['1810/2a03', '1810/2a04', '1811/2a11', '1811/2a12']);
+  assert.strictEqual(profile.read_only, false);
+  assert.deepStrictEqual(profile.blocks.slice(0, 4).map(b => `${b.service}/${b.characteristic}`), ['1810/2a03', '1810/2a04', '1811/2a11', '1811/2a12']);
   console.log('ok - profile shape');
 
   // Decode of the captured values
-  const m = metricsFrom(decodeBlocks(profile, raws));
+  const decodedCapture = decodeBlocks(profile, raws);
+  assert.equal(decodedCapture.operating_mode, 'B');
+  const m = metricsFrom(decodedCapture);
   assert.strictEqual(m.grid_voltage, 0);
   assert.strictEqual(m.output_voltage, 229.7);
   assert.strictEqual(m.output_frequency, 49.9);
@@ -81,7 +83,7 @@ function metricsFrom(data) {
   assert.strictEqual(calls[0].address, '58:2B:0A:50:9F:83');
   assert.deepStrictEqual(calls[0].reads[0], { service: '1810', characteristic: '2a03' });
   assert.strictEqual(data.derived.pv_power, 926);
-  await assert.rejects(new BleGattTransport({ ble_address: '58:2B:0A:50:9F:83' }, profile, { read: async () => [null, null, null, null] }).poll(), /no data/);
+  await assert.rejects(new BleGattTransport({ ble_address: '58:2B:0A:50:9F:83' }, profile, { read: async () => [null, null, null, null, null] }).poll(), /required block unavailable|no data/);
   assert.throws(() => new BleGattTransport({ host: '192.168.1.5' }, profile), /invalid Bluetooth address/);
   console.log('ok - transport');
 

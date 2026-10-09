@@ -93,6 +93,7 @@ function dayPrice(settings, day) {
 
 const FIELDS = ['daily_solar', 'daily_grid_import', 'daily_generator'];
 const cache = new WeakMap();   // db -> { key, today, at, days }
+const splitCache = new WeakMap();   // db -> { gen, days: Map(day -> { up, down } | null) }
 
 /** Finished days (before `todayStart`) with their solar kWh and price inputs. */
 function pastDays(db, settings, today, todayStart) {
@@ -101,16 +102,25 @@ function pastDays(db, settings, today, todayStart) {
   if (hit && hit.key === key && hit.today === today && Date.now() - hit.at < CACHE_MS) return hit.days;
   const days = readDailySnapshots(db, { to: todayStart, fields: FIELDS }).filter(d => d.day < today);
   if (settings.method === 'availability' && days.length) {
-    const first = Math.floor(new Date(days[0].day + 'T00:00:00').getTime() / 1000);
-    const split = solarByGrid(db, first, todayStart);
-    for (const d of days) d.split = split.get(d.day) || null;
+    // A finished day's grid up/down split doesn't change: work each one out
+    // once and only scan the days not done yet (usually just yesterday).
+    const gen = dailyCacheGeneration();
+    let done = splitCache.get(db);
+    if (!done || done.gen !== gen) { done = { gen, days: new Map() }; splitCache.set(db, done); }
+    const missing = days.filter(d => !done.days.has(d.day));
+    if (missing.length) {
+      const from = Math.floor(new Date(missing[0].day + 'T00:00:00').getTime() / 1000);
+      const split = solarByGrid(db, from, todayStart);
+      for (const d of missing) done.days.set(d.day, split.get(d.day) || null);
+    }
+    for (const d of days) d.split = done.days.get(d.day) || null;
   }
   cache.set(db, { key, today, at: Date.now(), days });
   return days;
 }
 
 /** Forget cached days (tests, or after writing into past days). */
-function clearSolarValueCache(db) { if (db) cache.delete(db); }
+function clearSolarValueCache(db) { if (db) { cache.delete(db); splitCache.delete(db); } }
 
 /**
  * Savings for today, this week (from Monday), this month and all time, plus

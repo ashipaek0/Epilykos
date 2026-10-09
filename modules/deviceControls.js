@@ -48,9 +48,13 @@ function unlockedUntil(req) {
 }
 function unlock(req) { req.session.controlsUnlockedUntil = Date.now() + UNLOCK_MS; return req.session.controlsUnlockedUntil; }
 function lock(req) { if (req.session) delete req.session.controlsUnlockedUntil; }
-/** Express middleware: 423 unless this session unlocked changes recently. */
+/** Express middleware: 423 unless this session unlocked changes recently (refusals are logged). */
 function requireUnlocked(req, res, next) {
   if (unlockedUntil(req)) return next();
+  const b = req.body && typeof req.body === 'object' ? req.body : {};
+  logAttempt({ source: req.originalUrl === '/api/action' ? 'action:' + String(b.source || '') : 'controls' + (req.path || ''),
+    device: b.device, target: b.entity || b.setting || b.register, label: b.action, newValue: b.value !== undefined ? b.value : b.params && b.params.value,
+    outcome: 'refused', detail: 'Changes are locked' }, req);
   res.status(423).json({ success: false, error: 'Changes are locked. Unlock them on the Controls page with your password.', locked: true });
 }
 
@@ -105,6 +109,7 @@ function dongleDevices() {
 
 /** A profile's listed settings, in the shape the Controls page shows. */
 function settingsOf(profile) {
+  if (profile && profile.protocol === 'ble-gatt' && Array.isArray(profile.settings)) return profile.settings.map(w => ({ type: w.type === 'boolean' ? 'switch' : w.type === 'enum' ? 'select' : 'number', name: w.id, label: w.label || w.id, description: w.reason || '', unit: w.unit || '', min: w.min, max: w.max, step: w.step, allowed: w.allowed, writable: false, blockedReason: 'Read the device first to verify its model and setting capability' }));
   if (!profile || !profile.capabilities || profile.capabilities.write !== true) return [];
   return (Array.isArray(profile.writable_registers) ? profile.writable_registers : [])
     .filter(w => w && w.name && w.register && (w.kind || 'value') === 'value')
@@ -128,7 +133,7 @@ function listDevices() {
       transport: d.transport || (profile && profile.transport) || '', settings,
       rawWrites: !!profile && !['growatt', 'felicity-tcp', 'ble-gatt'].includes(profile.protocol || d.transport),
       rawReads: !!profile && profile.protocol === 'luxpower-tcp',
-      note: settings.length ? '' : (profile && profile.protocol === 'ble-gatt' ? 'how its Bluetooth link takes settings is not known yet' : 'no settings list for this profile yet') });
+      note: profile && profile.protocol === 'ble-gatt' ? 'Settings start blocked; read the device to verify its model and current write capability.' : (settings.length ? '' : 'no settings list for this profile yet') });
   }
   for (const d of bmsDevices()) {
     const kind = bmsKindOf(d);
@@ -191,17 +196,25 @@ async function changeBmsSwitch(p, dev, setting, req) {
     logAttempt({ ...base, outcome: 'done', detail: 'Already set; nothing sent' }, req);
     return { success: true, value: p.value, unchanged: true };
   }
+  let sendError = null;
   try {
     await require('./ble').bmsSwitch(dev.address, { bmsType: dev.profile, which: setting.which, on: p.value === 'on',
       chargeOn: now.charging === 'on', dischargeOn: now.discharging === 'on' });
   } catch (e) {
-    logAttempt({ ...base, outcome: 'failed', detail: e.message }, req);
-    return { success: false, error: e.message };
+    // The command may have gone out before the error (a lost reply, a time-out
+    // while the pack settles), so read the pack back before calling it failed.
+    sendError = e.message;
   }
   const back = await readBmsSwitches(dev);
   if (back.error) {
-    logAttempt({ ...base, outcome: 'unverified', detail: `Sent, but reading it back failed: ${back.error}` }, req);
-    return { success: false, written: true, error: `The change was sent, but reading the pack back failed (${back.error}). Read it again to check.` };
+    logAttempt({ ...base, outcome: 'unverified', detail: sendError ? `${sendError}; reading the pack back also failed: ${back.error}` : `Sent, but reading it back failed: ${back.error}` }, req);
+    return { success: false, written: true, error: sendError
+      ? `The pack didn't answer (${sendError}), and reading it back failed, so the change may or may not have happened. Read it again to check.`
+      : `The change was sent, but reading the pack back failed (${back.error}). Read it again to check.` };
+  }
+  if (sendError && back[setting.name] !== p.value) {
+    logAttempt({ ...base, outcome: 'failed', detail: sendError }, req);
+    return { success: false, error: sendError, value: back[setting.name] };
   }
   const other = BMS_SETTINGS.find(s => s !== setting);
   if (back[other.name] !== now[other.name]) {
@@ -215,6 +228,19 @@ async function changeBmsSwitch(p, dev, setting, req) {
   }
   logAttempt({ ...base, outcome: 'done', detail: 'Read back and matched' }, req);
   return { success: true, value: back[setting.name] };
+}
+
+/**
+ * The listed setting a dongle register belongs to, if any ('holding:0x00A0',
+ * '0x00A0' or 160). Switch and selector cards address settings by register.
+ */
+function listedSettingFor(deviceName, register) {
+  const dev = listDevices().find(d => d.kind === 'dongle' && d.name === deviceName);
+  if (!dev || !dev.settings.length) return null;
+  const m = String(register == null ? '' : register).trim().match(/^(?:(input|holding):)?(0x[0-9a-f]+|\d+)$/i);
+  if (!m) return null;
+  const addr = m[2].toLowerCase().startsWith('0x') ? parseInt(m[2], 16) : parseInt(m[2], 10);
+  return dev.settings.find(s => s.register && parseInt(s.register, 16) === addr && (!m[1] || (s.register_type || 'holding') === m[1].toLowerCase())) || null;
 }
 
 function findSetting(deviceName, settingName) {
@@ -249,6 +275,21 @@ async function readSetting(deviceName, settingName) {
     const r = await readBmsSwitches(dev);
     return r.error ? r : { value: r[setting.name], inRange: true };
   }
+  if (dev.transport === 'ble-gatt' || dev.profile === 'phocos-anygrid-ble') {
+    const result = await require('./dongle').phocosSettings(dev.name);
+    if (result.error) return result;
+    const capability = (result.capabilities || []).find(c => c.id === setting.name) || null;
+    const rawMetadata = result.values && result.values[setting.name] || null;
+    const value = rawMetadata && rawMetadata.value;
+    const type = capability && capability.type;
+    const min = capability && capability.min;
+    const max = capability && capability.max;
+    const allowed = capability && capability.allowed;
+    const step = capability && capability.step;
+    const valuePresent = !!rawMetadata && value !== undefined;
+    const inRange = valuePresent && (type === 'bool' || type === 'boolean' ? typeof value === 'boolean' : type === 'enum' ? Array.isArray(allowed) && allowed.includes(value) : Number.isFinite(value) && (min === undefined || value >= min) && (max === undefined || value <= max) && (!(step > 0) || Math.abs((value - (min || 0)) / step - Math.round((value - (min || 0)) / step)) <= 1e-6));
+    return { value, current: value, inRange, raw: result.raw, rawMetadata, capability, writable: !!(capability && capability.writable), blockedReason: capability && capability.blockedReason || (!valuePresent ? 'Setting is not available in the current device read' : null), model: result.model };
+  }
   const raw = await require('./dongle').readDongleRegister(dev.name, setting.register, setting.register_type);
   if (raw.error) return raw;
   const value = toValue(setting, raw.value);
@@ -269,6 +310,33 @@ async function changeSetting(p, req) {
   const { dev, setting } = found;
   if (dev.kind === 'bms') return changeBmsSwitch(p, dev, setting, req);
   base.label = setting.label;
+  if (dev.transport === 'ble-gatt' || dev.profile === 'phocos-anygrid-ble') {
+    if (p.expected === undefined || p.expected === null || p.expected === '') return refuse('Read the current value and provide expected before changing this setting');
+    const now = await readSetting(dev.name, setting.name);
+    if (now.error) return refuse(`Could not read the current value first: ${now.error}`);
+    base.oldValue = now.value;
+    if (!now.capability || !now.capability.writable) return refuse(now.blockedReason || 'This setting is not writable for the verified device model');
+    if (!now.inRange) return refuse('The current setting value is outside its supported range');
+    if (typeof p.expected !== typeof now.value || p.expected !== now.value) return refuse(`It changed since you looked: it is now ${now.value}. Check and try again.`, { current: now.value });
+    const capability = now.capability;
+    const type = capability && capability.type;
+    const valid = type === 'bool' || type === 'boolean' ? typeof p.value === 'boolean' : type === 'enum' ? Array.isArray(capability.allowed) && capability.allowed.includes(p.value) : ['int', 'float', 'number'].includes(type) && typeof p.value === 'number' && Number.isFinite(p.value) && (capability.min === undefined || p.value >= capability.min) && (capability.max === undefined || p.value <= capability.max) && (!(capability.step > 0) || Math.abs((p.value - (capability.min || 0)) / capability.step - Math.round((p.value - (capability.min || 0)) / capability.step)) <= 1e-6);
+    if (!valid) return refuse('Choose a valid value for this setting');
+    if (p.value === now.value) { logAttempt({ ...base, outcome: 'done', detail: 'Already set; nothing sent' }, req); return { success: true, value: now.value, unchanged: true, status: 'noop' }; }
+    let result;
+    try { result = await require('./dongle').changePhocosSetting(dev.name, setting.name, p.expected, p.value); }
+    catch (e) { result = { ok: false, status: 'sent_unverified', error: e.message }; }
+    const status = result.status || (result.ok ? 'verified' : result.written ? 'sent_unverified' : 'refused');
+    const outcome = ['done', 'verified', 'noop'].includes(status) ? 'done' : status === 'refused' ? 'refused' : status === 'sent_unverified' || status === 'unverified' ? 'unverified' : 'failed';
+    const readback = result.readback && typeof result.readback === 'object' && Object.prototype.hasOwnProperty.call(result.readback, 'value') ? result.readback.value : result.readback;
+    const hasReadback = result.readback !== undefined && result.readback !== null;
+    const reason = result.reason || result.error || null;
+    logAttempt({ ...base, outcome, detail: reason || status }, req);
+    const response = { success: ['done', 'verified'].includes(status), ...(hasReadback ? { value: readback } : {}), ...(result.written || ['sent_unverified', 'unverified', 'mismatch'].includes(status) ? { written: true } : {}), ...(status === 'noop' || result.unchanged ? { unchanged: true } : {}), status };
+    if (!response.success) response.error = reason || (status === 'mismatch' ? 'Device read-back did not match the requested value' : status === 'sent_unverified' || status === 'unverified' ? 'The write was sent but could not be verified' : 'The setting change was refused');
+    else if (reason) response.error = reason;
+    return response;
+  }
   const want = toRaw(setting, p.value);
   if (want.error) return refuse(want.error);
 
@@ -357,6 +425,7 @@ async function rawRead(p) {
 }
 
 module.exports = {
+  listedSettingFor,
   UNLOCK_MS,
   writesEnabled, expertEnabled, setSwitches, writeRefusal,
   unlockedUntil, unlock, lock, requireUnlocked,
