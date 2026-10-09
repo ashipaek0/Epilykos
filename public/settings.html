@@ -419,25 +419,26 @@
         <details class="help-accordion" open>
           <summary class="help-summary">Quick Start — 5 minutes to your first dashboard</summary>
           <div class="help-body">
+            <p>The quickest way in is the <a href="/setup" class="help-link">setup wizard</a>: it finds common hardware, maps your readings to roles and builds a first dashboard. The steps below do the same by hand.</p>
             <div class="help-steps">
               <div class="help-step"><span class="help-step-num">1</span>
                 <div><strong>Add a data source</strong><br>
-                Go to <a class="help-link" href="#sources/modbus">Sources → Add source → Modbus</a> (or Home Assistant, MQTT, RS232, dongle, BMS, REST). Enter connection details and pick a profile matching your hardware.</div>
+                Go to <a class="help-link" href="#sources">Sources → Add source</a> and pick your hardware: Modbus, WiFi dongle, RS232, BMS, Home Assistant, MQTT, Tuya or REST. Enter the connection details and pick the profile that matches your model.</div>
               </div>
               <div class="help-step"><span class="help-step-num">2</span>
-                <div><strong>Map registers/fields to metric names</strong><br>
-                Click <em>Load Profile Fields</em>. Each row shows a device register — use the dropdown to pick a metric name (or keep the default). Save settings.</div>
+                <div><strong>Name the readings</strong><br>
+                Click <em>Load Profile Fields</em> (Modbus, RS232) or <em>Load Profile Registers</em> (WiFi dongle). Each row is one reading: keep the suggested metric name or type your own. Save.</div>
               </div>
               <div class="help-step"><span class="help-step-num">3</span>
-                <div><strong>Build a dashboard</strong><br>
-                Open the <a href="/editor" class="help-link">Editor</a>. Drag a <strong>Flow card</strong> onto the layout. Select the block, then pick which metrics feed each role on its Data tab (solar, consumption, battery, grid).</div>
+                <div><strong>Set the metric roles</strong><br>
+                In <a class="help-link" href="#metrics">Metrics → Metric roles</a>, say which metric is solar power, home use, battery, grid, generator and so on. Charts, tables, costs, savings and several blocks use these.</div>
               </div>
               <div class="help-step"><span class="help-step-num">4</span>
-                <div><strong>See live data</strong><br>
-                Data polls every 30s by default. Values update automatically. The Power Chart shows 24h history — it populates as polling continues.</div>
+                <div><strong>Build a dashboard</strong><br>
+                Open the <a href="/editor" class="help-link">layout editor</a>, add blocks from the list on the left, and pick their metrics on each block's Data tab.</div>
               </div>
             </div>
-            <p class="note" style="margin-top:0.75rem;"><strong>Prerequisite:</strong> You need at least one connected device (inverter, sensor, or external API). Start with the data source that matches your hardware.</p>
+            <p class="note" style="margin-top:0.75rem;">Readings refresh on their own: the main cycle runs every 30 seconds and each source has its own read interval. Charts and tables fill in as history builds up.</p>
           </div>
         </details>
 
@@ -453,8 +454,8 @@
                 <div class="help-checklist">
                   <div class="help-checklist-item"><span class="help-badge must">Required</span> HA URL (e.g. <code>http://192.168.1.50:8123</code>)</div>
                   <div class="help-checklist-item"><span class="help-badge must">Required</span> Long-lived access token (HA → Profile → Security → Long-lived tokens)</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Only <code>sensor.*</code> and <code>binary_sensor.*</code> entities are fetched</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Binary sensors auto-convert <code>on</code>/<code>off</code> → 1/0</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Entities listed: <code>sensor.*</code>, <code>binary_sensor.*</code>, <code>switch.*</code>, <code>light.*</code>, <code>climate.*</code>, <code>fan.*</code>, <code>cover.*</code> and <code>input_boolean.*</code></div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> <code>on</code>/<code>off</code> states are kept as on/off; the grid status and switch blocks read them directly</div>
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
@@ -499,9 +500,9 @@
                 <table class="help-table">
                   <thead><tr><th>Inverter Brand</th><th>Profile Name</th></tr></thead>
                   <tbody>
-                    <tr><td>SRNE / PowMr / EASun</td><td><code>SRNE Inverter (V1.96)</code> or <code>SRNE All-in-One</code></td></tr>
+                    <tr><td>SRNE / PowMr / EASun</td><td><code>SRNE Inverter (V1.96 / Latest Protocol)</code> or <code>SRNE All-in-One Inverter (Modbus RTU)</code></td></tr>
                     <tr><td>Growatt SPF 3500–6000 ES</td><td><code>Growatt SPF Series (Modbus RTU)</code></td></tr>
-                    <tr><td>Voltronic / Axpert / MPP Solar</td><td><code>Voltronic Axpert (P00-P09 Modbus)</code></td></tr>
+                    <tr><td>Voltronic / Axpert / MPP Solar</td><td><code>Voltronic Axpert / MPP Solar (P00-P09 Modbus)</code></td></tr>
                     <tr><td>Felicity IVEM6048</td><td><code>Felicity IVEM6048 Series (Modbus RTU)</code></td></tr>
                     <tr><td>Felicity T-REX 5K</td><td><code>Felicity T-REX 5K (Modbus RTU) - P1G01</code></td></tr>
                     <tr><td>Felicity T-REX 10K</td><td><code>Felicity T-REX 10K (Modbus RTU) - P3G01</code></td></tr>
@@ -509,10 +510,10 @@
                     <tr><td>Felicity IVPS10048</td><td><code>Felicity IVPS10048 (Modbus RTU) - 10kVA</code></td></tr>
                     <tr><td>Deye Hybrid</td><td><code>Deye Hybrid Inverter</code></td></tr>
                     <tr><td>Luxpower</td><td><code>Luxpower (Modbus RTU RS-485)</code></td></tr>
-                    <tr><td>Solis Hybrid</td><td><code>Solis Hybrid Inverter (Ver3.2)</code></td></tr>
-                    <tr><td>Solis String</td><td><code>Solis String Inverter (Ver19)</code></td></tr>
+                    <tr><td>Solis Hybrid</td><td><code>Solis Hybrid Inverter (Ver3.2 / RHI Series)</code></td></tr>
+                    <tr><td>Solis String</td><td><code>Solis String Inverter (Ver19 / 3-Phase)</code></td></tr>
                     <tr><td>Victron (GX device)</td><td><code>Victron CCGX / Venus OS (Modbus TCP)</code></td></tr>
-                    <tr><td>Generic MPPT</td><td><code>Generic MPPT Charge Controller (RS-485)</code></td></tr>
+                    <tr><td>Generic MPPT</td><td><code>Generic MPPT Charge Controller (EPever/Tracer/Renogy)</code></td></tr>
                   </tbody>
                 </table>
                 </div>
@@ -541,9 +542,10 @@
                   <thead><tr><th>Protocol</th><th>Profile</th><th>Default Baud</th></tr></thead>
                   <tbody>
                     <tr><td>Voltronic QPIGS</td><td><code>Voltronic / Axpert (QPIGS ASCII)</code></td><td>2400</td></tr>
-                    <tr><td>Infinisolar</td><td><code>Infinisolar (alias → QPIGS)</code></td><td>2400</td></tr>
-                    <tr><td>SolaX AA55</td><td><code>SolaX Pocket / X1 (AA55 Binary)</code></td><td>9600</td></tr>
+                    <tr><td>Infinisolar</td><td><code>Infinisolar (Voltronic QPIGS)</code></td><td>2400</td></tr>
+                    <tr><td>SolaX AA55</td><td><code>SolaX Pocket USB (AA55 Binary)</code></td><td>9600</td></tr>
                     <tr><td>Victron VE.Direct</td><td><code>Victron VE.Direct</code></td><td>19200</td></tr>
+                    <tr><td>Modbus RTU over RS232</td><td><code>Anern EVO4200L (24V Hybrid, Modbus RTU)</code></td><td>2400</td></tr>
                   </tbody>
                 </table>
                 </div>
@@ -559,38 +561,47 @@
             </details>
             <!-- Dongle -->
             <details class="help-sub">
-              <summary class="help-sub-summary">Dongle (WiFi Data Loggers)</summary>
+              <summary class="help-sub-summary">WiFi dongle and Bluetooth modules</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Inverters with built-in WiFi loggers (Solarman, Felicity TCP). Connects over your local network — no USB cable needed.</p>
-                <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger IP address on your local network</div>
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Logger serial number (printed on device or sticker)</div>
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Correct profile for your inverter model</div>
+                <p><strong>What it's for:</strong> Inverters with a WiFi logger stick or a Bluetooth module. Connects over your local network or the host's Bluetooth adapter; no cable to the inverter.</p>
+                <div class="table-wrap">
+                <table class="help-table">
+                  <thead><tr><th>Profile</th><th>Connection</th><th>What it needs</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>Deye / SunSynk Hybrid (Solarman V5)</code>, <code>SRNE Hybrid Inverter (Solarman V5)</code></td><td>Solarman stick, port 8899</td><td>Stick IP and its serial number (sticker)</td></tr>
+                    <tr><td><code>LuxPower GETA Hybrid (Wi-Fi / Bluetooth dongle)</code></td><td>WiFi dongle, port 8000, or Bluetooth</td><td>Dongle IP, the dongle serial and the inverter serial (10 characters each, on their labels); or the Bluetooth address</td></tr>
+                    <tr><td><code>Felicity Inverter (TCP/JSON)</code></td><td>WiFi, port 53970</td><td>Inverter IP</td></tr>
+                    <tr><td><code>Growatt SPF Series (TCP Server)</code></td><td>The stick connects to Epilykos on port 5279</td><td>Point the stick's server address at this machine</td></tr>
+                    <tr><td><code>Phocos Any-Grid PSW-H (Bluetooth)</code></td><td>Bluetooth</td><td>The Bluetooth address (use Scan)</td></tr>
+                  </tbody>
+                </table>
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a></li>
-                  <li>Enter IP, port (default 8899 for Solarman, 502 for Felicity TCP), and serial number</li>
-                  <li>Pick a profile matching your inverter</li>
-                  <li>Click <em>Load Profile Registers</em> → map to metric names</li>
-                  <li>Click <em>Test Connection</em> to verify</li>
+                  <li>Go to <a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a> and pick the profile for your inverter</li>
+                  <li>Fill in what the profile needs (above)</li>
+                  <li>Click <em>Load Profile Registers</em> → keep or change the metric names</li>
+                  <li>Click <em>Test Connection</em> to check it reads</li>
                 </ol>
+                <p class="note">Bluetooth uses the host's adapter; in Docker, mount <code>/run/dbus</code>. Devices on one adapter are read one at a time, so allow about 10 seconds per device in their read intervals.</p>
               </div>
             </details>
             <!-- BMS -->
             <details class="help-sub">
               <summary class="help-sub-summary">BMS (Battery Management System)</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Direct connection to a BMS over serial (RS485/USB) for battery-level data.</p>
+                <p><strong>What it's for:</strong> Readings straight from the battery's BMS: charge, cell voltages, temperatures, current.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial path and correct BMS address</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Currently supports JBD / Xiaoxiang BMS protocol</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Bluetooth</span> JBD, JK and the other brands the scan recognises. Needs the host's Bluetooth adapter. JBD and JK packs can also be switched on and off from the Controls page.</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Wired</span> RS485 or RS232 to USB: pick the serial port, a profile (JBD, JK, PACE, Cworth) and the unit ID.</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Battery bank</span> Combines several packs into one battery (state of charge weighted by capacity, total power).</div>
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
                   <li>Go to <a class="help-link" href="#sources/bms">Sources → BMS</a></li>
-                  <li>Enter serial port path and BMS address</li>
-                  <li>Enable the device and save</li>
+                  <li><em>+ Add Bluetooth BMS</em> and scan, or <em>+ Add wired BMS</em> and pick the serial port and profile</li>
+                  <li>Several packs in one battery: add a <em>battery bank</em> and pick its packs</li>
+                  <li>Save</li>
                 </ol>
               </div>
             </details>
@@ -601,13 +612,29 @@
                 <p><strong>What it's for:</strong> Pull data from any HTTP JSON API (weather services, energy monitors, custom endpoints).</p>
                 <div class="help-checklist">
                   <div class="help-checklist-item"><span class="help-badge must">Required</span> URL returning JSON</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Use dot notation for JSON paths: <code>data.power</code>, <code>results[0].temperature</code></div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> JSON paths use dots, list items by number: <code>data.power</code>, <code>results.0.temperature</code> (not <code>results[0]</code>)</div>
                 </div>
                 <p><strong>Steps:</strong></p>
                 <ol>
                   <li>Go to <a class="help-link" href="#sources/external">Sources → REST API</a></li>
                   <li>Enter URL, click <em>+ Add Metric Mapping</em> for each value</li>
                   <li>Enter JSON path and pick a metric name</li>
+                </ol>
+              </div>
+            </details>
+            <!-- Tuya -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">Tuya (Smart Life devices)</summary>
+              <div class="help-sub-body">
+                <p><strong>What it's for:</strong> Tuya / Smart Life plugs, meters and switches, read directly on your network (port 6668). The cloud is used once, to fetch each device's local key.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Your Smart Life user ID (app → Me → ⚙ → Account → User ID)</div>
+                </div>
+                <p><strong>Steps:</strong></p>
+                <ol>
+                  <li>Go to <a class="help-link" href="#sources/tuya">Sources → Tuya</a>, enter the user ID and scan the QR code with the Smart Life app</li>
+                  <li>Devices, local keys and readings are filled in; name the readings you want</li>
+                  <li>Click <em>Verify All</em>, then save</li>
                 </ol>
               </div>
             </details>
@@ -626,25 +653,24 @@
               <li>Use <strong>consistent suffixes</strong>: <code>_power</code>, <code>_voltage</code>, <code>_current</code>, <code>_energy</code>, <code>_soc</code>, <code>_temp</code></li>
               <li>Number multiple PV strings: <code>pv1_power</code>, <code>pv2_power</code></li>
             </ul>
-            <h4>System Roles (auto-mapped to dashboard)</h4>
+            <h4>Metric roles</h4>
+            <p>Roles tell Epilykos which of your metrics is which. Set them in <a class="help-link" href="#metrics">Metrics → Metric roles</a> (the setup wizard fills them in for you). They feed the history behind the power and energy charts, the daily and monthly tables, the energy day, flows and costs cards, and savings.</p>
             <div class="table-wrap">
             <table class="help-table">
-              <thead><tr><th>Role</th><th>Suggested Metric Name</th><th>Used By</th></tr></thead>
+              <thead><tr><th>Role</th><th>Unit</th><th>Typical metric names</th></tr></thead>
               <tbody>
-                <tr><td>Solar Power</td><td><code>pv_power</code>, <code>pv_power_summary</code></td><td>Flow Card, Power Chart, Gauge</td></tr>
-                <tr><td>Load / Consumption</td><td><code>load_power</code>, <code>ac_output_power</code></td><td>Flow Card, Power Chart</td></tr>
-                <tr><td>Battery SOC</td><td><code>battery_soc</code></td><td>Flow Card, Battery Block</td></tr>
-                <tr><td>Battery Power</td><td><code>battery_power</code></td><td>Flow Card, Flow Card 2</td></tr>
-                <tr><td>Grid Import</td><td><code>grid_power</code>, <code>ac_input_power</code></td><td>Grid Card, Power Chart</td></tr>
-                <tr><td>Grid Export</td><td><code>grid_export</code></td><td>Grid Card</td></tr>
-                <tr><td>Battery Voltage</td><td><code>battery_voltage</code></td><td>Battery Block, Gauge</td></tr>
-                <tr><td>Battery Current</td><td><code>battery_current</code></td><td>Battery Block</td></tr>
-                <tr><td>Inverter Temp</td><td><code>inverter_temp</code>, <code>heatsink_temp_1</code></td><td>Gauge</td></tr>
-                <tr><td>Daily Solar Energy</td><td><code>pv_energy_day</code>, <code>daily_solar</code></td><td>Energy Chart, Savings</td></tr>
-                <tr><td>Daily Consumption</td><td><code>daily_consumption</code></td><td>Energy Chart</td></tr>
+                <tr><td>Solar power</td><td>W</td><td><code>pv_power</code>, <code>solar_power</code></td></tr>
+                <tr><td>Consumption (home use)</td><td>W</td><td><code>load_power</code>, <code>ac_output_power</code></td></tr>
+                <tr><td>Battery charge / discharge power</td><td>W</td><td><code>battery_power</code> (one signed value fills both), or separate charge and discharge metrics</td></tr>
+                <tr><td>Grid import / export</td><td>W</td><td><code>grid_power</code>, <code>grid_import</code>, <code>grid_export</code></td></tr>
+                <tr><td>Battery SOC</td><td>%</td><td><code>battery_soc</code></td></tr>
+                <tr><td>Solar voltage</td><td>V</td><td><code>pv_voltage</code>, <code>pv1_voltage</code></td></tr>
+                <tr><td>Daily solar, consumption, battery charge and discharge, grid import and export</td><td>kWh today</td><td><code>daily_solar</code>, <code>pv_energy_today</code>, … (reset at midnight by the inverter)</td></tr>
+                <tr><td>Generator power and daily generator energy</td><td>W, kWh today</td><td><code>generator_power</code>, <code>generator_energy_today</code> (inverters with a generator input)</td></tr>
               </tbody>
             </table>
             </div>
+            <p class="note">No daily energy reading for a role? <a class="help-link" href="#metrics">Combined metrics</a> can work it out from power, or add several inverters' readings together.</p>
           </div>
         </details>
 
@@ -652,31 +678,30 @@
         <details class="help-accordion">
           <summary class="help-summary">Dashboard Builder — block types and tips</summary>
           <div class="help-body">
-            <p>Open the <a href="/editor" class="help-link">Editor</a> to build your dashboard. Each block type serves a different purpose:</p>
+            <p>Open the <a href="/editor" class="help-link">layout editor</a> to build your dashboards. The list on the left has every block with a short description, grouped as energy flow, values, gauges and bars, charts and tables, forecast and weather, controls, and text. Some of them:</p>
             <div class="table-wrap">
             <table class="help-table">
-              <thead><tr><th>Block</th><th>Purpose</th><th>Metrics Needed</th></tr></thead>
+              <thead><tr><th>Block</th><th>Shows</th><th>Needs</th></tr></thead>
               <tbody>
-                <tr><td><strong>Flow Card</strong></td><td>Solar → home → battery → grid energy flow diagram</td><td>solar, consumption, battery_charge, battery_discharge, battery_soc, grid_import, grid_export</td></tr>
-                <tr><td><strong>Flow Card 2</strong></td><td>System topology view with all paths</td><td>Same as Flow Card + inverter metrics</td></tr>
-                <tr><td><strong>Power Chart</strong></td><td>24-hour real-time line chart</td><td>solar, consumption, battery, grid</td></tr>
-                <tr><td><strong>Energy Chart</strong></td><td>7-day bar chart (daily totals)</td><td>Energy metrics auto-derived from power</td></tr>
-                <tr><td><strong>Gauge Card</strong></td><td>Single-value circular gauge</td><td>Any one metric</td></tr>
-                <tr><td><strong>Half Gauge</strong></td><td>Semi-circular gauge, 2 per row</td><td>Any one metric each</td></tr>
-                <tr><td><strong>Bar Gauge</strong></td><td>Horizontal bar with min/max</td><td>Any one metric</td></tr>
-                <tr><td><strong>Metric Cards</strong></td><td>Compact value cards (4–6 per row)</td><td>Any metric per card</td></tr>
-                <tr><td><strong>Grid Card</strong></td><td>Grid on/off indicator + daily hours</td><td>grid_import (detects on/off by value > 0)</td></tr>
-                <tr><td><strong>Battery Block</strong></td><td>Battery SOC ring + voltage/current</td><td>battery_soc, battery_voltage, battery_current</td></tr>
-                <tr><td><strong>Forecast Banner</strong></td><td>Today's solar forecast bar</td><td>actual_energy (optional — for comparison)</td></tr>
-                <tr><td><strong>Savings Summary</strong></td><td>Solar savings today, this week, month and all time</td><td>daily_solar × the price set by Solar savings (grid price, by grid availability, or by what you bought)</td></tr>
+                <tr><td><strong>System overview, System topology, Flow card</strong></td><td>Live power between solar, battery, grid and home</td><td>The power roles, or metrics picked on the block</td></tr>
+                <tr><td><strong>Power chart</strong></td><td>Power over the last 24 hours (or 3 days)</td><td>The power roles; a generator series appears when it ran</td></tr>
+                <tr><td><strong>Energy chart</strong></td><td>Daily energy as bars (7 days by default)</td><td>The daily energy roles</td></tr>
+                <tr><td><strong>Energy day, Energy flows, Costs and earnings</strong></td><td>One day by the hour: energy, where it came from and went, what it cost or earned</td><td>The power roles; prices from Prices and savings</td></tr>
+                <tr><td><strong>Daily and Monthly tables</strong></td><td>Energy per day (30 days) or month (12 months)</td><td>The daily energy roles</td></tr>
+                <tr><td><strong>Grid status</strong></td><td>Grid on/off, hours on and a 24-hour timeline</td><td>The <a class="help-link" href="#savings">grid status metric</a></td></tr>
+                <tr><td><strong>Savings</strong></td><td>Solar savings today, this week, month and all time</td><td>Daily solar role and the prices (see Prices and savings below)</td></tr>
+                <tr><td><strong>Solar forecast blocks</strong></td><td>Forecast against actual solar</td><td>Forecast and weather settings</td></tr>
+                <tr><td><strong>Toggle switch, State select</strong></td><td>Switches and selectors</td><td>Only on the Controls page: pick <em>Controls page</em> in the editor's dashboard menu</td></tr>
+                <tr><td><strong>Gauges, bars, metric cards, text metric</strong></td><td>One or a few live values</td><td>Any metric</td></tr>
               </tbody>
             </table>
             </div>
             <h4>Tips</h4>
             <ul>
               <li><strong>Resize:</strong> Drag any edge or corner of a block, or select it and press Shift + arrow keys</li>
-              <li><strong>Duplicate:</strong> Select a block and press Duplicate in its toolbar</li>
-              <li><strong>Multiple dashboards:</strong> Create separate views (e.g. "Overview", "Battery Detail", "TV Display")</li>
+              <li><strong>Duplicate:</strong> Select a block and press <em>Duplicate</em> (the copy icon) in its toolbar</li>
+              <li><strong>Undo:</strong> Ctrl + Z, redo Ctrl + Shift + Z; changes save as you go</li>
+              <li><strong>Multiple dashboards:</strong> New, rename, duplicate or delete them from the dashboard menu at the top left (e.g. "Overview", "Battery", "TV display")</li>
             </ul>
           </div>
         </details>
@@ -692,10 +717,36 @@
               <thead><tr><th>Provider</th><th>Accuracy</th><th>Cost</th></tr></thead>
               <tbody>
                 <tr><td><strong>Open-Meteo</strong></td><td>Moderate (general area forecast)</td><td>Free — no key needed</td></tr>
-                <tr><td><strong>Solcast</strong></td><td>High (rooftop-level modeling)</td><td>Free tier: 10 calls/day<br>Paid: higher resolution</td></tr>
+                <tr><td><strong>Solcast</strong></td><td>High (rooftop-level modeling)</td><td>Free hobbyist plan (about 10 calls a day): Epilykos keeps each forecast for 3 hours, about 8 calls a day</td></tr>
               </tbody>
             </table>
             </div>
+          </div>
+        </details>
+
+        <!-- ── Prices and savings ──────────────────────────── -->
+        <details class="help-accordion">
+          <summary class="help-summary">Prices and savings — costs, generator and how savings are worked out</summary>
+          <div class="help-body">
+            <p>Set prices in <a class="help-link" href="#savings">Prices and savings</a>. All prices are per kWh, in your currency.</p>
+            <ul>
+              <li><strong>Grid buy price</strong> and <strong>grid sell price</strong>: grid costs and export earnings in Costs and earnings</li>
+              <li><strong>Generator buy price</strong>: for inverters with a generator input (fuel and upkeep per kWh); generator costs come from the daily generator role</li>
+              <li><strong>Battery wear cost</strong>: charged on every kWh into or out of the battery</li>
+            </ul>
+            <h4>Solar savings</h4>
+            <p>Each day's saving is that day's solar kWh × a price; today, week (from Monday), month and all time add the days up. <em>Solar savings</em> picks the price:</p>
+            <div class="table-wrap">
+            <table class="help-table">
+              <thead><tr><th>Choice</th><th>Price per solar kWh</th><th>Example (4 kWh solar, grid 0.30, generator 0.50)</th></tr></thead>
+              <tbody>
+                <tr><td><strong>At the grid buy price</strong> (default)</td><td>Grid price</td><td>4 × 0.30 = 1.20</td></tr>
+                <tr><td><strong>By grid availability</strong></td><td>Grid price for solar made while the grid was on, generator price for solar made during an outage. Needs the grid status metric; without it, the grid price.</td><td>Half made in an outage: 4 × (0.5 × 0.30 + 0.5 × 0.50) = 1.60</td></tr>
+                <tr><td><strong>By what you actually bought</strong></td><td>The day's average price of the grid and generator energy bought: (grid kWh × grid price + generator kWh × generator price) ÷ (grid kWh + generator kWh). A day with neither: the grid price.</td><td>Bought 2 kWh grid, 3 kWh generator: price 0.42, so 4 × 0.42 = 1.68</td></tr>
+              </tbody>
+            </table>
+            </div>
+            <p class="note">Set a generator price before choosing either generator-based method: with a price of 0, solar made during outages (or the generator part of the average) counts as worth nothing. Solar stored in the battery is valued when it was made, not when it was used.</p>
           </div>
         </details>
 
@@ -705,10 +756,11 @@
           <div class="help-body">
             <p>Go to <a class="help-link" href="#appearance">Appearance</a> for visual options.</p>
             <ul>
-              <li><strong>Background:</strong> Solid color, gradient, or image URL</li>
+              <li><strong>Background:</strong> A colour for light mode and one for dark mode, or an image URL</li>
               <li><strong>Transparent blocks:</strong> Makes block backgrounds see-through for a cleaner look with background images</li>
-              <li><strong>Title &amp; Logo:</strong> Set a dashboard title and upload a logo (appears top-left)</li>
-              <li><strong>Favicon:</strong> Browser tab icon</li>
+              <li><strong>Title &amp; logo:</strong> A dashboard title, and a logo image by URL (shown top left)</li>
+              <li><strong>Favicon:</strong> The browser tab icon, by URL</li>
+              <li><strong>Default dashboards:</strong> Which dashboard opens on computers and which on phones</li>
               <li><strong>Dark/Light theme:</strong> Choose Light, Dark or Auto at the bottom of the settings menu</li>
             </ul>
           </div>
@@ -720,9 +772,9 @@
           <div class="help-body">
             <p>Go to <a class="help-link" href="#backup">Backup and restore</a>.</p>
             <ul>
-              <li><strong>Manual backup:</strong> Click <em>Download Backup</em> to save your entire database to a <code>.db</code> file</li>
-              <li><strong>Restore:</strong> Upload a backup file to replace all current data</li>
-              <li><strong>Snapshots:</strong> Auto-created every 24 hours. Keeps the last 2. Click <em>Restore</em> on any snapshot to roll back</li>
+              <li><strong>Manual backup:</strong> Click <em>Download backup</em> to save the whole database (settings, layouts and history) as a <code>.db</code> file</li>
+              <li><strong>Restore:</strong> <em>Restore from file…</em> replaces everything with the backup</li>
+              <li><strong>Snapshots:</strong> One is made automatically each day and the last 2 are kept. Click <em>Restore</em> on one to roll back</li>
             </ul>
           </div>
         </details>
@@ -804,6 +856,9 @@
                     <tr><td>Dashboard shows zeros or empty</td><td>Metric name mismatch</td><td>The metric name in the block config must exactly match what your data source writes.</td></tr>
                     <tr><td>Charts are empty</td><td>History not populated yet</td><td>Wait 2–3 poll cycles (60–90s).</td></tr>
                     <tr><td>Settings not saving</td><td>Session expired</td><td>Log out and log back in.</td></tr>
+                    <tr><td>Grid status block shows nothing</td><td>No grid status metric</td><td>Set the <a class="help-link" href="#savings">Grid status metric</a> in Prices and savings to the metric that is 1/on when the grid is up.</td></tr>
+                    <tr><td>Savings look low after choosing a generator method</td><td>Generator price is 0</td><td>Set the generator buy price in <a class="help-link" href="#savings">Prices and savings</a>.</td></tr>
+                    <tr><td>Generator missing from charts and costs</td><td>Generator roles not set</td><td>Map Generator power and Daily generator energy in <a class="help-link" href="#metrics">Metric roles</a>.</td></tr>
                   </tbody>
                 </table>
                 </div>
