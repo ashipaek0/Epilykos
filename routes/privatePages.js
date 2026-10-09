@@ -13,6 +13,7 @@
  */
 const path = require('path');
 const { sendPage } = require('../modules/pagePreload');
+const { serveBundle } = require('../modules/pageBundles');
 
 const PRIVATE_DIR = path.join(__dirname, '..', 'private');
 const PAGES = { '/showcase': 'showcase.html', '/controls': 'controls.html' };
@@ -48,6 +49,7 @@ function mountPrivatePages(app) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return notFound(res);
     const page = PAGES[req.path];
     if (page) return sendPage(res, path.join(PRIVATE_DIR, 'pages', page), req.path);
+    if (req.path.startsWith('/private/bundles/') && serveBundle(req, res, req.path)) return;
     const asset = /^\/private\/(js|css)\/([a-z0-9-]+\.(js|css))$/.exec(req.path);
     if (asset && (asset[1] === 'js') === (asset[3] === 'js')) {
       return res.sendFile(path.join(PRIVATE_DIR, asset[1], asset[2]), { dotfiles: 'deny' }, err => {
