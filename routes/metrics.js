@@ -61,11 +61,11 @@ function bucketPowerHistory(rows) {
  * Latest history row projected to the dashboard's "current" shape (kW / kWh,
  * savings). Returns null when no history row exists yet.
  */
-function buildCurrentData(db) {
+function buildCurrentData(db, savings) {
   const latest = db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 1').get();
   if (!latest) return null;
   const dailySolarKwh = computeTodaySolar();
-  const savings = computeSavings({ todaySolarKwh: dailySolarKwh, db });
+  savings = savings || computeSavings({ todaySolarKwh: dailySolarKwh, db });
   return {
     consumption_kw: latest.consumption / 1000,
     solar_kw: latest.solar / 1000,
@@ -95,7 +95,9 @@ function buildCurrentData(db) {
 async function buildDashboardState() {
   const db = getDb();
   const start = Date.now();
-  const currentData = buildCurrentData(db);
+  // Savings once per build, shared by the current values and the savings block.
+  const computedSavings = computeSavings({ todaySolarKwh: computeTodaySolar(), db });
+  const currentData = buildCurrentData(db, computedSavings);
 
   const gridStatus = await getCurrentGridStatus();
   const now = Math.floor(Date.now() / 1000);
@@ -104,7 +106,7 @@ async function buildDashboardState() {
 
   const [metrics, savings, historyRows, barRows] = await Promise.all([
     getCurrentMetrics(),
-    getSavings(),
+    getSavings(computedSavings),
     Promise.resolve(bucketPowerHistory(readHistorySeries(db, { from: powerHistorySince, to: now, toInclusive: true, fields: POWER_HISTORY_FIELDS }))),
     Promise.resolve(readDailySnapshots(db, { from: barSince, to: now, toInclusive: true, fields: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator'] }).map(r => ({ day: r.day, solar_kwh: r.daily_solar, consumption_kwh: r.daily_consumption, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export, generator_kwh: r.daily_generator })))
   ]);

@@ -146,6 +146,10 @@ function packBlocks(blocks) {
 function migrateControlBlocks() {
   let dashboards = null;
   try { dashboards = JSON.parse(getConfig('dashboard_layouts') || 'null'); } catch (_) { dashboards = null; }
+  // Older installs keep the dashboards only in the legacy dashboard_config blob.
+  if (!Array.isArray(dashboards) || !dashboards.length) {
+    try { const legacy = JSON.parse(getConfig('dashboard_config') || 'null'); dashboards = legacy && Array.isArray(legacy.dashboards) ? legacy.dashboards : null; } catch (_) { dashboards = null; }
+  }
   const moved = [];
   if (Array.isArray(dashboards)) {
     for (const db of dashboards) {
