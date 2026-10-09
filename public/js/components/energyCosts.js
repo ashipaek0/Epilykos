@@ -3,15 +3,17 @@
  * prices in Settings > Prices and savings.
  *
  *   above zero  grid earnings (exported kWh x sell price)
- *   below zero  battery wear (kWh into and out of the battery x wear cost)
- *               and grid costs (imported kWh x buy price)
+ *   below zero  battery wear (kWh into and out of the battery x wear cost),
+ *               grid costs (imported kWh x buy price) and generator costs
+ *               (generator kWh x generator price)
  *
  * Hours so far use measured energy; the rest of today uses the forecast flows
  * from the battery projection (hatched). Totals underneath: net result, grid
  * earnings, grid costs and battery wear, each so far and with the forecast.
  *
  * Colours: categorical palette by meaning, ordered so touching segments pass
- * the colour-blind check in both themes (worst adjacent dE 21.6 light, 19.2 dark).
+ * the colour-blind check in both themes (with the generator, teal as on every
+ * chart: worst adjacent dE 12.7 light, 10.6 dark).
  *
  * @module components/energyCosts
  */
@@ -23,8 +25,10 @@ const REFRESH_MS = 5 * 60 * 1000;
 const PARTS = [
   { key: 'grid_earnings', label: 'Grid earnings', side: 1, light: '#1baf7a', dark: '#199e70' },
   { key: 'battery_cost', label: 'Battery wear', side: -1, light: '#2a78d6', dark: '#3987e5' },
-  { key: 'grid_cost', label: 'Grid costs', side: -1, light: '#e34948', dark: '#e66767' }
+  { key: 'grid_cost', label: 'Grid costs', side: -1, light: '#e34948', dark: '#e66767' },
+  { key: 'generator_cost', label: 'Generator costs', side: -1, light: '#008f96', dark: '#00a3a3' }
 ];
+const COST_KEYS = ['grid_earnings', 'grid_cost', 'battery_cost', 'generator_cost'];
 
 function money(currency) {
   const nf = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -37,7 +41,8 @@ function forecastCosts(flows, prices) {
   const imported = (flows.grid_to_home || 0) + (flows.grid_to_battery || 0);
   const exported = (flows.solar_to_grid || 0) + (flows.battery_to_grid || 0);
   const battery = (flows.solar_to_battery || 0) + (flows.grid_to_battery || 0) + (flows.battery_to_home || 0) + (flows.battery_to_grid || 0);
-  return { grid_earnings: exported * prices.sell, grid_cost: imported * prices.buy, battery_cost: battery * prices.batteryWear };
+  const generator = (flows.generator_to_home || 0) + (flows.generator_to_battery || 0);
+  return { grid_earnings: exported * prices.sell, grid_cost: imported * prices.buy, battery_cost: battery * prices.batteryWear, generator_cost: generator * (prices.generator || 0) };
 }
 
 export function buildEnergyCosts(block = {}) {
@@ -60,8 +65,8 @@ export function buildEnergyCosts(block = {}) {
     <div class="ed-panels"><div class="ed-panel ed-energy"><canvas aria-label="Costs and earnings per hour"></canvas></div></div>
     <div class="ed-legend"></div>
     <div class="ec-totals">
-      ${[['result', 'Net result'], ['grid_earnings', 'Grid earnings'], ['grid_cost', 'Grid costs'], ['battery_cost', 'Battery wear']].map(([k, l]) =>
-        `<section class="ec-total" data-total="${k}"><h4>${l}</h4><p class="ec-amount">—</p><p class="ec-sub"></p></section>`).join('')}
+      ${[['result', 'Net result'], ['grid_earnings', 'Grid earnings'], ['grid_cost', 'Grid costs'], ['battery_cost', 'Battery wear'], ['generator_cost', 'Generator costs']].map(([k, l]) =>
+        `<section class="ec-total" data-total="${k}"${k === 'generator_cost' ? ' hidden' : ''}><h4>${l}</h4><p class="ec-amount">—</p><p class="ec-sub"></p></section>`).join('')}
     </div>
     <p class="ec-prices"></p>
     <p class="ed-status" role="status"></p>`;
@@ -156,7 +161,7 @@ function render(card) {
           callbacks: {
             title: items => (items.length ? `${labels[items[0].dataIndex]}:00–${String((Number(labels[items[0].dataIndex]) + 1) % 24).padStart(2, '0')}:00${points[items[0].dataIndex].forecast ? ' (forecast)' : ''}` : ''),
             label: item => `${item.dataset.label}: ${fmt(Math.abs(item.raw))}`,
-            footer: items => { const c = items.length ? points[items[0].dataIndex].costs : null; return c ? `Net: ${fmt((c.grid_earnings || 0) - (c.grid_cost || 0) - (c.battery_cost || 0))}` : ''; }
+            footer: items => { const c = items.length ? points[items[0].dataIndex].costs : null; return c ? `Net: ${fmt((c.grid_earnings || 0) - (c.grid_cost || 0) - (c.battery_cost || 0) - (c.generator_cost || 0))}` : ''; }
           }
         }
       }
@@ -169,18 +174,21 @@ function render(card) {
   card.querySelector('.ed-legend').innerHTML = legend.map(([kind, color, name]) => `<span class="ed-key"><span class="ed-swatch ed-swatch-${kind}" style="--c:${color}"></span>${escapeHtml(name)}</span>`).join('');
 
   // Totals: so far, and for the whole day with the forecast.
-  const sum = (filter) => points.reduce((acc, p) => { if (p.costs && filter(p)) for (const k of ['grid_earnings', 'grid_cost', 'battery_cost']) acc[k] += p.costs[k] || 0; return acc; }, { grid_earnings: 0, grid_cost: 0, battery_cost: 0 });
+  const sum = (filter) => points.reduce((acc, p) => { if (p.costs && filter(p)) for (const k of COST_KEYS) acc[k] += p.costs[k] || 0; return acc; }, { grid_earnings: 0, grid_cost: 0, battery_cost: 0, generator_cost: 0 });
   const soFar = sum(p => !p.forecast), withForecast = sum(() => true);
-  const net = c => c.grid_earnings - c.grid_cost - c.battery_cost;
+  const net = c => c.grid_earnings - c.grid_cost - c.battery_cost - c.generator_cost;
   const hasForecast = points.some(p => p.forecast);
-  for (const [k, value, dayValue] of [['result', net(soFar), net(withForecast)], ['grid_earnings', soFar.grid_earnings, withForecast.grid_earnings], ['grid_cost', soFar.grid_cost, withForecast.grid_cost], ['battery_cost', soFar.battery_cost, withForecast.battery_cost]]) {
+  // The generator total shows once there's a generator price or generator energy.
+  const genBox = card.querySelector('[data-total="generator_cost"]');
+  genBox.hidden = !prices.generator && !hours.some(h => (h.energy && h.energy.generator) > 0);
+  for (const [k, value, dayValue] of [['result', net(soFar), net(withForecast)], ['grid_earnings', soFar.grid_earnings, withForecast.grid_earnings], ['grid_cost', soFar.grid_cost, withForecast.grid_cost], ['battery_cost', soFar.battery_cost, withForecast.battery_cost], ['generator_cost', soFar.generator_cost, withForecast.generator_cost]]) {
     const box = card.querySelector(`[data-total="${k}"]`);
     box.querySelector('.ec-amount').textContent = fmt(value);
     box.querySelector('.ec-sub').textContent = hasForecast ? `${fmt(dayValue)} with forecast` : (state.date === localDate(new Date()) ? 'So far today' : 'Whole day');
   }
-  card.querySelector('.ec-prices').textContent = `Prices per kWh: buy ${fmt(prices.buy)} · sell ${fmt(prices.sell)} · battery wear ${fmt(prices.batteryWear)}`;
+  card.querySelector('.ec-prices').textContent = `Prices per kWh: buy ${fmt(prices.buy)} · sell ${fmt(prices.sell)} · battery wear ${fmt(prices.batteryWear)}${prices.generator ? ` · generator ${fmt(prices.generator)}` : ''}`;
 
-  const noPrices = !prices.buy && !prices.sell && !prices.batteryWear;
+  const noPrices = !prices.buy && !prices.sell && !prices.batteryWear && !prices.generator;
   card.querySelector('.ed-status').textContent = noPrices ? 'Set your prices in Settings › Prices and savings to see costs.'
     : (!used.length ? 'No costs or earnings for this day.' : '');
 }

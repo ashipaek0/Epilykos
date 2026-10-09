@@ -15,7 +15,7 @@ const CAPACITY_W = 5000;
 const BATTERY_WH = 15000;
 const BATTERY_MAX_W = 3000;
 const MIN_SOC = 20;
-export const PRICES = { buy: 0.3, sell: 0.08, batteryWear: 0.04 };
+export const PRICES = { buy: 0.3, sell: 0.08, batteryWear: 0.04, generator: 0.45 };
 export const CURRENCY = '€';
 
 /** Repeatable 0..1 noise for a number. */
@@ -73,7 +73,7 @@ function gridOnAt(ms) {
 function step(ms, soc) {
   const grid = gridOnAt(ms);
   let solar = solarAt(ms), load = loadAt(ms);
-  let bc = 0, bd = 0, gi = 0, ge = 0;
+  let bc = 0, bd = 0, gi = 0, ge = 0, gen = 0;
   const roomW = (100 - soc) / 100 * BATTERY_WH / DT_H;
   const availW = Math.max(0, soc - MIN_SOC) / 100 * BATTERY_WH / DT_H;
   if (solar >= load) {
@@ -83,10 +83,10 @@ function step(ms, soc) {
   } else {
     bd = Math.min(load - solar, BATTERY_MAX_W, availW);
     if (grid) gi = load - solar - bd;
-    else load = solar + bd;                         // off grid and the battery is low: load is shed
+    else gen = load - solar - bd;                   // off grid and the battery is low: the generator runs
   }
   const next = Math.max(0, Math.min(100, soc + (bc - bd) * DT_H / BATTERY_WH * 100));
-  return { sample: { t: ms, solar, load, bc, bd, gi, ge, soc: next, grid }, soc: next };
+  return { sample: { t: ms, solar, load, bc, bd, gi, ge, gen, soc: next, grid }, soc: next };
 }
 
 let samples = [];
@@ -116,7 +116,7 @@ function dayTotals(dayStart) {
   return {
     solar_kwh: solar, consumption_kwh: kwh(list, 'load'), battery_charge_kwh: kwh(list, 'bc'),
     battery_discharge_kwh: kwh(list, 'bd'), grid_import_kwh: kwh(list, 'gi'), grid_export_kwh: kwh(list, 'ge'),
-    east_kwh: east, west_kwh: solar - east, list
+    generator_kwh: kwh(list, 'gen'), east_kwh: east, west_kwh: solar - east, list
   };
 }
 
@@ -131,6 +131,7 @@ function liveNow(now = Date.now()) {
   const surplus = s.solar - s.load;
   if (surplus >= 0) { s.bc = Math.min(surplus, s.bc > 0 || s.soc < 100 ? BATTERY_MAX_W : 0); s.bd = 0; s.ge = s.grid ? Math.max(0, surplus - s.bc) : 0; s.gi = 0; }
   else { s.bd = Math.min(-surplus, s.soc > MIN_SOC ? BATTERY_MAX_W : 0); s.bc = 0; s.gi = s.grid ? Math.max(0, -surplus - s.bd) : 0; s.ge = 0; }
+  s.gen = !s.grid && surplus < 0 ? Math.max(0, -surplus - s.bd) : 0;
   return s;
 }
 
@@ -155,6 +156,7 @@ function metricsFor(s, now, today) {
     solar: m(s.solar, 'W'), solar_east: m(s.solar * eastShare(now), 'W'), solar_west: m(s.solar * (1 - eastShare(now)), 'W'),
     consumption: m(s.load, 'W'), battery_charge: m(s.bc, 'W'), battery_discharge: m(s.bd, 'W'),
     grid_import: m(s.gi, 'W'), grid_export: m(s.ge, 'W'), battery_soc: m(s.soc, '%'), battery_power: m(s.bc - s.bd, 'W'),
+    generator_power: m(s.gen || 0, 'W'), generator_energy_today: m(today.generator_kwh || 0, 'kWh'),
     daily_solar: m(today.solar_kwh, 'kWh'), daily_consumption: m(today.consumption_kwh, 'kWh'),
     daily_battery_charge: m(today.battery_charge_kwh, 'kWh'), daily_battery_discharge: m(today.battery_discharge_kwh, 'kWh'),
     daily_grid_import: m(today.grid_import_kwh, 'kWh'), daily_grid_export: m(today.grid_export_kwh, 'kWh'),
@@ -224,7 +226,7 @@ export function dashboardState(now = Date.now()) {
   for (let i = 6; i >= 0; i--) {
     const t = dayStart - i * 86400000, x = dayTotals(t);
     daily.push({ day: dayKey(t), solar_kwh: x.solar_kwh, consumption_kwh: x.consumption_kwh, battery_charge_kwh: x.battery_charge_kwh,
-      battery_discharge_kwh: x.battery_discharge_kwh, grid_import_kwh: x.grid_import_kwh, grid_export_kwh: x.grid_export_kwh });
+      battery_discharge_kwh: x.battery_discharge_kwh, grid_import_kwh: x.grid_import_kwh, grid_export_kwh: x.grid_export_kwh, generator_kwh: x.generator_kwh });
   }
   return {
     current: {
@@ -253,7 +255,7 @@ export function dashboardState(now = Date.now()) {
 
 function powerPoint(p) {
   return { timestamp: p.t, consumption_kw: p.load / 1000, solar_kw: p.solar / 1000, battery_charge_kw: p.bc / 1000, battery_discharge_kw: p.bd / 1000,
-    battery_power_kw: (p.bc - p.bd) / 1000, grid_import_kw: p.gi / 1000, grid_export_kw: p.ge / 1000, battery_soc: p.soc };
+    battery_power_kw: (p.bc - p.bd) / 1000, grid_import_kw: p.gi / 1000, grid_export_kw: p.ge / 1000, generator_kw: (p.gen || 0) / 1000, battery_soc: p.soc };
 }
 
 // ── History endpoints ─────────────────────────────────────────────────────
@@ -323,7 +325,7 @@ export function dailyRows(days, now = Date.now()) {
   for (let i = days - 1; i >= 0; i--) {
     const t = startOfDay(now) - i * 86400000, x = dayTotals(t);
     out.push({ day: dayKey(t), consumption_kwh: x.consumption_kwh, solar_kwh: x.solar_kwh, battery_charge_kwh: x.battery_charge_kwh,
-      battery_discharge_kwh: x.battery_discharge_kwh, grid_import_kwh: x.grid_import_kwh, grid_export_kwh: x.grid_export_kwh, parts: solarParts(x) });
+      battery_discharge_kwh: x.battery_discharge_kwh, grid_import_kwh: x.grid_import_kwh, grid_export_kwh: x.grid_export_kwh, generator_kwh: x.generator_kwh, parts: solarParts(x) });
   }
   return out;
 }
@@ -332,7 +334,7 @@ export function dailyRows(days, now = Date.now()) {
 export function monthlyRows(now = Date.now()) {
   const d = new Date(now);
   const thisMonth = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-  const sim = { consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0, east_kwh: 0, west_kwh: 0 };
+  const sim = { consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0, generator_kwh: 0, east_kwh: 0, west_kwh: 0 };
   let n = 0;
   for (let t = startOfDay(now) - 27 * 86400000; t <= startOfDay(now); t += 86400000) { const x = dayTotals(t); for (const k of Object.keys(sim)) sim[k] += x[k]; n++; }
   const avg = Object.fromEntries(Object.entries(sim).map(([k, v]) => [k, v / n]));
@@ -344,7 +346,7 @@ export function monthlyRows(now = Date.now()) {
     const key = `${m.getFullYear()}-${pad(m.getMonth() + 1)}`;
     let row;
     if (m.getTime() === thisMonth) {
-      row = { consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0, east_kwh: 0, west_kwh: 0 };
+      row = { consumption_kwh: 0, solar_kwh: 0, battery_charge_kwh: 0, battery_discharge_kwh: 0, grid_import_kwh: 0, grid_export_kwh: 0, generator_kwh: 0, east_kwh: 0, west_kwh: 0 };
       for (let t = thisMonth; t <= startOfDay(now); t += 86400000) { const x = dayTotals(t); for (const k of Object.keys(row)) row[k] += x[k]; }
     } else {
       const season = 1 + 0.18 * Math.cos((m.getMonth() - 2) / 12 * 2 * Math.PI);
@@ -353,7 +355,7 @@ export function monthlyRows(now = Date.now()) {
       row.grid_import_kwh = Math.max(0, row.consumption_kwh - (row.solar_kwh - row.grid_export_kwh - row.battery_charge_kwh) - row.battery_discharge_kwh);
     }
     out.push({ month: key, display: label, consumption_kwh: row.consumption_kwh, solar_kwh: row.solar_kwh, battery_charge_kwh: row.battery_charge_kwh,
-      battery_discharge_kwh: row.battery_discharge_kwh, grid_import_kwh: row.grid_import_kwh, grid_export_kwh: row.grid_export_kwh, parts: solarParts(row) });
+      battery_discharge_kwh: row.battery_discharge_kwh, grid_import_kwh: row.grid_import_kwh, grid_export_kwh: row.grid_export_kwh, generator_kwh: row.generator_kwh, parts: solarParts(row) });
   }
   return out;
 }
@@ -363,15 +365,15 @@ export function monthlyRows(now = Date.now()) {
 function hourRow(start, now) {
   const end = start + 3600000;
   const list = between(start, Math.min(end, now + 1));
-  const e = { solar: kwh(list, 'solar'), consumption: kwh(list, 'load'), battery_charge: kwh(list, 'bc'), battery_discharge: kwh(list, 'bd'), grid_import: kwh(list, 'gi'), grid_export: kwh(list, 'ge') };
-  const flows = { solar_to_home: 0, solar_to_battery: 0, solar_to_grid: 0, battery_to_home: 0, battery_to_grid: 0, grid_to_home: 0, grid_to_battery: 0 };
+  const e = { solar: kwh(list, 'solar'), consumption: kwh(list, 'load'), battery_charge: kwh(list, 'bc'), battery_discharge: kwh(list, 'bd'), grid_import: kwh(list, 'gi'), grid_export: kwh(list, 'ge'), generator: kwh(list, 'gen') };
+  const flows = { solar_to_home: 0, solar_to_battery: 0, solar_to_grid: 0, battery_to_home: 0, battery_to_grid: 0, grid_to_home: 0, grid_to_battery: 0, generator_to_home: 0, generator_to_battery: 0 };
   for (const p of list) {
     const f = DT_H / 1000;
     flows.solar_to_home += Math.min(p.solar, p.load) * f; flows.solar_to_battery += p.bc * f; flows.solar_to_grid += p.ge * f;
-    flows.battery_to_home += p.bd * f; flows.grid_to_home += p.gi * f;
+    flows.battery_to_home += p.bd * f; flows.grid_to_home += p.gi * f; flows.generator_to_home += p.gen * f;
   }
-  const costs = { grid_cost: e.grid_import * PRICES.buy, grid_earnings: e.grid_export * PRICES.sell, battery_cost: e.battery_discharge * PRICES.batteryWear };
-  costs.result = costs.grid_earnings - costs.grid_cost - costs.battery_cost;
+  const costs = { grid_cost: e.grid_import * PRICES.buy, grid_earnings: e.grid_export * PRICES.sell, battery_cost: e.battery_discharge * PRICES.batteryWear, generator_cost: e.generator * PRICES.generator };
+  costs.result = costs.grid_earnings - costs.grid_cost - costs.battery_cost - costs.generator_cost;
   const socs = list.map(p => p.soc);
   const r4 = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, round(v)]));
   return {

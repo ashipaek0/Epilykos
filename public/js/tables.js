@@ -10,7 +10,27 @@ import { escapeHtml } from './utils.js';
 import { renderBreakdown, treeRows } from './components/breakdown.js';
 
 const DEFAULT_COLUMNS = [{ field: 'consumption_kwh', label: 'Load (kWh)' }, { field: 'solar_kwh', label: 'Solar PV (kWh)' }, { field: 'battery_charge_kwh', label: 'Battery charged (kWh)' }, { field: 'battery_discharge_kwh', label: 'Battery discharged (kWh)' }, { field: 'grid_import_kwh', label: 'Grid used (kWh)' }, { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }];
+const GENERATOR_COLUMN = { field: 'generator_kwh', label: 'Generator (kWh)' };
 function getColumns(c) { try { const cfg = JSON.parse(c.dataset.tableConfig || '{}'); return cfg.columns || DEFAULT_COLUMNS; } catch (e) { return DEFAULT_COLUMNS; } }
+
+/**
+ * Tables left on the default columns get a Generator column once there is
+ * generator energy to show (inverters with a generator input); tables with
+ * columns picked in the editor keep exactly those.
+ */
+function syncGeneratorColumn(container, hasGenerator) {
+  let cfg; try { cfg = JSON.parse(container.dataset.tableConfig || '{}'); } catch (e) { cfg = {}; }
+  if (container.dataset.customColumns === '1') return;
+  const cols = cfg.columns || DEFAULT_COLUMNS.slice();
+  const has = cols.some(col => col.field === GENERATOR_COLUMN.field);
+  if (has === hasGenerator) return;
+  cfg.columns = hasGenerator ? cols.concat([GENERATOR_COLUMN]) : cols.filter(col => col.field !== GENERATOR_COLUMN.field);
+  container.dataset.tableConfig = JSON.stringify(cfg);
+  const headRow = container.querySelector('thead tr');
+  if (!headRow) return;
+  if (hasGenerator) { const th = document.createElement('th'); th.dataset.field = GENERATOR_COLUMN.field; th.textContent = GENERATOR_COLUMN.label; headRow.appendChild(th); }
+  else headRow.querySelector(`th[data-field="${GENERATOR_COLUMN.field}"]`)?.remove();
+}
 const kwh = v => `${(Number(v) || 0).toFixed(1)} kWh`;
 const partKwh = n => `${n >= 100 ? Math.round(n) : n.toFixed(1)} kWh`;
 
@@ -47,7 +67,9 @@ async function update(kind) {
   const label = kind === 'daily'
     ? row => new Date(row.day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : row => row.display || row.month || '—';
+  const hasGenerator = rows.some(row => Number(row.generator_kwh) > 0);
   for (const c of containers) {
+    syncGeneratorColumn(c, hasGenerator);
     const tbody = c.querySelector('tbody');
     if (tbody) fill(c, tbody, rows, label);
   }

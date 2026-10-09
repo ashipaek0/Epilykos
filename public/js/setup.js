@@ -234,13 +234,16 @@
     { key: 'daily_battery_charge',    label: 'Daily Battery Charge', unit: 'kWh' },
     { key: 'daily_battery_discharge', label: 'Daily Battery Discharge', unit: 'kWh' },
     { key: 'daily_grid_import',  label: 'Daily Grid Import',  unit: 'kWh' },
-    { key: 'daily_grid_export',  label: 'Daily Grid Export',  unit: 'kWh' }
+    { key: 'daily_grid_export',  label: 'Daily Grid Export',  unit: 'kWh' },
+    { key: 'generator',          label: 'Generator Power',    unit: 'W' },
+    { key: 'daily_generator',    label: 'Daily Generator',    unit: 'kWh' }
   ];
   var MINIMAL_DASH_TYPES = ['system-overview', 'energy-totals', 'savings-summary'];
   var ROLE_GROUPS = [
     { label: 'Live power', hint: 'What\'s flowing right now. Drives the flow card and savings.', keys: ['solar', 'consumption', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'] },
     { label: 'Battery and panels', keys: ['battery_soc', 'solar_voltage'] },
-    { label: 'Daily totals', hint: 'Energy so far today, usually reset at midnight by the inverter.', keys: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }
+    { label: 'Daily totals', hint: 'Energy so far today, usually reset at midnight by the inverter.', keys: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] },
+    { label: 'Generator', hint: 'Only if your inverter has a separate generator input. Used for generator costs and savings.', keys: ['generator', 'daily_generator'] }
   ];
   // Friendly names for the dashboard preview in step 4.
   var BLOCK_NAMES = {
@@ -284,7 +287,7 @@
     keep: {},
     roleMetrics: {},       // role -> metric name
     dashboard: { choice: 'full', layoutMap: {}, mainBlocks: [], blockCount: 0 },
-    basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar' },
+    basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar', savings_rate: '', generator_price: '' },
     optional: {
       pvoutput: { enabled: false, api_key: '', system_id: '', timezone: '', upload_interval_minutes: '5', system_size_w: '0', net_mode: false, webhook_url: '', metric_map: {} },
       forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
@@ -450,6 +453,8 @@
     if (set(cfg.savings_currency)) state.basics.savings_currency = cfg.savings_currency;
     if (set(cfg.solar_capacity_kwp)) state.basics.solar_capacity_kwp = String(cfg.solar_capacity_kwp);
     if (set(cfg.dashboard_title)) state.basics.dashboard_title = cfg.dashboard_title;
+    if (set(cfg.savings_rate)) state.basics.savings_rate = String(cfg.savings_rate);
+    if (set(cfg.generator_price)) state.basics.generator_price = String(cfg.generator_price);
     // PV arrays from Settings › Forecast: the forecast uses this list when present.
     var arrays = [];
     try { arrays = typeof cfg.solar_arrays === 'string' ? JSON.parse(cfg.solar_arrays || '[]') : (cfg.solar_arrays || []); } catch (e) { arrays = []; }
@@ -636,7 +641,9 @@
   function basicsValid() {
     var b = state.basics;
     var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
-    return b.savings_currency.trim() !== '' && (cap === '' || (!isNaN(Number(cap)) && Number(cap) >= 0)) && b.dashboard_title.trim() !== '';
+    var price = function (v) { v = String(v == null ? '' : v).trim(); return v === '' || (!isNaN(Number(v)) && Number(v) >= 0); };
+    return b.savings_currency.trim() !== '' && (cap === '' || (!isNaN(Number(cap)) && Number(cap) >= 0)) && b.dashboard_title.trim() !== ''
+      && price(b.savings_rate) && price(b.generator_price);
   }
   // Whether Continue is enabled. Missing fields don't disable it: pressing it
   // explains what's missing instead (see onNext).
@@ -2144,6 +2151,8 @@
     // daily-ish role hints
     function findDaily(words) { for (var w = 0; w < words.length; w++) for (var j = 0; j < names.length; j++) if (names[j].indexOf(words[w]) > -1) return names[j]; return null; }
     var ds = findDaily(['daily_solar', 'day_solar', 'kwh*', 'pv_daily']); if (ds) hint.daily_solar = ds;
+    var gen = find(['generator_power', 'gen_power', 'generator_input_power'], NOT_POWER); if (gen) hint.generator = gen;
+    var dg = findDaily(['generator_energy_today', 'gen_energy_today', 'daily_generator', 'generator_today']); if (dg) hint.daily_generator = dg;
     return hint;
   }
 
@@ -2204,7 +2213,8 @@
     { power: 'battery_charge', daily: 'daily_battery_charge', name: 'battery_charge_energy_today', label: 'Battery charge energy today' },
     { power: 'battery_discharge', daily: 'daily_battery_discharge', name: 'battery_discharge_energy_today', label: 'Battery discharge energy today' },
     { power: 'grid_import', daily: 'daily_grid_import', name: 'grid_import_energy_today', label: 'Grid import energy today' },
-    { power: 'grid_export', daily: 'daily_grid_export', name: 'grid_export_energy_today', label: 'Grid export energy today' }
+    { power: 'grid_export', daily: 'daily_grid_export', name: 'grid_export_energy_today', label: 'Grid export energy today' },
+    { power: 'generator', daily: 'daily_generator', name: 'generator_energy_today', label: 'Generator energy today' }
   ];
   // Several inverters of one kind: add the same reading up across all of them.
   var COMBINE_ROLES = [
@@ -2410,6 +2420,12 @@
           ? field('Solar arrays', '<p class="wz-static">' + b.arrays.length + ' arrays, ' + (+b.arrays.reduce(function (t, a) { return t + Number(a.kwp); }, 0).toFixed(2)) + ' kWp in total</p>', { hint: 'Change them in Settings › Forecast and weather › Panels.' })
           : field('Solar array size (kWp)', inp('basics.solar_capacity_kwp', b.solar_capacity_kwp, { type: 'number', id: 'basics-kwp', attrs: ' step="0.01" min="0"' }), { forId: 'basics-kwp', optional: true, hint: 'Total panel capacity, for the solar forecast. Leave it empty if you have no solar or don\'t know yet.' }))
       )
+      + grid(
+        field('Grid buy price per kWh', inp('basics.savings_rate', b.savings_rate, { type: 'number', id: 'basics-grid-price', placeholder: '0.30', attrs: ' step="any" min="0"' }), { forId: 'basics-grid-price', optional: true, hint: 'What one kWh from the grid costs you. Values your solar savings.' }),
+        hasGeneratorRole()
+          ? field('Generator buy price per kWh', inp('basics.generator_price', b.generator_price, { type: 'number', id: 'basics-generator-price', placeholder: '0', attrs: ' step="any" min="0"' }), { forId: 'basics-generator-price', optional: true, hint: 'What one kWh from your generator costs (fuel and upkeep). Choose how savings use it in Settings › Prices and savings.' })
+          : ''
+      )
       + '</div></div>'
       + '<div class="wz-card"><div class="wz-card-body wz-row-between">'
       + '<div><div class="wz-label">Theme</div><p class="wz-hint">For this browser. Each device remembers its own.</p></div>'
@@ -2420,10 +2436,19 @@
       + '<div class="wz-alert is-error" id="basics-error" role="alert" hidden></div>';
   }
 
+  /** A generator reading is mapped in step 3 (inverters with a generator input). */
+  function hasGeneratorRole() {
+    var r = state.roleMetrics || {};
+    return !!(String(r.generator || '').trim() || String(r.daily_generator || '').trim());
+  }
+
   function saveBasics() {
-    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title and currency to continue. The array size, if you give one, must be a number.'; el.hidden = false; } return Promise.resolve(false); }
+    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title and currency to continue. The array size and prices, if you give them, must be numbers.'; el.hidden = false; } return Promise.resolve(false); }
     var b = state.basics;
     var payload = { savings_currency: b.savings_currency, dashboard_title: b.dashboard_title };
+    // Prices: only what was filled in (an empty field keeps the saved price).
+    if (String(b.savings_rate || '').trim() !== '') payload.savings_rate = String(Number(b.savings_rate));
+    if (hasGeneratorRole() && String(b.generator_price || '').trim() !== '') payload.generator_price = String(Number(b.generator_price));
     var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
     if (!(b.arrays && b.arrays.length > 1)) {
       // An emptied size clears it (no solar, or not known yet), rather than

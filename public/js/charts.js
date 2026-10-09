@@ -26,6 +26,7 @@ const DEFAULT_RANGE = { power: '24h', energy: '7d', metric: '24h' };
 /** Resolve any arbitrary metric name to the matching API power field via keyword matching. */
 function resolvePowerField(metricName) {
   const n = (metricName || '').toLowerCase();
+  if (/generator|\bgen_/.test(n)) return 'generator_kw';
   if (/solar|pv/.test(n)) return 'solar_kw';
   if (/consumption|load/.test(n)) return 'consumption_kw';
   if (/battery/.test(n)) {
@@ -44,6 +45,7 @@ function resolvePowerField(metricName) {
 /** Resolve any arbitrary metric name to the matching API energy field via keyword matching. */
 function resolveEnergyField(metricName) {
   const n = (metricName || '').toLowerCase();
+  if (/generator|\bgen_/.test(n)) return 'generator_kwh';
   if (/solar|pv/.test(n)) return 'solar_kwh';
   if (/consumption|load/.test(n)) return 'consumption_kwh';
   if (/battery/.test(n)) {
@@ -64,6 +66,13 @@ function resolveMetricField(metricName) {
 }
 
 function getDatasets(c) { if (c && c.dataset.chartDatasets) { try { return JSON.parse(c.dataset.chartDatasets); } catch (e) {} } return null; }
+
+// Charts left on their default series show the generator as well once it has
+// produced anything in the range shown (teal, as on every chart).
+const GENERATOR_COLOR = () => (document.documentElement.getAttribute('data-theme') === 'dark' ? '#00a3a3' : '#008f96');
+function withGenerator(list, data, field, series) {
+  return data.some(d => Number(d[field]) > 0) ? list.concat([{ ...series, color: GENERATOR_COLOR() }]) : list;
+}
 function defaultPower() { return [{ label: 'Load', metric: 'consumption', color: '#44403c' }, { label: 'Solar', metric: 'solar', color: '#f59e0b' }, { label: 'Battery Power', metric: 'battery_power', color: '#84a45a' }, { label: 'Grid Import', metric: 'grid_import', color: '#87aec8' }]; }
 function defaultEnergy() { return [{ label: 'Solar Generated', metric: 'daily_solar', color: '#f59e0b' }, { label: 'Grid Imported', metric: 'daily_grid_import', color: '#87aec8' }, { label: 'Energy Consumed', metric: 'daily_consumption', color: '#44403c' }]; }
 
@@ -213,7 +222,7 @@ async function powerHistoryFor(range) {
 
 export function updatePowerChartData(chart, container, data) {
   const cfg = getChartConfig(container);
-  const ds = getDatasets(container) || defaultPower();
+  const ds = getDatasets(container) || withGenerator(defaultPower(), data, 'generator_kw', { label: 'Generator', metric: 'generator' });
   const appearance = cfg.appearance || {};
   const existing = chart.data.datasets;
   const axisConfigs = appearance.axes || {};
@@ -330,7 +339,7 @@ export function updatePowerChartFromState(state) {
 
 function updateEnergyChartData(chart, container, data) {
   if (!data || !data.length) return;
-  const src = getDatasets(container) || defaultEnergy();
+  const src = getDatasets(container) || withGenerator(defaultEnergy(), data, 'generator_kwh', { label: 'Generator', metric: 'daily_generator' });
   chart.data.labels = data.map(d => new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
   const existing = chart.data.datasets;
   src.forEach((s, i) => {

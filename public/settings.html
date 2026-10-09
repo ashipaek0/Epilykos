@@ -300,8 +300,15 @@
               <div class="st-field"><label for="savings-currency">Currency symbol</label><input id="savings-currency" class="input" name="savings_currency" value="€" maxlength="6"></div>
               <div class="st-field"><label for="savings-rate">Grid buy price per kWh</label><input id="savings-rate" class="input" name="savings_rate" type="number" min="0" step="any" value="0.30" inputmode="decimal"><span class="st-help">What you pay the grid for one kWh. Also used for solar savings.</span></div>
               <div class="st-field"><label for="energy-sell-price">Grid sell price per kWh</label><input id="energy-sell-price" class="input" name="energy_sell_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">What the grid pays you for one exported kWh. Leave 0 if you aren't paid for export.</span></div>
+              <div class="st-field"><label for="generator-price">Generator buy price per kWh</label><input id="generator-price" class="input" name="generator_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">What one kWh from your generator costs you (fuel and upkeep). For inverters with a generator input; leave 0 if you have none.</span></div>
               <div class="st-field"><label for="battery-wear-cost">Battery wear cost per kWh</label><input id="battery-wear-cost" class="input" name="battery_wear_cost" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">Charged on every kWh into or out of the battery. Battery price &divide; (usable kWh &times; rated cycles &times; 2). Example: 3,000,000 &divide; (15 &times; 6,000 &times; 2) = 17.</span></div>
             </div>
+            <div class="st-field"><label for="savings-method">Solar savings</label><select id="savings-method" class="input" name="savings_method">
+              <option value="grid">At the grid buy price</option>
+              <option value="availability">By grid availability</option>
+              <option value="bought">By what you actually bought</option>
+            </select><span class="st-help"><strong>At the grid buy price:</strong> every solar kWh is worth one grid kWh. <strong>By grid availability:</strong> solar made while the grid was on counts at the grid price, solar made during an outage at the generator price (needs the grid status metric below). <strong>By what you actually bought:</strong> each day, solar counts at the average price of the grid and generator energy you bought that day.</span></div>
+            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names" placeholder="grid_status"><span class="st-help">The metric that says whether the grid is up. Used by the grid status block and by solar savings by grid availability.</span></div>
             <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names" placeholder="Detect automatically"><span class="st-help">The metric that counts solar energy produced today. Leave empty to detect it.</span></div>
             <h2 class="st-card-subhead">Battery</h2>
             <div class="st-grid-2">
@@ -331,7 +338,6 @@
             </div>
             <div class="st-field"><label for="dashboard-bg-image">Background image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" type="url" placeholder="https://…"></div>
             <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="transparent-blocks" name="transparent_blocks"><span class="slider"></span></label><label for="transparent-blocks">Transparent blocks</label></span></div>
-            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names" placeholder="grid_status"><span class="st-help">The metric that says whether the grid is up. Used by the grid status block.</span></div>
             <h2 class="st-card-subhead">Default dashboards</h2>
             <div class="st-grid-2">
               <div class="st-field"><label for="desktop-dashboard">On computers</label><select id="desktop-dashboard" class="input" name="desktop_dashboard"></select></div>
@@ -662,7 +668,7 @@
                 <tr><td><strong>Grid Card</strong></td><td>Grid on/off indicator + daily hours</td><td>grid_import (detects on/off by value > 0)</td></tr>
                 <tr><td><strong>Battery Block</strong></td><td>Battery SOC ring + voltage/current</td><td>battery_soc, battery_voltage, battery_current</td></tr>
                 <tr><td><strong>Forecast Banner</strong></td><td>Today's solar forecast bar</td><td>actual_energy (optional — for comparison)</td></tr>
-                <tr><td><strong>Savings Summary</strong></td><td>Today's savings calculation</td><td>daily_solar × savings_rate</td></tr>
+                <tr><td><strong>Savings Summary</strong></td><td>Solar savings today, this week, month and all time</td><td>daily_solar × the price set by Solar savings (grid price, by grid availability, or by what you bought)</td></tr>
               </tbody>
             </table>
             </div>

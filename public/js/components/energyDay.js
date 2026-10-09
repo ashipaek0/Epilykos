@@ -1,8 +1,10 @@
 /**
  * Energy day card: one day's energy by the hour.
  *
- *   top panel     consumption and solar (kWh per hour). Past hours are solid,
- *                 forecast hours hatched; a dashed line marks the base load.
+ *   top panel     consumption and solar (kWh per hour), and generator energy
+ *                 on days the generator ran (teal, as on every chart). Past
+ *                 hours are solid, forecast hours hatched; a dashed line marks
+ *                 the base load.
  *   bottom panel  battery charge (%): the hour's average with its low-high
  *                 band, then the projection for the rest of today (dotted).
  *
@@ -99,13 +101,17 @@ function render(card) {
 
   // Per hour: actual for hours that have started, forecast for hours to come.
   const value = (h, i, key) => {
-    if (h.status !== 'future') return { v: h.energy[key], forecast: false };
+    if (h.status !== 'future') return { v: h.energy[key] ?? null, forecast: false };
+    if (key === 'generator') return { v: null, forecast: false };   // no generator forecast
     const fc = showForecast && f.hours[i] && f.hours[i][key === 'consumption' ? 'consumption' : 'solar'];
     return fc ? { v: fc.expected, forecast: true, low: fc.low, high: fc.high } : { v: null, forecast: false };
   };
-  const series = ['consumption', 'solar'].map(key => hours.map((h, i) => value(h, i, key)));
-  const colors = { consumption: t.home, solar: t.solar };
-  const hatches = { consumption: hatch(t.home), solar: hatch(t.solar) };
+  const genColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#00a3a3' : '#008f96';
+  const keys = ['consumption', 'solar', ...(hours.some(h => h.energy && h.energy.generator > 0.0005) ? ['generator'] : [])];
+  const series = keys.map(key => hours.map((h, i) => value(h, i, key)));
+  const colors = { consumption: t.home, solar: t.solar, generator: genColor };
+  const hatches = { consumption: hatch(t.home), solar: hatch(t.solar), generator: hatch(genColor) };
+  const LABELS = { consumption: 'Consumption', solar: 'Solar', generator: 'Generator' };
   const anyEnergy = series.some(s => s.some(p => p.v > 0));
   const baseLoad = showForecast && f.hours[0] ? f.hours[0].baseLoad : null;
 
@@ -114,8 +120,8 @@ function render(card) {
   const xAxis = (show) => ({ offset: true, grid: { display: false }, ticks: { display: show, color: t.text, font: { size: 10 }, maxRotation: 0, autoSkipPadding: 6 } });
   const batteryShown = state.showBattery && hours.some(h => h.soc);
 
-  const energyDatasets = ['consumption', 'solar'].map((key, k) => ({
-    type: 'bar', label: key === 'consumption' ? 'Consumption' : 'Solar', key,
+  const energyDatasets = keys.map((key, k) => ({
+    type: 'bar', label: LABELS[key], key,
     data: series[k].map(p => p.v),
     backgroundColor: series[k].map(p => (p.forecast ? hatches[key] : colors[key])),
     borderColor: series[k].map(p => (p.forecast ? alpha(colors[key], 0.9) : colors[key])),
@@ -199,6 +205,7 @@ function render(card) {
   // Legend: identity never by colour alone (solid vs hatched swatches, named).
   const legend = [
     ['solid', t.home, 'Consumption'], ['solid', t.solar, 'Solar'],
+    ...(keys.includes('generator') ? [['solid', genColor, 'Generator']] : []),
     ...(series[0].some(p => p.forecast) ? [['hatch', t.home, 'Consumption forecast']] : []),
     ...(series[1].some(p => p.forecast) ? [['hatch', t.solar, 'Solar forecast']] : []),
     ...(baseLoad != null ? [['dash', t.home, 'Base load']] : []),
