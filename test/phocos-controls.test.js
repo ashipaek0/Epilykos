@@ -2,7 +2,7 @@
 const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs'), os = require('os'), path = require('path');
-const tmp = fs.mkdtempSync(path.join(os.homedir(), '.hermes/cache/scratch/', 'phocos-controls-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phocos-controls-'));
 process.chdir(tmp);
 const database = require('../modules/database');
 database.initializeDatabase();
