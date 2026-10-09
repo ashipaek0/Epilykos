@@ -97,7 +97,7 @@ function renderDashboard() {
       tabToggle.textContent = '☰';
       tabToggle.title = show ? 'Hide dashboard tabs' : 'Show dashboard tabs';
     };
-    document.querySelector('header').appendChild(tabToggle);
+    (document.querySelector('header .header-right') || document.querySelector('header')).appendChild(tabToggle);
   }
   tabBar.innerHTML = '';
   dashboardConfig.dashboards.forEach(db => {
@@ -219,8 +219,14 @@ function renderDashboard() {
         if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
-        const setupLink = document.getElementById('setup-link');
-        if (setupLink) setupLink.style.display = '';
+        // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).
+        if (settingsBtn && !document.getElementById('showcase-link')) {
+          for (const [id, href, text] of [['showcase-link', '/showcase', 'Card showcase'], ['controls-link', '/controls', 'Controls']]) {
+            const a = document.createElement('a');
+            a.id = id; a.href = href; a.className = 'settings-link'; a.textContent = text;
+            settingsBtn.before(a);
+          }
+        }
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) themeToggle.style.display = '';
 
@@ -236,7 +242,7 @@ function renderDashboard() {
           editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
         });
         editorLink.className = 'settings-link';
-        editorLink.textContent = ' Edit Layout';
+        editorLink.textContent = 'Edit layout';
         editorLink.style.marginLeft = '0.5rem';
         tabBar.appendChild(editorLink);
       }
@@ -340,7 +346,7 @@ export { dashboardConfig, renderDashboard, switchDashboard };
 // non-partial event (isPartial false/undefined), fall back to renderDashboard().
 const PARTIAL_RENDER_KEYS = new Set([
   'current', 'metrics', 'savings', 'gridStatus',
-  'gridHours', 'gridTimeline', 'powerHistory', 'dailyEnergyBar',
+  'gridHours', 'gridTimeline', 'powerHistory', 'dailyEnergyBar', 'breakdowns',
 ]);
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('state-updated', (event) => {

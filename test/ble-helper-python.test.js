@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/ble-helper-python.test.js — runs the pure-function self-test built into
  * modules/ble/ble_helper.py (sample flattening, Modbus response framing,
@@ -11,6 +12,7 @@ const script = path.join(__dirname, '..', 'modules', 'ble', 'ble_helper.py');
 const r = spawnSync('python3', [script, '--self-test'], { encoding: 'utf8', timeout: 60000 });
 if (r.error && r.error.code === 'ENOENT') {
   console.log('skip - python3 not installed');
+  checks.skip('python3 not installed');
   process.exit(0);
 }
 process.stdout.write(r.stdout || '');
@@ -20,3 +22,4 @@ if (r.status !== 0 || !/^ok$/m.test(r.stdout || '')) {
   process.exit(1);
 }
 console.log('ok - ble_helper.py self-test');
+checks.done(1);   // the self-test is one check, made in Python rather than with assert

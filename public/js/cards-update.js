@@ -9,8 +9,12 @@
  */
 import { updateFlowCard } from './components/flowCard.js';
 import { updateSystemTopology } from './components/systemTopology.js';
+import { updateSystemOverview } from './components/systemOverview.js';
 import { updateMultiValueCard } from './components/multiValueCard.js';
 import { updateGaugeCard } from './components/gaugeCard.js';
+import { updateConfigurableGaugeCards } from './components/configurableGaugeCard.js';
+import { updateMetricTrendCards } from './components/metricTrendCard.js';
+import { updateDualMetricCards } from './components/dualMetricCard.js';
 import { updateHalfGaugeCard } from './components/halfGaugeCard.js';
 import { updateHalfGauge2Card } from './components/halfGauge2Card.js';
 import { updateBarGauge } from './components/barGauge.js';
@@ -29,6 +33,7 @@ import { updateWeatherBlock } from './components/weatherBlock.js';
 import { updateSwitchBlockFromState } from './components/switchBlock.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
+import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
 const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
 
@@ -40,8 +45,12 @@ export function updateCards(state, blockTypes) {
   if (!state) return;
   if (blockTypes.has('flow-card')) updateFlowCard(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
+  if (blockTypes.has('system-overview')) updateSystemOverview(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);
   if (blockTypes.has('gauge-card')) updateGaugeCard(state);
+  if (blockTypes.has('configurable-gauge')) updateConfigurableGaugeCards(state);
+  if (blockTypes.has('metric-trend')) updateMetricTrendCards(state);
+  if (blockTypes.has('dual-metric')) updateDualMetricCards(state);
   if (blockTypes.has('half-gauge')) updateHalfGaugeCard(state);
   if (blockTypes.has('half-gauge-2')) updateHalfGauge2Card(state);
   if (blockTypes.has('bar-gauge')) updateBarGauge(state);
@@ -58,6 +67,8 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('chart-metric')) updateMetricChartFromState(state);
   if (blockTypes.has('text-metric')) updateTextMetricCard(state);
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
+  // Day totals also appear as a tab inside Energy, tabbed.
+  if (blockTypes.has('energy-totals') || blockTypes.has('energy-tabs')) updateEnergyTotalsFromState(state);
   if (FORECAST_TYPES.some(t => blockTypes.has(t))) updateForecast();
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
   if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);

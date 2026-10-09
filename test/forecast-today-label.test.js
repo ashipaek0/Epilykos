@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const shell = fs.readFileSync('public/js/components/forecastShell.js', 'utf8');
@@ -15,3 +16,4 @@ assert.match(css, /\.fc-today-value\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wr
 assert.match(css, /\.fc-today-remaining\s*\{[^}]*font-size:[^}]*color:/,
   'remaining label is visually secondary');
 console.log('forecast-today-label: 5 checks passed');
+checks.done();

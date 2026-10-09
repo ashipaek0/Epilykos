@@ -5,7 +5,7 @@
   "default_port": 8000,
   "byte_order": "le",
   "capabilities": {
-    "write": false
+    "write": true
   },
   "metrics": [
     {
@@ -2338,5 +2338,114 @@
     ]
   },
   "mapping": "explicit",
-  "writable_registers": []
+  "writable_registers": [
+    {
+      "name": "eod_soc",
+      "register": "0x0069",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Stop discharging at (grid on)",
+      "description": "Battery level where the inverter stops using the battery while the grid is available (EOD SOC).",
+      "unit": "%",
+      "scale": 1,
+      "min": 10,
+      "max": 90,
+      "step": 1
+    },
+    {
+      "name": "soc_low_limit_eps_discharge",
+      "register": "0x007D",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Stop discharging at (grid off)",
+      "description": "Battery level where the inverter stops powering the backup output during an outage.",
+      "unit": "%",
+      "scale": 1,
+      "min": 5,
+      "max": 90,
+      "step": 1
+    },
+    {
+      "name": "charge_first_soc_limit",
+      "register": "0x004B",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Charge-first stops at",
+      "description": "Battery level where charge-first mode stops charging.",
+      "unit": "%",
+      "scale": 1,
+      "min": 10,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "name": "ac_charge_start_soc",
+      "register": "0x00A0",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Grid charging starts below",
+      "description": "Battery level below which grid (AC) charging starts.",
+      "unit": "%",
+      "scale": 1,
+      "min": 0,
+      "max": 90,
+      "step": 1,
+      "below": "ac_charge_end_soc"
+    },
+    {
+      "name": "ac_charge_end_soc",
+      "register": "0x00A1",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Grid charging stops at",
+      "description": "Battery level where grid (AC) charging stops.",
+      "unit": "%",
+      "scale": 1,
+      "min": 10,
+      "max": 100,
+      "step": 1,
+      "above": "ac_charge_start_soc"
+    },
+    {
+      "name": "gen_charge_start_soc",
+      "register": "0x00C4",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Generator charging starts below",
+      "description": "Battery level below which generator charging starts.",
+      "unit": "%",
+      "scale": 1,
+      "min": 0,
+      "max": 90,
+      "step": 1,
+      "below": "gen_charge_end_soc"
+    },
+    {
+      "name": "gen_charge_end_soc",
+      "register": "0x00C5",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Generator charging stops at",
+      "description": "Battery level where generator charging stops.",
+      "unit": "%",
+      "scale": 1,
+      "min": 10,
+      "max": 100,
+      "step": 1,
+      "above": "gen_charge_start_soc"
+    },
+    {
+      "name": "battery_stop_charge_soc",
+      "register": "0x00E3",
+      "register_type": "holding",
+      "kind": "value",
+      "label": "Stop charging at",
+      "description": "Battery level where the inverter stops charging the battery.",
+      "unit": "%",
+      "scale": 1,
+      "min": 50,
+      "max": 100,
+      "step": 1
+    }
+  ]
 }

@@ -105,7 +105,7 @@
     { label: 'Dashboard', sub: 'Starting layout', title: 'Choose a starting dashboard', lede: 'Start with everything or a short, simple layout. You can add, remove and rearrange cards later in the layout editor.' },
     { label: 'Basics', sub: 'Name, currency, size', title: 'A few basics', lede: 'Used for the dashboard title, savings figures and the solar forecast.' },
     { label: 'Extras', sub: 'Optional', title: 'Optional extras', lede: 'Upload to PVOutput, forecast solar production, and set the addresses the app uses at home and away. Skip any of these; they\'re all in Settings later.' },
-    { label: 'Finish', sub: 'Review and go', title: 'Review and finish', lede: 'Here\'s what\'s set up. Finish to open your dashboard.' }
+    { label: 'Finish', sub: 'Review and go', title: 'Review and finish', lede: 'Here\'s what\'s set up. Finish setup, then open your dashboard.' }
   ];
   var LAST_STEP = STEPS.length;
 
@@ -137,6 +137,7 @@
   var ICONS = {
     back: '<path d="M15 18l-6-6 6-6"/>',
     check: '<path d="M20 6L9 17l-5-5"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
     alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.01"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -233,13 +234,16 @@
     { key: 'daily_battery_charge',    label: 'Daily Battery Charge', unit: 'kWh' },
     { key: 'daily_battery_discharge', label: 'Daily Battery Discharge', unit: 'kWh' },
     { key: 'daily_grid_import',  label: 'Daily Grid Import',  unit: 'kWh' },
-    { key: 'daily_grid_export',  label: 'Daily Grid Export',  unit: 'kWh' }
+    { key: 'daily_grid_export',  label: 'Daily Grid Export',  unit: 'kWh' },
+    { key: 'generator',          label: 'Generator Power',    unit: 'W' },
+    { key: 'daily_generator',    label: 'Daily Generator',    unit: 'kWh' }
   ];
-  var MINIMAL_DASH_TYPES = ['flow-card-2', 'savings-summary', 'metric-cards'];
+  var MINIMAL_DASH_TYPES = ['system-overview', 'energy-totals', 'savings-summary'];
   var ROLE_GROUPS = [
     { label: 'Live power', hint: 'What\'s flowing right now. Drives the flow card and savings.', keys: ['solar', 'consumption', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'] },
     { label: 'Battery and panels', keys: ['battery_soc', 'solar_voltage'] },
-    { label: 'Daily totals', hint: 'Energy so far today, usually reset at midnight by the inverter.', keys: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] }
+    { label: 'Daily totals', hint: 'Energy so far today, usually reset at midnight by the inverter.', keys: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] },
+    { label: 'Generator', hint: 'Only if your inverter has a separate generator input. Used for generator costs and savings.', keys: ['generator', 'daily_generator'] }
   ];
   // Friendly names for the dashboard preview in step 4.
   var BLOCK_NAMES = {
@@ -256,10 +260,10 @@
     return {
       ha:      { selected: false, name: 'Home Assistant', url: '', token: '', poll_interval: '30', enabled: true, entities: [], profileMetrics: [] },
       mqtt:    { selected: false, name: 'MQTT Broker', broker: '', username: '', password: '', poll_interval: '30', enabled: true, discoveredTopics: [], selectedTopics: {}, topics: {} },
-      dongle:  { selected: false, name: 'Inverter (dongle)', link: 'network', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', dongle_serial: '', inverter_serial: '', modbus_unit_id: '', ble_address: '', ble_write_uuid: '', ble_notify_uuid: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
-      rs232:   { selected: false, name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
-      modbusSerial: { selected: false, name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
-      modbusTcp:   { selected: false, name: 'Inverter (Modbus-TCP)', transport: 'tcp', tcp_framing: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      dongle:  { selected: false, name: 'Inverter (dongle)', link: 'network', profile: '', transport: 'tcp', host: '', port: '', serial_number: '', dongle_serial: '', inverter_serial: '', modbus_unit_id: '', ble_address: '', ble_write_uuid: '', ble_notify_uuid: '', poll_interval: '30', prefix: '', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {}, more: [] },
+      rs232:   { selected: false, more: [], name: 'Inverter (RS232)', portChoice: '', custom_path: '', profile: '', baud: '', data_bits: '', stop_bits: '', parity: '', modbus_unit_id: '', timeout: '5', poll_interval: '30', enabled: true, ports: [], portsLoaded: false, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      modbusSerial: { selected: false, more: [], name: 'Inverter (RS485)', transport: 'serial', profile: '', serial_path: '', serial_baud: '9600', serial_data_bits: '8', serial_parity: 'none', serial_stop_bits: '1', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
+      modbusTcp:   { selected: false, more: [], name: 'Inverter (Modbus-TCP)', transport: 'tcp', tcp_framing: 'tcp', profile: '', host: '', port: '502', unit: '1', poll_interval: '30', enabled: true, profiles: [], profilesLoaded: false, profileMetrics: [], profileMetricsLoadedFor: null, entities: [], mappings: {} },
       bms:     { selected: false, name: 'BMS (Bluetooth)', address: '', poll_interval: '30', enabled: true, mappings: {}, sampleKeys: [] },
       bmsWired: { selected: false, name: 'BMS (RS485/RS232)', enabled: true, transport: 'wired', serial_path: '', baud: '9600', data_bits: '8', parity: 'none', stop_bits: '1', modbus_unit_id: '1', profile: '', timeout: '5000', poll_interval: '30', mappings: {}, fieldKeys: [], sampleKeys: [] },
       rest:    { selected: false, name: 'REST API', url: '', enabled: true, mappings: {} }
@@ -278,9 +282,12 @@
     existing: null,
     password: { newPw: '', confirmPw: '', setupCode: '', envPw: '' },
     sources: defaultSources(),
+    // Saved sources the wizard doesn't show (a second Home Assistant, inverters
+    // on other profiles...), by config key. Saved back unchanged, never dropped.
+    keep: {},
     roleMetrics: {},       // role -> metric name
     dashboard: { choice: 'full', layoutMap: {}, mainBlocks: [], blockCount: 0 },
-    basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar' },
+    basics: { savings_currency: '€', solar_capacity_kwp: '4', dashboard_title: 'My Solar', savings_rate: '', generator_price: '' },
     optional: {
       pvoutput: { enabled: false, api_key: '', system_id: '', timezone: '', upload_interval_minutes: '5', system_size_w: '0', net_mode: false, webhook_url: '', metric_map: {} },
       forecast: { enabled: false, latitude: '', longitude: '', tilt: '30', azimuth: '180', solcast_api_key: '', solcast_resource_id: '', loss_factor: '0.9', install_date: '' },
@@ -358,7 +365,40 @@
 
   function prefillSources(cfg) {
     var bySrc = { ha: cfg.ha_devices, mqtt: cfg.mqtt_devices, dongle: cfg.dongle_config, rs232: cfg.rs232_devices, modbus: cfg.modbus_devices, bms: cfg.bms_devices, rest: cfg.external_sources };
-    function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return []; } } return []; }
+    function asArray(v) { if (Array.isArray(v)) return v; if (typeof v === 'string') { try { var a = JSON.parse(v); return Array.isArray(a) ? a : []; } catch (e) { return []; } } return []; }
+    // Parse each list once, so entries can be compared by identity below.
+    Object.keys(bySrc).forEach(function (k) { bySrc[k] = asArray(bySrc[k]); });
+    // The wizard edits the first of each kind; keep the others as they are.
+    state.keep = {
+      ha_devices: asArray(bySrc.ha).slice(1), mqtt_devices: asArray(bySrc.mqtt).slice(1), rs232_devices: [], external_sources: asArray(bySrc.rest).slice(1),
+      modbus_devices: [],
+      bms_devices: (function () { var ble = false, wired = false; return asArray(bySrc.bms).filter(function (d) { if (!d) return false; if (d.transport === 'wired') { if (!wired) { wired = true; return false; } return true; } if (!ble) { ble = true; return false; } return true; }); })(),
+      dongle_config: []
+    };
+    // More inverters on the first one's profile become "more inverters like this one".
+    var dgAll = asArray(bySrc.dongle);
+    state.sources.dongle.more = [];
+    dgAll.slice(1).forEach(function (d) {
+      if (d && dgAll[0] && d.profile === dgAll[0].profile && d.transport === dgAll[0].transport) state.sources.dongle.more.push({ name: d.name || '', ble_address: d.ble_address || '', host: d.host || '', port: d.port || '', serial_number: d.serial_number || '', prefix: d.prefix || '', poll_interval: d.poll_interval, _saved: d });
+      else if (d) state.keep.dongle_config.push(d);
+    });
+    // Same for Modbus (per transport) and RS232: units on the first one's profile
+    // become extra rows; anything else is kept as it is.
+    var asExtra = function (d) { return { name: d.name || '', prefix: d.prefix || '', host: d.host || '', port: d.port || '', unit: d.unit != null ? String(d.unit) : '', serial_path: d.serial_path || '', _saved: d }; };
+    var firstOf = {};
+    state.sources.modbusSerial.more = []; state.sources.modbusTcp.more = []; state.sources.rs232.more = [];
+    asArray(bySrc.modbus).forEach(function (mb) {
+      if (!mb) return;
+      var kind = mb.transport === 'serial' ? 'modbusSerial' : 'modbusTcp';
+      if (!firstOf[kind]) { firstOf[kind] = mb; return; }
+      if (mb.profile === firstOf[kind].profile && mb.prefix) state.sources[kind].more.push(asExtra(mb));
+      else state.keep.modbus_devices.push(mb);
+    });
+    asArray(bySrc.rs232).slice(1).forEach(function (d) {
+      var first = asArray(bySrc.rs232)[0];
+      if (d && first && d.profile === first.profile && d.prefix) state.sources.rs232.more.push(asExtra(d));
+      else if (d) state.keep.rs232_devices.push(d);
+    });
     var ha = asArray(bySrc.ha)[0]; if (ha) { Object.assign(state.sources.ha, { selected: true, name: ha.name || 'Home Assistant', url: ha.url || '', token: ha.token || '', poll_interval: String(ha.poll_interval || 30), entities: Object.keys(ha.entities || {}) }); }
     var mq = asArray(bySrc.mqtt)[0]; if (mq) { Object.assign(state.sources.mqtt, { selected: true, name: mq.name || 'MQTT Broker', broker: mq.broker || '', username: mq.username || '', password: mq.password || '', poll_interval: String(mq.poll_interval || 30), selectedTopics: mq.topics || {}, topics: mq.topics || {} }); }
     var dg = asArray(bySrc.dongle)[0]; if (dg) { Object.assign(state.sources.dongle, { selected: true, name: dg.name || 'Inverter (dongle)', link: /^ble-/.test(dg.transport || '') ? 'bluetooth' : 'network', profile: dg.profile || '', transport: dg.transport || 'tcp', host: dg.host || '', port: dg.port || '', serial_number: dg.serial_number || '', dongle_serial: dg.dongle_serial || '', inverter_serial: dg.inverter_serial || '', modbus_unit_id: dg.modbus_unit_id || '', ble_address: dg.ble_address || '', ble_write_uuid: dg.ble_write_uuid || '', ble_notify_uuid: dg.ble_notify_uuid || '', poll_interval: String(dg.poll_interval || 30), prefix: dg.prefix || '', mappings: dg.mappings || {} }); }
@@ -367,7 +407,7 @@
     }
     // Modbus: split saved entries by transport into the serial / tcp wizard slots.
     asArray(bySrc.modbus).forEach(function (mb) {
-      if (!mb) return;
+      if (!mb || (mb !== firstOf.modbusSerial && mb !== firstOf.modbusTcp)) return;
       if (mb.transport === 'serial') {
         Object.assign(state.sources.modbusSerial, { selected: true, name: mb.name || 'Inverter (RS485)', profile: mb.profile || '', serial_path: mb.serial_path || '', serial_baud: mb.serial_baud || '9600', serial_data_bits: mb.serial_data_bits || '8', serial_parity: mb.serial_parity || 'none', serial_stop_bits: mb.serial_stop_bits || '1', unit: mb.unit || '1', poll_interval: String(mb.poll_interval || 30), mappings: mb.mappings || {} });
       } else {
@@ -407,9 +447,18 @@
     state.dashboard.blockCount = state.dashboard.mainBlocks.length;
   }
   function prefillBasics(cfg) {
-    if (cfg.savings_currency != null) state.basics.savings_currency = cfg.savings_currency;
-    if (cfg.solar_capacity_kwp != null) state.basics.solar_capacity_kwp = String(cfg.solar_capacity_kwp);
-    if (cfg.dashboard_title != null) state.basics.dashboard_title = cfg.dashboard_title;
+    // Only values someone saved replace the defaults (a fresh install stores
+    // these keys empty, which used to blank the fields and block Continue).
+    var set = function (v) { return v != null && String(v).trim() !== ''; };
+    if (set(cfg.savings_currency)) state.basics.savings_currency = cfg.savings_currency;
+    if (set(cfg.solar_capacity_kwp)) state.basics.solar_capacity_kwp = String(cfg.solar_capacity_kwp);
+    if (set(cfg.dashboard_title)) state.basics.dashboard_title = cfg.dashboard_title;
+    if (set(cfg.savings_rate)) state.basics.savings_rate = String(cfg.savings_rate);
+    if (set(cfg.generator_price)) state.basics.generator_price = String(cfg.generator_price);
+    // PV arrays from Settings › Forecast: the forecast uses this list when present.
+    var arrays = [];
+    try { arrays = typeof cfg.solar_arrays === 'string' ? JSON.parse(cfg.solar_arrays || '[]') : (cfg.solar_arrays || []); } catch (e) { arrays = []; }
+    state.basics.arrays = Array.isArray(arrays) ? arrays.filter(function (a) { return a && Number(a.kwp) > 0; }) : [];
   }
   function prefillOptional(cfg) {
     // Defensive: this must never throw, even on malformed / partial config.
@@ -479,10 +528,10 @@
   }
 
   // ── Auth probe ────────────────────────────────────────────
+  // /api/auth/status answers either way (a protected call would log a 401 on every first visit).
   function isAuthenticated() {
-    return api('/api/role-metrics').then(function (res) {
-      if (!res.ok) return false;
-      return !!res.data && typeof res.data === 'object';
+    return api('/api/auth/status').then(function (res) {
+      return !!(res.ok && res.data && res.data.authenticated);
     }).catch(function () { return false; });
   }
 
@@ -591,8 +640,10 @@
   }
   function basicsValid() {
     var b = state.basics;
-    var cap = String(b.solar_capacity_kwp).trim();
-    return b.savings_currency.trim() !== '' && cap !== '' && !isNaN(Number(cap)) && b.dashboard_title.trim() !== '';
+    var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
+    var price = function (v) { v = String(v == null ? '' : v).trim(); return v === '' || (!isNaN(Number(v)) && Number(v) >= 0); };
+    return b.savings_currency.trim() !== '' && (cap === '' || (!isNaN(Number(cap)) && Number(cap) >= 0)) && b.dashboard_title.trim() !== ''
+      && price(b.savings_rate) && price(b.generator_price);
   }
   // Whether Continue is enabled. Missing fields don't disable it: pressing it
   // explains what's missing instead (see onNext).
@@ -856,7 +907,45 @@
         field('Modbus unit ID', inp('sources.dongle.modbus_unit_id', s.modbus_unit_id, { type: 'number' }), { id: 'dongle-unit-group' }),
         field('Read every (seconds)', inp('sources.dongle.poll_interval', s.poll_interval, { type: 'number' }))
       )
-      + field('Metric name prefix', inp('sources.dongle.prefix', s.prefix, { placeholder: 'e.g. inv1_' }), { optional: true, hint: 'Only needed with more than one inverter, so their readings get different names.' }));
+      + field('Metric name prefix', inp('sources.dongle.prefix', s.prefix, { placeholder: 'e.g. inv1_' }), { optional: true, hint: 'Only needed with more than one inverter, so their readings get different names.' })
+      + moreInvertersHtml('dongle'));
+  }
+  // "More inverters like this one": same profile and connection, each with its
+  // own address and metric prefix. Any number; Metrics then offers to add them up.
+  // Kinds of inverter source that can have more units like the first.
+  var MORE_KINDS = ['dongle', 'modbusTcp', 'modbusSerial', 'rs232'];
+  function firstPrefix(kind) { return kind === 'dongle' ? String(state.sources.dongle.prefix || '') : ''; }
+  function extraPrefix(m, i) { return m.prefix || ('inv' + (i + 2) + '_'); }
+  // The connection fields each extra unit needs; the rest is copied from the first.
+  function moreConnFields(kind, s, m, base, i) {
+    if (kind === 'dongle' && s.link === 'bluetooth') return field('Bluetooth address', inp(base + 'ble_address', m.ble_address, { placeholder: 'AA:BB:CC:DD:EE:FF', attrs: ' class="wz-mono" spellcheck="false"' }), { hint: 'Scan above lists every module nearby; copy this one\'s address.' });
+    if (kind === 'dongle' || kind === 'modbusTcp') return '<div class="wz-grid">' + field('IP address', inp(base + 'host', m.host, { placeholder: '192.168.1.5' + (i + 1) })) + field('Port', inp(base + 'port', m.port, { type: 'number', placeholder: String(s.port || '') })) + '</div>'
+      + (kind === 'modbusTcp' ? field('Unit ID', inp(base + 'unit', m.unit, { type: 'number', placeholder: String(s.unit || '1') }), { hint: 'Through one gateway? Use the same address with this unit\'s ID.' }) : '');
+    if (kind === 'modbusSerial') return '<div class="wz-grid">' + field('Unit ID', inp(base + 'unit', m.unit, { type: 'number', placeholder: String(i + 2) }), { hint: 'Each unit on the RS485 line has its own ID.' })
+      + field('Serial port path', inp(base + 'serial_path', m.serial_path, { placeholder: s.serial_path || '/dev/ttyUSB0' }), { optional: true, hint: 'Leave empty if it shares the port above.' }) + '</div>';
+    return field('Serial port path', inp(base + 'serial_path', m.serial_path, { placeholder: '/dev/ttyUSB' + (i + 1) }), { hint: 'Each RS232 inverter needs its own port.' });
+  }
+  function moreInvertersHtml(kind) {
+    var s = state.sources[kind], bt = kind === 'dongle' && s.link === 'bluetooth';
+    var html = '<div class="wz-more" id="' + kind + '-more"><h3 class="wz-more-title">More inverters like this one</h3>';
+    if (kind === 'dongle' && isLuxDongleProfile(currentDongleProfile())) return html + '<p class="wz-hint">For more LuxPower inverters, add each in Settings › Sources after setup (each needs its own serials).</p></div>';
+    var what = { dongle: bt ? 'Bluetooth module' : 'dongle', modbusTcp: 'address or unit ID', modbusSerial: 'unit ID', rs232: 'serial port' }[kind];
+    html += '<p class="wz-hint">Several inverters of the same kind, for example parallel units each with its own ' + what + '? Add them here. Each gets its own metric prefix so their readings stay separate.</p>';
+    (s.more || []).forEach(function (m, i) {
+      var base = 'sources.' + kind + '.more.' + i + '.';
+      html += '<div class="wz-more-row" data-more="' + i + '">'
+        + '<div class="wz-grid">' + field('Name', inp(base + 'name', m.name, { placeholder: 'Inverter ' + (i + 2) }))
+        + field('Metric name prefix', inp(base + 'prefix', m.prefix, { placeholder: 'inv' + (i + 2) + '_' })) + '</div>'
+        + moreConnFields(kind, s, m, base, i)
+        + '<button class="wz-btn wz-btn-sm" type="button" data-action="remove-inverter" data-source="' + kind + '" data-i="' + i + '">Remove</button></div>';
+    });
+    // Several units on one Bluetooth adapter are read one at a time (~10 s each).
+    if (bt && (s.more || []).length) {
+      var units = s.more.length + 1, every = parseInt(s.poll_interval, 10) || 30, need = Math.max(30, units * 10);
+      html += '<p class="wz-hint' + (every < need ? ' is-warn' : '') + '" id="dongle-bt-interval-hint">' + units + ' units on one Bluetooth adapter are read one at a time, about 10 seconds each. '
+        + (every < need ? 'Set Read every to at least ' + need + ' seconds (now ' + every + ').' : 'Read every ' + every + ' seconds leaves enough time.') + '</p>';
+    }
+    return html + '<button class="wz-btn wz-btn-sm" type="button" data-action="add-inverter" data-source="' + kind + '">' + icon('plus', 16) + 'Add another inverter</button></div>';
   }
   // MAC input + "Scan" button + pick list, shared by the Bluetooth cards.
   function bleAddressField(kind, path, value, label) {
@@ -885,7 +974,8 @@
       + field('Parity', inp('sources.rs232.parity', s.parity, { placeholder: 'none' }))
       + field('Modbus unit ID', inp('sources.rs232.modbus_unit_id', s.modbus_unit_id, { type: 'number' }))
       + field('Timeout (seconds)', inp('sources.rs232.timeout', s.timeout, { type: 'number' }))
-      + '</div>');
+      + '</div>'
+      + moreInvertersHtml('rs232'));
   }
 
   var PARITY = [['none', 'None'], ['even', 'Even'], ['odd', 'Odd']];
@@ -908,7 +998,8 @@
       + field('Parity', sel('sources.modbusSerial.serial_parity', PARITY, s.serial_parity))
       + field('Unit ID', inp('sources.modbusSerial.unit', s.unit, { type: 'number' }))
       + field('Read every (seconds)', inp('sources.modbusSerial.poll_interval', s.poll_interval, { type: 'number' }))
-      + '</div>');
+      + '</div>'
+      + moreInvertersHtml('modbusSerial'));
   }
   function sourceCardModbusTcp() {
     var s = cfg('modbusTcp');
@@ -926,7 +1017,8 @@
       + grid(
         field('Unit ID', inp('sources.modbusTcp.unit', s.unit, { type: 'number' })),
         field('Read every (seconds)', inp('sources.modbusTcp.poll_interval', s.poll_interval, { type: 'number' }))
-      ));
+      )
+      + moreInvertersHtml('modbusTcp'));
   }
   function sourceCardBMS() {
     var s = cfg('bms');
@@ -1725,7 +1817,7 @@
     return [{ name: s.name || 'MQTT Broker', broker: s.broker, username: s.username || '', password: s.password || '', enabled: true, poll_interval: parseInt(s.poll_interval, 10) || 30, topics: topics }];
   }
   function buildDongleConfig() {
-    if (!state.sources.dongle.selected) return [];
+    if (!state.sources.dongle.selected) return (state.keep && state.keep.dongle_config) || [];
     var d = state.sources.dongle;
     var dev = { name: d.name || 'Inverter (dongle)', enabled: true, profile: d.profile, transport: dongleTransport(), host: d.host, port: d.port, serial_number: d.serial_number, modbus_unit_id: d.modbus_unit_id, poll_interval: parseInt(d.poll_interval, 10) || 30, prefix: d.prefix, mappings: effectiveMappings('dongle') };
     if (isLuxDongleProfile(currentDongleProfile())) {
@@ -1739,7 +1831,39 @@
       dev.ble_notify_uuid = d.ble_notify_uuid || '';
       dev.host = ''; dev.port = undefined; dev.serial_number = '';
     }
-    return [dev];
+    var out = withExtras('dongle', dev);
+    return out.concat(state.keep.dongle_config || []);
+  }
+  /**
+   * The first unit plus "more inverters like this one": each extra copies the
+   * first's settings, with its own name, prefix, connection and mappings
+   * renamed under its prefix (inv1_pv_power -> inv2_pv_power).
+   */
+  function withExtras(kind, dev) {
+    var s = state.sources[kind], bt = kind === 'dongle' && s.link === 'bluetooth';
+    var out = [dev];
+    (s.more || []).forEach(function (m, i) {
+      var extra = Object.assign({}, m._saved || {}, dev, {
+        name: (m.name || '').trim() || ('Inverter ' + (i + 2)), prefix: extraPrefix(m, i),
+        mappings: withPrefix(dev.mappings, firstPrefix(kind), extraPrefix(m, i))
+      });
+      if (bt) extra.ble_address = String(m.ble_address || '').trim().toUpperCase();
+      else if (kind === 'dongle') { extra.host = m.host || ''; extra.port = m.port || dev.port; extra.serial_number = m.serial_number || ''; }
+      else if (kind === 'modbusTcp') { extra.host = (m.host || '').trim() || dev.host; extra.port = parseInt(m.port, 10) || dev.port; extra.unit = parseInt(m.unit, 10) || dev.unit; }
+      else if (kind === 'modbusSerial') { extra.serial_path = (m.serial_path || '').trim() || dev.serial_path; extra.unit = parseInt(m.unit, 10) || dev.unit; }
+      else if (kind === 'rs232') extra.serial_path = (m.serial_path || '').trim();
+      out.push(extra);
+    });
+    return out;
+  }
+  /** The same mappings under another prefix: inv1_pv_power -> inv2_pv_power. */
+  function withPrefix(mappings, from, to) {
+    var out = {};
+    Object.keys(mappings || {}).forEach(function (name) {
+      var base = from && name.indexOf(from) === 0 ? name.slice(from.length) : name;
+      out[to + base] = mappings[name];
+    });
+    return out;
   }
   function buildRS232Device(opts) {
     var r = state.sources.rs232;
@@ -1748,17 +1872,17 @@
   }
   function buildRS232Devices() {
     if (!state.sources.rs232.selected) return [];
-    return [buildRS232Device()];
+    return withExtras('rs232', buildRS232Device());
   }
   function buildModbusDevices() {
     var out = [];
     var ms = state.sources.modbusSerial;
     if (ms.selected) {
-      out.push({ name: ms.name || 'Inverter (RS485)', enabled: true, transport: 'serial', profile: ms.profile || '', serial_path: ms.serial_path || '', serial_baud: parseInt(ms.serial_baud, 10) || 9600, serial_data_bits: parseInt(ms.serial_data_bits, 10) || 8, serial_parity: ms.serial_parity || 'none', serial_stop_bits: parseInt(ms.serial_stop_bits, 10) || 1, unit: parseInt(ms.unit, 10) || 1, poll_interval: parseInt(ms.poll_interval, 10) || 30, mappings: effectiveMappings('modbusSerial') });
+      out = out.concat(withExtras('modbusSerial', { name: ms.name || 'Inverter (RS485)', enabled: true, transport: 'serial', profile: ms.profile || '', serial_path: ms.serial_path || '', serial_baud: parseInt(ms.serial_baud, 10) || 9600, serial_data_bits: parseInt(ms.serial_data_bits, 10) || 8, serial_parity: ms.serial_parity || 'none', serial_stop_bits: parseInt(ms.serial_stop_bits, 10) || 1, unit: parseInt(ms.unit, 10) || 1, poll_interval: parseInt(ms.poll_interval, 10) || 30, mappings: effectiveMappings('modbusSerial') }));
     }
     var mt = state.sources.modbusTcp;
     if (mt.selected) {
-      out.push({ name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', tcp_framing: mt.tcp_framing || 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: effectiveMappings('modbusTcp') });
+      out = out.concat(withExtras('modbusTcp', { name: mt.name || 'Inverter (Modbus-TCP)', enabled: true, transport: 'tcp', tcp_framing: mt.tcp_framing || 'tcp', profile: mt.profile || '', host: mt.host || '', port: parseInt(mt.port, 10) || 502, unit: parseInt(mt.unit, 10) || 1, poll_interval: parseInt(mt.poll_interval, 10) || 30, mappings: effectiveMappings('modbusTcp') }));
     }
     return out;
   }
@@ -1795,13 +1919,13 @@
   function saveSources() {
     if (!validateSources()) return Promise.resolve(false);
     var body = {
-      ha_devices: JSON.stringify(buildHADevices()),
-      mqtt_devices: JSON.stringify(buildMQTTDevices()),
+      ha_devices: JSON.stringify(withKept('ha_devices', buildHADevices())),
+      mqtt_devices: JSON.stringify(withKept('mqtt_devices', buildMQTTDevices())),
       dongle_config: JSON.stringify(buildDongleConfig()),
-      rs232_devices: JSON.stringify(buildRS232Devices()),
-      modbus_devices: JSON.stringify(buildModbusDevices()),
-      external_sources: JSON.stringify(buildRestDevices()),
-      bms_devices: JSON.stringify(buildBmsDevices()),
+      rs232_devices: JSON.stringify(withKept('rs232_devices', buildRS232Devices())),
+      modbus_devices: JSON.stringify(withKept('modbus_devices', buildModbusDevices())),
+      external_sources: JSON.stringify(withKept('external_sources', buildRestDevices())),
+      bms_devices: JSON.stringify(withKept('bms_devices', buildBmsDevices())),
       setup_probe_cache: buildProbeCache()
     };
     return api('/api/settings/data-sources', { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
@@ -1817,6 +1941,36 @@
       return false;
     });
   }
+  function moreInverterProblem(kind) {
+    var s = state.sources[kind], bt = kind === 'dongle' && s.link === 'bluetooth', prefixes = {}, conns = {};
+    if (!(s.more || []).length) return '';
+    if (!Object.keys(effectiveMappings(kind)).length) return 'Choose the inverter profile first, so the other inverters know which readings to take.';
+    var conn = function (x, isFirst) {
+      if (bt) return String(x.ble_address || '').trim().toUpperCase();
+      if (kind === 'modbusTcp') return [(x.host || s.host || '').trim(), x.port || s.port, x.unit || s.unit].join('|');
+      if (kind === 'modbusSerial') return [(x.serial_path || s.serial_path || '').trim(), x.unit || (isFirst ? s.unit : '')].join('|');
+      if (kind === 'rs232') return isFirst ? resolveSerialPath(s) : String(x.serial_path || '').trim();
+      return [(x.host || '').trim(), x.port || s.port].join('|');
+    };
+    prefixes[firstPrefix(kind).trim().toLowerCase()] = s.name || 'the first inverter';
+    conns[conn(s, true)] = s.name || 'the first inverter';
+    for (var i = 0; i < s.more.length; i++) {
+      var m = s.more[i], name = (m.name || '').trim() || ('Inverter ' + (i + 2));
+      if (bt && !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(String(m.ble_address || '').trim())) return 'Add the Bluetooth address for ' + name + '.';
+      if (kind === 'dongle' && !bt && !(m.host && (m.port || s.port))) return 'Add the IP address for ' + name + '.';
+      if (kind === 'modbusSerial' && !(parseInt(m.unit, 10) >= 1)) return 'Add the unit ID for ' + name + '.';
+      if (kind === 'rs232' && !String(m.serial_path || '').trim()) return 'Add the serial port for ' + name + '.';
+      var p = String(m.prefix || '').trim().toLowerCase();
+      if (!p) return 'Give ' + name + ' a metric name prefix, for example inv' + (i + 2) + '_.';
+      if (prefixes[p]) return name + ' and ' + prefixes[p] + ' have the same prefix, so their readings would overwrite each other.';
+      prefixes[p] = name;
+      var c = conn(m, false);
+      if (conns[c]) return name + ' and ' + conns[c] + ' are set to the same ' + (kind === 'modbusTcp' || kind === 'modbusSerial' ? 'connection and unit ID' : bt ? 'Bluetooth address' : kind === 'rs232' ? 'serial port' : 'address') + ', so it would read the same inverter twice.';
+      conns[c] = name;
+    }
+    return '';
+  }
+  function withKept(key, list) { return (list || []).concat((state.keep && state.keep[key]) || []); }
   function showSourcesError(msg) { var el = $('#sources-error'); if (el) { el.textContent = msg; el.hidden = false; } }
   function hideSourcesError() { var el = $('#sources-error'); if (el) el.hidden = true; }
 
@@ -1837,6 +1991,7 @@
       else if (k === 'modbusTcp' && !(s.host && s.port)) errors.modbusTcp = 'Add the IP address and port.';
       else if (k === 'bms' && !s.address) errors.bms = 'Scan for your battery, or type its Bluetooth address.';
       else if (k === 'bmsWired' && !(s.serial_path && s.profile && s.modbus_unit_id)) errors.bmsWired = 'Choose the serial port and a BMS profile, and add the unit ID.';
+      else if (MORE_KINDS.indexOf(k) >= 0 && moreInverterProblem(k)) errors[k] = moreInverterProblem(k);
       else if (k === 'rest' && !s.url) errors.rest = 'Add the endpoint URL.';
     });
     return errors;
@@ -1904,6 +2059,7 @@
   function resetClientState() {
     // Revert the wizard's local source state so a cleared server state is fully reflected.
     state.sources = defaultSources();
+    state.keep = {};
     state.roleMetrics = {};
     state.dashboard.choice = 'full';
     state.optional = {
@@ -1923,6 +2079,10 @@
     var inverter = [], bms = [], other = [];
     ['dongle', 'rs232', 'modbusSerial', 'modbusTcp'].forEach(function (k) {
       if (state.sources[k].selected) Object.keys(effectiveMappings(k)).forEach(function (n) { inverter.push(n); });
+    });
+    MORE_KINDS.forEach(function (k) {
+      var src = state.sources[k];
+      if (src.selected) (src.more || []).forEach(function (m, i) { Object.keys(withPrefix(effectiveMappings(k), firstPrefix(k), extraPrefix(m, i))).forEach(function (n) { inverter.push(n); }); });
     });
     var b = state.sources.bms;
     if (b.selected) (b.sampleKeys && b.sampleKeys.length ? b.sampleKeys : BLE_BMS_KEYS).forEach(function (k) { bms.push(bmsMetricName(b.name || 'BMS (Bluetooth)', k)); });
@@ -1991,6 +2151,8 @@
     // daily-ish role hints
     function findDaily(words) { for (var w = 0; w < words.length; w++) for (var j = 0; j < names.length; j++) if (names[j].indexOf(words[w]) > -1) return names[j]; return null; }
     var ds = findDaily(['daily_solar', 'day_solar', 'kwh*', 'pv_daily']); if (ds) hint.daily_solar = ds;
+    var gen = find(['generator_power', 'gen_power', 'generator_input_power'], NOT_POWER); if (gen) hint.generator = gen;
+    var dg = findDaily(['generator_energy_today', 'gen_energy_today', 'daily_generator', 'generator_today']); if (dg) hint.daily_generator = dg;
     return hint;
   }
 
@@ -2032,11 +2194,111 @@
       });
       html += '</div></div>';
     });
+    // Power with no energy reading (e.g. Phocos over Bluetooth): offer to work
+    // out today's kWh from power (renderEnergyOffers keeps it in step with the roles).
+    html += '<div id="combine-offers"></div><div id="energy-offers"></div>';
     html += '<datalist id="role-suggestions">' + suggestions.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>'
       + '<div class="wz-alert is-error" id="metrics-error" role="alert" hidden></div>';
     body.innerHTML = html;
+    renderCombineOffers();
+    renderEnergyOffers();
     body._known = known;
     body._hasSuggestions = suggestions.length > 0;
+  }
+
+  // Daily roles that can be worked out from a power role.
+  var ENERGY_FROM_POWER = [
+    { power: 'solar', daily: 'daily_solar', name: 'solar_energy_today', label: 'Solar energy today' },
+    { power: 'consumption', daily: 'daily_consumption', name: 'load_energy_today', label: 'Home energy today' },
+    { power: 'battery_charge', daily: 'daily_battery_charge', name: 'battery_charge_energy_today', label: 'Battery charge energy today' },
+    { power: 'battery_discharge', daily: 'daily_battery_discharge', name: 'battery_discharge_energy_today', label: 'Battery discharge energy today' },
+    { power: 'grid_import', daily: 'daily_grid_import', name: 'grid_import_energy_today', label: 'Grid import energy today' },
+    { power: 'grid_export', daily: 'daily_grid_export', name: 'grid_export_energy_today', label: 'Grid export energy today' },
+    { power: 'generator', daily: 'daily_generator', name: 'generator_energy_today', label: 'Generator energy today' }
+  ];
+  // Several inverters of one kind: add the same reading up across all of them.
+  var COMBINE_ROLES = [
+    ['solar', 'Solar power', 'sum', 'W'], ['consumption', 'Home use', 'sum', 'W'], ['battery_charge', 'Battery charge power', 'sum', 'W'],
+    ['battery_discharge', 'Battery discharge power', 'sum', 'W'], ['grid_import', 'Grid import', 'sum', 'W'], ['grid_export', 'Grid export', 'sum', 'W'],
+    ['battery_soc', 'Battery charge (%)', 'mean', '%'], ['daily_solar', 'Daily solar', 'sum', 'kWh'], ['daily_consumption', 'Daily home use', 'sum', 'kWh']
+  ];
+  function combineOffers() {
+    var taken = {};
+    return MORE_KINDS.reduce(function (all, kind) {
+      var src = state.sources[kind], prefix = firstPrefix(kind);
+      if (!src.selected || !(src.more || []).length) return all;
+      var names = effectiveMappings(kind);
+      COMBINE_ROLES.forEach(function (r) {
+        var v = (state.roleMetrics[r[0]] || '').trim();
+        if (!v || taken[r[0]] || !Object.prototype.hasOwnProperty.call(names, v) || v.indexOf(prefix) !== 0) return;
+        var base = v.slice(prefix.length);
+        taken[r[0]] = true;
+        all.push({ role: r[0], label: r[1], fn: r[2], unit: r[3], inputs: [v].concat(src.more.map(function (m, i) { return extraPrefix(m, i) + base; })), name: (r[2] === 'mean' ? 'average_' : 'total_') + base });
+      });
+      return all;
+    }, []);
+  }
+  function renderCombineOffers() {
+    var box = $('#combine-offers'); if (!box) return;
+    var offers = combineOffers();
+    state.combineOffers = state.combineOffers || {};
+    if (!offers.length) { box.innerHTML = ''; return; }
+    var n = offers[0].inputs.length;
+    var html = '<h2 class="wz-section-title">Combine your ' + n + ' inverters</h2><p class="wz-hint" style="margin:-6px 0 10px">Each inverter reports its own readings. Tick the ones to add up into a total for the whole system; the role then uses the total. Change this later in Settings \u203a Metrics \u203a Combined metrics.</p><div class="wz-card"><div class="wz-card-body">';
+    offers.forEach(function (o) {
+      html += '<label class="wz-check"><input type="checkbox" data-combine-offer="' + o.role + '"' + (state.combineOffers[o.role] !== false ? ' checked' : '') + '> ' + esc(o.label) + ': ' + (o.fn === 'mean' ? 'average of ' : 'add up ') + n + ' inverters <span class="wz-hint">as ' + esc(o.name) + '</span></label>';
+    });
+    box.innerHTML = html + '</div></div>';
+  }
+  /** Add the ticked inverter totals as Combined metrics and point the roles at them. */
+  function saveCombineOffers(map) {
+    var picks = combineOffers().filter(function (o) { return map[o.role] && state.combineOffers && state.combineOffers[o.role] !== false; });
+    if (!picks.length) return Promise.resolve(true);
+    return api('/api/combined-metrics').then(function (res) {
+      var defs = (res.data && res.data.definitions) || [];
+      picks.forEach(function (o) {
+        var existing = defs.find(function (d) { return d.name === o.name; });
+        if (existing) { existing.inputs = o.inputs; existing.fn = o.fn; existing.enabled = true; }
+        else defs.push({ name: o.name, unit: o.unit, fn: o.fn, inputs: o.inputs, enabled: true, note: 'Added by the setup wizard' });
+        map[o.role] = o.name;
+      });
+      return api('/api/combined-metrics', { method: 'POST', body: JSON.stringify({ definitions: defs }) });
+    }).then(function (res) {
+      if (res === true || res.ok) return true;
+      var el = $('#metrics-error'); if (el) { el.textContent = 'Could not set up the inverter totals: ' + apiErrMsg(res, 'Server'); el.hidden = false; }
+      return false;
+    });
+  }
+  function renderEnergyOffers() {
+    var box = $('#energy-offers'); if (!box) return;
+    var offers = ENERGY_FROM_POWER.filter(function (o) { return (state.roleMetrics[o.power] || '').trim() && !(state.roleMetrics[o.daily] || '').trim(); });
+    state.energyOffers = state.energyOffers || {};
+    if (!offers.length) { box.innerHTML = ''; return; }
+    var html = '<h2 class="wz-section-title">Energy from power</h2><p class="wz-hint" style="margin:-6px 0 10px">These readings have power but no daily energy. Epilykos can work out today\'s kWh from power and use it for daily totals and savings. Change this later in Settings \u203a Metrics \u203a Combined metrics.</p><div class="wz-card"><div class="wz-card-body">';
+    offers.forEach(function (o) {
+      var total = combineOffers().filter(function (c) { return c.role === o.power && state.combineOffers && state.combineOffers[c.role] !== false; })[0];
+      html += '<label class="wz-check"><input type="checkbox" data-energy-offer="' + o.power + '"' + (state.energyOffers[o.power] !== false ? ' checked' : '') + '> ' + esc(o.label) + ' <span class="wz-hint">from ' + esc(total ? total.name : state.roleMetrics[o.power]) + '</span></label>';
+    });
+    box.innerHTML = html + '</div></div>';
+  }
+  /** Add the ticked energy-from-power Combined metrics and point the daily roles at them. */
+  function saveEnergyOffers(map) {
+    var picks = ENERGY_FROM_POWER.filter(function (o) { return map[o.power] && !map[o.daily] && state.energyOffers && state.energyOffers[o.power] !== false && document.querySelector('[data-energy-offer="' + o.power + '"]'); });
+    if (!picks.length) return Promise.resolve(true);
+    return api('/api/combined-metrics').then(function (res) {
+      var defs = (res.data && res.data.definitions) || [];
+      picks.forEach(function (o) {
+        var existing = defs.find(function (d) { return d.name === o.name; });
+        if (!existing) defs.push({ name: o.name, unit: 'kWh', fn: 'energy_today', inputs: [map[o.power]], input_unit: 'W', enabled: true, note: 'Added by the setup wizard' });
+        else { existing.inputs = [map[o.power]]; existing.enabled = true; }
+        map[o.daily] = o.name;
+      });
+      return api('/api/combined-metrics', { method: 'POST', body: JSON.stringify({ definitions: defs }) });
+    }).then(function (res) {
+      if (res.ok) return true;
+      var el = $('#metrics-error'); if (el) { el.textContent = 'Could not set up energy from power: ' + apiErrMsg(res, 'Server'); el.hidden = false; }
+      return false;
+    });
   }
 
   function saveRoleMetrics() {
@@ -2055,7 +2317,10 @@
         var e1 = $('#metrics-error'); if (e1) { e1.textContent = 'Could not save the Home Assistant entities for these roles.'; e1.hidden = false; }
         return { sourcesFailed: true };
       }
-      return api('/api/role-metrics', { method: 'POST', body: JSON.stringify(map) });
+      return saveCombineOffers(map).then(function (ok) { return ok ? saveEnergyOffers(map) : false; }).then(function (ok) {
+        if (!ok) return { sourcesFailed: true };
+        return api('/api/role-metrics', { method: 'POST', body: JSON.stringify(map) });
+      });
     }).then(function (res) {
       if (res.sourcesFailed) return false;
       if (res.ok && res.data && res.data.success) return true;
@@ -2102,8 +2367,8 @@
       return;
     }
     body.innerHTML = '<div class="wz-choices" role="radiogroup" aria-label="Starting dashboard">'
-      + option('full', 'Everything', 'Energy flow, gauges, charts, weather and savings. Remove what you don\'t need later.', main, function () { return true; })
-      + option('minimal', 'Simple', 'Just the energy flow, a row of key numbers and your savings.', main.filter(isMinimal), isMinimal)
+      + option('full', 'Everything', 'System overview, today\'s totals, energy charts, forecast, grid, savings and history. Remove what you don\'t need later.', main, function () { return true; })
+      + option('minimal', 'Simple', 'Just the system overview, today\'s totals and your savings.', main.filter(isMinimal), isMinimal)
       + '</div>';
   }
 
@@ -2151,7 +2416,15 @@
       + field('Dashboard title', inp('basics.dashboard_title', b.dashboard_title, { placeholder: 'My Solar', id: 'basics-title' }), { forId: 'basics-title', hint: 'Shown at the top of the dashboard.' })
       + grid(
         field('Currency symbol', inp('basics.savings_currency', b.savings_currency, { placeholder: '€', id: 'basics-currency', attrs: ' maxlength="4"' }), { forId: 'basics-currency', hint: 'For savings, e.g. €, $, £ or ₦.' }),
-        field('Solar array size (kWp)', inp('basics.solar_capacity_kwp', b.solar_capacity_kwp, { type: 'number', id: 'basics-kwp', attrs: ' step="0.01" min="0"' }), { forId: 'basics-kwp', hint: 'Total panel capacity. Used for the solar forecast.' })
+        (b.arrays && b.arrays.length > 1
+          ? field('Solar arrays', '<p class="wz-static">' + b.arrays.length + ' arrays, ' + (+b.arrays.reduce(function (t, a) { return t + Number(a.kwp); }, 0).toFixed(2)) + ' kWp in total</p>', { hint: 'Change them in Settings › Forecast and weather › Panels.' })
+          : field('Solar array size (kWp)', inp('basics.solar_capacity_kwp', b.solar_capacity_kwp, { type: 'number', id: 'basics-kwp', attrs: ' step="0.01" min="0"' }), { forId: 'basics-kwp', optional: true, hint: 'Total panel capacity, for the solar forecast. Leave it empty if you have no solar or don\'t know yet.' }))
+      )
+      + grid(
+        field('Grid buy price per kWh', inp('basics.savings_rate', b.savings_rate, { type: 'number', id: 'basics-grid-price', placeholder: '0.30', attrs: ' step="any" min="0"' }), { forId: 'basics-grid-price', optional: true, hint: 'What one kWh from the grid costs you. Values your solar savings.' }),
+        hasGeneratorRole()
+          ? field('Generator buy price per kWh', inp('basics.generator_price', b.generator_price, { type: 'number', id: 'basics-generator-price', placeholder: '0', attrs: ' step="any" min="0"' }), { forId: 'basics-generator-price', optional: true, hint: 'What one kWh from your generator costs (fuel and upkeep). Choose how savings use it in Settings › Prices and savings.' })
+          : ''
       )
       + '</div></div>'
       + '<div class="wz-card"><div class="wz-card-body wz-row-between">'
@@ -2163,14 +2436,28 @@
       + '<div class="wz-alert is-error" id="basics-error" role="alert" hidden></div>';
   }
 
+  /** A generator reading is mapped in step 3 (inverters with a generator input). */
+  function hasGeneratorRole() {
+    var r = state.roleMetrics || {};
+    return !!(String(r.generator || '').trim() || String(r.daily_generator || '').trim());
+  }
+
   function saveBasics() {
-    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title, currency and array size (a number) to continue.'; el.hidden = false; } return Promise.resolve(false); }
+    if (!basicsValid()) { var el = $('#basics-error'); if (el) { el.textContent = 'Fill in the title and currency to continue. The array size and prices, if you give them, must be numbers.'; el.hidden = false; } return Promise.resolve(false); }
     var b = state.basics;
-    var payload = {
-      savings_currency: b.savings_currency,
-      solar_capacity_kwp: Number(b.solar_capacity_kwp),
-      dashboard_title: b.dashboard_title
-    };
+    var payload = { savings_currency: b.savings_currency, dashboard_title: b.dashboard_title };
+    // Prices: only what was filled in (an empty field keeps the saved price).
+    if (String(b.savings_rate || '').trim() !== '') payload.savings_rate = String(Number(b.savings_rate));
+    if (hasGeneratorRole() && String(b.generator_price || '').trim() !== '') payload.generator_price = String(Number(b.generator_price));
+    var cap = String(b.solar_capacity_kwp == null ? '' : b.solar_capacity_kwp).trim();
+    if (!(b.arrays && b.arrays.length > 1)) {
+      // An emptied size clears it (no solar, or not known yet), rather than
+      // leaving the old value in place.
+      payload.solar_capacity_kwp = cap === '' ? '' : Number(cap);
+      // One saved array: the forecast reads the list, so keep it in step
+      // (an array without capacity is left out of the forecast).
+      if (b.arrays && b.arrays.length === 1) payload.solar_arrays = JSON.stringify([Object.assign({}, b.arrays[0], { kwp: cap === '' ? 0 : Number(cap) })]);
+    }
     return api('/api/settings', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
       if (res.ok) return true;
       var el = $('#basics-error'); if (el) { el.textContent = 'Could not save basics (' + (res.status || 'network') + '): ' + apiErrMsg(res, 'Server'); el.hidden = false; }
@@ -2233,7 +2520,7 @@
         field('Solcast API key', inp('optional.forecast.solcast_api_key', fc.solcast_api_key, { type: 'password', attrs: ' autocomplete="off"' }), { optional: true }),
         field('Solcast site ID', inp('optional.forecast.solcast_resource_id', fc.solcast_resource_id), { optional: true })
       )
-      + '<p class="wz-hint">Uses the array size from Basics (' + esc(state.basics.solar_capacity_kwp || '?') + ' kWp). Without Solcast, Epilykos uses the free Open-Meteo forecast.</p>', fcOn);
+      + '<p class="wz-hint">' + (state.basics.arrays && state.basics.arrays.length > 1 ? 'Uses your ' + state.basics.arrays.length + ' PV arrays from Settings.' : String(state.basics.solar_capacity_kwp || '').trim() ? 'Uses the array size from Basics (' + esc(state.basics.solar_capacity_kwp) + ' kWp).' : 'Needs the array size: add it in Basics, or later in Settings.') + ' Without Solcast, Epilykos uses the free Open-Meteo forecast.</p>', fcOn);
 
     html += extraCard('network', 'wifi', 'App addresses', 'So the installed app finds Epilykos at home and away.',
       '',
@@ -2322,7 +2609,7 @@
       + row('plug', state.skipped[2] ? 'Sources' : src.length + ' source' + (src.length === 1 ? '' : 's'), srcText || 'None', 2)
       + row('list', 'Metric roles', mapped + ' of ' + ROLES.length + ' matched', 3)
       + row('layout', 'Dashboard', state.dashboard.choice === 'minimal' ? 'Simple' : 'Everything', 4)
-      + row('sliders', state.skipped[5] ? 'Basics' : (state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp', 5)
+      + row('sliders', state.skipped[5] ? 'Basics' : (state.basics.dashboard_title || 'Dashboard'), esc(state.basics.savings_currency) + (state.basics.arrays && state.basics.arrays.length > 1 ? ' · ' + state.basics.arrays.length + ' PV arrays' : String(state.basics.solar_capacity_kwp || '').trim() ? ' · ' + esc(state.basics.solar_capacity_kwp) + ' kWp' : ''), 5)
       + row('sun', 'Extras', extras.length ? esc(extras.join(', ')) : 'None', 6)
       + '</ul></div>';
   }
@@ -2409,14 +2696,20 @@
         var field = t.getAttribute('data-field');
         setPath(state, field, t.type === 'checkbox' ? t.checked : t.value);
         afterFieldChange(field);
+        // The Bluetooth timing hint under More inverters follows Read every.
+        if (field === 'sources.dongle.poll_interval' && $('#dongle-bt-interval-hint')) { var dm = $('#dongle-more'); if (dm) dm.outerHTML = moreInvertersHtml('dongle'); }
         updateTestButtons();
         updateNav();
         var f = t.closest('.wz-field'); if (f) f.classList.remove('has-error');
       }
+      if (t.matches('[data-combine-offer]')) { state.combineOffers = state.combineOffers || {}; state.combineOffers[t.getAttribute('data-combine-offer')] = t.checked; renderEnergyOffers(); }
+      if (t.matches('[data-energy-offer]')) { state.energyOffers = state.energyOffers || {}; state.energyOffers[t.getAttribute('data-energy-offer')] = t.checked; }
       if (t.matches('[data-metric-role]')) {
         var role = t.getAttribute('data-metric-role');
         state.roleMetrics[role] = t.value;
         syncRoleWarning(t);
+        renderCombineOffers();
+        renderEnergyOffers();
         updateNav();
       }
       if (e.type === 'change' && t.matches('[data-source-pick]')) toggleSource(t.getAttribute('data-source-pick'), t.checked);
@@ -2440,6 +2733,18 @@
       else if (action === 'reset-sources') resetSources();
       else if (action === 'unselect-source') toggleSource(el.getAttribute('data-source'), false);
       else if (action === 'ble-scan') runBleScan(el.getAttribute('data-source'), el);
+      else if (action === 'add-inverter' || action === 'remove-inverter') {
+        var kind = el.getAttribute('data-source') || 'dongle', dg = state.sources[kind]; dg.more = dg.more || [];
+        if (action === 'add-inverter') {
+          if (kind === 'dongle' && !(dg.prefix || '').trim()) dg.prefix = 'inv1_';
+          var used = {}; [dg.prefix].concat(dg.more.map(function (m) { return m.prefix; })).forEach(function (p) { used[String(p || '').toLowerCase()] = true; });
+          var n = dg.more.length + 2; while (used['inv' + n + '_']) n++;
+          dg.more.push({ name: 'Inverter ' + n, prefix: 'inv' + n + '_', ble_address: '', host: '', port: dg.port || '', unit: kind === 'modbusSerial' ? String(n) : '', serial_path: '' });
+        } else dg.more.splice(Number(el.getAttribute('data-i')), 1);
+        var card = $('#' + kind + '-more'); if (card) card.outerHTML = moreInvertersHtml(kind);
+        var pf = document.querySelector('[data-field="sources.dongle.prefix"]'); if (pf) pf.value = dg.prefix || '';
+        updateNav();
+      }
       else if (action === 'ble-pick') pickBleDevice(el.getAttribute('data-source'), el.getAttribute('data-address'));
       else if (action === 'locate') useDeviceLocation(el);
       else if (action === 'goto-step') {

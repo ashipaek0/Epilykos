@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const { formatDuration } = require('../public/js/components/format.js');
@@ -20,3 +21,4 @@ for (const [hours, expected] of cases) {
   assert.strictEqual(formatDuration(hours), expected, `${hours} hours should format as ${expected}`);
 }
 console.log(`format-duration regression: ${cases.length} assertions passed`);
+checks.done();

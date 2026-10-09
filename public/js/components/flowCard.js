@@ -1,6 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
+import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
 const watts = (w) => formatMetric(w, 'W').text;
 
 
@@ -14,6 +15,7 @@ export function buildFlowCard(block = {}) {
   card.className = 'flow-card';
   card.dataset.metricMap = JSON.stringify(metrics);
   card.dataset.blockId = id;
+  markBreakdown(card, config);
 
   card.innerHTML = `<div class="flow-item solar"><div class="flow-icon"><i id="${uid('icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div><div class="flow-label">Solar</div><div class="flow-value" data-metric="${escapeHtml(metrics.solar)}" id="${uid('flow-solar',id)}">—</div>${showGauge?`<div class="solar-now-gauge" id="${uid('solar-now-gauge',id)}"><div class="gauge-bar-bg"><div class="gauge-bar-fill" id="${uid('gauge-bar-fill',id)}"></div></div><span class="gauge-percent" id="${uid('gauge-percent',id)}">0%</span></div>`:''}</div><div class="flow-arrow solar-home">→</div><div class="flow-item battery"><div class="flow-icon"><i id="${uid('icon-battery',id)}" class="fi fi-sr-battery-full"></i></div><div class="flow-label">Battery</div><div class="flow-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('flow-battery-soc',id)}">--%</div><div class="flow-sub" id="${uid('flow-battery-power',id)}">—</div></div><div class="flow-arrow battery">⇄</div><div class="flow-item home"><div class="flow-icon"><i id="${uid('icon-home',id)}" class="fi fi-sr-home"></i></div><div class="flow-label">Home</div><div class="flow-value" data-metric="${escapeHtml(metrics.consumption)}" id="${uid('flow-home',id)}">—</div></div><div class="flow-arrow grid">⇄</div><div class="flow-item grid"><div class="flow-icon"><svg id="${uid('icon-grid',id)}" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor"><path d="M426.5 480h-341l34.3-113.3h272.4L426.5 480zM144.8 334.7l34.3-113.4h153.8l34.3 113.4H144.8zM256 92.2l76.3 99.1h-152.6L256 92.2zM32 32h448v40H32z"/></svg></div><div class="flow-label">Grid</div><div class="flow-value" id="${uid('flow-grid',id)}">—</div><div class="flow-sub" id="${uid('flow-grid-direction',id)}">Import</div></div>`;
   return card;
@@ -51,6 +53,12 @@ export function updateFlowCard(state) {
     const isCharging = bc > bd, isDischarging = bd > bc, isGridChargingBattery = gi > 0 && isCharging;
     const ba = card.querySelector('.flow-arrow.battery'); if (ba) { if (isDischarging) { ba.style.color = 'var(--discharge)'; ba.textContent = '→'; } else if (isCharging) { ba.style.color = isGridChargingBattery ? 'var(--grid)' : 'var(--solar)'; ba.textContent = isGridChargingBattery ? '←' : '→'; } else { ba.style.color = 'var(--text-secondary)'; ba.textContent = '⇄'; } }
     const ga = card.querySelector('.flow-arrow.grid'); if (ga) { if (gi > ge) { ga.style.color = 'var(--grid)'; ga.textContent = '←'; } else if (ge > gi) { ga.style.color = 'var(--export)'; ga.textContent = '→'; } else { ga.style.color = 'var(--text-secondary)'; ga.textContent = '⇄'; } }
+    applyBreakdowns(card, state, [
+      { host: card.querySelector('.flow-item.solar'), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }], before: card.querySelector('.flow-item.solar .solar-now-gauge') },
+      { host: card.querySelector('.flow-item.battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] },
+      { host: card.querySelector('.flow-item.home'), title: 'Home', specs: [{ name: mm.consumption, unit: 'W' }] },
+      { host: card.querySelector('.flow-item.grid'), title: 'Grid', specs: [{ name: mm.grid_import, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] }
+    ]);
     const gf = el('gauge-bar-fill'), gp = el('gauge-percent'); if (gf && gp && window.systemCapacityKwp) { const pct = Math.min(100, (sw / (window.systemCapacityKwp * 1000)) * 100); gf.style.width = pct + '%'; gp.textContent = pct.toFixed(0) + '%'; }
   });
 }

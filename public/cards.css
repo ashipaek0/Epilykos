@@ -314,3 +314,247 @@
 .pvt-timeline-icons > .pvt-timeline-icon .wx-ic { font-size: inherit !important; }
 .pvt-timeline-bar { display: flex; gap: 2px; margin-bottom: 6px; }
 .pvt-timeline-seg { flex: 1 1 0; height: 4px; border-radius: 2px; }
+
+/* ── Configurable gauge ──────────────────────────────────────
+   Shared card surface; the dial fits the block's width AND height
+   (it used to be sized by width only and got cut off in short blocks);
+   the readout scales with the dial unless a size is set. */
+.configurable-gauge-card {
+  display: flex; flex-direction: column; align-items: center;
+  container-type: size;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius, 12px);
+  padding: var(--card-pad) !important; gap: 4px !important;
+}
+.configurable-gauge-title { align-self: stretch; text-align: left; }
+.configurable-gauge-viz {
+  position: relative; flex: 0 0 auto; margin: auto;
+  width: min(100cqw - 2 * var(--card-pad), var(--cg-size, 400px), 100cqh - 2 * var(--card-pad) - 1.6em);
+  aspect-ratio: 1; container-type: inline-size;
+}
+.configurable-gauge-readout {
+  /* Position and default size come from innerLayout() (inside the ring's hole). */
+  position: absolute; display: flex; align-items: center; justify-content: center; gap: 0.15em;
+  text-align: center; color: var(--text); white-space: nowrap; line-height: 1;
+}
+.configurable-gauge-history { position: absolute; max-height: none !important; overflow: hidden; }
+
+/* ── Metric Trend / Dual metric: text follows the card size and the
+   Text size setting unless the person set an explicit size. ── */
+.metric-trend-card .metric-trend-value { font-size: calc(var(--mt-value-size, clamp(1.4rem, 15cqi, 3.2rem)) * var(--card-font-scale, 1)); }
+.metric-trend-card .metric-trend-unit { font-size: calc(var(--mt-unit-size, clamp(0.8rem, 6cqi, 1.4rem)) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.metric-trend-card { container-type: inline-size; }
+.metric-trend-header .metric-trend-title { flex: 1 1 auto; }
+.metric-trend-graph-unit { display: none; }
+.metric-trend-context { font-size: calc(0.75rem * var(--card-font-scale, 1)); }
+
+.dual-metric-title { font-size: calc(clamp(0.9rem, 1rem + 0.5cqi, 1.15rem) * var(--card-font-scale, 1)) !important; }
+.dual-metric-card { container-type: inline-size; }
+.dual-metric-header[hidden] { display: none !important; }
+.dual-metric-header { padding: 10px var(--dual-padding, 14px) !important; }
+.dual-metric-header .dual-metric-title { flex: 1 1 auto; }
+.dual-metric-help { flex: 0 0 28px !important; width: 28px !important; height: 28px !important; min-height: 28px !important; margin: -4px -6px -4px 0; border: 1px solid var(--border) !important; font-weight: 700; color: var(--text-secondary) !important; }
+.dual-metric-help-text { flex-basis: 100%; font-size: calc(0.8rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.dual-metric-header { flex-wrap: wrap; }
+.dual-metric-pane { padding: 8px var(--dual-padding, 14px) !important; }
+.dual-metric-label { font-size: calc(var(--dual-label-size, clamp(0.72rem, 7cqi, 0.95rem)) * var(--card-font-scale, 1)) !important; color: var(--text-secondary); font-weight: 600; }
+.dual-metric-value { font-size: calc(var(--dual-value-size, clamp(1.1rem, 17cqi, 2.6rem)) * var(--card-font-scale, 1)) !important; }
+.dual-metric-unit { font-size: calc(var(--dual-unit-size, clamp(0.75rem, 7cqi, 1.1rem)) * var(--card-font-scale, 1)) !important; color: var(--text-secondary); }
+
+/* ── Power chart with statistics ─────────────────────────────
+   Inside a dashboard block (fixed height) the chart takes the free
+   space and the table scrolls, instead of the table being cut off at
+   the block's edge. A chart height set in the editor still wins. */
+.dashboard-block > .chart-container:has(.power-stats) { display: flex; flex-direction: column; height: 100% !important; overflow: hidden; }
+.dashboard-block > .chart-container:has(.power-stats) > .power-chart-canvas-wrap:not([style*="height"]) { flex: 1 1 auto; height: auto; min-height: 140px; }
+.dashboard-block > .chart-container:has(.power-stats) > .power-stats { flex: 0 1 auto; min-height: 0; max-height: 45%; overflow: auto; }
+.power-stats h4 { font-size: calc(0.75rem * var(--card-font-scale, 1)) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary) !important; }
+.power-stats-table thead th { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+.power-stats-table tbody tr { cursor: pointer; }
+.power-stats-table tbody tr:hover th, .power-stats-table tbody tr:hover td { background: var(--hover, rgba(127,127,127,0.06)); }
+.power-stats-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.power-stats-table tbody tr[aria-pressed="false"] { opacity: 0.45; }
+.power-stats-warning, .power-stats-unavailable { margin: 6px 0 0; font-size: 0.75rem; color: var(--text-secondary); }
+
+/* Phones: blocks stack and take their content's height, so cards that size
+   themselves to the block need a height of their own. */
+@media (max-width: 768px) {
+  .dashboard-block > .configurable-gauge-card { height: 260px !important; }
+  .dashboard-block > .metric-trend-card { height: 220px !important; }
+  .dashboard-block > .dual-metric-card { min-height: 130px; }
+}
+
+/* ── Energy day card ───────────────────────────────────────────────────── */
+.energy-day-card {
+  background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: var(--card-pad, 12px); height: 100%; width: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 6px; overflow: hidden; min-height: 0;
+}
+.ed-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+.ed-title { margin: 0; font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text); }
+.ed-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ed-daynav { display: inline-flex; align-items: center; gap: 4px; }
+.ed-day { min-width: 6.5em; text-align: center; font-size: calc(0.8rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text); padding: 0 4px; }
+.ed-btn {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius);
+  min-height: 30px; min-width: 30px; padding: 0 10px; font: inherit; font-size: calc(0.78rem * var(--card-font-scale, 1)); cursor: pointer;
+}
+.ed-btn:hover:not(:disabled) { border-color: var(--accent); }
+.ed-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ed-btn:disabled { opacity: .35; cursor: default; }
+.ed-prev, .ed-next { padding: 0; font-size: 1rem; line-height: 1; }
+.ed-btn[hidden] { display: none; }
+.ed-panels { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+.ed-panel { position: relative; min-height: 0; }
+.ed-energy { flex: 3 1 0; min-height: 120px; }
+.ed-battery { flex: 1 1 0; min-height: 72px; max-height: 140px; }
+.ed-panel[hidden] { display: none; }
+.ed-panel canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.ed-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; flex-shrink: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.ed-key { display: inline-flex; align-items: center; gap: 6px; }
+.ed-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.ed-swatch-solid { background: var(--c); }
+.ed-swatch-hatch { border: 1px solid var(--c); background: repeating-linear-gradient(135deg, var(--c) 0 1.5px, transparent 1.5px 4px); }
+.ed-swatch-dash, .ed-swatch-line, .ed-swatch-dots { height: 0; width: 16px; border-radius: 0; border-top: 2px dashed var(--c); }
+.ed-swatch-line { border-top-style: solid; }
+.ed-swatch-dots { border-top-style: dotted; }
+.ed-status { margin: 0; flex-shrink: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.ed-status:empty { display: none; }
+
+/* ── Day totals card ───────────────────────────────────────────────────── */
+.energy-totals-card { height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; min-height: 0; container-type: inline-size; }
+.et-title { margin: 0; font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text); }
+.et-tiles { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 2px; }
+.et-tile {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: var(--card-pad, 12px); min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden;
+}
+.et-label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: calc(0.8rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); }
+.et-icon { display: inline-flex; color: var(--et-c); }
+.et-icon svg { width: 16px; height: 16px; }
+.et-value { margin: 0; color: var(--text); line-height: 1.1; }
+.et-num { font-size: calc(clamp(1.4rem, 1rem + 2cqi, 2rem) * var(--card-font-scale, 1)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.et-unit { font-size: calc(0.9rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.et-compare { display: flex; flex-direction: column; gap: 3px; margin-top: auto; }
+.et-compare[hidden] { display: none; }
+.et-row { display: flex; justify-content: space-between; gap: 8px; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.et-row span:last-child { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.et-track { position: relative; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.et-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 3px; background: var(--et-c); }
+.et-band {
+  position: absolute; top: 0; bottom: 0; border-radius: 3px;
+  background: repeating-linear-gradient(135deg, var(--et-c) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--et-c);
+}
+.et-status { margin: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.et-status:empty { display: none; }
+
+/* ── Costs and earnings card ───────────────────────────────────────────── */
+.ec-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; flex-shrink: 0; }
+.ec-total { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; min-width: 0; background: var(--bg); }
+.ec-total h4 { margin: 0 0 2px; font-size: calc(0.72rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); }
+.ec-amount { margin: 0; font-size: calc(clamp(1.05rem, 0.9rem + 0.8cqi, 1.4rem) * var(--card-font-scale, 1)); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-sub { margin: 0; font-size: calc(0.7rem * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ec-prices { margin: 0; flex-shrink: 0; font-size: calc(0.7rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.energy-costs-card { container-type: inline-size; }
+
+/* ── System overview card ──────────────────────────────────────────────── */
+.system-overview-card { height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; min-height: 0; container-type: inline-size; }
+.so-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; flex-shrink: 0; }
+.so-title { margin: 0; font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text); }
+.so-strip { display: flex; gap: 18px; margin: 0; flex-wrap: wrap; }
+.so-strip div { display: flex; flex-direction: column; }
+.so-strip dt { font-size: calc(0.7rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.so-strip dd { margin: 0; font-size: calc(0.8rem * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.so-status[data-state="warn"] { color: var(--color-grid); }
+.so-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr; gap: 8px; }
+.so-body.has-extras { grid-template-columns: minmax(0, 1fr) minmax(150px, 22%); }
+.so-diagram { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 18%) minmax(0, 1fr); gap: 0 14%; min-height: 0; }
+.so-diagram .so-col { display: grid; grid-template-rows: 1fr 1fr; gap: 8px; min-height: 0; position: relative; z-index: 1; }
+.so-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.so-line { fill: none; stroke: var(--border); stroke-width: 2; }
+.so-line[data-flow="in"], .so-line[data-flow="out"] { stroke: var(--so-c); stroke-dasharray: 2 10; stroke-linecap: round; stroke-width: 3; animation: so-flow 1.2s linear infinite; }
+.so-line[data-flow="out"] { animation-direction: reverse; }
+@keyframes so-flow { to { stroke-dashoffset: -12; } }
+@media (prefers-reduced-motion: reduce) { .so-line[data-flow] { animation: none; } }
+.so-hub { display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
+.so-hub-box {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; width: 100%; max-width: 120px; box-sizing: border-box;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); color: var(--text);
+}
+.so-hub-icon { display: inline-flex; color: var(--accent); }
+.so-hub-icon svg { width: 30px; height: 30px; }
+.so-hub-img { max-width: 100%; max-height: 70px; object-fit: contain; }
+.so-hub-state { font-size: calc(0.72rem * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); text-align: center; }
+.so-tile {
+  position: relative; overflow: hidden; min-width: 0; min-height: 0; padding: 10px 12px; box-sizing: border-box;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 4px;
+}
+.so-tile header { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; position: relative; }
+.so-tile h4 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: calc(0.8rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); min-width: 0; }
+.so-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.so-icon { display: inline-flex; color: var(--so-c); }
+.so-icon svg { width: 16px; height: 16px; }
+.so-corner { font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.so-value { margin: 0; position: relative; z-index: 1; color: var(--text); line-height: 1.05; }
+.so-tile header { z-index: 1; }
+.so-num { font-size: calc(clamp(1.2rem, 0.8rem + 2cqi, 2rem) * var(--card-font-scale, 1)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.so-unit { font-size: calc(0.9rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.so-spark { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 40%; pointer-events: none; }
+.so-spark-line { fill: none; stroke: var(--so-c); stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: .8; }
+.so-spark-area { fill: var(--so-c); opacity: .12; stroke: none; }
+.so-extras { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.so-extras .so-tile { flex: 1 1 0; }
+/* Narrow: a 2x2 grid of tiles; the hub's state moves into the strip. */
+.so-strip-inverter { display: none !important; }
+@container (max-width: 620px) {
+  .so-body.has-extras { grid-template-columns: 1fr; }
+  .so-extras { display: grid; grid-template-columns: 1fr 1fr; }
+  .so-diagram { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; }
+  .so-diagram .so-col { display: contents; }
+  .so-hub, .so-lines { display: none; }
+  .so-strip-inverter { display: flex !important; }
+  .so-strip { gap: 12px; }
+  .so-tile { padding: 8px 10px; }
+  .so-tile header { flex-wrap: wrap; }
+  .so-spark { height: 28%; opacity: .7; }
+}
+
+/* ── Energy, tabbed ─────────────────────────────────────────────────────── */
+.energy-tabs-card {
+  background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: var(--card-pad, 12px); height: 100%; width: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden;
+}
+.etabs-title { margin: 0; font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text); }
+.etabs-list { display: flex; gap: 2px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+.etabs-tab {
+  appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: 8px 12px; min-height: 36px; font: inherit; font-size: calc(0.82rem * var(--card-font-scale, 1)); font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+}
+.etabs-tab:hover { color: var(--text); }
+.etabs-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.etabs-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px 6px 0 0; }
+.etabs-panel { flex: 1 1 auto; min-height: 0; display: flex; }
+.etabs-panel[hidden] { display: none; }
+/* The card inside a tab drops its own frame: the tabbed card is the frame. */
+.etabs-panel > .energy-day-card, .etabs-panel > .energy-totals-card { border: 0; box-shadow: none; background: none; padding: 0; border-radius: 0; }
+.etabs-panel > .energy-day-card .ed-header { justify-content: flex-end; }
+.etabs-panel > .energy-totals-card .et-tiles { flex: 0 0 auto; align-content: start; }
+/* Wide cards: the tab's controls sit at the right end of the tab bar. */
+.energy-tabs-card { position: relative; container-type: inline-size; }
+@container (min-width: 760px) {
+  .etabs-list { padding-right: 330px; }
+  .etabs-panel > .energy-day-card .ed-header { position: absolute; right: var(--card-pad, 12px); top: calc(var(--etabs-row-top, 0px) + 2px); }
+}
+/* PV split: three tiles on the right (PV inverter, Home, PV charger). */
+.so-body.is-split .so-right { grid-template-rows: repeat(3, 1fr); }
+.so-weather .so-value { display: flex; align-items: baseline; gap: 4px; }
+.so-wx-icon { margin-left: auto; font-size: calc(1.8rem * var(--card-font-scale, 1)); color: var(--accent); line-height: 1; }
+.so-wx-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+
+/* Switch / selector placeholder (the working controls are on the Controls page) */
+.control-placeholder { display: flex; flex-direction: column; justify-content: center; gap: .35rem; height: 100%; box-sizing: border-box; padding: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.control-placeholder-name { font-weight: 600; color: var(--text); }
+.control-placeholder-text { margin: 0; font-size: var(--fs-small, .85rem); color: var(--text-secondary); }
+.control-placeholder-text a { color: var(--text); }

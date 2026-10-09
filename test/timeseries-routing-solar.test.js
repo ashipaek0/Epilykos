@@ -15,6 +15,7 @@
  * matches the fixture's own fresh-DB-per-case requirement.
  */
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
@@ -250,3 +251,4 @@ check('computeTodaySolar path 4: an aggregate bucket seeded inside today\'s wind
 });
 
 console.log(`\ntimeseries-routing-solar.test.js: ${passed} checks passed`);
+checks.done();

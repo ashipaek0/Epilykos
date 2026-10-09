@@ -22,6 +22,7 @@ Public display with no login required — settings are password-protected.
 - [Docker Compose](#docker-compose)
 - [Adding Data Sources](#adding-data-sources)
 - [Dashboard Editor](#dashboard-editor)
+- [Card Showcase and Controls](#card-showcase-and-controls)
 - [PWA & Network Switching](#pwa--network-switching)
 - [Key Features](#key-features)
 - [Reverse Proxy](#reverse-proxy)
@@ -179,6 +180,26 @@ Select your inverter's profile, pick the detected serial port, and save. The 30-
 Open `/editor` to customise your dashboard layout. Blocks can be dragged, resized, and rearranged freely. Each block is independently configurable — choose its metric source, colour scheme, transparency, and font size.
 
 Multiple dashboards are supported, with automatic switching between desktop and mobile layouts.
+
+---
+
+## Card Showcase and Controls
+
+Two pages for signed-in use only. Signed out, every address under them (the pages, their files and any sub path) goes to the sign-in page, and they are never kept in the browser's offline cache.
+
+- **`/showcase`** — every dashboard card, filled with made-up readings from an imaginary home, updating every few seconds. Try each card's options (size, titles, periods, styles) to see what it can do. Nothing on the page reads your data or reaches your devices.
+- **`/controls`** — where inverter and battery settings are changed, and where the switch and selector cards work (on the dashboard they show a link here):
+  - **Allow device changes** is off until you turn it on; while off, nothing can change a device setting.
+  - Changes need your password again; the unlock lasts 5 minutes and ends when you sign out.
+  - Each setting is read first. A change is refused when the new value is outside the setting's range or step, when the device reports a current value outside that range (the register may mean something else on your model), or when it changed since the page showed it. After writing, the setting is read back and a different value is reported.
+  - **Expert register writes** (off by default) allow any register number, for registers you have checked in your device's manual.
+  - Every attempt, refused ones included, is kept in the change log.
+
+Settings available so far:
+
+- **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits.
+- **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
+- **Phocos Any-Grid** (Bluetooth): read-only for now; how its Bluetooth link takes settings is not known yet.
 
 ---
 

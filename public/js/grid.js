@@ -56,28 +56,58 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     el.style.flexBasis = '0px';
     if (pct >= 4) el.textContent = seg.state === 1 ? 'ON' : 'OFF';
 
-    el.addEventListener('mouseenter', () => {
+    // Details on hover, keyboard focus and tap (not mouse-only), read out too.
+    // The whole period, also the part before the window (it may have begun days ago).
+    const span = Math.round((segEnd - seg.start) / 60000), dur = span >= 60 ? `${Math.floor(span / 60)} h${span % 60 ? ` ${span % 60} min` : ''}` : `${span} min`;
+    const text = `Grid ${seg.state === 1 ? 'on' : 'off'} from ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'now'}, ${dur}`;
+    el.tabIndex = 0;
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', text);
+    const show = () => {
       tooltip.style.display = 'block';
-      tooltip.textContent = `${seg.state === 1 ? 'ON' : 'OFF'} since ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'Now'}`;
-      const barRect = bar.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      tooltip.style.left = (elRect.left - barRect.left + elRect.width / 2) + 'px';
+      tooltip.textContent = text;
+      const barRect = bar.getBoundingClientRect(), elRect = el.getBoundingClientRect(), half = tooltip.offsetWidth / 2;
+      // Centred on the period, but kept inside the bar at either end.
+      const x = Math.max(half, Math.min(barRect.width - half, elRect.left - barRect.left + elRect.width / 2));
+      tooltip.style.left = x + 'px';
       tooltip.style.top = (-tooltip.offsetHeight - 8) + 'px';
+      if (tooltip._for !== el) tooltip._shownAt = Date.now();
+      tooltip._for = el;
+    };
+    const hide = () => { if (tooltip._for === el) { tooltip.style.display = 'none'; tooltip._for = null; } };
+    // Hover is for a mouse only: a tap also sends compatibility mouse events,
+    // including a leave right after the click, which would close it at once.
+    el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') show(); });
+    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+    el.addEventListener('focus', show);
+    el.addEventListener('blur', hide);
+    // A tap focuses (which opens) then clicks: only a later tap closes.
+    el.addEventListener('click', () => { if (tooltip._for === el && tooltip.style.display === 'block' && Date.now() - tooltip._shownAt > 400) hide(); else show(); });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hide();
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); }
     });
-    el.addEventListener('mouseleave', () => tooltip.style.display = 'none');
     bar.appendChild(el);
   });
   container.appendChild(bar);
 
   const labelRow = document.createElement('div');
   labelRow.className = 'tl-labels';
-  const tickInterval = 4 * 60 * 60 * 1000;
-  const firstTick = Math.ceil(windowStart / 3600000) * 3600000;
-  for (let t = firstTick; t <= windowEnd; t += tickInterval) {
+  // Ticks on local hours that divide by 4 (00:00, 04:00, …), stepping with
+  // setHours so a DST change keeps them on the hour.
+  const tickAt = new Date(windowStart);
+  tickAt.setMinutes(0, 0, 0);
+  if (tickAt.getTime() < windowStart) tickAt.setHours(tickAt.getHours() + 1);
+  while (tickAt.getHours() % 4 !== 0) tickAt.setHours(tickAt.getHours() + 1);
+  for (; tickAt.getTime() <= windowEnd; tickAt.setHours(tickAt.getHours() + 4)) {
+    const t = tickAt.getTime();
     const pct = ((t - windowStart) / totalMs) * 100;
     const tick = document.createElement('div');
     tick.className = 'tl-tick';
     tick.style.left = pct + '%';
+    // Labels near the ends line up with the edge instead of hanging over it.
+    if (pct < 6) { tick.style.transform = 'none'; tick.style.alignItems = 'flex-start'; }
+    else if (pct > 94) { tick.style.transform = 'translateX(-100%)'; tick.style.alignItems = 'flex-end'; }
     const d = new Date(t);
     const timeSpan = document.createElement('span');
     timeSpan.className = 'tl-time';
@@ -92,4 +122,28 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     labelRow.appendChild(tick);
   }
   container.appendChild(labelRow);
+  hideCrowdedTicks(labelRow);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => hideCrowdedTicks(labelRow)).observe(labelRow);
+}
+
+/** Hide tick labels that would overlap the one before them (narrow cards). */
+function hideCrowdedTicks(labelRow) {
+  requestAnimationFrame(() => {
+    const ticks = [...labelRow.querySelectorAll('.tl-tick')];
+    const row = labelRow.getBoundingClientRect();
+    ticks.forEach(t => {
+      t.style.visibility = '';
+      // A centred label that would hang past an edge lines up with it instead.
+      const r = t.getBoundingClientRect();
+      if (r.left < row.left) { t.style.transform = 'none'; t.style.alignItems = 'flex-start'; }
+      else if (r.right > row.right) { t.style.transform = 'translateX(-100%)'; t.style.alignItems = 'flex-end'; }
+    });
+    let lastRight = -Infinity;
+    for (const t of ticks) {
+      const r = t.getBoundingClientRect();
+      if (!r.width) continue;
+      if (r.left < lastRight + 6) { t.style.visibility = 'hidden'; continue; }
+      lastRight = r.right;
+    }
+  });
 }

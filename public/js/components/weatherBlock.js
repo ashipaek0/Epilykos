@@ -2,6 +2,7 @@ import { blockFor } from './blockRegistry.js';
 import { escapeHtml } from "../utils.js";
 import { fmtTemp, fmtNum, fmtWind, uvLabel, timeLabel, hourLabel, dayLabel, iconHtml } from "../weatherFormat.js";
 import { ensureChartJS } from "../chartLoader.js";
+import { forecastProblem } from '../forecastProblem.js';
 
 const SOURCE_LABELS = { solcast: 'Solcast', 'open-meteo': 'Open-Meteo', auto: 'Auto' };
 // In-memory last-good timestamp per source. Never persisted.
@@ -523,7 +524,7 @@ export async function updateWeatherBlock(state) {
     cards.forEach(c => c.classList.toggle('wx-failed', (!data || data.error || !data.weather) && !c._wxRendered));
     if (!data || data.error || !data.weather) {
       const lastGood = lastGoodBySource[src];
-      const msg = `Source ${label || src} unavailable${lastGood ? ` — last good ${lastGood}` : ''}`;
+      const msg = forecastProblem({ label, error: (data && data.error) || 'unavailable', lastGood, what: 'weather' });
       cards.forEach(c => { setCardError(c, msg); clearAlerts(c); });
       continue;
     }
@@ -535,7 +536,7 @@ export async function updateWeatherBlock(state) {
         c._wxRendered = true;
       } catch (err) {
         console.error('Weather block error:', err);
-        setCardError(c, `Source ${label || src} unavailable`);
+        setCardError(c, 'The weather could not be shown. It tries again with the next update.');
       }
     });
   }

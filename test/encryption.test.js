@@ -5,6 +5,7 @@
  * real data/ dir. Plain-node assert script (exit code gates run-all.js).
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -142,3 +143,4 @@ check('SECRET_FIELDS registry covers inventory', () => {
 });
 
 console.log(`\nencryption.test.js: ${passed} fixture(s) passed`);
+checks.done();

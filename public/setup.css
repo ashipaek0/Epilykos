@@ -451,3 +451,13 @@ button.wz-list-item:hover { background: var(--wz-hover); }
 .wz-step.is-skipped:not(:last-child)::after { background: var(--wz-line-soft); }
 .wz-summary li.is-skipped .wz-icon-tile { background: var(--wz-press); color: var(--wz-muted); }
 .wz-summary li.is-skipped em { font-style: normal; font-weight: 700; color: var(--wz-text); }
+/* Energy from power offers (Metrics step). */
+.wz-check { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; font-weight: 600; cursor: pointer; }
+.wz-check input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent, #f59e0b); transform: translateY(3px); }
+.wz-check .wz-hint { font-weight: 400; margin: 0; }
+/* More inverters like this one (Sources step). */
+.wz-more { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--wz-line, rgba(0,0,0,.12)); }
+.wz-more-title { margin: 0 0 4px; font-size: 0.95rem; }
+.wz-more-row { margin: 12px 0; padding: 12px; border: 1px solid var(--wz-line, rgba(0,0,0,.12)); border-radius: 12px; }
+.wz-static { margin: 6px 0 0; font-weight: 600; }
+.wz-hint.is-warn { color: var(--wz-amber-text); font-weight: 600; }

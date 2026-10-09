@@ -18,6 +18,7 @@ import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
 const watts = (w) => formatMetric(w, 'W').text;
 import { uid } from '../utils/uid.js';
+import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
 
 const flowLineObservers = new Map();
 let flowLineResizePending = new Set();
@@ -39,6 +40,7 @@ export function buildSystemTopology(block = {}) {
   container.className = 'flow-card-2';
   container.dataset.metricMap = JSON.stringify(metrics);
   container.dataset.blockId = id;
+  markBreakdown(container, config);
 
   container.innerHTML = `
     <div class="topo-grid">
@@ -168,6 +170,17 @@ export function updateSystemTopology(state) {
       setLine('.topo-line-battery', true, src, false);
     }
     setLine('.topo-line-battery', battDischarge > 10, 'var(--discharge)', true);
+
+    applyBreakdowns(container, state, [
+      { host: container.querySelector('.topo-solar'), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }], before: container.querySelector('.topo-solar-circle') },
+      { host: container.querySelector('.topo-grid-node'), title: 'Grid', specs: [{ name: mm.grid_import, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] },
+      { host: container.querySelector('.topo-home'), title: 'Home', specs: [{ name: mm.consumption, unit: 'W' }] },
+      { host: container.querySelector('.topo-battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] }
+    ]);
+
+    // Parts listed above Solar and below Battery take height from the circles.
+    const rowsOf = sel => Number(container.querySelector(sel)?.style.getPropertyValue('--bd-rows')) || 0;
+    container.style.setProperty('--topo-extra', String(rowsOf('.topo-solar') + rowsOf('.topo-battery')));
 
     // Position flow lines edge-to-edge
     positionFlowLines(container);

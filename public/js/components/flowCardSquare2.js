@@ -1,6 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
+import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
 const watts = (w) => formatMetric(w, 'W').text;
 
 
@@ -13,6 +14,7 @@ export function buildFlowCardSquare2(block = {}) {
   card.className = 'flow-card-square2';
   card.dataset.metricMap = JSON.stringify(metrics);
   card.dataset.blockId = id;
+  markBreakdown(card, config);
 
   card.innerHTML = `
     <div class="fcs2-grid">
@@ -77,6 +79,12 @@ export function updateFlowCardSquare2(state) {
     const gi = el('fcs2-icon-grid'); if (gi) { if (grid > 50) gi.style.color = 'var(--grid)'; else if (gridExport > 50) gi.style.color = 'var(--export)'; else gi.style.color = 'var(--text-secondary)'; }
     const bi = el('fcs2-icon-battery'); if (bi) { if (battPower > 50) bi.style.color = 'var(--battery)'; else if (battDischarge > 50) bi.style.color = 'var(--discharge)'; else bi.style.color = 'var(--text-secondary)'; let cl = 'fi fi-sr-battery-empty'; if (battSoc >= 76) cl = 'fi fi-sr-battery-full'; else if (battSoc >= 51) cl = 'fi fi-sr-battery-three-quarters'; else if (battSoc >= 26) cl = 'fi fi-sr-battery-half'; else if (battSoc >= 1) cl = 'fi fi-sr-battery-quarter'; bi.className = cl + ' fcs2-icon'; }
     const im = el('fcs2-inverter-mode'); if (im) { if (solar > 100) { im.textContent = 'Solar'; im.style.color = 'var(--solar)'; } else if (battIsSource) { im.textContent = 'Battery'; im.style.color = 'var(--discharge)'; } else if (grid > 50) { im.textContent = 'Grid'; im.style.color = 'var(--grid)'; } else { im.textContent = 'Idle'; im.style.color = 'var(--text-secondary)'; } }
+
+    applyBreakdowns(card, state, [
+      { host: card.querySelector(`#${uid('fcs2-solar',id)} .fcs2-info`), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }] },
+      { host: card.querySelector(`#${uid('fcs2-battery',id)} .fcs2-info`), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] },
+      { host: card.querySelector(`#${uid('fcs2-grid',id)} .fcs2-info`), title: 'Grid', specs: [{ name: mm.grid_import, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] }
+    ]);
 
     // Flow lines
     card.querySelectorAll('.fcs2-line').forEach(l => { l.classList.remove('active','reverse'); l.style.background = ''; });

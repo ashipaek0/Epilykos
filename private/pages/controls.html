@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Controls · Epilykos</title>
+  <script>
+    // Apply the saved theme before first paint (same rules as js/theme.js).
+    (function() {
+      var t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) {}
+      if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/cards.css">
+  <link rel="stylesheet" href="/settings-shell.css">
+  <link rel="stylesheet" href="/private/css/private.css">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
+</head>
+<body class="st ct-page">
+  <a class="st-skip" href="#ct-main">Skip to the controls</a>
+  <div class="st-shell">
+  <nav class="ct-nav" aria-label="Controls">
+    <div class="ct-nav-top">
+      <a href="/" class="ct-back">← Dashboard</a>
+    </div>
+    <p class="ct-nav-title">Controls</p>
+    <ul class="ct-nav-list">
+      <li><a href="#ct-switches" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/></svg><span>Safety switches</span></a></li>
+      <li><a href="#ct-cards-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Switches and selectors</span></a></li>
+      <li><a href="#ct-settings-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg><span>Device settings</span></a></li>
+      <li><a href="#ct-log-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Change log</span></a></li>
+      <li><a href="/showcase" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Card showcase</span></a></li>
+    </ul>
+    <div class="ct-nav-foot">
+      <span class="ct-nav-foot-label">Theme</span>
+      <button id="theme-toggle" class="theme-toggle ct-theme" type="button" aria-label="Switch between light and dark"><span class="theme-icon">☾</span></button>
+    </div>
+  </nav>
+
+  <div class="st-main-wrap">
+  <main id="ct-main" class="st-main ct-main" tabindex="-1">
+   <div class="ct-content">
+    <div class="st-section-head">
+      <div>
+        <h1>Controls</h1>
+        <p class="st-lede">Change inverter and battery settings. Every change is checked, read back and written to the change log.</p>
+      </div>
+    </div>
+
+    <section class="st-card ct-lock" id="ct-lock" aria-labelledby="ct-lock-title">
+      <div class="ct-lock-state">
+        <h2 id="ct-lock-title" class="ct-lock-title">Changes are locked</h2>
+        <p class="ct-lock-text" id="ct-lock-text">Enter your password to unlock changes for a few minutes. Reading values doesn't need it.</p>
+      </div>
+      <form class="ct-lock-form" id="ct-unlock-form" autocomplete="off">
+        <label for="ct-password" class="pv-visually-hidden">Password</label>
+        <input id="ct-password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <button type="submit" class="ct-btn ct-btn-primary">Unlock</button>
+      </form>
+      <button type="button" class="ct-btn" id="ct-lock-now" hidden>Lock now</button>
+      <p class="ct-msg" id="ct-lock-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="st-card ct-section" id="ct-switches" aria-labelledby="ct-switches-title">
+      <div class="st-card-head"><h2 id="ct-switches-title">Safety switches</h2></div>
+      <div class="ct-switch-row">
+        <div>
+          <div class="ct-switch-name" id="ct-allow-label">Allow device changes</div>
+          <p class="ct-help" id="ct-allow-help">Off: nothing on this page or the dashboard can change an inverter or battery setting.</p>
+        </div>
+        <button type="button" class="ct-toggle" id="ct-allow" role="switch" aria-checked="false" aria-labelledby="ct-allow-label" aria-describedby="ct-allow-help"></button>
+      </div>
+      <div class="ct-switch-row">
+        <div>
+          <div class="ct-switch-name" id="ct-expert-label">Expert register writes</div>
+          <p class="ct-help" id="ct-expert-help">Writes to any register number, outside a device's list of settings. Only for registers you have checked in your device's manual.</p>
+        </div>
+        <button type="button" class="ct-toggle" id="ct-expert" role="switch" aria-checked="false" aria-labelledby="ct-expert-label" aria-describedby="ct-expert-help"></button>
+      </div>
+      <p class="ct-msg" id="ct-switch-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="st-card ct-section" id="ct-cards-section" aria-labelledby="ct-cards-title">
+      <div class="st-card-head">
+        <h2 id="ct-cards-title">Switches and selectors</h2>
+        <a class="ct-btn" href="/editor?tab=controls-page">Edit in layout editor</a>
+      </div>
+      <p class="ct-help">Lay these out in the layout editor: pick <strong>Controls page</strong> from its dashboard menu. They only appear here.</p>
+      <div id="ct-cards" class="ct-cards"></div>
+    </section>
+
+    <section class="st-card ct-section" id="ct-settings-section" aria-labelledby="ct-settings-title">
+      <div class="st-card-head"><h2 id="ct-settings-title">Device settings</h2></div>
+      <p class="ct-help">Each change reads the setting first, checks the new value against its range, and reads it back afterwards.</p>
+      <div id="ct-devices"></div>
+    </section>
+
+    <section class="st-card ct-section" id="ct-expert-section" aria-labelledby="ct-raw-title" hidden>
+      <div class="st-card-head"><h2 id="ct-raw-title">Expert register writes</h2></div>
+      <p class="ct-help">Register numbers in decimal or hex (0x…), values as whole numbers 0–65535 in raw register units (no scaling).</p>
+      <form id="ct-raw-form" class="ct-raw" autocomplete="off">
+        <div class="ct-field"><label for="ct-raw-device">Device</label><select id="ct-raw-device" required></select></div>
+        <div class="ct-field"><label for="ct-raw-register">Register</label><input id="ct-raw-register" required placeholder="0x0069" inputmode="text"></div>
+        <div class="ct-field"><label for="ct-raw-value">Value</label><input id="ct-raw-value" required inputmode="numeric" placeholder="0–65535"></div>
+        <div class="ct-raw-actions">
+          <button type="button" class="ct-btn" id="ct-raw-read">Read</button>
+          <button type="submit" class="ct-btn ct-btn-danger">Write</button>
+        </div>
+      </form>
+      <p class="ct-msg" id="ct-raw-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="st-card ct-section" id="ct-log-section" aria-labelledby="ct-log-title">
+      <div class="st-card-head">
+        <h2 id="ct-log-title">Change log</h2>
+        <button type="button" class="ct-btn" id="ct-log-refresh">Refresh</button>
+      </div>
+      <div class="ct-table-wrap"><table class="ct-table" id="ct-log">
+        <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col">Device</th><th scope="col">From → to</th><th scope="col">Result</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+   </div>
+  </main>
+  </div>
+  </div>
+
+  <dialog id="ct-dialog" class="ct-dialog" aria-labelledby="ct-dialog-title">
+    <form method="dialog">
+      <h2 id="ct-dialog-title"></h2>
+      <p id="ct-dialog-text"></p>
+      <label class="ct-dialog-check" id="ct-dialog-check-wrap" hidden><input type="checkbox" id="ct-dialog-check"> <span id="ct-dialog-check-text"></span></label>
+      <div class="ct-dialog-actions">
+        <button value="cancel" class="ct-btn" id="ct-dialog-cancel">Cancel</button>
+        <button value="ok" class="ct-btn ct-btn-primary" id="ct-dialog-ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/private/js/controls.js"></script>
+</body>
+</html>

@@ -27,6 +27,7 @@ export function buildForecastShell(block, opts) {
     <div class="forecast-inline-error fc-error" role="alert" hidden></div>
     <div class="fc-body">
       ${opts.summary ? `
+      <div class="fc-summary">
       <section class="fc-today">
         <div class="fc-today-label">Today</div>
         <div class="fc-today-value">-- kWh<span class="fc-today-remaining" hidden>remaining</span></div>
@@ -41,7 +42,8 @@ export function buildForecastShell(block, opts) {
           <div class="fc-now-extra"></div>
         </div>
       </section>
-      <section class="fc-days"></section>` : ''}
+      <section class="fc-days"></section>
+      </div>` : ''}
       ${opts.chart ? `
       <section class="fc-chart">
         <canvas aria-label="Actual vs forecast solar power today"></canvas>

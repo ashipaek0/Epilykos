@@ -40,6 +40,7 @@ const ICON_PATHS = {
   plug: '<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 01-10 0V8zM12 16v5"/>',
   coin: '<circle cx="12" cy="12" r="8"/><path d="M14.5 9.5a2.5 2 0 00-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 01-2.5-1.5M12 6.5v11"/>',
   gauge: '<path d="M4.5 17a8.5 8.5 0 1115 0"/><path d="M12 13l4-4"/>',
+  metricTrend: '<path d="M3 18l5-6 4 3 8-9"/><path d="M3 21h18"/>',
   halfGauge: '<path d="M4 16a8 8 0 0116 0"/><path d="M12 16l4-5"/>',
   bars: '<path d="M4 7h12M4 12h16M4 17h8"/>',
   segments: '<path d="M4 8v8M8 8v8M12 8v8M16 8v8M20 8v8" stroke-dasharray="2 1"/>',
@@ -78,17 +79,22 @@ export const GROUPS = [
 // w × h are GridStack columns (of 12) × rows (50 px each).
 export const BLOCKS = {
   'flow-card-2':        { group: 'flow', name: 'System topology', desc: 'Animated flow between solar, battery, grid and home', icon: 'topology', w: 8, h: 7 },
+  'system-overview':    { group: 'flow', name: 'System overview', desc: 'Grid, battery, solar and home tiles with 24-hour sparklines, around the inverter', icon: 'topology', w: 12, h: 7 },
   'flow-card':          { group: 'flow', name: 'Flow card', desc: 'Power flow with an optional solar gauge', icon: 'flow', w: 6, h: 6 },
   'flow-card-square':   { group: 'flow', name: 'Flow square', desc: 'Square flow layout with your inverter image', icon: 'square', w: 4, h: 6 },
   'flow-card-square-2': { group: 'flow', name: 'Flow square, alternate', desc: 'Square flow layout without the inverter image', icon: 'square', w: 4, h: 6 },
 
   'metric-cards':       { group: 'values', name: 'Metric cards', desc: 'A row of large single values', icon: 'cards', w: 12, h: 3 },
+  'metric-trend':       { group: 'values', name: 'Metric trend', desc: 'A live metric with an optional history or forecast graph', icon: 'metricTrend', w: 4, h: 4 },
+  'dual-metric':        { group: 'values', name: 'Dual metric', desc: 'Compare two live metric values side by side', icon: 'cards', w: 4, h: 3 },
   'multi-value':        { group: 'values', name: 'Multi-value list', desc: 'Label, value and unit rows', icon: 'list', w: 4, h: 4 },
   'text-metric':        { group: 'values', name: 'Text metric', desc: "One metric's current value as text", icon: 'text', w: 4, h: 2 },
-  'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 4, h: 4 },
+  'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours and a 24-hour timeline', icon: 'plug', w: 6, h: 6 },
+  'energy-totals':      { group: 'values', name: 'Day totals', desc: 'Energy to and from the grid, consumption and solar today, against forecast', icon: 'cards', w: 12, h: 3 },
   'savings-summary':    { group: 'values', name: 'Savings', desc: 'Savings today, this week, month and all time', icon: 'coin', w: 4, h: 4 },
 
   'gauge-card':         { group: 'gauges', name: 'Gauge', desc: 'One value on a round dial', icon: 'gauge', w: 3, h: 5 },
+  'configurable-gauge': { group: 'gauges', name: 'Configurable gauge', desc: 'A fully configurable dial with bands and history', icon: 'gauge', w: 4, h: 5 },
   'half-gauge':         { group: 'gauges', name: 'Half gauge', desc: 'One value on a semicircle', icon: 'halfGauge', w: 3, h: 3 },
   'half-gauge-2':       { group: 'gauges', name: 'Half gauge, centre zero', desc: 'Zero at the top; fills right or left for negative values', icon: 'halfGauge', w: 3, h: 3 },
   'bar-gauge':          { group: 'gauges', name: 'Bar gauge', desc: 'Horizontal bars for several metrics', icon: 'bars', w: 4, h: 4 },
@@ -99,6 +105,10 @@ export const BLOCKS = {
 
   'chart-power':        { group: 'charts', name: 'Power chart', desc: 'Solar, load, battery and grid power over time', icon: 'chartLine', w: 12, h: 6 },
   'chart-energy':       { group: 'charts', name: 'Energy chart', desc: 'Daily solar, grid and load energy as bars', icon: 'chartArea', w: 12, h: 6 },
+  'energy-day':         { group: 'charts', name: 'Energy day', desc: 'Hourly consumption, solar and generator with forecast, and battery charge', icon: 'chartArea', w: 12, h: 7 },
+  'energy-flows':       { group: 'charts', name: 'Energy flows', desc: 'Where each hour\'s energy came from and went: solar, battery, grid, generator, home', icon: 'stack', w: 12, h: 6 },
+  'energy-costs':       { group: 'charts', name: 'Costs and earnings', desc: 'Grid and generator costs, grid earnings and battery wear per hour, with day totals', icon: 'coin', w: 12, h: 8 },
+  'energy-tabs':        { group: 'charts', name: 'Energy, tabbed', desc: 'Energy day, flows, costs and day totals in one card, one tab each', icon: 'layers', w: 12, h: 9 },
   'chart-metric':       { group: 'charts', name: 'Metric chart', desc: 'Any metrics over time, with units and scale', icon: 'diamond', w: 12, h: 6 },
   'data-table-daily':   { group: 'charts', name: 'Daily table', desc: 'Day-by-day energy totals', icon: 'table', w: 12, h: 6 },
   'data-table-monthly': { group: 'charts', name: 'Monthly table', desc: 'Month-by-month energy totals', icon: 'calendar', w: 12, h: 6 },
@@ -109,8 +119,8 @@ export const BLOCKS = {
   'forecast-pvtoday':   { group: 'forecast', name: 'PV today', desc: 'Summary bar, weather timeline and chart', icon: 'panel', w: 6, h: 6 },
   'weather-block':      { group: 'forecast', name: 'Weather', desc: 'Conditions, forecast and alerts', icon: 'cloud', w: 6, h: 5 },
 
-  'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns a Home Assistant entity on or off', icon: 'toggle', w: 3, h: 2 },
-  'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity', icon: 'select', w: 4, h: 2 },
+  'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns an entity on or off, on the Controls page', icon: 'toggle', w: 3, h: 2 },
+  'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity, on the Controls page', icon: 'select', w: 4, h: 3 },
 
   'text-card':          { group: 'content', name: 'Text', desc: 'A note or heading you write', icon: 'text', w: 6, h: 2 },
   'iframe-card':        { group: 'content', name: 'Embed', desc: 'Another web page in a frame', icon: 'embed', w: 6, h: 6 }

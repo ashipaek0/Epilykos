@@ -13,6 +13,7 @@ import { updatePvToday } from './components/pvToday.js';
 import { ensureChartJS } from './chartLoader.js';
 import { escapeHtml } from './utils.js';
 import { fmtTemp, fmtKwh, fmtNum, dayLabel, localDate, iconHtml } from './weatherFormat.js';
+import { forecastProblem } from './forecastProblem.js';
 
 const charts = new Set();
 export function clearSparklineCharts() {
@@ -52,6 +53,19 @@ function forecastUrlFor(source, restMap) {
   // S5-front-A: per-card rest_map for rest: sources only.
   if (source.startsWith('rest:')) url += `&rest_map=${encodeURIComponent(JSON.stringify(restMap || {}))}`;
   return url;
+}
+
+// Shared in-flight request seam for every forecast card family. The backend's
+// selector/REST mapping and cache remain authoritative; this only coalesces
+// simultaneous identical frontend requests.
+const forecastInflight = new Map();
+export function getSharedForecastData(source = 'auto', restMap = {}) {
+  const url = forecastUrlFor(source || 'auto', normalizeRestMap(restMap));
+  if (!forecastInflight.has(url)) {
+    const request = fetch(url).then(response => response.json()).finally(() => forecastInflight.delete(url));
+    forecastInflight.set(url, request);
+  }
+  return forecastInflight.get(url);
 }
 
 /** Per-card inline error (AC8). Never hides the card itself. */
@@ -193,8 +207,9 @@ async function renderChart(card, data, historyData) {
   const datasets = [];
   if (band.length) {
     datasets.push(
-      { label: 'P10', data: band.map(p => ({ x: p.x, y: p.lo })), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.4 },
-      { label: 'P10–P90', data: band.map(p => ({ x: p.x, y: p.hi })), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.4 }
+      // Solcast's P10-P90 band: output should land in this range 8 times in 10.
+      { label: 'Low estimate', bandEdge: 'lo', data: band.map(p => ({ x: p.x, y: p.lo })), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.4 },
+      { label: 'Likely range', bandEdge: 'hi', data: band.map(p => ({ x: p.x, y: p.hi })), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.4 }
     );
   }
   datasets.push(
@@ -210,10 +225,13 @@ async function renderChart(card, data, historyData) {
       y: { beginAtZero: true, suggestedMax: capacity || undefined, grid: { color: grid }, ticks: { color: muted, maxTicksLimit: 4, font: { size: 10 }, callback: v => `${v} kW` } }
     },
     plugins: {
-      legend: { display: true, labels: { color: muted, boxWidth: 12, font: { size: 10 }, filter: i => i.text !== 'P10' } },
+      legend: { display: true, labels: { color: muted, boxWidth: 12, font: { size: 10 }, filter: (i, data) => data.datasets[i.datasetIndex]?.bandEdge !== 'lo' } },
       tooltip: {
-        filter: i => i.dataset.label !== 'P10',
-        callbacks: { label: (c) => `${c.dataset.label}: ${Number(c.parsed.y).toFixed(2)} kW` }
+        filter: i => i.dataset.bandEdge !== 'lo',
+        callbacks: { label: (c) => {
+          if (c.dataset.bandEdge === 'hi') { const lo = band[c.dataIndex]?.lo; return `Likely range: ${Number(lo).toFixed(2)}–${Number(c.parsed.y).toFixed(2)} kW`; }
+          return `${c.dataset.label}: ${Number(c.parsed.y).toFixed(2)} kW`;
+        } }
       }
     }
   };
@@ -264,7 +282,7 @@ export async function updateForecast() {
 
   const entries = [...groups.values()];
   const results = await Promise.all(entries.map(async (g) => {
-    try { return await (await fetch(forecastUrlFor(g.src, g.restMap))).json(); }
+    try { return await getSharedForecastData(g.src, g.restMap); }
     catch { return { error: true, source: g.src }; }
   }));
   let historyData = null;
@@ -286,7 +304,7 @@ export async function updateForecast() {
       card.classList.toggle('fc-failed', !!failed && !card._fcRendered);
       if (failed) {
         const lastGood = lastGoodBySource[g.src];
-        setCardError(card, `Source ${label || g.src} unavailable${lastGood ? ` — last good ${lastGood}` : ''}${data && typeof data.error === 'string' ? ` (${data.error})` : ''}`);
+        setCardError(card, forecastProblem({ label, error: data && typeof data.error === 'string' ? data.error : 'unavailable', lastGood }));
         continue;
       }
       setCardError(card, '');

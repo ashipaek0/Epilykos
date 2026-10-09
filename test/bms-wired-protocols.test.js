@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/bms-jbd-jk.test.js — wired JBD and JK-BMS protocol decoders.
  *
@@ -136,4 +137,5 @@ function fakePort(replies, { junk = Buffer.alloc(0), chunk = 7 } = {}) {
   }
   console.log('ok - profiles');
   console.log('# bms-jbd-jk-pace: all passed');
+  checks.done();
 })().catch(e => { console.error('not ok -', e); process.exit(1); });

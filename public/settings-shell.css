@@ -448,3 +448,100 @@ body.st {
 
 .st #settings-form .device-card .form-row > button,
 .st #settings-form .device-card .form-row > .fetch-btn { align-self: end; }
+
+/* ── Combined metrics (Settings > Metrics) ─────────────────────────────── */
+.cm-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 10px; }
+.cm-suggestions .st-help { margin: 0 4px 0 0; }
+.st-chip { border: 1px dashed var(--st-line); background: var(--st-panel); color: var(--st-text); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.st-chip:hover { border-style: solid; background: var(--st-hover); }
+.cm-list { display: flex; flex-direction: column; gap: 6px; }
+.cm-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--st-line-soft); border-radius: 10px; }
+.cm-main { min-width: 0; display: flex; flex-direction: column; }
+.cm-main strong { overflow-wrap: anywhere; }
+.cm-unit { color: var(--st-muted); font-size: 0.8rem; }
+.cm-sum { color: var(--st-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-state { font-size: 0.82rem; color: var(--st-muted); font-variant-numeric: tabular-nums; max-width: 22ch; text-align: right; }
+.cm-state.is-ok { color: var(--st-text); font-weight: 700; }
+.cm-state.is-warn { color: var(--st-amber-text); }
+.cm-state.is-off { color: var(--st-off); }
+.cm-editor { margin-top: 12px; padding: 14px; border: 1px solid var(--st-line); border-radius: 12px; background: var(--st-hover); }
+.cm-editor h3 { margin: 0 0 10px; font-size: 1rem; }
+.cm-label { display: block; font-weight: 600; margin-bottom: 4px; }
+.cm-inputs { margin: 0 0 6px; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
+.cm-input { display: flex; align-items: center; gap: 8px; }
+.cm-input-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cm-input em { color: var(--st-muted); font-style: normal; }
+.cm-weight { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; }
+.cm-weight .input { width: 6em; }
+.cm-lbl.input { flex: 0 1 13em; min-width: 7em; }
+@media (max-width: 600px) { .cm-input { flex-wrap: wrap; } .cm-lbl.input { flex: 1 1 100%; order: 5; } }
+.cm-more { margin: 6px 0; }
+.cm-more summary { cursor: pointer; font-weight: 600; }
+.cm-preview p { margin: 4px 0; font-size: 0.88rem; }
+.cm-spacer { flex: 1; }
+.st-help.is-error { color: var(--st-err); }
+@media (max-width: 640px) {
+  .cm-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .cm-state { grid-column: 2 / -1; text-align: left; max-width: none; }
+}
+.st-callout { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0 0 14px; border: 1px solid var(--st-line); border-left: 3px solid var(--st-amber); border-radius: 10px; background: var(--st-panel); }
+.st-callout > [data-icon] { color: var(--st-amber-text); flex-shrink: 0; }
+.st-callout p { margin: 0; flex: 1; min-width: 0; font-size: 0.9rem; }
+@media (max-width: 640px) { .st-callout { flex-wrap: wrap; } }
+
+/* ── PV arrays (Settings > Forecast > Panels) ──────────────────────────── */
+.pv-arrays { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.pv-array { border: 1px solid var(--st-line-soft); border-radius: 12px; padding: 12px; }
+.pv-array-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.pv-array-head .pv-name { flex: 1; min-width: 0; font-weight: 700; }
+.pv-array-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pv-array-grid .st-field { margin: 0; }
+@media (max-width: 860px) { .pv-array-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .pv-array-grid { grid-template-columns: 1fr; } }
+
+/* ── Battery banks (Sources > BMS) ─────────────────────────────────────── */
+.bank-subhead { margin: 14px 0 6px; font-size: 0.78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--st-muted); }
+.bank-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.bank-function-row { padding: 6px 0; border-bottom: 1px solid var(--st-line-soft); }
+.bank-fn-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.bank-fn-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 6px; }
+.bank-fn-field { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; font-weight: 600; color: var(--st-muted); min-width: 0; }
+.bank-fn-field .input { width: 100%; min-width: 0; }
+.bank-fn-weight-note { margin: 4px 0 0; }
+.bank-function-row { padding: 10px 0; }
+@media (max-width: 560px) { .bank-fn-top { grid-template-columns: 1fr; } }
+.cm-match { display: flex; gap: 8px; margin-top: 8px; }
+.cm-match .input { flex: 1; min-width: 0; }
+.cm-matches { margin-top: 8px; padding: 10px; border: 1px dashed var(--st-line); border-radius: 10px; background: var(--st-panel); }
+.cm-match-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 12px; margin: 6px 0 10px; max-height: 260px; overflow: auto; }
+.cm-match-item { display: flex; align-items: baseline; gap: 6px; font-size: 0.88rem; overflow-wrap: anywhere; }
+
+/* Settings › Metrics: all metrics list */
+.st .status.warning { color: var(--st-amber-text); }
+.st .status.warning::before { content: "⚠ "; }
+#metrics-status:empty { display: none; }
+#metrics-status { display: block; margin: 0 0 10px; line-height: 1.45; }
+.st .st-table-scroll { max-height: min(32rem, 70vh); overflow: auto; }
+.st .st-table-scroll thead th { position: sticky; top: 0; background: var(--st-panel); z-index: 1; }
+.st #metrics-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st #metrics-table tr.is-never td { color: var(--st-muted); }
+.st #metrics-table td:last-child { text-align: right; white-space: nowrap; }
+.st #metrics-table .st-btn { min-height: 32px; padding: 0 10px; font-size: 0.8rem; }
+.st .st-count { font-weight: 600; color: var(--st-muted); font-size: 0.85em; }
+/* The old design faded Delete until the row was hovered: invisible intent on touch screens. */
+.st #metrics-table .delete-metric-btn { opacity: 1; }
+.st #metrics-table .st-metric-age { display: none; }
+@media (max-width: 600px) {
+  .st #metrics-table th:nth-child(3), .st #metrics-table td:nth-child(3),
+  .st #metrics-table th:nth-child(4), .st #metrics-table td:nth-child(4) { display: none; }
+  .st #metrics-table .st-metric-age { display: block; font-size: 0.75rem; color: var(--st-muted); margin-top: 2px; }
+  .st #metrics-table td:first-child { overflow-wrap: anywhere; }
+}
+@media (max-width: 600px) {
+  .st #metrics-table { min-width: 0; width: 100%; table-layout: auto; }
+  .st #metrics-table td, .st #metrics-table th { padding-left: 6px; padding-right: 6px; }
+  .st #metrics-table td:first-child { overflow-wrap: normal; word-break: normal; }
+}
+@media (max-width: 600px) { .st #metrics-table th { white-space: normal; } }
+@media (max-width: 600px) { .st #metrics-table td.num { white-space: normal; } }
+#cm-status:empty { display: none; } #cm-status { display: block; margin: 0 0 8px; }
