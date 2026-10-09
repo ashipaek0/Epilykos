@@ -20,7 +20,9 @@ const historyColumns = [
     [`${name}_avg`, 'REAL'], [`${name}_min`, 'REAL'], [`${name}_max`, 'REAL'], [`${name}_count`, 'INTEGER']
   ]),
   ...['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export'].map(name => [`daily_${name}_last`, 'REAL']),
-  ...['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc'].flatMap(name => [
+  // Generator input, added by migration.
+  ['generator_avg', 'REAL'], ['generator_min', 'REAL'], ['generator_max', 'REAL'], ['generator_count', 'INTEGER'], ['daily_generator_last', 'REAL'],
+  ...['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'generator'].flatMap(name => [
     [`${name}_last_value`, 'REAL'], [`${name}_last_timestamp`, 'INTEGER']
   ]),
   ['battery_power_sum', 'REAL'], ['battery_power_avg', 'REAL'], ['battery_power_min', 'REAL'],
@@ -50,5 +52,7 @@ assert.deepStrictEqual(historyInfo.filter(c => c.pk).map(c => [c.pk, c.name]), [
 assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_metrics_5m_metric_bucket'").get());
 assert.throws(() => db.prepare('INSERT INTO metrics_5m (bucket_start, metric, value_count) VALUES (?, ?, ?)').run(0, 'x', -1));
 assert.throws(() => db.prepare('INSERT INTO history_5m (bucket_start, consumption_count) VALUES (?, ?)').run(0, -1));
+assert.throws(() => db.prepare('INSERT INTO history_5m (bucket_start, generator_count) VALUES (?, ?)').run(1, -1), 'generator count can\'t be negative');
+assert.ok(db.prepare('PRAGMA table_info(history)').all().some(c => c.name === 'generator') && db.prepare('PRAGMA table_info(history)').all().some(c => c.name === 'daily_generator'), 'history has the generator columns');
 console.log('ok - retention schema');
 checks.done();

@@ -3,15 +3,16 @@
  *
  * One stacked bar per hour on a signed kWh axis:
  *   above zero  energy from solar: to the home, the battery, the grid
- *   below zero  energy from the battery and the grid: battery to home,
- *               grid to home, battery to grid, grid to battery
+ *   below zero  energy from the battery, the grid and a generator: battery
+ *               to home, grid to home, battery to grid, grid to battery,
+ *               generator to home, generator to battery
  * Hours so far are solid; the rest of today is the forecast (hatched),
  * from the battery projection, so it needs a battery capacity in Settings.
  *
  * Colours: the validated categorical palette, picked by meaning and ordered so
  * every pair of touching segments stays apart for colour-blind readers in both
  * themes (checked with the dataviz validator; worst adjacent pair dE 9.1 light,
- * 8.4 dark).
+ * 8.4 dark; the generator segments, teal as on every chart, add no worse pair).
  *
  * @module components/energyFlows
  */
@@ -29,8 +30,10 @@ const FLOWS = [
   { key: 'solar_to_grid', label: 'Solar to grid', side: 1, light: '#eb6834', dark: '#d95926' },
   { key: 'battery_to_home', label: 'Battery to home', side: -1, light: '#2a78d6', dark: '#3987e5' },
   { key: 'grid_to_home', label: 'Grid to home', side: -1, light: '#e34948', dark: '#e66767' },
+  { key: 'generator_to_home', label: 'Generator to home', side: -1, light: '#008f96', dark: '#00a3a3' },
   { key: 'battery_to_grid', label: 'Battery to grid', side: -1, light: '#4a3aa7', dark: '#9085e9' },
-  { key: 'grid_to_battery', label: 'Grid to battery', side: -1, light: '#e87ba4', dark: '#d55181' }
+  { key: 'grid_to_battery', label: 'Grid to battery', side: -1, light: '#e87ba4', dark: '#d55181' },
+  { key: 'generator_to_battery', label: 'Generator to battery', side: -1, light: '#5f8a00', dark: '#6f9a10' }
 ];
 export const ENERGY_FLOW_KEYS = FLOWS.map(f => f.key);
 
@@ -44,7 +47,7 @@ const sideLabels = {
     const { left, top, bottom } = chart.chartArea, y = chart.scales.y, ctx = chart.ctx, t = tokens();
     ctx.save(); ctx.fillStyle = t.text; ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'left';
     if (y.max > 0) { ctx.textBaseline = 'top'; ctx.fillText('↑ From solar', left + 6, top + 4); }
-    if (y.min < 0) { ctx.textBaseline = 'bottom'; ctx.fillText('↓ From battery and grid', left + 6, bottom - 4); }
+    if (y.min < 0) { ctx.textBaseline = 'bottom'; ctx.fillText((chart.options.plugins.efSides && chart.options.plugins.efSides.low) || '↓ From battery and grid', left + 6, bottom - 4); }
     ctx.restore();
   }
 };
@@ -157,6 +160,7 @@ function render(card) {
         }
       },
       plugins: {
+        efSides: { low: used.some(f => f.key.startsWith('generator_')) ? '↓ From battery, grid and generator' : '↓ From battery and grid' },
         legend: { display: false },
         tooltip: {
           filter: item => item.raw != null && item.raw !== 0,

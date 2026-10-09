@@ -36,13 +36,18 @@ function check(name, fn) { fn(); passed++; console.log(`ok - ${name}`); }
 async function checkAsync(name, fn) { await fn(); passed++; console.log(`ok - ${name}`); }
 
 const HISTORY_FIELDS = ['consumption','solar','battery_charge','battery_discharge','grid_import','grid_export','battery_soc','daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export'];
+// All-time totals cache finished days; these helpers write straight into past
+// days (the app only writes the current time), so they clear it.
+const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesReader'));
 function insertHistoryRow(ts, overrides = {}) {
+  clearDailySnapshotCache(getDb());
   const row = { consumption: 0, solar: 0, battery_charge: 0, battery_discharge: 0, grid_import: 0, grid_export: 0, battery_soc: 0, daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0, daily_battery_discharge: 0, daily_grid_import: 0, daily_grid_export: 0, ...overrides };
   const cols = ['timestamp', ...HISTORY_FIELDS];
   db.prepare(`INSERT INTO history(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
     .run(ts, ...HISTORY_FIELDS.map(f => row[f]));
 }
 function insertHistory5m(bucketStart, overrides = {}) {
+  clearDailySnapshotCache(getDb());
   const cols = ['bucket_start',
     'consumption_avg','consumption_min','consumption_max','consumption_count',
     'solar_avg','solar_min','solar_max','solar_count',

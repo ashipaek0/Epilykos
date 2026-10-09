@@ -8,8 +8,8 @@ const ROLLUP_INTERVAL_MS = 60 * 60 * 1000;
 const RETENTION_SECONDS = 30 * 24 * 60 * 60;
 const BUCKET_SECONDS = 300;
 const BATCH_SIZE = 1000;
-const INSTANT_FIELDS = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc'];
-const DAILY_FIELDS = ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'];
+const INSTANT_FIELDS = ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'generator'];
+const DAILY_FIELDS = ['daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator'];
 
 function bucketOf(timestamp) {
   return Math.floor(timestamp / BUCKET_SECONDS) * BUCKET_SECONDS;
