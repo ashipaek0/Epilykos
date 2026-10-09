@@ -74,7 +74,7 @@ function setStatus(s) {
     b.disabled = !on || (id === 'ct-expert' && !status.writesEnabled);
   }
   $('ct-expert-section').hidden = !status.expertEnabled;
-  document.querySelectorAll('[data-needs-unlock]').forEach(el => { el.disabled = !on || !status.writesEnabled; });
+  document.querySelectorAll('[data-needs-unlock]').forEach(el => { el.dataset.locked = String(!on || !status.writesEnabled); el.disabled = el.dataset.locked === 'true' || el.dataset.blocked === 'true' || el.dataset.busy === 'true'; });
   $('ct-cards').toggleAttribute('inert', !on);
   $('ct-cards').classList.toggle('is-locked', !on);
 }
@@ -145,62 +145,83 @@ let devices = [];
 function settingRow(dev, s) {
   const row = document.createElement('tr');
   const id = `ct-${dev.name}-${s.name}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const isSwitch = s.type === 'switch';
+  const isSwitch = s.type === 'switch', isSelect = s.type === 'select';
   row.innerHTML = `<th scope="row"><div class="ct-set-name"></div><div class="ct-help"></div></th>
     <td class="ct-current" aria-live="polite">—</td>
-    <td><label class="pv-visually-hidden" for="${id}"></label>${isSwitch
-      ? `<select id="${id}" class="ct-input"><option value="">Choose</option><option value="on">On</option><option value="off">Off</option></select>`
+    <td><label class="pv-visually-hidden" for="${id}"></label>${isSwitch || isSelect
+      ? `<select id="${id}" class="ct-input"><option value="">Choose</option></select>`
       : `<input type="number" id="${id}" class="ct-input">`}</td>
     <td class="ct-row-actions"><button type="button" class="ct-btn ct-read">Read</button> <button type="button" class="ct-btn ct-btn-primary ct-change" data-needs-unlock>Change</button></td>`;
   row.querySelector('.ct-set-name').textContent = s.label;
-  row.querySelector('.ct-help').textContent = isSwitch ? s.description : `${s.description} Range ${s.min}–${s.max}${s.unit ? ' ' + s.unit : ''}.`;
+  row.querySelector('.ct-help').textContent = s.description;
   row.querySelector('label').textContent = `New value for ${s.label}`;
-  const input = row.querySelector('input, select');
-  if (!isSwitch) Object.assign(input, { min: s.min, max: s.max, step: s.step });
-  const show = v => (isSwitch ? (v === 'on' ? 'On' : v === 'off' ? 'Off' : '—') : fmt(v, s.unit));
+  const input = row.querySelector('input, select'), change = row.querySelector('.ct-change');
+  const options = (s.allowed || []).map(o => typeof o === 'object' ? o : { value: o, label: String(o) });
+  if (isSwitch) options.push(...(dev.kind === 'bms' ? [{ value:'on',label:'On' },{ value:'off',label:'Off' }] : [{ value:true,label:'On' },{ value:false,label:'Off' }]));
+  if (isSwitch || isSelect) for (const o of options) { const opt = document.createElement('option'); opt.value = String(o.value); opt.textContent = o.label; input.appendChild(opt); }
+  if (s.type === 'number') Object.assign(input, { min: s.min, max: s.max, step: s.step });
+  const show = v => isSwitch ? (v === true || v === 'on' ? 'On' : v === false || v === 'off' ? 'Off' : '—') : isSelect ? ((options.find(o => String(o.value) === String(v)) || {}).label || `Unknown (${v})`) : fmt(v, s.unit);
   const cur = row.querySelector('.ct-current');
   const msg = document.createElement('tr');
   msg.className = 'ct-row-msg'; msg.innerHTML = '<td colspan="4" role="status" aria-live="polite"></td>';
   const say = (text, bad = false) => { msg.firstChild.textContent = text; msg.classList.toggle('is-bad', bad); };
-  let shown = null;
+  let shown = null, blocked = true, inflight = false, unverified = false;
+  const updateBlocked = reason => { blocked = !!reason; change.dataset.blocked = String(blocked); change.disabled = blocked || change.dataset.locked === 'true' || inflight; if (reason) say(reason, true); };
+  updateBlocked(s.blockedReason || (s.writable === false ? 'Read the device first to verify this setting.' : 'Read the device first.'));
   const read = async () => {
-    cur.textContent = 'Reading…';
-    const r = await api('/read', { device: dev.name, setting: s.name });
-    if (!r.ok) { cur.textContent = '—'; say(r.data.error || 'Could not read it.', true); return null; }
-    shown = r.data.value;
-    cur.textContent = show(shown);
-    if (!r.data.inRange) say(`The device reports a value outside ${s.min}–${s.max}${s.unit ? ' ' + s.unit : ''}. This setting can't be changed here until that's checked.`, true);
-    else say('');
-    if (input.value === '') input.value = shown;
-    return shown;
+    if (inflight) return null;
+    const wasUnverified = unverified; unverified = false;
+    cur.textContent = 'Reading…'; change.dataset.blocked = 'true'; change.disabled = true;
+    try {
+      const r = await api('/read', { device: dev.name, setting: s.name });
+      if (!r.ok) { shown = null; cur.textContent = '—'; input.value = ''; updateBlocked(r.data.error || 'Could not read it. Read again before changing.'); return null; }
+      const d = r.data; shown = d.value; cur.textContent = show(shown);
+      if (d.capability) {
+        const c = d.capability; options.splice(0, options.length, ...((c.allowed || []).map(o => typeof o === 'object' ? o : { value:o, label:String(o) })));
+        if (isSwitch && !options.length) options.push({ value:true,label:'On' },{ value:false,label:'Off' });
+        if (isSelect) { input.replaceChildren(); const blank=document.createElement('option'); blank.value=''; blank.textContent='Choose'; input.appendChild(blank); for (const o of options) { const opt=document.createElement('option'); opt.value=String(o.value); opt.textContent=o.label; input.appendChild(opt); } }
+        if (s.type === 'number') { const min=c.min ?? s.min,max=c.max ?? s.max,step=c.step ?? s.step; Object.assign(input,{min,max,step}); row.querySelector('.ct-help').textContent=`${s.description} Range ${min}–${max}${s.unit ? ' '+s.unit : ''}, step ${step}.`; }
+      }
+      const reason = d.blockedReason || (d.writable === false ? 'This setting is read-only for the detected device.' : null) || (d.inRange === false ? `Current value is outside the supported range (${input.min}–${input.max}).` : null) || (!options.length && isSelect ? 'No verified choices are available.' : null);
+      updateBlocked(reason);
+      if (!blocked) { if (isSwitch) input.value=String(shown); else if (input.value === '' || wasUnverified) input.value=shown; }
+      if (!reason) say('');
+      return shown;
+    } catch (e) { shown=null; cur.textContent='—'; input.value=''; updateBlocked('Could not read it. Read again before changing.'); return null; }
   };
   row.querySelector('.ct-read').addEventListener('click', read);
-  row.querySelector('.ct-change').addEventListener('click', async () => {
+  change.addEventListener('click', async () => {
+    if (inflight || blocked || change.dataset.locked === 'true' || unverified) return;
     const value = input.value.trim();
-    if (isSwitch && value === '') { say('Choose On or Off.', true); input.focus(); return; }
-    if (!isSwitch && (value === '' || !input.checkValidity())) { say(`Enter a value from ${s.min} to ${s.max}${s.unit ? ' ' + s.unit : ''}, in steps of ${s.step}.`, true); input.focus(); return; }
-    if (shown === null && (await read()) === null) return;
-    const wanted = isSwitch ? value : Number(value);
+    if ((isSwitch || isSelect) && value === '') { say('Choose a value.', true); input.focus(); return; }
+    if (!isSwitch && !isSelect && (value === '' || !input.checkValidity())) { say(`Enter a value from ${input.min} to ${input.max}${s.unit ? ' '+s.unit : ''}, in steps of ${input.step}.`, true); input.focus(); return; }
+    if (shown === null) { say('Read the current value before changing this setting.', true); return; }
+    const wanted = isSwitch ? (dev.kind === 'bms' ? value : value === 'true') : isSelect ? ((options.find(o => String(o.value) === value) || {}).value) : Number(value);
     if (wanted === shown) { say('That is already the current value.'); return; }
-    const cutsPower = isSwitch && s.name === 'discharging' && wanted === 'off';
-    const yes = await ask({
-      title: isSwitch ? `Turn ${s.label.toLowerCase()} ${wanted}?` : `Change ${s.label}?`,
-      text: cutsPower ? `${dev.name}: the pack stops supplying power, so everything it powers goes off now (possibly including this system). You may need to reach the pack to turn it back on.`
-        : isSwitch ? `${dev.name}: ${s.label.toLowerCase()} goes from ${show(shown)} to ${show(wanted)} straight away.`
-          : `${dev.name}: from ${fmt(shown, s.unit)} to ${fmt(wanted, s.unit)}. The inverter starts using it straight away.`,
-      ok: isSwitch ? `Turn ${wanted}` : 'Change', danger: true,
-      check: cutsPower ? 'I understand this cuts the power this battery supplies' : ''
-    });
-    if (!yes) return;
-    say('Changing…');
-    const r = await api('/change', { device: dev.name, setting: s.name, value: wanted, expected: shown });
-    if (r.ok) { shown = r.data.value; cur.textContent = show(shown); say(r.data.unchanged ? 'It was already set to that.' : `Done. The device now reports ${show(shown)}.`); }
-    else {
-      if (r.data.current !== undefined) { shown = r.data.current; cur.textContent = show(shown); }
-      if (r.data.value !== undefined) { shown = r.data.value; cur.textContent = show(shown); }
-      say(r.data.error || 'The change failed.', true);
-    }
-    loadLog();
+    const cutsPower = isSwitch && s.name === 'discharging' && (wanted === 'off' || wanted === false);
+    inflight = true; change.dataset.busy = 'true'; change.disabled = true;
+    try {
+      const yes = await ask({
+        title: isSwitch ? `Turn ${s.label.toLowerCase()} ${wanted}?` : `Change ${s.label}?`,
+        text: cutsPower ? `${dev.name}: the pack stops supplying power, so everything it powers goes off now (possibly including this system). You may need to reach the pack to turn it back on.`
+          : isSwitch ? `${dev.name}: ${s.label.toLowerCase()} goes from ${show(shown)} to ${show(wanted)} straight away.`
+            : `${dev.name}: from ${fmt(shown, s.unit)} to ${fmt(wanted, s.unit)}. The inverter starts using it straight away.`,
+        ok: isSwitch ? `Turn ${wanted}` : 'Change', danger: true,
+        check: cutsPower ? 'I understand this cuts the power this battery supplies' : ''
+      });
+      if (!yes || blocked || change.dataset.locked === 'true') return;
+      say('Changing…');
+      const r = await api('/change', { device: dev.name, setting: s.name, value: wanted, expected: shown });
+      if (r.ok) { shown = r.data.value; cur.textContent = show(shown); say(r.data.unchanged ? 'It was already set to that.' : `Done. The device now reports ${show(shown)}.`); }
+      else {
+        if (r.data.current !== undefined) { shown = r.data.current; cur.textContent = show(shown); }
+        if (r.data.value !== undefined) { shown = r.data.value; cur.textContent = show(shown); }
+        if (r.data.written || r.data.status === 'sent_unverified') { shown=null; unverified=true; cur.textContent='Sent; read to check'; updateBlocked('Sent, but not verified. Read the device before making any further change.'); }
+        else if (r.data.current === undefined && r.data.value === undefined) { shown=null; updateBlocked('Change failed. Read the device before trying again.'); }
+        say(r.data.error || 'The change failed.', true);
+      }
+      loadLog();
+    } finally { inflight=false; delete change.dataset.busy; change.disabled=blocked || change.dataset.locked === 'true'; }
   });
   return [row, msg, read];
 }

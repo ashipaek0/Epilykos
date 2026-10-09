@@ -26,6 +26,7 @@ let pollIntervals = [];
 let growattServer = null;
 let luxpowerPollers = [];
 const profileCache = new Map();
+const phocosInstances = new Map();
 
 
 /**
@@ -74,6 +75,7 @@ function startDonglePolling() {
         logger.warn(`[dongle] ${inst.name}: instance skipped — ${err.message}`);
         continue;
       }
+      if (profile.capabilities && profile.capabilities.write === true) phocosInstances.set(inst.name, { instance: inst, profile, transport });
       const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
       const poll = singleFlight(inst, () => pollJsonInstance(inst, transport, profile));
       pollIntervals.push(setInterval(poll, intervalMs));
@@ -150,6 +152,7 @@ function startDonglePolling() {
 function stopDonglePolling() {
   pollIntervals.forEach(clearInterval);
   pollIntervals = [];
+  phocosInstances.clear();
   for (const entry of luxpowerPollers) {
     clearInterval(entry.intervalId);
     if (entry.transport) entry.transport.stop();
@@ -417,6 +420,17 @@ async function pollJsonInstance(instance, transport, profile) {
         metricName = prefix + field.name;
       }
 
+      // String-typed profile fields (for example Phocos operating_mode) are
+      // categorical values. They require an explicit user mapping and must go
+      // through queueMetricValue unchanged so they are stored as value_text.
+      if (field.type === 'string') {
+        if (!pathToMetric) continue;
+        metrics[metricName] = String(raw);
+        if (field.unit) units[metricName] = field.unit;
+        continue;
+      }
+
+      // Keep legacy JSON transports' numeric-string coercion unchanged.
       if (typeof raw === 'string') {
         raw = parseInt(raw, 10);
         if (isNaN(raw)) continue;
@@ -683,6 +697,29 @@ function getProfileById(id) {
   } catch (e) {
     return null;
   }
+}
+
+async function phocosSettings(deviceName) {
+  const dev = JSON.parse(getConfig('dongle_config') || '[]').find(d => d && d.name === deviceName && d.enabled);
+  if (!dev) return { error: 'Dongle device not found or disabled' };
+  const profile = getProfileById(dev.profile);
+  if (!profile || profile.protocol !== 'ble-gatt' || !profile.capabilities || profile.capabilities.write !== true) return { error: 'This device has no Phocos settings catalogue' };
+  let entry = phocosInstances.get(deviceName);
+  if (!entry) { const transport = new BleGattTransport(dev, profile); entry = { instance: dev, profile, transport }; phocosInstances.set(deviceName, entry); }
+  try { return await entry.transport.settings(); } catch (e) { return { error: e.message }; }
+}
+
+async function changePhocosSetting(deviceName, id, expected, value) {
+  const off = require('./deviceControls').writeRefusal();
+  if (off) return { ok: false, status: 'refused', error: off };
+  const dev = JSON.parse(getConfig('dongle_config') || '[]').find(d => d && d.name === deviceName && d.enabled);
+  if (!dev) return { ok: false, status: 'refused', error: 'Dongle device not found or disabled' };
+  const profile = getProfileById(dev.profile);
+  if (!profile || profile.protocol !== 'ble-gatt' || !profile.capabilities || profile.capabilities.write !== true) return { ok: false, status: 'refused', error: 'This device has no Phocos settings catalogue' };
+  let entry = phocosInstances.get(deviceName);
+  if (!entry) { const transport = new BleGattTransport(dev, profile); entry = { instance: dev, profile, transport }; phocosInstances.set(deviceName, entry); }
+  try { return await entry.transport.changeSetting({ id, expected, value }); }
+  catch (e) { return { ok: false, status: 'sent_unverified', error: e.message }; }
 }
 
 async function executeDongleAction(deviceName, registerAddr, value) {
@@ -983,7 +1020,9 @@ module.exports = {
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
   readDongleRegister, writeDongleSetting, writeLuxpowerRaw, registerWord,
+  phocosSettings, changePhocosSetting,
   getByPathForTest: getByPath,
+  pollJsonInstance,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
   luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame
