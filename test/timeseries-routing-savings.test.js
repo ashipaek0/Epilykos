@@ -12,6 +12,7 @@
  * inside the all-time range merge correctly.
  */
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -23,6 +24,9 @@ process.chdir(tmp);
 const { initializeDatabase, getDb, setConfig } = require(path.join(REPO, 'modules/database'));
 initializeDatabase();
 const db = getDb();
+// All-time totals cache finished days; these helpers write straight into past
+// days (the app itself only writes the current time), so they clear it.
+const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesReader'));
 
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log(`ok - ${name}`); }
@@ -34,6 +38,7 @@ function insertHistoryRow(ts, overrides = {}) {
   const cols = ['timestamp', ...HISTORY_FIELDS];
   db.prepare(`INSERT INTO history(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
     .run(ts, ...HISTORY_FIELDS.map(f => row[f]));
+  clearDailySnapshotCache(db);
 }
 function insertHistory5m(bucketStart, overrides = {}) {
   const cols = ['bucket_start',
@@ -50,6 +55,7 @@ function insertHistory5m(bucketStart, overrides = {}) {
   const row = { ...defaults, bucket_start: bucketStart, ...overrides };
   db.prepare(`INSERT INTO history_5m(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
     .run(...cols.map(c => row[c]));
+  clearDailySnapshotCache(db);
 }
 
 const RETENTION_SECONDS = 30 * 24 * 60 * 60;
@@ -71,12 +77,22 @@ await checkAsync('getSavings: raw-only data (week/month/all) matches pre-routing
 
   assert.strictEqual(result.currency, '£');
   assert.ok(Math.abs(result.rate - 0.40) < 1e-9);
-  // Pre-routing reference: week/month/all = (sum of past days' MAX(daily_solar) + live today) * rate.
-  // computeTodaySolar() with no metrics/history seeded for today returns 0,
-  // so today contributes 0; yesterday's 10.0 is the only non-today day.
-  assert.ok(result.week >= 10.0 * 0.40 - 1e-6, `week should include yesterday's 10.0*0.40, got ${result.week}`);
-  assert.ok(result.month >= 10.0 * 0.40 - 1e-6, `month should include yesterday's 10.0*0.40, got ${result.month}`);
-  assert.ok(result.all >= 10.0 * 0.40 - 1e-6, `all-time should include yesterday's 10.0*0.40, got ${result.all}`);
+  // The ranges use calendar boundaries: on Monday, yesterday is outside the
+  // Monday-based week; on the first of a month, it is outside the month too.
+  // Today's live value is zero in this fixture, so compare each range against
+  // the exact contribution yesterday should make for the date this test runs.
+  const weekStart = new Date(now);
+  const weekDiff = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  weekStart.setDate(now.getDate() - weekDiff);
+  weekStart.setHours(0, 0, 0, 0);
+  const yesterdayInWeek = yesterday >= weekStart;
+  const yesterdayInMonth = yesterday.getMonth() === now.getMonth() && yesterday.getFullYear() === now.getFullYear();
+  const contribution = 10.0 * 0.40;
+  assert.ok(Math.abs(result.week - (yesterdayInWeek ? contribution : 0)) < 1e-6,
+    `week should ${yesterdayInWeek ? 'include' : 'exclude'} yesterday's contribution, got ${result.week}`);
+  assert.ok(Math.abs(result.month - (yesterdayInMonth ? contribution : 0)) < 1e-6,
+    `month should ${yesterdayInMonth ? 'include' : 'exclude'} yesterday's contribution, got ${result.month}`);
+  assert.ok(result.all >= contribution - 1e-6, `all-time should include yesterday's 10.0*0.40, got ${result.all}`);
 });
 
 await checkAsync('getSavings: rollup bucket (daily_solar_last) + raw row merge at the raw/aggregate boundary feeds all-time correctly', async () => {
@@ -99,4 +115,5 @@ await checkAsync('getSavings: rollup bucket (daily_solar_last) + raw row merge a
 
 console.log(`\ntimeseries-routing-savings.test.js: ${passed} checks passed`);
 
+  checks.done();
 })().catch(err => { console.error(err); process.exit(1); });

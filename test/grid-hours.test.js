@@ -39,6 +39,7 @@
  * (WAT on the target, but any TZ works).
  */
 'use strict';
+const checks = require('./_checks');
 
 const fs = require('fs');
 const os = require('os');
@@ -256,6 +257,7 @@ function check(name, ok, detail) {
   const passed = lines.length - failures;
   console.log(`\nSummary: ${passed}/${lines.length} assertions passed, ${failures} failed`);
   process.exitCode = failures ? 1 : 0;
+  if (!failures) checks.done(passed);   // own assertion lines, not assert
 })().catch((err) => {
   console.error('FATAL: test runner crashed:', err);
   process.exitCode = 1;

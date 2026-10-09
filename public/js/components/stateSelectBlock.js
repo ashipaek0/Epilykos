@@ -47,7 +47,7 @@ export function buildStateSelectBlock(block = {}) {
   if (!states.length) {
     container.innerHTML = `
       <div class="state-select-label">${label}</div>
-      <div class="state-select-empty">No states configured</div>
+      <div class="state-select-empty">Choose the entity and its states for this block in the layout editor.</div>
       ${statusHtml}
     `;
     return container;

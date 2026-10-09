@@ -1,5 +1,6 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml } from '../utils.js';
+import { emptyBlock } from './emptyState.js';
 
 
 /** Best-effort unit hint for a metric name, used as a default when a dataset omits `unit`. */
@@ -22,7 +23,7 @@ function normalizeDatasets(datasets) {
   var cGrid = style.getPropertyValue('--color-grid').trim();
   var cExport = style.getPropertyValue('--color-export').trim();
   var cFallback = style.getPropertyValue('--text-secondary').trim();
-  if (!datasets || !datasets.length) return [{ label: 'Consumption', metric: 'consumption_kw', color: cLoad, unit: 'kW', scale: 1 }];
+  if (!datasets || !datasets.length) return [];
   return datasets.map(ds => {
     const raw = (typeof ds === 'string') ? { metric: ds } : (ds || {});
     const metric = raw.metric || '';
@@ -35,7 +36,9 @@ function normalizeDatasets(datasets) {
 export function buildChartMetric(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
-  const datasets = normalizeDatasets(config.datasets);
+  const datasets = normalizeDatasets(config.datasets).filter(ds => ds.metric);
+  // Nothing chosen yet: say so, rather than drawing an invented "Consumption" line.
+  if (!datasets.length) return emptyBlock('Choose the metrics for this chart in the layout editor.', id);
   if (!block.config) block.config = {};
   block.config.datasets = datasets;
   const container = document.createElement('div');

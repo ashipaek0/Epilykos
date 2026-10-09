@@ -10,6 +10,7 @@
  * pattern — both modules are import-free after the strip).
  */
 'use strict';
+const checks = require('./_checks');
 
 const fs = require('fs');
 const path = require('path');
@@ -214,4 +215,5 @@ function genPoints(startMs, count, stepMs, valueFn) {
 
   console.log('\nbar-threshold: ' + passes + ' passed, ' + failures + ' failed');
   if (failures) process.exit(1);
+  checks.done(passes);   // own check() helper, not assert
 })().catch(e => { console.error('FATAL: ' + (e && e.stack || e)); process.exit(1); });

@@ -42,7 +42,7 @@ router.get('/auth/status', (req, res) => {
 router.get('/wizard/status', (req, res) => {
   try {
     const completed = getConfig('setup_wizard_completed') === 'true';
-    const keys = ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices'];
+    const keys = ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources'];
     let hasDataSource = false;
     for (const k of keys) {
       const v = JSON.parse(getConfig(k) || '[]');

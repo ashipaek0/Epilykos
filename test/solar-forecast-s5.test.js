@@ -22,6 +22,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 
@@ -216,6 +217,7 @@ check('case-sensitivity: different case -> error', () => {
   console.log('ok - getSolarForecast rest: full map + unknown/disabled -> error');
 
   console.log(`\nPASS solar-forecast-s5: ${passed} checks`);
+  checks.done();
 })().catch((e) => {
   console.error(`FAIL: ${e.stack || e}`);
   process.exit(1);

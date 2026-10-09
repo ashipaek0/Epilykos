@@ -28,9 +28,17 @@ function showStatusHtml(element, msg, type) {
 }
 
 // ── Utility helpers ────────────────────────────────────────────────────
-function showConfirm(message) {
-  // Centralized confirm() wrapper — replace body with custom modal later
-  return confirm(message);
+/**
+ * Ask before something destructive, in the Settings page's own dialog
+ * (js/settings-shell.js stConfirm), never the browser's confirm box.
+ * Resolves true for the confirming button, false for Cancel / Escape.
+ * opts: { title, confirmLabel, danger } (danger defaults to true).
+ */
+function showConfirm(message, opts = {}) {
+  if (typeof window.stConfirm === 'function') return window.stConfirm(Object.assign({ message }, opts));
+  // The shell always loads with this page; refuse rather than act unasked if it didn't.
+  console.error('Settings dialog unavailable; action not confirmed:', message);
+  return Promise.resolve(false);
 }
 
 // ── Load existing settings ─────────────────────────────────────────────────
@@ -45,6 +53,7 @@ async function loadSettings() {
 
     // THEN fetch all settings
     const res = await fetch('/api/settings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('ha_devices') || key.startsWith('mqtt_devices') || key.startsWith('modbus_devices') || key.startsWith('rs232_devices') || key.startsWith('tuya_devices') || key === 'dashboard_config' || key === 'external_sources' || key === 'bms_devices' || key === 'bms_banks' || key === 'dongle_config' || key === 'pvoutput_config' || key === 'pvoutput_stats_cache' || key === 'pvoutput_rate_limit_state') continue;
@@ -106,7 +115,7 @@ async function loadSettings() {
     }
   } catch (e) {
     console.error('Failed to load settings:', e);
-    showStatus(saveStatus, 'Failed to load settings', 'error');
+    showStatus(saveStatus, /429|Too many/i.test(String(e && e.message)) ? 'Too many requests just now. Wait a minute, then reload the page.' : 'Settings could not load. Reload the page to try again.', 'error');
   }
   syncAllMetricDropdowns();
 }
@@ -261,8 +270,8 @@ function renderHaDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   const removeHaBtn = card.querySelector('[data-action="remove-ha"]');
-  if (removeHaBtn) removeHaBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this Home Assistant device and all its entity mappings?')) {
+  if (removeHaBtn) removeHaBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this Home Assistant device and all its entity mappings?')) {
       card.remove();
       reindexHa();
       refreshAllMetricDropdowns();
@@ -809,8 +818,8 @@ function renderMqttDevice(device, idx) {
   card.appendChild(tooltipEl);
 
   const removeMqttBtn = card.querySelector('[data-action="remove-mqtt"]');
-  if (removeMqttBtn) removeMqttBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this MQTT broker and all its topic mappings?')) {
+  if (removeMqttBtn) removeMqttBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this MQTT broker and all its topic mappings?')) {
       card.remove();
       reindexMqtt();
       refreshAllMetricDropdowns();
@@ -1241,8 +1250,8 @@ function renderModbusDevice(device, idx) {
     fillModbusProfiles();
   });
   const removeModbusBtn = card.querySelector('[data-action="remove-modbus"]');
-  if (removeModbusBtn) removeModbusBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this Modbus device and all its register mappings?')) {
+  if (removeModbusBtn) removeModbusBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this Modbus device and all its register mappings?')) {
       card.remove();
       reindexModbus();
     }
@@ -1277,11 +1286,11 @@ function renderModbusDevice(device, idx) {
   // list shows a hint (nothing is auto-created or pre-bound), the legacy
   // 'Load Profile Registers' button stays alongside Fetch/Add for the
   // import-style flow.
-  profileSelect.addEventListener('change', () => {
+  profileSelect.addEventListener('change', async () => {
     const profileId = profileSelect.value;
     const mappingsList = card.querySelector('.mappings-list');
     if (!mappingsList) return;
-    if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
+    if (mappingsList.children.length > 0 && !(await showConfirm('Changing profile will replace existing register mappings. Continue?'))) {
       profileSelect.value = device.profile || '';
       return;
     }
@@ -1711,10 +1720,10 @@ function renderRs232Device(device, idx) {
     // profile's serial defaults, reset the mapping list to the explicit
     // catalog UI (nothing auto-created/pre-bound). The legacy 'Load Profile
     // Fields' button stays alongside Fetch/Add.
-    profileSelect.addEventListener('change', () => {
+    profileSelect.addEventListener('change', async () => {
       const mappingsList = card.querySelector('.mappings-list');
       if (!mappingsList) return;
-      if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing field mappings. Continue?')) {
+      if (mappingsList.children.length > 0 && !(await showConfirm('Changing profile will replace existing field mappings. Continue?'))) {
         profileSelect.value = device.profile || '';
         return;
       }
@@ -1758,8 +1767,8 @@ function renderRs232Device(device, idx) {
   });
 
   const removeRs232Btn = card.querySelector('[data-action="remove-rs232"]');
-  if (removeRs232Btn) removeRs232Btn.addEventListener('click', () => {
-    if (showConfirm('Remove this RS232 device?')) {
+  if (removeRs232Btn) removeRs232Btn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this RS232 device?')) {
       card.remove();
       reindexRs232();
     }
@@ -1970,8 +1979,8 @@ function renderExternalSource(source, idx) {
   `;
   container.appendChild(card);
   const removeExtBtn = card.querySelector('[data-action="remove-external"]');
-  if (removeExtBtn) removeExtBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this external source and all its metric mappings?')) {
+  if (removeExtBtn) removeExtBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this external source and all its metric mappings?')) {
       card.remove();
       reindexExternal();
       refreshAllMetricDropdowns();
@@ -2291,7 +2300,7 @@ async function refreshBluetoothStatus() {
       el.textContent = 'Bluetooth BMS: using the legacy bms-bridge container (BMS_BRIDGE_URL is set). Unset it to use built-in Bluetooth.';
     } else if (st.available) {
       const a = (st.adapters || []).find(x => x.powered) || {};
-      el.textContent = `Bluetooth ready${a.address ? ` — adapter ${a.address}` : ''}.`;
+      el.textContent = `Bluetooth ready${a.address ? ` — adapter ${a.address}` : ''}. Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth, allow about 10 seconds per device in their read intervals.`;
     } else {
       el.textContent = `Bluetooth unavailable: ${st.error || 'unknown error'}`;
     }
@@ -2343,8 +2352,8 @@ function renderBmsDevice(device, idx) {
   `;
   container.appendChild(card);
   const removeBmsBtn = card.querySelector('[data-action="remove-bms"]');
-  if (removeBmsBtn) removeBmsBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this BMS device and all its metric mappings?')) {
+  if (removeBmsBtn) removeBmsBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this BMS device and all its metric mappings?')) {
       card.remove();
       reindexBms();
     }
@@ -2396,7 +2405,7 @@ function renderBmsDevice(device, idx) {
       return;
     }
     const mappingsList = card.querySelector('.mappings-list');
-    if (mappingsList.children.length > 0 && !showConfirm('Loading metrics will replace existing mappings. Continue?')) return;
+    if (mappingsList.children.length > 0 && !(await showConfirm('Loading metrics will replace existing mappings. Continue?'))) return;
     try {
       const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`, { credentials: 'include' });
       if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
@@ -2591,8 +2600,8 @@ function renderBmsWiredDevice(device, idx) {
   }).catch(() => {});
 
   const removeBtn = card.querySelector('[data-action="remove-bms-wired"]');
-  if (removeBtn) removeBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this wired BMS device and all its metric mappings?')) {
+  if (removeBtn) removeBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this wired BMS device and all its metric mappings?')) {
       card.remove();
       reindexBmsWired();
     }
@@ -2632,7 +2641,7 @@ function renderBmsWiredDevice(device, idx) {
       return;
     }
     const mappingsList = card.querySelector('.mappings-list');
-    if (mappingsList.children.length > 0 && !showConfirm('Loading metrics will replace existing mappings. Continue?')) return;
+    if (mappingsList.children.length > 0 && !(await showConfirm('Loading metrics will replace existing mappings. Continue?'))) return;
     try {
       const res = await fetch(`/api/bms-wired/fields/${encodeURIComponent(profileValue)}`, { credentials: 'include' });
       if (!res.ok) { mappingsList.innerHTML = '<div class="note" style="color:var(--error);">Failed to load metrics</div>'; return; }
@@ -2825,6 +2834,18 @@ if (addBmsWiredBtn) addBmsWiredBtn.addEventListener('click', () => {
 // ======================== BMS BANK AGGREGATION ========================
 let bmsBankCounter = 0;
 const BANK_FUNCTIONS = ['sum', 'mean', 'min', 'max', 'weighted_soc', 'sum_weighted', 'last'];
+const BANK_FN_LABELS = { sum: 'Add up', mean: 'Average', min: 'Lowest', max: 'Highest', weighted_soc: 'Charge, weighted by capacity', sum_weighted: 'Add up, weighted by capacity', last: 'Newest reading' };
+// The usual bank metrics: output suffix, calculation and the BMS keys that can feed it.
+const BANK_STARTER = [
+  ['soc', 'weighted_soc', ['battery_level', 'soc']],
+  ['voltage', 'mean', ['voltage']],
+  ['current', 'sum', ['current']],
+  ['power', 'sum', ['power']],
+  ['temperature', 'max', ['temperature']],
+  ['cell_voltage_min', 'min', ['min_cell_voltage']],
+  ['cell_voltage_max', 'max', ['max_cell_voltage']]
+];
+function bankSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'bank'; }
 // Boolean functions (or, and) implemented server-side but hidden from UI for v1
 
 function buildBmsBankList(banks) {
@@ -2851,18 +2872,19 @@ function renderBmsBank(bank, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bank">✕</button>
     </div>
-    ${isSingleDevice ? '<div class="note" style="margin:0 0 8px 0;">Single-device bank — aggregation is a passthrough. No computation applied.</div>' : ''}
+    ${isSingleDevice ? '<p class="st-help" style="margin:0 0 8px 0;">One device: the bank passes its readings through unchanged.</p>' : ''}
 
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Devices</div>
+    <h4 class="bank-subhead">Batteries in this bank</h4>
     <div class="bank-devices-list" id="bank-devices-${idx}"></div>
 
-    <div class="section-divider"><span class="stg-divider-icon">📊</span> Computed Metrics</div>
+    <h4 class="bank-subhead">Bank metrics</h4>
+    <p class="st-help">Each one is saved as <code>bank_</code> + its name (for example <code>bank_${escapeHtml(bankSlug(bank.name))}_soc</code>) and can be used in roles, cards and Combined metrics. Weighted charge uses each battery's capacity.</p>
     <div class="bank-functions-list" id="bank-functions-${idx}"></div>
-    <button type="button" class="fetch-btn add-bank-function" data-bank="${idx}">+ Add Function</button>
-
-    <div style="margin-top:8px;">
-      <button type="button" class="fetch-btn test-bank" data-bank="${idx}">Test Aggregation</button>
-      <span class="test-status" id="bank-test-status-${idx}"></span>
+    <div class="bank-actions">
+      <button type="button" class="st-btn add-bank-starter" data-bank="${idx}">Add the usual battery metrics</button>
+      <button type="button" class="st-btn add-bank-function" data-bank="${idx}">+ Add metric</button>
+      <button type="button" class="st-btn test-bank" data-bank="${idx}">Test bank</button>
+      <span class="test-status" id="bank-test-status-${idx}" role="status"></span>
     </div>
   `;
   container.appendChild(card);
@@ -2878,8 +2900,8 @@ function renderBmsBank(bank, idx) {
 
   // Wire events
   const removeBankBtn = card.querySelector('[data-action="remove-bank"]');
-  if (removeBankBtn) removeBankBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
+  if (removeBankBtn) removeBankBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this bank? Historical data under bank_* names will remain in the database.')) {
       card.remove();
       reindexBmsBanks();
     }
@@ -2891,6 +2913,33 @@ function renderBmsBank(bank, idx) {
   });
 
   card.querySelector('.test-bank').addEventListener('click', () => testBank(card, idx));
+
+  // Fill in the usual bank metrics from the keys each ticked battery reports.
+  card.querySelector('.add-bank-starter').addEventListener('click', async () => {
+    const status = card.querySelector(`#bank-test-status-${idx}`);
+    const devices = Array.from(card.querySelectorAll('.bank-device-cb:checked')).map(cb => cb.value);
+    if (!devices.length) { status.textContent = 'Tick the batteries in this bank first.'; return; }
+    const keysBy = {};
+    await Promise.all(devices.map(async d => {
+      try { const r = await fetch(`/api/bms/device-metrics/${encodeURIComponent(d)}`, { credentials: 'include' }); const items = r.ok ? await r.json() : []; keysBy[d] = new Set((items || []).map(i => (typeof i === 'string' ? i : i.key))); }
+      catch (_) { keysBy[d] = new Set(); }
+    }));
+    const slug = bankSlug(card.querySelector('.bank-name').value);
+    const existing = new Set(Array.from(card.querySelectorAll('.bank-fn-output')).map(i => i.value.trim()));
+    let added = 0;
+    for (const [suffix, fnName, keys] of BANK_STARTER) {
+      const output = `${slug}_${suffix}`;
+      if (existing.has(output)) continue;
+      const sources = {};
+      for (const d of devices) { const k = keys.find(x => keysBy[d].has(x)); if (k) sources[d] = k; }
+      if (!Object.keys(sources).length) continue;
+      renderBankFunctionRow(fnContainer, idx, card.querySelectorAll('.bank-function-row').length, { output, fn: fnName, sources });
+      added++;
+    }
+    status.textContent = added ? `Added ${added} metric${added === 1 ? '' : 's'}. Save to start computing them.`
+      : (Object.values(keysBy).every(k => !k.size) ? 'No readings from these batteries yet. Test each battery first.' : 'Nothing new to add.');
+    card.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 
   bmsBankCounter++;
 }
@@ -2925,7 +2974,7 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
           <label class="toggle-switch"><input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}><span class="slider"></span></label>
           <label style="cursor:pointer;">${escapeHtml(name)}</label>
         </span>
-        <input type="number" class="bank-device-capacity" placeholder="Ah override" value="${capOverride}" style="width:100px; font-size:0.85em;" title="Manual capacity override. Leave blank to auto-detect from BMS design_capacity.">
+        <input type="number" class="bank-device-capacity input" placeholder="Capacity (Ah), auto" aria-label="Capacity in Ah" value="${capOverride}" style="width:170px; font-size:0.85em;" title="Leave blank to use the capacity the BMS reports.">
       </div>`;
   }).join('');
 }
@@ -2933,7 +2982,6 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
 function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   const row = document.createElement('div');
   row.className = 'bank-function-row';
-  row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap;';
 
   const outputName = fn.output || '';
   const selectedFn = fn.fn || 'sum';
@@ -2946,43 +2994,33 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   const checkedCbs = card.querySelectorAll('.bank-device-cb:checked');
   const checkedDevices = Array.from(checkedCbs).map(cb => cb.value);
 
+  // Line 1: name, calculation, remove. Line 2: which reading of each battery.
+  // Weighted calculations always weigh by capacity (bmsAggregator.resolveCapacity);
+  // weight_by is kept as-is for saved banks but not offered.
   let html = `
-    <input type="text" class="bank-fn-output" placeholder="output name" value="${escapeHtml(outputName)}" style="width:120px; font-size:0.85em;" title="Output metric name (e.g., 'soc'). Full metric: bank_<output>">
-    <span style="font-size:0.8em; color:var(--muted);">←</span>
-    <select class="bank-fn-type" style="width:130px; font-size:0.85em;">
-      ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${f}</option>`).join('')}
-    </select>
-    <span style="font-size:0.8em;">(</span>`;
-
-  // One source dropdown per checked BMS device, labeled with device name
+    <div class="bank-fn-top">
+      <label class="bank-fn-field">Name <input type="text" class="bank-fn-output input" placeholder="e.g. house_soc" value="${escapeHtml(outputName)}" title="Saved as bank_ + this name"></label>
+      <label class="bank-fn-field">Calculation <select class="bank-fn-type input">
+        ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${escapeHtml(BANK_FN_LABELS[f] || f)}</option>`).join('')}
+      </select></label>
+      <button type="button" class="st-btn remove-bank-fn" aria-label="Remove this metric">Remove</button>
+    </div>
+    <input type="hidden" class="bank-fn-weightby" value="${escapeHtml(weightBy)}">
+    <p class="st-help bank-fn-weight-note"${selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted' ? '' : ' hidden'}>Weighted by each battery's capacity: its Ah override, or the capacity it reports.</p>
+    <div class="bank-fn-sources">`;
   if (checkedDevices.length === 0) {
-    html += `<span style="font-size:0.8em; color:var(--muted);">check devices above</span>`;
+    html += `<span class="st-help">Tick the batteries in this bank above.</span>`;
   } else {
     for (const devName of checkedDevices) {
-      const selKey = sources[devName] || '';
-      html += `<span style="font-size:0.75em; color:var(--muted);">${escapeHtml(devName)}:</span>`;
-      html += `<select class="bank-fn-source" data-device="${escapeHtml(devName)}" style="width:130px; font-size:0.85em;">
-        <option value="">-- source --</option>
-      </select>`;
+      html += `<label class="bank-fn-field">${escapeHtml(devName)} reading <select class="bank-fn-source input" data-device="${escapeHtml(devName)}"><option value="">-- source --</option></select></label>`;
     }
   }
-
-  html += `
-    <span class="bank-fn-weight-wrap" style="display:${selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted' ? '' : 'none'};">
-      <span style="font-size:0.8em; color:var(--muted);">×</span>
-      <select class="bank-fn-weightby" style="width:140px; font-size:0.85em;">
-        <option value="">-- weight --</option>
-      </select>
-    </span>
-    <span style="font-size:0.8em;">)</span>
-    <button type="button" class="remove-btn remove-metric remove-bank-fn" style="font-size:0.8em; padding:2px 6px;">×</button>
-  `;
+  html += `</div>`;
   row.innerHTML = html;
   container.appendChild(row);
 
   const fnType = row.querySelector('.bank-fn-type');
-  const fnWeightBy = row.querySelector('.bank-fn-weightby');
-  const weightWrap = row.querySelector('.bank-fn-weight-wrap');
+  const weightNote = row.querySelector('.bank-fn-weight-note');
 
   // Helper: load metrics for a specific device into a select element
   async function loadSourceKeysForDevice(selectEl, deviceName, selectedKey) {
@@ -3015,22 +3053,12 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
     loadSourceKeysForDevice(sel, devName, selKey);
   });
 
-  // Weight dropdown loads from first checked device's metrics
-  if (selectedFn === 'weighted_soc' || selectedFn === 'sum_weighted') {
-    loadSourceKeysForDevice(fnWeightBy, checkedDevices[0] || '', weightBy);
-  }
-
-  // Show/hide weight when function type changes
+  // Weighted calculations: say how they weigh.
   fnType.addEventListener('change', () => {
-    const needsWeight = fnType.value === 'weighted_soc' || fnType.value === 'sum_weighted';
-    weightWrap.style.display = needsWeight ? '' : 'none';
-    if (needsWeight) {
-      const firstDev = Array.from(card.querySelectorAll('.bank-device-cb:checked')).map(cb => cb.value)[0] || '';
-      loadSourceKeysForDevice(fnWeightBy, firstDev, weightBy);
-    }
+    weightNote.hidden = !(fnType.value === 'weighted_soc' || fnType.value === 'sum_weighted');
   });
 
-  // ✕ button
+  // Remove button
   row.querySelector('.remove-bank-fn').addEventListener('click', () => row.remove());
 }
 
@@ -3319,6 +3347,7 @@ function renderDongleDevice(device, idx) {
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
+    <p class="st-help">Poll: how often it is read, in seconds. Over Bluetooth, devices on one adapter are read one at a time, so allow about 10 seconds per device (for example 60 for six). A reading that is still running when the next is due is skipped and logged.</p>
     <!-- Derived from Connection + Profile (see syncDongleTransport); not user-facing. -->
     <select name="dongle_config[${idx}][transport]" class="dongle-transport-select" hidden style="display:none;" aria-hidden="true" tabindex="-1">
       <option value="modbus-tcp" ${transport === 'modbus-tcp' ? 'selected' : ''}>TCP/IP</option>
@@ -3368,6 +3397,21 @@ function renderDongleDevice(device, idx) {
       }
     }).catch(() => {});
 
+  // A second inverter on the same profile needs its own metric prefix, or the
+  // two write the same names and overwrite each other's readings.
+  profileSelect.addEventListener('change', () => {
+    const prefixEl = card.querySelector('input[name$="[prefix]"]');
+    if (!prefixEl || prefixEl.value.trim() || !profileSelect.value) return;
+    const cards = Array.from(document.querySelectorAll('#dongle-devices-container .device-card'));
+    const twins = cards.filter(c => c !== card && c.querySelector('.dongle-profile-select')?.value === profileSelect.value);
+    if (!twins.length) return;
+    const taken = new Set(cards.map(c => (c.querySelector('input[name$="[prefix]"]')?.value || '').trim().toLowerCase()));
+    let n = twins.length + 1; while (taken.has(`inv${n}_`)) n++;
+    prefixEl.value = `inv${n}_`;
+    prefixEl.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof showToast === 'function') showToast(`Metric prefix set to inv${n}_ so this inverter's readings stay separate.`, 'info');
+  });
+
   linkSelect.addEventListener('change', () => {
     const bt = linkSelect.value === 'bluetooth';
     fillDongleProfileOptions(card, profileSelect.value);
@@ -3406,7 +3450,7 @@ function renderDongleDevice(device, idx) {
     // legacy Load button stays as the only auto-creating entry point.
     const mappingsList = card.querySelector('.mappings-list');
     if (mappingsList) {
-      if (mappingsList.children.length > 0 && !showConfirm('Changing profile will replace existing register mappings. Continue?')) {
+      if (mappingsList.children.length > 0 && !(await showConfirm('Changing profile will replace existing register mappings. Continue?'))) {
         profileSelect.value = device.profile || '';
         return;
       }
@@ -3446,8 +3490,8 @@ function renderDongleDevice(device, idx) {
   });
 
   const removeDongleBtn = card.querySelector('[data-action="remove-dongle"]');
-  if (removeDongleBtn) removeDongleBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this dongle instance?')) {
+  if (removeDongleBtn) removeDongleBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this dongle instance?')) {
       card.remove();
       reindexDongle();
     }
@@ -4302,7 +4346,7 @@ document.addEventListener('catalog-rows-changed', (e) => {
 // Warn when that would happen. Devices already carrying a `mappings` key are
 // already explicit (an existing `{}` is explicit-none, no flip); brand-new
 // cards (no stored device) were never implicit, so they never warn.
-function confirmImplicitToExplicitNoneFlips() {
+async function confirmImplicitToExplicitNoneFlips() {
   const flagged = [];
   ['modbus-devices-container', 'rs232-devices-container', 'dongle-devices-container'].forEach(id => {
     const container = document.getElementById(id);
@@ -4317,7 +4361,7 @@ function confirmImplicitToExplicitNoneFlips() {
   });
   if (flagged.length === 0) return true;
   const list = flagged.map(n => `“${n}”`).join(', ');
-  return showConfirm(
+  return await showConfirm(
     `Saving will flip ${flagged.length === 1 ? 'a device' : flagged.length + ' devices'} from implicit ` +
     `profile-default polling to explicit-none (polling stops) because it has no mapped metrics: ${list}. ` +
     `Map at least one metric to keep it polling. Save anyway?`
@@ -4375,11 +4419,9 @@ function dongleRegisterResetNote() {
 }
 
 // Write Controls — luxpower-tcp only, when the profile has capabilities.write
-// and a non-empty writable_registers list. Per writable entry: a human label
-// (unit + min/max/step), a number input and a Write button that confirm()s and
-// POSTs /api/action { source:'dongle', device:<card instance name>,
-// action:'write', entity:'holding:0xNNNN', params:{value} } with an inline
-// status (8s timeout). Preset buttons render from entry.actions when present.
+// and a non-empty writable_registers list. Settings are changed on the
+// Controls page (password unlock, read first, read back, change log), so this
+// section only names them and links there.
 async function populateDongleWriteControls(card, profileId, profile) {
   const wrap = card.querySelector('.write-controls');
   if (!wrap || !profileId) return;
@@ -4396,131 +4438,20 @@ async function populateDongleWriteControls(card, profileId, profile) {
   const caps = p.capabilities || {};
   const writable = Array.isArray(p.writable_registers) ? p.writable_registers : [];
   if (caps.write !== true || writable.length === 0) return;
-  let entities = Array.isArray(card._dongleEntities) ? card._dongleEntities : [];
-  if (!entities.length) {
-    try { entities = await fetchDongleProfileEntities(profileId); card._dongleEntities = entities; } catch (e) {}
-  }
-  const byId = new Map();
-  entities.forEach(e => { const id = dongleLux.entityId(e); if (id) byId.set(id.toLowerCase(), e); });
-  // The user may have switched profiles while the fetches above were in flight.
+  // The user may have switched profiles while the fetch above was in flight.
   const sel = card.querySelector('.dongle-profile-select');
   if (sel && sel.value && sel.value !== profileId) return;
-
   const divider = card.querySelector('.dongle-write-divider');
   if (divider) divider.style.display = '';
   wrap.style.display = '';
-
-  writable.forEach(w => {
-    const id = `${(w.register_type || 'holding').toLowerCase()}:${w.register}`;
-    const ent = byId.get(id.toLowerCase()) || null;
-    const label = w.label || w.name || id;
-    const unit = w.unit ? ` (${w.unit})` : '';
-    const rangeParts = [];
-    if (w.min !== undefined && w.min !== null) rangeParts.push(`min ${w.min}`);
-    if (w.max !== undefined && w.max !== null) rangeParts.push(`max ${w.max}`);
-    if (w.step !== undefined && w.step !== null) rangeParts.push(`step ${w.step}`);
-    const rangeTxt = rangeParts.length ? ` · ${rangeParts.join(' · ')}` : '';
-
-    const row = document.createElement('div');
-    row.className = 'write-control-row';
-    row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;padding:0.3rem 0;';
-    const nameEl = document.createElement('span');
-    nameEl.textContent = `${label}${unit}${rangeTxt}`;
-    nameEl.title = `${id} — ${w.type || 'uint16'}${w.scale !== undefined && w.scale !== 1 ? `, scale ${w.scale}` : ''}`;
-    nameEl.style.cssText = 'flex:1;min-width:180px;font-size:0.85em;';
-    row.appendChild(nameEl);
-
-    const input = document.createElement('input');
-    input.type = 'number';
-    if (w.min !== undefined && w.min !== null) input.min = w.min;
-    if (w.max !== undefined && w.max !== null) input.max = w.max;
-    input.step = (w.step !== undefined && w.step !== null) ? w.step : 'any';
-    input.placeholder = (w.min !== undefined && w.max !== undefined) ? `${w.min} … ${w.max}` : 'value';
-    input.style.cssText = 'width:110px;';
-    row.appendChild(input);
-
-    const writeBtn = document.createElement('button');
-    writeBtn.type = 'button';
-    writeBtn.className = 'fetch-btn';
-    writeBtn.textContent = 'Write';
-    row.appendChild(writeBtn);
-
-    const statusEl = document.createElement('span');
-    statusEl.className = 'test-status';
-    statusEl.style.fontSize = '0.75em';
-    row.appendChild(statusEl);
-
-    const runWrite = () => {
-      const rawVal = input.value.trim();
-      if (rawVal === '') { showStatus(statusEl, 'Enter a value first', 'error'); return; }
-      const val = Number(rawVal);
-      if (isNaN(val)) { showStatus(statusEl, 'Not a number', 'error'); return; }
-      if (!showConfirm(`Write ${val} to ${label} (${id})?`)) return;
-      sendDongleRegisterWrite(card, id, val, 'write', statusEl);
-    };
-    writeBtn.addEventListener('click', runWrite);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); runWrite(); }
-    });
-
-    // Preset actions for this entry (catalog entity first, then profile entry).
-    const actions = (ent && Array.isArray(ent.actions) && ent.actions.length) ? ent.actions
-      : (Array.isArray(w.actions) ? w.actions : []);
-    actions.forEach(a => {
-      const preset = (a && typeof a === 'object' && !Array.isArray(a)) ? a : { action: String(a), label: String(a) };
-      const pBtn = document.createElement('button');
-      pBtn.type = 'button';
-      pBtn.className = 'fetch-btn write-preset-btn';
-      pBtn.textContent = preset.label || String(preset.action || 'preset');
-      pBtn.style.cssText = 'font-size:0.72rem;padding:0.15rem 0.55rem;';
-      row.appendChild(pBtn);
-      pBtn.addEventListener('click', () => {
-        const val = (preset.value !== undefined && preset.value !== null)
-          ? preset.value
-          : (input.value.trim() !== '' ? Number(input.value) : undefined);
-        if (val === undefined) { showStatus(statusEl, 'Enter a value (or use the number box)', 'error'); return; }
-        sendDongleRegisterWrite(card, id, val, String(preset.action || 'preset'), statusEl);
-      });
-    });
-
-    wrap.appendChild(row);
-  });
-}
-
-// POST /api/action for a dongle register write. The device NAME comes from the
-// card header input — the server resolves the transport from its stored config
-// (no host/port/serials cross the wire; same SSRF-safe pattern as HA actions).
-async function sendDongleRegisterWrite(card, entityId, value, action, statusEl) {
-  const nameInput = card.querySelector('.device-header input[type="text"]');
-  const deviceName = nameInput ? nameInput.value.trim() : '';
-  if (!deviceName) { showStatus(statusEl, 'Instance name required', 'error'); return; }
-  // Disable every button in this entry's row while the write is in flight so a
-  // second click (Write or a preset) cannot fire a concurrent POST.
-  const rowEl = statusEl.closest ? statusEl.closest('.write-control-row') : null;
-  const rowBtns = rowEl ? Array.from(rowEl.querySelectorAll('button')) : [];
-  rowBtns.forEach(b => { b.disabled = true; });
-  showStatus(statusEl, 'Writing…', 'info');
-  const body = { source: 'dongle', device: deviceName, action: action || 'write', entity: entityId, params: {} };
-  if (value !== undefined && value !== null) body.params.value = value;
-  try {
-    const res = await fetch('/api/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(8000)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data && data.success !== false && !data.error) {
-      showStatus(statusEl, 'Write OK', 'success');
-    } else {
-      showStatus(statusEl, (data && data.error) ? data.error : `Write failed (HTTP ${res.status})`, 'error');
-    }
-  } catch (e) {
-    const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
-    showStatus(statusEl, timedOut ? 'Write timed out' : (e.message || 'Write failed'), 'error');
-  } finally {
-    rowBtns.forEach(b => { b.disabled = false; });
-  }
+  const note = document.createElement('p');
+  note.className = 'note';
+  note.append(`This inverter has ${writable.length} settings you can change: ${writable.map(w => w.label || w.name).join(', ')}. Change them on the `);
+  const link = document.createElement('a');
+  link.href = '/controls';
+  link.textContent = 'Controls page';
+  note.append(link, ', which asks for your password again, reads each setting first and checks it afterwards.');
+  wrap.appendChild(note);
 }
 
 // Async initialiser for a dongle card: fetch the profile to pick the mapping UI
@@ -4747,6 +4678,7 @@ if (forecastTestBtn) {
       const params = {
         lat: document.getElementById('solar-latitude')?.value || '',
         lon: document.getElementById('solar-longitude')?.value || '',
+        arrays: document.getElementById('solar-arrays')?.value || '',
         capacity: document.getElementById('solar-capacity')?.value || '',
         tilt: document.getElementById('solar-tilt')?.value || '30',
         azimuth: document.getElementById('solar-azimuth')?.value || '180',
@@ -4757,7 +4689,7 @@ if (forecastTestBtn) {
       };
       const res = await fetch('/api/test-forecast', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
-      if (res.ok) showStatus(statusEl, `✅ ${data.source}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
+      if (res.ok) showStatus(statusEl, `✅ ${data.source}${data.arrays > 1 ? ` (${data.arrays} arrays, ${data.capacity_kwp} kWp)` : ''}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
       else showStatus(statusEl, `❌ ${data.error}`, 'error');
     } catch (e) {
       showStatus(statusEl, `❌ Error: ${e.message}`, 'error');
@@ -4784,6 +4716,8 @@ const ROLE_LABELS = {
   daily_battery_discharge: 'Daily Battery Discharge Energy',
   daily_grid_import: 'Daily Grid Import Energy',
   daily_grid_export: 'Daily Grid Export Energy',
+  generator: 'Generator Power',
+  daily_generator: 'Daily Generator Energy',
 };
 
 async function loadRoleMetrics() {
@@ -4849,47 +4783,85 @@ async function loadMetricsList() {
     if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
   }
 }
+// A reading as people read it: rounded by size, W → kW from 1000, text as is.
+function formatMetricReading(value, unit) {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (typeof value === 'string' && !Number.isFinite(n)) return value.length > 40 ? value.slice(0, 39) + '…' : value;
+  if (!Number.isFinite(n)) return String(value);
+  let v = n, u = unit || '';
+  if ((u === 'W' || u === 'Wh') && Math.abs(v) >= 1000) { v /= 1000; u = 'k' + u; }
+  const a = Math.abs(v), d = Number.isInteger(v) ? 0 : a >= 100 ? 0 : a >= 10 ? 1 : 2;
+  return v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: d }) + (u ? ' ' + u : '');
+}
+function readingAge(ts) {
+  if (!ts) return { text: 'No reading yet', title: '' };
+  const t = ts > 1e12 ? ts : ts * 1000, age = Date.now() - t, when = new Date(t);
+  const text = age < 60e3 ? 'Just now' : age < 3600e3 ? `${Math.round(age / 60e3)} min ago` : age < 86400e3 ? `${Math.round(age / 3600e3)} h ago` : when.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: when.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  return { text, title: when.toLocaleString() };
+}
 function renderMetricsTable() {
   const tbody = document.getElementById('metrics-table-body');
   if (!tbody) return;
+  const count = document.getElementById('metrics-count');
+  if (count) count.textContent = metricsList.length ? `(${metricsList.length})` : '';
   if (!metricsList.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. Create one using the "New Metric" button.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. They appear here once a source reports, or add one with New metric.</td></tr>';
     return;
   }
-  tbody.innerHTML = '';
-  metricsList.forEach(metric => {
-    const row = document.createElement('tr');
-    const lastUpdated = metric.timestamp ? new Date(metric.timestamp * 1000).toLocaleString() : 'Never';
-    row.innerHTML = `
-      <td>${escapeHtml(metric.name)}</td>
-      <td>${metric.value !== null ? metric.value : '-'}</td>
-      <td>${lastUpdated}</td>
-      <td>${escapeHtml(metric.unit || '-')}</td>
-      <td><button class="delete-metric-btn remove-btn" data-name="${escapeHtml(metric.name)}" title="Delete">✕</button></td>
-    `;
-    tbody.appendChild(row);
-  });
-  document.querySelectorAll('.delete-metric-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+  // Newest reading first; never-read metrics last, by name.
+  const ts = m => (m.timestamp ? (m.timestamp > 1e12 ? m.timestamp / 1000 : m.timestamp) : 0);
+  const rows = metricsList.slice().sort((a, b) => (ts(b) - ts(a)) || a.name.localeCompare(b.name));
+  tbody.innerHTML = rows.map(metric => {
+    const age = readingAge(metric.timestamp);
+    const name = escapeHtml(metric.name);
+    const action = metric.combined
+      ? `<a class="st-btn" href="#metrics/combined" aria-label="Edit ${name} under Combined metrics">Edit</a>`
+      : `<button type="button" class="st-btn st-btn-danger-text delete-metric-btn" data-name="${name}" aria-label="Delete ${name}">Delete</button>`;
+    return `<tr data-filter="${escapeHtml((metric.name + ' ' + (metric.unit || '')).toLowerCase())}"${metric.timestamp ? '' : ' class="is-never"'}>
+      <td>${name.replace(/_/g, '_<wbr>')}${metric.combined ? ' <span class="st-chip">Combined</span>' : ''}<span class="st-metric-age">${escapeHtml(age.text)}</span></td>
+      <td class="num">${escapeHtml(formatMetricReading(metric.value, metric.unit))}</td>
+      <td${age.title ? ` title="${escapeHtml(age.title)}"` : ''}>${escapeHtml(age.text)}</td>
+      <td>${escapeHtml(metric.unit || '—')}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+  // Keep the filter applied across reloads of the list.
+  const ms = document.getElementById('metrics-search');
+  if (ms && ms.value) ms.dispatchEvent(new Event('input'));
+  const status = document.getElementById('metrics-status');
+  tbody.querySelectorAll('.delete-metric-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
       const name = btn.dataset.name;
-      if (showConfirm(`Delete metric "${name}"? This will remove it from all mappings and cannot be undone.`)) {
-        try {
-          const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
-          if (res.ok) {
-            showStatus(backupStatus, `Metric "${name}" deleted`, 'success');
-            await loadMetricsList();
-            await refreshAllMetricDropdowns();
-          } else {
-            const err = await res.json();
-            showStatus(backupStatus, err.error || 'Delete failed', 'error');
-          }
-        } catch (err) {
-          showStatus(backupStatus, err.message, 'error');
+      if (!(await showConfirm(`Delete the metric "${name}"? It is removed from every source mapping and role, and its readings are deleted. This can't be undone.`))) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const notes = [];
+          if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length === 1 ? 'The role it filled is' : 'The roles it filled are'} now not mapped.`);
+          if (body.used_by && body.used_by.length) notes.push(`Still an input of ${body.used_by.join(', ')}: edit ${body.used_by.length === 1 ? 'it' : 'them'} under Combined metrics, or ${body.used_by.length === 1 ? 'it waits' : 'they wait'} for a reading that won't come.`);
+          showStatus(status, [`Deleted ${name}.`].concat(notes).join(' '), notes.length ? 'warning' : 'success');
+          if (body.roles_cleared && body.roles_cleared.length && typeof loadRoleMetrics === 'function') loadRoleMetrics();
+          await loadMetricsList();
+          await refreshAllMetricDropdowns();
+        } else {
+          showStatus(status, body.error || `Couldn't delete ${name} (error ${res.status}).`, 'error');
+          btn.disabled = false;
         }
+      } catch (err) {
+        showStatus(status, `Couldn't reach the server to delete ${name}.`, 'error');
+        btn.disabled = false;
       }
     });
   });
 }
+// Keep "Current value" and "Last updated" current while Metrics is open.
+setInterval(() => {
+  const sec = document.getElementById('section-metrics');
+  if (sec && !sec.hidden && document.visibilityState === 'visible') loadMetricsList();
+}, 60000);
 function populateDashboardSelects(config, savedDesktop, savedMobile) {
   const dashboards = config?.dashboards || [];
   const saved = { 'desktop-dashboard': savedDesktop, 'mobile-dashboard': savedMobile };
@@ -4957,8 +4929,8 @@ function renderTuyaDevice(device, idx) {
 
   // Remove button handler
   const removeTuyaBtn = card.querySelector('[data-action="remove-tuya"]');
-  if (removeTuyaBtn) removeTuyaBtn.addEventListener('click', () => {
-    if (showConfirm('Remove this Tuya device and all its DP mappings?')) {
+  if (removeTuyaBtn) removeTuyaBtn.addEventListener('click', async () => {
+    if (await showConfirm('Remove this Tuya device and all its DP mappings?')) {
       card.remove();
       reindexTuya();
       refreshAllMetricDropdowns();
@@ -5638,7 +5610,7 @@ async function buildSourcesPayload() {
   // AC-29: an implicit-polling device (stored config has no `mappings` key)
   // that saves with zero mapped rows would flip to explicit-none and stop
   // polling — confirm before persisting that.
-  if (!confirmImplicitToExplicitNoneFlips()) {
+  if (!(await confirmImplicitToExplicitNoneFlips())) {
     const err = new Error('Save cancelled — a device would flip from implicit profile-default polling to explicit-none (polling stops). Map at least one metric for it first.');
     err.cancelled = true;
     throw err;

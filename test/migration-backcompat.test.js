@@ -40,6 +40,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -334,4 +335,5 @@ check('AC-40.2|discovery window/cache writes ONLY the separate mqtt_discovery_ca
 // ================================================================ summary
 console.log('');
 console.log(`migration-backcompat.test.js: ${passed} passed, ${failed} failed`);
+if (!failed) checks.done();
 process.exit(failed ? 1 : 0);

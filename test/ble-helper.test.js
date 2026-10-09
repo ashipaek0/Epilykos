@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/ble-helper.test.js — modules/ble.js process supervisor, driven against
  * a fake helper (test/fixtures/fake-ble-helper.js). No Bluetooth or D-Bus needed.
@@ -112,6 +113,7 @@ async function ok(name, fn) {
     });
 
     console.log(`# ${passed} passed`);
+    checks.done();
     process.exit(0);
   } catch (err) {
     console.error('not ok -', err);

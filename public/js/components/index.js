@@ -12,6 +12,9 @@ import { buildDataTableMonthly } from './dataTableMonthly.js';
 import { buildSystemTopology, updateSystemTopology } from './systemTopology.js';
 import { buildMultiValueCard, updateMultiValueCard } from './multiValueCard.js';
 import { buildGaugeCard, updateGaugeCard } from './gaugeCard.js';
+import { buildConfigurableGaugeCard } from './configurableGaugeCard.js';
+import { buildMetricTrendCard } from './metricTrendCard.js';
+import { buildDualMetricCard } from './dualMetricCard.js';
 import { buildTextCard } from './textCard.js';
 import { buildIframeCard } from './iframeCard.js';
 import { buildForecastSparkline } from './forecastSparkline.js';
@@ -21,6 +24,12 @@ import { buildHalfGauge2Card, updateHalfGauge2Card } from './halfGauge2Card.js';
 import { buildFlowCardSquare, updateFlowCardSquare } from './flowCardSquare.js';
 import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.js';
 import { buildPvToday } from './pvToday.js';
+import { buildEnergyDay } from './energyDay.js';
+import { buildEnergyTotals } from './energyTotals.js';
+import { buildEnergyFlows } from './energyFlows.js';
+import { buildEnergyCosts } from './energyCosts.js';
+import { buildSystemOverview } from './systemOverview.js';
+import { buildEnergyTabs } from './energyTabs.js';
 import { buildBarGauge } from './barGauge.js';
 import { buildBarGaugeRetro } from './barGaugeRetro.js';
 import { buildBarSingleCard } from './barSingleCard.js';
@@ -29,6 +38,7 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
+import { buildControlPlaceholder } from './controlPlaceholder.js';
 import { registerBlock } from './blockRegistry.js';
 
 export const componentBuilders = {
@@ -48,6 +58,9 @@ export const componentBuilders = {
   'flow-card-2': buildSystemTopology,
   'multi-value': buildMultiValueCard,
   'gauge-card': buildGaugeCard,
+  'configurable-gauge': buildConfigurableGaugeCard,
+  'metric-trend': buildMetricTrendCard,
+  'dual-metric': buildDualMetricCard,
   'half-gauge': buildHalfGaugeCard,
   'half-gauge-2': buildHalfGauge2Card,
   'flow-card-square': buildFlowCardSquare,
@@ -55,21 +68,37 @@ export const componentBuilders = {
   'text-card': buildTextCard,
   'iframe-card': buildIframeCard,
   'forecast-pvtoday': buildPvToday,
+  'energy-day': buildEnergyDay,
+  'energy-totals': buildEnergyTotals,
+  'energy-flows': buildEnergyFlows,
+  'energy-costs': buildEnergyCosts,
+  'system-overview': buildSystemOverview,
+  'energy-tabs': buildEnergyTabs,
   'bar-gauge': buildBarGauge,
   'bar-gauge-retro': buildBarGaugeRetro,
   'bar-single': buildBarSingleCard,
   'bar-stacked': buildBarStackedCard,
   'bar-threshold': buildBarThresholdCard,
   'weather-block': buildWeatherBlock,
+  // Switches and selectors work only on the Controls page (password unlock,
+  // change log); everywhere else they show a placeholder linking there.
+  'switch-block': buildControlPlaceholder,
+  'state-select': buildControlPlaceholder
+};
+
+/** The working switch and selector cards, for the Controls page (and the showcase). */
+export const controlBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock
 };
 
 // Every build registers its block so cards can look up their own config when
 // they update (see blockRegistry.js), wherever they are rendered.
-for (const type of Object.keys(componentBuilders)) {
-  const build = componentBuilders[type];
-  componentBuilders[type] = (block = {}) => { registerBlock(block); return build(block); };
+for (const builders of [componentBuilders, controlBuilders]) {
+  for (const type of Object.keys(builders)) {
+    const build = builders[type];
+    builders[type] = (block = {}) => { registerBlock(block); return build(block); };
+  }
 }
 
 /**

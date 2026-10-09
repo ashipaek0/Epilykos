@@ -28,6 +28,7 @@
  */
 
 'use strict';
+const checks = require('./_checks');
 
 const fs = require('fs');
 const path = require('path');
@@ -353,6 +354,7 @@ const MODULE_PATH = path.join(__dirname, '..', 'public', 'js', 'components', 'te
 
   console.log('');
   console.log('text-metric card: ' + passes + ' passed, ' + failures + ' failed');
+  if (!failures) checks.done(passes);   // own check() helper, not assert
   process.exit(failures ? 1 : 0);
 })().catch(e => {
   console.error('text-metric card test crashed: ' + (e && e.stack || e));

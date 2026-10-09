@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -45,3 +46,4 @@ second.onerror(rawEvent);
 assert.strictEqual(errors.length, 2, 'open resets suppression for a later outage');
 assert.deepStrictEqual(errors[1], ['[WSManager] Connection failed; retrying']);
 console.log('PASS ws-error-reporting: outage logging and reconnect behavior');
+checks.done();

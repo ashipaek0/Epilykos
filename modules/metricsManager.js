@@ -4,7 +4,7 @@ const { logger } = require('./logger');
 // Get all metrics (from latest_metrics + user_metrics)
 function getAllMetrics() {
   const db = getDb();
-  const latest = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+  const latest = db.prepare('SELECT metric, value, value_text, timestamp, unit FROM latest_metrics').all();
   const userMetrics = JSON.parse(getConfig('user_metrics') || '[]');
   const metricMap = new Map();
 
@@ -12,9 +12,9 @@ function getAllMetrics() {
   latest.forEach(m => {
     metricMap.set(m.metric, {
       name: m.metric,
-      value: m.value,
+      value: m.value_text != null ? m.value_text : m.value,
       timestamp: m.timestamp,
-      unit: null
+      unit: m.unit || null   // the unit the source reported, if any
     });
   });
 
@@ -34,6 +34,12 @@ function getAllMetrics() {
     }
   });
 
+  // Combined: only while a definition of that name exists (the user_metrics
+  // flag outlives a deleted or renamed definition, which must stay deletable).
+  try {
+    const names = new Set(require('./combinedMetrics').loadDefinitions().filter(Boolean).map(d => String(d.name).trim()));
+    for (const m of metricMap.values()) if (names.has(m.name)) m.combined = true;
+  } catch (_) { /* definitions unreadable: list without the flag */ }
   return Array.from(metricMap.values());
 }
 

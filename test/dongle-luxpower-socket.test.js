@@ -9,6 +9,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const net = require('net');
@@ -570,6 +571,7 @@ async function main() {
   await testAC31d();
   console.log('PASS: dongle-luxpower-socket.test.js — AC5, AC6, AC8..AC12, AC31a-d (write flows) all green');
   process.exitCode = 0;
+  checks.done();
 }
 
 main().catch(err => {

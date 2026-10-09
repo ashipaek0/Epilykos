@@ -265,9 +265,29 @@ function scan({ timeout = 8, all = false } = {}) {
   return helper().request('scan', { timeout, all }, (timeout + 20) * 1000);
 }
 
+/** The aiobmsble type each pack was last read as (e.g. 'jbd_bms'), by address. */
+const bmsKinds = new Map();
+
 /** @returns {Promise<Object<string, number>>} flattened BMS sample */
-function readBms(address, { timeout = 25, bmsType = '' } = {}) {
-  return helper().request('read_bms', { address, timeout, bms_type: bmsType || undefined }, (timeout + 5) * 1000);
+async function readBms(address, { timeout = 25, bmsType = '' } = {}) {
+  const data = await helper().request('read_bms', { address, timeout, bms_type: bmsType || undefined }, (timeout + 5) * 1000);
+  if (data && typeof data === 'object' && '__kind' in data) {
+    if (typeof data.__kind === 'string' && data.__kind) bmsKinds.set(String(address).toUpperCase(), data.__kind);
+    delete data.__kind;
+  }
+  return data;
+}
+
+/** aiobmsble type a pack was last read as, or ''. */
+function bmsKind(address) { return bmsKinds.get(String(address || '').toUpperCase()) || ''; }
+
+/**
+ * Turn a JBD or JK pack's charging or discharging on/off. JBD needs the other
+ * switch's current state (one command sets both).
+ * @returns {Promise<{kind: 'jbd'|'jk'}>}
+ */
+function bmsSwitch(address, { bmsType = '', which, on, chargeOn, dischargeOn, timeout = 25 }) {
+  return helper().request('bms_switch', { address, bms_type: bmsType || undefined, switch: which, on, charge_on: chargeOn, discharge_on: dischargeOn, timeout }, (timeout + 5) * 1000);
 }
 
 /**
@@ -313,6 +333,6 @@ async function shutdownBle() {
 
 module.exports = {
   BleHelper, BleError, isConfigured, isValidAddress,
-  status, scan, readBms, modbusExchange, luxpowerExchange, gattRead, disconnect, shutdownBle,
+  status, scan, readBms, bmsKind, bmsSwitch, modbusExchange, luxpowerExchange, gattRead, disconnect, shutdownBle,
   _setHelperForTests(h) { shared = h; }
 };

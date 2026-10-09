@@ -1,5 +1,6 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml } from '../utils.js';
+import { markBreakdown } from './breakdown.js';
 
 
 export function buildDataTableMonthly(block = {}) {
@@ -8,9 +9,9 @@ export function buildDataTableMonthly(block = {}) {
   const columns = config.columns || [{ field: 'consumption_kwh', label: 'Load (kWh)' }, { field: 'solar_kwh', label: 'Solar PV (kWh)' }, { field: 'battery_charge_kwh', label: 'Battery charged (kWh)' }, { field: 'battery_discharge_kwh', label: 'Battery discharged (kWh)' }, { field: 'grid_import_kwh', label: 'Grid used (kWh)' }, { field: 'grid_export_kwh', label: 'Grid exported (kWh)' }];
   const container = document.createElement('div');
   container.className = 'daily-breakdown-container';
-  container.dataset.tableConfig = JSON.stringify({ columns }); container.dataset.blockId = id;
+  container.dataset.tableConfig = JSON.stringify({ columns }); if (config.columns) container.dataset.customColumns = '1'; container.dataset.blockId = id; container.dataset.kind = 'monthly'; markBreakdown(container, config);
   const thHtml = columns.map(c => `<th>${escapeHtml(c.label)}</th>`).join('');
-  container.innerHTML = `<div class="daily-breakdown-header"><h3>${escapeHtml(config.title||'Last 12 Months')}</h3><button class="toggle-btn">▼</button></div><div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Month</th>${thHtml}</tr></thead><tbody id="${uid('monthly-table-body',id)}"></tbody></table></div></div>`;
-  container.querySelector('.toggle-btn').addEventListener('click', function(){ const c = this.closest('.daily-breakdown-container').querySelector('.daily-breakdown-content'); const coll = c.classList.toggle('collapsed'); this.textContent = coll ? '▲' : '▼'; });
+  container.innerHTML = `<div class="daily-breakdown-header"><h3>${escapeHtml(config.title||'Last 12 Months')}</h3><button type="button" class="toggle-btn" aria-expanded="true" aria-label="Hide table">▼</button></div><div class="daily-breakdown-content"><div class="daily-table-wrapper"><table class="energy-table"><thead><tr><th>Month</th>${thHtml}</tr></thead><tbody id="${uid('monthly-table-body',id)}"></tbody></table></div></div>`;
+  container.querySelector('.toggle-btn').addEventListener('click', function(){ const c = this.closest('.daily-breakdown-container').querySelector('.daily-breakdown-content'); const coll = c.classList.toggle('collapsed'); this.textContent = coll ? '▲' : '▼'; this.setAttribute('aria-expanded', String(!coll)); this.setAttribute('aria-label', coll ? 'Show table' : 'Hide table'); });
   return container;
 }

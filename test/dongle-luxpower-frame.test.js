@@ -3,8 +3,8 @@
  * test/dongle-luxpower-frame.test.js
  * Frame-level validation for the LuxPower local-TCP transport (issue #102),
  * covering AC1-AC6 plus structural validation of the phase-2 profile
- * profiles/dongles/luxpower-geta.json (AC15, issue #107: write:false,
- * empty writable_registers, input+holding scopes, count:2 uint32 lsb_first pairs,
+ * profiles/dongles/luxpower-geta.json (AC15: write:true with the battery
+ * charge-level settings list, input+holding scopes, count:2 uint32 lsb_first pairs,
  * read_ranges coverage, explicit mapping). Issue #109 widened the live scope —
  * wide-sweep holding 0x0C-0xFE (was 0x00-0x77), input <= 0xEE (was 0xE8) — and
  * added 42 metrics (40 holding + 2 input) with decode spot-checks AC9-AC12.
@@ -19,6 +19,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -187,19 +188,29 @@ function parseAndCheck(buf, expect, label) {
   assert.strictEqual(profile.default_port, 8000, 'AC15: default_port must be 8000');
   assert.strictEqual(profile.byte_order, 'le', 'AC15: byte_order must be le (real values are LE words)');
   assert.strictEqual(profile.mapping, 'explicit', 'AC15: mapping must be explicit (issue #106 phase 2)');
-  assert.ok(profile.capabilities && profile.capabilities.write === false, 'AC15: capabilities.write must be false (issue #107 — no surfaced writes)');
+  // Settings list (Controls page): battery charge-level limits only, each a %
+  // holding register that is also polled as a metric. EPS voltage/frequency
+  // (0x005A/0x005B, issue #107) and every non-% register stay off the list.
+  assert.ok(profile.capabilities && profile.capabilities.write === true, 'AC15: capabilities.write is true (Controls page settings list)');
   assert.ok(Array.isArray(profile.metrics) && profile.metrics.length > 0, 'AC15: metrics[] required');
-
-  // writable_registers: must be empty — no write registers surfaced (issue #107)
   const writable = profile.writable_registers || [];
-  assert.strictEqual(writable.length, 0, 'AC15: writable_registers must be empty (issue #107)');
-  // Formerly surfaced writable registers (0x0069 eod_soc, 0x004B charge_first_soc_limit,
-  // 0x005A eps_voltage_set, 0x005B eps_frequency_set) must not reappear in any writable list
-  const formerWritable = [0x0069, 0x004B, 0x005A, 0x005B];
+  assert.strictEqual(writable.length, 8, 'AC15: 8 listed settings');
+  const holdingByReg = new Map(profile.metrics.filter(m => m.register_type === 'holding').map(m => [parseInt(m.register, 16), m]));
+  const settingNames = new Set();
   for (const w of writable) {
     const reg = parseInt(w.register, 16);
-    assert.ok(!formerWritable.includes(reg), `AC15: former writable register ${w.register} must not be surfaced (issue #107)`);
+    assert.ok(![0x005A, 0x005B].includes(reg), `AC15: ${w.register} (EPS voltage/frequency) must never be listed`);
+    assert.strictEqual(w.register_type, 'holding', `AC15: ${w.name} is a holding register`);
+    assert.strictEqual(w.kind, 'value', `AC15: ${w.name} kind value`);
+    const m = holdingByReg.get(reg);
+    assert.ok(m && m.name === w.name, `AC15: ${w.name} matches the polled holding metric at ${w.register}`);
+    assert.strictEqual(m.unit, '%', `AC15: ${w.name} is a % setting`);
+    assert.strictEqual(w.unit, '%'); assert.strictEqual(w.scale, 1); assert.strictEqual(w.step, 1);
+    assert.ok(Number.isInteger(w.min) && Number.isInteger(w.max) && w.min >= 0 && w.max <= 100 && w.min < w.max, `AC15: ${w.name} range within 0-100`);
+    assert.ok(w.label && w.description, `AC15: ${w.name} has a label and description`);
+    assert.ok(!settingNames.has(w.name), `AC15: ${w.name} listed once`); settingNames.add(w.name);
   }
+  for (const w of writable) for (const rel of ['below', 'above']) if (w[rel]) assert.ok(settingNames.has(w[rel]), `AC15: ${w.name} ${rel} refers to a listed setting`);
 
   const rangeCovers = (reg, type) => (profile.read_ranges && profile.read_ranges[type] || []).some(([s, c]) => reg >= s && reg < s + c);
 
@@ -250,7 +261,7 @@ function parseAndCheck(buf, expect, label) {
   }
   assert.strictEqual(profile.metrics.length, names.length, 'AC15: metric names must be unique');
   assert.strictEqual(profile.metrics.length, seen.size, 'AC15: all (register_type, register) pairs unique');
-  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), issue #109 +42, mapping:explicit, write:false, ${writable.length} writable holding registers`);
+  console.log(`PASS AC15: luxpower-geta.json valid — ${inputCount} input + ${holdingCount} holding metrics (${count2Count} count:2 uint32), issue #109 +42, mapping:explicit, write:true, ${writable.length} listed settings`);
 }
 
 // ---------------------------------------------------------------------------
@@ -479,4 +490,5 @@ function parseAndCheck(buf, expect, label) {
 }
 
 console.log('PASS: dongle-luxpower-frame.test.js — AC1, AC2, AC3, AC4, AC6, AC15 (167/58/20), R4 (76522s golden), AC9-AC12 (issue #109 decode spot-checks), AC27 (buildWriteFrame) all green');
+checks.done();
 process.exitCode = 0;

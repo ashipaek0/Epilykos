@@ -15,6 +15,7 @@
  *     through untouched).
  */
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -82,3 +83,4 @@ check('getMetricHistory: rollup bucket + raw row merge correctly at the raw/aggr
 });
 
 console.log(`\ntimeseries-routing-metrics.test.js: ${passed} checks passed`);
+checks.done();

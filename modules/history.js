@@ -20,8 +20,9 @@ function getHistoryInsert() {
   return getDb().prepare(`
       INSERT OR REPLACE INTO history
       (timestamp, consumption, solar, battery_charge, battery_discharge, grid_import, grid_export, battery_soc,
-       daily_consumption, daily_solar, daily_battery_charge, daily_battery_discharge, daily_grid_import, daily_grid_export)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       daily_consumption, daily_solar, daily_battery_charge, daily_battery_discharge, daily_grid_import, daily_grid_export,
+       generator, daily_generator)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 }
 
@@ -35,6 +36,8 @@ const ROLE_TO_COL = {
   daily_solar: 'daily_solar', daily_consumption: 'daily_consumption',
   daily_battery_charge: 'daily_battery_charge', daily_battery_discharge: 'daily_battery_discharge',
   daily_grid_import: 'daily_grid_import', daily_grid_export: 'daily_grid_export',
+  // Generator input (inverters with a separate generator port).
+  generator: 'generator', daily_generator: 'daily_generator',
 };
 
 const ZERO_VALUES = {
@@ -42,6 +45,7 @@ const ZERO_VALUES = {
   grid_import: 0, grid_export: 0, battery_soc: 0,
   daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0,
   daily_battery_discharge: 0, daily_grid_import: 0, daily_grid_export: 0,
+  generator: 0, daily_generator: 0,
 };
 
 /**
@@ -125,7 +129,8 @@ async function pollLegacyHistory() {
     values.consumption, values.solar, values.battery_charge, values.battery_discharge,
     values.grid_import, values.grid_export, values.battery_soc,
     values.daily_consumption, values.daily_solar, values.daily_battery_charge,
-    values.daily_battery_discharge, values.daily_grid_import, values.daily_grid_export
+    values.daily_battery_discharge, values.daily_grid_import, values.daily_grid_export,
+    values.generator, values.daily_generator
   );
 }
 

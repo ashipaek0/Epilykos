@@ -1,16 +1,20 @@
 import { escapeHtml, isNumericValue } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { arcPath, gaugeSvg, setArc } from './gaugeArc.js';
+import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { emptyBlock } from './emptyState.js';
 
 /** One value on a 270° dial. Scales with its block. */
 export function buildGaugeCard(block = {}) {
   const config = block.config || {};
   const metric = config.metric || '';
+  if (!metric) return emptyBlock(undefined, block.id);
   const min = config.min ?? 0, max = config.max ?? 100;
   const color = config.color || 'var(--accent)';
   const container = document.createElement('div');
   container.className = 'gauge-card stat-card ep-card ep-gauge';
   container.dataset.blockId = block.id || '';
+  markBreakdown(container, config);
   container.dataset.metricMap = JSON.stringify({ value: metric, min, max, color });
   container.innerHTML = `
     <div class="ep-gauge-wrap ep-gauge-ring">
@@ -26,6 +30,7 @@ export function buildGaugeCard(block = {}) {
 export function updateGaugeCard(state) {
   document.querySelectorAll('.gauge-card').forEach(container => {
     let cfg; try { cfg = JSON.parse(container.dataset.metricMap); } catch (e) { return; }
+    applyBreakdowns(container, state, [{ host: container, title: container.querySelector('.ep-label')?.textContent || '', specs: [{ name: cfg.value }] }]);
     const entry = state.metrics?.[cfg.value];
     const v = entry?.value;
     if (v === undefined || v === null) return;

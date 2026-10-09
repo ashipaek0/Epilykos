@@ -19,6 +19,7 @@
  * Exit code: 0 on full PASS, non-zero on any assertion failure.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const fs = require('fs');
@@ -89,3 +90,4 @@ check('base immutability (input not mutated)', () => {
 });
 
 console.log(`\nPASS ws-delta: ${passed} checks`);
+checks.done();

@@ -129,7 +129,7 @@ const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./module
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
-const { router: metricsRouter, buildDashboardState } = require('./routes/metrics');
+const { router: metricsRouter, buildDashboardState, sharedDashboardState } = require('./routes/metrics');
 // Issue #108 (AC-1..13): dongle projections live in the pure module; the
 // remaining per-family projections are route-level pure helpers below (server
 // wave touches server.js only). All catalog routes are thin wrappers.
@@ -381,8 +381,11 @@ const PORT = process.env.PORT || 3000;
 // polled every 30 s by Docker/Podman).
 app.use(require('./routes/health').router);
 
-// Global rate limiter — 2000 requests per 15 min per IP
-const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false });
+// Global rate limiter — 2000 API requests per 15 min per IP. Pages and their
+// files don't count: one dashboard load fetches ~100 scripts, styles and
+// images, so counting them locked people out (a blank 429 page) after a dozen
+// reloads, and everyone at once behind a reverse proxy. Login has its own limit.
+const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, limit: 2000, standardHeaders: 'draft-6', legacyHeaders: false, skip: req => (req.method === 'GET' || req.method === 'HEAD') && !req.path.startsWith('/api/') });
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
@@ -460,8 +463,22 @@ const upload = multer({
 });
 
 // Middleware
-// Redirect raw editor.html to the protected /editor route (auth gate — issue #87)
+// Redirect raw editor.html / settings.html to their protected routes (auth gate — issue #87)
 app.get('/editor.html', (req, res) => res.redirect('/editor'));
+app.get('/settings.html', (req, res) => res.redirect('/settings'));
+// Signed-in pages (card showcase, device controls) and their files — every
+// request under them needs a session, whatever the method or sub path.
+const { mountPrivatePages, ownsPrivatePath } = require('./routes/privatePages');
+mountPrivatePages(app);
+// The dashboard page, with its modules listed up front (modules/pagePreload.js).
+// Ahead of express.static, which would otherwise answer / with the plain file.
+const { sendPage } = require('./modules/pagePreload');
+app.get(['/', '/index.html'], (req, res) => sendPage(res, path.join(__dirname, 'public', 'index.html'), '/'));
+// Each module page's scripts as one file (modules/pageBundles.js); signed-in
+// pages' bundles are under /private/bundles/ (routes/privatePages.js).
+const pageBundles = require('./modules/pageBundles');
+app.get('/bundles/:file', (req, res, next) => { if (!pageBundles.serveBundle(req, res, req.path)) next(); });
+pageBundles.prebuild(['/js/main.js', '/js/editor.js', '/private/js/controls.js', '/private/js/showcase.js']);
 // Serve static files with 1h browser cache
 // Pages, scripts and styles revalidate on every load (ETag → 304 when unchanged)
 // so an image update is visible at once; icons/fonts keep the 1 h cache.
@@ -470,6 +487,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (/\.(html|js|css|json|webmanifest)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
   }
+}));
+// The editor's grid library, from the installed package rather than a CDN
+// (a slow or blocked CDN left the editor blank; its script is render-blocking).
+app.use('/vendor/gridstack', express.static(path.join(__dirname, 'node_modules', 'gridstack', 'dist'), {
+  maxAge: '1h', index: false,
+  setHeaders(res, filePath) { if (/\.(js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
 }));
 app.use(express.json());
 app.use('/api', csrfProtection);
@@ -567,7 +590,7 @@ wss.on('connection', (ws) => {
   
   (async () => {
     try {
-      const state = await buildDashboardState();
+      const state = await sharedDashboardState();
       ws.send(JSON.stringify({ type: 'dashboard-state', data: state }));
     } catch (err) {
       logger.error('Error sending initial state via WebSocket:', err);
@@ -626,6 +649,8 @@ async function pollAllSources() {
 }
 pollAllSources();
 const pollInterval = setInterval(pollAllSources, 30000);
+// Read the all-time daily totals once now, so the first page load doesn't pay for it.
+setTimeout(() => { buildDashboardState().catch(() => {}); }, 2000).unref();
 
 // ---------- Public API (no auth) ----------
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -643,7 +668,7 @@ app.get('/setup', (req, res) => {
 
 // "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
-  for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices']) {
+  for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
     setConfig(k, '[]');
   }
   setConfig('role_metrics', '{}');
@@ -723,6 +748,73 @@ app.post('/api/role-metrics', (req, res) => {
   setConfig('role_metrics', JSON.stringify(mapping));
   logger.info('[role-metrics] Updated mapping:', mapping);
   res.json({ success: true });
+});
+
+// Combined metrics (Settings > Metrics): definitions, last-cycle status, preview.
+app.use('/api/combined-metrics', isAuthenticated);
+app.get('/api/combined-metrics', (req, res) => {
+  const cm = require('./modules/combinedMetrics');
+  res.json({ definitions: cm.loadDefinitions(), status: cm.getCombinedStatus(), functions: cm.FNS, auto_labels: cm.autoLabels() });
+});
+app.post('/api/combined-metrics', (req, res) => {
+  const cm = require('./modules/combinedMetrics');
+  const defs = Array.isArray(req.body?.definitions) ? req.body.definitions : null;
+  if (!defs || defs.length > 100) return res.status(400).json({ error: 'Expected up to 100 definitions.' });
+  const clean = [];
+  for (const raw of defs) {
+    const def = {
+      id: typeof raw.id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(raw.id) ? raw.id : `cm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name: String(raw.name || '').trim(), unit: String(raw.unit || '').trim().slice(0, 12), enabled: raw.enabled !== false,
+      fn: raw.fn, inputs: (Array.isArray(raw.inputs) ? raw.inputs : []).map(x => String(x || '').trim()).filter(Boolean)
+    };
+    for (const k of ['weights', 'factor', 'offset', 'input_unit', 'start', 'stale_seconds', 'missing', 'note']) if (raw[k] !== undefined && raw[k] !== '') def[k] = raw[k];
+    if (def.weights) def.weights = def.weights.map(Number);
+    for (const k of ['factor', 'offset', 'start', 'stale_seconds']) if (def[k] !== undefined) def[k] = Number(def[k]);
+    if (typeof def.note === 'string') def.note = def.note.slice(0, 200);
+    // Names shown for the inputs on cards that list the parts: { input: label }, only for inputs in use.
+    if (raw.labels && typeof raw.labels === 'object' && !Array.isArray(raw.labels)) {
+      const labels = {};
+      for (const input of def.inputs) { const l = typeof raw.labels[input] === 'string' ? raw.labels[input].trim().slice(0, 40) : ''; if (l) labels[input] = l; }
+      if (Object.keys(labels).length) def.labels = labels;
+    }
+    const errors = cm.validateDefinition(def, clean);
+    if (errors.length) return res.status(400).json({ error: `${def.name || 'A combined metric'}: ${errors[0]}`, errors });
+    clean.push(def);
+  }
+  const { cyclic } = cm.orderDefinitions(clean);
+  if (cyclic.length) return res.status(400).json({ error: `These combined metrics use each other in a loop: ${cyclic.join(', ')}.` });
+  setConfig(cm.CONFIG_KEY, JSON.stringify(clean));
+  try { cm.pruneState(clean); } catch (err) { logger.warn('[combined] could not tidy state:', err.message); }
+  // List each combined metric with its unit, so pickers and the data-spike guard know it.
+  try {
+    const list = JSON.parse(getConfig('user_metrics') || '[]');
+    let changed = false;
+    for (const d of clean) {
+      const row = list.find(m => m && m.name === d.name);
+      if (!row) { list.push({ name: d.name, unit: d.unit, createdAt: Date.now(), combined: true }); changed = true; }
+      else if (d.unit && row.unit !== d.unit) { row.unit = d.unit; changed = true; }
+    }
+    if (changed) setConfig('user_metrics', JSON.stringify(list));
+  } catch (err) { logger.warn('[combined] could not list metrics:', err.message); }
+  logger.info(`[combined] saved ${clean.length} combined metrics`);
+  res.json({ success: true, definitions: clean });
+});
+app.post('/api/combined-metrics/preview', (req, res) => {
+  const cm = require('./modules/combinedMetrics');
+  const def = req.body || {};
+  const errors = cm.validateDefinition(def);
+  if (errors.length) return res.status(400).json({ error: errors[0], errors });
+  const { flushMetrics } = require('./modules/database');
+  flushMetrics();
+  const stmt = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?'), now = Math.floor(Date.now() / 1000);
+  const inputs = def.inputs.map(name => {
+    const row = stmt.get(String(name).trim());
+    const ts = row ? (Number(row.timestamp) > 1e12 ? Math.floor(row.timestamp / 1000) : Number(row.timestamp)) : null;
+    return { name, value: row ? row.value : null, age: ts == null ? null : now - ts };
+  });
+  const result = cm.evaluate(def, name => { const r = stmt.get(String(name).trim()); if (!r || r.value == null) return null; return { value: Number(r.value), timestamp: Number(r.timestamp) > 1e12 ? Math.floor(r.timestamp / 1000) : Number(r.timestamp) }; }, null, now);
+  const energy = ['energy_today', 'energy_total', 'counter_today'].includes(def.fn);
+  res.json({ inputs, value: result.skip ? null : result.value, skip: result.skip || null, note: energy ? 'Energy and daily counters start counting once saved.' : null });
 });
 
 app.use('/api/ha-device-entities', isAuthenticated);
@@ -1310,6 +1402,18 @@ app.post('/api/settings', (req, res) => {
       }
       filteredUpdates[key] = value;
     }
+    if (filteredUpdates.dongle_config !== undefined) {
+      let devices = filteredUpdates.dongle_config;
+      if (typeof devices === 'string') { try { devices = JSON.parse(devices || '[]'); } catch (_) { devices = []; } }
+      const clash = require('./modules/sourceChecks').dongleNameClash(devices);
+      if (clash) return res.status(400).json({ error: clash });
+    }
+    if (filteredUpdates.bms_banks !== undefined) {
+      let banks = filteredUpdates.bms_banks;
+      if (typeof banks === 'string') { try { banks = JSON.parse(banks || '[]'); } catch (_) { banks = []; } }
+      const clash = require('./modules/sourceChecks').bankOutputClash(banks);
+      if (clash) return res.status(400).json({ error: clash });
+    }
     const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
     const saved = [];
     for (const [key, value] of Object.entries(filteredUpdates)) {
@@ -1475,7 +1579,7 @@ app.post('/api/settings/solar', isAuthenticated, (req, res) => {
   try {
     const allowed = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
-      'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
+      'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id', 'solar_arrays',
       'solar_loss_factor', 'solar_install_date',
       'forecast_default_source', 'weather_default_source', 'role_metrics'
     ];
@@ -1494,7 +1598,9 @@ app.post('/api/settings/savings', isAuthenticated, (req, res) => {
   try {
     const allowed = [
       'savings_currency', 'savings_rate', 'savings_solar_metric',
-      'all_time_pv_savings_override'
+      'all_time_pv_savings_override',
+      'energy_sell_price', 'battery_wear_cost', 'battery_capacity_kwh', 'battery_min_soc',
+      'generator_price', 'savings_method', 'grid_status_entity'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
     logger.info(`[Settings/savings] Saved: ${saved.join(', ')}`);
@@ -1569,8 +1675,14 @@ function resolveActionDevice(source, device, entity) {
   return '';
 }
 
-app.post('/api/action', isAuthenticated, async (req, res) => {
+// Device actions (switches, selectors, register writes) need the Controls
+// unlock (password again within a few minutes), and every attempt is logged.
+const deviceControls = require('./modules/deviceControls');
+app.use('/api/controls', isAuthenticated, require('./routes/controls'));
+app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (req, res) => {
   const { source, action, entity, params } = req.body;
+  const logged = (outcome, detail) => deviceControls.logAttempt({ source: 'action:' + String(source || ''), device: req.body.device, target: entity, label: action,
+    newValue: params && (params.value !== undefined ? params.value : params.payload), outcome, detail }, req);
 
   if (!source || !action) {
     return res.status(400).json({ success: false, error: 'source and action are required' });
@@ -1666,11 +1778,14 @@ app.post('/api/action', isAuthenticated, async (req, res) => {
     }
     
     if (result?.error) {
+      logged('failed', result.error);
       return res.status(502).json({ success: false, ...result });
     }
+    logged('done', '');
     res.json(result);
   } catch (e) {
     logger.error('Action error:', e);
+    logged('failed', e.message);
     res.status(500).json({ success: false, error: 'Action failed' });
   }
 });
@@ -2354,8 +2469,22 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   try {
     const { deleteMetric } = require('./modules/metricsManager');
     const { name } = req.params;
+    // A combined metric is written again every cycle while its definition exists.
+    const cm = require('./modules/combinedMetrics');
+    if (cm.loadDefinitions().some(d => d && String(d.name).trim() === name)) {
+      return res.status(409).json({ error: `${name} is a combined metric. Delete it under Combined metrics, or it is worked out again on the next reading.` });
+    }
     deleteMetric(name);
-    res.json({ success: true });
+    // Roles pointing at it would point at nothing: clear them. Combined metrics
+    // that add it up are left for the person to change, but named.
+    let rolesCleared = [];
+    try {
+      const roles = JSON.parse(getConfig('role_metrics') || '{}') || {};
+      rolesCleared = Object.keys(roles).filter(r => roles[r] === name);
+      if (rolesCleared.length) { rolesCleared.forEach(r => { roles[r] = ''; }); setConfig('role_metrics', JSON.stringify(roles)); }
+    } catch (_) { /* roles unreadable: nothing to clear */ }
+    const usedBy = cm.loadDefinitions().filter(d => d && (d.inputs || []).map(x => String(x).trim()).includes(name)).map(d => d.name);
+    res.json({ success: true, roles_cleared: rolesCleared, used_by: usedBy });
   } catch (err) {
     logger.error('Error deleting metric:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -2365,7 +2494,7 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
 // ---------- Visual Editor (protected) ----------
 app.get('/editor', (req, res) => {
   if (!req.session || !req.session.authenticated) return res.redirect('/login');
-  res.sendFile(path.join(__dirname, 'public', 'editor.html'));
+  sendPage(res, path.join(__dirname, 'public', 'editor.html'), '/editor');
 });
 
 // ---------- Network config (public, read-only) ----------
@@ -2388,10 +2517,7 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// ---------- Root route (public) ----------
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// (The root route, /, is served ahead of the static files, near the top.)
 
 // ---------- Metrics endpoints ----------
 app.get('/api/metrics/current', async (req, res) => {
@@ -2407,7 +2533,13 @@ app.get('/api/metrics/history', async (req, res) => {
   const metric = req.query.metric;
   if (!metric || typeof metric !== 'string' || metric.length > 128) return res.status(400).json({ error: 'metric is required (max 128 chars)' });
   const hours = parseInt(req.query.hours) || 24;
-  if (isNaN(hours) || hours < 1 || hours > 8760) return res.status(400).json({ error: 'hours must be 1-8760' });
+  // Public (dashboard) reads are capped at the 7 days the cards ask for: a
+  // year of raw readings is a heavy response anyone could request. Signed in,
+  // up to a year.
+  const signedIn = !!(req.session && req.session.authenticated);
+  const maxHours = signedIn ? 8760 : 168;
+  if (isNaN(hours) || hours < 1) return res.status(400).json({ error: `hours must be 1-${maxHours}` });
+  if (hours > maxHours) return res.status(signedIn ? 400 : 403).json({ error: signedIn ? 'hours must be 1-8760' : 'Without signing in, history covers up to 7 days (168 hours).' });
   try {
     res.json(getMetricHistory(metric, hours));
   } catch (err) {
@@ -2429,10 +2561,10 @@ app.get('/api/metrics/names', async (req, res) => {
 
 // ---------- Catch-all for SPA ----------
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
+  if (ownsPrivatePath(req.path) || req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
     return next();
   }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  sendPage(res, path.join(__dirname, 'public', 'index.html'), '/');
 });
 
 // Start HTTP server with WebSocket support

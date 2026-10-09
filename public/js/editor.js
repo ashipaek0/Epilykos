@@ -23,13 +23,25 @@ var availableMetrics = [];       // metric names from dashboard state
 var metricsPromise = null;       // fetched once per editor session
 var availableRestSources = [];   // REST source names from /api/settings external_sources (S3)
 var readOnly = false;
+// The Controls page's own layout (switch and selector cards only), edited
+// like a dashboard but saved to /api/controls/layout. Null when signed out.
+var CONTROLS_TAB_ID = 'controls-page';
+var controlsTab = null;
+var controlsSaved = '';           // last saved controls layout, as JSON
 
 function $(id) { return document.getElementById(id); }
 function isNarrow() { return window.matchMedia('(max-width: 900px)').matches; }
 
-function currentTab() {
-  return dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; }) || null;
+function allTabs() {
+  return controlsTab ? dashboardConfig.dashboards.concat([controlsTab]) : dashboardConfig.dashboards;
 }
+function findTab(id) {
+  return allTabs().find(function(db) { return db.id === id; }) || null;
+}
+function currentTab() { return findTab(currentTabId); }
+function onControlsTab() { return !!controlsTab && currentTabId === CONTROLS_TAB_ID; }
+/** Switch and selector cards go on the Controls page; everything else on dashboards. */
+function typeFitsTab(type) { return (blockInfo(type).group === 'controls') === onControlsTab(); }
 function findBlock(id) {
   var tab = currentTab();
   return tab ? tab.layout.find(function(b) { return b.id === id; }) || null : null;
@@ -114,7 +126,7 @@ async function flushSave() {
   while (saving) await saving;
   syncLayoutFromGrid();
   setSaveStatus('saving');
-  saving = saveDashboardConfig(dashboardConfig).then(function() { return true; }, function(e) {
+  saving = saveDashboardConfig(dashboardConfig).then(saveControlsLayout).then(function() { return true; }, function(e) {
     console.warn('Save failed:', e);
     lastSaveError = e;
     return false;
@@ -127,6 +139,23 @@ async function flushSave() {
   return ok;
 }
 
+async function saveControlsLayout() {
+  if (!controlsTab) return;
+  var json = JSON.stringify(controlsTab.layout);
+  if (json === controlsSaved) return;
+  var res = await fetch('/api/controls/layout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({ layout: controlsTab.layout })
+  });
+  if (!res.ok) {
+    var msg = 'Saving the Controls page failed (' + res.status + ')';
+    try { var err = await res.json(); if (err.error) msg = err.error + ' (' + res.status + ')'; } catch (e) {}
+    throw new Error(msg);
+  }
+  controlsSaved = json;
+}
+
 // ── Undo / redo ──────────────────────────────────────────────────────────
 // Snapshots of the whole config, taken before each change.
 
@@ -134,7 +163,7 @@ var undoStack = [], redoStack = [];
 
 function snapshot() {
   syncLayoutFromGrid();
-  return JSON.stringify({ config: dashboardConfig, tab: currentTabId, selected: selectedBlockId });
+  return JSON.stringify({ config: dashboardConfig, controls: controlsTab && controlsTab.layout, tab: currentTabId, selected: selectedBlockId });
 }
 function pushUndo() {
   if (readOnly) return;
@@ -146,7 +175,8 @@ function pushUndo() {
 function restoreSnapshot(snap) {
   var s = JSON.parse(snap);
   dashboardConfig = s.config;
-  var tabId = dashboardConfig.dashboards.some(function(db) { return db.id === s.tab; }) ? s.tab : dashboardConfig.dashboards[0].id;
+  if (controlsTab && Array.isArray(s.controls)) controlsTab.layout = s.controls;
+  var tabId = findTab(s.tab) ? s.tab : dashboardConfig.dashboards[0].id;
   loadTab(tabId, { skipSync: true, keepSelection: s.selected });
   scheduleSave(0);
 }
@@ -215,6 +245,10 @@ function metricSelect(selectedName, existingId, extraOptions) {
       sel += '<option value="' + escHtml(eo.value) + '"' + (eo.value === selectedName ? ' selected' : '') + '>' + escHtml(eo.label) + '</option>';
     }
   }
+  // A saved metric that is not reporting right now stays selected rather than
+  // being silently cleared on the next save.
+  var known = !selectedName || availableMetrics.indexOf(selectedName) !== -1 || (extraOptions || []).some(function(eo) { return eo.value === selectedName; });
+  if (!known) sel += '<option value="' + escHtml(selectedName) + '" selected>' + escHtml(selectedName) + ' (no data yet)</option>';
   sel += '</select>';
   return sel;
 }
@@ -269,8 +303,29 @@ function buildFlowCardForm(block) {
     html += '</div>';
   }
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-showgauge"' + (cfg.showGauge !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-showgauge">Show solar gauge</label></span>';
+  html += buildBreakdownFields(cfg);
   html += '</fieldset>';
   return html;
+}
+
+/**
+ * Flow cards: show the parts behind a combined total (e.g. PV1 / PV2 behind
+ * the solar total). Off by default, so the card shows only the total.
+ */
+function buildBreakdownFields(cfg) {
+  var mode = cfg.breakdown === 'inline' || cfg.breakdown === 'hover' ? cfg.breakdown : 'off';
+  var depth = cfg.breakdown_depth === 'all' ? 'all' : 'one';
+  var opt = function(v, l, cur) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + l + '</option>'; };
+  var html = '<h4 class="ps-subhead">Parts of combined totals</h4><p data-ui="help">When a value is a combined metric, such as the solar total of several MPPTs or inverters, this can also list its parts. Off shows only the total.</p>';
+  html += '<div data-ui="grid2"><label data-ui="field">Show parts <select id="modal-breakdown" data-ui="input">' + opt('off', 'Off', mode) + opt('inline', 'Under the value', mode) + opt('hover', 'Tap or hover', mode) + '</select></label>';
+  html += '<label data-ui="field">Nested totals <select id="modal-breakdown-depth" data-ui="input">' + opt('one', 'First level only', depth) + opt('all', 'Every level', depth) + '</select></label></div>';
+  return html;
+}
+function readBreakdownFields(config) {
+  var m = document.getElementById('modal-breakdown'), d = document.getElementById('modal-breakdown-depth');
+  if (!m) return;
+  if (m.value === 'inline' || m.value === 'hover') config.breakdown = m.value; else delete config.breakdown;
+  if (d && d.value === 'all') config.breakdown_depth = 'all'; else delete config.breakdown_depth;
 }
 
 /** System Topology (flow-card-2) / Flow Card Square / Flow Card Square 2: same metrics shape */
@@ -289,6 +344,7 @@ function buildSystemTopologyForm(block) {
     html += '</div>';
   }
   html += '<label data-ui="field">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="https://..." data-ui="input"></label>';
+  html += buildBreakdownFields(cfg);
   html += '</fieldset>';
   return html;
 }
@@ -765,8 +821,8 @@ function renderMetricCardsRows(container) {
 function buildDataTableForm(block) {
   var cfg = block.config || {};
   var columns = cfg.columns || [];
-  var allColFields = ['consumption_kwh','solar_kwh','battery_charge_kwh','battery_discharge_kwh','grid_import_kwh','grid_export_kwh'];
-  var colLabels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)'};
+  var allColFields = ['consumption_kwh','solar_kwh','battery_charge_kwh','battery_discharge_kwh','grid_import_kwh','grid_export_kwh','generator_kwh'];
+  var colLabels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)',generator_kwh:'Generator (kWh)'};
   var enabledFields = {};
   columns.forEach(function(c) { enabledFields[c.field] = true; });
   // If no columns configured, all are enabled
@@ -855,12 +911,110 @@ function buildGridCardForm(block) {
   return html;
 }
 
+// Power chart statistics: what to show sits up front; table style and number
+// format are folded away. Everything here is read back by readSettingsForm.
+var PS_STAT_NAMES = { mean: 'Average', max: 'Maximum', min: 'Minimum', last: 'Latest' };
+function buildPowerStatsForm(cfg) {
+  var s = cfg.stats || {}, columns = Array.isArray(s.columns) ? s.columns : [{key:'mean',visible:true,label:'Mean'},{key:'max',visible:true,label:'Max'},{key:'min',visible:true,label:'Min'},{key:'last',visible:true,label:'Last',showTimestamp:true,staleAfterSeconds:900}];
+  var esc = escHtml;
+  var toggle = function(id, label, on) { return '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>'; };
+  var number = function(id, label, value, min, max, step) { return '<label data-ui="field">' + label + ' <input type="number" id="' + id + '" value="' + esc(value == null ? '' : value) + '" min="' + min + '" max="' + max + '" step="' + step + '" data-ui="input"></label>'; };
+  var select = function(attr, label, value, choices) { return '<label data-ui="field">' + label + ' <select ' + attr + ' data-ui="input">' + choices.map(function(c) { return '<option value="' + c[0] + '"' + (c[0] === value ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select></label>'; };
+  var f = s.format || {}, st = s.tableStyle || {};
+  var align = [['start','Left'],['center','Centre'],['end','Right']];
+  var h = '<fieldset data-ui="section" class="power-stats-editor"><legend data-ui="legend">Statistics table</legend>';
+  h += toggle('ps-enabled', 'Show statistics', s.enabled === true);
+  h += '<div id="ps-details"' + (s.enabled === true ? '' : ' hidden') + '>';
+  h += '<label data-ui="field">Table title <input id="ps-title" value="' + esc(s.title || 'Statistics') + '" data-ui="input"></label>';
+  h += '<div class="ps-toggles">' + toggle('ps-title-visible', 'Show title', s.titleVisible !== false) + toggle('ps-header-visible', 'Show column headings', s.headerVisible !== false) + toggle('ps-hidden-series', 'List series hidden from the chart', s.includeHiddenSeries === true) + '</div>';
+  h += '<p data-ui="help">Pick a series’ statistics label, decimals and unit under “More options” on each series.</p>';
+  h += '<h4 class="ps-subhead">Columns</h4><p data-ui="help">Tick to show a column; arrows change the order.</p><div id="ps-columns"></div><button type="button" id="ps-add-column" data-ui="add">Add column</button><script id="ps-columns-data" type="application/json">' + JSON.stringify(columns).replace(/</g,'\\u003c') + '</script>';
+  h += '<details class="ps-more"><summary>Table style</summary>';
+  h += select('id="ps-density"', 'Density', s.density === 'compact' ? 'compact' : 'comfortable', [['comfortable','Comfortable'],['compact','Compact']]);
+  h += '<div data-ui="grid2">';
+  // Headings follow the alignment of the column below them.
+  h += select('data-ps-style="labelAlign"', 'Series names', st.labelAlign || 'start', align) + select('data-ps-style="valueAlign"', 'Values', st.valueAlign || 'end', align);
+  h += select('data-ps-style="fontWeight"', 'Font weight', st.fontWeight || 'normal', [['normal','Normal'],['medium','Medium'],['semibold','Semibold'],['bold','Bold']]) + select('data-ps-style="border"', 'Row lines', st.border || 'subtle', [['none','None'],['subtle','Subtle'],['strong','Strong']]);
+  h += number('ps-fontsize', 'Font size (px)', st.fontSizePx == null ? 14 : st.fontSizePx, 10, 24, 1) + number('ps-spacing', 'Row spacing (px)', st.rowSpacingPx == null ? 8 : st.rowSpacingPx, 0, 32, 1);
+  h += '</div>';
+  h += '<label data-ui="field">Text color ' + optionalColorControl('ps-color', st.textColor && st.textColor !== 'theme' ? st.textColor : '') + '</label>';
+  h += '<div class="ps-toggles">' + toggle('ps-swatches', 'Colour dot by each series', st.showSwatches !== false) + toggle('ps-tooltip', 'Data-quality tips on hover', st.tooltip !== false) + '</div>';
+  h += '</details><details class="ps-more"><summary>Number format</summary>';
+  h += '<label data-ui="field">Locale <input id="ps-locale" value="' + esc(f.locale || 'auto') + '" placeholder="auto, or e.g. en-GB" data-ui="input"></label>';
+  h += toggle('ps-grouping', 'Thousands separators', f.grouping !== false);
+  h += '<div data-ui="grid2"><label data-ui="field">Show zero as <input id="ps-zero" value="' + esc(f.zeroDisplay == null ? '0' : f.zeroDisplay) + '" data-ui="input"></label><label data-ui="field">Show no data as <input id="ps-nodata" value="' + esc(f.noData == null ? '—' : f.noData) + '" data-ui="input"></label></div>';
+  h += '</details></div></fieldset>';
+  return h;
+}
+
+function renderPowerStatsColumns(root) {
+  var data = root.querySelector('#ps-columns-data'), host = root.querySelector('#ps-columns'); if (!data || !host) return;
+  var cols = []; try { cols = JSON.parse(data.textContent); } catch (e) {}
+  var keys = ['mean','max','min','last'];
+  var enabled = root.querySelector('#ps-enabled'), details = root.querySelector('#ps-details');
+  if (enabled && details && !enabled.dataset.wired) { enabled.dataset.wired = '1'; enabled.addEventListener('change', function() { details.hidden = !enabled.checked; }); }
+  // Keep what was typed before a re-render (add, remove, reorder).
+  function sync() {
+    host.querySelectorAll('.ps-column-row').forEach(function(row) {
+      var c = cols[Number(row.dataset.index)]; if (!c) return;
+      c.label = row.querySelector('.ps-label').value; c.visible = row.querySelector('.ps-visible').checked;
+      var p = row.querySelector('.ps-precision').value.trim(); if (p === '') delete c.precision; else c.precision = Number(p);
+      var ts = row.querySelector('.ps-timestamp'), stale = row.querySelector('.ps-stale');
+      if (ts) c.showTimestamp = ts.checked; if (stale) c.staleAfterSeconds = Number(stale.value);
+    });
+  }
+  function commit() { data.textContent = JSON.stringify(cols); renderPowerStatsColumns(root); if (typeof scheduleApply === 'function') scheduleApply(0); }
+  host.innerHTML = cols.map(function(c, i) {
+    c = c || {};
+    var options = keys.map(function(k) { var taken = k !== c.key && cols.some(function(o) { return o && o.key === k; }); return '<option value="' + k + '"' + (c.key === k ? ' selected' : '') + (taken ? ' disabled' : '') + '>' + PS_STAT_NAMES[k] + '</option>'; }).join('');
+    var h = '<div class="ps-column-row" data-index="' + i + '" data-ui="card">';
+    h += '<div class="ps-column-top"><label class="ps-column-show" title="Show this column"><input class="ps-visible" type="checkbox"' + (c.visible !== false ? ' checked' : '') + '><span class="ed-visually-hidden">Show</span></label>';
+    h += '<select class="ps-key" aria-label="Statistic" data-ui="input">' + options + '</select>';
+    h += '<button type="button" class="ps-up ps-icon-btn" aria-label="Move column up"' + (i === 0 ? ' disabled' : '') + '>↑</button><button type="button" class="ps-down ps-icon-btn" aria-label="Move column down"' + (i === cols.length - 1 ? ' disabled' : '') + '>↓</button><button type="button" class="ps-remove ps-icon-btn" aria-label="Remove column">✕</button></div>';
+    h += '<div data-ui="grid2"><label data-ui="field">Heading <input class="ps-label" value="' + escHtml(c.label == null ? PS_STAT_NAMES[c.key] || '' : c.label) + '" placeholder="' + escHtml(PS_STAT_NAMES[c.key] || 'Heading') + '" data-ui="input"></label>';
+    h += '<label data-ui="field">Decimals <input class="ps-precision" type="number" min="0" max="6" step="1" value="' + escHtml(c.precision == null ? '' : c.precision) + '" placeholder="Auto" aria-label="Decimals (blank uses the series setting, else automatic)" data-ui="input"></label></div>';
+    if (c.key === 'last') h += '<div data-ui="grid2"><span class="toggle-wrap"><label class="toggle-switch"><input class="ps-timestamp" type="checkbox"' + (c.showTimestamp !== false ? ' checked' : '') + '><span class="slider"></span></label><span>Show time</span></span><label data-ui="field">Stale after (s) <input class="ps-stale" type="number" min="0" max="604800" value="' + escHtml(c.staleAfterSeconds == null ? 900 : c.staleAfterSeconds) + '" data-ui="input"></label></div>';
+    return h + '</div>';
+  }).join('');
+  host.querySelectorAll('.ps-remove').forEach(function(b) { b.onclick = function() { sync(); cols.splice(Number(b.closest('.ps-column-row').dataset.index), 1); commit(); }; });
+  host.querySelectorAll('.ps-key').forEach(function(sel) { sel.onchange = function() { sync(); var row = cols[Number(sel.closest('.ps-column-row').dataset.index)], old = row.key; if (!row.label || row.label === PS_STAT_NAMES[old] || row.label.toLowerCase() === old) row.label = PS_STAT_NAMES[sel.value]; row.key = sel.value; commit(); }; });
+  host.querySelectorAll('.ps-up,.ps-down').forEach(function(btn) { btn.onclick = function() { sync(); var i = Number(btn.closest('.ps-column-row').dataset.index), j = i + (btn.classList.contains('ps-up') ? -1 : 1); if (j < 0 || j >= cols.length) return; cols.splice(j, 0, cols.splice(i, 1)[0]); commit(); }; });
+  var add = root.querySelector('#ps-add-column');
+  if (add) { add.hidden = cols.length >= keys.length; add.onclick = function() { if (cols.length >= keys.length) return; sync(); var k = keys.find(function(x) { return !cols.some(function(c) { return c.key === x; }); }); cols.push({ key: k, visible: true, label: PS_STAT_NAMES[k] }); commit(); }; }
+}
+
+/** Power chart lines, size and axes: on the inspector's Style tab. */
+function buildPowerChartStyleFields(cfg) {
+  var a = cfg.appearance || {}, axes = a.axes || {};
+  var opt = function(v, label, cur) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + label + '</option>'; };
+  var toggle = function(id, label, on) { return '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>'; };
+  var style = a.lineStyle === 'dashed' || a.lineStyle === 'dotted' ? a.lineStyle : 'solid';
+  var h = '<fieldset id="modal-chart-power-appearance" data-ui="section"><legend data-ui="legend">Chart lines</legend><div data-ui="grid2">';
+  h += '<label data-ui="field">Line style <select id="pca-style" data-ui="input">' + opt('solid','Solid',style) + opt('dashed','Dashed',style) + opt('dotted','Dotted',style) + '</select></label>';
+  h += '<label data-ui="field">Line width <input type="number" id="pca-width" min="0.5" max="8" step="0.5" value="' + escHtml(a.lineWidth == null ? '' : a.lineWidth) + '" placeholder="2" data-ui="input"></label>';
+  h += '<label data-ui="field">Line opacity <input type="number" id="pca-opacity" min="0" max="1" step="0.05" value="' + escHtml(a.opacity == null ? '' : a.opacity) + '" placeholder="1" data-ui="input"></label>';
+  h += '<label data-ui="field">Chart height (px) <input type="number" id="pca-height" min="120" max="1000" step="10" value="' + escHtml(a.height == null ? '' : a.height) + '" placeholder="Fit card" data-ui="input"></label>';
+  h += '</div><div class="ps-toggles">' + toggle('pca-markers', 'Point markers', a.markers === true) + toggle('pca-legend', 'Legend', a.legend !== false) + toggle('pca-tooltip', 'Tooltips on hover', a.tooltip !== false) + '</div>';
+  h += '<p data-ui="help">Leave height blank to fill the card. Each series can override line settings under “More options”.</p></fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Axes</legend>';
+  [['left','Left axis',''],['right','Right axis','Shown when a series is set to the right axis.']].forEach(function(x) {
+    var side = x[0], ax = axes[side] || {}, unit = ax.unit === 'W' || ax.unit === 'kW' ? ax.unit : (side === 'left' && a.axisUnit === 'W' ? 'W' : 'kW');
+    h += '<h4 class="ps-subhead">' + x[1] + '</h4>' + (x[2] ? '<p data-ui="help">' + x[2] + '</p>' : '') + '<div data-ui="grid3">';
+    h += '<label data-ui="field">Unit <select id="pca-' + side + '-unit" data-ui="input">' + opt('kW','kW',unit) + opt('W','W',unit) + '</select></label>';
+    h += '<label data-ui="field">Min <input type="number" step="any" id="pca-' + side + '-min" placeholder="Auto" value="' + escHtml(ax.min == null ? '' : ax.min) + '" data-ui="input"></label>';
+    h += '<label data-ui="field">Max <input type="number" step="any" id="pca-' + side + '-max" placeholder="Auto" value="' + escHtml(ax.max == null ? '' : ax.max) + '" data-ui="input"></label></div>';
+  });
+  return h + '</fieldset>';
+}
+
 /** Chart Power / Chart Energy: datasets */
 function buildChartForm(block, showFill) {
   var cfg = block.config || {};
   var datasets = cfg.datasets || [];
+  var power = block.type === 'chart-power';
   var html = '<fieldset data-ui="section">';
-  html += '<legend data-ui="legend">Options</legend>';
+  html += '<legend data-ui="legend">' + (power ? 'Chart' : 'Options') + '</legend>';
+  if (power) html += '<label data-ui="field">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" placeholder="Power Overview" data-ui="input"></label>';
   html += '<div data-ui="grid2">';
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-chart-hidegrid"' + (cfg.hideGrid ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-chart-hidegrid">Hide Grid</label></span>';
   if (showFill) {
@@ -868,13 +1022,40 @@ function buildChartForm(block, showFill) {
   }
   html += '</div></fieldset>';
   html += '<fieldset data-ui="section">';
-  html += '<legend data-ui="legend">Datasets</legend>';
-  html += '<div id="chart-rows"></div>';
-  html += '<button type="button" id="chart-add-row" data-ui="add">+ Add Dataset</button>';
-  html += '<label data-ui="field">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
+  html += '<legend data-ui="legend">' + (power ? 'Series' : 'Datasets') + '</legend>';
+  html += '<div id="chart-rows"' + (power ? ' class="power-series-rows"' : '') + '></div>';
+  html += '<button type="button" id="chart-add-row" data-ui="add">' + (power ? '+ Add series' : '+ Add Dataset') + '</button>';
+  if (!power) html += '<label data-ui="field">Title <input type="text" id="modal-chart-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   html += '</fieldset>';
+  if (power) html += buildPowerStatsForm(cfg);
   html += '<script id="chart-data" type="application/json">' + JSON.stringify(datasets).replace(/</g, '\\u003c') + '</script>';
+  if (power) html += '<script id="ps-series-data" type="application/json">' + JSON.stringify(cfg.stats?.series || {}).replace(/</g,'\\u003c') + '</script>';
   return html;
+}
+
+/** One power chart series: colour, name and metric up front, the rest folded. */
+function powerSeriesRow(d, i, extraOptions, statSeries) {
+  var so = statSeries[d.metric] || {};
+  var opt = function(v, label, cur) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + label + '</option>'; };
+  var style = d.lineStyle === 'dashed' || d.lineStyle === 'dotted' || d.lineStyle === 'solid' ? d.lineStyle : '';
+  var unit = d.unit === 'W' || d.unit === 'kW' ? d.unit : '';
+  var h = '<div class="chart-row power-series" data-ui="card">';
+  h += '<div data-ui="list-row"><label data-ui="inline-label"><span class="ed-visually-hidden">Color</span><input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" data-ui="swatch"></label>';
+  h += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Name" aria-label="Series name" data-ui="input grow">';
+  h += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove series">✕</button></div>';
+  h += '<label data-ui="field">Metric ' + metricSelect(d.metric || '', 'chart-metric-' + i, extraOptions) + '</label>';
+  h += '<details class="ps-more"><summary>More options</summary><div data-ui="grid2">';
+  h += '<label data-ui="field">Axis <select class="chart-axis" data-ui="input">' + opt('left','Left',d.axis === 'right' ? '' : 'left') + opt('right','Right',d.axis === 'right' ? 'right' : '') + '</select></label>';
+  h += '<label data-ui="field">Line style <select class="chart-series-style" data-ui="input">' + opt('','Chart default',style) + opt('solid','Solid',style) + opt('dashed','Dashed',style) + opt('dotted','Dotted',style) + '</select></label>';
+  h += '<label data-ui="field">Line width <input type="number" class="chart-series-width" min="0.5" max="8" step="0.5" value="' + escHtml(d.lineWidth == null ? '' : d.lineWidth) + '" placeholder="Default" data-ui="input"></label>';
+  h += '<label data-ui="field">Opacity <input type="number" class="chart-series-opacity" min="0" max="1" step="0.05" value="' + escHtml(d.opacity == null ? '' : d.opacity) + '" placeholder="Default" data-ui="input"></label>';
+  h += '</div><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="chart-series-markers"' + (d.markers ? ' checked' : '') + '><span class="slider"></span></label><span>Point markers</span></span>';
+  h += '<h4 class="ps-subhead">In the statistics table</h4>';
+  h += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="chart-stats-visible"' + (so.visible !== false ? ' checked' : '') + '><span class="slider"></span></label><span>Include this series</span></span>';
+  h += '<label data-ui="field">Label <input type="text" class="chart-stats-label" value="' + escHtml(so.label || '') + '" placeholder="Same as the name" data-ui="input"></label>';
+  h += '<div data-ui="grid2"><label data-ui="field">Decimals <input type="number" class="chart-stats-precision" min="0" max="6" step="1" value="' + escHtml(so.precision == null ? '' : so.precision) + '" placeholder="Auto" data-ui="input"></label>';
+  h += '<label data-ui="field">Unit <select class="chart-series-unit" data-ui="input">' + opt('','Auto',unit) + opt('kW','kW',unit) + opt('W','W',unit) + '</select></label></div>';
+  return h + '</details></div>';
 }
 
 function renderChartRows(container, showUnit, extraOptions) {
@@ -883,15 +1064,18 @@ function renderChartRows(container, showUnit, extraOptions) {
   try { datasets = JSON.parse(dataEl.textContent); } catch(e) {}
   var rowsEl = container.querySelector('#chart-rows');
   if (!rowsEl) return;
+  var power = !!container.querySelector('#ps-series-data'), statSeries = {};
+  if (power) { try { statSeries = JSON.parse(container.querySelector('#ps-series-data').textContent) || {}; } catch(e) {} }
   var html = '';
   for (var i = 0; i < datasets.length; i++) {
     var d = datasets[i] || {};
+    if (power) { html += powerSeriesRow(d, i, extraOptions, statSeries); continue; }
     html += '<div class="chart-row" data-ui="list-row">';
     html += '<input type="text" class="chart-label" value="' + escHtml(d.label || '') + '" placeholder="Label" data-ui="input grow">';
     html += metricSelect(d.metric || '', 'chart-metric-' + i, extraOptions);
     if (showUnit) {
-      html += '<input type="text" class="chart-unit" value="' + escHtml(d.unit || '') + '" placeholder="Unit" title="Measurement unit (e.g. %, kWh, kW, V, hours)" data-ui="input narrow">';
-      html += '<input type="number" step="any" class="chart-scale" value="' + (Number.isFinite(Number(d.scale)) && d.scale !== null && d.scale !== '' ? Number(d.scale) : 1) + '" placeholder="Scale" title="Multiply values by this factor (e.g. 0.001 for W->kW)" data-ui="input narrow">';
+      html += '<input type="text" class="chart-unit" value="' + escHtml(d.unit || '') + '" placeholder="Unit" title="Measurement unit" data-ui="input narrow">';
+      html += '<input type="number" step="any" class="chart-scale" value="' + (Number.isFinite(Number(d.scale)) && d.scale !== null && d.scale !== '' ? Number(d.scale) : 1) + '" placeholder="Scale" title="Multiply values by this factor" data-ui="input narrow">';
     }
     html += '<label data-ui="inline-label"><span class="ed-visually-hidden">Color</span><input type="color" class="chart-color" value="' + escHtml(d.color || '#888888') + '" data-ui="swatch"></label>';
     html += '<button type="button" class="chart-remove row-remove-btn" data-idx="' + i + '" aria-label="Remove">✕</button>';
@@ -1094,6 +1278,55 @@ function buildSimpleForm(block) {
     html += '<span data-ui="row-label">Metric</span>';
     html += '<div data-ui="grow">' + metricSelect((cfg.metrics || {}).generated || '', 'modal-simple-metric') + '</div>';
     html += '</div>';
+  } else if (block.type === 'energy-totals') {
+    var etPicked = Array.isArray(cfg.show) && cfg.show.length ? cfg.show : ['grid_export', 'grid_import', 'consumption', 'solar'];
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
+    html += '<p data-ui="help">Show</p><div class="ps-toggles">';
+    [['grid_export', 'To grid'], ['grid_import', 'From grid'], ['consumption', 'Consumption (with forecast)'], ['solar', 'Solar (with forecast)'], ['battery_charge', 'Battery in'], ['battery_discharge', 'Battery out']].forEach(function(t) {
+      html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="et-pick" data-key="' + t[0] + '" id="modal-et-' + t[0] + '"' + (etPicked.indexOf(t[0]) !== -1 ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-et-' + t[0] + '">' + t[1] + '</label></span>';
+    });
+    html += '</div>';
+    html += buildBreakdownFields(cfg);
+  } else if (block.type === 'energy-tabs') {
+    var etTabs = Array.isArray(cfg.tabs) && cfg.tabs.length ? cfg.tabs : [{ type: 'energy-day' }, { type: 'energy-flows' }, { type: 'energy-costs' }];
+    var etTypes = [['', 'No tab'], ['energy-day', 'Energy day'], ['energy-flows', 'Energy flows'], ['energy-costs', 'Costs and earnings'], ['energy-totals', 'Day totals']];
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
+    html += '<h4 class="ps-subhead">Tabs</h4><p data-ui="help">Up to four, in order. Leave a tab\u2019s name blank to use the card\u2019s name.</p>';
+    for (var eti = 0; eti < 4; eti++) {
+      var et = etTabs[eti] || {};
+      html += '<div data-ui="card"><div data-ui="grid2"><label data-ui="field">Tab ' + (eti + 1) + ' <select id="modal-etab-type-' + eti + '" data-ui="input">' + etTypes.map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === (et.type || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>';
+      html += '<label data-ui="field">Name <input type="text" id="modal-etab-label-' + eti + '" value="' + escHtml(et.label || '') + '" placeholder="Card name" data-ui="input"></label></div></div>';
+    }
+    html += buildBreakdownFields(cfg) + '<p data-ui="help">Applies to the Day totals tab.</p>';
+  } else if (block.type === 'system-overview') {
+    var soExtras = Array.isArray(cfg.extras) ? cfg.extras : [];
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="No title" data-ui="input"></label>';
+    html += '<label data-ui="field">Inverter image URL <input type="text" id="modal-so-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="Optional, https://..." data-ui="input"></label>';
+    var soPv = cfg.pv || {};
+    html += '<h4 class="ps-subhead">PV split</h4><p data-ui="help">If you have both AC-coupled PV inverters and DC solar chargers (MPPTs), pick a power metric for each to show them separately, with Total solar beside the diagram. Leave both blank for a single Solar value.</p>';
+    html += '<div data-ui="grid2"><label data-ui="field">PV inverter ' + metricSelect(soPv.inverter || '', 'modal-so-pvi') + '</label><label data-ui="field">PV charger ' + metricSelect(soPv.charger || '', 'modal-so-pvc') + '</label></div>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-so-weather"' + (cfg.showWeather === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-so-weather">Weather (from your forecast source)</label></span>';
+    html += buildBreakdownFields(cfg);
+    html += '<h4 class="ps-subhead">Extra values</h4><p data-ui="help">Up to three more values beside the diagram, such as a temperature.</p>';
+    for (var soi = 0; soi < 3; soi++) {
+      var sx = soExtras[soi] || {};
+      html += '<div class="so-extra-row" data-ui="card"><label data-ui="field">Metric ' + metricSelect(sx.metric || '', 'modal-so-metric-' + soi) + '</label>';
+      html += '<div data-ui="grid2"><label data-ui="field">Label <input type="text" id="modal-so-label-' + soi + '" value="' + escHtml(sx.label || '') + '" placeholder="Metric name" data-ui="input"></label>';
+      html += '<label data-ui="field">Unit <input type="text" id="modal-so-unit-' + soi + '" value="' + escHtml(sx.unit || '') + '" placeholder="Auto" data-ui="input"></label></div></div>';
+    }
+  } else if (block.type === 'energy-costs') {
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Costs and earnings" data-ui="input"></label>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
+    html += '<p data-ui="help">Uses your prices from Settings \u203a Prices and savings: grid buy and sell price, and battery wear cost. Earlier days are worked out at today\u2019s prices.</p>';
+  } else if (block.type === 'energy-flows') {
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Energy flows" data-ui="input"></label>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
+    html += '<p data-ui="help">Above zero: energy from solar. Below zero: energy from the battery and the grid. The rest of today is forecast from your solar forecast and the battery projection (needs Settings \u203a Prices and savings \u203a Battery capacity).</p>';
+  } else if (block.type === 'energy-day') {
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="Energy" data-ui="input"></label>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
+    html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-battery"' + (cfg.showBattery !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-battery">Battery charge panel</label></span>';
+    html += '<p data-ui="help">Forecasts use Settings \u203a Prices and savings (battery capacity and lowest charge) and your solar forecast source. The consumption forecast starts after 3 days of history.</p>';
   } else if (block.type === 'weather-block') {
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   } else if (block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline') {
@@ -1230,6 +1463,135 @@ function renderStateSelectRows(container) {
   }
 }
 
+// An optional colour: a picker like the other cards' colour settings, plus a
+// "theme default" state. A browser colour input always holds a colour (black
+// when unset), so the saved value lives in a hidden input under the field's id
+// and stays '' until a colour is picked. wireOptionalColors() keeps them in step.
+function hexForPicker(value) {
+  var v = String(value || '').trim();
+  var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+  if (m) return m[1].length === 3 ? '#' + m[1].replace(/./g, '$&$&').toLowerCase() : v.toLowerCase();
+  if (!v || typeof document === 'undefined' || !document.createElement) return '';
+  try {
+    var ctx = document.createElement('canvas').getContext('2d');
+    ctx.fillStyle = '#000000'; ctx.fillStyle = v;
+    var out = String(ctx.fillStyle);
+    if (/^#[0-9a-f]{6}$/i.test(out)) return out;
+    var rgb = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(out);
+    if (rgb) return '#' + [rgb[1], rgb[2], rgb[3]].map(function(n) { return ('0' + Number(n).toString(16)).slice(-2); }).join('');
+  } catch (e) {}
+  return '';
+}
+function optionalColorControl(id, value, valueClass) {
+  var v = value == null ? '' : String(value);
+  return '<span class="color-opt' + (v ? '' : ' is-default') + '" data-ui="color-opt">' +
+    '<input type="color" class="color-opt-picker" value="' + escHtml(hexForPicker(v) || '#888888') + '" data-ui="color">' +
+    '<input type="hidden"' + (id ? ' id="' + id + '"' : '') + (valueClass ? ' class="' + valueClass + '"' : '') + ' value="' + escHtml(v) + '">' +
+    '<span class="color-opt-note">Theme default</span>' +
+    '<button type="button" class="color-opt-reset" title="Go back to the theme colour">Reset</button></span>';
+}
+function optionalColorField(id, label, value) {
+  return '<label data-ui="field">' + label + ' ' + optionalColorControl(id, value) + '</label>';
+}
+
+function buildConfigurableGaugeForm(block) {
+  var c = block.config || {}, b = c.band || {}, g = c.graph || {};
+  function field(key, label, value, type, attrs) {
+    var id = 'cg-' + key.replace(/[^a-z0-9]/gi, '-');
+    return '<label data-ui="field">' + label + ' <input id="' + id + '" type="' + (type || 'text') + '" value="' + escHtml(value == null ? '' : value) + '" ' + (attrs || 'data-ui="input"') + '></label>';
+  }
+  function select(key, label, value, choices) {
+    return '<label data-ui="field">' + label + ' <select id="cg-' + key + '" data-ui="input">' + choices.map(function(x) { return '<option value="' + x[0] + '"' + (x[0] === value ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>';
+  }
+  function optionalColor(key, label, value) { return optionalColorField('cg-' + key.replace(/[^a-z0-9]/gi, '-'), label, value); }
+  function check(key, label, value) { return '<label><input id="cg-' + key + '" type="checkbox"' + (value ? ' checked' : '') + '> ' + label + '</label>'; }
+  var h = '<fieldset data-ui="section"><legend data-ui="legend">Metric and readout</legend><label data-ui="field">Metric ' + metricSelect(c.metric || '', 'cg-metric') + '</label>';
+  h += field('title','Title',c.title) + field('unit','Unit',c.unit) + field('min','Minimum',c.min == null ? 0 : c.min,'number','step="any" data-ui="input"') + field('max','Maximum',c.max == null ? 100 : c.max,'number','step="any" data-ui="input"');
+  h += field('precision','Decimals',c.precision,'number','min="0" max="6" placeholder="Auto" data-ui="input"') + check('showReadout','Show readout',c.showReadout !== false) + optionalColor('readoutColor','Readout color',c.readoutColor) + field('readoutSize','Readout size (px)',c.readoutSize,'number','min="8" max="48" placeholder="Auto" data-ui="input"');
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Outer band</legend>' + check('band-show','Show band',b.show) + field('band-thickness','Thickness',b.thickness == null ? 8 : b.thickness,'number') + field('band-spacing','Spacing',b.spacing == null ? 3 : b.spacing,'number') + optionalColor('band-trackColor','Track color',b.trackColor);
+  h += '<div id="cg-threshold-rows">' + (Array.isArray(b.thresholds) ? b.thresholds : []).map(function(t,i){return '<div data-ui="row" data-threshold-index="' + i + '"><label>Threshold ' + (i+1) + ' <input class="cg-threshold-value" type="number" step="any" value="' + escHtml(t.value) + '"></label><label>Color ' + optionalColorControl('', t.color || '', 'cg-threshold-color') + '</label></div>';}).join('') + '</div><button type="button" id="cg-threshold-add" data-ui="add">Add threshold</button></fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Inner ring</legend>' + select('preset','Preset',c.preset || 'continuous',[['continuous','Continuous'],['segmented','Segmented']]) + select('style','Style',c.style || 'flat',[['flat','Flat'],['gradient','Gradient'],['glow','Glow']]);
+  h += field('segmentCount','Segment count',c.segmentCount == null ? 12 : c.segmentCount,'number') + field('segmentGap','Segment gap',c.segmentGap == null ? 2 : c.segmentGap,'number') + field('segmentColors','Segment colors (comma-separated)',Array.isArray(c.segmentColors) ? c.segmentColors.join(', ') : '') + optionalColor('arcColor','Arc color',c.arcColor) + optionalColor('gradientEnd','Gradient end',c.gradientEnd) + field('arcThickness','Arc thickness',c.arcThickness == null ? 12 : c.arcThickness,'number') + optionalColor('trackColor','Track color',c.trackColor) + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Geometry</legend>' + field('opening','Opening angle',c.opening == null ? 90 : c.opening,'number') + field('rotation','Rotation',c.rotation == null ? 0 : c.rotation,'number') + field('size','Gauge size',c.size == null ? 200 : c.size,'number') + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Mini graph</legend>' + check('graph-show','Show graph',g.show) + '<label data-ui="field">Graph metric ' + metricSelect(g.metric || '', 'cg-graph-metric') + '</label>' + select('graph-window','History window',g.window || '1h',[['1h','1 hour'],['6h','6 hours'],['24h','24 hours'],['7d','7 days']]) + select('graph-mode','Graph style',g.mode || 'line',[['line','Line'],['area','Area']]);
+  h += field('graph-thickness','Line thickness',g.thickness == null ? 2 : g.thickness,'number') + optionalColor('graph-color','Graph color',g.color) + field('graph-opacity','Fill opacity',g.opacity == null ? .2 : g.opacity,'number','min="0" max="1" step="0.05" data-ui="input"') + check('graph-marker','Endpoint marker',g.marker) + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Card surface</legend>' + optionalColor('background','Background',c.background) + optionalColor('borderColor','Border color',c.borderColor) + field('borderWidth','Border width',c.borderWidth == null ? 0 : c.borderWidth,'number') + field('radius','Corner radius',c.radius == null ? 12 : c.radius,'number') + '</fieldset>';
+  return h;
+}
+
+function buildDualMetricForm(block) {
+  var c = block.config || {}, panes = c.panes || {}, style = c.style || {};
+  function field(id, label, value, type, attrs) { return '<label data-ui="field">' + label + ' <input id="dm-' + id + '" type="' + (type || 'text') + '" value="' + escHtml(value == null ? '' : value) + '" ' + (attrs || 'data-ui="input"') + '></label>'; }
+  function select(id, label, value, options) { return '<label data-ui="field">' + label + ' <select id="dm-' + id + '" data-ui="input">' + options.map(function(o) { return '<option value="' + escHtml(o[0]) + '"' + (o[0] === value ? ' selected' : '') + '>' + escHtml(o[1]) + '</option>'; }).join('') + '</select></label>'; }
+  var h = '<fieldset data-ui="section"><legend data-ui="legend">Dual Metric</legend>';
+  h += select('preset','Preset',c.preset || 'neutral',[['neutral','Neutral'],['split-fill','Split-fill']]);
+  h += field('title','Title',c.title) + field('icon','Icon ID',c.icon) + '<label data-ui="field">Help text <textarea id="dm-help" data-ui="input textarea">' + escHtml(c.helpText || '') + '</textarea></label></fieldset>';
+  ['left','right'].forEach(function(side) { var p = panes[side] || {}, cap = side === 'left' ? 'Left' : 'Right';
+    h += '<fieldset data-ui="section"><legend data-ui="legend">' + cap + ' pane</legend><label data-ui="field">Metric ' + metricSelect(p.metric || '', 'dm-' + side + '-metric') + '</label>';
+    h += field(side + '-label','Label',p.label) + field(side + '-unit','Unit override',p.unit) + field(side + '-precision','Decimals',p.precision,'number','min="0" max="6" step="1" placeholder="Auto" data-ui="input"');
+    h += optionalColorField('dm-' + side + '-value-color','Value color',p.valueColor) + optionalColorField('dm-' + side + '-fill-color','Fill color',p.fillColor) + optionalColorField('dm-' + side + '-label-color','Label color',p.labelColor) + optionalColorField('dm-' + side + '-unit-color','Unit color',p.unitColor);
+    h += field(side + '-value-font-size','Value font size (px)',p.valueFontSize,'number','min="12" max="96" step="1" placeholder="Auto" data-ui="input"') + field(side + '-label-font-size','Label font size (px)',p.labelFontSize,'number','min="10" max="32" step="1" placeholder="Auto" data-ui="input"') + field(side + '-unit-font-size','Unit font size (px)',p.unitFontSize,'number','min="10" max="32" step="1" placeholder="Auto" data-ui="input"');
+    h += select(side + '-align','Alignment',p.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
+  });
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Shared style</legend>';
+  [['border-color','Border color',style.borderColor],['divider-color','Divider color',style.dividerColor],['header-color','Header color',style.headerColor],['header-text-color','Header text color',style.headerTextColor]].forEach(function(x) { h += optionalColorField('dm-' + x[0],x[1],x[2]); });
+  h += field('border-width','Border width',style.borderWidth == null ? 0 : style.borderWidth,'number','min="0" max="8" step="1" data-ui="input"') + field('radius','Corner radius',style.radius == null ? 12 : style.radius,'number','min="0" max="32" step="1" data-ui="input"') + field('padding','Padding',style.padding == null ? 16 : style.padding,'number','min="0" max="32" step="1" data-ui="input"') + field('pane-gap','Pane gap',style.paneGap == null ? 0 : style.paneGap,'number','min="0" max="16" step="1" data-ui="input"') + field('divider-width','Divider width',style.dividerWidth == null ? 2 : style.dividerWidth,'number','min="0" max="8" step="1" data-ui="input"') + '</fieldset>';
+  return h;
+}
+
+function buildMetricTrendForm(block) {
+  var c = block.config || {}, v = c.value || {}, g = c.graph || {}, d = c.display || {}, s = c.style || {};
+  function field(id, label, value, type, attrs) {
+    return '<label data-ui="field">' + label + ' <input id="mt-' + id + '" type="' + (type || 'text') + '" value="' + escHtml(value == null ? '' : value) + '" ' + (attrs || 'data-ui="input"') + '></label>';
+  }
+  function select(id, label, value, options) {
+    return '<label data-ui="field">' + label + ' <select id="mt-' + id + '" data-ui="input">' + options.map(function(o) { return '<option value="' + escHtml(o[0]) + '"' + (o[0] === value ? ' selected' : '') + '>' + escHtml(o[1]) + '</option>'; }).join('') + '</select></label>';
+  }
+  function check(id, label, checked) { return '<label data-ui="field"><input id="mt-' + id + '" type="checkbox"' + (checked ? ' checked' : '') + '> ' + label + '</label>'; }
+  function sourceSelect(id, source, restMap) {
+    var options = [['default','Default source'],['solcast','Solcast'],['open-meteo','Open-Meteo']];
+    availableRestSources.forEach(function(n) { options.push(['rest:' + n, n + ' (REST)']); });
+    var selected = source || 'default';
+    var known = options.some(function(o) { return o[0] === selected; });
+    var h = '<label data-ui="field">Forecast source <select id="mt-' + id + '-source-select" data-ui="input">';
+    if (!known) h += '<option value="' + escHtml(selected) + '" selected>' + escHtml(selected) + '</option>';
+    h += options.map(function(o) { return '<option value="' + escHtml(o[0]) + '"' + (o[0] === selected ? ' selected' : '') + '>' + escHtml(o[1]) + '</option>'; }).join('') + '</select></label>';
+    h += '<label data-ui="field">REST field map (JSON) <textarea id="mt-' + id + '-rest-map" data-ui="input textarea">' + escHtml(restMap && typeof restMap === 'object' ? JSON.stringify(restMap) : (restMap || '')) + '</textarea></label>';
+    return h;
+  }
+  var h = '<fieldset data-ui="section"><legend data-ui="legend">Metric Trend</legend>';
+  h += select('preset','Preset',c.preset || 'subtle-area',[['subtle-area','Subtle area'],['filled-body','Filled body']]);
+  h += field('title','Title',c.title);
+  h += '<label data-ui="field">Icon ID <select id="mt-icon" data-ui="input">';
+  var iconIds = ['', 'sun', 'sunLine', 'panel', 'battery', 'plug', 'flow', 'chartLine', 'chartArea', 'metricTrend'];
+  iconIds.forEach(function(id) { h += '<option value="' + id + '"' + (id === (c.icon || '') ? ' selected' : '') + '>' + (id || 'Default') + '</option>'; });
+  h += '</select></label>';
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Value</legend>';
+  h += select('value-source','Value source',v.source || 'metric',[['metric','Metric'],['solar-forecast','Solar forecast']]);
+  h += '<label data-ui="field">Metric ' + metricSelect(v.metric || '', 'mt-value-metric') + '</label>';
+  h += select('forecast-value','Forecast value',v.forecastValue || 'today-total',[['today-total','Today total'],['today-remaining','Today remaining'],['tomorrow-total','Tomorrow total']]);
+  h += field('value-unit','Unit override',v.unit,'text','placeholder="Optional supported conversion only" data-ui="input"');
+  h += sourceSelect('value',v.forecastSource,v.restMap);
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Optional graph</legend>';
+  h += check('graph-enabled','Show graph',!!g.enabled) + select('graph-source','Graph source',g.source || 'none',[['none','None'],['metric-history','Metric history'],['solar-forecast','Solar forecast']]);
+  h += '<label data-ui="field">Graph metric ' + metricSelect(g.metric || v.metric || '', 'mt-graph-metric') + '</label>';
+  h += select('graph-window','History window',g.window || '1h',[['1h','1 hour'],['6h','6 hours'],['24h','24 hours'],['7d','7 days']]);
+  h += select('graph-period','Forecast period',g.forecastPeriod || 'today',[['today','Today'],['tomorrow','Tomorrow']]) + sourceSelect('graph',g.forecastSource,g.restMap);
+  h += select('graph-line-style','Line style',g.lineStyle || 'area',[['area','Area'],['line','Line']]);
+  h += field('graph-line-width','Line width',g.lineWidth == null ? 2 : g.lineWidth,'number','min="0.5" max="8" step="0.5" data-ui="input"') + check('graph-marker','Marker',!!g.marker);
+  h += select('graph-scale','Scale',g.scale || 'auto',[['auto','Automatic'],['manual','Manual']]);
+  h += field('graph-min','Minimum',g.min == null ? 0 : g.min,'number','step="any" data-ui="input"') + field('graph-max','Maximum',g.max == null ? 100 : g.max,'number','step="any" data-ui="input"');
+  h += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Display</legend>';
+  h += field('precision','Decimals',d.precision,'number','min="0" max="6" step="1" placeholder="Auto" data-ui="input"') + check('compact','Compact number',!!d.compact);
+  h += field('value-font-size','Value font size (px)',d.valueFontSize,'number','min="12" max="96" placeholder="Auto" data-ui="input"') + field('unit-font-size','Unit font size (px)',d.unitFontSize,'number','min="12" max="96" placeholder="Auto" data-ui="input"');
+  h += select('align','Readout alignment',d.align || 'center',[['left','Left'],['center','Center'],['right','Right']]) + '</fieldset>';
+  h += '<fieldset data-ui="section"><legend data-ui="legend">Independent styling</legend>';
+  [['header-color','Header color',s.headerColor],['header-text-color','Header text color',s.headerTextColor],['body-fill','Body fill',s.bodyFill],['body-fill-end','Body fill end',s.bodyFillEnd],['value-color','Value color',s.valueColor],['unit-color','Unit color',s.unitColor],['graph-line-color','Graph line color',s.graphLineColor],['graph-fill-color','Graph fill color',s.graphFillColor],['border-color','Border color',s.borderColor]].forEach(function(x) { h += optionalColorField('mt-' + x[0],x[1],x[2]); });
+  h += field('gradient-angle','Gradient angle',s.gradientAngle == null ? 180 : s.gradientAngle,'number','min="0" max="360" data-ui="input"') + field('graph-fill-opacity','Graph fill opacity',s.graphFillOpacity == null ? .2 : s.graphFillOpacity,'number','min="0" max="1" step="0.05" data-ui="input"');
+  h += field('border-width','Border width',s.borderWidth == null ? 0 : s.borderWidth,'number','min="0" max="8" data-ui="input"') + field('radius','Corner radius',s.radius == null ? 12 : s.radius,'number','min="0" max="32" data-ui="input"') + field('padding','Padding',s.padding == null ? 16 : s.padding,'number','min="0" max="32" data-ui="input"') + '</fieldset>';
+  return h;
+}
+
 /** Main entry: build the settings form for a given block type */
 function buildSettingsForm(block) {
   var type = block.type;
@@ -1264,6 +1626,15 @@ function buildSettingsForm(block) {
       break;
     case 'bar-threshold':
       html += buildBarThresholdForm(block);
+      break;
+    case 'metric-trend':
+      html += buildMetricTrendForm(block);
+      break;
+    case 'dual-metric':
+      html += buildDualMetricForm(block);
+      break;
+    case 'configurable-gauge':
+      html += buildConfigurableGaugeForm(block);
       break;
     case 'gauge-card':
     case 'half-gauge':
@@ -1312,13 +1683,108 @@ function buildSettingsForm(block) {
       html += buildSimpleForm(block);
       break;
   }
+  if (BREAKDOWN_VALUE_TYPES.indexOf(block.type) !== -1) html += '<fieldset data-ui="section">' + buildBreakdownFields(block.config || {}) + '</fieldset>';
 
   return html;
 }
 
+/** Gauges, stat cards and the totals tables that can list the parts of a combined total (flow and energy cards add the fields in their own forms). */
+var BREAKDOWN_VALUE_TYPES = ['gauge-card', 'configurable-gauge', 'half-gauge', 'half-gauge-2', 'bar-gauge', 'bar-gauge-retro', 'metric-cards', 'multi-value', 'metric-trend', 'dual-metric', 'data-table-daily', 'data-table-monthly'];
+
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
-  var config = block.config || {};
+  var config = Object.assign({}, block.config || {});
+  if (block.type === 'dual-metric') {
+    var dmGet = function(id) { return document.getElementById('dm-' + id); };
+    var dmRaw = function(id, fallback) { var el = dmGet(id); return el ? String(el.value).trim() : String(fallback == null ? '' : fallback); };
+    var dmNum = function(id, fallback, min, max, integer) { var raw = dmRaw(id, fallback), n = raw === '' ? NaN : Number(raw); return Number.isFinite(n) && (!integer || Number.isInteger(n)) && n >= min && n <= max ? n : null; };
+    // Optional numbers: blank = Auto (saved as null); otherwise must be in range (undefined = invalid).
+    var dmOpt = function(id, prior, min, max, integer) { var raw = dmRaw(id, prior == null ? '' : prior); if (raw === '') return null; var n = Number(raw); return Number.isFinite(n) && (!integer || Number.isInteger(n)) && n >= min && n <= max ? n : undefined; };
+    var dmColor = function(value) { if (!value) return true; if (typeof CSS !== 'undefined' && CSS.supports) return CSS.supports('color', value); return /^(#[0-9a-f]{3,8}|[a-z]{1,30})$/i.test(value); };
+    var priorPanes = config.panes || {}, priorStyle = config.style || {}, dmPreset = dmRaw('preset',config.preset || 'neutral'), dmTitle = dmRaw('title',config.title || ''), dmIcon = dmRaw('icon',config.icon || '');
+    if (dmPreset !== 'neutral' && dmPreset !== 'split-fill') return 'Preset must be Neutral or Split-fill.';
+    if (dmIcon && ['sun','sunLine','panel','battery','plug','flow','chartLine','chartArea','metricTrend'].indexOf(dmIcon) < 0) return 'Icon must be selected from the allowed icon list.';
+    var nextPanes = Object.assign({}, priorPanes);
+    ['left','right'].forEach(function(side) { var prior = priorPanes[side] || {}; nextPanes[side] = Object.assign({}, prior); });
+    var nextValues = {}, dmErrors = [];
+    ['left','right'].forEach(function(side) {
+      var prior = priorPanes[side] || {}, metric = dmRaw(side + '-metric',prior.metric || ''), label = dmRaw(side + '-label',prior.label || ''), unit = dmRaw(side + '-unit',prior.unit || '');
+      // A pane can wait for its metric; a saved one that is not reporting right now stays.
+      if (metric && availableMetrics.indexOf(metric) < 0 && metric !== prior.metric) dmErrors.push(side + ' pane metric must be selected from the available metrics.');
+      var precision = dmOpt(side + '-precision',prior.precision,0,6,true), valueFontSize = dmOpt(side + '-value-font-size',prior.valueFontSize,12,96,false), labelFontSize = dmOpt(side + '-label-font-size',prior.labelFontSize,10,32,false), unitFontSize = dmOpt(side + '-unit-font-size',prior.unitFontSize,10,32,false);
+      if (precision === undefined) dmErrors.push('Precision must be an integer from 0 to 6, or blank for Auto.');
+      if (valueFontSize === undefined) dmErrors.push('Value font size must be between 12 and 96, or blank for Auto.');
+      if (labelFontSize === undefined || unitFontSize === undefined) dmErrors.push('Label and unit font sizes must be between 10 and 32, or blank for Auto.');
+      var align = dmRaw(side + '-align',prior.align || 'center'); if (['left','center','right'].indexOf(align) < 0) dmErrors.push('Alignment must be left, center, or right.');
+      var pane = {metric:metric,label:label,unit:unit,precision:precision,valueColor:dmRaw(side + '-value-color',prior.valueColor || ''),fillColor:dmRaw(side + '-fill-color',prior.fillColor || ''),labelColor:dmRaw(side + '-label-color',prior.labelColor || ''),unitColor:dmRaw(side + '-unit-color',prior.unitColor || ''),valueFontSize:valueFontSize,labelFontSize:labelFontSize,unitFontSize:unitFontSize,align:align};
+      ['valueColor','fillColor','labelColor','unitColor'].forEach(function(k) { if (!dmColor(pane[k])) dmErrors.push('Pane colors must be valid CSS colors.'); });
+      nextValues[side] = pane;
+    });
+    var numericStyle = {}, ranges = [['border-width',0,8],['radius',0,32],['padding',0,32],['pane-gap',0,16],['divider-width',0,8]];
+    ranges.forEach(function(r) { var key = r[0].replace(/-([a-z])/g,function(_,c){return c.toUpperCase();}), n = dmNum(r[0],priorStyle[key] == null ? ({'borderWidth':0,'radius':12,'padding':16,'paneGap':0,'dividerWidth':2}[key]) : priorStyle[key],r[1],r[2],false); if (n === null) dmErrors.push(key + ' is out of range or non-finite.'); numericStyle[key] = n; });
+    var nextStyle = Object.assign({},priorStyle,numericStyle,{borderColor:dmRaw('border-color',priorStyle.borderColor || ''),dividerColor:dmRaw('divider-color',priorStyle.dividerColor || ''),headerColor:dmRaw('header-color',priorStyle.headerColor || ''),headerTextColor:dmRaw('header-text-color',priorStyle.headerTextColor || '')});
+    ['borderColor','dividerColor','headerColor','headerTextColor'].forEach(function(k) { if (!dmColor(nextStyle[k])) dmErrors.push('Style colors must be valid CSS colors.'); });
+    if (dmErrors.length) return dmErrors[0];
+    config.preset = dmPreset; config.title = dmTitle; config.icon = dmIcon; config.helpText = dmRaw('help',config.helpText || '');
+    ['left','right'].forEach(function(side) { nextPanes[side] = Object.assign({},priorPanes[side] || {},nextValues[side]); });
+    config.panes = nextPanes; config.style = nextStyle;
+  }
+  if (block.type === 'metric-trend') {
+    var mtGet = function(id) { return document.getElementById('mt-' + id); };
+    var mtRaw = function(id, fallback) { var el = mtGet(id); return el ? String(el.value).trim() : String(fallback); };
+    var mtNum = function(id, fallback, min, max, integer) {
+      var raw = mtRaw(id, fallback), n = raw === '' ? NaN : Number(raw);
+      if (!Number.isFinite(n) || (integer && !Number.isInteger(n)) || n < min || n > max) return null;
+      return n;
+    };
+    var priorValue = config.value || {}, priorGraph = config.graph || {}, priorDisplay = config.display || {}, priorStyle = config.style || {};
+    var mtScale = mtRaw('graph-scale', priorGraph.scale || 'auto');
+    var graphMin = mtNum('graph-min', priorGraph.min == null ? 0 : priorGraph.min, -Infinity, Infinity, false);
+    var graphMax = mtNum('graph-max', priorGraph.max == null ? 100 : priorGraph.max, -Infinity, Infinity, false);
+    // Optional numbers: blank = Auto (null); a typed value must be in range.
+    var mtOpt = function(id, prior, min, max, integer) { var raw = mtRaw(id, prior == null ? '' : prior); if (raw === '') return { auto: true }; var n = mtNum(id, raw, min, max, integer); return n === null ? null : n; };
+    var numeric = [
+      [mtOpt('precision',priorDisplay.precision,0,6,true),'Precision must be an integer from 0 to 6, or blank for Auto.'],
+      [mtOpt('value-font-size',priorDisplay.valueFontSize,12,96,false),'Value font size must be between 12 and 96, or blank for Auto.'],
+      [mtOpt('unit-font-size',priorDisplay.unitFontSize,12,96,false),'Unit font size must be between 12 and 96, or blank for Auto.'],
+      [mtNum('graph-line-width',priorGraph.lineWidth == null ? 2 : priorGraph.lineWidth,.5,8,false),'Graph line width must be between 0.5 and 8.'],
+      [mtNum('graph-fill-opacity',priorStyle.graphFillOpacity == null ? .2 : priorStyle.graphFillOpacity,0,1,false),'Graph fill opacity must be between 0 and 1.'],
+      [mtNum('gradient-angle',priorStyle.gradientAngle == null ? 180 : priorStyle.gradientAngle,0,360,false),'Gradient angle must be between 0 and 360.'],
+      [mtNum('border-width',priorStyle.borderWidth == null ? 0 : priorStyle.borderWidth,0,8,false),'Border width must be between 0 and 8.'],
+      [mtNum('radius',priorStyle.radius == null ? 12 : priorStyle.radius,0,32,false),'Corner radius must be between 0 and 32.'],
+      [mtNum('padding',priorStyle.padding == null ? 16 : priorStyle.padding,0,32,false),'Padding must be between 0 and 32.']
+    ];
+    for (var mi = 0; mi < numeric.length; mi++) if (numeric[mi][0] === null) return numeric[mi][1];
+    if (mtScale === 'manual' && (graphMin === null || graphMax === null || graphMin >= graphMax)) return 'Manual graph minimum and maximum must be finite numbers, and minimum must be less than maximum.';
+    var mtParseMap = function(id, prior) {
+      var el = mtGet(id), text = el ? el.value.trim() : '';
+      if (!text) return {};
+      var result;
+      try { result = JSON.parse(text); } catch (e) { return null; }
+      if (!result || typeof result !== 'object' || Array.isArray(result) || Object.keys(result).some(function(k) { return typeof result[k] !== 'string'; })) return null;
+      return result;
+    };
+    var valueRest = mtParseMap('value-rest-map', priorValue.restMap), graphRest = mtParseMap('graph-rest-map', priorGraph.restMap);
+    if (valueRest === null || graphRest === null) return 'Forecast field maps must be JSON objects with string values.';
+    var nextValue = Object.assign({}, priorValue, {source:mtRaw('value-source',priorValue.source || 'metric'), metric:mtRaw('value-metric',priorValue.metric || ''), forecastValue:mtRaw('forecast-value',priorValue.forecastValue || 'today-total'), unit:mtRaw('value-unit',priorValue.unit || ''), forecastSource:mtRaw('value-source-select',priorValue.forecastSource || 'default'), restMap:valueRest});
+    var nextGraph = Object.assign({}, priorGraph, {enabled:!!(mtGet('graph-enabled') ? mtGet('graph-enabled').checked : priorGraph.enabled), source:mtRaw('graph-source',priorGraph.source || 'none'), metric:mtRaw('graph-metric',priorGraph.metric || nextValue.metric || ''), window:mtRaw('graph-window',priorGraph.window || '1h'), forecastPeriod:mtRaw('graph-period',priorGraph.forecastPeriod || 'today'), forecastSource:mtRaw('graph-source-select',priorGraph.forecastSource || 'default'), restMap:graphRest, lineStyle:mtRaw('graph-line-style',priorGraph.lineStyle || 'area'), lineWidth:numeric[3][0], marker:!!(mtGet('graph-marker') ? mtGet('graph-marker').checked : priorGraph.marker), scale:mtScale});
+    if (mtScale === 'manual') { nextGraph.min = graphMin; nextGraph.max = graphMax; }
+    var autoOr = function(v) { return v && v.auto ? null : v; };
+    var nextDisplay = Object.assign({}, priorDisplay, {precision:autoOr(numeric[0][0]), compact:!!(mtGet('compact') ? mtGet('compact').checked : priorDisplay.compact), valueFontSize:autoOr(numeric[1][0]), unitFontSize:autoOr(numeric[2][0]), align:mtRaw('align',priorDisplay.align || 'center')});
+    var nextStyle = Object.assign({}, priorStyle);
+    [['headerColor','header-color'],['headerTextColor','header-text-color'],['bodyFill','body-fill'],['bodyFillEnd','body-fill-end'],['valueColor','value-color'],['unitColor','unit-color'],['graphLineColor','graph-line-color'],['graphFillColor','graph-fill-color'],['borderColor','border-color']].forEach(function(pair) { nextStyle[pair[0]] = mtRaw(pair[1],priorStyle[pair[0]] || ''); });
+    nextStyle.graphFillOpacity = numeric[4][0]; nextStyle.gradientAngle = numeric[5][0]; nextStyle.borderWidth = numeric[6][0]; nextStyle.radius = numeric[7][0]; nextStyle.padding = numeric[8][0];
+    config.preset = mtRaw('preset',config.preset || 'subtle-area'); config.title = mtRaw('title',config.title || ''); config.icon = mtRaw('icon',config.icon || '');
+    config.value = nextValue; config.graph = nextGraph; config.display = nextDisplay; config.style = nextStyle;
+  }
+  if (block.type === 'configurable-gauge') {
+    var minField = document.getElementById('cg-min'), maxField = document.getElementById('cg-max');
+    var minRaw = minField ? String(minField.value).trim() : String(config.min == null ? 0 : config.min).trim();
+    var maxRaw = maxField ? String(maxField.value).trim() : String(config.max == null ? 100 : config.max).trim();
+    var minValue = minRaw === '' ? NaN : Number(minRaw);
+    var maxValue = maxRaw === '' ? NaN : Number(maxRaw);
+    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || minValue >= maxValue) return 'Minimum and maximum must be finite numbers, and minimum must be less than maximum.';
+  }
   // Common appearance
   config.enabled = document.getElementById('modal-enabled')?.checked !== false;
   config.transparent = document.getElementById('modal-transparent')?.checked || false;
@@ -1348,6 +1814,7 @@ function readSettingsForm(block) {
       block.metrics = metrics;
       config.metrics = metrics;
       config.showGauge = document.getElementById('modal-showgauge')?.checked !== false;
+      readBreakdownFields(config);
       break;
     }
     case 'flow-card-2':
@@ -1362,6 +1829,7 @@ function readSettingsForm(block) {
       block.metrics = fmetrics;
       config.metrics = fmetrics;
       config.inverter_image = document.getElementById('modal-inverter-image')?.value || '';
+      readBreakdownFields(config);
       break;
     }
     case 'multi-value': {
@@ -1525,10 +1993,24 @@ function readSettingsForm(block) {
         var btColVal = allBtColors[bti] ? allBtColors[bti].value : '';
         btBandsOut.push({ to: btToVal, color: btColVal || BAR_THRESHOLD_WARM[bti % BAR_THRESHOLD_WARM.length] });
       }
-      if (!btBandsOut.length) {
-        btBandsOut = BAR_THRESHOLD_WARM.map(function(c, i) { return { to: (i + 1) * 25, color: c }; });
-      }
+      if (!btBandsOut.length) btBandsOut = BAR_THRESHOLD_WARM.map(function(c, i) { return { to: (i + 1) * 25, color: c }; });
       config.bands = btBandsOut;
+      break;
+    }
+    case 'configurable-gauge': {
+      function val(key) { var el = document.getElementById('cg-' + key); return el ? el.value : ''; }
+      // A blank field keeps its default; Number('') would otherwise save 0.
+      function num(key, fallback) { var raw = String(val(key)).trim(); if (raw === '') return fallback; var n = Number(raw); return Number.isFinite(n) ? n : fallback; }
+      function checked(key) { var el = document.getElementById('cg-' + key); return !!(el && el.checked); }
+      config.metric = val('metric'); config.title = val('title'); config.unit = val('unit'); config.min = num('min', 0); config.max = num('max', 100);
+      config.precision = num('precision', null); config.showReadout = checked('showReadout'); config.readoutColor = val('readoutColor'); config.readoutSize = num('readoutSize', null);
+      var thresholdRows = document.querySelectorAll('#cg-threshold-rows [data-ui="row"]');
+      config.band = Object.assign({}, config.band || {}, { show: checked('band-show'), thickness: num('band-thickness', 8), spacing: num('band-spacing', 3), trackColor: val('band-trackColor'), thresholds: Array.from(thresholdRows).map(function(row) { var index = row.getAttribute('data-threshold-index'); var prior = index == null ? {} : ((config.band && config.band.thresholds || [])[Number(index)] || {}); var rawValue = row.querySelector('.cg-threshold-value').value; return Object.assign({}, prior, { value: rawValue.trim() === '' ? NaN : Number(rawValue), color: row.querySelector('.cg-threshold-color').value }); }).filter(function(t) { return Number.isFinite(t.value); }) });
+      config.preset = val('preset'); config.segmentCount = num('segmentCount', 12); config.segmentGap = num('segmentGap', 2); config.segmentColors = val('segmentColors').split(',').map(function(x) { return x.trim(); }).filter(Boolean);
+      config.style = val('style'); config.arcColor = val('arcColor'); config.gradientEnd = val('gradientEnd'); config.arcThickness = num('arcThickness', 12); config.trackColor = val('trackColor');
+      config.opening = num('opening', 90); config.rotation = num('rotation', 0); config.size = num('size', 400);
+      config.graph = Object.assign({}, config.graph || {}, { show: checked('graph-show'), metric: val('graph-metric'), window: val('graph-window'), mode: val('graph-mode'), thickness: num('graph-thickness', 2), color: val('graph-color'), opacity: num('graph-opacity', .2), marker: checked('graph-marker') });
+      config.background = val('background'); config.borderColor = val('borderColor'); config.borderWidth = num('borderWidth', 0); config.radius = num('radius', 12);
       break;
     }
     case 'gauge-card':
@@ -1565,7 +2047,7 @@ function readSettingsForm(block) {
       toggles.forEach(function(t) {
         if (t.checked) {
           var f = t.dataset.field;
-          var labels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)'};
+          var labels = {consumption_kwh:'Load (kWh)',solar_kwh:'Solar PV (kWh)',battery_charge_kwh:'Battery Charged (kWh)',battery_discharge_kwh:'Battery Discharged (kWh)',grid_import_kwh:'Grid Used (kWh)',grid_export_kwh:'Grid Exported (kWh)',generator_kwh:'Generator (kWh)'};
           cols.push({ field: f, label: labels[f] || f });
         }
       });
@@ -1609,6 +2091,30 @@ function readSettingsForm(block) {
     case 'chart-power':
     case 'chart-energy':
     case 'chart-metric': {
+      if (block.type === 'chart-power') {
+        var stat = Object.assign({}, config.stats || {}), numField = function(id, fallback, min, max) { var el=document.getElementById(id), raw=el?String(el.value).trim():String(fallback), n=raw===''?null:Number(raw); return n===null || !Number.isFinite(n) || n<min || n>max ? null : n; };
+        // Blank means the default: fit the card, 2px lines, fully opaque.
+        var optField = function(id, min, max) { var el=document.getElementById(id), raw=el?String(el.value).trim():''; if (raw==='') return { blank: true }; var n=Number(raw); return Number.isFinite(n) && n>=min && n<=max ? { value: n } : null; };
+        var height=optField('pca-height',120,1000), width=optField('pca-width',.5,8), opacity=optField('pca-opacity',0,1);
+        if (height===null || width===null || opacity===null) return 'Chart height must be 120\u20131000 px, line width 0.5\u20138 and opacity 0\u20131 (or leave them blank).';
+        var nextAppearance=Object.assign({},config.appearance||{}), oldAxes=nextAppearance.axes||{}, nextAxes=Object.assign({},oldAxes), axisError='';
+        ['left','right'].forEach(function(side){var prior=oldAxes[side]||{}, unitEl=document.getElementById('pca-'+side+'-unit'), scaleEl=document.getElementById('pca-'+side+'-scale'), axisUnit=unitEl?unitEl.value:(prior.unit||'kW'), axisScale=scaleEl?scaleEl.value:(prior.scale||'linear'), minEl=document.getElementById('pca-'+side+'-min'), maxEl=document.getElementById('pca-'+side+'-max'), minRaw=minEl?minEl.value.trim():'', maxRaw=maxEl?maxEl.value.trim():'', min=minRaw===''?null:Number(minRaw), max=maxRaw===''?null:Number(maxRaw); if(!['W','kW'].includes(axisUnit)||!['linear','logarithmic'].includes(axisScale)||(min!==null&&!Number.isFinite(min))||(max!==null&&!Number.isFinite(max))||(min!==null&&max!==null&&min>=max)){axisError=(side==='left'?'Left':'Right')+' axis: the minimum must be less than the maximum.';return;} nextAxes[side]=Object.assign({},prior,{unit:axisUnit,scale:axisScale,min:min,max:max});});
+        if(axisError)return axisError;
+        var styleEl=document.getElementById('pca-style'), unitDefaultEl=document.getElementById('pca-unit'), globalLineStyle=styleEl?styleEl.value:(nextAppearance.lineStyle||'solid'), defaultUnit=unitDefaultEl?unitDefaultEl.value:nextAxes.left.unit;
+        if(!['solid','dashed','dotted'].includes(globalLineStyle)||!['W','kW'].includes(defaultUnit))return 'Line style or power unit is invalid.';
+        var colsEl=document.getElementById('ps-columns-data'), cols=[]; try{cols=JSON.parse(colsEl?.textContent||'[]');}catch(e){}
+        var rows=Array.from(document.querySelectorAll('#ps-columns .ps-column-row')), nextCols=[], used=new Set(), validKeys=['mean','max','min','last'];
+        for(var pi=0;pi<rows.length;pi++){var row=rows[pi], priorCol=cols[pi]||{}, key=row.querySelector('.ps-key').value, precisionRaw=String(row.querySelector('.ps-precision').value).trim(), precision=precisionRaw===''?null:Number(precisionRaw); if(!validKeys.includes(key)||used.has(key)||(precision!==null&&(!Number.isInteger(precision)||precision<0||precision>6)))return 'Statistics columns need unique keys and precision from 0 to 6.';used.add(key);var col=Object.assign({},priorCol,{key:key,label:row.querySelector('.ps-label').value.slice(0,80),visible:row.querySelector('.ps-visible').checked});if(precision===null)delete col.precision;else col.precision=precision;if(key==='last'){col.showTimestamp=!!row.querySelector('.ps-timestamp')?.checked;var stale=Number(row.querySelector('.ps-stale')?.value);if(!Number.isInteger(stale)||stale<0||stale>604800)return 'Stale time must be between 0 and 604800 seconds.';col.staleAfterSeconds=stale;}nextCols.push(col);}
+        var locale=document.getElementById('ps-locale').value.trim()||'auto';if(locale!=='auto'){try{new Intl.NumberFormat(locale);}catch(e){return 'Enter a valid formatting locale.';}}
+        var fontSize=numField('ps-fontsize',14,10,24), spacing=numField('ps-spacing',8,0,32);if(fontSize===null||spacing===null)return 'Statistics font size or row spacing is out of range.';
+        var textColor=(document.getElementById('ps-color')?.value||'').trim();if(textColor&&textColor!=='theme'&&!/^#[0-9a-f]{6}$/i.test(textColor))return 'Text color must be theme or a six-digit hex color.';
+        var oldStyle=stat.tableStyle||{}, tableStyle=Object.assign({},oldStyle,{headerAlign:document.querySelector('[data-ps-style="headerAlign"]')?.value||oldStyle.headerAlign||'start',labelAlign:document.querySelector('[data-ps-style="labelAlign"]').value,valueAlign:document.querySelector('[data-ps-style="valueAlign"]').value,fontWeight:document.querySelector('[data-ps-style="fontWeight"]').value,border:document.querySelector('[data-ps-style="border"]').value,fontSizePx:fontSize,rowSpacingPx:spacing,textColor:textColor||'theme',showSwatches:document.getElementById('ps-swatches').checked,tooltip:document.getElementById('ps-tooltip').checked});
+        stat=Object.assign(stat,{enabled:document.getElementById('ps-enabled').checked,titleVisible:document.getElementById('ps-title-visible').checked,headerVisible:document.getElementById('ps-header-visible').checked,includeHiddenSeries:document.getElementById('ps-hidden-series').checked,title:document.getElementById('ps-title').value.slice(0,80),density:document.getElementById('ps-density').value,columns:nextCols,format:Object.assign({},stat.format||{},{locale:locale,grouping:document.getElementById('ps-grouping').checked,zeroDisplay:document.getElementById('ps-zero').value,noData:document.getElementById('ps-nodata').value}),tableStyle:tableStyle});
+        var checkedOr=function(id,fallback){var el=document.getElementById(id);return el?el.checked:fallback;};
+        nextAppearance=Object.assign(nextAppearance,{lineStyle:globalLineStyle,markers:checkedOr('pca-markers',nextAppearance.markers===true),axisUnit:defaultUnit,legend:checkedOr('pca-legend',nextAppearance.legend!==false),tooltip:checkedOr('pca-tooltip',nextAppearance.tooltip!==false),axes:nextAxes});
+        [['height',height],['lineWidth',width],['opacity',opacity]].forEach(function(x){if(x[1].blank)delete nextAppearance[x[0]];else nextAppearance[x[0]]=x[1].value;});
+        config.stats=stat;config.appearance=nextAppearance;
+      }
       config.hideGrid = document.getElementById('modal-chart-hidegrid')?.checked || false;
       config.fill = document.getElementById('modal-chart-fill')?.checked !== false;
       var chData = document.getElementById('chart-data');
@@ -1625,6 +2131,27 @@ function readSettingsForm(block) {
         if (ccel) chRows[c].color = ccel.value;
         var uels = document.querySelectorAll('.chart-unit'); if (uels[c]) chRows[c].unit = uels[c].value;
         var sels = document.querySelectorAll('.chart-scale'); if (sels[c]) chRows[c].scale = parseFloat(sels[c].value);
+        if (block.type === 'chart-power') {
+          var axis=document.querySelectorAll('.chart-axis')[c], unit=document.querySelectorAll('.chart-series-unit')[c], sw=document.querySelectorAll('.chart-series-width')[c], ls=document.querySelectorAll('.chart-series-style')[c], so=document.querySelectorAll('.chart-series-opacity')[c], sm=document.querySelectorAll('.chart-series-markers')[c];
+          if((axis&&!['left','right'].includes(axis.value))||(unit&&!['','W','kW'].includes(unit.value))||(ls&&!['','solid','dashed','dotted'].includes(ls.value)))return 'Series axis, unit, or line style is invalid.';
+          if(axis)chRows[c].axis=axis.value;if(unit){if(unit.value)chRows[c].unit=unit.value;else delete chRows[c].unit;}
+          if(sw){var wraw=sw.value.trim(), wnum=wraw===''?null:Number(wraw);if(wnum!==null&&(!Number.isFinite(wnum)||wnum<.5||wnum>8))return 'Series line width must be from 0.5 to 8.';if(wnum===null)delete chRows[c].lineWidth;else chRows[c].lineWidth=wnum;}
+          if(ls){if(ls.value)chRows[c].lineStyle=ls.value;else delete chRows[c].lineStyle;}
+          if(so){var oraw=so.value.trim(), onum=oraw===''?null:Number(oraw);if(onum!==null&&(!Number.isFinite(onum)||onum<0||onum>1))return 'Series opacity must be from 0 to 1.';if(onum===null)delete chRows[c].opacity;else chRows[c].opacity=onum;}
+          if(sm)chRows[c].markers=sm.checked;
+        }
+      }
+      if (block.type === 'chart-power') {
+        var priorSeries = Object.assign({}, config.stats.series || {});
+        for (var sc = 0; sc < chRows.length; sc++) {
+          var metricKey=String(chRows[sc].metric||''), controls={visible:document.querySelectorAll('.chart-stats-visible')[sc],label:document.querySelectorAll('.chart-stats-label')[sc],precision:document.querySelectorAll('.chart-stats-precision')[sc]};
+          if(!metricKey)continue; var oldSeries=priorSeries[metricKey]&&typeof priorSeries[metricKey]==='object'?priorSeries[metricKey]:{};
+          var precisionRaw=controls.precision?controls.precision.value.trim():''; if(precisionRaw!==''){var sp=Number(precisionRaw);if(!Number.isInteger(sp)||sp<0||sp>6)return 'Series statistics precision must be an integer from 0 to 6.';oldSeries=Object.assign({},oldSeries,{precision:sp});}else{oldSeries=Object.assign({},oldSeries);delete oldSeries.precision;}
+          oldSeries.visible=controls.visible?controls.visible.checked:oldSeries.visible!==false;
+          if(controls.label){var override=controls.label.value.trim();if(override)oldSeries.label=override.slice(0,80);else delete oldSeries.label;}
+          priorSeries[metricKey]=oldSeries;
+        }
+        config.stats.series=priorSeries;
       }
       config.datasets = chRows;
       config.title = document.getElementById('modal-chart-title')?.value || '';
@@ -1678,6 +2205,48 @@ function readSettingsForm(block) {
       if (titleEl) {
         if (type === 'forecast-pvtoday') config.location_name = titleEl.value;
         else config.title = titleEl.value;
+      }
+      if (type === 'energy-totals') {
+        var etKeys = Array.from(document.querySelectorAll('.et-pick')).filter(function(el) { return el.checked; }).map(function(el) { return el.dataset.key; });
+        if (!etKeys.length) return 'Pick at least one value to show.';
+        config.show = etKeys;
+        readBreakdownFields(config);
+      }
+      if (type === 'energy-tabs') {
+        var etOut = [], etPrior = Array.isArray(config.tabs) ? config.tabs : [];
+        for (var etj = 0; etj < 4; etj++) {
+          var tEl = document.getElementById('modal-etab-type-' + etj);
+          if (!tEl || !tEl.value) continue;
+          if (['energy-day', 'energy-flows', 'energy-costs', 'energy-totals'].indexOf(tEl.value) === -1) return 'Pick a card for each tab from the list.';
+          var prior = etPrior.find(function(p) { return p && p.type === tEl.value; }) || {};
+          etOut.push(Object.assign({}, prior, { type: tEl.value, label: ((document.getElementById('modal-etab-label-' + etj) || {}).value || '').trim().slice(0, 40) }));
+        }
+        if (!etOut.length) return 'Pick at least one tab.';
+        config.tabs = etOut;
+        readBreakdownFields(config);
+      }
+      if (type === 'system-overview') {
+        readBreakdownFields(config);
+        var soImg = document.getElementById('modal-so-image');
+        if (soImg) { var url = soImg.value.trim(); if (url && !/^(https?:)?\/\//i.test(url) && url.charAt(0) !== '/') return 'Inverter image must be a web address (https://...) or a path starting with /.'; if (url) config.inverter_image = url; else delete config.inverter_image; }
+        var soOut = [];
+        for (var soj = 0; soj < 3; soj++) {
+          var sm = document.getElementById('modal-so-metric-' + soj);
+          if (sm && sm.value) soOut.push({ metric: sm.value, label: (document.getElementById('modal-so-label-' + soj) || {}).value || '', unit: (document.getElementById('modal-so-unit-' + soj) || {}).value || '' });
+        }
+        config.extras = soOut;
+        var pvi = document.getElementById('modal-so-pvi'), pvc = document.getElementById('modal-so-pvc');
+        if (pvi && pvc) {
+          if (!!pvi.value !== !!pvc.value) return 'For the PV split, pick both a PV inverter and a PV charger metric, or neither.';
+          if (pvi.value && pvi.value === pvc.value) return 'PV inverter and PV charger need different metrics.';
+          if (pvi.value) config.pv = { inverter: pvi.value, charger: pvc.value }; else delete config.pv;
+        }
+        var wx = document.getElementById('modal-so-weather'); if (wx) config.showWeather = wx.checked;
+      }
+      if (type === 'energy-day' || type === 'energy-flows' || type === 'energy-costs') {
+        var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;
+        if (edF) config.showForecast = edF.checked;
+        if (edB) config.showBattery = edB.checked;
       }
       var metEl = document.getElementById('modal-simple-metric');
       if (metEl) {
@@ -1760,6 +2329,7 @@ function readSettingsForm(block) {
     }
   }
 
+  if (BREAKDOWN_VALUE_TYPES.indexOf(block.type) !== -1) readBreakdownFields(config);
   block.config = config;
   return null;
 }
@@ -1881,7 +2451,15 @@ function refreshGridItem(block) {
 
 function updateEmptyState() {
   var tab = currentTab();
-  $('empty-state').hidden = !!(tab && tab.layout.length);
+  var empty = $('empty-state');
+  empty.hidden = !!(tab && tab.layout.length);
+  var h = empty.querySelector('h2'), p = empty.querySelector('p');
+  if (h && p && !empty.dataset.failed) {
+    h.textContent = onControlsTab() ? 'No switches or selectors yet' : 'This dashboard is empty';
+    p.textContent = onControlsTab()
+      ? 'Add a Toggle switch or State select from the library. They show on the Controls page, where changes need your password.'
+      : 'Add a block from the library to get started.';
+  }
 }
 
 // ── Preview scale ────────────────────────────────────────────────────────
@@ -1892,12 +2470,15 @@ function updateEmptyState() {
 
 // GRID_MARGIN applies to each side of a block, so blocks sit 2 × GRID_MARGIN apart,
 // the same as the dashboard (GAP in dashboard.js).
-var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 1;
+// DASHBOARD_MIN_WIDTH: below 768 px the dashboard stacks blocks one per row,
+// so the 12-column layout only exists on wider screens; on a phone the editor
+// shows it as a miniature of a 1024 px screen instead of squeezing the cards.
+var DASHBOARD_MAX_WIDTH = 1400, DASHBOARD_MIN_WIDTH = 1024, DASHBOARD_PAGE_PADDING = 32, GRID_MARGIN = 1;
 var previewScale = 1;
 
-/** Width the dashboard's block area has in this browser window. */
+/** Width the dashboard's block area has in this browser window (12-column layouts). */
 function dashboardWidth() {
-  return Math.min(DASHBOARD_MAX_WIDTH, Math.max(320, window.innerWidth - DASHBOARD_PAGE_PADDING));
+  return Math.min(DASHBOARD_MAX_WIDTH, Math.max(DASHBOARD_MIN_WIDTH, window.innerWidth - DASHBOARD_PAGE_PADDING));
 }
 
 function applyPreviewScale() {
@@ -2080,7 +2661,7 @@ function placeNewItem(block) {
  * otherwise below the selected block, or at the bottom.
  */
 function addBlock(type, at) {
-  if (readOnly || !BLOCK_BUILDERS.has(type)) return;
+  if (readOnly || !BLOCK_BUILDERS.has(type) || !typeFitsTab(type)) return;
   var tab = currentTab();
   if (!tab) return;
   var info = blockInfo(type);
@@ -2231,7 +2812,7 @@ function renderInspector() {
     '<form class="ins-body" id="ins-body" autocomplete="off" novalidate>' +
       '<fieldset class="ins-fieldset"' + (readOnly ? ' disabled' : '') + '>' +
         '<div role="tabpanel" class="ins-panel" id="ins-panel-data" aria-labelledby="ins-tab-data">' + dataPanel + '</div>' +
-        '<div role="tabpanel" class="ins-panel" id="ins-panel-style" aria-labelledby="ins-tab-style">' + buildAppearanceFields(block) + '</div>' +
+        '<div role="tabpanel" class="ins-panel" id="ins-panel-style" aria-labelledby="ins-tab-style">' + (block.type === 'chart-power' ? buildPowerChartStyleFields(block.config || {}) : '') + buildAppearanceFields(block) + '</div>' +
         '<div role="tabpanel" class="ins-panel" id="ins-panel-layout" aria-labelledby="ins-tab-layout">' + buildLayoutFields(block) + '</div>' +
       '</fieldset>' +
     '</form>' +
@@ -2349,6 +2930,19 @@ function wireInspector(aside, block) {
   var body = $('ins-body');
   body.addEventListener('submit', function(e) { e.preventDefault(); });
   wireSettingsForm(body, block);
+  var cgAddThreshold = body.querySelector('#cg-threshold-add');
+  if (cgAddThreshold) cgAddThreshold.addEventListener('click', function() {
+    var rows = body.querySelector('#cg-threshold-rows');
+    var row = document.createElement('div'); row.setAttribute('data-ui', 'row');
+    row.innerHTML = '<label>Threshold <input class="cg-threshold-value" type="number" step="any" value=""></label><label>Color ' + optionalColorControl('', '', 'cg-threshold-color') + '</label><button type="button" aria-label="Remove threshold">Remove</button>';
+    row.querySelector('button').addEventListener('click', function() { row.remove(); scheduleApply(0); });
+    rows.appendChild(row); scheduleApply(0);
+  });
+  wireOptionalColors(body, function() { scheduleApply(0); });
+  body.querySelectorAll('#cg-threshold-rows [data-ui="row"]').forEach(function(row) {
+    var remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.setAttribute('aria-label', 'Remove threshold');
+    remove.addEventListener('click', function() { row.remove(); scheduleApply(0); }); row.appendChild(remove);
+  });
   if (readOnly) return;
 
   body.addEventListener('input', function(e) {
@@ -2397,6 +2991,26 @@ function resizeFromInspector(block) {
 }
 
 /** Hook up the dynamic parts of a block's settings form. */
+// Optional colour pickers (see optionalColorControl): picking a colour stores
+// it, Reset stores '' so the card goes back to the theme colour.
+function wireOptionalColors(body, onReset) {
+  body.addEventListener('input', function(e) {
+    var picker = e.target;
+    if (!picker.classList || !picker.classList.contains('color-opt-picker')) return;
+    var wrap = picker.parentNode, store = wrap.querySelector('input[type="hidden"]');
+    store.value = picker.value; wrap.classList.remove('is-default');
+  });
+  body.addEventListener('click', function(e) {
+    var reset = e.target.closest && e.target.closest('.color-opt-reset');
+    if (!reset) return;
+    e.preventDefault();
+    var wrap = reset.parentNode;
+    wrap.querySelector('input[type="hidden"]').value = '';
+    wrap.classList.add('is-default');
+    if (onReset) onReset();
+  });
+}
+
 function wireSettingsForm(body, block) {
   // Color inputs are only saved once the person has actually picked a color.
   ['modal-bgcolor', 'modal-fontcolor', 'modal-switch-oncolor', 'modal-switch-offcolor'].forEach(function(id) {
@@ -2437,7 +3051,8 @@ function wireSettingsForm(body, block) {
       renderMetricCardsRows(body);
       break;
     case 'chart-power':
-      renderChartRows(body, false, [{ value: 'battery_power', label: 'Battery Power (net)' }]);
+      renderChartRows(body, true, [{ value: 'battery_power', label: 'Battery Power (net)' }]);
+      renderPowerStatsColumns(body);
       break;
     case 'chart-energy':
       renderChartRows(body);
@@ -2489,6 +3104,7 @@ function renderLibrary(query) {
   var shown = 0;
   libraryGroups().forEach(function(g) {
     var types = g.types.filter(function(type) {
+      if (!typeFitsTab(type)) return false;
       if (!q) return true;
       var info = blockInfo(type);
       return (info.name + ' ' + info.desc + ' ' + type + ' ' + g.label).toLowerCase().indexOf(q) !== -1;
@@ -2620,7 +3236,8 @@ function updateHeader() {
   var tab = currentTab();
   var idx = dashboardConfig.dashboards.indexOf(tab);
   $('dash-name').textContent = (tab && tab.name) || 'Dashboard';
-  $('dash-count').textContent = dashboardConfig.dashboards.length > 1 ? (idx + 1) + ' of ' + dashboardConfig.dashboards.length : '';
+  $('dash-count').textContent = idx !== -1 && dashboardConfig.dashboards.length > 1 ? (idx + 1) + ' of ' + dashboardConfig.dashboards.length : '';
+  document.body.classList.toggle('is-controls-tab', onControlsTab());
   $('dash-menu-btn').setAttribute('aria-label', 'Dashboard: ' + ((tab && tab.name) || 'Dashboard') + '. Switch, rename or manage dashboards');
   document.title = 'Edit ' + ((tab && tab.name) || 'layout') + ' · Epilykos';
   try {
@@ -2632,10 +3249,11 @@ function updateHeader() {
 
 function loadTab(tabId, opts) {
   opts = opts || {};
-  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === tabId; });
+  var tab = findTab(tabId);
   if (!tab) return;
   if (!opts.skipSync) syncLayoutFromGrid();
   currentTabId = tabId;
+  if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
   if (toolbar) toolbar.remove();
   selectedBlockId = null;
 
@@ -2666,7 +3284,7 @@ function loadTab(tabId, opts) {
 
 function renameDashboard(title) {
   var tab = currentTab();
-  if (!tab || readOnly) return Promise.resolve();
+  if (!tab || readOnly || tab.controls) return Promise.resolve();
   var wrap = document.createElement('div');
   wrap.className = 'ed-field';
   var label = document.createElement('label');
@@ -2696,7 +3314,7 @@ function renameDashboard(title) {
 function newDashboard() {
   if (readOnly) return;
   pushUndo();
-  var used = new Set(dashboardConfig.dashboards.map(function(db) { return db.id; }));
+  var used = new Set(allTabs().map(function(db) { return db.id; }));
   var id = uniqueDashboardId('db_' + Date.now(), used);
   dashboardConfig.dashboards.push({ id: id, name: 'New dashboard', layout: [] });
   loadTab(id);
@@ -2706,9 +3324,9 @@ function newDashboard() {
 
 function duplicateDashboard() {
   var tab = currentTab();
-  if (readOnly || !tab) return;
+  if (readOnly || !tab || tab.controls) return;
   pushUndo();
-  var used = new Set(dashboardConfig.dashboards.map(function(db) { return db.id; }));
+  var used = new Set(allTabs().map(function(db) { return db.id; }));
   var copy = JSON.parse(JSON.stringify(tab));
   copy.id = uniqueDashboardId(tab.id + '_copy', used);
   copy.name = (tab.name || 'Dashboard') + ' copy';
@@ -2721,7 +3339,7 @@ function duplicateDashboard() {
 
 function deleteDashboard() {
   var tab = currentTab();
-  if (readOnly || !tab || dashboardConfig.dashboards.length <= 1) return;
+  if (readOnly || !tab || tab.controls || dashboardConfig.dashboards.length <= 1) return;
   var n = tab.layout.length;
   var p = document.createElement('p');
   p.textContent = 'This removes the dashboard and its ' + n + (n === 1 ? ' block' : ' blocks') + '. You can undo this right after.';
@@ -2848,12 +3466,17 @@ function importLayout() {
 
 function openDashboardMenu() {
   var only = dashboardConfig.dashboards.length <= 1;
+  var onControls = onControlsTab();
   var items = dashboardConfig.dashboards.map(function(db) {
     return { label: db.name || db.id, checked: db.id === currentTabId, onSelect: function() { if (db.id !== currentTabId) loadTab(db.id); } };
   });
+  if (controlsTab) {
+    items.push({ separator: true });
+    items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches and selectors', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
+  }
   items.push({ separator: true });
-  items.push({ label: 'Rename…', icon: 'text', disabled: readOnly, onSelect: function() { renameDashboard(); } });
-  items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly, onSelect: duplicateDashboard });
+  items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
+  items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly || onControls, onSelect: duplicateDashboard });
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
   if (isNarrow()) {
     items.push({ separator: true });
@@ -2861,7 +3484,7 @@ function openDashboardMenu() {
     items.push({ label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout });
   }
   items.push({ separator: true });
-  items.push({ label: 'Delete dashboard…', icon: 'trash', danger: true, disabled: readOnly || only, hint: only ? 'Only one left' : '', onSelect: deleteDashboard });
+  items.push({ label: 'Delete dashboard…', icon: 'trash', danger: true, disabled: readOnly || only || onControls, hint: onControls ? '' : only ? 'Only one left' : '', onSelect: deleteDashboard });
   openMenu($('dash-menu-btn'), items, { label: 'Dashboards' });
 }
 
@@ -2943,12 +3566,13 @@ function wireTopbar() {
   $('io-btn').addEventListener('click', openIoMenu);
   $('undo-btn').addEventListener('click', undo);
   $('redo-btn').addEventListener('click', redo);
+  var exitUrl = function() { return onControlsTab() ? '/controls' : '/?tab=' + encodeURIComponent(currentTabId); };
   $('done-btn').addEventListener('click', function() {
-    leaveTo('/?tab=' + encodeURIComponent(currentTabId));
+    leaveTo(exitUrl());
   });
   $('back-link').addEventListener('click', function(e) {
     e.preventDefault();
-    leaveTo('/?tab=' + encodeURIComponent(currentTabId), { allowDiscard: true });
+    leaveTo(exitUrl(), { allowDiscard: true });
   });
   $('library-btn').addEventListener('click', function() {
     if (document.body.dataset.sheet === 'library') closeSheets(); else openSheet('library');
@@ -2985,6 +3609,18 @@ function wireKeyboard() {
   });
 }
 
+/** Signed in: the Controls page layout, shown as its own entry in the dashboard menu. */
+async function loadControlsTab() {
+  try {
+    var res = await fetch('/api/controls/layout');
+    if (!res.ok) return;
+    var data = await res.json();
+    var layout = Array.isArray(data.layout) ? data.layout : [];
+    controlsTab = { id: CONTROLS_TAB_ID, name: 'Controls page', layout: layout, controls: true };
+    controlsSaved = JSON.stringify(layout);
+  } catch (e) { controlsTab = null; }
+}
+
 async function initEditor() {
   initTheme();
   hydrateIcons(document);
@@ -3012,15 +3648,16 @@ async function initEditor() {
       dashboardConfig.activeDashboard = 'main';
     }
     dashboardConfig.dashboards.forEach(function(db) { if (!Array.isArray(db.layout)) db.layout = []; });
+    var auth = await authPromise;
+    if (auth && auth.authenticated === false) enterReadOnly();
+    else await loadControlsTab();
     var requestedTab = new URLSearchParams(window.location.search).get('tab');
-    currentTabId = dashboardConfig.dashboards.some(function(db) { return db.id === requestedTab; })
+    currentTabId = findTab(requestedTab)
       ? requestedTab
       : (dashboardConfig.dashboards.some(function(db) { return db.id === dashboardConfig.activeDashboard; })
         ? dashboardConfig.activeDashboard
         : dashboardConfig.dashboards[0].id);
 
-    var auth = await authPromise;
-    if (auth && auth.authenticated === false) enterReadOnly();
     await metricsPromise;
 
     buildToolbar();

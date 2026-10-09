@@ -17,6 +17,7 @@
  * landing in the same 10-min bucket, not be averaged 50/50 with it.
  */
 'use strict';
+const checks = require('./_checks');
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -35,13 +36,18 @@ function check(name, fn) { fn(); passed++; console.log(`ok - ${name}`); }
 async function checkAsync(name, fn) { await fn(); passed++; console.log(`ok - ${name}`); }
 
 const HISTORY_FIELDS = ['consumption','solar','battery_charge','battery_discharge','grid_import','grid_export','battery_soc','daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export'];
+// All-time totals cache finished days; these helpers write straight into past
+// days (the app only writes the current time), so they clear it.
+const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesReader'));
 function insertHistoryRow(ts, overrides = {}) {
+  clearDailySnapshotCache(getDb());
   const row = { consumption: 0, solar: 0, battery_charge: 0, battery_discharge: 0, grid_import: 0, grid_export: 0, battery_soc: 0, daily_consumption: 0, daily_solar: 0, daily_battery_charge: 0, daily_battery_discharge: 0, daily_grid_import: 0, daily_grid_export: 0, ...overrides };
   const cols = ['timestamp', ...HISTORY_FIELDS];
   db.prepare(`INSERT INTO history(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
     .run(ts, ...HISTORY_FIELDS.map(f => row[f]));
 }
 function insertHistory5m(bucketStart, overrides = {}) {
+  clearDailySnapshotCache(getDb());
   const cols = ['bucket_start',
     'consumption_avg','consumption_min','consumption_max','consumption_count',
     'solar_avg','solar_min','solar_max','solar_count',
@@ -211,7 +217,9 @@ function httpGetJson(port, urlPath) {
 
 await checkAsync('/api/history: raw-only data matches pre-routing reference (field shapes, units, ordering)', async () => {
   const now = Math.floor(Date.now() / 1000);
-  const ts = now - 3600;
+  // 90 minutes ago: clear of the powerHistory fixtures (bucket + 60/120 s near
+  // now - 1 h, which this used to collide with on the same second).
+  const ts = now - 5400;
   insertHistoryRow(ts, { consumption: 1200, solar: 2400, battery_charge: 300, battery_discharge: 0, grid_import: 100, grid_export: 50, battery_soc: 75, daily_consumption: 10, daily_solar: 20, daily_battery_charge: 2, daily_battery_discharge: 1, daily_grid_import: 3, daily_grid_export: 1 });
 
   const { srv, port } = await startServer();
@@ -418,4 +426,5 @@ await checkAsync('buildCurrentData all_time_savings: rollup bucket (daily_solar_
 
 console.log(`\ntimeseries-routing-routes.test.js: ${passed} checks passed`);
 
+  checks.done();
 })().catch(err => { console.error(err); process.exit(1); });

@@ -17,13 +17,17 @@ reliably in parallel.
 Commands
   status                      adapter / D-Bus / library availability
   scan        {timeout, all}  discover devices; BMS types identified via aiobmsble
-  read_bms    {address, timeout}             one aiobmsble sample, flattened to numbers
+  read_bms    {address, timeout}             one aiobmsble sample, flattened to numbers,
+                              plus "__kind" (the aiobmsble module, e.g. jbd_bms)
   modbus      {address, write_uuid, notify_uuid, frame, timeout}
                               send one Modbus-RTU frame over a GATT write/notify
                               pair and return the complete response frame (hex)
   gatt_read   {address, reads: [{service, characteristic}], timeout}
                               read characteristics (read-only devices that expose
                               live values directly, e.g. Phocos Any-Grid)
+  bms_switch  {address, bms_type, switch, on, charge_on, discharge_on, timeout}
+                              turn a JBD or JK pack's charging or discharging
+                              on/off (the only BMS writes); returns the type
   disconnect  {address}       drop cached connections for one device
   disconnect_all
 """
@@ -177,6 +181,41 @@ def lux_matches(frame, request):
 _seen = {}         # address -> (BLEDevice, AdvertisementData, monotonic ts)
 _bms = {}          # address -> aiobmsble BMS instance (kept alive)
 _gatt = {}         # address -> GattLink
+
+
+def jbd_write_frame(register, data):
+    """JBD write: DD 5A reg len data crc(2, big-endian: 0x10000 - sum) 77."""
+    body = bytes([register, len(data)]) + bytes(data)
+    crc = (0x10000 - sum(body)) & 0xFFFF
+    return b"\xdd\x5a" + body + crc.to_bytes(2, "big") + b"\x77"
+
+
+def jbd_reply(buf, register):
+    """(status, end) for a complete JBD reply to register in buf, else None.
+    Reply: DD reg status len data crc(2) 77; status 0 = accepted."""
+    start = buf.find(bytes([0xDD, register]))
+    if start < 0 or len(buf) < start + 4:
+        return None
+    end = start + 4 + buf[start + 3] + 3
+    if len(buf) < end:
+        return None
+    if buf[end - 1] != 0x77:
+        return (-1, end)
+    return (buf[start + 2], end)
+
+
+def jk_command_frame(cmd, value=b""):
+    """JK BLE command (JK02): AA 55 90 EB cmd len value(<=13, zero padded) sum."""
+    if len(value) > 13:
+        raise HelperError("JK value too long", "bad_request")
+    frame = b"\xaa\x55\x90\xeb" + bytes([cmd, len(value)]) + bytes(value) + bytes(13 - len(value))
+    return frame + bytes([sum(frame) & 0xFF])
+
+
+# JK02 registers for the charging / discharging switches (value 1 on, 0 off).
+JK_SWITCH_REGISTER = {"charge": 0x1D, "discharge": 0x1E}
+JK_SETTLE_S = 1.5  # pause after each JK command (the pack answers with its own frames)
+BMS_KINDS = {"jbd_bms": "jbd", "jikong_bms": "jk"}
 
 
 def _remember(device, adv):
@@ -373,6 +412,7 @@ async def cmd_read_bms(args):
     data = flatten_sample(sample)
     if not data:
         raise HelperError("BMS returned no numeric values", "empty")
+    data["__kind"] = type(bms).__module__.rsplit(".", 1)[-1]
     return data
 
 
@@ -538,6 +578,82 @@ async def cmd_gatt_read(args):
     return {"values": values}
 
 
+async def _bms_kind(address, forced, timeout):
+    """'jbd' / 'jk' for a pack: its set type, else the type polling identified."""
+    forced = str(forced or "").strip()
+    module = forced
+    if not module:
+        bms = _bms.get(address)
+        if bms is not None:
+            module = type(bms).__module__.rsplit(".", 1)[-1]
+        else:
+            device, adv = await _find(address, min(10.0, timeout / 2))
+            cls = await _identify(device, adv)
+            module = cls.__module__.rsplit(".", 1)[-1] if cls else ""
+    kind = BMS_KINDS.get(module)
+    if kind is None:
+        raise HelperError(f"Switching charging or discharging is available for JBD and JK packs only (this one is {module or 'unknown'})", "unsupported")
+    return kind
+
+
+async def cmd_bms_switch(args):
+    """Turn charging or discharging on/off on a JBD or JK pack. The pack's
+    aiobmsble connection is dropped first (one link per device); the next poll
+    reconnects and shows the new state, which the caller checks."""
+    address = norm_address(args.get("address"))
+    which = args.get("switch")
+    if which not in ("charge", "discharge"):
+        raise HelperError("switch must be charge or discharge", "bad_request")
+    if not isinstance(args.get("on"), bool):
+        raise HelperError("on must be true or false", "bad_request")
+    on = args["on"]
+    timeout = min(max(float(args.get("timeout", 25)), 5.0), 60.0)
+    try:
+        async with asyncio.timeout(timeout):
+            kind = await _bms_kind(address, args.get("bms_type"), timeout)
+            await _drop_bms(address)
+            if kind == "jbd":
+                charge_on = on if which == "charge" else args.get("charge_on")
+                discharge_on = on if which == "discharge" else args.get("discharge_on")
+                if not isinstance(charge_on, bool) or not isinstance(discharge_on, bool):
+                    raise HelperError("the other switch's current state is required", "bad_request")
+                # MOS control 0xE1: bit 0 set = charging off, bit 1 set = discharging off.
+                mask = (0 if charge_on else 1) | (0 if discharge_on else 2)
+                link = await _gatt_link(address, full_uuid("ff01"), timeout)
+                link.buf.clear()
+                link.event.clear()
+                await link.client.write_gatt_char(full_uuid("ff02"), jbd_write_frame(0xE1, bytes([0, mask])), response=None)
+                status = None
+                while status is None:
+                    await link.event.wait()
+                    link.event.clear()
+                    # Everything already received, frame by frame.
+                    while (got := jbd_reply(link.buf, 0xE1)) is not None:
+                        code, end = got
+                        del link.buf[:end]
+                        if code != -1:  # -1: damaged frame, look at the next one
+                            status = code
+                            break
+                if status != 0:
+                    raise HelperError("The BMS refused the change", "refused")
+            else:
+                link = await _gatt_link(address, full_uuid("ffe1"), timeout)
+                # Ask for device info first (the JK app does too); then write the switch.
+                await link.client.write_gatt_char(full_uuid("ffe1"), jk_command_frame(0x97), response=None)
+                await asyncio.sleep(JK_SETTLE_S)
+                value = (1 if on else 0).to_bytes(4, "little")
+                await link.client.write_gatt_char(full_uuid("ffe1"), jk_command_frame(JK_SWITCH_REGISTER[which], value), response=None)
+                await asyncio.sleep(JK_SETTLE_S)
+    except HelperError:
+        await _drop_gatt(address)
+        raise
+    except Exception as exc:
+        await _drop_gatt(address)
+        raise _map_error(exc) from exc
+    await _drop_gatt(address)
+    return {"kind": kind}
+
+
 async def cmd_disconnect(args):
     address = norm_address(args.get("address"))
     await _drop_bms(address)
@@ -560,6 +676,7 @@ COMMANDS = {
     "modbus": cmd_modbus,
     "luxpower": cmd_luxpower,
     "gatt_read": cmd_gatt_read,
+    "bms_switch": cmd_bms_switch,
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
 }
@@ -644,9 +761,90 @@ def _self_test():
     assert lux_sync(bytearray(b"\x00\x01" + resp[:10])) == bytearray(resp[:10])
     assert lux_sync(bytearray(b"\x00\xa1")) == bytearray(b"\xa1")
     assert lux_sync(bytearray(b"\xa1\x1a\x05\x00\xff\xff" + resp)) == bytearray(resp)
+    # JBD MOS control, all on: the well-known DD 5A E1 02 00 00 FF 1D 77
+    assert jbd_write_frame(0xE1, b"\x00\x00").hex() == "dd5ae1020000ff1d77"
+    assert jbd_write_frame(0xE1, b"\x00\x02").hex() == "dd5ae1020002ff1b77"
+    assert jbd_reply(bytearray.fromhex("00dde10000ffff77"), 0xE1) == (0, 8)
+    assert jbd_reply(bytearray.fromhex("dde10000ffff00"), 0xE1) == (-1, 7)  # bad tail
+    assert jbd_reply(bytearray.fromhex("dde18000ff8077"), 0xE1) == (0x80, 7)
+    assert jbd_reply(bytearray.fromhex("dde100"), 0xE1) is None
+    # JK device-info request: AA 55 90 EB 97 00 ... 11
+    assert jk_command_frame(0x97).hex() == "aa5590eb97" + "00" * 14 + "11"
+    f = jk_command_frame(0x1D, (1).to_bytes(4, "little"))
+    assert len(f) == 20 and f[4] == 0x1D and f[5] == 4 and f[6:10] == b"\x01\x00\x00\x00" and f[-1] == sum(f[:-1]) & 0xFF
+    _self_test_bms_switch()
     assert full_uuid("2A03") == "00002a03-0000-1000-8000-00805f9b34fb"
     assert full_uuid("0x1810") == "00001810-0000-1000-8000-00805f9b34fb"
     print("ok")
+
+
+def _self_test_bms_switch():
+    """cmd_bms_switch against a fake GATT link: the frames it writes, and how
+    it treats the JBD reply (accepted, refused, damaged then accepted)."""
+    g = globals()
+    saved = {k: g[k] for k in ("_gatt_link", "_drop_gatt", "_drop_bms", "_bms_kind", "JK_SETTLE_S")}
+    g["JK_SETTLE_S"] = 0
+
+    class Client:
+        def __init__(self, link, replies):
+            self.link, self.replies, self.writes = link, list(replies), []
+
+        async def write_gatt_char(self, uuid, data, response=None):
+            self.writes.append((uuid, bytes(data).hex()))
+            if self.replies:
+                self.link.on_notify(None, bytes.fromhex(self.replies.pop(0)))
+
+    def run(kind, args, replies=()):
+        link = GattLink(None, "notify")
+        link.client = Client(link, replies)
+        dropped = []
+
+        async def fake_link(_a, _n, _t):
+            return link
+
+        async def fake_drop(address, reset=False):
+            dropped.append(address)
+
+        async def fake_kind(_a, _f, _t):
+            return kind
+
+        g.update(_gatt_link=fake_link, _drop_gatt=fake_drop, _drop_bms=fake_drop, _bms_kind=fake_kind, JK_SETTLE_S=0)
+        try:
+            result = asyncio.run(cmd_bms_switch({"address": "aa:bb:cc:00:00:01", "timeout": 5, **args}))
+            return result, link.client.writes, dropped, None
+        except HelperError as exc:
+            return None, link.client.writes, dropped, exc
+        finally:
+            g.update(saved)
+
+    ff02, ffe1 = full_uuid("ff02"), full_uuid("ffe1")
+    # JBD: charging off, discharging stays on -> mask 0x01; reply accepted
+    res, writes, dropped, err = run("jbd", {"switch": "charge", "on": False, "charge_on": True, "discharge_on": True}, ["dde10000ffff77"])
+    assert err is None and res == {"kind": "jbd"}, err
+    assert writes == [(ff02, jbd_write_frame(0xE1, b"\x00\x01").hex())], writes
+    assert "AA:BB:CC:00:00:01" in dropped  # the aiobmsble link is released first
+    # JBD: discharging off while charging is already off -> mask 0x03
+    _, writes, _, err = run("jbd", {"switch": "discharge", "on": False, "charge_on": False, "discharge_on": True}, ["dde10000ffff77"])
+    assert err is None and writes[0][1] == jbd_write_frame(0xE1, b"\x00\x03").hex()
+    # JBD refuses (status 0x80)
+    _, _, _, err = run("jbd", {"switch": "charge", "on": True, "charge_on": False, "discharge_on": True}, ["dde18000ff8077"])
+    assert err is not None and err.code == "refused"
+    # damaged frame first, then the real reply
+    _, _, _, err = run("jbd", {"switch": "charge", "on": True, "charge_on": False, "discharge_on": True}, ["dde10000ffff00dde10000ffff77"])
+    assert err is None, err
+    # JBD without the other switch's state: refused before anything is written
+    _, writes, _, err = run("jbd", {"switch": "charge", "on": True}, [])
+    assert err is not None and err.code == "bad_request" and writes == []
+    # JK: device info first, then register 0x1E (discharging) = 0
+    res, writes, _, err = run("jk", {"switch": "discharge", "on": False}, [])
+    assert err is None and res == {"kind": "jk"}
+    assert writes == [(ffe1, jk_command_frame(0x97).hex()), (ffe1, jk_command_frame(0x1E, bytes(4)).hex())], writes
+    _, writes, _, _ = run("jk", {"switch": "charge", "on": True}, [])
+    assert writes[1][1] == jk_command_frame(0x1D, b"\x01\x00\x00\x00").hex()
+    # bad requests
+    for bad in ({"switch": "balance", "on": True}, {"switch": "charge", "on": "yes"}, {"switch": "charge"}):
+        _, writes, _, err = run("jk", bad, [])
+        assert err is not None and err.code == "bad_request" and writes == [], bad
 
 
 if __name__ == "__main__":

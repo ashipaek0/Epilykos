@@ -14,7 +14,9 @@
  * No version bumps needed — the cache is a fresh-first offline fallback, never stale.
  */
 
-const CACHE_NAME = 'epilykos-shell';
+// Renamed when private pages stopped being cached, so caches that may hold
+// one are deleted on activate.
+const CACHE_NAME = 'epilykos-shell-2';
 const STATIC_ASSETS = [
   '/',
   '/style.css',
@@ -43,6 +45,8 @@ const STATIC_ASSETS = [
   '/icons/splash-1024.png',
   '/icons/splash-1024-dark.png'
 ];
+
+const PRIVATE_PATH = /^\/(showcase|controls|private|settings|editor|setup|login)(\/|\.html|$)/;
 
 // ── Runtime state (received via postMessage) ──────────────────────────
 let localURL = '';
@@ -96,6 +100,10 @@ self.addEventListener('fetch', event => {
   // Let the browser handle them natively.
   if (!isSameOrigin) return;
 
+  // Signed-in pages (and their files) are never cached: a copy kept for
+  // offline use would show them to whoever opens the app next, signed out.
+  if (PRIVATE_PATH.test(url.pathname)) return;
+
   if (isSameOrigin && isAPI && localURL) {
     event.respondWith(tryLocalThenRemote(event.request, url));
     return;
@@ -147,7 +155,7 @@ async function tryLocalThenRemote(request, url) {
 async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && !/no-store/i.test(response.headers.get('Cache-Control') || '')) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
     }

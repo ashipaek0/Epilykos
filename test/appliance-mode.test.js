@@ -12,6 +12,7 @@
  * state (logger, database singleton) never leaks between cases.
  */
 'use strict';
+const checks = require('./_checks');
 
 const assert = require('assert');
 const { spawnSync } = require('child_process');
@@ -120,3 +121,4 @@ check('/healthz: 503 when the schema is broken, without leaking paths', () => {
 });
 
 console.log(`\nPASS appliance-mode: ${passed} checks`);
+checks.done();

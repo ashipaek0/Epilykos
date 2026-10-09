@@ -118,7 +118,7 @@ async function pollModbus() {
               }
             }
             const value = reg.scale ? raw * reg.scale : raw;
-            const metricName = addrToMetric ? addrToMetric[String(reg.address)] : reg.metric;
+            const metricName = addrToMetric ? addrToMetric[String(reg.address)] : (device.prefix || '') + reg.metric;
             if (metricName) results[metricName] = value;
           }
         } catch (err) { logger.error(`Modbus read error at ${startAddr}:`, err.message); }
@@ -154,21 +154,26 @@ async function executeModbusAction(deviceName, registerAddr, value, type) {
   const devices = JSON.parse(getConfig('modbus_devices') || '[]');
   const device = devices.find(d => d.name === deviceName);
   if (!device || !device.enabled) return { error: 'Modbus device not found or disabled' };
+  // Modbus profiles list no settings, so any address here is a raw register write.
+  const off = require('./deviceControls').writeRefusal({ raw: true });
+  if (off) return { error: off };
+  const { registerWord } = require('./dongle');
+  const addr = registerWord(registerAddr);
+  if (addr === null) return { error: 'Invalid register address' };
+  let val = null;
+  if (type === 'coil') {
+    if (value === true || value === 1 || value === '1' || value === 'on' || value === 'true') val = 1;
+    else if (value === false || value === 0 || value === '0' || value === 'off' || value === 'false') val = 0;
+    if (val === null) return { error: 'A coil takes on or off' };
+  } else {
+    val = registerWord(value, { decimalOnly: true });
+    if (val === null) return { error: 'The value must be a whole number from 0 to 65535' };
+  }
 
   try {
     const client = await connectModbus(device);
-    if (isNaN(parseInt(registerAddr))) {
-      await client.close();
-      return { error: 'Invalid register address' };
-    }
-    const addr = parseInt(registerAddr);
-
-    if (type === 'coil') {
-      await client.writeSingleCoil(addr, value ? 1 : 0);
-    } else {
-      const val = parseInt(value) || 0;
-      await client.writeSingleRegister(addr, val);
-    }
+    if (type === 'coil') await client.writeSingleCoil(addr, val);
+    else await client.writeSingleRegister(addr, val);
     await client.close();
     return { success: true };
   } catch (e) {

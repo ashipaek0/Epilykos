@@ -1,4 +1,5 @@
 'use strict';
+const checks = require('./_checks');
 /**
  * test/luxpower-ble.test.js — LuxPower dongle over Bluetooth
  * (modules/dongle/bleLuxpower.js) against frames captured from a real dongle
@@ -134,4 +135,5 @@ print(got.hex() if got else "none")
   });
 
   if (failed) process.exit(1);
+  checks.done();
 })();
