@@ -54,9 +54,15 @@ const FILE = path.join(ROOT, 'public/js/components/systemTopology.js');
   assert.match(src, /\.topo-energy:not\(\[hidden\]\)/, 'shown lines take height from the circles');
   assert.match(src, /state\.current \|\| \{\}/, "read from the dashboard's current values");
 
+  for (const key of ['solar', 'grid', 'home', 'battery']) {
+    assert.match(tpl, new RegExp(`<div class="topo-caption">[^\\n]*energy\\('${key}'\\)[^\\n]*</div>`), `${key}: label and energy in one caption`);
+  }
+
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /\.topo-energy\[hidden\] \{ display: none; \}/);
-  assert.match(css, /\.topo-energy \{[^}]*color: var\(--text-secondary\)/, 'text colour, not a series colour');
+  assert.match(css, /\.flow-card-2 \.topo-energy\[hidden\] \{ display: none; \}/);
+  assert.match(css, /\.flow-card-2 \.topo-energy \{[^}]*color: var\(--text-secondary\)[^}]*white-space: nowrap/, 'text colour, one line');
+  // Grid and Home captions are out of flow, so those circles stay level with the hub.
+  assert.match(css, /\.flow-card-2 \.topo-grid-node > \.topo-caption, \.flow-card-2 \.topo-home > \.topo-caption \{\s*position: absolute; top: calc\(100% \+ 0\.25rem\)/);
 
   const editor = fs.readFileSync(path.join(ROOT, 'public/js/editor.js'), 'utf8');
   assert.match(editor, /block\.type === 'flow-card-2'\) html \+= [^\n]*id="modal-daily-energy"/, 'toggle only on the topology card');
