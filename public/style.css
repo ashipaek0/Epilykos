@@ -2241,6 +2241,13 @@ details.help-sub.help-hidden { display: none; }
 .flow-card-2 { --topo-d: clamp(64px, calc((100cqh - 5.5rem - var(--topo-extra, 0) * 0.95rem) / 3), 120px); }
 .flow-card-2 .topo-value, .flow-card-2 .topo-sub { white-space: nowrap; }
 .flow-card-2 .topo-hub { min-width: 34px; min-height: 40px; }
+/* Today's energy, just outside each circle on the side away from the hub. */
+.topo-energy {
+  font-size: calc(max(0.68rem, var(--topo-d, 90px) * 0.1) * var(--card-font-scale, 1));
+  font-weight: 600; color: var(--text-secondary); line-height: 1.1;
+  font-variant-numeric: tabular-nums; text-align: center; max-width: 100%;
+}
+.topo-energy[hidden] { display: none; }
 /* Flow card: one row down to ~420px wide (smaller icons, arrows and values);
    narrower than that, a 2×2 grid without the arrows. */
 .flow-card { container-type: inline-size; }

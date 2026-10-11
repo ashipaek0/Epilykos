@@ -11,6 +11,8 @@
  * - Solar circle shows utilization % (watts / system capacity)
  * - Battery discharge detected across multiple metric names
  * - Configurable inverter image via block.config.inverter_image
+ * - Today's energy (kWh) beside each circle, on the side away from the hub;
+ *   block.config.show_daily_energy = false hides it
  *
  * @module systemTopology
  */
@@ -41,24 +43,27 @@ export function buildSystemTopology(block = {}) {
   container.dataset.metricMap = JSON.stringify(metrics);
   container.dataset.blockId = id;
   markBreakdown(container, config);
+  const daily = config.show_daily_energy !== false;
+  container.dataset.dailyEnergy = daily ? '1' : '0';
+  const energy = (key) => daily ? `<span class="topo-energy" data-energy="${key}" hidden></span>` : '';
 
   container.innerHTML = `
     <div class="topo-grid">
       <div class="topo-node topo-solar" id="${uid('topo-solar',id)}">
-        <span class="topo-label">Solar</span>
+        <span class="topo-label">Solar</span>${energy('solar')}
         <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">—</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
       </div>
       <div class="topo-node topo-grid-node" id="${uid('topo-grid-node',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">—</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">—</span></div>${energy('grid')}
         <span class="topo-label">Grid</span>
       </div>
       <div class="topo-center" id="${uid('topo-center',id)}"><div class="topo-hub"${config.inverter_image ? ` style="background-image:url(${escapeHtml(config.inverter_image)})"` : ''}>${config.inverter_image ? '' : 'INV'}</div></div>
       <div class="topo-node topo-home" id="${uid('topo-home',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-home',id)}" class="fi fi-sr-home"></i><span class="topo-value" data-metric="${escapeHtml(metrics.consumption)}">—</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-home',id)}" class="fi fi-sr-home"></i><span class="topo-value" data-metric="${escapeHtml(metrics.consumption)}">—</span></div>${energy('home')}
         <span class="topo-label">Home</span>
       </div>
       <div class="topo-node topo-battery" id="${uid('topo-battery',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">—</span></div>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">—</span></div>${energy('battery')}
         <span class="topo-label">Battery</span>
       </div>
       <div class="topo-line topo-line-solar"></div><div class="topo-line topo-line-grid"></div><div class="topo-line topo-line-home"></div><div class="topo-line topo-line-battery"></div>
@@ -77,7 +82,37 @@ export function buildSystemTopology(block = {}) {
 
   return container;
 }
+const kwh = v => (v >= 100 ? String(Math.round(v)) : v.toFixed(1));
+const finite = v => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+
+/**
+ * Today's energy text for each node from the dashboard's current values
+ * (daily_*_kwh). Two-way nodes show both directions with the same words the
+ * circle uses (in / out for the grid, ↑ charge / ↓ discharge for the battery);
+ * a direction with nothing today is left out. Null when there is no reading.
+ */
+export function dailyEnergyTexts(current = {}) {
+  const one = v => (v === null ? null : `${kwh(v)} kWh`);
+  const two = (a, aWord, b, bWord, wordsFirst) => {
+    if (a === null && b === null) return null;
+    const parts = [[a, aWord], [b, bWord]].filter(([v]) => v !== null && v > 0);
+    if (!parts.length) return '0.0 kWh';
+    const word = (v, w) => (wordsFirst ? `${w} ${kwh(v)}` : `${kwh(v)} ${w}`);
+    if (parts.length === 1) return wordsFirst ? `${parts[0][1]} ${kwh(parts[0][0])} kWh` : `${kwh(parts[0][0])} kWh ${parts[0][1]}`;
+    return `${parts.map(([v, w]) => word(v, w)).join(' · ')} kWh`;
+  };
+  return {
+    solar: one(finite(current.daily_solar_kwh)),
+    home: one(finite(current.daily_consumption_kwh)),
+    grid: two(finite(current.daily_grid_import_kwh), 'in', finite(current.daily_grid_export_kwh), 'out', false),
+    battery: two(finite(current.daily_battery_charge_kwh), '↑', finite(current.daily_battery_discharge_kwh), '↓', true)
+  };
+}
+
+const ENERGY_NAMES = { solar: 'Solar', home: 'Home', grid: 'Grid', battery: 'Battery' };
+
 export function updateSystemTopology(state) {
+  const energyTexts = dailyEnergyTexts(state.current || {});
   document.querySelectorAll('.flow-card-2').forEach(container => {
     const id = container.dataset.blockId || '';
     let mm; try{mm=JSON.parse(container.dataset.metricMap);}catch(e){return;}
@@ -179,7 +214,17 @@ export function updateSystemTopology(state) {
     ]);
 
     // Parts listed above Solar and below Battery take height from the circles.
-    const rowsOf = sel => Number(container.querySelector(sel)?.style.getPropertyValue('--bd-rows')) || 0;
+    // Today's energy beside each circle (hidden until there is a reading).
+    container.querySelectorAll('.topo-energy').forEach(e => {
+      const text = energyTexts[e.dataset.energy];
+      e.hidden = !text;
+      e.textContent = text || '';
+      if (text) e.title = `${ENERGY_NAMES[e.dataset.energy]} today: ${text}`;
+    });
+
+    // Parts listed above Solar and below Battery take height from the circles.
+    const rowsOf = sel => (Number(container.querySelector(sel)?.style.getPropertyValue('--bd-rows')) || 0)
+      + (container.querySelector(`${sel} > .topo-energy:not([hidden])`) ? 1 : 0);
     container.style.setProperty('--topo-extra', String(rowsOf('.topo-solar') + rowsOf('.topo-battery')));
 
     // Position flow lines edge-to-edge

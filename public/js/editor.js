@@ -344,6 +344,7 @@ function buildSystemTopologyForm(block) {
     html += '</div>';
   }
   html += '<label data-ui="field">Inverter Image URL <input type="text" id="modal-inverter-image" value="' + escHtml(cfg.inverter_image || '') + '" placeholder="https://..." data-ui="input"></label>';
+  if (block.type === 'flow-card-2') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-daily-energy"' + (cfg.show_daily_energy === false ? '' : ' checked') + '><span class="slider"></span></label><label for="modal-daily-energy">Show today\'s energy (kWh)</label></span>';
   html += buildBreakdownFields(cfg);
   html += '</fieldset>';
   return html;
@@ -1829,6 +1830,8 @@ function readSettingsForm(block) {
       block.metrics = fmetrics;
       config.metrics = fmetrics;
       config.inverter_image = document.getElementById('modal-inverter-image')?.value || '';
+      var dailyBox = document.getElementById('modal-daily-energy');
+      if (dailyBox && !dailyBox.checked) config.show_daily_energy = false; else delete config.show_daily_energy;
       readBreakdownFields(config);
       break;
     }
