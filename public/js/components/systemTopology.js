@@ -50,21 +50,21 @@ export function buildSystemTopology(block = {}) {
   container.innerHTML = `
     <div class="topo-grid">
       <div class="topo-node topo-solar" id="${uid('topo-solar',id)}">
-        <span class="topo-label">Solar</span>${energy('solar')}
+        <div class="topo-caption"><span class="topo-label">Solar</span>${energy('solar')}</div>
         <div class="topo-node-circle topo-solar-circle"><span class="topo-value" data-metric="${escapeHtml(metrics.solar)}">—</span><span class="topo-pct" id="${uid('topo-solar-pct',id)}">0%</span><i id="${uid('topo-icon-solar',id)}" class="fi fi-sr-solar-panel"></i></div>
       </div>
       <div class="topo-node topo-grid-node" id="${uid('topo-grid-node',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">—</span></div>${energy('grid')}
-        <span class="topo-label">Grid</span>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-grid',id)}" class="fi fi-sr-bolt"></i><span class="topo-value" data-metric="${escapeHtml(metrics.grid_import)}">—</span></div>
+        <div class="topo-caption">${energy('grid')}<span class="topo-label">Grid</span></div>
       </div>
       <div class="topo-center" id="${uid('topo-center',id)}"><div class="topo-hub"${config.inverter_image ? ` style="background-image:url(${escapeHtml(config.inverter_image)})"` : ''}>${config.inverter_image ? '' : 'INV'}</div></div>
       <div class="topo-node topo-home" id="${uid('topo-home',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-home',id)}" class="fi fi-sr-home"></i><span class="topo-value" data-metric="${escapeHtml(metrics.consumption)}">—</span></div>${energy('home')}
-        <span class="topo-label">Home</span>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-home',id)}" class="fi fi-sr-home"></i><span class="topo-value" data-metric="${escapeHtml(metrics.consumption)}">—</span></div>
+        <div class="topo-caption">${energy('home')}<span class="topo-label">Home</span></div>
       </div>
       <div class="topo-node topo-battery" id="${uid('topo-battery',id)}">
-        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">—</span></div>${energy('battery')}
-        <span class="topo-label">Battery</span>
+        <div class="topo-node-circle"><i id="${uid('topo-icon-battery',id)}" class="fi fi-sr-battery-full"></i><span class="topo-value" data-metric="${escapeHtml(metrics.battery_soc)}" id="${uid('topo-battery-soc',id)}">0%</span><span class="topo-sub" data-metric="${escapeHtml(metrics.battery_charge)}" id="${uid('topo-battery-power',id)}">—</span></div>
+        <div class="topo-caption">${energy('battery')}<span class="topo-label">Battery</span></div>
       </div>
       <div class="topo-line topo-line-solar"></div><div class="topo-line topo-line-grid"></div><div class="topo-line topo-line-home"></div><div class="topo-line topo-line-battery"></div>
     </div>`;
@@ -224,7 +224,7 @@ export function updateSystemTopology(state) {
 
     // Parts listed above Solar and below Battery take height from the circles.
     const rowsOf = sel => (Number(container.querySelector(sel)?.style.getPropertyValue('--bd-rows')) || 0)
-      + (container.querySelector(`${sel} > .topo-energy:not([hidden])`) ? 1 : 0);
+      + (container.querySelector(`${sel} .topo-energy:not([hidden])`) ? 1 : 0);
     container.style.setProperty('--topo-extra', String(rowsOf('.topo-solar') + rowsOf('.topo-battery')));
 
     // Position flow lines edge-to-edge
