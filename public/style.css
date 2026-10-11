@@ -2241,13 +2241,21 @@ details.help-sub.help-hidden { display: none; }
 .flow-card-2 { --topo-d: clamp(64px, calc((100cqh - 5.5rem - var(--topo-extra, 0) * 0.95rem) / 3), 120px); }
 .flow-card-2 .topo-value, .flow-card-2 .topo-sub { white-space: nowrap; }
 .flow-card-2 .topo-hub { min-width: 34px; min-height: 40px; }
-/* Today's energy, just outside each circle on the side away from the hub. */
-.topo-energy {
-  font-size: calc(max(0.68rem, var(--topo-d, 90px) * 0.1) * var(--card-font-scale, 1));
-  font-weight: 600; color: var(--text-secondary); line-height: 1.1;
-  font-variant-numeric: tabular-nums; text-align: center; max-width: 100%;
+/* Label and today's energy as one tight caption, just outside each circle on
+   the side away from the hub. Grid and Home hang theirs below the circle out
+   of flow, so their circles stay level with the inverter. */
+.flow-card-2 .topo-caption { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.flow-card-2 .topo-grid-node, .flow-card-2 .topo-home { position: relative; }
+.flow-card-2 .topo-grid-node > .topo-caption, .flow-card-2 .topo-home > .topo-caption {
+  position: absolute; top: calc(100% + 0.25rem); left: 50%; transform: translateX(-50%);
 }
-.topo-energy[hidden] { display: none; }
+.flow-card-2 .topo-label { line-height: 1.1; }
+.flow-card-2 .topo-energy {
+  font-size: calc(max(0.64rem, var(--topo-d, 90px) * 0.1) * var(--card-font-scale, 1));
+  font-weight: 500; color: var(--text-secondary); line-height: 1.1;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.flow-card-2 .topo-energy[hidden] { display: none; }
 /* Flow card: one row down to ~420px wide (smaller icons, arrows and values);
    narrower than that, a 2×2 grid without the arrows. */
 .flow-card { container-type: inline-size; }
