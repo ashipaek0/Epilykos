@@ -13,6 +13,7 @@
 
 const { EventEmitter } = require('node:events');
 const { getBreaker } = require('../modules/circuitBreaker');
+const { PollResult } = require('../modules/pollResult');
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -41,7 +42,22 @@ class PollingManager extends EventEmitter {
   async runCycle() {
     for (const { id, pollFn } of this.sources) {
       try {
-        await getBreaker(id).execute(() => pollFn());
+        const result = await getBreaker(id).execute(async () => {
+          const outcome = await pollFn();
+          // Only stop the whole source family when every attempted read failed.
+          // Partial failures must keep polling the devices that still respond.
+          if (outcome instanceof PollResult && outcome.errors.length && outcome.errors.length === outcome.attempted) {
+            throw outcome.error;
+          }
+          return outcome;
+        });
+        if (result instanceof PollResult) {
+          if (!result.attempted) continue; // disabled/unconfigured is not recovery
+          if (result.errors.length) {
+            this.emit('device-error', { sourceId: id, error: result.error });
+            continue;
+          }
+        }
         this.emit('metrics-ready', { sourceId: id, data: null });
       } catch (error) {
         this.emit('device-error', { sourceId: id, error });
