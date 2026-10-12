@@ -108,6 +108,24 @@ function normalizeRule(input, stored) {
   return rule;
 }
 
+/**
+ * For Telegram, swap the entered chat ID for the one the Bot API uses
+ * (channel IDs copied from the app lack "-100"). Returns a note for the
+ * page, or a warning when Telegram doesn't know the chat; saving still goes
+ * ahead (the bot may be added to the channel later). Offline: no change.
+ */
+async function resolveTelegramChat(ch) {
+  if (ch.type !== 'telegram') return {};
+  try {
+    const r = await CHANNEL_TYPES.telegram.resolveChat(ch.config);
+    if (!r.changed) return {};
+    ch.config.chat_id = r.chat_id;
+    return { note: `Using ${r.chat_id} for ${r.title}: Telegram needs the -100 form of ${r.type || 'channel'} IDs.` };
+  } catch (e) {
+    return e.status === 400 ? { warning: e.message } : {};
+  }
+}
+
 function publicChannel(c) { return store.publicChannel(c, (CHANNEL_TYPES[c.type] || {}).secretFields); }
 function publicChannels() { return store.getChannels().map(publicChannel); }
 
@@ -169,21 +187,27 @@ function createRouter() {
   }));
 
   // ── Channels ──
-  r.post('/channels', handle((req, res) => {
+  r.post('/channels', handle(async (req, res) => {
     const ch = normalizeChannel(req.body || {}, null);
+    const check = await resolveTelegramChat(ch);
     store.saveChannels([...store.getChannels(), ch]);
     telegramBot.sync();
-    res.json(publicChannel(ch));
+    res.json({ ...publicChannel(ch), ...check });
   }));
 
-  r.put('/channels/:id', handle((req, res) => {
+  r.put('/channels/:id', handle(async (req, res) => {
+    const found = store.getChannels().find(c => c.id === req.params.id);
+    if (!found) return res.status(404).json({ error: 'Channel not found' });
+    const ch = normalizeChannel(req.body || {}, found);
+    const check = await resolveTelegramChat(ch);
+    // Re-read: the list may have changed while Telegram was asked.
     const list = store.getChannels();
-    const i = list.findIndex(c => c.id === req.params.id);
+    const i = list.findIndex(c => c.id === ch.id);
     if (i < 0) return res.status(404).json({ error: 'Channel not found' });
-    list[i] = normalizeChannel(req.body || {}, list[i]);
+    list[i] = ch;
     store.saveChannels(list);
     telegramBot.sync();
-    res.json(publicChannel(list[i]));
+    res.json({ ...publicChannel(ch), ...check });
   }));
 
   // On/off only: no validation, so a rule left without channels can still be switched off.
@@ -211,13 +235,20 @@ function createRouter() {
     const b = req.body || {};
     const stored = b.id ? store.getChannels().find(c => c.id === b.id) : null;
     const ch = normalizeChannel(b, stored);
+    const check = await resolveTelegramChat(ch);
     const msg = { title: 'Epilykos test notification', body: `"${ch.name}" is set up. Alerts will arrive like this.`, severity: 'warning', tag: 'test', timestamp: Math.floor(Date.now() / 1000) };
     const settings = store.getSettings();
     if (settings.base_url) msg.url = settings.base_url.replace(/\/+$/, '') + '/';
     const result = await sendToChannel(ch, msg, { retry: false });
+    // A test that found the right ID fixes the saved channel too.
+    if (result.ok && stored && check.note) {
+      const list = store.getChannels();
+      const saved = list.find(c => c.id === stored.id);
+      if (saved) { saved.config.chat_id = ch.config.chat_id; store.saveChannels(list); telegramBot.sync(); }
+    }
     store.addLog({ rule_name: 'Test', channel_id: stored ? stored.id : null, channel_name: ch.name, severity: 'warning', title: msg.title, body: msg.body, status: result.ok ? 'sent' : 'failed', error: result.error });
     if (!result.ok) return res.status(502).json({ error: result.error });
-    res.json({ success: true, warning: result.error || null });
+    res.json({ success: true, warning: result.error || null, note: check.note || null, chat_id: ch.type === 'telegram' ? ch.config.chat_id : undefined });
   }));
 
   r.post('/telegram/chats', handle(async (req, res) => {
