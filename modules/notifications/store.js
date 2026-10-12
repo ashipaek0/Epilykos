@@ -61,6 +61,13 @@ function saveState(v) { writeJson(KEYS.state, v); }
 function getDevices() { const v = readJson(KEYS.devices, []); return Array.isArray(v) ? v : []; }
 function saveDevices(list) { writeJson(KEYS.devices, list); }
 
+/** Remove a push device and drop it from push channels that list it. */
+function removeDevice(id) {
+  saveDevices(getDevices().filter(d => d.id !== id));
+  saveChannels(getChannels().map(c => (c.type === 'webpush' && c.config && Array.isArray(c.config.devices))
+    ? { ...c, config: { ...c.config, devices: c.config.devices.filter(x => x !== id) } } : c));
+}
+
 /** Channel as the browser sees it: secrets replaced by has_<field> flags. */
 function publicChannel(ch, secretFields) {
   const config = { ...(ch.config || {}) };
@@ -160,7 +167,7 @@ module.exports = {
   getSettings, saveSettings,
   getChannels, saveChannels,
   getRules, saveRules,
-  getDevices, saveDevices,
+  getDevices, saveDevices, removeDevice,
   getState, saveState,
   publicChannel, mergeChannelConfig, publicDevice,
   getVapid,

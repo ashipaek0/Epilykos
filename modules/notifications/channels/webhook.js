@@ -8,6 +8,7 @@
  */
 
 const { safeFetch } = require('../../utils');
+const { postJson } = require('./http');
 
 function validate(config) {
   let u;
@@ -29,6 +30,7 @@ function buildRequest(config, msg) {
   };
   if (msg.event) body.event = msg.event;
   if (msg.rule) body.rule = msg.rule;
+  if (msg.metric) body.metric = msg.metric;
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'Epilykos' };
   if (config.auth_header) headers.Authorization = String(config.auth_header).trim();
   return { url: String(config.webhook_url).trim(), headers, body };
@@ -39,14 +41,7 @@ async function send(config, msg, deps = {}) {
   if (err) throw new Error(err);
   const fetchImpl = deps.fetch || ((url, init) => safeFetch(url, init, { allowPrivate: !!config.allow_private }));
   const { url, headers, body } = buildRequest(config, msg);
-  let res;
-  try {
-    res = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-  } catch (e) {
-    // Name the host, never the URL (it may carry a token).
-    throw new Error(`Could not reach ${new URL(url).host}: ${e.message}`);
-  }
-  if (!res.ok) throw new Error(`Webhook ${res.status}`);
+  await postJson(fetchImpl, url, body, { headers, label: 'Webhook' });
 }
 
 module.exports = { type: 'webhook', label: 'Webhook', secretFields: ['webhook_url', 'auth_header'], validate, buildRequest, send };

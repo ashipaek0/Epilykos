@@ -108,9 +108,8 @@ function normalizeRule(input, stored) {
   return rule;
 }
 
-function publicChannels() {
-  return store.getChannels().map(c => store.publicChannel(c, (CHANNEL_TYPES[c.type] || {}).secretFields));
-}
+function publicChannel(c) { return store.publicChannel(c, (CHANNEL_TYPES[c.type] || {}).secretFields); }
+function publicChannels() { return store.getChannels().map(publicChannel); }
 
 function deviceLabel(ua) {
   const s = String(ua || '');
@@ -152,12 +151,17 @@ function createRouter() {
     const b = req.body || {};
     const cur = store.getSettings();
     const clock = (v, d) => (/^\d{1,2}:\d{2}$/.test(String(v || '')) ? String(v) : d);
+    // Only the fields sent change (the page saves one control at a time).
     const q = b.quiet_hours || {};
     const next = {
       ...cur,
       enabled: b.enabled !== undefined ? !!b.enabled : cur.enabled,
-      quiet_hours: { enabled: !!q.enabled, start: clock(q.start, cur.quiet_hours.start), end: clock(q.end, cur.quiet_hours.end) },
-      base_url: str(b.base_url, 300),
+      quiet_hours: {
+        enabled: q.enabled !== undefined ? !!q.enabled : cur.quiet_hours.enabled,
+        start: clock(q.start, cur.quiet_hours.start),
+        end: clock(q.end, cur.quiet_hours.end),
+      },
+      base_url: b.base_url !== undefined ? str(b.base_url, 300) : cur.base_url,
     };
     if (next.base_url && !/^https?:\/\//i.test(next.base_url)) fail('Dashboard address must start with https:// or http://');
     store.saveSettings(next);
@@ -169,7 +173,7 @@ function createRouter() {
     const ch = normalizeChannel(req.body || {}, null);
     store.saveChannels([...store.getChannels(), ch]);
     telegramBot.sync();
-    res.json(store.publicChannel(ch, CHANNEL_TYPES[ch.type].secretFields));
+    res.json(publicChannel(ch));
   }));
 
   r.put('/channels/:id', handle((req, res) => {
@@ -179,7 +183,18 @@ function createRouter() {
     list[i] = normalizeChannel(req.body || {}, list[i]);
     store.saveChannels(list);
     telegramBot.sync();
-    res.json(store.publicChannel(list[i], CHANNEL_TYPES[list[i].type].secretFields));
+    res.json(publicChannel(list[i]));
+  }));
+
+  // On/off only: no validation, so a rule left without channels can still be switched off.
+  r.patch('/channels/:id', handle((req, res) => {
+    const list = store.getChannels();
+    const ch = list.find(c => c.id === req.params.id);
+    if (!ch) return res.status(404).json({ error: 'Channel not found' });
+    ch.enabled = !!(req.body || {}).enabled;
+    store.saveChannels(list);
+    telegramBot.sync();
+    res.json(publicChannel(ch));
   }));
 
   r.delete('/channels/:id', handle((req, res) => {
@@ -237,6 +252,15 @@ function createRouter() {
     list[i] = normalizeRule(req.body || {}, list[i]);
     store.saveRules(list);
     res.json(list[i]);
+  }));
+
+  r.patch('/rules/:id', handle((req, res) => {
+    const list = store.getRules();
+    const rule = list.find(x => x.id === req.params.id);
+    if (!rule) return res.status(404).json({ error: 'Rule not found' });
+    rule.enabled = !!(req.body || {}).enabled;
+    store.saveRules(list);
+    res.json(rule);
   }));
 
   r.delete('/rules/:id', handle((req, res) => {
@@ -297,10 +321,7 @@ function createRouter() {
   }));
 
   r.delete('/devices/:id', handle((req, res) => {
-    const id = req.params.id;
-    store.saveDevices(store.getDevices().filter(d => d.id !== id));
-    store.saveChannels(store.getChannels().map(c => (c.type === 'webpush' && Array.isArray(c.config.devices))
-      ? { ...c, config: { ...c.config, devices: c.config.devices.filter(x => x !== id) } } : c));
+    store.removeDevice(req.params.id);
     res.json({ success: true });
   }));
 

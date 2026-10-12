@@ -20,26 +20,25 @@
 .nt-row-form > .st-field { flex: 1 1 240px; }
 .nt-row-form > .st-btn { margin-bottom: 14px; }
 
-.nt-add-label { font-size: 0.78rem; font-weight: 800; color: var(--st-muted); }
 .nt-label { font-size: 0.78rem; font-weight: 800; color: var(--st-text); }
 .nt-seg { align-self: flex-start; }
 
+/* Multi-select lists are switches, like the rest of Settings. */
 .nt-fieldset { border: none; margin: 0 0 14px; padding: 0; min-width: 0; }
-.nt-fieldset legend { font-size: 0.78rem; font-weight: 800; color: var(--st-text); padding: 0; margin-bottom: 6px; }
-.nt-checks { display: flex; flex-direction: column; gap: 6px; }
-.nt-indent { padding-left: 24px; margin-top: 4px; }
-.nt-check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--st-text); min-height: 28px; cursor: pointer; }
-.nt-check input { width: 18px; height: 18px; flex-shrink: 0; }
+.nt-fieldset legend { font-size: 0.78rem; font-weight: 800; color: var(--st-text); padding: 0; margin-bottom: 8px; }
+.nt-toggle-list { display: flex; flex-direction: column; gap: 10px; }
+.nt-toggle-grid { flex-direction: row; flex-wrap: wrap; gap: 10px 22px; }
+
+/* Severity: .st-badge in the info / warning / critical tones */
+.nt-sev-info, .nt-sev-event { background: var(--st-off-bg); color: var(--st-off); }
+.nt-sev-warning { background: #fef3c7; color: #92400e; }
+.nt-sev-critical { background: var(--st-err-bg); color: var(--st-err); }
+[data-theme="dark"] .nt-sev-warning { background: #3a2a06; color: #fbbf24; }
 
 .nt-muted { color: var(--st-muted); font-size: 0.76rem; font-weight: 500; }
 .nt-warn { color: var(--st-danger-text); }
 .nt-nowrap { white-space: nowrap; }
-
-.nt-sev { font-size: 0.64rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.04em; }
-.nt-sev-info { background: var(--st-off-bg); color: var(--st-off); }
-.nt-sev-warning { background: #fef3c7; color: #92400e; }
-.nt-sev-critical { background: var(--st-err-bg); color: var(--st-err); }
-[data-theme="dark"] .nt-sev-warning { background: #3a2a06; color: #fbbf24; }
+.st .nt-gap { margin: 0 0 16px; }
 
 .nt-table-wrap { overflow-x: auto; }
 .nt-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
@@ -56,5 +55,3 @@
   .nt-table tr { padding: 10px 0; border-bottom: 1px solid var(--st-line-soft); }
   .nt-table td { border: none; padding: 2px 0; }
 }
-.st .nt-gap { margin: 0 0 16px; }
-.nt-weekdays { display: flex; flex-wrap: wrap; gap: 4px 16px; }

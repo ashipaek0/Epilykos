@@ -146,12 +146,12 @@ async function statusReport() {
   const read = (name) => (name ? db.prepare('SELECT value, value_text, unit, timestamp FROM latest_metrics WHERE metric = ?').get(name) : null);
   const lines = [];
   let newest = 0;
-  const add = (label, role, kind) => {
+  const add = (label, role, kind, skipZero) => {
     const r = read(roles[role]);
     if (!r) return;
     newest = Math.max(newest, r.timestamp || 0);
     const v = r.value != null ? r.value : r.value_text;
-    if (v == null) return;
+    if (v == null || (skipZero && Number(v) === 0)) return;
     if (kind === 'power') {
       const unit = String(r.unit || '').toLowerCase();
       const p = fmtPower(unit === 'kw' ? Number(v) * 1000 : v);
@@ -162,10 +162,14 @@ async function statusReport() {
   add('☀️ Solar', 'solar', 'power');
   add('🏠 Load', 'consumption', 'power');
   add('🔋 Battery', 'battery_soc', 'pct');
-  add('🔋 Charging', 'battery_charge', 'power');
-  add('🔋 Discharging', 'battery_discharge', 'power');
-  add('🔌 Grid import', 'grid_import', 'power');
-  add('🔌 Grid export', 'grid_export', 'power');
+  if (roles.battery_charge && roles.battery_charge === roles.battery_discharge) {
+    add('🔋 Battery power', 'battery_charge', 'power'); // one signed metric for both directions
+  } else {
+    add('🔋 Charging', 'battery_charge', 'power', true);
+    add('🔋 Discharging', 'battery_discharge', 'power', true);
+  }
+  add('🔌 Grid import', 'grid_import', 'power', true);
+  add('🔌 Grid export', 'grid_export', 'power', true);
   try {
     const g = await require('../grid').getCurrentGridStatus();
     if (g && g.configured && g.available) lines.push(`⚡ Grid: ${g.current ? 'on' : 'OFF'}`);

@@ -7,6 +7,7 @@
  */
 
 const { safeFetch } = require('../../utils');
+const { postJson, request } = require('./http');
 
 const API = 'https://api.telegram.org';
 const ICON = { info: 'ℹ️', warning: '⚠️', critical: '🚨' };
@@ -37,20 +38,8 @@ function buildRequest(config, msg) {
 async function send(config, msg, deps = {}) {
   const err = validate(config);
   if (err) throw new Error(err);
-  const fetchImpl = deps.fetch || safeFetch;
   const { url, body } = buildRequest(config, msg);
-  let res;
-  try {
-    res = await fetchImpl(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-  } catch (e) {
-    // Name the host, never the URL (Telegram's and Discord's carry the secret).
-    throw new Error(`Could not reach ${new URL(url).host}: ${e.message}`);
-  }
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json()).description || ''; } catch (_) { /* not JSON */ }
-    throw new Error(`Telegram ${res.status}${detail ? ': ' + detail : ''}`);
-  }
+  await postJson(deps.fetch || safeFetch, url, body, { label: 'Telegram', detailKey: 'description' });
 }
 
 /**
@@ -61,7 +50,7 @@ async function findChats(botToken, deps = {}) {
   const err = validate({ bot_token: botToken, chat_id: '0' });
   if (err) throw new Error(err);
   const fetchImpl = deps.fetch || safeFetch;
-  const res = await fetchImpl(`${API}/bot${String(botToken).trim()}/getUpdates`, { signal: AbortSignal.timeout(15000) });
+  const res = await request(fetchImpl, `${API}/bot${String(botToken).trim()}/getUpdates`, { signal: AbortSignal.timeout(15000) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.ok) throw new Error(`Telegram ${res.status}${data.description ? ': ' + data.description : ''}`);
   const chats = new Map();
