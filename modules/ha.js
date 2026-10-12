@@ -2,6 +2,7 @@ const { logger } = require('./logger');
 const { getConfig, queueMetricValue } = require('./database');
 const { assertSafeFetchUrl, trimSlashes } = require('./utils');
 const metricSanity = require('./metricSanity');
+const { PollResult } = require('./pollResult');
 
 // Build a Home Assistant REST API URL from a base URL, robust to trailing
 // slashes and a base that already ends in '/api' (new URL().toString() adds a
@@ -50,8 +51,9 @@ function saveMetric(metricName, rawValue, timestamp) {
 }
 
 async function pollHomeAssistant() {
+  const result = new PollResult();
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
-  if (!haDevices.length) return;
+  if (!haDevices.length) return result;
 
   // #119: thresholds are read once per poll cycle (§5); missing keys never throw.
   metricSanity.reloadConfig();
@@ -61,9 +63,9 @@ async function pollHomeAssistant() {
     // SSRF guard: allowlist + scheme check before any fetch. device.url is
     // admin-configured config, but config still flows into fetch(), so guard it.
     const safeCheck = await assertSafeFetchUrl(device.url, { allowPrivate: true });
-    if (!safeCheck.ok) { logger.warn(`HA poll: skipping ${device.name}: ${safeCheck.error}`); continue; }
+    if (!safeCheck.ok) { result.fail(new Error(safeCheck.error)); logger.warn(`HA poll: skipping ${device.name}: ${safeCheck.error}`); continue; }
     let base;
-    try { base = safeHaBaseUrl(safeCheck.url); } catch (err) { logger.warn(`HA poll: skipping ${device.name}: ${err.message}`); continue; }
+    try { base = safeHaBaseUrl(safeCheck.url); } catch (err) { result.fail(err); logger.warn(`HA poll: skipping ${device.name}: ${err.message}`); continue; }
     for (const [metric, mapping] of Object.entries(device.entities || {})) {
       // Entity mapping value is either a plain entity_id string or an object
       // { entityId, actions: [...] } carrying optional action metadata (AC-1.4).
@@ -75,15 +77,18 @@ async function pollHomeAssistant() {
           redirect: 'error', // never forward the HA token to a redirect target
           signal: AbortSignal.timeout(5000)
         });
-        if (!res.ok) continue;
+        if (!res.ok) throw new Error(`HA HTTP ${res.status} for ${device.name} - ${metric}`);
         const data = await res.json();
         const now = Math.floor(Date.now() / 1000);
         saveMetric(metric, data.state, now);
+        result.success();
       } catch (e) {
+        result.fail(e);
         logger.warn(`HA poll error for ${device.name} - ${metric}: ${e.message}`);
       }
     }
   }
+  return result;
 }
 
 async function fetchHAEntities(url, token) {
