@@ -217,15 +217,44 @@ async function resolveBaseURL() {
   return remoteURL || self.location.origin;
 }
 
-// ── Push notifications placeholder ────────────────────────────────────
+// ── Push notifications ─────────────────────────────────────────────────
+// Payload from modules/notifications/channels/webpush.js:
+// { title, body, severity, tag, url, timestamp }
 self.addEventListener('push', event => {
-  const data = event.data?.json() || { title: 'Epilykos', body: 'Update available' };
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+  const title = data.title || 'Epilykos';
+  const critical = data.severity === 'critical';
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
+    self.registration.showNotification(title, {
+      body: data.body || '',
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-maskable-192.png',
-      tag: 'epilykos-update'
+      tag: data.tag || 'epilykos',
+      renotify: !!data.tag,
+      requireInteraction: critical,
+      silent: data.severity === 'info',
+      timestamp: data.timestamp || Date.now(),
+      data: { url: data.url || '/' }
     })
   );
+});
+
+// Tapping a notification focuses an open Epilykos window, or opens one.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  let target;
+  try { target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin); } catch (e) { target = new URL('/', self.location.origin); }
+  // Only ever open our own origin from a notification.
+  if (target.origin !== self.location.origin) target = new URL('/', self.location.origin);
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) {
+      if (new URL(w.url).origin === target.origin && 'focus' in w) {
+        if ('navigate' in w && w.url !== target.href) { try { await w.navigate(target.href); } catch (e) {} }
+        return w.focus();
+      }
+    }
+    return self.clients.openWindow(target.href);
+  })());
 });

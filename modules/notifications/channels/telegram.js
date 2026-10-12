@@ -1,0 +1,74 @@
+'use strict';
+/**
+ * Telegram channel — Bot API sendMessage.
+ * config: { bot_token, chat_id }. Info-level messages are sent silently
+ * (disable_notification), so only warnings and critical alerts make a sound.
+ */
+
+const { safeFetch } = require('../../utils');
+
+const API = 'https://api.telegram.org';
+const ICON = { info: 'ℹ️', warning: '⚠️', critical: '🚨' };
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function validate(config) {
+  if (!config.bot_token || !/^\d+:[\w-]{20,}$/.test(String(config.bot_token).trim())) return 'Bot token looks wrong (it reads like 123456:ABC…)';
+  if (!config.chat_id || !/^(-?\d+|@[\w]{4,})$/.test(String(config.chat_id).trim())) return 'Chat ID must be a number (or @channelname)';
+  return null;
+}
+
+function buildRequest(config, msg) {
+  const text = `${ICON[msg.severity] || ''} <b>${escapeHtml(msg.title)}</b>\n${escapeHtml(msg.body)}`.trim();
+  const body = {
+    chat_id: String(config.chat_id).trim(),
+    text: text.slice(0, 4000),
+    parse_mode: 'HTML',
+    disable_notification: msg.severity === 'info',
+    link_preview_options: { is_disabled: true },
+  };
+  return { url: `${API}/bot${String(config.bot_token).trim()}/sendMessage`, body };
+}
+
+async function send(config, msg, deps = {}) {
+  const err = validate(config);
+  if (err) throw new Error(err);
+  const fetchImpl = deps.fetch || safeFetch;
+  const { url, body } = buildRequest(config, msg);
+  let res;
+  try {
+    res = await fetchImpl(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
+  } catch (e) {
+    // Name the host, never the URL (Telegram's and Discord's carry the secret).
+    throw new Error(`Could not reach ${new URL(url).host}: ${e.message}`);
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).description || ''; } catch (_) { /* not JSON */ }
+    throw new Error(`Telegram ${res.status}${detail ? ': ' + detail : ''}`);
+  }
+}
+
+/**
+ * Chats that have messaged the bot recently (getUpdates), so the settings
+ * page can offer a chat ID instead of asking the user to dig for it.
+ */
+async function findChats(botToken, deps = {}) {
+  const err = validate({ bot_token: botToken, chat_id: '0' });
+  if (err) throw new Error(err);
+  const fetchImpl = deps.fetch || safeFetch;
+  const res = await fetchImpl(`${API}/bot${String(botToken).trim()}/getUpdates`, { signal: AbortSignal.timeout(15000) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(`Telegram ${res.status}${data.description ? ': ' + data.description : ''}`);
+  const chats = new Map();
+  for (const u of data.result || []) {
+    const m = u.message || u.channel_post || u.my_chat_member || u.edited_message;
+    const c = m && m.chat;
+    if (c && !chats.has(c.id)) chats.set(c.id, { id: String(c.id), type: c.type, name: c.title || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.username || String(c.id) });
+  }
+  return [...chats.values()];
+}
+
+module.exports = { type: 'telegram', label: 'Telegram', secretFields: ['bot_token'], validate, buildRequest, send, findChats };
