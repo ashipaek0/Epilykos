@@ -903,6 +903,13 @@ function findLatestStateForEntity(entityId) {
   return null;
 }
 
+app.get('/api/switchable-entities', isAuthenticated, (req, res) => {
+  try { res.json(require('./modules/switchables').switchableEntities()); } catch (err) {
+    logger.error('Error listing switchable entities:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.use('/api/entity-actions', isAuthenticated);
 app.get('/api/entity-actions', (req, res) => {
   const { entity } = req.query;
