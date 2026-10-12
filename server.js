@@ -129,6 +129,7 @@ const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./module
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
+const notifications = require('./modules/notifications');
 const { router: metricsRouter, buildDashboardState, sharedDashboardState } = require('./routes/metrics');
 // Issue #108 (AC-1..13): dongle projections live in the pure module; the
 // remaining per-family projections are route-level pure helpers below (server
@@ -444,6 +445,7 @@ startMetricAutoFlush(); // batch bursty metric writes: 5s auto-flush (unref'd)
 try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); } // one-time plaintext→$enc1$ (idempotent)
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
+notifications.init();  // alert rules, channels and the event bus
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -615,9 +617,11 @@ wss.on('connection', (ws) => {
 const pollingManager = new PollingManager();
 pollingManager.on('metrics-ready', ({ sourceId }) => {
   logger.debug(`Poll ${sourceId} metrics ready`);
+  notifications.noteSourceResult(sourceId, true);
 });
 pollingManager.on('device-error', ({ sourceId, error }) => {
   logger.warn(`Poll ${sourceId} failed:`, error && error.message ? error.message : error);
+  notifications.noteSourceResult(sourceId, false, error);
 });
 
 let pollCycleRunning = false;
@@ -635,6 +639,7 @@ async function pollAllSources() {
   try {
     await pollingManager.runCycle();
     flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
+    notifications.evaluateMetrics(); // metric alert rules see this cycle's values
     if (wsClients.size > 0) {
       const state = await buildDashboardState();
       broadcastDashboardState(state);
@@ -1398,6 +1403,11 @@ app.post('/api/settings', (req, res) => {
     for (const [key, value] of Object.entries(updates)) {
       if (sensitivePattern.test(key) && !sensitiveKeyExempt.includes(key)) {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
+        continue;
+      }
+      // Notification channels, rules, devices and keys are written only by /api/notifications.
+      if (key.startsWith('notification_')) {
+        logger.warn(`[Settings] Rejected notification key (use /api/notifications): ${key}`);
         continue;
       }
       filteredUpdates[key] = value;
@@ -2458,6 +2468,7 @@ app.get('/api/dongle/status', (req, res) => {
 app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
 // Protected routes
 app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
+app.use('/api/notifications', isAuthenticated, require('./modules/notifications/routes').createRouter());
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {

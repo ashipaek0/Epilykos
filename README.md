@@ -24,6 +24,7 @@ Public display with no login required — settings are password-protected.
 - [Dashboard Editor](#dashboard-editor)
 - [Card Showcase and Controls](#card-showcase-and-controls)
 - [PWA & Network Switching](#pwa--network-switching)
+- [Notifications](#notifications)
 - [Key Features](#key-features)
 - [Reverse Proxy](#reverse-proxy)
 - [Troubleshooting](#troubleshooting)
@@ -219,6 +220,24 @@ Epilykos can be installed as a **Progressive Web App** — on your phone or desk
 > **Note:** Network switching requires the Service Worker. On first load, open Settings and save your local and remote URLs — they'll be sent to the Service Worker for routing.
 
 ---
+
+## Notifications
+
+**Settings → Notifications** sends alerts on any metric or event to:
+
+- **Push to devices**: web push on every phone, tablet or computer where you turn it on. One channel can target all devices or only the ones you choose.
+- **Telegram**: create a bot with @BotFather, paste its token, message the bot, then press *Find chat*.
+- **Discord**: paste a channel webhook URL. It can optionally mention @here on critical alerts.
+- **ntfy**: ntfy.sh or your own server. Turn on *Server is on my local network* for a LAN server.
+
+Each **rule** picks its channels and watches either:
+
+- **A metric**: above, below, equals (text works too, e.g. a grid status of `off`), changes, or has not updated for N minutes. Options: *for at least* to ignore spikes, a resolve margin, back-to-normal alerts, reminders and a cooldown.
+- **An event**: grid outage or restored, a source stops or starts responding, MQTT broker drops or reconnects, PVOutput alert, snapshot failed, server started. Wildcards such as `source.*` match a whole group.
+
+Quiet hours hold back everything except critical alerts. Every delivery is listed under *History*.
+Push needs Epilykos on an `https://` address (see [Reverse Proxy](#reverse-proxy)); on iPhone and iPad, add it to the Home Screen first.
+Bot tokens, webhook URLs and push keys are encrypted at rest, and the whole Notifications section is admin-only.
 
 ## Key Features
 

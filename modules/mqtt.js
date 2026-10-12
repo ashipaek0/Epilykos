@@ -1,6 +1,12 @@
 const { logger } = require('./logger');
 const mqtt = require('mqtt');
 const { getConfig, queueMetricValue } = require('./database');
+const { emitEvent } = require('./notifications/events');
+
+/** Broker address without credentials, for alerts. */
+function brokerLabel(broker) {
+  try { const u = new URL(broker); return u.host || broker; } catch (_) { return String(broker).replace(/\/\/[^@/]*@/, '//'); }
+}
 
 const mqttClients = new Map();
 
@@ -20,8 +26,17 @@ function setupMqtt() {
     const client = mqtt.connect(device.broker, opts);
     mqttClients.set(device.broker, client);
 
+    // Alert on a drop of an established connection, and on its recovery —
+    // not on every failed reconnect attempt, nor on our own end() at restart.
+    let dropped = false;
+    let wasConnected = false;
     client.on('connect', () => {
       logger.info(`MQTT connected to ${device.broker}`);
+      wasConnected = true;
+      if (dropped) {
+        dropped = false;
+        emitEvent('mqtt.connected', { subject: brokerLabel(device.broker), message: `MQTT broker ${brokerLabel(device.broker)} is connected again.` });
+      }
       const topics = Object.values(device.topics || {}).filter(t => t);
       if (topics.length) client.subscribe(topics);
     });
@@ -39,6 +54,11 @@ function setupMqtt() {
     });
 
     client.on('error', (err) => logger.error(`MQTT ${device.broker} error:`, err));
+    client.on('close', () => {
+      if (client.disconnecting || !wasConnected || dropped) return;
+      dropped = true;
+      emitEvent('mqtt.disconnected', { subject: brokerLabel(device.broker), message: `Lost the connection to MQTT broker ${brokerLabel(device.broker)}.` });
+    });
   }
 }
 
