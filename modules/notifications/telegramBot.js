@@ -60,10 +60,13 @@ async function answer(text) {
 
 /** Handle one getUpdates result for `config`. Exported for tests. */
 async function handleUpdate(config, update, poller) {
-  const m = update.message || update.edited_message;
+  const m = update.message;
   if (!m || !m.chat) return false;
   if (poller) poller.chats.set(String(m.chat.id), { id: String(m.chat.id), type: m.chat.type, name: m.chat.title || [m.chat.first_name, m.chat.last_name].filter(Boolean).join(' ') || m.chat.username || String(m.chat.id) });
   if (String(m.chat.id) !== String(config.chat_id).trim()) return false;
+  // In a group, "/status@OtherBot" is for another bot.
+  const addressed = /^\/\w+@(\w+)/.exec(String(m.text || '').trim());
+  if (addressed && poller && poller.username && addressed[1].toLowerCase() !== poller.username.toLowerCase()) return false;
   const reply = await answer(m.text);
   if (!reply) return false;
   await telegram.send(config, { title: reply.title, body: reply.body, severity: 'info', icon: false, silent: false }, { fetch: fetchImpl });
@@ -74,11 +77,15 @@ async function loop(poller) {
   let offset = 0, failures = 0;
   const base = `${API}/bot${String(poller.config.bot_token).trim()}`;
   try {
+    const me = await (await fetchImpl(`${base}/getMe`, { signal: AbortSignal.timeout(15000) })).json();
+    if (me && me.ok && me.result) poller.username = me.result.username || '';
+  } catch (_) { /* replies still work without it */ }
+  try {
     await fetchImpl(`${base}/setMyCommands`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commands: COMMANDS }), signal: AbortSignal.timeout(15000) });
   } catch (_) { /* the menu is a nicety */ }
   while (poller.running) {
     try {
-      const url = `${base}/getUpdates?timeout=${POLL_TIMEOUT_S}&offset=${offset}&allowed_updates=${encodeURIComponent('["message","edited_message"]')}`;
+      const url = `${base}/getUpdates?timeout=${POLL_TIMEOUT_S}&offset=${offset}&allowed_updates=${encodeURIComponent('["message"]')}`;
       const ctrl = new AbortController();
       poller.abort = () => ctrl.abort();
       const timer = setTimeout(() => ctrl.abort(), (POLL_TIMEOUT_S + 15) * 1000);
@@ -111,7 +118,7 @@ async function loop(poller) {
 }
 
 function start(channel) {
-  const poller = { id: channel.id, name: channel.name, key: tokenKey(channel.config.bot_token) + '|' + channel.config.chat_id, config: { ...channel.config }, running: true, chats: new Map(), abort: null, wake: null };
+  const poller = { id: channel.id, name: channel.name, key: tokenKey(channel.config.bot_token) + '|' + channel.config.chat_id, config: { ...channel.config }, running: true, username: '', chats: new Map(), abort: null, wake: null };
   pollers.set(channel.id, poller);
   loop(poller).catch(e => logger.warn(`notifications: Telegram poller stopped: ${e.message}`));
   logger.info(`notifications: answering Telegram commands for "${channel.name}"`);

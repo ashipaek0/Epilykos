@@ -5,6 +5,7 @@
  */
 
 const { safeFetch } = require('../../utils');
+const { postJson } = require('./http');
 
 const COLOR = { info: 0x3b82f6, warning: 0xf59e0b, critical: 0xdc2626 };
 const WEBHOOK_RE = /^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+\/?$/;
@@ -34,20 +35,8 @@ function buildRequest(config, msg) {
 async function send(config, msg, deps = {}) {
   const err = validate(config);
   if (err) throw new Error(err);
-  const fetchImpl = deps.fetch || safeFetch;
   const { url, body } = buildRequest(config, msg);
-  let res;
-  try {
-    res = await fetchImpl(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-  } catch (e) {
-    // Name the host, never the URL (Telegram's and Discord's carry the secret).
-    throw new Error(`Could not reach ${new URL(url).host}: ${e.message}`);
-  }
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json()).message || ''; } catch (_) { /* not JSON */ }
-    throw new Error(`Discord ${res.status}${detail ? ': ' + detail : ''}`);
-  }
+  await postJson(deps.fetch || safeFetch, url, body, { label: 'Discord', detailKey: 'message' });
 }
 
 module.exports = { type: 'discord', label: 'Discord', secretFields: ['webhook_url'], validate, buildRequest, send };
