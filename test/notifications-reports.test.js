@@ -244,3 +244,13 @@ test('source events use friendly names', () => {
   off();
   assert.match(msg, /^Home Assistant failed 3 polls in a row: timeout/);
 });
+
+test('telegram poller records channels for Find chat and answers commands posted there', async () => {
+  sent.length = 0;
+  const poller = { username: 'EpilykosBot', chats: new Map() };
+  const cfg = { ...TG.config, chat_id: '-1003952970745' };
+  await bot.handleUpdate(cfg, { my_chat_member: { chat: { id: -1003952970745, type: 'channel', title: 'Epilykos' } } }, poller);
+  assert.deepStrictEqual(poller.chats.get('-1003952970745'), { id: '-1003952970745', type: 'channel', name: 'Epilykos' });
+  assert.strictEqual(await bot.handleUpdate(cfg, { channel_post: { chat: { id: -1003952970745, type: 'channel', title: 'Epilykos' }, text: '/status' } }, poller), true);
+  assert.strictEqual(sent.length, 1);
+});

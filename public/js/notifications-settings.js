@@ -279,7 +279,7 @@
       html += field('nt-ch-bot', 'Bot token', input('nt-ch-bot', cfg.bot_token, ' type="password" autocomplete="off"' + secretHint(cfg.has_bot_token)),
         'Message <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> on Telegram, send /newbot and paste the token here.');
       html += '<div class="nt-row-form">' + field('nt-ch-chat', 'Chat ID', input('nt-ch-chat', cfg.chat_id, ' inputmode="numeric" placeholder="123456789"'),
-        'Send your bot any message (or add it to a group), then press Find chat. Not the number at the start of the token: that is the bot itself.') +
+        'Message your bot, or add it as an admin of your channel or group and post something there, then press Find chat. An ID copied from the Telegram app works too.') +
         '<button type="button" class="st-btn" data-act="telegram-find">Find chat</button></div><div id="nt-chats"></div>';
       html += '<div class="st-toggle-row">' + toggle('nt-ch-commands', cfg.commands, 'Answer commands in this chat') + '</div>' +
         '<p class="st-help nt-gap">Send /status, /today, /yesterday or /forecast to the bot. Only this chat gets answers.</p>';
@@ -610,20 +610,24 @@
       case 'channel-cancel': editChannel = null; return render();
       case 'channel-save': {
         var body = readChannelForm();
-        if (editChannel.id) await api('PUT', '/channels/' + encodeURIComponent(editChannel.id), body);
-        else await api('POST', '/channels', body);
+        var saved = editChannel.id ? await api('PUT', '/channels/' + encodeURIComponent(editChannel.id), body) : await api('POST', '/channels', body);
         editChannel = null;
-        toast('Channel saved.');
+        // Telegram checks the chat on save: say what it changed or found.
+        if (saved.warning) toast('Saved, but: ' + saved.warning, 'error');
+        else toast(saved.note ? 'Channel saved. ' + saved.note : 'Channel saved.');
         return load();
       }
       case 'channel-test': {
         var out = await api('POST', '/channels/test', readChannelForm());
+        if (out.chat_id && document.getElementById('nt-ch-chat')) document.getElementById('nt-ch-chat').value = out.chat_id;
+        if (out.note) { toast('Test sent. ' + out.note + ' Save to keep it.'); return refreshLog(); }
         toast(out.warning ? 'Sent, with problems: ' + out.warning : 'Test sent. Check ' + (TYPE_LABEL[editChannel.type] || 'the channel') + '.');
         return refreshLog();
       }
       case 'channel-test-saved': {
         var c2 = state.channels.find(function (c) { return c.id === id; });
         var out2 = await api('POST', '/channels/test', { id: c2.id, type: c2.type, name: c2.name, enabled: true, config: c2.config });
+        if (out2.note) { toast('Test sent to ' + c2.name + '. ' + out2.note); return load(); }
         toast(out2.warning ? 'Sent, with problems: ' + out2.warning : 'Test sent to ' + c2.name + '.');
         return refreshLog();
       }

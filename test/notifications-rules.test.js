@@ -256,5 +256,41 @@ test("telegram: the bot's own ID is refused as a chat ID; chat not found says wh
   assert.strictEqual(telegram.validate({ bot_token: token, chat_id: '123456789' }), null);
   await assert.rejects(
     telegram.send({ bot_token: token, chat_id: '123456789' }, MSG, { fetch: async () => ({ ok: false, status: 400, json: async () => ({ description: 'Bad Request: chat not found' }) }) }),
-    (e) => { assert.match(e.message, /press Start or send it a message, then use Find chat/); assert.strictEqual(e.permanent, true); return true; });
+    (e) => { assert.match(e.message, /add the bot as an admin that can post messages.*press Start\. Then use Find chat/); assert.strictEqual(e.permanent, true); return true; });
+});
+
+test('telegram: resolveChat finds a channel by its app ID (adds -100)', async () => {
+  const token = '8999018837:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
+  const asked = [];
+  const fetch = async (url, init) => {
+    const id = JSON.parse(init.body).chat_id;
+    asked.push(id);
+    if (id === '-1003952970745') return { ok: true, json: async () => ({ ok: true, result: { id: -1003952970745, type: 'channel', title: 'Epilykos' } }) };
+    return { ok: false, status: 400, json: async () => ({ description: 'Bad Request: chat not found' }) };
+  };
+  const r = await telegram.resolveChat({ bot_token: token, chat_id: '3952970745' }, { fetch });
+  assert.deepStrictEqual(r, { chat_id: '-1003952970745', title: 'Epilykos', type: 'channel', changed: true });
+  assert.deepStrictEqual(asked, ['3952970745', '-1003952970745']);
+  await assert.rejects(telegram.resolveChat({ bot_token: token, chat_id: '-100123' }, { fetch }), /admin that can post/);
+  // A bad token (401) is not about the ID: no -100 guess, error passes through.
+  await assert.rejects(telegram.resolveChat({ bot_token: token, chat_id: '5' }, { fetch: async () => ({ ok: false, status: 401, json: async () => ({ description: 'Unauthorized' }) }) }), /401/);
+});
+
+test('telegram: a send to an app-style channel ID retries with -100', async () => {
+  const token = '8999018837:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
+  const ids = [];
+  await telegram.send({ bot_token: token, chat_id: '3952970745' }, MSG, { fetch: async (url, init) => {
+    const id = JSON.parse(init.body).chat_id; ids.push(id);
+    return id.startsWith('-100') ? { ok: true } : { ok: false, status: 400, json: async () => ({ description: 'Bad Request: chat not found' }) };
+  } });
+  assert.deepStrictEqual(ids, ['3952970745', '-1003952970745']);
+});
+
+test('telegram: Find chat asks for channel updates too', async () => {
+  let asked = '';
+  const chats = await telegram.findChats('8999018837:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw', { fetch: async (url) => { asked = url; return { ok: true, json: async () => ({ ok: true, result: [
+    { my_chat_member: { chat: { id: -1003952970745, type: 'channel', title: 'Epilykos' } } },
+  ] }) }; } });
+  assert.match(decodeURIComponent(asked), /allowed_updates=\["message","channel_post","my_chat_member"\]/);
+  assert.deepStrictEqual(chats, [{ id: '-1003952970745', type: 'channel', name: 'Epilykos' }]);
 });

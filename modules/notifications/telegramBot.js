@@ -60,9 +60,15 @@ async function answer(text) {
 
 /** Handle one getUpdates result for `config`. Exported for tests. */
 async function handleUpdate(config, update, poller) {
-  const m = update.message;
+  // Seen chats feed Find chat: a channel shows up once the bot is added
+  // (my_chat_member) or something is posted there (channel_post).
+  const seen = update.message || update.channel_post || update.my_chat_member;
+  if (seen && seen.chat && poller) {
+    const c = seen.chat;
+    poller.chats.set(String(c.id), { id: String(c.id), type: c.type, name: c.title || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.username || String(c.id) });
+  }
+  const m = update.message || update.channel_post;
   if (!m || !m.chat) return false;
-  if (poller) poller.chats.set(String(m.chat.id), { id: String(m.chat.id), type: m.chat.type, name: m.chat.title || [m.chat.first_name, m.chat.last_name].filter(Boolean).join(' ') || m.chat.username || String(m.chat.id) });
   if (String(m.chat.id) !== String(config.chat_id).trim()) return false;
   // In a group, "/status@OtherBot" is for another bot.
   const addressed = /^\/\w+@(\w+)/.exec(String(m.text || '').trim());
@@ -85,7 +91,7 @@ async function loop(poller) {
   } catch (_) { /* the menu is a nicety */ }
   while (poller.running) {
     try {
-      const url = `${base}/getUpdates?timeout=${POLL_TIMEOUT_S}&offset=${offset}&allowed_updates=${encodeURIComponent('["message"]')}`;
+      const url = `${base}/getUpdates?timeout=${POLL_TIMEOUT_S}&offset=${offset}&allowed_updates=${encodeURIComponent(JSON.stringify(telegram.ALLOWED_UPDATES))}`;
       const ctrl = new AbortController();
       poller.abort = () => ctrl.abort();
       const timer = setTimeout(() => ctrl.abort(), (POLL_TIMEOUT_S + 15) * 1000);
