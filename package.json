@@ -20,6 +20,7 @@
     "morgan": "^1.12.1",
     "mqtt": "^5.9.0",
     "multer": "^2.4.0",
+    "qrcode": "^1.5.4",
     "serialport": "^13.0.0",
     "web-push": "^3.6.7",
     "winston": "^3.17.0",

@@ -5223,7 +5223,7 @@ if (tuyaVerifyAllBtn) {
 // QR Code OAuth flow
 const tuyaGenerateQrBtn = document.getElementById('tuya-generate-qr-btn');
 const tuyaQrContainer = document.getElementById('tuya-qr-container');
-const tuyaQrCanvas = document.getElementById('tuya-qr-canvas');
+const tuyaQrImg = document.getElementById('tuya-qr-img');
 const tuyaOauthStatus = document.getElementById('tuya-oauth-status');
 let oauthTokenInfo = null;
 let pollTimer = null;
@@ -5246,9 +5246,8 @@ if (tuyaGenerateQrBtn) {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Failed');
       
-      // Generate QR code on canvas
-      const qrUrl = data.qr_url;
-      drawQrCode(tuyaQrCanvas, qrUrl);
+      if (!data.qr_svg) throw new Error('No QR code returned');
+      tuyaQrImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(data.qr_svg);
       tuyaQrContainer.style.display = 'block';
       showStatus(tuyaOauthStatus, 'Scan QR code with Smart Life app...', 'info');
       
@@ -5258,24 +5257,6 @@ if (tuyaGenerateQrBtn) {
       showStatus(tuyaOauthStatus, e.message, 'error');
     }
   });
-}
-
-function drawQrCode(canvas, text) {
-  // Simple QR code drawing using a data URL from a quick API
-  // We'll generate via a URL-based QR API or inline
-  const size = 200;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, size, size);
-  
-  // Generate QR code using Google Charts API (lightweight, no deps)
-  const img = new Image();
-  img.onload = () => {
-    ctx.drawImage(img, 0, 0, size, size);
-  };
-  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
 }
 
 async function startLoginPoll(qrToken, uid) {

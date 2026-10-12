@@ -15,7 +15,7 @@
   </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
-  <link rel="stylesheet" href="settings-shell.css">
+  <link rel="stylesheet" href="settings-shell.css?v=2">
   <link rel="stylesheet" href="notifications.css?v=3">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
@@ -182,8 +182,8 @@
             <div class="tuya-guide-step"><span class="help-step-num">5</span> Press <strong>Save changes</strong> in the bar at the bottom</div>
           </div>
 
-          <!-- QR Code Login (centered, full-width) -->
-          <div class="tuya-panel st-type-extra">
+          <!-- QR Code Login. data-own-save: the UID is only used to log in, not a saved setting. -->
+          <div class="tuya-panel st-type-extra" data-own-save>
             <h3 class="st-subhead">Smart Life login</h3>
             <p class="st-help">
               Enter your <strong>Smart Life UID</strong> (find it in Smart Life app → Me → ⚙ → Account → User ID).<br>
@@ -191,10 +191,10 @@
             </p>
             <div class="form-row" style="margin-bottom:0.75rem;">
               <label for="tuya-uid" class="st-visually-hidden">Smart Life UID</label><input type="text" id="tuya-uid" class="input" placeholder="Smart Life UID" style="flex:1;" autocomplete="off">
-              <button type="button" id="tuya-generate-qr-btn" class="btn btn-sm">Generate QR Code</button>
+              <button type="button" id="tuya-generate-qr-btn" class="st-btn st-btn-primary" style="flex:0 0 auto;">Generate QR code</button>
             </div>
             <div id="tuya-qr-container" style="display:none;text-align:center;margin:1rem 0;">
-              <canvas id="tuya-qr-canvas" style="border:8px solid #fff;border-radius:8px;"></canvas>
+              <img id="tuya-qr-img" alt="Smart Life login QR code" width="220" height="220" style="background:#fff;padding:8px;border-radius:8px;">
               <p class="st-help">Scan with Smart Life app → Me → + → Scan QR Code</p>
             </div>
             <div id="tuya-oauth-status" class="test-status"></div>
@@ -203,11 +203,12 @@
           <!-- DEVICE CARDS (2–3 across) -->
           <h3 class="st-subhead st-type-extra">Tuya devices</h3>
           <div class="test-row st-type-extra">
-            <button type="button" id="tuya-verify-all-btn" class="btn btn-sm">Verify all devices</button>
+            <button type="button" id="tuya-verify-all-btn" class="st-btn">Verify all devices</button>
             <span class="test-status" id="tuya-verify-all-status"></span>
           </div>
           <div id="tuya-devices-container" class="tuya-grid"></div>
-          <button type="button" id="add-tuya-device" class="btn btn-sm" style="margin-top:0.75rem;">+ Add Tuya Device Manually</button>
+          <button type="button" id="add-tuya-device" class="st-btn st-add-btn st-type-extra">+ Add device manually</button>
+          <p class="st-help st-type-device-only"><a class="help-link" href="#sources/tuya">Smart Life login and scan</a> fetches local keys and DP names for all your Tuya devices.</p>
           <p class="st-help st-type-extra">
             All communication is 100% local (encrypted TCP on port 6668) after initial cloud key retrieval.
           </p>
@@ -920,9 +921,9 @@
 <script src="/js/csrf.js"></script>
 <script src="js/source-labels.js"></script>
 <script src="js/pvoutput-units.js?v=1"></script>
-<script src="settings.js?v=18"></script>
+<script src="settings.js?v=19"></script>
 <script src="js/catalog-ui.js?v=1"></script>
-<script src="js/settings-shell.js?v=2"></script>
+<script src="js/settings-shell.js?v=3"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
