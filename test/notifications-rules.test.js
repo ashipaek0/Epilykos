@@ -249,3 +249,12 @@ test('webpush sends to the chosen devices and drops expired ones', async () => {
   await assert.rejects(webpush.send({ devices: ['d3'] }, MSG, deps), /expired/);
   await assert.rejects(webpush.send({ devices: ['nope'] }, MSG, deps), /No subscribed devices/);
 });
+
+test("telegram: the bot's own ID is refused as a chat ID; chat not found says what to do", async () => {
+  const token = '3952970745:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
+  assert.match(telegram.validate({ bot_token: token, chat_id: '3952970745' }), /bot's own ID/);
+  assert.strictEqual(telegram.validate({ bot_token: token, chat_id: '123456789' }), null);
+  await assert.rejects(
+    telegram.send({ bot_token: token, chat_id: '123456789' }, MSG, { fetch: async () => ({ ok: false, status: 400, json: async () => ({ description: 'Bad Request: chat not found' }) }) }),
+    (e) => { assert.match(e.message, /press Start or send it a message, then use Find chat/); assert.strictEqual(e.permanent, true); return true; });
+});
