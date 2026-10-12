@@ -2102,6 +2102,8 @@ app.post('/api/tuya-generate-qr', isAuthenticated, async (req, res) => {
     const { uid } = req.body;
     if (!uid) return res.status(400).json({ error: 'UID is required' });
     const result = await generateQrCode(uid);
+    // Drawn here: the login token must not go to a third-party QR service.
+    if (result && result.qr_url) result.qr_svg = await require('qrcode').toString(result.qr_url, { type: 'svg', margin: 1, width: 220 });
     res.json(result);
   } catch (err) {
     logger.error('[Tuya] QR generate error:', err);

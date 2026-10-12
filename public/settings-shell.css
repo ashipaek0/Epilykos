@@ -290,6 +290,7 @@ body.st {
 /* Device view: just the chosen device and settings shared by its type. */
 .st-type-panel.is-device-view .device-card:not(.is-focused),
 .st-type-panel.is-device-view .st-type-extra { display: none !important; }
+.st-type-panel:not(.is-device-view) .st-type-device-only { display: none !important; }
 .st-type-panel.is-device-view { padding: 0; border: none; background: none; }
 .st-type-panel.is-device-view .st-type-setting { margin-top: 16px; padding: 16px 20px; border: 1px solid var(--st-line); border-radius: 14px; background: var(--st-panel); }
 .st-type-panel .device-card + .device-card { margin-top: 14px; }
