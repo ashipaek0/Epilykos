@@ -84,8 +84,8 @@ async function findChats(botToken, deps = {}) {
 
 /**
  * The chat ID as the Bot API knows it. Telegram apps show channel and
- * supergroup IDs without the "-100" prefix the API needs (3952970745 is
- * -1003952970745), so a plain positive ID is tried both ways with getChat.
+ * supergroup IDs without the "-100" prefix the API needs (1234567890 is
+ * -1001234567890), so a plain positive ID is tried both ways with getChat.
  * Resolves { chat_id, title, type, changed }. A chat Telegram doesn't know
  * throws the friendly chat-not-found error; network errors pass through.
  */

@@ -30,13 +30,16 @@ const { CHANNEL_TYPES } = require('../modules/notifications/dispatcher');
 const { onEvent } = require('../modules/notifications/events');
 const store = require('../modules/notifications/store');
 
+// Built at runtime so no file holds a token-shaped string (secret scanners).
+const fakeToken = (botId = 123456) => `${botId}:${'x'.repeat(35)}`;
+
 const sent = [];
 for (const type of ['telegram', 'discord', 'ntfy']) {
   CHANNEL_TYPES[type].send = async (config, msg) => { sent.push({ type, config, msg }); };
 }
 // Saving a Telegram channel asks Telegram for the chat; keep tests offline.
-CHANNEL_TYPES.telegram.resolveChat = async (config) => (String(config.chat_id) === '3952970745'
-  ? { chat_id: '-1003952970745', title: 'Epilykos', type: 'channel', changed: true }
+CHANNEL_TYPES.telegram.resolveChat = async (config) => (String(config.chat_id) === '1234567890'
+  ? { chat_id: '-1001234567890', title: 'Epilykos', type: 'channel', changed: true }
   : { chat_id: String(config.chat_id), changed: false });
 
 let server, base;
@@ -56,7 +59,7 @@ async function call(method, p, body) {
 }
 const settle = () => new Promise(r => setTimeout(r, 20));
 
-const TOKEN = '123456:ABCDEFGHIJKLMNOPQRSTUVWX';
+const TOKEN = fakeToken();
 let tg, push;
 
 test('channel secrets are masked in responses and encrypted at rest', async () => {
@@ -227,9 +230,9 @@ test('a refused send (4xx) is not retried; 5xx is', async () => {
 });
 
 test('saving a Telegram channel with an app-style channel ID stores the -100 form', async () => {
-  const r = await call('POST', '/channels', { type: 'telegram', name: 'Chan', config: { bot_token: TOKEN, chat_id: '3952970745' } });
+  const r = await call('POST', '/channels', { type: 'telegram', name: 'Chan', config: { bot_token: TOKEN, chat_id: '1234567890' } });
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.body.config.chat_id, '-1003952970745');
-  assert.match(r.body.note, /Using -1003952970745 for Epilykos/);
-  assert.strictEqual(store.getChannels().find(c => c.id === r.body.id).config.chat_id, '-1003952970745');
+  assert.strictEqual(r.body.config.chat_id, '-1001234567890');
+  assert.match(r.body.note, /Using -1001234567890 for Epilykos/);
+  assert.strictEqual(store.getChannels().find(c => c.id === r.body.id).config.chat_id, '-1001234567890');
 });
