@@ -57,3 +57,4 @@
   .nt-table td { border: none; padding: 2px 0; }
 }
 .st .nt-gap { margin: 0 0 16px; }
+.nt-weekdays { display: flex; flex-wrap: wrap; gap: 4px 16px; }

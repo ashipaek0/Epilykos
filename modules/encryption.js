@@ -129,8 +129,9 @@ const SECRET_FIELDS = {
   mqtt_devices: ['password'],
   tuya_devices: ['local_key'],
   // modules/notifications/store.js: Telegram bot token, Discord webhook URL
-  // (the URL is the credential), ntfy access token, push keys.
-  notification_channels: ['bot_token', 'webhook_url', 'token'],
+  // (the URL is the credential), ntfy access token, webhook URL and
+  // Authorization header, push keys.
+  notification_channels: ['bot_token', 'webhook_url', 'token', 'auth_header'],
   notification_devices: ['auth'],
   notification_vapid: ['privateKey'],
 };

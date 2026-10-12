@@ -1,8 +1,9 @@
 'use strict';
 /**
  * Telegram channel — Bot API sendMessage.
- * config: { bot_token, chat_id }. Info-level messages are sent silently
- * (disable_notification), so only warnings and critical alerts make a sound.
+ * config: { bot_token, chat_id, commands }. Info-level messages are sent
+ * silently (disable_notification), so only warnings and critical alerts make
+ * a sound. commands: answer /status etc. in this chat (telegramBot.js).
  */
 
 const { safeFetch } = require('../../utils');
@@ -21,12 +22,13 @@ function validate(config) {
 }
 
 function buildRequest(config, msg) {
-  const text = `${ICON[msg.severity] || ''} <b>${escapeHtml(msg.title)}</b>\n${escapeHtml(msg.body)}`.trim();
+  const icon = msg.icon === false ? '' : (ICON[msg.severity] || '');
+  const text = `${icon} <b>${escapeHtml(msg.title)}</b>\n${escapeHtml(msg.body)}`.trim();
   const body = {
     chat_id: String(config.chat_id).trim(),
     text: text.slice(0, 4000),
     parse_mode: 'HTML',
-    disable_notification: msg.severity === 'info',
+    disable_notification: msg.silent !== undefined ? !!msg.silent : msg.severity === 'info',
     link_preview_options: { is_disabled: true },
   };
   return { url: `${API}/bot${String(config.bot_token).trim()}/sendMessage`, body };

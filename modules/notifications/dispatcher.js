@@ -16,6 +16,7 @@ const CHANNEL_TYPES = {
   discord: require('./channels/discord'),
   ntfy: require('./channels/ntfy'),
   webpush: require('./channels/webpush'),
+  webhook: require('./channels/webhook'),
 };
 
 const RETRY_DELAYS_MS = [5000, 30000];
@@ -81,7 +82,8 @@ async function sendToChannel(channel, message, opts = {}) {
 
 /**
  * Deliver `message` ({ title, body, severity, tag, url? }) to `channelIds`.
- * `rule` is for the log. opts.force skips the enabled/quiet checks (tests).
+ * `rule` is for the log. opts.force skips the enabled/quiet checks (tests);
+ * opts.ignoreQuiet skips quiet hours only (reports scheduled for a set time).
  */
 async function deliver(message, channelIds, rule, opts = {}) {
   const settings = store.getSettings();
@@ -91,7 +93,7 @@ async function deliver(message, channelIds, rule, opts = {}) {
 
   if (!opts.force) {
     if (!settings.enabled) return [];
-    if (msg.severity !== 'critical' && isQuietNow(settings)) {
+    if (msg.severity !== 'critical' && !opts.ignoreQuiet && isQuietNow(settings)) {
       store.addLog({ ...base, status: 'quiet', error: 'Held back by quiet hours' });
       return [];
     }
