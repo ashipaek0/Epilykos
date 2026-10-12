@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
   <link rel="stylesheet" href="settings-shell.css">
+  <link rel="stylesheet" href="notifications.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -47,6 +48,7 @@
       <li><a href="#savings" class="st-nav-link" data-section="savings"><span data-icon="coin" data-size="18"></span><span class="st-nav-label">Prices and savings</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#appearance" class="st-nav-link" data-section="appearance"><span data-icon="monitor" data-size="18"></span><span class="st-nav-label">Appearance</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#backup" class="st-nav-link" data-section="backup"><span data-icon="database" data-size="18"></span><span class="st-nav-label">Backup and restore</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#help" class="st-nav-link" data-section="help"><span data-icon="help" data-size="18"></span><span class="st-nav-label">Help</span><span class="st-nav-meta"></span></a></li>
@@ -870,6 +872,16 @@
 
         <datalist id="st-metric-names"></datalist>
       </form>
+
+      <!-- ════════════ NOTIFICATIONS ════════════
+           Outside the settings form: it saves through /api/notifications, not the save bar.
+           Rendered by the notifications section script (see the script tags below). -->
+      <section class="st-section" id="section-notifications" data-section="notifications" aria-labelledby="h-notifications" hidden>
+        <div class="st-section-head">
+          <div><h1 id="h-notifications">Notifications</h1><p class="st-lede">Get alerts on any metric or event, sent to your devices, Telegram, Discord or ntfy.</p></div>
+        </div>
+        <div id="nt-root"><p class="st-help">Loading notifications…</p></div>
+      </section>
       </div>
     </main>
 
@@ -913,5 +925,6 @@
 <script src="js/settings-shell.js?v=2"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
+<script src="js/notifications-settings.js?v=1"></script>
 </body>
 </html>

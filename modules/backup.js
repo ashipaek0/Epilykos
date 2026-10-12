@@ -4,6 +4,7 @@ const path = require('path');
 const { getDb, DB_PATH, initializeDatabase, flushMetrics } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
+const { emitEvent } = require('./notifications/events');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -208,6 +209,7 @@ async function createSnapshotUnlocked() {
     if (!fs.existsSync(snapDir)) fs.mkdirSync(snapDir, { recursive: true });
   } catch (err) {
     logger.error('Snapshot: cannot create snapshot directory:', err.message);
+    emitEvent('backup.snapshot_failed', { message: `Cannot create the snapshot folder: ${err.message}` });
     return;
   }
 
@@ -220,6 +222,7 @@ async function createSnapshotUnlocked() {
     pruneSnapshots();
   } catch (err) {
     logger.error('Snapshot: creation failed:', err.message);
+    emitEvent('backup.snapshot_failed', { message: `The daily snapshot failed: ${err.message}` });
   }
 }
 

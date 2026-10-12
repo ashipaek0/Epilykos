@@ -42,6 +42,7 @@ function createRouter(db, getConfigFn) {
          VALUES (?, ?, ?, ?, datetime('now'))`
       ).run(sid, parseInt(type), message || '', datetime || '');
       logger.info(`[pvoutput:webhook] alert type=${type}: ${message}`);
+      require('../notifications/events').emitEvent('pvoutput.alert', { subject: String(type), message: String(message || `PVOutput alert type ${type}`).slice(0, 500), data: { type: parseInt(type), datetime } });
     } catch (e) {
       logger.error(`[pvoutput:webhook] failed to store alert: ${e.message}`);
     }
