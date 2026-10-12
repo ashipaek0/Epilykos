@@ -1,0 +1,59 @@
+/* Settings → Notifications (js/notifications-settings.js). Uses the settings shell tokens. */
+
+.nt-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.nt-item {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid var(--st-line-soft); border-radius: 10px;
+}
+.nt-item-editing { display: block; padding: 0; border: none; }
+.nt-item-text { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nt-item-name { font-size: 0.88rem; font-weight: 800; color: var(--st-text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nt-item-sub { font-size: 0.78rem; color: var(--st-muted); overflow-wrap: anywhere; }
+.nt-item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.nt-this { font-size: 0.66rem; font-weight: 800; color: var(--st-amber-text); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.nt-editor-wrap { margin-bottom: 12px; }
+.nt-editor { border: 1px solid var(--st-line); border-radius: 12px; padding: 16px 18px; background: var(--st-hover); }
+.st .nt-editor-title { margin: 0 0 14px; font-size: 0.95rem; font-weight: 800; color: var(--st-text); }
+
+.nt-row-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.nt-row-form > .st-field { flex: 1 1 240px; }
+.nt-row-form > .st-btn { margin-bottom: 14px; }
+
+.nt-add-label { font-size: 0.78rem; font-weight: 800; color: var(--st-muted); }
+.nt-label { font-size: 0.78rem; font-weight: 800; color: var(--st-text); }
+.nt-seg { align-self: flex-start; }
+
+.nt-fieldset { border: none; margin: 0 0 14px; padding: 0; min-width: 0; }
+.nt-fieldset legend { font-size: 0.78rem; font-weight: 800; color: var(--st-text); padding: 0; margin-bottom: 6px; }
+.nt-checks { display: flex; flex-direction: column; gap: 6px; }
+.nt-indent { padding-left: 24px; margin-top: 4px; }
+.nt-check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--st-text); min-height: 28px; cursor: pointer; }
+.nt-check input { width: 18px; height: 18px; flex-shrink: 0; }
+
+.nt-muted { color: var(--st-muted); font-size: 0.76rem; font-weight: 500; }
+.nt-warn { color: var(--st-danger-text); }
+.nt-nowrap { white-space: nowrap; }
+
+.nt-sev { font-size: 0.64rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.04em; }
+.nt-sev-info { background: var(--st-off-bg); color: var(--st-off); }
+.nt-sev-warning { background: #fef3c7; color: #92400e; }
+.nt-sev-critical { background: var(--st-err-bg); color: var(--st-err); }
+[data-theme="dark"] .nt-sev-warning { background: #3a2a06; color: #fbbf24; }
+
+.nt-table-wrap { overflow-x: auto; }
+.nt-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.nt-table th, .nt-table td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--st-line-soft); }
+.nt-table th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--st-muted); }
+
+@media (max-width: 600px) {
+  .nt-item-actions { width: 100%; }
+  .nt-item-actions .st-btn { flex: 1 1 0; }
+  .nt-editor { padding: 14px 12px; }
+  /* History rows stack: one block per delivery. */
+  .nt-table thead { display: none; }
+  .nt-table, .nt-table tbody, .nt-table tr, .nt-table td { display: block; width: 100%; }
+  .nt-table tr { padding: 10px 0; border-bottom: 1px solid var(--st-line-soft); }
+  .nt-table td { border: none; padding: 2px 0; }
+}
+.st .nt-gap { margin: 0 0 16px; }
