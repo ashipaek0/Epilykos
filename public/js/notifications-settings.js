@@ -6,7 +6,8 @@
  *   General   on/off, quiet hours, dashboard address for links
  *   Devices   web push on this browser + every subscribed device
  *   Channels  Telegram, Discord, ntfy, push (to all or chosen devices)
- *   Rules     any metric (threshold, equals, changes, stale) or any event
+ *   Rules     any metric (threshold, equals, changes, stale), any event, or a
+ *             scheduled report (daily summary, forecast, status)
  *   History   delivery log
  */
 (function () {
@@ -26,7 +27,9 @@
   var editRule = null;       // { id|null, draft }
   var loaded = false;
 
-  var TYPE_LABEL = { telegram: 'Telegram', discord: 'Discord', ntfy: 'ntfy', webpush: 'Push to devices' };
+  var TYPE_LABEL = { telegram: 'Telegram', discord: 'Discord', ntfy: 'ntfy', webpush: 'Push to devices', webhook: 'Webhook' };
+  var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var DAY_LABEL = { today: 'today', yesterday: 'yesterday', tomorrow: 'tomorrow' };
   var SEVERITY_LABEL = { info: 'Info', warning: 'Warning', critical: 'Critical' };
 
   // ── API ──────────────────────────────────────────────────────────────
@@ -165,7 +168,12 @@
 
   function ruleSummary(r) {
     var when;
-    if (r.kind === 'event') {
+    if (r.kind === 'schedule') {
+      var rep = (state.reports || []).find(function (x) { return x.id === r.report; });
+      when = (rep ? rep.label : r.report) + (r.day ? ' (' + DAY_LABEL[r.day] + ')' : '') + ' at ' + r.time +
+        (r.days && r.days.length ? ' on ' + r.days.map(function (d) { return WEEKDAYS[d]; }).join(', ') : ' every day') +
+        (r.report === 'forecast' && r.below_kwh > 0 ? ', only below ' + r.below_kwh + ' kWh' : '');
+    } else if (r.kind === 'event') {
       when = 'When: ' + eventLabel(r.event) + (r.subject ? ' (' + r.subject + ')' : '');
     } else if (r.operator === 'changes') {
       when = r.metric + ' changes';
@@ -180,7 +188,8 @@
 
   function channelSummary(c) {
     var cfg = c.config || {};
-    if (c.type === 'telegram') return 'Chat ' + esc(cfg.chat_id || '?');
+    if (c.type === 'telegram') return 'Chat ' + esc(cfg.chat_id || '?') + (cfg.commands ? ' · answers /status' : '');
+    if (c.type === 'webhook') return 'JSON POST' + (cfg.has_auth_header ? ' · with Authorization' : '');
     if (c.type === 'discord') return 'Webhook' + (cfg.mention_here ? ' · @here on critical' : '');
     if (c.type === 'ntfy') return esc((cfg.server_url || 'https://ntfy.sh').replace(/^https?:\/\//, '')) + '/' + esc(cfg.topic || '');
     if (c.type === 'webpush') {
@@ -250,7 +259,7 @@
       '<p class="st-help">Where alerts go. Each rule picks one or more channels.</p>' +
       (items ? '<ul class="nt-list">' + items + '</ul>' : '<p class="st-help">No channels yet.</p>') + adding +
       '<div class="st-inline-actions"><span class="nt-add-label">Add:</span>' +
-        ['telegram', 'discord', 'ntfy', 'webpush'].map(function (t) { return '<button type="button" class="st-btn" data-act="channel-new" data-type="' + t + '">' + esc(TYPE_LABEL[t]) + '</button>'; }).join('') +
+        ['telegram', 'discord', 'ntfy', 'webpush', 'webhook'].map(function (t) { return '<button type="button" class="st-btn" data-act="channel-new" data-type="' + t + '">' + esc(TYPE_LABEL[t]) + '</button>'; }).join('') +
       '</div></div>';
   }
 
@@ -264,6 +273,8 @@
       html += '<div class="nt-row-form">' + field('nt-ch-chat', 'Chat ID', input('nt-ch-chat', cfg.chat_id, ' inputmode="numeric" placeholder="123456789"'),
         'Send your bot any message (or add it to a group), then press Find chat.') +
         '<button type="button" class="st-btn" data-act="telegram-find">Find chat</button></div><div id="nt-chats"></div>';
+      html += '<div class="st-toggle-row">' + toggle('nt-ch-commands', cfg.commands, 'Answer commands in this chat') + '</div>' +
+        '<p class="st-help nt-gap">Send /status, /today, /yesterday or /forecast to the bot. Only this chat gets answers.</p>';
     } else if (t === 'discord') {
       html += field('nt-ch-webhook', 'Webhook URL', input('nt-ch-webhook', cfg.webhook_url, ' type="password" autocomplete="off"' + secretHint(cfg.has_webhook_url)),
         'In Discord: channel settings → Integrations → Webhooks → New webhook → Copy webhook URL.');
@@ -274,6 +285,11 @@
         'Anyone who knows a topic on ntfy.sh can read it — pick something hard to guess. Subscribe to it in the ntfy app.');
       html += field('nt-ch-token', 'Access token (optional)', input('nt-ch-token', cfg.token, ' type="password" autocomplete="off"' + secretHint(cfg.has_token)), 'For servers or topics that need a login.');
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Server is on my local network') + '</div>';
+    } else if (t === 'webhook') {
+      html += field('nt-ch-webhook', 'URL', input('nt-ch-webhook', cfg.webhook_url, ' type="password" autocomplete="off"' + (cfg.has_webhook_url ? ' placeholder="Saved — leave empty to keep"' : ' placeholder="https://homeassistant.local:8123/api/webhook/…"')),
+        'Each alert is POSTed as JSON: source, title, message, severity, tag, url, timestamp (and event or rule). Works with Home Assistant, n8n, Node-RED and your own scripts.');
+      html += field('nt-ch-auth', 'Authorization header (optional)', input('nt-ch-auth', cfg.auth_header, ' type="password" autocomplete="off"' + secretHint(cfg.has_auth_header) + (cfg.has_auth_header ? '' : ' placeholder="Bearer …"')));
+      html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Address is on my local network') + '</div>';
     } else if (t === 'webpush') {
       var all = cfg.devices === 'all';
       html += '<fieldset class="nt-fieldset"><legend>Send to</legend>' +
@@ -293,7 +309,8 @@
 
   function readChannelForm() {
     var t = editChannel.type, cfg = {};
-    if (t === 'telegram') { cfg.bot_token = val('nt-ch-bot').trim(); cfg.chat_id = val('nt-ch-chat').trim(); }
+    if (t === 'telegram') { cfg.bot_token = val('nt-ch-bot').trim(); cfg.chat_id = val('nt-ch-chat').trim(); cfg.commands = checked('nt-ch-commands'); }
+    if (t === 'webhook') { cfg.webhook_url = val('nt-ch-webhook').trim(); cfg.auth_header = val('nt-ch-auth').trim(); cfg.allow_private = checked('nt-ch-private'); }
     if (t === 'discord') { cfg.webhook_url = val('nt-ch-webhook').trim(); cfg.mention_here = checked('nt-ch-here'); }
     if (t === 'ntfy') { cfg.server_url = val('nt-ch-server').trim(); cfg.topic = val('nt-ch-topic').trim() || (document.getElementById('nt-ch-topic') || {}).placeholder || ''; cfg.token = val('nt-ch-token').trim(); cfg.allow_private = checked('nt-ch-private'); }
     if (t === 'webpush') {
@@ -313,6 +330,10 @@
     'battery-low': function () { return { kind: 'metric', name: 'Battery low', metric: findMetric(/soc|state of charge/i), operator: 'lt', value: 20, for_s: 300, hysteresis: 5, notify_resolved: true, severity: 'warning', cooldown_s: 3600 }; },
     'source-offline': function () { return { kind: 'event', name: 'Source offline', event: 'source.*', severity: '' , cooldown_s: 1800 }; },
     'stale': function () { return { kind: 'metric', name: 'Data stopped updating', metric: findMetric(/pv power|solar power|load power/i), operator: 'stale', value: 15, notify_resolved: true, severity: 'warning', cooldown_s: 3600 }; },
+    'summary': function () { return { kind: 'schedule', name: 'Evening summary', report: 'day_summary', day: 'today', time: '21:00', days: [], severity: 'info' }; },
+    'low-solar': function () { return { kind: 'schedule', name: 'Low solar tomorrow', report: 'forecast', day: 'tomorrow', time: '19:00', days: [], below_kwh: 5, severity: 'warning' }; },
+    'forecast-down': function () { return { kind: 'event', name: 'Forecast unavailable', event: 'forecast.unavailable', severity: '', cooldown_s: 21600 }; },
+    'schedule': function () { return { kind: 'schedule', name: '', report: 'status', day: '', time: '08:00', days: [], severity: 'info' }; },
     'metric': function () { return { kind: 'metric', name: '', metric: '', operator: 'gt', value: '', for_s: 0, severity: 'warning', cooldown_s: 900 }; },
     'event': function () { return { kind: 'event', name: '', event: '', severity: '', cooldown_s: 0 }; }
   };
@@ -327,9 +348,11 @@
         '<button type="button" class="st-btn st-btn-danger-text" data-act="rule-delete" data-id="' + esc(r.id) + '">Delete</button></div></li>';
     }).join('');
     var adding = editRule && !editRule.id ? '<div class="nt-editor-wrap">' + ruleEditor() + '</div>' : '';
-    var presets = [['grid-off', 'Grid outage'], ['grid-on', 'Grid restored'], ['battery-low', 'Battery low'], ['source-offline', 'Source offline'], ['stale', 'Data stopped updating'], ['metric', 'Custom metric rule'], ['event', 'Custom event rule']];
+    var presets = [['grid-off', 'Grid outage'], ['grid-on', 'Grid restored'], ['battery-low', 'Battery low'], ['source-offline', 'Source offline'], ['stale', 'Data stopped updating'],
+      ['summary', 'Evening summary'], ['low-solar', 'Low solar tomorrow'], ['forecast-down', 'Forecast unavailable'],
+      ['metric', 'Custom metric rule'], ['event', 'Custom event rule'], ['schedule', 'Custom scheduled report']];
     return '<div class="st-card"><div class="st-card-head"><h2>Alert rules</h2></div>' +
-      '<p class="st-help">A rule watches any metric or any event and sends to the channels you pick.</p>' +
+      '<p class="st-help">A rule watches any metric or any event, or sends a report on a schedule, to the channels you pick.</p>' +
       (items ? '<ul class="nt-list">' + items + '</ul>' : '<p class="st-help">No rules yet. Start from one of these:</p>') + adding +
       '<div class="st-inline-actions"><span class="nt-add-label">Add:</span>' + presets.map(function (p) {
         return '<button type="button" class="st-btn" data-act="rule-new" data-preset="' + p[0] + '">' + esc(p[1]) + '</button>';
@@ -359,7 +382,8 @@
     html += field('nt-r-name', 'Name', input('nt-r-name', d.name, ' maxlength="80" placeholder="e.g. Battery low"'));
     html += '<div class="st-field"><span class="nt-label">Watch</span><div class="st-seg nt-seg" role="radiogroup">' +
       '<button type="button" role="radio" data-act="rule-kind" data-kind="metric" aria-checked="' + (kind === 'metric') + '">A metric</button>' +
-      '<button type="button" role="radio" data-act="rule-kind" data-kind="event" aria-checked="' + (kind === 'event') + '">An event</button></div></div>';
+      '<button type="button" role="radio" data-act="rule-kind" data-kind="event" aria-checked="' + (kind === 'event') + '">An event</button>' +
+      '<button type="button" role="radio" data-act="rule-kind" data-kind="schedule" aria-checked="' + (kind === 'schedule') + '">On a schedule</button></div></div>';
     if (kind === 'metric') {
       var op = d.operator || 'gt';
       var info = metricInfo(d.metric);
@@ -380,6 +404,21 @@
         html += '<div class="st-toggle-row">' + toggle('nt-r-resolved', d.notify_resolved, 'Also notify when it is back to normal') + '</div>';
         html += field('nt-r-repeat', 'Remind me every (minutes)', input('nt-r-repeat', d.repeat_s ? d.repeat_s / 60 : 0, ' type="number" min="0" step="5"'), 'While it stays active. 0 = once. At least 5.');
       }
+    } else if (kind === 'schedule') {
+      var reps = state.reports || [];
+      var rep = reps.find(function (x) { return x.id === d.report; }) || reps[0] || { days: [] };
+      html += '<div class="st-grid-2">' +
+        field('nt-r-report', 'Report', '<select id="nt-r-report" class="input">' + reps.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === rep.id ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join('') + '</select>') +
+        (rep.days.length ? field('nt-r-day', 'For', '<select id="nt-r-day" class="input">' + rep.days.map(function (dd) { return '<option value="' + dd + '"' + (dd === d.day ? ' selected' : '') + '>' + esc(DAY_LABEL[dd].charAt(0).toUpperCase() + DAY_LABEL[dd].slice(1)) + '</option>'; }).join('') + '</select>') : '<div></div>') +
+      '</div>';
+      html += field('nt-r-time', 'Send at', input('nt-r-time', d.time || '08:00', ' type="time"'), 'Local time on the server. Scheduled reports are sent during quiet hours too.');
+      var dsel = d.days || [];
+      html += '<fieldset class="nt-fieldset"><legend>On</legend><div class="nt-weekdays">' + [1, 2, 3, 4, 5, 6, 0].map(function (wd) {
+        return '<label class="nt-check"><input type="checkbox" name="nt-r-wd" value="' + wd + '"' + (!dsel.length || dsel.indexOf(wd) >= 0 ? ' checked' : '') + '> ' + WEEKDAYS[wd] + '</label>';
+      }).join('') + '</div></fieldset>';
+      if (rep.id === 'forecast') {
+        html += field('nt-r-below', 'Only send when the forecast is below (kWh)', input('nt-r-below', d.below_kwh || 0, ' type="number" min="0" step="0.5"'), '0 = send every time. Use it to be warned about a poor solar day ahead.');
+      }
     } else {
       html += field('nt-r-event', 'Event', '<select id="nt-r-event" class="input">' + eventOptions(d.event) + '</select>', (function () {
         var t = state.eventTypes.find(function (e) { return e.type === d.event; }); return t ? esc(t.description) : '';
@@ -390,14 +429,14 @@
       field('nt-r-sev', 'Severity', '<select id="nt-r-sev" class="input">' + (kind === 'event' ? '<option value="">Use the event\'s own</option>' : '') +
         ['info', 'warning', 'critical'].map(function (s) { return '<option value="' + s + '"' + (d.severity === s ? ' selected' : '') + '>' + SEVERITY_LABEL[s] + '</option>'; }).join('') + '</select>',
         'Critical alerts are sent during quiet hours too.') +
-      field('nt-r-cool', 'Wait before alerting again (minutes)', input('nt-r-cool', d.cooldown_s ? d.cooldown_s / 60 : 0, ' type="number" min="0" step="1"')) +
+      (kind === 'schedule' ? '<div></div>' : field('nt-r-cool', 'Wait before alerting again (minutes)', input('nt-r-cool', d.cooldown_s ? d.cooldown_s / 60 : 0, ' type="number" min="0" step="1"'))) +
       '</div>';
     var chosen = d.channels || [];
     html += '<fieldset class="nt-fieldset"><legend>Send to</legend><div class="nt-checks">' + (state.channels.length ? state.channels.map(function (c) {
       return '<label class="nt-check"><input type="checkbox" name="nt-r-ch" value="' + esc(c.id) + '"' + (chosen.indexOf(c.id) >= 0 ? ' checked' : '') + '> ' + esc(c.name) + ' <span class="nt-muted">' + esc(TYPE_LABEL[c.type]) + (c.enabled ? '' : ', off') + '</span></label>';
     }).join('') : '<span class="st-help nt-warn">Add a channel first (below Push devices).</span>') + '</div></fieldset>';
-    html += field('nt-r-msg', 'Custom message (optional)', input('nt-r-msg', d.message, ' maxlength="500"'),
-      kind === 'metric' ? 'Use {metric}, {value}, {threshold}, {previous} and {rule}.' : 'Use {message}, {subject}, {event} and {rule}.');
+    html += field('nt-r-msg', kind === 'schedule' ? 'Note above the report (optional)' : 'Custom message (optional)', input('nt-r-msg', d.message, ' maxlength="500"'),
+      { metric: 'Use {metric}, {value}, {threshold}, {previous} and {rule}.', event: 'Use {message}, {subject}, {event} and {rule}.', schedule: '' }[kind]);
     html += '<div class="st-toggle-row">' + toggle('nt-r-enabled', d.enabled !== false, 'Rule on') + '</div>';
     html += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-act="rule-save">Save rule</button><button type="button" class="st-btn" data-act="rule-cancel">Cancel</button></div>';
     return '<div class="nt-editor" id="nt-rule-editor"><h3 class="nt-editor-title">' + (editRule.id ? 'Edit rule' : 'New rule') + '</h3>' + html + '</div>';
@@ -421,6 +460,13 @@
       if (document.getElementById('nt-r-hyst')) d.hysteresis = val('nt-r-hyst');
       if (document.getElementById('nt-r-resolved')) d.notify_resolved = checked('nt-r-resolved');
       if (document.getElementById('nt-r-repeat')) d.repeat_s = Math.round((Number(val('nt-r-repeat')) || 0) * 60);
+    } else if (d.kind === 'schedule') {
+      d.report = val('nt-r-report') || d.report;
+      if (document.getElementById('nt-r-day')) d.day = val('nt-r-day');
+      d.time = val('nt-r-time');
+      var wds = Array.prototype.map.call(root.querySelectorAll('input[name="nt-r-wd"]:checked'), function (x) { return Number(x.value); });
+      d.days = wds.length === 7 ? [] : wds;
+      if (document.getElementById('nt-r-below')) d.below_kwh = val('nt-r-below');
     } else {
       d.event = val('nt-r-event');
       d.subject = val('nt-r-subject').trim();
@@ -571,6 +617,7 @@
       case 'rule-test': {
         var r = await api('POST', '/rules/' + encodeURIComponent(id) + '/test');
         var bad = (r.results || []).filter(function (x) { return !x.ok && !x.skipped; });
+        if (!bad.length && r.skipped) { toast('Sent. (On schedule it would be skipped today: ' + r.skipped + '.)'); return refreshLog(); }
         toast(bad.length ? 'Some channels failed: ' + bad.map(function (x) { return (x.name || x.id) + ' (' + x.error + ')'; }).join(', ') : 'Test sent to this rule\'s channels.', bad.length ? 'error' : null);
         return refreshLog();
       }
@@ -613,6 +660,11 @@
       syncRuleDraft(); render();
     } else if (el.id === 'nt-r-event') {
       syncRuleDraft(); render();
+    } else if (el.id === 'nt-r-report') {
+      syncRuleDraft();
+      var rp = (state.reports || []).find(function (x) { return x.id === editRule.draft.report; });
+      if (rp && rp.days.indexOf(editRule.draft.day) < 0) editRule.draft.day = rp.days[0] || '';
+      render();
     }
   });
 

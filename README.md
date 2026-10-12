@@ -229,15 +229,20 @@ Epilykos can be installed as a **Progressive Web App** — on your phone or desk
 - **Telegram**: create a bot with @BotFather, paste its token, message the bot, then press *Find chat*.
 - **Discord**: paste a channel webhook URL. It can optionally mention @here on critical alerts.
 - **ntfy**: ntfy.sh or your own server. Turn on *Server is on my local network* for a LAN server.
+- **Webhook**: the alert is POSTed as JSON (`source, title, message, severity, tag, url, timestamp`, plus `event` or `rule`) to Home Assistant, n8n, Node-RED or your own script. An optional Authorization header can be added.
 
 Each **rule** picks its channels and watches either:
 
 - **A metric**: above, below, equals (text works too, e.g. a grid status of `off`), changes, or has not updated for N minutes. Options: *for at least* to ignore spikes, a resolve margin, back-to-normal alerts, reminders and a cooldown.
-- **An event**: grid outage or restored, a source stops or starts responding, MQTT broker drops or reconnects, PVOutput alert, snapshot failed, server started. Wildcards such as `source.*` match a whole group.
+- **An event**: grid outage or restored, a source stops or starts responding, MQTT broker drops or reconnects, solar forecast unavailable (e.g. Solcast quota used up), PVOutput alert, snapshot failed, server started. Wildcards such as `source.*` match a whole group.
+- **A schedule**: a daily energy summary (today or yesterday), the solar forecast (tomorrow or today, optionally only when it is below N kWh — a "poor solar day ahead" warning), or the live status, at a set time on chosen weekdays. Scheduled reports are sent during quiet hours too.
+
+Turn on *Answer commands in this chat* on a Telegram channel to ask the bot `/status`, `/today`, `/yesterday` or `/forecast`; only that chat gets answers.
+Rule state (what is firing, cooldowns, the last scheduled run) survives restarts, so a restart neither repeats an alert nor sends a report twice.
 
 Quiet hours hold back everything except critical alerts. Every delivery is listed under *History*.
 Push needs Epilykos on an `https://` address (see [Reverse Proxy](#reverse-proxy)); on iPhone and iPad, add it to the Home Screen first.
-Bot tokens, webhook URLs and push keys are encrypted at rest, and the whole Notifications section is admin-only.
+Bot tokens, webhook URLs, Authorization headers and push keys are encrypted at rest, and the whole Notifications section is admin-only.
 
 ## Key Features
 
