@@ -119,6 +119,9 @@ function handleEvent(event) {
 // ── Source health → source.offline / source.online ──────────────────
 
 const OFFLINE_AFTER_FAILURES = 3;
+// PollingManager source ids → names people recognise (the id stays the event subject).
+const SOURCE_LABELS = { ha: 'Home Assistant', modbus: 'Modbus', tuya: 'Tuya', rs232: 'RS232', history: 'History logger', grid: 'Grid status' };
+const sourceLabel = (id) => SOURCE_LABELS[id] || id;
 const sourceHealth = new Map(); // sourceId → { failures, offline, since }
 
 function noteSourceResult(sourceId, ok, error) {
@@ -126,7 +129,7 @@ function noteSourceResult(sourceId, ok, error) {
   if (ok) {
     if (h.offline) {
       const down = Math.max(60, Math.floor(Date.now() / 1000) - h.since);
-      events.emitEvent('source.online', { subject: sourceId, message: `${sourceId} is responding again after ${rules.fmtMinutes(down)}.` });
+      events.emitEvent('source.online', { subject: sourceId, message: `${sourceLabel(sourceId)} is responding again after ${rules.fmtMinutes(down)}.` });
     }
     sourceHealth.set(sourceId, { failures: 0, offline: false, since: 0 });
     return;
@@ -136,7 +139,7 @@ function noteSourceResult(sourceId, ok, error) {
     h.offline = true;
     h.since = Math.floor(Date.now() / 1000);
     const reason = error && error.message ? error.message : (error ? String(error) : 'no response');
-    events.emitEvent('source.offline', { subject: sourceId, message: `${sourceId} failed ${h.failures} polls in a row: ${reason}` });
+    events.emitEvent('source.offline', { subject: sourceId, message: `${sourceLabel(sourceId)} failed ${h.failures} polls in a row: ${reason}` });
   }
   sourceHealth.set(sourceId, h);
 }
@@ -155,9 +158,11 @@ async function buildReport(rule) {
   if (rule.report === 'forecast' && Number(rule.below_kwh) > 0) {
     if (r.data.kwh === null) skip = 'no forecast available';
     else if (r.data.kwh >= Number(rule.below_kwh)) skip = `forecast ${r.data.kwh} kWh is not below ${rule.below_kwh} kWh`;
-    else r.title = `Low solar: ${r.title}`;
   }
-  return { title: rule.name && rule.report !== 'forecast' ? rule.name : r.title, body: rule.message ? `${rule.message}\n\n${r.body}` : r.body, skip };
+  // The rule's own name is the title; the report's title ("Tomorrow's solar
+  // forecast") leads the body so the day is never ambiguous.
+  const body = [rule.message, rule.name ? r.title : null, r.body].filter(Boolean).join('\n');
+  return { title: rule.name || r.title, body, skip };
 }
 
 /** Run every schedule rule due at `date` (local time). Returns the rules run. */

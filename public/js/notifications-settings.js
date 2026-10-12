@@ -145,10 +145,20 @@
   // ── Small view helpers ───────────────────────────────────────────────
   function fmtTime(ts) { return ts ? new Date(ts * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'; }
   function pill(text, tone) { return '<span class="st-pill is-' + tone + '"><span class="st-pill-dot"></span>' + esc(text) + '</span>'; }
-  function sevPill(sev) { return '<span class="nt-sev nt-sev-' + esc(sev || 'info') + '">' + esc(SEVERITY_LABEL[sev] || 'From event') + '</span>'; }
+  function sevBadge(sev) { return '<span class="st-badge nt-sev-' + esc(sev || 'event') + '">' + esc(SEVERITY_LABEL[sev] || 'Event\'s own') + '</span>'; }
   function toggle(id, checked, label, extra) {
     return '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + (extra || '') + '><span class="slider"></span></label><label for="' + id + '">' + esc(label) + '</label></span>';
   }
+  /** One switch in a multi-select list (name/value like a checkbox group). */
+  function toggleItem(name, value, on, label, sub) {
+    var id = name + '-' + String(value).replace(/[^\w-]/g, '_');
+    return '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '" name="' + name + '" value="' + esc(value) + '"' + (on ? ' checked' : '') + '><span class="slider"></span></label>' +
+      '<label for="' + id + '">' + esc(label) + (sub ? ' <span class="nt-muted">' + esc(sub) + '</span>' : '') + '</label></span>';
+  }
+  function toggleList(name, items, legend, cls) {
+    return '<fieldset class="nt-fieldset"><legend>' + esc(legend) + '</legend><div class="nt-toggle-list' + (cls ? ' ' + cls : '') + '">' + items.join('') + '</div></fieldset>';
+  }
+  function checkedValues(name) { return Array.prototype.map.call(root.querySelectorAll('input[name="' + name + '"]:checked'), function (x) { return x.value; }); }
   function field(id, label, input, help) {
     return '<div class="st-field"><label for="' + id + '">' + esc(label) + '</label>' + input + (help ? '<span class="st-help">' + help + '</span>' : '') + '</div>';
   }
@@ -204,15 +214,15 @@
   function generalCard() {
     var s = state.settings, q = s.quiet_hours || {};
     return '<div class="st-card"><div class="st-card-head"><h2>General</h2></div>' +
-      '<div class="st-toggle-row">' + toggle('nt-enabled', s.enabled, 'Send notifications') + '</div>' +
-      '<div class="st-toggle-row">' + toggle('nt-quiet', q.enabled, 'Quiet hours') + '</div>' +
-      '<div class="st-grid-2">' +
-        field('nt-quiet-start', 'Quiet from', input('nt-quiet-start', q.start, ' type="time"')) +
-        field('nt-quiet-end', 'Until', input('nt-quiet-end', q.end, ' type="time"')) +
-      '</div>' +
+      '<div class="st-toggle-row">' + toggle('nt-enabled', s.enabled, 'Send notifications', ' data-general') + '</div>' +
+      '<div class="st-toggle-row">' + toggle('nt-quiet', q.enabled, 'Quiet hours', ' data-general') + '</div>' +
+      (q.enabled ? '<div class="st-grid-2">' +
+        field('nt-quiet-start', 'Quiet from', input('nt-quiet-start', q.start, ' type="time" data-general')) +
+        field('nt-quiet-end', 'Until', input('nt-quiet-end', q.end, ' type="time" data-general')) +
+      '</div>' : '') +
       '<p class="st-help nt-gap">During quiet hours only critical alerts are sent; the rest are noted in History.</p>' +
-      field('nt-base-url', 'Dashboard address for links', input('nt-base-url', s.base_url, ' type="url" placeholder="https://energy.example.com"'), 'Telegram, Discord and ntfy messages link here. Leave empty for no link.') +
-      '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-act="save-general">Save</button></div></div>';
+      field('nt-base-url', 'Dashboard address for links', input('nt-base-url', s.base_url, ' type="url" data-general placeholder="https://energy.example.com"'), 'Telegram, Discord, ntfy and webhook messages link here. Leave empty for no link.') +
+      '<p class="st-help">Changes here save on their own.</p></div>';
   }
 
   function devicesCard() {
@@ -227,7 +237,7 @@
       here = '<p class="st-help">' + esc(why) + '</p>';
     } else if (cur) {
       here = '<p class="st-help">This device gets push notifications as <strong>' + esc(cur.label) + '</strong>.</p>' +
-        '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="device-test" data-id="' + esc(cur.id) + '">Send test</button><button type="button" class="st-btn st-btn-danger-text" data-act="push-off" data-id="' + esc(cur.id) + '">Turn off on this device</button></div>';
+        '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="device-test" data-id="' + esc(cur.id) + '">Test</button><button type="button" class="st-btn st-btn-danger-text" data-act="push-off" data-id="' + esc(cur.id) + '">Turn off on this device</button></div>';
     } else {
       here = (thisDevice.permission === 'denied' ? '<p class="st-help nt-warn">Notifications are blocked for this site in the browser settings.</p>' : '') +
         '<div class="nt-row-form">' + field('nt-device-label', 'Name for this device', input('nt-device-label', '', ' placeholder="e.g. My phone" maxlength="60"')) +
@@ -249,18 +259,16 @@
     var items = state.channels.map(function (c) {
       if (editChannel && editChannel.id === c.id) return '<li class="nt-item nt-item-editing">' + channelEditor() + '</li>';
       return '<li class="nt-item"><div class="nt-item-text"><span class="nt-item-name">' + esc(c.name) + '</span><span class="nt-item-sub">' + esc(TYPE_LABEL[c.type] || c.type) + ' · ' + channelSummary(c) + '</span></div>' +
-        (c.enabled ? pill('On', 'ok') : pill('Off', 'off')) +
+        '<span class="toggle-wrap"><label class="toggle-switch" title="Channel on/off"><input type="checkbox" data-act="channel-toggle" data-id="' + esc(c.id) + '"' + (c.enabled ? ' checked' : '') + ' aria-label="' + esc(c.name) + ' on"><span class="slider"></span></label></span>' +
         '<div class="nt-item-actions"><button type="button" class="st-btn" data-act="channel-edit" data-id="' + esc(c.id) + '">Edit</button>' +
         '<button type="button" class="st-btn" data-act="channel-test-saved" data-id="' + esc(c.id) + '">Test</button>' +
         '<button type="button" class="st-btn st-btn-danger-text" data-act="channel-delete" data-id="' + esc(c.id) + '">Delete</button></div></li>';
     }).join('');
     var adding = editChannel && !editChannel.id ? '<div class="nt-editor-wrap">' + channelEditor() + '</div>' : '';
-    return '<div class="st-card"><div class="st-card-head"><h2>Channels</h2></div>' +
+    return '<div class="st-card"><div class="st-card-head"><h2>Channels</h2>' +
+        '<button type="button" class="st-btn st-btn-primary" data-act="channel-pick"' + (editChannel ? ' disabled' : '') + '>' + plusIcon() + 'Add channel</button></div>' +
       '<p class="st-help">Where alerts go. Each rule picks one or more channels.</p>' +
-      (items ? '<ul class="nt-list">' + items + '</ul>' : '<p class="st-help">No channels yet.</p>') + adding +
-      '<div class="st-inline-actions"><span class="nt-add-label">Add:</span>' +
-        ['telegram', 'discord', 'ntfy', 'webpush', 'webhook'].map(function (t) { return '<button type="button" class="st-btn" data-act="channel-new" data-type="' + t + '">' + esc(TYPE_LABEL[t]) + '</button>'; }).join('') +
-      '</div></div>';
+      adding + (items ? '<ul class="nt-list">' + items + '</ul>' : (adding ? '' : '<p class="st-help">No channels yet.</p>')) + '</div>';
   }
 
   function channelEditor() {
@@ -292,17 +300,16 @@
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Address is on my local network') + '</div>';
     } else if (t === 'webpush') {
       var all = cfg.devices === 'all';
-      html += '<fieldset class="nt-fieldset"><legend>Send to</legend>' +
-        '<label class="nt-check"><input type="radio" name="nt-ch-devmode" value="all"' + (all ? ' checked' : '') + '> All devices, including ones added later</label>' +
-        '<label class="nt-check"><input type="radio" name="nt-ch-devmode" value="some"' + (!all ? ' checked' : '') + '> Only these devices:</label>' +
-        '<div class="nt-checks nt-indent">' + (state.devices.length ? state.devices.map(function (dv) {
-          var on = Array.isArray(cfg.devices) && cfg.devices.indexOf(dv.id) >= 0;
-          return '<label class="nt-check"><input type="checkbox" name="nt-ch-dev" value="' + esc(dv.id) + '"' + (on ? ' checked' : '') + '> ' + esc(dv.label) + '</label>';
-        }).join('') : '<span class="st-help">No devices yet — turn on push on a device above.</span>') + '</div></fieldset>';
+      html += '<div class="st-toggle-row">' + toggle('nt-ch-alldev', all, 'All devices, including ones added later', ' data-act="webpush-all"') + '</div>';
+      if (!all) {
+        html += state.devices.length
+          ? toggleList('nt-ch-dev', state.devices.map(function (dv) { return toggleItem('nt-ch-dev', dv.id, Array.isArray(cfg.devices) && cfg.devices.indexOf(dv.id) >= 0, dv.label); }), 'Send to these devices')
+          : '<p class="st-help nt-warn">No devices yet — turn on push on a device above.</p>';
+      }
     }
     html += '<div class="st-toggle-row">' + toggle('nt-ch-enabled', d.enabled !== false, 'Channel on') + '</div>';
     html += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-act="channel-save">Save channel</button>' +
-      '<button type="button" class="st-btn" data-act="channel-test">Send test</button>' +
+      '<button type="button" class="st-btn" data-act="channel-test">Test</button>' +
       '<button type="button" class="st-btn" data-act="channel-cancel">Cancel</button></div>';
     return '<div class="nt-editor" id="nt-channel-editor"><h3 class="nt-editor-title">' + esc((editChannel.id ? 'Edit ' : 'New ') + TYPE_LABEL[t] + ' channel') + '</h3>' + html + '</div>';
   }
@@ -313,10 +320,7 @@
     if (t === 'webhook') { cfg.webhook_url = val('nt-ch-webhook').trim(); cfg.auth_header = val('nt-ch-auth').trim(); cfg.allow_private = checked('nt-ch-private'); }
     if (t === 'discord') { cfg.webhook_url = val('nt-ch-webhook').trim(); cfg.mention_here = checked('nt-ch-here'); }
     if (t === 'ntfy') { cfg.server_url = val('nt-ch-server').trim(); cfg.topic = val('nt-ch-topic').trim() || (document.getElementById('nt-ch-topic') || {}).placeholder || ''; cfg.token = val('nt-ch-token').trim(); cfg.allow_private = checked('nt-ch-private'); }
-    if (t === 'webpush') {
-      var mode = root.querySelector('input[name="nt-ch-devmode"]:checked');
-      cfg.devices = mode && mode.value === 'all' ? 'all' : Array.prototype.map.call(root.querySelectorAll('input[name="nt-ch-dev"]:checked'), function (x) { return x.value; });
-    }
+    if (t === 'webpush') cfg.devices = checked('nt-ch-alldev') ? 'all' : checkedValues('nt-ch-dev');
     return { id: editChannel.id || undefined, type: t, name: val('nt-ch-name').trim(), enabled: checked('nt-ch-enabled'), config: cfg };
   }
 
@@ -341,22 +345,17 @@
   function rulesCard() {
     var items = state.rules.map(function (r) {
       if (editRule && editRule.id === r.id) return '<li class="nt-item nt-item-editing">' + ruleEditor() + '</li>';
-      return '<li class="nt-item"><div class="nt-item-text"><span class="nt-item-name">' + esc(r.name) + ' ' + sevPill(r.severity) + '</span><span class="nt-item-sub">' + ruleSummary(r) + '</span></div>' +
+      return '<li class="nt-item"><div class="nt-item-text"><span class="nt-item-name">' + esc(r.name) + ' ' + sevBadge(r.severity) + '</span><span class="nt-item-sub">' + ruleSummary(r) + '</span></div>' +
         '<span class="toggle-wrap"><label class="toggle-switch" title="Rule on/off"><input type="checkbox" data-act="rule-toggle" data-id="' + esc(r.id) + '"' + (r.enabled ? ' checked' : '') + ' aria-label="' + esc(r.name) + ' on"><span class="slider"></span></label></span>' +
         '<div class="nt-item-actions"><button type="button" class="st-btn" data-act="rule-edit" data-id="' + esc(r.id) + '">Edit</button>' +
         '<button type="button" class="st-btn" data-act="rule-test" data-id="' + esc(r.id) + '">Test</button>' +
         '<button type="button" class="st-btn st-btn-danger-text" data-act="rule-delete" data-id="' + esc(r.id) + '">Delete</button></div></li>';
     }).join('');
     var adding = editRule && !editRule.id ? '<div class="nt-editor-wrap">' + ruleEditor() + '</div>' : '';
-    var presets = [['grid-off', 'Grid outage'], ['grid-on', 'Grid restored'], ['battery-low', 'Battery low'], ['source-offline', 'Source offline'], ['stale', 'Data stopped updating'],
-      ['summary', 'Evening summary'], ['low-solar', 'Low solar tomorrow'], ['forecast-down', 'Forecast unavailable'],
-      ['metric', 'Custom metric rule'], ['event', 'Custom event rule'], ['schedule', 'Custom scheduled report']];
-    return '<div class="st-card"><div class="st-card-head"><h2>Alert rules</h2></div>' +
+    return '<div class="st-card"><div class="st-card-head"><h2>Alert rules</h2>' +
+        '<button type="button" class="st-btn st-btn-primary" data-act="rule-pick"' + (editRule ? ' disabled' : '') + '>' + plusIcon() + 'Add rule</button></div>' +
       '<p class="st-help">A rule watches any metric or any event, or sends a report on a schedule, to the channels you pick.</p>' +
-      (items ? '<ul class="nt-list">' + items + '</ul>' : '<p class="st-help">No rules yet. Start from one of these:</p>') + adding +
-      '<div class="st-inline-actions"><span class="nt-add-label">Add:</span>' + presets.map(function (p) {
-        return '<button type="button" class="st-btn" data-act="rule-new" data-preset="' + p[0] + '">' + esc(p[1]) + '</button>';
-      }).join('') + '</div></div>';
+      adding + (items ? '<ul class="nt-list">' + items + '</ul>' : (adding ? '' : '<p class="st-help">No rules yet. Add one to get alerts.</p>')) + '</div>';
   }
 
   function eventOptions(selected) {
@@ -380,10 +379,10 @@
   function ruleEditor() {
     var d = editRule.draft, kind = d.kind || 'metric', html = '';
     html += field('nt-r-name', 'Name', input('nt-r-name', d.name, ' maxlength="80" placeholder="e.g. Battery low"'));
-    html += '<div class="st-field"><span class="nt-label">Watch</span><div class="st-seg nt-seg" role="radiogroup">' +
-      '<button type="button" role="radio" data-act="rule-kind" data-kind="metric" aria-checked="' + (kind === 'metric') + '">A metric</button>' +
-      '<button type="button" role="radio" data-act="rule-kind" data-kind="event" aria-checked="' + (kind === 'event') + '">An event</button>' +
-      '<button type="button" role="radio" data-act="rule-kind" data-kind="schedule" aria-checked="' + (kind === 'schedule') + '">On a schedule</button></div></div>';
+    html += '<div class="st-field"><span class="nt-label" id="nt-r-kind-label">Watch</span><div class="st-seg nt-seg" role="radiogroup" aria-labelledby="nt-r-kind-label">' +
+      [['metric', 'A metric'], ['event', 'An event'], ['schedule', 'On a schedule']].map(function (k) {
+        return '<button type="button" role="radio" data-act="rule-kind" data-kind="' + k[0] + '" aria-checked="' + (kind === k[0]) + '" tabindex="' + (kind === k[0] ? '0' : '-1') + '">' + k[1] + '</button>';
+      }).join('') + '</div></div>';
     if (kind === 'metric') {
       var op = d.operator || 'gt';
       var info = metricInfo(d.metric);
@@ -413,9 +412,7 @@
       '</div>';
       html += field('nt-r-time', 'Send at', input('nt-r-time', d.time || '08:00', ' type="time"'), 'Local time on the server. Scheduled reports are sent during quiet hours too.');
       var dsel = d.days || [];
-      html += '<fieldset class="nt-fieldset"><legend>On</legend><div class="nt-weekdays">' + [1, 2, 3, 4, 5, 6, 0].map(function (wd) {
-        return '<label class="nt-check"><input type="checkbox" name="nt-r-wd" value="' + wd + '"' + (!dsel.length || dsel.indexOf(wd) >= 0 ? ' checked' : '') + '> ' + WEEKDAYS[wd] + '</label>';
-      }).join('') + '</div></fieldset>';
+      html += toggleList('nt-r-wd', [1, 2, 3, 4, 5, 6, 0].map(function (wd) { return toggleItem('nt-r-wd', wd, !dsel.length || dsel.indexOf(wd) >= 0, WEEKDAYS[wd]); }), 'On these days', 'nt-toggle-grid');
       if (rep.id === 'forecast') {
         html += field('nt-r-below', 'Only send when the forecast is below (kWh)', input('nt-r-below', d.below_kwh || 0, ' type="number" min="0" step="0.5"'), '0 = send every time. Use it to be warned about a poor solar day ahead.');
       }
@@ -428,13 +425,13 @@
     html += '<div class="st-grid-2">' +
       field('nt-r-sev', 'Severity', '<select id="nt-r-sev" class="input">' + (kind === 'event' ? '<option value="">Use the event\'s own</option>' : '') +
         ['info', 'warning', 'critical'].map(function (s) { return '<option value="' + s + '"' + (d.severity === s ? ' selected' : '') + '>' + SEVERITY_LABEL[s] + '</option>'; }).join('') + '</select>',
-        'Critical alerts are sent during quiet hours too.') +
+        kind === 'schedule' ? '' : 'Critical alerts are sent during quiet hours too.') +
       (kind === 'schedule' ? '<div></div>' : field('nt-r-cool', 'Wait before alerting again (minutes)', input('nt-r-cool', d.cooldown_s ? d.cooldown_s / 60 : 0, ' type="number" min="0" step="1"'))) +
       '</div>';
     var chosen = d.channels || [];
-    html += '<fieldset class="nt-fieldset"><legend>Send to</legend><div class="nt-checks">' + (state.channels.length ? state.channels.map(function (c) {
-      return '<label class="nt-check"><input type="checkbox" name="nt-r-ch" value="' + esc(c.id) + '"' + (chosen.indexOf(c.id) >= 0 ? ' checked' : '') + '> ' + esc(c.name) + ' <span class="nt-muted">' + esc(TYPE_LABEL[c.type]) + (c.enabled ? '' : ', off') + '</span></label>';
-    }).join('') : '<span class="st-help nt-warn">Add a channel first (below Push devices).</span>') + '</div></fieldset>';
+    html += state.channels.length
+      ? toggleList('nt-r-ch', state.channels.map(function (c) { return toggleItem('nt-r-ch', c.id, chosen.indexOf(c.id) >= 0, c.name, TYPE_LABEL[c.type] + (c.enabled ? '' : ', off')); }), 'Send to')
+      : '<p class="st-help nt-warn">Add a channel first (Channels, above).</p>';
     html += field('nt-r-msg', kind === 'schedule' ? 'Note above the report (optional)' : 'Custom message (optional)', input('nt-r-msg', d.message, ' maxlength="500"'),
       { metric: 'Use {metric}, {value}, {threshold}, {previous} and {rule}.', event: 'Use {message}, {subject}, {event} and {rule}.', schedule: '' }[kind]);
     html += '<div class="st-toggle-row">' + toggle('nt-r-enabled', d.enabled !== false, 'Rule on') + '</div>';
@@ -451,7 +448,7 @@
     d.cooldown_s = Math.round((Number(val('nt-r-cool')) || 0) * 60);
     d.message = val('nt-r-msg');
     d.enabled = checked('nt-r-enabled');
-    d.channels = Array.prototype.map.call(root.querySelectorAll('input[name="nt-r-ch"]:checked'), function (x) { return x.value; });
+    d.channels = checkedValues('nt-r-ch');
     if (d.kind === 'metric') {
       d.metric = val('nt-r-metric').trim();
       d.operator = val('nt-r-op') || d.operator;
@@ -464,7 +461,7 @@
       d.report = val('nt-r-report') || d.report;
       if (document.getElementById('nt-r-day')) d.day = val('nt-r-day');
       d.time = val('nt-r-time');
-      var wds = Array.prototype.map.call(root.querySelectorAll('input[name="nt-r-wd"]:checked'), function (x) { return Number(x.value); });
+      var wds = checkedValues('nt-r-wd').map(Number);
       d.days = wds.length === 7 ? [] : wds;
       if (document.getElementById('nt-r-below')) d.below_kwh = val('nt-r-below');
     } else {
@@ -512,19 +509,77 @@
     return r && r.value === 'save' ? r.form.querySelector('#nt-dlg-name').value : null;
   }
 
+  function plusIcon() { return shell.icon ? shell.icon('plus', 16) : ''; }
+
+  var CHANNEL_CHOICES = [
+    ['webpush', 'Push to devices', 'Notifications on the phones, tablets and computers where you turn push on.'],
+    ['telegram', 'Telegram', 'Messages from your own bot. It can also answer /status.'],
+    ['discord', 'Discord', 'Posts to a Discord channel through a webhook.'],
+    ['ntfy', 'ntfy', 'ntfy.sh or your own ntfy server, with its phone app.'],
+    ['webhook', 'Webhook', 'JSON to Home Assistant, n8n, Node-RED or your own script.']
+  ];
+  var RULE_CHOICES = [
+    ['Common alerts', [
+      ['grid-off', 'Grid outage', 'When the grid goes off. Critical, so it gets through quiet hours.'],
+      ['grid-on', 'Grid restored', 'When the grid comes back, with how long it was off.'],
+      ['battery-low', 'Battery low', 'When the battery charge stays under 20% for 5 minutes.'],
+      ['source-offline', 'Source offline', 'When a source stops answering, and when it is back.'],
+      ['stale', 'Data stopped updating', 'When a metric has had no new value for 15 minutes.'],
+      ['forecast-down', 'Forecast unavailable', 'When Solcast or Open-Meteo cannot be reached.']
+    ]],
+    ['Reports', [
+      ['summary', 'Evening summary', "Today's solar, usage, grid and savings at 21:00."],
+      ['low-solar', 'Low solar tomorrow', 'A warning in the evening when tomorrow looks poor.']
+    ]],
+    ['Build your own', [
+      ['metric', 'Metric rule', 'Any metric above, below, equal to a value, changing or not updating.'],
+      ['event', 'Event rule', 'Any event, or a whole group of them.'],
+      ['schedule', 'Scheduled report', 'A summary, forecast or status at a set time.']
+    ]]
+  ];
+
+  /** Picker dialog in the add-source style. Resolves the chosen value or null. */
+  async function pick(title, groups, name) {
+    var html = '<fieldset class="st-choices"><legend class="st-visually-hidden">' + esc(title) + '</legend>';
+    groups.forEach(function (g, gi) {
+      if (g[0]) html += '<p class="st-choice-group">' + esc(g[0]) + '</p>';
+      g[1].forEach(function (c, i) {
+        html += '<label class="st-choice"><input type="radio" name="' + name + '" value="' + esc(c[0]) + '" required' + (gi === 0 && i === 0 ? ' checked' : '') + '>' +
+          '<span><span class="st-choice-title">' + esc(c[1]) + '</span><span class="st-choice-desc">' + esc(c[2]) + '</span></span></label>';
+      });
+    });
+    var r = await shell.openDialog({ title: title, body: html + '</fieldset>', actions: [{ label: 'Cancel', value: null }, { label: 'Continue', value: 'ok', kind: 'primary' }] });
+    return r && r.value === 'ok' ? r.form.elements[name].value : null;
+  }
+
+  function startChannel(type) {
+    editChannel = { id: null, type: type, draft: { name: TYPE_LABEL[type], enabled: true, config: type === 'webpush' ? { devices: 'all' } : {} } };
+    render(); scrollToEditor('nt-channel-editor');
+  }
+  function startRule(preset) {
+    var draft = PRESETS[preset]();
+    draft.enabled = true;
+    draft.channels = defaultChannels();
+    editRule = { id: null, draft: draft };
+    render(); scrollToEditor('nt-rule-editor');
+  }
+
+  var generalTimer = null;
+  /** Save the General card (each control saves on change). */
+  async function saveGeneral() {
+    var body = { enabled: checked('nt-enabled'), quiet_hours: { enabled: checked('nt-quiet') }, base_url: val('nt-base-url').trim() };
+    if (document.getElementById('nt-quiet-start')) { body.quiet_hours.start = val('nt-quiet-start'); body.quiet_hours.end = val('nt-quiet-end'); }
+    var quietChanged = !!state.settings.quiet_hours.enabled !== body.quiet_hours.enabled;
+    state.settings = await api('PUT', '/settings', body);
+    toast('Saved.');
+    if (quietChanged) render(); // show or hide the quiet hours times
+  }
+
   // ── Actions ──────────────────────────────────────────────────────────
   async function onAction(act, el) {
     var id = el.dataset.id;
     switch (act) {
       case 'reload': return load();
-      case 'save-general': {
-        state.settings = await api('PUT', '/settings', {
-          enabled: checked('nt-enabled'),
-          quiet_hours: { enabled: checked('nt-quiet'), start: val('nt-quiet-start'), end: val('nt-quiet-end') },
-          base_url: val('nt-base-url').trim()
-        });
-        return toast('Notification settings saved.');
-      }
       case 'push-on': return enablePush();
       case 'push-off': return disablePush(id);
       case 'device-test': await api('POST', '/devices/' + encodeURIComponent(id) + '/test'); toast('Test sent. It should arrive in a few seconds.'); return refreshLog();
@@ -542,9 +597,11 @@
         await api('PATCH', '/devices/' + encodeURIComponent(id), { label: name.trim() });
         return load();
       }
-      case 'channel-new':
-        editChannel = { id: null, type: el.dataset.type, draft: { name: TYPE_LABEL[el.dataset.type], enabled: true, config: el.dataset.type === 'webpush' ? { devices: 'all' } : {} } };
-        render(); return scrollToEditor('nt-channel-editor');
+      case 'channel-pick': {
+        var type = await pick('Add a channel', [['', CHANNEL_CHOICES]], 'ntChannelType');
+        if (type) startChannel(type);
+        return;
+      }
       case 'channel-edit': {
         var ch = state.channels.find(function (c) { return c.id === id; });
         editChannel = { id: id, type: ch.type, draft: JSON.parse(JSON.stringify(ch)) };
@@ -588,12 +645,10 @@
         return;
       }
       case 'telegram-pick': document.getElementById('nt-ch-chat').value = el.dataset.chat; document.getElementById('nt-chats').innerHTML = ''; return;
-      case 'rule-new': {
-        var draft = PRESETS[el.dataset.preset]();
-        draft.enabled = true;
-        draft.channels = defaultChannels();
-        editRule = { id: null, draft: draft };
-        render(); return scrollToEditor('nt-rule-editor');
+      case 'rule-pick': {
+        var preset = await pick('Add a rule', RULE_CHOICES, 'ntRulePreset');
+        if (preset) startRule(preset);
+        return;
       }
       case 'rule-edit': editRule = { id: id, draft: JSON.parse(JSON.stringify(state.rules.find(function (r) { return r.id === id; }))) }; render(); return scrollToEditor('nt-rule-editor');
       case 'rule-cancel': editRule = null; return render();
@@ -608,6 +663,7 @@
       }
       case 'rule-save': {
         var rd = syncRuleDraft();
+        if (rd.kind === 'schedule' && !checkedValues('nt-r-wd').length) throw new Error('Pick at least one day.');
         if (editRule.id) await api('PUT', '/rules/' + encodeURIComponent(editRule.id), rd);
         else await api('POST', '/rules', rd);
         editRule = null;
@@ -650,12 +706,21 @@
 
   root.addEventListener('change', function (e) {
     var el = e.target;
-    if (el.dataset.act === 'rule-toggle') {
-      var r = state.rules.find(function (x) { return x.id === el.dataset.id; });
-      if (!r) return;
-      api('PUT', '/rules/' + encodeURIComponent(r.id), Object.assign({}, r, { enabled: el.checked }))
-        .then(function (saved) { Object.assign(r, saved); toast(saved.enabled ? 'Rule on.' : 'Rule off.'); })
+    if (el.dataset.act === 'rule-toggle' || el.dataset.act === 'channel-toggle') {
+      var isRule = el.dataset.act === 'rule-toggle';
+      var item = (isRule ? state.rules : state.channels).find(function (x) { return x.id === el.dataset.id; });
+      if (!item) return;
+      api('PATCH', (isRule ? '/rules/' : '/channels/') + encodeURIComponent(item.id), { enabled: el.checked })
+        .then(function (saved) { item.enabled = saved.enabled; toast((isRule ? 'Rule ' : 'Channel ') + (saved.enabled ? 'on.' : 'off.')); })
         .catch(function (err) { el.checked = !el.checked; toast(err.message, 'error'); });
+    } else if (el.hasAttribute('data-general')) {
+      clearTimeout(generalTimer);
+      generalTimer = setTimeout(function () {
+        saveGeneral().catch(function (err) { toast(err.message, 'error'); });
+      }, el.type === 'checkbox' ? 0 : 300);
+    } else if (el.dataset.act === 'webpush-all') {
+      editChannel.draft = Object.assign(editChannel.draft, readChannelForm());
+      render();
     } else if (el.dataset.act === 'rule-op') {
       syncRuleDraft(); render();
     } else if (el.id === 'nt-r-event') {
@@ -675,8 +740,19 @@
     if (hint) hint.textContent = info ? (info.value != null ? 'Now: ' + info.value + (info.unit ? ' ' + info.unit : '') : 'No current value') : '';
   });
 
-  // Enter in a field must not submit anything else on the page.
+  // Enter in a field must not submit anything else on the page; arrows move
+  // within the Watch control like the theme picker.
   root.addEventListener('keydown', function (e) {
+    var seg = e.target.closest && e.target.closest('.nt-seg');
+    if (seg && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      var opts = Array.prototype.slice.call(seg.querySelectorAll('[role="radio"]'));
+      var i = opts.indexOf(e.target);
+      var next = opts[(i + (e.key === 'ArrowRight' ? 1 : opts.length - 1)) % opts.length];
+      e.preventDefault();
+      run('rule-kind', next);
+      setTimeout(function () { var b = root.querySelector('.nt-seg [aria-checked="true"]'); if (b) b.focus(); }, 0);
+      return;
+    }
     if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'radio') e.preventDefault();
   });
 

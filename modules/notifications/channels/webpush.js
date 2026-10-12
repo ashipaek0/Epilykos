@@ -41,7 +41,7 @@ async function send(config, msg, deps) {
   const err = validate(config);
   if (err) throw new Error(err);
   const list = targets(config, deps.getDevices());
-  if (!list.length) throw new Error('No subscribed devices for this channel — enable push on a device first');
+  if (!list.length) throw Object.assign(new Error('No subscribed devices for this channel — enable push on a device first'), { permanent: true });
   const sendNotification = deps.sendNotification || webpush.sendNotification.bind(webpush);
   const options = {
     TTL: TTL[msg.severity] || TTL.info,
@@ -68,7 +68,7 @@ async function send(config, msg, deps) {
     }
   }));
   // Partial delivery counts as sent; every device failing is an error.
-  if (!delivered) throw new Error(failures.join('; '));
+  if (!delivered) throw Object.assign(new Error(failures.join('; ')), { permanent: failures.every(f => f.includes('expired')) });
   return { delivered, failures };
 }
 
