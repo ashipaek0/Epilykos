@@ -178,3 +178,46 @@ test('deleting a channel removes it from rules; test endpoint uses unsaved edits
   assert.ok(store.getRules().every(r => !r.channels.includes(tg.id)));
   assert.ok(store.getChannels().some(c => c.id === push.id));
 });
+
+test('on/off PATCH works even for a rule left without channels', async () => {
+  const list = store.getRules();
+  list.push({ id: 'orphan', kind: 'event', name: 'Orphan', enabled: true, event: 'grid.off', channels: [] });
+  store.saveRules(list);
+  const r = await call('PATCH', '/rules/orphan', { enabled: false });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(store.getRules().find(x => x.id === 'orphan').enabled, false);
+  const c = await call('PATCH', `/channels/${push.id}`, { enabled: false });
+  assert.strictEqual(c.body.enabled, false);
+  assert.strictEqual((await call('PATCH', '/rules/nope', { enabled: true })).status, 404);
+});
+
+test('settings PUT changes only what was sent', async () => {
+  await call('PUT', '/settings', { enabled: true, quiet_hours: { enabled: true, start: '23:00', end: '06:00' }, base_url: 'https://e.example' });
+  const r = await call('PUT', '/settings', { enabled: false });
+  assert.deepStrictEqual(r.body.quiet_hours, { enabled: true, start: '23:00', end: '06:00' });
+  assert.strictEqual(r.body.base_url, 'https://e.example');
+  await call('PUT', '/settings', { enabled: true, quiet_hours: { enabled: false }, base_url: '' });
+});
+
+test('an expired device is dropped from the channels that listed it', () => {
+  store.saveDevices([{ id: 'dx', label: 'Old', endpoint: 'https://8.8.8.8/x', keys: {} }]);
+  store.saveChannels([...store.getChannels(), { id: 'chx', type: 'webpush', name: 'Old only', enabled: true, config: { devices: ['dx'] } }]);
+  store.removeDevice('dx');
+  assert.deepStrictEqual(store.getChannels().find(c => c.id === 'chx').config.devices, []);
+  assert.ok(!store.getDevices().some(d => d.id === 'dx'));
+});
+
+test('a refused send (4xx) is not retried; 5xx is', async () => {
+  const { sendToChannel } = require('../modules/notifications/dispatcher');
+  const real = CHANNEL_TYPES.ntfy.send;
+  let calls = 0;
+  CHANNEL_TYPES.ntfy.send = async () => { calls++; throw Object.assign(new Error('ntfy 403'), { permanent: true }); };
+  const r = await sendToChannel({ type: 'ntfy', config: { topic: 't' } }, { title: 'x' });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(calls, 1);
+  CHANNEL_TYPES.ntfy.send = real;
+  const { httpError } = require('../modules/notifications/channels/http');
+  assert.strictEqual((await httpError('X', { status: 401, json: async () => ({}) })).permanent, true);
+  assert.strictEqual((await httpError('X', { status: 429, json: async () => ({}) })).permanent, false);
+  assert.strictEqual((await httpError('X', { status: 503, json: async () => ({}) })).permanent, false);
+});

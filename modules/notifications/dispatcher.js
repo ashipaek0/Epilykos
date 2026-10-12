@@ -44,7 +44,7 @@ function channelDeps(channel) {
     vapid: store.getVapid(),
     getDevices: store.getDevices,
     removeDevice(id) {
-      store.saveDevices(store.getDevices().filter(d => d.id !== id));
+      store.removeDevice(id);
       logger.info(`notifications: removed expired push device ${id}`);
     },
     markDevice(id, ok) {
@@ -72,8 +72,8 @@ async function sendToChannel(channel, message, opts = {}) {
       return { ok: true, error: partial };
     } catch (e) {
       lastErr = e;
-      // Configuration errors will not fix themselves; don't retry them.
-      if (mod.validate && mod.validate(channel.config || {})) break;
+      // Bad settings and refusals (bad token, chat not found) won't fix themselves.
+      if (e.permanent || (mod.validate && mod.validate(channel.config || {}))) break;
       if (attempt < delays.length) await sleep(delays[attempt]);
     }
   }

@@ -6,6 +6,7 @@
  */
 
 const { safeFetch } = require('../../utils');
+const { postJson } = require('./http');
 
 const PRIORITY = { info: 3, warning: 4, critical: 5 };
 const TAGS = { info: ['information_source'], warning: ['warning'], critical: ['rotating_light'] };
@@ -42,18 +43,7 @@ async function send(config, msg, deps = {}) {
   if (err) throw new Error(err);
   const fetchImpl = deps.fetch || ((url, init) => safeFetch(url, init, { allowPrivate: !!config.allow_private }));
   const { url, headers, body } = buildRequest(config, msg);
-  let res;
-  try {
-    res = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-  } catch (e) {
-    // Name the host, never the URL (Telegram's and Discord's carry the secret).
-    throw new Error(`Could not reach ${new URL(url).host}: ${e.message}`);
-  }
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json()).error || ''; } catch (_) { /* not JSON */ }
-    throw new Error(`ntfy ${res.status}${detail ? ': ' + detail : ''}`);
-  }
+  await postJson(fetchImpl, url, body, { headers, label: 'ntfy', detailKey: 'error' });
 }
 
 module.exports = { type: 'ntfy', label: 'ntfy', secretFields: ['token'], validate, buildRequest, send };

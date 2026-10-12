@@ -124,8 +124,8 @@ test('scheduled forecast report honours "only below"', async () => {
   sent.length = 0;
   assert.strictEqual((await notifications.runSchedules(at(19, 1))).length, 1);
   assert.strictEqual(sent.length, 1);
-  assert.strictEqual(sent[0].msg.title, "Low solar: Tomorrow's solar forecast");
-  assert.match(sent[0].msg.body, /Expected: 3\.2 kWh \(peak 1\.1 kW\)/);
+  assert.strictEqual(sent[0].msg.title, 'Low solar tomorrow', 'the rule name is the title');
+  assert.match(sent[0].msg.body, /^Tomorrow's solar forecast\n☀️ Expected: 3\.2 kWh \(peak 1\.1 kW\)/, 'report title leads the body');
   assert.strictEqual((await notifications.runSchedules(at(19, 2))).length, 0, 'once a day');
   assert.strictEqual(store.getState().schedule.sf, today, 'last run persisted');
 
@@ -144,6 +144,7 @@ test('scheduled reports go out during quiet hours', async () => {
   await notifications.runSchedules(at(0, 30));
   assert.strictEqual(sent.length, 1);
   assert.strictEqual(sent[0].msg.title, 'Evening summary');
+  assert.match(sent[0].msg.body, /^Today's energy\n/);
   store.saveSettings({ ...store.getSettings(), quiet_hours: { enabled: false, start: '22:00', end: '07:00' } });
   store.saveRules([]);
 });
@@ -212,4 +213,34 @@ test('telegram poller starts only for channels with commands on, and stops', asy
   store.saveChannels([{ ...TG, enabled: false, config: { ...TG.config, commands: true } }]);
   bot.sync();
   assert.strictEqual(bot._pollers.size, 0, 'disabled channel: poller stopped');
+});
+
+test('telegram: in a group, commands addressed to another bot are ignored', async () => {
+  sent.length = 0;
+  const poller = { username: 'EpilykosBot', chats: new Map() };
+  const msg = (text) => ({ message: { chat: { id: 42, type: 'group' }, text } });
+  assert.strictEqual(await bot.handleUpdate(TG.config, msg('/status@OtherBot'), poller), false);
+  assert.strictEqual(await bot.handleUpdate(TG.config, msg('/status@EpilykosBot'), poller), true);
+  assert.strictEqual(await bot.handleUpdate(TG.config, { edited_message: { chat: { id: 42 }, text: '/status' } }, poller), false, 'edits are not re-answered');
+  assert.strictEqual(sent.length, 1);
+});
+
+test('status report shows one signed battery power line', async () => {
+  setConfig('role_metrics', JSON.stringify({ battery_charge: 'Battery Power', battery_discharge: 'Battery Power', grid_import: 'Grid Power' }));
+  const now = Math.floor(Date.now() / 1000);
+  getDb().prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)').run('Battery Power', -650, now, 'W');
+  getDb().prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)').run('Grid Power', 0, now, 'W');
+  const r = await reports.statusReport();
+  assert.match(r.body, /🔋 Battery power: -650 W/);
+  assert.ok(!/Charging|Discharging/.test(r.body));
+  assert.ok(!/Grid import/.test(r.body), 'zero flows are left out');
+});
+
+test('source events use friendly names', () => {
+  const { onEvent } = require('../modules/notifications/events');
+  let msg = '';
+  const off = onEvent(e => { if (e.type === 'source.offline') msg = e.message; });
+  for (let i = 0; i < 3; i++) notifications.noteSourceResult('ha', false, new Error('timeout'));
+  off();
+  assert.match(msg, /^Home Assistant failed 3 polls in a row: timeout/);
 });
