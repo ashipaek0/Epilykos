@@ -11,7 +11,9 @@ export function buildSwitchBlock(block = {}) {
   const container = document.createElement('div');
   container.className = 'switch-block';
   container.dataset.blockId = id;
-  container.dataset.metric = config.entity || '';
+  // The state comes from the metric (HA and MQTT entities are an entity id or
+  // topic, not the metric name); older cards only have `entity`.
+  container.dataset.metric = config.metric || config.entity || '';
 
   const label = escapeHtml(config.label || config.entity || 'Switch');
   const onIcon = config.onIcon || '';
@@ -75,12 +77,14 @@ export function buildSwitchBlock(block = {}) {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({
+        body: JSON.stringify(Object.assign({
           source: this.dataset.source,
           device: this.dataset.device,
           action: this.dataset.action,
           entity: this.dataset.entity
-        })
+        // Tuya sets a DP to a value (without one it can only switch on).
+        // Home Assistant would pass params on as service data, so only Tuya gets it.
+        }, this.dataset.source === 'tuya' ? { params: { value: this.checked } } : {}))
       });
       const data = await res.json();
       if (!res.ok || data.error) {

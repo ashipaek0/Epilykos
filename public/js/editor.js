@@ -22,6 +22,7 @@ var inspectorTab = 'data';       // data | style | layout
 var availableMetrics = [];       // metric names from dashboard state
 var metricsPromise = null;       // fetched once per editor session
 var availableRestSources = [];   // REST source names from /api/settings external_sources (S3)
+var switchables = [];            // what a toggle card can switch (/api/switchable-entities)
 var readOnly = false;
 // The Controls page's own layout (switch and selector cards only), edited
 // like a dashboard but saved to /api/controls/layout. Null when signed out.
@@ -1360,13 +1361,14 @@ function buildSwitchBlockForm(block) {
   var html = '<fieldset data-ui="section">';
   html += '<legend data-ui="legend">Toggle Switch Config</legend>';
   html += '<div data-ui="row">';
-  html += '<span data-ui="row-label">Entity</span>';
-  html += '<div data-ui="grow">' + metricSelect(cfg.entity || '', 'modal-switch-entity') + '</div>';
+  html += '<span data-ui="row-label">Switch</span>';
+  html += '<div data-ui="grow">' + switchableSelect(cfg) + '</div>';
   html += '</div>';
-  html += '<div data-ui="row">';
-  html += '<span data-ui="row-label">Source</span>';
-  html += '<input type="text" id="modal-switch-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" data-ui="input grow">';
-  html += '</div>';
+  if (!switchables.length) html += '<p data-ui="hint">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first.</p>';
+  html += '<input type="hidden" id="modal-switch-source" value="' + escHtml(cfg.source || 'ha') + '">';
+  html += '<input type="hidden" id="modal-switch-device" value="' + escHtml(cfg.device || '') + '">';
+  html += '<input type="hidden" id="modal-switch-entity" value="' + escHtml(cfg.entity || '') + '">';
+  html += '<input type="hidden" id="modal-switch-metric" value="' + escHtml(cfg.metric || '') + '">';
   html += '<label data-ui="field">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<label data-ui="field">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" data-ui="input"></label>';
   html += '<div data-ui="grid2">';
@@ -1377,6 +1379,52 @@ function buildSwitchBlockForm(block) {
   html += '</div>';
   html += '</fieldset>';
   return html;
+}
+
+/** Switch picker: one option per controllable entity, grouped by source and device. */
+function switchKey(s) { return [s.source, s.device || '', s.entity].join('\u001f'); }
+function switchableSelect(cfg) {
+  var current = cfg.entity ? switchKey({ source: cfg.source || 'ha', device: cfg.device || '', entity: cfg.entity }) : '';
+  var groups = {}, order = [], found = false;
+  switchables.forEach(function(s, i) {
+    if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
+    groups[s.group].push(i);
+  });
+  var html = '<select id="modal-switch-pick" data-ui="input">';
+  html += '<option value="">-- select --</option>';
+  order.forEach(function(g) {
+    html += '<optgroup label="' + escHtml(g) + '">';
+    groups[g].forEach(function(i) {
+      var s = switchables[i];
+      // Match ignoring the device: older cards found it from the entity.
+      var on = !found && current && s.source === (cfg.source || 'ha') && s.entity === cfg.entity && (!cfg.device || cfg.device === s.device);
+      if (on) found = true;
+      html += '<option value="' + i + '"' + (on ? ' selected' : '') + '>' + escHtml(s.label) + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  // A saved card whose entity isn't listed (removed from Sources) keeps working.
+  if (current && !found) html += '<option value="keep" selected>' + escHtml(cfg.entity) + ' (' + escHtml(cfg.source || 'ha') + ', not in Sources)</option>';
+  html += '</select>';
+  return html;
+}
+
+/** Copy the picked switch into the hidden fields, the label and the action. */
+function bindSwitchPicker() {
+  var pick = document.getElementById('modal-switch-pick');
+  if (!pick) return;
+  pick.addEventListener('change', function() {
+    var s = switchables[Number(pick.value)];
+    if (!s) return;
+    document.getElementById('modal-switch-source').value = s.source;
+    document.getElementById('modal-switch-device').value = s.device || '';
+    document.getElementById('modal-switch-entity').value = s.entity;
+    document.getElementById('modal-switch-metric').value = s.metric || '';
+    var action = document.getElementById('modal-switch-action');
+    if (action) action.value = s.action;
+    var label = document.getElementById('modal-switch-label');
+    if (label && !label.value.trim()) label.value = s.metric || s.entity;
+  });
 }
 
 /** State Select Block: entity, source, label, action, display style, state-list editor */
@@ -2163,6 +2211,9 @@ function readSettingsForm(block) {
     case 'switch-block': {
       config.entity = document.getElementById('modal-switch-entity')?.value || '';
       config.source = document.getElementById('modal-switch-source')?.value || 'ha';
+      config.device = document.getElementById('modal-switch-device')?.value || '';
+      config.metric = document.getElementById('modal-switch-metric')?.value || '';
+      if (!config.entity) return 'Pick the switch this card controls.';
       config.label = document.getElementById('modal-switch-label')?.value || '';
       config.action = document.getElementById('modal-switch-action')?.value || 'switch.toggle';
       var ocEl = document.getElementById('modal-switch-oncolor');
@@ -3066,6 +3117,9 @@ function wireSettingsForm(body, block) {
     case 'state-select':
       renderStateSelectRows(body);
       break;
+    case 'switch-block':
+      bindSwitchPicker();
+      break;
     case 'weather-block':
       renderWeatherAlertRows(body);
       break;
@@ -3636,11 +3690,21 @@ async function initEditor() {
       } catch (e) { availableRestSources = []; }
     }).catch(function() { availableRestSources = []; });
     // Metrics for the settings dropdowns: fetched once, not on every open.
-    metricsPromise = fetchDashboardState().then(function(state) {
-      availableMetrics = state.metrics ? Object.keys(state.metrics).sort() : [];
-    }).catch(function(e) {
-      console.warn('Could not fetch metrics for settings dropdowns:', e);
-      availableMetrics = [];
+    // Live metrics plus ones created in Settings or mapped to a source that
+    // have no reading yet, so a card can be set up before its first poll.
+    metricsPromise = Promise.all([
+      fetchDashboardState().then(function(state) { return state.metrics ? Object.keys(state.metrics) : []; }).catch(function(e) {
+        console.warn('Could not fetch metrics for settings dropdowns:', e);
+        return [];
+      }),
+      fetch('/api/metrics/list').then(function(r) { return r.ok ? r.json() : []; }).then(function(l) {
+        return (Array.isArray(l) ? l : []).map(function(m) { return m && m.name; }).filter(Boolean);
+      }).catch(function() { return []; }),
+      fetch('/api/switchable-entities').then(function(r) { return r.ok ? r.json() : []; }).catch(function() { return []; })
+    ]).then(function(res) {
+      var seen = {};
+      availableMetrics = res[0].concat(res[1]).filter(function(n) { return seen[n] ? false : (seen[n] = true); }).sort();
+      switchables = Array.isArray(res[2]) ? res[2] : [];
     });
     var authPromise = fetch('/api/auth/status').then(function(r) { return r.json(); }).catch(function() { return { authenticated: true }; });
 
