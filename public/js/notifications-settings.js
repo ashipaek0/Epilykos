@@ -279,7 +279,7 @@
       html += field('nt-ch-bot', 'Bot token', input('nt-ch-bot', cfg.bot_token, ' type="password" autocomplete="off"' + secretHint(cfg.has_bot_token)),
         'Message <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> on Telegram, send /newbot and paste the token here.');
       html += '<div class="nt-row-form">' + field('nt-ch-chat', 'Chat ID', input('nt-ch-chat', cfg.chat_id, ' inputmode="numeric" placeholder="123456789"'),
-        'Send your bot any message (or add it to a group), then press Find chat.') +
+        'Send your bot any message (or add it to a group), then press Find chat. Not the number at the start of the token: that is the bot itself.') +
         '<button type="button" class="st-btn" data-act="telegram-find">Find chat</button></div><div id="nt-chats"></div>';
       html += '<div class="st-toggle-row">' + toggle('nt-ch-commands', cfg.commands, 'Answer commands in this chat') + '</div>' +
         '<p class="st-help nt-gap">Send /status, /today, /yesterday or /forecast to the bot. Only this chat gets answers.</p>';
@@ -638,9 +638,21 @@
         box.innerHTML = '<p class="st-help">Looking for chats…</p>';
         try {
           var found = await api('POST', '/telegram/chats', { bot_token: val('nt-ch-bot').trim(), id: editChannel.id || undefined });
-          box.innerHTML = found.chats.length ? '<div class="st-inline-actions">' + found.chats.map(function (c) {
-            return '<button type="button" class="st-btn" data-act="telegram-pick" data-chat="' + esc(c.id) + '">' + esc(c.name) + ' <span class="nt-muted">' + esc(c.type) + '</span></button>';
-          }).join('') + '</div>' : '<p class="st-help nt-warn">No chats found. Send your bot a message in Telegram first, then try again.</p>';
+          var chatInput = document.getElementById('nt-ch-chat');
+          var current = chatInput.value.trim();
+          if (!found.chats.length) {
+            box.innerHTML = '<p class="st-help nt-warn">No chats found. Send your bot a message in Telegram first, then try again.</p>';
+          } else if (found.chats.length === 1 && current !== found.chats[0].id) {
+            // One chat: fill it in, and say so if it replaced a different ID.
+            chatInput.value = found.chats[0].id;
+            box.innerHTML = '<p class="st-help">' + (current ? 'Replaced ' + esc(current) + ' with ' : 'Filled in ') + 'the chat with ' + esc(found.chats[0].name) + ' (' + esc(found.chats[0].id) + '). Save to keep it.</p>';
+          } else {
+            var matches = found.chats.some(function (c) { return c.id === current; });
+            box.innerHTML = (current && !matches ? '<p class="st-help nt-warn">The Chat ID above is not one of the chats that messaged this bot. Pick one:</p>' : '') +
+              '<div class="st-inline-actions">' + found.chats.map(function (c) {
+                return '<button type="button" class="st-btn" data-act="telegram-pick" data-chat="' + esc(c.id) + '">' + esc(c.name) + ' <span class="nt-muted">' + esc(c.type) + ' · ' + esc(c.id) + '</span></button>';
+              }).join('') + '</div>';
+          }
         } catch (e) { box.innerHTML = '<p class="st-help nt-warn">' + esc(e.message) + '</p>'; }
         return;
       }
