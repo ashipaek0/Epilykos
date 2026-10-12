@@ -37,6 +37,9 @@ function runBridge(script, args) {
   });
 }
 
+const incompleteWarned = new Map(); // device name → last warning time
+const INCOMPLETE_WARN_MS = 10 * 60 * 1000;
+
 /**
  * Poll every enabled Tuya device, map raw DP→value pairs to named metrics,
  * and write them into the time-series + latest-metric tables.
@@ -65,7 +68,22 @@ async function pollTuyaDevices() {
 
   if (!Array.isArray(devices) || !devices.length) return result;
 
-  const enabledDevices = devices.filter(d => d && d.enabled && d.dev_id && d.address && d.local_key);
+  // An enabled device without its LAN IP or local key can't be polled. Say so
+  // (once per device every 10 min) instead of skipping it silently, which left
+  // its card on "No readings yet" with nothing in the log.
+  const enabledDevices = [];
+  for (const d of devices) {
+    if (!d || !d.enabled) continue;
+    const missing = [!d.dev_id && 'device ID', !d.address && 'LAN IP', !d.local_key && 'local key'].filter(Boolean);
+    if (!missing.length) { enabledDevices.push(d); continue; }
+    const name = d.name || d.dev_id || 'unnamed device';
+    result.fail(new Error(`"${name}" has no ${missing.join(' or ')}`));
+    const last = incompleteWarned.get(name) || 0;
+    if (Date.now() - last > INCOMPLETE_WARN_MS) {
+      incompleteWarned.set(name, Date.now());
+      logger.warn(`Tuya: "${name}" is not polled: no ${missing.join(' or ')}. Set it on the device in Settings → Sources → Tuya (or scan again).`);
+    }
+  }
   if (!enabledDevices.length) return result;
 
   const bridgePath = path.join(__dirname, 'tuya_bridge.py');
