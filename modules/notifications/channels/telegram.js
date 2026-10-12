@@ -19,6 +19,8 @@ function escapeHtml(s) {
 function validate(config) {
   if (!config.bot_token || !/^\d+:[\w-]{20,}$/.test(String(config.bot_token).trim())) return 'Bot token looks wrong (it reads like 123456:ABC…)';
   if (!config.chat_id || !/^(-?\d+|@[\w]{4,})$/.test(String(config.chat_id).trim())) return 'Chat ID must be a number (or @channelname)';
+  // The number before the colon in the token is the bot itself; a bot can't message itself.
+  if (String(config.chat_id).trim() === String(config.bot_token).trim().split(':')[0]) return "That Chat ID is the bot's own ID (the start of the token). Message your bot, then use Find chat to pick your chat.";
   return null;
 }
 
@@ -39,7 +41,14 @@ async function send(config, msg, deps = {}) {
   const err = validate(config);
   if (err) throw new Error(err);
   const { url, body } = buildRequest(config, msg);
-  await postJson(deps.fetch || safeFetch, url, body, { label: 'Telegram', detailKey: 'description' });
+  try {
+    await postJson(deps.fetch || safeFetch, url, body, { label: 'Telegram', detailKey: 'description' });
+  } catch (e) {
+    // Telegram's own wording doesn't say what to do about it.
+    if (/chat not found/i.test(e.message)) e.message = 'Telegram: chat not found. Open your bot in Telegram, press Start or send it a message, then use Find chat to pick the chat.';
+    else if (/bot was blocked/i.test(e.message)) e.message = 'Telegram: the bot is blocked in this chat. Unblock it in Telegram.';
+    throw e;
+  }
 }
 
 /**
