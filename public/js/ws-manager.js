@@ -22,6 +22,7 @@ let connectionFailureLogged = false;
 let onStateUpdate = null; // callback: (state) => void
 let onConnect = null;     // callback: () => void
 let db = null;
+let currentState = null; // live state must work even when IndexedDB is unavailable
 
 // ── IndexedDB setup ──────────────────────────────────────────────────
 async function openDB() {
@@ -85,6 +86,8 @@ function doConnect() {
   const wsUrl = getWsUrl();
   console.debug('[WSManager] Connecting to', wsUrl);
   ws = new WebSocket(wsUrl);
+  const socket = ws;
+  currentState = null; // a reconnect starts with a fresh full snapshot
 
   ws.onopen = () => {
     console.debug('[WSManager] Connected');
@@ -95,22 +98,23 @@ function doConnect() {
   };
 
   ws.onmessage = async (event) => {
+    if (socket !== ws) return;
     try {
       const message = JSON.parse(event.data);
       if (message.type === 'dashboard-state' && message.data) {
-        // Cache every state update
-        await cacheState(message.data);
-        if (onStateUpdate) onStateUpdate(message.data);
+        currentState = message.data;
+        if (onStateUpdate) onStateUpdate(currentState);
+        // Persist after rendering; a blocked cache must not delay live updates.
+        await cacheState(currentState);
       } else if (message.type === 'dashboard-delta' && message.data) {
-        // Apply delta to cached state, then notify
-        const cached = await loadCachedState();
-        if (cached) {
-          const merged = applyDelta(cached, message.data);
-          await cacheState(merged);
+        if (currentState) {
+          // Merge synchronously so consecutive messages never use an old cache.
+          currentState = applyDelta(currentState, message.data);
           // Dispatch custom event for partial render
           window.dispatchEvent(new CustomEvent('state-updated', {
-            detail: { isPartial: true, state: merged, keys: Object.keys(message.data) }
+            detail: { isPartial: true, state: currentState, keys: Object.keys(message.data) }
           }));
+          await cacheState(currentState);
         }
       }
     } catch (err) {

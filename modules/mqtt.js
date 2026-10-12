@@ -9,10 +9,15 @@ function brokerLabel(broker) {
 }
 
 const mqttClients = new Map();
+const brokerGroups = new Map();
 
 function setupMqtt() {
-  for (const client of mqttClients.values()) client.end();
+  for (const client of mqttClients.values()) {
+    client.removeAllListeners('message'); // retired subscriptions must not write metrics
+    client.end();
+  }
   mqttClients.clear();
+  brokerGroups.clear();
 
   const mqttDevices = JSON.parse(getConfig('mqtt_devices') || '[]');
   if (!mqttDevices.length) return;
@@ -23,8 +28,16 @@ function setupMqtt() {
     if (device.username) opts.username = device.username;
     if (device.password) opts.password = device.password;
 
+    // Share a connection only when both the broker and credentials match.
+    const key = JSON.stringify([device.broker, opts.username || '', opts.password || '']);
+    let group = brokerGroups.get(key);
+    if (group) { group.devices.push(device); continue; }
     const client = mqtt.connect(device.broker, opts);
-    mqttClients.set(device.broker, client);
+    group = { broker: device.broker, client, devices: [device] };
+    brokerGroups.set(key, group);
+    // Keep broker lookup for callers, and track additional credential groups
+    // too so restart, restore and shutdown close every connection.
+    mqttClients.set(mqttClients.has(device.broker) ? Symbol(device.broker) : device.broker, client);
 
     // Alert on a drop of an established connection, and on its recovery —
     // not on every failed reconnect attempt, nor on our own end() at restart.
@@ -37,20 +50,18 @@ function setupMqtt() {
         dropped = false;
         emitEvent('mqtt.connected', { subject: brokerLabel(device.broker), message: `MQTT broker ${brokerLabel(device.broker)} is connected again.` });
       }
-      const topics = Object.values(device.topics || {}).filter(t => t);
+      const topics = [...new Set(group.devices.flatMap(d => Object.values(d.topics || {}).filter(t => t)))];
       if (topics.length) client.subscribe(topics);
     });
 
     client.on('message', (topic, message) => {
       const msg = message.toString().trim();
-      const topicMap = device.topics || {};
-      let metric;
-      for (const [key, t] of Object.entries(topicMap)) {
-        if (t === topic) { metric = key; break; }
-      }
-      if (!metric) return;
       const now = Math.floor(Date.now() / 1000);
-      queueMetricValue(metric, msg, now);
+      for (const d of group.devices) {
+        for (const [metric, t] of Object.entries(d.topics || {})) {
+          if (t === topic) queueMetricValue(metric, msg, now);
+        }
+      }
     });
 
     client.on('error', (err) => logger.error(`MQTT ${device.broker} error:`, err));
@@ -65,7 +76,8 @@ function setupMqtt() {
 function restartMqtt() { setupMqtt(); }
 
 function executeMqttAction(brokerName, topic, payload) {
-  const client = mqttClients?.get(brokerName);
+  const group = [...brokerGroups.values()].find(g => g.broker === brokerName && g.devices.some(d => Object.values(d.topics || {}).includes(topic)));
+  const client = group ? group.client : mqttClients.get(brokerName);
   if (!client) return { error: `MQTT broker "${brokerName}" not connected` };
   if (!client.connected) return { success: false, error: 'MQTT client not connected' };
 

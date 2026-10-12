@@ -3,6 +3,7 @@ const ModbusRTU = require('modbus-serial');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
+const { PollResult } = require('./pollResult');
 
 let availableProfiles = [];
 
@@ -56,8 +57,9 @@ function getProfileById(id) {
 }
 
 async function pollModbus() {
+  const result = new PollResult();
   const modbusDevices = JSON.parse(getConfig('modbus_devices') || '[]');
-  if (!modbusDevices.length) return;
+  if (!modbusDevices.length) return result;
 
   for (const device of modbusDevices) {
     if (!device.enabled) continue;
@@ -67,6 +69,7 @@ async function pollModbus() {
 
     const profile = getProfileById(device.profile);
     if (!profile) {
+      result.fail(new Error(`Modbus profile '${device.profile}' not found`));
       logger.error(`Modbus profile '${device.profile}' not found.`);
       continue;
     }
@@ -121,7 +124,8 @@ async function pollModbus() {
             const metricName = addrToMetric ? addrToMetric[String(reg.address)] : (device.prefix || '') + reg.metric;
             if (metricName) results[metricName] = value;
           }
-        } catch (err) { logger.error(`Modbus read error at ${startAddr}:`, err.message); }
+          result.success();
+        } catch (err) { result.fail(err); logger.error(`Modbus read error at ${startAddr}:`, err.message); }
       }
       await client.close();
 
@@ -131,10 +135,12 @@ async function pollModbus() {
       }
       console.log(`Modbus poll (${device.name || device.host || device.serial_path}): ${Object.keys(results).length} metrics.`);
     } catch (err) {
+      result.fail(err);
       logger.error(`Modbus poll error for ${device.name || device.host || device.serial_path}:`, err.message);
       if (client) client.close();
     }
   }
+  return result;
 }
 
 async function testModbusConnection(device) {
