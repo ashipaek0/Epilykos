@@ -17,6 +17,7 @@ start-with-pass.js
 # Design mockups and plans (stay local)
 *.md
 !readme.md
+!CLAUDE.md
 .env.dev
 settings.db
 ui-*.html
