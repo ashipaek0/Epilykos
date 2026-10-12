@@ -22,6 +22,7 @@ const KEYS = {
   rules: 'notification_rules',
   devices: 'notification_devices',
   vapid: 'notification_vapid',
+  state: 'notification_state',
 };
 const LOG_CAP = 500;
 
@@ -53,6 +54,10 @@ function getChannels() { const v = readJson(KEYS.channels, []); return Array.isA
 function saveChannels(list) { writeJson(KEYS.channels, list); }
 function getRules() { const v = readJson(KEYS.rules, []); return Array.isArray(v) ? v : []; }
 function saveRules(list) { writeJson(KEYS.rules, list); }
+/** Rule state kept across restarts: { metric, events, schedule } (see index.js). */
+function getState() { const v = readJson(KEYS.state, {}); return v && typeof v === 'object' ? v : {}; }
+function saveState(v) { writeJson(KEYS.state, v); }
+
 function getDevices() { const v = readJson(KEYS.devices, []); return Array.isArray(v) ? v : []; }
 function saveDevices(list) { writeJson(KEYS.devices, list); }
 
@@ -156,6 +161,7 @@ module.exports = {
   getChannels, saveChannels,
   getRules, saveRules,
   getDevices, saveDevices,
+  getState, saveState,
   publicChannel, mergeChannelConfig, publicDevice,
   getVapid,
   ensureSchema, addLog, getLog, clearLog,

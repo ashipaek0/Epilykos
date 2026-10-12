@@ -8,6 +8,8 @@
  *            (numbers or text, e.g. a 'Grid Status' of 'off'), changes
  *            (any new value), stale (no update for `value` minutes).
  *   event  — matches events from the bus (events.js) by type or wildcard.
+ *   schedule — sends a report (reports.js) at a local time each day; a
+ *            forecast report can be limited to days below a kWh threshold.
  *
  * Metric rule lifecycle: idle → pending (condition true, waiting `for_s`)
  * → firing (notified) → idle on resolve. A re-fire inside `cooldown_s` of
@@ -154,7 +156,51 @@ function createMetricEvaluator() {
     return out;
   }
 
-  return { evaluate, states };
+  /** Plain object of every rule's state, for persisting across restarts. */
+  function exportState() {
+    const o = {};
+    for (const [id, st] of states) o[id] = { ...st };
+    return o;
+  }
+  /** Restore exportState() output; rules whose definition changed since start over (sig check). */
+  function importState(o) {
+    if (!o || typeof o !== 'object') return;
+    for (const [id, st] of Object.entries(o)) {
+      if (st && typeof st === 'object' && typeof st.sig === 'string' && ['idle', 'pending', 'firing'].includes(st.phase)) states.set(id, { ...st });
+    }
+  }
+
+  return { evaluate, states, exportState, importState };
+}
+
+// ── Scheduled rules ──────────────────────────────────────────────────
+
+/** "HH:MM" → minutes after midnight, or null. */
+function clockMinutes(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim());
+  if (!m || +m[1] > 23 || +m[2] > 59) return null;
+  return +m[1] * 60 + +m[2];
+}
+
+const SCHEDULE_GRACE_MIN = 120; // a schedule missed by a restart still runs if we are back within 2 h
+
+/**
+ * Schedule rules due at local time `date`. `lastRun` maps rule.id → the
+ * local day ('YYYY-MM-DD') it last ran; the caller records runs.
+ * days: optional [0-6] (Sunday = 0) to limit the weekdays.
+ */
+function dueSchedules(rules, date, lastRun, today) {
+  const nowMin = date.getHours() * 60 + date.getMinutes();
+  const out = [];
+  for (const rule of rules) {
+    if (!rule || rule.kind !== 'schedule' || !rule.enabled) continue;
+    const at = clockMinutes(rule.time);
+    if (at === null || nowMin < at || nowMin - at > SCHEDULE_GRACE_MIN) continue;
+    if (Array.isArray(rule.days) && rule.days.length && !rule.days.includes(date.getDay())) continue;
+    if (lastRun[rule.id] === today) continue;
+    out.push(rule);
+  }
+  return out;
 }
 
 /**
@@ -234,6 +280,8 @@ function eventMessage(rule, event) {
 module.exports = {
   OPERATORS,
   createMetricEvaluator,
+  dueSchedules,
+  clockMinutes,
   matchEventRules,
   metricMessage,
   eventMessage,
