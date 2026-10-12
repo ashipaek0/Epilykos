@@ -726,6 +726,13 @@
     if (r.value !== 'ok') return;
     var key = r.form.elements.sourceType.value;
     var t = typeByKey(key);
+    if (key === 'tuya') {
+      // Tuya starts from the Smart Life login and scan, which fills in the
+      // devices; adding one by hand stays available on that page.
+      go('sources/tuya');
+      setTimeout(function () { var uid = $('tuya-uid'); if (uid) uid.focus(); }, 50);
+      return;
+    }
     if (!t || !$(t.add)) return;
     $(t.add).click();
     touched.sources = true;
