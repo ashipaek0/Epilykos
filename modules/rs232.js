@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { PollResult } = require('./pollResult');
 const { buildModbusReadRequest, buildPollRanges, parseModbusReadResponse, frameByteCount } = require('./modbus-frame');
 
 let availableProfiles = [];
@@ -288,8 +289,9 @@ function encodeQuery(cmd, device, profile) {
 // ── Poll Orchestration ──────────────────────────────────────────────────
 
 async function pollRs232() {
+  const result = new PollResult();
   const devices = JSON.parse(getConfig('rs232_devices') || '[]');
-  if (!devices.length) return;
+  if (!devices.length) return result;
   pollCycleCounter++;
 
   for (const device of devices) {
@@ -301,6 +303,7 @@ async function pollRs232() {
 
     const profile = availableProfiles.find(p => p.id === device.profile);
     if (!profile) {
+      result.fail(new Error(`RS232 profile '${device.profile}' not found`));
       logger.error(`RS232 profile '${device.profile}' not found`);
       continue;
     }
@@ -308,16 +311,24 @@ async function pollRs232() {
     try {
       if (profile.protocol === 'vedirect-streaming') {
         await pollStreamingDevice(device, profile);
+        // Opening a stream is asynchronous; it is not a successful read yet.
+        if (!streamingConnections.get(device.name)?.port.isOpen) {
+          result.fail(new Error(`RS232 stream '${device.name}' is not open`));
+          continue;
+        }
       } else if (profile.protocol === 'modbus-rtu') {
         await pollModbusRtuDevice(device, profile);
       } else {
         await pollQueryDevice(device, profile);
       }
       failCounts.set(device.name, 0);
+      result.success();
     } catch (err) {
+      result.fail(err);
       handlePollError(device, err);
     }
   }
+  return result;
 }
 
 async function pollQueryDevice(device, profile) {

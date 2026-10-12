@@ -2,6 +2,7 @@ const { logger } = require('./logger');
 const { getConfig, queueMetricValue } = require('./database');
 const { execFile } = require('child_process');
 const path = require('path');
+const { PollResult } = require('./pollResult');
 
 /**
  * Spawn a Python bridge script and return its parsed JSON output.
@@ -43,12 +44,14 @@ function runBridge(script, args) {
  * Called by server.js on the 30-second polling cycle.
  */
 async function pollTuyaDevices() {
+  const result = new PollResult();
   let raw;
   try {
     raw = getConfig('tuya_devices');
   } catch (e) {
     logger.debug('Tuya: could not read tuya_devices config');
-    return;
+    result.fail(e);
+    return result;
   }
 
   let devices;
@@ -56,13 +59,14 @@ async function pollTuyaDevices() {
     devices = JSON.parse(raw || '[]');
   } catch (e) {
     logger.error('Tuya: failed to parse tuya_devices config:', e.message);
-    return;
+    result.fail(e);
+    return result;
   }
 
-  if (!Array.isArray(devices) || !devices.length) return;
+  if (!Array.isArray(devices) || !devices.length) return result;
 
   const enabledDevices = devices.filter(d => d && d.enabled && d.dev_id && d.address && d.local_key);
-  if (!enabledDevices.length) return;
+  if (!enabledDevices.length) return result;
 
   const bridgePath = path.join(__dirname, 'tuya_bridge.py');
   const now = Math.floor(Date.now() / 1000);
@@ -75,9 +79,9 @@ async function pollTuyaDevices() {
       ]);
 
       if (!dps || typeof dps !== 'object') {
-        logger.debug(`Tuya poll (${device.name || device.dev_id}): no DPs returned`);
-        return;
+        throw new Error(`Tuya poll (${device.name || device.dev_id}): no DPs returned`);
       }
+      if (dps.error) throw new Error(String(dps.error));
 
       const dpsConfig = device.dps || {};
       let written = 0;
@@ -92,12 +96,15 @@ async function pollTuyaDevices() {
       logger.debug(
         `Tuya poll (${device.name || device.dev_id}): ${written} metrics from ${Object.keys(dps).length} DPs`
       );
+      result.success();
     } catch (e) {
+      result.fail(e);
       logger.error(`Tuya poll error for "${device.name || device.dev_id}": ${e.message}`);
     }
   });
 
   await Promise.allSettled(pollPromises);
+  return result;
 }
 
 /**
