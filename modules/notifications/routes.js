@@ -11,14 +11,18 @@ const store = require('./store');
 const { listEventTypes, SEVERITIES } = require('./events');
 const { OPERATORS } = require('./rules');
 const { CHANNEL_TYPES, deliver, sendToChannel } = require('./dispatcher');
+const { REPORTS } = require('./reports');
+const { clockMinutes } = require('./rules');
+const telegramBot = require('./telegramBot');
 
 const CHANNEL_FIELDS = {
-  telegram: ['bot_token', 'chat_id'],
+  telegram: ['bot_token', 'chat_id', 'commands'],
   discord: ['webhook_url', 'mention_here'],
   ntfy: ['server_url', 'topic', 'token', 'allow_private'],
   webpush: ['devices'],
+  webhook: ['webhook_url', 'auth_header', 'allow_private'],
 };
-const BOOL_FIELDS = new Set(['mention_here', 'allow_private']);
+const BOOL_FIELDS = new Set(['mention_here', 'allow_private', 'commands']);
 const NUMERIC_OPS = new Set(['gt', 'gte', 'lt', 'lte', 'stale']);
 
 class InputError extends Error {}
@@ -55,13 +59,13 @@ function normalizeChannel(input, stored) {
 }
 
 function normalizeRule(input, stored) {
-  const kind = input.kind === 'event' ? 'event' : 'metric';
+  const kind = ['event', 'schedule'].includes(input.kind) ? input.kind : 'metric';
   const name = str(input.name, 80);
   if (!name) fail('Give the rule a name');
   const knownChannels = new Set(store.getChannels().map(c => c.id));
   const channels = (Array.isArray(input.channels) ? input.channels : []).map(x => str(x, 40)).filter(id => knownChannels.has(id));
   if (!channels.length) fail('Pick at least one channel to send to');
-  const severity = SEVERITIES.includes(input.severity) ? input.severity : (kind === 'event' ? '' : 'warning');
+  const severity = SEVERITIES.includes(input.severity) ? input.severity : ({ event: '', schedule: 'info' }[kind] ?? 'warning');
   const rule = {
     id: stored ? stored.id : store.newId('rule'),
     kind, name, enabled: input.enabled !== false, channels, severity,
@@ -87,6 +91,15 @@ function normalizeRule(input, stored) {
     rule.repeat_s = int(input.repeat_s, 0, 7 * 86400, 0);
     if (rule.repeat_s && rule.repeat_s < 300) rule.repeat_s = 300;
     rule.notify_resolved = !!input.notify_resolved;
+  } else if (kind === 'schedule') {
+    const def = REPORTS[input.report] || fail('Pick a report');
+    rule.report = input.report;
+    rule.day = def.days.length ? (def.days.includes(input.day) ? input.day : def.days[0]) : '';
+    rule.time = clockMinutes(input.time) !== null ? String(input.time).trim().padStart(5, '0') : fail('Pick a time (HH:MM)');
+    rule.days = (Array.isArray(input.days) ? input.days : []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
+    if (rule.days.length === 7) rule.days = [];
+    rule.below_kwh = rule.report === 'forecast' ? Math.max(0, Number(input.below_kwh) || 0) : 0;
+    rule.cooldown_s = 0;
   } else {
     rule.event = str(input.event, 80);
     if (!/^(\*|[\w-]+(\.[\w-]+)*(\.\*)?)$/.test(rule.event)) fail('Pick an event');
@@ -129,6 +142,7 @@ function createRouter() {
       devices: store.getDevices().map(store.publicDevice),
       eventTypes: listEventTypes(),
       operators: Object.entries(OPERATORS).map(([id, o]) => ({ id, label: o.label })),
+      reports: Object.entries(REPORTS).map(([id, r]) => ({ id, label: r.label, days: r.days })),
       channelTypes: Object.values(CHANNEL_TYPES).map(m => ({ type: m.type, label: m.label })),
       vapidPublicKey: store.getVapid().publicKey,
     });
@@ -154,6 +168,7 @@ function createRouter() {
   r.post('/channels', handle((req, res) => {
     const ch = normalizeChannel(req.body || {}, null);
     store.saveChannels([...store.getChannels(), ch]);
+    telegramBot.sync();
     res.json(store.publicChannel(ch, CHANNEL_TYPES[ch.type].secretFields));
   }));
 
@@ -163,6 +178,7 @@ function createRouter() {
     if (i < 0) return res.status(404).json({ error: 'Channel not found' });
     list[i] = normalizeChannel(req.body || {}, list[i]);
     store.saveChannels(list);
+    telegramBot.sync();
     res.json(store.publicChannel(list[i], CHANNEL_TYPES[list[i].type].secretFields));
   }));
 
@@ -171,6 +187,7 @@ function createRouter() {
     store.saveChannels(store.getChannels().filter(c => c.id !== id));
     // Rules keep working with the channels they have left.
     store.saveRules(store.getRules().map(rule => ({ ...rule, channels: (rule.channels || []).filter(c => c !== id) })));
+    telegramBot.sync();
     res.json({ success: true });
   }));
 
@@ -196,6 +213,9 @@ function createRouter() {
       token = stored && stored.config && stored.config.bot_token;
     }
     if (!token) fail('Enter the bot token first');
+    // While this bot answers commands its poller owns getUpdates; use what it has seen.
+    const seen = telegramBot.knownChats(token);
+    if (seen) return res.json({ chats: seen });
     try {
       res.json({ chats: await CHANNEL_TYPES.telegram.findChats(token) });
     } catch (e) {
@@ -227,6 +247,12 @@ function createRouter() {
   r.post('/rules/:id/test', handle(async (req, res) => {
     const rule = store.getRules().find(x => x.id === req.params.id);
     if (!rule) return res.status(404).json({ error: 'Rule not found' });
+    if (rule.kind === 'schedule') {
+      // Send the real report now, ignoring any "only below" condition.
+      const rep = await require('./index').buildReport(rule);
+      const out = await deliver({ title: rep.title, body: rep.body, severity: rule.severity || 'info', tag: 'test-' + rule.id }, rule.channels, rule, { force: true, retry: false });
+      return res.json({ results: out, skipped: rep.skip || null });
+    }
     const results = await deliver({ title: `Test: ${rule.name}`, body: 'This is how this rule\'s alerts will arrive.', severity: rule.severity || 'warning', tag: 'test-' + rule.id }, rule.channels, rule, { force: true, retry: false });
     res.json({ results });
   }));
