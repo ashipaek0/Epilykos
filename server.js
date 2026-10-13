@@ -273,7 +273,7 @@ function rs232ProfileEntities(profile) {
 
 // Domain set shared with modules/ha.js fetchHAEntities (select/input_select
 // so state selectors can drive them).
-const HA_CATALOG_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean', 'select', 'input_select'];
+const HA_CATALOG_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean', 'select', 'input_select', 'button', 'input_button', 'scene', 'script'];
 
 function haStatesToCatalog(states) {
   // AC-10: enrich ONE /api/states fetch into catalog items (no registry, no

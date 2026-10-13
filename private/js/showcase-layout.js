@@ -67,6 +67,7 @@ export const SHOWCASE_BLOCKS = [
   { type: 'weather-block', config: { title: 'Weather' }, gridH: 9 },
 
   { type: 'switch-block', config: { entity: 'switch.generator', source: 'showcase', label: 'Generator' } },
+  { type: 'button-card', config: { entity: 'switch.generator', source: 'showcase', name: 'Generator', icon: 'mdi:generator-stationary' }, gridH: 4 },
   { type: 'state-select', config: { entity: 'select.inverter_mode', source: 'showcase', label: 'Inverter mode',
     states: [{ value: 'Solar first', label: 'Solar first' }, { value: 'Battery first', label: 'Battery first' }, { value: 'Grid first', label: 'Grid first' }] } },
 

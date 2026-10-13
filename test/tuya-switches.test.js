@@ -137,8 +137,8 @@ test('a toggle keeps the change through a stale reading; Tuya writes the new val
 
 test('Home Assistant select and input_select entities can be mapped and driven', async () => {
   const settings = fs.readFileSync(path.join(ROOT, 'public/settings.js'), 'utf8');
-  assert.match(settings, /HA_ENTITY_DOMAINS = \[[^\]]*'select', 'input_select'\]/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'), /HA_CATALOG_DOMAINS = \[[^\]]*'select', 'input_select'\]/);
+  assert.match(settings, /HA_ENTITY_DOMAINS = \[[^\]]*'select', 'input_select'[,\]]/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'), /HA_CATALOG_DOMAINS = \[[^\]]*'select', 'input_select'[,\]]/);
   const ha = require('../modules/ha');
   assert.deepStrictEqual(ha.getActionsForEntity('select.ac_mode'), ['select_option']);
   assert.ok(ha.getEntityActions('input_select.scene').some(a => a.service === 'input_select.select_option' && a.param === 'option'));
