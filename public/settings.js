@@ -5130,8 +5130,11 @@ async function populateTuyaDevicesFromCloud(devices) {
             mappingsList.innerHTML = '';
             const dpEntries = Object.entries(dev.mapping).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
             console.log('[populateTuyaDevicesFromCloud] rebuilding', dpEntries.length, 'DP rows for', dev.name || devId);
+            // Older scans keyed DPs by function code ("switch_1"); keep those
+            // metric names on the DP numbers the scan now returns.
+            const codes = dev.codes || {};
             dpEntries.forEach(([dpNum, label]) => {
-              const metricName = existingMappings[dpNum] || '';
+              const metricName = existingMappings[dpNum] || existingMappings[codes[dpNum]] || '';
               addTuyaDpRow(card, parseInt(card.dataset.index || '0'), metricName, dpNum, label);
             });
           }

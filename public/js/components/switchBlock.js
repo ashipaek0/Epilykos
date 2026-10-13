@@ -28,9 +28,9 @@ export function buildSwitchBlock(block = {}) {
   container.innerHTML = `
     <div class="switch-label">${label}</div>
     <div class="switch-control">
-      <span class="switch-state">--</span>
+      <span class="switch-state"></span>
       <label class="toggle-switch action-toggle">
-        <input type="checkbox" data-source="${escapeHtml(config.source || 'ha')}"
+        <input type="checkbox" role="switch" aria-label="${label}" data-source="${escapeHtml(config.source || 'ha')}"
                data-device="${escapeHtml(config.device || '')}"
                data-entity="${escapeHtml(config.entity || '')}"
                data-action="${escapeHtml(config.action || 'switch.toggle')}">
@@ -43,7 +43,9 @@ export function buildSwitchBlock(block = {}) {
   const checkbox = container.querySelector('input[type="checkbox"]');
   const stateEl = container.querySelector('.switch-state');
 
-  const stateText = (isOn) => (isOn ? (onIcon ? `${onIcon} ON` : 'ON') : (offIcon ? `${offIcon} OFF` : 'OFF'));
+  // The switch shows the state, like the Settings switches; text only for
+  // configured icons (and errors).
+  const stateText = (isOn) => (isOn ? onIcon : offIcon) || '';
   const setStateText = (isOn) => { if (stateEl) stateEl.textContent = stateText(isOn); };
   setStateText(false);
 
@@ -122,7 +124,7 @@ export function updateSwitchBlockFromState(state) {
     if (stateEl) {
       const onIcon = container.dataset.onIcon || '';
       const offIcon = container.dataset.offIcon || '';
-      stateEl.textContent = isOn ? (onIcon ? `${onIcon} ON` : 'ON') : (offIcon ? `${offIcon} OFF` : 'OFF');
+      stateEl.textContent = (isOn ? onIcon : offIcon) || '';
     }
   });
 }

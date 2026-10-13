@@ -245,7 +245,11 @@
 /* ── Controls ─────────────────────────────────────────────── */
 .toggle-switch.action-toggle .slider { background: var(--switch-off-color, #a8a59e) !important; }
 [data-theme="dark"] .toggle-switch.action-toggle .slider { background: var(--switch-off-color, #4a4a4a) !important; }
-.toggle-switch.action-toggle input:checked + .slider { background: var(--switch-on-color, #4a6a2e) !important; }
+.toggle-switch.action-toggle input:checked + .slider { background: var(--switch-on-color, #3a8c4f) !important; }
+[data-theme="dark"] .toggle-switch.action-toggle input:checked + .slider { background: var(--switch-on-color, #4da863) !important; }
+.toggle-switch.action-toggle .slider::before { background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
+[data-theme="dark"] .toggle-switch.action-toggle .slider::before { background: #111111; }
+.toggle-switch.action-toggle input:focus-visible + .slider { outline: 2px solid var(--st-amber-text, #b45309); outline-offset: 2px; }
 .switch-block { padding: var(--card-pad) !important; }
 .state-select-block { padding: var(--card-pad) !important; overflow: auto; }
 

@@ -1692,6 +1692,24 @@ function resolveActionDevice(source, device, entity) {
   return '';
 }
 
+// State selectors send { value }; Home Assistant wants it under the field
+// its service defines (select.select_option takes `option`, and so on).
+const HA_VALUE_FIELD = {
+  'select.select_option': 'option', 'input_select.select_option': 'option',
+  'climate.set_hvac_mode': 'hvac_mode', 'climate.set_fan_mode': 'fan_mode', 'climate.set_preset_mode': 'preset_mode',
+  'climate.set_temperature': 'temperature', 'fan.set_percentage': 'percentage', 'fan.set_preset_mode': 'preset_mode',
+};
+function haServiceData(action, params) {
+  const data = { ...(params || {}) };
+  const service = typeof action === 'string' ? action : (action && action.domain ? `${action.domain}.${action.service}` : '');
+  const field = HA_VALUE_FIELD[service];
+  if (field && data.value !== undefined && data[field] === undefined) {
+    data[field] = data.value;
+    delete data.value;
+  }
+  return data;
+}
+
 // Device actions (switches, selectors, register writes) need the Controls
 // unlock (password again within a few minutes), and every attempt is logged.
 const deviceControls = require('./modules/deviceControls');
@@ -1726,13 +1744,14 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
         const { executeHAAction } = require('./modules/ha');
         // Route form of the spec signature: (deviceId, action, entityId, params);
         // `action` may be a dotted string 'domain.service' or an object {domain, service}.
-        result = await executeHAAction(device, action, entity, params || {});
+        result = await executeHAAction(device, action, entity, haServiceData(action, params));
         break;
       }
       case 'mqtt': {
         const { executeMqttAction } = require('./modules/mqtt');
-        // Topic is the entity; payload comes from params.payload or is inferred from the action.
-        let payload = params?.payload;
+        // Topic is the entity; payload comes from params.payload (or a state
+        // selector's params.value) or is inferred from the action.
+        let payload = params?.payload !== undefined && params?.payload !== null ? params.payload : params?.value;
         if (payload === undefined || payload === null) {
           if (action === 'turn_on') payload = 'ON';
           else if (action === 'turn_off') payload = 'OFF';
