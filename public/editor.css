@@ -654,3 +654,4 @@ body.ed {
 .bc-icon-pick { display: flex; align-items: center; justify-content: center; height: 38px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; cursor: pointer; }
 .bc-icon-pick:hover, .bc-icon-pick:focus-visible { border-color: currentColor; }
 .bc-icon-pick svg { width: 22px; height: 22px; }
+
