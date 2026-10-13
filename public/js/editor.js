@@ -1362,13 +1362,9 @@ function buildSwitchBlockForm(block) {
   html += '<legend data-ui="legend">Toggle Switch Config</legend>';
   html += '<div data-ui="row">';
   html += '<span data-ui="row-label">Switch</span>';
-  html += '<div data-ui="grow">' + switchableSelect(cfg) + '</div>';
+  html += '<div data-ui="grow">' + switchableSelect(cfg, 'toggle', 'modal-switch') + '</div>';
   html += '</div>';
-  if (!switchables.length) html += '<p data-ui="hint">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first.</p>';
-  html += '<input type="hidden" id="modal-switch-source" value="' + escHtml(cfg.source || 'ha') + '">';
-  html += '<input type="hidden" id="modal-switch-device" value="' + escHtml(cfg.device || '') + '">';
-  html += '<input type="hidden" id="modal-switch-entity" value="' + escHtml(cfg.entity || '') + '">';
-  html += '<input type="hidden" id="modal-switch-metric" value="' + escHtml(cfg.metric || '') + '">';
+  if (!switchables.some(function(x) { return x.action; })) html += '<p data-ui="hint">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first.</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<label data-ui="field">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" data-ui="input"></label>';
   html += '<div data-ui="grid2">';
@@ -1381,22 +1377,26 @@ function buildSwitchBlockForm(block) {
   return html;
 }
 
-/** Switch picker: one option per controllable entity, grouped by source and device. */
-function switchKey(s) { return [s.source, s.device || '', s.entity].join('\u001f'); }
-function switchableSelect(cfg) {
-  var current = cfg.entity ? switchKey({ source: cfg.source || 'ha', device: cfg.device || '', entity: cfg.entity }) : '';
-  var groups = {}, order = [], found = false;
+/**
+ * Picker over /api/switchable-entities for toggle cards (kind 'toggle') and
+ * state selectors (kind 'select'): one option per entity, grouped by source
+ * and device. `prefix` names the form's fields (modal-switch-*, modal-state-*).
+ */
+function switchableSelect(cfg, kind, prefix) {
+  var current = !!cfg.entity, found = false;
+  var groups = {}, order = [];
   switchables.forEach(function(s, i) {
+    if (!(kind === 'select' ? s.selectAction : s.action)) return;
     if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
     groups[s.group].push(i);
   });
-  var html = '<select id="modal-switch-pick" data-ui="input">';
+  var html = '<select id="' + prefix + '-pick" data-ui="input">';
   html += '<option value="">-- select --</option>';
   order.forEach(function(g) {
     html += '<optgroup label="' + escHtml(g) + '">';
     groups[g].forEach(function(i) {
       var s = switchables[i];
-      // Match ignoring the device: older cards found it from the entity.
+      // Match ignoring a missing device: older cards found it from the entity.
       var on = !found && current && s.source === (cfg.source || 'ha') && s.entity === cfg.entity && (!cfg.device || cfg.device === s.device);
       if (on) found = true;
       html += '<option value="' + i + '"' + (on ? ' selected' : '') + '>' + escHtml(s.label) + '</option>';
@@ -1406,23 +1406,27 @@ function switchableSelect(cfg) {
   // A saved card whose entity isn't listed (removed from Sources) keeps working.
   if (current && !found) html += '<option value="keep" selected>' + escHtml(cfg.entity) + ' (' + escHtml(cfg.source || 'ha') + ', not in Sources)</option>';
   html += '</select>';
+  html += '<input type="hidden" id="' + prefix + '-source" value="' + escHtml(cfg.source || 'ha') + '">';
+  html += '<input type="hidden" id="' + prefix + '-device" value="' + escHtml(cfg.device || '') + '">';
+  html += '<input type="hidden" id="' + prefix + '-entity" value="' + escHtml(cfg.entity || '') + '">';
+  html += '<input type="hidden" id="' + prefix + '-metric" value="' + escHtml(cfg.metric || '') + '">';
   return html;
 }
 
-/** Copy the picked switch into the hidden fields, the label and the action. */
-function bindSwitchPicker() {
-  var pick = document.getElementById('modal-switch-pick');
+/** Copy the picked entity into the hidden fields, the label and the action. */
+function bindSwitchPicker(kind, prefix) {
+  var pick = document.getElementById(prefix + '-pick');
   if (!pick) return;
   pick.addEventListener('change', function() {
     var s = switchables[Number(pick.value)];
     if (!s) return;
-    document.getElementById('modal-switch-source').value = s.source;
-    document.getElementById('modal-switch-device').value = s.device || '';
-    document.getElementById('modal-switch-entity').value = s.entity;
-    document.getElementById('modal-switch-metric').value = s.metric || '';
-    var action = document.getElementById('modal-switch-action');
-    if (action) action.value = s.action;
-    var label = document.getElementById('modal-switch-label');
+    document.getElementById(prefix + '-source').value = s.source;
+    document.getElementById(prefix + '-device').value = s.device || '';
+    document.getElementById(prefix + '-entity').value = s.entity;
+    document.getElementById(prefix + '-metric').value = s.metric || '';
+    var action = document.getElementById(prefix + '-action');
+    if (action) action.value = kind === 'select' ? s.selectAction : s.action;
+    var label = document.getElementById(prefix + '-label');
     if (label && !label.value.trim()) label.value = s.metric || s.entity;
   });
 }
@@ -1434,13 +1438,10 @@ function buildStateSelectForm(block) {
   var html = '<fieldset data-ui="section">';
   html += '<legend data-ui="legend">State Select Config</legend>';
   html += '<div data-ui="row">';
-  html += '<span data-ui="row-label">Entity</span>';
-  html += '<div data-ui="grow">' + metricSelect(cfg.entity || '', 'modal-state-entity') + '</div>';
+  html += '<span data-ui="row-label">Control</span>';
+  html += '<div data-ui="grow">' + switchableSelect(cfg, 'select', 'modal-state') + '</div>';
   html += '</div>';
-  html += '<div data-ui="row">';
-  html += '<span data-ui="row-label">Source</span>';
-  html += '<input type="text" id="modal-state-source" value="' + escHtml(cfg.source || 'ha') + '" placeholder="ha" data-ui="input grow">';
-  html += '</div>';
+  if (!switchables.some(function(x) { return x.selectAction; })) html += '<p data-ui="hint">Nothing to control yet. Map a Tuya DP, a Home Assistant select or climate entity, or an MQTT topic to a metric in Settings → Sources first.</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-state-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<div data-ui="row">';
   html += '<span data-ui="row-label">Action</span>';
@@ -2229,6 +2230,9 @@ function readSettingsForm(block) {
     case 'state-select': {
       config.entity = document.getElementById('modal-state-entity')?.value || '';
       config.source = document.getElementById('modal-state-source')?.value || 'ha';
+      config.device = document.getElementById('modal-state-device')?.value || '';
+      config.metric = document.getElementById('modal-state-metric')?.value || '';
+      if (!config.entity) return 'Pick what this selector controls.';
       config.label = document.getElementById('modal-state-label')?.value || '';
       config.action = document.getElementById('modal-state-action')?.value || '';
       config.displayStyle = document.getElementById('modal-state-displaystyle')?.value || 'buttons';
@@ -3116,9 +3120,10 @@ function wireSettingsForm(body, block) {
       break;
     case 'state-select':
       renderStateSelectRows(body);
+      bindSwitchPicker('select', 'modal-state');
       break;
     case 'switch-block':
-      bindSwitchPicker();
+      bindSwitchPicker('toggle', 'modal-switch');
       break;
     case 'weather-block':
       renderWeatherAlertRows(body);

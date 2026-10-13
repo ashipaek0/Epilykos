@@ -21,8 +21,12 @@ function runBridge(script, args) {
           const parsed = JSON.parse(raw);
           if (parsed.error) return reject(new Error(parsed.error));
         } catch (_) { /* not JSON — fall through to generic message */ }
-        const detail = [err.message, stderr?.trim(), stdout?.trim()].filter(Boolean).join(' | ');
-        return reject(new Error(detail || 'Bridge process failed'));
+        // Never echo the command line: it carries the device's local key.
+        // Keep the last line of the Python output (the exception) instead.
+        const lastLine = (text) => String(text || '').trim().split('\n').filter(Boolean).pop() || '';
+        let detail = lastLine(stderr) || lastLine(stdout) || (err.killed ? 'timed out' : `exit code ${err.code}`);
+        for (const a of args.slice(1)) if (a && String(a).length >= 8) detail = detail.split(String(a)).join('…');
+        return reject(new Error(`Tuya bridge ${args[0]} failed: ${detail}`));
       }
       // Log stderr for diagnostics (Python debug goes to stderr)
       if (stderr && stderr.trim()) {
@@ -39,6 +43,17 @@ function runBridge(script, args) {
 
 const incompleteWarned = new Map(); // device name → last warning time
 const INCOMPLETE_WARN_MS = 10 * 60 * 1000;
+
+// Older Smart Life scans saved function codes ("switch_1") where the DP
+// number ("1") belongs; the device can't be read or switched through those.
+const CODE_DP_HELP = 'scan again in Settings → Sources → Tuya to get DP numbers';
+const codeWarned = new Map();
+function warnCodeDps(device, codes) {
+  const name = device.name || device.dev_id;
+  if (Date.now() - (codeWarned.get(name) || 0) < INCOMPLETE_WARN_MS) return;
+  codeWarned.set(name, Date.now());
+  logger.warn(`Tuya: "${name}" has function codes instead of DP numbers (${codes.join(', ')}); ${CODE_DP_HELP}.`);
+}
 
 /**
  * Poll every enabled Tuya device, map raw DP→value pairs to named metrics,
@@ -103,6 +118,8 @@ async function pollTuyaDevices() {
 
       const dpsConfig = device.dps || {};
       let written = 0;
+      const codes = Object.values(dpsConfig).filter(dp => !/^\d+$/.test(String(dp)));
+      if (codes.length) warnCodeDps(device, codes);
 
       for (const [metricName, dpNumber] of Object.entries(dpsConfig)) {
         const dpKey = String(dpNumber);
@@ -337,6 +354,7 @@ async function executeTuyaAction(deviceId, dpId, value) {
   const device = devices.find(d => d && (d.name === deviceId || d.dev_id === deviceId));
   if (!device || !device.enabled) return { error: 'Tuya device not found or disabled' };
   if (!device.local_key || !device.address) return { error: 'Tuya device missing local_key or IP' };
+  if (!/^\d+$/.test(String(dpId))) return { error: `"${dpId}" is a function code, not a DP number: ${CODE_DP_HELP}` };
 
   // Never send the literal string 'undefined' — default to true (toggle) when missing
   const actionValue = (value === undefined || value === null) ? true : value;
