@@ -59,6 +59,7 @@ const ICON_PATHS = {
   cloud: '<path d="M17 18a5 5 0 00-1-9.9A7 7 0 004 10a4 4 0 001 8z"/>',
   toggle: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
   select: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 6v12M15 6v12"/>',
+  button: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="10" r="3.2"/><path d="M8 17h8"/>',
   embed: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'
 };
 
@@ -120,6 +121,7 @@ export const BLOCKS = {
   'weather-block':      { group: 'forecast', name: 'Weather', desc: 'Conditions, forecast and alerts', icon: 'cloud', w: 6, h: 5 },
 
   'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns an entity on or off, on the Controls page', icon: 'toggle', w: 3, h: 2 },
+  'button-card':        { group: 'controls', name: 'Button', desc: 'Big icon button like Home Assistant: tap to toggle, turn on or off, or press, on the Controls page', icon: 'button', w: 3, h: 4 },
   'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity, on the Controls page', icon: 'select', w: 4, h: 3 },
 
   'text-card':          { group: 'content', name: 'Text', desc: 'A note or heading you write', icon: 'text', w: 6, h: 2 },

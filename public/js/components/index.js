@@ -37,6 +37,7 @@ import { buildBarStackedCard } from './barStackedCard.js';
 import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
+import { buildButtonCard } from './buttonCard.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
 import { buildControlPlaceholder } from './controlPlaceholder.js';
 import { registerBlock } from './blockRegistry.js';
@@ -83,13 +84,15 @@ export const componentBuilders = {
   // Switches and selectors work only on the Controls page (password unlock,
   // change log); everywhere else they show a placeholder linking there.
   'switch-block': buildControlPlaceholder,
-  'state-select': buildControlPlaceholder
+  'state-select': buildControlPlaceholder,
+  'button-card': buildControlPlaceholder
 };
 
 /** The working switch and selector cards, for the Controls page (and the showcase). */
 export const controlBuilders = {
   'switch-block': buildSwitchBlock,
-  'state-select': buildStateSelectBlock
+  'state-select': buildStateSelectBlock,
+  'button-card': buildButtonCard
 };
 
 // Every build registers its block so cards can look up their own config when
