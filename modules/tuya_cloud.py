@@ -122,19 +122,46 @@ def fetch_devices_oauth(token_info_json):
             "product_name": device.product_name or "",
             "category": device.category or "",
             "mapping": {},
+            "codes": {},
+            "unmapped": [],
         }
-        # Build DP name mapping from device.function
-        if device.function:
-            for dp_id, fn in device.function.items():
-                # DeviceFunction fields: desc (human-readable), name, code — pick best
-                label = getattr(fn, 'desc', None) or getattr(fn, 'name', None) or getattr(fn, 'code', '') or ''
-                if label:
-                    obj["mapping"][str(dp_id)] = label
-        print(f"[tuya_cloud DEBUG] device: {device.name} | mapping keys: {len(obj['mapping'])}", file=sys.stderr)
+        obj.update(dp_mapping(device))
+        print(f"[tuya_cloud DEBUG] device: {device.name} | DPs: {len(obj['mapping'])} | no DP number: {obj['unmapped']}", file=sys.stderr)
         devices.append(obj)
 
     print(json.dumps(devices))
 
+
+
+def dp_mapping(device):
+    """{mapping: {dp: label}, codes: {dp: code}, unmapped: [code]} for a device.
+
+    device.function / device.status_range are keyed by function CODE
+    ("switch_1"), but the device talks DP NUMBERS ("1") on the LAN.
+    local_strategy ({dp_id: {"status_code": code, ...}}) links the two.
+    Writable functions and read-only status (power, voltage, ...) alike.
+    """
+    out = {"mapping": {}, "codes": {}, "unmapped": []}
+    code_to_dp = {}
+    for dp_id, strategy in (getattr(device, "local_strategy", None) or {}).items():
+        code = (strategy or {}).get("status_code")
+        if code:
+            code_to_dp[code] = str(dp_id)
+    specs = {}
+    for table in (getattr(device, "status_range", None) or {}, getattr(device, "function", None) or {}):
+        for code, fn in table.items():
+            specs[code] = fn
+    for code, fn in specs.items():
+        label = getattr(fn, "desc", None) or getattr(fn, "name", None) or getattr(fn, "code", "") or code
+        dp = code_to_dp.get(code)
+        if dp is None and str(code).isdigit():
+            dp = str(code)  # some devices already key by number
+        if dp is None:
+            out["unmapped"].append(code)
+            continue
+        out["mapping"][dp] = label
+        out["codes"][dp] = code
+    return out
 
 def main():
     if len(sys.argv) < 2:

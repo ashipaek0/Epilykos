@@ -36,7 +36,8 @@ export function buildStateSelectBlock(block = {}) {
   const container = document.createElement('div');
   container.className = 'state-select-block';
   container.dataset.blockId = block.id || '';
-  container.dataset.metric = config.entity || '';
+  // State comes from the metric (an HA entity id or MQTT topic isn't one).
+  container.dataset.metric = config.metric || config.entity || '';
 
   const label = escapeHtml(config.label || config.entity || 'Mode');
   const states = normalizeStates(config);
