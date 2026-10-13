@@ -58,15 +58,15 @@ function setStatus(s) {
   $('ct-lock').classList.toggle('is-unlocked', on);
   $('ct-unlock-form').hidden = on;
   $('ct-lock-now').hidden = !on;
-  $('ct-lock-title').textContent = on ? 'Changes are unlocked' : 'Changes are locked';
+  $('ct-lock-title').textContent = on ? 'Unlocked' : 'Locked';
   clearInterval(countdown);
   const tick = () => {
     if (!unlocked()) { clearInterval(countdown); if (on) setStatus({ unlockedUntil: null }); return; }
     const left = Math.max(0, Math.round((status.unlockedUntil + clockSkew - Date.now()) / 1000));
-    $('ct-lock-text').textContent = `They lock again in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}, or when you sign out.`;
+    $('ct-lock-text').textContent = `Locks again in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   };
   if (on) { tick(); countdown = setInterval(tick, 1000); }
-  else $('ct-lock-text').textContent = `Enter your password to unlock changes for ${status.unlockMinutes} minutes. Reading values doesn't need it.`;
+  else $('ct-lock-text').textContent = `Unlock for ${status.unlockMinutes} min to make changes.`;
   for (const [id, value] of [['ct-allow', status.writesEnabled], ['ct-expert', status.expertEnabled]]) {
     const b = $(id);
     b.setAttribute('aria-checked', String(!!value));
@@ -124,8 +124,12 @@ async function loadCards() {
   for (const block of blocks) {
     const item = document.createElement('div');
     item.className = 'ct-card';
+    item.dataset.type = block.type;
     // Same place and size as in the layout editor (12 columns, 50 px rows).
-    item.style.gridColumn = `${(block.gridX || 0) + 1} / span ${Math.min(12, block.gridW || 3)}`;
+    // A card past the 12th column would add columns and run off the page.
+    const w = Math.max(1, Math.min(12, block.gridW || 3));
+    const x = Math.max(0, Math.min(12 - w, block.gridX || 0));
+    item.style.gridColumn = `${x + 1} / span ${w}`;
     item.style.gridRow = `${(block.gridY || 0) + 1} / span ${block.gridH || 2}`;
     item.appendChild(controlBuilders[block.type](block));
     box.appendChild(item);

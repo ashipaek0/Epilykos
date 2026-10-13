@@ -79,7 +79,7 @@
 .st .ct-theme:hover { background: var(--st-hover); color: var(--st-text); }
 
 .ct-content { max-width: 1180px; margin: 0 auto; padding: 32px 36px 120px; box-sizing: border-box; }
-.ct-section { scroll-margin-top: 140px; }
+.ct-section { scroll-margin-top: 100px; }
 .st .ct-section .st-card-head h2 { margin: 0; }
 
 /* Buttons (match .st-btn). */
@@ -103,16 +103,35 @@
 .st .ct-lock-form input:hover, .st .ct-input:hover, .st .ct-field input:hover, .st .ct-field select:hover { border-color: var(--st-muted); }
 .st .ct-lock-form input:focus, .st .ct-input:focus, .st .ct-field input:focus, .st .ct-field select:focus { outline: none; border-color: var(--st-amber); box-shadow: var(--st-focus); }
 
-/* Lock panel: stays in view while scrolling. */
-.ct-lock { position: sticky; top: 12px; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
-  border-left: 4px solid var(--st-amber); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
-.ct-lock.is-unlocked { border-left-color: var(--st-danger); background: var(--st-panel); }
-.ct-lock-title { font-size: 1.02rem; font-weight: 800; margin: 0 0 2px; color: var(--st-text); }
-.ct-lock-text { margin: 0; color: var(--st-muted); font-size: .8rem; line-height: 1.5; }
-.ct-lock-form { display: flex; gap: 8px; flex-wrap: wrap; }
-.ct-lock-form input { width: 13rem; max-width: 100%; }
-.ct-lock .ct-msg { flex-basis: 100%; margin: 0; }
-.ct-lock .ct-msg:empty { display: none; }
+/* Header: the title and a compact lock + safety switches bar, kept in view
+   while scrolling. The controls below are the page's main content. */
+.ct-head { position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px;
+  margin: -12px 0 18px; padding: 12px 0; background: var(--st-canvas); }
+.st .ct-head h1 { margin: 0; font-size: 1.6rem; font-weight: 800; color: var(--st-text); }
+.ct-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: 100%; box-sizing: border-box;
+  padding: 6px 6px 6px 14px; border: 1px solid var(--st-line); border-radius: 14px; background: var(--st-panel); box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+.ct-bar-lock { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ct-lock-icon { flex: none; color: var(--st-amber-text, var(--st-muted)); }
+.ct-lock.is-unlocked .ct-lock-icon { color: var(--st-danger-text); }
+.ct-lock.is-unlocked .ct-lock-shackle { d: path("M8 11V7a4 4 0 0 1 7.75-1.4"); }
+.ct-lock-state { min-width: 0; }
+.st .ct-lock-title { font-size: .84rem; font-weight: 800; margin: 0; line-height: 1.2; color: var(--st-text); }
+.st .ct-lock.is-unlocked .ct-lock-title { color: var(--st-danger-text); }
+.ct-lock-text { margin: 0; color: var(--st-muted); font-size: .72rem; line-height: 1.3; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ct-lock-form { display: flex; gap: 6px; min-width: 0; }
+.st .ct-lock-form input { width: 8.5rem; min-width: 0; }
+.ct-bar-switches { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 14px; border-left: 1px solid var(--st-line-soft); }
+.ct-chip { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px 0 12px; border-radius: 10px; background: var(--st-hover); }
+.ct-chip-name { font-size: .78rem; font-weight: 700; color: var(--st-text); white-space: nowrap; }
+.ct-bar .ct-msg { flex-basis: 100%; margin: 0 0 2px; padding-right: 8px; }
+.ct-bar .ct-msg:empty { display: none; }
+
+/* The controls: no card around them, full width. */
+.ct-controls { margin-bottom: 28px; }
+.ct-controls-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.st .ct-controls-head h2 { margin: 0; font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--st-muted); }
+.ct-link { font-size: .78rem; font-weight: 700; color: var(--st-amber-text, var(--st-text)); text-decoration: none; }
+.ct-link:hover { text-decoration: underline; }
 .ct-msg { color: var(--st-muted); font-size: .8rem; min-height: 1em; margin: 8px 0 0; }
 .ct-msg:empty { margin: 0; }
 
@@ -122,10 +141,6 @@
 .ct-empty { color: var(--st-muted); font-size: .84rem; }
 
 /* Safety switches: Settings-style rows with a sliding switch. */
-.ct-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--st-line-soft); }
-.ct-switch-row:first-of-type { border-top: none; padding-top: 0; }
-.ct-switch-name { font-weight: 700; font-size: .88rem; color: var(--st-text); }
-.ct-switch-row .ct-help { margin-bottom: 0; }
 /* Same switch as Settings (.toggle-switch in settings-redesign.css): 44x26
    track, grey off, green on, no text in the track (the state is aria-checked). */
 .st .ct-toggle {
@@ -149,6 +164,7 @@
 .ct-empty a { color: var(--st-amber-text); font-weight: 700; }
 .st a.ct-btn { text-decoration: none; }
 .ct-cards.is-locked { opacity: .55; }
+.ct-cards.is-locked .ct-card { cursor: not-allowed; }
 .ct-card { display: flex; flex-direction: column; min-width: 0; }
 .ct-card > * { flex: 1; min-height: 0; }
 .ct-card-where { font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--st-muted); }
@@ -201,17 +217,29 @@
   .ct-nav-link svg { display: none; }
   .ct-nav-foot { margin: 0; padding: 0; border: none; }
   .ct-nav-foot-label { display: none; }
-  .ct-lock { top: 60px; }
+  .ct-head { top: 52px; }
   /* One card per row, as on the dashboard below 768 px. */
-  .ct-cards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
+  /* Switches and selectors one per row; button cards three (two on phones) per row, like HA tiles. */
+  .ct-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: auto; }
   .ct-card { grid-column: 1 / -1 !important; grid-row: auto !important; min-height: 100px; }
-  .ct-section { scroll-margin-top: 200px; }
+  .ct-card[data-type="button-card"] { grid-column: auto !important; min-height: 140px; }
+  .ct-nav-list { mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .ct-section { scroll-margin-top: 190px; }
   .ct-content { padding: 20px 16px 120px; }
 }
 @media (max-width: 640px) {
-  .st-card.ct-section, .st-card.ct-lock { padding: 16px; }
-  .ct-lock-form, .ct-lock-form input { width: 100%; }
-  .ct-lock-form input { flex: 1; }
+  .st-card.ct-section { padding: 16px; }
+  .ct-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ct-head { position: static; margin: 0 0 16px; padding: 0; gap: 8px; }
+  .ct-section { scroll-margin-top: 70px; }
+  .st .ct-head h1 { font-size: 1.3rem; }
+  .ct-bar { width: 100%; padding: 8px; gap: 8px; }
+  .ct-bar-lock { flex: 1 1 100%; flex-wrap: wrap; padding-left: 4px; }
+  .ct-lock-state { flex: 1; }
+  .ct-lock-form { flex: 1 1 100%; }
+  .st .ct-lock-form input { flex: 1; width: auto; }
+  .ct-bar-switches { flex: 1 1 100%; padding-left: 0; border-left: none; }
+  .ct-chip { flex: 1 1 0; justify-content: space-between; min-width: 0; }
   .ct-settings thead { display: none; }
   .ct-settings tbody tr:not(.ct-row-msg) { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px; border-bottom: 1px solid var(--st-line-soft); }
   .ct-settings tbody tr:not(.ct-row-msg) > * { padding: 0; border: 0; }
