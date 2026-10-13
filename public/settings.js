@@ -580,7 +580,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
 // the unchanged save collector persists {userMetric: entity_id} byte-identically
 // (actions only when configured). Expose rows never touch saved mappings and
 // never remove rows that already carry a metric.
-const HA_ENTITY_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean'];
+const HA_ENTITY_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean', 'select', 'input_select'];
 
 function haEntityIdOf(e) {
   if (!e) return '';

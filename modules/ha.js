@@ -118,7 +118,9 @@ async function fetchHAEntities(url, token) {
     e.entity_id.startsWith('climate.') ||
     e.entity_id.startsWith('fan.') ||
     e.entity_id.startsWith('cover.') ||
-    e.entity_id.startsWith('input_boolean.')
+    e.entity_id.startsWith('input_boolean.') ||
+    e.entity_id.startsWith('select.') ||
+    e.entity_id.startsWith('input_select.')
   ).map(e => e.entity_id);
 }
 
@@ -236,7 +238,9 @@ const DOMAIN_ACTIONS = {
     { service: 'cover.stop_cover', label: 'Stop', type: 'button' },
     { service: 'cover.toggle', label: 'Toggle', type: 'toggle' }
   ],
-  'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }]
+  'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }],
+  'select': [{ service: 'select.select_option', label: 'Select option', type: 'select', param: 'option' }],
+  'input_select': [{ service: 'input_select.select_option', label: 'Select option', type: 'select', param: 'option' }]
 };
 
 // Spec AC-7.1: flat action names per domain, exactly as asserted by the spec tests.
@@ -246,7 +250,9 @@ const SPEC_DOMAIN_ACTIONS = {
   'climate': ['set_temperature', 'set_mode', 'set_fan_mode', 'turn_on', 'turn_off'],
   'fan': ['toggle', 'turn_on', 'turn_off', 'set_speed'],
   'cover': ['open_cover', 'close_cover', 'stop_cover', 'toggle'],
-  'input_boolean': ['toggle']
+  'input_boolean': ['toggle'],
+  'select': ['select_option'],
+  'input_select': ['select_option']
 };
 
 /**
@@ -287,7 +293,7 @@ const ENTITY_MODES_TTL_MS = 5 * 60 * 1000;
  * @returns {Promise<{hvac_modes: string[], fan_modes: string[], min_temp: number|null, max_temp: number|null}>}
  */
 async function getEntityModes(url, token, entityId) {
-  const empty = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+  const empty = { hvac_modes: [], fan_modes: [], preset_modes: [], options: [], min_temp: null, max_temp: null };
   if (!url || !token || !entityId) return empty;
   const key = `${url}|${entityId}`;
   const cached = entityModesCache.get(key);
@@ -307,6 +313,8 @@ async function getEntityModes(url, token, entityId) {
       data = {
         hvac_modes: Array.isArray(attrs.hvac_modes) ? attrs.hvac_modes : [],
         fan_modes: Array.isArray(attrs.fan_modes) ? attrs.fan_modes : [],
+        preset_modes: Array.isArray(attrs.preset_modes) ? attrs.preset_modes : [],
+        options: Array.isArray(attrs.options) ? attrs.options : [], // select / input_select
         min_temp: (attrs.min_temp !== undefined && attrs.min_temp !== null) ? attrs.min_temp : null,
         max_temp: (attrs.max_temp !== undefined && attrs.max_temp !== null) ? attrs.max_temp : null
       };

@@ -1428,7 +1428,29 @@ function bindSwitchPicker(kind, prefix) {
     if (action) action.value = kind === 'select' ? s.selectAction : s.action;
     var label = document.getElementById(prefix + '-label');
     if (label && !label.value.trim()) label.value = s.metric || s.entity;
+    if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
   });
+}
+
+/** A selector with no states yet takes the HA entity's own options or modes. */
+function fillStatesFromHA(s) {
+  var dataEl = document.getElementById('state-data');
+  if (!dataEl) return;
+  var current = [];
+  try { current = JSON.parse(dataEl.textContent); } catch (e) {}
+  var typed = Array.prototype.some.call(document.querySelectorAll('.state-value'), function(el) { return el.value.trim(); });
+  if (current.length || typed) return; // never overwrite states someone entered
+  fetch('/api/ha/entity-actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({ device: s.device, entityId: s.entity })
+  }).then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
+    var m = (d && d.modes) || {};
+    var list = (m.options && m.options.length) ? m.options : (m.hvac_modes && m.hvac_modes.length) ? m.hvac_modes : (m.preset_modes || []);
+    if (!list.length || !document.getElementById('state-data')) return;
+    dataEl.textContent = JSON.stringify(list.map(function(v) { return { value: String(v), label: String(v).replace(/_/g, ' ').replace(/^./, function(c) { return c.toUpperCase(); }) }; }));
+    renderStateSelectRows(document);
+  }).catch(function() { /* states stay as they are */ });
 }
 
 /** State Select Block: entity, source, label, action, display style, state-list editor */
