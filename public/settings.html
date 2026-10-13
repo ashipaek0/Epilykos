@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="settings-redesign.css">
   <link rel="stylesheet" href="settings-shell.css?v=2">
   <link rel="stylesheet" href="notifications.css?v=3">
+  <link rel="stylesheet" href="color-picker.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -923,9 +924,11 @@
 <script src="js/pvoutput-units.js?v=1"></script>
 <script src="settings.js?v=21"></script>
 <script src="js/catalog-ui.js?v=1"></script>
-<script src="js/settings-shell.js?v=3"></script>
+<script src="js/settings-shell.js?v=4"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
+<!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
+<script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
 </body>
 </html>

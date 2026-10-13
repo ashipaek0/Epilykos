@@ -368,7 +368,8 @@
     return s ? s.dataset.section : null;
   }
   function onUserEdit(e) {
-    if (!e.isTrusted) return;
+    // The in-page colour picker (js/editor-color.js) tags the edits it makes.
+    if (!e.isTrusted && !(e.target && e.target.dataset && e.target.dataset.colorPickerEdit === '1')) return;
     var sec = sectionOfEvent(e);
     if (!sec || SAVABLE.indexOf(sec) === -1) return;
     if (e.type === 'click') {

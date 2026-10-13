@@ -9,6 +9,7 @@ import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { applyBlockStyle, fontScale } from './components/blockStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
+import { initColorPicker } from './editor-color.js';
 import { iconHtml, buildButtonCard, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR } from './components/buttonCard.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
@@ -3837,6 +3838,7 @@ async function loadControlsTab() {
 
 async function initEditor() {
   initTheme();
+  initColorPicker(); // colour inputs open an in-page picker that stays on screen
   hydrateIcons(document);
   showLoading('Loading editor…');
   try {
