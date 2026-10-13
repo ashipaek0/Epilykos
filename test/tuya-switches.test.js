@@ -124,3 +124,30 @@ test('selectors send HA the field its service wants, and MQTT the value', () => 
   assert.match(server, /let payload = params\?\.payload !== undefined && params\?\.payload !== null \? params\.payload : params\?\.value;/);
   assert.match(fs.readFileSync(path.join(ROOT, 'public/js/components/stateSelectBlock.js'), 'utf8'), /container\.dataset\.metric = config\.metric \|\| config\.entity/);
 });
+
+test('a toggle keeps the change through a stale reading; Tuya writes the new value at once', () => {
+  const sw = fs.readFileSync(path.join(ROOT, 'public/js/components/switchBlock.js'), 'utf8');
+  assert.match(sw, /const PENDING_HOLD_MS = 45000;/);
+  assert.match(sw, /if \(held && \(container\.dataset\.pending === 'on'\) !== isOn\) return;/);
+  const ss = fs.readFileSync(path.join(ROOT, 'public/js/components/stateSelectBlock.js'), 'utf8');
+  assert.match(ss, /if \(held && container\.dataset\.pending !== currentValue\) return;/);
+  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  assert.match(server, /result = await executeTuyaAction\(device, dpNumber, actionValue\);[\s\S]{0,400}queueMetricValue\(entity, actionValue/);
+});
+
+test('Home Assistant select and input_select entities can be mapped and driven', async () => {
+  const settings = fs.readFileSync(path.join(ROOT, 'public/settings.js'), 'utf8');
+  assert.match(settings, /HA_ENTITY_DOMAINS = \[[^\]]*'select', 'input_select'\]/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'), /HA_CATALOG_DOMAINS = \[[^\]]*'select', 'input_select'\]/);
+  const ha = require('../modules/ha');
+  assert.deepStrictEqual(ha.getActionsForEntity('select.ac_mode'), ['select_option']);
+  assert.ok(ha.getEntityActions('input_select.scene').some(a => a.service === 'input_select.select_option' && a.param === 'option'));
+  // fetchHAEntities keeps select entities
+  const realFetch = global.fetch;
+  require('../modules/utils').assertSafeFetchUrl = async url => ({ ok: true, url });
+  global.fetch = async () => ({ ok: true, json: async () => [{ entity_id: 'select.ac_mode' }, { entity_id: 'input_select.scene' }, { entity_id: 'weather.home' }] });
+  try {
+    const ids = await ha.fetchHAEntities('http://ha.example:8123', 't');
+    assert.deepStrictEqual(ids, ['select.ac_mode', 'input_select.scene']);
+  } finally { global.fetch = realFetch; }
+});

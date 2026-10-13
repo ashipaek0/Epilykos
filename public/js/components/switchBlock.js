@@ -2,6 +2,9 @@ import { escapeHtml } from '../utils.js';
 import { emptyBlock } from './emptyState.js';
 
 const SWITCH_TIMEOUT_MS = 8000;
+// After a change, keep showing it until a reading agrees (the device may not
+// be polled again for 30 s, and the page refreshes sooner than that).
+const PENDING_HOLD_MS = 45000;
 
 export function buildSwitchBlock(block = {}) {
   const config = block.config || {};
@@ -93,6 +96,8 @@ export function buildSwitchBlock(block = {}) {
         throw new Error(data.error || `HTTP ${res.status}`);
       }
       setStateText(this.checked);
+      container.dataset.pending = this.checked ? 'on' : 'off';
+      container.dataset.pendingUntil = String(Date.now() + PENDING_HOLD_MS);
     } catch (e) {
       if (e.name === 'AbortError') {
         fail('timeout');
@@ -118,7 +123,16 @@ export function updateSwitchBlockFromState(state) {
 
     const checkbox = container.querySelector('input[type="checkbox"]');
     const stateEl = container.querySelector('.switch-state');
-    const isOn = data.value === 'on' || data.value === true || data.value === 1 || data.value === 'true';
+    const v = typeof data.value === 'string' ? data.value.toLowerCase() : data.value;
+    const isOn = v === 'on' || v === true || v === 1 || v === 'true' || v === '1';
+    // A reading older than the user's change: keep the change on screen.
+    if (container.dataset.pending) {
+      const held = Date.now() < Number(container.dataset.pendingUntil || 0);
+      if (held && (container.dataset.pending === 'on') !== isOn) return;
+      delete container.dataset.pending;
+      delete container.dataset.pendingUntil;
+    }
+    if (checkbox && checkbox.disabled) return; // a change is in flight
 
     if (checkbox) checkbox.checked = isOn;
     if (stateEl) {
