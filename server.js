@@ -271,8 +271,9 @@ function rs232ProfileEntities(profile) {
   return entities;
 }
 
-// 8-domain set shared with modules/ha.js fetchHAEntities filter (L147-156).
-const HA_CATALOG_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean'];
+// Domain set shared with modules/ha.js fetchHAEntities (select/input_select
+// so state selectors can drive them).
+const HA_CATALOG_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean', 'select', 'input_select'];
 
 function haStatesToCatalog(states) {
   // AC-10: enrich ONE /api/states fetch into catalog items (no registry, no
@@ -954,7 +955,7 @@ app.post('/api/ha/entity-actions', async (req, res) => {
   }
   try {
     const actions = getActionsForEntity(entityIdOk);
-    let modes = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+    let modes = { hvac_modes: [], fan_modes: [], preset_modes: [], options: [], min_temp: null, max_temp: null };
     let currentState = null;
     if (url && token) {
       const [modeData, stateRes] = await Promise.all([
@@ -1792,6 +1793,11 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
         // Toggles send true when no explicit value is given — never the literal 'undefined'
         const actionValue = (params?.value === undefined || params?.value === null) ? true : params.value;
         result = await executeTuyaAction(device, dpNumber, actionValue);
+        // The device is polled every 30 s but the Controls page refreshes every
+        // 10 s: record the value it now has, so no refresh shows the old one.
+        if (result && !result.error && result.success !== false) {
+          require('./modules/database').queueMetricValue(entity, actionValue, Math.floor(Date.now() / 1000));
+        }
         break;
       }
       case 'modbus': {
