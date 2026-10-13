@@ -8,9 +8,16 @@ import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { applyBlockStyle, fontScale } from './components/blockStyle.js';
+import { MDI_ICONS } from './components/buttonIcons.js';
+import { iconHtml, buildButtonCard, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR } from './components/buttonCard.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
 const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
+// The button card previews as itself (icon, colours, live state) but can't be
+// tapped here: actions run on the Controls page only.
+BLOCK_BUILDERS.set('button-card', function(block) {
+  return buildButtonCard(Object.assign({}, block, { config: Object.assign({}, block.config, { tapAction: 'none' }) }));
+});
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1364,7 +1371,7 @@ function buildSwitchBlockForm(block) {
   html += '<span data-ui="row-label">Switch</span>';
   html += '<div data-ui="grow">' + switchableSelect(cfg, 'toggle', 'modal-switch') + '</div>';
   html += '</div>';
-  if (!switchables.some(function(x) { return x.action; })) html += '<p data-ui="hint">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first.</p>';
+  if (!switchables.some(function(x) { return x.action; })) html += '<p data-ui="help">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first.</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<label data-ui="field">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" data-ui="input"></label>';
   html += '<div data-ui="grid2">';
@@ -1386,7 +1393,7 @@ function switchableSelect(cfg, kind, prefix) {
   var current = !!cfg.entity, found = false;
   var groups = {}, order = [];
   switchables.forEach(function(s, i) {
-    if (!(kind === 'select' ? s.selectAction : s.action)) return;
+    if (!(kind === 'select' ? s.selectAction : kind === 'button' ? (s.action || s.pressAction) : s.action)) return;
     if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
     groups[s.group].push(i);
   });
@@ -1425,10 +1432,11 @@ function bindSwitchPicker(kind, prefix) {
     document.getElementById(prefix + '-entity').value = s.entity;
     document.getElementById(prefix + '-metric').value = s.metric || '';
     var action = document.getElementById(prefix + '-action');
-    if (action) action.value = kind === 'select' ? s.selectAction : s.action;
-    var label = document.getElementById(prefix + '-label');
+    if (action) action.value = kind === 'select' ? s.selectAction : kind === 'button' ? (s.action || s.pressAction) : s.action;
+    var label = document.getElementById(prefix + '-label') || document.getElementById(prefix + '-name');
     if (label && !label.value.trim()) label.value = s.metric || s.entity;
     if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
+    if (kind === 'button') onButtonPicked(s);
   });
 }
 
@@ -1453,6 +1461,102 @@ function fillStatesFromHA(s) {
   }).catch(function() { /* states stay as they are */ });
 }
 
+/** Button card: what it controls, tap action, icons (on / off) and state colours. */
+function buildButtonCardForm(block) {
+  var cfg = block.config || {};
+  var tap = cfg.tapAction || 'toggle';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Button</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Control</span><div data-ui="grow">' + switchableSelect(cfg, 'button', 'modal-btn') + '</div></div>';
+  if (!switchables.some(function(x) { return x.action || x.pressAction; })) html += '<p data-ui="help">Nothing to control yet. Map a Tuya DP, a Home Assistant switch, light or button, or an MQTT topic to a metric in Settings → Sources first.</p>';
+  html += '<input type="hidden" id="modal-btn-action" value="' + escHtml(cfg.action || '') + '">';
+  html += '<label data-ui="field">Name <input type="text" id="modal-btn-name" value="' + escHtml(cfg.name || '') + '" placeholder="Living room AC" data-ui="input"></label>';
+  html += '<label data-ui="field">On tap <select id="modal-btn-tap" data-ui="input">' +
+    [['toggle', 'Toggle'], ['on', 'Turn on'], ['off', 'Turn off'], ['press', 'Press (button, scene, script, momentary)'], ['none', 'Nothing (show the state only)']]
+      .map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === tap ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>';
+  html += '</fieldset>';
+
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Icon</legend>';
+  html += iconField('modal-btn-icon', 'Icon', cfg.icon || '', 'mdi:power');
+  html += iconField('modal-btn-iconoff', 'Icon when off', cfg.iconOff || '', 'Same as above');
+  html += '<p data-ui="help">An icon name like mdi:fan (pick one below), an image address or path (/uploads/ac.png), or an emoji.</p>';
+  html += '<div class="bc-icon-grid" id="modal-btn-icongrid" role="listbox" aria-label="Icons"></div>';
+  html += '</fieldset>';
+
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
+  html += '<div data-ui="grid2">' + optionalColorField('modal-btn-oncolor', 'Icon colour when on', cfg.onColor || '') + optionalColorField('modal-btn-offcolor', 'Icon colour when off', cfg.offColor || '') + '</div>';
+  html += '<p data-ui="help">Theme default: amber when on (' + DEFAULT_ON_COLOR + '), blue-grey when off (' + DEFAULT_OFF_COLOR + '), as in Home Assistant. Images keep their own colours.</p>';
+  html += '<div data-ui="grid2">';
+  html += '<label data-ui="field">Text when on <input type="text" id="modal-btn-ontext" value="' + escHtml(cfg.onText || '') + '" placeholder="On" data-ui="input"></label>';
+  html += '<label data-ui="field">Text when off <input type="text" id="modal-btn-offtext" value="' + escHtml(cfg.offText || '') + '" placeholder="Off" data-ui="input"></label>';
+  html += '</div>';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-btn-showname"' + (cfg.showName !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-btn-showname">Show the name</label></span>';
+  html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-btn-showstate"' + (cfg.showState !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-btn-showstate">Show the state</label></span>';
+  html += '</fieldset>';
+  return html;
+}
+
+function iconField(id, label, value, placeholder) {
+  return '<div data-ui="row"><span data-ui="row-label">' + label + '</span>' +
+    '<span class="bc-icon-preview" id="' + id + '-preview" aria-hidden="true">' + (value ? iconHtml(value) : '') + '</span>' +
+    '<input type="text" id="' + id + '" value="' + escHtml(value) + '" placeholder="' + escHtml(placeholder) + '" list="bc-icon-names" autocomplete="off" data-ui="input grow" data-icon-target></div>';
+}
+
+/** Icons people are likely to want for a device, from its name. */
+var ICON_GUESSES = [[/\b(a\/?c|air ?con|aircon)\b/i, 'mdi:air-conditioner'], [/fan/i, 'mdi:fan'], [/light|lamp|bulb/i, 'mdi:lightbulb'], [/cook|stove|oven|hob|induction/i, 'mdi:stove'],
+  [/fridge|freezer/i, 'mdi:fridge'], [/server|nas|computer|pc\b/i, 'mdi:desktop-tower-monitor'], [/tv|television/i, 'mdi:television'], [/buzz|bell|alarm|siren/i, 'mdi:bell'],
+  [/pump/i, 'mdi:water-pump'], [/heat|boiler|geyser/i, 'mdi:water-boiler'], [/wash/i, 'mdi:washing-machine'], [/kettle/i, 'mdi:kettle'], [/router|wifi/i, 'mdi:router-wireless'],
+  [/gate/i, 'mdi:gate'], [/garage/i, 'mdi:garage'], [/generator|gen\b/i, 'mdi:generator-stationary'], [/charger|ev\b/i, 'mdi:ev-station'], [/socket|plug|outlet/i, 'mdi:power-socket-uk']];
+function onButtonPicked(s) {
+  var tap = document.getElementById('modal-btn-tap');
+  if (tap && s.pressAction && !s.action) tap.value = 'press';
+  var icon = document.getElementById('modal-btn-icon');
+  if (icon && !icon.value.trim()) {
+    var name = (document.getElementById('modal-btn-name') || {}).value || s.metric || s.entity;
+    var hit = ICON_GUESSES.find(function(g) { return g[0].test(name); });
+    icon.value = hit ? hit[1] : (s.pressAction && !s.action ? 'mdi:gesture-tap-button' : 'mdi:power');
+    icon.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+/** Icon previews, the name list for typing, and a filterable grid to click. */
+function bindButtonCardForm() {
+  bindSwitchPicker('button', 'modal-btn');
+  if (!document.getElementById('bc-icon-names')) {
+    var dl = document.createElement('datalist');
+    dl.id = 'bc-icon-names';
+    dl.innerHTML = Object.keys(MDI_ICONS).map(function(n) { return '<option value="mdi:' + n + '">'; }).join('');
+    document.body.appendChild(dl);
+  }
+  var grid = document.getElementById('modal-btn-icongrid');
+  var target = document.getElementById('modal-btn-icon');
+  function renderGrid(filter) {
+    if (!grid) return;
+    var f = String(filter || '').replace(/^mdi:/, '').toLowerCase();
+    var names = Object.keys(MDI_ICONS).filter(function(n) { return !f || n.indexOf(f) !== -1; });
+    if (!names.length) names = Object.keys(MDI_ICONS);
+    grid.innerHTML = names.map(function(n) {
+      return '<button type="button" class="bc-icon-pick" role="option" data-icon="mdi:' + n + '" title="mdi:' + n + '" aria-label="mdi:' + n + '">' + iconHtml('mdi:' + n) + '</button>';
+    }).join('');
+  }
+  document.querySelectorAll('[data-icon-target]').forEach(function(input) {
+    input.addEventListener('focus', function() { target = input; renderGrid(input.value); });
+    input.addEventListener('input', function() {
+      var prev = document.getElementById(input.id + '-preview');
+      if (prev) prev.innerHTML = input.value.trim() ? iconHtml(input.value.trim()) : '';
+      if (input === target) renderGrid(input.value);
+    });
+  });
+  if (grid) grid.addEventListener('click', function(e) {
+    var b = e.target.closest('.bc-icon-pick');
+    if (!b || !target) return;
+    target.value = b.dataset.icon;
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  renderGrid('');
+}
+
 /** State Select Block: entity, source, label, action, display style, state-list editor */
 function buildStateSelectForm(block) {
   var cfg = block.config || {};
@@ -1463,7 +1567,7 @@ function buildStateSelectForm(block) {
   html += '<span data-ui="row-label">Control</span>';
   html += '<div data-ui="grow">' + switchableSelect(cfg, 'select', 'modal-state') + '</div>';
   html += '</div>';
-  if (!switchables.some(function(x) { return x.selectAction; })) html += '<p data-ui="hint">Nothing to control yet. Map a Tuya DP, a Home Assistant select or climate entity, or an MQTT topic to a metric in Settings → Sources first.</p>';
+  if (!switchables.some(function(x) { return x.selectAction; })) html += '<p data-ui="help">Nothing to control yet. Map a Tuya DP, a Home Assistant select or climate entity, or an MQTT topic to a metric in Settings → Sources first.</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-state-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<div data-ui="row">';
   html += '<span data-ui="row-label">Action</span>';
@@ -1746,6 +1850,9 @@ function buildSettingsForm(block) {
       break;
     case 'switch-block':
       html += buildSwitchBlockForm(block);
+      break;
+    case 'button-card':
+      html += buildButtonCardForm(block);
       break;
     case 'state-select':
       html += buildStateSelectForm(block);
@@ -2247,6 +2354,26 @@ function readSettingsForm(block) {
       if (config.offColor === '#000000' && ofEl?.dataset.dirty !== 'true') config.offColor = '';
       config.onIcon = document.getElementById('modal-switch-onicon')?.value || '';
       config.offIcon = document.getElementById('modal-switch-officon')?.value || '';
+      break;
+    }
+    case 'button-card': {
+      var bv = function(id) { var el = document.getElementById('modal-btn-' + id); return el ? String(el.value).trim() : ''; };
+      config.source = bv('source') || 'ha';
+      config.device = bv('device');
+      config.entity = bv('entity');
+      config.metric = bv('metric');
+      config.action = bv('action');
+      config.name = bv('name');
+      config.tapAction = bv('tap') || 'toggle';
+      config.icon = bv('icon');
+      config.iconOff = bv('iconoff');
+      config.onColor = bv('oncolor');
+      config.offColor = bv('offcolor');
+      config.onText = bv('ontext');
+      config.offText = bv('offtext');
+      config.showName = document.getElementById('modal-btn-showname')?.checked !== false;
+      config.showState = document.getElementById('modal-btn-showstate')?.checked !== false;
+      if (!config.entity) return 'Pick what this button controls.';
       break;
     }
     case 'state-select': {
@@ -3146,6 +3273,9 @@ function wireSettingsForm(body, block) {
       break;
     case 'switch-block':
       bindSwitchPicker('toggle', 'modal-switch');
+      break;
+    case 'button-card':
+      bindButtonCardForm();
       break;
     case 'weather-block':
       renderWeatherAlertRows(body);

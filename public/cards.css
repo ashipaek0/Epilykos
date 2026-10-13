@@ -562,3 +562,43 @@
 .control-placeholder-name { font-weight: 600; color: var(--text); }
 .control-placeholder-text { margin: 0; font-size: var(--fs-small, .85rem); color: var(--text-secondary); }
 .control-placeholder-text a { color: var(--text); }
+
+/* ── Button card (Home Assistant style) ─────────────────────── */
+.button-card {
+  box-sizing: border-box; width: 100%; height: 100%; min-width: 0;
+  container-type: size;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: var(--card-pad); margin: 0; font: inherit; text-align: center; color: var(--text);
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+button.button-card { cursor: pointer; transition: transform .08s ease, border-color .15s ease; }
+button.button-card:hover { border-color: var(--text-secondary, #888); }
+button.button-card:active { transform: scale(.98); }
+button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); outline-offset: 2px; }
+.button-card .bc-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; flex: 1 1 0; min-height: 20px; max-height: min(62cqh, 80cqw);
+  color: var(--bc-off); transition: color .2s ease;
+}
+.button-card.is-on .bc-icon, .button-card.is-press .bc-icon { color: var(--bc-on); }
+.button-card.bc-pressed .bc-icon { animation: bc-press .6s ease; }
+@keyframes bc-press { 0% { transform: scale(1); } 30% { transform: scale(.86); opacity: .7; } 100% { transform: scale(1); } }
+.button-card.is-unknown .bc-icon { opacity: .45; }
+.button-card .bc-icon svg { height: 100%; width: auto; max-width: 100%; }
+.button-card .bc-icon img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+.button-card.is-off .bc-icon img { opacity: .55; filter: grayscale(.4); }
+.button-card .bc-emoji { font-size: min(44cqh, 60cqw); line-height: 1; }
+.button-card .bc-name {
+  max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2;
+  font-size: calc(clamp(.8rem, 9cqh, 1rem) * var(--card-font-scale, 1)); font-weight: 500; color: var(--text);
+}
+.button-card .bc-state {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(clamp(.68rem, 7cqh, .82rem) * var(--card-font-scale, 1)); color: var(--text-secondary);
+}
+.button-card.bc-busy { opacity: .7; }
+.button-card.bc-error { border-color: var(--color-danger, #dc2626); animation: switch-shake .4s ease; }
+.button-card.bc-error .bc-state { color: var(--color-danger, #dc2626); white-space: normal; }
+/* Short blocks: the icon gives way to the text */
+@container (max-height: 90px) { .button-card .bc-state { display: none; } }

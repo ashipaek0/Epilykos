@@ -12,12 +12,15 @@ const { getConfig } = require('./database');
 // What each HA domain can be: a toggle (on/off) and/or a selector (pick a value).
 const HA_TOGGLE = { switch: 'switch.toggle', light: 'light.toggle', fan: 'fan.toggle', input_boolean: 'input_boolean.toggle' };
 const HA_SELECT = { select: 'select.select_option', input_select: 'input_select.select_option', climate: 'climate.set_hvac_mode', fan: 'fan.set_preset_mode' };
+// One-shot: buttons are pressed, scenes and scripts are run.
+const HA_PRESS = { button: 'button.press', input_button: 'input_button.press', scene: 'scene.turn_on', script: 'script.turn_on' };
 const HA_SWITCH_DOMAINS = Object.keys(HA_TOGGLE);
 
 /**
- * [{ source, device, entity, metric, group, label, action, selectAction }]
+ * [{ source, device, entity, metric, group, label, action, selectAction, pressAction }]
  * `action` is the toggle action (null when it can't toggle), `selectAction`
- * the one a state selector uses (null when it has no values to pick).
+ * the one a state selector uses (null when it has no values to pick),
+ * `pressAction` a one-shot press for button cards (HA buttons, scenes, scripts).
  */
 function switchableEntities() {
   const list = (key) => { try { const v = JSON.parse(getConfig(key) || '[]'); return Array.isArray(v) ? v.filter(Boolean) : []; } catch (_) { return []; } };
@@ -35,9 +38,9 @@ function switchableEntities() {
     for (const [metric, m] of Object.entries(d.entities || {})) {
       const entityId = (m && typeof m === 'object') ? m.entityId : m;
       const domain = String(entityId || '').split('.')[0];
-      const action = HA_TOGGLE[domain] || null, selectAction = HA_SELECT[domain] || null;
-      if (!action && !selectAction) continue;
-      out.push({ source: 'ha', device: d.name, entity: entityId, metric, action, selectAction, group: `Home Assistant · ${d.name}`, label: `${metric} (${entityId})` });
+      const action = HA_TOGGLE[domain] || null, selectAction = HA_SELECT[domain] || null, pressAction = HA_PRESS[domain] || null;
+      if (!action && !selectAction && !pressAction) continue;
+      out.push({ source: 'ha', device: d.name, entity: entityId, metric, action, selectAction, pressAction, group: `Home Assistant · ${d.name}`, label: `${metric} (${entityId})` });
     }
   }
   for (const d of list('mqtt_devices')) {
@@ -50,4 +53,4 @@ function switchableEntities() {
   return out;
 }
 
-module.exports = { switchableEntities, HA_SWITCH_DOMAINS, HA_TOGGLE, HA_SELECT };
+module.exports = { switchableEntities, HA_SWITCH_DOMAINS, HA_TOGGLE, HA_SELECT, HA_PRESS };

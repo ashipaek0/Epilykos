@@ -120,7 +120,11 @@ async function fetchHAEntities(url, token) {
     e.entity_id.startsWith('cover.') ||
     e.entity_id.startsWith('input_boolean.') ||
     e.entity_id.startsWith('select.') ||
-    e.entity_id.startsWith('input_select.')
+    e.entity_id.startsWith('input_select.') ||
+    e.entity_id.startsWith('button.') ||
+    e.entity_id.startsWith('input_button.') ||
+    e.entity_id.startsWith('scene.') ||
+    e.entity_id.startsWith('script.')
   ).map(e => e.entity_id);
 }
 
@@ -240,7 +244,11 @@ const DOMAIN_ACTIONS = {
   ],
   'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }],
   'select': [{ service: 'select.select_option', label: 'Select option', type: 'select', param: 'option' }],
-  'input_select': [{ service: 'input_select.select_option', label: 'Select option', type: 'select', param: 'option' }]
+  'input_select': [{ service: 'input_select.select_option', label: 'Select option', type: 'select', param: 'option' }],
+  'button': [{ service: 'button.press', label: 'Press', type: 'button' }],
+  'input_button': [{ service: 'input_button.press', label: 'Press', type: 'button' }],
+  'scene': [{ service: 'scene.turn_on', label: 'Activate', type: 'button' }],
+  'script': [{ service: 'script.turn_on', label: 'Run', type: 'button' }]
 };
 
 // Spec AC-7.1: flat action names per domain, exactly as asserted by the spec tests.
@@ -252,7 +260,11 @@ const SPEC_DOMAIN_ACTIONS = {
   'cover': ['open_cover', 'close_cover', 'stop_cover', 'toggle'],
   'input_boolean': ['toggle'],
   'select': ['select_option'],
-  'input_select': ['select_option']
+  'input_select': ['select_option'],
+  'button': ['press'],
+  'input_button': ['press'],
+  'scene': ['turn_on'],
+  'script': ['turn_on']
 };
 
 /**
