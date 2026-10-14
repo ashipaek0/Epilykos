@@ -212,6 +212,8 @@ function renderDashboard() {
     .then(r => r.json())
     .then(auth => {
       if (auth.authenticated) {
+        const pageHeader = document.querySelector('.container > header');
+        if (pageHeader) pageHeader.classList.add('is-signed-in');
         // Swap sign-in for settings + signout
         const signinBtn = document.getElementById('signin-btn');
         const signoutBtn = document.getElementById('signout-btn');
