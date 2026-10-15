@@ -8,6 +8,32 @@ let allMetrics = []; // array of { name, unit, value?, timestamp? }
 
 // Success messages clear after a few seconds; errors stay until the next
 // message on the same element so they can actually be read.
+/**
+ * Bluetooth Test on a Phocos unit: serial, model code and the two bytes it
+ * could come from, so the profile's byte can be checked against the label.
+ * Stays until the next test (the status line above clears after 5 s).
+ */
+function showIdentityCheck(statusEl, check) {
+  if (!statusEl) return;
+  let box = statusEl.nextElementSibling;
+  if (!box || !box.classList.contains('dongle-identity')) {
+    if (!check) return;
+    box = document.createElement('div');
+    box.className = 'dongle-identity';
+    statusEl.after(box);
+  }
+  if (!check) { box.hidden = true; box.textContent = ''; return; }
+  const byte = b => b ? `0x${b.hex}${b.char ? ` "${b.char}"` : ''}` : 'missing';
+  const rating = [check.nominalVoltage && `${check.nominalVoltage} V`, check.watts && `${check.watts} W`, check.acVoltage && `${check.acVoltage} V AC`].filter(Boolean).join(', ');
+  box.textContent = [
+    `Serial (bytes 0–17): ${check.serial || '—'}`,
+    `Model code (byte 19): ${check.modelCode || '—'}. Byte 18: ${byte(check.byte18)}, byte 19: ${byte(check.byte19)}`,
+    `Rating: ${rating || '—'}. Settings: ${check.writable ? 'can be changed' : check.readSupported ? 'read-only (no validated profile for this model)' : 'read-only (model not recognised)'}`,
+    `2a02 raw: ${check.rawHex}`,
+  ].join('\n');
+  box.hidden = false;
+}
+
 function showStatus(element, msg, type) {
   if (!element) return;
   clearTimeout(element._statusTimer);
@@ -3514,6 +3540,7 @@ function renderDongleDevice(device, idx) {
       return;
     }
     showStatus(statusEl, 'Testing...', 'info');
+    showIdentityCheck(statusEl, null);
     try {
       const res = await fetch('/api/dongle/test', {
         method: 'POST',
@@ -3524,6 +3551,7 @@ function renderDongleDevice(device, idx) {
       if (res.ok) {
         const label = tx === 'ble-gatt' ? 'OK —' : (tx === 'luxpower-tcp') ? 'OK — Operational State (reg 0x0000) =' : (tx === 'ble-luxpower') ? 'OK — Operational State' : 'OK — Register 0x0100 =';
         showStatus(statusEl, `${label} ${data.raw}`, 'success');
+        showIdentityCheck(statusEl, data.identityCheck);
       }
       else showStatus(statusEl, data.error, 'error');
     } catch (err) {
