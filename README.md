@@ -364,6 +364,9 @@ The PSW-H profile exposes signed battery current/power (positive charging), gros
 charging power, and estimated grid power (positive import). The grid estimate
 ignores conversion losses; negative values and small flows are preserved. Rated
 values and read-only setting snapshots are available in the entity selector.
+Identity, ratings and settings blocks are read every 20th poll (and right after a
+settings read or change); their snapshot metrics are recorded when they change
+and at least every 4 minutes, so they don't add a row on every poll.
 Existing explicit mappings are preserved: select additional entities to record
 those values. Mode descriptions, serial/firmware strings and raw fault bytes
 require explicit text mappings; setting flags are recorded as 0/1.

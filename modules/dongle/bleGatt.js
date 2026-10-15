@@ -216,11 +216,31 @@ class BleGattTransport {
     if (!ble.isValidAddress(address)) throw new Error('invalid Bluetooth address');
     if (!profile || !Array.isArray(profile.blocks) || !profile.blocks.length) throw new Error('profile has no Bluetooth blocks');
     this.address = address; this.profile = profile; this.read = deps.read || ble.gattRead; this.change = deps.change || ble.phocosGattChange;
+    // Blocks with "every": N (identity, ratings, settings) rarely change: read
+    // them every Nth poll and reuse the last copy in between, so each poll on
+    // a shared adapter stays short. A settings read or change re-reads them.
+    this._polls = 0; this._cached = new Map(); this._refresh = true;
   }
   _read(blocks) { return this.read(this.address, blocks.map(block => ({ service: block.service, characteristic: block.characteristic, ...(block.optional ? {optional:true} : {}) }))); }
+  async _pollRaws() {
+    const blocks = this.profile.blocks;
+    const due = blocks.map(b => !(b.every > 1) || this._refresh || !this._cached.has(b.id) || this._polls % b.every === 0);
+    const wanted = blocks.filter((b, i) => due[i]);
+    const fresh = wanted.length ? await this._read(wanted) : [];
+    this._polls++; this._refresh = false;
+    let k = 0;
+    const raws = blocks.map((b, i) => {
+      if (!due[i]) return this._cached.get(b.id);
+      const raw = fresh[k++];
+      if (b.every > 1) { if (raw) this._cached.set(b.id, raw); else this._cached.delete(b.id); }
+      return raw;
+    });
+    Object.defineProperty(raws, 'diagnostics', { value: fresh.diagnostics || [] });
+    return raws;
+  }
   poll() {
     return serialized(this.address, async () => {
-      const raws = await this._read(this.profile.blocks);
+      const raws = await this._pollRaws();
       const data = decodeBlocks(this.profile, raws);
       for (let i = 0; i < this.profile.blocks.length; i++) if (!raws[i] && !this.profile.blocks[i].optional) throw new Error(`required block unavailable: ${this.profile.blocks[i].id}`);
       if (!this.profile.blocks.some((block, i) => raws[i])) throw new Error('no data read from device');
@@ -229,6 +249,7 @@ class BleGattTransport {
   }
   settings() {
     return serialized(this.address, async () => {
+      this._refresh = true;   // the next poll reads identity and settings again
       const blocks=[...this.profile.settingBlocks||[], ...this.profile.blocks.filter(b=>['identity_serial','ratings'].includes(b.id))];
       const raws=await this._read(blocks);
       for(let i=0;i<blocks.length;i++) {
@@ -244,6 +265,7 @@ class BleGattTransport {
   }
   changeSetting({ id, expected, value }) {
     return serialized(this.address, async () => {
+      this._refresh = true;
       let setting=(this.profile.settings||[]).find(item=>item.id===id);
       const refuse=reason=>({ok:false,status:'refused',reason});
       if(!setting||setting.writable!==true||typeof setting.field!=='string') return refuse(setting?.reason||'unsupported setting');
