@@ -18,10 +18,12 @@ class Services:
     def __init__(self, svc): self.svc = svc
     def get_service(self, uuid): return self.svc if uuid == ble.full_uuid("1810") else None
 class Client:
-    def __init__(self, model=b"TEST000000000000019x", rating=(2300,500,6500,480)):
-        self.services = Services(Service({ble.full_uuid(x): Char(ble.full_uuid(x)) for x in ("2a02","2a05","2a0c","2a0d","2a0e")}))
-        self.data = {"2a02": bytearray(model), "2a05": bytearray(20), "2a0c": bytearray(20), "2a0d": bytearray(20), "2a0e": bytearray(range(20))}
+    def __init__(self, model=b"TEST00000000000001x9", rating=(2300,500,6500,480)):
+        self.services = Services(Service({ble.full_uuid(x): Char(ble.full_uuid(x)) for x in ("2a02","2a04","2a05","2a0c","2a0d","2a0e")}))
+        self.data = {"2a02": bytearray(model), "2a04": bytearray(20), "2a05": bytearray(20), "2a0c": bytearray(20), "2a0d": bytearray(20), "2a0e": bytearray(range(20))}
         for o,v in zip((4,6,12,14),rating): self.data["2a05"][o:o+2]=int(v).to_bytes(2,"little")
+        self.data["2a04"][12]=ord("S")
+        self.data["2a0c"][0:2]=(230).to_bytes(2,"little")
         self.data["2a0c"][2:4]=(500).to_bytes(2,"little")
         self.data["2a0c"][4:6]=bytes((50,40))
         self.data["2a0c"][6:10]=(520).to_bytes(2,"little")+(540).to_bytes(2,"little")
@@ -50,7 +52,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.client.data["2a02"]),20)
         for args in ({"field":"float_voltage","value":31,"expected":52}, {"field":"max_charging_current","value":81,"expected":50}):
             with self.assertRaises(ble.HelperError): await self.call(args)
-        self.client.data["2a02"][18]=ord("x")
+        self.client.data["2a02"][19]=ord("x")
         with self.assertRaises(ble.HelperError): await self.call({"field":"record_fault_codes","value":True,"expected":False})
     async def test_flag_preserves_high_bits_and_fullblock_unknown(self):
         self.client.data["2a0d"][0:2]=(0x8000).to_bytes(2,"little")
@@ -97,7 +99,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         spec24=ble.catalogue("9",24,3000,230)
         spec48=ble.catalogue("9",48,5000,120)
         self.assertEqual(spec24["output_voltage"]["allowed"],(220,230,240))
-        self.assertEqual(spec24["float_voltage"]["max"],40)
+        self.assertEqual(spec24["float_voltage"]["max"],32)
         self.assertEqual(spec48["float_voltage"]["max"],64)
         self.assertEqual(spec48["boost_voltage"]["max"],64)
         self.client.data["2a05"][12:14]=(5000).to_bytes(2,"little")
@@ -139,5 +141,68 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.client.mismatch_readback=True
         r=await self.call({"field":"boost_duration","value":7,"expected":5})
         self.assertEqual(r["status"],"mismatch")
+
+    async def test_output_voltage_requires_fresh_standby_and_preserves_payload(self):
+        for mode in ("B", "L", "H", "F", "P", "D", "C", "Y", "E", "?"):
+            self.client.data["2a04"][12] = ord(mode)
+            result = await self.call({"field":"output_voltage", "expected":230, "value":220})
+            self.assertEqual(result["status"], "refused", mode)
+            self.assertEqual(self.client.writes, [])
+        self.client.data["2a04"] = bytearray(12)
+        result = await self.call({"field":"output_voltage", "expected":230, "value":220})
+        self.assertEqual(result["status"], "refused")
+        self.client.data["2a04"] = bytearray(13)
+        self.client.data["2a04"][12] = ord("S")
+        before = bytes(self.client.data["2a0c"])
+        result = await self.call({"field":"output_voltage", "expected":230, "value":220})
+        self.assertEqual(result["status"], "done")
+        self.assertEqual(bytes(self.client.data["2a0c"])[2:], before[2:])
+
+    async def test_correct_model_byte_and_unvalidated_8kw_cannot_write(self):
+        self.assertEqual(self.client.data["2a02"][18], ord("x"))
+        self.assertEqual(self.client.data["2a02"][19], ord("9"))
+        self.client.data["2a05"][12:14] = (8000).to_bytes(2, "little")
+        with self.assertRaises(ble.HelperError):
+            await self.call({"field":"buzzer", "expected":False, "value":True})
+        self.assertEqual(self.client.writes, [])
+        self.client.data["2a05"][12:14] = (5000).to_bytes(2, "little")
+        self.client.data["2a02"] = self.client.data["2a02"][:19]
+        with self.assertRaises(ble.HelperError):
+            await self.call({"field":"buzzer", "expected":False, "value":True})
+        self.assertEqual(self.client.writes, [])
+
+    async def test_24v_voltage_limits_and_discrete_current_choices(self):
+        for field, expected, value in (("max_charging_current",50,21), ("max_charging_current",50,0)):
+            with self.assertRaises(ble.HelperError):
+                await self.call({"field":field, "expected":expected, "value":value})
+        self.client.data["2a05"][12:14] = (3000).to_bytes(2, "little")
+        self.client.data["2a05"][14:16] = (240).to_bytes(2, "little")
+        self.client.data["2a0c"][6:10] = (270).to_bytes(2, "little") + (300).to_bytes(2, "little")
+        for field, expected, value in (("boost_voltage",30,33), ("float_voltage",27,40), ("battery_type",0,7)):
+            with self.assertRaises(ble.HelperError):
+                await self.call({"field":field, "expected":expected, "value":value})
+        self.assertEqual(self.client.writes, [])
+        result = await self.call({"field":"boost_voltage", "expected":30, "value":32})
+        self.assertEqual(result["status"], "done")
+
+    async def test_read_diagnostics_and_optional_failure_do_not_erase_good_values(self):
+        read = self.client.read_gatt_char
+        async def fail_optional(ch):
+            if ch.uuid == ble.full_uuid("2a0e"):
+                raise TimeoutError("optional capture")
+            return await read(ch)
+        self.client.read_gatt_char = fail_optional
+        requests = [{"service":"1810", "characteristic":"2a02"},
+                    {"service":"1810", "characteristic":"2a0e", "optional":True}]
+        result = await ble.COMMANDS["gatt_read"]({"address":"AA:BB:CC:DD:EE:FF", "reads":requests})
+        self.assertEqual(result["values"][0], self.client.data["2a02"].hex())
+        self.assertIsNone(result["values"][1])
+        self.assertEqual(result["diagnostics"][0]["status"], "read")
+        self.assertEqual(result["diagnostics"][0]["characteristicUuid"], ble.full_uuid("2a02"))
+        self.assertIn("read", result["diagnostics"][0]["properties"])
+        self.assertEqual(result["diagnostics"][1]["status"], "error")
+        requests[1]["optional"] = False
+        with self.assertRaises(ble.HelperError):
+            await ble.COMMANDS["gatt_read"]({"address":"AA:BB:CC:DD:EE:FF", "reads":requests})
 
 if __name__ == '__main__': unittest.main(verbosity=2)
