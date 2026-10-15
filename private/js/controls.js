@@ -184,7 +184,7 @@ function settingRow(dev, s) {
         const c = d.capability; options.splice(0, options.length, ...((c.allowed || []).map(o => typeof o === 'object' ? o : { value:o, label:String(o) })));
         if (isSwitch && !options.length) options.push({ value:true,label:'On' },{ value:false,label:'Off' });
         if (isSelect) { input.replaceChildren(); const blank=document.createElement('option'); blank.value=''; blank.textContent='Choose'; input.appendChild(blank); for (const o of options) { const opt=document.createElement('option'); opt.value=String(o.value); opt.textContent=o.label; input.appendChild(opt); } }
-        if (s.type === 'number') { const min=c.min ?? s.min,max=c.max ?? s.max,step=c.step ?? s.step; Object.assign(input,{min,max,step}); row.querySelector('.ct-help').textContent=`${s.description} Range ${min}–${max}${s.unit ? ' '+s.unit : ''}, step ${step}.`; }
+        if (s.type === 'number') { const min=c.min ?? s.min,max=c.max ?? s.max,step=c.step ?? s.step; Object.assign(input,{min,max,step}); row.querySelector('.ct-help').textContent=`${s.description} Range ${min}–${max}${s.unit ? ' '+s.unit : ''}, step ${step}.${options.length ? ' Allowed values: ' + options.map(o => o.label).join(', ') + '.' : ''}`; }
       }
       const reason = d.blockedReason || (d.writable === false ? 'This setting is read-only for the detected device.' : null) || (d.inRange === false ? `Current value is outside the supported range (${input.min}–${input.max}).` : null) || (!options.length && isSelect ? 'No verified choices are available.' : null);
       updateBlocked(reason);
@@ -201,6 +201,7 @@ function settingRow(dev, s) {
     if (!isSwitch && !isSelect && (value === '' || !input.checkValidity())) { say(`Enter a value from ${input.min} to ${input.max}${s.unit ? ' '+s.unit : ''}, in steps of ${input.step}.`, true); input.focus(); return; }
     if (shown === null) { say('Read the current value before changing this setting.', true); return; }
     const wanted = isSwitch ? (dev.kind === 'bms' ? value : value === 'true') : isSelect ? ((options.find(o => String(o.value) === value) || {}).value) : Number(value);
+    if (!isSwitch && !isSelect && options.length && !options.some(o => o.value === wanted)) { say('Choose one of the allowed values: ' + options.map(o => o.label).join(', ') + '.', true); return; }
     if (wanted === shown) { say('That is already the current value.'); return; }
     const cutsPower = isSwitch && s.name === 'discharging' && (wanted === 'off' || wanted === false);
     inflight = true; change.dataset.busy = 'true'; change.disabled = true;

@@ -287,8 +287,8 @@ async function readSetting(deviceName, settingName) {
     const allowed = capability && capability.allowed;
     const step = capability && capability.step;
     const valuePresent = !!rawMetadata && value !== undefined;
-    const inRange = valuePresent && (type === 'bool' || type === 'boolean' ? typeof value === 'boolean' : type === 'enum' ? Array.isArray(allowed) && allowed.includes(value) : Number.isFinite(value) && (min === undefined || value >= min) && (max === undefined || value <= max) && (!(step > 0) || Math.abs((value - (min || 0)) / step - Math.round((value - (min || 0)) / step)) <= 1e-6));
-    return { value, current: value, inRange, raw: result.raw, rawMetadata, capability, writable: !!(capability && capability.writable), blockedReason: capability && capability.blockedReason || (!valuePresent ? 'Setting is not available in the current device read' : null), model: result.model };
+    const inRange = valuePresent && (!Array.isArray(allowed) || allowed.includes(value)) && (type === 'bool' || type === 'boolean' ? typeof value === 'boolean' : type === 'enum' ? Array.isArray(allowed) && allowed.includes(value) : Number.isFinite(value) && (min === undefined || value >= min) && (max === undefined || value <= max) && (!(step > 0) || Math.abs((value - (min || 0)) / step - Math.round((value - (min || 0)) / step)) <= 1e-6));
+    return { value, current: value, inRange, raw: result.raw, diagnostics: result.diagnostics, rawMetadata, capability, writable: !!(capability && capability.writable), blockedReason: capability && capability.blockedReason || (!valuePresent ? 'Setting is not available in the current device read' : null), model: result.model };
   }
   const raw = await require('./dongle').readDongleRegister(dev.name, setting.register, setting.register_type);
   if (raw.error) return raw;
@@ -320,7 +320,7 @@ async function changeSetting(p, req) {
     if (typeof p.expected !== typeof now.value || p.expected !== now.value) return refuse(`It changed since you looked: it is now ${now.value}. Check and try again.`, { current: now.value });
     const capability = now.capability;
     const type = capability && capability.type;
-    const valid = type === 'bool' || type === 'boolean' ? typeof p.value === 'boolean' : type === 'enum' ? Array.isArray(capability.allowed) && capability.allowed.includes(p.value) : ['int', 'float', 'number'].includes(type) && typeof p.value === 'number' && Number.isFinite(p.value) && (capability.min === undefined || p.value >= capability.min) && (capability.max === undefined || p.value <= capability.max) && (!(capability.step > 0) || Math.abs((p.value - (capability.min || 0)) / capability.step - Math.round((p.value - (capability.min || 0)) / capability.step)) <= 1e-6);
+    const valid = (!Array.isArray(capability.allowed) || capability.allowed.includes(p.value)) && (type === 'bool' || type === 'boolean' ? typeof p.value === 'boolean' : type === 'enum' ? Array.isArray(capability.allowed) && capability.allowed.includes(p.value) : ['int', 'float', 'number'].includes(type) && typeof p.value === 'number' && Number.isFinite(p.value) && (capability.min === undefined || p.value >= capability.min) && (capability.max === undefined || p.value <= capability.max) && (!(capability.step > 0) || Math.abs((p.value - (capability.min || 0)) / capability.step - Math.round((p.value - (capability.min || 0)) / capability.step)) <= 1e-6));
     if (!valid) return refuse('Choose a valid value for this setting');
     if (p.value === now.value) { logAttempt({ ...base, outcome: 'done', detail: 'Already set; nothing sent' }, req); return { success: true, value: now.value, unchanged: true, status: 'noop' }; }
     let result;
