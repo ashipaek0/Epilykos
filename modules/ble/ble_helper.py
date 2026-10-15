@@ -55,6 +55,10 @@ log = logging.getLogger("ble-helper")
 DBUS_SOCKET = os.getenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/run/dbus/system_bus_socket")
 SEEN_TTL = float(os.getenv("BLE_SEEN_TTL", "600"))  # reuse a scan result for 10 min
 KEEP_ALIVE = os.getenv("BLE_KEEP_ALIVE", "true").lower() not in ("0", "false", "no")
+# Open GATT links kept at once. With one adapter, a link held open to one unit
+# makes BlueZ's scan and connect to the next unreliable ("device disappeared",
+# GATT error 14), so by default only one stays open.
+MAX_GATT_LINKS = max(1, int(os.getenv("BLE_MAX_GATT_LINKS", "1") or 1))
 MAX_DEVICES = 256  # scan results kept in memory
 
 
@@ -254,6 +258,13 @@ def _map_error(exc):
         return HelperError("BlueZ (bluetoothd) is not running on the host.", "no_bluez")
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
         return HelperError("Bluetooth operation timed out", "timeout")
+    if "unlikely_error" in low or "unlikely error" in low:
+        return HelperError(
+            "The device refused the request (GATT error 14). The link is reset and "
+            "the next poll reconnects; if it keeps happening, close the vendor app "
+            "on any phone connected to it.",
+            "gatt_error",
+        )
     return HelperError(text, "ble_error")
 
 
@@ -448,20 +459,42 @@ async def _drop_gatt(address):
             log.debug("gatt disconnect failed for %s", address, exc_info=True)
 
 
+def _not_found(exc):
+    low = f"{type(exc).__name__}: {exc}".lower()
+    return "notfound" in low or "not found" in low or "disappeared" in low
+
+
+async def _establish(device, address):
+    from bleak import BleakClient
+    from bleak_retry_connector import establish_connection
+
+    return await establish_connection(
+        BleakClient, device, address,
+        disconnected_callback=lambda _c: _gatt.pop(address, None),
+    )
+
+
 async def _gatt_link(address, notify_uuid, timeout):
     """Kept-alive connection. notify_uuid=None: plain reads, any open link will do."""
     link = _gatt.get(address)
     if link and link.client.is_connected and (notify_uuid is None or link.notify_uuid == notify_uuid):
         return link
     await _drop_gatt(address)
-    device, _adv = await _find(address, min(10.0, timeout / 2))
-    from bleak import BleakClient
-    from bleak_retry_connector import establish_connection
-
-    client = await establish_connection(
-        BleakClient, device, address,
-        disconnected_callback=lambda _c: _gatt.pop(address, None),
-    )
+    while len(_gatt) >= MAX_GATT_LINKS:
+        await _drop_gatt(next(iter(_gatt)))  # oldest first
+    scan_timeout = min(10.0, timeout / 2)
+    device, _adv = await _find(address, scan_timeout)
+    try:
+        client = await _establish(device, address)
+    except Exception as exc:
+        # The cached scan result goes stale once BlueZ forgets the device, and
+        # every retry with it fails ("device disappeared"). Forget it, and when
+        # that is the error, scan again straight away.
+        _seen.pop(address, None)
+        if not _not_found(exc):
+            raise
+        device, _adv = await _find(address, scan_timeout)
+        client = await _establish(device, address)
     link = GattLink(client, notify_uuid)
     if notify_uuid:
         await client.start_notify(notify_uuid, link.on_notify)
@@ -863,6 +896,7 @@ def _self_test():
     f = jk_command_frame(0x1D, (1).to_bytes(4, "little"))
     assert len(f) == 20 and f[4] == 0x1D and f[5] == 4 and f[6:10] == b"\x01\x00\x00\x00" and f[-1] == sum(f[:-1]) & 0xFF
     _self_test_bms_switch()
+    _self_test_gatt_link()
     assert full_uuid("2A03") == "00002a03-0000-1000-8000-00805f9b34fb"
     assert full_uuid("0x1810") == "00001810-0000-1000-8000-00805f9b34fb"
     print("ok")
@@ -935,6 +969,65 @@ def _self_test_bms_switch():
     for bad in ({"switch": "balance", "on": True}, {"switch": "charge", "on": "yes"}, {"switch": "charge"}):
         _, writes, _, err = run("jk", bad, [])
         assert err is not None and err.code == "bad_request" and writes == [], bad
+
+
+
+def _self_test_gatt_link():
+    """_gatt_link: a stale scan result is dropped and rescanned; only
+    MAX_GATT_LINKS links stay open."""
+    g = globals()
+    saved = {k: g[k] for k in ("_find", "_establish", "MAX_GATT_LINKS")}
+    finds, closed = [], []
+
+    class Client:
+        is_connected = True
+
+        def __init__(self, name):
+            self.name = name
+
+        async def disconnect(self):
+            closed.append(self.name)
+
+    async def fake_find(address, _t):
+        finds.append(address)
+        return "dev", None
+
+    attempts = {"n": 0}
+
+    async def flaky(_device, address):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError(f"BleakNotFoundError: {address}: device disappeared")
+        return Client(address)
+
+    try:
+        g.update(_find=fake_find, _establish=flaky, MAX_GATT_LINKS=1)
+        _gatt.clear()
+        _gatt["AA:00:00:00:00:01"] = GattLink(Client("AA:00:00:00:00:01"), None)
+        _seen["AA:00:00:00:00:02"] = ("stale", None, time.monotonic())
+        link = asyncio.run(_gatt_link("AA:00:00:00:00:02", None, 20))
+        assert link.client.name == "AA:00:00:00:00:02"
+        assert finds == ["AA:00:00:00:00:02", "AA:00:00:00:00:02"], finds  # rescanned once
+        assert "AA:00:00:00:00:02" not in _seen
+        assert closed == ["AA:00:00:00:00:01"] and list(_gatt) == ["AA:00:00:00:00:02"], (closed, list(_gatt))
+
+        async def refused(_device, _address):
+            raise RuntimeError("BleakError: failed to discover services, device disconnected")
+
+        finds.clear()
+        g["_establish"] = refused
+        _seen["AA:00:00:00:00:03"] = ("cached", None, time.monotonic())
+        try:
+            asyncio.run(_gatt_link("AA:00:00:00:00:03", None, 20))
+            raise AssertionError("expected a failure")
+        except RuntimeError:
+            pass
+        assert finds == ["AA:00:00:00:00:03"] and "AA:00:00:00:00:03" not in _seen  # no rescan, cache dropped
+        assert _map_error(RuntimeError("BleakGATTProtocolError: (14, 'GATT Protocol Error: Unlikely Error')")).code == "gatt_error"
+    finally:
+        g.update(saved)
+        _gatt.clear()
+        _seen.clear()
 
 
 if __name__ == "__main__":
