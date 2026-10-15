@@ -2314,7 +2314,7 @@ app.post('/api/dongle/test', async (req, res) => {
       const blocks = (profile.blocks || []).filter(b => Array.isArray(data[b.id])).length;
       const out = profile.fields.find(f => f.name === 'output_power');
       const w = out ? require('./modules/dongle').getByPathForTest(data, out.path) : undefined;
-      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}` });
+      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}`, diagnostics: data.diagnostics, values: data.raw, identity: data.identity });
     } catch (err) {
       logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
       return res.status(502).json({ error: err.message });
