@@ -8,7 +8,6 @@ cookies.txt
 .env
 __pycache__/
 *.pyc
-.claude/
 # Plan/research docs (not tracked per project convention)
 RS232-*.md
 start-dev.sh
@@ -17,7 +16,7 @@ start-with-pass.js
 # Design mockups and plans (stay local)
 *.md
 !readme.md
-!CLAUDE.md
+!CONTRIBUTING.md
 .env.dev
 settings.db
 ui-*.html

@@ -9,7 +9,6 @@ logs
 !.env.example
 *.log
 cookies.txt
-.claude
 test
 __pycache__
 *.pyc
