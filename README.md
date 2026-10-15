@@ -200,7 +200,7 @@ Settings available so far:
 
 - **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits.
 - **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
-- **Phocos Any-Grid** (Bluetooth): read-only for now; how its Bluetooth link takes settings is not known yet.
+- **Phocos Any-Grid** (Bluetooth): telemetry and allowlisted settings for recognized model profiles; unvalidated 8 kW writes remain disabled. See [Phocos BLE details](#phocos-any-grid-ble).
 
 ---
 
@@ -357,3 +357,37 @@ For a complete walkthrough of the codebase architecture — adding new block typ
 
 Epilykos is released under the **GNU General Public License v3.0**.  
 See [`LICENSE`](LICENSE) for the full terms.
+
+### Phocos Any-Grid BLE
+
+The PSW-H profile exposes signed battery current/power (positive charging), gross
+charging power, and estimated grid power (positive import). The grid estimate
+ignores conversion losses; negative values and small flows are preserved. Rated
+values and read-only setting snapshots are available in the entity selector.
+Identity, ratings and settings blocks are read every 20th poll (and right after a
+settings read or change); their snapshot metrics are recorded when they change
+and at least every 4 minutes, so they don't add a row on every poll.
+Existing explicit mappings are preserved: select additional entities to record
+those values. Mode descriptions, serial/firmware strings and raw fault bytes
+require explicit text mappings; setting flags are recorded as 0/1.
+
+An 8 kW unit's read support is separate from write eligibility. Unvalidated 8 kW
+writes, equalization-voltage writes and unresolved controls remain disabled.
+Output-voltage changes require a fresh standby-mode read with AC output off.
+24 V float/boost limits are 24–32 V; 48 V limits are 48–64 V. Current choices are
+restricted to the recovered app's discrete values. Unknown bytes are preserved.
+
+The authenticated Bluetooth connection-test API (`POST /api/dongle/test`) returns
+raw block `values`, `identity` and `diagnostics` alongside its summary. Diagnostics
+include resolved full UUIDs/properties/handles, read errors, lengths, firmware and
+field confidence. Optional metadata errors do not erase good telemetry. Read
+minimum lengths follow accessed offsets; settings writes retain strict block
+checks. Settings-read responses also include diagnostics. `app_confirmed` means
+static app evidence, not hardware validation. Inferred measurements are labelled.
+
+Fault bytes are retained without claiming definitive alarms: the app overlaps two
+little-endian words with an 8-bit shift. The recovered model code is byte 19 of
+`2a02`. Evidence: PhocosLink 2.1.4 APK SHA-256
+`105e075605f7653b49987e1494802af2aba0d272f41603e637cb4f8b2a004a30`.
+Test coverage includes existing capture fixtures and synthetic edge cases;
+automated checks do not perform hardware writes.

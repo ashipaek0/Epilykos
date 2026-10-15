@@ -214,6 +214,7 @@ function dongleFelicityEntities(profile) {
     entities.push(catEntity({
       id: f.path, // decode key: pollJsonInstance pathToMetric[field.path]
       name: f.name, // implicit default metric name (prefix + f.name)
+      confidence: f.confidence,
       label: f.label,
       unit: f.unit,
       scale: f.scale,
