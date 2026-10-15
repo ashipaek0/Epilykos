@@ -289,4 +289,24 @@ class BleGattTransport {
     });
   }
 }
-module.exports = { BleGattTransport, decodeBlocks, wordsLE };
+/**
+ * What the Bluetooth Test shows so the model code can be checked by eye: the
+ * serial, the code the profile reads (byte 19 of 2a02) and the byte before it,
+ * which older code read, plus the ratings and whether writes are allowed.
+ */
+function identityCheck(data) {
+  const hex = data && data.raw && data.raw.identity_serial;
+  if (!hex) return null;
+  const buf = Buffer.from(hex, 'hex');
+  const at = i => i < buf.length ? { index: i, hex: buf[i].toString(16).padStart(2, '0'), char: buf[i] >= 0x20 && buf[i] < 0x7f ? String.fromCharCode(buf[i]) : null } : null;
+  const model = (data.identity && data.identity.model) || {};
+  return {
+    serial: (data.identity && data.identity.serial) || '',
+    modelCode: (data.identity && data.identity.modelId) || '',
+    byte18: at(18), byte19: at(19), rawHex: hex,
+    nominalVoltage: model.nominalVoltage, watts: model.watts, acVoltage: model.acVoltage,
+    writable: !!model.writeSupported, readSupported: !!model.readSupported,
+  };
+}
+
+module.exports = { BleGattTransport, decodeBlocks, wordsLE, identityCheck };

@@ -227,6 +227,8 @@ body.st {
 /* Status lines from settings.js (showStatus) */
 .st .status, .st .test-status { font-size: 0.78rem; font-weight: 700; }
 .st .status.success, .st .test-status.success { color: var(--st-ok); }
+/* Bluetooth Test identity lines (Phocos): kept until the next test; the hex wraps. */
+.st .dongle-identity { margin-top: 6px; padding: 8px 10px; border: 1px solid var(--st-line); border-radius: 8px; background: var(--st-hover); font: 500 .76rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--st-text); white-space: pre-line; overflow-wrap: anywhere; }
 .st .status.error, .st .test-status.error { color: var(--st-err); }
 
 /* Tables */
