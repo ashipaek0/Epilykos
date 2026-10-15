@@ -31,6 +31,8 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { createBackoff } = require('./pollBackoff');
+const backoff = createBackoff('BMS-wired');
 const {
   buildModbusReadRequest,
   buildPollRanges,
@@ -378,9 +380,14 @@ async function pollBmsWired() {
         logger.error(`BMS-wired ${device.name}: profile '${device.profile}' not found — skipping`);
         continue;
       }
+      // Devices on one serial port or RS485 bus are read in turn: one that
+      // doesn't answer is tried less often so its timeouts don't hold up the rest.
+      if (backoff.skip(device.name)) continue;
       try {
         await pollWiredDevice(device, profile);
+        backoff.record(device.name, true);
       } catch (err) {
+        backoff.record(device.name, false);
         logger.error(`BMS-wired poll error for ${device.name}: ${err.message}`);
       }
     }
@@ -483,6 +490,7 @@ async function getBmsWiredFields(profileId) {
 function startBmsWiredPolling() {
   if (bmsWiredPollInterval) clearInterval(bmsWiredPollInterval);
   loadBmsWiredProfiles();
+  backoff.reset();
   const intervalSec = parseInt(getConfig('bms_poll_interval'), 10) || 30;
   logger.info(`BMS-wired polling started: interval=${intervalSec}s`);
   bmsWiredPollInterval = setInterval(pollBmsWired, intervalSec * 1000);
