@@ -159,7 +159,11 @@ function settingRow(dev, s) {
   row.querySelector('.ct-set-name').textContent = s.label;
   row.querySelector('.ct-help').textContent = s.description;
   row.querySelector('label').textContent = `New value for ${s.label}`;
-  const input = row.querySelector('input, select'), change = row.querySelector('.ct-change');
+  let input = row.querySelector('input, select');
+  const change = row.querySelector('.ct-change');
+  // A number setting with a fixed list of values (e.g. 2, 10, 20 … A) gets a
+  // dropdown once its read says which values the device accepts.
+  let pickList = false;
   const options = (s.allowed || []).map(o => typeof o === 'object' ? o : { value: o, label: String(o) });
   if (isSwitch) options.push(...(dev.kind === 'bms' ? [{ value:'on',label:'On' },{ value:'off',label:'Off' }] : [{ value:true,label:'On' },{ value:false,label:'Off' }]));
   if (isSwitch || isSelect) for (const o of options) { const opt = document.createElement('option'); opt.value = String(o.value); opt.textContent = o.label; input.appendChild(opt); }
@@ -169,7 +173,7 @@ function settingRow(dev, s) {
   const msg = document.createElement('tr');
   msg.className = 'ct-row-msg'; msg.innerHTML = '<td colspan="4" role="status" aria-live="polite"></td>';
   const say = (text, bad = false) => { msg.firstChild.textContent = text; msg.classList.toggle('is-bad', bad); };
-  let shown = null, blocked = true, inflight = false, unverified = false;
+  let shown = null, blocked = true, inflight = false, unverified = false, lo = s.min, hi = s.max;
   const updateBlocked = reason => { blocked = !!reason; change.dataset.blocked = String(blocked); change.disabled = blocked || change.dataset.locked === 'true' || inflight; if (reason) say(reason, true); };
   updateBlocked(s.blockedReason || (s.writable === false ? 'Read the device first to verify this setting.' : 'Read the device first.'));
   const read = async () => {
@@ -184,9 +188,28 @@ function settingRow(dev, s) {
         const c = d.capability; options.splice(0, options.length, ...((c.allowed || []).map(o => typeof o === 'object' ? o : { value:o, label:String(o) })));
         if (isSwitch && !options.length) options.push({ value:true,label:'On' },{ value:false,label:'Off' });
         if (isSelect) { input.replaceChildren(); const blank=document.createElement('option'); blank.value=''; blank.textContent='Choose'; input.appendChild(blank); for (const o of options) { const opt=document.createElement('option'); opt.value=String(o.value); opt.textContent=o.label; input.appendChild(opt); } }
-        if (s.type === 'number') { const min=c.min ?? s.min,max=c.max ?? s.max,step=c.step ?? s.step; Object.assign(input,{min,max,step}); row.querySelector('.ct-help').textContent=`${s.description} Range ${min}–${max}${s.unit ? ' '+s.unit : ''}, step ${step}.${options.length ? ' Allowed values: ' + options.map(o => o.label).join(', ') + '.' : ''}`; }
+        if (s.type === 'number') {
+          lo = c.min ?? s.min; hi = c.max ?? s.max; const step = c.step ?? s.step;
+          if (options.length) {
+            for (const o of options) o.label = fmt(o.value, s.unit);
+            if (!pickList) { const sel = document.createElement('select'); sel.id = input.id; sel.className = input.className; input.replaceWith(sel); input = sel; pickList = true; }
+            input.replaceChildren(); const blank = document.createElement('option'); blank.value = ''; blank.textContent = 'Choose'; input.appendChild(blank);
+            for (const o of options) { const opt = document.createElement('option'); opt.value = String(o.value); opt.textContent = o.label; input.appendChild(opt); }
+            row.querySelector('.ct-help').textContent = `${s.description} Allowed values: ${options.map(o => o.label).join(', ')}.`;
+          } else {
+            Object.assign(input, { min: lo, max: hi, step });
+            row.querySelector('.ct-help').textContent = `${s.description} Range ${lo}–${hi}${s.unit ? ' '+s.unit : ''}, step ${step}.`;
+          }
+        }
       }
-      const reason = d.blockedReason || (d.writable === false ? 'This setting is read-only for the detected device.' : null) || (d.inRange === false ? `Current value is outside the supported range (${input.min}–${input.max}).` : null) || (!options.length && isSelect ? 'No verified choices are available.' : null);
+      // Inside the range but not one of the device's values (set on the panel,
+      // say): name the values instead of calling it out of range. It stays
+      // blocked: every layer refuses a change from a value it can't confirm.
+      const offList = d.inRange === false && pickList && Number.isFinite(shown) && shown >= lo && shown <= hi && !options.some(o => o.value === shown);
+      const reason = d.blockedReason || (d.writable === false ? 'This setting is read-only for the detected device.' : null)
+        || (offList ? `The device reports ${fmt(shown, s.unit)}, which isn't one of the allowed values (${options.map(o => o.label).join(', ')}). Set one of them on the inverter first; this page only changes a setting from a value it recognises.` : null)
+        || (d.inRange === false ? `Current value is outside the supported range (${lo}–${hi}${s.unit ? ' ' + s.unit : ''}).` : null)
+        || (!options.length && isSelect ? 'No verified choices are available.' : null);
       updateBlocked(reason);
       if (!blocked) { if (isSwitch) input.value=String(shown); else if (input.value === '' || wasUnverified) input.value=shown; }
       if (!reason) say('');
@@ -197,11 +220,10 @@ function settingRow(dev, s) {
   change.addEventListener('click', async () => {
     if (inflight || blocked || change.dataset.locked === 'true' || unverified) return;
     const value = input.value.trim();
-    if ((isSwitch || isSelect) && value === '') { say('Choose a value.', true); input.focus(); return; }
-    if (!isSwitch && !isSelect && (value === '' || !input.checkValidity())) { say(`Enter a value from ${input.min} to ${input.max}${s.unit ? ' '+s.unit : ''}, in steps of ${input.step}.`, true); input.focus(); return; }
+    if ((isSwitch || isSelect || pickList) && value === '') { say('Choose a value.', true); input.focus(); return; }
+    if (!isSwitch && !isSelect && !pickList && (value === '' || !input.checkValidity())) { say(`Enter a value from ${input.min} to ${input.max}${s.unit ? ' '+s.unit : ''}, in steps of ${input.step}.`, true); input.focus(); return; }
     if (shown === null) { say('Read the current value before changing this setting.', true); return; }
-    const wanted = isSwitch ? (dev.kind === 'bms' ? value : value === 'true') : isSelect ? ((options.find(o => String(o.value) === value) || {}).value) : Number(value);
-    if (!isSwitch && !isSelect && options.length && !options.some(o => o.value === wanted)) { say('Choose one of the allowed values: ' + options.map(o => o.label).join(', ') + '.', true); return; }
+    const wanted = isSwitch ? (dev.kind === 'bms' ? value : value === 'true') : (isSelect || pickList) ? ((options.find(o => String(o.value) === value) || {}).value) : Number(value);
     if (wanted === shown) { say('That is already the current value.'); return; }
     const cutsPower = isSwitch && s.name === 'discharging' && (wanted === 'off' || wanted === false);
     inflight = true; change.dataset.busy = 'true'; change.disabled = true;
