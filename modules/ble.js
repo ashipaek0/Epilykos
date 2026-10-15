@@ -320,7 +320,9 @@ async function luxpowerExchange(address, { writeUuid, notifyUuid, frame, timeout
  */
 async function gattRead(address, reads, { timeout = 20 } = {}) {
   const result = await helper().request('gatt_read', { address, reads, timeout }, (timeout + 5) * 1000);
-  return (result.values || []).map(v => (v === null || v === undefined ? null : Buffer.from(v, 'hex')));
+  const values = (result.values || []).map(v => (v === null || v === undefined ? null : Buffer.from(v, 'hex')));
+  Object.defineProperty(values, 'diagnostics', { value: result.diagnostics || [] });
+  return values;
 }
 
 /** Atomic supported Phocos flag change: helper pre-reads, compares, preserves

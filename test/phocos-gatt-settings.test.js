@@ -18,7 +18,7 @@ const settingsProfile = {
 };
 (async () => {
   const ident = Buffer.alloc(20); ident.write('FW123456', 3); ident.write('BLE00025', 12);
-  const serial = Buffer.alloc(20); serial.write('SERIAL-123', 0); serial.write('9', 18);
+  const serial = Buffer.alloc(20); serial.write('SERIAL-123', 0); serial[18] = 0; serial.write('9', 19);
   const ratings = Buffer.alloc(20); [2, 3, 6, 7].forEach((index, i) => ratings.writeUInt16LE([2300, 500, 5000, 480][i], index * 2));
   const c = Buffer.alloc(20); c.writeUInt16LE(230, 0); c.writeUInt16LE(500, 2); c[4] = 80; c[5] = 40;
   c.writeUInt16LE(560, 6); c.writeUInt16LE(580, 8); c.writeUInt16LE(440, 10); c.writeUInt16LE(500, 12); c[16] = 1; c[17] = 2; c[18] = 3; c[19] = 2;
@@ -27,7 +27,10 @@ const settingsProfile = {
   const e = Buffer.from([0xaa, 100, 0xbb]);
   const raws = [Buffer.alloc(20), Buffer.alloc(20), Buffer.alloc(20), Buffer.alloc(20), ident, serial, ratings];
   const decoded = decodeBlocks(settingsProfile, raws);
-  assert.deepStrictEqual(decoded.identity, { firmware: 'FW123456', bleFirmware: 'BLE00025', serial: 'SERIAL-123', modelId: '9' });
+  const {model: decodedModel, ...decodedIdentity} = decoded.identity;
+  assert.equal(decodedModel.modelId, '9');
+  assert.equal(decodedModel.readSupported, true);
+  assert.deepStrictEqual(decodedIdentity, { firmware: 'FW123456', bleFirmware: 'BLE00025', serial: 'SERIAL-123', modelId: '9' });
   assert.deepStrictEqual(decoded.ratings, { outputVoltage: 230, outputFrequency: 50, outputPower: 5000, batteryVoltage: 48, rawWords: [0, 0, 2300, 500, 0, 0, 5000, 480, 0, 0] });
 
   const calls = [];
