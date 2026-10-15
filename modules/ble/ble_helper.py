@@ -623,15 +623,15 @@ async def cmd_phocos_gatt_change(args):
             svc=client.services.get_service(full_uuid("1810"))
             if svc is None: raise HelperError("Phocos service unavailable","unsupported")
             chars={}
-            for u in ("2a02","2a05","2a0c","2a0d","2a0e"):
+            for u in ("2a02","2a04","2a05","2a0c","2a0d","2a0e"):
                 chars[u]=svc.get_characteristic(full_uuid(u))
             for u in ("2a02","2a05"):
                 if chars[u] is None: raise HelperError("identity/ratings characteristic unavailable","unsupported")
             identity=bytes(await client.read_gatt_char(chars["2a02"])); ratings=bytes(await client.read_gatt_char(chars["2a05"]))
-            if len(identity)<19 or len(ratings)<16: raise HelperError("short identity/ratings payload","malformed")
-            model=chr(identity[18]); nominal=int.from_bytes(ratings[14:16],"little")/10; watts=int.from_bytes(ratings[12:14],"little")
+            if len(identity)<20 or len(ratings)<16: raise HelperError("short identity/ratings payload","malformed")
+            model=chr(identity[19]); nominal=int.from_bytes(ratings[14:16],"little")/10; watts=int.from_bytes(ratings[12:14],"little")
             ac_voltage=int.from_bytes(ratings[4:6],"little")/10
-            try: spec=catalogue(model,int(nominal),watts,ac_voltage)
+            try: spec=catalogue(model,nominal,watts,ac_voltage)
             except ValueError as exc: raise HelperError(str(exc),"unsupported") from exc
             if field not in spec: raise HelperError("unsupported Phocos setting","unsupported")
             meta=spec[field]; u=meta["characteristic"]
@@ -673,6 +673,15 @@ async def cmd_phocos_gatt_change(args):
                 if field=="max_utility_charging_current" and value>other[4]: raise HelperError("utility current exceeds total charging current","bad_request")
                 if field=="max_charging_current" and other[5]>value: raise HelperError("utility current exceeds total charging current","bad_request")
             if current==requested: return {"ok":True,"status":"verified","value":current}
+            if field == "output_voltage":
+                # APK setting 10 requires AC output off. Re-read the mode in this
+                # transaction; a prior UI/poll sample cannot authorize this write.
+                status_char = chars["2a04"]
+                if status_char is None:
+                    return {"ok":False,"status":"refused","reason":"Standby mode cannot be verified"}
+                status = bytes(await client.read_gatt_char(status_char))
+                if len(status) < 13 or status[12] != ord("S"):
+                    return {"ok":False,"status":"refused","reason":"AC output voltage can only change in standby (AC output off)"}
             if "bit" in meta:
                 word=int.from_bytes(raw[off:off+width],"little"); mask=1<<meta["bit"]; word=(word|mask) if value else (word&~mask); raw[off:off+width]=word.to_bytes(width,"little")
             else: raw[off:off+width]=int(value).to_bytes(width,"little")
@@ -703,17 +712,35 @@ async def cmd_gatt_read(args):
     wanted = [(full_uuid(r.get("service")), full_uuid(r.get("characteristic"))) for r in reads]
     timeout = min(max(float(args.get("timeout", 20)), 3.0), 60.0)
     values = []
+    diagnostics = []
     try:
         async with asyncio.timeout(timeout):
             link = await _gatt_link(address, None, timeout)
             client = link.client
-            for svc_uuid, char_uuid in wanted:
+            for index, (svc_uuid, char_uuid) in enumerate(wanted):
                 svc = client.services.get_service(svc_uuid)
                 ch = svc.get_characteristic(char_uuid) if svc else None
+                detail = {"service": svc_uuid, "characteristic": char_uuid,
+                          "serviceUuid": getattr(svc, "uuid", None),
+                          "characteristicUuid": getattr(ch, "uuid", None),
+                          "handle": getattr(ch, "handle", None),
+                          "properties": list(getattr(ch, "properties", [])),
+                          "sampledAt": time.time()}
+                diagnostics.append(detail)
                 if ch is None:
                     values.append(None)
+                    detail["status"] = "absent"
                     continue
-                values.append(bytes(await client.read_gatt_char(ch)).hex())
+                try:
+                    raw = bytes(await client.read_gatt_char(ch))
+                    values.append(raw.hex())
+                    detail.update({"status": "read", "length": len(raw)})
+                except Exception as exc:
+                    detail.update({"status": "error", "error": str(_map_error(exc))})
+                    # Optional metadata failure must not discard good telemetry.
+                    if reads[index].get("optional") is not True:
+                        raise
+                    values.append(None)
     except HelperError:
         raise
     except Exception as exc:
@@ -723,7 +750,7 @@ async def cmd_gatt_read(args):
         raise HelperError("none of the requested characteristics exist on this device", "unsupported")
     if not KEEP_ALIVE:
         await _drop_gatt(address)
-    return {"values": values}
+    return {"values": values, "diagnostics": diagnostics}
 
 
 async def _bms_kind(address, forced, timeout):

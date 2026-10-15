@@ -413,6 +413,22 @@ async function pollInstance(instance, transport, profile) {
   }
 }
 
+/**
+ * Fields marked "record": "on_change" (ratings, serial, setting snapshots)
+ * hardly ever change: write them when they change, and otherwise every few
+ * minutes so they never look stale (combined metrics drop inputs older than
+ * 5 minutes). Everything else is written on every poll.
+ */
+const ON_CHANGE_REFRESH_MS = 4 * 60 * 1000;
+function unchangedSinceLastWrite(instance, field, metricName, value) {
+  if (field.record !== 'on_change') return false;
+  const last = (instance._lastWrites ||= new Map()).get(metricName);
+  const now = Date.now();
+  if (last && last.value === value && now - last.at < ON_CHANGE_REFRESH_MS) return true;
+  instance._lastWrites.set(metricName, { value, at: now });
+  return false;
+}
+
 async function pollJsonInstance(instance, transport, profile) {
   try {
     const start = Date.now();
@@ -453,6 +469,7 @@ async function pollJsonInstance(instance, transport, profile) {
       // through queueMetricValue unchanged so they are stored as value_text.
       if (field.type === 'string') {
         if (!pathToMetric) continue;
+        if (unchangedSinceLastWrite(instance, field, metricName, String(raw))) continue;
         metrics[metricName] = String(raw);
         if (field.unit) units[metricName] = field.unit;
         continue;
@@ -465,6 +482,7 @@ async function pollJsonInstance(instance, transport, profile) {
       }
 
       const value = parseFloat((raw * (field.scale || 1)).toFixed(4));
+      if (unchangedSinceLastWrite(instance, field, metricName, value)) continue;
       metrics[metricName] = value;
       if (field.unit) units[metricName] = field.unit;
     }

@@ -2302,7 +2302,7 @@ app.post('/api/dongle/test', async (req, res) => {
     const profilePath = bundledProfilePath('dongles', req.body.profile);
     let profile;
     try { profile = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch (_) { return res.status(400).json({ error: 'Profile not found' }); }
-    const { BleGattTransport } = require('./modules/dongle/bleGatt');
+    const { BleGattTransport, identityCheck } = require('./modules/dongle/bleGatt');
     let bt;
     try {
       bt = new BleGattTransport({ ble_address: req.body.ble_address || host }, profile);
@@ -2314,7 +2314,7 @@ app.post('/api/dongle/test', async (req, res) => {
       const blocks = (profile.blocks || []).filter(b => Array.isArray(data[b.id])).length;
       const out = profile.fields.find(f => f.name === 'output_power');
       const w = out ? require('./modules/dongle').getByPathForTest(data, out.path) : undefined;
-      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}` });
+      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}`, diagnostics: data.diagnostics, values: data.raw, identity: data.identity, identityCheck: identityCheck(data) });
     } catch (err) {
       logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
       return res.status(502).json({ error: err.message });
