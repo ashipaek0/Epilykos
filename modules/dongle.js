@@ -13,6 +13,7 @@ const path = require('path');
 const { getConfig, setConfig } = require('./database');
 const { queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { createBackoff } = require('./pollBackoff');
 const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
@@ -34,33 +35,36 @@ const phocosInstances = new Map();
  * Bluetooth connect, a timeout) makes the next tick a no-op instead of
  * queueing behind it: with several units on one Bluetooth adapter, queued
  * polls otherwise pile up and the readings fall further and further behind.
- *
- * A device that keeps failing is polled less often (every 2, 4 … up to 16
- * ticks). Bluetooth requests share one helper, so a unit that is off or out
- * of range would otherwise spend every cycle on connect attempts and starve
- * the units that work.
  */
-const BACKOFF_AFTER = 3, BACKOFF_MAX_TICKS = 16;
 function singleFlight(inst, poll) {
-  let running = null, failures = 0, wait = 0;
+  let running = null;
   return () => {
     if (running) { inst._skippedPolls = (inst._skippedPolls || 0) + 1; if (inst._skippedPolls % 10 === 1) logger.warn(`[dongle] ${inst.name}: poll still running, skipping (${inst._skippedPolls} so far); a longer interval may suit this device`); return running; }
-    if (wait > 0) { wait--; return Promise.resolve(); }
-    running = Promise.resolve().then(poll)
-      .then(() => {
-        if (failures >= BACKOFF_AFTER) logger.info(`[dongle] ${inst.name}: reading again`);
-        failures = 0;
-      })
-      .catch(err => {
-        failures++;
-        logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`);
-        if (failures >= BACKOFF_AFTER) {
-          wait = Math.min(BACKOFF_MAX_TICKS, 2 ** (failures - BACKOFF_AFTER + 1)) - 1;
-          if (failures === BACKOFF_AFTER) logger.warn(`[dongle] ${inst.name}: ${failures} failed polls in a row; polling it less often until it answers`);
-        }
-      })
-      .finally(() => { running = null; });
+    running = Promise.resolve().then(poll).catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`)).finally(() => { running = null; });
     return running;
+  };
+}
+
+/**
+ * Bluetooth units share one adapter and one helper that runs a request at a
+ * time, so a unit that is off or out of range would spend every cycle on
+ * connect attempts and starve the ones that work: it is polled less often
+ * until it answers (see pollBackoff.js). The poll functions catch their own
+ * errors and count them in consecutiveFails, which is what this reads.
+ * TCP dongles have their own connections and keep polling every tick.
+ */
+const bleBackoff = createBackoff('[dongle]');
+function withBleBackoff(inst, poll) {
+  return async () => {
+    if (bleBackoff.skip(inst.name)) return;
+    try {
+      await poll();
+    } catch (err) {
+      inst.consecutiveFails = (inst.consecutiveFails || 0) + 1;
+      throw err;
+    } finally {
+      bleBackoff.record(inst.name, !inst.consecutiveFails);
+    }
   };
 }
 
@@ -97,7 +101,7 @@ function startDonglePolling() {
       }
       if (profile.capabilities && profile.capabilities.write === true) phocosInstances.set(inst.name, { instance: inst, profile, transport });
       const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
-      const poll = singleFlight(inst, () => pollJsonInstance(inst, transport, profile));
+      const poll = singleFlight(inst, withBleBackoff(inst, () => pollJsonInstance(inst, transport, profile)));
       pollIntervals.push(setInterval(poll, intervalMs));
       poll();
       continue;
@@ -131,7 +135,9 @@ function startDonglePolling() {
         // Bluetooth a full cycle takes several seconds, so default to 15s.
         const intervalMs = (inst.poll_interval || (inst.transport === 'ble-luxpower' ? 15 : 5)) * 1000;
         // pollLuxpowerInstance has its own one-at-a-time guard (_luxPollBusy).
-        const poll = () => pollLuxpowerInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`));
+        const read = () => pollLuxpowerInstance(inst, transport, profile);
+        const run = inst.transport === 'ble-luxpower' ? withBleBackoff(inst, read) : read;
+        const poll = () => run().catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`));
         const id = setInterval(poll, intervalMs);
         luxpowerPollers.push({ instance: inst, transport, intervalId: id });
         transport.start();
@@ -158,7 +164,8 @@ function startDonglePolling() {
     }
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
-    const poll = singleFlight(inst, () => pollInstance(inst, transport, profile));
+    const read = () => pollInstance(inst, transport, profile);
+    const poll = singleFlight(inst, inst.transport === 'ble-modbus' ? withBleBackoff(inst, read) : read);
     pollIntervals.push(setInterval(poll, intervalMs));
     poll();
   }
@@ -173,6 +180,7 @@ function stopDonglePolling() {
   pollIntervals.forEach(clearInterval);
   pollIntervals = [];
   phocosInstances.clear();
+  bleBackoff.reset();   // saving settings retries every unit straight away
   for (const entry of luxpowerPollers) {
     clearInterval(entry.intervalId);
     if (entry.transport) entry.transport.stop();
@@ -1033,7 +1041,7 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
 }
 
 module.exports = {
-  singleFlight,
+  singleFlight, withBleBackoff,
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
   readDongleRegister, writeDongleSetting, writeLuxpowerRaw, registerWord,

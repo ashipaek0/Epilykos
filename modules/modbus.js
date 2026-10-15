@@ -1,4 +1,6 @@
 const { logger } = require('./logger');
+const { createBackoff } = require('./pollBackoff');
+const backoff = createBackoff('Modbus');
 const ModbusRTU = require('modbus-serial');
 const fs = require('fs');
 const path = require('path');
@@ -46,10 +48,34 @@ async function connectModbus(device) {
     // Transparent RS485-to-Ethernet gateway: raw RTU frames (with CRC) over TCP.
     await client.connectTcpRTUBuffered(device.host, { port: parseInt(device.port) || 502 });
   } else {
-    await client.connectTcp(device.host, { port: parseInt(device.port) || 502 });
+    // modbus-serial names it connectTCP; connectTcp doesn't exist, so plain
+    // Modbus TCP devices failed every poll with "not a function".
+    await client.connectTCP(device.host, { port: parseInt(device.port) || 502 });
   }
   await client.setID(parseInt(device.unit) || 1);
+  // modbus-serial has no timeout by default: a gateway that accepts the
+  // connection but whose unit never answers left the poll waiting forever,
+  // and every source polled after Modbus with it.
+  client.setTimeout(Math.min(Math.max(parseInt(device.timeout) || 5000, 500), 30000));
   return client;
+}
+
+/**
+ * Close without waiting on the other end. modbus-serial's close() waits for
+ * the device to close its side too, and some never do, which left the poll
+ * (and every source after it) waiting forever.
+ */
+function closeClient(client) {
+  if (!client) return Promise.resolve();
+  return new Promise(resolve => {
+    const timer = setTimeout(() => {
+      try { client.destroy(() => {}); } catch (_) { /* already gone */ }
+      resolve();
+    }, 1000);
+    try {
+      client.close(() => { clearTimeout(timer); resolve(); });
+    } catch (_) { clearTimeout(timer); resolve(); }
+  });
 }
 
 function getProfileById(id) {
@@ -66,6 +92,10 @@ async function pollModbus() {
     if (device.transport !== 'tcp' && device.transport !== 'serial') device.transport = 'tcp';
     if (device.transport === 'tcp' && !device.host) continue;
     if (device.transport === 'serial' && !device.serial_path) continue;
+    // Devices are read one after another (and serial ones share a port): one
+    // that doesn't answer is tried less often so it doesn't hold up the rest.
+    const key = device.name || device.host || device.serial_path;
+    if (backoff.skip(key)) continue;
 
     const profile = getProfileById(device.profile);
     if (!profile) {
@@ -94,6 +124,7 @@ async function pollModbus() {
     }
 
     let client;
+    const okBefore = result.attempted - result.errors.length;
     try {
       client = await connectModbus(device);
 
@@ -127,17 +158,19 @@ async function pollModbus() {
           result.success();
         } catch (err) { result.fail(err); logger.error(`Modbus read error at ${startAddr}:`, err.message); }
       }
-      await client.close();
+      await closeClient(client);
 
       const now = Math.floor(Date.now() / 1000);
       for (const [metric, value] of Object.entries(results)) {
         queueMetricValue(metric, value, now);
       }
       console.log(`Modbus poll (${device.name || device.host || device.serial_path}): ${Object.keys(results).length} metrics.`);
+      backoff.record(key, result.attempted - result.errors.length > okBefore);   // any register block read
     } catch (err) {
       result.fail(err);
+      backoff.record(key, false);
       logger.error(`Modbus poll error for ${device.name || device.host || device.serial_path}:`, err.message);
-      if (client) client.close();
+      await closeClient(client);
     }
   }
   return result;
@@ -148,11 +181,9 @@ async function testModbusConnection(device) {
   try {
     client = await connectModbus(device);
     const resp = await client.readHoldingRegisters(256, 1); // common battery SOC address
-    await client.close();
     return { success: true, value: resp.data[0] };
-  } catch (err) {
-    if (client) client.close();
-    throw err;
+  } finally {
+    await closeClient(client);
   }
 }
 
@@ -176,15 +207,17 @@ async function executeModbusAction(deviceName, registerAddr, value, type) {
     if (val === null) return { error: 'The value must be a whole number from 0 to 65535' };
   }
 
+  let client;
   try {
-    const client = await connectModbus(device);
+    client = await connectModbus(device);
     if (type === 'coil') await client.writeSingleCoil(addr, val);
     else await client.writeSingleRegister(addr, val);
-    await client.close();
     return { success: true };
   } catch (e) {
     logger.error(`Modbus write error for ${deviceName}/register ${registerAddr}: ${e.message}`);
     return { error: e.message };
+  } finally {
+    await closeClient(client);
   }
 }
 

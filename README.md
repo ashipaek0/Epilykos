@@ -310,7 +310,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `TMPDIR` | `/tmp` | Temporary directory for uploads (backup restore, layout import) |
 | `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
 | `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
-| `BLE_MAX_GATT_LINKS` | `1` | Inverter Bluetooth links (Phocos, Modbus, LuxPower dongles) kept open at once. With several units on one adapter, the others are closed before connecting the next |
+| `BLE_MAX_LINKS` | `1` | Bluetooth links (inverter dongles and BMS packs) kept open at once. With several devices on one adapter, the others are closed before the next connects; raise it if your adapter handles several connections well |
 | `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device) |
 
 ---
