@@ -31,6 +31,21 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     await failing();   // a failing poll is logged, never an unhandled rejection
   });
 
+  await check('dongle: a device that keeps failing is polled less often, and normally again once it answers', async () => {
+    const { singleFlight } = require('../modules/dongle');
+    let calls = 0, ok = false;
+    const poll = singleFlight({ name: 'Inverter 2' }, () => { calls++; if (!ok) throw new Error('not found'); });
+    const ticks = async n => { for (let i = 0; i < n; i++) await poll(); };
+    await ticks(3); assert.strictEqual(calls, 3, 'the first failures poll every tick');
+    await ticks(2); assert.strictEqual(calls, 4, 'after 3 failures: every 2nd tick');
+    await ticks(4); assert.strictEqual(calls, 5, 'then every 4th');
+    for (let i = 0; i < 60; i++) await poll();
+    const before = calls; await ticks(16); assert.strictEqual(calls - before, 1, 'capped at every 16th tick');
+    ok = true;
+    for (let i = 0; i < 16 && calls === before + 1; i++) await poll();   // the next allowed poll succeeds
+    const recovered = calls; await ticks(3); assert.strictEqual(calls - recovered, 3, 'every tick again after a success');
+  });
+
   await check('combined metrics: state of a deleted definition is removed, switched-off ones keep theirs', () => {
     const cm = require('../modules/combinedMetrics');
     database.setConfig('combined_metrics', JSON.stringify([{ id: 'keep', name: 'k', fn: 'sum', inputs: ['a'], enabled: false }]));
@@ -61,7 +76,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(srv, /return res\.status\(409\)\.json\(\{ error: `\$\{name\} is a combined metric/);
   });
 
-  assert.strictEqual(passed, 4, 'every check ran');
+  assert.strictEqual(passed, 5, 'every check ran');
   console.log(`poll-guards: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });
