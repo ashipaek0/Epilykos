@@ -1,5 +1,7 @@
 const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { createBackoff } = require('./pollBackoff');
+const backoff = createBackoff('BMS');
 const { computeBankAggregates } = require('./bmsAggregator');
 const ble = require('./ble');
 
@@ -136,11 +138,16 @@ async function pollBMS() {
     }
 
     for (const device of devices) {
+      // Packs are read one after another over one adapter: a pack that is off
+      // or out of range is tried less often so it doesn't hold up the others.
+      if (backoff.skip(device.name)) continue;
       try {
         const data = await readDevice(device.address, device.bms_type);
         storeSample(device, data, Math.floor(Date.now() / 1000));
+        backoff.record(device.name, true);
         logger.debug(`BMS ${device.name} polled successfully`);
       } catch (err) {
+        backoff.record(device.name, false);
         logger.warn(`BMS poll error for ${device.name}: ${err.message}`);
       }
     }
@@ -168,6 +175,7 @@ async function pollBMS() {
 
 function startBmsPolling() {
   if (bmsPollInterval) clearInterval(bmsPollInterval);
+  backoff.reset();   // saving settings retries every pack straight away
   const intervalSec = parseInt(getConfig('bms_poll_interval')) || 30;
   const backend = legacyBridgeUrl() ? `legacy bridge ${legacyBridgeUrl()}` : 'built-in Bluetooth';
   logger.info(`BMS polling started: interval=${intervalSec}s, stale_threshold=${intervalSec * 2}s, backend=${backend}`);

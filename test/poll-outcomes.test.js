@@ -19,15 +19,22 @@ global.fetch = async () => {
   return { ok: haMode === 'ok', status: 503, json: async () => ({ state: '42' }) };
 };
 const modbusPath = require.resolve('modbus-serial');
-require(modbusPath);
+const RealModbus = require(modbusPath);
+// The fake must only use methods the real client has (a fake connectTcp hid
+// that modbus.js called a method modbus-serial doesn't have).
+for (const m of ['connectTCP', 'connectTcpRTUBuffered', 'connectRTUBuffered', 'setID', 'setTimeout', 'readHoldingRegisters', 'close']) {
+  if (typeof new RealModbus()[m] !== 'function') throw new Error(`modbus-serial has no ${m}()`);
+}
 require.cache[modbusPath].exports = class {
-  async connectTcp(host) { this.host = host; if (host === 'offline') throw new Error('Modbus unreachable'); }
+  setTimeout(ms) { this.timeout = ms; }
+  async connectTCP(host) { this.host = host; if (host === 'offline') throw new Error('Modbus unreachable'); }
   async setID() {}
   async readHoldingRegisters(address) {
     if (this.host === 'partial' && address === 60) throw new Error('Register read failed');
     return { data: [42] };
   }
-  async close() {}
+  close(cb) { if (cb) cb(); }
+  destroy(cb) { if (cb) cb(); }
 };
 const serialPath = require.resolve('serialport');
 require(serialPath);
@@ -95,9 +102,13 @@ notifications.init();
     assert.strictEqual(partialErrors, FAILURE_THRESHOLD + 1);
     assert.strictEqual(partialReady, 0);
     assert.strictEqual(getBreaker('modbus').getState(), 'CLOSED', 'healthy reads keep running despite a failed peer');
-    config('modbus_devices', [{ name: 'bad', enabled: true, host: 'offline', profile: 'fixture' }]);
-    for (let i = 0; i < FAILURE_THRESHOLD; i++) await partial.runCycle();
-    assert.strictEqual(getBreaker('modbus').getState(), 'OPEN');
+    config('modbus_devices', [{ name: 'dead', enabled: true, host: 'offline', profile: 'fixture' }]);
+    // A device that keeps failing is tried less often (pollBackoff.js) rather
+    // than the whole Modbus family being stopped: 3 failures, then a cycle off.
+    const tries = [];
+    for (let i = 0; i < 5; i++) tries.push((await modbus.pollModbus()).attempted);
+    assert.deepStrictEqual(tries, [1, 1, 1, 0, 1]);
+    assert.strictEqual(getBreaker('modbus').getState(), 'CLOSED');
 
     config('rs232_devices', [{ name: 'serial', enabled: true, profile: 'fixture' }]);
     outcome = await rs232.pollRs232();

@@ -55,10 +55,11 @@ log = logging.getLogger("ble-helper")
 DBUS_SOCKET = os.getenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/run/dbus/system_bus_socket")
 SEEN_TTL = float(os.getenv("BLE_SEEN_TTL", "600"))  # reuse a scan result for 10 min
 KEEP_ALIVE = os.getenv("BLE_KEEP_ALIVE", "true").lower() not in ("0", "false", "no")
-# Open GATT links kept at once. With one adapter, a link held open to one unit
-# makes BlueZ's scan and connect to the next unreliable ("device disappeared",
-# GATT error 14), so by default only one stays open.
-MAX_GATT_LINKS = max(1, int(os.getenv("BLE_MAX_GATT_LINKS", "1") or 1))
+# Bluetooth links (inverters and BMS packs) kept open at once. With one
+# adapter, a link held open to one device makes BlueZ's scan and connect to the
+# next unreliable ("device disappeared", GATT error 14), so by default only one
+# stays open and the others reconnect when their turn comes.
+MAX_LINKS = max(1, int(os.getenv("BLE_MAX_LINKS", "1") or 1))
 MAX_DEVICES = 256  # scan results kept in memory
 
 
@@ -398,6 +399,8 @@ async def cmd_read_bms(args):
     try:
         async with asyncio.timeout(timeout):
             bms = _bms.get(address)
+            if bms is None or not _bms_connected(bms):
+                await _make_room(address)
             if bms is None:
                 device, adv = await _find(address, min(10.0, timeout / 2))
                 # An explicit type (e.g. "jbd_bms", "jikong_bms") covers rebranded
@@ -424,8 +427,10 @@ async def cmd_read_bms(args):
         await _drop_bms(address)
         raise
     except Exception as exc:
-        # Reset so the next poll starts from a clean connection.
+        # Reset so the next poll starts from a clean connection, with a fresh
+        # scan: a cached scan result goes stale once BlueZ forgets the device.
         await _drop_bms(address, reset=True)
+        _seen.pop(address, None)
         raise _map_error(exc) from exc
     data = flatten_sample(sample)
     if not data:
@@ -448,6 +453,28 @@ class GattLink:
         if len(self.buf) > 8192:
             del self.buf[:-8192]
         self.event.set()
+
+
+def _bms_connected(bms):
+    client = getattr(bms, "_client", None)
+    return bool(client is not None and getattr(client, "is_connected", False))
+
+
+async def _make_room(address):
+    """Close links to other devices so that, with the one about to open,
+    at most MAX_LINKS are open. Oldest first. A BMS keeps its object (and
+    its identified type) and reconnects on its next read."""
+    others = [("gatt", a) for a in _gatt if a != address]
+    others += [("bms", a) for a, b in _bms.items() if a != address and _bms_connected(b)]
+    while len(others) >= MAX_LINKS:
+        kind, other = others.pop(0)
+        if kind == "gatt":
+            await _drop_gatt(other)
+            continue
+        try:
+            await _bms[other].disconnect()
+        except Exception:
+            log.debug("bms disconnect failed for %s", other, exc_info=True)
 
 
 async def _drop_gatt(address):
@@ -480,8 +507,7 @@ async def _gatt_link(address, notify_uuid, timeout):
     if link and link.client.is_connected and (notify_uuid is None or link.notify_uuid == notify_uuid):
         return link
     await _drop_gatt(address)
-    while len(_gatt) >= MAX_GATT_LINKS:
-        await _drop_gatt(next(iter(_gatt)))  # oldest first
+    await _make_room(address)
     scan_timeout = min(10.0, timeout / 2)
     device, _adv = await _find(address, scan_timeout)
     try:
@@ -974,9 +1000,9 @@ def _self_test_bms_switch():
 
 def _self_test_gatt_link():
     """_gatt_link: a stale scan result is dropped and rescanned; only
-    MAX_GATT_LINKS links stay open."""
+    MAX_LINKS links (inverter or BMS) stay open."""
     g = globals()
-    saved = {k: g[k] for k in ("_find", "_establish", "MAX_GATT_LINKS")}
+    saved = {k: g[k] for k in ("_find", "_establish", "MAX_LINKS")}
     finds, closed = [], []
 
     class Client:
@@ -1001,7 +1027,7 @@ def _self_test_gatt_link():
         return Client(address)
 
     try:
-        g.update(_find=fake_find, _establish=flaky, MAX_GATT_LINKS=1)
+        g.update(_find=fake_find, _establish=flaky, MAX_LINKS=1)
         _gatt.clear()
         _gatt["AA:00:00:00:00:01"] = GattLink(Client("AA:00:00:00:00:01"), None)
         _seen["AA:00:00:00:00:02"] = ("stale", None, time.monotonic())
@@ -1024,10 +1050,36 @@ def _self_test_gatt_link():
             pass
         assert finds == ["AA:00:00:00:00:03"] and "AA:00:00:00:00:03" not in _seen  # no rescan, cache dropped
         assert _map_error(RuntimeError("BleakGATTProtocolError: (14, 'GATT Protocol Error: Unlikely Error')")).code == "gatt_error"
+
+        # A connected BMS counts too: it is disconnected (object kept) to make room.
+        class Bms:
+            def __init__(self):
+                self._client = Client("bms")
+
+            async def disconnect(self, reset=False):
+                self._client.is_connected = False
+                closed.append("bms")
+
+        g["_establish"] = lambda _d, a: _ok(a)
+
+        async def _ok(a):
+            return Client(a)
+
+        _gatt.clear()
+        closed.clear()
+        _bms["BB:00:00:00:00:01"] = Bms()
+        asyncio.run(_gatt_link("AA:00:00:00:00:04", None, 20))
+        assert closed == ["bms"] and "BB:00:00:00:00:01" in _bms, closed
+        g["MAX_LINKS"] = 2
+        _bms["BB:00:00:00:00:01"]._client.is_connected = True
+        closed.clear()
+        asyncio.run(_gatt_link("AA:00:00:00:00:05", None, 20))
+        assert closed == ["AA:00:00:00:00:04"], closed  # oldest of the two others goes
     finally:
         g.update(saved)
         _gatt.clear()
         _seen.clear()
+        _bms.clear()
 
 
 if __name__ == "__main__":
