@@ -34,12 +34,32 @@ const phocosInstances = new Map();
  * Bluetooth connect, a timeout) makes the next tick a no-op instead of
  * queueing behind it: with several units on one Bluetooth adapter, queued
  * polls otherwise pile up and the readings fall further and further behind.
+ *
+ * A device that keeps failing is polled less often (every 2, 4 … up to 16
+ * ticks). Bluetooth requests share one helper, so a unit that is off or out
+ * of range would otherwise spend every cycle on connect attempts and starve
+ * the units that work.
  */
+const BACKOFF_AFTER = 3, BACKOFF_MAX_TICKS = 16;
 function singleFlight(inst, poll) {
-  let running = null;
+  let running = null, failures = 0, wait = 0;
   return () => {
     if (running) { inst._skippedPolls = (inst._skippedPolls || 0) + 1; if (inst._skippedPolls % 10 === 1) logger.warn(`[dongle] ${inst.name}: poll still running, skipping (${inst._skippedPolls} so far); a longer interval may suit this device`); return running; }
-    running = Promise.resolve().then(poll).catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`)).finally(() => { running = null; });
+    if (wait > 0) { wait--; return Promise.resolve(); }
+    running = Promise.resolve().then(poll)
+      .then(() => {
+        if (failures >= BACKOFF_AFTER) logger.info(`[dongle] ${inst.name}: reading again`);
+        failures = 0;
+      })
+      .catch(err => {
+        failures++;
+        logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`);
+        if (failures >= BACKOFF_AFTER) {
+          wait = Math.min(BACKOFF_MAX_TICKS, 2 ** (failures - BACKOFF_AFTER + 1)) - 1;
+          if (failures === BACKOFF_AFTER) logger.warn(`[dongle] ${inst.name}: ${failures} failed polls in a row; polling it less often until it answers`);
+        }
+      })
+      .finally(() => { running = null; });
     return running;
   };
 }
