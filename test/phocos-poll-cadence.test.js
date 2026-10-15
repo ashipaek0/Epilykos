@@ -13,7 +13,7 @@ const database = require('../modules/database');
 database.initializeDatabase();
 
 const profile = require('../profiles/dongles/phocos-anygrid-ble.json');
-const { BleGattTransport } = require('../modules/dongle/bleGatt');
+const { BleGattTransport, identityCheck } = require('../modules/dongle/bleGatt');
 const { pollJsonInstance } = require('../modules/dongle');
 
 function payload(block) {
@@ -46,6 +46,20 @@ function payload(block) {
   await t.settings();
   await t.poll(); assert.equal(reads.at(-1), profile.blocks.length, 'a settings read refreshes them on the next poll');
   console.log('ok - slow blocks are read every 20th poll and after a settings read');
+
+  // What the Bluetooth Test shows for checking the model byte by eye.
+  const check = identityCheck(first);
+  assert.equal(check.serial, 'SERIAL');
+  assert.equal(check.modelCode, '9');
+  assert.deepEqual(check.byte19, { index: 19, hex: '39', char: '9' });
+  assert.deepEqual(check.byte18, { index: 18, hex: '00', char: null });
+  assert.equal(check.rawHex.length, 40);
+  assert.equal(check.nominalVoltage, 48); assert.equal(check.watts, 5000);
+  assert.equal(check.writable, true);
+  assert.equal(identityCheck({ raw: {} }), null, 'nothing to show without the identity block');
+  const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(srv, /identityCheck: identityCheck\(data\)/, 'the test route returns it');
+  console.log('ok - the Bluetooth Test reports serial, model code and bytes 18/19');
 
   // Snapshot fields: written once, then not again until they change or 4 min pass.
   const instance = { name: 'P1', prefix: 'p1_', mappings: { p1_rated: 'ratings.outputPower', p1_soc: 'status[0]' } };
