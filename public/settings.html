@@ -52,6 +52,7 @@
       <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#backup" class="st-nav-link" data-section="backup"><span data-icon="database" data-size="18"></span><span class="st-nav-label">Backup and restore</span><span class="st-nav-meta"></span></a></li>
+      <li id="st-nav-system" hidden><a href="#system" class="st-nav-link" data-section="system"><span data-icon="power" data-size="18"></span><span class="st-nav-label">System</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#help" class="st-nav-link" data-section="help"><span data-icon="help" data-size="18"></span><span class="st-nav-label">Help</span><span class="st-nav-meta"></span></a></li>
     </ul>
     <div class="st-nav-foot">
@@ -884,6 +885,16 @@
         </div>
         <div id="nt-root"><p class="st-help">Loading notifications…</p></div>
       </section>
+
+      <!-- ════════════ SYSTEM (EpilykosOS appliances only) ════════════
+           Outside the settings form: actions run at once through /api/system.
+           The nav entry stays hidden unless the server reports an appliance. -->
+      <section class="st-section" id="section-system" data-section="system" aria-labelledby="h-system" hidden>
+        <div class="st-section-head">
+          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, change its Wi-Fi, and the SSH maintenance login.</p></div>
+        </div>
+        <div id="sys-root"><p class="st-help">Loading…</p></div>
+      </section>
       </div>
     </main>
 
@@ -924,10 +935,11 @@
 <script src="js/pvoutput-units.js?v=1"></script>
 <script src="settings.js?v=21"></script>
 <script src="js/catalog-ui.js?v=1"></script>
-<script src="js/settings-shell.js?v=4"></script>
+<script src="js/settings-shell.js?v=5"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
+<script src="js/system-settings.js?v=1"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
 </body>
