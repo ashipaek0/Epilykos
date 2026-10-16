@@ -15,7 +15,7 @@
   </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
-  <link rel="stylesheet" href="settings-shell.css?v=2">
+  <link rel="stylesheet" href="settings-shell.css?v=3">
   <link rel="stylesheet" href="notifications.css?v=3">
   <link rel="stylesheet" href="color-picker.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -53,6 +53,7 @@
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#logs" class="st-nav-link" data-section="logs"><span data-icon="terminal" data-size="18"></span><span class="st-nav-label">Logs</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#backup" class="st-nav-link" data-section="backup"><span data-icon="database" data-size="18"></span><span class="st-nav-label">Backup and restore</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#updates" class="st-nav-link" data-section="updates"><span data-icon="refresh" data-size="18"></span><span class="st-nav-label">Updates</span><span class="st-nav-meta"></span></a></li>
       <li id="st-nav-system" hidden><a href="#system" class="st-nav-link" data-section="system"><span data-icon="power" data-size="18"></span><span class="st-nav-label">System</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#help" class="st-nav-link" data-section="help"><span data-icon="help" data-size="18"></span><span class="st-nav-label">Help</span><span class="st-nav-meta"></span></a></li>
     </ul>
@@ -905,6 +906,18 @@
         <div id="sys-root"><p class="st-help">Loading…</p></div>
       </section>
 
+      <!-- ════════════ UPDATES ════════════
+           Outside the settings form: everything here acts at once (see the Updates script below). -->
+      <section class="st-section" id="section-updates" data-section="updates" aria-labelledby="h-updates" hidden>
+        <div class="st-section-head">
+          <div><h1 id="h-updates">Updates</h1><p class="st-lede">Which version this is, and whether a newer one is ready: new features and fixes, or the weekly rebuild with security updates.</p></div>
+          <div class="st-head-actions">
+            <button type="button" class="st-btn" id="up-check"><span data-icon="refresh" data-size="16"></span>Check now</button>
+          </div>
+        </div>
+        <div id="up-root"><p class="st-help">Loading…</p></div>
+      </section>
+
       <!-- ════════════ LOGS ════════════
            Outside the settings form: the level saves on its own (see the Logs script below). -->
       <section class="st-section" id="section-logs" data-section="logs" aria-labelledby="h-logs" hidden>
@@ -987,13 +1000,14 @@
 <script src="js/pvoutput-units.js?v=1"></script>
 <script src="settings.js?v=21"></script>
 <script src="js/catalog-ui.js?v=1"></script>
-<script src="js/settings-shell.js?v=5"></script>
+<script src="js/settings-shell.js?v=6"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
 <script src="js/system-settings.js?v=1"></script>
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=1"></script>
+<script src="js/updates-settings.js?v=1"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
 </body>

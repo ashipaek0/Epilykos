@@ -39,6 +39,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Which build this is, written into the image (Settings → Updates shows it
+      # and compares it with the update feed).
+      - name: Build identity
+        id: meta
+        run: |
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "build_id=${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push ${{ matrix.service.name }}
         id: build
         uses: docker/build-push-action@v7
@@ -48,6 +56,11 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ matrix.service.tag }}
+          build-args: |
+            EPILYKOS_CHANNEL=dev
+            EPILYKOS_BUILD_ID=${{ steps.meta.outputs.build_id }}
+            EPILYKOS_COMMIT=${{ github.sha }}
+            EPILYKOS_BUILT_AT=${{ steps.meta.outputs.built_at }}
 
       # Record the immutable digest of what was just pushed. EpilykosOS
       # application manifests pin images by digest (C-UPDATE-002), never by tag.
@@ -56,13 +69,15 @@ jobs:
           IMAGE_TAG: ${{ matrix.service.tag }}
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
           SERVICE: ${{ matrix.service.name }}
+          BUILD_ID: ${{ steps.meta.outputs.build_id }}
+          BUILT_AT: ${{ steps.meta.outputs.built_at }}
         run: |
           repo="${IMAGE_TAG%:*}"
           echo "### ${SERVICE}" >> "$GITHUB_STEP_SUMMARY"
           echo "\`${repo}@${IMAGE_DIGEST}\` (tag \`${IMAGE_TAG}\`, commit \`${GITHUB_SHA}\`)" >> "$GITHUB_STEP_SUMMARY"
           version="$(jq -r .version package.json)"
-          printf '{"service":"%s","image":"%s","digest":"%s","tag":"%s","commit":"%s","ref":"%s","version":"%s"}\n' \
-            "$SERVICE" "$repo" "$IMAGE_DIGEST" "$IMAGE_TAG" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$version" > "digest-${SERVICE}.json"
+          printf '{"service":"%s","image":"%s","digest":"%s","tag":"%s","commit":"%s","ref":"%s","version":"%s","build_id":"%s","built_at":"%s"}\n' \
+            "$SERVICE" "$repo" "$IMAGE_DIGEST" "$IMAGE_TAG" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$version" "$BUILD_ID" "$BUILT_AT" > "digest-${SERVICE}.json"
 
       - name: Upload digest record
         uses: actions/upload-artifact@v4
@@ -70,6 +85,49 @@ jobs:
           name: image-digest-${{ matrix.service.name }}
           path: digest-${{ matrix.service.name }}.json
           retention-days: 90
+
+  # Update feed: add this build to dev.json on the update-feed branch, which
+  # Settings → Updates reads to tell whether a newer build exists and what
+  # changed (.github/scripts/update-feed.js).
+  publish-update-feed:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out code (with history, for the change notes)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Collect digest records
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-digest-*
+          merge-multiple: true
+          path: digests
+
+      - name: Publish to the update-feed branch
+        run: |
+          git config user.name ashipaek0
+          git config user.email folabiklan@gmail.com
+          if git ls-remote --exit-code --heads origin update-feed >/dev/null; then
+            git fetch origin update-feed
+            git worktree add feed FETCH_HEAD
+          else
+            git worktree add --detach feed
+            (cd feed && git checkout --orphan update-feed && git rm -rfq .)
+          fi
+          node .github/scripts/update-feed.js dev digests/digest-epilykos.json feed/dev.json
+          cd feed
+          git add dev.json
+          git commit -qm "dev: build ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT} (${GITHUB_SHA::7})"
+          # dev and main builds can finish together: rebase onto the other's feed commit and retry.
+          for i in 1 2 3; do
+            git push origin HEAD:update-feed && exit 0
+            git pull --rebase origin update-feed
+          done
+          exit 1
 
   # Bridge to EpilykosOS (C-RELEASE-001): hand the digest records of this
   # build to ashipaek0/epilykos-os, which opens a pull request updating its

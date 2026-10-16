@@ -436,6 +436,7 @@ app.use(session({
 initializeDatabase();
 require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
 require('./routes/remote').init(); // Tailscale back on after a restart, if remote access was on
+require('./modules/updates').start(); // daily check for a newer build; the result of an update just installed
 // Reassigned by rebindAfterRestore() — a restore reopens the connection.
 let db = getDb();
 loadProfiles();
@@ -2520,6 +2521,8 @@ app.use('/api/notifications', isAuthenticated, require('./modules/notifications/
 app.use('/api/logs', isAuthenticated, require('./routes/logs').router());
 // Settings → Network → Remote access (Tailscale). Signed-in only, so never before the admin password exists.
 app.use('/api/remote', isAuthenticated, require('./routes/remote').router());
+// Settings → Updates: newer build out?, "Update now".
+app.use('/api/updates', isAuthenticated, require('./routes/updates').router());
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {
@@ -2669,6 +2672,7 @@ async function shutdown(signal) {
   stopDonglePolling();
   require('./modules/tailscale').stopDaemon();
   require('./modules/cloudflared').stop();
+  require('./modules/updates').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
