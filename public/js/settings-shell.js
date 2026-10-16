@@ -27,6 +27,7 @@
     upload: '<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',
     wifi: '<path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r="1"/>',
     database: '<path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+    bell: '<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 .5c0 1.5-2.5 2-2.5 3.5M12 17h.01"/>',
     pin: '<path d="M12 21s7-6.2 7-12a7 7 0 00-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
     download: '<path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>',
@@ -176,7 +177,7 @@
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
     sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings',
-    appearance: 'Appearance', uploads: 'Uploads', network: 'Network', backup: 'Backup and restore', help: 'Help'
+    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', backup: 'Backup and restore', help: 'Help'
   };
   var SAVABLE = ['sources', 'metrics', 'forecast', 'savings', 'appearance', 'uploads', 'network'];
   // Old section ids (bookmarks, the setup wizard, help text) → new ones.
@@ -225,6 +226,8 @@
     document.title = SECTION_TITLES[name] + ' · Settings · Epilykos';
     try { localStorage.setItem('epilykos-settings-section', name); } catch (e) {}
     if (name === 'backup') loadSnapshots();
+    // Self-saving sections (notifications) load their data when shown.
+    document.dispatchEvent(new CustomEvent('st:section-shown', { detail: { section: name } }));
     updateSaveBar();
     closeNav();
     if (changed) {
@@ -237,6 +240,9 @@
   }
 
   // Help text and older pages call navigateTo('data-sources', 'modbus').
+  // For self-contained section scripts (js/notifications-settings.js).
+  window.stShell = { toast: toast, openDialog: openDialog, hydrateIcons: hydrateIcons, icon: icon, esc: esc };
+
   window.navigateTo = function (sectionId, subtabId) {
     var sec = LEGACY[sectionId] || sectionId;
     if (sectionId === 'data-sources' && subtabId === 'pvoutput') return go('uploads');
@@ -362,7 +368,8 @@
     return s ? s.dataset.section : null;
   }
   function onUserEdit(e) {
-    if (!e.isTrusted) return;
+    // The in-page colour picker (js/editor-color.js) tags the edits it makes.
+    if (!e.isTrusted && !(e.target && e.target.dataset && e.target.dataset.colorPickerEdit === '1')) return;
     var sec = sectionOfEvent(e);
     if (!sec || SAVABLE.indexOf(sec) === -1) return;
     if (e.type === 'click') {
@@ -720,6 +727,13 @@
     if (r.value !== 'ok') return;
     var key = r.form.elements.sourceType.value;
     var t = typeByKey(key);
+    if (key === 'tuya') {
+      // Tuya starts from the Smart Life login and scan, which fills in the
+      // devices; adding one by hand stays available on that page.
+      go('sources/tuya');
+      setTimeout(function () { var uid = $('tuya-uid'); if (uid) uid.focus(); }, 50);
+      return;
+    }
     if (!t || !$(t.add)) return;
     $(t.add).click();
     touched.sources = true;

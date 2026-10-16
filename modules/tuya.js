@@ -2,6 +2,7 @@ const { logger } = require('./logger');
 const { getConfig, queueMetricValue } = require('./database');
 const { execFile } = require('child_process');
 const path = require('path');
+const { PollResult } = require('./pollResult');
 
 /**
  * Spawn a Python bridge script and return its parsed JSON output.
@@ -20,8 +21,12 @@ function runBridge(script, args) {
           const parsed = JSON.parse(raw);
           if (parsed.error) return reject(new Error(parsed.error));
         } catch (_) { /* not JSON — fall through to generic message */ }
-        const detail = [err.message, stderr?.trim(), stdout?.trim()].filter(Boolean).join(' | ');
-        return reject(new Error(detail || 'Bridge process failed'));
+        // Never echo the command line: it carries the device's local key.
+        // Keep the last line of the Python output (the exception) instead.
+        const lastLine = (text) => String(text || '').trim().split('\n').filter(Boolean).pop() || '';
+        let detail = lastLine(stderr) || lastLine(stdout) || (err.killed ? 'timed out' : `exit code ${err.code}`);
+        for (const a of args.slice(1)) if (a && String(a).length >= 8) detail = detail.split(String(a)).join('…');
+        return reject(new Error(`Tuya bridge ${args[0]} failed: ${detail}`));
       }
       // Log stderr for diagnostics (Python debug goes to stderr)
       if (stderr && stderr.trim()) {
@@ -36,6 +41,20 @@ function runBridge(script, args) {
   });
 }
 
+const incompleteWarned = new Map(); // device name → last warning time
+const INCOMPLETE_WARN_MS = 10 * 60 * 1000;
+
+// Older Smart Life scans saved function codes ("switch_1") where the DP
+// number ("1") belongs; the device can't be read or switched through those.
+const CODE_DP_HELP = 'scan again in Settings → Sources → Tuya to get DP numbers';
+const codeWarned = new Map();
+function warnCodeDps(device, codes) {
+  const name = device.name || device.dev_id;
+  if (Date.now() - (codeWarned.get(name) || 0) < INCOMPLETE_WARN_MS) return;
+  codeWarned.set(name, Date.now());
+  logger.warn(`Tuya: "${name}" has function codes instead of DP numbers (${codes.join(', ')}); ${CODE_DP_HELP}.`);
+}
+
 /**
  * Poll every enabled Tuya device, map raw DP→value pairs to named metrics,
  * and write them into the time-series + latest-metric tables.
@@ -43,12 +62,14 @@ function runBridge(script, args) {
  * Called by server.js on the 30-second polling cycle.
  */
 async function pollTuyaDevices() {
+  const result = new PollResult();
   let raw;
   try {
     raw = getConfig('tuya_devices');
   } catch (e) {
     logger.debug('Tuya: could not read tuya_devices config');
-    return;
+    result.fail(e);
+    return result;
   }
 
   let devices;
@@ -56,13 +77,29 @@ async function pollTuyaDevices() {
     devices = JSON.parse(raw || '[]');
   } catch (e) {
     logger.error('Tuya: failed to parse tuya_devices config:', e.message);
-    return;
+    result.fail(e);
+    return result;
   }
 
-  if (!Array.isArray(devices) || !devices.length) return;
+  if (!Array.isArray(devices) || !devices.length) return result;
 
-  const enabledDevices = devices.filter(d => d && d.enabled && d.dev_id && d.address && d.local_key);
-  if (!enabledDevices.length) return;
+  // An enabled device without its LAN IP or local key can't be polled. Say so
+  // (once per device every 10 min) instead of skipping it silently, which left
+  // its card on "No readings yet" with nothing in the log.
+  const enabledDevices = [];
+  for (const d of devices) {
+    if (!d || !d.enabled) continue;
+    const missing = [!d.dev_id && 'device ID', !d.address && 'LAN IP', !d.local_key && 'local key'].filter(Boolean);
+    if (!missing.length) { enabledDevices.push(d); continue; }
+    const name = d.name || d.dev_id || 'unnamed device';
+    result.fail(new Error(`"${name}" has no ${missing.join(' or ')}`));
+    const last = incompleteWarned.get(name) || 0;
+    if (Date.now() - last > INCOMPLETE_WARN_MS) {
+      incompleteWarned.set(name, Date.now());
+      logger.warn(`Tuya: "${name}" is not polled: no ${missing.join(' or ')}. Set it on the device in Settings → Sources → Tuya (or scan again).`);
+    }
+  }
+  if (!enabledDevices.length) return result;
 
   const bridgePath = path.join(__dirname, 'tuya_bridge.py');
   const now = Math.floor(Date.now() / 1000);
@@ -75,12 +112,14 @@ async function pollTuyaDevices() {
       ]);
 
       if (!dps || typeof dps !== 'object') {
-        logger.debug(`Tuya poll (${device.name || device.dev_id}): no DPs returned`);
-        return;
+        throw new Error(`Tuya poll (${device.name || device.dev_id}): no DPs returned`);
       }
+      if (dps.error) throw new Error(String(dps.error));
 
       const dpsConfig = device.dps || {};
       let written = 0;
+      const codes = Object.values(dpsConfig).filter(dp => !/^\d+$/.test(String(dp)));
+      if (codes.length) warnCodeDps(device, codes);
 
       for (const [metricName, dpNumber] of Object.entries(dpsConfig)) {
         const dpKey = String(dpNumber);
@@ -92,12 +131,15 @@ async function pollTuyaDevices() {
       logger.debug(
         `Tuya poll (${device.name || device.dev_id}): ${written} metrics from ${Object.keys(dps).length} DPs`
       );
+      result.success();
     } catch (e) {
+      result.fail(e);
       logger.error(`Tuya poll error for "${device.name || device.dev_id}": ${e.message}`);
     }
   });
 
   await Promise.allSettled(pollPromises);
+  return result;
 }
 
 /**
@@ -312,6 +354,7 @@ async function executeTuyaAction(deviceId, dpId, value) {
   const device = devices.find(d => d && (d.name === deviceId || d.dev_id === deviceId));
   if (!device || !device.enabled) return { error: 'Tuya device not found or disabled' };
   if (!device.local_key || !device.address) return { error: 'Tuya device missing local_key or IP' };
+  if (!/^\d+$/.test(String(dpId))) return { error: `"${dpId}" is a function code, not a DP number: ${CODE_DP_HELP}` };
 
   // Never send the literal string 'undefined' — default to true (toggle) when missing
   const actionValue = (value === undefined || value === null) ? true : value;

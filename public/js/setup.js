@@ -252,7 +252,7 @@
     'bar-gauge': 'Bar gauge', 'bar-gauge-retro': 'Retro bar gauge', 'bar-single': 'Bar chart', 'bar-stacked': 'Stacked bars', 'bar-threshold': 'Threshold bars',
     'chart-power': 'Power chart', 'chart-energy': 'Daily energy', 'chart-metric': 'Metric chart', 'daily-table': 'Daily table', 'monthly-table': 'Monthly table',
     'grid-card': 'Grid status', 'savings-summary': 'Savings', 'weather-block': 'Weather', 'forecast-pvtoday': 'Solar today', 'forecast-solar': 'Solar forecast',
-    'switch-block': 'Switch', 'state-select': 'Mode select', 'iframe': 'Embedded page', 'text': 'Text'
+    'switch-block': 'Switch', 'state-select': 'Mode select', 'button-card': 'Button', 'iframe': 'Embedded page', 'text': 'Text'
   };
 
   // Fresh per-source wizard state (also used by "Start fresh").

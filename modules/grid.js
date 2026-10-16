@@ -22,6 +22,14 @@ const { logger } = require('./logger');
 const { getConfig, getDb, flushMetrics } = require('./database');
 const { parseGridState } = require('./utils');
 const { haApiUrl } = require('./ha');
+const { emitEvent } = require('./notifications/events');
+
+function fmtDuration(seconds) {
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
 
 // Rate-limit unresolvable-state warnings per entity (poller runs every 30s; don't flood logs)
 const lastUnresolvableWarns = new Map(); // gridMetric -> last warn timestamp
@@ -163,6 +171,14 @@ async function pollGridStatus() {
     }
     db.prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(now, state);
     logger.info(`Grid ${state ? 'ON' : 'OFF'} at ${new Date(now * 1000).toISOString()}`);
+    // First row ever is the initial reading, not a change worth an alert.
+    if (last) {
+      const lasted = fmtDuration(now - last.timestamp);
+      emitEvent(state ? 'grid.on' : 'grid.off', {
+        message: state ? `Grid power is back after ${lasted} off.` : `Grid power went off (it had been on for ${lasted}).`,
+        data: { previousDurationS: now - last.timestamp },
+      });
+    }
   }
 }
 

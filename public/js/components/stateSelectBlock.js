@@ -1,6 +1,8 @@
 import { escapeHtml } from '../utils.js';
 
 const STATE_TIMEOUT_MS = 8000;
+// After a change, keep showing it until a reading agrees (see switchBlock.js).
+const PENDING_HOLD_MS = 45000;
 
 /** Normalize `config.states` to [{value,label,color,icon}].
  *  Accepts the spec shape [{value,label}] as well as the legacy flat form
@@ -36,7 +38,8 @@ export function buildStateSelectBlock(block = {}) {
   const container = document.createElement('div');
   container.className = 'state-select-block';
   container.dataset.blockId = block.id || '';
-  container.dataset.metric = config.entity || '';
+  // State comes from the metric (an HA entity id or MQTT topic isn't one).
+  container.dataset.metric = config.metric || config.entity || '';
 
   const label = escapeHtml(config.label || config.entity || 'Mode');
   const states = normalizeStates(config);
@@ -128,6 +131,8 @@ export function buildStateSelectBlock(block = {}) {
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      container.dataset.pending = String(value).toLowerCase();
+      container.dataset.pendingUntil = String(Date.now() + PENDING_HOLD_MS);
     } catch (e) {
       // Revert
       container.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
@@ -183,6 +188,14 @@ export function updateStateSelectBlockFromState(state) {
 
     const currentValue = String(data.value).toLowerCase();
     const selectEl = container.querySelector('.state-select-dropdown');
+    // A reading older than the user's change: keep the change on screen.
+    if (container.dataset.pending) {
+      const held = Date.now() < Number(container.dataset.pendingUntil || 0);
+      if (held && container.dataset.pending !== currentValue) return;
+      delete container.dataset.pending;
+      delete container.dataset.pendingUntil;
+    }
+    if (container.querySelector('.state-btn:disabled, .state-select-dropdown:disabled')) return; // in flight
 
     if (selectEl) {
       let matched = false;

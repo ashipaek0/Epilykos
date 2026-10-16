@@ -37,6 +37,13 @@ import logging
 import os
 import sys
 import time
+import math
+import importlib.util as _importlib_util
+from pathlib import Path as _Path
+_spec = _importlib_util.spec_from_file_location("phocos_settings", _Path(__file__).with_name("phocos_settings.py"))
+_phocos = _importlib_util.module_from_spec(_spec)
+_spec.loader.exec_module(_phocos)
+catalogue = _phocos.catalogue
 
 logging.basicConfig(
     stream=sys.stderr,
@@ -48,6 +55,11 @@ log = logging.getLogger("ble-helper")
 DBUS_SOCKET = os.getenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/run/dbus/system_bus_socket")
 SEEN_TTL = float(os.getenv("BLE_SEEN_TTL", "600"))  # reuse a scan result for 10 min
 KEEP_ALIVE = os.getenv("BLE_KEEP_ALIVE", "true").lower() not in ("0", "false", "no")
+# Bluetooth links (inverters and BMS packs) kept open at once. With one
+# adapter, a link held open to one device makes BlueZ's scan and connect to the
+# next unreliable ("device disappeared", GATT error 14), so by default only one
+# stays open and the others reconnect when their turn comes.
+MAX_LINKS = max(1, int(os.getenv("BLE_MAX_LINKS", "1") or 1))
 MAX_DEVICES = 256  # scan results kept in memory
 
 
@@ -247,6 +259,13 @@ def _map_error(exc):
         return HelperError("BlueZ (bluetoothd) is not running on the host.", "no_bluez")
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
         return HelperError("Bluetooth operation timed out", "timeout")
+    if "unlikely_error" in low or "unlikely error" in low:
+        return HelperError(
+            "The device refused the request (GATT error 14). The link is reset and "
+            "the next poll reconnects; if it keeps happening, close the vendor app "
+            "on any phone connected to it.",
+            "gatt_error",
+        )
     return HelperError(text, "ble_error")
 
 
@@ -380,6 +399,8 @@ async def cmd_read_bms(args):
     try:
         async with asyncio.timeout(timeout):
             bms = _bms.get(address)
+            if bms is None or not _bms_connected(bms):
+                await _make_room(address)
             if bms is None:
                 device, adv = await _find(address, min(10.0, timeout / 2))
                 # An explicit type (e.g. "jbd_bms", "jikong_bms") covers rebranded
@@ -406,8 +427,10 @@ async def cmd_read_bms(args):
         await _drop_bms(address)
         raise
     except Exception as exc:
-        # Reset so the next poll starts from a clean connection.
+        # Reset so the next poll starts from a clean connection, with a fresh
+        # scan: a cached scan result goes stale once BlueZ forgets the device.
         await _drop_bms(address, reset=True)
+        _seen.pop(address, None)
         raise _map_error(exc) from exc
     data = flatten_sample(sample)
     if not data:
@@ -432,6 +455,28 @@ class GattLink:
         self.event.set()
 
 
+def _bms_connected(bms):
+    client = getattr(bms, "_client", None)
+    return bool(client is not None and getattr(client, "is_connected", False))
+
+
+async def _make_room(address):
+    """Close links to other devices so that, with the one about to open,
+    at most MAX_LINKS are open. Oldest first. A BMS keeps its object (and
+    its identified type) and reconnects on its next read."""
+    others = [("gatt", a) for a in _gatt if a != address]
+    others += [("bms", a) for a, b in _bms.items() if a != address and _bms_connected(b)]
+    while len(others) >= MAX_LINKS:
+        kind, other = others.pop(0)
+        if kind == "gatt":
+            await _drop_gatt(other)
+            continue
+        try:
+            await _bms[other].disconnect()
+        except Exception:
+            log.debug("bms disconnect failed for %s", other, exc_info=True)
+
+
 async def _drop_gatt(address):
     link = _gatt.pop(address, None)
     if link is not None:
@@ -441,20 +486,41 @@ async def _drop_gatt(address):
             log.debug("gatt disconnect failed for %s", address, exc_info=True)
 
 
+def _not_found(exc):
+    low = f"{type(exc).__name__}: {exc}".lower()
+    return "notfound" in low or "not found" in low or "disappeared" in low
+
+
+async def _establish(device, address):
+    from bleak import BleakClient
+    from bleak_retry_connector import establish_connection
+
+    return await establish_connection(
+        BleakClient, device, address,
+        disconnected_callback=lambda _c: _gatt.pop(address, None),
+    )
+
+
 async def _gatt_link(address, notify_uuid, timeout):
     """Kept-alive connection. notify_uuid=None: plain reads, any open link will do."""
     link = _gatt.get(address)
     if link and link.client.is_connected and (notify_uuid is None or link.notify_uuid == notify_uuid):
         return link
     await _drop_gatt(address)
-    device, _adv = await _find(address, min(10.0, timeout / 2))
-    from bleak import BleakClient
-    from bleak_retry_connector import establish_connection
-
-    client = await establish_connection(
-        BleakClient, device, address,
-        disconnected_callback=lambda _c: _gatt.pop(address, None),
-    )
+    await _make_room(address)
+    scan_timeout = min(10.0, timeout / 2)
+    device, _adv = await _find(address, scan_timeout)
+    try:
+        client = await _establish(device, address)
+    except Exception as exc:
+        # The cached scan result goes stale once BlueZ forgets the device, and
+        # every retry with it fails ("device disappeared"). Forget it, and when
+        # that is the error, scan again straight away.
+        _seen.pop(address, None)
+        if not _not_found(exc):
+            raise
+        device, _adv = await _find(address, scan_timeout)
+        client = await _establish(device, address)
     link = GattLink(client, notify_uuid)
     if notify_uuid:
         await client.start_notify(notify_uuid, link.on_notify)
@@ -544,6 +610,97 @@ def full_uuid(u):
     raise HelperError(f"invalid UUID {u!r}", "bad_request")
 
 
+async def cmd_phocos_gatt_change(args):
+    """Validated 1810 settings RMW; no blind retry after write dispatch."""
+    address = norm_address(args.get("address"))
+    field=args.get("field")
+    if args.get("characteristic") not in (None,"2a0c","2a0d","2a0e"):
+        raise HelperError("unsupported Phocos setting characteristic","unsupported")
+    timeout=min(max(float(args.get("timeout",20)),3.0),60.0); wrote=False
+    try:
+        async with asyncio.timeout(timeout):
+            link=await _gatt_link(address,None,timeout); client=link.client
+            svc=client.services.get_service(full_uuid("1810"))
+            if svc is None: raise HelperError("Phocos service unavailable","unsupported")
+            chars={}
+            for u in ("2a02","2a04","2a05","2a0c","2a0d","2a0e"):
+                chars[u]=svc.get_characteristic(full_uuid(u))
+            for u in ("2a02","2a05"):
+                if chars[u] is None: raise HelperError("identity/ratings characteristic unavailable","unsupported")
+            identity=bytes(await client.read_gatt_char(chars["2a02"])); ratings=bytes(await client.read_gatt_char(chars["2a05"]))
+            if len(identity)<20 or len(ratings)<16: raise HelperError("short identity/ratings payload","malformed")
+            model=chr(identity[19]); nominal=int.from_bytes(ratings[14:16],"little")/10; watts=int.from_bytes(ratings[12:14],"little")
+            ac_voltage=int.from_bytes(ratings[4:6],"little")/10
+            try: spec=catalogue(model,nominal,watts,ac_voltage)
+            except ValueError as exc: raise HelperError(str(exc),"unsupported") from exc
+            if field not in spec: raise HelperError("unsupported Phocos setting","unsupported")
+            meta=spec[field]; u=meta["characteristic"]
+            if args.get("characteristic") not in (None,u): raise HelperError("field/characteristic mismatch","bad_request")
+            ch=chars[u]
+            if ch is None:
+                if u=="2a0e": return {"ok":False,"status":"refused","reason":"optional characteristic absent"}
+                raise HelperError("Phocos setting characteristic unavailable","unsupported")
+            if "write" not in getattr(ch,"properties",[]): raise HelperError("write-with-response unsupported","unsupported")
+            raw=bytearray(await client.read_gatt_char(ch))
+            if (u!="2a0e" and len(raw)!=20) or (u=="2a0e" and len(raw)<2): raise HelperError("invalid Phocos settings payload length","malformed")
+            off=meta.get("offset",0); width=meta["width"]
+            def decode(buf):
+                n=int.from_bytes(buf[off:off+width],"little")
+                if "bit" in meta: return bool(n & (1<<meta["bit"]))
+                if meta["type"]=="bool": return bool(n & 1)
+                return n/meta.get("scale",1)
+            current=decode(raw)
+            value=args.get("value"); expected=args.get("expected")
+            requested=value
+            def valid_number(candidate):
+                if isinstance(candidate,bool) or not isinstance(candidate,(int,float)) or not math.isfinite(candidate): return False
+                if "allowed" in meta and candidate not in meta["allowed"]: return False
+                if "min" in meta and not meta["min"]<=candidate<=meta["max"]: return False
+                scale=meta.get("scale",1); packed=candidate*scale
+                return float(packed).is_integer()
+            if meta["type"] in ("bool",):
+                if type(value) is not bool or type(expected) is not bool or type(current) is not bool: raise HelperError("boolean value and expected required","bad_request")
+            else:
+                if not valid_number(value) or not valid_number(expected) or not valid_number(current): raise HelperError("current/expected/value outside catalogue type, step, or range","bad_request")
+                scale=meta.get("scale",1); packed=value*scale
+                value=int(packed)
+            if current!=expected: return {"ok":False,"status":"refused","reason":"stale expected value","current":current}
+            if u=="2a0c":
+                other=bytearray(await client.read_gatt_char(chars[u]))
+                if len(other)!=20: raise HelperError("invalid 2a0c payload length","malformed")
+                if field=="float_voltage" and value/meta.get("scale",1)>int.from_bytes(other[8:10],"little")/10: raise HelperError("float voltage exceeds boost voltage","bad_request")
+                if field=="boost_voltage" and value/meta.get("scale",1)<int.from_bytes(other[6:8],"little")/10: raise HelperError("boost voltage below float voltage","bad_request")
+                if field=="max_utility_charging_current" and value>other[4]: raise HelperError("utility current exceeds total charging current","bad_request")
+                if field=="max_charging_current" and other[5]>value: raise HelperError("utility current exceeds total charging current","bad_request")
+            if current==requested: return {"ok":True,"status":"verified","value":current}
+            if field == "output_voltage":
+                # APK setting 10 requires AC output off. Re-read the mode in this
+                # transaction; a prior UI/poll sample cannot authorize this write.
+                status_char = chars["2a04"]
+                if status_char is None:
+                    return {"ok":False,"status":"refused","reason":"Standby mode cannot be verified"}
+                status = bytes(await client.read_gatt_char(status_char))
+                if len(status) < 13 or status[12] != ord("S"):
+                    return {"ok":False,"status":"refused","reason":"AC output voltage can only change in standby (AC output off)"}
+            if "bit" in meta:
+                word=int.from_bytes(raw[off:off+width],"little"); mask=1<<meta["bit"]; word=(word|mask) if value else (word&~mask); raw[off:off+width]=word.to_bytes(width,"little")
+            else: raw[off:off+width]=int(value).to_bytes(width,"little")
+            try:
+                wrote=True; await client.write_gatt_char(ch,bytes(raw),response=True)
+            except Exception as exc: return {"ok":False,"status":"sent_unverified","reason":str(_map_error(exc))}
+            try: check=bytes(await client.read_gatt_char(ch))
+            except Exception as exc: return {"ok":False,"status":"sent_unverified","reason":str(_map_error(exc))}
+            if len(check)!=len(raw): return {"ok":False,"status":"sent_unverified","reason":"malformed readback"}
+            got=decode(check); return {"ok":got==requested,"status":"done" if got==requested else "mismatch","readback":got}
+    except HelperError:
+        if not KEEP_ALIVE: await _drop_gatt(address)
+        raise
+    except Exception as exc:
+        if not KEEP_ALIVE: await _drop_gatt(address)
+        if wrote: return {"ok":False,"status":"sent_unverified","reason":str(_map_error(exc))}
+        raise _map_error(exc) from exc
+
+
 async def cmd_gatt_read(args):
     """Read characteristics by (service, characteristic). Never writes.
     The service is part of the key because some devices reuse standard
@@ -555,17 +712,35 @@ async def cmd_gatt_read(args):
     wanted = [(full_uuid(r.get("service")), full_uuid(r.get("characteristic"))) for r in reads]
     timeout = min(max(float(args.get("timeout", 20)), 3.0), 60.0)
     values = []
+    diagnostics = []
     try:
         async with asyncio.timeout(timeout):
             link = await _gatt_link(address, None, timeout)
             client = link.client
-            for svc_uuid, char_uuid in wanted:
+            for index, (svc_uuid, char_uuid) in enumerate(wanted):
                 svc = client.services.get_service(svc_uuid)
                 ch = svc.get_characteristic(char_uuid) if svc else None
+                detail = {"service": svc_uuid, "characteristic": char_uuid,
+                          "serviceUuid": getattr(svc, "uuid", None),
+                          "characteristicUuid": getattr(ch, "uuid", None),
+                          "handle": getattr(ch, "handle", None),
+                          "properties": list(getattr(ch, "properties", [])),
+                          "sampledAt": time.time()}
+                diagnostics.append(detail)
                 if ch is None:
                     values.append(None)
+                    detail["status"] = "absent"
                     continue
-                values.append(bytes(await client.read_gatt_char(ch)).hex())
+                try:
+                    raw = bytes(await client.read_gatt_char(ch))
+                    values.append(raw.hex())
+                    detail.update({"status": "read", "length": len(raw)})
+                except Exception as exc:
+                    detail.update({"status": "error", "error": str(_map_error(exc))})
+                    # Optional metadata failure must not discard good telemetry.
+                    if reads[index].get("optional") is not True:
+                        raise
+                    values.append(None)
     except HelperError:
         raise
     except Exception as exc:
@@ -575,7 +750,7 @@ async def cmd_gatt_read(args):
         raise HelperError("none of the requested characteristics exist on this device", "unsupported")
     if not KEEP_ALIVE:
         await _drop_gatt(address)
-    return {"values": values}
+    return {"values": values, "diagnostics": diagnostics}
 
 
 async def _bms_kind(address, forced, timeout):
@@ -676,6 +851,7 @@ COMMANDS = {
     "modbus": cmd_modbus,
     "luxpower": cmd_luxpower,
     "gatt_read": cmd_gatt_read,
+    "phocos_gatt_change": cmd_phocos_gatt_change,
     "bms_switch": cmd_bms_switch,
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
@@ -773,6 +949,7 @@ def _self_test():
     f = jk_command_frame(0x1D, (1).to_bytes(4, "little"))
     assert len(f) == 20 and f[4] == 0x1D and f[5] == 4 and f[6:10] == b"\x01\x00\x00\x00" and f[-1] == sum(f[:-1]) & 0xFF
     _self_test_bms_switch()
+    _self_test_gatt_link()
     assert full_uuid("2A03") == "00002a03-0000-1000-8000-00805f9b34fb"
     assert full_uuid("0x1810") == "00001810-0000-1000-8000-00805f9b34fb"
     print("ok")
@@ -845,6 +1022,91 @@ def _self_test_bms_switch():
     for bad in ({"switch": "balance", "on": True}, {"switch": "charge", "on": "yes"}, {"switch": "charge"}):
         _, writes, _, err = run("jk", bad, [])
         assert err is not None and err.code == "bad_request" and writes == [], bad
+
+
+
+def _self_test_gatt_link():
+    """_gatt_link: a stale scan result is dropped and rescanned; only
+    MAX_LINKS links (inverter or BMS) stay open."""
+    g = globals()
+    saved = {k: g[k] for k in ("_find", "_establish", "MAX_LINKS")}
+    finds, closed = [], []
+
+    class Client:
+        is_connected = True
+
+        def __init__(self, name):
+            self.name = name
+
+        async def disconnect(self):
+            closed.append(self.name)
+
+    async def fake_find(address, _t):
+        finds.append(address)
+        return "dev", None
+
+    attempts = {"n": 0}
+
+    async def flaky(_device, address):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError(f"BleakNotFoundError: {address}: device disappeared")
+        return Client(address)
+
+    try:
+        g.update(_find=fake_find, _establish=flaky, MAX_LINKS=1)
+        _gatt.clear()
+        _gatt["AA:00:00:00:00:01"] = GattLink(Client("AA:00:00:00:00:01"), None)
+        _seen["AA:00:00:00:00:02"] = ("stale", None, time.monotonic())
+        link = asyncio.run(_gatt_link("AA:00:00:00:00:02", None, 20))
+        assert link.client.name == "AA:00:00:00:00:02"
+        assert finds == ["AA:00:00:00:00:02", "AA:00:00:00:00:02"], finds  # rescanned once
+        assert "AA:00:00:00:00:02" not in _seen
+        assert closed == ["AA:00:00:00:00:01"] and list(_gatt) == ["AA:00:00:00:00:02"], (closed, list(_gatt))
+
+        async def refused(_device, _address):
+            raise RuntimeError("BleakError: failed to discover services, device disconnected")
+
+        finds.clear()
+        g["_establish"] = refused
+        _seen["AA:00:00:00:00:03"] = ("cached", None, time.monotonic())
+        try:
+            asyncio.run(_gatt_link("AA:00:00:00:00:03", None, 20))
+            raise AssertionError("expected a failure")
+        except RuntimeError:
+            pass
+        assert finds == ["AA:00:00:00:00:03"] and "AA:00:00:00:00:03" not in _seen  # no rescan, cache dropped
+        assert _map_error(RuntimeError("BleakGATTProtocolError: (14, 'GATT Protocol Error: Unlikely Error')")).code == "gatt_error"
+
+        # A connected BMS counts too: it is disconnected (object kept) to make room.
+        class Bms:
+            def __init__(self):
+                self._client = Client("bms")
+
+            async def disconnect(self, reset=False):
+                self._client.is_connected = False
+                closed.append("bms")
+
+        g["_establish"] = lambda _d, a: _ok(a)
+
+        async def _ok(a):
+            return Client(a)
+
+        _gatt.clear()
+        closed.clear()
+        _bms["BB:00:00:00:00:01"] = Bms()
+        asyncio.run(_gatt_link("AA:00:00:00:00:04", None, 20))
+        assert closed == ["bms"] and "BB:00:00:00:00:01" in _bms, closed
+        g["MAX_LINKS"] = 2
+        _bms["BB:00:00:00:00:01"]._client.is_connected = True
+        closed.clear()
+        asyncio.run(_gatt_link("AA:00:00:00:00:05", None, 20))
+        assert closed == ["AA:00:00:00:00:04"], closed  # oldest of the two others goes
+    finally:
+        g.update(saved)
+        _gatt.clear()
+        _seen.clear()
+        _bms.clear()
 
 
 if __name__ == "__main__":

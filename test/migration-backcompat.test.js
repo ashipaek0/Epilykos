@@ -313,12 +313,30 @@ check('AC-39.2|legacy Load default sets (what the loaders import/pre-bind) are f
 
 // ================================================================ AC-40
 check('AC-40.1|MQTT module: subscriptions derive ONLY from stored device.topics; message routing is mapping-first (mapped topic wins even if it disappears from the broker)', () => {
-  const src = read('modules/mqtt.js');
-  assert.ok(src.includes('const topics = Object.values(device.topics || {}).filter(t => t);'), 'setupMqtt must subscribe from stored mappings only');
-  assert.ok(src.includes('if (topics.length) client.subscribe(topics);'), 'subscribe call missing');
-  assert.ok(src.includes('for (const [key, t] of Object.entries(topicMap))'), 'message routing must consult the stored mapping');
-  assert.ok(src.includes('if (t === topic) { metric = key; break; }'), 'message route keyed by exact stored topic');
-  assert.ok(src.includes("if (!metric) return;"), 'unmapped broker messages must be ignored');
+  const vm = require('node:vm');
+  const client = new (require('node:events').EventEmitter)();
+  const subscribed = [], written = [];
+  client.subscribe = topics => subscribed.push(...topics);
+  const fixtures = JSON.parse(read('test/fixtures/configs/mqtt.json'));
+  const deps = {
+    './logger': { logger: { info() {}, debug() {}, error() {} } },
+    mqtt: { connect: () => client },
+    './database': {
+      getConfig: () => JSON.stringify(fixtures),
+      queueMetricValue: (metric, value) => written.push({ metric, value }),
+    },
+    './notifications/events': { emitEvent() {} },
+  };
+  const context = { require: name => deps[name], module: { exports: {} } };
+  vm.runInNewContext(read('modules/mqtt.js'), context);
+  context.module.exports.setupMqtt();
+  client.emit('connect');
+  const topics = Object.values(fixtures[0].topics);
+  assert.deepStrictEqual(subscribed, topics, 'subscribe from stored mappings only');
+  client.emit('message', topics[0], Buffer.from('42'));
+  client.emit('message', 'undiscovered/topic', Buffer.from('99'));
+  client.emit('message', topics[0] + '/suffix', Buffer.from('99'));
+  assert.deepStrictEqual(written, [{ metric: Object.keys(fixtures[0].topics)[0], value: '42' }], 'route exact mapped topics and ignore unmapped broker messages');
 });
 
 check('AC-40.2|discovery window/cache writes ONLY the separate mqtt_discovery_cache config key — never mqtt_devices (additive invariant, config-store level)', () => {

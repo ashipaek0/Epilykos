@@ -13,6 +13,7 @@ const path = require('path');
 const { getConfig, setConfig } = require('./database');
 const { queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { createBackoff } = require('./pollBackoff');
 const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
@@ -26,6 +27,7 @@ let pollIntervals = [];
 let growattServer = null;
 let luxpowerPollers = [];
 const profileCache = new Map();
+const phocosInstances = new Map();
 
 
 /**
@@ -43,6 +45,29 @@ function singleFlight(inst, poll) {
   };
 }
 
+/**
+ * Bluetooth units share one adapter and one helper that runs a request at a
+ * time, so a unit that is off or out of range would spend every cycle on
+ * connect attempts and starve the ones that work: it is polled less often
+ * until it answers (see pollBackoff.js). The poll functions catch their own
+ * errors and count them in consecutiveFails, which is what this reads.
+ * TCP dongles have their own connections and keep polling every tick.
+ */
+const bleBackoff = createBackoff('[dongle]');
+function withBleBackoff(inst, poll) {
+  return async () => {
+    if (bleBackoff.skip(inst.name)) return;
+    try {
+      await poll();
+    } catch (err) {
+      inst.consecutiveFails = (inst.consecutiveFails || 0) + 1;
+      throw err;
+    } finally {
+      bleBackoff.record(inst.name, !inst.consecutiveFails);
+    }
+  };
+}
+
 function startDonglePolling() {
   stopDonglePolling();
 
@@ -51,6 +76,10 @@ function startDonglePolling() {
 
   let config;
   try { config = JSON.parse(raw); } catch (e) { logger.error('[dongle] invalid config JSON'); return; }
+  // A saved config from before the check (or edited by hand) can still have
+  // two inverters writing the same metrics: say so every time polling starts.
+  const clash = require('./sourceChecks').dongleNameClash(config);
+  if (clash) logger.warn(`[dongle] ${clash}`);
 
   const growattInstances = [];
 
@@ -74,8 +103,9 @@ function startDonglePolling() {
         logger.warn(`[dongle] ${inst.name}: instance skipped — ${err.message}`);
         continue;
       }
+      if (profile.capabilities && profile.capabilities.write === true) phocosInstances.set(inst.name, { instance: inst, profile, transport });
       const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
-      const poll = singleFlight(inst, () => pollJsonInstance(inst, transport, profile));
+      const poll = singleFlight(inst, withBleBackoff(inst, () => pollJsonInstance(inst, transport, profile)));
       pollIntervals.push(setInterval(poll, intervalMs));
       poll();
       continue;
@@ -109,7 +139,9 @@ function startDonglePolling() {
         // Bluetooth a full cycle takes several seconds, so default to 15s.
         const intervalMs = (inst.poll_interval || (inst.transport === 'ble-luxpower' ? 15 : 5)) * 1000;
         // pollLuxpowerInstance has its own one-at-a-time guard (_luxPollBusy).
-        const poll = () => pollLuxpowerInstance(inst, transport, profile).catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`));
+        const read = () => pollLuxpowerInstance(inst, transport, profile);
+        const run = inst.transport === 'ble-luxpower' ? withBleBackoff(inst, read) : read;
+        const poll = () => run().catch(err => logger.warn(`[dongle] ${inst.name}: poll failed — ${err.message}`));
         const id = setInterval(poll, intervalMs);
         luxpowerPollers.push({ instance: inst, transport, intervalId: id });
         transport.start();
@@ -136,7 +168,8 @@ function startDonglePolling() {
     }
 
     const intervalMs = (inst.poll_interval || 30) * 1000;
-    const poll = singleFlight(inst, () => pollInstance(inst, transport, profile));
+    const read = () => pollInstance(inst, transport, profile);
+    const poll = singleFlight(inst, inst.transport === 'ble-modbus' ? withBleBackoff(inst, read) : read);
     pollIntervals.push(setInterval(poll, intervalMs));
     poll();
   }
@@ -150,6 +183,8 @@ function startDonglePolling() {
 function stopDonglePolling() {
   pollIntervals.forEach(clearInterval);
   pollIntervals = [];
+  phocosInstances.clear();
+  bleBackoff.reset();   // saving settings retries every unit straight away
   for (const entry of luxpowerPollers) {
     clearInterval(entry.intervalId);
     if (entry.transport) entry.transport.stop();
@@ -382,6 +417,22 @@ async function pollInstance(instance, transport, profile) {
   }
 }
 
+/**
+ * Fields marked "record": "on_change" (ratings, serial, setting snapshots)
+ * hardly ever change: write them when they change, and otherwise every few
+ * minutes so they never look stale (combined metrics drop inputs older than
+ * 5 minutes). Everything else is written on every poll.
+ */
+const ON_CHANGE_REFRESH_MS = 4 * 60 * 1000;
+function unchangedSinceLastWrite(instance, field, metricName, value) {
+  if (field.record !== 'on_change') return false;
+  const last = (instance._lastWrites ||= new Map()).get(metricName);
+  const now = Date.now();
+  if (last && last.value === value && now - last.at < ON_CHANGE_REFRESH_MS) return true;
+  instance._lastWrites.set(metricName, { value, at: now });
+  return false;
+}
+
 async function pollJsonInstance(instance, transport, profile) {
   try {
     const start = Date.now();
@@ -417,12 +468,25 @@ async function pollJsonInstance(instance, transport, profile) {
         metricName = prefix + field.name;
       }
 
+      // String-typed profile fields (for example Phocos operating_mode) are
+      // categorical values. They require an explicit user mapping and must go
+      // through queueMetricValue unchanged so they are stored as value_text.
+      if (field.type === 'string') {
+        if (!pathToMetric) continue;
+        if (unchangedSinceLastWrite(instance, field, metricName, String(raw))) continue;
+        metrics[metricName] = String(raw);
+        if (field.unit) units[metricName] = field.unit;
+        continue;
+      }
+
+      // Keep legacy JSON transports' numeric-string coercion unchanged.
       if (typeof raw === 'string') {
         raw = parseInt(raw, 10);
         if (isNaN(raw)) continue;
       }
 
       const value = parseFloat((raw * (field.scale || 1)).toFixed(4));
+      if (unchangedSinceLastWrite(instance, field, metricName, value)) continue;
       metrics[metricName] = value;
       if (field.unit) units[metricName] = field.unit;
     }
@@ -685,6 +749,29 @@ function getProfileById(id) {
   }
 }
 
+async function phocosSettings(deviceName) {
+  const dev = JSON.parse(getConfig('dongle_config') || '[]').find(d => d && d.name === deviceName && d.enabled);
+  if (!dev) return { error: 'Dongle device not found or disabled' };
+  const profile = getProfileById(dev.profile);
+  if (!profile || profile.protocol !== 'ble-gatt' || !profile.capabilities || profile.capabilities.write !== true) return { error: 'This device has no Phocos settings catalogue' };
+  let entry = phocosInstances.get(deviceName);
+  if (!entry) { const transport = new BleGattTransport(dev, profile); entry = { instance: dev, profile, transport }; phocosInstances.set(deviceName, entry); }
+  try { return await entry.transport.settings(); } catch (e) { return { error: e.message }; }
+}
+
+async function changePhocosSetting(deviceName, id, expected, value) {
+  const off = require('./deviceControls').writeRefusal();
+  if (off) return { ok: false, status: 'refused', error: off };
+  const dev = JSON.parse(getConfig('dongle_config') || '[]').find(d => d && d.name === deviceName && d.enabled);
+  if (!dev) return { ok: false, status: 'refused', error: 'Dongle device not found or disabled' };
+  const profile = getProfileById(dev.profile);
+  if (!profile || profile.protocol !== 'ble-gatt' || !profile.capabilities || profile.capabilities.write !== true) return { ok: false, status: 'refused', error: 'This device has no Phocos settings catalogue' };
+  let entry = phocosInstances.get(deviceName);
+  if (!entry) { const transport = new BleGattTransport(dev, profile); entry = { instance: dev, profile, transport }; phocosInstances.set(deviceName, entry); }
+  try { return await entry.transport.changeSetting({ id, expected, value }); }
+  catch (e) { return { ok: false, status: 'sent_unverified', error: e.message }; }
+}
+
 async function executeDongleAction(deviceName, registerAddr, value) {
   const devices = JSON.parse(getConfig('dongle_config') || '[]');
   const device = devices.find(d => d.name === deviceName);
@@ -941,17 +1028,14 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
   const parsed = parseFloat(value);
   if (isNaN(parsed)) return { error: 'Invalid value for register write' };
 
-  // Clamp + step-round in raw register units (catalog scale is 1 by design —
-  // min/max/step match what the transport writes).
-  let raw = parsed;
+  // Refuse, never clamp: a value outside the setting's range or step is a
+  // mistake to report, not something to quietly change into another value.
+  const raw = parsed;
   const min = entry.min !== undefined && entry.min !== null ? Number(entry.min) : null;
   const max = entry.max !== undefined && entry.max !== null ? Number(entry.max) : null;
   const step = entry.step !== undefined && entry.step !== null && Number(entry.step) > 0 ? Number(entry.step) : null;
-  if (min !== null) raw = Math.max(raw, min);
-  if (max !== null) raw = Math.min(raw, max);
-  if (step !== null) raw = Math.round(raw / step) * step;
-  if (min !== null && raw < min) raw = min;
-  if (max !== null && raw > max) raw = max;
+  if ((min !== null && raw < min) || (max !== null && raw > max)) return { error: `Must be between ${min ?? '…'} and ${max ?? '…'}` };
+  if (step !== null && Math.abs((raw - (min || 0)) / step - Math.round((raw - (min || 0)) / step)) > 1e-6) return { error: `Must be in steps of ${step}` };
 
   try {
     return await withLuxpowerTransport(device, profile, async transport => {
@@ -979,11 +1063,13 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
 }
 
 module.exports = {
-  singleFlight,
+  singleFlight, withBleBackoff,
   startDonglePolling, stopDonglePolling, restartDonglePolling,
   executeDongleAction, getProfileById,
   readDongleRegister, writeDongleSetting, writeLuxpowerRaw, registerWord,
+  phocosSettings, changePhocosSetting,
   getByPathForTest: getByPath,
+  pollJsonInstance,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
   luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame

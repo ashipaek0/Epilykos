@@ -60,6 +60,7 @@ const OPTIONS = {
   'energy-costs': [yes('showForecast', 'Show the forecast')],
   'weather-block': [text('title', 'Title')],
   'switch-block': [text('label', 'Label')],
+  'button-card': [text('name', 'Name'), text('icon', 'Icon (mdi:name, image URL or emoji)')],
   'state-select': [text('label', 'Label')],
   'text-card': [{ path: 'content', label: 'Text', kind: 'textarea' }]
 };

@@ -31,6 +31,7 @@ import { updateSavingsFromState } from './components/savingsSummary.js';
 import { updateForecast } from './forecast.js';
 import { updateWeatherBlock } from './components/weatherBlock.js';
 import { updateSwitchBlockFromState } from './components/switchBlock.js';
+import { updateButtonCardsFromState } from './components/buttonCard.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
@@ -73,4 +74,5 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
   if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);
   if (blockTypes.has('state-select')) updateStateSelectBlockFromState(state);
+  if (blockTypes.has('button-card')) updateButtonCardsFromState(state);
 }
