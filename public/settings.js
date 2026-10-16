@@ -3373,7 +3373,7 @@ function renderDongleDevice(device, idx) {
       </label>
       <label>Local protocol
         <select name="dongle_config[${idx}][protocol]">
-          ${[5,2,1].map(v => `<option value="${v}" ${Number(device.protocol || 5) === v ? 'selected' : ''}>${v}${v === 5 ? ' (existing)' : ''}</option>`).join('')}
+          ${[5,2].map(v => `<option value="${v}" ${Number(device.protocol || 5) === v ? 'selected' : ''}>${v}${v === 5 ? ' (existing)' : ''}</option>`).join('')}
         </select>
       </label>
     </div>
