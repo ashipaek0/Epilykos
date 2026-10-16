@@ -265,6 +265,8 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 - **Docker Compose without the socket**: the page shows the commands, `docker compose pull` then `docker compose up -d`.
 - **EpilykosOS**: the appliance checks for and installs signed Epilykos releases itself, and goes back to the previous version if the new one is not healthy (see [docs/host-update-actions.md](docs/host-update-actions.md)). Operating-system updates are not offered from here yet.
 
+**Versions.** Every merge to `main` that changes code is released as the next patch version, `1.0.1`, `1.0.2` and so on. CI tags the commit, creates the GitHub Release with the list of merged pull requests, and also tags the image (`irunmole/epilykos:1.0.2`). Docs-only merges and the weekly rebuild keep the version. For a bigger jump, go to **Releases → Draft a new release**, type a new tag such as `v2.0.0` on `main` and publish it: that build is 2.0.0, and the next merge becomes 2.0.1. Builds from `dev` show the version they lead to, e.g. `1.0.3-dev+abc1234`. The version comes from git tags; `package.json` is only used for local builds.
+
 Builds from the `dev` branch (`irunmole/epilykos:dev`) compare against development builds instead of releases. Images you build yourself have no build number and are never compared.
 
 ---

@@ -1,6 +1,6 @@
 {
   "name": "epilykos",
-  "version": "2.7.0",
+  "version": "1.0.0",
   "description": "Epilykos – Energy monitoring dashboard",
   "main": "server.js",
   "scripts": {
