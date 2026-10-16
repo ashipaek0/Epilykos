@@ -158,10 +158,18 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "done")
         self.assertEqual(bytes(self.client.data["2a0c"])[2:], before[2:])
 
-    async def test_correct_model_byte_and_unvalidated_8kw_cannot_write(self):
+    async def test_8kw_writes_with_5kw_current_limits(self):
+        self.client.data["2a05"][12:14] = (8000).to_bytes(2, "little")
+        with self.assertRaises(ble.HelperError):   # 100 A is allowed on 6.5 kW, not here
+            await self.call({"field":"max_charging_current", "expected":self.client.data["2a0c"][4], "value":100})
+        self.assertEqual(self.client.writes, [])
+        result = await self.call({"field":"buzzer", "expected":False, "value":True})
+        self.assertNotEqual(self.client.writes, [], result)
+
+    async def test_correct_model_byte_and_unknown_rating_cannot_write(self):
         self.assertEqual(self.client.data["2a02"][18], ord("x"))
         self.assertEqual(self.client.data["2a02"][19], ord("9"))
-        self.client.data["2a05"][12:14] = (8000).to_bytes(2, "little")
+        self.client.data["2a05"][12:14] = (10000).to_bytes(2, "little")
         with self.assertRaises(ble.HelperError):
             await self.call({"field":"buzzer", "expected":False, "value":True})
         self.assertEqual(self.client.writes, [])
