@@ -577,3 +577,16 @@ body.st {
   .st .lg-msg { grid-column: 1 / -1; }
   .st .lg-follow { margin-left: 0; }
 }
+
+/* ── Remote access (js/remote-settings.js) ─────────────────────────────── */
+.st-badge.is-ok { background: var(--st-ok-bg); color: var(--st-ok); }
+.st-badge.is-warn { background: var(--st-amber-soft); color: var(--st-amber-text); }
+.st .rm-pair { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 8px 0 12px; }
+.st .rm-qr { flex: none; width: 140px; height: 140px; padding: 6px; border-radius: 10px; background: #fff; border: 1px solid var(--st-line); box-sizing: border-box; }
+.st .rm-qr:empty { display: none; }
+.st .rm-qr svg { width: 100%; height: 100%; display: block; }
+.st .rm-pair-text { flex: 1 1 14rem; min-width: 0; display: grid; gap: 8px; justify-items: start; }
+.st .rm-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 100%; }
+.st .rm-url a { font-weight: 800; color: var(--st-text); overflow-wrap: anywhere; }
+.st .rm-warn { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--st-amber-soft); color: var(--st-amber-text); font-weight: 700; font-size: .82rem; }
+.st .rm-off { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--st-line-soft); }

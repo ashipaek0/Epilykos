@@ -395,6 +395,10 @@
             <div class="st-field"><label for="network-remote-url">Address away from home</label><input id="network-remote-url" class="input" name="network_remote_url" type="url" placeholder="https://energy.example.com"><span class="st-help">Used everywhere else.</span></div>
             <p class="st-help">Save these, then install Epilykos to your home screen to get automatic switching.</p>
           </div>
+          <div class="st-card" id="rm-card" data-own-save>
+            <div class="st-card-head"><h2>Remote access</h2><span class="st-badge" id="rm-badge" hidden></span></div>
+            <div id="rm-root"><p class="st-help">Loading…</p></div>
+          </div>
         </section>
 
         <!-- ════════════ BACKUP ════════════ -->
@@ -985,6 +989,7 @@
 <script src="js/notifications-settings.js?v=5"></script>
 <script src="js/system-settings.js?v=1"></script>
 <script src="js/logs-settings.js?v=1"></script>
+<script src="js/remote-settings.js?v=1"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
 </body>

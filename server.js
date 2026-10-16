@@ -435,6 +435,7 @@ app.use(session({
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
 require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
+require('./routes/remote').init(); // Tailscale back on after a restart, if remote access was on
 // Reassigned by rebindAfterRestore() — a restore reopens the connection.
 let db = getDb();
 loadProfiles();
@@ -2517,6 +2518,8 @@ app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
 app.use('/api/notifications', isAuthenticated, require('./modules/notifications/routes').createRouter());
 // Settings → Logs: recent lines, the level (changed while running), downloads.
 app.use('/api/logs', isAuthenticated, require('./routes/logs').router());
+// Settings → Network → Remote access (Tailscale). Signed-in only, so never before the admin password exists.
+app.use('/api/remote', isAuthenticated, require('./routes/remote').router());
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {
@@ -2664,6 +2667,7 @@ async function shutdown(signal) {
   stopBmsPolling();
   stopBmsWiredPolling();
   stopDonglePolling();
+  require('./modules/tailscale').stopDaemon();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
