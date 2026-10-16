@@ -6,6 +6,11 @@
 # remote access on, so the container needs no extra capabilities.
 FROM tailscale/tailscale:stable AS tailscale
 
+# Settings → Network → Cloudflare Tunnel: cloudflared's static binary from its
+# official image (`latest` is its latest release). Runs inside the container
+# only while a tunnel is on.
+FROM cloudflare/cloudflared:latest AS cloudflared
+
 FROM node:22-trixie-slim
 
 # Install build tools required for better-sqlite3 native compilation
@@ -21,6 +26,7 @@ COPY modules/ble/requirements.txt /tmp/ble-requirements.txt
 RUN pip3 install --break-system-packages -r /tmp/ble-requirements.txt && rm -rf /root/.cache/pip /tmp/ble-requirements.txt
 
 COPY --from=tailscale /usr/local/bin/tailscale /usr/local/bin/tailscaled /usr/local/bin/
+COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/
 
 # Create app directory and set ownership
 RUN mkdir -p /app/data && chown -R node:node /app

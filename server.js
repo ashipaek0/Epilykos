@@ -2668,6 +2668,7 @@ async function shutdown(signal) {
   stopBmsWiredPolling();
   stopDonglePolling();
   require('./modules/tailscale').stopDaemon();
+  require('./modules/cloudflared').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }

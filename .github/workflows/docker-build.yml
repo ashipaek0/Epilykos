@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+  # Weekly rebuild of the released image even without new commits, so the
+  # base image's Debian/Node security updates and Tailscale's latest stable
+  # release reach users. Scheduled runs use the default branch (main). The
+  # new digest goes to epilykos-os like any build; merging its PR is still the
+  # human step before appliances get it.
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays 03:17 UTC
+  workflow_dispatch:       # "Run workflow" button for an out-of-band rebuild
 
 # Checkout only; Docker Hub and the epilykos-os dispatch use their own secrets,
 # and artifacts use the runner's own token — GITHUB_TOKEN needs nothing more.
