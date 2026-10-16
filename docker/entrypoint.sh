@@ -22,6 +22,13 @@ if [ "$(id -u)" = "0" ]; then
 	# Keep the compose group_add entries Docker gave this process (dialout for
 	# serial, the host bluetooth group for BlueZ) but not root's own group 0.
 	groups=$(id -G | tr ' ' '\n' | grep -vx 0 | paste -sd, -)
+	# Settings → Updates: with the Docker socket mounted, join the group that
+	# owns it so the app can reach Docker (the socket's owner group differs per host).
+	sock="${DOCKER_SOCKET:-/var/run/docker.sock}"
+	if [ -S "$sock" ]; then
+		sock_gid=$(stat -c %g "$sock")
+		groups=$(printf '%s,%s' "$groups" "$sock_gid" | tr ',' '\n' | grep -v '^$' | sort -un | paste -sd, -)
+	fi
 	if [ -n "$groups" ]; then
 		exec setpriv --reuid="$APP_USER" --regid="$APP_USER" --groups="$groups" "$@"
 	fi
