@@ -15,7 +15,7 @@
 const express = require('express');
 const { getDb, getDurabilitySettings, METRIC_FLUSH_INTERVAL_MS } = require('../modules/database');
 const { timeZoneName } = require('../modules/localTime');
-const { version } = require('../package.json');
+const version = require('../modules/version').appVersion();
 
 const REQUIRED_TABLES = ['config', 'metrics', 'latest_metrics', 'history'];
 const startedAt = Date.now();

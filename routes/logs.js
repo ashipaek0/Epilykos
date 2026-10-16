@@ -12,7 +12,6 @@
  */
 const express = require('express');
 const os = require('os');
-const path = require('path');
 const { logger, setLevel, LEVELS, envLevel } = require('../modules/logger');
 const logBuffer = require('../modules/logBuffer');
 const { getConfig, setConfig, getDb } = require('../modules/database');
@@ -137,8 +136,7 @@ function router() {
 
   r.get('/diagnostics', (req, res) => {
     refreshSecrets();
-    let version = null;
-    try { version = require(path.join(__dirname, '..', 'package.json')).version; } catch (_) { /* unknown */ }
+    const version = require('../modules/version').appVersion();
     const recent = logBuffer.read({ limit: 2000 }).entries;
     const body = {
       generatedAt: new Date().toISOString(),

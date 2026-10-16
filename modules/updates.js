@@ -14,7 +14,7 @@
  * Only a plain GET to GitHub's raw file host; nothing about this install is
  * sent. Set UPDATE_CHECK=off to never check.
  */
-const path = require('path');
+const { appVersion } = require('./version');
 const { logger } = require('./logger');
 const { getConfig, setConfig } = require('./database');
 
@@ -27,14 +27,11 @@ let timer = null;
 
 function setFetchForTests(f) { fetcher = f; }
 
-function packageVersion() {
-  try { return require(path.join(__dirname, '..', 'package.json')).version; } catch (_) { return null; }
-}
 
 /** The build this is. buildId is empty in local or development builds. */
 function installed() {
   return {
-    version: packageVersion(),
+    version: appVersion(),
     channel: process.env.EPILYKOS_CHANNEL || null,
     buildId: process.env.EPILYKOS_BUILD_ID || null,
     commit: process.env.EPILYKOS_COMMIT || null,
