@@ -889,8 +889,8 @@
       + '<div class="wz-grid" id="dongle-lux-group" style="display:none;">'
       + field('Dongle serial', inp('sources.dongle.dongle_serial', s.dongle_serial, { placeholder: '10 characters' }), { hint: 'From the dongle\'s label.' })
       + field('Inverter serial', inp('sources.dongle.inverter_serial', s.inverter_serial, { placeholder: '10 characters' }), { hint: 'From the inverter\'s label.' })
-      + field('Local Wi-Fi security', '<select data-field="sources.dongle.tls_policy">' + [['off','Plain TCP (existing dongles)'],['required','Require TLS-PSK'],['auto','Try TLS, allow plain fallback']].map(function(o) { return '<option value="' + o[0] + '"' + ((s.tls_policy || 'off') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>')
-      + field('Bluetooth write strategy', '<select data-field="sources.dongle.ble_write_mode">' + [['long-response','Long write with response'],['chunked-no-response','Chunked without response (LuxCloud)']].map(function(o) { return '<option value="' + o[0] + '"' + ((s.ble_write_mode || 'long-response') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>')
+      + field('Local Wi-Fi security', '<select data-field="sources.dongle.tls_policy">' + [['off','Plain TCP (existing dongles)'],['required','Require TLS-PSK'],['auto','Try TLS, allow plain fallback']].map(function(o) { return '<option value="' + o[0] + '"' + ((s.tls_policy || 'off') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>', { id: 'dongle-lux-wifi', hidden: bt })
+      + field('Bluetooth write strategy', '<select data-field="sources.dongle.ble_write_mode">' + [['long-response','Long write with response'],['chunked-no-response','Chunked without response (LuxCloud)']].map(function(o) { return '<option value="' + o[0] + '"' + ((s.ble_write_mode || 'long-response') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>', { id: 'dongle-lux-ble', hidden: !bt })
       + '</div>'
       + '<div id="dongle-bt-group"' + (bt ? '' : ' style="display:none;"') + '>'
       + bleAddressField('dongle', 'sources.dongle.ble_address', s.ble_address, 'Bluetooth module')
@@ -1176,6 +1176,9 @@
     var bt = d.link === 'bluetooth';
     var net = $('#dongle-net-group'); if (net) net.style.display = bt ? 'none' : '';
     var btg = $('#dongle-bt-group'); if (btg) btg.style.display = bt ? '' : 'none';
+    // LuxPower: only the option for the chosen link.
+    var lw = $('#dongle-lux-wifi'); if (lw) lw.style.display = bt ? 'none' : '';
+    var lb = $('#dongle-lux-ble'); if (lb) lb.style.display = bt ? '' : 'none';
     renderDongleProfileOptions();
     d.transport = dongleTransport();
     syncDongleBleFields();
