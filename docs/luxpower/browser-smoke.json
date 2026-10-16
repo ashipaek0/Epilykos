@@ -1,0 +1,10 @@
+{
+  "browser": "Google Chrome headless",
+  "renderedNewControls": 12,
+  "timeRead": "10:30",
+  "changesRemainLocked": true,
+  "verificationDownloads": 1,
+  "downloadedSnapshotComplete": true,
+  "javascriptExceptions": [],
+  "backend": "Read-only fake GETA API; no live inverter"
+}
