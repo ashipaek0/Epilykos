@@ -4,7 +4,9 @@ ENUMS={"input_range":(16,(0,1)),"output_priority":(17,(0,1,2)),"charger_priority
 TIMING={"equalization_duration":(6,5,120),"equalization_interval":(8,0,90),"equalization_timeout":(12,5,900),"boost_duration":(16,5,900)}
 def catalogue(model, nominal_v, watts, ac_voltage):
     # Only combinations represented by the recovered model family are writable.
-    supported = {("1", 24, 3000), ("1", 48, 5000), ("9", 24, 3000), ("9", 48, 5000), ("9", 48, 6500)}
+    # 8 kW / 48 V: telemetry confirmed on hardware, no app data on its limits,
+    # so it gets the 5 kW / 48 V current limits (80 A), never looser.
+    supported = {("1", 24, 3000), ("1", 48, 5000), ("9", 24, 3000), ("9", 48, 5000), ("9", 48, 6500), ("1", 48, 8000), ("9", 48, 8000)}
     if (model, nominal_v, watts) not in supported:
         raise ValueError("unknown or unsupported model/rating combination")
     if ac_voltage is not None and ac_voltage not in (120, 230):

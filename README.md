@@ -200,7 +200,7 @@ Settings available so far:
 
 - **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits.
 - **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
-- **Phocos Any-Grid** (Bluetooth): telemetry and allowlisted settings for recognized model profiles; unvalidated 8 kW writes remain disabled. See [Phocos BLE details](#phocos-any-grid-ble).
+- **Phocos Any-Grid** (Bluetooth): telemetry and allowlisted settings for recognized model profiles (3, 5, 6.5 and 8 kW). See [Phocos BLE details](#phocos-any-grid-ble).
 
 ---
 
@@ -371,8 +371,10 @@ Existing explicit mappings are preserved: select additional entities to record
 those values. Mode descriptions, serial/firmware strings and raw fault bytes
 require explicit text mappings; setting flags are recorded as 0/1.
 
-An 8 kW unit's read support is separate from write eligibility. Unvalidated 8 kW
-writes, equalization-voltage writes and unresolved controls remain disabled.
+8 kW / 48 V units can change settings with the 5 kW / 48 V limits (charging
+currents up to 80 A): the app has no limits of its own for them, and these can
+only be stricter than the unit's real ratings. Other ratings are read-only, and
+equalization-voltage writes and unresolved controls remain disabled.
 Output-voltage changes require a fresh standby-mode read with AC output off.
 24 V float/boost limits are 24–32 V; 48 V limits are 48–64 V. Current choices are
 restricted to the recovered app's discrete values. Unknown bytes are preserved.
