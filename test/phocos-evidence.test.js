@@ -23,8 +23,10 @@ function fixture(watts = 8000, nominal = 48) {
   const data = decodeBlocks(profile, raws);
   assert.equal(data.identity.modelId, '9', 'byte18 is deliberately different');
   assert.equal(data.identity.model.readSupported, true);
-  assert.equal(data.identity.model.writeSupported, false, '8kW writes remain disabled');
+  assert.equal(data.identity.model.writeSupported, true, '8 kW / 48 V can write, with the 5 kW limits');
   assert.equal(data.identity.model.watts, 8000);
+  const unknown = decodeBlocks(profile, fixture(10000)).identity.model;
+  assert.equal(unknown.readSupported, true); assert.equal(unknown.writeSupported, false, 'other ratings stay read-only');
   assert.equal(data.derived.battery_net_current,-10);
   assert.equal(data.derived.battery_net_power,-500);
   assert.equal(data.derived.battery_charging_power,100);
@@ -81,6 +83,6 @@ function fixture(watts = 8000, nominal = 48) {
       for (const key of ['min','max','allowed']) if (backend[id][key]!==undefined) assert.deepEqual(cap[key],backend[id][key],`${id}.${key}`);
     }
   }
-  console.log('Phocos evidence: identity, signed metrics, read-only 8kW, diagnostics and model constraints');
+  console.log('Phocos evidence: identity, signed metrics, 8 kW writes with 5 kW limits, read-only unknown ratings, diagnostics and model constraints');
   checks.done();
 })().catch(e=>{console.error(e);process.exitCode=1;});
