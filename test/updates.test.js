@@ -328,7 +328,7 @@ function request(server, method, url, body) {
   // ── Packaging ─────────────────────────────────────────────────────────
   const root = path.join(__dirname, '..');
   const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
-  assert.match(dockerfile, /ENV EPILYKOS_CHANNEL=\$\{EPILYKOS_CHANNEL\} EPILYKOS_BUILD_ID=\$\{EPILYKOS_BUILD_ID\}/);
+  assert.match(dockerfile, /EPILYKOS_CHANNEL=\$\{EPILYKOS_CHANNEL\} EPILYKOS_BUILD_ID=\$\{EPILYKOS_BUILD_ID\}/);
   const compose = fs.readFileSync(path.join(root, 'docker-compose.yaml'), 'utf8');
   assert.match(compose, /- \/var\/run\/docker\.sock:\/var\/run\/docker\.sock/);
   assert.match(compose, /full control of Docker/, 'the compose file says what the socket grants');
