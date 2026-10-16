@@ -25,6 +25,7 @@ Public display with no login required — settings are password-protected.
 - [Card Showcase and Controls](#card-showcase-and-controls)
 - [PWA & Network Switching](#pwa--network-switching)
 - [Notifications](#notifications)
+- [Updates](#updates)
 - [Key Features](#key-features)
 - [Reverse Proxy](#reverse-proxy)
 - [Troubleshooting](#troubleshooting)
@@ -69,6 +70,10 @@ services:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro        # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
+      # "Update now" in Settings → Updates. This gives Epilykos full control of Docker on
+      # this computer (it could start any container), so only keep it if you want one-click
+      # updates. Without it, update with: docker compose pull && docker compose up -d
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Africa/Lagos              # Time zone for day boundaries. Remove this line to follow the host clock.
     # devices:
@@ -245,6 +250,25 @@ Quiet hours hold back everything except critical alerts. Every delivery is liste
 Push needs Epilykos on an `https://` address (see [Reverse Proxy](#reverse-proxy)); on iPhone and iPad, add it to the Home Screen first.
 Bot tokens, webhook URLs, Authorization headers and push keys are encrypted at rest, and the whole Notifications section is admin-only.
 
+## Updates
+
+Settings → **Updates** shows which build is running and whether a newer one is out. Two kinds:
+
+- **A new release**: new features and fixes, with the list of changes.
+- **Security updates**: the released image is rebuilt every Monday so the base system and the bundled tools (Node.js, Tailscale, cloudflared, Python packages) get their fixes. Nothing changes in how Epilykos works.
+
+It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`), and sends the *Update available* notification once per build. The check downloads a small file from this repository's `update-feed` branch, which CI updates after every image build; nothing about your install is sent.
+
+**Installing:**
+
+- **Docker Compose with the Docker socket mounted** (the `docker.sock` line in the compose file above): **Update now** asks for your admin password, downloads the new image, and restarts Epilykos on it with the same settings, volumes and devices. If the new version does not report healthy within three minutes, the previous one is started again and the page says so. The socket gives Epilykos full control of Docker on that computer; leave the line out if you don't want that.
+- **Docker Compose without the socket**: the page shows the commands, `docker compose pull` then `docker compose up -d`.
+- **EpilykosOS**: the appliance installs updates for both Epilykos and the operating system (see [docs/host-update-actions.md](docs/host-update-actions.md)).
+
+Builds from the `dev` branch (`irunmole/epilykos:dev`) compare against development builds instead of releases. Images you build yourself have no build number and are never compared.
+
+---
+
 ## Key Features
 
 | Feature | Detail |
@@ -336,6 +360,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
 | `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
 | `BLE_MAX_LINKS` | `1` | Bluetooth links (inverter dongles and BMS packs) kept open at once. With several devices on one adapter, the others are closed before the next connects; raise it if your adapter handles several connections well |
+| `UPDATE_CHECK` | `on` | `off` never checks for updates (Settings → Updates) |
 | `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device). Debug in Settings → Logs also turns the helper to `DEBUG` |
 
 ---

@@ -592,3 +592,9 @@ body.st {
 .st .rm-off { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--st-line-soft); }
 .st .cf-steps { margin: 4px 0 14px; padding-left: 1.3em; display: grid; gap: 6px; font-size: .82rem; color: var(--st-text); line-height: 1.5; }
 .st #cf-root code, .st #rm-root code { font-size: .78rem; padding: 1px 5px; border-radius: 5px; background: var(--st-hover); overflow-wrap: anywhere; }
+
+/* Settings → Updates */
+.st .up-notes { margin: 6px 0 10px; padding-left: 20px; }
+.st .up-notes li { margin: 2px 0; }
+.st .up-cmd { margin: 8px 0; padding: 10px 12px; border-radius: 8px; background: var(--st-hover); overflow-x: auto; font-size: 0.78rem; line-height: 1.5; white-space: pre; }
+.st .up-cmd code { background: none; padding: 0; }
