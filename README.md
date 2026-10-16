@@ -24,6 +24,7 @@ Public display with no login required — settings are password-protected.
 - [Dashboard Editor](#dashboard-editor)
 - [Card Showcase and Controls](#card-showcase-and-controls)
 - [PWA & Network Switching](#pwa--network-switching)
+- [Notifications](#notifications)
 - [Key Features](#key-features)
 - [Reverse Proxy](#reverse-proxy)
 - [Troubleshooting](#troubleshooting)
@@ -199,7 +200,7 @@ Settings available so far:
 
 - **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits.
 - **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
-- **Phocos Any-Grid** (Bluetooth): read-only for now; how its Bluetooth link takes settings is not known yet.
+- **Phocos Any-Grid** (Bluetooth): telemetry and allowlisted settings for recognized model profiles (3, 5, 6.5 and 8 kW). See [Phocos BLE details](#phocos-any-grid-ble).
 
 ---
 
@@ -219,6 +220,29 @@ Epilykos can be installed as a **Progressive Web App** — on your phone or desk
 > **Note:** Network switching requires the Service Worker. On first load, open Settings and save your local and remote URLs — they'll be sent to the Service Worker for routing.
 
 ---
+
+## Notifications
+
+**Settings → Notifications** sends alerts on any metric or event to:
+
+- **Push to devices**: web push on every phone, tablet or computer where you turn it on. One channel can target all devices or only the ones you choose.
+- **Telegram**: create a bot with @BotFather, paste its token, message the bot, then press *Find chat*.
+- **Discord**: paste a channel webhook URL. It can optionally mention @here on critical alerts.
+- **ntfy**: ntfy.sh or your own server. Turn on *Server is on my local network* for a LAN server.
+- **Webhook**: the alert is POSTed as JSON (`source, title, message, severity, tag, url, timestamp`, plus `event` or `rule`) to Home Assistant, n8n, Node-RED or your own script. An optional Authorization header can be added.
+
+Each **rule** picks its channels and watches either:
+
+- **A metric**: above, below, equals (text works too, e.g. a grid status of `off`), changes, or has not updated for N minutes. Options: *for at least* to ignore spikes, a resolve margin, back-to-normal alerts, reminders and a cooldown.
+- **An event**: grid outage or restored, a source stops or starts responding, MQTT broker drops or reconnects, solar forecast unavailable (e.g. Solcast quota used up), PVOutput alert, snapshot failed, server started. Wildcards such as `source.*` match a whole group.
+- **A schedule**: a daily energy summary (today or yesterday), the solar forecast (tomorrow or today, optionally only when it is below N kWh — a "poor solar day ahead" warning), or the live status, at a set time on chosen weekdays. Scheduled reports are sent during quiet hours too.
+
+Turn on *Answer commands in this chat* on a Telegram channel to ask the bot `/status`, `/today`, `/yesterday` or `/forecast`; only that chat gets answers.
+Rule state (what is firing, cooldowns, the last scheduled run) survives restarts, so a restart neither repeats an alert nor sends a report twice.
+
+Quiet hours hold back everything except critical alerts. Every delivery is listed under *History*.
+Push needs Epilykos on an `https://` address (see [Reverse Proxy](#reverse-proxy)); on iPhone and iPad, add it to the Home Screen first.
+Bot tokens, webhook URLs, Authorization headers and push keys are encrypted at rest, and the whole Notifications section is admin-only.
 
 ## Key Features
 
@@ -286,6 +310,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `TMPDIR` | `/tmp` | Temporary directory for uploads (backup restore, layout import) |
 | `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
 | `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
+| `BLE_MAX_LINKS` | `1` | Bluetooth links (inverter dongles and BMS packs) kept open at once. With several devices on one adapter, the others are closed before the next connects; raise it if your adapter handles several connections well |
 | `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device) |
 
 ---
@@ -332,3 +357,39 @@ For a complete walkthrough of the codebase architecture — adding new block typ
 
 Epilykos is released under the **GNU General Public License v3.0**.  
 See [`LICENSE`](LICENSE) for the full terms.
+
+### Phocos Any-Grid BLE
+
+The PSW-H profile exposes signed battery current/power (positive charging), gross
+charging power, and estimated grid power (positive import). The grid estimate
+ignores conversion losses; negative values and small flows are preserved. Rated
+values and read-only setting snapshots are available in the entity selector.
+Identity, ratings and settings blocks are read every 20th poll (and right after a
+settings read or change); their snapshot metrics are recorded when they change
+and at least every 4 minutes, so they don't add a row on every poll.
+Existing explicit mappings are preserved: select additional entities to record
+those values. Mode descriptions, serial/firmware strings and raw fault bytes
+require explicit text mappings; setting flags are recorded as 0/1.
+
+8 kW / 48 V units can change settings with the 5 kW / 48 V limits (charging
+currents up to 80 A): the app has no limits of its own for them, and these can
+only be stricter than the unit's real ratings. Other ratings are read-only, and
+equalization-voltage writes and unresolved controls remain disabled.
+Output-voltage changes require a fresh standby-mode read with AC output off.
+24 V float/boost limits are 24–32 V; 48 V limits are 48–64 V. Current choices are
+restricted to the recovered app's discrete values. Unknown bytes are preserved.
+
+The authenticated Bluetooth connection-test API (`POST /api/dongle/test`) returns
+raw block `values`, `identity` and `diagnostics` alongside its summary. Diagnostics
+include resolved full UUIDs/properties/handles, read errors, lengths, firmware and
+field confidence. Optional metadata errors do not erase good telemetry. Read
+minimum lengths follow accessed offsets; settings writes retain strict block
+checks. Settings-read responses also include diagnostics. `app_confirmed` means
+static app evidence, not hardware validation. Inferred measurements are labelled.
+
+Fault bytes are retained without claiming definitive alarms: the app overlaps two
+little-endian words with an 8-bit shift. The recovered model code is byte 19 of
+`2a02`. Evidence: PhocosLink 2.1.4 APK SHA-256
+`105e075605f7653b49987e1494802af2aba0d272f41603e637cb4f8b2a004a30`.
+Test coverage includes existing capture fixtures and synthetic edge cases;
+automated checks do not perform hardware writes.

@@ -13,7 +13,7 @@ export function buildControlPlaceholder(block = {}) {
   const el = document.createElement('div');
   el.className = 'ep-card control-placeholder';
   if (block.id) el.dataset.blockId = block.id;
-  const name = config.label || config.entity || (block.type === 'state-select' ? 'State select' : 'Switch');
+  const name = config.name || config.label || config.entity || ({ 'state-select': 'State select', 'button-card': 'Button' }[block.type] || 'Switch');
   el.innerHTML = `<div class="control-placeholder-name">${escapeHtml(name)}</div>`
     + '<p class="control-placeholder-text">This control works on the Controls page. <a href="/controls">Open Controls</a></p>';
   return el;

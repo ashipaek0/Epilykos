@@ -27,6 +27,7 @@ const { logger } = require('./logger');
 
 const ROOT = path.join(__dirname, '..');
 const CHECK_MS = 2000;            // how often a page load re-checks inputs for edits
+const OLD_BUNDLE_GRACE_MS = 10 * 60 * 1000;   // how long a replaced bundle stays servable
 const enabled = () => process.env.EPILYKOS_BUNDLE !== '0';
 
 let esbuild = null;
@@ -94,7 +95,12 @@ async function build(entryUrl) {
       inputs.set(file, fs.statSync(file).mtimeMs);
     }
     const old = bundles.get(entryUrl);
-    if (old && old.url && old.url !== url) { byUrl.delete(old.url); byUrl.delete(old.url + '.map'); }
+    if (old && old.url && old.url !== url) {
+      // A page served just before the rebuild still points at the old bundle:
+      // keep it for a while so that page's script request doesn't 404.
+      const stale = old.url;
+      setTimeout(() => { byUrl.delete(stale); byUrl.delete(stale + '.map'); }, OLD_BUNDLE_GRACE_MS).unref();
+    }
     byUrl.set(url, { body: code, type: 'application/javascript; charset=utf-8' });
     if (mapOut) byUrl.set(url + '.map', { body: Buffer.from(mapOut.contents), type: 'application/json; charset=utf-8' });
     bundles.set(entryUrl, { state: 'ready', url, inputs, checkedAt: Date.now() });

@@ -48,13 +48,23 @@ layout = getControlsLayout();
 assert.deepStrictEqual(layout.map(b => b.id), ['s1', 'q1', 's2', 's9'], 'new card added, known one not duplicated');
 assert.strictEqual(layout[3].gridY, 5, 'added below the existing cards');
 
-// Only switch and selector cards, each with an id.
-assert.throws(() => saveControlsLayout([text('x')]), /Only switch and selector/);
+// Only switch, selector and button cards, each with an id.
+assert.throws(() => saveControlsLayout([text('x')]), /Only switch, selector and button cards/);
 assert.throws(() => saveControlsLayout({}), /list of blocks/);
 assert.throws(() => saveControlsLayout([{ type: 'switch-block' }]), /needs an id/);
 assert.throws(() => saveControlsLayout(Array.from({ length: 201 }, (_, i) => sw('m' + i))), /At most 200/);
 saveControlsLayout([sel('q1')]);
 assert.deepStrictEqual(getControlsLayout().map(b => b.id), ['q1']);
+
+// An older install with only the legacy dashboard_config blob: its cards move too.
+saveControlsLayout([sel('q1')]);
+const keep = getControlsLayout();
+database.setConfig('controls_layout', '');
+database.setConfig('dashboard_layouts', '');
+database.setConfig('dashboard_config', JSON.stringify({ activeDashboard: 'old', dashboards: [{ id: 'old', name: 'Old', layout: [text('t9'), sw('s8')] }] }));
+assert.deepStrictEqual(getControlsLayout().map(b => b.id), ['s8'], 'legacy blob cards moved');
+assert.deepStrictEqual(JSON.parse(database.getConfig('dashboard_layouts'))[0].layout.map(b => b.id), ['t9'], 'and left the dashboard');
+saveControlsLayout(keep);
 
 // Route: signed in only.
 const express = require('express');

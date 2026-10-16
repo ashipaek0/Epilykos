@@ -2,6 +2,7 @@ const { logger } = require('./logger');
 const { getConfig, queueMetricValue } = require('./database');
 const { assertSafeFetchUrl, trimSlashes } = require('./utils');
 const metricSanity = require('./metricSanity');
+const { PollResult } = require('./pollResult');
 
 // Build a Home Assistant REST API URL from a base URL, robust to trailing
 // slashes and a base that already ends in '/api' (new URL().toString() adds a
@@ -50,8 +51,9 @@ function saveMetric(metricName, rawValue, timestamp) {
 }
 
 async function pollHomeAssistant() {
+  const result = new PollResult();
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
-  if (!haDevices.length) return;
+  if (!haDevices.length) return result;
 
   // #119: thresholds are read once per poll cycle (§5); missing keys never throw.
   metricSanity.reloadConfig();
@@ -61,9 +63,9 @@ async function pollHomeAssistant() {
     // SSRF guard: allowlist + scheme check before any fetch. device.url is
     // admin-configured config, but config still flows into fetch(), so guard it.
     const safeCheck = await assertSafeFetchUrl(device.url, { allowPrivate: true });
-    if (!safeCheck.ok) { logger.warn(`HA poll: skipping ${device.name}: ${safeCheck.error}`); continue; }
+    if (!safeCheck.ok) { result.fail(new Error(safeCheck.error)); logger.warn(`HA poll: skipping ${device.name}: ${safeCheck.error}`); continue; }
     let base;
-    try { base = safeHaBaseUrl(safeCheck.url); } catch (err) { logger.warn(`HA poll: skipping ${device.name}: ${err.message}`); continue; }
+    try { base = safeHaBaseUrl(safeCheck.url); } catch (err) { result.fail(err); logger.warn(`HA poll: skipping ${device.name}: ${err.message}`); continue; }
     for (const [metric, mapping] of Object.entries(device.entities || {})) {
       // Entity mapping value is either a plain entity_id string or an object
       // { entityId, actions: [...] } carrying optional action metadata (AC-1.4).
@@ -75,15 +77,18 @@ async function pollHomeAssistant() {
           redirect: 'error', // never forward the HA token to a redirect target
           signal: AbortSignal.timeout(5000)
         });
-        if (!res.ok) continue;
+        if (!res.ok) throw new Error(`HA HTTP ${res.status} for ${device.name} - ${metric}`);
         const data = await res.json();
         const now = Math.floor(Date.now() / 1000);
         saveMetric(metric, data.state, now);
+        result.success();
       } catch (e) {
+        result.fail(e);
         logger.warn(`HA poll error for ${device.name} - ${metric}: ${e.message}`);
       }
     }
   }
+  return result;
 }
 
 async function fetchHAEntities(url, token) {
@@ -113,7 +118,13 @@ async function fetchHAEntities(url, token) {
     e.entity_id.startsWith('climate.') ||
     e.entity_id.startsWith('fan.') ||
     e.entity_id.startsWith('cover.') ||
-    e.entity_id.startsWith('input_boolean.')
+    e.entity_id.startsWith('input_boolean.') ||
+    e.entity_id.startsWith('select.') ||
+    e.entity_id.startsWith('input_select.') ||
+    e.entity_id.startsWith('button.') ||
+    e.entity_id.startsWith('input_button.') ||
+    e.entity_id.startsWith('scene.') ||
+    e.entity_id.startsWith('script.')
   ).map(e => e.entity_id);
 }
 
@@ -231,7 +242,13 @@ const DOMAIN_ACTIONS = {
     { service: 'cover.stop_cover', label: 'Stop', type: 'button' },
     { service: 'cover.toggle', label: 'Toggle', type: 'toggle' }
   ],
-  'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }]
+  'input_boolean': [{ service: 'input_boolean.toggle', label: 'Toggle', type: 'toggle' }],
+  'select': [{ service: 'select.select_option', label: 'Select option', type: 'select', param: 'option' }],
+  'input_select': [{ service: 'input_select.select_option', label: 'Select option', type: 'select', param: 'option' }],
+  'button': [{ service: 'button.press', label: 'Press', type: 'button' }],
+  'input_button': [{ service: 'input_button.press', label: 'Press', type: 'button' }],
+  'scene': [{ service: 'scene.turn_on', label: 'Activate', type: 'button' }],
+  'script': [{ service: 'script.turn_on', label: 'Run', type: 'button' }]
 };
 
 // Spec AC-7.1: flat action names per domain, exactly as asserted by the spec tests.
@@ -241,7 +258,13 @@ const SPEC_DOMAIN_ACTIONS = {
   'climate': ['set_temperature', 'set_mode', 'set_fan_mode', 'turn_on', 'turn_off'],
   'fan': ['toggle', 'turn_on', 'turn_off', 'set_speed'],
   'cover': ['open_cover', 'close_cover', 'stop_cover', 'toggle'],
-  'input_boolean': ['toggle']
+  'input_boolean': ['toggle'],
+  'select': ['select_option'],
+  'input_select': ['select_option'],
+  'button': ['press'],
+  'input_button': ['press'],
+  'scene': ['turn_on'],
+  'script': ['turn_on']
 };
 
 /**
@@ -282,7 +305,7 @@ const ENTITY_MODES_TTL_MS = 5 * 60 * 1000;
  * @returns {Promise<{hvac_modes: string[], fan_modes: string[], min_temp: number|null, max_temp: number|null}>}
  */
 async function getEntityModes(url, token, entityId) {
-  const empty = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+  const empty = { hvac_modes: [], fan_modes: [], preset_modes: [], options: [], min_temp: null, max_temp: null };
   if (!url || !token || !entityId) return empty;
   const key = `${url}|${entityId}`;
   const cached = entityModesCache.get(key);
@@ -302,6 +325,8 @@ async function getEntityModes(url, token, entityId) {
       data = {
         hvac_modes: Array.isArray(attrs.hvac_modes) ? attrs.hvac_modes : [],
         fan_modes: Array.isArray(attrs.fan_modes) ? attrs.fan_modes : [],
+        preset_modes: Array.isArray(attrs.preset_modes) ? attrs.preset_modes : [],
+        options: Array.isArray(attrs.options) ? attrs.options : [], // select / input_select
         min_temp: (attrs.min_temp !== undefined && attrs.min_temp !== null) ? attrs.min_temp : null,
         max_temp: (attrs.max_temp !== undefined && attrs.max_temp !== null) ? attrs.max_temp : null
       };

@@ -128,6 +128,12 @@ const SECRET_FIELDS = {
   ha_devices: ['token'],
   mqtt_devices: ['password'],
   tuya_devices: ['local_key'],
+  // modules/notifications/store.js: Telegram bot token, Discord webhook URL
+  // (the URL is the credential), ntfy access token, webhook URL and
+  // Authorization header, push keys.
+  notification_channels: ['bot_token', 'webhook_url', 'token', 'auth_header'],
+  notification_devices: ['auth'],
+  notification_vapid: ['privateKey'],
 };
 
 function cloneDeep(v) {

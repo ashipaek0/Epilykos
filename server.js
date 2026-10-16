@@ -129,6 +129,7 @@ const { startBmsPolling, restartBmsPolling, stopBmsPolling } = require('./module
 const { startBmsWiredPolling, restartBmsWiredPolling, stopBmsWiredPolling, testBmsWiredConnection, getBmsWiredFields } = require('./modules/bmsWired');
 const { startDonglePolling, restartDonglePolling, stopDonglePolling } = require('./modules/dongle');
 const pvoutput = require('./modules/pvoutput');
+const notifications = require('./modules/notifications');
 const { router: metricsRouter, buildDashboardState, sharedDashboardState } = require('./routes/metrics');
 // Issue #108 (AC-1..13): dongle projections live in the pure module; the
 // remaining per-family projections are route-level pure helpers below (server
@@ -270,8 +271,9 @@ function rs232ProfileEntities(profile) {
   return entities;
 }
 
-// 8-domain set shared with modules/ha.js fetchHAEntities filter (L147-156).
-const HA_CATALOG_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean'];
+// Domain set shared with modules/ha.js fetchHAEntities (select/input_select
+// so state selectors can drive them).
+const HA_CATALOG_DOMAINS = ['sensor', 'binary_sensor', 'switch', 'light', 'climate', 'fan', 'cover', 'input_boolean', 'select', 'input_select', 'button', 'input_button', 'scene', 'script'];
 
 function haStatesToCatalog(states) {
   // AC-10: enrich ONE /api/states fetch into catalog items (no registry, no
@@ -444,6 +446,7 @@ startMetricAutoFlush(); // batch bursty metric writes: 5s auto-flush (unref'd)
 try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); } // one-time plaintext→$enc1$ (idempotent)
 pvoutput.start();     // Start PVOutput push/pull engines
 startSnapshotScheduler();
+notifications.init();  // alert rules, channels and the event bus
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -615,9 +618,11 @@ wss.on('connection', (ws) => {
 const pollingManager = new PollingManager();
 pollingManager.on('metrics-ready', ({ sourceId }) => {
   logger.debug(`Poll ${sourceId} metrics ready`);
+  notifications.noteSourceResult(sourceId, true);
 });
 pollingManager.on('device-error', ({ sourceId, error }) => {
   logger.warn(`Poll ${sourceId} failed:`, error && error.message ? error.message : error);
+  notifications.noteSourceResult(sourceId, false, error);
 });
 
 let pollCycleRunning = false;
@@ -635,6 +640,7 @@ async function pollAllSources() {
   try {
     await pollingManager.runCycle();
     flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
+    notifications.evaluateMetrics(); // metric alert rules see this cycle's values
     if (wsClients.size > 0) {
       const state = await buildDashboardState();
       broadcastDashboardState(state);
@@ -898,6 +904,13 @@ function findLatestStateForEntity(entityId) {
   return null;
 }
 
+app.get('/api/switchable-entities', isAuthenticated, (req, res) => {
+  try { res.json(require('./modules/switchables').switchableEntities()); } catch (err) {
+    logger.error('Error listing switchable entities:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.use('/api/entity-actions', isAuthenticated);
 app.get('/api/entity-actions', (req, res) => {
   const { entity } = req.query;
@@ -942,7 +955,7 @@ app.post('/api/ha/entity-actions', async (req, res) => {
   }
   try {
     const actions = getActionsForEntity(entityIdOk);
-    let modes = { hvac_modes: [], fan_modes: [], min_temp: null, max_temp: null };
+    let modes = { hvac_modes: [], fan_modes: [], preset_modes: [], options: [], min_temp: null, max_temp: null };
     let currentState = null;
     if (url && token) {
       const [modeData, stateRes] = await Promise.all([
@@ -1400,6 +1413,11 @@ app.post('/api/settings', (req, res) => {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
         continue;
       }
+      // Notification channels, rules, devices and keys are written only by /api/notifications.
+      if (key.startsWith('notification_')) {
+        logger.warn(`[Settings] Rejected notification key (use /api/notifications): ${key}`);
+        continue;
+      }
       filteredUpdates[key] = value;
     }
     if (filteredUpdates.dongle_config !== undefined) {
@@ -1517,6 +1535,14 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
       'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
       'tuya_devices', 'tuya_cloud', 'setup_probe_cache'
     ];
+    // The page Settings uses: refuse inverters that would overwrite each
+    // other's metrics here too, not only on the older /api/settings.
+    if (req.body && req.body.dongle_config !== undefined) {
+      let devices = req.body.dongle_config;
+      if (typeof devices === 'string') { try { devices = JSON.parse(devices || '[]'); } catch (_) { devices = []; } }
+      const clash = require('./modules/sourceChecks').dongleNameClash(devices);
+      if (clash) return res.status(400).json({ error: clash });
+    }
     const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
     const { saved } = saveConfigKeys(allowed, req, res);
     applySourceConfigChanges(saved, oldBanksRaw);
@@ -1675,6 +1701,24 @@ function resolveActionDevice(source, device, entity) {
   return '';
 }
 
+// State selectors send { value }; Home Assistant wants it under the field
+// its service defines (select.select_option takes `option`, and so on).
+const HA_VALUE_FIELD = {
+  'select.select_option': 'option', 'input_select.select_option': 'option',
+  'climate.set_hvac_mode': 'hvac_mode', 'climate.set_fan_mode': 'fan_mode', 'climate.set_preset_mode': 'preset_mode',
+  'climate.set_temperature': 'temperature', 'fan.set_percentage': 'percentage', 'fan.set_preset_mode': 'preset_mode',
+};
+function haServiceData(action, params) {
+  const data = { ...(params || {}) };
+  const service = typeof action === 'string' ? action : (action && action.domain ? `${action.domain}.${action.service}` : '');
+  const field = HA_VALUE_FIELD[service];
+  if (field && data.value !== undefined && data[field] === undefined) {
+    data[field] = data.value;
+    delete data.value;
+  }
+  return data;
+}
+
 // Device actions (switches, selectors, register writes) need the Controls
 // unlock (password again within a few minutes), and every attempt is logged.
 const deviceControls = require('./modules/deviceControls');
@@ -1685,10 +1729,19 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
     newValue: params && (params.value !== undefined ? params.value : params.payload), outcome, detail }, req);
 
   if (!source || !action) {
+    logged('refused', 'source and action are required');
     return res.status(400).json({ success: false, error: 'source and action are required' });
+  }
+  // "Allow device changes" covers every card, whatever the source (Home
+  // Assistant, MQTT and Tuya included), not only register writes.
+  const switchedOff = deviceControls.writeRefusal();
+  if (switchedOff) {
+    logged('refused', switchedOff);
+    return res.status(403).json({ success: false, error: switchedOff });
   }
   const device = resolveActionDevice(source, req.body.device, entity);
   if (!device) {
+    logged('refused', 'No device configured for this entity');
     return res.status(400).json({ success: false, error: 'device is required (none configured for this entity)' });
   }
 
@@ -1700,13 +1753,14 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
         const { executeHAAction } = require('./modules/ha');
         // Route form of the spec signature: (deviceId, action, entityId, params);
         // `action` may be a dotted string 'domain.service' or an object {domain, service}.
-        result = await executeHAAction(device, action, entity, params || {});
+        result = await executeHAAction(device, action, entity, haServiceData(action, params));
         break;
       }
       case 'mqtt': {
         const { executeMqttAction } = require('./modules/mqtt');
-        // Topic is the entity; payload comes from params.payload or is inferred from the action.
-        let payload = params?.payload;
+        // Topic is the entity; payload comes from params.payload (or a state
+        // selector's params.value) or is inferred from the action.
+        let payload = params?.payload !== undefined && params?.payload !== null ? params.payload : params?.value;
         if (payload === undefined || payload === null) {
           if (action === 'turn_on') payload = 'ON';
           else if (action === 'turn_off') payload = 'OFF';
@@ -1747,6 +1801,11 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
         // Toggles send true when no explicit value is given — never the literal 'undefined'
         const actionValue = (params?.value === undefined || params?.value === null) ? true : params.value;
         result = await executeTuyaAction(device, dpNumber, actionValue);
+        // The device is polled every 30 s but the Controls page refreshes every
+        // 10 s: record the value it now has, so no refresh shows the old one.
+        if (result && !result.error && result.success !== false) {
+          require('./modules/database').queueMetricValue(entity, actionValue, Math.floor(Date.now() / 1000));
+        }
         break;
       }
       case 'modbus': {
@@ -1769,11 +1828,21 @@ app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (
         // register — hand only the register address to the transport. Action
         // strings other than 'write' pass through untouched (executeDongleAction
         // is write-only today; presets are reserved for later).
+        // A register in the device's list of settings goes through the same
+        // checks as the Controls page (read first, range, step, below/above,
+        // read back); changeSetting logs it, so return its answer as is.
+        const listed = deviceControls.listedSettingFor(device, entity);
+        if (listed) {
+          const raw = Number(params?.value);
+          const changed = await deviceControls.changeSetting({ device, setting: listed.name, value: Number.isFinite(raw) ? Number((raw * listed.scale).toPrecision(12)) : params?.value }, req);
+          return res.status(changed.success ? 200 : changed.written ? 502 : 400).json(changed);
+        }
         const registerAddr = typeof entity === 'string' && entity.includes(':') ? entity.split(':').pop() : entity;
         result = await executeDongleAction(device, registerAddr, params?.value);
         break;
       }
       default:
+        logged('refused', 'Source not supported');
         return res.status(501).json({ success: false, error: 'Source not yet supported' });
     }
     
@@ -2073,6 +2142,8 @@ app.post('/api/tuya-generate-qr', isAuthenticated, async (req, res) => {
     const { uid } = req.body;
     if (!uid) return res.status(400).json({ error: 'UID is required' });
     const result = await generateQrCode(uid);
+    // Drawn here: the login token must not go to a third-party QR service.
+    if (result && result.qr_url) result.qr_svg = await require('qrcode').toString(result.qr_url, { type: 'svg', margin: 1, width: 220 });
     res.json(result);
   } catch (err) {
     logger.error('[Tuya] QR generate error:', err);
@@ -2239,7 +2310,7 @@ app.post('/api/dongle/test', async (req, res) => {
     const profilePath = bundledProfilePath('dongles', req.body.profile);
     let profile;
     try { profile = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch (_) { return res.status(400).json({ error: 'Profile not found' }); }
-    const { BleGattTransport } = require('./modules/dongle/bleGatt');
+    const { BleGattTransport, identityCheck } = require('./modules/dongle/bleGatt');
     let bt;
     try {
       bt = new BleGattTransport({ ble_address: req.body.ble_address || host }, profile);
@@ -2251,7 +2322,7 @@ app.post('/api/dongle/test', async (req, res) => {
       const blocks = (profile.blocks || []).filter(b => Array.isArray(data[b.id])).length;
       const out = profile.fields.find(f => f.name === 'output_power');
       const w = out ? require('./modules/dongle').getByPathForTest(data, out.path) : undefined;
-      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}` });
+      return res.json({ success: true, raw: `${blocks}/${profile.blocks.length} blocks read${w !== undefined ? ` — output ${w} W` : ''}`, diagnostics: data.diagnostics, values: data.raw, identity: data.identity, identityCheck: identityCheck(data) });
     } catch (err) {
       logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
       return res.status(502).json({ error: err.message });
@@ -2439,6 +2510,7 @@ app.get('/api/dongle/status', (req, res) => {
 app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
 // Protected routes
 app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
+app.use('/api/notifications', isAuthenticated, require('./modules/notifications/routes').createRouter());
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {

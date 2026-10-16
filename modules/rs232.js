@@ -4,6 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { createBackoff } = require('./pollBackoff');
+const backoff = createBackoff('RS232');
+const { PollResult } = require('./pollResult');
 const { buildModbusReadRequest, buildPollRanges, parseModbusReadResponse, frameByteCount } = require('./modbus-frame');
 
 let availableProfiles = [];
@@ -18,9 +21,6 @@ const failCounts = new Map();
 // the setTimeout() delay is never user-controlled; clears CWE-400).
 const QUERY_TIMEOUT_MS = 3000;
 const MODBUS_RT_TIMEOUT_MS = 5000;
-
-// Global poll cycle counter for throttling
-let pollCycleCounter = 0;
 
 function loadRs232Profiles() {
   const profilesDir = path.join(__dirname, '../profiles/rs232');
@@ -288,19 +288,21 @@ function encodeQuery(cmd, device, profile) {
 // ── Poll Orchestration ──────────────────────────────────────────────────
 
 async function pollRs232() {
+  const result = new PollResult();
   const devices = JSON.parse(getConfig('rs232_devices') || '[]');
-  if (!devices.length) return;
-  pollCycleCounter++;
+  if (!devices.length) return result;
 
   for (const device of devices) {
     if (!device.enabled) continue;
 
-    const failCount = failCounts.get(device.name) || 0;
-    if (failCount >= 5 && (pollCycleCounter % 2) === 0) continue; // skip every other
-    if (failCount >= 10) continue; // stop trying
+    // A device that keeps failing is tried less often, never dropped: it used
+    // to stop being polled after 10 failures until the app restarted, so a
+    // cable unplugged for a few minutes lost the device for good.
+    if (backoff.skip(device.name)) continue;
 
     const profile = availableProfiles.find(p => p.id === device.profile);
     if (!profile) {
+      result.fail(new Error(`RS232 profile '${device.profile}' not found`));
       logger.error(`RS232 profile '${device.profile}' not found`);
       continue;
     }
@@ -308,16 +310,26 @@ async function pollRs232() {
     try {
       if (profile.protocol === 'vedirect-streaming') {
         await pollStreamingDevice(device, profile);
+        // Opening a stream is asynchronous; it is not a successful read yet.
+        if (!streamingConnections.get(device.name)?.port.isOpen) {
+          result.fail(new Error(`RS232 stream '${device.name}' is not open`));
+          continue;
+        }
       } else if (profile.protocol === 'modbus-rtu') {
         await pollModbusRtuDevice(device, profile);
       } else {
         await pollQueryDevice(device, profile);
       }
       failCounts.set(device.name, 0);
+      backoff.record(device.name, true);
+      result.success();
     } catch (err) {
+      result.fail(err);
+      backoff.record(device.name, false);
       handlePollError(device, err);
     }
   }
+  return result;
 }
 
 async function pollQueryDevice(device, profile) {
@@ -560,7 +572,7 @@ function handlePollError(device, err) {
   failCounts.set(device.name, count);
 
   if (count >= 5) {
-    logger.error(`RS232 ${device.name}: ${count} consecutive failures, throttling — ${err.message}`);
+    logger.error(`RS232 ${device.name}: ${count} consecutive failures — ${err.message}`);
   } else if (count >= 3) {
     logger.warn(`RS232 ${device.name}: ${count} consecutive failures — ${err.message}`);
   } else {

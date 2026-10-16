@@ -31,6 +31,33 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     await failing();   // a failing poll is logged, never an unhandled rejection
   });
 
+  await check('dongle: a Bluetooth unit that keeps failing is polled less often, and every tick again once it answers', async () => {
+    const { singleFlight, withBleBackoff } = require('../modules/dongle');
+    // Like pollJsonInstance: catches its own error and counts it.
+    let calls = 0, ok = false;
+    const inst = { name: 'Inverter 2' };
+    const read = async () => { calls++; if (ok) inst.consecutiveFails = 0; else inst.consecutiveFails = (inst.consecutiveFails || 0) + 1; };
+    const poll = singleFlight(inst, withBleBackoff(inst, read));
+    const ticks = async n => { for (let i = 0; i < n; i++) await poll(); };
+    await ticks(3); assert.strictEqual(calls, 3, 'the first failures poll every tick');
+    await ticks(2); assert.strictEqual(calls, 4, 'after 3 failures: 1 tick skipped');
+    await ticks(4); assert.strictEqual(calls, 5, 'then 3 skipped');
+    await ticks(80);
+    const before = calls; await ticks(16); assert.strictEqual(calls - before, 2, 'capped at 7 skipped ticks');
+    ok = true;
+    for (let i = 0; i < 8 && calls === before + 2; i++) await poll();   // the next attempt succeeds
+    const recovered = calls; await ticks(3); assert.strictEqual(calls - recovered, 3, 'every tick again after a success');
+    // A poll that throws instead of counting is treated the same way.
+    const thrower = { name: 'x' }; let n = 0;
+    const p2 = singleFlight(thrower, withBleBackoff(thrower, () => { n++; throw new Error('boom'); }));
+    for (let i = 0; i < 5; i++) await p2();
+    assert.strictEqual(n, 4); assert.strictEqual(thrower.consecutiveFails, 4);
+    const src = fs.readFileSync(path.join(__dirname, '..', 'modules', 'dongle.js'), 'utf8');
+    assert.match(src, /singleFlight\(inst, withBleBackoff\(inst, \(\) => pollJsonInstance/, 'Phocos and other GATT units');
+    assert.match(src, /inst\.transport === 'ble-modbus' \? withBleBackoff/);
+    assert.match(src, /inst\.transport === 'ble-luxpower' \? withBleBackoff/);
+  });
+
   await check('combined metrics: state of a deleted definition is removed, switched-off ones keep theirs', () => {
     const cm = require('../modules/combinedMetrics');
     database.setConfig('combined_metrics', JSON.stringify([{ id: 'keep', name: 'k', fn: 'sum', inputs: ['a'], enabled: false }]));
@@ -61,7 +88,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(srv, /return res\.status\(409\)\.json\(\{ error: `\$\{name\} is a combined metric/);
   });
 
-  assert.strictEqual(passed, 4, 'every check ran');
+  assert.strictEqual(passed, 5, 'every check ran');
   console.log(`poll-guards: ${passed} checks passed`);
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

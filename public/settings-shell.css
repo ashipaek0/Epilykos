@@ -227,6 +227,8 @@ body.st {
 /* Status lines from settings.js (showStatus) */
 .st .status, .st .test-status { font-size: 0.78rem; font-weight: 700; }
 .st .status.success, .st .test-status.success { color: var(--st-ok); }
+/* Bluetooth Test identity lines (Phocos): kept until the next test; the hex wraps. */
+.st .dongle-identity { margin-top: 6px; padding: 8px 10px; border: 1px solid var(--st-line); border-radius: 8px; background: var(--st-hover); font: 500 .76rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--st-text); white-space: pre-line; overflow-wrap: anywhere; }
 .st .status.error, .st .test-status.error { color: var(--st-err); }
 
 /* Tables */
@@ -290,6 +292,7 @@ body.st {
 /* Device view: just the chosen device and settings shared by its type. */
 .st-type-panel.is-device-view .device-card:not(.is-focused),
 .st-type-panel.is-device-view .st-type-extra { display: none !important; }
+.st-type-panel:not(.is-device-view) .st-type-device-only { display: none !important; }
 .st-type-panel.is-device-view { padding: 0; border: none; background: none; }
 .st-type-panel.is-device-view .st-type-setting { margin-top: 16px; padding: 16px 20px; border: 1px solid var(--st-line); border-radius: 14px; background: var(--st-panel); }
 .st-type-panel .device-card + .device-card { margin-top: 14px; }

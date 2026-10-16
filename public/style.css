@@ -689,6 +689,9 @@ h1, h2, h3, h4,
   .flow-item { min-height: auto; }
   .stat-value { font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); }
   #signin-btn { display: none !important; }
+  /* Signed out, the header row would be empty: drop it so it leaves no gap. */
+  .container > header:not(.is-signed-in) .header-right { display: none; }
+  .container > header { margin-bottom: 1rem; }
   .chart-container { height: auto; min-height: 300px; }
 }
 
@@ -822,10 +825,10 @@ h1, h2, h3, h4,
 .switch-control { display: flex; align-items: center; gap: 0.75rem; }
 .switch-state { font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); color: var(--text-secondary); min-width: 2.5rem; text-align: right; font-variant-numeric: tabular-nums; }
 
-/* Action toggle (green=on, amber=off) */
-.toggle-switch.action-toggle { width: 52px; height: 30px; }
-.toggle-switch.action-toggle input:checked + .slider { background: var(--switch-on-color, #00b354); }
-.toggle-switch.action-toggle .slider { background: var(--switch-off-color, #d29922); }
+/* Action toggle: the same 44x26 switch as Settings and the Controls safety
+   switches (sizes from .toggle-switch; colours in cards.css). */
+.toggle-switch.action-toggle { width: 44px; height: 26px; }
+.switch-state:empty { display: none; }
 
 /* Switch error state: red flash + shake */
 .switch-block.switch-error .toggle-switch .slider { background: var(--color-danger, #dc2626); box-shadow: 0 0 0 2px var(--color-danger, #dc2626); }
@@ -2241,6 +2244,21 @@ details.help-sub.help-hidden { display: none; }
 .flow-card-2 { --topo-d: clamp(64px, calc((100cqh - 5.5rem - var(--topo-extra, 0) * 0.95rem) / 3), 120px); }
 .flow-card-2 .topo-value, .flow-card-2 .topo-sub { white-space: nowrap; }
 .flow-card-2 .topo-hub { min-width: 34px; min-height: 40px; }
+/* Label and today's energy as one tight caption, just outside each circle on
+   the side away from the hub. Grid and Home hang theirs below the circle out
+   of flow, so their circles stay level with the inverter. */
+.flow-card-2 .topo-caption { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.flow-card-2 .topo-grid-node, .flow-card-2 .topo-home { position: relative; }
+.flow-card-2 .topo-grid-node > .topo-caption, .flow-card-2 .topo-home > .topo-caption {
+  position: absolute; top: calc(100% + 0.25rem); left: 50%; transform: translateX(-50%);
+}
+.flow-card-2 .topo-label { line-height: 1.1; }
+.flow-card-2 .topo-energy {
+  font-size: calc(max(0.64rem, var(--topo-d, 90px) * 0.1) * var(--card-font-scale, 1));
+  font-weight: 500; color: var(--text-secondary); line-height: 1.1;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.flow-card-2 .topo-energy[hidden] { display: none; }
 /* Flow card: one row down to ~420px wide (smaller icons, arrows and values);
    narrower than that, a 2×2 grid without the arrows. */
 .flow-card { container-type: inline-size; }

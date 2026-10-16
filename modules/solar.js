@@ -944,6 +944,11 @@ async function getSolarForecast(sourceParam, restMap) {
           const entry = computeNegativeCacheEntry(solcastErrText || 'Solcast unavailable', solcastErrStatus, solcastRetryAfter);
           if (prior && prior.lastGood) { entry.lastGood = prior.lastGood; entry.lastGoodData = prior.lastGoodData; }
           solcastNegativeCache[forecastSel] = entry;
+          require('./notifications/events').emitEvent('forecast.unavailable', {
+            subject: 'solcast',
+            message: `Solcast forecast failed: ${solcastErrText || 'unavailable'}${solcastErrStatus === 429 ? ' (the daily API quota is used up)' : ''}.`,
+            data: { status: solcastErrStatus || null },
+          });
         } else {
           // --- On success: clear negative cache for this selector ---
           delete solcastNegativeCache[forecastSel];
@@ -960,7 +965,10 @@ async function getSolarForecast(sourceParam, restMap) {
       const openMeteo = await getOpenMeteoArrays(lat, lon, arrays, lossFactor);
       forecastData = openMeteo.forecasts;
       source = openMeteo.source;
-    } catch (e) { return { error: 'All forecast sources unavailable' }; }
+    } catch (e) {
+      require('./notifications/events').emitEvent('forecast.unavailable', { subject: 'open-meteo', message: `Open-Meteo forecast failed: ${e.message}.` });
+      return { error: 'All forecast sources unavailable' };
+    }
   }
 
   if (!forecastData) return { error: 'All forecast sources unavailable' };
