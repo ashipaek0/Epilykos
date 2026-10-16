@@ -836,6 +836,15 @@ async def cmd_disconnect(args):
     return True
 
 
+async def cmd_set_log_level(args):
+    """Settings → Logs: the app's level, so Debug there includes this helper."""
+    level = str(args.get("level") or "").upper()
+    if level not in ("DEBUG", "INFO", "WARNING", "ERROR"):
+        raise HelperError(f"unknown log level {level!r}", "bad_request")
+    logging.getLogger().setLevel(level)
+    return {"level": level}
+
+
 async def cmd_disconnect_all(_args):
     for address in list(_bms):
         await _drop_bms(address)
@@ -855,6 +864,7 @@ COMMANDS = {
     "bms_switch": cmd_bms_switch,
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
+    "set_log_level": cmd_set_log_level,
 }
 
 

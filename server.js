@@ -391,7 +391,8 @@ const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, 
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
-app.use(morgan('combined', { stream: logger.stream }));
+// Settings → Logs polls every few seconds; logging those requests would fill the log with itself.
+app.use(morgan('combined', { stream: logger.stream, skip: req => req.originalUrl.startsWith('/api/logs') }));
 
 // Compression (gzip + brotli)
 app.use(compression());
@@ -433,6 +434,9 @@ app.use(session({
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
+require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
+require('./routes/remote').init(); // Tailscale back on after a restart, if remote access was on
+require('./modules/updates').start(); // daily check for a newer build; the result of an update just installed
 // Reassigned by rebindAfterRestore() — a restore reopens the connection.
 let db = getDb();
 loadProfiles();
@@ -665,7 +669,6 @@ app.use('/api', metricsRouter);
 // ---------- Authentication & Setup routes ----------
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
-authRoutes.announceSetupCode(); // logs the first-run setup code while setup is pending
 
 // Public page (pre-auth; setup.js gates sources behind login)
 app.get('/setup', (req, res) => {
@@ -673,6 +676,9 @@ app.get('/setup', (req, res) => {
 });
 
 // "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
+// EpilykosOS system actions (Settings → System): restart, shut down, Wi-Fi, SSH.
+app.use('/api/system', isAuthenticated, require('./routes/system'));
+
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
     setConfig(k, '[]');
@@ -2511,6 +2517,12 @@ app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
 // Protected routes
 app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
 app.use('/api/notifications', isAuthenticated, require('./modules/notifications/routes').createRouter());
+// Settings → Logs: recent lines, the level (changed while running), downloads.
+app.use('/api/logs', isAuthenticated, require('./routes/logs').router());
+// Settings → Network → Remote access (Tailscale). Signed-in only, so never before the admin password exists.
+app.use('/api/remote', isAuthenticated, require('./routes/remote').router());
+// Settings → Updates: newer build out?, "Update now".
+app.use('/api/updates', isAuthenticated, require('./routes/updates').router());
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {
@@ -2658,6 +2670,9 @@ async function shutdown(signal) {
   stopBmsPolling();
   stopBmsWiredPolling();
   stopDonglePolling();
+  require('./modules/tailscale').stopDaemon();
+  require('./modules/cloudflared').stop();
+  require('./modules/updates').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }

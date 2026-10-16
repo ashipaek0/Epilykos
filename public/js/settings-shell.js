@@ -16,6 +16,7 @@
     back: '<path d="M15 18l-6-6 6-6"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+    terminal: '<path d="M4 17l6-5-6-5"/><path d="M12 19h8"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     home: '<path d="M3 11l9-7 9 7v9H3z"/><path d="M10 20v-6h4v6"/>',
@@ -34,6 +35,8 @@
     check: '<path d="M20 6L9 17l-5-5"/>',
     alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
+    power: '<path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1011.4 0"/>',
+    refresh: '<path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/>',
     // source types
     register: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',
     serial: '<path d="M4 9h16v6H4z"/><path d="M8 9V6M16 9V6M8 15v3M16 15v3"/>',
@@ -177,7 +180,7 @@
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
     sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings',
-    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', backup: 'Backup and restore', help: 'Help'
+    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', logs: 'Logs', backup: 'Backup and restore', updates: 'Updates', system: 'System', help: 'Help'
   };
   var SAVABLE = ['sources', 'metrics', 'forecast', 'savings', 'appearance', 'uploads', 'network'];
   // Old section ids (bookmarks, the setup wizard, help text) → new ones.
@@ -241,7 +244,10 @@
 
   // Help text and older pages call navigateTo('data-sources', 'modbus').
   // For self-contained section scripts (js/notifications-settings.js).
-  window.stShell = { toast: toast, openDialog: openDialog, hydrateIcons: hydrateIcons, icon: icon, esc: esc };
+  // Badges a section script puts next to its nav entry (Updates: "New").
+  var navBadges = {};
+  function setNavBadge(sec, html) { navBadges[sec] = html || ''; if (typeof updateNavMeta === 'function') updateNavMeta(); }
+  window.stShell = { toast: toast, openDialog: openDialog, hydrateIcons: hydrateIcons, icon: icon, esc: esc, setNavBadge: setNavBadge };
 
   window.navigateTo = function (sectionId, subtabId) {
     var sec = LEGACY[sectionId] || sectionId;
@@ -414,6 +420,7 @@
       var meta = a.querySelector('.st-nav-meta');
       var html = '';
       if (sec === 'sources' && sourceIssues > 0) html += '<span class="st-badge is-error">' + sourceIssues + (sourceIssues === 1 ? ' issue' : ' issues') + '</span>';
+      if (navBadges[sec]) html += navBadges[sec];
       if (isDirty(sec)) html += '<span class="st-dirty-dot" title="Unsaved changes"></span><span class="st-visually-hidden">, unsaved changes</span>';
       meta.innerHTML = html;
     });

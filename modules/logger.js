@@ -2,6 +2,7 @@ const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
 const path = require('path');
 const fs = require('fs');
+const logBuffer = require('./logBuffer');
 
 // File logging is on by default (Docker Compose deployments read logs/).
 // LOG_TO_FILE=false logs to stdout/stderr only and never touches the
@@ -64,9 +65,24 @@ const logger = winston.createLogger({
     new winston.transports.Console({
       format: consoleFormat,
       level: logLevel
-    })
+    }),
+    // Last few thousand lines in memory for Settings → Logs (secrets removed).
+    new logBuffer.BufferTransport({ format: winston.format.timestamp() })
   ]
 });
+logBuffer.captureConsole();
+
+/**
+ * Change the level while running (Settings → Logs). The logger and every
+ * transport take it at once; the caller saves it.
+ */
+const LEVELS = ['error', 'warn', 'info', 'http', 'debug'];
+function setLevel(level) {
+  if (!LEVELS.includes(level)) throw new Error(`unknown log level ${level}`);
+  logger.level = level;
+  for (const t of logger.transports) t.level = level;
+  return level;
+}
 
 // Helper to log HTTP requests (morgan stream)
 logger.stream = {
@@ -80,4 +96,4 @@ function getLogger(moduleName) {
   return logger.child({ module: moduleName });
 }
 
-module.exports = { logger, getLogger, logToFile, logDir };
+module.exports = { logger, getLogger, logToFile, logDir, setLevel, LEVELS, envLevel: logLevel };
