@@ -51,6 +51,7 @@
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#logs" class="st-nav-link" data-section="logs"><span data-icon="terminal" data-size="18"></span><span class="st-nav-label">Logs</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#backup" class="st-nav-link" data-section="backup"><span data-icon="database" data-size="18"></span><span class="st-nav-label">Backup and restore</span><span class="st-nav-meta"></span></a></li>
       <li id="st-nav-system" hidden><a href="#system" class="st-nav-link" data-section="system"><span data-icon="power" data-size="18"></span><span class="st-nav-label">System</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#help" class="st-nav-link" data-section="help"><span data-icon="help" data-size="18"></span><span class="st-nav-label">Help</span><span class="st-nav-meta"></span></a></li>
@@ -895,6 +896,49 @@
         </div>
         <div id="sys-root"><p class="st-help">Loading…</p></div>
       </section>
+
+      <!-- ════════════ LOGS ════════════
+           Outside the settings form: the level saves on its own (see the Logs script below). -->
+      <section class="st-section" id="section-logs" data-section="logs" aria-labelledby="h-logs" hidden>
+        <div class="st-section-head">
+          <div><h1 id="h-logs">Logs</h1><p class="st-lede">What Epilykos is doing right now. Tokens, passwords and keys are hidden, so these are safe to share when asking for help.</p></div>
+          <div class="st-head-actions">
+            <a class="st-btn" id="lg-download" href="/api/logs/download"><span data-icon="download" data-size="16"></span>Download log</a>
+            <a class="st-btn st-btn-primary" id="lg-diagnostics" href="/api/logs/diagnostics"><span data-icon="download" data-size="16"></span>Diagnostics file</a>
+          </div>
+        </div>
+        <div class="st-card">
+          <div class="st-card-head"><h2>Detail</h2></div>
+          <div class="st-field">
+            <label for="lg-level">How much to log</label>
+            <select id="lg-level" class="input">
+              <option value="error">Errors only</option>
+              <option value="warn">Errors and warnings</option>
+              <option value="info">Normal</option>
+              <option value="http">Normal and web requests</option>
+              <option value="debug">Debug (everything, for troubleshooting)</option>
+            </select>
+            <span class="st-help" id="lg-level-help">Applies straight away, no restart needed.</span>
+          </div>
+        </div>
+        <div class="st-card">
+          <div class="st-card-head"><h2>Recent lines</h2><span class="st-help" id="lg-count"></span></div>
+          <div class="lg-toolbar">
+            <label class="st-visually-hidden" for="lg-show">Show</label>
+            <select id="lg-show" class="input">
+              <option value="">All lines</option>
+              <option value="warn">Warnings and errors</option>
+              <option value="error">Errors only</option>
+            </select>
+            <label class="st-visually-hidden" for="lg-source">Source</label>
+            <select id="lg-source" class="input"><option value="">All sources</option></select>
+            <label class="st-visually-hidden" for="lg-search">Search</label>
+            <input id="lg-search" class="input" type="search" placeholder="Search" autocomplete="off">
+            <span class="toggle-wrap lg-follow"><label class="toggle-switch"><input type="checkbox" id="lg-live" checked><span class="slider"></span></label><label for="lg-live">Live</label></span>
+          </div>
+          <div class="lg-list" id="lg-list" role="log" aria-label="Log lines" tabindex="0"><p class="st-help">Loading…</p></div>
+        </div>
+      </section>
       </div>
     </main>
 
@@ -940,6 +984,7 @@
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
 <script src="js/system-settings.js?v=1"></script>
+<script src="js/logs-settings.js?v=1"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
 </body>

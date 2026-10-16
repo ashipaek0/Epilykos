@@ -548,3 +548,32 @@ body.st {
 @media (max-width: 600px) { .st #metrics-table th { white-space: normal; } }
 @media (max-width: 600px) { .st #metrics-table td.num { white-space: normal; } }
 #cm-status:empty { display: none; } #cm-status { display: block; margin: 0 0 8px; }
+
+/* ── Logs (js/logs-settings.js) ─────────────────────────────────────────── */
+.st .lg-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.st .lg-toolbar select.input { width: auto; min-width: 0; max-width: 100%; flex: 0 1 auto; }
+.st .lg-toolbar input[type="search"] { flex: 1 1 12rem; min-width: 0; width: auto; }
+.st .lg-follow { margin-left: auto; }
+.st .lg-list {
+  height: min(60vh, 560px); overflow: auto; overscroll-behavior: contain;
+  border: 1px solid var(--st-line); border-radius: 10px; background: var(--st-canvas);
+  font: 500 .74rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--st-text);
+}
+.st .lg-list:focus-visible { outline: none; box-shadow: var(--st-focus); }
+.st .lg-list > .st-help { padding: 12px; margin: 0; }
+.st .lg-line { display: grid; grid-template-columns: auto 3.6em minmax(4em, 7em) 1fr; gap: 0 10px; padding: 2px 10px; border-bottom: 1px solid var(--st-line-soft); }
+.st .lg-line time { color: var(--st-muted); font-variant-numeric: tabular-nums; }
+.st .lg-lvl { text-transform: uppercase; font-weight: 800; color: var(--st-muted); }
+.st .lg-src { color: var(--st-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st .lg-msg { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+.st .lg-warn .lg-lvl { color: var(--st-amber-text); }
+.st .lg-warn { background: color-mix(in srgb, var(--st-amber) 7%, transparent); }
+.st .lg-error .lg-lvl, .st .lg-error .lg-msg { color: var(--st-err); }
+.st .lg-error { background: color-mix(in srgb, var(--st-err) 7%, transparent); }
+.st .lg-debug .lg-msg, .st .lg-http .lg-msg { color: var(--st-muted); }
+/* Phones: time and level on one row, the message under them. */
+@media (max-width: 640px) {
+  .st .lg-line { grid-template-columns: auto auto 1fr; }
+  .st .lg-msg { grid-column: 1 / -1; }
+  .st .lg-follow { margin-left: 0; }
+}
