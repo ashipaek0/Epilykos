@@ -312,7 +312,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | `BLUETOOTH` | `on` | `off` disables Bluetooth even when `/run/dbus` is mounted |
 | `BLE_KEEP_ALIVE` | `true` | Keep Bluetooth connections open between polls (`false` reconnects every poll: slower, frees adapter slots) |
 | `BLE_MAX_LINKS` | `1` | Bluetooth links (inverter dongles and BMS packs) kept open at once. With several devices on one adapter, the others are closed before the next connects; raise it if your adapter handles several connections well |
-| `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device) |
+| `BLE_LOG_LEVEL` | `WARNING` | Bluetooth helper log level (`INFO` / `DEBUG` when diagnosing a device). Debug in Settings → Logs also turns the helper to `DEBUG` |
 
 ---
 
@@ -335,7 +335,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | **BMS scan returns no devices** | Move the adapter closer (BLE range is ~10 m), close the vendor app, and scan again. On a Raspberry Pi 3 a USB Bluetooth dongle is more reliable than the onboard radio |
 | **Daily totals roll over at the wrong hour** | Set `TZ` (e.g. `TZ=Europe/Berlin`) or mount `/etc/localtime:/etc/localtime:ro`; the startup log line shows the active time zone |
 | **Setup wizard says Epilykos is already set up, but you never set a password** | Someone else opened the wizard first. Set `SETTINGS_PASSWORD` in `.env` and recreate the container: that password then unlocks setup and Settings |
-| **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |
+| **Need verbose logs** | Settings → Logs → **How much to log: Debug**. It applies at once, includes the Bluetooth helper, and turns itself back off after 30 minutes. **Diagnostics file** saves recent lines and settings with secrets hidden, to send when asking for help. (`LOG_LEVEL` in `.env` still sets the starting level; a level chosen in Settings overrides it.) |
 
 ---
 

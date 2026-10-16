@@ -50,7 +50,8 @@ check('LOG_TO_FILE=false: no file transport, no log directory created', () => {
     console.log('RESULT ' + JSON.stringify({ logToFile, transports: logger.transports.map(t => t.name || t.constructor.name) }));
   `, { LOG_TO_FILE: 'false', LOG_DIR: logDir });
   assert.strictEqual(result.logToFile, false);
-  assert.deepStrictEqual(result.transports, ['console']);
+  // The console, plus the in-memory lines for Settings → Logs; no file.
+  assert.deepStrictEqual(result.transports, ['console', 'BufferTransport']);
   assert.ok(!fs.existsSync(logDir), 'log directory must not be created');
 });
 
@@ -61,7 +62,7 @@ check('default: rotating file transport writes under LOG_DIR', () => {
     console.log('RESULT ' + JSON.stringify({ logToFile, n: logger.transports.length }));
   `, { LOG_TO_FILE: '', LOG_DIR: logDir });
   assert.strictEqual(result.logToFile, true);
-  assert.strictEqual(result.n, 2);
+  assert.strictEqual(result.n, 3, 'file, console and the in-memory lines');
   assert.ok(fs.existsSync(logDir), 'log directory created for file logging');
 });
 

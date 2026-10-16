@@ -100,6 +100,8 @@ class BleHelper {
       child._onEarlyExit = (msg) => { clearTimeout(timer); reject(new BleError(msg, 'start_failed')); };
     });
     this.ready.catch(() => {}); // surfaced through request()
+    // A level chosen in Settings → Logs before (or while) the helper starts.
+    this.ready.then(() => { if (helperLogLevel) this.request('set_log_level', { level: helperLogLevel }, 5000).catch(() => {}); }, () => {});
 
     readline.createInterface({ input: child.stdout }).on('line', line => this._onLine(child, line));
     readline.createInterface({ input: child.stderr }).on('line', line => {
@@ -339,8 +341,20 @@ async function shutdownBle() {
   if (shared) await shared.stop();
 }
 
+/**
+ * The helper logs at WARNING unless BLE_LOG_LEVEL says otherwise; Settings →
+ * Logs sends the app's level so Debug there includes the helper's detail.
+ * Kept for the next helper start when none is running.
+ */
+let helperLogLevel = null;
+const HELPER_LEVEL = { error: 'ERROR', warn: 'WARNING', info: 'WARNING', http: 'WARNING', debug: 'DEBUG' };
+function setLogLevel(appLevel) {
+  helperLogLevel = HELPER_LEVEL[appLevel] || null;
+  if (helperLogLevel && shared && shared.child) shared.request('set_log_level', { level: helperLogLevel }, 5000).catch(() => {});
+}
+
 module.exports = {
-  BleHelper, BleError, isConfigured, isValidAddress,
+  BleHelper, BleError, isConfigured, isValidAddress, setLogLevel,
   status, scan, readBms, bmsKind, bmsSwitch, modbusExchange, luxpowerExchange, gattRead, phocosGattChange, disconnect, shutdownBle,
   _setHelperForTests(h) { shared = h; }
 };

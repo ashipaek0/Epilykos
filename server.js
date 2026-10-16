@@ -391,7 +391,8 @@ const globalLimiter = require('express-rate-limit')({ windowMs: 15 * 60 * 1000, 
 app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
-app.use(morgan('combined', { stream: logger.stream }));
+// Settings → Logs polls every few seconds; logging those requests would fill the log with itself.
+app.use(morgan('combined', { stream: logger.stream, skip: req => req.originalUrl.startsWith('/api/logs') }));
 
 // Compression (gzip + brotli)
 app.use(compression());
@@ -433,6 +434,7 @@ app.use(session({
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
+require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
 // Reassigned by rebindAfterRestore() — a restore reopens the connection.
 let db = getDb();
 loadProfiles();
@@ -2513,6 +2515,8 @@ app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
 // Protected routes
 app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
 app.use('/api/notifications', isAuthenticated, require('./modules/notifications/routes').createRouter());
+// Settings → Logs: recent lines, the level (changed while running), downloads.
+app.use('/api/logs', isAuthenticated, require('./routes/logs').router());
 
 // ========== METRIC MANAGEMENT ENDPOINTS (protected) ==========
 app.get('/api/metrics/list', isAuthenticated, (req, res) => {
