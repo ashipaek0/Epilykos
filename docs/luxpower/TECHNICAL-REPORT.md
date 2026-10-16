@@ -1,12 +1,12 @@
 # LuxCloud 5.0.0: local Wi-Fi and Bluetooth protocol analysis for Epilykos
 
-> Historical analysis against commit `2792b1c`; the changes in this PR are described in [README.md](README.md). Supporting source/map links below open the complete analysis ZIP. Extract it to use the original report with direct relative source links. [source-index.json](source-index.json) maps these links to archive entries.
+> Historical analysis against commit `2792b1c`; the changes in this PR are described in [README.md](README.md). Class names below refer to the decompiled LuxCloud app, which is kept in a private analysis bundle and is not part of this repository.
 
 Analysis date: 16 October 2026. Input: the user-supplied `LuxCloud_5.0.0_apkcube.apks`. Repository baseline: [`ashipaek0/Epilykos`, `dev`, `2792b1c179e8995831beebc670c823baed6ef1a4`](https://github.com/ashipaek0/Epilykos/tree/2792b1c179e8995831beebc670c823baed6ef1a4).
 
 ## Findings that matter
 
-1. **Two telemetry corrections are supported by the app and reproduced against Epilykos.** SOC is the low byte of input register 5. BMS charge/discharge limits at inputs 81/82 use a model-dependent divisor of 10 or 100, rather than a universal 100. These affect both source modes because they share the decoder. See [synthetic counterexamples](analysis-bundle.zip).
+1. **Two telemetry corrections are supported by the app and reproduced against Epilykos.** SOC is the low byte of input register 5. BMS charge/discharge limits at inputs 81/82 use a model-dependent divisor of 10 or 100, rather than a universal 100. These affect both source modes because they share the decoder. See synthetic counterexamples (in the private analysis bundle).
 2. **LuxCloud supports TLS-PSK over local Wi-Fi; Epilykos currently uses plain TCP.** The app tries TLS 1.2 on port 8000, then opens a fresh plain connection on handshake failure. This is a supported app path missing from the reviewed transport; whether a particular dongle requires it remains untested.
 3. **BLE UUIDs are confirmed in full, but the write strategies differ.** Both use service `000000ff-0000-1000-8000-00805f9b34fb` and characteristic `0000ff01-0000-1000-8000-00805f9b34fb`. LuxCloud requests MTU 256 and submits chunks without response. Epilykos sends the whole frame with response. Existing hardware captures/tests support Epilykos's current implementation on at least the documented dongle; this analysis establishes a second compatibility strategy, not a universal failure of the current one.
 4. **There is substantially more configuration evidence than the current profile exposes.** The map contains 1,200 family-scoped parameter/address associations: 510 distinct names and 265 distinct holding start addresses. These counts include aliases, individual bits, packed time fields, and repeated definitions across families. They are not 1,200 independently writable registers. All 1,200 address results agree between JADX and Androguard.
@@ -15,11 +15,11 @@ No inverter or dongle was contacted. No setting was written. “Confirmed” in 
 
 ## Package and evidence quality
 
-The archive SHA-256 is `5b711382e85150db387501a03f7bfd166a38ba5d130221d7645a75b02a524b77`. The extracted base APK SHA-256 is `46d04386356d9ad9c22cd7d880eb78a8a9fff1bf49869a41da6b57272ba7f7fc`. Package `com.lux.luxcloud`, version name `5.0.0`, version code `100`, minimum SDK 29, target SDK 36. Certificate and all split hashes are in [package-inventory.json](analysis-bundle.zip). Recording the certificate fingerprint does not authenticate this mirror's distribution against a vendor release.
+The archive SHA-256 is `5b711382e85150db387501a03f7bfd166a38ba5d130221d7645a75b02a524b77`. The extracted base APK SHA-256 is `46d04386356d9ad9c22cd7d880eb78a8a9fff1bf49869a41da6b57272ba7f7fc`. Package `com.lux.luxcloud`, version name `5.0.0`, version code `100`, minimum SDK 29, target SDK 36. Certificate and split hashes are recorded in the private analysis bundle (`package-inventory.json`). Recording the certificate fingerprint does not authenticate this mirror's distribution against a vendor release.
 
 The app contains five DEX files, Android Java/Kotlin code, and bundled HTML/JavaScript setting interfaces. It is not a Flutter AOT application. The APK already supplies readable class and method names for the local connection and register machinery. Native Android classes, rather than unrelated web Bluetooth/battery-onboarding code, implement the inverter protocol examined here.
 
-JADX 1.5.6 produced app source with **276 reported decompilation errors** across the entire APK, including library code and enum reconstruction. Its output must not be treated as recompilable original source. A separate Androguard DAD pass produced the selected protocol, connection, model, parameter, and local UI classes. Decompiled enum syntax, variable types, and double constants can be misleading in DAD output. The machine-readable address map is cross-checked against the second decompiler, and readable conversion branches are taken from JADX. Both outputs and the original DEX class inventory are supplied under `evidence/`.
+JADX 1.5.6 produced app source with **276 reported decompilation errors** across the entire APK, including library code and enum reconstruction. Its output must not be treated as recompilable original source. A separate Androguard DAD pass produced the selected protocol, connection, model, parameter, and local UI classes. Decompiled enum syntax, variable types, and double constants can be misleading in DAD output. The machine-readable address map is cross-checked against the second decompiler, and readable conversion branches are taken from JADX. Neither decompiler output is included in this repository: they are the vendor's code. This report, `implemented-controls.json` and the tests carry only the facts Epilykos relies on (addresses, bit masks, model rules), in our own words.
 
 Evidence levels used:
 
@@ -32,7 +32,7 @@ Evidence levels used:
 
 `AbstractLocalConnect` implements the common operations: read holding, read input, write single, write multiple, and read/write dongle parameters. `TcpManager` and `BluetoothLocalConnect` implement the transports. Both deliver incoming bytes to `TcpAnalyzer` and use `DataFrameFactory` for translated inverter commands.
 
-Source: [AbstractLocalConnect.java](analysis-bundle.zip), [DataFrameFactory.java](analysis-bundle.zip), [TcpAnalyzer.java](analysis-bundle.zip).
+Source: `AbstractLocalConnect.java`, `DataFrameFactory.java`, `TcpAnalyzer.java`.
 
 ### Local Wi-Fi
 
@@ -57,7 +57,7 @@ The PSK configuration is explicit:
 
 The app does not uppercase, pad, or otherwise transform the serial inside `calcPsk`. The exact serial matters. It obtains a serial from the Wi-Fi SSID for the local connection flow. TLS does not change the application frame format.
 
-Source: [TcpManager.java](analysis-bundle.zip), [PskTlsConfig.java](analysis-bundle.zip), [PSK_TLS_CONSTANT.java](analysis-bundle.zip), [DonglePskUtil.java](analysis-bundle.zip).
+Source: `TcpManager.java`, `PskTlsConfig.java`, `PSK_TLS_CONSTANT.java`, `DonglePskUtil.java`.
 
 Do not infer that every installed dongle supports or requires TLS. A useful Epilykos extension is a selectable `off` / `required` / `auto` local transport policy with the selected mode and handshake failure visible in Test diagnostics. Preserve a fresh connection for fallback; sending plain frames into a failed TLS session does not reproduce the app.
 
@@ -73,7 +73,7 @@ These complete strings occur in the app. No Bluetooth-base suffix is being guess
 
 The app enables notifications, writes the notification descriptor, then requests MTU 256. With the default MTU 23, its payload limit is 20 bytes. For a successfully negotiated MTU above 23 it uses `max(20, MTU-3)`. It sets Android write type 1, meaning write without response, and divides the full application frame into chunks. Each submitted chunk waits for a callback wake-up or up to 300 ms. This is not a mandatory 300 ms radio protocol delay. A rejected Android submission stops the operation. Notification bytes go individually to the shared analyzer, so notification boundaries are not application-frame boundaries.
 
-Source: [BluetoothLocalConnect.java](analysis-bundle.zip), particularly GATT discovery/MTU callbacks and `sendPureCommand`.
+Source: `BluetoothLocalConnect.java`, particularly GATT discovery/MTU callbacks and `sendPureCommand`.
 
 Epilykos's reviewed helper instead calls `write_gatt_char(..., response=True)` on the entire frame. Its comments describe BlueZ long writes, and repository tests include BLE response fragmentation. The practical improvement is to support and diagnose both strategies using actual characteristic properties and negotiated write sizes. Do not remove a working long-write path solely because this app uses another path. Do not blindly send two copies after a timeout: a write may have been accepted even when its response was lost.
 
@@ -95,7 +95,7 @@ The APK enum defines protocol prefixes 1 and 2; `AbstractLocalConnect` defaults 
 
 Outer functions: `C1` heartbeat, `C2` translated inverter data, `C3` read dongle parameter, `C4` write dongle parameter.
 
-Source: [AbstractTcpDataFrame.java](analysis-bundle.zip), [TCP_PROTOCOL.java](analysis-bundle.zip), [TCP_FUNCTION.java](analysis-bundle.zip).
+Source: `AbstractTcpDataFrame.java`, `TCP_PROTOCOL.java`, `TCP_FUNCTION.java`.
 
 ### Translated inverter data (`C2`)
 
@@ -121,9 +121,9 @@ A read or single-write request is 38 bytes. A normal read reply contains u8 byte
 
 CRC: reflected polynomial `0xA001`, initial `0xFFFF`, xor-out 0, calculated over the inner bytes `frame[20:-2]`; store low byte first. The usual check string `123456789` gives `0x4B37`.
 
-Source: [AbstractQueryCommand.java](analysis-bundle.zip), [WriteSingleCommand.java](analysis-bundle.zip), [WriteMultiCommand.java](analysis-bundle.zip), [TransferData.java](analysis-bundle.zip), [ProTool.java](analysis-bundle.zip).
+Source: `AbstractQueryCommand.java`, `WriteSingleCommand.java`, `WriteMultiCommand.java`, `TransferData.java`, `ProTool.java`.
 
-The app also has exception and firmware-update device functions. Their literal codes are retained in [command-catalog.json](analysis-bundle.zip). That catalog is not a supported-command or write-permission list for Epilykos.
+The app also has exception and firmware-update device functions. Their literal codes are retained in `command-catalog.json`. That catalog is not a supported-command or write-permission list for Epilykos.
 
 ### Identity/bootstrap
 
@@ -139,7 +139,7 @@ Useful identity fields in that holding block:
 
 `Inverter.isGeta()` checks device type 13 and single phase. Other family predicates use additional type, phase, model, machine, and firmware data. `LocalViewPagerAdapter` chooses local settings classes: type6→12K class, type3 or11→off-grid class, type9→Mid class, otherwise general class. These are UI routing rules, not a universal product model catalogue.
 
-Source: [AbstractLocalConnect.java](analysis-bundle.zip), [Constants.java](analysis-bundle.zip), [Inverter.java](analysis-bundle.zip), [Model.java](analysis-bundle.zip), [LocalViewPagerAdapter.java](analysis-bundle.zip).
+Source: `AbstractLocalConnect.java`, `Constants.java`, `Inverter.java`, `Model.java`, `LocalViewPagerAdapter.java`.
 
 This supports a read-only onboarding/Test improvement: discover and display identity before asking users to enter two serials. A zero/wildcard discovery reply is not sufficient authority to enable arbitrary writes or classify an unknown device as GETA.
 
@@ -147,7 +147,7 @@ This supports a read-only onboarding/Test improvement: discover and display iden
 
 The local overview reads input windows 0–39, 40–79, and 80–119. Its third-window completion flag means the app does not necessarily re-read BMS metadata on every overview cycle. Epilykos may reasonably choose its own refresh interval, but any scale flag must remain coherent with the values decoded from it.
 
-The [input map](analysis-bundle.zip) lists 38 distinct native input references, including the separate PayGo result reference. The [register-use inventory](analysis-bundle.zip) preserves all literal accessor uses, including frame-relative indices and resolved read bases. It does not turn every existing Epilykos metric into APK-confirmed evidence.
+The input map (in the private analysis bundle) lists 38 distinct native input references, including the separate PayGo result reference. The register-use inventory (in the private analysis bundle) preserves all literal accessor uses, including frame-relative indices and resolved read bases. It does not turn every existing Epilykos metric into APK-confirmed evidence.
 
 ### SOC
 
@@ -155,7 +155,7 @@ Input 5 is read using `FrameTool.getRegLowInt`, then shown as a percentage. `0x6
 
 Epilykos's profile declares the whole register as `uint16`, and the shared decoder has single-bit extraction but no general byte-width extraction on this path. Correcting only the profile label will not fix it. Add a general mask/shift field or an equivalent explicit derived field and test both mapped polling and unsolicited push decoding.
 
-Source: `LocalOverviewFragment.lambda$sendRead04Command1$4`, [FrameTool.java](analysis-bundle.zip).
+Source: `LocalOverviewFragment.lambda$sendRead04Command1$4`, `FrameTool.java`.
 
 ### BMS current limits
 
@@ -169,11 +169,11 @@ The app reads these fields when input80 low2 bits indicate lithium, or when the 
 
 For a valid flag word `1026` (`0x0402`) with no overriding /100 family, raw660 means66A. The current GETA profile always multiplies by0.01, producing6.6A. The map keeps dynamic scale null with the condition described. Preserve the raw flags and identity context needed to decode it. Do not apply just bit10 globally without the family exceptions.
 
-Source: `LocalOverviewFragment.lambda$sendRead04Command3$8`, [Inverter.java](analysis-bundle.zip).
+Source: `LocalOverviewFragment.lambda$sendRead04Command3$8`, `Inverter.java`.
 
 ### Power direction and derived values
 
-The app confirms separate battery charge and discharge power words10 and11. A signed net-charge metric can be `input10-input11`, positive when charging. Its grid display uses `input26-input27`, with positive labeled Export and negative Import. Resource labels are included in [android-strings-default.json](analysis-bundle.zip).
+The app confirms separate battery charge and discharge power words10 and11. A signed net-charge metric can be `input10-input11`, positive when charging. Its grid display uses `input26-input27`, with positive labeled Export and negative Import. Resource labels are included in `android-strings-default.json`.
 
 Normal PV total is `input7+input8+input9`; the AC-charger branch handles register7 differently. Normal usage power is `max(0, input16-input17+input27-input26)`; the AC-charger branch additionally includes register7. EPS power comes from24 when state0≥64. Keep signed raw derived values separate from app presentation clamping when diagnosing power balance. Do not assume AC-charger exceptions apply to GETA.
 
@@ -185,7 +185,7 @@ The app's total-generation expression reads the first component at40 with a u32 
 
 ## Configuration register map
 
-[holding-register-map.json](analysis-bundle.zip) and its CSV contain the resolved start registers from five local UI classes. Every row retains family/class, parameter identifier, address, packed bit metadata where resolved, conversion/display branches, source references, and hardware-verification status. Scale is established for734 associations; remaining values are null rather than guessed. A scale value is still scoped to its row's class and conversion branch.
+`holding-register-map.json` and its CSV contain the resolved start registers from five local UI classes. Every row retains family/class, parameter identifier, address, packed bit metadata where resolved, conversion/display branches, source references, and hardware-verification status. Scale is established for734 associations; remaining values are null rather than guessed. A scale value is still scoped to its row's class and conversion branch.
 
 Examples of settings exposed in the APK include charging/discharging percentages, AC charging thresholds and schedules, generator charging, lead-acid charging and cutoff voltages, equalization, PV start voltage, feed-in control, grid connection/protection, EPS behavior, parallel operation, smart load/AC coupling, fan controls, and MidBox port settings. A firmware or hardware condition in a source branch remains significant even if its start address is shared with another family.
 
@@ -216,7 +216,7 @@ The app's own write acknowledgment checks are weaker than Epilykos's guarded Con
 
 ### Dongle parameters and non-monitoring paths
 
-Dongle parameters use outer C3/C4, a separate address space from inverter holding/input registers. The [datalog map](analysis-bundle.zip) records15 observed indices, including serial, Wi-Fi provisioning, server address, firmware/capability data, AP encryption/password, IP configuration, restart/reset, and first-use status.
+Dongle parameters use outer C3/C4, a separate address space from inverter holding/input registers. The datalog map (in the private analysis bundle) records15 observed indices, including serial, Wi-Fi provisioning, server address, firmware/capability data, AP encryption/password, IP configuration, restart/reset, and first-use status.
 
 A C3 read payload is ten serial bytes plus u16 parameter index. A C4 write payload adds u16 byte length and the parameter bytes. These paths do not carry the translated inverter inner CRC. The application payload builders and reader response parsing are retained as source; do not assume C2 offsets apply to them.
 
@@ -226,7 +226,7 @@ The app also declares `HOLD_TOKEN_CONFIG` at359 with count11 and text type, and 
 
 The reviewed `dev` has225 profile metrics (167 input,58 holding),20 two-register u32 entries, and8 explicitly listed writable settings. Both TCP and BLE use the same profile and core decoder. The namespace separation of input/holding words, CRC checks, fragmented-stream handling, serialization, and readback workflow should remain in place.
 
-The preserved baseline sources and an address-only crosswalk are under [comparison/](analysis-bundle.zip). A matching address in that crosswalk does not by itself verify a label, scale, or model's support.
+The preserved baseline sources and an address-only crosswalk are under comparison/ (in the private analysis bundle). A matching address in that crosswalk does not by itself verify a label, scale, or model's support.
 
 | Priority | Change | Evidence and practical limit |
 |---|---|---|
@@ -243,15 +243,18 @@ For new settings, start with ordinary battery/charging controls demonstrably app
 
 Recommended verification sequence: compare read-only identity and raw words over both transports; compare decoded values with the app while raw frames are captured; test both BLE write strategies and MTU23/negotiated MTU; test TLS-required and legacy dongles; then validate any new setting one at a time with expected value and independent readback. Capture polling and unsolicited pushes, including malformed/short/exception frames and simultaneous UI activity. A synthetic fixture passing is not hardware confirmation.
 
-## Delivered tools and validation
+## Analysis tools (not in this repository)
+
+The tools below, the decompiler outputs and the original logs are kept in the private analysis bundle, outside this repository.
+
 
 - `scripts/lux_codec.py`: offline read/single-write/multi-write frame construction, CRC, stream reassembly, BLE chunk planning, and partial app-confirmed telemetry decoding. Frame construction does not perform writes.
 - `scripts/read_local.py`: explicit-target, read-only Wi-Fi/BLE probe. Wi-Fi TLS-PSK requires Python3.13+ with compatible OpenSSL; BLE requires Bleak. It sends only holding/input reads. It is a one-shot diagnostic, not a production daemon or a complete heartbeat client.
 - `scripts/capture_app.js`: optional Frida hooks for app TX/RX translated frames, including app plaintext above TLS. It injects no commands. C3/C4 provisioning traffic is deliberately omitted because it can contain Wi-Fi credentials. The hooks have not been tested on a live Android process.
-- `scripts/extract_registers.py` and `enrich_registers.py`: reproduce the holding map from the included two decompiler outputs. `decompile_android.py` reproduces the selected DAD pass from the original base APK when Androguard is installed.
+- `scripts/extract_registers.py` and `enrich_registers.py`: reproduce the holding map from the two decompiler outputs. `decompile_android.py` reproduces the selected DAD pass from the original base APK when Androguard is installed.
 - `scripts/compare_epilykos.js`: reproduces the synthetic SOC/current counterexamples against an installed Epilykos checkout, without device I/O.
 - `scripts/test_codec.py`:16 offline tests passed, including the existing repository request vector, read reassembly, CRC rejection, write frame shapes, chunk sizes, family-dependent scales, and map cross-check coverage.
 
-The existing Epilykos targeted frame, socket, and BLE suites passed:2,081,56, and25 checks respectively (2,162 total). They were run against the archived current `dev` sources using already-installed repository dependencies; the first attempt lacked dependencies, then the suites were rerun successfully with the dependency path supplied. Logs are included. These suites test existing behavior and do not contain the new failing-value cases; those counterexamples are supplied separately.
+The existing Epilykos targeted frame, socket, and BLE suites passed:2,081,56, and25 checks respectively (2,162 total). They were run against the archived `dev` sources at the time; the logs are in the private bundle. These suites test existing behavior and do not contain the new failing-value cases; those counterexamples are supplied separately.
 
 The provided network/Bluetooth probe, PSK handshake against hardware, Frida instrumentation, and new settings remain **hardware-unverified**. No claim is made that every address in the map exists on the user's inverter or that every decompiled UI path works correctly in the app.

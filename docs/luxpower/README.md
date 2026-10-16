@@ -2,7 +2,7 @@
 
 This branch targets `dev` and uses the supplied LuxCloud 5.0.0 APK as static evidence. The available hardware for follow-up is the owner's **3.6 kW GETA**. No live inverter was accessed during development. Device power rating is not inferred from the model discriminator.
 
-Read the [technical report](TECHNICAL-REPORT.md), [implemented control evidence](implemented-controls.json), and [source excerpts](SOURCE-EXCERPTS.txt). The [complete analysis bundle](analysis-bundle.zip) contains the original report, 1,200 family-scoped address associations, input map, transport/CRC specification, decompiler sources, reproduction scripts, package hashes and original baseline test logs. Those historical logs are not validation of this PR. The [source index](source-index.json) includes the ZIP SHA-256 and internal source/map paths.
+Read the [technical report](TECHNICAL-REPORT.md) and the [implemented control evidence](implemented-controls.json). The decompiled LuxCloud code and the full analysis bundle are kept outside this repository: they are the vendor's code, and this public GPL repository must not redistribute them. The `evidence` fields name the class and line in that private bundle.
 
 ## Changes
 
