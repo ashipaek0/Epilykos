@@ -1,0 +1,29 @@
+{
+  "testedAt": "2026-10-16T19:48:10+00:00",
+  "sourceCommit": "the commit that last changed this file (git log -- docs/luxpower/validation.json)",
+  "baseCommit": "429268d (dev at the time of the merged run)",
+  "command": "npm test",
+  "exitCode": 0,
+  "summary": "Branch alone: 128/128 fixtures passed, 17369 checks. Merged with dev 429268d: 129/129, 17402 checks.",
+  "runtime": {
+    "node": "v22.22.0",
+    "python": "Python 3.13.16"
+  },
+  "browserSmoke": {
+    "browser": "Google Chrome headless",
+    "renderedNewControls": 12,
+    "timeRead": "10:30",
+    "changesRemainLocked": true,
+    "verificationDownloads": 1,
+    "downloadedSnapshotComplete": true,
+    "javascriptExceptions": [],
+    "backend": "Read-only fake GETA API; no live inverter"
+  },
+  "tlsEvidence": "Real loopback TLS1.2 PSK server/client; fallback, stop and no-replay tests",
+  "bleEvidence": "Existing capture fixtures plus fake clients at MTU23/256; four additional Python unit cases",
+  "controlsEvidence": "Fake GETA TCP server, API auth/lock checks, model gate, typed expected values, bit preservation, schedules, exact readback, ambiguous writes and read-only snapshots",
+  "hardwareValidated": false,
+  "hardwarePending": "Owner-supplied 3.6 kW GETA; use README.md and verification-record.json",
+  "pullRequest": "https://github.com/ashipaek0/Epilykos/pull/172",
+  "note": "A record of one run, not a guarantee for later commits: rerun npm test after any change."
+}

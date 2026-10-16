@@ -308,11 +308,13 @@ async function modbusExchange(address, { writeUuid, notifyUuid, frame, timeout =
  * notified response frame that answers it (same dev_fn, start register and
  * inverter serial). Unsolicited pushes arriving meanwhile are skipped.
  */
-async function luxpowerExchange(address, { writeUuid, notifyUuid, frame, timeout = 15 }) {
+async function luxpowerExchange(address, { writeUuid, notifyUuid, frame, timeout = 15, writeMode = 'long-response', chunkDelayMs = 300 }) {
   const result = await helper().request('luxpower', {
-    address, write_uuid: writeUuid, notify_uuid: notifyUuid, frame: frame.toString('hex'), timeout
+    address, write_uuid: writeUuid, notify_uuid: notifyUuid, frame: frame.toString('hex'), timeout, write_mode: writeMode, chunk_delay_ms: chunkDelayMs
   }, (timeout + 5) * 1000);
-  return Buffer.from(result.frame, 'hex');
+  const response = Buffer.from(result.frame, 'hex');
+  response.diagnostics = result.diagnostics || {};
+  return response;
 }
 
 /**

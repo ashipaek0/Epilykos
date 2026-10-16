@@ -39,6 +39,15 @@ async function run(){let count=0;const check=(fn)=>{fn();count++};
  r=await rowFor({name:'Pho',kind:'inverter'},{name:'amps',label:'Amps',description:'Rate',type:'number',unit:'A',min:0,max:80,step:1},[{ok:true,data:{value:25,inRange:false,capability:{min:2,max:80,step:1,allowed:[2,10,20,30],writable:true}}}]);await r.read();check(()=>assert.match(r.msg.textContent,/reports 25 A, which isn't one of the allowed values \(2 A, 10 A, 20 A, 30 A\)/));check(()=>assert.equal(r.change.dataset.blocked,'true'));
  // Really out of range: the range is named.
  r=await rowFor({name:'Pho',kind:'inverter'},{name:'amps',label:'Amps',description:'Rate',type:'number',unit:'A',min:0,max:80,step:1},[{ok:true,data:{value:95,inRange:false,capability:{min:2,max:80,step:1,allowed:[2,10],writable:true}}}]);await r.read();check(()=>assert.match(r.msg.textContent,/outside the supported range \(2–80 A\)/));
+ // GETA schedule values must remain HH:MM strings through the shared Controls UI.
+ r=await rowFor({name:'GETA',kind:'dongle'},{name:'ac_charge_start_time_1',label:'Grid start',description:'',type:'time'},[{ok:true,data:{value:'10:30',inRange:true,writable:true}},{ok:true,data:{value:'11:45'}}]);
+ await r.read();check(()=>assert.match(r.row.innerHTML,/type="time"/));check(()=>assert.equal(r.input.value,'10:30'));
+ r.input.value='11:45';r.change.dataset.locked='false';r.change.disabled=false;const tp=r.change.click();await new Promise(setImmediate);r.answer(true);await tp;
+ check(()=>assert.equal(r.fetches.find(x=>x.url.endsWith('/change')).body.value,'11:45'));check(()=>assert.equal(r.fetches.find(x=>x.url.endsWith('/change')).body.expected,'10:30'));
+ // A sent/unverified write blocks another attempt until an explicit fresh read.
+ r=await rowFor({name:'GETA',kind:'dongle'},{name:'power',label:'Charging limit',description:'',type:'number',min:0,max:100,step:1},[{ok:true,data:{value:50,inRange:true,writable:true}},{ok:false,data:{written:true,status:'sent_unverified',error:'Lost reply'}}]);
+ await r.read();r.input.value='49';r.change.dataset.locked='false';r.change.disabled=false;const up=r.change.click();await new Promise(setImmediate);r.answer(true);await up;
+ check(()=>assert.equal(r.change.dataset.blocked,'true'));check(()=>assert.equal(r.current.textContent,'Sent; read to check'));
  const s=harness();s.ctx.setStatus({unlockedUntil:null,writesEnabled:true,expertEnabled:true});check(()=>assert.equal(s.els.get('ct-allow').disabled,true));
  console.log(`phocos controls UI: ${count} checks passed`);checks.done(count);
 }

@@ -55,6 +55,16 @@ router.post('/read', async (req, res) => {
   res.status(r.error ? 502 : 200).json(r);
 });
 
+// Read-only diagnostic: available while changes are locked/off.
+router.post('/luxpower-verification', async (req, res) => {
+  const device = text(body(req).device);
+  if (!device) return res.status(400).json({ error: 'device is required' });
+  const result = await require('../modules/dongle').luxpowerVerification(device);
+  if (!result.error) result.changeLog = controls.recentLog(500).filter(e => e.device === device);
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(result.error ? 502 : 200).json(result);
+});
+
 router.post('/change', controls.requireUnlocked, async (req, res) => {
   const b = body(req);
   const device = text(b.device), setting = text(b.setting, 64);

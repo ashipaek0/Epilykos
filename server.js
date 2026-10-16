@@ -2341,6 +2341,7 @@ app.post('/api/dongle/test', async (req, res) => {
     try {
       bt = new BleLuxpowerTransport({
         ble_address: req.body.ble_address || host,
+        ble_write_mode: req.body.ble_write_mode, protocol: req.body.protocol,
         dongle_serial: String(req.body.dongle_serial || req.body.serial_number || '').trim(),
         inverter_serial: String(req.body.inverter_serial || req.body.serial_number || '').trim()
       });
@@ -2350,10 +2351,10 @@ app.post('/api/dongle/test', async (req, res) => {
     try {
       // Input registers 0-39: operational state, battery voltage (reg 4, 0.1 V) and SOC (reg 5).
       const data = await bt.readRegisters(0, 40, 0x04);
-      return res.json({ success: true, raw: `${data.readUInt16LE(0)} — battery ${(data.readUInt16LE(8) / 10).toFixed(1)} V, ${data.readUInt16LE(10)} %` });
+      return res.json({ success: true, raw: `${data.readUInt16LE(0)} — battery ${(data.readUInt16LE(8) / 10).toFixed(1)} V, ${data.readUInt16LE(10) & 255} %`, diagnostics: bt.diagnostics, ...await require('./modules/dongle/luxpowerModel').identityDiagnostic(bt) });
     } catch (err) {
       logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
-      return res.status(502).json({ error: err.message });
+      return res.status(502).json({ error: err.message, diagnostics: bt.diagnostics });
     }
   }
   if (transport === 'ble-modbus') {
@@ -2464,7 +2465,7 @@ app.post('/api/dongle/test', async (req, res) => {
           port: safePort || 8000,
           dongle_serial: dongleSerial,
           inverter_serial: inverterSerial,
-          timeout_ms: 3000
+          timeout_ms: 5000, tls_policy: req.body.tls_policy, protocol: req.body.protocol
         });
       } catch (e) {
         return res.status(400).json({ error: e.message });
@@ -2473,7 +2474,9 @@ app.post('/api/dongle/test', async (req, res) => {
         // Real read cycle: input register 0x0000 (operational state); values
         // are little-endian words on the wire (see luxpower-geta profile).
         const data = await transportObj.readRegisters(0, 1, 0x04);
-        res.json({ success: true, raw: data.readUInt16LE(0) });
+        res.json({ success: true, raw: data.readUInt16LE(0), diagnostics: transportObj.diagnostics, ...await require('./modules/dongle/luxpowerModel').identityDiagnostic(transportObj) });
+      } catch (err) {
+        res.status(502).json({ error: err.message, diagnostics: transportObj.diagnostics });
       } finally {
         transportObj.stop();
       }
