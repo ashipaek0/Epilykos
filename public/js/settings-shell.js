@@ -34,6 +34,7 @@
     check: '<path d="M20 6L9 17l-5-5"/>',
     alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
+    power: '<path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1011.4 0"/>',
     // source types
     register: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',
     serial: '<path d="M4 9h16v6H4z"/><path d="M8 9V6M16 9V6M8 15v3M16 15v3"/>',
@@ -177,7 +178,7 @@
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
     sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings',
-    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', backup: 'Backup and restore', help: 'Help'
+    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', backup: 'Backup and restore', system: 'System', help: 'Help'
   };
   var SAVABLE = ['sources', 'metrics', 'forecast', 'savings', 'appearance', 'uploads', 'network'];
   // Old section ids (bookmarks, the setup wizard, help text) → new ones.

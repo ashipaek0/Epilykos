@@ -280,7 +280,7 @@
     busy: false,
     skipped: {},           // step number -> true when it was skipped without saving
     existing: null,
-    password: { newPw: '', confirmPw: '', setupCode: '', envPw: '' },
+    password: { newPw: '', confirmPw: '', envPw: '' },
     sources: defaultSources(),
     // Saved sources the wizard doesn't show (a second Home Assistant, inverters
     // on other profiles...), by config key. Saved back unchanged, never dropped.
@@ -317,7 +317,9 @@
       if (!res.ok || !res.data) { showFatal(); return; }
       state.status = res.data;
       isAuthenticated().then(function (auth) {
-        if (state.status.completed) {
+        // Someone already chose the admin password (the first visitor sets
+        // it): everyone else signs in before continuing setup.
+        if (state.status.completed || (state.status.passwordSet && !state.status.passwordEnvManaged)) {
           if (!auth) { showAlreadySetup(); return; }
           // Authenticated re-run: skip password, start additive at step 2
           state.authGated = false;
@@ -704,7 +706,6 @@
     var envManaged = state.status && state.status.passwordEnvManaged;
     state.password.newPw = '';
     state.password.confirmPw = '';
-    state.password.setupCode = '';
     state.password.envPw = '';
 
     var html = '<div class="wz-card"><div class="wz-card-body">';
@@ -718,12 +719,6 @@
         html += alertBox('info', 'The admin password is set with the <code>SETTINGS_PASSWORD</code> environment variable, so there\'s nothing to do here.');
       }
     } else {
-      if (state.authGated) {
-        html += field('Setup code', '<input id="pw-setup-code" class="wz-code-input" data-field="password.setupCode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="XXXXXXXX">', {
-          forId: 'pw-setup-code',
-          hint: 'An 8-character code printed in the server log when Epilykos starts, for example with <code>docker logs epilykos</code>. It proves you run this server.'
-        });
-      }
       html += grid(
         field('New password', passwordInput('password.newPw', 'pw-new', 'new-password'), { forId: 'pw-new' }),
         field('Confirm password', passwordInput('password.confirmPw', 'pw-confirm', 'new-password'), { forId: 'pw-confirm' })
@@ -752,7 +747,7 @@
     if (len) len.classList.toggle('is-met', (p.newPw || '').length >= 4);
     if (match) match.classList.toggle('is-met', !!p.newPw && p.newPw === p.confirmPw);
     var submit = $('#pw-submit');
-    if (submit && state.status && !state.status.passwordEnvManaged) submit.disabled = !(validNewPassword() && (!state.authGated || (p.setupCode || '').trim().length > 0));
+    if (submit && state.status && !state.status.passwordEnvManaged) submit.disabled = !validNewPassword();
   }
 
   function submitPassword() {
@@ -767,7 +762,7 @@
         setGlobalError((p.newPw.length < 4) ? 'The password needs at least 4 characters.' : 'The two passwords don\'t match.');
         return;
       }
-      payload = { password: p.newPw, setup_code: p.setupCode };
+      payload = { password: p.newPw };
     }
     setBusy(true);
     var submitBtn = $('#pw-submit'); if (submitBtn) submitBtn.classList.add('is-busy');
@@ -792,7 +787,7 @@
 
   function afterPasswordDone() {
     state.password.newPw = ''; state.password.confirmPw = '';
-    state.password.setupCode = ''; state.password.envPw = '';
+    state.password.envPw = '';
     if (state.authGated) {
       state.authGated = false;
       state.isReRun = false;
