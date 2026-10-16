@@ -42,6 +42,7 @@ function runBridge(script, args) {
 }
 
 const incompleteWarned = new Map(); // device name → last warning time
+const unreachable = new Map();      // device name → when it stopped answering
 const INCOMPLETE_WARN_MS = 10 * 60 * 1000;
 
 // Older Smart Life scans saved function codes ("switch_1") where the DP
@@ -134,7 +135,22 @@ async function pollTuyaDevices() {
       result.success();
     } catch (e) {
       result.fail(e);
-      logger.error(`Tuya poll error for "${device.name || device.dev_id}": ${e.message}`);
+      // Say it when a device stops answering and when it is back, not every
+      // 30 s while it is off (a plug on the grid side during an outage).
+      const name = device.name || device.dev_id;
+      if (!unreachable.has(name)) {
+        unreachable.set(name, Date.now());
+        logger.warn(`Tuya: "${name}" is not answering (${device.address}): ${e.message}. Its controls show Unavailable once it has been quiet for 3 minutes.`);
+      } else {
+        logger.debug(`Tuya poll error for "${name}": ${e.message}`);
+      }
+      return;
+    }
+    const name = device.name || device.dev_id;
+    if (unreachable.has(name)) {
+      const mins = Math.round((Date.now() - unreachable.get(name)) / 60000);
+      unreachable.delete(name);
+      logger.info(`Tuya: "${name}" is answering again${mins ? ` after ${mins} min` : ''}`);
     }
   });
 

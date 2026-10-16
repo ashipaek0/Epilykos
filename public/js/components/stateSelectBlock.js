@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils.js';
+import { isStaleReading } from './readingAge.js';
 
 const STATE_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (see switchBlock.js).
@@ -40,6 +41,7 @@ export function buildStateSelectBlock(block = {}) {
   container.dataset.blockId = block.id || '';
   // State comes from the metric (an HA entity id or MQTT topic isn't one).
   container.dataset.metric = config.metric || config.entity || '';
+  container.dataset.source = config.source || 'ha';
 
   const label = escapeHtml(config.label || config.entity || 'Mode');
   const states = normalizeStates(config);
@@ -185,8 +187,12 @@ export function updateStateSelectBlockFromState(state) {
     if (!metric) return;
     const data = state.metrics?.[metric];
     if (!data || data.value == null) return;
+    // Not answering: select nothing rather than its last reading.
+    const stale = isStaleReading(container.dataset.source, data);
+    container.classList.toggle('is-unavailable', stale);
+    container.title = stale ? 'The device is not answering' : '';
 
-    const currentValue = String(data.value).toLowerCase();
+    const currentValue = stale ? '' : String(data.value).toLowerCase();
     const selectEl = container.querySelector('.state-select-dropdown');
     // A reading older than the user's change: keep the change on screen.
     if (container.dataset.pending) {
