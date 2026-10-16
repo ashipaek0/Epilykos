@@ -129,13 +129,14 @@
     var host = state.host;
     var h = '<div class="st-card"><div class="st-card-head"><h2>Status</h2></div>';
     if (installing) return h + '<p class="st-help"><b>The appliance is installing the update.</b> The dashboard comes back by itself in a few minutes.</p></div>';
+    if (state.applying) return h + '<p class="st-help"><b>The appliance is installing an update</b> (started ' + esc(when(state.applying.startedAt)) + '). The dashboard restarts on the new version when it is ready.</p></div>';
     if (!host) return h + '<p class="st-help">Not checked yet. Use <b>Check now</b>.</p></div>';
     if (host.supported === false) return h + '<p class="st-help">This EpilykosOS version installs updates on its own. Updates can be installed from here after its next update.</p></div>';
     if (host.error) return h + '<p class="st-help">The appliance could not check: ' + esc(host.error) + '</p></div>';
     var app = host.app || {}, os = host.os || {};
     h += '<div class="st-snapshots">';
     h += '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Epilykos</span><span class="st-help"> · '
-      + (app.available ? 'version ' + esc(app.latest_version || '') + ' is ready' : 'up to date') + '</span></div>'
+      + (app.available ? 'version ' + esc(app.latest_version || '') + ' is ready' : app.error ? esc(app.error) : 'up to date') + '</span></div>'
       + (app.available ? '<button type="button" class="st-btn st-btn-primary" data-host-apply="app">Update</button>' : '') + '</div>';
     if (os.version || os.available) {
       h += '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">EpilykosOS ' + esc(os.version || '') + '</span><span class="st-help"> · '
@@ -151,7 +152,7 @@
     var h = '<div class="st-card"><div class="st-card-head"><h2>Last update</h2>'
       + (r.ok ? '<span class="st-badge is-ok">Installed</span>' : '<span class="st-badge is-error">Failed</span>') + '</div>';
     if (r.ok) {
-      h += '<p class="st-help">Updated ' + esc(when(r.finishedAt)) + (r.toBuild ? ' to build <code>' + esc(r.toBuild) + '</code>' : '') + '.</p>';
+      h += '<p class="st-help">Updated ' + esc(when(r.finishedAt)) + (r.toVersion ? ' to ' + esc(r.toVersion) : r.toBuild ? ' to build <code>' + esc(r.toBuild) + '</code>' : '') + '.</p>';
     } else {
       h += '<p class="st-help"><b>' + esc(cap(r.error) || 'The update did not finish.') + '</b>'
         + (r.rolledBack ? ' The previous version was put back, so nothing changed.' : '') + '</p>';

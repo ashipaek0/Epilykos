@@ -263,7 +263,7 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 
 - **Docker Compose with the Docker socket mounted** (the `docker.sock` line in the compose file above): **Update now** asks for your admin password, downloads the new image, and restarts Epilykos on it with the same settings, volumes and devices. If the new version does not report healthy within three minutes, the previous one is started again and the page says so. The socket gives Epilykos full control of Docker on that computer; leave the line out if you don't want that.
 - **Docker Compose without the socket**: the page shows the commands, `docker compose pull` then `docker compose up -d`.
-- **EpilykosOS**: the appliance installs updates for both Epilykos and the operating system (see [docs/host-update-actions.md](docs/host-update-actions.md)).
+- **EpilykosOS**: the appliance checks for and installs signed Epilykos releases itself, and goes back to the previous version if the new one is not healthy (see [docs/host-update-actions.md](docs/host-update-actions.md)). Operating-system updates are not offered from here yet.
 
 Builds from the `dev` branch (`irunmole/epilykos:dev`) compare against development builds instead of releases. Images you build yourself have no build number and are never compared.
 

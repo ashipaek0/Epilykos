@@ -278,6 +278,53 @@ function request(server, method, url, body) {
   } finally { server.close(); }
   console.log('ok - the routes report the build and how to update; installing needs the admin password');
 
+  // ── EpilykosOS: the appliance installs; the app asks and reports ──────
+  const net = require('net');
+  const sock = path.join(tmp, 'host.sock');
+  const hostCalls = [];
+  let hostApp = { state: 'idle', current_version: '2.7.0-dev+aaaa', last_result: null };
+  const host = net.createServer(conn => {
+    let buf = '';
+    conn.on('data', d => {
+      buf += d;
+      if (!buf.includes('\n')) return;
+      const req = JSON.parse(buf.split('\n')[0]);
+      hostCalls.push(req);
+      let reply = { ok: false, error: 'unknown action' };
+      if (req.action === 'update_status') reply = { ok: true, app: hostApp, os: { version: 'abc1234', available: false } };
+      if (req.action === 'update_check') reply = { ok: true, app: { ...hostApp, available: true, latest_version: '2.8.0-dev+bbbb' }, os: { version: 'abc1234', available: false } };
+      if (req.action === 'update_apply') reply = req.target === 'os' ? { ok: false, error: 'EpilykosOS updates are not published yet' } : { ok: true, state: 'applying' };
+      conn.end(JSON.stringify(reply) + '\n');
+    });
+  });
+  await new Promise(rs => host.listen(sock, rs));
+  process.env.EPILYKOS_HOST_SOCKET = sock;
+  const app2 = express();
+  app2.use(express.json());
+  app2.use('/api/updates', require('../routes/updates').router());
+  const server2 = await new Promise(rs => { const s2 = app2.listen(0, '127.0.0.1', () => rs(s2)); });
+  try {
+    await request(server2, 'POST', '/api/updates/check', {});
+    let g = await request(server2, 'GET', '/api/updates');
+    assert.equal(g.body.method.kind, 'epilykos-os');
+    assert.equal(g.body.host.app.available, true); assert.equal(g.body.applying, null);
+    let a = await request(server2, 'POST', '/api/updates/apply', { password: 'admin-password', target: 'app' });
+    assert.equal(a.body.state, 'applying');
+    assert.deepEqual(hostCalls.filter(c => c.action === 'update_apply'), [{ action: 'update_apply', target: 'app' }], 'the app names no digest');
+    a = await request(server2, 'POST', '/api/updates/apply', { password: 'admin-password', target: 'os' });
+    assert.equal(a.status, 400); assert.match(a.body.error, /not published yet/);
+    hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z' } };
+    g = await request(server2, 'GET', '/api/updates');
+    assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z' }, 'the page keeps waiting while the appliance works');
+    hostApp = { state: 'idle', current_version: '2.7.0-dev+aaaa', last_result: { ok: false, error: 'The new version did not start, so the previous version was put back', rolled_back: true, release: '2.8.0-dev+bbbb', finished_at: '2026-10-16T10:05:00Z' } };
+    g = await request(server2, 'GET', '/api/updates');
+    assert.equal(g.body.lastResult.rolledBack, true); assert.equal(g.body.lastResult.toVersion, '2.8.0-dev+bbbb');
+    await request(server2, 'POST', '/api/updates/result/dismiss', {});
+    g = await request(server2, 'GET', '/api/updates');
+    assert.equal(g.body.lastResult, null, 'dismissed results stay dismissed');
+  } finally { server2.close(); host.close(); delete process.env.EPILYKOS_HOST_SOCKET; }
+  console.log('ok - on EpilykosOS the appliance checks and installs; the page shows its progress and result');
+
   // ── Packaging ─────────────────────────────────────────────────────────
   const root = path.join(__dirname, '..');
   const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
