@@ -3264,6 +3264,9 @@ function updateDongleTransportUI(card) {
   const tx = transportSelect.value;
   const isLux = isLuxTransport(tx);
   const isBle = isBleTransport(tx);
+  card.querySelectorAll('.dongle-lux-options').forEach(el => { el.style.display = isLux ? '' : 'none'; });
+  card.querySelectorAll('.lux-wifi-option').forEach(el => { el.style.display = tx === 'luxpower-tcp' ? '' : 'none'; });
+  card.querySelectorAll('.lux-ble-option').forEach(el => { el.style.display = tx === 'ble-luxpower' ? '' : 'none'; });
   const bleRow = card.querySelector('.dongle-ble-row');
   const bleUuidRow = card.querySelector('.dongle-ble-uuid-row');
   if (bleRow) bleRow.style.display = isBle ? '' : 'none';
@@ -3356,6 +3359,23 @@ function renderDongleDevice(device, idx) {
       <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
       <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
       <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
+    </div>
+    <div class="form-row dongle-lux-options" style="${isLuxTransport(transport) ? '' : 'display:none;'}">
+      <label class="lux-wifi-option">Local Wi-Fi security
+        <select name="dongle_config[${idx}][tls_policy]">
+          ${[['off','Plain TCP (existing dongles)'],['required','Require TLS-PSK'],['auto','Try TLS, allow plain fallback']].map(([v,l]) => `<option value="${v}" ${(device.tls_policy || 'off') === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </label>
+      <label class="lux-ble-option">Bluetooth write strategy
+        <select name="dongle_config[${idx}][ble_write_mode]">
+          ${[['long-response','Long write with response (existing)'],['chunked-no-response','Chunked without response (LuxCloud)']].map(([v,l]) => `<option value="${v}" ${(device.ble_write_mode || 'long-response') === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </label>
+      <label>Local protocol
+        <select name="dongle_config[${idx}][protocol]">
+          ${[5,2,1].map(v => `<option value="${v}" ${Number(device.protocol || 5) === v ? 'selected' : ''}>${v}${v === 5 ? ' (existing)' : ''}</option>`).join('')}
+        </select>
+      </label>
     </div>
     <div class="form-row dongle-ble-row" style="${isBleTransport(transport) ? '' : 'display:none;'}">
       <input type="text" name="dongle_config[${idx}][ble_address]" placeholder="Bluetooth MAC (AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.ble_address || '')}" style="flex:1;">
@@ -3529,6 +3549,7 @@ function renderDongleDevice(device, idx) {
     const port = card.querySelector('input[name$="[port]"]')?.value;
     const serial = card.querySelector('input[name$="[serial_number]"]')?.value || '';
     const dongleSerial = card.querySelector('input[name$="[dongle_serial]"]')?.value || '';
+    const luxOptions = { tls_policy: card.querySelector('select[name$="[tls_policy]"]')?.value || 'off', ble_write_mode: card.querySelector('select[name$="[ble_write_mode]"]')?.value || 'long-response', protocol: Number(card.querySelector('select[name$="[protocol]"]')?.value || 5) };
     const inverterSerial = card.querySelector('input[name$="[inverter_serial]"]')?.value || '';
     const unitId = card.querySelector('input[name$="[modbus_unit_id]"]')?.value;
     const tx = transportSelect.value;
@@ -3545,7 +3566,7 @@ function renderDongleDevice(device, idx) {
       const res = await fetch('/api/dongle/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx, profile: profileSelect.value, ble_address: bleAddress, ble_write_uuid: bleWrite, ble_notify_uuid: bleNotify })
+        body: JSON.stringify({ ...luxOptions, host, port: parseInt(port) || undefined, serial_number: serial, dongle_serial: dongleSerial, inverter_serial: inverterSerial, modbus_unit_id: parseInt(unitId) || 1, transport: tx, profile: profileSelect.value, ble_address: bleAddress, ble_write_uuid: bleWrite, ble_notify_uuid: bleNotify })
       });
       const data = await res.json();
       if (res.ok) {
@@ -3554,6 +3575,7 @@ function renderDongleDevice(device, idx) {
         showIdentityCheck(statusEl, data.identityCheck);
       }
       else showStatus(statusEl, data.error, 'error');
+      if (isLuxTransport(tx) && data.diagnostics) { const detail = document.createElement('details'); const title = document.createElement('summary'); title.textContent = 'LuxPower connection details'; const pre = document.createElement('pre'); pre.textContent = JSON.stringify({ transport: data.diagnostics, identity: data.identity, identityError: data.identityError }, null, 2); detail.append(title, pre); statusEl.appendChild(detail); }
     } catch (err) {
       showStatus(statusEl, err.message, 'error');
     }
@@ -5537,6 +5559,7 @@ async function buildSourcesPayload() {
     dev.port = parseInt(card.querySelector('input[name$="[port]"]').value) || undefined;
     dev.serial_number = card.querySelector('input[name$="[serial_number]"]')?.value || '';
     dev.dongle_serial = card.querySelector('input[name$="[dongle_serial]"]')?.value?.trim() || '';
+    if (isLuxTransport(txSel)) { dev.tls_policy = card.querySelector('select[name$="[tls_policy]"]')?.value || 'off'; dev.ble_write_mode = card.querySelector('select[name$="[ble_write_mode]"]')?.value || 'long-response'; dev.protocol = Number(card.querySelector('select[name$="[protocol]"]')?.value || 5); }
     dev.inverter_serial = card.querySelector('input[name$="[inverter_serial]"]')?.value?.trim() || '';
     // LuxPower: never persist a stranded shape (serial in serial_number but dongle_serial empty).
     if (isLuxTransport(txSel) && !dev.dongle_serial && dev.serial_number) {
