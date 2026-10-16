@@ -9,22 +9,42 @@ import struct
 import sys
 
 DEFAULT_TIMEOUT = int(os.getenv("TUYA_LAN_TIMEOUT", "5"))
+# tinytuya retries an unreachable device 5 times, 5 s apart (about 50 s) and
+# then returns an error object instead of raising. That held up the whole
+# polling cycle and made a tap time out on the page. Polls try twice, a tap
+# once, so an unreachable device fails within the card's 8 s.
+POLL_RETRIES = int(os.getenv("TUYA_LAN_RETRIES", "2"))
+SET_RETRIES = 1
 
 
-def _make_device(dev_id, address, local_key, version):
+class DeviceError(Exception):
+    pass
+
+
+def _make_device(dev_id, address, local_key, version, retries=POLL_RETRIES):
     from tinytuya import Device
     d = Device(dev_id, address, local_key)
     d.set_version(float(version))
     d.set_socketTimeout(DEFAULT_TIMEOUT)
+    d.set_socketRetryLimit(retries)
+    d.set_socketRetryDelay(1)
     return d
+
+
+def _checked(result):
+    """tinytuya reports failures as {"Error": ..., "Err": "905", ...}, not exceptions."""
+    if isinstance(result, dict) and ("Error" in result or "Err" in result):
+        msg = result.get("Error") or "Device error"
+        code = result.get("Err")
+        raise DeviceError(f"{msg} ({code})" if code else msg)
+    return result
 
 
 def poll_device(dev_id, address, local_key, version):
     """Return raw DP → value map (e.g. {"1": 85, "2": 230})."""
     d = _make_device(dev_id, address, local_key, version)
-    d.set_socketTimeout(DEFAULT_TIMEOUT)
     try:
-        dps = d.status().get("dps", {})
+        dps = (_checked(d.status()) or {}).get("dps", {})
         print(json.dumps(dps))
     except Exception as e:
         print(json.dumps({"error": str(e)}))
@@ -35,8 +55,7 @@ def test_device(dev_id, address, local_key, version):
     """Probe a device and return success + DPs or an error."""
     try:
         d = _make_device(dev_id, address, local_key, version)
-        d.set_socketTimeout(DEFAULT_TIMEOUT)
-        result = d.status()
+        result = _checked(d.status()) or {}
         dps = result.get("dps", {})
         print(json.dumps({"success": True, "dps": dps}))
     except Exception as e:
@@ -151,10 +170,10 @@ def main():
             except ValueError:
                 value = raw_value
 
-        d = _make_device(dev_id, address, local_key, version)
+        d = _make_device(dev_id, address, local_key, version, retries=SET_RETRIES)
 
         try:
-            result = d.set_value(dp_id, value)
+            result = _checked(d.set_value(dp_id, value))
             print(json.dumps({"success": True, "result": result}))
         except Exception as e:
             print(json.dumps({"success": False, "error": str(e)}))
