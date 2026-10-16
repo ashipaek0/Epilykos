@@ -70,12 +70,22 @@ const lastLog = () => controls.recentLog(1)[0];
       assert.strictEqual(fake.connections.opened, 1, 'one connection: polling\'s');
     });
 
-    await check('the settings list: battery charge levels only, with ranges', () => {
+    await check('the settings list: existing battery levels plus separately gated GETA controls', () => {
       const lux = controls.listDevices().find(d => d.name === 'Lux');
-      assert.strictEqual(lux.settings.length, 8);
-      assert.ok(lux.settings.every(s => s.unit === '%' && s.min >= 0 && s.max <= 100));
+      assert.strictEqual(lux.settings.length, 20);
+      assert.strictEqual(lux.settings.filter(s => s.geta_control).length, 12);
+      assert.ok(lux.settings.filter(s => !s.geta_control).every(s => s.unit === '%' && s.min >= 0 && s.max <= 100));
       assert.ok(!lux.settings.some(s => /eps_(voltage|frequency)/.test(s.name)));
       assert.ok(controls.listDevices().some(d => d.kind === 'modbus' && d.name === 'Meter' && d.rawWrites));
+    });
+
+    await check('GETA read/verification works with changes off; named changes enforce identity and expected', async () => {
+      fake.holding.set(19, 26); fake.holding.set(64, 50); fake.holding.set(21, 0x8101);
+      const read = await controls.readSetting('Lux', 'charge_power_percent');
+      assert.strictEqual(read.value, 50); assert.strictEqual(read.writable, true);
+      const snapshot = await dongle.luxpowerVerification('Lux');
+      assert.strictEqual(snapshot.identity.model.geta, true); assert.strictEqual(snapshot.complete, true); assert.strictEqual(fake.writes.length, 0);
+      assert.strictEqual((await controls.changeSetting({ device: 'Lux', setting: 'charge_power_percent', expected: 50, value: 60 }, req)).success, false);
     });
 
     controls.setSwitches({ enabled: true });
@@ -148,7 +158,7 @@ const lastLog = () => controls.recentLog(1)[0];
       controls.setSwitches({ expert: true });
       assert.strictEqual(controls.expertEnabled(), true);
       const r = await controls.rawWrite({ kind: 'dongle', device: 'Lux', register: '0x0040', value: '50' }, req);
-      assert.deepStrictEqual(r, { success: true, before: 0, after: 50 });
+      assert.deepStrictEqual(r, { success: true, before: 50, after: 50 });
       assert.strictEqual(fake.holding.get(0x40), 50);
       assert.match((await controls.rawWrite({ kind: 'dongle', device: 'Lux', register: '0x0040', value: '5x' }, req)).error, /whole number/);
       assert.match((await dongle.executeDongleAction('Plain', '100', 'abc')).error, /whole number/);
@@ -183,12 +193,16 @@ const lastLog = () => controls.recentLog(1)[0];
       });
       try {
         assert.strictEqual((await call('GET', '/api/controls/status')).status, 401, 'signed out');
+        assert.strictEqual((await call('POST', '/api/controls/luxpower-verification', { device: 'Lux' })).status, 401);
         assert.strictEqual((await call('POST', '/api/controls/unlock', { password: 'made-up-test-password' })).status, 401, 'signed out cannot unlock');
         await call('GET', '/signin');
         const st = await call('GET', '/api/controls/status');
         assert.strictEqual(st.status, 200); assert.strictEqual(st.body.unlockedUntil, null); assert.strictEqual(st.body.writesEnabled, true);
         const read = await call('POST', '/api/controls/read', { device: 'Lux', setting: 'eod_soc' });
         assert.strictEqual(read.status, 200); assert.strictEqual(read.body.value, 25);
+        const verification = await call('POST', '/api/controls/luxpower-verification', { device: 'Lux' });
+        assert.strictEqual(verification.status, 200); assert.strictEqual(verification.body.complete, true); assert.strictEqual(verification.body.identity.model.geta, true);
+        assert.strictEqual((await call('POST', '/api/controls/change', { device: 'Lux', setting: 'charge_power_percent', expected: 50, value: 49 })).status, 423);
         const locked = await call('POST', '/api/controls/change', { device: 'Lux', setting: 'eod_soc', value: 30, expected: 25 });
         assert.strictEqual(locked.status, 423); assert.strictEqual(locked.body.locked, true);
         assert.strictEqual((await call('POST', '/api/controls/switches', { enabled: false })).status, 423);
@@ -198,6 +212,8 @@ const lastLog = () => controls.recentLog(1)[0];
         assert.strictEqual(lastLog().source, 'unlock'); assert.strictEqual(lastLog().outcome, 'refused');
         const un = await call('POST', '/api/controls/unlock', { password: 'made-up-test-password' });
         assert.strictEqual(un.status, 200); assert.ok(un.body.unlockedUntil > Date.now() + 4 * 60000 && un.body.unlockedUntil <= Date.now() + 5 * 60000 + 1000);
+        const extra = await call('POST', '/api/controls/change', { device: 'Lux', setting: 'charge_power_percent', expected: 50, value: 49 });
+        assert.strictEqual(extra.status, 200); assert.strictEqual(extra.body.status, 'verified'); assert.strictEqual(fake.holding.get(64), 49);
         const changed = await call('POST', '/api/controls/change', { device: 'Lux', setting: 'eod_soc', value: 30, expected: 25 });
         assert.strictEqual(changed.status, 200); assert.strictEqual(changed.body.value, 30);
         assert.strictEqual(fake.holding.get(0x69), 30);
@@ -218,6 +234,13 @@ const lastLog = () => controls.recentLog(1)[0];
         assert.ok(log.body.entries.every(e => ['done', 'refused', 'failed', 'unverified'].includes(e.outcome)));
         assert.ok(log.body.entries.some(e => e.source === 'switches'));
       } finally { server.close(); }
+    });
+
+    await check('new GETA controls cannot bypass named preflight through generic writes', async () => {
+      assert.match((await dongle.executeDongleAction('Lux', 'holding:0x0040', 60)).error, /named GETA/);
+      assert.match((await dongle.writeDongleSetting('Lux', '0x0040', 'holding', 60)).error, /named GETA/);
+      assert.strictEqual((await controls.changeSetting({ device: 'Lux', setting: 'ac_charge_enabled', expected: false, value: true }, req)).success, true);
+      assert.strictEqual(fake.holding.get(21), 0x8181);
     });
 
     await check('without polling: a read opens its own connection and closes it', async () => {

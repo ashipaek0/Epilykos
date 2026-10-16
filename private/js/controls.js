@@ -149,12 +149,12 @@ let devices = [];
 function settingRow(dev, s) {
   const row = document.createElement('tr');
   const id = `ct-${dev.name}-${s.name}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const isSwitch = s.type === 'switch', isSelect = s.type === 'select';
+  const isSwitch = s.type === 'switch', isSelect = s.type === 'select', isTime = s.type === 'time';
   row.innerHTML = `<th scope="row"><div class="ct-set-name"></div><div class="ct-help"></div></th>
     <td class="ct-current" aria-live="polite">—</td>
     <td><label class="pv-visually-hidden" for="${id}"></label>${isSwitch || isSelect
       ? `<select id="${id}" class="ct-input"><option value="">Choose</option></select>`
-      : `<input type="number" id="${id}" class="ct-input">`}</td>
+      : `<input type="${isTime ? 'time' : 'number'}" id="${id}" class="ct-input">`}</td>
     <td class="ct-row-actions"><button type="button" class="ct-btn ct-read">Read</button> <button type="button" class="ct-btn ct-btn-primary ct-change" data-needs-unlock>Change</button></td>`;
   row.querySelector('.ct-set-name').textContent = s.label;
   row.querySelector('.ct-help').textContent = s.description;
@@ -221,9 +221,9 @@ function settingRow(dev, s) {
     if (inflight || blocked || change.dataset.locked === 'true' || unverified) return;
     const value = input.value.trim();
     if ((isSwitch || isSelect || pickList) && value === '') { say('Choose a value.', true); input.focus(); return; }
-    if (!isSwitch && !isSelect && !pickList && (value === '' || !input.checkValidity())) { say(`Enter a value from ${input.min} to ${input.max}${s.unit ? ' '+s.unit : ''}, in steps of ${input.step}.`, true); input.focus(); return; }
+    if (!isSwitch && !isSelect && !pickList && (value === '' || !input.checkValidity())) { say(isTime ? 'Enter a time from 00:00 to 23:59.' : `Enter a value from ${input.min} to ${input.max}${s.unit ? ' '+s.unit : ''}, in steps of ${input.step}.`, true); input.focus(); return; }
     if (shown === null) { say('Read the current value before changing this setting.', true); return; }
-    const wanted = isSwitch ? (dev.kind === 'bms' ? value : value === 'true') : (isSelect || pickList) ? ((options.find(o => String(o.value) === value) || {}).value) : Number(value);
+    const wanted = isSwitch ? (dev.kind === 'bms' ? value : value === 'true') : (isSelect || pickList) ? ((options.find(o => String(o.value) === value) || {}).value) : isTime ? value : Number(value);
     if (wanted === shown) { say('That is already the current value.'); return; }
     const cutsPower = isSwitch && s.name === 'discharging' && (wanted === 'off' || wanted === false);
     inflight = true; change.dataset.busy = 'true'; change.disabled = true;
@@ -273,6 +273,23 @@ async function loadDevices() {
     const reads = [];
     for (const s of dev.settings) { const [row, msg, read] = settingRow(dev, s); table.tBodies[0].append(row, msg); reads.push(read); }
     head.querySelector('button').addEventListener('click', async () => { for (const read of reads) await read(); });
+    if (dev.profile === 'luxpower-geta') {
+      const verify = document.createElement('button'); verify.type = 'button'; verify.className = 'ct-btn'; verify.textContent = 'Download verification';
+      const note = document.createElement('p'); note.className = 'ct-help'; note.setAttribute('role', 'status');
+      verify.addEventListener('click', async () => {
+        verify.disabled = true; note.textContent = 'Reading identity, measurements and controls; no settings will be changed…';
+        try {
+          const r = await api('/luxpower-verification', { device: dev.name });
+          if (!r.ok) throw new Error(r.data.error || 'Could not read verification data');
+          const url = URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' }));
+          const a = document.createElement('a'); a.href = url; a.download = `luxpower-verification-${Date.now()}.json`; a.hidden = true; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+          note.textContent = r.data.complete ? 'Downloaded. Compare values with LuxCloud and keep before/after files for each change. The file includes device serials.' : 'Downloaded with failed reads. Check the errors in the file before changing controls.';
+        } catch (e) { note.textContent = e.message; }
+        finally { verify.disabled = false; }
+      });
+      head.appendChild(verify); card.appendChild(note);
+    }
+
     const wrap = document.createElement('div'); wrap.className = 'ct-table-wrap'; wrap.appendChild(table);
     card.append(head, wrap);
     box.appendChild(card);
