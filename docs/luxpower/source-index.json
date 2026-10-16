@@ -1,0 +1,134 @@
+{
+  "archive": "analysis-bundle.zip",
+  "sha256": "377e7d4500e4a6d7f727f640df5509b226408fc1ca32b7ec6812c77f7bb1cc08",
+  "links": [
+    {
+      "label": "synthetic counterexamples",
+      "archive_entry": "luxcloud-analysis/comparison/synthetic-counterexamples.json"
+    },
+    {
+      "label": "package-inventory.json",
+      "archive_entry": "luxcloud-analysis/package-inventory.json"
+    },
+    {
+      "label": "AbstractLocalConnect.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/connect/AbstractLocalConnect.java"
+    },
+    {
+      "label": "DataFrameFactory.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/tcp/DataFrameFactory.java"
+    },
+    {
+      "label": "TcpAnalyzer.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tcp/TcpAnalyzer.java"
+    },
+    {
+      "label": "TcpManager.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tcp/TcpManager.java"
+    },
+    {
+      "label": "PskTlsConfig.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tls/PskTlsConfig.java"
+    },
+    {
+      "label": "PSK_TLS_CONSTANT.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tls/PSK_TLS_CONSTANT.java"
+    },
+    {
+      "label": "DonglePskUtil.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tool/DonglePskUtil.java"
+    },
+    {
+      "label": "BluetoothLocalConnect.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/connect/ble/BluetoothLocalConnect.java"
+    },
+    {
+      "label": "AbstractTcpDataFrame.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/tcp/dataframe/tcp/AbstractTcpDataFrame.java"
+    },
+    {
+      "label": "TCP_PROTOCOL.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/tcp/dataframe/tcp/TCP_PROTOCOL.java"
+    },
+    {
+      "label": "TCP_FUNCTION.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/tcp/TCP_FUNCTION.java"
+    },
+    {
+      "label": "AbstractQueryCommand.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/lux/command/read/AbstractQueryCommand.java"
+    },
+    {
+      "label": "WriteSingleCommand.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/lux/command/write/WriteSingleCommand.java"
+    },
+    {
+      "label": "WriteMultiCommand.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/lux/command/write/WriteMultiCommand.java"
+    },
+    {
+      "label": "TransferData.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/protocol/tcp/data/TransferData.java"
+    },
+    {
+      "label": "ProTool.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tool/ProTool.java"
+    },
+    {
+      "label": "command-catalog.json",
+      "archive_entry": "luxcloud-analysis/command-catalog.json"
+    },
+    {
+      "label": "AbstractLocalConnect.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/connect/AbstractLocalConnect.java"
+    },
+    {
+      "label": "Constants.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/global/Constants.java"
+    },
+    {
+      "label": "Inverter.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/global/bean/inverter/Inverter.java"
+    },
+    {
+      "label": "Model.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/global/bean/inverter/Model.java"
+    },
+    {
+      "label": "LocalViewPagerAdapter.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/view/local/LocalViewPagerAdapter.java"
+    },
+    {
+      "label": "input map",
+      "archive_entry": "luxcloud-analysis/input-register-map.json"
+    },
+    {
+      "label": "register-use inventory",
+      "archive_entry": "luxcloud-analysis/register-use-inventory.json"
+    },
+    {
+      "label": "FrameTool.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/tool/FrameTool.java"
+    },
+    {
+      "label": "Inverter.java",
+      "archive_entry": "luxcloud-analysis/evidence/jadx/com/lux/luxcloud/global/bean/inverter/Inverter.java"
+    },
+    {
+      "label": "android-strings-default.json",
+      "archive_entry": "luxcloud-analysis/evidence/android-strings-default.json"
+    },
+    {
+      "label": "holding-register-map.json",
+      "archive_entry": "luxcloud-analysis/holding-register-map.json"
+    },
+    {
+      "label": "datalog map",
+      "archive_entry": "luxcloud-analysis/datalog-parameter-map.json"
+    },
+    {
+      "label": "comparison/",
+      "archive_entry": "luxcloud-analysis/comparison/"
+    }
+  ]
+}

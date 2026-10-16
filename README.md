@@ -204,7 +204,7 @@ Two pages for signed-in use only. Signed out, every address under them (the page
 
 Settings available so far:
 
-- **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits.
+- **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits plus model-gated charging/discharging power limits, charging-mode flags and three grid-charging windows. Controls can download a read-only verification snapshot; see the [GETA 3.6 kW verification guide and technical report](docs/luxpower/README.md). Local TLS-PSK and chunked Bluetooth writes are selectable compatibility options; existing defaults are retained.
 - **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
 - **Phocos Any-Grid** (Bluetooth): telemetry and allowlisted settings for recognized model profiles (3, 5, 6.5 and 8 kW). See [Phocos BLE details](#phocos-any-grid-ble).
 
