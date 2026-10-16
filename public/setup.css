@@ -236,7 +236,6 @@ body.wz {
 .wz-input-row { display: flex; gap: 8px; }
 .wz-input-row > input { flex: 1; min-width: 0; }
 .wz-input-row > .wz-btn { min-height: 44px; }
-.wz-code-input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: 0.2em; text-transform: uppercase; font-size: 1.05rem !important; }
 .wz-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .wz-reqs { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.82rem; color: var(--wz-muted); }
