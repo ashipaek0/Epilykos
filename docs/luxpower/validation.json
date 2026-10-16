@@ -47,5 +47,6 @@
     "test/luxpower-controls.test.js": "94fd938f4188b068471b4025b2eb0f6085213dc3fbc96c7ff472db8802606b4a",
     "test/luxpower-tls.test.js": "f60b13f6b0080baaee52766314503b1768cd9979d99187611d6c19cf9f03fd23",
     "test/phocos-controls-ui.test.js": "b79f00534b0cb0b45080916a51518dff86aee34d6da98eca92e1f6aae9d0d36c"
-  }
+  },
+  "pullRequest": "https://github.com/ashipaek0/Epilykos/pull/172"
 }
