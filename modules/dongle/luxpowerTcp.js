@@ -315,6 +315,7 @@ class LuxpowerTcpTransport {
     }
     for (const req of this._queue.splice(0)) {
       req.timer && clearTimeout(req.timer);
+      clearTimeout(req.waitTimer);
       req.reject(err);
     }
   }
@@ -375,6 +376,7 @@ class LuxpowerTcpTransport {
       return; // flush after (re)connect
     }
     const req = this._queue.shift();
+    clearTimeout(req.waitTimer);
     this._current = req;
     req.timer = setTimeout(() => {
       if (this._current !== req) return;
@@ -452,7 +454,7 @@ class LuxpowerTcpTransport {
       this._connected = false;
       this._connecting = false;
       if (this._current) this._settleCurrent(err); // Never replay a sent write.
-      for (const req of this._queue.splice(0)) req.reject(err);
+      this._expireQueued(err);
       this._scheduleReconnect();
     };
     try {
@@ -484,6 +486,22 @@ class LuxpowerTcpTransport {
     socket.on('data', chunk => { if (this._socket === socket) this._onData(chunk); });
     socket.on('error', failed);
     socket.on('close', () => failed(new Error('connection closed')));
+  }
+
+  /**
+   * Requests not yet sent survive a dropped connection (dongles close idle
+   * sockets; the reconnect takes about a second), but each fails after the
+   * request timeout if the link does not come back, so nothing waits forever.
+   */
+  _expireQueued(err) {
+    for (const req of this._queue) {
+      if (req.waitTimer) continue;
+      req.waitTimer = setTimeout(() => {
+        const i = this._queue.indexOf(req);
+        if (i !== -1) { this._queue.splice(i, 1); req.reject(err); }
+      }, this._timeoutMs);
+      req.waitTimer.unref && req.waitTimer.unref();
+    }
   }
 
   _scheduleReconnect() {

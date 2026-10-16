@@ -1,13 +1,13 @@
 {
-  "testedAt": "2026-10-16T14:39:25.049223+00:00",
-  "sourceCommit": "01496c2bf0556f6b8cba2ed34fae1390b5b3ff00",
-  "baseCommit": "29b5b8e7d862b498ea5167e424ed733662d950dd",
+  "testedAt": "2026-10-16T19:48:10+00:00",
+  "sourceCommit": "the commit that last changed this file (git log -- docs/luxpower/validation.json)",
+  "baseCommit": "429268d (dev at the time of the merged run)",
   "command": "npm test",
   "exitCode": 0,
-  "summary": "128/128 fixtures passed \u2014 17367 checks",
+  "summary": "Branch alone: 128/128 fixtures passed, 17369 checks. Merged with dev 429268d: 129/129, 17402 checks.",
   "runtime": {
-    "node": "v22.22.1",
-    "python": "Python 3.14.4"
+    "node": "v22.22.0",
+    "python": "Python 3.13.16"
   },
   "browserSmoke": {
     "browser": "Google Chrome headless",
@@ -24,29 +24,6 @@
   "controlsEvidence": "Fake GETA TCP server, API auth/lock checks, model gate, typed expected values, bit preservation, schedules, exact readback, ambiguous writes and read-only snapshots",
   "hardwareValidated": false,
   "hardwarePending": "Owner-supplied 3.6 kW GETA; use README.md and verification-record.json",
-  "codeFileSha256": {
-    "modules/ble.js": "00b08e047e7348e557e8fdbea5e68c59e597c0f36b855ac93be314ff8fee4e50",
-    "modules/ble/ble_helper.py": "b665032699c10c1d3438d899ff9e62ab3da71eb5aacc845e789199f7d7ba8bf6",
-    "modules/ble/test_luxpower_write.py": "c786149858864c4297bd8b0678c799e14b26bcbdfdca777eddf5fd356187ad42",
-    "modules/deviceControls.js": "d1c58f0b6c6e8a0d81684b00acc5b6eaeab19e313012f89003d6dc1e1c1c89f9",
-    "modules/dongle.js": "6734cd02f2c0bdcbe47be1632b8f15b55f901f00df22f2bf4531b5500dc62e7f",
-    "modules/dongle/bleLuxpower.js": "89b359a02640d5cc5ff2a65cbca0e11da43d0c640cdf9906af965a9c60fcb436",
-    "modules/dongle/luxpowerModel.js": "ab73de8eefe2f0b617139c21bc44ab6731ae055a7cee6eab85a14e3819cab980",
-    "modules/dongle/luxpowerSettings.js": "f0ee834c93dee5f2d4016e1839ddd46f0d473df118b568b9dfe01d4816a9818c",
-    "modules/dongle/luxpowerTcp.js": "1d2d4ce87a6f6235b6037e7823d0aa149872e4306586d98b91295623bb9c9dd0",
-    "private/js/controls.js": "89910c38ec03d71203d421147892c08885846afb9d276afd54ebd83423e44bc2",
-    "profiles/dongles/luxpower-geta.json": "07b0f23fe8d7b1f8cdf6df0ef7952a4e8b0688b373161b702b8046761b668cd5",
-    "public/js/setup.js": "acf9b52d32f0c8b03c2d25b1d423b765f134925fea78119dceb11e39a495cc81",
-    "public/settings.js": "9b24768c3ecbcc24a05fc3d8cfc2e2a67e8f15fcfa21f8faed5e26f79b148e19",
-    "routes/controls.js": "8204dfbf903c266552ec14005143cca556be92ba9f6d843a494acabb6717d5f8",
-    "scripts/verify-luxpower-snapshots.js": "ace2a0df667062c2729f70dcb24a1e2effec65dd852cea4882724ab67f958b36",
-    "server.js": "e31925a9f2204b1f30dcbd971533670737f029425093ece98a51fe8f7d85d971",
-    "test/device-controls.test.js": "6d3bfd9687fbd1910caedb2470ec7612713e57275882b6503042f7817cf965cb",
-    "test/luxpower-analysis.test.js": "dfc8c046e73c656893c25c35b49cc93a77e814abc3eca2f5eab75017b1120fec",
-    "test/luxpower-ble-write.test.js": "c0ef2fdcfb480b4fbf6bdc10b5e080984e841d929b9717db91a5241ee8b287df",
-    "test/luxpower-controls.test.js": "94fd938f4188b068471b4025b2eb0f6085213dc3fbc96c7ff472db8802606b4a",
-    "test/luxpower-tls.test.js": "f60b13f6b0080baaee52766314503b1768cd9979d99187611d6c19cf9f03fd23",
-    "test/phocos-controls-ui.test.js": "b79f00534b0cb0b45080916a51518dff86aee34d6da98eca92e1f6aae9d0d36c"
-  },
-  "pullRequest": "https://github.com/ashipaek0/Epilykos/pull/172"
+  "pullRequest": "https://github.com/ashipaek0/Epilykos/pull/172",
+  "note": "A record of one run, not a guarantee for later commits: rerun npm test after any change."
 }

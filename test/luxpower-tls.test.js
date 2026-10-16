@@ -50,3 +50,29 @@ test('auto never falls back or replays a write after TLS was established', async
   try { await assert.rejects(t.writeRegister(64, 49), /closed|reset/i); assert.equal(writes, 1); assert.equal(connections, 1); assert.equal(t.diagnostics.mode, 'tls-psk'); }
   finally { t.stop(); await new Promise(r => server.close(r)); }
 });
+test('a read still queued when the connection drops is sent after the reconnect; the one in flight fails', async () => {
+  let connections = 0, seen = 0;
+  const server = net.createServer(s => {
+    connections++;
+    s.on('error', () => {});
+    // First connection: answer the first read, then drop on the second without answering.
+    s.on('data', b => { seen++; if (connections === 1 && seen === 2) { s.destroy(); return; } s.write(reply(b)); });
+  });
+  const t = new LuxpowerTcpTransport({ ...config, port: await listen(server), timeout_ms: 3000 });
+  try {
+    const [a, b, c] = await Promise.allSettled([t.readRegisters(0, 1), t.readRegisters(0, 1), t.readRegisters(0, 1)]);
+    assert.equal(a.status, 'fulfilled');
+    assert.equal(b.status, 'rejected', 'the request on the wire is never replayed');
+    assert.equal(c.status, 'fulfilled', 'the unsent one waits for the reconnect');
+    assert.equal(connections, 2);
+  } finally { t.stop(); await new Promise(r => server.close(r)); }
+});
+test('a queued read still fails after the timeout when the dongle stays away', async () => {
+  const server = net.createServer(s => { s.on('error', () => {}); s.destroy(); });
+  const t = new LuxpowerTcpTransport({ ...config, port: await listen(server), timeout_ms: 300 });
+  try {
+    const started = Date.now();
+    await assert.rejects(t.readRegisters(0, 1));
+    assert.ok(Date.now() - started < 3000, 'no endless wait');
+  } finally { t.stop(); await new Promise(r => server.close(r)); }
+});
