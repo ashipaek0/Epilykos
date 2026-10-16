@@ -32,6 +32,13 @@
  * @module dongle/luxpowerTcp
  */
 const net = require('net');
+const tls = require('tls');
+const { createHmac } = require('crypto');
+
+function derivePsk(serial) {
+  return createHmac('sha256', 'LuxPowerTek!').update(validateSerial(serial, 'dongle_serial'), 'ascii').digest().subarray(0, 16);
+}
+
 
 const TCP_FN_TRANSLATED_DATA = 0xC2;
 const DEV_FN_HOLDING = 0x03;
@@ -250,6 +257,10 @@ class LuxpowerTcpTransport {
     if (ipType === 0 && !/^[a-zA-Z0-9.-]+$/.test(host)) throw new Error('Invalid hostname');
     const port = parseInt(instance.port) || 8000;
     if (port < 1 || port > 65535) throw new Error('Invalid port');
+    this._tlsPolicy = instance.tls_policy || 'off';
+    if (!['off', 'required', 'auto'].includes(this._tlsPolicy)) throw new Error('Invalid TLS policy');
+    this.diagnostics = { transport: 'wifi', tlsPolicy: this._tlsPolicy, mode: null, tlsFailure: null };
+    this._handshakeTimer = null;
     this._host = host;
     this._port = port;
     // Config field naming: dongle_serial = outer-header dongle serial,
@@ -288,6 +299,7 @@ class LuxpowerTcpTransport {
   /** Stop the connection lifecycle: close socket, clear timers, reject pending. */
   stop() {
     this._started = false;
+    clearTimeout(this._handshakeTimer);
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
     if (this._socket) {
       this._socket.removeAllListeners();
@@ -303,6 +315,7 @@ class LuxpowerTcpTransport {
     }
     for (const req of this._queue.splice(0)) {
       req.timer && clearTimeout(req.timer);
+      clearTimeout(req.waitTimer);
       req.reject(err);
     }
   }
@@ -363,6 +376,7 @@ class LuxpowerTcpTransport {
       return; // flush after (re)connect
     }
     const req = this._queue.shift();
+    clearTimeout(req.waitTimer);
     this._current = req;
     req.timer = setTimeout(() => {
       if (this._current !== req) return;
@@ -413,35 +427,81 @@ class LuxpowerTcpTransport {
     if (!this._started || this._connecting || this._connected) return;
     if (this._socket && !this._socket.destroyed) return;
     this._connecting = true;
-    const { host, port } = this._target();
-    const socket = net.createConnection({ host, port });
-    this._socket = socket;
+    this.diagnostics.tlsFailure = null;
+    this._rx = Buffer.alloc(0);
+    this._openSocket(this._tlsPolicy !== 'off');
+  }
 
-    socket.on('connect', () => {
-      if (!this._started) { socket.destroy(); return; }
+  _openSocket(encrypted) {
+    if (!this._started) return;
+    const { host, port } = this._target();
+    let socket;
+    const failed = err => {
+      if (this._socket !== socket || !this._started) return;
+      clearTimeout(this._handshakeTimer);
+      const negotiating = this._connecting;
+      this._socket = null;
+      socket.removeAllListeners();
+      socket.on('error', () => {});
+      socket.destroy();
+      if (encrypted && negotiating) {
+        this.diagnostics.tlsFailure = err.message;
+        if (this._tlsPolicy === 'auto') {
+          this._openSocket(false); // No application frame was sent on TLS.
+          return;
+        }
+      }
+      this._connected = false;
+      this._connecting = false;
+      if (this._current) this._settleCurrent(err); // Never replay a sent write.
+      this._expireQueued(err);
+      this._scheduleReconnect();
+    };
+    try {
+      socket = encrypted ? tls.connect({ host, port, minVersion: 'TLSv1.2', maxVersion: 'TLSv1.2',
+        // PSK-only cipher authenticates via the vendor key, without a certificate.
+        ciphers: 'DHE-PSK-AES128-GCM-SHA256', rejectUnauthorized: false,
+        pskCallback: () => ({ identity: 'Client_identity', psk: derivePsk(this._dongle) })
+      }) : net.createConnection({ host, port });
+    } catch (err) {
+      // Synchronous TLS setup failures have no socket to close.
+      this.diagnostics.tlsFailure = encrypted ? err.message : this.diagnostics.tlsFailure;
+      if (encrypted && this._tlsPolicy === 'auto') { this._openSocket(false); return; }
+      this._connecting = false;
+      queueMicrotask(() => { for (const req of this._queue.splice(0)) req.reject(err); });
+      this._scheduleReconnect();
+      return;
+    }
+    this._socket = socket;
+    this._handshakeTimer = setTimeout(() => failed(new Error(encrypted ? 'TLS handshake timeout' : 'connection timeout')), Math.min(this._timeoutMs, 5000));
+    socket.once(encrypted ? 'secureConnect' : 'connect', () => {
+      if (this._socket !== socket || !this._started) { socket.destroy(); return; }
+      clearTimeout(this._handshakeTimer);
       this._connecting = false;
       this._connected = true;
+      this.diagnostics.mode = encrypted ? 'tls-psk' : (this._tlsPolicy === 'auto' ? 'plain-fallback' : 'plain');
       this._backoffIdx = 0;
       this._pump();
     });
+    socket.on('data', chunk => { if (this._socket === socket) this._onData(chunk); });
+    socket.on('error', failed);
+    socket.on('close', () => failed(new Error('connection closed')));
+  }
 
-    socket.on('data', chunk => this._onData(chunk));
-
-    socket.on('error', err => {
-      this._connected = false;
-      this._connecting = false;
-      this._socket = null;
-      if (this._current) this._settleCurrent(new Error(`connection error: ${err.message}`));
-      this._scheduleReconnect();
-    });
-
-    socket.on('close', () => {
-      this._connected = false;
-      this._connecting = false;
-      if (this._socket === socket) this._socket = null;
-      if (this._current) this._settleCurrent(new Error('connection closed'));
-      this._scheduleReconnect();
-    });
+  /**
+   * Requests not yet sent survive a dropped connection (dongles close idle
+   * sockets; the reconnect takes about a second), but each fails after the
+   * request timeout if the link does not come back, so nothing waits forever.
+   */
+  _expireQueued(err) {
+    for (const req of this._queue) {
+      if (req.waitTimer) continue;
+      req.waitTimer = setTimeout(() => {
+        const i = this._queue.indexOf(req);
+        if (i !== -1) { this._queue.splice(i, 1); req.reject(err); }
+      }, this._timeoutMs);
+      req.waitTimer.unref && req.waitTimer.unref();
+    }
   }
 
   _scheduleReconnect() {
@@ -561,6 +621,7 @@ class LuxpowerTcpTransport {
 
 module.exports = {
   LuxpowerTcpTransport,
+  derivePsk,
   buildReadFrame,
   buildWriteFrame,
   parseFrame,
