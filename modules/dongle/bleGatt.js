@@ -126,6 +126,8 @@ const MODES = { P: 'Power on', S: 'Standby', L: 'Utility / grid', B: 'Battery / 
 
 // Shared by capability display and JS write preflight; Python independently
 // enforces the same profile before any physical write.
+// 8 kW / 48 V has no app limits of its own: it takes the 5 kW ones (80 A),
+// which can only be stricter than its real ratings, never looser.
 function modelSetting(setting, model) {
   const v = model.nominalVoltage;
   const currentValues = [2, ...Array.from({length: model.watts === 6500 ? 12 : 8}, (_, i) => (i + 1) * 10)];
@@ -204,7 +206,7 @@ function modelFrom(raws, blocks) {
   if(!serial||!rating) return {supported:false,readSupported:false,writeSupported:false,reason:'identity or ratings unavailable'};
   if (serial.length < 20 || rating.length < 16) return {supported:false, readSupported:false, writeSupported:false, reason:'short identity or ratings'};
   const modelId=bytes(serial,19,20), words=wordsLE(rating), acVoltage=words[2]/10, nominalVoltage=words[7]/10, watts=words[6];
-  const supported=(modelId==='1'||modelId==='9')&&((nominalVoltage===24&&watts===3000)||(nominalVoltage===48&&(watts===5000||(modelId==='9'&&watts===6500))))&&[120,230].includes(acVoltage);
+  const supported=(modelId==='1'||modelId==='9')&&((nominalVoltage===24&&watts===3000)||(nominalVoltage===48&&(watts===5000||watts===8000||(modelId==='9'&&watts===6500))))&&[120,230].includes(acVoltage);
   return {modelId,nominalVoltage,watts,acVoltage,supported, writeSupported:supported,
     readSupported:[24,48].includes(nominalVoltage) && Number.isFinite(watts) && watts > 0 && [120,230].includes(acVoltage),
     ...(supported ? {} : {reason:'No validated writable profile for this model/rating combination'})};
