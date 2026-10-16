@@ -665,7 +665,6 @@ app.use('/api', metricsRouter);
 // ---------- Authentication & Setup routes ----------
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
-authRoutes.announceSetupCode(); // logs the first-run setup code while setup is pending
 
 // Public page (pre-auth; setup.js gates sources behind login)
 app.get('/setup', (req, res) => {
@@ -673,6 +672,9 @@ app.get('/setup', (req, res) => {
 });
 
 // "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
+// EpilykosOS system actions (Settings → System): restart, shut down, Wi-Fi, SSH.
+app.use('/api/system', isAuthenticated, require('./routes/system'));
+
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
     setConfig(k, '[]');
