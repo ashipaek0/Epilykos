@@ -6,7 +6,6 @@
  *
  * @module routes/auth
  */
-const crypto = require('crypto');
 const express = require('express');
 const { logger } = require('../modules/logger');
 const { getConfig, setConfig } = require('../modules/database');
@@ -48,7 +47,8 @@ router.get('/wizard/status', (req, res) => {
       const v = JSON.parse(getConfig(k) || '[]');
       if (Array.isArray(v) && v.length > 0) { hasDataSource = true; break; }
     }
-    res.json({ needsSetup: !completed, completed, hasDataSource, passwordEnvManaged });
+    const passwordSet = getConfig('setup_password_set') === 'true';
+    res.json({ needsSetup: !completed, completed, hasDataSource, passwordEnvManaged, passwordSet });
   } catch (err) {
     logger.error('Error in /api/wizard/status:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -56,48 +56,30 @@ router.get('/wizard/status', (req, res) => {
 });
 
 // ── First-run password ─────────────────────────────────────────────
-// Before setup is complete, an unauthenticated caller may set the first
-// password only with the one-time setup code printed to the server log (so
-// whoever reaches the page first on the network cannot claim the instance).
-// With SETTINGS_PASSWORD set, the wizard instead asks for that password.
-let setupCode = null;
-
+// The first visitor sets the admin password: an unauthenticated caller may
+// set it once, while setup is pending and before anyone else has. After
+// that, changing it needs a logged-in session. With SETTINGS_PASSWORD set,
+// the wizard instead asks for that password.
 function setupPending() {
   return getConfig('setup_wizard_completed') !== 'true';
 }
 
-/** Generate (once per process) and log the setup code while setup is pending. */
-function announceSetupCode() {
-  if (passwordEnvManaged || !setupPending()) return null;
-  if (!setupCode) {
-    setupCode = crypto.randomBytes(4).toString('hex').toUpperCase();
-    logger.warn(`First-run setup code: ${setupCode} — enter it in the setup wizard at /setup to set the admin password.`);
-  }
-  return setupCode;
+function firstPasswordOpen() {
+  return setupPending() && getConfig('setup_password_set') !== 'true';
 }
 
-function codeMatches(input) {
-  if (!setupCode || typeof input !== 'string') return false;
-  const a = Buffer.from(input.trim().toUpperCase());
-  const b = Buffer.from(setupCode);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-// Tells the wizard which proof it must collect before the first password.
+// Tells the wizard whether it may set the first password.
 router.get('/wizard/password', (req, res) => {
   const authenticated = !!(req.session && req.session.authenticated);
-  if (!setupPending() && !authenticated) {
+  if (!firstPasswordOpen() && !authenticated) {
     return res.status(403).json({ error: 'Setup already complete' });
   }
-  res.json({
-    envManaged: passwordEnvManaged,
-    setupCodeRequired: !passwordEnvManaged && !authenticated
-  });
+  res.json({ envManaged: passwordEnvManaged });
 });
 
 // Set the first admin password (or, env-managed, prove the env password).
 router.post('/wizard/password', loginLimiter, (req, res) => {
-  const { password, setup_code: code } = req.body;
+  const { password } = req.body;
   const authenticated = !!(req.session && req.session.authenticated);
 
   if (passwordEnvManaged) {
@@ -109,22 +91,16 @@ router.post('/wizard/password', loginLimiter, (req, res) => {
     return res.status(401).json({ error: 'Enter the SETTINGS_PASSWORD configured on the server' });
   }
 
-  if (!authenticated) {
-    if (!setupPending()) {
-      return res.status(403).json({ error: 'Setup already complete — log in to change the password' });
-    }
-    announceSetupCode();
-    if (!codeMatches(code)) {
-      logger.warn('Setup wizard: rejected password change with a missing or wrong setup code');
-      return res.status(401).json({ error: 'Setup code is missing or incorrect — find it in the server log' });
-    }
+  if (!authenticated && !firstPasswordOpen()) {
+    logger.warn('Setup wizard: rejected an unauthenticated password change after the first password was set');
+    return res.status(403).json({ error: 'The admin password is already set — log in to change it' });
   }
   if (typeof password !== 'string' || password.length < 4) {
     return res.status(400).json({ error: 'Password must be at least 4 characters' });
   }
   try {
     setSettingsPassword(password);
-    setupCode = null; // single use: later changes need this session or a login
+    setConfig('setup_password_set', 'true'); // first visitor only: later changes need this session or a login
     req.session.authenticated = true;
     return res.json({ success: true });
   } catch (err) {
@@ -139,4 +115,3 @@ router.post('/wizard/complete', isAuthenticated, (req, res) => {
 });
 
 module.exports = router;
-module.exports.announceSetupCode = announceSetupCode;
