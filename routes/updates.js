@@ -12,7 +12,7 @@
  */
 const express = require('express');
 const { logger } = require('../modules/logger');
-const { setConfig } = require('../modules/database');
+const { getConfig, setConfig } = require('../modules/database');
 const { verifyPassword } = require('../modules/sessionAuth');
 const updates = require('../modules/updates');
 const dockerUpdate = require('../modules/dockerUpdate');
@@ -29,12 +29,32 @@ function method() {
   return { kind: 'none' };
 }
 
+/**
+ * EpilykosOS: is the appliance installing an update, and how did the last one
+ * end (host action update_status). Cheap, no network. Null when the host is
+ * unreachable or older than these actions.
+ */
+async function hostProgress() {
+  try {
+    const reply = await hostActions.call('update_status', {}, { timeoutMs: 5000 });
+    if (!reply || reply.ok !== true || !reply.app) return null;
+    const last = reply.app.last_result;
+    const lastResult = last && last.finished_at && last.finished_at !== getConfig('update_host_result_dismissed')
+      ? { ok: !!last.ok, error: last.error || '', rolledBack: !!last.rolled_back, toVersion: last.release || '', finishedAt: last.finished_at }
+      : null;
+    return { applying: reply.app.state === 'applying' ? { startedAt: (reply.app.job && reply.app.job.started_at) || null } : null, lastResult };
+  } catch (_) {
+    return null;
+  }
+}
+
 function router() {
   const r = express.Router();
 
   r.get('/', async (req, res) => {
     const m = method();
-    const result = m.kind === 'docker' ? await dockerUpdate.reconcile() : dockerUpdate.lastResult();
+    const host = m.kind === 'epilykos-os' ? await hostProgress() : null;
+    const result = m.kind === 'docker' ? await dockerUpdate.reconcile() : host ? host.lastResult : dockerUpdate.lastResult();
     res.json({
       installed: updates.installed(),
       status: updates.lastStatus(),
@@ -42,7 +62,7 @@ function router() {
       auto: updates.autoCheck(),
       autoLocked: /^(off|false|0|no)$/i.test(String(process.env.UPDATE_CHECK || '')),
       method: m,
-      applying: m.kind === 'docker' ? dockerUpdate.applying() : null,
+      applying: m.kind === 'docker' ? dockerUpdate.applying() : host ? host.applying : null,
       lastResult: result && result.finishedAt ? result : null,
     });
   });
@@ -59,8 +79,12 @@ function router() {
     res.json({ auto: updates.autoCheck() });
   });
 
-  r.post('/result/dismiss', (req, res) => {
+  r.post('/result/dismiss', async (req, res) => {
     setConfig('update_last_result', '');
+    if (method().kind === 'epilykos-os') {
+      const host = await hostProgress();
+      if (host && host.lastResult) setConfig('update_host_result_dismissed', host.lastResult.finishedAt);
+    }
     res.json({ ok: true });
   });
 
@@ -94,4 +118,4 @@ function router() {
   return r;
 }
 
-module.exports = { router, method };
+module.exports = { router, method, hostProgress };
