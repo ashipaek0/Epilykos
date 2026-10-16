@@ -1,3 +1,11 @@
+# Remote access (Settings → Network → Remote access): Tailscale's own static
+# binaries from its official multi-arch image. `stable` is Tailscale's latest
+# stable release; CI builds without a cache, so every Epilykos build carries
+# the current one (EpilykosOS then pins the result by digest). tailscaled runs
+# in userspace networking mode, started by the app only when the user turns
+# remote access on, so the container needs no extra capabilities.
+FROM tailscale/tailscale:stable AS tailscale
+
 FROM node:22-trixie-slim
 
 # Install build tools required for better-sqlite3 native compilation
@@ -11,6 +19,8 @@ RUN pip3 install --break-system-packages tinytuya tuya-device-sharing-sdk qrcode
 # networking or privileged mode is needed inside the container.
 COPY modules/ble/requirements.txt /tmp/ble-requirements.txt
 RUN pip3 install --break-system-packages -r /tmp/ble-requirements.txt && rm -rf /root/.cache/pip /tmp/ble-requirements.txt
+
+COPY --from=tailscale /usr/local/bin/tailscale /usr/local/bin/tailscaled /usr/local/bin/
 
 # Create app directory and set ownership
 RUN mkdir -p /app/data && chown -R node:node /app

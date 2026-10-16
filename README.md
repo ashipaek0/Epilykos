@@ -262,6 +262,18 @@ Bot tokens, webhook URLs, Authorization headers and push keys are encrypted at r
 
 ---
 
+## Remote Access with Tailscale
+
+No reverse proxy or port forwarding needed: Settings → Network → **Remote access** → **Connect with Tailscale**.
+
+1. Sign in at the link (or scan the QR code) with your own Tailscale account. Tailscale is free for personal use.
+2. **Create my address** gives an HTTPS address such as `https://epilykos.your-tailnet.ts.net`, reachable only from devices signed in to your Tailscale account (install the Tailscale app on your phone). If your Tailscale network hasn't turned on HTTPS yet, the card shows a link to do it once.
+3. It fills in *Address away from home* if that is empty, so the installed app switches to it automatically.
+
+**Open to the internet** (off by default) uses Tailscale Funnel so any browser can open the address. It asks for your admin password, which must be at least 12 characters.
+
+How it runs: the image includes Tailscale's latest stable release at build time. `tailscaled` runs inside the container in userspace networking mode, started only when you turn remote access on, so no compose changes or extra permissions are needed. Its state is in `data/tailscale/` (not in database backups). **Turn off remote access** logs this device out of your Tailscale network. Remote access can only be turned on by a signed-in admin, so never before the admin password exists.
+
 ## Reverse Proxy
 
 ### WebSocket Support
