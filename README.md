@@ -43,8 +43,9 @@ docker compose up -d
 ```
 
 Then open `http://localhost:3000/setup`. If you set `SETTINGS_PASSWORD`, the wizard asks for it.
-Otherwise it asks for a one-time **setup code** printed in the server log
-(`docker compose logs epilykos | grep "setup code"`) before you choose the admin password.
+Otherwise the first person to open the wizard chooses the admin password; after that, setup and
+Settings need it. Open the wizard yourself right after the first start (or set `SETTINGS_PASSWORD`
+when the server is reachable by people you don't trust).
 
 | URL | Purpose |
 |-----|---------|
@@ -333,7 +334,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | **Bluetooth: no adapter / adapter powered off** | Check `bluetoothctl show` on the host; `rfkill unblock bluetooth` and `bluetoothctl power on` |
 | **BMS scan returns no devices** | Move the adapter closer (BLE range is ~10 m), close the vendor app, and scan again. On a Raspberry Pi 3 a USB Bluetooth dongle is more reliable than the onboard radio |
 | **Daily totals roll over at the wrong hour** | Set `TZ` (e.g. `TZ=Europe/Berlin`) or mount `/etc/localtime:/etc/localtime:ro`; the startup log line shows the active time zone |
-| **Setup wizard asks for a setup code** | It is printed at startup: `docker compose logs epilykos \| grep "setup code"` |
+| **Setup wizard says Epilykos is already set up, but you never set a password** | Someone else opened the wizard first. Set `SETTINGS_PASSWORD` in `.env` and recreate the container: that password then unlocks setup and Settings |
 | **Need verbose logs** | Set `LOG_LEVEL=debug` in `.env`, then check `logs/` or run `docker compose logs -f` |
 
 ---
