@@ -66,7 +66,8 @@
       "type": "uint16",
       "scale": 1,
       "unit": "%",
-      "label": "Battery SOC"
+      "label": "Battery SOC",
+      "decode": "lux_soc_low_byte"
     },
     {
       "name": "pv1_power",
@@ -547,7 +548,7 @@
       "count": 1,
       "type": "uint16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Internal Temperature"
     },
     {
@@ -557,7 +558,7 @@
       "count": 1,
       "type": "uint16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Radiator Temperature 1"
     },
     {
@@ -567,7 +568,7 @@
       "count": 1,
       "type": "uint16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Radiator Temperature 2"
     },
     {
@@ -577,7 +578,7 @@
       "count": 1,
       "type": "uint16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Battery Temperature"
     },
     {
@@ -669,7 +670,8 @@
       "type": "uint16",
       "scale": 0.01,
       "unit": "A",
-      "label": "BMS Max Charge Current"
+      "label": "BMS Max Charge Current",
+      "decode": "lux_bms_current"
     },
     {
       "name": "bms_max_discharge_current",
@@ -679,7 +681,8 @@
       "type": "uint16",
       "scale": 0.01,
       "unit": "A",
-      "label": "BMS Max Discharge Current"
+      "label": "BMS Max Discharge Current",
+      "decode": "lux_bms_current"
     },
     {
       "name": "bms_charge_voltage_ref",
@@ -888,7 +891,7 @@
       "count": 1,
       "type": "int16",
       "scale": 0.1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "BMS Max Cell Temperature"
     },
     {
@@ -898,7 +901,7 @@
       "count": 1,
       "type": "int16",
       "scale": 0.1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "BMS Min Cell Temperature"
     },
     {
@@ -1522,7 +1525,7 @@
       "count": 1,
       "type": "int16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "NTC INDC Temperature"
     },
     {
@@ -1532,7 +1535,7 @@
       "count": 1,
       "type": "int16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "NTC DCDCL Temperature"
     },
     {
@@ -1542,7 +1545,7 @@
       "count": 1,
       "type": "int16",
       "scale": 1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "NTC DCDCH Temperature"
     },
     {
@@ -1825,7 +1828,7 @@
       "count": 1,
       "type": "int16",
       "scale": 0.1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Lead Acid Low Temp Guard"
     },
     {
@@ -1835,7 +1838,7 @@
       "count": 1,
       "type": "int16",
       "scale": 0.1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Lead Acid High Temp Guard"
     },
     {
@@ -1895,7 +1898,7 @@
       "count": 1,
       "type": "uint16",
       "scale": 0.1,
-      "unit": "°C",
+      "unit": "\u00b0C",
       "label": "Lead Acid Temp Upper Limit (Charge)"
     },
     {
@@ -2446,6 +2449,158 @@
       "min": 50,
       "max": 100,
       "step": 1
+    }
+  ],
+  "geta_controls": [
+    {
+      "name": "charge_power_percent",
+      "register": "0x0040",
+      "kind": "value",
+      "label": "Battery charging power limit",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "evidence": "HOLD_CHARGE_POWER_PERCENT_CMD",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+    },
+    {
+      "name": "discharge_power_percent",
+      "register": "0x0041",
+      "kind": "value",
+      "label": "Battery discharging power limit",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "evidence": "HOLD_DISCHG_POWER_PERCENT_CMD",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+    },
+    {
+      "name": "ac_charge_power_percent",
+      "register": "0x0042",
+      "kind": "value",
+      "label": "Grid charging power limit",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "evidence": "HOLD_AC_CHARGE_POWER_CMD",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+    },
+    {
+      "name": "ac_charge_enabled",
+      "register": "0x0015",
+      "kind": "bitfield",
+      "mask": 128,
+      "label": "Grid charging",
+      "evidence": "FUNC_AC_CHARGE",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+    },
+    {
+      "name": "charge_first_enabled",
+      "register": "0x0015",
+      "kind": "bitfield",
+      "mask": 2048,
+      "label": "Charge first",
+      "evidence": "FUNC_FORCED_CHG_EN",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+    },
+    {
+      "name": "forced_discharge_enabled",
+      "register": "0x0015",
+      "kind": "bitfield",
+      "mask": 1024,
+      "label": "Forced discharging",
+      "evidence": "FUNC_FORCED_DISCHG_EN",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+    },
+    {
+      "name": "ac_charge_start_time_1",
+      "register": "0x0044",
+      "kind": "time",
+      "label": "Grid charging window 1 start",
+      "evidence": "HOLD_AC_CHARGE_START_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+    },
+    {
+      "name": "ac_charge_end_time_1",
+      "register": "0x0045",
+      "kind": "time",
+      "label": "Grid charging window 1 end",
+      "evidence": "HOLD_AC_CHARGE_END_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+    },
+    {
+      "name": "ac_charge_start_time_2",
+      "register": "0x0046",
+      "kind": "time",
+      "label": "Grid charging window 2 start",
+      "evidence": "HOLD_AC_CHARGE_START_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+    },
+    {
+      "name": "ac_charge_end_time_2",
+      "register": "0x0047",
+      "kind": "time",
+      "label": "Grid charging window 2 end",
+      "evidence": "HOLD_AC_CHARGE_END_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+    },
+    {
+      "name": "ac_charge_start_time_3",
+      "register": "0x0048",
+      "kind": "time",
+      "label": "Grid charging window 3 start",
+      "evidence": "HOLD_AC_CHARGE_START_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+    },
+    {
+      "name": "ac_charge_end_time_3",
+      "register": "0x0049",
+      "kind": "time",
+      "label": "Grid charging window 3 end",
+      "evidence": "HOLD_AC_CHARGE_END_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "hardware_verified": false,
+      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
     }
   ]
 }

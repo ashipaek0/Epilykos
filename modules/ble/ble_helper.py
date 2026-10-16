@@ -528,6 +528,27 @@ async def _gatt_link(address, notify_uuid, timeout):
     return link
 
 
+async def lux_write(client, write_uuid, frame, mode, delay_ms):
+    """One submission only: a timeout must never switch mode and replay a write."""
+    mtu = getattr(client, "mtu_size", 23)
+    info = {"writeMode": mode, "mtu": mtu}
+    if mode == "long-response":
+        await client.write_gatt_char(write_uuid, frame, response=True)
+        return info
+    char = client.services.get_characteristic(write_uuid)
+    if char is None or "write-without-response" not in char.properties:
+        raise HelperError("write without response is not advertised", "unsupported")
+    size = min(max(20, mtu - 3), char.max_write_without_response_size)
+    if not isinstance(size, int) or size < 1:
+        raise HelperError("invalid negotiated write size", "bad_response")
+    info.update(chunkSize=size, chunkDelayMs=delay_ms)
+    for offset in range(0, len(frame), size):
+        await client.write_gatt_char(char, frame[offset:offset + size], response=False)
+        if offset + size < len(frame) and delay_ms:
+            await asyncio.sleep(delay_ms / 1000)
+    return info
+
+
 async def _exchange(args, framing):
     """Write one request frame, return the matching notified response frame."""
     address = norm_address(args.get("address"))
@@ -551,9 +572,17 @@ async def _exchange(args, framing):
             link = await _gatt_link(address, notify_uuid, timeout)
             link.buf.clear()
             link.event.clear()
-            # Luxpower requests exceed the default 20-byte payload; BlueZ sends
-            # them as one long write, which the dongle reassembles.
-            await link.client.write_gatt_char(write_uuid, frame, response=framing == "luxpower" or None)
+            diagnostics = {}
+            if framing == "luxpower":
+                mode = args.get("write_mode", "long-response")
+                if mode not in ("long-response", "chunked-no-response"):
+                    raise HelperError("invalid LuxPower write mode", "bad_request")
+                delay = float(args.get("chunk_delay_ms", 300))
+                if not math.isfinite(delay) or not 0 <= delay <= 1000:
+                    raise HelperError("invalid chunk delay", "bad_request")
+                diagnostics = await lux_write(link.client, write_uuid, frame, mode, delay)
+            else:
+                await link.client.write_gatt_char(write_uuid, frame, response=None)
             while True:
                 await link.event.wait()
                 link.event.clear()
@@ -587,7 +616,7 @@ async def _exchange(args, framing):
         raise _map_error(exc) from exc
     if not KEEP_ALIVE:
         await _drop_gatt(address)
-    return {"frame": resp.hex()}
+    return {"frame": resp.hex(), "diagnostics": diagnostics}
 
 
 async def cmd_modbus(args):

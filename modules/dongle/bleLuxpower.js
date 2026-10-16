@@ -49,6 +49,11 @@ class BleLuxpowerTransport {
     this.notifyUuid = normalizeUuid(instance.ble_notify_uuid || DEFAULT_CHAR_UUID);
     if (!this.writeUuid) throw new Error(`invalid write characteristic UUID "${instance.ble_write_uuid}"`);
     if (!this.notifyUuid) throw new Error(`invalid notify characteristic UUID "${instance.ble_notify_uuid}"`);
+    this.writeMode = instance.ble_write_mode || 'long-response';
+    if (!['long-response', 'chunked-no-response'].includes(this.writeMode)) throw new Error('Invalid BLE write mode');
+    this.chunkDelayMs = instance.ble_chunk_delay_ms === undefined ? 300 : Number(instance.ble_chunk_delay_ms);
+    if (!Number.isInteger(this.chunkDelayMs) || this.chunkDelayMs < 0 || this.chunkDelayMs > 1000) throw new Error('Invalid BLE chunk delay');
+    this.diagnostics = { transport: 'bluetooth', writeMode: this.writeMode };
     this.dongle = instance.dongle_serial;
     this.inverter = instance.inverter_serial;
     this.protocol = (instance.protocol === undefined ? 5 : parseInt(instance.protocol, 10)) || 5;
@@ -63,7 +68,8 @@ class BleLuxpowerTransport {
   stop() {}
 
   async _request(frame) {
-    const resp = await this.exchange(this.address, { writeUuid: this.writeUuid, notifyUuid: this.notifyUuid, frame });
+    const resp = await this.exchange(this.address, { writeUuid: this.writeUuid, notifyUuid: this.notifyUuid, frame, writeMode: this.writeMode, chunkDelayMs: this.chunkDelayMs });
+    if (resp.diagnostics) Object.assign(this.diagnostics, resp.diagnostics);
     if (resp.length < 22) throw new Error('response too short');
     const stored = resp.readUInt16LE(resp.length - 2);
     const computed = crc16Modbus(resp.slice(20, resp.length - 2));
@@ -82,6 +88,7 @@ class BleLuxpowerTransport {
   async readRegisters(start, count, devFn = DEV_FN_HOLDING) {
     const frame = buildReadFrame({ protocol: this.protocol, dongle: this.dongle, inverter: this.inverter, devFn, start, count });
     const parsed = await this._request(frame);
+    if (parsed.devFn !== devFn || parsed.start !== start) throw new Error('read response mismatch');
     if (parsed.byteLen !== count * 2) throw new Error(`expected ${count} registers, got ${parsed.byteLen / 2}`);
     return parsed.values;
   }
