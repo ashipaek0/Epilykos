@@ -20,6 +20,21 @@ check('different prefixes, different profiles, a disabled twin, or own mappings:
   assert.strictEqual(dongleNameClash([ph('A', ''), ph('B', '', { mappings: { b_pv: '0x10' } })]), null);
   assert.strictEqual(dongleNameClash(null), null);
 });
+check('an inverter mapped to the names its unmapped twin writes: refused, with the overlap named', () => {
+  const mapped = ph('Phocos 1', '', { mappings: { grid_voltage: 'live[0]', output_power: 'live[5]', battery_soc: 'status[0]', pv_power: 'derived.pv_power' } });
+  const msg = dongleNameClash([mapped, ph('Phocos 2', '')]);
+  assert.match(msg, /"Phocos 1" and "Phocos 2" would both write 4 of the same metrics \(grid_voltage, output_power, battery_soc, …\)/);
+  assert.match(msg, /Give "Phocos 2" its own metric prefix \(for example inv2_\) and press Load/);
+  assert.strictEqual(dongleNameClash([mapped, ph('Phocos 2', 'inv2_')]), null, 'a prefix keeps them apart');
+  const twin = ph('Phocos 2', 'inv2_', { mappings: { battery_soc: 'status[0]' } });
+  assert.match(dongleNameClash([mapped, twin]), /Map "Phocos 2" to its own metric names/);
+  assert.strictEqual(dongleNameClash([mapped, ph('Phocos 2', '', { enabled: false })]), null);
+});
+check('both settings saves and the dongle poller run the check', () => {
+  const fs = require('fs'), path = require('path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  assert.strictEqual((read('server.js').match(/dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/g) || []).length, 2, '/api/settings and /api/settings/data-sources');
+  assert.match(read('modules/dongle.js'), /dongleNameClash\(config\);\s*if \(clash\) logger\.warn/);
+});
 check('the settings save refuses a clash, and Settings suggests a prefix', () => {
   const fs = require('fs'), path = require('path');
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/);

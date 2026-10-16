@@ -1535,6 +1535,14 @@ app.post('/api/settings/data-sources', isAuthenticated, (req, res) => {
       'bms_devices', 'bms_banks', 'dongle_config', 'pvoutput_config',
       'tuya_devices', 'tuya_cloud', 'setup_probe_cache'
     ];
+    // The page Settings uses: refuse inverters that would overwrite each
+    // other's metrics here too, not only on the older /api/settings.
+    if (req.body && req.body.dongle_config !== undefined) {
+      let devices = req.body.dongle_config;
+      if (typeof devices === 'string') { try { devices = JSON.parse(devices || '[]'); } catch (_) { devices = []; } }
+      const clash = require('./modules/sourceChecks').dongleNameClash(devices);
+      if (clash) return res.status(400).json({ error: clash });
+    }
     const oldBanksRaw = getConfig('bms_banks'); // snapshot BEFORE the save for orphan cleanup
     const { saved } = saveConfigKeys(allowed, req, res);
     applySourceConfigChanges(saved, oldBanksRaw);

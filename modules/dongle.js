@@ -76,6 +76,10 @@ function startDonglePolling() {
 
   let config;
   try { config = JSON.parse(raw); } catch (e) { logger.error('[dongle] invalid config JSON'); return; }
+  // A saved config from before the check (or edited by hand) can still have
+  // two inverters writing the same metrics: say so every time polling starts.
+  const clash = require('./sourceChecks').dongleNameClash(config);
+  if (clash) logger.warn(`[dongle] ${clash}`);
 
   const growattInstances = [];
 
