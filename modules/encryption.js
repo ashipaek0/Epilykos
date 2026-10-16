@@ -128,6 +128,7 @@ const SECRET_FIELDS = {
   ha_devices: ['token'],
   mqtt_devices: ['password'],
   tuya_devices: ['local_key'],
+  cloudflare_tunnel: ['token'],     // Settings → Network → Cloudflare Tunnel
   // modules/notifications/store.js: Telegram bot token, Discord webhook URL
   // (the URL is the credential), ntfy access token, webhook URL and
   // Authorization header, push keys.
