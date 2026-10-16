@@ -590,3 +590,5 @@ body.st {
 .st .rm-url a { font-weight: 800; color: var(--st-text); overflow-wrap: anywhere; }
 .st .rm-warn { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--st-amber-soft); color: var(--st-amber-text); font-weight: 700; font-size: .82rem; }
 .st .rm-off { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--st-line-soft); }
+.st .cf-steps { margin: 4px 0 14px; padding-left: 1.3em; display: grid; gap: 6px; font-size: .82rem; color: var(--st-text); line-height: 1.5; }
+.st #cf-root code, .st #rm-root code { font-size: .78rem; padding: 1px 5px; border-radius: 5px; background: var(--st-hover); overflow-wrap: anywhere; }

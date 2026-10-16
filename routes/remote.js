@@ -10,11 +10,18 @@
  *   POST /api/remote/tailscale/funnel       { on, password } open it to any browser:
  *                                           needs the admin password, 12+ characters
  *   POST /api/remote/tailscale/disconnect   leave the tailnet, stop Tailscale
+ *
+ *   GET  /api/remote/cloudflare             status (never the token)
+ *   POST /api/remote/cloudflare/connect     { token, publicUrl, password }: the
+ *                                           tunnel's address is public, so the
+ *                                           same password rule as Funnel
+ *   POST /api/remote/cloudflare/disconnect  stop the tunnel, forget the token
  */
 const express = require('express');
 const { logger } = require('../modules/logger');
 const { getConfig, setConfig } = require('../modules/database');
 const tailscale = require('../modules/tailscale');
+const cloudflared = require('../modules/cloudflared');
 const { verifyPassword } = require('../modules/sessionAuth');
 
 const PORT = () => parseInt(process.env.PORT, 10) || 3000;
@@ -47,9 +54,73 @@ function send(res, promise) {
   });
 }
 
+/** The admin password, 12+ characters, before anything is opened to the internet. Returns an error reply or null. */
+function publicAccessRefusal(password, what) {
+  if (typeof password !== 'string' || !verifyPassword(password)) return { status: 403, body: { error: `Enter your admin password to open the dashboard to the internet${what ? ` with ${what}` : ''}.` } };
+  if (password.length < FUNNEL_MIN_PASSWORD) return { status: 400, body: { error: `Your admin password is shorter than ${FUNNEL_MIN_PASSWORD} characters. Change it to a longer one first: anyone on the internet will be able to try it.`, code: 'weak_password' } };
+  return null;
+}
+
+function cloudflareConfig() {
+  try { return JSON.parse(getConfig('cloudflare_tunnel') || '{}') || {}; } catch (_) { return {}; }
+}
+
+/** "https://energy.example.com" from what was typed; null when empty, throws when not a plain address. */
+function normalisePublicUrl(input) {
+  const text = String(input || '').trim();
+  if (!text) return null;
+  let u;
+  try { u = new URL(/^[a-z]+:\/\//i.test(text) ? text : `https://${text}`); } catch (_) { u = null; }
+  if (!u || u.protocol !== 'https:' || !u.hostname.includes('.') || (u.pathname && u.pathname !== '/') || u.search || u.hash) {
+    throw new Error('Enter the public hostname you set on the tunnel, for example energy.example.com.');
+  }
+  return `https://${u.host}`;
+}
+
+async function cloudflareStatus() {
+  const cfg = cloudflareConfig();
+  const st = await cloudflared.status();
+  const out = { ...st, publicUrl: cfg.public_url || null, tunnelId: cfg.tunnel_id || null, port: PORT() };
+  if (out.publicUrl && out.state === 'connected') out.urlQr = await require('qrcode').toString(out.publicUrl, { type: 'svg', margin: 1, width: 180 });
+  return out;
+}
+
 function router() {
   const r = express.Router();
   r.use(express.json());
+
+  r.get('/cloudflare', (req, res) => {
+    cloudflareStatus().then(st => res.json(st), err => res.status(500).json({ error: err.message }));
+  });
+
+  r.post('/cloudflare/connect', async (req, res) => {
+    const body = req.body || {};
+    const refusal = publicAccessRefusal(body.password, 'a Cloudflare Tunnel');
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+    let parsed, publicUrl;
+    try { parsed = cloudflared.parseToken(body.token); publicUrl = normalisePublicUrl(body.publicUrl); }
+    catch (e) { return res.status(400).json({ error: e.message }); }
+    if (!(await cloudflared.isInstalled())) return res.status(400).json({ error: 'Cloudflare Tunnel is not included in this install. Update to the latest Epilykos image.' });
+    setConfig('cloudflare_tunnel', JSON.stringify({ enabled: true, token: parsed.token, tunnel_id: parsed.tunnelId, public_url: publicUrl }));
+    cloudflared.start(parsed.token);
+    logger.warn(`[cloudflared] Dashboard opened to the internet through Cloudflare Tunnel ${parsed.tunnelId}${publicUrl ? ` (${publicUrl})` : ''}`);
+    if (publicUrl && !getConfig('network_remote_url')) {
+      setConfig('network_remote_url', publicUrl);
+      setConfig('cloudflare_filled_remote_url', publicUrl);
+    }
+    const st = await cloudflareStatus();
+    res.json({ ...st, filledRemoteUrl: getConfig('cloudflare_filled_remote_url') === publicUrl && !!publicUrl });
+  });
+
+  r.post('/cloudflare/disconnect', async (req, res) => {
+    cloudflared.stop();
+    setConfig('cloudflare_tunnel', JSON.stringify({ enabled: false }));
+    const filled = getConfig('cloudflare_filled_remote_url');
+    if (filled && getConfig('network_remote_url') === filled) setConfig('network_remote_url', '');
+    setConfig('cloudflare_filled_remote_url', '');
+    logger.info('[cloudflared] Cloudflare Tunnel turned off');
+    res.json(await cloudflareStatus());
+  });
 
   r.get('/tailscale', (req, res) => send(res, tailscale.status()));
 
@@ -67,13 +138,8 @@ function router() {
   r.post('/tailscale/funnel', (req, res) => {
     const on = !!(req.body && req.body.on);
     if (on) {
-      const password = req.body && req.body.password;
-      if (typeof password !== 'string' || !verifyPassword(password)) {
-        return res.status(403).json({ error: 'Enter your admin password to open the dashboard to the internet.' });
-      }
-      if (password.length < FUNNEL_MIN_PASSWORD) {
-        return res.status(400).json({ error: `Your admin password is shorter than ${FUNNEL_MIN_PASSWORD} characters. Change it to a longer one first: anyone on the internet will be able to try it.`, code: 'weak_password' });
-      }
+      const refusal = publicAccessRefusal(req.body && req.body.password);
+      if (refusal) return res.status(refusal.status).json(refusal.body);
       logger.warn('[tailscale] Dashboard opened to the internet (Funnel on)');
     } else {
       logger.info('[tailscale] Dashboard closed to the internet (Funnel off)');
@@ -96,8 +162,15 @@ function router() {
   return r;
 }
 
-/** At startup: bring Tailscale back if remote access was on. */
+/** At startup: bring Tailscale and the Cloudflare Tunnel back if they were on. */
 function init() {
+  const cf = cloudflareConfig();
+  if (cf.enabled && cf.token) {
+    cloudflared.isInstalled().then(ok => {
+      if (ok) { cloudflared.start(cf.token); logger.info('[cloudflared] Cloudflare Tunnel back on after restart'); }
+      else logger.warn('[cloudflared] The Cloudflare Tunnel is on, but cloudflared is not included in this install');
+    });
+  }
   if (getConfig('tailscale_enabled') !== 'true') return;
   tailscale.isInstalled().then(ok => {
     if (!ok) { logger.warn('[tailscale] Remote access is on, but Tailscale is not included in this install'); return; }
@@ -105,4 +178,4 @@ function init() {
   }).catch(e => logger.warn(`[tailscale] could not start: ${e.message}`));
 }
 
-module.exports = { router, init, fillRemoteUrl, FUNNEL_MIN_PASSWORD };
+module.exports = { router, init, fillRemoteUrl, normalisePublicUrl, FUNNEL_MIN_PASSWORD };

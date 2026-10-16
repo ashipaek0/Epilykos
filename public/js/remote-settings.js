@@ -163,3 +163,141 @@
     if (open) refresh().then(schedule); else clearTimeout(timer);
   });
 })();
+
+/**
+ * Settings → Network → Cloudflare Tunnel. For a public address on your own
+ * domain: paste the tunnel token (or the whole install command) from the
+ * Cloudflare dashboard. Talks to /api/remote/cloudflare; the token is never
+ * sent back to the page.
+ */
+(function () {
+  'use strict';
+
+  var root = document.getElementById('cf-root');
+  if (!root) return;
+  var shell = window.stShell || {};
+  var esc = shell.esc || function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  function toast(msg, tone) { if (shell.toast) shell.toast(msg, tone ? { tone: tone } : undefined); }
+
+  var st = null, open = false, timer = null, busy = false;
+
+  function api(path, body) {
+    var opts = { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } };
+    if (body !== undefined) { opts.method = 'POST'; opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch('/api/remote/cloudflare' + path, opts).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (res.status === 401) { location.href = '/login'; throw new Error('Signed out'); }
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        return data;
+      });
+    });
+  }
+
+  function badge(text, tone) {
+    var b = document.getElementById('cf-badge');
+    if (!b) return;
+    b.hidden = !text; b.textContent = text || '';
+    b.className = 'st-badge' + (tone ? ' is-' + tone : '');
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    if (!open || document.hidden) return;
+    timer = setTimeout(function () { refresh().then(schedule); }, st && st.state === 'connecting' ? 3000 : 20000);
+  }
+
+  function refresh() {
+    if (busy) return Promise.resolve();
+    return api('').then(function (data) { st = data; render(); }).catch(function (e) {
+      root.innerHTML = '<p class="st-help">Could not read the tunnel: ' + esc(e.message) + '</p>';
+    });
+  }
+
+  function form() {
+    var port = st.port || 3000;
+    return '<p class="st-help">A public address on your own domain, through Cloudflare. No ports to open and no reverse proxy to run. You need a Cloudflare account with your domain on it.</p>'
+      + '<ol class="cf-steps">'
+      + '<li>In Cloudflare Zero Trust, go to <strong>Networks → Tunnels</strong> and create a tunnel (type <strong>Cloudflared</strong>).</li>'
+      + '<li>Copy the install command it shows and paste it below. Just the long code starting with <code>eyJ</code> works too.</li>'
+      + '<li>Under <strong>Public hostname</strong>, add your address (for example <code>energy.example.com</code>) with service <strong>HTTP</strong> and URL <code>localhost:' + esc(port) + '</code>.</li>'
+      + '</ol>'
+      + '<div class="st-field"><label for="cf-token">Tunnel token or install command</label><input id="cf-token" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="cloudflared service install eyJ…"></div>'
+      + '<div class="st-field"><label for="cf-url">Public address</label><input id="cf-url" class="input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="energy.example.com"><span class="st-help">The hostname from step 3. Fills in “Address away from home” if that is empty.</span></div>'
+      + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="cf-connect"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Connecting…' : 'Connect tunnel') + '</button></div>'
+      + '<p class="st-help">Optional: add Cloudflare Access to the hostname for an extra sign-in in front of Epilykos.</p>';
+  }
+
+  function render() {
+    if (!st) return;
+    var h;
+    if (st.state === 'not-installed') {
+      badge('');
+      h = '<p class="st-help"><strong>Not included in this install.</strong> Update to the latest Epilykos image to use it.</p>';
+    } else if (st.state === 'off') {
+      badge('');
+      h = form();
+    } else {
+      var connected = st.state === 'connected';
+      badge(connected ? 'Connected' : st.state === 'error' ? 'Problem' : 'Connecting', connected ? 'ok' : st.state === 'error' ? 'error' : 'warn');
+      h = '<p class="st-help">' + (connected
+          ? 'Connected to Cloudflare (' + esc(st.connections) + ' connection' + (st.connections === 1 ? '' : 's') + ').'
+          : st.state === 'error' ? 'The tunnel is not connecting.' : 'Connecting to Cloudflare…')
+        + (st.tunnelId ? ' Tunnel <code>' + esc(String(st.tunnelId).slice(0, 8)) + '…</code>.' : '') + '</p>';
+      if (st.error && !connected) h += '<p class="rm-warn">' + esc(st.error) + '</p>';
+      if (st.publicUrl) {
+        h += '<div class="rm-pair"><div class="rm-qr" aria-hidden="true">' + (st.urlQr || '') + '</div><div class="rm-pair-text">'
+          + '<div class="rm-url"><a href="' + esc(st.publicUrl) + '" target="_blank" rel="noopener">' + esc(st.publicUrl) + '</a><button type="button" class="st-btn cf-copy" data-copy="' + esc(st.publicUrl) + '">Copy</button></div>'
+          + '<p class="st-help">Open to the internet. If it shows a Cloudflare error page, check the public hostname points to <code>localhost:' + esc(st.port || 3000) + '</code> (service HTTP).</p></div></div>';
+      }
+      h += '<div class="st-inline-actions rm-off"><button type="button" class="st-btn st-btn-danger-text" id="cf-disconnect"' + (busy ? ' disabled' : '') + '>Turn off tunnel</button></div>';
+    }
+    root.innerHTML = h;
+  }
+
+  function askPassword() {
+    var body = document.createElement('div');
+    body.innerHTML = '<p>Your public address will be reachable from anywhere. Your admin password must be at least 12 characters.</p>'
+      + '<div class="st-field"><label for="cf-pw">Admin password</label><input id="cf-pw" class="input" type="password" autocomplete="current-password" required></div>';
+    var input = body.querySelector('input');
+    return shell.openDialog({ title: 'Open your dashboard to the internet?', body: body, actions: [{ label: 'Cancel', value: null }, { label: 'Connect tunnel', value: 'ok', kind: 'danger' }] })
+      .then(function (r) { return r && r.value === 'ok' ? input.value : null; });
+  }
+
+  root.addEventListener('click', function (e) {
+    var t = e.target.closest('button');
+    if (!t || t.disabled) return;
+    if (t.id === 'cf-connect') {
+      var token = document.getElementById('cf-token').value, url = document.getElementById('cf-url').value;
+      if (!token.trim()) { toast('Paste the tunnel token or install command first', 'error'); document.getElementById('cf-token').focus(); return; }
+      askPassword().then(function (pw) {
+        if (pw === null) return;
+        busy = true; render();
+        return api('/connect', { token: token, publicUrl: url, password: pw }).then(function (data) {
+          st = data; busy = false; render();
+          toast(data.filledRemoteUrl ? 'Tunnel on. Address away from home set to ' + data.publicUrl : 'Tunnel on');
+        }, function (err) {
+          busy = false; render(); toast(err.message, 'error');
+          // keep what was typed so it can be corrected
+          var tk = document.getElementById('cf-token'), u = document.getElementById('cf-url');
+          if (tk) tk.value = token; if (u) u.value = url;
+        }).then(schedule);
+      });
+    } else if (t.id === 'cf-disconnect') {
+      var ask = window.stConfirm ? window.stConfirm({ title: 'Turn off the tunnel?', message: 'Your public address stops working. The token is forgotten; you would paste it again to turn it back on.', confirmLabel: 'Turn off' }) : Promise.resolve(true);
+      Promise.resolve(ask).then(function (yes) {
+        if (!yes) return;
+        busy = true; render();
+        return api('/disconnect', {}).then(function (data) { st = data; busy = false; render(); toast('Tunnel turned off'); }, function (err) { busy = false; render(); toast(err.message, 'error'); });
+      });
+    } else if (t.classList.contains('cf-copy')) {
+      var text = t.dataset.copy;
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { toast('Copied'); }, function () { toast(text); });
+    }
+  });
+
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && open) refresh().then(schedule); else clearTimeout(timer); });
+  document.addEventListener('st:section-shown', function (ev) {
+    open = ev.detail && ev.detail.section === 'network';
+    if (open) refresh().then(schedule); else clearTimeout(timer);
+  });
+})();

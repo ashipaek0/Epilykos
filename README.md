@@ -274,6 +274,18 @@ No reverse proxy or port forwarding needed: Settings → Network → **Remote ac
 
 How it runs: the image includes Tailscale's latest stable release at build time. `tailscaled` runs inside the container in userspace networking mode, started only when you turn remote access on, so no compose changes or extra permissions are needed. Its state is in `data/tailscale/` (not in database backups). **Turn off remote access** logs this device out of your Tailscale network. Remote access can only be turned on by a signed-in admin, so never before the admin password exists.
 
+## Remote Access with a Cloudflare Tunnel
+
+For a public address on your own domain (the domain must be on Cloudflare), with no ports to open: Settings → Network → **Cloudflare Tunnel**.
+
+1. In Cloudflare Zero Trust, go to **Networks → Tunnels** and create a tunnel (type *Cloudflared*).
+2. Copy the install command it shows and paste it into **Tunnel token or install command** (just the token starting with `eyJ` works too).
+3. Under **Public hostname**, add your address (e.g. `energy.example.com`) with service **HTTP** and URL `localhost:3000`, and enter the same address in **Public address**.
+
+Connecting asks for your admin password, which must be at least 12 characters, because the address is reachable from anywhere. Add Cloudflare Access to the hostname if you want an extra sign-in in front. `cloudflared` runs inside the container only while the tunnel is on. The token is stored encrypted, passed to `cloudflared` through its environment rather than the command line, and hidden in Settings → Logs and the diagnostics file. **Turn off tunnel** stops it and forgets the token.
+
+The released image is rebuilt every Monday (and on demand from the Actions tab), so Tailscale, `cloudflared` and the base system's security updates arrive even without a new Epilykos release.
+
 ## Reverse Proxy
 
 ### WebSocket Support
