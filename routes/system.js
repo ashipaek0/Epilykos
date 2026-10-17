@@ -40,11 +40,20 @@ router.get('/', async (req, res) => {
   try {
     const reply = await hostActions.call('status');
     if (!reply || reply.ok !== true) throw Object.assign(new Error(reply && reply.error || 'status failed'), { status: 502 });
-    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh, port: reply.port || null });
+    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh, port: reply.port || null, clock: reply.clock || null, storage: reply.storage || null });
   } catch (err) {
     res.status(err.status || 500).json({ appliance: true, error: err.message });
   }
 });
+
+router.post('/timezone', forward('set_timezone', b => ({ timezone: typeof b.timezone === 'string' ? b.timezone : '', restart: b.restart !== false })));
+router.post('/clock', forward('set_clock', b => ({ epoch: typeof b.epoch === 'number' ? b.epoch : null })));
+router.get('/bluetooth', forward('bluetooth_status'));
+router.post('/bluetooth/open', forward('bluetooth_open'));
+router.post('/bluetooth/close', forward('bluetooth_close'));
+router.post('/bluetooth/pair', forward('bluetooth_pair', b => ({ address: typeof b.address === 'string' ? b.address : '' })));
+router.post('/bluetooth/reply', forward('bluetooth_reply', b => ({ id: typeof b.id === 'string' ? b.id : '', value: typeof b.value === 'string' || typeof b.value === 'boolean' ? b.value : null })));
+router.post('/bluetooth/remove', forward('bluetooth_remove', b => ({ address: typeof b.address === 'string' ? b.address : '' })));
 
 router.post('/restart', (req, res, next) => { logger.info('Settings: restart requested'); next(); }, forward('restart'));
 router.post('/shutdown', (req, res, next) => { logger.info('Settings: shutdown requested'); next(); }, forward('shutdown'));

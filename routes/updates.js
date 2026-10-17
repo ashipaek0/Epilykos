@@ -60,6 +60,7 @@ function router() {
       status: updates.lastStatus(),
       host: m.kind === 'epilykos-os' ? updates.lastHostStatus() : null,
       auto: updates.autoCheck(),
+      autoInstall: updates.autoInstall(),
       autoLocked: /^(off|false|0|no)$/i.test(String(process.env.UPDATE_CHECK || '')),
       method: m,
       applying: m.kind === 'docker' ? dockerUpdate.applying() : host ? host.applying : null,
@@ -77,6 +78,15 @@ function router() {
     setConfig('update_check_auto', on ? 'true' : 'false');
     logger.info(`[updates] Daily update check ${on ? 'on' : 'off'}`);
     res.json({ auto: updates.autoCheck() });
+  });
+
+  r.post('/auto-install', (req, res) => {
+    const body = req.body || {};
+    if (body.on !== false && body.on !== true) return res.status(400).json({error:'Choose on or off'});
+    if (body.on && (!hostActions.available() || !updates.autoCheck())) return res.status(400).json({error:'Automatic installation needs EpilykosOS and daily checks enabled.'});
+    if (body.on && (typeof body.password !== 'string' || !verifyPassword(body.password))) return res.status(403).json({error:'Enter your admin password to enable automatic installation.'});
+    setConfig('update_install_auto', body.on ? 'true' : 'false');
+    res.json({autoInstall: updates.autoInstall()});
   });
 
   r.post('/result/dismiss', async (req, res) => {
