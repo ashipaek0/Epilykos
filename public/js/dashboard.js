@@ -335,7 +335,7 @@ function applyBranding(cfg) {
   window._bgDark = cfg.dashboard_bg_color_dark || '#0f172a';
   applyBodyBg();
   document.body.addEventListener('theme-changed', applyBodyBg);
-  if (cfg.dashboard_bg_image) { document.body.style.backgroundImage = `url(${cfg.dashboard_bg_image})`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
+  if (cfg.dashboard_bg_image) { const safeBg = String(cfg.dashboard_bg_image).replace(/["'()\\\n\r]/g, ''); document.body.style.backgroundImage = `url("${safeBg}")`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
 }
 
 export { dashboardConfig, renderDashboard, switchDashboard };
