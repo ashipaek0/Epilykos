@@ -5,6 +5,7 @@ const { getDb, DB_PATH, initializeDatabase, flushMetrics, setConfig } = require(
 const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
+const { createBackupSnapshot } = require('./sqliteSnapshot');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -25,64 +26,59 @@ function checkpointWal() {
   }
 }
 
-/**
- * Verify a SQLite file is valid by opening it and SELECT 1.
- */
-function isSqliteValid(filePath) {
-  try {
-    const Database = require('better-sqlite3');
-    const testDb = new Database(filePath, { readonly: true });
-    testDb.prepare('SELECT 1').get();
-    testDb.close();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Create a safe snapshot copy of the current database into a temp file,
- * checkpointing the WAL first so the snapshot is self-consistent.
- */
-function createBackupSnapshot(tmpPath) {
-  checkpointWal();
-  fs.copyFileSync(DB_PATH, tmpPath);
-  if (!isSqliteValid(tmpPath)) {
-    // WAL checkpoint may not fully flush on all configurations.
-    // Try opening again with DELETE journal mode via a fresh connection.
-    try {
-      const Database = require('better-sqlite3');
-      const tmpDb = new Database(DB_PATH);
-      tmpDb.pragma('journal_mode = DELETE');
-      tmpDb.close();
-      fs.copyFileSync(DB_PATH, tmpPath);
-    } catch (retryErr) {
-      throw new Error('Backup snapshot invalid even after retry: ' + retryErr.message);
-    }
-    if (!isSqliteValid(tmpPath)) {
-      throw new Error('Backup snapshot invalid — cannot create a consistent backup');
-    }
-  }
-  return tmpPath;
-}
+// Bound immutable downloads retained while slow clients transfer them. Capture
+// remains serialized with restore/checks; transfer can proceed independently.
+const MAX_BACKUP_DOWNLOADS = 2;
+let activeDownloads = 0;
 
 async function backupDatabase(res) {
-  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  const tmpPath = DB_PATH + '.backup-tmp';
+  if (activeDownloads >= MAX_BACKUP_DOWNLOADS) {
+    return res.status(503).json({ error: 'Two backup downloads are already active. Finish or cancel one before trying again.' });
+  }
+  activeDownloads++;
+  const controller = new AbortController();
+  const disconnect = () => controller.abort(new Error('Backup download disconnected'));
+  res.once('close', disconnect);
+  if (res.destroyed) disconnect();
+  let release, jobDir, handedOff = false, cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    res.removeListener('close', disconnect);
+    if (jobDir) {
+      try { fs.rmSync(jobDir, { recursive: true, force: true }); }
+      catch (error) { logger.warn('Backup: cannot remove staging directory:', error.message); }
+    }
+    activeDownloads--;
+  };
   try {
+    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+    controller.signal.throwIfAborted();
+    jobDir = fs.mkdtempSync(path.join(path.dirname(DB_PATH), '.backup-'));
+    const tmpPath = path.join(jobDir, 'energy.db');
     try { flushMetrics(); } catch (e) { logger.warn(`Backup: metric flush failed: ${e.message}`); }
-    createBackupSnapshot(tmpPath);
-    res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
-      try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
-      if (err) logger.error('Backup download error:', err);
+    await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal });
+    // This file is now immutable and private to this transfer. Holding the
+    // maintenance lock during HTTP transfer would prevent restore for hours.
+    release(); release = null;
+    res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, { dotfiles: 'allow' }, (err) => {
+      if (cleaned) return;
+      cleanup();
+      if (err) {
+        logger.error('Backup download error:', err);
+        if (!res.headersSent && !res.destroyed) res.status(500).json({ error: 'Backup download failed' });
+      }
       else { try { setConfig('backup_downloaded_at', new Date().toISOString()); } catch (e) { logger.warn('Cannot record backup download: ' + e.message); } }
     });
+    handedOff = true;
   } catch (err) {
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
-    logger.error('Backup failed:', err);
-    if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
+    if (!controller.signal.aborted) {
+      logger.error('Backup failed:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
+    }
   } finally {
-    release();
+    if (release) release();
+    if (!handedOff) cleanup();
   }
 }
 
@@ -217,13 +213,22 @@ async function createSnapshotUnlocked() {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const snapPath = path.join(snapDir, `energy-snapshot-${stamp}.db`);
 
+  let jobDir;
   try {
-    createBackupSnapshot(snapPath);
+    jobDir = fs.mkdtempSync(path.join(snapDir, '.snapshot-'));
+    const staged = path.join(jobDir, 'energy.db');
+    await createBackupSnapshot(getDb(), staged);
+    fs.renameSync(staged, snapPath);
     logger.info(`Snapshot: created ${snapPath}`);
     pruneSnapshots();
   } catch (err) {
     logger.error('Snapshot: creation failed:', err.message);
     emitEvent('backup.snapshot_failed', { message: `The daily snapshot failed: ${err.message}` });
+  } finally {
+    if (jobDir) {
+      try { fs.rmSync(jobDir, { recursive: true, force: true }); }
+      catch (error) { logger.warn('Snapshot: cannot remove staging directory:', error.message); }
+    }
   }
 }
 
