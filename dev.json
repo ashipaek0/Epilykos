@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39008252685.1",
-    "version": "1.0.1-dev+dd7ffab",
-    "commit": "dd7ffab9b16471deca63b7a0f6f724cbf1d177b3",
-    "digest": "sha256:1a230f76c0dfc92214e4c9fe99c7b8f38f74f367f0856901adec534a4bd99d5f",
+    "buildId": "39026920836.1",
+    "version": "1.0.1-dev+578902d",
+    "commit": "578902d78bab000f5830bcc2d5567a3ae4bc3847",
+    "digest": "sha256:38ace3932842d61a92721029c1fb3fc8bc9802a706886ea18691a72f033ae76c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-17T06:00:22Z",
+    "builtAt": "2026-10-17T10:59:04Z",
     "kind": "release",
     "notes": [
-      "harden the three security residuals"
+      "Login: how to reset a forgotten password",
+      "Settings -> System: change the dashboard port (EpilykosOS)"
     ]
   },
   "history": [
+    {
+      "buildId": "39026920836.1",
+      "version": "1.0.1-dev+578902d",
+      "commit": "578902d78bab000f5830bcc2d5567a3ae4bc3847",
+      "digest": "sha256:38ace3932842d61a92721029c1fb3fc8bc9802a706886ea18691a72f033ae76c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-17T10:59:04Z",
+      "kind": "release",
+      "notes": [
+        "Login: how to reset a forgotten password",
+        "Settings -> System: change the dashboard port (EpilykosOS)"
+      ]
+    },
     {
       "buildId": "39008252685.1",
       "version": "1.0.1-dev+dd7ffab",
