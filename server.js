@@ -470,6 +470,8 @@ const upload = multer({
 });
 
 // Middleware
+// Security headers (incl. CSP) on every response — before any page/static route.
+app.use(require('./modules/securityHeaders').middleware());
 // Redirect raw editor.html / settings.html to their protected routes (auth gate — issue #87)
 app.get('/editor.html', (req, res) => res.redirect('/editor'));
 app.get('/settings.html', (req, res) => res.redirect('/settings'));
@@ -480,6 +482,7 @@ mountPrivatePages(app);
 // The dashboard page, with its modules listed up front (modules/pagePreload.js).
 // Ahead of express.static, which would otherwise answer / with the plain file.
 const { sendPage } = require('./modules/pagePreload');
+const { validateNumericConfig } = require('./modules/configValidation');
 app.get(['/', '/index.html'], (req, res) => sendPage(res, path.join(__dirname, 'public', 'index.html'), '/'));
 // Each module page's scripts as one file (modules/pageBundles.js); signed-in
 // pages' bundles are under /private/bundles/ (routes/privatePages.js).
@@ -1410,6 +1413,8 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   const updates = req.body;
   try {
+    const invalidNum = validateNumericConfig(updates);
+    if (invalidNum) return res.status(400).json({ error: invalidNum });
     // Reject keys matching sensitive patterns (token, password, secret, key, etc.)
     const sensitivePattern = /_token$|_password$|_secret$/i;
     const sensitiveKeyExempt = ['tuya_cloud'];
@@ -1609,6 +1614,8 @@ app.post('/api/settings/dashboard', isAuthenticated, (req, res) => {
 // Solar: forecast keys + role_metrics
 app.post('/api/settings/solar', isAuthenticated, (req, res) => {
   try {
+    const invalid = validateNumericConfig(req.body);
+    if (invalid) return res.status(400).json({ error: invalid });
     const allowed = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id', 'solar_arrays',
@@ -1628,6 +1635,8 @@ app.post('/api/settings/solar', isAuthenticated, (req, res) => {
 // Savings: savings_* keys
 app.post('/api/settings/savings', isAuthenticated, (req, res) => {
   try {
+    const invalid = validateNumericConfig(req.body);
+    if (invalid) return res.status(400).json({ error: invalid });
     const allowed = [
       'savings_currency', 'savings_rate', 'savings_solar_metric',
       'all_time_pv_savings_override',
@@ -2652,6 +2661,23 @@ app.use((req, res, next) => {
     return next();
   }
   sendPage(res, path.join(__dirname, 'public', 'index.html'), '/');
+});
+
+// 404 for unmatched /api routes (so they return JSON, not the SPA page).
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
+// Error handler: never leak a stack trace to the client (Express's default
+// handler renders the full stack as HTML). Malformed JSON, oversized bodies
+// and unexpected errors all return a short JSON message; the detail is logged.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) logger.error(`Unhandled ${req.method} ${req.originalUrl}: ${err.message}`);
+  if (res.headersSent) return next(err);
+  const message = err.type === 'entity.parse.failed' ? 'Invalid JSON body'
+    : err.type === 'entity.too.large' ? 'Request body too large'
+    : status < 500 ? (err.message || 'Bad request') : 'Internal server error';
+  res.status(status).json({ error: message });
 });
 
 // Start HTTP server with WebSocket support
