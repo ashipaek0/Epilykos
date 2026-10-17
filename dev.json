@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "38978219329.1",
-    "version": "1.0.1-dev+7209bc4",
-    "commit": "7209bc4f3dfb8c3c07ac580594dac92689589af5",
-    "digest": "sha256:69887732508321e046d1ed9b1410a4b73928baf39c96e8326380b5d91b167551",
+    "buildId": "38989626392.1",
+    "version": "1.0.1-dev+ccc00fc",
+    "commit": "ccc00fcbf230f7f63535a28dd049566bdb10c664",
+    "digest": "sha256:17885c72f31bc0367abeb8a296b1f74096b3acb4c0ccbf815874370606fe64a3",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-16T22:51:57Z",
+    "builtAt": "2026-10-17T01:09:34Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "security: harden PVOutput webhook, add CSP + headers, validate numeric settings"
+    ]
   },
   "history": [
+    {
+      "buildId": "38989626392.1",
+      "version": "1.0.1-dev+ccc00fc",
+      "commit": "ccc00fcbf230f7f63535a28dd049566bdb10c664",
+      "digest": "sha256:17885c72f31bc0367abeb8a296b1f74096b3acb4c0ccbf815874370606fe64a3",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-17T01:09:34Z",
+      "kind": "release",
+      "notes": [
+        "security: harden PVOutput webhook, add CSP + headers, validate numeric settings"
+      ]
+    },
     {
       "buildId": "38978219329.1",
       "version": "1.0.1-dev+7209bc4",
