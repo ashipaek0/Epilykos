@@ -33,6 +33,7 @@ function run(reason = 'manual check') {
     try {
       if (stopping) return { cancelled: true };
       release = await acquireLock('maintenance', { timeoutMs: 5000 });
+      if (stopping) return { cancelled: true };
       return await new Promise(resolve => {
         const started = Date.now();
         let finished = false;
