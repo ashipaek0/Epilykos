@@ -56,10 +56,10 @@ Relevant upstream specifications:
 
 ## Acceptance still pending
 
-- Shared host/app maintenance coordination and byte reservations/headroom checks.
-  The two-job cap is not disk admission: two large files may still exceed free
-  space. Disk errors fail capture and clean its staging without replacing the
-  active DB. A process/power failure can leave private staging that needs the
+- The integrated follow-up adds cooperating host/app locking and SQLite backup
+  admission; see [the budget report](backup-admission.md). Host updates and other
+  maintenance types still need their own byte budgets. Disk errors fail capture
+  and clean its staging without replacing the active DB. A process/power failure can leave private staging that needs the
   planned owner-aware startup cleanup; there is no unsafe age-based deletion.
 - Production-size (~5.9 GB) Pi 3B memory, I/O latency, disk-full and interruption
   evidence. The small CI fixture establishes behavior, not hardware performance.

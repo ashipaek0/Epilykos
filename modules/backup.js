@@ -74,7 +74,7 @@ async function backupDatabase(res) {
   } catch (err) {
     if (!controller.signal.aborted) {
       logger.error('Backup failed:', err);
-      if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
+      if (!res.headersSent) res.status(err.code === 'INSUFFICIENT_STORAGE' ? 507 : 500).json({ error: 'Backup failed: ' + err.message });
     }
   } finally {
     if (release) release();
