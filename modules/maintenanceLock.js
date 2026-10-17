@@ -3,7 +3,7 @@
 const DEFAULT_TIMEOUT_MS = 5000;
 const locks = new Map();
 
-function acquireLock(label, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+function acquireLocalLock(label, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (typeof label !== 'string' || !label) return Promise.reject(new TypeError('Lock label must be a non-empty string'));
   let state = locks.get(label);
   if (!state) { state = { held: false, waiters: [] }; locks.set(label, state); }
@@ -36,6 +36,20 @@ function acquireLock(label, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
       }, timeoutMs);
     }
   });
+}
+
+async function acquireLock(label, options = {}) {
+  const started = performance.now();
+  const releaseLocal = await acquireLocalLock(label, options);
+  const file = process.env.EPILYKOS_MAINTENANCE_LOCK;
+  if (label !== 'maintenance' || !file) return releaseLocal;
+  try {
+    const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const budget = Number.isFinite(timeout) && timeout >= 0
+      ? Math.max(0, timeout - (performance.now() - started)) : Infinity;
+    const releaseFile = await require('./maintenanceFileLock').acquireFileLock(file, budget);
+    return () => { releaseFile(); releaseLocal(); };
+  } catch (error) { releaseLocal(); throw error; }
 }
 
 async function withLock(label, fn, options) {

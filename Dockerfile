@@ -16,7 +16,7 @@ FROM node:22-trixie-slim
 # Install build tools required for better-sqlite3 native compilation
 # tzdata: lets TZ names and a host-mounted /etc/localtime resolve to a zone
 # Debian trixie ships Python 3.13; the Bluetooth BMS library (aiobmsble) needs >= 3.12.
-RUN apt-get update && apt-get install -y python3 python3-pip make g++ udev tzdata && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3 python3-pip make g++ udev tzdata util-linux && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --break-system-packages tinytuya tuya-device-sharing-sdk qrcode[pil] && rm -rf /root/.cache/pip
 
 # Bluetooth LE (BMS + inverter Bluetooth modules). bleak talks to the HOST's
@@ -46,6 +46,8 @@ COPY docker/entrypoint.sh /usr/local/bin/epilykos-entrypoint
 RUN chmod 0755 /usr/local/bin/epilykos-entrypoint
 ENTRYPOINT ["/usr/local/bin/epilykos-entrypoint"]
 
+# Paired EpilykosOS versions opt into the shared DATA maintenance lock.
+LABEL io.epilykos.maintenance-lock="flock-v1"
 EXPOSE 3000
 # /healthz proves the app started and SQLite opened; it never depends on the
 # network, so a box with no Internet stays "healthy".
