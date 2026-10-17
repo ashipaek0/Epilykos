@@ -1,7 +1,7 @@
 const { logger } = require('./logger');
 const fs = require('fs');
 const path = require('path');
-const { getDb, DB_PATH, initializeDatabase, flushMetrics } = require('./database');
+const { getDb, DB_PATH, initializeDatabase, flushMetrics, setConfig } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
@@ -75,6 +75,7 @@ async function backupDatabase(res) {
     res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
       try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
       if (err) logger.error('Backup download error:', err);
+      else { try { setConfig('backup_downloaded_at', new Date().toISOString()); } catch (e) { logger.warn('Cannot record backup download: ' + e.message); } }
     });
   } catch (err) {
     try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
