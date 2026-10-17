@@ -1,19 +1,36 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39026920836.1",
-    "version": "1.0.1-dev+578902d",
-    "commit": "578902d78bab000f5830bcc2d5567a3ae4bc3847",
-    "digest": "sha256:38ace3932842d61a92721029c1fb3fc8bc9802a706886ea18691a72f033ae76c",
+    "buildId": "39030958855.1",
+    "version": "1.0.1-dev+db04a10",
+    "commit": "db04a10db98a177a54385880525c7152ea316c15",
+    "digest": "sha256:e066a45cb71fe5d04767ee7e36b18e58907320736934e7d15176b51289976faa",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-17T10:59:04Z",
+    "builtAt": "2026-10-17T12:02:34Z",
     "kind": "release",
     "notes": [
-      "Login: how to reset a forgotten password",
-      "Settings -> System: change the dashboard port (EpilykosOS)"
+      "fix: skip queued integrity checks during shutdown",
+      "fix: do not report a cancelled database check as corruption",
+      "feat: add appliance maintenance, clock and Bluetooth pairing controls",
+      "docs: record appliance feature completion plan"
     ]
   },
   "history": [
+    {
+      "buildId": "39030958855.1",
+      "version": "1.0.1-dev+db04a10",
+      "commit": "db04a10db98a177a54385880525c7152ea316c15",
+      "digest": "sha256:e066a45cb71fe5d04767ee7e36b18e58907320736934e7d15176b51289976faa",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-17T12:02:34Z",
+      "kind": "release",
+      "notes": [
+        "fix: skip queued integrity checks during shutdown",
+        "fix: do not report a cancelled database check as corruption",
+        "feat: add appliance maintenance, clock and Bluetooth pairing controls",
+        "docs: record appliance feature completion plan"
+      ]
+    },
     {
       "buildId": "39026920836.1",
       "version": "1.0.1-dev+578902d",
