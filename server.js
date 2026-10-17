@@ -420,8 +420,11 @@ if (sessionSecret) {
   }
 }
 
-// Session middleware
+// Session middleware. Sessions are stored in SQLite (modules/sessionStore.js)
+// so they survive a restart, matching the persistent secret above.
+const { createSessionStore } = require('./modules/sessionStore');
 app.use(session({
+  store: createSessionStore(session),
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
@@ -504,6 +507,10 @@ app.use('/vendor/gridstack', express.static(path.join(__dirname, 'node_modules',
   maxAge: '1h', index: false,
   setHeaders(res, filePath) { if (/\.(js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
 }));
+// Chart.js and its date adapter, self-hosted (was a CDN) so charts work offline
+// and the CSP needs no external script origin.
+app.use('/vendor/chartjs', express.static(path.join(__dirname, 'node_modules', 'chart.js', 'dist'), { maxAge: '7d', index: false }));
+app.use('/vendor/chartjs-adapter-date-fns', express.static(path.join(__dirname, 'node_modules', 'chartjs-adapter-date-fns', 'dist'), { maxAge: '7d', index: false }));
 app.use(express.json());
 app.use('/api', csrfProtection);
 
