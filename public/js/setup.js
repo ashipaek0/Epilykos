@@ -362,6 +362,12 @@
       prefillDashboard(res.data);
       prefillBasics(res.data);
       prefillOptional(res.data);
+      return api('/api/system').then(function(r) {
+        if (r.ok && r.data.appliance && r.data.clock) {
+          state.appliance = true; state.originalTimezone = r.data.clock.timezone;
+          state.basics.site_timezone = state.status.completed ? r.data.clock.timezone : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+        }
+      });
     }).catch(function () {});
   }
 
@@ -2414,6 +2420,7 @@
     var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
     var b = state.basics;
     body.innerHTML = '<div class="wz-card"><div class="wz-card-body">'
+      + (state.appliance ? field('Site time zone', inp('basics.site_timezone', b.site_timezone, { placeholder: 'Africa/Lagos' }), { hint: 'Daily totals follow this time zone. Detected from your browser; change it for the site if needed.' }) : '')
       + field('Dashboard title', inp('basics.dashboard_title', b.dashboard_title, { placeholder: 'My Solar', id: 'basics-title' }), { forId: 'basics-title', hint: 'Shown at the top of the dashboard.' })
       + grid(
         field('Currency symbol', inp('basics.savings_currency', b.savings_currency, { placeholder: '€', id: 'basics-currency', attrs: ' maxlength="4"' }), { forId: 'basics-currency', hint: 'For savings, e.g. €, $, £ or ₦.' }),
@@ -2635,10 +2642,14 @@
   function completeWizard() {
     setBusy(true);
     var next = $('#next-btn'); if (next) next.classList.add('is-busy');
-    api('/api/wizard/complete', { method: 'POST', body: '{}' }).then(function (res) {
+    var zone = state.basics.site_timezone;
+    var zoneChanged = state.appliance && zone && zone !== state.originalTimezone;
+    var saveZone = zoneChanged ? api('/api/system/timezone', {method:'POST', body:JSON.stringify({timezone:zone, restart:false})}).then(function(r) { if (!r.ok) throw new Error(apiErrMsg(r, 'Invalid time zone')); }) : Promise.resolve();
+    saveZone.then(function() { return api('/api/wizard/complete', { method: 'POST', body: '{}' }); }).then(function (res) {
       setBusy(false);
       if (next) next.classList.remove('is-busy');
       if (res.ok && res.data && res.data.success) {
+        if (zoneChanged) api('/api/system/timezone', {method:'POST', body:JSON.stringify({timezone:zone})}).then(function(r) { if (!r.ok) setGlobalError('Time zone saved. Restart Epilykos from Settings → System to apply it.'); });
         state.completed = true;
         state.status.completed = true;
         var p = $('.wizard-panel.active');

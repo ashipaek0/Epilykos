@@ -73,8 +73,9 @@
 
     html += '<div class="st-card"><div class="st-card-head"><h2>Daily check</h2></div>'
       + '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="up-auto"' + (state.auto ? ' checked' : '') + (state.autoLocked ? ' disabled' : '') + '><span class="slider"></span></label><label for="up-auto">Check for updates once a day</label></span>'
-      + '<p class="st-help">' + (state.autoLocked ? 'Turned off for this install with <code>UPDATE_CHECK=off</code>.' : 'Only downloads a small file listing the latest builds; nothing about this install is sent. Nothing is installed without you.') + '</p></div>';
+      + '<p class="st-help">' + (state.autoLocked ? 'Turned off for this install with <code>UPDATE_CHECK=off</code>.' : 'Only downloads a small file listing the latest builds; nothing about this install is sent. Installation is manual unless you enable automatic installation below.') + '</p></div>';
 
+    if (m.kind === 'epilykos-os') html += '<div class="st-card"><h2>Automatic app installation</h2><label><input type="checkbox" id="up-install-auto"' + (state.autoInstall ? ' checked' : '') + '> Install signed app releases automatically</label><p class="st-help">Off by default. Requires daily checks. The host verifies the signature, checks health and rolls back a failed update. Each release is tried automatically at most once; a failed release can be retried manually. Epilykos restarts during installation. OS image updates remain manual.</p><div class="st-field"><label for="up-install-password">Admin password to enable</label><input class="input" type="password" autocomplete="current-password" id="up-install-password"></div></div>';
     root.innerHTML = html;
     if (shell.setNavBadge) shell.setNavBadge('updates', updateReady() ? '<span class="st-badge is-ok">New</span>' : '');
   }
@@ -223,6 +224,10 @@
   });
 
   root.addEventListener('change', function (ev) {
+    if (ev.target.id === 'up-install-auto') {
+      api('POST', '/auto-install', {on:ev.target.checked, password:root.querySelector('#up-install-password').value}).then(function(r) { state.autoInstall=r.autoInstall; render(); toast(r.autoInstall ? 'Automatic installation enabled.' : 'Automatic installation disabled.'); }, function(e) { ev.target.checked=!ev.target.checked; toast(e.message,'error'); });
+      return;
+    }
     if (ev.target.id !== 'up-auto') return;
     api('POST', '/auto', { on: ev.target.checked }).then(function (r) {
       state.auto = r.auto;

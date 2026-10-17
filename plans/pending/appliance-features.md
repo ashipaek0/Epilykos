@@ -13,10 +13,10 @@ Authorized by the user: finish the feature batch from the referenced session, in
 ## Steps and verification
 | Phase | Size | Files | Acceptance / command | Progress |
 |---|---|---|---|---|
-| Maintenance notices | M | modules/dbCheck.js, notices.js, backup.js; routes/notices.js; dashboard/settings JS | Unclean marker, healthy/corrupt DB and backup aging tests; npm test | pending |
-| Host state | M | epilykos_system.py, hostd, run, app system settings | SD detection, timezone validation, clock state/correction; make test | pending |
-| Pairing | M | epilykos_bluetooth.py, hostd, app system routes/UI | Fake BlueZ tests for expiry, PIN, rejection and bond retention | pending |
-| Signed automatic release/install | M | update modules/UI, release workflows/contracts | Opt-in verified-only/once-per-release tests; workflow syntax; make contracts | pending |
+| Maintenance notices | M | modules/dbCheck.js, notices.js, backup.js; routes/notices.js; dashboard/settings JS | Unclean marker, healthy/corrupt DB and backup aging tests; npm test | verified locally |
+| Host state | M | epilykos_system.py, hostd, run, app system settings | SD detection, timezone validation, clock state/correction; make test | verified locally |
+| Pairing | M | epilykos_bluetooth.py, hostd, app system routes/UI | Fake BlueZ tests for expiry, PIN, rejection and bond retention | verified locally |
+| Signed automatic release/install | M | update modules/UI, release workflows/contracts | Opt-in verified-only/once-per-release tests; workflow syntax; make contracts | verified locally |
 | Integration/build | S | manifests/dev.yaml, evidence | Both PR checks green; new image digest pinned; OS image run created on dev | pending |
 
 Always include regression tests for state transitions and failure paths. Never claim hardware verification from mocks or QEMU. Keep existing inverter integrations intact.

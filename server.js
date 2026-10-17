@@ -439,6 +439,7 @@ app.use(session({
 initializeDatabase();
 require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
 require('./routes/remote').init(); // Tailscale back on after a restart, if remote access was on
+require('./modules/dbCheck').start();
 require('./modules/updates').start(); // daily check for a newer build; the result of an update just installed
 // Reassigned by rebindAfterRestore() — a restore reopens the connection.
 let db = getDb();
@@ -688,6 +689,7 @@ app.get('/setup', (req, res) => {
 // "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
 // EpilykosOS system actions (Settings → System): restart, shut down, Wi-Fi, SSH.
 app.use('/api/system', isAuthenticated, require('./routes/system'));
+app.use('/api/notices', isAuthenticated, require('./routes/notices'));
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
@@ -2720,7 +2722,9 @@ async function shutdown(signal) {
   server.close();
   stopMetricAutoFlush();
   try { flushSync(); } catch (e) { logger.warn(`${signal} metric flush failed: ${e.message}`); }
+  await require('./modules/dbCheck').stop();
   db.close();
+  require('./modules/dbCheck').markCleanStop();
   logger.info('Shutdown complete');
   process.exit(0);
 }
