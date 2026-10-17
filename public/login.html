@@ -47,6 +47,21 @@
       color: #dc6b4a;
       margin-bottom: 1rem;
     }
+    .forgot {
+      margin-top: 1.25rem;
+      text-align: left;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .forgot summary {
+      cursor: pointer;
+      color: var(--accent);
+      text-align: center;
+    }
+    .forgot p {
+      margin: 0.6rem 0 0;
+      line-height: 1.45;
+    }
     .back-link {
       display: inline-block;
       margin-top: 1rem;
@@ -67,6 +82,13 @@
       <button type="submit">Login</button>
       <div id="error-msg" class="error" style="display:none;"></div>
     </form>
+    <details class="forgot">
+      <summary>Forgot the password?</summary>
+      <p><b>On an EpilykosOS box:</b> put a file named <code>dashboard-password.txt</code> with the new password on its
+        first line on the SD card's BOOT drive, then start the box. Or, on its console (or over SSH with
+        <code>sudo</code>), run <code>epilykos-reset-password</code>.</p>
+      <p><b>With Docker:</b> set <code>SETTINGS_PASSWORD</code> for the container and restart it.</p>
+    </details>
     <a href="/" class="back-link">← Back to Dashboard</a>
   </div>
 </div>
