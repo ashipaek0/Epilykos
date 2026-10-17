@@ -9,7 +9,7 @@ const { acquireLock } = require('./maintenanceLock');
 const WEEK_MS = 7 * 86400000;
 let file = DB_PATH, marker = path.join(path.dirname(DB_PATH), '.running');
 let resultFile = path.join(path.dirname(DB_PATH), 'db-check.json');
-let running = null, worker = null, timers = [];
+let running = null, worker = null, timers = [], stopping = false;
 function last() { try { return JSON.parse(fs.readFileSync(resultFile, 'utf8')); } catch (_) { return null; } }
 function markStart() {
   const unclean = fs.existsSync(marker);
@@ -26,10 +26,12 @@ function weeklyDue(now = Date.now()) {
 }
 function run(reason = 'manual check') {
   if (running) return running;
+  stopping = false;
   // Serialize with backup/restore: never inspect an inode while it is being replaced.
   running = Promise.resolve().then(async () => {
     let release;
     try {
+      if (stopping) return { cancelled: true };
       release = await acquireLock('maintenance', { timeoutMs: 5000 });
       return await new Promise(resolve => {
         const started = Date.now();
@@ -38,6 +40,7 @@ function run(reason = 'manual check') {
           if (finished) return;
           finished = true;
           clearTimeout(deadline);
+          if (stopping) { resolve({ cancelled: true }); return; }
           const out = { ...result, at: new Date().toISOString(), reason, ms: Date.now() - started };
           try {
             fs.writeFileSync(resultFile + '.tmp', JSON.stringify(out) + '\n');
@@ -73,6 +76,7 @@ function start() {
   return unclean;
 }
 async function stop() {
+  stopping = true;
   timers.forEach(t => { clearTimeout(t); clearInterval(t); }); timers = [];
   if (worker) await worker.terminate();
   if (running) await running;
