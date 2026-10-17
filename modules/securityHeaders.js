@@ -43,10 +43,10 @@ function collectInlineScriptHashes(dirs = ['public', 'private/pages']) {
 }
 
 function buildCsp(scriptHashes) {
-  // Chart.js is loaded from jsdelivr by public/js/chartLoader.js. Allowing this
-  // one origin keeps charts working; it does not help an attacker, who would
-  // still need an injection foothold (which escaping + the rest of this CSP deny).
-  const scriptSrc = ["'self'", 'https://cdn.jsdelivr.net', ...scriptHashes].join(' ');
+  // All scripts are same-origin (Chart.js is self-hosted under /vendor), so no
+  // external script origin is needed; an injected inline script or onerror=
+  // handler has no matching hash and is refused.
+  const scriptSrc = ["'self'", ...scriptHashes].join(' ');
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
