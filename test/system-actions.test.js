@@ -74,6 +74,13 @@ async function call(method, routePath, body) {
   console.log('ok - on EpilykosOS: status relayed from the host');
 
   const cases = [
+    ['/timezone', {timezone:'Africa/Lagos', restart:false, evil:1}, {action:'set_timezone',timezone:'Africa/Lagos',restart:false}],
+    ['/clock', {epoch:1700000000, command:'reboot'}, {action:'set_clock',epoch:1700000000}],
+    ['/bluetooth/open', {}, {action:'bluetooth_open'}],
+    ['/bluetooth/close', {}, {action:'bluetooth_close'}],
+    ['/bluetooth/pair', {address:'AA:BB:CC:DD:EE:FF',action:'shutdown'}, {action:'bluetooth_pair',address:'AA:BB:CC:DD:EE:FF'}],
+    ['/bluetooth/reply', {id:'request',value:'123456',extra:1}, {action:'bluetooth_reply',id:'request',value:'123456'}],
+    ['/bluetooth/remove', {address:'AA:BB:CC:DD:EE:FF'}, {action:'bluetooth_remove',address:'AA:BB:CC:DD:EE:FF'}],
     ['/restart', undefined, { action: 'restart' }],
     ['/shutdown', undefined, { action: 'shutdown' }],
     ['/wifi-setup', undefined, { action: 'wifi_setup' }],
