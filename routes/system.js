@@ -1,8 +1,9 @@
 /**
  * Appliance system actions for Settings → System (EpilykosOS only,
  * contract C-HOST-001): Restart, Shut down, Change Wi-Fi (Bluetooth setup),
- * and the SSH maintenance login. Every route needs an admin session; the
- * global /api CSRF check applies too. Passwords are never logged.
+ * the dashboard port, and the SSH maintenance login. Every route needs an
+ * admin session; the global /api CSRF check applies too. Passwords are never
+ * logged.
  *
  * @module routes/system
  */
@@ -39,7 +40,7 @@ router.get('/', async (req, res) => {
   try {
     const reply = await hostActions.call('status');
     if (!reply || reply.ok !== true) throw Object.assign(new Error(reply && reply.error || 'status failed'), { status: 502 });
-    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh });
+    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh, port: reply.port || null });
   } catch (err) {
     res.status(err.status || 500).json({ appliance: true, error: err.message });
   }
@@ -48,6 +49,8 @@ router.get('/', async (req, res) => {
 router.post('/restart', (req, res, next) => { logger.info('Settings: restart requested'); next(); }, forward('restart'));
 router.post('/shutdown', (req, res, next) => { logger.info('Settings: shutdown requested'); next(); }, forward('shutdown'));
 router.post('/wifi-setup', forward('wifi_setup'));
+// The host checks the port (80 or 1024-65535, free) and restarts the app on it.
+router.post('/port', forward('set_port', b => ({ port: typeof b.port === 'number' || typeof b.port === 'string' ? b.port : null })));
 router.post('/ssh/enable', forward('ssh_enable'));
 router.post('/ssh/disable', forward('ssh_disable'));
 router.post('/ssh/password', forward('ssh_set_password', b => ({ password: typeof b.password === 'string' ? b.password : '' })));

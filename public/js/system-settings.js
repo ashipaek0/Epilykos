@@ -5,6 +5,7 @@
  *
  *   Power   Restart, Shut down
  *   Wi-Fi   Change Wi-Fi: opens Bluetooth setup for 15 minutes
+ *   Address the dashboard's port (80 or 1024-65535); the page follows it
  *   SSH     on/off, password, public keys (user epilykos; never root)
  *
  * The nav entry stays hidden unless /api/system reports an appliance.
@@ -38,6 +39,11 @@
     return location.hostname || 'epilykos.local';
   }
 
+  // The dashboard's address on a given port (80: no port in it).
+  function originForPort(port) {
+    return location.protocol + '//' + host() + (Number(port) === 80 ? '' : ':' + port);
+  }
+
   function untilText(epoch) {
     return new Date(epoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
@@ -69,6 +75,16 @@
       + (wifiOpen ? '<p class="st-help"><b>Bluetooth setup is open until ' + esc(untilText(state.wifi_setup_until)) + '.</b></p>' : '')
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="wifi">' + (wifiOpen ? 'Keep setup open 15 more minutes' : 'Change Wi-Fi') + '</button></div>'
       + '<div class="test-status" id="sys-wifi-status" role="status"></div></div>';
+
+    var port = state.port || 3000;
+    html += '<div class="st-card"><div class="st-card-head"><h2>Dashboard address</h2></div>'
+      + '<p class="st-help">Epilykos is at <code>' + esc(originForPort(port)) + '/</code>.'
+      + (port === 80 ? ' Port 80 needs no port in the address.' : ' Choose port 80 to drop the <code>:' + esc(port) + '</code> from the address.')
+      + ' Any port from 1024 to 65535 works too. Epilykos restarts on the new port and this page follows it.</p>'
+      + '<div class="st-field"><label for="sys-port">Port</label>'
+      + '<input id="sys-port" class="input" type="number" inputmode="numeric" min="80" max="65535" step="1" value="' + esc(port) + '" style="max-width:10em"></div>'
+      + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="port">Change port</button></div>'
+      + '<div class="test-status" id="sys-port-status" role="status"></div></div>';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>SSH maintenance login</h2>'
       + '<span class="st-badge" style="background:var(--st-hover)">' + (ssh.enabled ? 'On' : 'Off') + '</span></div>'
@@ -139,6 +155,26 @@
     }
   }
 
+  // Follow the dashboard to its new port. fetch() can't reach another
+  // origin under the page's CSP (connect-src 'self'), but an image can:
+  // the app icon loads from the new port once Epilykos answers there.
+  async function followToPort(port) {
+    var started = Date.now();
+    await new Promise(function (r) { setTimeout(r, 8000); });
+    while (Date.now() - started < 10 * 60 * 1000) {
+      var up = await new Promise(function (resolve) {
+        var img = new Image();
+        var timer = setTimeout(function () { img.src = ''; resolve(false); }, 4000);
+        img.onload = function () { clearTimeout(timer); resolve(true); };
+        img.onerror = function () { clearTimeout(timer); resolve(false); };
+        img.src = originForPort(port) + '/icons/icon-192.png?t=' + Date.now();
+      });
+      if (up) { location.href = originForPort(port) + location.pathname + location.hash; return; }
+      await new Promise(function (r) { setTimeout(r, 3000); });
+    }
+    status('sys-port-status', 'Epilykos has not answered on port ' + port + ' yet. Try ' + originForPort(port) + '/ in a minute.', 'error');
+  }
+
   root.addEventListener('click', async function (ev) {
     var btn = ev.target.closest('button');
     if (!btn || !root.contains(btn)) return;
@@ -161,6 +197,19 @@
         state.wifi_setup_until = r.wifi_setup_until;
         render();
         status('sys-wifi-status', 'Bluetooth setup is open until ' + untilText(r.wifi_setup_until) + '.', 'success');
+      } else if (act === 'port') {
+        var raw = document.getElementById('sys-port').value.trim();
+        var newPort = Number(raw);
+        if (!/^\d+$/.test(raw) || !(newPort === 80 || (newPort >= 1024 && newPort <= 65535))) {
+          status('sys-port-status', 'Choose 80 or a port from 1024 to 65535.', 'error');
+          return;
+        }
+        if (newPort === (state.port || 3000)) { status('sys-port-status', 'Epilykos is already on port ' + newPort + '.', 'success'); return; }
+        if (!(await confirmIt({ title: 'Move Epilykos to port ' + newPort + '?', message: 'Epilykos restarts and the dashboard moves to ' + originForPort(newPort) + '/. Update any bookmarks.', confirmLabel: 'Change port' }))) return;
+        btn.disabled = true;
+        await api('POST', '/port', { port: newPort });
+        status('sys-port-status', 'Restarting on port ' + newPort + '… this page moves there when Epilykos is back.', 'warning');
+        followToPort(newPort);
       } else if (act === 'ssh-toggle') {
         var turningOn = !state.ssh.enabled;
         if (!turningOn && !(await confirmIt({ title: 'Turn SSH off?', message: 'Open SSH sessions are closed. The password and keys are kept for next time.', confirmLabel: 'Turn off' }))) return;
@@ -192,7 +241,7 @@
       }
     } catch (e) {
       btn.disabled = false;
-      var target = /^ssh|^$/.test(act || '') || removeKey ? 'sys-ssh-status' : act === 'wifi' ? 'sys-wifi-status' : 'sys-power-status';
+      var target = /^ssh|^$/.test(act || '') || removeKey ? 'sys-ssh-status' : act === 'wifi' ? 'sys-wifi-status' : act === 'port' ? 'sys-port-status' : 'sys-power-status';
       status(target, e.message, 'error');
       toast(e.message, 'error');
     }
