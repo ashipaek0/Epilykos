@@ -20,6 +20,8 @@
  * @module pvoutput/rateLimiter
  */
 
+const databaseWork = require('../databaseWork');
+
 let pools = {
   general:  { remaining: 60, limit: 60, resetAt: 0 },
   statistic: { remaining: 12, limit: 12, resetAt: 0 }
@@ -48,6 +50,7 @@ function defaultResetAt() {
 
 function init(database) {
   db = database;
+  pools = { general: { remaining: 60, limit: 60, resetAt: 0 }, statistic: { remaining: 12, limit: 12, resetAt: 0 } };
   // Restore persisted state
   try {
     const raw = db.prepare("SELECT value FROM config WHERE key = 'pvoutput_rate_limit_state'").get();
@@ -65,7 +68,7 @@ function init(database) {
 }
 
 function persist() {
-  if (!db) return;
+  if (!db || !databaseWork.isCurrent()) return;
   try {
     db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('pvoutput_rate_limit_state', ?)")
       .run(JSON.stringify(pools));
@@ -83,6 +86,7 @@ function headerValue(headers, name) {
 }
 
 function updateFromHeaders(pool, headers) {
+  if (!databaseWork.isCurrent()) return ;
   const p = pools[pool];
   if (!p) return;
   const rem = parseInt(headerValue(headers, 'x-rate-limit-remaining'), 10);
@@ -104,6 +108,7 @@ function updateFromHeaders(pool, headers) {
  * @param {number} [resetAt] optional epoch-seconds reset from X-Rate-Limit-Reset
  */
 function handleRateLimitExceeded(pool = 'general', resetAt) {
+  if (!databaseWork.isCurrent()) return ;
   const p = pools[pool];
   if (!p) return;
   p.remaining = 0;
@@ -130,6 +135,7 @@ function healIfExpired(pool) {
  * An expired window lazily self-heals before the decision is made.
  */
 function canCall(pool = 'general', priority = 'normal') {
+  if (!databaseWork.isCurrent()) return false;
   const p = pools[pool];
   if (!p) return false;
   healIfExpired(pool);

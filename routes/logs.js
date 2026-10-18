@@ -156,9 +156,8 @@ function router() {
 
 /** At startup: the saved level (if any) and the current secrets. */
 function init() {
-  const saved = getConfig('log_level');
-  if (LEVELS.includes(saved) && saved !== logger.level) applyLevel(saved);
-  else if (logger.level === 'debug') applyLevel('debug');   // LOG_LEVEL=debug reaches the Bluetooth helper too
+  clearTimeout(revertTimer); revertTimer = null; revertAt = null;
+  applyLevel(baseLevel());
   refreshSecrets();
 }
 

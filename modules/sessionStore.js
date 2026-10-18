@@ -10,6 +10,7 @@
  * rows are pruned on startup and hourly; get() also ignores an expired row.
  */
 const { getDb } = require('./database');
+const databaseWork = require('./databaseWork');
 
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -20,23 +21,23 @@ function createSessionStore(session) {
   class SqliteStore extends Store {
     constructor() {
       super();
-      this._ready = false;
+      this._readyFor = null;
       this._timer = null;
     }
 
     _db() {
       const db = getDb(); // throws until the DB is initialized; callers handle it
-      if (!this._ready) {
+      if (this._readyFor !== db) {
         db.exec(`CREATE TABLE IF NOT EXISTS sessions (
           sid TEXT PRIMARY KEY,
           expires INTEGER NOT NULL,
           data TEXT NOT NULL
         )`);
         db.prepare('DELETE FROM sessions WHERE expires <= ?').run(Date.now());
-        this._ready = true;
+        this._readyFor = db;
         if (!this._timer) {
           this._timer = setInterval(() => {
-            try { getDb().prepare('DELETE FROM sessions WHERE expires <= ?').run(Date.now()); } catch (_) {}
+            databaseWork.run(() => { try { this._db().prepare('DELETE FROM sessions WHERE expires <= ?').run(Date.now()); } catch (_) {} });
           }, PRUNE_INTERVAL_MS);
           if (this._timer.unref) this._timer.unref();
         }

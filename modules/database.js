@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { logger } = require('./logger');
 const { localDateString } = require('./localTime');
+const databaseWork = require('./databaseWork');
 const {
   SECRET_FIELDS,
   encryptString,
@@ -35,6 +36,7 @@ const DB_PATH = './data/energy.db';
 const DEFAULT_DASHBOARD_LAYOUTS_JSON = `[{"id":"main","name":"Main","layout":[{"id":"b_overview","type":"system-overview","gridX":0,"gridY":0,"gridW":12,"gridH":7,"enabled":true,"config":{}},{"id":"b_totals","type":"energy-totals","gridX":0,"gridY":7,"gridW":12,"gridH":3,"enabled":true,"config":{}},{"id":"b_energy","type":"energy-tabs","gridX":0,"gridY":10,"gridW":12,"gridH":9,"enabled":true,"config":{"title":"Energy"}},{"id":"b_forecast","type":"forecast-pvtoday","gridX":0,"gridY":19,"gridW":6,"gridH":7,"enabled":true,"config":{"location_name":"","metrics":{"generated":"{{role:solar}}"}}},{"id":"b_grid","type":"grid-card","gridX":6,"gridY":19,"gridW":6,"gridH":7,"enabled":true,"config":{"showTimeline":true,"metrics":{"grid_status":""}}},{"id":"b_savings","type":"savings-summary","gridX":0,"gridY":26,"gridW":4,"gridH":4,"enabled":true,"config":{}},{"id":"b_power","type":"chart-power","gridX":4,"gridY":26,"gridW":8,"gridH":8,"enabled":true,"config":{"title":"Power"}},{"id":"b_daily","type":"data-table-daily","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{}}]}]`;
 
 function getDb() {
+  databaseWork.assertCurrent();
   if (!db) throw new Error('Database not initialized');
   return db;
 }
@@ -736,6 +738,7 @@ let metricBuffer = [];
 let metricFlushTimer = null;
 
 function queueMetricWrite(entry) {
+  if (!databaseWork.isCurrent()) return; // discard observations from retired producers
   if (!entry || entry.metric === undefined || entry.metric === null) return;
   metricBuffer.push({
     metric: entry.metric,

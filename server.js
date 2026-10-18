@@ -25,6 +25,7 @@ const http = require('http');
 const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
+const databaseWork = require('./modules/databaseWork');
 const { PollingManager } = require('./services/PollingManager');
 const { timeZoneName } = require('./modules/localTime');
 const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
@@ -377,6 +378,7 @@ function mqttSampleOf(rawText, retained) {
 
 const app = express();
 app.set('trust proxy', 1);
+app.use((req, res, next) => databaseWork.run(next));
 const PORT = process.env.PORT || 3000;
 
 // Health probe first: never rate-limited, never logged per request (it is
@@ -423,8 +425,9 @@ if (sessionSecret) {
 // Session middleware. Sessions are stored in SQLite (modules/sessionStore.js)
 // so they survive a restart, matching the persistent secret above.
 const { createSessionStore } = require('./modules/sessionStore');
+const sessionStore = createSessionStore(session);
 app.use(session({
-  store: createSessionStore(session),
+  store: sessionStore,
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
@@ -437,24 +440,33 @@ app.use(session({
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
-require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
-require('./routes/remote').init(); // Tailscale back on after a restart, if remote access was on
+require('./routes/remote').init();
 require('./modules/dbCheck').start();
-require('./modules/updates').start(); // daily check for a newer build; the result of an update just installed
-// Reassigned by rebindAfterRestore() — a restore reopens the connection.
-let db = getDb();
-loadProfiles();
-loadRs232Profiles();  // RS232 serial inverter profiles
-setupMqtt();
-startExternalPolling();
-startBmsPolling();   // Start BMS bridge polling
-startBmsWiredPolling();   // Start BMS wired (Modbus-RTU serial) polling
-startDonglePolling();
-startMetricAutoFlush(); // batch bursty metric writes: 5s auto-flush (unref'd)
-try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); } // one-time plaintext→$enc1$ (idempotent)
-pvoutput.start();     // Start PVOutput push/pull engines
+loadProfiles(); loadRs232Profiles();
+try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); }
+
+// The same synchronous handover is used for startup, candidate health and
+// rollback. Local initialization must succeed before old files are discarded.
+const restoreLifecycle = {
+  pause() {
+    stopExternalPolling(); stopBmsPolling(); stopBmsWiredPolling(); stopDonglePolling();
+    stopMetricAutoFlush(); pvoutput.stop(); notifications.stop();
+    require('./modules/updates').stop();
+    shutdownRs232().catch(e => logger.warn('RS232 pause: ' + e.message));
+    require('./modules/combinedMetrics').flushPartDays();
+  },
+  resume() {
+    sessionStore._db();
+    require('./routes/logs').init();
+    restartRs232Streaming();
+    startExternalPolling(); startBmsPolling(); startBmsWiredPolling(); startDonglePolling();
+    startMetricAutoFlush(); pvoutput.start(); notifications.init();
+    require('./modules/updates').start();
+    require('./routes/health').checkHealth();
+  }
+};
+databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); });
 startSnapshotScheduler();
-notifications.init();  // alert rules, channels and the event bus
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -632,16 +644,18 @@ wss.on('connection', (ws) => {
  */
 const pollingManager = new PollingManager();
 pollingManager.on('metrics-ready', ({ sourceId }) => {
+  if (!databaseWork.isCurrent()) return;
   logger.debug(`Poll ${sourceId} metrics ready`);
   notifications.noteSourceResult(sourceId, true);
 });
 pollingManager.on('device-error', ({ sourceId, error }) => {
+  if (!databaseWork.isCurrent()) return;
   logger.warn(`Poll ${sourceId} failed:`, error && error.message ? error.message : error);
   notifications.noteSourceResult(sourceId, false, error);
 });
 
 let pollCycleRunning = false;
-async function pollAllSources() {
+function pollAllSources() { return databaseWork.run(async () => {
   // A slow source (serial timeouts, unreachable hosts) can push a cycle past
   // 30s; never run two cycles concurrently against the same devices.
   if (pollCycleRunning) {
@@ -654,6 +668,7 @@ async function pollAllSources() {
   // MQTT, external REST, BMS and dongles run on their own timers/subscriptions
   try {
     await pollingManager.runCycle();
+    if (!databaseWork.isCurrent()) return;
     flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
     notifications.evaluateMetrics(); // metric alert rules see this cycle's values
     if (wsClients.size > 0) {
@@ -667,7 +682,7 @@ async function pollAllSources() {
   } finally {
     pollCycleRunning = false;
   }
-}
+}); }
 pollAllSources();
 const pollInterval = setInterval(pollAllSources, 30000);
 // Read the all-time daily totals once now, so the first page load doesn't pay for it.
@@ -830,7 +845,7 @@ app.post('/api/combined-metrics/preview', (req, res) => {
   if (errors.length) return res.status(400).json({ error: errors[0], errors });
   const { flushMetrics } = require('./modules/database');
   flushMetrics();
-  const stmt = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?'), now = Math.floor(Date.now() / 1000);
+  const stmt = getDb().prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?'), now = Math.floor(Date.now() / 1000);
   const inputs = def.inputs.map(name => {
     const row = stmt.get(String(name).trim());
     const ts = row ? (Number(row.timestamp) > 1e12 ? Math.floor(row.timestamp / 1000) : Number(row.timestamp)) : null;
@@ -909,7 +924,7 @@ function findLatestStateForEntity(entityId) {
         // { entityId, actions: [...] } carrying action metadata (AC-1.4).
         const eid = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
         if (eid === entityId) {
-          const row = db.prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(metric);
+          const row = getDb().prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(metric);
           if (row) {
             return { entity_id: entityId, state: row.value_text != null ? row.value_text : row.value };
           }
@@ -1359,15 +1374,23 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 app.use('/api/backup', isAuthenticated);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
-// A restore closes and reopens the SQLite connection: pick up the new handle
-// and restart the engines that captured the old one.
-function rebindAfterRestore() {
-  try {
-    db = getDb();
-    pvoutput.restart();
-  } catch (e) {
-    logger.error(`Rebinding after restore failed: ${e.message}`);
+// Preserve only this already-authorized session after a replacement that did
+// not contain it. Other old requests remain retired and cannot recreate theirs.
+function saveRestoreSession(req) {
+  return new Promise(resolve => req.session.save(error => {
+    if (error) logger.warn('Restore completed; sign in again: ' + error.message);
+    resolve();
+  }));
+}
+function restoreFailure(res, err) {
+  logger.error('Restore error:', err);
+  if (err.restoreRecoveryRequired) {
+    // Files are retained for startup recovery. Do not serve a partly rebound
+    // process indefinitely; the normal container/service supervisor restarts it.
+    const timer = setTimeout(() => process.exit(1), 1000); timer.unref();
+    res.once('finish', () => setImmediate(() => process.exit(1)));
   }
+  return res.status(err.status || 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired || err.code === 'DB_RETIRED' ? err.message : 'Restore failed, original database restored.' });
 }
 
 app.use('/api/restore', isAuthenticated);
@@ -1376,13 +1399,11 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   const uploaded = uploadedFilePath(req.file);
   if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
   try {
-    await restoreDatabase(uploaded);
-    rebindAfterRestore();
+    await restoreDatabase(uploaded, { lifecycle: restoreLifecycle });
+    await saveRestoreSession(req);
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
-    if (!err.restorePreflight && !err.restoreRecoveryRequired) rebindAfterRestore();
-    logger.error('Restore error:', err);
-    res.status(err.restorePreflight || err.restoreRecoveryRequired ? err.status : 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired ? err.message : 'Restore failed, original database restored.' });
+    restoreFailure(res, err);
   } finally {
     try { if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded); } catch(e) {}
   }
@@ -1401,19 +1422,17 @@ app.get('/api/snapshots', (req, res) => {
 
 app.post('/api/snapshots/restore/:name', async (req, res) => {
   try {
-    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name));
-    rebindAfterRestore();
+    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name), { lifecycle: restoreLifecycle });
+    await saveRestoreSession(req);
     res.json(result);
   } catch (err) {
-    if (!err.restorePreflight && !err.restoreRecoveryRequired) rebindAfterRestore();
-    logger.error('Snapshot restore error:', err);
-    res.status(err.restorePreflight || err.restoreRecoveryRequired ? err.status : 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired ? err.message : 'Internal server error' });
+    restoreFailure(res, err);
   }
 });
 
 app.use('/api/settings', isAuthenticated);
 app.get('/api/settings', (req, res) => {
-  const rows = db.prepare('SELECT key, value FROM config').all();
+  const rows = getDb().prepare('SELECT key, value FROM config').all();
   const config = {};
   rows.forEach(r => { config[r.key] = r.value; });
   res.json(config);
@@ -2655,7 +2674,7 @@ app.get('/api/metrics/history', async (req, res) => {
 
 app.get('/api/metrics/names', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
+    const rows = getDb().prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
     const names = rows.map(r => r.metric);
     res.json(names);
   } catch (err) {
@@ -2723,7 +2742,7 @@ async function shutdown(signal) {
   stopMetricAutoFlush();
   try { flushSync(); } catch (e) { logger.warn(`${signal} metric flush failed: ${e.message}`); }
   await require('./modules/dbCheck').stop();
-  db.close();
+  getDb().close();
   require('./modules/dbCheck').markCleanStop();
   logger.info('Shutdown complete');
   process.exit(0);
