@@ -12,6 +12,9 @@ async function prepareRestore(source, db, liveFile, { signal } = {}) {
   let job, destination;
   const cleanup = () => {
     if (!job) return;
+    // Once journaled, only the recovery protocol owns this directory; it can
+    // contain the sole complete original. Never recursively remove it here.
+    if (fs.existsSync(path.join(directory, '.restore-transaction.json'))) return;
     try { fs.rmSync(job, { recursive: true, force: true }); }
     catch (error) { logger.warn('Restore: cannot remove preparation staging:', error.message); }
   };
