@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const databaseWork = require('./databaseWork');
 const { createBackoff } = require('./pollBackoff');
 const backoff = createBackoff('RS232');
 const { PollResult } = require('./pollResult');
@@ -488,13 +489,14 @@ async function pollModbusRtuDevice(device, profile) {
 
 const streamingSetupInProgress = new Set();
 const streamingRetries = new Map();
+const streamingRetryTimers = new Map();
+let streamingGeneration = 0;
 const MAX_STREAMING_RETRIES = 3;
 
 function setupStreamingConnection(device, profile) {
-  if (streamingSetupInProgress.has(device.name)) return;
-  streamingSetupInProgress.add(device.name);
-
+  if (!databaseWork.isCurrent() || streamingSetupInProgress.has(device.name)) return;
   teardownStreamingConnection(device.name);
+  streamingSetupInProgress.add(device.name);
 
   const port = new SerialPort({
     path: device.serial_path,
@@ -504,8 +506,12 @@ function setupStreamingConnection(device, profile) {
 
   const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
   let currentFrame = {};
+  const generation = streamingGeneration;
+  const connection = { port, parser, device, profile };
+  const active = () => generation === streamingGeneration && streamingConnections.get(device.name) === connection && databaseWork.isCurrent();
 
   parser.on('data', line => {
+    if (!active()) return;
     line = line.trim();
     if (!line) return;
 
@@ -527,32 +533,42 @@ function setupStreamingConnection(device, profile) {
   });
 
   port.on('error', err => {
+    if (!active()) return;
     logger.error(`RS232 streaming ${device.name} error: ${err.message}`);
     streamingSetupInProgress.delete(device.name);
     streamingConnections.delete(device.name);
+    try { port.close(); } catch (_) {}
     const retries = streamingRetries.get(device.name) || 0;
     if (retries < MAX_STREAMING_RETRIES) {
       streamingRetries.set(device.name, retries + 1);
-      setTimeout(() => setupStreamingConnection(device, profile), 10000);
+      const timer = setTimeout(() => {
+        if (streamingRetryTimers.get(device.name) !== timer) return;
+        streamingRetryTimers.delete(device.name);
+        if (generation !== streamingGeneration || !databaseWork.isCurrent() || streamingConnections.has(device.name)) return;
+        setupStreamingConnection(device, profile);
+      }, 10000);
+      streamingRetryTimers.set(device.name, timer);
     } else {
       logger.error(`RS232 streaming ${device.name}: max retries (${MAX_STREAMING_RETRIES}) reached, giving up`);
     }
   });
 
   port.on('close', () => {
+    if (!active()) return;
     streamingConnections.delete(device.name);
     streamingSetupInProgress.delete(device.name);
   });
 
-  streamingConnections.set(device.name, { port, parser, device, profile });
+  streamingConnections.set(device.name, connection);
 }
 
 function teardownStreamingConnection(name) {
+  if (streamingRetryTimers.has(name)) { clearTimeout(streamingRetryTimers.get(name)); streamingRetryTimers.delete(name); }
   streamingSetupInProgress.delete(name);
   const conn = streamingConnections.get(name);
   if (conn) {
-    try { conn.port.close(); } catch (e) { /* ignore */ }
     streamingConnections.delete(name);
+    try { conn.port.close(); } catch (e) { /* ignore */ }
   }
 }
 
@@ -683,10 +699,11 @@ async function getAvailablePorts() {
 
 async function shutdownRs232() {
   logger.info('RS232 shutdown: closing all streaming connections');
-  for (const conn of streamingConnections.values()) {
-    try { conn.port.close(); } catch (e) { /* ignore */ }
-  }
-  streamingConnections.clear();
+  streamingGeneration++;
+  for (const timer of streamingRetryTimers.values()) clearTimeout(timer);
+  streamingRetryTimers.clear(); streamingRetries.clear();
+  for (const name of [...streamingConnections.keys()]) teardownStreamingConnection(name);
+  streamingSetupInProgress.clear();
   logger.info('RS232 shutdown complete');
 }
 
