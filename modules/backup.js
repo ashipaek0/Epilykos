@@ -6,6 +6,7 @@ const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
 const { createBackupSnapshot } = require('./sqliteSnapshot');
+const { restorePreflight } = require('./restorePreflight');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -85,25 +86,8 @@ async function backupDatabase(res) {
 async function restoreDatabaseUnlocked(filePath) {
   const backupPath = DB_PATH + '.bak';
 
-  // Step 1: validate uploaded file
-  let testDb;
-  try {
-    const Database = require('better-sqlite3');
-    testDb = new Database(filePath, { readonly: true });
-    // Ensure the uploaded DB has the minimum schema
-    const tables = testDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-    const required = ['config', 'metrics', 'latest_metrics'];
-    const hasAll = required.every(t => tables.some(r => r.name === t));
-    if (!hasAll) {
-      testDb.close();
-      throw new Error('Uploaded database is missing required tables (config, metrics, latest_metrics)');
-    }
-    testDb.close();
-    testDb = null;
-  } catch (err) {
-    if (testDb) try { testDb.close(); } catch (e) {}
-    throw new Error('Uploaded file is not a valid Epilykos database: ' + err.message);
-  }
+  // Validate and admit before any rollback allocation, service stop or close.
+  await restorePreflight(filePath, getDb(), DB_PATH);
 
   // Step 2: backup the current database before overwriting (drain queued
   // metric writes first so they land in the backup, not the restored DB)
