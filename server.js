@@ -1380,9 +1380,9 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
     rebindAfterRestore();
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
-    rebindAfterRestore(); // the rollback reopened the original database
+    if (!err.restorePreflight) rebindAfterRestore(); // a replacement failure reopened the original
     logger.error('Restore error:', err);
-    res.status(500).json({ error: 'Restore failed, original database restored.' });
+    res.status(err.restorePreflight ? err.status : 500).json({ error: err.restorePreflight ? err.message : 'Restore failed, original database restored.' });
   } finally {
     try { if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded); } catch(e) {}
   }
@@ -1405,9 +1405,9 @@ app.post('/api/snapshots/restore/:name', async (req, res) => {
     rebindAfterRestore();
     res.json(result);
   } catch (err) {
-    rebindAfterRestore(); // a failed restore rolls back and reopens the original database
+    if (!err.restorePreflight) rebindAfterRestore(); // replacement failures re-open the original
     logger.error('Snapshot restore error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(err.restorePreflight ? err.status : 500).json({ error: err.restorePreflight ? err.message : 'Internal server error' });
   }
 });
 
