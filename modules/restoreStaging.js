@@ -29,11 +29,22 @@ function protectedByJournal(root, name) {
     return journal.job === name;
   } catch (_) { return true; }
 }
+function knownScratch(scratch) {
+  const directory = stat(scratch);
+  if (!directory) return true;
+  if (!directory.isDirectory()) return false;
+  // SQLite's Unix temporary-file prefix. Unknown files and nested namespaces
+  // are never recursively removed, even inside our private scratch directory.
+  return fs.readdirSync(scratch).every(name => {
+    const info = stat(path.join(scratch, name));
+    return /^etilqs_[A-Za-z0-9]+$/.test(name) && info?.isFile() && info.nlink === 1;
+  });
+}
 function knownContents(job) {
   for (const name of fs.readdirSync(job)) {
     if (!FILES.has(name)) return false; // in particular: never reap original.db
     const info = stat(path.join(job, name));
-    if (!info || (name === 'scratch' ? !info.isDirectory() : !info.isFile() || info.nlink !== 1)) return false;
+    if (!info || (name === 'scratch' ? !info.isDirectory() || !knownScratch(path.join(job, name)) : !info.isFile() || info.nlink !== 1)) return false;
   }
   return true;
 }
@@ -44,13 +55,15 @@ function removeRestoreStagingMetadata(job) {
   if (!JOB.test(path.basename(job))) throw new Error('Invalid restore staging directory');
   if (!stat(path.join(job, OWNER))) return;
   if (!ownerOf(job)) throw new Error('Unknown restore staging ownership');
+  if (!knownScratch(path.join(job, 'scratch'))) throw new Error('Unknown SQLite scratch contents; preserving files');
   for (const name of ['scratch', LOCK, OWNER]) {
     const file = path.join(job, name), info = stat(file);
     if (!info) continue;
     if (name === LOCK && process.platform !== 'win32') sync(job);
     if (name === 'scratch') {
       if (!info.isDirectory()) throw new Error('Invalid SQLite scratch directory');
-      fs.rmSync(file, { recursive: true });
+      for (const entry of fs.readdirSync(file)) fs.unlinkSync(path.join(file, entry));
+      fs.rmdirSync(file);
     } else {
       // Keep durable namespace proof until all other metadata is durably gone.
       if (name === OWNER && process.platform !== 'win32') sync(job);

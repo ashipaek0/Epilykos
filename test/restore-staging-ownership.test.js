@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { spawn } = require('node:child_process');
 process.env.LOG_TO_FILE = 'false';
-const { createRestoreStaging, reapRestoreStaging } = require('../modules/restoreStaging');
+const { createRestoreStaging, reapRestoreStaging, removeRestoreStagingMetadata } = require('../modules/restoreStaging');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-staging-ownership-'));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 const fresh = () => fs.mkdtempSync(path.join(root, 'data-'));
@@ -31,7 +31,7 @@ test('released orphan is reaped including known SQLite scratch, without touching
   const dir = fresh(), job = await createRestoreStaging(dir);
   fs.writeFileSync(path.join(dir, 'energy.db'), 'live');
   fs.writeFileSync(path.join(job.directory, 'candidate.db'), 'abandoned');
-  fs.mkdirSync(path.join(job.directory, 'scratch')); fs.writeFileSync(path.join(job.directory, 'scratch', 'sqlite-sort'), 'sort');
+  fs.mkdirSync(path.join(job.directory, 'scratch')); fs.writeFileSync(path.join(job.directory, 'scratch', 'etilqs_fixture'), 'sort');
   job.release();
   assert.deepEqual(await reapRestoreStaging(dir), [path.basename(job.directory)]);
   assert.equal(fs.existsSync(job.directory), false);
@@ -173,4 +173,24 @@ test('an incomplete but parseable journal blocks all automatic orphan decisions'
   fs.writeFileSync(path.join(dir, '.restore-transaction.json'), JSON.stringify({ job: '.restore-ABCDEF' }));
   assert.deepEqual(await reapRestoreStaging(dir), []);
   assert.equal(fs.readFileSync(path.join(orphan.directory, 'candidate.db'), 'utf8'), 'preserve while recovery is uncertain');
+});
+
+for (const kind of ['directory', 'symlink', 'hardlink', 'unknown-file']) test('unknown scratch ' + kind + ' preserves all staging artifacts', { skip: process.platform !== 'linux' }, async () => {
+  const dir = fresh(), job = await createRestoreStaging(dir), scratch = path.join(job.directory, 'scratch');
+  fs.mkdirSync(scratch); fs.writeFileSync(path.join(scratch, 'etilqs_known'), 'SQLite scratch');
+  fs.writeFileSync(path.join(job.directory, 'candidate.db'), 'candidate');
+  const unknown = path.join(scratch, kind === 'unknown-file' ? 'original.db' : 'etilqs_unexpected');
+  const outside = path.join(dir, 'original.db'); fs.writeFileSync(outside, 'preserve');
+  if (kind === 'directory') { fs.mkdirSync(unknown); fs.writeFileSync(path.join(unknown, 'original.db'), 'preserve'); }
+  else if (kind === 'symlink') fs.symlinkSync(outside, unknown);
+  else if (kind === 'hardlink') fs.linkSync(outside, unknown);
+  else fs.writeFileSync(unknown, 'preserve');
+  try {
+    assert.throws(() => removeRestoreStagingMetadata(job.directory), /scratch/);
+    for (const file of ['owner.json', '.owner-lock', 'candidate.db', 'scratch/etilqs_known']) assert.equal(fs.existsSync(path.join(job.directory, file)), true, file);
+  } finally { job.release(); }
+  assert.deepEqual(await reapRestoreStaging(dir), []);
+  assert.equal(fs.lstatSync(unknown).isDirectory(), kind === 'directory');
+  assert.equal(fs.readFileSync(outside, 'utf8'), 'preserve');
+  assert.equal(fs.readFileSync(path.join(job.directory, 'candidate.db'), 'utf8'), 'candidate');
 });
