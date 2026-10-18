@@ -60,10 +60,10 @@ function requireUnlocked(req, res, next) {
 
 // ── Change log ────────────────────────────────────────────────────────────
 
-let tableReady = false;
+let tableFor = null;
 function table() {
   const db = getDb();
-  if (!tableReady) {
+  if (tableFor !== db) {
     db.exec(`CREATE TABLE IF NOT EXISTS device_write_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       ts INTEGER NOT NULL,
@@ -77,7 +77,7 @@ function table() {
       detail TEXT,
       ip TEXT
     )`);
-    tableReady = true;
+    tableFor = db;
   }
   return db;
 }

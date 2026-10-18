@@ -8,6 +8,7 @@ const { emitEvent } = require('./notifications/events');
 const { createBackupSnapshot } = require('./sqliteSnapshot');
 const { prepareRestore } = require('./restorePreparation');
 const { beginRestoreSwap, recoverRestore, recoveryError } = require('./restoreTransaction');
+const databaseWork = require('./databaseWork');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -84,9 +85,9 @@ async function backupDatabase(res) {
   }
 }
 
-async function restoreDatabaseUnlocked(filePath) {
+async function restoreDatabaseUnlocked(filePath, lifecycle) {
   const prepared = await prepareRestore(filePath, getDb(), DB_PATH);
-  try { return await restorePreparedDatabaseUnlocked(prepared.filePath); }
+  try { return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle); }
   finally { prepared.cleanup(); }
 }
 
@@ -98,11 +99,17 @@ function stopRestoreMqtt() {
   mqttClients.clear();
 }
 
-function restorePreparedDatabaseUnlocked(filePath) {
+function lifecycleCall(lifecycle, name) {
+  const result = lifecycle[name]?.();
+  if (result && typeof result.then === 'function') throw new Error('Restore runtime hooks must be synchronous');
+}
+
+function restorePreparedDatabaseUnlocked(filePath, lifecycle) {
   const original = getDb();
   // No await in this activation section: all app SQLite calls share the main
   // thread/connection; workers and host maintenance are excluded by the lease.
   try {
+    databaseWork.run(() => lifecycleCall(lifecycle, 'pause'));
     flushMetrics();
     // Unlike an unchecked wal_checkpoint result, this refuses live readers and
     // produces a standalone original before its inode can move.
@@ -110,16 +117,24 @@ function restorePreparedDatabaseUnlocked(filePath) {
     original.close();
   } catch (error) {
     if (original.open) { try { original.pragma('journal_mode = WAL'); } catch (_) {} }
+    try { databaseWork.run(() => lifecycleCall(lifecycle, 'resume')); }
+    catch (resumeError) { throw recoveryError(resumeError); }
     throw Object.assign(new Error('Restore cannot quiesce the live database: ' + error.message), {
       restorePreflight: true, status: error.code === 'SQLITE_BUSY' ? 409 : 500
     });
   }
+  databaseWork.retire();
+  return databaseWork.run(() => activatePreparedDatabase(filePath, lifecycle));
+}
+
+function activatePreparedDatabase(filePath, lifecycle) {
   let transaction;
   try {
     stopRestoreMqtt();
     transaction = beginRestoreSwap(DB_PATH, filePath);
     openPreparedDatabase();
     setupMqtt();
+    lifecycleCall(lifecycle, 'resume');
     const restoredDb = getDb();
     restoredDb.prepare('SELECT 1 FROM metrics LIMIT 1').get();
     const synchronous = restoredDb.pragma('synchronous', { simple: true });
@@ -131,23 +146,31 @@ function restorePreparedDatabaseUnlocked(filePath) {
     if (result.cleanupPending) logger.warn('Restore confirmed; old-file cleanup will retry on startup');
     return { success: true };
   } catch (error) {
+    try { lifecycleCall(lifecycle, 'pause'); } catch (pauseError) { logger.warn('Restore: runtime pause failed:', pauseError.message); }
     try { if (getDb().open) getDb().close(); } catch (_) {}
     stopRestoreMqtt();
-    try {
-      if (transaction) transaction.rollback();
-      else recoverRestore(DB_PATH);
-      openPreparedDatabase();
-      setupMqtt();
-    } catch (recovery) {
-      throw recoveryError(recovery);
-    }
-    throw new Error('Restore failed, original database restored. ' + error.message);
+    databaseWork.retire();
+    return databaseWork.run(() => {
+      try {
+        if (transaction) transaction.rollback();
+        else recoverRestore(DB_PATH);
+        openPreparedDatabase();
+        setupMqtt();
+        lifecycleCall(lifecycle, 'resume');
+      } catch (recovery) {
+        try { if (getDb().open) getDb().close(); } catch (_) {}
+        databaseWork.retire();
+        throw recoveryError(recovery);
+      }
+      throw new Error('Restore failed, original database restored. ' + error.message);
+    });
   }
 }
 
-async function restoreDatabase(filePath) {
+async function restoreDatabase(filePath, { lifecycle = {} } = {}) {
   const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  try { return await restoreDatabaseUnlocked(filePath); } finally { release(); }
+  try { return await restoreDatabaseUnlocked(filePath, lifecycle); }
+  finally { databaseWork.refresh(); release(); }
 }
 
 // ── Daily Snapshot Scheduler ──────────────────────────────────────
@@ -279,11 +302,11 @@ function listSnapshots() {
   }));
 }
 
-async function restoreFromSnapshot(snapshotName) {
+async function restoreFromSnapshot(snapshotName, options) {
   const snaps = getSnapshots();
   const match = snaps.find(s => s.name === snapshotName);
   if (!match) throw new Error(`Snapshot "${snapshotName}" not found`);
-  return restoreDatabase(match.path);
+  return restoreDatabase(match.path, options);
 }
 
 module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal };
