@@ -70,22 +70,36 @@ function migratePowerStatsSchema(handle) {
   }
 }
 
-function initializeDatabase() {
-  const dataDir = path.dirname(DB_PATH);
-  let dbFile = DB_PATH;
+function openConnection(dbFile, fileMustExist = false) {
+  db = new Database(dbFile, { fileMustExist });
+  db.pragma('trusted_schema = OFF');
+  db.pragma('journal_mode = WAL');
+  applySynchronousMode(db);
+  return db;
+}
+
+// Only for the private candidate whose initialization already succeeded.
+// Opening it must not replay migrations/default writes after live closure.
+function openPreparedDatabase() {
+  if (db?.open) throw new Error('Close the live database before opening a prepared restore');
+  return openConnection(DB_PATH, true);
+}
+
+function initializeDatabase({ filePath = DB_PATH } = {}) {
+  const dataDir = path.dirname(filePath);
+  let dbFile = filePath;
   if (!fs.existsSync(dataDir)) {
     try {
       fs.mkdirSync(dataDir, { recursive: true });
     } catch (err) {
+      if (filePath !== DB_PATH) throw err; // disposable restore preparation must never fall back
       // Still run the schema setup below so the in-memory DB is usable.
       logger.error(`Cannot create data directory ${dataDir}: ${err.message}. Falling back to in-memory database.`);
       dbFile = ':memory:';
     }
   }
 
-  db = new Database(dbFile);
-  db.pragma('journal_mode = WAL');
-  applySynchronousMode(db);
+  openConnection(dbFile);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
@@ -838,6 +852,7 @@ function resolveStoredSecret(value, configKeys) {
 }
 
 module.exports = {
+  openPreparedDatabase,
   DEFAULT_DASHBOARD_LAYOUTS_JSON,
   initializeDatabase,
   migratePowerStatsSchema,
