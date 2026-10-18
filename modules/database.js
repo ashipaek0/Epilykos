@@ -86,6 +86,12 @@ function openPreparedDatabase() {
 }
 
 function initializeDatabase({ filePath = DB_PATH } = {}) {
+  if (filePath === DB_PATH) {
+    if (db?.open && fs.existsSync(path.join(path.dirname(DB_PATH), '.restore-transaction.json'))) {
+      throw new Error('Close all database handles before restore recovery');
+    }
+    require('./restoreTransaction').recoverRestore(DB_PATH);
+  }
   const dataDir = path.dirname(filePath);
   let dbFile = filePath;
   if (!fs.existsSync(dataDir)) {
@@ -780,7 +786,6 @@ function queueMetricValue(metric, rawValue, timestamp, unit) {
 function flushMetrics() {
   if (metricBuffer.length === 0) return 0;
   const batch = metricBuffer;
-  metricBuffer = [];
   const dbm = getDb();
   const metricInsert = dbm.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
   const metricInsertText = dbm.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
@@ -802,6 +807,7 @@ function flushMetrics() {
     }
   });
   runBatch(batch);
+  metricBuffer = []; // synchronous transaction: keep the batch intact on failure
   return batch.length;
 }
 

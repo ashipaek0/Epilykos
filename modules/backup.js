@@ -1,12 +1,13 @@
 const { logger } = require('./logger');
 const fs = require('fs');
 const path = require('path');
-const { getDb, DB_PATH, initializeDatabase, openPreparedDatabase, flushMetrics, setConfig } = require('./database');
+const { getDb, DB_PATH, openPreparedDatabase, flushMetrics, setConfig } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
 const { createBackupSnapshot } = require('./sqliteSnapshot');
 const { prepareRestore } = require('./restorePreparation');
+const { beginRestoreSwap, recoverRestore, recoveryError } = require('./restoreTransaction');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -89,58 +90,58 @@ async function restoreDatabaseUnlocked(filePath) {
   finally { prepared.cleanup(); }
 }
 
-async function restorePreparedDatabaseUnlocked(filePath) {
-  const backupPath = DB_PATH + '.bak';
-
-  // Step 2: backup the current database before overwriting (drain queued
-  // metric writes first so they land in the backup, not the restored DB)
-  try {
-    try { flushMetrics(); } catch (e) { logger.warn(`Restore: metric flush failed: ${e.message}`); }
-    if (fs.existsSync(DB_PATH)) {
-      checkpointWal();
-      fs.copyFileSync(DB_PATH, backupPath);
-    }
-  } catch (err) {
-    throw new Error('Failed to backup current database before restore: ' + err.message);
-  }
-
-  // Step 3: shutdown all running services that touch the database
-  try {
-    if (getDb()) getDb().close();
-  } catch (e) {}
+function stopRestoreMqtt() {
   for (const client of mqttClients.values()) {
-    try { client.end(true); } catch (e) {}
+    client.removeAllListeners('message');
+    try { client.end(true); } catch (_) {}
   }
   mqttClients.clear();
+}
 
-  // Step 4: replace the database
+function restorePreparedDatabaseUnlocked(filePath) {
+  const original = getDb();
+  // No await in this activation section: all app SQLite calls share the main
+  // thread/connection; workers and host maintenance are excluded by the lease.
   try {
-    fs.copyFileSync(filePath, DB_PATH);
+    flushMetrics();
+    // Unlike an unchecked wal_checkpoint result, this refuses live readers and
+    // produces a standalone original before its inode can move.
+    if (original.pragma('journal_mode = DELETE', { simple: true }) !== 'delete') throw new Error('Cannot checkpoint the live database');
+    original.close();
+  } catch (error) {
+    if (original.open) { try { original.pragma('journal_mode = WAL'); } catch (_) {} }
+    throw Object.assign(new Error('Restore cannot quiesce the live database: ' + error.message), {
+      restorePreflight: true, status: error.code === 'SQLITE_BUSY' ? 409 : 500
+    });
+  }
+  let transaction;
+  try {
+    stopRestoreMqtt();
+    transaction = beginRestoreSwap(DB_PATH, filePath);
     openPreparedDatabase();
     setupMqtt();
-    // Verify the restored DB is usable
     const restoredDb = getDb();
     restoredDb.prepare('SELECT 1 FROM metrics LIMIT 1').get();
-    // Clean up backup on success
-    try { if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath); } catch (e) {}
+    const synchronous = restoredDb.pragma('synchronous', { simple: true });
+    restoredDb.pragma('synchronous = FULL');
+    const check = restoredDb.pragma('wal_checkpoint(TRUNCATE)');
+    if (check[0].busy) throw new Error('Restored database checkpoint is busy');
+    restoredDb.pragma('synchronous = ' + synchronous);
+    const result = transaction.commit();
+    if (result.cleanupPending) logger.warn('Restore confirmed; old-file cleanup will retry on startup');
     return { success: true };
-  } catch (err) {
-    // Restore failed — rollback to backup
-    logger.error('Restore failed, rolling back:', err.message);
+  } catch (error) {
+    try { if (getDb().open) getDb().close(); } catch (_) {}
+    stopRestoreMqtt();
     try {
-      if (getDb()) getDb().close();
-    } catch (e) {}
-    for (const client of mqttClients.values()) {
-      try { client.end(true); } catch (e) {}
+      if (transaction) transaction.rollback();
+      else recoverRestore(DB_PATH);
+      openPreparedDatabase();
+      setupMqtt();
+    } catch (recovery) {
+      throw recoveryError(recovery);
     }
-    mqttClients.clear();
-    if (fs.existsSync(backupPath)) {
-      fs.copyFileSync(backupPath, DB_PATH);
-      try { fs.unlinkSync(backupPath); } catch (e) {}
-    }
-    initializeDatabase();
-    setupMqtt();
-    throw new Error('Restore failed, original database restored. ' + err.message);
+    throw new Error('Restore failed, original database restored. ' + error.message);
   }
 }
 
