@@ -85,8 +85,8 @@ async function backupDatabase(res) {
   }
 }
 
-async function restoreDatabaseUnlocked(filePath, lifecycle) {
-  const prepared = await prepareRestore(filePath, getDb(), DB_PATH);
+async function restoreDatabaseUnlocked(filePath, lifecycle, options) {
+  const prepared = await prepareRestore(filePath, getDb(), DB_PATH, options);
   try { return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle); }
   finally { prepared.cleanup(); }
 }
@@ -169,7 +169,7 @@ function activatePreparedDatabase(filePath, lifecycle) {
 
 async function restoreDatabase(filePath, { lifecycle = {} } = {}) {
   const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  try { return await restoreDatabaseUnlocked(filePath, lifecycle); }
+  try { return await restoreDatabaseUnlocked(filePath, lifecycle, { leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd] }); }
   finally { databaseWork.refresh(); release(); }
 }
 

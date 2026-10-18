@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { removeRestoreStagingMetadata } = require('./restoreStaging');
 const SIDECARS = ['-wal', '-shm', '-journal'];
 
 function paths(liveFile, job) {
@@ -65,7 +66,7 @@ function finish(p, record) {
     if (!match(p.candidate, record.newInode)) throw new Error('Prepared restore inode changed');
     discardSidecars(p.candidate); fs.unlinkSync(p.candidate);
   }
-  if (stat(p.job)) { fs.rmdirSync(p.job); sync(p.directory); }
+  if (stat(p.job)) { removeRestoreStagingMetadata(p.job); fs.rmdirSync(p.job); sync(p.directory); }
   fs.unlinkSync(p.journal); sync(p.directory);
 }
 

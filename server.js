@@ -469,6 +469,7 @@ const restoreLifecycle = {
   }
 };
 databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); });
+const stopRestoreStagingCleanup = require('./modules/restoreStaging').startRestoreStagingCleanup('./data');
 startSnapshotScheduler();
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
@@ -2735,6 +2736,7 @@ async function shutdown(signal) {
   require('./modules/cloudflared').stop();
   require('./modules/updates').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
+  await stopRestoreStagingCleanup();
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);

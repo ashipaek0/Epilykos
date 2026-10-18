@@ -33,7 +33,7 @@ function restoreBudget(db, candidateBytes, directory) {
   };
 }
 
-async function restorePreflight(file, db, liveFile, { signal } = {}) {
+async function restorePreflight(file, db, liveFile, { signal, leaseFds = [] } = {}) {
   signal?.throwIfAborted();
   const before = present(file);
   if (!before?.isFile() || before.size < 512 || sameFile(before, present(liveFile))) {
@@ -45,7 +45,7 @@ async function restorePreflight(file, db, liveFile, { signal } = {}) {
   const checkSpace = restoreBudget(db, before.size, path.dirname(liveFile));
   checkSpace();
   try {
-    const result = await inspectSqliteFile(file, { signal, checkSpace, restore: true });
+    const result = await inspectSqliteFile(file, { signal, checkSpace, restore: true, leaseFds });
     const after = present(file);
     if (!sameFile(before, after) || before.size !== after.size || before.mtimeMs !== after.mtimeMs || result.bytes !== before.size) {
       throw invalid('The backup changed during validation or has an inconsistent file size');

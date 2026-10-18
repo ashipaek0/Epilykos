@@ -47,8 +47,10 @@ async function acquireLock(label, options = {}) {
     const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const budget = Number.isFinite(timeout) && timeout >= 0
       ? Math.max(0, timeout - (performance.now() - started)) : Infinity;
-    const releaseFile = await require('./maintenanceFileLock').acquireFileLock(file, budget);
-    return () => { releaseFile(); releaseLocal(); };
+    const lease = await require('./maintenanceFileLock').acquireFileLease(file, budget);
+    const release = () => { lease.release(); releaseLocal(); };
+    release.leaseFd = lease.fd; // a native child can retain this same kernel lease
+    return release;
   } catch (error) { releaseLocal(); throw error; }
 }
 
