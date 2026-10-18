@@ -5,12 +5,12 @@ const path = require('node:path');
 // Check in a separate process: quick_check can scan gigabytes in native code.
 // Worker termination cannot interrupt that code; a process can be killed on
 // cancellation/deadline and reaped before the caller removes its private file.
-async function runSqliteProcess(script, args, { signal, checkSpace = () => {} } = {}) {
+async function runSqliteProcess(script, args, { signal, checkSpace = () => {}, leaseFds = [], scratch } = {}) {
   signal?.throwIfAborted();
   const checker = fork(path.join(__dirname, script), args, {
-    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc', ...leaseFds],
     execArgv: ['--max-old-space-size=32'],
-    env: { ...process.env, LOG_TO_FILE: 'false', SQLITE_SYNCHRONOUS: 'FULL' }
+    env: { ...process.env, ...(scratch ? { SQLITE_TMPDIR: scratch, TMPDIR: scratch } : {}), LOG_TO_FILE: 'false', SQLITE_SYNCHRONOUS: 'FULL' }
   });
   const exited = new Promise(resolve => checker.once('close', resolve));
   let abort;
