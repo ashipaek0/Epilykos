@@ -115,3 +115,62 @@ test('a failed combined-energy flush keeps its buffer for retry before live clos
   db.exec('DROP TRIGGER reject_parts'); cm.flushPartDays();
   assert.equal(db.prepare('SELECT kwh FROM combined_part_daily WHERE total=? AND part=?').get('total', 'part').kwh, 2);
 });
+
+test('a retired forecast failure cannot populate the restored site negative cache', async () => {
+  const input = fixture(), solar = require('../modules/solar'), originalFetch = global.fetch;
+  const config = { forecast_enabled: 'true', solar_capacity_kwp: '5', solcast_api_key: 'fixture', solcast_resource_id: 'fixture' };
+  for (const [key, value] of Object.entries(config)) database.setConfig(key, value);
+  const candidate = new Database(input);
+  for (const [key, value] of Object.entries(config)) candidate.prepare('INSERT INTO config VALUES(?,?)').run(key, value);
+  candidate.close(); solar.clearForecastCache();
+  let finish, started; const waiting = new Promise(r => { started = r; }); let calls = 0;
+  global.fetch = async () => { calls++; if (calls === 1) { started(); return new Promise(r => { finish = r; }); } return new Response(JSON.stringify({ forecasts: [] }), { status: 200 }); };
+  try {
+    const old = work.run(() => solar.getSolarForecast('solcast')).then(value => ({ value }), error => ({ error }));
+    await waiting;
+    await restoreDatabase(input, { lifecycle: { resume() { solar.clearForecastCache(); } } });
+    finish(new Response('', { status: 429 })); await old;
+    const selected = await work.run(() => solar.getSolarForecast('solcast'));
+    assert.equal(calls, 2, 'a retired 429 must not suppress the restored site request');
+    assert.equal(selected.source, 'solcast');
+  } finally { global.fetch = originalFetch; solar.clearForecastCache(); }
+});
+
+test('restore does not overlap an outstanding Bluetooth BMS read with replacement polling', async () => {
+  const input = fixture(), ble = require('../modules/ble'), bms = require('../modules/bms');
+  const wasConfigured = ble.isConfigured, wasRead = ble.readBms;
+  const devices = [{ name: 'pack', enabled: true, address: 'AA:BB:CC:DD:EE:FF' }];
+  database.setConfig('bms_devices', JSON.stringify(devices));
+  const candidate = new Database(input); candidate.prepare('INSERT INTO config VALUES(?,?)').run('bms_devices', JSON.stringify(devices)); candidate.close();
+  let finish, started, calls = 0;
+  const waiting = new Promise(r => { started = r; });
+  ble.isConfigured = () => true;
+  ble.readBms = async () => { calls++; if (calls === 1) { started(); return new Promise(r => { finish = r; }); } return { voltage: 52 }; };
+  try {
+    const pending = work.run(() => bms.pollBMS()); await waiting;
+    await restoreDatabase(input, { lifecycle: { pause() { bms.stopBmsPolling(); }, resume() { bms.startBmsPolling(); } } });
+    assert.equal(calls, 1, 'new device I/O must wait for the outstanding read');
+    finish({ voltage: 50 }); await pending;
+    await work.run(() => bms.pollBMS());
+    database.flushMetrics();
+    assert.equal(calls, 2);
+    assert.equal(database.getDb().prepare('SELECT value FROM latest_metrics WHERE metric=?').get('bms_pack_voltage').value, 52);
+  } finally { if (finish) finish({ voltage: 50 }); bms.stopBmsPolling(); ble.isConfigured = wasConfigured; ble.readBms = wasRead; }
+});
+
+test('restore does not overlap an outstanding wired BMS port open with replacement polling', async () => {
+  const input = fixture(), { SerialPort } = require('serialport'), wired = require('../modules/bmsWired');
+  const originalOpen = SerialPort.prototype.open;
+  const devices = [{ name: 'wired-pack', enabled: true, transport: 'wired', serial_path: '/fixture/no-hardware', profile: 'bms-modbus-rtu' }];
+  database.setConfig('bms_devices', JSON.stringify(devices));
+  const candidate = new Database(input); candidate.prepare('INSERT INTO config VALUES(?,?)').run('bms_devices', JSON.stringify(devices)); candidate.close();
+  let finish, started, calls = 0; const waiting = new Promise(r => { started = r; });
+  SerialPort.prototype.open = function(callback) { calls++; if (calls === 1) { finish = callback; started(); } else callback(new Error('fixture refused open')); };
+  try {
+    const pending = work.run(() => wired.pollBmsWired()); await waiting;
+    await restoreDatabase(input, { lifecycle: { pause() { wired.stopBmsWiredPolling(); }, resume() { wired.startBmsWiredPolling(); } } });
+    assert.equal(calls, 1, 'the old serial open still owns the device operation');
+    finish(new Error('fixture refused open')); await pending;
+    await work.run(() => wired.pollBmsWired()); assert.equal(calls, 2);
+  } finally { if (finish) finish(new Error('fixture refused open')); wired.stopBmsWiredPolling(); SerialPort.prototype.open = originalOpen; }
+});

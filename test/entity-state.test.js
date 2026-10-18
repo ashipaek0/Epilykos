@@ -12,7 +12,7 @@
  * `initializeDatabase()` and `server.listen()`. So, exactly like the existing
  * text-metric-card fixture loads the real component source, this fixture reads
  * server.js as TEXT, brace-matches the real function body out, and executes
- * those production bytes with `db` / `getConfig` / `logger` injected. Nothing is
+ * those production bytes with `getDb` / `getConfig` / `logger` injected. Nothing is
  * re-implemented: the expression under test is the one in server.js.
  *
  * The DB is a throwaway SQLite file in its own mkdtemp dir — the repo's
@@ -59,9 +59,9 @@ function extractFunctionBody(src, name) {
 }
 
 const fnBody = extractFunctionBody(SERVER_SRC, 'findLatestStateForEntity');
-// The body references only db / getConfig / logger / entityId as free variables.
+// The body references only getDb / getConfig / logger / entityId as free variables.
 // new Function(...) yields a 4-param function, so deps are bound at call time.
-const findLatestStateFn = new Function('db', 'getConfig', 'logger', 'entityId', fnBody);
+const findLatestStateFn = new Function('getDb', 'getConfig', 'logger', 'entityId', fnBody);
 
 // ── Throwaway SQLite DB in its own temp dir (never the repo's data/) ─────
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-entity-state-'));
@@ -97,7 +97,7 @@ const haDevices = [{
 }];
 const getConfig = (key) => (key === 'ha_devices' ? JSON.stringify(haDevices) : undefined);
 const logger = { warn: () => {}, info: () => {}, error: () => {} };
-const findLatestStateForEntity = (entityId) => findLatestStateFn(db, getConfig, logger, entityId);
+const findLatestStateForEntity = (entityId) => findLatestStateFn(() => db, getConfig, logger, entityId);
 
 // ── Defect + fix ────────────────────────────────────────────────────────
 console.log('findLatestStateForEntity \u2014 state contract (#61 Phase-3)');

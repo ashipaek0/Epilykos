@@ -597,6 +597,12 @@ function getLastAccepted(metricName, ts) {
   } catch (_) { return null; }
 }
 
+// Reload the selected database without overwriting its persisted baselines.
+function reloadState() {
+  state.clear(); hydrated = false; config = null;
+  hydrate();
+}
+
 function _reset() {
   state.clear();
   hydrated = false;
@@ -619,6 +625,7 @@ module.exports = {
   getStatus,
   getLastAccepted,
   reloadConfig,
+  reloadState,
   flush,
   _reset,
   _test,

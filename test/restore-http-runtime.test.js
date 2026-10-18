@@ -6,7 +6,7 @@ const { spawn } = require('node:child_process');
 const http = require('node:http');
 const Database = require('better-sqlite3');
 
-test('HTTP restore rebinds engines before confirmation, preserves session access and rolls back failed local health', { timeout: 45000 }, async () => {
+test('HTTP restore rebinds engines before confirmation, preserves session access and rolls back failed local health', { timeout: 45000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-restore-http-')), repo = path.resolve(__dirname, '..');
   for (const ent of fs.readdirSync(repo, { withFileTypes: true })) {
     if (ent.name.startsWith('.') || ['data', 'logs', 'test', 'docs'].includes(ent.name)) continue;
@@ -18,7 +18,10 @@ test('HTTP restore rebinds engines before confirmation, preserves session access
   function input(name, extra = {}) {
     const file = path.join(root, name + '.db'), db = new Database(file);
     db.exec(`CREATE TABLE config(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE metrics(timestamp INTEGER NOT NULL,metric TEXT NOT NULL,value REAL,PRIMARY KEY(timestamp,metric)); CREATE TABLE latest_metrics(metric TEXT PRIMARY KEY,value REAL,timestamp INTEGER);`);
-    for (const [k, v] of Object.entries({ restore_probe: name, setup_completed: 'true', ...extra })) db.prepare('INSERT INTO config VALUES(?,?)').run(k, v);
+    for (const [k, v] of Object.entries({ restore_probe: name, setup_completed: 'true', savings_solar_metric: 'daily_solar_fixture', metric_sanity_state: JSON.stringify({ [name]: { lastAccepted: 7 } }), ...extra })) db.prepare('INSERT INTO config VALUES(?,?)').run(k, v);
+    db.exec(`CREATE TABLE history(timestamp INTEGER PRIMARY KEY,consumption REAL,solar REAL,battery_charge REAL,battery_discharge REAL,grid_import REAL,grid_export REAL,battery_soc REAL,daily_consumption REAL,daily_solar REAL,daily_battery_charge REAL,daily_battery_discharge REAL,daily_grid_import REAL,daily_grid_export REAL)`);
+    db.prepare('INSERT INTO history(timestamp) VALUES(?)').run(Math.floor(Date.now() / 1000));
+    db.prepare('INSERT INTO latest_metrics VALUES(?,?,?)').run('daily_solar_fixture', name === 'original' ? 99 : 7, Math.floor(Date.now() / 1000));
     db.close(); return file;
   }
   fs.mkdirSync(path.join(root, 'data'));
@@ -41,11 +44,17 @@ test('HTTP restore rebinds engines before confirmation, preserves session access
     const login = await request('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'fixture-password' }) });
     assert.equal(login.status, 200); cookie = login.headers.get('set-cookie').split(';')[0];
     assert.equal((await (await request('/api/pvoutput/status')).json()).enabled, true);
+    const before = await (await request('/api/current')).json();
+    assert.deepEqual(Object.keys(before.metric_sanity), ['original']);
+    assert.equal(before.daily_solar_kwh, 99);
     async function restore(file) { const form = new FormData(); form.set('dbfile', new Blob([fs.readFileSync(file)]), 'input.db'); return request('/api/restore', { method: 'POST', body: form }); }
     let response = await restore(input('selected'));
     assert.equal(response.status, 200, await response.text());
     assert.equal((await (await request('/api/settings')).json()).restore_probe, 'selected');
     assert.equal((await (await request('/api/pvoutput/status')).json()).enabled, false);
+    const selected = await (await request('/api/current')).json();
+    await t.test('restored energy guard state replaces the original baselines', () => assert.deepEqual(Object.keys(selected.metric_sanity), ['selected']));
+    await t.test('restored solar production replaces the original cached value', () => assert.equal(selected.daily_solar_kwh, 7));
     response = await restore(input('bad-local-health', { pvoutput_config: JSON.stringify({ enabled: true, api_key: 'fixture', system_id: '42', timezone: 'Invalid/Fixture' }), pvoutput_rate_limit_state: JSON.stringify({ general: { remaining: 0, limit: 60, resetAt: Math.floor(Date.now() / 1000) + 86400 } }) }));
     assert.equal(response.status, 500, await response.text());
     assert.equal((await (await request('/api/settings')).json()).restore_probe, 'selected');

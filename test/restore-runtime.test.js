@@ -97,3 +97,14 @@ test('failed original-runtime resumption is recovery-required rather than falsel
   assert.equal(original.open, true); // the pre-swap failure never replaced live storage
   assert.equal(fs.existsSync(path.join('data', '.restore-transaction.json')), false);
 });
+
+test('a retired main poll cycle stops after outstanding I/O and emits no replacement events', async () => {
+  const input = fixture(), work = require('../modules/databaseWork'), { PollingManager } = require('../services/PollingManager');
+  let release, started, extra = 0, events = 0;
+  const gate = new Promise(r => { release = r; }), waiting = new Promise(r => { started = r; });
+  const manager = new PollingManager([{ id: 'restore-first', async pollFn() { started(); await gate; } }, { id: 'restore-second', pollFn() { extra++; } }]);
+  manager.on('metrics-ready', () => { events++; }); manager.on('device-error', () => { events++; });
+  const pending = work.run(() => manager.runCycle()); await waiting;
+  await restoreDatabase(input); release(); await pending;
+  assert.equal(extra, 0); assert.equal(events, 0);
+});
