@@ -457,6 +457,9 @@ const restoreLifecycle = {
   },
   resume() {
     sessionStore._db();
+    require('./modules/metricSanity').reloadState();
+    clearForecastCache();
+    require('./modules/circuitBreaker').resetAll();
     require('./routes/logs').init();
     restartRs232Streaming();
     startExternalPolling(); startBmsPolling(); startBmsWiredPolling(); startDonglePolling();
@@ -673,6 +676,7 @@ function pollAllSources() { return databaseWork.run(async () => {
     notifications.evaluateMetrics(); // metric alert rules see this cycle's values
     if (wsClients.size > 0) {
       const state = await buildDashboardState();
+      if (!databaseWork.isCurrent()) return;
       broadcastDashboardState(state);
     }
     const elapsed = Date.now() - start;

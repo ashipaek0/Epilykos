@@ -12,6 +12,7 @@
  */
 
 const { EventEmitter } = require('node:events');
+const databaseWork = require('../modules/databaseWork');
 const { getBreaker } = require('../modules/circuitBreaker');
 const { PollResult } = require('../modules/pollResult');
 
@@ -41,6 +42,7 @@ class PollingManager extends EventEmitter {
 
   async runCycle() {
     for (const { id, pollFn } of this.sources) {
+      if (!databaseWork.isCurrent()) return;
       try {
         const result = await getBreaker(id).execute(async () => {
           const outcome = await pollFn();
@@ -51,6 +53,7 @@ class PollingManager extends EventEmitter {
           }
           return outcome;
         });
+        if (!databaseWork.isCurrent()) return;
         if (result instanceof PollResult) {
           if (!result.attempted) continue; // disabled/unconfigured is not recovery
           if (result.errors.length) {
@@ -60,6 +63,7 @@ class PollingManager extends EventEmitter {
         }
         this.emit('metrics-ready', { sourceId: id, data: null });
       } catch (error) {
+        if (!databaseWork.isCurrent()) return;
         this.emit('device-error', { sourceId: id, error });
       }
     }

@@ -1,5 +1,6 @@
 const { logger } = require('./logger');
 const https = require('https');
+const databaseWork = require('./databaseWork');
 const { getConfig, setConfig, getDb, flushMetrics } = require('./database');
 const { localDateString } = require('./localTime');
 const { readMetricSeries, readHistorySeries, readDailySnapshots } = require('./timeseriesReader');
@@ -392,6 +393,7 @@ async function fetchOpenMeteo(lat, lon) {
     + '&timezone=auto&timeformat=unixtime&wind_speed_unit=ms&forecast_days=7'
     + `&current=${OM_CURRENT.join(',')}&hourly=${OM_HOURLY.join(',')}&daily=${OM_DAILY.join(',')}`;
   const data = parseOpenMeteo(await httpsGetJson(url));
+  databaseWork.assertCurrent();
   openMeteoCache = { key, data, timestamp: now };
   return data;
 }
@@ -460,6 +462,7 @@ async function fetchTiltedIrradiance(lat, lon, tilt, azimuth) {
   const raw = await httpsGetJson(url);
   const t = raw?.hourly?.time || [], g = raw?.hourly?.global_tilted_irradiance || [];
   const byMs = new Map(t.map((x, i) => [x * 1000, numOrNull(g[i])]));
+  databaseWork.assertCurrent();
   tiltedCache.set(key, { at: now, byMs });
   while (tiltedCache.size > 16) tiltedCache.delete(tiltedCache.keys().next().value);
   return byMs;
@@ -654,6 +657,7 @@ function pickSolcastWeather(periods) {
 
 // Test hook (no prod callers): drop all per-selector cache entries.
 function clearForecastCache() {
+  solarCache = { value: 0, timestamp: 0 };
   forecastCache = {}; solcastNegativeCache = {}; solcastLastUpstreamAttempt = 0;
   openMeteoCache = { key: null, data: null, timestamp: 0 }; lastGoodWeather = null; tiltedCache.clear();
 }
@@ -922,20 +926,22 @@ async function getSolarForecast(sourceParam, restMap) {
           if (!job) { solcastErrText = 'Solcast needs a location or a resource ID'; break; }
           try {
             const res = await solcastFetch(job.url, solcastKey);
+            databaseWork.assertCurrent();
             if (!res.ok) { solcastErrStatus = res.status; solcastRetryAfter = res.headers.get('retry-after'); solcastErrText = `Solcast ${job.what} HTTP ${res.status}`; break; }
-            const data = await res.json();
+            const data = await res.json(); databaseWork.assertCurrent();
             if (!data.forecasts) { solcastErrText = `Solcast ${job.what}: no forecast`; break; }
             results.push(data.forecasts.map(mapSolcastPeriod));
-          } catch (e) { solcastErrText = `Solcast ${job.what} error: ${e.message}`; break; }
+          } catch (e) { databaseWork.assertCurrent(); solcastErrText = `Solcast ${job.what} error: ${e.message}`; break; }
         }
         if (results.length === jobs.length && results.length) { forecastData = results.length === 1 ? results[0] : sumForecastPeriods(results); source = 'solcast'; }
         // A site-wide rooftop that fails still falls back to the world PV API.
         if (!forecastData && !perArray && resourceId && lat && lon) {
           try {
             const res = await solcastFetch(solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), solcastKey);
-            if (res.ok) { const data = await res.json(); if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; } }
+            databaseWork.assertCurrent();
+            if (res.ok) { const data = await res.json(); databaseWork.assertCurrent(); if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; } }
             else { solcastErrStatus = res.status; solcastRetryAfter = res.headers.get('retry-after'); solcastErrText = `Solcast world PV HTTP ${res.status}`; }
-          } catch (e) { solcastErrText = `Solcast world PV error: ${e.message}`; }
+          } catch (e) { databaseWork.assertCurrent(); solcastErrText = `Solcast world PV error: ${e.message}`; }
         }
 
         // --- On failure: populate negative cache (preserve lastGood/lastGoodData) ---
@@ -966,6 +972,7 @@ async function getSolarForecast(sourceParam, restMap) {
       forecastData = openMeteo.forecasts;
       source = openMeteo.source;
     } catch (e) {
+      databaseWork.assertCurrent();
       require('./notifications/events').emitEvent('forecast.unavailable', { subject: 'open-meteo', message: `Open-Meteo forecast failed: ${e.message}.` });
       return { error: 'All forecast sources unavailable' };
     }
@@ -1015,6 +1022,7 @@ async function getSolarForecast(sourceParam, restMap) {
   };
   await attachWeather(result, ctx);
 
+  databaseWork.assertCurrent();
   forecastCache[selector] = { data: result, timestamp: now, ctx };
   return result;
 }
@@ -1044,9 +1052,11 @@ async function attachWeather(result, ctx) {
     try {
       const om = await fetchOpenMeteo(lat, lon);
       weather = buildOpenMeteoWeather(om);
+      databaseWork.assertCurrent();
       lastGoodWeather = weather;
       fillPeriodWeather(result.hourly, om.hourly);
     } catch (e) {
+      databaseWork.assertCurrent();
       logger.warn(`[forecast] Open-Meteo weather unavailable: ${e.message}`);
       if (lastGoodWeather) weather = { ...lastGoodWeather, stale: true };
     }
