@@ -174,3 +174,18 @@ test('restore does not overlap an outstanding wired BMS port open with replaceme
     await work.run(() => wired.pollBmsWired()); assert.equal(calls, 2);
   } finally { if (finish) finish(new Error('fixture refused open')); wired.stopBmsWiredPolling(); SerialPort.prototype.open = originalOpen; }
 });
+
+test('a late HA energy sample cannot mutate or persist the restored sanity baseline', async () => {
+  const input = fixture(), sanity = require('../modules/metricSanity');
+  const catalogue = JSON.stringify([{ name: 'PV Energy Today', unit: 'kWh' }]);
+  database.setConfig('user_metrics', catalogue); sanity.reloadState(); sanity.reloadConfig();
+  const candidate = new Database(input); candidate.prepare('INSERT INTO config VALUES(?,?)').run('user_metrics', catalogue); candidate.close();
+  let release; const gate = new Promise(r => { release = r; });
+  const late = work.run(async () => { await gate; sanity.check('PV Energy Today', 90, Math.floor(Date.now() / 1000)); });
+  await restoreDatabase(input, { lifecycle: { resume() { sanity.reloadState(); sanity.reloadConfig(); } } });
+  release(); await late;
+  assert.equal(sanity.getState('PV Energy Today'), null, 'retired work must not change the in-memory baseline');
+  const verdict = sanity.check('PV Energy Today', 2, Math.floor(Date.now() / 1000));
+  assert.equal(verdict.accepted, true);
+  assert.equal(JSON.parse(database.getConfig('metric_sanity_state'))['PV Energy Today'].lastAccepted, 2);
+});
