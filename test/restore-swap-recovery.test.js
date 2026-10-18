@@ -119,7 +119,14 @@ test('malformed or traversing journals preserve all files and fail closed', () =
 test('unknown active inode or original sidecar is preserved for recovery diagnosis', () => {
   for (const corrupt of ['inode', 'sidecar']) {
     const f = fixture(); transaction.beginRestoreSwap(f.live, f.candidate);
-    if (corrupt === 'inode') { fs.unlinkSync(f.live); fs.writeFileSync(f.live, 'unrelated replacement'); }
+    if (corrupt === 'inode') {
+      // Allocate while the candidate still exists: unlink/recreate can reuse
+      // its inode, so it would no longer exercise the unknown-inode branch.
+      const unrelated = path.join(f.directory, 'unrelated');
+      fs.writeFileSync(unrelated, 'unrelated replacement');
+      assert.notEqual(fs.statSync(unrelated, { bigint: true }).ino, fs.statSync(f.live, { bigint: true }).ino);
+      fs.renameSync(unrelated, f.live);
+    }
     else fs.writeFileSync(path.join(f.job, 'original.db-wal'), 'do not delete');
     assert.throws(() => transaction.recoverRestore(f.live));
     assert.equal(fs.existsSync(path.join(f.job, 'original.db')), true);
