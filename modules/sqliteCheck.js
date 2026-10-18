@@ -5,11 +5,12 @@ const path = require('node:path');
 // Check in a separate process: quick_check can scan gigabytes in native code.
 // Worker termination cannot interrupt that code; a process can be killed on
 // cancellation/deadline and reaped before the caller removes its private file.
-async function inspectSqliteFile(file, { signal, checkSpace = () => {}, restore = false } = {}) {
+async function runSqliteProcess(script, args, { signal, checkSpace = () => {} } = {}) {
   signal?.throwIfAborted();
-  const checker = fork(path.join(__dirname, 'sqliteSnapshotCheck.js'), [file, restore ? 'restore' : 'backup'], {
+  const checker = fork(path.join(__dirname, script), args, {
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-    execArgv: ['--max-old-space-size=32']
+    execArgv: ['--max-old-space-size=32'],
+    env: { ...process.env, LOG_TO_FILE: 'false', SQLITE_SYNCHRONOUS: 'FULL' }
   });
   const exited = new Promise(resolve => checker.once('close', resolve));
   let abort;
@@ -21,7 +22,7 @@ async function inspectSqliteFile(file, { signal, checkSpace = () => {}, restore 
       checker.once('error', reject);
       checker.once('close', code => {
         if (code === 0 && result?.ok) resolve(result);
-        else reject(new Error(result?.error || `Backup validation stopped (exit ${code})`));
+        else reject(Object.assign(new Error(result?.error || `SQLite operation stopped (exit ${code})`), { code: result?.code }));
       });
       abort = () => reject(signal.reason);
       signal?.addEventListener('abort', abort, { once: true });
@@ -29,7 +30,7 @@ async function inspectSqliteFile(file, { signal, checkSpace = () => {}, restore 
       spaceTimer = setInterval(() => {
         try { checkSpace(); } catch (error) { reject(error); }
       }, 1000);
-      deadline = setTimeout(() => reject(new Error('Backup validation timed out')), 30 * 60000);
+      deadline = setTimeout(() => reject(new Error('SQLite operation timed out')), 30 * 60000);
     });
   } finally {
     clearTimeout(deadline);
@@ -42,4 +43,8 @@ async function inspectSqliteFile(file, { signal, checkSpace = () => {}, restore 
   }
 }
 
-module.exports = { inspectSqliteFile };
+function inspectSqliteFile(file, { restore = false, ...options } = {}) {
+  return runSqliteProcess('sqliteSnapshotCheck.js', [file, restore ? 'restore' : 'backup'], options);
+}
+
+module.exports = { inspectSqliteFile, runSqliteProcess };

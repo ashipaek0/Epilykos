@@ -1,12 +1,12 @@
 const { logger } = require('./logger');
 const fs = require('fs');
 const path = require('path');
-const { getDb, DB_PATH, initializeDatabase, flushMetrics, setConfig } = require('./database');
+const { getDb, DB_PATH, initializeDatabase, openPreparedDatabase, flushMetrics, setConfig } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
 const { createBackupSnapshot } = require('./sqliteSnapshot');
-const { restorePreflight } = require('./restorePreflight');
+const { prepareRestore } = require('./restorePreparation');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -84,10 +84,13 @@ async function backupDatabase(res) {
 }
 
 async function restoreDatabaseUnlocked(filePath) {
-  const backupPath = DB_PATH + '.bak';
+  const prepared = await prepareRestore(filePath, getDb(), DB_PATH);
+  try { return await restorePreparedDatabaseUnlocked(prepared.filePath); }
+  finally { prepared.cleanup(); }
+}
 
-  // Validate and admit before any rollback allocation, service stop or close.
-  await restorePreflight(filePath, getDb(), DB_PATH);
+async function restorePreparedDatabaseUnlocked(filePath) {
+  const backupPath = DB_PATH + '.bak';
 
   // Step 2: backup the current database before overwriting (drain queued
   // metric writes first so they land in the backup, not the restored DB)
@@ -113,7 +116,7 @@ async function restoreDatabaseUnlocked(filePath) {
   // Step 4: replace the database
   try {
     fs.copyFileSync(filePath, DB_PATH);
-    initializeDatabase();
+    openPreparedDatabase();
     setupMqtt();
     // Verify the restored DB is usable
     const restoredDb = getDb();
