@@ -108,3 +108,12 @@ test('a retired main poll cycle stops after outstanding I/O and emits no replace
   await restoreDatabase(input); release(); await pending;
   assert.equal(extra, 0); assert.equal(events, 0);
 });
+
+test('durable upload observation runs before live closure and authorization copy before confirmation', async () => {
+  const input = fixture(), original = database.getDb(), seen = [];
+  await restoreDatabase(input, {
+    beforeActivate({ liveFile, preparedFile }) { assert.equal(original.open, true); assert.equal(fs.existsSync(liveFile), true); assert.equal(fs.existsSync(preparedFile), true); seen.push('before'); },
+    afterActivate() { assert.equal(database.getConfig('restore_probe'), 'candidate'); assert.equal(JSON.parse(fs.readFileSync('data/.restore-transaction.json')).phase, 'pending'); seen.push('after'); }
+  });
+  assert.deepEqual(seen, ['before', 'after']);
+});

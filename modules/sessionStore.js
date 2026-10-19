@@ -67,6 +67,19 @@ function createSessionStore(session) {
       } catch (err) { return cb && cb(err); }
     }
 
+    // Capture at the synchronous pre-close boundary, after long validation.
+    // A session logged out or expired during preparation must not be recreated.
+    captureForRestore(sid) {
+      const row = this._db().prepare('SELECT data, expires FROM sessions WHERE sid = ?').get(sid);
+      if (!row || row.expires <= Date.now() || !JSON.parse(row.data).authenticated) return null;
+      return { sid, data: row.data, expires: row.expires };
+    }
+
+    restoreCaptured(record) {
+      if (!record || record.expires <= Date.now()) return;
+      this._db().prepare('INSERT OR REPLACE INTO sessions(sid,expires,data) VALUES(?,?,?)').run(record.sid, record.expires, record.data);
+    }
+
     touch(sid, sess, cb) {
       try {
         this._db().prepare('UPDATE sessions SET expires = ? WHERE sid = ?').run(this._expiry(sess), sid);
