@@ -2,18 +2,20 @@
 (function (root) {
   'use strict';
   function connect(options) {
-    var job = null, timer, xhr, cancelled = false, disposed = false, uploading = false, watching = false;
+    var job = null, timer, xhr, cancelled = false, disposed = false, uploading = false, watching = false, authRequired = false;
     var status = options.status, progress = options.progress, cancelButton = options.cancel, row = options.row;
     function terminal(phase) { return ['selected', 'recovered', 'failed', 'cancelled', 'unknown'].indexOf(phase) !== -1; }
     function describe(s) {
       var labels = { uploading: 'Uploading backup', preparing: 'Validating and preparing backup. This can take a while.', activating: 'Activating backup. The connection may briefly drop.', recovering: 'Restarting to recover the restore result.', selected: 'Backup restored.', recovered: 'Restore interrupted. The original database was recovered.', failed: 'Restore failed.', cancelled: 'Restore cancelled.', unknown: 'Restore result needs inspection.' };
       return (labels[s.phase] || s.phase) + (s.error ? ' ' + s.error : '');
     }
-    function render(s, bytes) {
-      job = s;
+    function controls(s) {
       var active = s && !terminal(s.phase);
-      row.hidden = !active; cancelButton.disabled = !active || ['activating', 'recovering'].indexOf(s.phase) !== -1;
-      options.restore.disabled = !!active; options.backup.disabled = !!active;
+      row.hidden = !active; cancelButton.disabled = authRequired || !active || ['activating', 'recovering'].indexOf(s.phase) !== -1;
+      options.restore.disabled = authRequired || !!active; options.backup.disabled = authRequired || !!active;
+    }
+    function render(s, bytes) {
+      job = s; controls(s);
       if (!s) return;
       status.textContent = describe(s);
       if (s.phase === 'uploading') {
@@ -23,15 +25,21 @@
     }
     async function json(url, settings) {
       var response = await root.fetch(url, settings), body = await response.json().catch(function () { return {}; });
-      if (!response.ok) throw new Error(body.error || 'Restore request failed (' + response.status + ')');
+      if (!response.ok) { var error = new Error(body.error || 'Restore request failed (' + response.status + ')'); error.status = response.status; throw error; }
       return body;
     }
-    function schedule() { clearTimeout(timer); if (!disposed && job && !terminal(job.phase)) timer = setTimeout(poll, 2000); }
+    function authorizationEnded(error) {
+      if (error.status !== 401 && error.status !== 403) return false;
+      authRequired = true; clearTimeout(timer); controls(job);
+      status.innerHTML = 'Your session ended. <a href="/login.html" target="_blank" rel="noopener">Sign in in another tab</a>, then return here to check the restore result.';
+      return true;
+    }
+    function schedule() { clearTimeout(timer); if (!authRequired && !disposed && job && !terminal(job.phase)) timer = setTimeout(poll, 2000); }
     async function poll() {
       try {
         var s = await json('/api/restore-jobs/' + encodeURIComponent(job.id)); render(s);
         if (s.phase === 'selected' && watching) { watching = false; options.onSelected(); }
-      } catch (_) { status.textContent = 'Waiting for Epilykos to reconnect and report the restore result…'; }
+      } catch (error) { if (!authorizationEnded(error)) status.textContent = 'Waiting for Epilykos to reconnect and report the restore result…'; }
       schedule();
     }
     function chunk(file, offset, end) {
@@ -44,7 +52,7 @@
         xhr.upload.onprogress = function (e) { render(job, offset + e.loaded); };
         xhr.onload = function () {
           var body; try { body = JSON.parse(xhr.responseText); } catch (_) { body = {}; }
-          if (xhr.status < 200 || xhr.status >= 300) reject(new Error(body.error || 'Upload failed (' + xhr.status + ')'));
+          if (xhr.status < 200 || xhr.status >= 300) { var error = new Error(body.error || 'Upload failed (' + xhr.status + ')'); error.status = xhr.status; reject(error); }
           else resolve(body);
         };
         xhr.onerror = xhr.ontimeout = function () { reject(new Error('Upload connection interrupted. Checking the restore status…')); };
@@ -65,21 +73,23 @@
           // for other settings requests. No server request timeout is changed.
           if (job.phase === 'uploading') await new Promise(function (resolve) { setTimeout(resolve, Math.max(0, 1000 - (Date.now() - started))); });
         }
-      } catch (error) { status.textContent = error.message; }
-      finally { xhr = null; uploading = false; if (job) schedule(); else { options.restore.disabled = false; options.backup.disabled = false; } }
+      } catch (error) { if (!authorizationEnded(error)) status.textContent = error.message; }
+      finally { xhr = null; uploading = false; controls(job); schedule(); }
     }
     cancelButton.addEventListener('click', async function () {
       if (!job) return;
       cancelled = true; if (xhr) xhr.abort(); cancelButton.disabled = true;
       try { render(await json('/api/restore-jobs/' + encodeURIComponent(job.id) + '/cancel', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })); }
-      catch (error) { status.textContent = error.message; schedule(); }
+      catch (error) { if (!authorizationEnded(error)) status.textContent = error.message; schedule(); }
     });
     async function refresh() {
       if (uploading || disposed) return;
-      try { var result = await json('/api/restore-jobs'); if (result.status) { watching = !terminal(result.status.phase); render(result.status); schedule(); } }
-      catch (_) {} // Existing backup/snapshot actions remain available.
+      try { var result = await json('/api/restore-jobs'), wasAuthRequired = authRequired; authRequired = false; if (result.status) { watching = !terminal(result.status.phase); render(result.status); schedule(); } else { job = null; controls(null); if (wasAuthRequired) status.textContent = 'Signed in. No restore job is recorded.'; } }
+      catch (error) { authorizationEnded(error); }
     }
-    return { start: start, refresh: refresh, dispose: function () { disposed = true; clearTimeout(timer); } };
+    function focus() { if (authRequired) refresh(); }
+    root.addEventListener('focus', focus);
+    return { start: start, refresh: refresh, dispose: function () { disposed = true; clearTimeout(timer); root.removeEventListener('focus', focus); } };
   }
   root.EpilykosRestoreUploads = { connect: connect };
 })(typeof window === 'undefined' ? globalThis : window);
