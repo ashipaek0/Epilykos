@@ -33,6 +33,24 @@ function restoreBudget(db, candidateBytes, directory) {
   };
 }
 
+// The input is still being uploaded: count every byte not yet allocated as
+// well as the same candidate/rollback allowance used by preparation.
+function restoreUploadAdmission(db, directory, declaredBytes, received = 0) {
+  const currentBytes = db.pragma('page_count', { simple: true }) * db.pragma('page_size', { simple: true });
+  const space = readSpace(directory);
+  const appliance = Boolean(process.env.EPILYKOS_MAINTENANCE_LOCK) || host.available();
+  const floor = appliance && space.available ? space.maintenance_floor_bytes : 0;
+  const usable = space.available ? space.available_bytes - floor - currentBytes - 32 * MiB : -1;
+  const maxBytes = Math.max(0, Math.floor(usable / 3));
+  if (!Number.isSafeInteger(currentBytes) || currentBytes < 0) throw invalid('Cannot determine live database allocation');
+  if (declaredBytes !== null) {
+    if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 512 || !Number.isSafeInteger(received) || received < 0 || received > declaredBytes) throw invalid('Invalid restore upload size');
+    const required = 3 * declaredBytes - received;
+    if (!Number.isSafeInteger(required) || usable < required) throw Object.assign(new Error('Not enough usable DATA space for the upload, rollback and migration allowance'), { status: 507, restorePreflight: true });
+  }
+  return { maxBytes };
+}
+
 async function restorePreflight(file, db, liveFile, { signal, leaseFds = [] } = {}) {
   signal?.throwIfAborted();
   const before = present(file);
@@ -68,4 +86,4 @@ async function restorePreflight(file, db, liveFile, { signal, leaseFds = [] } = 
   }
 }
 
-module.exports = { restorePreflight, restoreBudget };
+module.exports = { restorePreflight, restoreBudget, restoreUploadAdmission };

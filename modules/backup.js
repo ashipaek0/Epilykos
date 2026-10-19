@@ -87,7 +87,7 @@ async function backupDatabase(res) {
 
 async function restoreDatabaseUnlocked(filePath, lifecycle, options) {
   const prepared = await prepareRestore(filePath, getDb(), DB_PATH, options);
-  try { return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle); }
+  try { return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle, options); }
   finally { prepared.cleanup(); }
 }
 
@@ -104,11 +104,13 @@ function lifecycleCall(lifecycle, name) {
   if (result && typeof result.then === 'function') throw new Error('Restore runtime hooks must be synchronous');
 }
 
-function restorePreparedDatabaseUnlocked(filePath, lifecycle) {
+function restorePreparedDatabaseUnlocked(filePath, lifecycle, options) {
   const original = getDb();
   // No await in this activation section: all app SQLite calls share the main
   // thread/connection; workers and host maintenance are excluded by the lease.
   try {
+    options.signal?.throwIfAborted();
+    lifecycleCall({ beforeActivate: () => options.beforeActivate?.({ liveFile: DB_PATH, preparedFile: filePath }) }, 'beforeActivate');
     databaseWork.run(() => lifecycleCall(lifecycle, 'pause'));
     flushMetrics();
     // Unlike an unchecked wal_checkpoint result, this refuses live readers and
@@ -124,10 +126,10 @@ function restorePreparedDatabaseUnlocked(filePath, lifecycle) {
     });
   }
   databaseWork.retire();
-  return databaseWork.run(() => activatePreparedDatabase(filePath, lifecycle));
+  return databaseWork.run(() => activatePreparedDatabase(filePath, lifecycle, options));
 }
 
-function activatePreparedDatabase(filePath, lifecycle) {
+function activatePreparedDatabase(filePath, lifecycle, options) {
   let transaction;
   try {
     stopRestoreMqtt();
@@ -135,6 +137,7 @@ function activatePreparedDatabase(filePath, lifecycle) {
     openPreparedDatabase();
     setupMqtt();
     lifecycleCall(lifecycle, 'resume');
+    lifecycleCall(options, 'afterActivate');
     const restoredDb = getDb();
     restoredDb.prepare('SELECT 1 FROM metrics LIMIT 1').get();
     const synchronous = restoredDb.pragma('synchronous', { simple: true });
@@ -167,10 +170,14 @@ function activatePreparedDatabase(filePath, lifecycle) {
   }
 }
 
-async function restoreDatabase(filePath, { lifecycle = {} } = {}) {
-  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  try { return await restoreDatabaseUnlocked(filePath, lifecycle, { leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd] }); }
-  finally { databaseWork.refresh(); release(); }
+async function restoreDatabase(filePath, { lifecycle = {}, signal, maintenanceLease, leaseFds = [], beforeActivate, afterActivate } = {}) {
+  const release = maintenanceLease || await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+  try {
+    return await restoreDatabaseUnlocked(filePath, lifecycle, {
+      signal, beforeActivate, afterActivate,
+      leaseFds: [...leaseFds, ...(release.leaseFd === undefined ? [] : [release.leaseFd])]
+    });
+  } finally { databaseWork.refresh(); if (!maintenanceLease) release(); }
 }
 
 // ── Daily Snapshot Scheduler ──────────────────────────────────────

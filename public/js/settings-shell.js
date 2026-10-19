@@ -989,6 +989,8 @@
       downloadBackup();
       showStatus(statusEl, 'Your backup is downloading.', 'success');
     });
+    var restoreUpload = window.EpilykosRestoreUploads.connect({ status: statusEl, progress: $('restore-progress'), row: $('restore-progress-row'), cancel: $('restore-cancel'), restore: $('restore-btn'), backup: $('backup-btn'), onSelected: function () { leaving = true; location.reload(); } });
+    restoreUpload.refresh();
     var file = $('restore-file');
     $('restore-btn').addEventListener('click', function () { file.click(); });
     file.addEventListener('change', async function () {
@@ -996,16 +998,7 @@
       file.value = '';
       if (!f) return;
       if (!(await confirmRestore('Restore from "' + f.name + '"?', 'the contents of this file (' + formatBytes(f.size) + ')'))) return;
-      var fd = new FormData();
-      fd.append('dbfile', f);
-      showStatus(statusEl, 'Restoring…', 'info');
-      try {
-        var r = await fetch('/api/restore', { method: 'POST', body: fd });
-        if (!r.ok) { var err = await r.json().catch(function () { return {}; }); throw new Error(err.error || 'Restore failed (' + r.status + ')'); }
-        showStatus(statusEl, 'Restored. Reloading…', 'success');
-        leaving = true;
-        setTimeout(function () { location.reload(); }, 1200);
-      } catch (e) { showStatus(statusEl, e.message, 'error'); }
+      await restoreUpload.start(f);
     });
   }
   async function loadSnapshots() {

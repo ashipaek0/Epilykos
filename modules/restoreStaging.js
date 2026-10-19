@@ -3,9 +3,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { acquireFileLease } = require('./maintenanceFileLock');
 const { logger } = require('./logger');
-const JOB = /^\.restore-[A-Za-z0-9]{6}$/;
+const PREPARE = /^\.restore-[A-Za-z0-9]{6}$/;
+const JOB = /^\.restore-(?:upload-)?[A-Za-z0-9]{6}$/;
 const LOCK = '.owner-lock', OWNER = 'owner.json';
-const FILES = new Set([LOCK, OWNER, 'candidate.db', 'candidate.db-wal', 'candidate.db-shm', 'candidate.db-journal', 'scratch']);
+const ROLES = {
+  'restore-prepare': { prefix: '.restore-', files: [LOCK, OWNER, 'candidate.db', 'candidate.db-wal', 'candidate.db-shm', 'candidate.db-journal', 'scratch'] },
+  'restore-upload': { prefix: '.restore-upload-', files: [LOCK, OWNER, 'input.db', 'input.db-wal', 'input.db-shm', 'input.db-journal'] }
+};
+function roleOf(job) { return PREPARE.test(path.basename(job)) ? 'restore-prepare' : /^\.restore-upload-[A-Za-z0-9]{6}$/.test(path.basename(job)) ? 'restore-upload' : null; }
 function stat(file) { try { return fs.lstatSync(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } }
 function sync(file) { const fd = fs.openSync(file, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
 function ownerOf(job) {
@@ -13,7 +18,7 @@ function ownerOf(job) {
   if (!meta?.isFile() || meta.nlink !== 1 || meta.size > 1024) return null;
   try {
     const owner = JSON.parse(fs.readFileSync(path.join(job, OWNER), 'utf8'));
-    return owner?.schema === 1 && owner.kind === 'restore-prepare' && typeof owner.leased === 'boolean' ? owner : null;
+    return owner?.schema === 1 && owner.kind === roleOf(job) && typeof owner.leased === 'boolean' ? owner : null;
   } catch (_) { return null; }
 }
 function protectedByJournal(root, name) {
@@ -23,7 +28,7 @@ function protectedByJournal(root, name) {
   if (!info.isFile() || info.nlink !== 1 || info.size > 4096) return true;
   try {
     const journal = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (journal?.schema !== 1 || !['pending', 'confirmed'].includes(journal.phase) || !JOB.test(journal.job)
+    if (journal?.schema !== 1 || !['pending', 'confirmed'].includes(journal.phase) || !PREPARE.test(journal.job)
         || ![journal.oldInode, journal.newInode].every(value => typeof value === 'string' && /^[1-9][0-9]{0,39}$/.test(value))
         || journal.oldInode === journal.newInode) return true;
     return journal.job === name;
@@ -41,8 +46,10 @@ function knownScratch(scratch) {
   });
 }
 function knownContents(job) {
+  const files = ROLES[roleOf(job)]?.files;
+  if (!files) return false;
   for (const name of fs.readdirSync(job)) {
-    if (!FILES.has(name)) return false; // in particular: never reap original.db
+    if (!files.includes(name)) return false; // in particular: never reap original.db
     const info = stat(path.join(job, name));
     if (!info || (name === 'scratch' ? !info.isDirectory() || !knownScratch(path.join(job, name)) : !info.isFile() || info.nlink !== 1)) return false;
   }
@@ -75,7 +82,7 @@ function removeRestoreStagingMetadata(job) {
 
 function removeKnownStaging(job) {
   // Large artifacts disappear durably before their namespace ownership proof.
-  for (const name of ['candidate.db', 'candidate.db-wal', 'candidate.db-shm', 'candidate.db-journal']) {
+  for (const name of ROLES[roleOf(job)].files.filter(name => ![LOCK, OWNER, 'scratch'].includes(name))) {
     const file = path.join(job, name); if (stat(file)) fs.unlinkSync(file);
   }
   removeRestoreStagingMetadata(job);
@@ -83,9 +90,10 @@ function removeKnownStaging(job) {
   if (process.platform !== 'win32') sync(path.dirname(job));
 }
 
-async function createRestoreStaging(root, { requireLease = Boolean(process.env.EPILYKOS_MAINTENANCE_LOCK) } = {}) {
+async function createRestoreStaging(root, { requireLease = Boolean(process.env.EPILYKOS_MAINTENANCE_LOCK), role = 'restore-prepare' } = {}) {
   root = path.resolve(root);
-  const directory = fs.mkdtempSync(path.join(root, '.restore-'));
+  if (!Object.hasOwn(ROLES, role)) throw new Error('Invalid restore staging role');
+  const directory = fs.mkdtempSync(path.join(root, ROLES[role].prefix));
   fs.chmodSync(directory, 0o700);
   let lease, released = false;
   const release = () => { if (!released) { released = true; lease?.release(); } };
@@ -105,7 +113,7 @@ async function createRestoreStaging(root, { requireLease = Boolean(process.env.E
     }
     // Durably publish proof of the private namespace before any candidate write.
     const meta = path.join(directory, OWNER);
-    fs.writeFileSync(meta, JSON.stringify({ schema: 1, kind: 'restore-prepare', leased: Boolean(lease) }) + '\n', { flag: 'wx', mode: 0o600 });
+    fs.writeFileSync(meta, JSON.stringify({ schema: 1, kind: role, leased: Boolean(lease) }) + '\n', { flag: 'wx', mode: 0o600 });
     if (process.platform !== 'win32') { sync(meta); sync(directory); sync(root); }
     return {
       directory, leaseFd: lease?.fd,

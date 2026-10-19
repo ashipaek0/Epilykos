@@ -194,3 +194,11 @@ for (const kind of ['directory', 'symlink', 'hardlink', 'unknown-file']) test('u
   assert.equal(fs.readFileSync(outside, 'utf8'), 'preserve');
   assert.equal(fs.readFileSync(path.join(job.directory, 'candidate.db'), 'utf8'), 'candidate');
 });
+
+test('upload staging has a closed role namespace and reclaims only owned input files', { skip: process.platform !== 'linux' }, async () => {
+  const dir = fresh(), job = await createRestoreStaging(dir, { role: 'restore-upload' });
+  assert.match(path.basename(job.directory), /^\.restore-upload-[A-Za-z0-9]{6}$/);
+  fs.writeFileSync(path.join(job.directory, 'input.db'), 'upload'); job.release();
+  assert.deepEqual(await reapRestoreStaging(dir), [path.basename(job.directory)]);
+  await assert.rejects(createRestoreStaging(dir, { role: '../invalid' }), /role/);
+});

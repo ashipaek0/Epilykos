@@ -469,6 +469,15 @@ const restoreLifecycle = {
   }
 };
 databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); });
+const restoreUploads = require('./modules/restoreUploads').createRestoreUploadManager({
+  lifecycle: restoreLifecycle,
+  captureSession: sid => sessionStore.captureForRestore(sid),
+  restoreSession: record => sessionStore.restoreCaptured(record),
+  onFatal(error) {
+    logger.error('Restore requires supervisor recovery: ' + error.message);
+    const timer = setTimeout(() => process.exit(1), 1000); timer.unref();
+  }
+});
 const stopRestoreStagingCleanup = require('./modules/restoreStaging').startRestoreStagingCleanup('./data');
 startSnapshotScheduler();
 
@@ -1379,13 +1388,14 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 app.use('/api/backup', isAuthenticated);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
-// Preserve only this already-authorized session after a replacement that did
-// not contain it. Other old requests remain retired and cannot recreate theirs.
-function saveRestoreSession(req) {
-  return new Promise(resolve => req.session.save(error => {
-    if (error) logger.warn('Restore completed; sign in again: ' + error.message);
-    resolve();
-  }));
+// Capture authorization only at pre-close, so logout/expiry during a long
+// preparation is respected. Copy before confirmation without an open response.
+function restoreSessionOptions(req) {
+  let captured;
+  return {
+    beforeActivate() { captured = sessionStore.captureForRestore(req.sessionID); },
+    afterActivate() { sessionStore.restoreCaptured(captured); }
+  };
 }
 function restoreFailure(res, err) {
   logger.error('Restore error:', err);
@@ -1398,14 +1408,14 @@ function restoreFailure(res, err) {
   return res.status(err.status || 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired || err.code === 'DB_RETIRED' ? err.message : 'Restore failed, original database restored.' });
 }
 
+app.use('/api/restore-jobs', isAuthenticated, require('./routes/restoreUploads')(restoreUploads));
 app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const uploaded = uploadedFilePath(req.file);
   if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
   try {
-    await restoreDatabase(uploaded, { lifecycle: restoreLifecycle });
-    await saveRestoreSession(req);
+    await restoreDatabase(uploaded, { lifecycle: restoreLifecycle, ...restoreSessionOptions(req) });
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
     restoreFailure(res, err);
@@ -1427,8 +1437,7 @@ app.get('/api/snapshots', (req, res) => {
 
 app.post('/api/snapshots/restore/:name', async (req, res) => {
   try {
-    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name), { lifecycle: restoreLifecycle });
-    await saveRestoreSession(req);
+    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name), { lifecycle: restoreLifecycle, ...restoreSessionOptions(req) });
     res.json(result);
   } catch (err) {
     restoreFailure(res, err);
@@ -2736,6 +2745,7 @@ async function shutdown(signal) {
   require('./modules/cloudflared').stop();
   require('./modules/updates').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
+  await restoreUploads.close();
   await stopRestoreStagingCleanup();
   stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
