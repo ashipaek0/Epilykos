@@ -21,7 +21,12 @@ function createSnapshotScheduler({ stateFile, latest, healthy, acquire, run, war
   function persist() {
     if (!valid(state)) throw new Error('Invalid snapshot retry state');
     regular(stateFile); const temporary = stateFile + '.tmp';
-    if (regular(temporary)) fs.unlinkSync(temporary);
+    if (regular(temporary)) {
+      let previous;
+      try { previous = JSON.parse(fs.readFileSync(temporary, 'utf8')); } catch (_) {}
+      if (!valid(previous)) throw new Error('Unrecognized snapshot retry temporary state; preserving file');
+      fs.unlinkSync(temporary);
+    }
     fs.writeFileSync(temporary, JSON.stringify(state) + '\n', { flag: 'wx', mode: 0o600 });
     sync(temporary); fs.renameSync(temporary, stateFile);
     if (process.platform !== 'win32') sync(path.dirname(stateFile));
