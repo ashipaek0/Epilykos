@@ -44,7 +44,7 @@ function restoreUploadAdmission(db, directory, declaredBytes, received = 0) {
   const maxBytes = Math.max(0, Math.floor(usable / 3));
   if (!Number.isSafeInteger(currentBytes) || currentBytes < 0) throw invalid('Cannot determine live database allocation');
   if (declaredBytes !== null) {
-    if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 512 || !Number.isSafeInteger(received) || received < 0 || received > declaredBytes) throw invalid('Invalid restore upload size');
+    if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 1 || !Number.isSafeInteger(received) || received < 0 || received > declaredBytes) throw invalid('Invalid restore upload size');
     const required = 3 * declaredBytes - received;
     if (!Number.isSafeInteger(required) || usable < required) throw Object.assign(new Error('Not enough usable DATA space for the upload, rollback and migration allowance'), { status: 507, restorePreflight: true });
   }

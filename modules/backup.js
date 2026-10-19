@@ -86,9 +86,14 @@ async function backupDatabase(res) {
 }
 
 async function restoreDatabaseUnlocked(filePath, lifecycle, options) {
-  const prepared = await prepareRestore(filePath, getDb(), DB_PATH, options);
-  try { return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle, options); }
-  finally { prepared.cleanup(); }
+  const input = await require('./restoreInput').normalizeRestoreInput(filePath, getDb(), DB_PATH, options);
+  let prepared;
+  try {
+    prepared = await prepareRestore(input.filePath, getDb(), DB_PATH, {
+      ...options, leaseFds: [...options.leaseFds, ...(input.leaseFd === undefined ? [] : [input.leaseFd])]
+    });
+    return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle, options);
+  } finally { prepared?.cleanup(); input.cleanup(); }
 }
 
 function stopRestoreMqtt() {

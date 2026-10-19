@@ -5,6 +5,8 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const { spawn } = require('node:child_process');
 const { Readable } = require('node:stream');
 const Database = require('better-sqlite3');
+const { pipeline } = require('node:stream/promises');
+const { createGzip } = require('node:zlib');
 
 test('authenticated HTTP large restores, cancellation, restart status and independent JSON limits', { timeout: 60000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-upload-http-')), repo = path.resolve(__dirname, '..');
@@ -42,8 +44,8 @@ test('authenticated HTTP large restores, cancellation, restart status and indepe
   async function create(size = bytes) {
     const response = await post('/api/restore-jobs', { bytes: size, name: 'input.db' }); assert.equal(response.status, 201, await response.clone().text()); return response.json();
   }
-  function chunk(job, start, length) {
-    return request('/api/restore-jobs/' + job.id + '/chunks', { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-restore-offset': String(start), 'content-length': String(length) }, body: fs.createReadStream(input, { start, end: start + length - 1 }), duplex: 'half' });
+  function chunk(job, start, length, file = input) {
+    return request('/api/restore-jobs/' + job.id + '/chunks', { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-restore-offset': String(start), 'content-length': String(length) }, body: fs.createReadStream(file, { start, end: start + length - 1 }), duplex: 'half' });
   }
   async function wait(job) {
     const deadline = Date.now() + 20000;
@@ -76,6 +78,14 @@ test('authenticated HTTP large restores, cancellation, restart status and indepe
     await stop(); await start();
     assert.equal((await wait(job)).phase, 'selected');
     assert.equal((await (await request('/api/settings')).json()).upload_probe, 'selected');
+    await t.test('magic-detected gzip upload keeps native restore and owner session access', async () => {
+      const archive = path.join(root, 'compressed.bin');
+      await pipeline(fs.createReadStream(input), createGzip(), fs.createWriteStream(archive));
+      const size = fs.statSync(archive).size; assert.ok(size < 4 * 1024 * 1024);
+      const compressed = await create(size); assert.equal((await chunk(compressed, 0, size, archive)).status, 202);
+      assert.equal((await wait(compressed)).phase, 'selected');
+      assert.equal((await (await request('/api/settings')).json()).upload_probe, 'selected');
+    });
     await t.test('JSON layout import keeps its separate 50MiB multipart limit', async () => {
       const boundary = 'epilykos-fixture-boundary';
       async function* body() { yield Buffer.from('--' + boundary + '\r\nContent-Disposition: form-data; name="layout"; filename="layout.json"\r\nContent-Type: application/json\r\n\r\n'); for await (const bytes of fs.createReadStream(input)) yield bytes; yield Buffer.from('\r\n--' + boundary + '--\r\n'); }

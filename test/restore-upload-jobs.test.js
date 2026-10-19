@@ -109,3 +109,28 @@ for (const stage of ['before', 'after']) test(stage + '-activation hook failure 
     const release = await acquireLock('maintenance', { timeoutMs: 0 }); release();
   } finally { await manager.close(); }
 });
+
+test('small gzip input restores through the native preparation and swap path', async () => {
+  const input = fixture(), compressed = require('node:zlib').gzipSync(fs.readFileSync(input));
+  assert.ok(compressed.length < 512, 'fixture exercises sub512-byte declaration/status');
+  const manager = createRestoreUploadManager();
+  try {
+    const job = await manager.create({ bytes: compressed.length, name: 'opaque.bin' });
+    await manager.receive(job.id, 0, Readable.from([compressed]), compressed.length);
+    assert.equal((await terminal(manager, job.id)).phase, 'selected'); assert.equal(db.getConfig('upload_probe'), 'selected');
+    assert.equal(fs.readdirSync('data').some(n => /^\.restore-expand-[A-Za-z0-9]{6}$/.test(n)), false);
+    const restarted = createRestoreUploadManager(); assert.equal(restarted.status(job.id).phase, 'selected'); await restarted.close();
+  } finally { await manager.close(); }
+});
+
+for (const invalid of ['crc', 'sqlite']) test('bad gzip ' + invalid + ' keeps live SQLite unchanged', async () => {
+  const input = fixture();
+  const content = invalid === 'sqlite' ? Buffer.alloc(2048) : fs.readFileSync(input);
+  const compressed = require('node:zlib').gzipSync(content); if (invalid === 'crc') compressed[compressed.length - 8] ^= 1;
+  const manager = createRestoreUploadManager();
+  try {
+    const job = await manager.create({ bytes: compressed.length }); await manager.receive(job.id, 0, Readable.from([compressed]), compressed.length);
+    assert.equal((await terminal(manager, job.id)).phase, 'failed'); assert.equal(db.getConfig('upload_probe'), 'original');
+    assert.equal(fs.readdirSync('data').some(n => /^\.restore-expand-[A-Za-z0-9]{6}$/.test(n)), false);
+  } finally { await manager.close(); }
+});
