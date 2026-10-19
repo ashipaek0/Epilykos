@@ -52,7 +52,7 @@ function createRestoreUploadManager({ directory = path.dirname(DB_PATH), liveFil
     const record = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
     if (record.schema !== 1 || !/^[0-9a-f-]{36}$/.test(record.id) || !PHASES.has(record.phase)
         || !Number.isSafeInteger(record.bytes) || !Number.isSafeInteger(record.received)
-        || record.bytes < 512 || record.received < 0 || record.received > record.bytes
+        || record.bytes < 1 || record.received < 0 || record.received > record.bytes
         || (record.name !== undefined && (typeof record.name !== 'string' || record.name.length > 160))) throw new Error('Invalid restore status');
     last = record;
     if (['activating', 'recovering'].includes(record.phase)) {
@@ -88,7 +88,7 @@ function createRestoreUploadManager({ directory = path.dirname(DB_PATH), liveFil
   async function create({ bytes, name, sessionId } = {}) {
     if (closed) throw problem(503, 'Restore uploads are stopping');
     if (active) throw problem(409, 'A restore upload is already active');
-    if (!Number.isSafeInteger(bytes) || bytes < 512) throw problem(400, 'Invalid restore upload size');
+    if (!Number.isSafeInteger(bytes) || bytes < 1) throw problem(400, 'Invalid restore upload size');
     const reservation = {}; active = reservation;
     let release, staging;
     try {
