@@ -419,7 +419,8 @@
           </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Automatic snapshots</h2></div>
-            <p class="st-help">Taken daily. The last two are kept.</p>
+            <p class="st-help">Verified gzip snapshots are taken daily. The two newest successful copies are kept.</p>
+            <button type="button" id="snapshot-refresh" class="st-btn">Refresh snapshots</button>
             <div id="snapshot-list" class="st-snapshots"><p class="st-help">Loading snapshots…</p></div>
             <div id="snapshot-status" class="test-status" role="status"></div>
           </div>
@@ -1002,7 +1003,7 @@
 <script src="settings.js?v=21"></script>
 <script src="js/catalog-ui.js?v=1"></script>
 <script src="js/restore-upload.js?v=1"></script>
-<script src="js/settings-shell.js?v=7"></script>
+<script src="js/settings-shell.js?v=8"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>

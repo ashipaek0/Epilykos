@@ -210,3 +210,15 @@ test('expansion role reaps only its proven inactive expanded input', { skip: pro
   assert.deepEqual(await reapRestoreStaging(dir), []); job.release();
   assert.deepEqual(await reapRestoreStaging(dir), [path.basename(job.directory)]);
 });
+
+test('snapshot cleanup unlinks only its private published alias, preserving the durable copy', { skip: process.platform !== 'linux' }, async () => {
+  const dir=fresh(),job=await createRestoreStaging(dir,{role:'snapshot-capture'});
+  const privateFile=path.join(job.directory,'snapshot.db.gz'),published=path.join(dir,'published.db.gz');
+  fs.writeFileSync(privateFile,'verified'); fs.linkSync(privateFile,published); job.release();
+  assert.deepEqual(await reapRestoreStaging(dir),[path.basename(job.directory)]); assert.equal(fs.readFileSync(published,'utf8'),'verified');
+});
+test('snapshot alias exception never permits raw database hardlinks', { skip: process.platform !== 'linux' }, async () => {
+  const dir=fresh(),job=await createRestoreStaging(dir,{role:'snapshot-capture'});
+  const raw=path.join(job.directory,'snapshot.db'),outside=path.join(dir,'unknown.db'); fs.writeFileSync(raw,'preserve'); fs.linkSync(raw,outside); job.release();
+  assert.deepEqual(await reapRestoreStaging(dir),[]); assert.equal(fs.existsSync(raw),true); assert.equal(fs.readFileSync(outside,'utf8'),'preserve');
+});

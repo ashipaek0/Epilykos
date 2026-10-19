@@ -161,23 +161,25 @@ test('daily snapshot becomes visible only after capture validates, before prunin
   const snaps = path.join(path.dirname(database.DB_PATH), 'snapshots');
   fs.mkdirSync(snaps, { recursive: true });
   for (let n = 1; n <= 2; n++) {
-    const file = path.join(snaps, `old-${n}.db`);
-    fs.writeFileSync(file, `old ${n}`);
+    const file = path.join(snaps, `energy-snapshot-2020-01-0${n}T00-00-00.db`);
+    await db.backup(file);
     fs.utimesSync(file, n, n);
   }
   backup.startSnapshotScheduler();
   try {
     // Starting a capture must not expose an unfinished .db or prune a known-good file.
     assert.equal(backup.listSnapshots().length, 2);
-    for (let n = 0; n < 200 && !backup.listSnapshots().some(s => s.name.startsWith('energy-snapshot-')); n++) {
+    for (let n = 0; n < 200 && !backup.listSnapshots().some(s => s.format === 'gzip'); n++) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
     const published = backup.listSnapshots();
     assert.equal(published.length, 2);
-    assert.ok(published.some(s => s.name === 'old-2.db'));
-    const latest = published.find(s => s.name.startsWith('energy-snapshot-'));
+    assert.ok(published.some(s => s.name === 'energy-snapshot-2020-01-02T00-00-00.db'));
+    const latest = published.find(s => s.format === 'gzip');
     assert.ok(latest);
-    assert.equal(readProbe(path.join(snaps, latest.name)).length, 4);
+    const expanded = path.join(dir,'restored-snapshot.db');
+    await require('node:stream/promises').pipeline(fs.createReadStream(path.join(snaps,latest.name)),require('node:zlib').createGunzip(),fs.createWriteStream(expanded));
+    assert.equal(readProbe(expanded).length,4);
     assert.deepEqual(fs.readdirSync(snaps).filter(f => f.startsWith('.snapshot-')), []);
-  } finally { backup.stopSnapshotScheduler(); }
+  } finally { await backup.stopSnapshotScheduler(); }
 });

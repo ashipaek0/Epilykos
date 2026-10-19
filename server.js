@@ -1427,6 +1427,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
 // ── Snapshot API ──────────────────────────────────────────────
 
 app.use('/api/snapshots', isAuthenticated);
+app.get('/api/snapshots/status', (req, res) => res.json(require('./modules/backup').snapshotStatus()));
 app.get('/api/snapshots', (req, res) => {
   try {
     res.json(listSnapshots());
@@ -2746,8 +2747,8 @@ async function shutdown(signal) {
   require('./modules/updates').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   await restoreUploads.close();
+  await stopSnapshotScheduler();
   await stopRestoreStagingCleanup();
-  stopSnapshotScheduler();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
