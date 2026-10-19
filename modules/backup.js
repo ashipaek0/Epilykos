@@ -60,7 +60,7 @@ async function backupDatabase(res) {
     jobDir = fs.mkdtempSync(path.join(path.dirname(DB_PATH), '.backup-'));
     const tmpPath = path.join(jobDir, 'energy.db');
     try { flushMetrics(); } catch (e) { logger.warn(`Backup: metric flush failed: ${e.message}`); }
-    await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal });
+    await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal, leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd] });
     // This file is now immutable and private to this transfer. Holding the
     // maintenance lock during HTTP transfer would prevent restore for hours.
     release(); release = null;
@@ -187,122 +187,35 @@ async function restoreDatabase(filePath, { lifecycle = {}, signal, maintenanceLe
 
 // ── Daily Snapshot Scheduler ──────────────────────────────────────
 
-let snapshotInterval = null;
-const SNAPSHOT_CHECK_MS = 60 * 60 * 1000;  // check every hour
-const SNAPSHOT_RETAIN = 2;                  // keep last 2
-const SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000; // create one per day
-
-function getSnapshots() {
-  try {
-    if (!fs.existsSync(SNAPSHOT_DIR)) return [];
-    return fs.readdirSync(SNAPSHOT_DIR)
-      .filter(f => f.endsWith('.db'))
-      .map(f => ({
-        name: f,
-        path: path.join(SNAPSHOT_DIR, f),
-        time: fs.statSync(path.join(SNAPSHOT_DIR, f)).mtimeMs
-      }))
-      .sort((a, b) => b.time - a.time); // newest first
-  } catch (err) {
-    logger.error('Snapshot: failed to list snapshots:', err.message);
-    return [];
-  }
-}
-
-function pruneSnapshots() {
-  const snaps = getSnapshots();
-  if (snaps.length <= SNAPSHOT_RETAIN) return;
-  const toRemove = snaps.slice(SNAPSHOT_RETAIN);
-  for (const s of toRemove) {
-    try {
-      fs.unlinkSync(s.path);
-      logger.info(`Snapshot: pruned old snapshot ${s.name}`);
-    } catch (err) {
-      logger.warn(`Snapshot: failed to prune ${s.name}:`, err.message);
-    }
-  }
-}
-
-async function createSnapshotUnlocked() {
-  const snapDir = SNAPSHOT_DIR;
-  try {
-    if (!fs.existsSync(snapDir)) fs.mkdirSync(snapDir, { recursive: true });
-  } catch (err) {
-    logger.error('Snapshot: cannot create snapshot directory:', err.message);
-    emitEvent('backup.snapshot_failed', { message: `Cannot create the snapshot folder: ${err.message}` });
-    return;
-  }
-
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const snapPath = path.join(snapDir, `energy-snapshot-${stamp}.db`);
-
-  let jobDir;
-  try {
-    jobDir = fs.mkdtempSync(path.join(snapDir, '.snapshot-'));
-    const staged = path.join(jobDir, 'energy.db');
-    await createBackupSnapshot(getDb(), staged);
-    fs.renameSync(staged, snapPath);
-    logger.info(`Snapshot: created ${snapPath}`);
-    pruneSnapshots();
-  } catch (err) {
-    logger.error('Snapshot: creation failed:', err.message);
-    emitEvent('backup.snapshot_failed', { message: `The daily snapshot failed: ${err.message}` });
-  } finally {
-    if (jobDir) {
-      try { fs.rmSync(jobDir, { recursive: true, force: true }); }
-      catch (error) { logger.warn('Snapshot: cannot remove staging directory:', error.message); }
-    }
-  }
-}
-
-async function createSnapshot() {
-  let release;
-  try {
-    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  } catch (err) {
-    logger.error('Snapshot: lock acquisition failed:', err.message);
-    return;
-  }
-
-  try {
-    try { flushMetrics(); } catch (e) { logger.warn(`Snapshot: metric flush failed: ${e.message}`); }
-    return await createSnapshotUnlocked();
-  } catch (err) {
-    logger.error('Snapshot: creation failed:', err.message);
-  } finally {
-    if (release) release();
-  }
-}
-
-function getLatestSnapshotTime() {
-  const snaps = getSnapshots();
-  return snaps.length > 0 ? snaps[0].time : 0;
-}
-
-function snapshotTick() {
-  const latest = getLatestSnapshotTime();
-  const age = Date.now() - latest;
-  if (age >= SNAPSHOT_AGE_MS) {
-    createSnapshot();
-  }
-}
-
+let snapshotInterval = null, snapshotScheduler = null;
+const snapshotFiles = require('./compressedSnapshots');
+function getSnapshots() { return snapshotFiles.getSnapshots(SNAPSHOT_DIR); }
 function startSnapshotScheduler() {
-  if (snapshotInterval) return;
-  logger.info(`Snapshot scheduler started (daily, retain ${SNAPSHOT_RETAIN})`);
-  // Run once on startup if no recent snapshot
-  snapshotTick();
-  // Then check every hour
-  snapshotInterval = setInterval(snapshotTick, SNAPSHOT_CHECK_MS);
+  if (snapshotScheduler) return;
+  snapshotScheduler = require('./snapshotScheduler').createSnapshotScheduler({
+    stateFile: path.join(path.dirname(DB_PATH), '.snapshot-retry.json'),
+    latest: () => getSnapshots().find(s => s.managed) || null,
+    healthy() { try { require('../routes/health').checkHealth(); return true; } catch (_) { return false; } },
+    acquire: () => acquireLock('maintenance', { timeoutMs: 0 }),
+    async run(release, signal) {
+      flushMetrics();
+      const result = await snapshotFiles.createCompressedSnapshot(getDb(), SNAPSHOT_DIR, {
+        signal, leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd]
+      });
+      logger.info('Snapshot: created ' + result.name); return result;
+    },
+    warn(type, message) { logger.warn(message); emitEvent(type, { message }); }
+  });
+  const tick = () => databaseWork.run(() => snapshotScheduler?.tick());
+  tick(); snapshotInterval = setInterval(tick, 60000); snapshotInterval.unref();
 }
-
-function stopSnapshotScheduler() {
-  if (snapshotInterval) {
-    clearInterval(snapshotInterval);
-    snapshotInterval = null;
-    logger.info('Snapshot scheduler stopped');
-  }
+async function stopSnapshotScheduler() {
+  clearInterval(snapshotInterval); snapshotInterval = null;
+  const scheduler = snapshotScheduler;
+  if (scheduler) await scheduler.stop();
+  if (snapshotScheduler === scheduler) snapshotScheduler = null;
 }
+function snapshotStatus() { return snapshotScheduler?.status() || { phase: 'stopped', overdue: false, error: null }; }
 
 // ── Snapshot API ──────────────────────────────────────────────────
 
@@ -310,7 +223,8 @@ function listSnapshots() {
   return getSnapshots().map(s => ({
     name: s.name,
     time: new Date(s.time).toISOString(),
-    size: fs.statSync(s.path).size
+    size: s.size,
+    format: s.format
   }));
 }
 
@@ -321,4 +235,4 @@ async function restoreFromSnapshot(snapshotName, options) {
   return restoreDatabase(match.path, options);
 }
 
-module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal };
+module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal, snapshotStatus };

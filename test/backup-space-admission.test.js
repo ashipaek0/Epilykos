@@ -125,7 +125,7 @@ test('rejected daily snapshot retains both previous snapshots and cleans staging
       try { assert.equal(prior.prepare('SELECT value FROM retained').get().value, 42); }
       finally { prior.close(); }
     }
-  } finally { backup.stopSnapshotScheduler(); }
+  } finally { await backup.stopSnapshotScheduler(); }
 });
 
 test('larger DATA filesystems retain the percentage floor rather than only one GiB', async () => {

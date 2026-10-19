@@ -134,3 +134,12 @@ for (const invalid of ['crc', 'sqlite']) test('bad gzip ' + invalid + ' keeps li
     assert.equal(fs.readdirSync('data').some(n => /^\.restore-expand-[A-Za-z0-9]{6}$/.test(n)), false);
   } finally { await manager.close(); }
 });
+
+test('snapshot catalogue restores both published gzip and legacy SQLite through the validated transaction',async()=>{
+ const input=fixture(),snapshots=path.join(root,'data','snapshots');
+ const gzip=await require('../modules/compressedSnapshots').createCompressedSnapshot(db.getDb(),snapshots,{directory:path.join(root,'data')});
+ db.setConfig('upload_probe','changed-after-capture');
+ await require('../modules/backup').restoreFromSnapshot(gzip.name);assert.equal(db.getConfig('upload_probe'),'original');
+ const legacy='energy-snapshot-2020-01-01T00-00-00.db';fs.copyFileSync(input,path.join(snapshots,legacy));
+ await require('../modules/backup').restoreFromSnapshot(legacy);assert.equal(db.getConfig('upload_probe'),'selected');
+});
