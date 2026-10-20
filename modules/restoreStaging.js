@@ -4,9 +4,10 @@ const path = require('node:path');
 const { acquireFileLease } = require('./maintenanceFileLock');
 const { logger } = require('./logger');
 const PREPARE = /^\.restore-[A-Za-z0-9]{6}$/;
-const JOB = /^(?:\.restore-(?:(?:upload|expand)-)?|\.snapshot-owned-)[A-Za-z0-9]{6}$/;
+const JOB = /^(?:\.restore-(?:(?:upload|expand)-)?|\.snapshot-owned-|\.backup-owned-)[A-Za-z0-9]{6}$/;
 const LOCK = '.owner-lock', OWNER = 'owner.json';
 const ROLES = {
+  'backup-download': { prefix: '.backup-owned-', files: [LOCK, OWNER, 'energy.db', 'energy.db-wal', 'energy.db-shm', 'energy.db-journal', 'scratch'] },
   'snapshot-capture': { prefix: '.snapshot-owned-', files: [LOCK, OWNER, 'snapshot.db', 'snapshot.db-wal', 'snapshot.db-shm', 'snapshot.db-journal', 'snapshot.db.gz', 'scratch'] },
   'restore-prepare': { prefix: '.restore-', files: [LOCK, OWNER, 'candidate.db', 'candidate.db-wal', 'candidate.db-shm', 'candidate.db-journal', 'scratch'] },
   'restore-expand': { prefix: '.restore-expand-', files: [LOCK, OWNER, 'expanded.db', 'expanded.db-wal', 'expanded.db-shm', 'expanded.db-journal'] },
@@ -14,7 +15,7 @@ const ROLES = {
 };
 function roleOf(job) {
   const name = path.basename(job);
-  return PREPARE.test(name) ? 'restore-prepare' : /^\.restore-upload-[A-Za-z0-9]{6}$/.test(name) ? 'restore-upload' : /^\.restore-expand-[A-Za-z0-9]{6}$/.test(name) ? 'restore-expand' : /^\.snapshot-owned-[A-Za-z0-9]{6}$/.test(name) ? 'snapshot-capture' : null;
+  return PREPARE.test(name) ? 'restore-prepare' : /^\.restore-upload-[A-Za-z0-9]{6}$/.test(name) ? 'restore-upload' : /^\.restore-expand-[A-Za-z0-9]{6}$/.test(name) ? 'restore-expand' : /^\.snapshot-owned-[A-Za-z0-9]{6}$/.test(name) ? 'snapshot-capture' : /^\.backup-owned-[A-Za-z0-9]{6}$/.test(name) ? 'backup-download' : null;
 }
 function stat(file) { try { return fs.lstatSync(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } }
 function sync(file) { const fd = fs.openSync(file, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
