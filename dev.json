@@ -1,0 +1,25 @@
+{
+  "channel": "dev",
+  "latest": {
+    "buildId": "39452103583.1",
+    "version": "1.0.2-dev+445f8ba",
+    "commit": "445f8ba38dd7e15b6fbc0438df0a06912e747725",
+    "digest": "sha256:67ea8d60195d2b890971454bf7d77fe90cd268ef57ea2089373a5799b92cf300",
+    "image": "irunmole/epilykos:dev",
+    "builtAt": "2026-10-20T15:50:49Z",
+    "kind": "release",
+    "notes": []
+  },
+  "history": [
+    {
+      "buildId": "39452103583.1",
+      "version": "1.0.2-dev+445f8ba",
+      "commit": "445f8ba38dd7e15b6fbc0438df0a06912e747725",
+      "digest": "sha256:67ea8d60195d2b890971454bf7d77fe90cd268ef57ea2089373a5799b92cf300",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-20T15:50:49Z",
+      "kind": "release",
+      "notes": []
+    }
+  ]
+}
