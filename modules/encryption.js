@@ -27,19 +27,29 @@ function keyFilePath() {
 
 function loadOrCreateKey() {
   const file = keyFilePath();
-  try {
+  function readKey() {
     const raw = fs.readFileSync(file);
     if (raw.length === KEY_BYTES) return raw;
-    // Wrong-size file: refuse rather than silently re-key (would brick secrets).
     throw new Error(`encryption: key file ${file} has ${raw.length} bytes, expected ${KEY_BYTES}`);
+  }
+  try {
+    return readKey();
   } catch (e) {
     if (e.code !== 'ENOENT') throw e;
   }
   const key = crypto.randomBytes(KEY_BYTES);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, key, { mode: 0o600 });
-  try { fs.chmodSync(file, 0o600); } catch (_) { /* best-effort on odd FS */ }
-  return key;
+  const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${crypto.randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(temporary, key, { flag: 'wx', mode: 0o600 });
+    const fd = fs.openSync(temporary, 'r');
+    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    // A hard link publishes complete, synced bytes without replacing another
+    // creator's key. An exclusive open alone exposes an empty file to readers.
+    try { fs.linkSync(temporary, file); }
+    catch (error) { if (error.code === 'EEXIST') return readKey(); throw error; }
+    return key;
+  } finally { try { fs.unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
 }
 
 function b64urlEncode(buf) {
@@ -52,6 +62,12 @@ function b64urlDecode(s) {
 
 function encryptString(plaintext) {
   const key = loadOrCreateKey();
+  // Another process may have just linked the winning key. Make the directory
+  // entry durable before allowing ciphertext to be committed to SQLite.
+  if (process.platform !== 'win32') {
+    const fd = fs.openSync(path.dirname(keyFilePath()), 'r');
+    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  }
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv(ALG, key, iv);
   const ct = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);

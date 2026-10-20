@@ -44,6 +44,17 @@ function autoCheck() {
   return getConfig('update_check_auto') !== 'false';
 }
 
+function autoInstall() { return autoCheck() && getConfig('update_install_auto') === 'true'; }
+
+async function maybeAutoInstall(host) {
+  const app = host && host.app;
+  if (!autoInstall() || !host || !host.supported || host.error || !app || app.error || !app.available || !app.auto_install_supported || app.state === 'applying') return;
+  if (!Number.isSafeInteger(app.latest_sequence) || !/^sha256:[a-f0-9]{64}$/.test(app.latest_digest || '')) return;
+  const reply = await require('./hostActions').call('update_apply', { target: 'app', automatic: true, sequence: app.latest_sequence, digest: app.latest_digest }, { timeoutMs: 15000 });
+  if (!reply || reply.ok !== true) logger.warn('[updates] Automatic install refused by the host');
+  return reply;
+}
+
 function lastStatus() {
   try { return JSON.parse(getConfig('update_status') || 'null'); } catch (_) { return null; }
 }
@@ -162,7 +173,7 @@ function start() {
   const run = () => {
     if (!autoCheck()) return;
     if (installed().buildId) check().catch(() => {});
-    hostCheck().catch(() => {});
+    hostCheck().then(host => host && maybeAutoInstall(host)).catch(err => logger.warn(`[updates] Automatic check/install: ${err.message}`));
   };
   timer = setTimeout(function tick() { run(); timer = setTimeout(tick, DAY_MS); if (timer.unref) timer.unref(); }, FIRST_CHECK_MS);
   if (timer.unref) timer.unref();
@@ -173,4 +184,4 @@ function stop() {
   clearInterval(reconcileTimer); reconcileTimer = null;
 }
 
-module.exports = { installed, compare, check, hostCheck, lastStatus, lastHostStatus, autoCheck, start, stop, setFetchForTests, FEED_BASE };
+module.exports = { installed, compare, check, hostCheck, lastStatus, lastHostStatus, autoCheck, autoInstall, maybeAutoInstall, start, stop, setFetchForTests, FEED_BASE };

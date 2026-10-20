@@ -25,7 +25,9 @@ const server = net.createServer(conn => {
     const req = JSON.parse(buf.slice(0, buf.indexOf('\n')));
     seen.push(req);
     let reply;
-    if (req.action === 'status') reply = { ok: true, appliance: true, os_version: 'v0.6.0', wifi_setup_until: 0, ssh: { enabled: false, password_set: false, keys: [], user: 'epilykos' } };
+    if (req.action === 'status') reply = { ok: true, appliance: true, os_version: 'v0.6.0', wifi_setup_until: 0, port: 3000, ssh: { enabled: false, password_set: false, keys: [], user: 'epilykos' } };
+    else if (req.action === 'set_port' && req.port === 22) reply = { ok: false, error: 'the port must be 80 or between 1024 and 65535' };
+    else if (req.action === 'set_port') reply = { ok: true, port: Number(req.port) };
     else if (req.action === 'ssh_set_password' && req.password.length < 8) reply = { ok: false, error: 'the SSH password must be 8 to 128 characters' };
     else if (req.action === 'wifi_setup') reply = { ok: true, wifi_setup_until: 1234 };
     else reply = { ok: true, ssh: { enabled: true, password_set: true, keys: [], user: 'epilykos' } };
@@ -68,12 +70,36 @@ async function call(method, routePath, body) {
   assert.equal(r.data.appliance, true);
   assert.equal(r.data.ssh.user, 'epilykos');
   assert.equal(r.data.os_version, 'v0.6.0');
+  assert.equal(r.data.port, 3000);
   console.log('ok - on EpilykosOS: status relayed from the host');
 
+  const statfs = fs.statfsSync;
+  try {
+    fs.statfsSync = () => ({ blocks: 2097152n, bsize: 4096n, bavail: 131072n });
+    r = await call('get', '/');
+    assert.equal(r.data.data_storage.state, 'critical');
+    assert.equal(r.data.data_storage.available_bytes, 536870912);
+    assert.equal(r.data.data_storage.warning_bytes, 2147483648);
+    fs.statfsSync = () => { throw new Error('unavailable'); };
+    r = await call('get', '/');
+    assert.deepEqual(r.data.data_storage, { available: false, state: 'unavailable' });
+    assert.equal(r.data.appliance, true, 'unavailable space cannot break the rest of host status');
+  } finally { fs.statfsSync = statfs; }
+  console.log('ok - DATA free-space status uses app-visible space and degrades independently');
+
   const cases = [
+    ['/timezone', {timezone:'Africa/Lagos', restart:false, evil:1}, {action:'set_timezone',timezone:'Africa/Lagos',restart:false}],
+    ['/clock', {epoch:1700000000, command:'reboot'}, {action:'set_clock',epoch:1700000000}],
+    ['/bluetooth/open', {}, {action:'bluetooth_open'}],
+    ['/bluetooth/close', {}, {action:'bluetooth_close'}],
+    ['/bluetooth/pair', {address:'AA:BB:CC:DD:EE:FF',action:'shutdown'}, {action:'bluetooth_pair',address:'AA:BB:CC:DD:EE:FF'}],
+    ['/bluetooth/reply', {id:'request',value:'123456',extra:1}, {action:'bluetooth_reply',id:'request',value:'123456'}],
+    ['/bluetooth/remove', {address:'AA:BB:CC:DD:EE:FF'}, {action:'bluetooth_remove',address:'AA:BB:CC:DD:EE:FF'}],
     ['/restart', undefined, { action: 'restart' }],
     ['/shutdown', undefined, { action: 'shutdown' }],
     ['/wifi-setup', undefined, { action: 'wifi_setup' }],
+    ['/port', { port: 8080, action: 'shutdown' }, { action: 'set_port', port: 8080 }],
+    ['/port', { port: { $gt: 1 } }, { action: 'set_port', port: null }],
     ['/ssh/enable', { evil: 'x' }, { action: 'ssh_enable' }],
     ['/ssh/disable', undefined, { action: 'ssh_disable' }],
     ['/ssh/password', { password: 'long enough', extra: 1 }, { action: 'ssh_set_password', password: 'long enough' }],
@@ -95,6 +121,11 @@ async function call(method, routePath, body) {
   r = await call('post', '/ssh/password', { password: 'short' });
   assert.equal(r.status, 400);
   assert.match(r.data.error, /8 to 128/);
+  r = await call('post', '/port', { port: 22 });
+  assert.equal(r.status, 400);
+  assert.match(r.data.error, /80 or between 1024 and 65535/);
+  r = await call('post', '/port', { port: 8080 });
+  assert.equal(r.data.port, 8080);
   console.log('ok - host refusals become 400s with the host\'s message');
 
   server.close();

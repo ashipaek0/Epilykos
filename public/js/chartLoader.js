@@ -23,8 +23,8 @@ export function chartJSReady() { return chartJSLoaded; }
 /** Ensure Chart.js + the date adapter are loaded (idempotent). */
 export function ensureChartJS() {
   if (!chartJSLoading) {
-    chartJSLoading = loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js')
-      .then(() => loadScript('https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'))
+    chartJSLoading = loadScript('/vendor/chartjs/chart.umd.js')
+      .then(() => loadScript('/vendor/chartjs-adapter-date-fns/chartjs-adapter-date-fns.bundle.min.js'))
       .then(() => { chartJSLoaded = true; })
       .catch((e) => { chartJSLoading = null; throw e; });
   }

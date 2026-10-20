@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils.js';
 import { emptyBlock } from './emptyState.js';
+import { isStaleReading } from './readingAge.js';
 
 const SWITCH_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (the device may not
@@ -123,6 +124,16 @@ export function updateSwitchBlockFromState(state) {
 
     const checkbox = container.querySelector('input[type="checkbox"]');
     const stateEl = container.querySelector('.switch-state');
+    // Not answering: show it as off-and-unknown rather than its last reading.
+    const stale = isStaleReading(checkbox && checkbox.dataset.source, data);
+    container.classList.toggle('is-unavailable', stale);
+    if (stale) {
+      if (checkbox && !checkbox.disabled && !container.dataset.pending) checkbox.checked = false;
+      if (stateEl) stateEl.textContent = 'Unavailable';
+      container.title = 'The device is not answering';
+      return;
+    }
+    container.removeAttribute('title');
     const v = typeof data.value === 'string' ? data.value.toLowerCase() : data.value;
     const isOn = v === 'on' || v === true || v === 1 || v === 'true' || v === '1';
     // A reading older than the user's change: keep the change on screen.

@@ -25,6 +25,7 @@ const http = require('http');
 const net = require('net');
 const dns = require('dns');
 const { logger } = require('./modules/logger');
+const databaseWork = require('./modules/databaseWork');
 const { PollingManager } = require('./services/PollingManager');
 const { timeZoneName } = require('./modules/localTime');
 const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
@@ -377,6 +378,7 @@ function mqttSampleOf(rawText, retained) {
 
 const app = express();
 app.set('trust proxy', 1);
+app.use((req, res, next) => databaseWork.run(next));
 const PORT = process.env.PORT || 3000;
 
 // Health probe first: never rate-limited, never logged per request (it is
@@ -420,8 +422,12 @@ if (sessionSecret) {
   }
 }
 
-// Session middleware
+// Session middleware. Sessions are stored in SQLite (modules/sessionStore.js)
+// so they survive a restart, matching the persistent secret above.
+const { createSessionStore } = require('./modules/sessionStore');
+const sessionStore = createSessionStore(session);
 app.use(session({
+  store: sessionStore,
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
@@ -432,25 +438,51 @@ app.use(session({
   cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// Guard every unsafe request after sessions and before any route.
+app.use(csrfProtection);
+
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
-require('./routes/logs').init();   // saved log level, secrets to hide in Settings → Logs
-require('./routes/remote').init(); // Tailscale back on after a restart, if remote access was on
-require('./modules/updates').start(); // daily check for a newer build; the result of an update just installed
-// Reassigned by rebindAfterRestore() — a restore reopens the connection.
-let db = getDb();
-loadProfiles();
-loadRs232Profiles();  // RS232 serial inverter profiles
-setupMqtt();
-startExternalPolling();
-startBmsPolling();   // Start BMS bridge polling
-startBmsWiredPolling();   // Start BMS wired (Modbus-RTU serial) polling
-startDonglePolling();
-startMetricAutoFlush(); // batch bursty metric writes: 5s auto-flush (unref'd)
-try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); } // one-time plaintext→$enc1$ (idempotent)
-pvoutput.start();     // Start PVOutput push/pull engines
+require('./routes/remote').init();
+require('./modules/dbCheck').start();
+loadProfiles(); loadRs232Profiles();
+try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); }
+
+// The same synchronous handover is used for startup, candidate health and
+// rollback. Local initialization must succeed before old files are discarded.
+const restoreLifecycle = {
+  pause() {
+    stopExternalPolling(); stopBmsPolling(); stopBmsWiredPolling(); stopDonglePolling();
+    stopMetricAutoFlush(); pvoutput.stop(); notifications.stop();
+    require('./modules/updates').stop();
+    shutdownRs232().catch(e => logger.warn('RS232 pause: ' + e.message));
+    require('./modules/combinedMetrics').flushPartDays();
+  },
+  resume() {
+    sessionStore._db();
+    require('./modules/metricSanity').reloadState();
+    clearForecastCache();
+    require('./modules/circuitBreaker').resetAll();
+    require('./routes/logs').init();
+    restartRs232Streaming();
+    startExternalPolling(); startBmsPolling(); startBmsWiredPolling(); startDonglePolling();
+    startMetricAutoFlush(); pvoutput.start(); notifications.init();
+    require('./modules/updates').start();
+    require('./routes/health').checkHealth();
+  }
+};
+databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); });
+const restoreUploads = require('./modules/restoreUploads').createRestoreUploadManager({
+  lifecycle: restoreLifecycle,
+  captureSession: sid => sessionStore.captureForRestore(sid),
+  restoreSession: record => sessionStore.restoreCaptured(record),
+  onFatal(error) {
+    logger.error('Restore requires supervisor recovery: ' + error.message);
+    const timer = setTimeout(() => process.exit(1), 1000); timer.unref();
+  }
+});
+const stopRestoreStagingCleanup = require('./modules/restoreStaging').startRestoreStagingCleanup('./data');
 startSnapshotScheduler();
-notifications.init();  // alert rules, channels and the event bus
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -470,6 +502,8 @@ const upload = multer({
 });
 
 // Middleware
+// Security headers (incl. CSP) on every response — before any page/static route.
+app.use(require('./modules/securityHeaders').middleware());
 // Redirect raw editor.html / settings.html to their protected routes (auth gate — issue #87)
 app.get('/editor.html', (req, res) => res.redirect('/editor'));
 app.get('/settings.html', (req, res) => res.redirect('/settings'));
@@ -480,6 +514,7 @@ mountPrivatePages(app);
 // The dashboard page, with its modules listed up front (modules/pagePreload.js).
 // Ahead of express.static, which would otherwise answer / with the plain file.
 const { sendPage } = require('./modules/pagePreload');
+const { validateNumericConfig } = require('./modules/configValidation');
 app.get(['/', '/index.html'], (req, res) => sendPage(res, path.join(__dirname, 'public', 'index.html'), '/'));
 // Each module page's scripts as one file (modules/pageBundles.js); signed-in
 // pages' bundles are under /private/bundles/ (routes/privatePages.js).
@@ -501,8 +536,12 @@ app.use('/vendor/gridstack', express.static(path.join(__dirname, 'node_modules',
   maxAge: '1h', index: false,
   setHeaders(res, filePath) { if (/\.(js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
 }));
+// Chart.js and its date adapter, self-hosted (was a CDN) so charts work offline
+// and the CSP needs no external script origin.
+app.use('/vendor/chartjs', express.static(path.join(__dirname, 'node_modules', 'chart.js', 'dist'), { maxAge: '7d', index: false }));
+app.use('/vendor/chartjs-adapter-date-fns', express.static(path.join(__dirname, 'node_modules', 'chartjs-adapter-date-fns', 'dist'), { maxAge: '7d', index: false }));
 app.use(express.json());
-app.use('/api', csrfProtection);
+app.get('/api/csrf-token', require('./modules/csrfProtection').csrfToken);
 
 // Normalize req.body: Express 5 leaves req.body undefined when no parser matched
 // (Express 4 defaulted to {}). Restores the v4 default globally.
@@ -621,16 +660,18 @@ wss.on('connection', (ws) => {
  */
 const pollingManager = new PollingManager();
 pollingManager.on('metrics-ready', ({ sourceId }) => {
+  if (!databaseWork.isCurrent()) return;
   logger.debug(`Poll ${sourceId} metrics ready`);
   notifications.noteSourceResult(sourceId, true);
 });
 pollingManager.on('device-error', ({ sourceId, error }) => {
+  if (!databaseWork.isCurrent()) return;
   logger.warn(`Poll ${sourceId} failed:`, error && error.message ? error.message : error);
   notifications.noteSourceResult(sourceId, false, error);
 });
 
 let pollCycleRunning = false;
-async function pollAllSources() {
+function pollAllSources() { return databaseWork.run(async () => {
   // A slow source (serial timeouts, unreachable hosts) can push a cycle past
   // 30s; never run two cycles concurrently against the same devices.
   if (pollCycleRunning) {
@@ -643,10 +684,12 @@ async function pollAllSources() {
   // MQTT, external REST, BMS and dongles run on their own timers/subscriptions
   try {
     await pollingManager.runCycle();
+    if (!databaseWork.isCurrent()) return;
     flushMetrics(); // same-cycle readers (grid/solar/history, broadcast) see fresh polls
     notifications.evaluateMetrics(); // metric alert rules see this cycle's values
     if (wsClients.size > 0) {
       const state = await buildDashboardState();
+      if (!databaseWork.isCurrent()) return;
       broadcastDashboardState(state);
     }
     const elapsed = Date.now() - start;
@@ -656,7 +699,7 @@ async function pollAllSources() {
   } finally {
     pollCycleRunning = false;
   }
-}
+}); }
 pollAllSources();
 const pollInterval = setInterval(pollAllSources, 30000);
 // Read the all-time daily totals once now, so the first page load doesn't pay for it.
@@ -678,6 +721,7 @@ app.get('/setup', (req, res) => {
 // "Start fresh" reset — empties ONLY device arrays + role_metrics + flag; never history/metrics/snapshots
 // EpilykosOS system actions (Settings → System): restart, shut down, Wi-Fi, SSH.
 app.use('/api/system', isAuthenticated, require('./routes/system'));
+app.use('/api/notices', isAuthenticated, require('./routes/notices'));
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
@@ -818,7 +862,7 @@ app.post('/api/combined-metrics/preview', (req, res) => {
   if (errors.length) return res.status(400).json({ error: errors[0], errors });
   const { flushMetrics } = require('./modules/database');
   flushMetrics();
-  const stmt = db.prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?'), now = Math.floor(Date.now() / 1000);
+  const stmt = getDb().prepare('SELECT value, timestamp FROM latest_metrics WHERE metric = ?'), now = Math.floor(Date.now() / 1000);
   const inputs = def.inputs.map(name => {
     const row = stmt.get(String(name).trim());
     const ts = row ? (Number(row.timestamp) > 1e12 ? Math.floor(row.timestamp / 1000) : Number(row.timestamp)) : null;
@@ -897,7 +941,7 @@ function findLatestStateForEntity(entityId) {
         // { entityId, actions: [...] } carrying action metadata (AC-1.4).
         const eid = (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) ? mapping.entityId : mapping;
         if (eid === entityId) {
-          const row = db.prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(metric);
+          const row = getDb().prepare('SELECT value, value_text, value_type FROM latest_metrics WHERE metric = ?').get(metric);
           if (row) {
             return { entity_id: entityId, state: row.value_text != null ? row.value_text : row.value };
           }
@@ -1347,30 +1391,37 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 app.use('/api/backup', isAuthenticated);
 app.get('/api/backup', (req, res) => backupDatabase(res));
 
-// A restore closes and reopens the SQLite connection: pick up the new handle
-// and restart the engines that captured the old one.
-function rebindAfterRestore() {
-  try {
-    db = getDb();
-    pvoutput.restart();
-  } catch (e) {
-    logger.error(`Rebinding after restore failed: ${e.message}`);
+// Capture authorization only at pre-close, so logout/expiry during a long
+// preparation is respected. Copy before confirmation without an open response.
+function restoreSessionOptions(req) {
+  let captured;
+  return {
+    beforeActivate() { captured = sessionStore.captureForRestore(req.sessionID); },
+    afterActivate() { sessionStore.restoreCaptured(captured); }
+  };
+}
+function restoreFailure(res, err) {
+  logger.error('Restore error:', err);
+  if (err.restoreRecoveryRequired) {
+    // Files are retained for startup recovery. Do not serve a partly rebound
+    // process indefinitely; the normal container/service supervisor restarts it.
+    const timer = setTimeout(() => process.exit(1), 1000); timer.unref();
+    res.once('finish', () => setImmediate(() => process.exit(1)));
   }
+  return res.status(err.status || 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired || err.code === 'DB_RETIRED' ? err.message : 'Restore failed, original database restored.' });
 }
 
+app.use('/api/restore-jobs', isAuthenticated, require('./routes/restoreUploads')(restoreUploads));
 app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const uploaded = uploadedFilePath(req.file);
   if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
   try {
-    await restoreDatabase(uploaded);
-    rebindAfterRestore();
+    await restoreDatabase(uploaded, { lifecycle: restoreLifecycle, ...restoreSessionOptions(req) });
     res.json({ success: true, message: 'Database restored successfully' });
   } catch (err) {
-    rebindAfterRestore(); // the rollback reopened the original database
-    logger.error('Restore error:', err);
-    res.status(500).json({ error: 'Restore failed, original database restored.' });
+    restoreFailure(res, err);
   } finally {
     try { if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded); } catch(e) {}
   }
@@ -1379,6 +1430,7 @@ app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
 // ── Snapshot API ──────────────────────────────────────────────
 
 app.use('/api/snapshots', isAuthenticated);
+app.get('/api/snapshots/status', (req, res) => res.json(require('./modules/backup').snapshotStatus()));
 app.get('/api/snapshots', (req, res) => {
   try {
     res.json(listSnapshots());
@@ -1389,19 +1441,16 @@ app.get('/api/snapshots', (req, res) => {
 
 app.post('/api/snapshots/restore/:name', async (req, res) => {
   try {
-    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name));
-    rebindAfterRestore();
+    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name), { lifecycle: restoreLifecycle, ...restoreSessionOptions(req) });
     res.json(result);
   } catch (err) {
-    rebindAfterRestore(); // a failed restore rolls back and reopens the original database
-    logger.error('Snapshot restore error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    restoreFailure(res, err);
   }
 });
 
 app.use('/api/settings', isAuthenticated);
 app.get('/api/settings', (req, res) => {
-  const rows = db.prepare('SELECT key, value FROM config').all();
+  const rows = getDb().prepare('SELECT key, value FROM config').all();
   const config = {};
   rows.forEach(r => { config[r.key] = r.value; });
   res.json(config);
@@ -1410,6 +1459,8 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   const updates = req.body;
   try {
+    const invalidNum = validateNumericConfig(updates);
+    if (invalidNum) return res.status(400).json({ error: invalidNum });
     // Reject keys matching sensitive patterns (token, password, secret, key, etc.)
     const sensitivePattern = /_token$|_password$|_secret$/i;
     const sensitiveKeyExempt = ['tuya_cloud'];
@@ -1609,6 +1660,8 @@ app.post('/api/settings/dashboard', isAuthenticated, (req, res) => {
 // Solar: forecast keys + role_metrics
 app.post('/api/settings/solar', isAuthenticated, (req, res) => {
   try {
+    const invalid = validateNumericConfig(req.body);
+    if (invalid) return res.status(400).json({ error: invalid });
     const allowed = [
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id', 'solar_arrays',
@@ -1628,6 +1681,8 @@ app.post('/api/settings/solar', isAuthenticated, (req, res) => {
 // Savings: savings_* keys
 app.post('/api/settings/savings', isAuthenticated, (req, res) => {
   try {
+    const invalid = validateNumericConfig(req.body);
+    if (invalid) return res.status(400).json({ error: invalid });
     const allowed = [
       'savings_currency', 'savings_rate', 'savings_solar_metric',
       'all_time_pv_savings_override',
@@ -2341,6 +2396,7 @@ app.post('/api/dongle/test', async (req, res) => {
     try {
       bt = new BleLuxpowerTransport({
         ble_address: req.body.ble_address || host,
+        ble_write_mode: req.body.ble_write_mode, protocol: req.body.protocol,
         dongle_serial: String(req.body.dongle_serial || req.body.serial_number || '').trim(),
         inverter_serial: String(req.body.inverter_serial || req.body.serial_number || '').trim()
       });
@@ -2350,10 +2406,10 @@ app.post('/api/dongle/test', async (req, res) => {
     try {
       // Input registers 0-39: operational state, battery voltage (reg 4, 0.1 V) and SOC (reg 5).
       const data = await bt.readRegisters(0, 40, 0x04);
-      return res.json({ success: true, raw: `${data.readUInt16LE(0)} — battery ${(data.readUInt16LE(8) / 10).toFixed(1)} V, ${data.readUInt16LE(10)} %` });
+      return res.json({ success: true, raw: `${data.readUInt16LE(0)} — battery ${(data.readUInt16LE(8) / 10).toFixed(1)} V, ${data.readUInt16LE(10) & 255} %`, diagnostics: bt.diagnostics, ...await require('./modules/dongle/luxpowerModel').identityDiagnostic(bt) });
     } catch (err) {
       logger.warn(`[dongle] Bluetooth test failed for ${bt.address}: ${err.message}`);
-      return res.status(502).json({ error: err.message });
+      return res.status(502).json({ error: err.message, diagnostics: bt.diagnostics });
     }
   }
   if (transport === 'ble-modbus') {
@@ -2464,7 +2520,7 @@ app.post('/api/dongle/test', async (req, res) => {
           port: safePort || 8000,
           dongle_serial: dongleSerial,
           inverter_serial: inverterSerial,
-          timeout_ms: 3000
+          timeout_ms: 5000, tls_policy: req.body.tls_policy, protocol: req.body.protocol
         });
       } catch (e) {
         return res.status(400).json({ error: e.message });
@@ -2473,7 +2529,9 @@ app.post('/api/dongle/test', async (req, res) => {
         // Real read cycle: input register 0x0000 (operational state); values
         // are little-endian words on the wire (see luxpower-geta profile).
         const data = await transportObj.readRegisters(0, 1, 0x04);
-        res.json({ success: true, raw: data.readUInt16LE(0) });
+        res.json({ success: true, raw: data.readUInt16LE(0), diagnostics: transportObj.diagnostics, ...await require('./modules/dongle/luxpowerModel').identityDiagnostic(transportObj) });
+      } catch (err) {
+        res.status(502).json({ error: err.message, diagnostics: transportObj.diagnostics });
       } finally {
         transportObj.stop();
       }
@@ -2634,7 +2692,7 @@ app.get('/api/metrics/history', async (req, res) => {
 
 app.get('/api/metrics/names', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
+    const rows = getDb().prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
     const names = rows.map(r => r.metric);
     res.json(names);
   } catch (err) {
@@ -2649,6 +2707,23 @@ app.use((req, res, next) => {
     return next();
   }
   sendPage(res, path.join(__dirname, 'public', 'index.html'), '/');
+});
+
+// 404 for unmatched /api routes (so they return JSON, not the SPA page).
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
+// Error handler: never leak a stack trace to the client (Express's default
+// handler renders the full stack as HTML). Malformed JSON, oversized bodies
+// and unexpected errors all return a short JSON message; the detail is logged.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) logger.error(`Unhandled ${req.method} ${req.originalUrl}: ${err.message}`);
+  if (res.headersSent) return next(err);
+  const message = err.type === 'entity.parse.failed' ? 'Invalid JSON body'
+    : err.type === 'entity.too.large' ? 'Request body too large'
+    : status < 500 ? (err.message || 'Bad request') : 'Internal server error';
+  res.status(status).json({ error: message });
 });
 
 // Start HTTP server with WebSocket support
@@ -2674,7 +2749,9 @@ async function shutdown(signal) {
   require('./modules/cloudflared').stop();
   require('./modules/updates').stop();
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
-  stopSnapshotScheduler();
+  await restoreUploads.close();
+  await stopSnapshotScheduler();
+  await stopRestoreStagingCleanup();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
@@ -2684,7 +2761,9 @@ async function shutdown(signal) {
   server.close();
   stopMetricAutoFlush();
   try { flushSync(); } catch (e) { logger.warn(`${signal} metric flush failed: ${e.message}`); }
-  db.close();
+  await require('./modules/dbCheck').stop();
+  getDb().close();
+  require('./modules/dbCheck').markCleanStop();
   logger.info('Shutdown complete');
   process.exit(0);
 }

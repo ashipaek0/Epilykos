@@ -1,0 +1,13 @@
+{
+  "hardwareValidated": false,
+  "inverterLabelModel": null,
+  "declaredPowerKw": 3.6,
+  "firmware": null,
+  "dongleModel": null,
+  "batteryType": null,
+  "testedAt": null,
+  "wifi": { "tested": false, "protocol": null, "tlsPolicy": null, "selectedMode": null, "observations": null },
+  "bluetooth": { "tested": false, "protocol": null, "writeMode": null, "mtu": null, "chunkSize": null, "observations": null },
+  "controlTests": [],
+  "controlTestFields": ["setting", "originalValue", "requestedValue", "epilykosReadback", "luxCloudReadback", "restoredValue", "physicalBehavior", "beforeFile", "afterFile", "restoredFile", "passed", "notes"]
+}

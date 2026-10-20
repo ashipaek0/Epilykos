@@ -60,10 +60,10 @@ function requireUnlocked(req, res, next) {
 
 // ── Change log ────────────────────────────────────────────────────────────
 
-let tableReady = false;
+let tableFor = null;
 function table() {
   const db = getDb();
-  if (!tableReady) {
+  if (tableFor !== db) {
     db.exec(`CREATE TABLE IF NOT EXISTS device_write_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       ts INTEGER NOT NULL,
@@ -77,7 +77,7 @@ function table() {
       detail TEXT,
       ip TEXT
     )`);
-    tableReady = true;
+    tableFor = db;
   }
   return db;
 }
@@ -111,15 +111,16 @@ function dongleDevices() {
 function settingsOf(profile) {
   if (profile && profile.protocol === 'ble-gatt' && Array.isArray(profile.settings)) return profile.settings.map(w => ({ type: w.type === 'boolean' ? 'switch' : w.type === 'enum' ? 'select' : 'number', name: w.id, label: w.label || w.id, description: w.reason || '', unit: w.unit || '', min: w.min, max: w.max, step: w.step, allowed: w.allowed, writable: false, blockedReason: 'Read the device first to verify its model and setting capability' }));
   if (!profile || !profile.capabilities || profile.capabilities.write !== true) return [];
-  return (Array.isArray(profile.writable_registers) ? profile.writable_registers : [])
-    .filter(w => w && w.name && w.register && (w.kind || 'value') === 'value')
+  const additions = (profile.geta_controls || []).map(require('./dongle/luxpowerSettings').descriptor);
+  return additions.concat((Array.isArray(profile.writable_registers) ? profile.writable_registers : [])
+    .filter(w => w && !w.geta_control && w.name && w.register && (w.kind || 'value') === 'value')
     .map(w => ({
       type: 'number', name: w.name, label: w.label || w.name, description: w.description || '', unit: w.unit || '',
       register: w.register, register_type: w.register_type || 'holding',
       min: Number(w.min), max: Number(w.max), step: Number(w.step) > 0 ? Number(w.step) : 1, scale: Number(w.scale) > 0 ? Number(w.scale) : 1,
       below: w.below || null, above: w.above || null
     }))
-    .filter(s => Number.isFinite(s.min) && Number.isFinite(s.max) && s.min <= s.max);
+    .filter(s => Number.isFinite(s.min) && Number.isFinite(s.max) && s.min <= s.max));
 }
 
 /** Devices that have settings to change (and the switches' state). */
@@ -290,6 +291,7 @@ async function readSetting(deviceName, settingName) {
     const inRange = valuePresent && (!Array.isArray(allowed) || allowed.includes(value)) && (type === 'bool' || type === 'boolean' ? typeof value === 'boolean' : type === 'enum' ? Array.isArray(allowed) && allowed.includes(value) : Number.isFinite(value) && (min === undefined || value >= min) && (max === undefined || value <= max) && (!(step > 0) || Math.abs((value - (min || 0)) / step - Math.round((value - (min || 0)) / step)) <= 1e-6));
     return { value, current: value, inRange, raw: result.raw, diagnostics: result.diagnostics, rawMetadata, capability, writable: !!(capability && capability.writable), blockedReason: capability && capability.blockedReason || (!valuePresent ? 'Setting is not available in the current device read' : null), model: result.model };
   }
+  if (setting.geta_control) return require('./dongle').readLuxpowerControl(dev.name, setting.name);
   const raw = await require('./dongle').readDongleRegister(dev.name, setting.register, setting.register_type);
   if (raw.error) return raw;
   const value = toValue(setting, raw.value);
@@ -336,6 +338,11 @@ async function changeSetting(p, req) {
     if (!response.success) response.error = reason || (status === 'mismatch' ? 'Device read-back did not match the requested value' : status === 'sent_unverified' || status === 'unverified' ? 'The write was sent but could not be verified' : 'The setting change was refused');
     else if (reason) response.error = reason;
     return response;
+  }
+  if (setting.geta_control) {
+    const result = await require('./dongle').changeLuxpowerControl(dev.name, setting.name, p.expected, p.value);
+    logAttempt({ ...base, oldValue: p.expected, outcome: result.success ? 'done' : result.written ? 'unverified' : 'refused', detail: result.error || result.status || 'No change' }, req);
+    return result;
   }
   const want = toRaw(setting, p.value);
   if (want.error) return refuse(want.error);

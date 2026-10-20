@@ -167,13 +167,37 @@ async function assertSafeFetchUrl(url, opts) {
  * mqtt.connect(). mqtt@5 silently downgrades unknown schemes to a raw TCP
  * dial, so the scheme MUST be exactly mqtt: or mqtts:. Non-empty hostname.
  * Credentials in the URL (user:pass@) are allowed (broker URLs commonly
- * carry them). Returns {ok:true, url} normalized or {ok:false, error}.
+ * carry them).
+ *
+ * Unlike the HTTP guard, loopback and LAN (RFC1918/ULA) are allowed on
+ * purpose — a Mosquitto broker on the same box or LAN is the common case.
+ * The one range refused is link-local 169.254.0.0/16 and fe80::/10, which
+ * covers the cloud-metadata address (169.254.169.254) and has no legitimate
+ * use as a broker, plus the unspecified address. A hostname that resolves
+ * there is not caught here (this stays synchronous for its callers); a
+ * literal link-local IP is, which is the realistic abuse.
+ * Returns {ok:true, url} normalized or {ok:false, error}.
  */
 function assertSafeBrokerUrl(url) {
   let u;
   try { u = new URL(url); } catch { return { ok: false, error: 'Invalid broker URL' }; }
   if (u.protocol !== 'mqtt:' && u.protocol !== 'mqtts:') return { ok: false, error: 'Broker URL scheme not allowed (use mqtt:// or mqtts://)' };
   if (!u.hostname) return { ok: false, error: 'Broker host required' };
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(host) === 4) {
+    const p = host.split('.').map(Number);
+    const n = ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0;
+    if (n === 0 || (n >>> 16) === 0xa9fe) return { ok: false, error: 'Broker host not allowed' };
+  } else if (net.isIP(host) === 6) {
+    const g = ipv6Groups(host);
+    if (!g) return { ok: false, error: 'Invalid broker URL' };
+    if (g.every(x => x === 0)) return { ok: false, error: 'Broker host not allowed' };
+    if ((g[0] & 0xffc0) === 0xfe80) return { ok: false, error: 'Broker host not allowed' };
+    if (g[5] === 0xffff && g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0) {
+      const v4n = ((g[6] << 16) | g[7]) >>> 0;
+      if (v4n === 0 || (v4n >>> 16) === 0xa9fe) return { ok: false, error: 'Broker host not allowed' };
+    }
+  }
   return { ok: true, url: u.toString() };
 }
 

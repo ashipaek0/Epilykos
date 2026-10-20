@@ -602,3 +602,7 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 .button-card.bc-error .bc-state { color: var(--color-danger, #dc2626); white-space: normal; }
 /* Short blocks: the icon gives way to the text */
 @container (max-height: 90px) { .button-card .bc-state { display: none; } }
+
+/* A Tuya device that is not answering (readingAge.js): its last reading is not shown as live. */
+.switch-block.is-unavailable,
+.state-select-block.is-unavailable { opacity: 0.55; }

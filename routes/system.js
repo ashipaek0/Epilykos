@@ -1,8 +1,9 @@
 /**
  * Appliance system actions for Settings → System (EpilykosOS only,
  * contract C-HOST-001): Restart, Shut down, Change Wi-Fi (Bluetooth setup),
- * and the SSH maintenance login. Every route needs an admin session; the
- * global /api CSRF check applies too. Passwords are never logged.
+ * the dashboard port, and the SSH maintenance login. Every route needs an
+ * admin session; the global /api CSRF check applies too. Passwords are never
+ * logged.
  *
  * @module routes/system
  */
@@ -10,6 +11,9 @@
 const express = require('express');
 const { logger } = require('../modules/logger');
 const hostActions = require('../modules/hostActions');
+const { readSpace } = require('../modules/storageStatus');
+const { DB_PATH } = require('../modules/database');
+const path = require('node:path');
 
 const router = express.Router();
 
@@ -39,15 +43,27 @@ router.get('/', async (req, res) => {
   try {
     const reply = await hostActions.call('status');
     if (!reply || reply.ok !== true) throw Object.assign(new Error(reply && reply.error || 'status failed'), { status: 502 });
-    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh });
+    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh, port: reply.port || null, clock: reply.clock || null, storage: reply.storage || null,
+      data_storage: readSpace(path.dirname(DB_PATH)) });
   } catch (err) {
     res.status(err.status || 500).json({ appliance: true, error: err.message });
   }
 });
 
+router.post('/timezone', forward('set_timezone', b => ({ timezone: typeof b.timezone === 'string' ? b.timezone : '', restart: b.restart !== false })));
+router.post('/clock', forward('set_clock', b => ({ epoch: typeof b.epoch === 'number' ? b.epoch : null })));
+router.get('/bluetooth', forward('bluetooth_status'));
+router.post('/bluetooth/open', forward('bluetooth_open'));
+router.post('/bluetooth/close', forward('bluetooth_close'));
+router.post('/bluetooth/pair', forward('bluetooth_pair', b => ({ address: typeof b.address === 'string' ? b.address : '' })));
+router.post('/bluetooth/reply', forward('bluetooth_reply', b => ({ id: typeof b.id === 'string' ? b.id : '', value: typeof b.value === 'string' || typeof b.value === 'boolean' ? b.value : null })));
+router.post('/bluetooth/remove', forward('bluetooth_remove', b => ({ address: typeof b.address === 'string' ? b.address : '' })));
+
 router.post('/restart', (req, res, next) => { logger.info('Settings: restart requested'); next(); }, forward('restart'));
 router.post('/shutdown', (req, res, next) => { logger.info('Settings: shutdown requested'); next(); }, forward('shutdown'));
 router.post('/wifi-setup', forward('wifi_setup'));
+// The host checks the port (80 or 1024-65535, free) and restarts the app on it.
+router.post('/port', forward('set_port', b => ({ port: typeof b.port === 'number' || typeof b.port === 'string' ? b.port : null })));
 router.post('/ssh/enable', forward('ssh_enable'));
 router.post('/ssh/disable', forward('ssh_disable'));
 router.post('/ssh/password', forward('ssh_set_password', b => ({ password: typeof b.password === 'string' ? b.password : '' })));

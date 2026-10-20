@@ -1,10 +1,15 @@
 const { logger } = require('./logger');
 const fs = require('fs');
 const path = require('path');
-const { getDb, DB_PATH, initializeDatabase, flushMetrics } = require('./database');
+const { getDb, DB_PATH, openPreparedDatabase, flushMetrics, setConfig } = require('./database');
 const { setupMqtt, mqttClients } = require('./mqtt');
 const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
+const { createBackupSnapshot } = require('./sqliteSnapshot');
+const { prepareRestore } = require('./restorePreparation');
+const { createRestoreStaging, reapRestoreStaging } = require('./restoreStaging');
+const { beginRestoreSwap, recoverRestore, recoveryError } = require('./restoreTransaction');
+const databaseWork = require('./databaseWork');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -25,255 +30,205 @@ function checkpointWal() {
   }
 }
 
-/**
- * Verify a SQLite file is valid by opening it and SELECT 1.
- */
-function isSqliteValid(filePath) {
-  try {
-    const Database = require('better-sqlite3');
-    const testDb = new Database(filePath, { readonly: true });
-    testDb.prepare('SELECT 1').get();
-    testDb.close();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Create a safe snapshot copy of the current database into a temp file,
- * checkpointing the WAL first so the snapshot is self-consistent.
- */
-function createBackupSnapshot(tmpPath) {
-  checkpointWal();
-  fs.copyFileSync(DB_PATH, tmpPath);
-  if (!isSqliteValid(tmpPath)) {
-    // WAL checkpoint may not fully flush on all configurations.
-    // Try opening again with DELETE journal mode via a fresh connection.
-    try {
-      const Database = require('better-sqlite3');
-      const tmpDb = new Database(DB_PATH);
-      tmpDb.pragma('journal_mode = DELETE');
-      tmpDb.close();
-      fs.copyFileSync(DB_PATH, tmpPath);
-    } catch (retryErr) {
-      throw new Error('Backup snapshot invalid even after retry: ' + retryErr.message);
-    }
-    if (!isSqliteValid(tmpPath)) {
-      throw new Error('Backup snapshot invalid — cannot create a consistent backup');
-    }
-  }
-  return tmpPath;
-}
+// Bound immutable downloads retained while slow clients transfer them. Capture
+// remains serialized with restore/checks; transfer can proceed independently.
+const MAX_BACKUP_DOWNLOADS = 2;
+let activeDownloads = 0;
 
 async function backupDatabase(res) {
-  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  const tmpPath = DB_PATH + '.backup-tmp';
+  if (activeDownloads >= MAX_BACKUP_DOWNLOADS) {
+    return res.status(503).json({ error: 'Two backup downloads are already active. Finish or cancel one before trying again.' });
+  }
+  activeDownloads++;
+  const controller = new AbortController();
+  const disconnect = () => controller.abort(new Error('Backup download disconnected'));
+  res.once('close', disconnect);
+  if (res.destroyed) disconnect();
+  let release, job, handedOff = false, cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    res.removeListener('close', disconnect);
+    if (job) {
+      try { if (!job.cleanup()) logger.warn('Backup: staging retained for restore recovery'); }
+      catch (error) { logger.warn('Backup: staging cleanup deferred: ' + error.message); }
+    }
+    activeDownloads--;
+  };
   try {
+    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+    controller.signal.throwIfAborted();
+    await reapRestoreStaging(path.dirname(DB_PATH), { signal: controller.signal });
+    controller.signal.throwIfAborted();
+    job = await createRestoreStaging(path.dirname(DB_PATH), { role: 'backup-download' });
+    controller.signal.throwIfAborted();
+    const tmpPath = path.join(job.directory, 'energy.db'), scratch = path.join(job.directory, 'scratch');
+    fs.mkdirSync(scratch, { mode: 0o700 });
     try { flushMetrics(); } catch (e) { logger.warn(`Backup: metric flush failed: ${e.message}`); }
-    createBackupSnapshot(tmpPath);
-    res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, (err) => {
-      try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
-      if (err) logger.error('Backup download error:', err);
+    await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal, scratch,
+      leaseFds: [...(job.leaseFd === undefined ? [] : [job.leaseFd]), ...(release.leaseFd === undefined ? [] : [release.leaseFd])] });
+    fs.chmodSync(tmpPath, 0o600);
+    // This file is now immutable and private to this transfer. Holding the
+    // maintenance lock during HTTP transfer would prevent restore for hours.
+    // The private job lease remains live until the response transfer finishes.
+    release(); release = null;
+    res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, { dotfiles: 'allow' }, (err) => {
+      if (cleaned) return;
+      cleanup();
+      if (err) {
+        logger.error('Backup download error:', err);
+        if (!res.headersSent && !res.destroyed) res.status(500).json({ error: 'Backup download failed' });
+      }
+      else { try { setConfig('backup_downloaded_at', new Date().toISOString()); } catch (e) { logger.warn('Cannot record backup download: ' + e.message); } }
     });
+    handedOff = true;
   } catch (err) {
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (e) {}
-    logger.error('Backup failed:', err);
-    if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
+    if (!controller.signal.aborted) {
+      if (err.code === 'LOCK_BUSY') {
+        logger.info('Backup deferred: maintenance is already running');
+        if (!res.headersSent) res.status(503).json({ error: 'A snapshot, backup or restore is already running. Wait for it to finish, then try again.' });
+      } else {
+        logger.error('Backup failed:', err);
+        if (!res.headersSent) res.status(err.code === 'INSUFFICIENT_STORAGE' ? 507 : 500).json({ error: 'Backup failed: ' + err.message });
+      }
+    }
   } finally {
-    release();
+    if (release) release();
+    if (!handedOff) cleanup();
   }
 }
 
-async function restoreDatabaseUnlocked(filePath) {
-  const backupPath = DB_PATH + '.bak';
-
-  // Step 1: validate uploaded file
-  let testDb;
+async function restoreDatabaseUnlocked(filePath, lifecycle, options) {
+  const input = await require('./restoreInput').normalizeRestoreInput(filePath, getDb(), DB_PATH, options);
+  let prepared;
   try {
-    const Database = require('better-sqlite3');
-    testDb = new Database(filePath, { readonly: true });
-    // Ensure the uploaded DB has the minimum schema
-    const tables = testDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-    const required = ['config', 'metrics', 'latest_metrics'];
-    const hasAll = required.every(t => tables.some(r => r.name === t));
-    if (!hasAll) {
-      testDb.close();
-      throw new Error('Uploaded database is missing required tables (config, metrics, latest_metrics)');
-    }
-    testDb.close();
-    testDb = null;
-  } catch (err) {
-    if (testDb) try { testDb.close(); } catch (e) {}
-    throw new Error('Uploaded file is not a valid Epilykos database: ' + err.message);
-  }
+    prepared = await prepareRestore(input.filePath, getDb(), DB_PATH, {
+      ...options, leaseFds: [...options.leaseFds, ...(input.leaseFd === undefined ? [] : [input.leaseFd])]
+    });
+    return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle, options);
+  } finally { prepared?.cleanup(); input.cleanup(); }
+}
 
-  // Step 2: backup the current database before overwriting (drain queued
-  // metric writes first so they land in the backup, not the restored DB)
-  try {
-    try { flushMetrics(); } catch (e) { logger.warn(`Restore: metric flush failed: ${e.message}`); }
-    if (fs.existsSync(DB_PATH)) {
-      checkpointWal();
-      fs.copyFileSync(DB_PATH, backupPath);
-    }
-  } catch (err) {
-    throw new Error('Failed to backup current database before restore: ' + err.message);
-  }
-
-  // Step 3: shutdown all running services that touch the database
-  try {
-    if (getDb()) getDb().close();
-  } catch (e) {}
+function stopRestoreMqtt() {
   for (const client of mqttClients.values()) {
-    try { client.end(true); } catch (e) {}
+    client.removeAllListeners('message');
+    try { client.end(true); } catch (_) {}
   }
   mqttClients.clear();
+}
 
-  // Step 4: replace the database
+function lifecycleCall(lifecycle, name) {
+  const result = lifecycle[name]?.();
+  if (result && typeof result.then === 'function') throw new Error('Restore runtime hooks must be synchronous');
+}
+
+function restorePreparedDatabaseUnlocked(filePath, lifecycle, options) {
+  const original = getDb();
+  // No await in this activation section: all app SQLite calls share the main
+  // thread/connection; workers and host maintenance are excluded by the lease.
   try {
-    fs.copyFileSync(filePath, DB_PATH);
-    initializeDatabase();
+    options.signal?.throwIfAborted();
+    lifecycleCall({ beforeActivate: () => options.beforeActivate?.({ liveFile: DB_PATH, preparedFile: filePath }) }, 'beforeActivate');
+    databaseWork.run(() => lifecycleCall(lifecycle, 'pause'));
+    flushMetrics();
+    // Unlike an unchecked wal_checkpoint result, this refuses live readers and
+    // produces a standalone original before its inode can move.
+    if (original.pragma('journal_mode = DELETE', { simple: true }) !== 'delete') throw new Error('Cannot checkpoint the live database');
+    original.close();
+  } catch (error) {
+    if (original.open) { try { original.pragma('journal_mode = WAL'); } catch (_) {} }
+    try { databaseWork.run(() => lifecycleCall(lifecycle, 'resume')); }
+    catch (resumeError) { throw recoveryError(resumeError); }
+    throw Object.assign(new Error('Restore cannot quiesce the live database: ' + error.message), {
+      restorePreflight: true, status: error.code === 'SQLITE_BUSY' ? 409 : 500
+    });
+  }
+  databaseWork.retire();
+  return databaseWork.run(() => activatePreparedDatabase(filePath, lifecycle, options));
+}
+
+function activatePreparedDatabase(filePath, lifecycle, options) {
+  let transaction;
+  try {
+    stopRestoreMqtt();
+    transaction = beginRestoreSwap(DB_PATH, filePath);
+    openPreparedDatabase();
     setupMqtt();
-    // Verify the restored DB is usable
+    lifecycleCall(lifecycle, 'resume');
+    lifecycleCall(options, 'afterActivate');
     const restoredDb = getDb();
     restoredDb.prepare('SELECT 1 FROM metrics LIMIT 1').get();
-    // Clean up backup on success
-    try { if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath); } catch (e) {}
+    const synchronous = restoredDb.pragma('synchronous', { simple: true });
+    restoredDb.pragma('synchronous = FULL');
+    const check = restoredDb.pragma('wal_checkpoint(TRUNCATE)');
+    if (check[0].busy) throw new Error('Restored database checkpoint is busy');
+    restoredDb.pragma('synchronous = ' + synchronous);
+    const result = transaction.commit();
+    if (result.cleanupPending) logger.warn('Restore confirmed; old-file cleanup will retry on startup');
     return { success: true };
-  } catch (err) {
-    // Restore failed — rollback to backup
-    logger.error('Restore failed, rolling back:', err.message);
-    try {
-      if (getDb()) getDb().close();
-    } catch (e) {}
-    for (const client of mqttClients.values()) {
-      try { client.end(true); } catch (e) {}
-    }
-    mqttClients.clear();
-    if (fs.existsSync(backupPath)) {
-      fs.copyFileSync(backupPath, DB_PATH);
-      try { fs.unlinkSync(backupPath); } catch (e) {}
-    }
-    initializeDatabase();
-    setupMqtt();
-    throw new Error('Restore failed, original database restored. ' + err.message);
+  } catch (error) {
+    try { lifecycleCall(lifecycle, 'pause'); } catch (pauseError) { logger.warn('Restore: runtime pause failed:', pauseError.message); }
+    try { if (getDb().open) getDb().close(); } catch (_) {}
+    stopRestoreMqtt();
+    databaseWork.retire();
+    return databaseWork.run(() => {
+      try {
+        if (transaction) transaction.rollback();
+        else recoverRestore(DB_PATH);
+        openPreparedDatabase();
+        setupMqtt();
+        lifecycleCall(lifecycle, 'resume');
+      } catch (recovery) {
+        try { if (getDb().open) getDb().close(); } catch (_) {}
+        databaseWork.retire();
+        throw recoveryError(recovery);
+      }
+      throw new Error('Restore failed, original database restored. ' + error.message);
+    });
   }
 }
 
-async function restoreDatabase(filePath) {
-  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  try { return await restoreDatabaseUnlocked(filePath); } finally { release(); }
+async function restoreDatabase(filePath, { lifecycle = {}, signal, maintenanceLease, leaseFds = [], beforeActivate, afterActivate } = {}) {
+  const release = maintenanceLease || await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+  try {
+    return await restoreDatabaseUnlocked(filePath, lifecycle, {
+      signal, beforeActivate, afterActivate,
+      leaseFds: [...leaseFds, ...(release.leaseFd === undefined ? [] : [release.leaseFd])]
+    });
+  } finally { databaseWork.refresh(); if (!maintenanceLease) release(); }
 }
 
 // ── Daily Snapshot Scheduler ──────────────────────────────────────
 
-let snapshotInterval = null;
-const SNAPSHOT_CHECK_MS = 60 * 60 * 1000;  // check every hour
-const SNAPSHOT_RETAIN = 2;                  // keep last 2
-const SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000; // create one per day
-
-function getSnapshots() {
-  try {
-    if (!fs.existsSync(SNAPSHOT_DIR)) return [];
-    return fs.readdirSync(SNAPSHOT_DIR)
-      .filter(f => f.endsWith('.db'))
-      .map(f => ({
-        name: f,
-        path: path.join(SNAPSHOT_DIR, f),
-        time: fs.statSync(path.join(SNAPSHOT_DIR, f)).mtimeMs
-      }))
-      .sort((a, b) => b.time - a.time); // newest first
-  } catch (err) {
-    logger.error('Snapshot: failed to list snapshots:', err.message);
-    return [];
-  }
-}
-
-function pruneSnapshots() {
-  const snaps = getSnapshots();
-  if (snaps.length <= SNAPSHOT_RETAIN) return;
-  const toRemove = snaps.slice(SNAPSHOT_RETAIN);
-  for (const s of toRemove) {
-    try {
-      fs.unlinkSync(s.path);
-      logger.info(`Snapshot: pruned old snapshot ${s.name}`);
-    } catch (err) {
-      logger.warn(`Snapshot: failed to prune ${s.name}:`, err.message);
-    }
-  }
-}
-
-async function createSnapshotUnlocked() {
-  const snapDir = SNAPSHOT_DIR;
-  try {
-    if (!fs.existsSync(snapDir)) fs.mkdirSync(snapDir, { recursive: true });
-  } catch (err) {
-    logger.error('Snapshot: cannot create snapshot directory:', err.message);
-    emitEvent('backup.snapshot_failed', { message: `Cannot create the snapshot folder: ${err.message}` });
-    return;
-  }
-
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const snapPath = path.join(snapDir, `energy-snapshot-${stamp}.db`);
-
-  try {
-    createBackupSnapshot(snapPath);
-    logger.info(`Snapshot: created ${snapPath}`);
-    pruneSnapshots();
-  } catch (err) {
-    logger.error('Snapshot: creation failed:', err.message);
-    emitEvent('backup.snapshot_failed', { message: `The daily snapshot failed: ${err.message}` });
-  }
-}
-
-async function createSnapshot() {
-  let release;
-  try {
-    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
-  } catch (err) {
-    logger.error('Snapshot: lock acquisition failed:', err.message);
-    return;
-  }
-
-  try {
-    try { flushMetrics(); } catch (e) { logger.warn(`Snapshot: metric flush failed: ${e.message}`); }
-    return await createSnapshotUnlocked();
-  } catch (err) {
-    logger.error('Snapshot: creation failed:', err.message);
-  } finally {
-    if (release) release();
-  }
-}
-
-function getLatestSnapshotTime() {
-  const snaps = getSnapshots();
-  return snaps.length > 0 ? snaps[0].time : 0;
-}
-
-function snapshotTick() {
-  const latest = getLatestSnapshotTime();
-  const age = Date.now() - latest;
-  if (age >= SNAPSHOT_AGE_MS) {
-    createSnapshot();
-  }
-}
-
+let snapshotInterval = null, snapshotScheduler = null;
+const snapshotFiles = require('./compressedSnapshots');
+function getSnapshots() { return snapshotFiles.getSnapshots(SNAPSHOT_DIR); }
 function startSnapshotScheduler() {
-  if (snapshotInterval) return;
-  logger.info(`Snapshot scheduler started (daily, retain ${SNAPSHOT_RETAIN})`);
-  // Run once on startup if no recent snapshot
-  snapshotTick();
-  // Then check every hour
-  snapshotInterval = setInterval(snapshotTick, SNAPSHOT_CHECK_MS);
+  if (snapshotScheduler) return;
+  snapshotScheduler = require('./snapshotScheduler').createSnapshotScheduler({
+    stateFile: path.join(path.dirname(DB_PATH), '.snapshot-retry.json'),
+    latest: () => getSnapshots().find(s => s.managed) || null,
+    healthy() { try { require('../routes/health').checkHealth(); return true; } catch (_) { return false; } },
+    acquire: () => acquireLock('maintenance', { timeoutMs: 0 }),
+    async run(release, signal) {
+      flushMetrics();
+      const result = await snapshotFiles.createCompressedSnapshot(getDb(), SNAPSHOT_DIR, {
+        signal, leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd]
+      });
+      logger.info('Snapshot: created ' + result.name); return result;
+    },
+    warn(type, message) { logger.warn(message); emitEvent(type, { message }); }
+  });
+  const tick = () => databaseWork.run(() => snapshotScheduler?.tick());
+  tick(); snapshotInterval = setInterval(tick, 60000); snapshotInterval.unref();
 }
-
-function stopSnapshotScheduler() {
-  if (snapshotInterval) {
-    clearInterval(snapshotInterval);
-    snapshotInterval = null;
-    logger.info('Snapshot scheduler stopped');
-  }
+async function stopSnapshotScheduler() {
+  clearInterval(snapshotInterval); snapshotInterval = null;
+  const scheduler = snapshotScheduler;
+  if (scheduler) await scheduler.stop();
+  if (snapshotScheduler === scheduler) snapshotScheduler = null;
 }
+function snapshotStatus() { return snapshotScheduler?.status() || { phase: 'stopped', overdue: false, error: null }; }
 
 // ── Snapshot API ──────────────────────────────────────────────────
 
@@ -281,15 +236,16 @@ function listSnapshots() {
   return getSnapshots().map(s => ({
     name: s.name,
     time: new Date(s.time).toISOString(),
-    size: fs.statSync(s.path).size
+    size: s.size,
+    format: s.format
   }));
 }
 
-async function restoreFromSnapshot(snapshotName) {
+async function restoreFromSnapshot(snapshotName, options) {
   const snaps = getSnapshots();
   const match = snaps.find(s => s.name === snapshotName);
   if (!match) throw new Error(`Snapshot "${snapshotName}" not found`);
-  return restoreDatabase(match.path);
+  return restoreDatabase(match.path, options);
 }
 
-module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal };
+module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal, snapshotStatus };

@@ -50,7 +50,7 @@
   function summary(d) {
     var info = FN_INFO[d.fn] || { label: d.fn };
     var n = (d.inputs || []).length;
-    return info.label + ' · ' + (n === 1 ? esc(d.inputs[0]) : n + ' inputs');
+    return esc(info.label) + ' · ' + (n === 1 ? esc(d.inputs[0]) : n + ' inputs');
   }
   function renderList() {
     var box = $('cm-list');

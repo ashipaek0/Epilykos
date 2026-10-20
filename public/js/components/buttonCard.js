@@ -12,6 +12,7 @@
 import { escapeHtml } from '../utils.js';
 import { emptyBlock } from './emptyState.js';
 import { mdiSvg } from './buttonIcons.js';
+import { isStaleReading } from './readingAge.js';
 
 const TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (see switchBlock.js).
@@ -189,7 +190,9 @@ export function updateButtonCardsFromState(state) {
       delete card.dataset.pending;
       delete card.dataset.pendingUntil;
     }
-    card.dataset.value = data.value == null ? '' : String(data.value);
-    paint(card, data.value);
+    // Not answering: say so instead of showing its last reading as live.
+    const value = isStaleReading(card._config && card._config.source, data) ? 'unavailable' : data.value;
+    card.dataset.value = value == null ? '' : String(value);
+    paint(card, value);
   });
 }

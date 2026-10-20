@@ -18,6 +18,7 @@ const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
 const { ModbusTcpTransport } = require('./dongle/modbusTcp');
 const { FelicityTcpTransport } = require('./dongle/felicityTcp');
+const { modelFromWord, currentDivisor } = require('./dongle/luxpowerModel');
 const { LuxpowerTcpTransport } = require('./dongle/luxpowerTcp');
 const { BleModbusTransport } = require('./dongle/bleModbus');
 const { BleGattTransport } = require('./dongle/bleGatt');
@@ -537,6 +538,12 @@ function luxpowerWordsFromBuffer(profile, buffer, start, space) {
  * DB; callers funnel the returned {metrics, units} into writeMetrics.
  */
 function decodeLuxpowerMetrics(profile, instance, registerData) {
+  // Cache model context only, never merge old measurements into a new push.
+  if (registerData['holding:19'] !== undefined) {
+    instance._luxpowerModel = modelFromWord(registerData['holding:19']);
+    instance._luxpowerModelAt = Date.now();
+  }
+  const model = Date.now() - (instance._luxpowerModelAt || 0) < 300000 ? instance._luxpowerModel : null;
   const metrics = {};
   const units = {};
   const prefix = instance.prefix || '';
@@ -601,7 +608,16 @@ function decodeLuxpowerMetrics(profile, instance, registerData) {
       if (m.type === 'int16' && raw > 0x7FFF) raw -= 0x10000;
     }
 
-    const value = parseFloat((raw * (m.scale || 1)).toFixed(4));
+    let scale = m.scale || 1;
+    if (m.decode === 'lux_soc_low_byte') raw &= 255;
+    if (m.decode === 'lux_bms_current') {
+      const flags = registerData['input:80'];
+      const divisor = currentDivisor(model, flags);
+      // The app accepts lithium reports or the special zero flags word.
+      if (!divisor || !((flags & 3) === 2 || flags === 0)) continue;
+      scale = 1 / divisor;
+    }
+    const value = parseFloat((raw * scale).toFixed(4));
     metrics[metricName] = value;
     if (m.unit) units[metricName] = m.unit;
   }
@@ -933,6 +949,7 @@ async function writeDongleSetting(deviceName, register, registerType, raw) {
   const { device, profile } = found;
   if (profile.protocol !== 'luxpower-tcp' || !profile.capabilities || profile.capabilities.write !== true) return { error: 'This device has no settings that can be changed' };
   const addr = registerWord(register);
+  if ((profile.geta_controls || []).some(w => registerWord(w.register) === addr)) return { error: 'Use the named GETA control with expected value and readback' };
   const listed = (profile.writable_registers || []).some(w => registerWord(w.register) === addr && (w.register_type || 'holding') === (registerType || 'holding'));
   if (addr === null || !listed) return { error: 'That register is not in this device\'s list of settings' };
   const value = registerWord(raw, { decimalOnly: true });
@@ -944,6 +961,37 @@ async function writeDongleSetting(deviceName, register, registerType, raw) {
     logger.error(`Dongle write error for ${device.name}/register ${register}: ${e.message}`);
     return { error: e.message };
   }
+}
+
+function luxpowerControlDevice(name, settingName) {
+  const found = dongleDevice(name);
+  if (found.error) return found;
+  if (found.profile.protocol !== 'luxpower-tcp') return { error: 'Not a LuxPower device' };
+  if (settingName !== undefined) {
+    found.setting = (found.profile.geta_controls || []).find(w => w.name === settingName);
+    if (!found.setting) return { error: 'Not a listed GETA control' };
+  }
+  return found;
+}
+async function luxpowerOperation(name, operation, settingName) {
+  const found = luxpowerControlDevice(name, settingName);
+  if (found.error) return found;
+  const settings = require('./dongle/luxpowerSettings');
+  try { return await settings.serialized(name, () => withLuxpowerTransport(found.device, found.profile, t => operation(t, found, settings))); }
+  catch (e) { return { error: e.message, success: false }; }
+}
+function readLuxpowerControl(name, settingName) {
+  return luxpowerOperation(name, (t, f, s) => s.read(t, f.setting), settingName);
+}
+function changeLuxpowerControl(name, settingName, expected, value) {
+  const controls = require('./deviceControls');
+  return luxpowerOperation(name, (t, f, s) => {
+    const refusal = controls.writeRefusal() || (!f.profile.capabilities?.write ? 'This profile does not support writes' : null);
+    return refusal ? { success: false, error: refusal } : s.change(t, f.setting, expected, value, () => !controls.writeRefusal());
+  }, settingName);
+}
+function luxpowerVerification(name) {
+  return luxpowerOperation(name, (t, f, s) => s.snapshot(t, f.profile, f.device));
 }
 
 /** Expert register write on a LuxPower instance: any holding register (expert switch only). */
@@ -975,9 +1023,10 @@ function createLuxpowerTransport(inst, profile, onFrame) {
     inverter_serial: inst.inverter_serial || inst.serial_number
   };
   if (inst.transport === 'ble-luxpower') {
-    return new BleLuxpowerTransport({ ...serials, ble_address: inst.ble_address, ble_write_uuid: inst.ble_write_uuid, ble_notify_uuid: inst.ble_notify_uuid });
+    return new BleLuxpowerTransport({ ...inst, ...serials, ble_address: inst.ble_address, ble_write_uuid: inst.ble_write_uuid, ble_notify_uuid: inst.ble_notify_uuid });
   }
   return new LuxpowerTcpTransport({
+    ...inst,
     ...serials,
     host: inst.host || inst.ip,
     port: inst.port || (profile && profile.default_port) || 8000,
@@ -1013,6 +1062,7 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
   }
   if (addr === null || isNaN(addr)) return { error: 'Invalid register address' };
 
+  if ((profile.geta_controls || []).some(w => Number(w.register) === addr)) return { error: 'Use the named GETA control with expected value and readback' };
   const writable = profile.writable_registers || [];
   const entry = writable.find(w =>
     parseInt(w.register, 16) === addr &&
@@ -1024,6 +1074,8 @@ async function executeLuxpowerWrite(device, profile, handle, value) {
       : 'none';
     return { error: `Register ${trimmed} is not writable on luxpower profile (writable_registers: ${listed})` };
   }
+
+  if (entry.geta_control) return { error: 'Use the named GETA control with expected value and readback' };
 
   const parsed = parseFloat(value);
   if (isNaN(parsed)) return { error: 'Invalid value for register write' };
@@ -1072,5 +1124,6 @@ module.exports = {
   pollJsonInstance,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
-  luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame
+  luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame,
+  readLuxpowerControl, changeLuxpowerControl, luxpowerVerification, createLuxpowerTransport
 };

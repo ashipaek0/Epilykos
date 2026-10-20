@@ -413,12 +413,14 @@
           </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Backup file</h2></div>
-            <div class="st-inline-actions"><button type="button" id="backup-btn" class="st-btn st-btn-primary"><span data-icon="download" data-size="16"></span>Download backup</button><button type="button" id="restore-btn" class="st-btn">Restore from file…</button><input type="file" id="restore-file" accept=".db" hidden></div>
+            <div class="st-inline-actions"><button type="button" id="backup-btn" class="st-btn st-btn-primary"><span data-icon="download" data-size="16"></span>Download backup</button><button type="button" id="restore-btn" class="st-btn">Restore from file…</button><input type="file" id="restore-file" accept=".db,.db.gz,.gz" hidden></div>
             <div id="backup-status" class="test-status" role="status"></div>
+            <div id="restore-progress-row" class="st-inline-actions" hidden><progress id="restore-progress" aria-label="Backup upload progress" max="100" value="0"></progress><button type="button" id="restore-cancel" class="st-btn">Cancel restore</button></div>
           </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Automatic snapshots</h2></div>
-            <p class="st-help">Taken daily. The last two are kept.</p>
+            <p class="st-help">Verified gzip snapshots are taken daily. The two newest successful copies are kept.</p>
+            <button type="button" id="snapshot-refresh" class="st-btn">Refresh snapshots</button>
             <div id="snapshot-list" class="st-snapshots"><p class="st-help">Loading snapshots…</p></div>
             <div id="snapshot-status" class="test-status" role="status"></div>
           </div>
@@ -901,7 +903,7 @@
            The nav entry stays hidden unless the server reports an appliance. -->
       <section class="st-section" id="section-system" data-section="system" aria-labelledby="h-system" hidden>
         <div class="st-section-head">
-          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, change its Wi-Fi, and the SSH maintenance login.</p></div>
+          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, change its Wi-Fi or dashboard port, and the SSH maintenance login.</p></div>
         </div>
         <div id="sys-root"><p class="st-help">Loading…</p></div>
       </section>
@@ -1000,15 +1002,18 @@
 <script src="js/pvoutput-units.js?v=1"></script>
 <script src="settings.js?v=21"></script>
 <script src="js/catalog-ui.js?v=1"></script>
-<script src="js/settings-shell.js?v=6"></script>
+<script src="js/restore-upload.js?v=1"></script>
+<script src="js/settings-shell.js?v=8"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
-<script src="js/system-settings.js?v=1"></script>
+<script src="js/system-settings.js?v=2"></script>
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=1"></script>
 <script src="js/updates-settings.js?v=1"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
+  <script src="/js/maintenance.js"></script>
+<script src="/js/appliance-settings.js"></script>
 </body>
 </html>

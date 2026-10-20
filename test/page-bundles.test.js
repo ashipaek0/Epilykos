@@ -47,7 +47,7 @@ function request(server, p, cookie) {
   assert.ok(!html.includes('modulepreload'), 'no preloads needed');
 
   const app = express();
-  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
   app.get('/test-login', (req, res) => { req.session.authenticated = true; res.send('ok'); });
   mountPrivatePages(app);
   app.get('/', (req, res) => sendPage(res, index, '/'));

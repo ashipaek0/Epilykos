@@ -989,6 +989,9 @@
       downloadBackup();
       showStatus(statusEl, 'Your backup is downloading.', 'success');
     });
+    var restoreUpload = window.EpilykosRestoreUploads.connect({ status: statusEl, progress: $('restore-progress'), row: $('restore-progress-row'), cancel: $('restore-cancel'), restore: $('restore-btn'), backup: $('backup-btn'), onSelected: function () { leaving = true; location.reload(); } });
+    restoreUpload.refresh();
+    $('snapshot-refresh').addEventListener('click', loadSnapshots);
     var file = $('restore-file');
     $('restore-btn').addEventListener('click', function () { file.click(); });
     file.addEventListener('change', async function () {
@@ -996,16 +999,7 @@
       file.value = '';
       if (!f) return;
       if (!(await confirmRestore('Restore from "' + f.name + '"?', 'the contents of this file (' + formatBytes(f.size) + ')'))) return;
-      var fd = new FormData();
-      fd.append('dbfile', f);
-      showStatus(statusEl, 'Restoring…', 'info');
-      try {
-        var r = await fetch('/api/restore', { method: 'POST', body: fd });
-        if (!r.ok) { var err = await r.json().catch(function () { return {}; }); throw new Error(err.error || 'Restore failed (' + r.status + ')'); }
-        showStatus(statusEl, 'Restored. Reloading…', 'success');
-        leaving = true;
-        setTimeout(function () { location.reload(); }, 1200);
-      } catch (e) { showStatus(statusEl, e.message, 'error'); }
+      await restoreUpload.start(f);
     });
   }
   async function loadSnapshots() {
@@ -1013,12 +1007,21 @@
     var statusEl = $('snapshot-status');
     if (!list) return;
     try {
+      var stateResponse = await fetch('/api/snapshots/status');
+      if (stateResponse.ok) {
+        var state = await stateResponse.json(), note = $('snapshot-status');
+        var label = state.phase === 'capturing' ? 'Creating and verifying a compressed snapshot…' : state.phase === 'waiting' ? 'Waiting for local health or maintenance availability.' : state.phase === 'retrying' ? 'Waiting before the next snapshot attempt.' : '';
+        if (state.error) label += ' ' + state.error;
+        if (state.overdue) label += ' No recent automatic snapshot is available.';
+        if (state.nextAttemptAt) label += ' Next retry: ' + new Date(state.nextAttemptAt).toLocaleString() + '.';
+        note.textContent = label;
+      }
       var r = await fetch('/api/snapshots');
       if (!r.ok) throw new Error('Couldn\'t load snapshots (' + r.status + ')');
       var snaps = await r.json();
       if (!snaps.length) { list.innerHTML = '<p class="st-help">No snapshots yet. The first one is taken within a day of starting Epilykos.</p>'; return; }
       list.innerHTML = snaps.map(function (s) {
-        return '<div class="st-snapshot"><div><span class="st-snapshot-date">' + esc(new Date(s.time).toLocaleString()) + '</span><span class="st-help"> · ' + esc(formatBytes(s.size)) + '</span></div>' +
+        return '<div class="st-snapshot"><div><span class="st-snapshot-date">' + esc(new Date(s.time).toLocaleString()) + '</span><span class="st-help"> · ' + esc(formatBytes(s.size)) + (s.format === 'gzip' ? ' · Gzip' : ' · Legacy SQLite') + '</span></div>' +
           '<button type="button" class="st-btn" data-snapshot="' + esc(s.name) + '" data-when="' + esc(new Date(s.time).toLocaleString()) + '" data-size="' + esc(formatBytes(s.size)) + '">Restore…</button></div>';
       }).join('');
       list.querySelectorAll('[data-snapshot]').forEach(function (b) {
