@@ -32,7 +32,7 @@ function acquireLocalLock(label, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
       waiter.timer = setTimeout(() => {
         const index = state.waiters.indexOf(waiter);
         if (index !== -1) state.waiters.splice(index, 1);
-        reject(new Error(`Maintenance lock '${label}' timed out after ${timeoutMs}ms`));
+        reject(Object.assign(new Error(`Maintenance lock '${label}' timed out after ${timeoutMs}ms`), { code: 'LOCK_BUSY' }));
       }, timeoutMs);
     }
   });

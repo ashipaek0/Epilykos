@@ -115,6 +115,35 @@ test('retained downloads are bounded and a finished download permits another', a
   } finally { for (const res of [first, second, rejected, next]) if (res.done) res.done(); }
 });
 
+for (const backend of ['local', 'shared']) test('busy ' + backend + ' maintenance returns 503 without consuming download slots', { skip: backend === 'shared' && process.platform !== 'linux', timeout: 12000 }, async () => {
+  const previous = process.env.EPILYKOS_MAINTENANCE_LOCK;
+  let release;
+  const busy = response(), first = response(), second = response();
+  try {
+    if (backend === 'shared') {
+      const file = path.join(dir, 'busy-maintenance.lock');
+      process.env.EPILYKOS_MAINTENANCE_LOCK = file;
+      const lease = await require('../modules/maintenanceFileLock').acquireFileLease(file, 0);
+      release = () => lease.release();
+    } else {
+      delete process.env.EPILYKOS_MAINTENANCE_LOCK;
+      release = await require('../modules/maintenanceLock').acquireLock('maintenance');
+    }
+    await backupDatabase(busy);
+    assert.equal(busy.statusCode, 503);
+    assert.match(busy.body.error, /already running.*try again/i);
+    assert.equal(busy.file, undefined);
+    release(); release = null;
+    await backupDatabase(first); await backupDatabase(second);
+    assert.equal(first.statusCode, 200); assert.equal(second.statusCode, 200);
+    readProbe(first.file); readProbe(second.file);
+  } finally {
+    release?.(); first.done?.(); second.done?.();
+    if (previous === undefined) delete process.env.EPILYKOS_MAINTENANCE_LOCK;
+    else process.env.EPILYKOS_MAINTENANCE_LOCK = previous;
+  }
+});
+
 test('HTTP disconnect during streaming releases staging and a download slot', async () => {
   const http = require('node:http');
   const express = require('express');
