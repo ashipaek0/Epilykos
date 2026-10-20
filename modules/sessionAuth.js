@@ -95,34 +95,8 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts, please try again later' }
 });
 
-// CSRF protection (skip for login endpoint & webhook)
-const csrfProtection = (req, res, next) => {
-  if (req.originalUrl === '/api/login' || req.originalUrl.startsWith('/api/pvoutput/webhook')) {
-    return next();
-  }
-  if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
-    const reqHeader = req.headers['x-requested-with'];
-    const origin = req.headers['origin'];
-    const host = req.headers['host'];
-
-    // Enforce Origin matching if present
-    if (origin && host) {
-      try {
-        const originHost = new URL(origin).host;
-        if (originHost !== host) {
-          return res.status(403).json({ error: 'CSRF protection: Origin mismatch' });
-        }
-      } catch (_) {
-        return res.status(403).json({ error: 'CSRF protection: Invalid Origin header' });
-      }
-    }
-
-    if (!reqHeader || reqHeader !== 'XMLHttpRequest') {
-      return res.status(403).json({ error: 'CSRF protection: Missing X-Requested-With header' });
-    }
-  }
-  next();
-};
+// Shared session-bound CSRF guard (also used by HTTP fixtures).
+const { csrfProtection } = require('./csrfProtection');
 
 module.exports = {
   isAuthenticated,

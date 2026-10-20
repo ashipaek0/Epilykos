@@ -8,7 +8,7 @@
  *
  *   node test/security/02-input-and-limits.js
  */
-const { request, login, xhr } = require('./_client');
+const { request, login, anonymousSession, xhr } = require('./_client');
 const results = [];
 const add = (attack, detail, status, response, verdict) =>
   results.push({ attack, detail, status, response: String(response).slice(0, 100), verdict });
@@ -54,9 +54,11 @@ const add = (attack, detail, status, response, verdict) =>
     r.status === 200 ? 'INFO (layout write allowed while locked — layout only, not a device write)' : `ok (${r.status})`);
 
   // 4. Rate-limit: fire 25 bad logins, count how many were NOT 429.
+  const anonymous = await anonymousSession();
   let accepted = 0, limited = 0;
   for (let i = 0; i < 25; i++) {
-    const lr = await request('POST', '/api/login', { headers: xhr, body: { password: 'wrong' + i } });
+    const lr = await request('POST', '/api/login', { ...anonymous, body: { password: 'wrong' + i } });
+    if (lr.status !== 401 && lr.status !== 429) throw new Error('Login rate-limit probe did not reach authentication: ' + lr.status);
     if (lr.status === 429) limited++; else accepted++;
   }
   add('Login rate-limit burst (25 attempts)', `${accepted} reached handler, ${limited} rate-limited (429)`,

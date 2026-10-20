@@ -17,7 +17,7 @@ const { mountPrivatePages, ownsPrivatePath } = require('../routes/privatePages')
 
 const ROOT = path.join(__dirname, '..');
 const app = express();
-app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
 app.get('/test-login', (req, res) => { req.session.authenticated = true; res.send('ok'); });
 mountPrivatePages(app);
 app.use(express.static(path.join(ROOT, 'public')));
