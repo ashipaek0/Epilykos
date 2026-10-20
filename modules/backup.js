@@ -84,8 +84,13 @@ async function backupDatabase(res) {
     handedOff = true;
   } catch (err) {
     if (!controller.signal.aborted) {
-      logger.error('Backup failed:', err);
-      if (!res.headersSent) res.status(err.code === 'INSUFFICIENT_STORAGE' ? 507 : 500).json({ error: 'Backup failed: ' + err.message });
+      if (err.code === 'LOCK_BUSY') {
+        logger.info('Backup deferred: maintenance is already running');
+        if (!res.headersSent) res.status(503).json({ error: 'A snapshot, backup or restore is already running. Wait for it to finish, then try again.' });
+      } else {
+        logger.error('Backup failed:', err);
+        if (!res.headersSent) res.status(err.code === 'INSUFFICIENT_STORAGE' ? 507 : 500).json({ error: 'Backup failed: ' + err.message });
+      }
     }
   } finally {
     if (release) release();

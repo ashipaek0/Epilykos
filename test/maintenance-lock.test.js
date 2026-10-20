@@ -16,7 +16,7 @@ const lock = require('../modules/maintenanceLock');
   releaseSecond();
 
   const releaseHeld = await lock.acquireLock('timeout');
-  await assert.rejects(lock.acquireLock('timeout', { timeoutMs: 20 }), /timed out/i);
+  await assert.rejects(lock.acquireLock('timeout', { timeoutMs: 20 }), err => err.code === 'LOCK_BUSY' && /timed out/i.test(err.message));
   releaseHeld();
 
   await assert.rejects(lock.withLock('error', async () => { throw new Error('wrapped failure'); }), /wrapped failure/);
