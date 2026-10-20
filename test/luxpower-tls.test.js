@@ -18,7 +18,14 @@ test('TLS-required connects with PSK and sends translated reads only after hands
   let identity;
   const server = tls.createServer({ minVersion: 'TLSv1.2', maxVersion: 'TLSv1.2', ciphers: 'DHE-PSK-AES128-GCM-SHA256', dhparam: 'auto', pskCallback: (_s, id) => { identity = id; return derivePsk(config.dongle_serial); } }, s => s.on('data', b => s.write(reply(b))));
   const t = new LuxpowerTcpTransport({ ...config, port: await listen(server), tls_policy: 'required' });
-  try { assert.equal((await t.readRegisters(0, 1)).readUInt16LE(), 42); assert.equal(identity, 'Client_identity'); assert.equal(t.diagnostics.mode, 'tls-psk'); }
+  try { assert.equal((await t.readRegisters(0, 1)).readUInt16LE(), 42); assert.equal(identity, 'Client_identity'); assert.equal(t.diagnostics.mode, 'tls-psk'); assert.equal(t._socket.authorized, true, 'PSK handshake must pass identity validation'); }
+  finally { t.stop(); await new Promise(r => server.close(r)); }
+});
+test('TLS-required rejects a peer with a different PSK before sending application data', async () => {
+  let frames = 0;
+  const server = tls.createServer({ minVersion: 'TLSv1.2', maxVersion: 'TLSv1.2', ciphers: 'DHE-PSK-AES128-GCM-SHA256', dhparam: 'auto', pskCallback: () => Buffer.alloc(16, 7) }, s => s.on('data', () => frames++));
+  const t = new LuxpowerTcpTransport({ ...config, port: await listen(server), tls_policy: 'required' });
+  try { await assert.rejects(t.writeRegister(64, 50)); assert.equal(frames, 0); }
   finally { t.stop(); await new Promise(r => server.close(r)); }
 });
 test('auto fallback opens a fresh socket; required refuses legacy server without sending a write', async () => {

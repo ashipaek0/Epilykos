@@ -438,6 +438,9 @@ app.use(session({
   cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// Guard every unsafe request after sessions and before any route.
+app.use(csrfProtection);
+
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
 require('./routes/remote').init();
@@ -538,7 +541,7 @@ app.use('/vendor/gridstack', express.static(path.join(__dirname, 'node_modules',
 app.use('/vendor/chartjs', express.static(path.join(__dirname, 'node_modules', 'chart.js', 'dist'), { maxAge: '7d', index: false }));
 app.use('/vendor/chartjs-adapter-date-fns', express.static(path.join(__dirname, 'node_modules', 'chartjs-adapter-date-fns', 'dist'), { maxAge: '7d', index: false }));
 app.use(express.json());
-app.use('/api', csrfProtection);
+app.get('/api/csrf-token', require('./modules/csrfProtection').csrfToken);
 
 // Normalize req.body: Express 5 leaves req.body undefined when no parser matched
 // (Express 4 defaulted to {}). Restores the v4 default globally.

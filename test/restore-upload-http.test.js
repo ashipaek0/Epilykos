@@ -27,8 +27,8 @@ test('authenticated HTTP large restores, cancellation, restart status and indepe
   const input = fixture('selected', true), bytes = fs.statSync(input).size;
   assert.ok(bytes > 50 * 1024 * 1024);
   const reserve = http.createServer(); await new Promise(r => reserve.listen(0, '127.0.0.1', r)); const port = reserve.address().port; await new Promise(r => reserve.close(r));
-  const base = 'http://127.0.0.1:' + port; let child, output = '', cookie;
-  const request = (url, opts = {}) => fetch(base + url, { ...opts, headers: { 'x-requested-with': 'XMLHttpRequest', ...(cookie ? { cookie } : {}), ...opts.headers } });
+  const base = 'http://127.0.0.1:' + port; let child, output = '', cookie, csrf;
+  const request = (url, opts = {}) => fetch(base + url, { ...opts, headers: { 'x-requested-with': 'XMLHttpRequest', ...(csrf ? { 'x-csrf-token': csrf } : {}), ...(cookie ? { cookie } : {}), ...opts.headers } });
   const post = (url, body) => request(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
   async function start() {
     child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(port), SETTINGS_PASSWORD: 'fixture-password', SESSION_SECRET: 'fixture-session', LOG_TO_FILE: 'false', ENC_KEY_FILE: path.join(root, 'key') }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -53,8 +53,9 @@ test('authenticated HTTP large restores, cancellation, restart status and indepe
   }
   try {
     await start();
+    const bootstrap = await request('/api/csrf-token'); cookie = bootstrap.headers.get('set-cookie').split(';')[0]; csrf = (await bootstrap.json()).token;
     assert.equal((await post('/api/restore-jobs', { bytes })).status, 401);
-    const login = await post('/api/login', { password: 'fixture-password' }); assert.equal(login.status, 200); cookie = login.headers.get('set-cookie').split(';')[0];
+    const login = await post('/api/login', { password: 'fixture-password' }); assert.equal(login.status, 200); if (login.headers.get('set-cookie')) cookie = login.headers.get('set-cookie').split(';')[0];
     assert.equal((await request('/api/restore-jobs', { method: 'POST', headers: { origin: 'https://invalid.fixture', 'content-type': 'application/json' }, body: JSON.stringify({ bytes }) })).status, 403);
     await t.test('bad declaration and JSON envelope stay bounded', async () => {
       assert.equal((await post('/api/restore-jobs', { bytes: null })).status, 400);
