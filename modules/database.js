@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { logger } = require('./logger');
 const { localDateString } = require('./localTime');
+const databaseWork = require('./databaseWork');
 const {
   SECRET_FIELDS,
   encryptString,
@@ -35,6 +36,7 @@ const DB_PATH = './data/energy.db';
 const DEFAULT_DASHBOARD_LAYOUTS_JSON = `[{"id":"main","name":"Main","layout":[{"id":"b_overview","type":"system-overview","gridX":0,"gridY":0,"gridW":12,"gridH":7,"enabled":true,"config":{}},{"id":"b_totals","type":"energy-totals","gridX":0,"gridY":7,"gridW":12,"gridH":3,"enabled":true,"config":{}},{"id":"b_energy","type":"energy-tabs","gridX":0,"gridY":10,"gridW":12,"gridH":9,"enabled":true,"config":{"title":"Energy"}},{"id":"b_forecast","type":"forecast-pvtoday","gridX":0,"gridY":19,"gridW":6,"gridH":7,"enabled":true,"config":{"location_name":"","metrics":{"generated":"{{role:solar}}"}}},{"id":"b_grid","type":"grid-card","gridX":6,"gridY":19,"gridW":6,"gridH":7,"enabled":true,"config":{"showTimeline":true,"metrics":{"grid_status":""}}},{"id":"b_savings","type":"savings-summary","gridX":0,"gridY":26,"gridW":4,"gridH":4,"enabled":true,"config":{}},{"id":"b_power","type":"chart-power","gridX":4,"gridY":26,"gridW":8,"gridH":8,"enabled":true,"config":{"title":"Power"}},{"id":"b_daily","type":"data-table-daily","gridX":0,"gridY":34,"gridW":12,"gridH":8,"enabled":true,"config":{}}]}]`;
 
 function getDb() {
+  databaseWork.assertCurrent();
   if (!db) throw new Error('Database not initialized');
   return db;
 }
@@ -70,22 +72,42 @@ function migratePowerStatsSchema(handle) {
   }
 }
 
-function initializeDatabase() {
-  const dataDir = path.dirname(DB_PATH);
-  let dbFile = DB_PATH;
+function openConnection(dbFile, fileMustExist = false) {
+  db = new Database(dbFile, { fileMustExist });
+  db.pragma('trusted_schema = OFF');
+  db.pragma('journal_mode = WAL');
+  applySynchronousMode(db);
+  return db;
+}
+
+// Only for the private candidate whose initialization already succeeded.
+// Opening it must not replay migrations/default writes after live closure.
+function openPreparedDatabase() {
+  if (db?.open) throw new Error('Close the live database before opening a prepared restore');
+  return openConnection(DB_PATH, true);
+}
+
+function initializeDatabase({ filePath = DB_PATH } = {}) {
+  if (filePath === DB_PATH) {
+    if (db?.open && fs.existsSync(path.join(path.dirname(DB_PATH), '.restore-transaction.json'))) {
+      throw new Error('Close all database handles before restore recovery');
+    }
+    require('./restoreTransaction').recoverRestore(DB_PATH);
+  }
+  const dataDir = path.dirname(filePath);
+  let dbFile = filePath;
   if (!fs.existsSync(dataDir)) {
     try {
       fs.mkdirSync(dataDir, { recursive: true });
     } catch (err) {
+      if (filePath !== DB_PATH) throw err; // disposable restore preparation must never fall back
       // Still run the schema setup below so the in-memory DB is usable.
       logger.error(`Cannot create data directory ${dataDir}: ${err.message}. Falling back to in-memory database.`);
       dbFile = ':memory:';
     }
   }
 
-  db = new Database(dbFile);
-  db.pragma('journal_mode = WAL');
-  applySynchronousMode(db);
+  openConnection(dbFile);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
@@ -716,6 +738,7 @@ let metricBuffer = [];
 let metricFlushTimer = null;
 
 function queueMetricWrite(entry) {
+  if (!databaseWork.isCurrent()) return; // discard observations from retired producers
   if (!entry || entry.metric === undefined || entry.metric === null) return;
   metricBuffer.push({
     metric: entry.metric,
@@ -766,7 +789,6 @@ function queueMetricValue(metric, rawValue, timestamp, unit) {
 function flushMetrics() {
   if (metricBuffer.length === 0) return 0;
   const batch = metricBuffer;
-  metricBuffer = [];
   const dbm = getDb();
   const metricInsert = dbm.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value) VALUES (?, ?, ?)');
   const metricInsertText = dbm.prepare('INSERT OR IGNORE INTO metrics (timestamp, metric, value_text, value_type) VALUES (?, ?, ?, ?)');
@@ -788,6 +810,7 @@ function flushMetrics() {
     }
   });
   runBatch(batch);
+  metricBuffer = []; // synchronous transaction: keep the batch intact on failure
   return batch.length;
 }
 
@@ -838,6 +861,7 @@ function resolveStoredSecret(value, configKeys) {
 }
 
 module.exports = {
+  openPreparedDatabase,
   DEFAULT_DASHBOARD_LAYOUTS_JSON,
   initializeDatabase,
   migratePowerStatsSchema,

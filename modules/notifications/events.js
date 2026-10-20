@@ -29,6 +29,7 @@ const EVENT_TYPES = {
   'mqtt.connected': { label: 'MQTT broker reconnected', category: 'Sources', severity: 'info', description: 'An MQTT broker connection came back after a drop.' },
   'pvoutput.alert': { label: 'PVOutput alert received', category: 'Uploads', severity: 'warning', description: 'PVOutput sent an alert to the webhook.' },
   'forecast.unavailable': { label: 'Solar forecast unavailable', category: 'Forecast', severity: 'warning', description: 'Solcast (for example its daily quota running out) or Open-Meteo could not be reached.' },
+  'backup.snapshot_overdue': { label: 'Automatic snapshot overdue', category: 'System', severity: 'warning', description: 'No recent automatic snapshot is available, or its timestamp is ahead of the system clock.' },
   'backup.snapshot_failed': { label: 'Automatic snapshot failed', category: 'System', severity: 'warning', description: 'The daily database snapshot could not be written.' },
   'update.available': { label: 'Update available', category: 'System', severity: 'info', description: 'A newer Epilykos build is out: a new release, or the weekly rebuild with security updates. Sent once per build.' },
   'system.started': { label: 'Epilykos started', category: 'System', severity: 'info', description: 'The server started (after an update, a reboot or a crash).' },

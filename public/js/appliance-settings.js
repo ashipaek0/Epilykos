@@ -13,7 +13,7 @@
   function message(s) { var el = root.querySelector('[data-extra-status]'); if (el) el.textContent = s; }
   function renderHost(s) {
     if (!initialized) {
-      root.innerHTML = '<div class="st-card"><h2>Time and storage</h2><p data-clock-status></p><p data-storage-status></p>'
+      root.innerHTML = '<div class="st-card"><h2>Time and storage</h2><p data-clock-status></p><p data-storage-status></p><p data-data-storage-status role="status"></p>'
         + '<div class="st-field"><label for="sys-timezone">Site time zone</label><input class="input" id="sys-timezone" value="' + esc((s.clock || {}).timezone || 'UTC') + '" placeholder="Africa/Lagos"><p class="st-help">Use an IANA name. Daily totals follow this zone; changing it restarts Epilykos.</p></div>'
         + '<button class="st-btn" type="button" data-extra="timezone">Save time zone</button> <button class="st-btn" type="button" data-extra="clock">Set time from this browser</button></div>'
         + '<div class="st-card"><h2>Bluetooth devices</h2><p class="st-help">Pair a device here if its source needs a PIN or a bond. Pairing does not add a source or add support for its protocol. Select the device in source settings afterwards. Nearby devices can be paired only during the five-minute window.</p><div data-bt></div></div><p role="status" data-extra-status></p>';
@@ -23,6 +23,13 @@
     root.querySelector('[data-clock-status]').textContent = clock.epoch ? new Date(clock.epoch*1000).toLocaleString() + ' · ' + clock.timezone + ' · ' + (clock.synchronized ? 'network time synchronized' : 'clock not synchronized; connect to the Internet or correct it below') : 'Clock state unavailable on this OS version.';
     var storage = s.storage;
     root.querySelector('[data-storage-status]').textContent = storage ? (storage.bytes/1e9).toFixed(1) + ' GB card' + (storage.undersized ? ' — below the 32 GB minimum; snapshots and restores may not fit. Use 64 GB if possible.' : ' · 64 GB recommended.') : 'Card size unavailable.';
+    var space = s.data_storage;
+    var GiB = 1073741824;
+    root.querySelector('[data-data-storage-status]').textContent = space && space.available
+      ? 'DATA: ' + (space.available_bytes/GiB).toFixed(1) + ' GiB free of ' + (space.total_bytes/GiB).toFixed(1) + ' GiB.'
+        + (space.state === 'critical' ? ' Critically low free space.' : space.state === 'warning' ? ' Low free space.' : '')
+        + ' Keep at least ' + (Math.ceil(space.maintenance_floor_bytes/GiB*10)/10).toFixed(1) + ' GiB free after maintenance.'
+      : 'DATA free-space measurement unavailable.';
   }
   function renderBluetooth(state) {
     bt = state;

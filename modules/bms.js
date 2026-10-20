@@ -4,6 +4,7 @@ const { createBackoff } = require('./pollBackoff');
 const backoff = createBackoff('BMS');
 const { computeBankAggregates } = require('./bmsAggregator');
 const ble = require('./ble');
+const databaseWork = require('./databaseWork');
 
 let bmsPollInterval = null;
 let bmsPollingActive = false;
@@ -138,15 +139,18 @@ async function pollBMS() {
     }
 
     for (const device of devices) {
+      if (!databaseWork.isCurrent()) return;
       // Packs are read one after another over one adapter: a pack that is off
       // or out of range is tried less often so it doesn't hold up the others.
       if (backoff.skip(device.name)) continue;
       try {
         const data = await readDevice(device.address, device.bms_type);
+        if (!databaseWork.isCurrent()) return;
         storeSample(device, data, Math.floor(Date.now() / 1000));
         backoff.record(device.name, true);
         logger.debug(`BMS ${device.name} polled successfully`);
       } catch (err) {
+        if (!databaseWork.isCurrent()) return;
         backoff.record(device.name, false);
         logger.warn(`BMS poll error for ${device.name}: ${err.message}`);
       }
@@ -193,7 +197,7 @@ function stopBmsPolling() {
     clearInterval(bmsPollInterval);
     bmsPollInterval = null;
   }
-  bmsPollingActive = false;
+  // An in-flight read retains exclusion until its own finally completes.
 }
 
 module.exports = {

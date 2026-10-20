@@ -31,6 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const databaseWork = require('./databaseWork');
 const { createBackoff } = require('./pollBackoff');
 const backoff = createBackoff('BMS-wired');
 const {
@@ -294,6 +295,7 @@ function decodeProfileRegisters(profile, registerData) {
 async function pollWiredDevice(device, profile) {
   const port = await openSerialPort(device, profile);
   try {
+    databaseWork.assertCurrent();
     const framed = FRAMED_READERS[profile.protocol];
     if (framed) {
       const data = await framed(port, device);
@@ -314,6 +316,7 @@ async function pollWiredDevice(device, profile) {
     const registerData = {};
 
     for (const range of ranges) {
+      databaseWork.assertCurrent();
       const frame = buildModbusReadRequest(unitId, 0x03, range.start, range.count);
       const resp = await readModbusRtuFrame(port, frame, parseInt(device.timeout, 10) || 5000);
       const buf = parseModbusReadResponse(resp);
@@ -370,6 +373,7 @@ async function pollBmsWired() {
     if (!devices.length) return;
 
     for (const device of devices) {
+      if (!databaseWork.isCurrent()) return;
       if (!device.enabled || device.transport !== 'wired') continue;
       if (!device.serial_path) {
         logger.warn(`BMS-wired ${device.name}: no serial_path set — skipping`);
@@ -385,8 +389,10 @@ async function pollBmsWired() {
       if (backoff.skip(device.name)) continue;
       try {
         await pollWiredDevice(device, profile);
+        if (!databaseWork.isCurrent()) return;
         backoff.record(device.name, true);
       } catch (err) {
+        if (!databaseWork.isCurrent()) return;
         backoff.record(device.name, false);
         logger.error(`BMS-wired poll error for ${device.name}: ${err.message}`);
       }
@@ -441,6 +447,7 @@ async function testBmsWiredConnection(device) {
     const registerData = {};
 
     for (const range of ranges) {
+      databaseWork.assertCurrent();
       const frame = buildModbusReadRequest(unitId, 0x03, range.start, range.count);
       let resp;
       try {
@@ -506,7 +513,7 @@ function stopBmsWiredPolling() {
     clearInterval(bmsWiredPollInterval);
     bmsWiredPollInterval = null;
   }
-  bmsWiredPollingActive = false;
+  // An in-flight serial operation retains exclusion until it settles.
 }
 
 // Load profiles eagerly so the map is available before the first poll.

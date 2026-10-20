@@ -11,6 +11,9 @@
 const express = require('express');
 const { logger } = require('../modules/logger');
 const hostActions = require('../modules/hostActions');
+const { readSpace } = require('../modules/storageStatus');
+const { DB_PATH } = require('../modules/database');
+const path = require('node:path');
 
 const router = express.Router();
 
@@ -40,7 +43,8 @@ router.get('/', async (req, res) => {
   try {
     const reply = await hostActions.call('status');
     if (!reply || reply.ok !== true) throw Object.assign(new Error(reply && reply.error || 'status failed'), { status: 502 });
-    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh, port: reply.port || null, clock: reply.clock || null, storage: reply.storage || null });
+    res.json({ appliance: true, os_version: reply.os_version || '', wifi_setup_until: reply.wifi_setup_until || 0, ssh: reply.ssh, port: reply.port || null, clock: reply.clock || null, storage: reply.storage || null,
+      data_storage: readSpace(path.dirname(DB_PATH)) });
   } catch (err) {
     res.status(err.status || 500).json({ appliance: true, error: err.message });
   }
