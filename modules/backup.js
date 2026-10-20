@@ -7,6 +7,7 @@ const { acquireLock } = require('./maintenanceLock');
 const { emitEvent } = require('./notifications/events');
 const { createBackupSnapshot } = require('./sqliteSnapshot');
 const { prepareRestore } = require('./restorePreparation');
+const { createRestoreStaging, reapRestoreStaging } = require('./restoreStaging');
 const { beginRestoreSwap, recoverRestore, recoveryError } = require('./restoreTransaction');
 const databaseWork = require('./databaseWork');
 
@@ -43,26 +44,33 @@ async function backupDatabase(res) {
   const disconnect = () => controller.abort(new Error('Backup download disconnected'));
   res.once('close', disconnect);
   if (res.destroyed) disconnect();
-  let release, jobDir, handedOff = false, cleaned = false;
+  let release, job, handedOff = false, cleaned = false;
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
     res.removeListener('close', disconnect);
-    if (jobDir) {
-      try { fs.rmSync(jobDir, { recursive: true, force: true }); }
-      catch (error) { logger.warn('Backup: cannot remove staging directory:', error.message); }
+    if (job) {
+      try { if (!job.cleanup()) logger.warn('Backup: staging retained for restore recovery'); }
+      catch (error) { logger.warn('Backup: staging cleanup deferred: ' + error.message); }
     }
     activeDownloads--;
   };
   try {
     release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
     controller.signal.throwIfAborted();
-    jobDir = fs.mkdtempSync(path.join(path.dirname(DB_PATH), '.backup-'));
-    const tmpPath = path.join(jobDir, 'energy.db');
+    await reapRestoreStaging(path.dirname(DB_PATH), { signal: controller.signal });
+    controller.signal.throwIfAborted();
+    job = await createRestoreStaging(path.dirname(DB_PATH), { role: 'backup-download' });
+    controller.signal.throwIfAborted();
+    const tmpPath = path.join(job.directory, 'energy.db'), scratch = path.join(job.directory, 'scratch');
+    fs.mkdirSync(scratch, { mode: 0o700 });
     try { flushMetrics(); } catch (e) { logger.warn(`Backup: metric flush failed: ${e.message}`); }
-    await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal, leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd] });
+    await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal, scratch,
+      leaseFds: [...(job.leaseFd === undefined ? [] : [job.leaseFd]), ...(release.leaseFd === undefined ? [] : [release.leaseFd])] });
+    fs.chmodSync(tmpPath, 0o600);
     // This file is now immutable and private to this transfer. Holding the
     // maintenance lock during HTTP transfer would prevent restore for hours.
+    // The private job lease remains live until the response transfer finishes.
     release(); release = null;
     res.download(tmpPath, `energy-dashboard-backup-${Date.now()}.db`, { dotfiles: 'allow' }, (err) => {
       if (cleaned) return;

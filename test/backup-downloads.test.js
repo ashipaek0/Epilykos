@@ -183,3 +183,33 @@ test('daily snapshot becomes visible only after capture validates, before prunin
     assert.deepEqual(fs.readdirSync(snaps).filter(f => f.startsWith('.snapshot-')), []);
   } finally { await backup.stopSnapshotScheduler(); }
 });
+
+test('download keeps a private ownership lease after releasing shared maintenance', {skip:process.platform!=='linux'}, async()=>{
+ const res=response();try{
+  await backupDatabase(res);const job=path.dirname(res.file);
+  assert.match(path.basename(job),/^\.backup-owned-[A-Za-z0-9]{6}$/);
+  assert.equal(fs.statSync(res.file).mode&0o777,0o600);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(job,'owner.json'))).kind,'backup-download');
+  const release=await require('../modules/maintenanceLock').acquireLock('maintenance',{timeoutMs:0});release();
+  await assert.rejects(require('../modules/maintenanceFileLock').acquireFileLease(path.join(job,'.owner-lock'),0),e=>e.code==='LOCK_BUSY');
+  assert.deepEqual(await require('../modules/restoreStaging').reapRestoreStaging(path.dirname(database.DB_PATH)),[]);
+  assert.equal(fs.existsSync(res.file),true);res.done();assert.equal(fs.existsSync(job),false);
+ }finally{res.done?.();}
+});
+for(const kind of ['file','directory','symlink','hardlink'])test('download completion preserves unknown '+kind+' instead of recursive deletion',async()=>{
+ const res=response();await backupDatabase(res);const job=path.dirname(res.file),unknown=path.join(job,'unknown'),outside=path.join(dir,'outside-'+kind+'.db');fs.writeFileSync(outside,'outside');
+ if(kind==='directory'){fs.mkdirSync(unknown);fs.writeFileSync(path.join(unknown,'keep.db'),'unknown');}
+ else if(kind==='symlink')fs.symlinkSync(outside,unknown);
+ else if(kind==='hardlink'){fs.unlinkSync(outside);fs.linkSync(res.file,outside);}
+ else fs.writeFileSync(unknown,'unknown');
+ const retained=fs.readFileSync(outside);res.done();assert.equal(fs.existsSync(job),true);assert.equal(fs.existsSync(res.file),true);assert.deepEqual(fs.readFileSync(outside),retained);
+ assert.deepEqual(await require('../modules/restoreStaging').reapRestoreStaging(path.dirname(database.DB_PATH)),[]);
+ // Preserve the new uncertain artifact after asserting; test teardown owns it.
+});
+test('pre-admission reaping removes proven inactive downloads before measuring free space', {skip:process.platform!=='linux'},async()=>{
+ const {createRestoreStaging}=require('../modules/restoreStaging'),root=path.dirname(database.DB_PATH);
+ const orphan=await createRestoreStaging(root,{role:'backup-download'});fs.writeFileSync(path.join(orphan.directory,'energy.db'),Buffer.alloc(1024));orphan.release();
+ const legacy=fs.mkdtempSync(path.join(root,'.backup-'));fs.writeFileSync(path.join(legacy,'energy.db'),'legacy unknown');
+ const real=fs.statfsSync;let checks=0;fs.statfsSync=function(...args){checks++;assert.equal(fs.existsSync(orphan.directory),false);return real.apply(this,args)};
+ const res=response();try{await backupDatabase(res);assert.equal(res.statusCode,200);assert.ok(checks>0);assert.equal(fs.existsSync(legacy),true);}finally{fs.statfsSync=real;res.done?.();}
+});
