@@ -42,16 +42,20 @@
       } catch (error) { if (!authorizationEnded(error)) status.textContent = 'Waiting for Epilykos to reconnect and report the restore result…'; }
       schedule();
     }
-    function chunk(file, offset, end) {
+    async function chunk(file, offset, end) {
+      var token = await root.EpilykosCsrf.token();
+      if (cancelled || disposed) throw new Error('Upload cancelled');
       return new Promise(function (resolve, reject) {
         xhr = new root.XMLHttpRequest();
         xhr.open('PUT', '/api/restore-jobs/' + encodeURIComponent(job.id) + '/chunks');
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('X-CSRF-Token', token);
         xhr.setRequestHeader('X-Restore-Offset', String(offset)); xhr.timeout = 300000;
         xhr.upload.onprogress = function (e) { render(job, offset + e.loaded); };
         xhr.onload = function () {
           var body; try { body = JSON.parse(xhr.responseText); } catch (_) { body = {}; }
+          if (xhr.status === 403 && xhr.getResponseHeader('X-CSRF-Error') === 'token') root.EpilykosCsrf.invalidate();
           if (xhr.status < 200 || xhr.status >= 300) { var error = new Error(body.error || 'Upload failed (' + xhr.status + ')'); error.status = xhr.status; reject(error); }
           else resolve(body);
         };

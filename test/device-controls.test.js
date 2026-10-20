@@ -174,18 +174,20 @@ const lastLog = () => controls.recentLog(1)[0];
       const express = require('express'), session = require('express-session'), http = require('http');
       const app = express();
       app.use(express.json());
-      app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+      app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
       app.get('/signin', (q, s) => { q.session.authenticated = true; s.send('ok'); });
       app.get('/expire', (q, s) => { q.session.controlsUnlockedUntil = Date.now() - 1; s.send('ok'); });
       const { isAuthenticated } = require('../modules/sessionAuth');
-      app.use('/api/controls', isAuthenticated, require('../routes/controls'));
+      const { csrfProtection, csrfToken } = require('../modules/csrfProtection');
+      app.get('/api/csrf-token', csrfToken);
+      app.use('/api/controls', isAuthenticated, csrfProtection, require('../routes/controls'));
       const server = app.listen(0, '127.0.0.1');
       await new Promise(r => server.once('listening', r));
-      let cookie = '';
+      let cookie = '', token;
       const call = (method, p, body) => new Promise((resolve, reject) => {
         const data = body ? JSON.stringify(body) : null;
         const r = http.request({ host: '127.0.0.1', port: server.address().port, method, path: p,
-          headers: { Cookie: cookie, 'Content-Type': 'application/json', ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
+          headers: { Cookie: cookie, 'X-Requested-With': 'XMLHttpRequest', ...(token ? { 'X-CSRF-Token': token } : {}), 'Content-Type': 'application/json', ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
           let t = ''; res.on('data', c => { t += c; });
           res.on('end', () => { if (res.headers['set-cookie']) cookie = res.headers['set-cookie'][0].split(';')[0]; let j = null; try { j = JSON.parse(t); } catch {} resolve({ status: res.statusCode, body: j }); });
         });
@@ -196,6 +198,7 @@ const lastLog = () => controls.recentLog(1)[0];
         assert.strictEqual((await call('POST', '/api/controls/luxpower-verification', { device: 'Lux' })).status, 401);
         assert.strictEqual((await call('POST', '/api/controls/unlock', { password: 'made-up-test-password' })).status, 401, 'signed out cannot unlock');
         await call('GET', '/signin');
+        token = (await call('GET', '/api/csrf-token')).body.token;
         const st = await call('GET', '/api/controls/status');
         assert.strictEqual(st.status, 200); assert.strictEqual(st.body.unlockedUntil, null); assert.strictEqual(st.body.writesEnabled, true);
         const read = await call('POST', '/api/controls/read', { device: 'Lux', setting: 'eod_soc' });

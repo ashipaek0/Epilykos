@@ -31,8 +31,8 @@ test('HTTP restore rebinds engines before confirmation, preserves session access
   let output = '';
   const child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(port), SETTINGS_PASSWORD: 'fixture-password', SESSION_SECRET: 'fixture-session-secret', LOG_TO_FILE: 'false', ENC_KEY_FILE: path.join(root, 'key') }, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', b => { output += b; }); child.stderr.on('data', b => { output += b; });
-  const base = 'http://127.0.0.1:' + port; let cookie;
-  const request = (url, opts = {}) => fetch(base + url, { ...opts, headers: { 'x-requested-with': 'XMLHttpRequest', ...(cookie ? { cookie } : {}), ...opts.headers } });
+  const base = 'http://127.0.0.1:' + port; let cookie, csrf;
+  const request = (url, opts = {}) => fetch(base + url, { ...opts, headers: { 'x-requested-with': 'XMLHttpRequest', ...(csrf ? { 'x-csrf-token': csrf } : {}), ...(cookie ? { cookie } : {}), ...opts.headers } });
   try {
     const deadline = Date.now() + 12000;
     while (true) {
@@ -41,8 +41,9 @@ test('HTTP restore rebinds engines before confirmation, preserves session access
       if (Date.now() >= deadline) throw new Error('server not ready: ' + output);
       await new Promise(r => setTimeout(r, 50));
     }
+    const bootstrap = await request('/api/csrf-token'); cookie = bootstrap.headers.get('set-cookie').split(';')[0]; csrf = (await bootstrap.json()).token;
     const login = await request('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'fixture-password' }) });
-    assert.equal(login.status, 200); cookie = login.headers.get('set-cookie').split(';')[0];
+    assert.equal(login.status, 200); if (login.headers.get('set-cookie')) cookie = login.headers.get('set-cookie').split(';')[0];
     assert.equal((await (await request('/api/pvoutput/status')).json()).enabled, true);
     const before = await (await request('/api/current')).json();
     assert.deepEqual(Object.keys(before.metric_sanity), ['original']);

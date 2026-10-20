@@ -460,7 +460,12 @@ class LuxpowerTcpTransport {
     try {
       socket = encrypted ? tls.connect({ host, port, minVersion: 'TLSv1.2', maxVersion: 'TLSv1.2',
         // PSK-only cipher authenticates via the vendor key, without a certificate.
-        ciphers: 'DHE-PSK-AES128-GCM-SHA256', rejectUnauthorized: false,
+        ciphers: 'DHE-PSK-AES128-GCM-SHA256', rejectUnauthorized: true,
+        // Pure PSK authenticates the peer via its key, and supplies no certificate.
+        // Node requires an identity callback for this certificate-free handshake.
+        // Keep normal hostname verification if a certificate is ever supplied.
+        checkServerIdentity: (hostname, cert) => Object.keys(cert).length === 0
+          ? undefined : tls.checkServerIdentity(hostname, cert),
         pskCallback: () => ({ identity: 'Client_identity', psk: derivePsk(this._dongle) })
       }) : net.createConnection({ host, port });
     } catch (err) {
