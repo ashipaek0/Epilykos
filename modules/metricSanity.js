@@ -28,6 +28,7 @@
 
 const { getConfig, setConfig } = require('./database');
 const { logger } = require('./logger');
+const databaseWork = require('./databaseWork');
 const { warnParseRateLimited } = require('./utils');
 const { localDateString } = require('./localTime');
 
@@ -139,6 +140,7 @@ function readUnitCatalogue() {
 }
 
 function loadConfig() {
+  databaseWork.assertCurrent();
   const cfg = {
     perMetric: {},
     allow: [],
@@ -474,6 +476,7 @@ function rejectSample(st, metricName, num, nowTs, day, reason) {
  *   false for non-counters (write unchanged, AC-12b).
  */
 function check(metricName, value, ts) {
+  if (!databaseWork.isCurrent()) return { guarded: true, accepted: false, reason: 'retired', metric: metricName };
   try {
     if (_test.forceError) throw new Error('forced internal error (test)');
     hydrate();
@@ -597,6 +600,13 @@ function getLastAccepted(metricName, ts) {
   } catch (_) { return null; }
 }
 
+// Reload the selected database without overwriting its persisted baselines.
+function reloadState() {
+  databaseWork.assertCurrent();
+  state.clear(); hydrated = false; config = null;
+  hydrate();
+}
+
 function _reset() {
   state.clear();
   hydrated = false;
@@ -619,6 +629,7 @@ module.exports = {
   getStatus,
   getLastAccepted,
   reloadConfig,
+  reloadState,
   flush,
   _reset,
   _test,

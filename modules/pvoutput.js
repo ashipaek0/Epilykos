@@ -28,6 +28,8 @@ let webhookRouter = null;
 
 function start() {
   const db = getDb();
+  client = null; config = null;
+  initRateLimiter(db);
   const raw = getConfig('pvoutput_config');
   if (!raw || raw === '') return;
 
@@ -38,7 +40,6 @@ function start() {
     return;
   }
 
-  initRateLimiter(db);
   client = new PVOutputClient(config.api_key, config.system_id);
 
   // AC-6: when the pool is locked at startup (remaining <= 0 / cooldown), do no

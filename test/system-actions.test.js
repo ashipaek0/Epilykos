@@ -73,6 +73,20 @@ async function call(method, routePath, body) {
   assert.equal(r.data.port, 3000);
   console.log('ok - on EpilykosOS: status relayed from the host');
 
+  const statfs = fs.statfsSync;
+  try {
+    fs.statfsSync = () => ({ blocks: 2097152n, bsize: 4096n, bavail: 131072n });
+    r = await call('get', '/');
+    assert.equal(r.data.data_storage.state, 'critical');
+    assert.equal(r.data.data_storage.available_bytes, 536870912);
+    assert.equal(r.data.data_storage.warning_bytes, 2147483648);
+    fs.statfsSync = () => { throw new Error('unavailable'); };
+    r = await call('get', '/');
+    assert.deepEqual(r.data.data_storage, { available: false, state: 'unavailable' });
+    assert.equal(r.data.appliance, true, 'unavailable space cannot break the rest of host status');
+  } finally { fs.statfsSync = statfs; }
+  console.log('ok - DATA free-space status uses app-visible space and degrades independently');
+
   const cases = [
     ['/timezone', {timezone:'Africa/Lagos', restart:false, evil:1}, {action:'set_timezone',timezone:'Africa/Lagos',restart:false}],
     ['/clock', {epoch:1700000000, command:'reboot'}, {action:'set_clock',epoch:1700000000}],

@@ -175,8 +175,9 @@ async function buildDashboardState() {
 const SHARED_STATE_MS = 2000;
 let sharedState = null;   // { at, promise }
 function sharedDashboardState() {
-  if (sharedState && Date.now() - sharedState.at < SHARED_STATE_MS) return sharedState.promise;
-  const entry = { at: Date.now(), promise: buildDashboardState() };
+  const db = getDb();
+  if (sharedState && sharedState.db === db && Date.now() - sharedState.at < SHARED_STATE_MS) return sharedState.promise;
+  const entry = { db, at: Date.now(), promise: buildDashboardState() };
   entry.promise.catch(() => { if (sharedState === entry) sharedState = null; });
   sharedState = entry;
   return entry.promise;

@@ -20,6 +20,7 @@
 
 const { logger } = require('../logger');
 const { getDb } = require('../database');
+const databaseWork = require('../databaseWork');
 const store = require('./store');
 const events = require('./events');
 const rules = require('./rules');
@@ -31,6 +32,7 @@ const evaluator = rules.createMetricEvaluator();
 const eventCooldowns = new Map();
 const scheduleRuns = {}; // rule.id → local day it last ran
 let initialised = false;
+let unsubscribe = null;
 let scheduleTimer = null;
 let savedStateJson = '';
 
@@ -78,7 +80,7 @@ function latestRows() {
 
 /** Evaluate metric rules against latest_metrics. Called after each poll cycle flush. */
 function evaluateMetrics(now = Math.floor(Date.now() / 1000)) {
-  if (!initialised) return [];
+  if (!initialised || !databaseWork.isCurrent()) return [];
   let hits = [];
   try {
     const metricRules = rulesFor('metric');
@@ -100,6 +102,7 @@ function evaluateMetrics(now = Math.floor(Date.now() / 1000)) {
 }
 
 function handleEvent(event) {
+  if (!databaseWork.isCurrent()) return;
   let matched = [];
   try {
     matched = rules.matchEventRules(rulesFor('event'), event, event.timestamp, eventCooldowns);
@@ -125,6 +128,7 @@ const sourceLabel = (id) => SOURCE_LABELS[id] || id;
 const sourceHealth = new Map(); // sourceId → { failures, offline, since }
 
 function noteSourceResult(sourceId, ok, error) {
+  if (!databaseWork.isCurrent()) return;
   const h = sourceHealth.get(sourceId) || { failures: 0, offline: false, since: 0 };
   if (ok) {
     if (h.offline) {
@@ -167,7 +171,7 @@ async function buildReport(rule) {
 
 /** Run every schedule rule due at `date` (local time). Returns the rules run. */
 async function runSchedules(date = new Date()) {
-  if (!initialised) return [];
+  if (!initialised || !databaseWork.isCurrent()) return [];
   const today = localDateString(date);
   const due = rules.dueSchedules(rulesFor('schedule'), date, scheduleRuns, today);
   if (!due.length) return [];
@@ -189,7 +193,7 @@ function init() {
   if (initialised) return;
   store.ensureSchema();
   loadState();
-  events.onEvent(handleEvent);
+  unsubscribe = events.onEvent(handleEvent);
   initialised = true;
   scheduleTimer = setInterval(() => { runSchedules().catch(() => {}); }, 30000);
   if (scheduleTimer.unref) scheduleTimer.unref();
@@ -201,6 +205,11 @@ function stop() {
   if (scheduleTimer) clearInterval(scheduleTimer);
   scheduleTimer = null;
   require('./telegramBot').stopAll();
+  if (unsubscribe) unsubscribe();
+  unsubscribe = null; initialised = false;
+  evaluator.states.clear(); eventCooldowns.clear(); sourceHealth.clear();
+  for (const key of Object.keys(scheduleRuns)) delete scheduleRuns[key];
+  savedStateJson = '';
 }
 
 module.exports = {

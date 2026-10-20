@@ -33,6 +33,25 @@ check.setPathsForTests(file, marker, result);
   status = await notices.status(); assert.ok(!status.notices.some(n => n.id === 'clock'));
   fs.utimesSync(process.env.EPILYKOS_CLOCK_FILE, new Date(0), new Date(0));
   assert.ok((await notices.status()).notices.some(n => n.id === 'clock'));
+  const host = require('../modules/hostActions');
+  const available = host.available, call = host.call, statfs = fs.statfsSync;
+  try {
+    host.available = () => true;
+    host.call = async () => ({ ok: true, storage: { undersized: false }, clock: { synchronized: true } });
+    fs.statfsSync = () => ({ blocks: 2097152n, bsize: 4096n, bavail: 131072n });
+    status = await notices.status();
+    const critical = status.notices.find(n => n.id === 'data-space');
+    assert.ok(critical, 'a sufficiently large card can still be critically low on DATA free space');
+    assert.equal(critical.severity, 'critical');
+    assert.equal(status.data_storage.available_bytes, 536870912);
+    fs.statfsSync = () => ({ blocks: 2097152n, bsize: 4096n, bavail: 419430n });
+    assert.equal((await notices.status()).notices.find(n => n.id === 'data-space').severity, 'warning');
+    fs.statfsSync = () => ({ blocks: 2097152n, bsize: 4096n, bavail: 1048576n });
+    assert.ok(!(await notices.status()).notices.some(n => n.id === 'data-space'), 'warning clears once space recovers');
+    host.available = () => false;
+    fs.statfsSync = () => ({ blocks: 2097152n, bsize: 4096n, bavail: 0n });
+    assert.ok(!(await notices.status()).notices.some(n => n.id === 'data-space'), 'appliance space warning is hidden on ordinary deployments');
+  } finally { host.available = available; host.call = call; fs.statfsSync = statfs; }
   const previous = check.last();
   const cancelled = check.run('interrupted by clean shutdown'); await check.stop(); await cancelled;
   assert.deepEqual(check.last(), previous, 'clean shutdown cannot create a corruption finding');

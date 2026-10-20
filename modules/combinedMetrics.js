@@ -389,8 +389,8 @@ function flushPartDays() {
   const db = getDb();
   if (upsertFor !== db) { upsertFor = db; upsertStmt = db.prepare('INSERT INTO combined_part_daily (day, total, part, kwh) VALUES (?, ?, ?, ?) ON CONFLICT(day, total, part) DO UPDATE SET kwh = excluded.kwh'); }
   const rows = [...pendingParts.values()];
-  pendingParts.clear();
   db.transaction(list => { for (const r of list) upsertStmt.run(...r); })(rows);
+  pendingParts.clear();
 }
 
 /**
