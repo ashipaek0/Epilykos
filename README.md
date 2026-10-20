@@ -192,8 +192,6 @@ Multiple dashboards are supported, with automatic switching between desktop and 
 
 ## Card Showcase and Controls
 
-Two pages for signed-in use only. Signed out, every address under them (the pages, their files and any sub path) goes to the sign-in page, and they are never kept in the browser's offline cache.
-
 - **`/showcase`** — every dashboard card, filled with made-up readings from an imaginary home, updating every few seconds. Try each card's options (size, titles, periods, styles) to see what it can do. Nothing on the page reads your data or reaches your devices.
 - **`/controls`** — where inverter and battery settings are changed, and where the switch and selector cards work (on the dashboard they show a link here):
   - **Allow device changes** is off until you turn it on; while off, nothing can change a device setting.
@@ -204,7 +202,7 @@ Two pages for signed-in use only. Signed out, every address under them (the page
 
 Settings available so far:
 
-- **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits plus model-gated charging/discharging power limits, charging-mode flags and three grid-charging windows. Controls can download a read-only verification snapshot; see the [GETA 3.6 kW verification guide and technical report](docs/luxpower/README.md). Local TLS-PSK and chunked Bluetooth writes are selectable compatibility options; existing defaults are retained.
+- **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits plus model-gated charging/discharging power limits, charging-mode flags and three grid-charging windows. Controls can download a read-only verification snapshot.
 - **JBD and JK Bluetooth BMS**: charging and discharging on/off. Turning discharging off cuts what the pack powers, so the page asks you to confirm that separately. A pack that refuses to turn charging back on is usually protecting itself.
 - **Phocos Any-Grid** (Bluetooth): telemetry and allowlisted settings for recognized model profiles (3, 5, 6.5 and 8 kW). See [Phocos BLE details](#phocos-any-grid-ble).
 
@@ -263,11 +261,7 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 
 - **Docker Compose with the Docker socket mounted** (the `docker.sock` line in the compose file above): **Update now** asks for your admin password, downloads the new image, and restarts Epilykos on it with the same settings, volumes and devices. If the new version does not report healthy within three minutes, the previous one is started again and the page says so. The socket gives Epilykos full control of Docker on that computer; leave the line out if you don't want that.
 - **Docker Compose without the socket**: the page shows the commands, `docker compose pull` then `docker compose up -d`.
-- **EpilykosOS**: the appliance checks for and installs signed Epilykos releases itself, and goes back to the previous version if the new one is not healthy (see [docs/host-update-actions.md](docs/host-update-actions.md)). Operating-system updates are not offered from here yet.
-
-**Versions.** Every merge to `main` that changes code is released as the next patch version, `1.0.1`, `1.0.2` and so on. CI tags the commit, creates the GitHub Release with the list of merged pull requests, and also tags the image (`irunmole/epilykos:1.0.2`). Docs-only merges and the weekly rebuild keep the version. For a bigger jump, go to **Releases → Draft a new release**, type a new tag such as `v2.0.0` on `main` and publish it: that build is 2.0.0, and the next merge becomes 2.0.1. Builds from `dev` show the version they lead to, e.g. `1.0.3-dev+abc1234`. The version comes from git tags; `package.json` is only used for local builds.
-
-Builds from the `dev` branch (`irunmole/epilykos:dev`) compare against development builds instead of releases. Images you build yourself have no build number and are never compared.
+- **EpilykosOS**: the appliance checks for and installs signed Epilykos releases itself, and goes back to the previous version if the new one is not healthy.
 
 ---
 
@@ -298,7 +292,9 @@ No reverse proxy or port forwarding needed: Settings → Network → **Remote ac
 
 **Open to the internet** (off by default) uses Tailscale Funnel so any browser can open the address. It asks for your admin password, which must be at least 12 characters.
 
-How it runs: the image includes Tailscale's latest stable release at build time. `tailscaled` runs inside the container in userspace networking mode, started only when you turn remote access on, so no compose changes or extra permissions are needed. Its state is in `data/tailscale/` (not in database backups). **Turn off remote access** logs this device out of your Tailscale network. Remote access can only be turned on by a signed-in admin, so never before the admin password exists.
+How it runs: the image includes Tailscale's latest stable release at build time. `tailscaled` runs inside the container in userspace networking mode, started only when you turn remote access on, so no compose changes or extra permissions are needed. Its state is in `data/tailscale/` (not in database backups). 
+
+**Turn off remote access** logs this device out of your Tailscale network. Remote access can only be turned on by a signed-in admin.
 
 ## Remote Access with a Cloudflare Tunnel
 
@@ -409,39 +405,3 @@ For a complete walkthrough of the codebase architecture — adding new block typ
 
 Epilykos is released under the **GNU General Public License v3.0**.  
 See [`LICENSE`](LICENSE) for the full terms.
-
-### Phocos Any-Grid BLE
-
-The PSW-H profile exposes signed battery current/power (positive charging), gross
-charging power, and estimated grid power (positive import). The grid estimate
-ignores conversion losses; negative values and small flows are preserved. Rated
-values and read-only setting snapshots are available in the entity selector.
-Identity, ratings and settings blocks are read every 20th poll (and right after a
-settings read or change); their snapshot metrics are recorded when they change
-and at least every 4 minutes, so they don't add a row on every poll.
-Existing explicit mappings are preserved: select additional entities to record
-those values. Mode descriptions, serial/firmware strings and raw fault bytes
-require explicit text mappings; setting flags are recorded as 0/1.
-
-8 kW / 48 V units can change settings with the 5 kW / 48 V limits (charging
-currents up to 80 A): the app has no limits of its own for them, and these can
-only be stricter than the unit's real ratings. Other ratings are read-only, and
-equalization-voltage writes and unresolved controls remain disabled.
-Output-voltage changes require a fresh standby-mode read with AC output off.
-24 V float/boost limits are 24–32 V; 48 V limits are 48–64 V. Current choices are
-restricted to the recovered app's discrete values. Unknown bytes are preserved.
-
-The authenticated Bluetooth connection-test API (`POST /api/dongle/test`) returns
-raw block `values`, `identity` and `diagnostics` alongside its summary. Diagnostics
-include resolved full UUIDs/properties/handles, read errors, lengths, firmware and
-field confidence. Optional metadata errors do not erase good telemetry. Read
-minimum lengths follow accessed offsets; settings writes retain strict block
-checks. Settings-read responses also include diagnostics. `app_confirmed` means
-static app evidence, not hardware validation. Inferred measurements are labelled.
-
-Fault bytes are retained without claiming definitive alarms: the app overlaps two
-little-endian words with an 8-bit shift. The recovered model code is byte 19 of
-`2a02`. Evidence: PhocosLink 2.1.4 APK SHA-256
-`105e075605f7653b49987e1494802af2aba0d272f41603e637cb4f8b2a004a30`.
-Test coverage includes existing capture fixtures and synthetic edge cases;
-automated checks do not perform hardware writes.
