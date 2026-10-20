@@ -9,7 +9,7 @@
  * A row is a FAIL (vulnerability) when something that should be refused was
  * allowed. Exit code is the number of failures.
  */
-const { request, login, xhr } = require('./_client');
+const { request, login, anonymousSession, xhr } = require('./_client');
 
 // Routes that change state or expose config. Each: method, path, sample body.
 const PROTECTED = [
@@ -52,7 +52,7 @@ const refusedStatus = s => s === 401 || s === 403 || s === 404;
 (async () => {
   let fails = 0;
 
-  // 1. Unauthenticated (no cookie), with the XHR header so only auth is tested.
+  // 1. Missing token/session: the CSRF or authentication layer must refuse.
   for (const [method, path, body] of PROTECTED) {
     const r = await request(method, path, { body, headers: xhr });
     if (record('No-auth direct request', `${method} ${path}`, `${method} ${path}`, r, refusedStatus(r.status))) fails++;
@@ -63,6 +63,13 @@ const refusedStatus = s => s === 401 || s === 403 || s === 404;
   for (const [method, path, body] of PROTECTED) {
     const r = await request(method, path, { body, headers: xhr, cookie: forged });
     if (record('Forged session cookie', `${method} ${path}`, `${method} ${path} (cookie=forged)`, r, refusedStatus(r.status))) fails++;
+  }
+
+  // Pass CSRF with an anonymous session so unsafe probes reach authentication.
+  const anonymous = await anonymousSession();
+  for (const [method, path, body] of PROTECTED) {
+    const r = await request(method, path, { ...anonymous, body });
+    if (record('Anonymous session with valid CSRF', `${method} ${path}`, `${method} ${path}`, r, r.status === 401)) fails++;
   }
 
   // 3. Sanity: a real session IS accepted for a read (proves the probe works).

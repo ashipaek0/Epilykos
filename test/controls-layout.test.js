@@ -71,16 +71,19 @@ const express = require('express');
 const session = require('express-session');
 const app = express();
 app.use(express.json());
-app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
 app.get('/test-login', (req, res) => { req.session.authenticated = true; res.send('ok'); });
+const { csrfProtection, csrfToken } = require('../modules/csrfProtection');
+app.get('/api/csrf-token', csrfToken);
+let token;
 const isAuthenticated = (req, res, next) => (req.session && req.session.authenticated ? next() : res.status(401).json({ error: 'Unauthorized' }));
-app.use('/api/controls', isAuthenticated, require('../routes/controls'));
+app.use('/api/controls', isAuthenticated, csrfProtection, require('../routes/controls'));
 
 function request(server, method, p, cookie, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
     const req = http.request({ host: '127.0.0.1', port: server.address().port, method, path: p,
-      headers: { ...(cookie ? { Cookie: cookie } : {}), ...(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
+      headers: { 'X-Requested-With': 'XMLHttpRequest', ...(token ? { 'X-CSRF-Token': token } : {}), ...(cookie ? { Cookie: cookie } : {}), ...(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
       let out = ''; res.on('data', c => { out += c; }); res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: out }));
     });
     req.on('error', reject);
@@ -89,12 +92,13 @@ function request(server, method, p, cookie, body) {
   });
 }
 
-const server = app.listen(0, async () => {
+const server = app.listen(0, '127.0.0.1', async () => {
   try {
     assert.strictEqual((await request(server, 'GET', '/api/controls/layout')).status, 401, 'signed out: refused');
     assert.strictEqual((await request(server, 'POST', '/api/controls/layout', null, { layout: [] })).status, 401);
     const login = await request(server, 'GET', '/test-login');
     const cookie = login.headers['set-cookie'][0].split(';')[0];
+    token = JSON.parse((await request(server, 'GET', '/api/csrf-token', cookie)).body).token;
     const got = await request(server, 'GET', '/api/controls/layout', cookie);
     assert.strictEqual(got.status, 200);
     assert.deepStrictEqual(JSON.parse(got.body).layout.map(b => b.id), ['q1']);

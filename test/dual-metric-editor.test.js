@@ -75,7 +75,7 @@ test('invalid enums, numbers, ranges, and colors reject without any block mutati
 
 test('unsafe authored text is escaped by the actual form builder and blank optional colors remain blank', () => {
   const {context} = harness();
-  const html = context.buildSettingsForm({type:'dual-metric',config:{title:'<img src=x>',helpText:'<script>x</script>',panes:{left:{label:'<b>x</b>',valueColor:''},right:{}}}});
+  const html = context.buildSettingsForm({type:'dual-metric',config:{title:'<img src=x><IMG src=x>',helpText:'<script>x</script><ScRiPt>x</ScRiPt>',panes:{left:{label:'<b>x</b>',valueColor:''},right:{}}}});
   assert.match(html,/&lt;img src=x&gt;/); assert.match(html,/&lt;script&gt;x&lt;\/script&gt;/);
-  assert.match(html,/&lt;b&gt;x&lt;\/b&gt;/); assert.doesNotMatch(html,/<img|<script|<b>/);
+  assert.match(html,/&lt;b&gt;x&lt;\/b&gt;/); assert.doesNotMatch(html,/<img|<script|<b>/i);
 });

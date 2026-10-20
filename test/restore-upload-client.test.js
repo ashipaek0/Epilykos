@@ -6,9 +6,9 @@ function fixture() {
   const timers = [], requests = [], chunks = [], slices = [], listeners = {};
   const options = { status: {}, progress: { removeAttribute() {} }, cancel: { addEventListener(_, cb) { listeners.cancel = cb; } }, row: {}, restore: {}, backup: {}, onSelected() { options.selected = (options.selected || 0) + 1; } };
   const job = { id: 'job', phase: 'uploading', bytes: 10, received: 0, chunkBytes: 4 };
-  const window = { addEventListener(name, callback) { listeners[name] = callback; }, removeEventListener(name) { delete listeners[name]; }, fetch: async (url, init) => { requests.push({ url, init }); return { ok: true, json: async () => init?.method === 'POST' ? { ...job } : { status: { ...job, phase: 'selected' } } }; }, XMLHttpRequest: class {
+  const window = { EpilykosCsrf: { token: async () => 'fixture-token', invalidate() {} }, addEventListener(name, callback) { listeners[name] = callback; }, removeEventListener(name) { delete listeners[name]; }, fetch: async (url, init) => { requests.push({ url, init }); return { ok: true, json: async () => init?.method === 'POST' ? { ...job } : { status: { ...job, phase: 'selected' } } }; }, XMLHttpRequest: class {
     constructor() { this.upload = {}; chunks.push(this); }
-    open() {} setRequestHeader() {} send(slice) { this.slice = slice; } abort() { this.onabort(); }
+    open() {} setRequestHeader(name, value) { (this.headers ||= {})[name] = value; } send(slice) { this.slice = slice; } abort() { this.onabort(); }
     complete() { this.status = 200; job.received = this.slice.end; if (job.received === job.bytes) job.phase = 'preparing'; this.responseText = JSON.stringify(job); this.onload(); }
   } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/restore-upload.js'), 'utf8'), { window, setTimeout(cb, ms) { timers.push({ cb, ms }); return timers.length; }, clearTimeout() {} });
@@ -25,6 +25,7 @@ test('duplicate start is suppressed while DATA admission is pending', async () =
 });
 test('File slices bound each request and progress includes accepted bytes', async () => {
   const f = fixture(), pending = f.client.start(f.file); await tick();
+  assert.equal(f.chunks[0].headers['X-CSRF-Token'], 'fixture-token');
   f.chunks[0].complete(); await tick(); f.timers.shift().cb(); await tick();
   f.chunks[1].upload.onprogress({ loaded: 2 }); assert.equal(f.options.progress.value, 6);
   f.chunks[1].complete(); await tick(); f.timers.shift().cb(); await tick();
