@@ -23,6 +23,7 @@ const { getConfig, getDb, flushMetrics } = require('./database');
 const { parseGridState } = require('./utils');
 const { haApiUrl } = require('./ha');
 const { emitEvent } = require('./notifications/events');
+const { localDateString } = require('./localTime');
 
 function fmtDuration(seconds) {
   const m = Math.round(seconds / 60);
@@ -208,13 +209,17 @@ async function getCurrentGridStatus() {
   };
 }
 
-/** Compute cumulative ON hours within a time period. */
+/** Compute cumulative ON hours within a time period ('all': since tracking began). */
 async function getGridHours(period) {
   const db = getDb();
   const now = new Date();
   let start;
 
-  if (period === 'day') {
+  if (period === 'all') {
+    const first = db.prepare('SELECT MIN(timestamp) AS t FROM grid_status').get().t;
+    if (first == null) return 0;
+    start = new Date(first * 1000);
+  } else if (period === 'day') {
     start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   } else if (period === 'week') {
     const d = now.getDay();
@@ -248,6 +253,44 @@ async function getGridHours(period) {
   // Minute-level precision (D3): round to the nearest second of supply, NOT to
   // 0.1h. A 2-minute event (0.0333h) must reach the frontend as 00h:02m.
   return Math.round(hours * 3600) / 3600;
+}
+
+/**
+ * Grid ON hours for each of the last `days` local days, oldest first; the
+ * last one is today so far. A day that ended before tracking began has
+ * hours null (no data), not 0; a day it began during counts from then.
+ */
+function getGridDailyHours(days = 30) {
+  const db = getDb();
+  const now = new Date();
+  const nowUnix = Math.floor(now.getTime() / 1000);
+  const first = db.prepare('SELECT MIN(timestamp) AS t FROM grid_status').get().t;
+  // Local midnights (DST-safe): bounds[i] .. bounds[i + 1] is day i.
+  const bounds = [];
+  for (let i = 0; i <= days; i++) bounds.push(Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1) + i).getTime() / 1000));
+  bounds[days] = Math.min(bounds[days], nowUnix);
+  const seconds = new Array(days).fill(0);
+  const addOn = (a, b) => {
+    for (let i = 0; i < days; i++) {
+      const s = Math.max(a, bounds[i]), e = Math.min(b, bounds[i + 1]);
+      if (e > s) seconds[i] += e - s;
+    }
+  };
+  if (first != null) {
+    const from = Math.max(bounds[0], first);
+    const before = db.prepare('SELECT state FROM grid_status WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1').get(from);
+    let state = before ? before.state : 0, t = from;
+    for (const row of db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp > ? AND timestamp <= ? ORDER BY timestamp ASC').all(from, nowUnix)) {
+      if (state === 1) addOn(t, row.timestamp);
+      state = row.state; t = row.timestamp;
+    }
+    if (state === 1) addOn(t, nowUnix);
+  }
+  return Array.from({ length: days }, (_, i) => ({
+    day: localDateString(new Date(bounds[i] * 1000)),
+    hours: first == null || bounds[i + 1] <= first ? null : Math.round(seconds[i]) / 3600,
+    today: i === days - 1
+  }));
 }
 
 /** Build timeline segments for the last 24 hours. */
@@ -287,4 +330,4 @@ async function getGridTimeline() {
   };
 }
 
-module.exports = { pollGridStatus, getCurrentGridStatus, getGridHours, getGridTimeline };
+module.exports = { pollGridStatus, getCurrentGridStatus, getGridHours, getGridDailyHours, getGridTimeline };
