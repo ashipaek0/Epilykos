@@ -203,6 +203,39 @@
 .ep-grid-hours-title { margin-top: 2px; }
 .grid-card [id^="grid-timeline"] { overflow: hidden; }
 .grid-card .grid-stats { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 72px), 1fr)); flex: 0 0 auto; }
+/* One row of tiles where they fit; on narrower cards 2 × 2 (four) or 3 + 2
+   (five). The numbers shrink with the column, never below 0.8rem, so a long
+   total such as 3210:00 isn't clipped; wide cards keep the usual size. */
+.grid-card .grid-stats { grid-template-columns: repeat(var(--grid-cols, 4), minmax(0, 1fr)) !important; }
+.grid-card .grid-stats[data-count="1"] { --grid-cols: 1; }
+.grid-card .grid-stats[data-count="2"] { --grid-cols: 2; }
+.grid-card .grid-stats[data-count="3"] { --grid-cols: 3; }
+.grid-card .grid-stats[data-count="5"] { --grid-cols: 5; }
+@container (max-width: 699px) { .grid-card .grid-stats[data-count="5"] { --grid-cols: 3; } }
+@container (max-width: 559px) { .grid-card .grid-stats[data-count="4"] { --grid-cols: 2; } }
+@container (max-width: 299px) { .grid-card .grid-stats[data-count="3"], .grid-card .grid-stats[data-count="5"] { --grid-cols: 2; } }
+.grid-card .grid-stats > .ep-tile .ep-value { font-size: calc(clamp(0.8rem, min(4.6cqi, (100cqi - 3rem) / var(--grid-cols, 4) / 5.4), 1.6rem) * var(--card-font-scale, 1)); }
+.grid-card .grid-stats > .ep-tile { min-width: 0; }
+.grid-card .grid-stats > .ep-tile .ep-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-grid-cost { display: block; margin-top: 2px; font-size: calc(0.74rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Grid hours per day: one bar per day, out of 24 h; today is still running. */
+.ep-grid-days-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.ep-grid-range { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--bg); border: 1px solid var(--border); }
+.ep-grid-range button { border: 0; background: transparent; color: var(--text-secondary); font-family: inherit; font-weight: 700; font-size: calc(0.72rem * var(--card-font-scale, 1)); line-height: 1; padding: 4px 8px; border-radius: 7px; cursor: pointer; }
+.ep-grid-range button[aria-pressed="true"] { background: var(--card-bg, var(--surface)); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.ep-grid-range button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ep-grid-days { position: relative; display: flex; align-items: flex-end; gap: clamp(1px, 0.8cqi, 4px); height: 64px; flex: 0 0 auto; margin-right: 30px; border-bottom: 1px solid var(--border); }
+.ep-grid-days::before, .ep-grid-days::after { content: ""; position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); pointer-events: none; }
+.ep-grid-days::before { top: 0; }
+.ep-grid-days::after { top: 50%; }
+.ep-grid-days-y { position: absolute; left: calc(100% + 4px); transform: translateY(-50%); font-size: calc(0.62rem * var(--card-font-scale, 1)); color: var(--text-secondary); white-space: nowrap; }
+.ep-grid-day { flex: 1 1 0; position: relative; z-index: 1; min-width: 2px; border-radius: 3px 3px 0 0; background: var(--success); cursor: pointer; }
+.ep-grid-day.today { background: repeating-linear-gradient(45deg, var(--success) 0 4px, color-mix(in srgb, var(--success) 45%, transparent) 4px 8px); }
+.ep-grid-day.none, .ep-grid-day.unknown { height: 2px !important; background: var(--border); }
+.ep-grid-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ep-grid-days-axis { display: flex; justify-content: space-between; margin-right: 30px; font-size: calc(0.68rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.ep-grid-days-sum { font-size: calc(0.74rem * var(--card-font-scale, 1)); color: var(--text-secondary); min-height: 1.3em; }
+.ep-grid-days-sum b { color: var(--text); }
 
 /* ── Text and embeds ──────────────────────────────────────── */
 .text-card.ep-card { white-space: pre-wrap; word-break: break-word; font-size: calc(clamp(0.85rem, 2.8cqi, 1rem) * var(--card-font-scale, 1)); line-height: 1.55; color: var(--text); overflow: auto; }
