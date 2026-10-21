@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39615570334.1",
-    "version": "1.0.3-dev+920a663",
-    "commit": "920a663d180c4923362a09a99f852e4781f8b78e",
-    "digest": "sha256:05b3d1bafecdc1983bb13aa4f0ac88049f1c4e174fdf9cfeea7351ca808c4f78",
+    "buildId": "39615632437.1",
+    "version": "1.0.3-dev+4a279ef",
+    "commit": "4a279ef3448177a5a49078533f4dd9fecb0c4a67",
+    "digest": "sha256:432e4584ac0882bf44cec4b9b12256b76b72f47155839afc7891e33159bf7478",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T14:17:40Z",
+    "builtAt": "2026-10-21T14:18:06Z",
     "kind": "release",
     "notes": [
-      "Grid card: day range control matches the chart range controls"
+      "Settings > Network: show this box's addresses and connection"
     ]
   },
   "history": [
+    {
+      "buildId": "39615632437.1",
+      "version": "1.0.3-dev+4a279ef",
+      "commit": "4a279ef3448177a5a49078533f4dd9fecb0c4a67",
+      "digest": "sha256:432e4584ac0882bf44cec4b9b12256b76b72f47155839afc7891e33159bf7478",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T14:18:06Z",
+      "kind": "release",
+      "notes": [
+        "Settings > Network: show this box's addresses and connection"
+      ]
+    },
     {
       "buildId": "39615570334.1",
       "version": "1.0.3-dev+920a663",
