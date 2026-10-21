@@ -1,23 +1,50 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "39574734299.1",
-    "version": "1.0.2",
-    "commit": "b01491cbc4988fedfeff6330b72114f245b6ffd3",
-    "digest": "sha256:635c3243eff927759eee8655ee34a37871813b3c01a4ac48709175b42cc69b88",
+    "buildId": "39617819753.1",
+    "version": "1.0.3",
+    "commit": "ded0269353491d106e3c2874549aa1c907cf7c34",
+    "digest": "sha256:4f0fb1c53858dd9f071254984e16e5b41e2d9e8ac65a9be02dbcc30965da294e",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-21T09:09:31Z",
+    "builtAt": "2026-10-21T14:33:52Z",
     "kind": "release",
     "notes": [
-      "Test: day-boundary check uses readings that fall over time",
-      "Daily totals: keep yesterday's counters out of today",
-      "Dashboard: no empty notice banner; backup page card matches the others",
-      "Retention: roll up readings older than 30 days, fast enough to run",
+      "System overview: more detail on the weather tile",
+      "Layout editor: copy and paste blocks; System overview: rename its tiles",
+      "Savings card: a This year option, a toggle for each period, no cut-off totals",
+      "Settings > Network: show this box's addresses and connection",
+      "Grid card: day range control matches the chart range controls",
+      "Modify Docker socket mapping instructions",
       "Update README.md",
-      "Update README.md"
+      "Grid card: optional periods, grid energy cost and grid hours per day",
+      "System: time, storage and Bluetooth cards match the other cards",
+      "Settings: Wi-Fi and the dashboard port move to Network",
+      "Updates: automatic installation card matches the rest of the page"
     ]
   },
   "history": [
+    {
+      "buildId": "39617819753.1",
+      "version": "1.0.3",
+      "commit": "ded0269353491d106e3c2874549aa1c907cf7c34",
+      "digest": "sha256:4f0fb1c53858dd9f071254984e16e5b41e2d9e8ac65a9be02dbcc30965da294e",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-21T14:33:52Z",
+      "kind": "release",
+      "notes": [
+        "System overview: more detail on the weather tile",
+        "Layout editor: copy and paste blocks; System overview: rename its tiles",
+        "Savings card: a This year option, a toggle for each period, no cut-off totals",
+        "Settings > Network: show this box's addresses and connection",
+        "Grid card: day range control matches the chart range controls",
+        "Modify Docker socket mapping instructions",
+        "Update README.md",
+        "Grid card: optional periods, grid energy cost and grid hours per day",
+        "System: time, storage and Bluetooth cards match the other cards",
+        "Settings: Wi-Fi and the dashboard port move to Network",
+        "Updates: automatic installation card matches the rest of the page"
+      ]
+    },
     {
       "buildId": "39574734299.1",
       "version": "1.0.2",
