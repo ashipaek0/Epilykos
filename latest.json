@@ -1,28 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "39617819753.1",
-    "version": "1.0.3",
-    "commit": "ded0269353491d106e3c2874549aa1c907cf7c34",
-    "digest": "sha256:4f0fb1c53858dd9f071254984e16e5b41e2d9e8ac65a9be02dbcc30965da294e",
+    "buildId": "39630097648.1",
+    "version": "1.0.4",
+    "commit": "6a9b79b89be9aab4bd90d3087cc6dcd0ba7e6672",
+    "digest": "sha256:364ab09d874effadd16648a06b0dc7a48bc3b47aba61239050d1e90a9b43f5e2",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-21T14:33:52Z",
+    "builtAt": "2026-10-21T15:55:59Z",
     "kind": "release",
     "notes": [
-      "System overview: more detail on the weather tile",
-      "Layout editor: copy and paste blocks; System overview: rename its tiles",
-      "Savings card: a This year option, a toggle for each period, no cut-off totals",
-      "Settings > Network: show this box's addresses and connection",
-      "Grid card: day range control matches the chart range controls",
-      "Modify Docker socket mapping instructions",
-      "Update README.md",
-      "Grid card: optional periods, grid energy cost and grid hours per day",
-      "System: time, storage and Bluetooth cards match the other cards",
-      "Settings: Wi-Fi and the dashboard port move to Network",
-      "Updates: automatic installation card matches the rest of the page"
+      "Square corners option; grid hours per day fill the card and fit the data"
     ]
   },
   "history": [
+    {
+      "buildId": "39630097648.1",
+      "version": "1.0.4",
+      "commit": "6a9b79b89be9aab4bd90d3087cc6dcd0ba7e6672",
+      "digest": "sha256:364ab09d874effadd16648a06b0dc7a48bc3b47aba61239050d1e90a9b43f5e2",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-21T15:55:59Z",
+      "kind": "release",
+      "notes": [
+        "Square corners option; grid hours per day fill the card and fit the data"
+      ]
+    },
     {
       "buildId": "39617819753.1",
       "version": "1.0.3",
