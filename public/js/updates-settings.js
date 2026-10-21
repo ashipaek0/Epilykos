@@ -73,11 +73,21 @@
 
     html += '<div class="st-card"><div class="st-card-head"><h2>Daily check</h2></div>'
       + '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="up-auto"' + (state.auto ? ' checked' : '') + (state.autoLocked ? ' disabled' : '') + '><span class="slider"></span></label><label for="up-auto">Check for updates once a day</label></span>'
-      + '<p class="st-help">' + (state.autoLocked ? 'Turned off for this install with <code>UPDATE_CHECK=off</code>.' : 'Only downloads a small file listing the latest builds; nothing about this install is sent. Installation is manual unless you enable automatic installation below.') + '</p></div>';
+      + '<p class="st-help">' + (state.autoLocked ? 'Turned off for this install with <code>UPDATE_CHECK=off</code>.' : 'Only downloads a small file listing the latest builds; nothing about this install is sent.' + (m.kind === 'epilykos-os' ? ' Installation is manual unless you turn on automatic installation below.' : '')) + '</p></div>';
 
-    if (m.kind === 'epilykos-os') html += '<div class="st-card"><h2>Automatic app installation</h2><label><input type="checkbox" id="up-install-auto"' + (state.autoInstall ? ' checked' : '') + '> Install signed app releases automatically</label><p class="st-help">Off by default. Requires daily checks. The host verifies the signature, checks health and rolls back a failed update. Each release is tried automatically at most once; a failed release can be retried manually. Epilykos restarts during installation. OS image updates remain manual.</p><div class="st-field"><label for="up-install-password">Admin password to enable</label><input class="input" type="password" autocomplete="current-password" id="up-install-password"></div></div>';
+    if (m.kind === 'epilykos-os') html += autoInstallCard();
     root.innerHTML = html;
     if (shell.setNavBadge) shell.setNavBadge('updates', updateReady() ? '<span class="st-badge is-ok">New</span>' : '');
+  }
+
+  function autoInstallCard() {
+    var on = !!state.autoInstall;
+    var h = '<div class="st-card"><div class="st-card-head"><h2>Automatic app installation</h2></div>';
+    h += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="up-install-auto"' + (on ? ' checked' : '')
+      + (state.auto ? '' : ' disabled') + '><span class="slider"></span></label><label for="up-install-auto">Install signed app releases automatically</label></span>';
+    h += '<p class="st-help">' + (state.auto ? '' : '<b>Turn on the daily check first.</b> ')
+      + 'Turning it on asks for your admin password. The host verifies the signature, checks health and rolls back a failed update. Each release is tried automatically at most once; a failed release can be retried manually. Epilykos restarts during installation. OS image updates remain manual.</p>';
+    return h + '</div>';
   }
 
   function checkedLine(st) {
@@ -225,13 +235,25 @@
 
   root.addEventListener('change', function (ev) {
     if (ev.target.id === 'up-install-auto') {
-      api('POST', '/auto-install', {on:ev.target.checked, password:root.querySelector('#up-install-password').value}).then(function(r) { state.autoInstall=r.autoInstall; render(); toast(r.autoInstall ? 'Automatic installation enabled.' : 'Automatic installation disabled.'); }, function(e) { ev.target.checked=!ev.target.checked; toast(e.message,'error'); });
+      var on = ev.target.checked;
+      ev.target.checked = !on; // the switch moves once the server agrees
+      // Only turning it on needs the admin password.
+      var password = on ? askPassword('Install updates automatically', 'Signed app releases will be installed without asking. Epilykos restarts during each one.', 'Turn on') : Promise.resolve('');
+      password.then(function (pw) {
+        if (pw === null) return;
+        return api('POST', '/auto-install', { on: on, password: pw }).then(function (r) {
+          state.autoInstall = r.autoInstall;
+          render();
+          toast(r.autoInstall ? 'Automatic installation enabled.' : 'Automatic installation disabled.');
+        });
+      }).catch(function (e) { toast(e.message, 'error'); });
       return;
     }
     if (ev.target.id !== 'up-auto') return;
     api('POST', '/auto', { on: ev.target.checked }).then(function (r) {
       state.auto = r.auto;
       toast(r.auto ? 'Daily check on.' : 'Daily check off.');
+      load(); // automatic installation depends on it
     }, function (e) { toast(e.message, 'error'); ev.target.checked = !ev.target.checked; });
   });
 
