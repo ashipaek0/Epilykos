@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39586081126.1",
-    "version": "1.0.3-dev+8ca2320",
-    "commit": "8ca2320ee060a0bed4c877468010388fa3181b77",
-    "digest": "sha256:e9a137e78ac6ab9b958f31538d6916db13d310012d0d03a0c82a538f2f888f3a",
+    "buildId": "39594135487.1",
+    "version": "1.0.3-dev+8dafe28",
+    "commit": "8dafe28e8e24fca274d312f3b07818247570aec9",
+    "digest": "sha256:cd3dd65edf38f30e845af4c14c3bd1208962b736c5241d3ffbf95a10883e1d6a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T10:39:03Z",
+    "builtAt": "2026-10-21T11:44:19Z",
     "kind": "release",
     "notes": [
-      "System: time, storage and Bluetooth cards match the other cards",
-      "Settings: Wi-Fi and the dashboard port move to Network"
+      "Grid card: optional periods, grid energy cost and grid hours per day"
     ]
   },
   "history": [
+    {
+      "buildId": "39594135487.1",
+      "version": "1.0.3-dev+8dafe28",
+      "commit": "8dafe28e8e24fca274d312f3b07818247570aec9",
+      "digest": "sha256:cd3dd65edf38f30e845af4c14c3bd1208962b736c5241d3ffbf95a10883e1d6a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T11:44:19Z",
+      "kind": "release",
+      "notes": [
+        "Grid card: optional periods, grid energy cost and grid hours per day"
+      ]
+    },
     {
       "buildId": "39586081126.1",
       "version": "1.0.3-dev+8ca2320",
