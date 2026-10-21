@@ -28,11 +28,19 @@ check('up to three extra values, saved from the editor', () => {
 });
 check('PV split: PV inverter and PV charger tiles with lines to the hub, Total solar beside', () => {
   assert.match(src, /split = !!\(pv\.inverter && pv\.charger\)/);
-  assert.match(src, /tileHtml\('pvi'\) \+ tileHtml\('home'\) \+ tileHtml\('pvc'\)/);
+  assert.match(src, /tileHtml\('pvi', name\('pvi'\)\) \+ tileHtml\('home', name\('home'\)\) \+ tileHtml\('pvc', name\('pvc'\)\)/);
   assert.match(src, /Total solar/); assert.match(src, /set\('pvi', card\._soPv\?\.inverter, true\)/);
   assert.match(src, /\/api\/metrics\/history\?metric=/);
   const ed = read('public/js/editor.js');
   assert.match(ed, /pick both a PV inverter and a PV charger metric, or neither/); assert.match(ed, /PV inverter and PV charger need different metrics/);
+});
+check('tiles can be renamed; live wording keeps the chosen name', () => {
+  assert.match(src, /function tileNames\(config\)/);
+  assert.match(src, /<span class="so-name">\$\{escapeHtml\(label\)\}<\/span>/, 'names are escaped');
+  assert.match(src, /`\$\{name\('grid'\)\} \(export\)`/);
+  assert.match(src, /`\$\{names\.battery\} · \$\{battState\.toLowerCase\(\)\}`/);
+  const ed = read('public/js/editor.js');
+  assert.match(ed, /id="modal-so-name-' \+ t\[0\]/); assert.match(ed, /config\.names = soNames; else delete config\.names/);
 });
 check('weather tile reads the shared forecast fetch and says when it is unavailable', () => {
   assert.match(src, /getSharedForecastData\('auto'/); assert.match(src, /'Unavailable'/); assert.match(src, /config\.showWeather === true/);
