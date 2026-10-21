@@ -483,6 +483,9 @@ const restoreUploads = require('./modules/restoreUploads').createRestoreUploadMa
 });
 const stopRestoreStagingCleanup = require('./modules/restoreStaging').startRestoreStagingCleanup('./data');
 startSnapshotScheduler();
+// Raw readings older than 30 days become 5-minute summaries (metrics_5m,
+// history_5m), which the chart and table readers use past that point.
+const retention = new (require('./modules/retentionJob').RetentionManager)().start();
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -2751,6 +2754,7 @@ async function shutdown(signal) {
   try { await require('./modules/ble').shutdownBle(); } catch (e) { logger.warn(`Bluetooth shutdown failed: ${e.message}`); }
   await restoreUploads.close();
   await stopSnapshotScheduler();
+  await retention.stop();
   await stopRestoreStagingCleanup();
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);

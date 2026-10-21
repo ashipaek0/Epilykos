@@ -61,5 +61,38 @@ const eligible = Math.floor((cutoff - 301) / 300) * 300;
   held();
   assert.strictEqual(deferred.deferred, true);
   console.log('ok - retention rollup aggregation, pruning boundaries, retry, and lock deferral');
+
+  // A late row for an already summarised bucket is merged, not overwritten.
+  db.prepare('INSERT INTO metrics(timestamp, metric, value, value_text) VALUES (?, ?, ?, ?)').run(eligible + 5, 'power', 20, null);
+  await runRollupOnce({ now });
+  const merged = db.prepare("SELECT * FROM metrics_5m WHERE metric='power'").get();
+  assert.deepStrictEqual([merged.value_avg, merged.value_min, merged.value_max, merged.value_count], [10, 2, 20, 3], 'weighted into the existing summary');
+  console.log('ok - late rows merge into their 5-minute summary');
+
+  // A long backlog: windows of an hour, a time budget per run, "more" until done.
+  const { runMetricsBatch, RetentionManager } = require(path.join(REPO, 'modules/retentionJob'));
+  const ins = db.prepare('INSERT INTO metrics(timestamp, metric, value, value_text) VALUES (?, ?, ?, ?)');
+  const day = 86400, base = Math.floor((cutoff - 3 * day) / 300) * 300;
+  db.transaction(() => { for (let t = base; t < base + 2 * day; t += 60) { ins.run(t, 'load', 1, null); ins.run(t, 'pv', 3, null); } })();
+  assert.strictEqual(runMetricsBatch(db, cutoff), 24, 'one batch is one hour: 12 buckets x 2 metrics');
+  let runs = 0, r;
+  do { r = await runRollupOnce({ now, budgetMs: 1 }); runs++; } while (r.more && runs < 500);
+  assert.ok(runs > 1, 'a tiny budget leaves work for later runs');
+  assert.strictEqual(r.more, false);
+  assert.strictEqual(db.prepare("SELECT count(*) n FROM metrics WHERE metric IN ('load','pv')").get().n, 0);
+  assert.strictEqual(db.prepare("SELECT count(*) n FROM metrics_5m WHERE metric IN ('load','pv')").get().n, 2 * 288 * 2);
+  console.log('ok - a backlog is worked off in hour windows within a time budget per run');
+
+  // The manager: first run soon after start, quick follow-ups while a backlog remains, clean stop.
+  db.transaction(() => { for (let t = base; t < base + day; t += 60) ins.run(t, 'late', 1, null); })();
+  const realNow = Date.now; Date.now = () => (now + 1) * 1000;
+  const manager = new RetentionManager({ firstRunMs: 5, catchUpMs: 5, intervalMs: 3600000, budgetMs: 1 });
+  manager.start();
+  for (let i = 0; i < 400 && db.prepare("SELECT count(*) n FROM metrics WHERE metric='late'").get().n; i++) await new Promise(res => setTimeout(res, 10));
+  await manager.stop();
+  Date.now = realNow;
+  assert.strictEqual(db.prepare("SELECT count(*) n FROM metrics WHERE metric='late'").get().n, 0, 'the manager works the backlog off by itself');
+  assert.strictEqual(manager._timer, null, 'stopped: nothing scheduled');
+  console.log('ok - RetentionManager catches up in quick runs and stops cleanly');
   checks.done();
 })().catch(err => { console.error(err); process.exitCode = 1; });
