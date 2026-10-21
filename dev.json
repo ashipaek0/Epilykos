@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39615847247.1",
-    "version": "1.0.3-dev+b2e7df1",
-    "commit": "b2e7df1bd95b39a3c46b072eb9e0858c9f4dba8e",
-    "digest": "sha256:58172978d90f9a02fbbad64e10b81dfe75a0387375335500f13692b8c8eda683",
+    "buildId": "39616024469.1",
+    "version": "1.0.3-dev+f2ca0bd",
+    "commit": "f2ca0bdd3b54dd78f95d8c5ec4514e20eff04c7b",
+    "digest": "sha256:26a115d0557ac265cc782d839088c30944ec89f3e3b8fcd537fbbc72e62a0264",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T14:19:46Z",
+    "builtAt": "2026-10-21T14:20:52Z",
     "kind": "release",
     "notes": [
-      "Savings card: a This year option, a toggle for each period, no cut-off totals"
+      "Layout editor: copy and paste blocks; System overview: rename its tiles"
     ]
   },
   "history": [
+    {
+      "buildId": "39616024469.1",
+      "version": "1.0.3-dev+f2ca0bd",
+      "commit": "f2ca0bdd3b54dd78f95d8c5ec4514e20eff04c7b",
+      "digest": "sha256:26a115d0557ac265cc782d839088c30944ec89f3e3b8fcd537fbbc72e62a0264",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T14:20:52Z",
+      "kind": "release",
+      "notes": [
+        "Layout editor: copy and paste blocks; System overview: rename its tiles"
+      ]
+    },
     {
       "buildId": "39615847247.1",
       "version": "1.0.3-dev+b2e7df1",
