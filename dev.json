@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39607287790.1",
-    "version": "1.0.3-dev+a0aec6a",
-    "commit": "a0aec6a606d3910eb603235109c80bd84a544f3c",
-    "digest": "sha256:b8580d1804affe8a066989037b97b0122ff95c1a5c0c235617e63bd2cdb4cf02",
+    "buildId": "39615570334.1",
+    "version": "1.0.3-dev+920a663",
+    "commit": "920a663d180c4923362a09a99f852e4781f8b78e",
+    "digest": "sha256:05b3d1bafecdc1983bb13aa4f0ac88049f1c4e174fdf9cfeea7351ca808c4f78",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T13:21:50Z",
+    "builtAt": "2026-10-21T14:17:40Z",
     "kind": "release",
     "notes": [
-      "Modify Docker socket mapping instructions"
+      "Grid card: day range control matches the chart range controls"
     ]
   },
   "history": [
+    {
+      "buildId": "39615570334.1",
+      "version": "1.0.3-dev+920a663",
+      "commit": "920a663d180c4923362a09a99f852e4781f8b78e",
+      "digest": "sha256:05b3d1bafecdc1983bb13aa4f0ac88049f1c4e174fdf9cfeea7351ca808c4f78",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T14:17:40Z",
+      "kind": "release",
+      "notes": [
+        "Grid card: day range control matches the chart range controls"
+      ]
+    },
     {
       "buildId": "39607287790.1",
       "version": "1.0.3-dev+a0aec6a",
