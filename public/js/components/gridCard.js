@@ -6,7 +6,7 @@
  *   showDailyHours  bars of grid hours per day for the last 7, 14 or 30 days
  */
 import { renderTimelineBar, updateGridDate, formatTimestamp } from '../grid.js';
-import { formatDuration, formatMoney } from './format.js';
+import { formatDuration, formatMoney, formatMoneyShort } from './format.js';
 import { uid } from '../utils/uid.js';
 
 export const GRID_PERIODS = [
@@ -92,12 +92,6 @@ export function buildGridCard(block = {}) {
     });
   }
   return card;
-}
-
-/** A cost for a tile: ₦1.78M from a million up (the exact figure is in its title). */
-function tileMoney(value, currency) {
-  if (Math.abs(value) < 1e6) return formatMoney(value, currency);
-  return (currency || '') + new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 2 }).format(value);
 }
 
 /** "21 h 24 min": the bars' wording, where a bare 21:24 could read as a time of day. */
@@ -204,7 +198,7 @@ export function updateGridCardFromState(state) {
       const costEl = document.getElementById(uid('grid-cost-' + key, id));
       if (costEl) {
         const cost = gc.cost?.[key] ?? 0;
-        costEl.textContent = gc.available ? tileMoney(cost, gc.currency) : '—';
+        costEl.textContent = gc.available ? formatMoneyShort(cost, gc.currency) : '—';
         costEl.title = gc.available
           ? `${formatMoney(cost, gc.currency)}: ${(gc.kwh?.[key] ?? 0).toFixed(1)} kWh bought at ${formatMoney(gc.price, gc.currency)} per kWh`
           : 'Map a daily grid import metric to see what the grid energy cost';

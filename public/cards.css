@@ -189,7 +189,9 @@
 .bar-single-status, .bar-stacked-status { font-style: normal !important; font-size: calc(0.82rem * var(--card-font-scale, 1)); }
 
 /* ── Savings ──────────────────────────────────────────────── */
-.savings-block-container .ep-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr)); }
+/* Same columns and sizing as the grid card's tiles (below), so a long total
+   such as ₦1,894,880 isn't cut off. */
+.savings-block-container .ep-tiles { grid-template-columns: repeat(var(--grid-cols, 4), minmax(0, 1fr)) !important; --tile-chars: 7; }
 
 /* ── Grid status ──────────────────────────────────────────── */
 .grid-card.ep-card { gap: var(--card-gap); padding: var(--card-pad); }
@@ -207,16 +209,18 @@
    (five). The numbers shrink with the column, never below 0.8rem, so a long
    total such as 3210:00 isn't clipped; wide cards keep the usual size. */
 .grid-card .grid-stats { grid-template-columns: repeat(var(--grid-cols, 4), minmax(0, 1fr)) !important; }
-.grid-card .grid-stats[data-count="1"] { --grid-cols: 1; }
-.grid-card .grid-stats[data-count="2"] { --grid-cols: 2; }
-.grid-card .grid-stats[data-count="3"] { --grid-cols: 3; }
-.grid-card .grid-stats[data-count="5"] { --grid-cols: 5; }
-@container (max-width: 699px) { .grid-card .grid-stats[data-count="5"] { --grid-cols: 3; } }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="1"] { --grid-cols: 1; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="2"] { --grid-cols: 2; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="3"] { --grid-cols: 3; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="5"] { --grid-cols: 5; }
+@container (max-width: 699px) { :is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="5"] { --grid-cols: 3; } }
 @container (max-width: 559px) { .grid-card .grid-stats[data-count="4"] { --grid-cols: 2; } }
-@container (max-width: 299px) { .grid-card .grid-stats[data-count="3"], .grid-card .grid-stats[data-count="5"] { --grid-cols: 2; } }
-.grid-card .grid-stats > .ep-tile .ep-value { font-size: calc(clamp(0.8rem, min(4.6cqi, (100cqi - 3rem) / var(--grid-cols, 4) / 5.4), 1.6rem) * var(--card-font-scale, 1)); }
-.grid-card .grid-stats > .ep-tile { min-width: 0; }
-.grid-card .grid-stats > .ep-tile .ep-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Savings tiles carry no second line, so four stay in a row longer. */
+@container (max-width: 399px) { .savings-block-container .ep-tiles[data-count="4"] { --grid-cols: 2; } }
+@container (max-width: 299px) { :is(.grid-card .grid-stats, .savings-block-container .ep-tiles):is([data-count="3"], [data-count="5"]) { --grid-cols: 2; } }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles) > .ep-tile .ep-value { font-size: calc(clamp(0.8rem, min(4.6cqi, (100cqi - 3rem) / var(--grid-cols, 4) / var(--tile-chars, 5.4)), 1.6rem) * var(--card-font-scale, 1)); }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles) > .ep-tile { min-width: 0; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles) > .ep-tile .ep-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-grid-cost { display: block; margin-top: 2px; font-size: calc(0.74rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Grid hours per day: one bar per day, out of 24 h; today is still running. */
 .ep-grid-days-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
