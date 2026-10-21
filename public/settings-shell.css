@@ -317,6 +317,14 @@ body.st {
 .st-snapshots { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .st-snapshot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--st-line-soft); border-radius: 10px; }
 .st-snapshot-date { font-size: 0.84rem; font-weight: 700; }
+/* Read-only facts, one per line: a label and its value, divided by rules. */
+.st .st-facts { margin: 10px 0 0; }
+.st .st-facts > div { display: grid; grid-template-columns: minmax(6.5em, 9em) 1fr; gap: 4px 12px; padding: 9px 0; border-top: 1px solid var(--st-line-soft); }
+.st .st-facts > div:first-child { border-top: 0; padding-top: 0; }
+.st .st-facts dt { font-size: 0.84rem; font-weight: 700; }
+.st .st-facts dd { margin: 0; min-width: 0; font-size: 0.84rem; color: var(--st-muted); overflow-wrap: anywhere; }
+.st .st-facts dd b { color: var(--st-text); }
+@media (max-width: 520px) { .st .st-facts > div { grid-template-columns: 7.2em 1fr; } }
 
 /* ── Save bar ───────────────────────────────────────────── */
 .st-savebar {

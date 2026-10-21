@@ -15,7 +15,7 @@
   </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
-  <link rel="stylesheet" href="settings-shell.css?v=3">
+  <link rel="stylesheet" href="settings-shell.css?v=4">
   <link rel="stylesheet" href="notifications.css?v=3">
   <link rel="stylesheet" href="color-picker.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -390,6 +390,10 @@
         <section class="st-section" id="section-network" data-section="network" aria-labelledby="h-network" hidden>
           <div class="st-section-head">
             <div><h1 id="h-network">Network</h1><p class="st-lede">How you reach Epilykos, at home and away.</p></div>
+          </div>
+          <div class="st-card" id="net-status-card" data-own-save>
+            <div class="st-card-head"><h2>This box</h2></div>
+            <div id="net-status-root"><p class="st-help">Loading…</p></div>
           </div>
           <!-- EpilykosOS only, filled in by the System script: Wi-Fi and the dashboard port, which act at once. -->
           <div id="sys-network-root" data-own-save hidden></div>
@@ -1011,6 +1015,7 @@
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
 <script src="js/system-settings.js?v=3"></script>
+<script src="js/network-status.js?v=1"></script>
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=1"></script>
 <script src="js/updates-settings.js?v=2"></script>
