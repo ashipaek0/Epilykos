@@ -13,6 +13,7 @@
 const { logger } = require('./logger');
 const { getDb, getConfig, setConfig, flushMetrics } = require('./database');
 const { getDashboardConfig } = require('./dashboard-config');
+const { localDateString } = require('./localTime');
 
 // Prepared per call (every 30s): a cached statement would outlive the
 // connection when a backup restore reopens the database.
@@ -106,24 +107,71 @@ function getRoleMetrics() {
   return {};
 }
 
+// Daily counters (daily_*) are copied from the last value each source
+// reported. Two ways that carries one day's total into the next, where the
+// day's maximum would then report yesterday's energy as today's:
+//  - the source last reported before local midnight (offline, or not
+//    polled yet today): its value belongs to a previous day;
+//  - early in the day the source still shows yesterday's final total
+//    because its own clock resets the counter late.
+// Both are written as 0 (counters only grow during a day, so 0 never raises
+// the day's maximum). After CARRY_OVER_S any value is taken as it is, so a
+// counter that never resets still records.
+const DAILY_COLS = Object.keys(ZERO_VALUES).filter(c => c.startsWith('daily_'));
+const CARRY_OVER_S = 2 * 3600;
+let carry = { day: null, final: {}, last: {} };
+
+function localMidnight(nowS) {
+  const d = new Date(nowS * 1000);
+  return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 1000);
+}
+
+/** Yesterday's final daily values, for the carry-over check (from memory, or the database after a restart). */
+function previousFinal(db, today, midnight) {
+  const yesterday = localDateString(new Date((midnight - 43200) * 1000));
+  if (carry.day === yesterday) return carry.last;
+  const row = db.prepare(`SELECT ${DAILY_COLS.join(', ')} FROM history WHERE timestamp < ? AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1`)
+    .get(midnight, midnight - 86400);
+  return row || {};
+}
+
+function dailyGuard(db, values, stampByCol, nowS) {
+  const midnight = localMidnight(nowS);
+  const today = localDateString(new Date(nowS * 1000));
+  if (carry.day !== today) carry = { day: today, final: previousFinal(db, today, midnight), last: {} };
+  for (const col of DAILY_COLS) {
+    const v = values[col];
+    const stamp = stampByCol[col];
+    if (stamp !== undefined && stamp !== null && stamp < midnight) { values[col] = 0; continue; }
+    if (nowS - midnight < CARRY_OVER_S && carry.final[col] > 0 && v >= carry.final[col]) { values[col] = 0; continue; }
+    carry.last[col] = v;
+  }
+}
+
 async function pollLegacyHistory() {
   flushMetrics(); // read-your-write: this cycle's polls are still queued
   const db = getDb();
-  const latest = db.prepare('SELECT metric, value FROM latest_metrics').all();
-  const valueByMetric = new Map(latest.map(r => [r.metric, r.value]));
+  const latest = db.prepare('SELECT metric, value, timestamp FROM latest_metrics').all();
+  const valueByMetric = new Map(latest.map(r => [r.metric, r]));
   const roleMetrics = getRoleMetrics();
 
   // Start all values at 0, then fill each role from its mapped metric by exact
   // name (no regex guessing). One metric may back several roles.
   const values = { ...ZERO_VALUES };
+  const stampByCol = {};
   for (const [role, metricName] of Object.entries(roleMetrics)) {
     const col = ROLE_TO_COL[role];
     if (!col || typeof metricName !== 'string') continue;
     const key = metricName.trim();
-    if (valueByMetric.has(key)) values[col] = valueByMetric.get(key);
+    if (!valueByMetric.has(key)) continue;
+    const r = valueByMetric.get(key);
+    values[col] = r.value;
+    // Seconds; a source that wrote milliseconds is read as such.
+    stampByCol[col] = r.timestamp > 1e12 ? Math.floor(r.timestamp / 1000) : r.timestamp;
   }
 
   const now = Math.floor(Date.now() / 1000);
+  dailyGuard(db, values, stampByCol, now);
   getHistoryInsert().run(
     now,
     values.consumption, values.solar, values.battery_charge, values.battery_discharge,
@@ -134,4 +182,4 @@ async function pollLegacyHistory() {
   );
 }
 
-module.exports = { pollLegacyHistory };
+module.exports = { pollLegacyHistory, resetCarryOverForTests: () => { carry = { day: null, final: {}, last: {} }; } };
