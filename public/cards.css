@@ -195,6 +195,9 @@
 
 /* ── Grid status ──────────────────────────────────────────── */
 .grid-card.ep-card { gap: var(--card-gap); padding: var(--card-pad); }
+/* Only the bars give up height when the card is short; the rest keeps its own. */
+.grid-card.ep-card > * { flex-shrink: 0; }
+.grid-card.ep-card > .ep-grid-days { flex-shrink: 1; }
 .ep-grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .grid-card .grid-date { margin: 0 !important; font-size: calc(0.72rem * var(--card-font-scale, 1)) !important; font-weight: 500 !important; color: var(--text-secondary) !important; }
 .ep-grid-now { display: flex; align-items: baseline; gap: 0.6em; flex-wrap: wrap; }
@@ -227,7 +230,8 @@
 /* The day range uses the charts' .chart-controls look. */
 .ep-grid-range { display: inline-flex; }
 .ep-grid-range button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.ep-grid-days { position: relative; display: flex; align-items: flex-end; gap: clamp(1px, 0.8cqi, 4px); height: 64px; flex: 0 0 auto; margin-right: 30px; border-bottom: 1px solid var(--border); }
+/* The bars take the card's spare height (64px at least, 240px at most). */
+.ep-grid-days { position: relative; display: flex; align-items: flex-end; gap: clamp(1px, 0.8cqi, 4px); flex: 1 1 64px; min-height: 64px; max-height: 240px; margin-right: 30px; border-bottom: 1px solid var(--border); }
 .ep-grid-days::before, .ep-grid-days::after { content: ""; position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); pointer-events: none; }
 .ep-grid-days::before { top: 0; }
 .ep-grid-days::after { top: 50%; }
