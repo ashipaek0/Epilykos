@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39586003218.1",
-    "version": "1.0.3-dev+fd27048",
-    "commit": "fd270486656816404f14ee20db244080d0d1539c",
-    "digest": "sha256:bd224191597840dbd0a675d8c2ab5b1d5726532208080de629e59aed716b4dab",
+    "buildId": "39586081126.1",
+    "version": "1.0.3-dev+8ca2320",
+    "commit": "8ca2320ee060a0bed4c877468010388fa3181b77",
+    "digest": "sha256:e9a137e78ac6ab9b958f31538d6916db13d310012d0d03a0c82a538f2f888f3a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T10:38:19Z",
+    "builtAt": "2026-10-21T10:39:03Z",
     "kind": "release",
     "notes": [
-      "Updates: automatic installation card matches the rest of the page"
+      "System: time, storage and Bluetooth cards match the other cards",
+      "Settings: Wi-Fi and the dashboard port move to Network"
     ]
   },
   "history": [
+    {
+      "buildId": "39586081126.1",
+      "version": "1.0.3-dev+8ca2320",
+      "commit": "8ca2320ee060a0bed4c877468010388fa3181b77",
+      "digest": "sha256:e9a137e78ac6ab9b958f31538d6916db13d310012d0d03a0c82a538f2f888f3a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T10:39:03Z",
+      "kind": "release",
+      "notes": [
+        "System: time, storage and Bluetooth cards match the other cards",
+        "Settings: Wi-Fi and the dashboard port move to Network"
+      ]
+    },
     {
       "buildId": "39586003218.1",
       "version": "1.0.3-dev+fd27048",
