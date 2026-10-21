@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39567337933.1",
-    "version": "1.0.2-dev+de725b9",
-    "commit": "de725b96cd94fb69bcbc1e4ae14aa96adc7b5bf1",
-    "digest": "sha256:051b1275262d1512bee24878f10e0b8a025cb378c4267257eea1cf9489822192",
+    "buildId": "39570329775.1",
+    "version": "1.0.2-dev+12d40d6",
+    "commit": "12d40d6a2093f9268778dde2908873d2b1af290f",
+    "digest": "sha256:bec76e1e2b1d684892a4f796f4fb3f714a7b7123d1b549c980a0b6adfd9589b3",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T08:11:18Z",
+    "builtAt": "2026-10-21T08:35:14Z",
     "kind": "release",
-    "notes": [
-      "Test: day-boundary check uses readings that fall over time",
-      "Daily totals: keep yesterday's counters out of today"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "39570329775.1",
+      "version": "1.0.2-dev+12d40d6",
+      "commit": "12d40d6a2093f9268778dde2908873d2b1af290f",
+      "digest": "sha256:bec76e1e2b1d684892a4f796f4fb3f714a7b7123d1b549c980a0b6adfd9589b3",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T08:35:14Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "39567337933.1",
       "version": "1.0.2-dev+de725b9",
