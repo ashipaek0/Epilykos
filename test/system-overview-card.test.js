@@ -42,6 +42,13 @@ check('tiles can be renamed; live wording keeps the chosen name', () => {
   const ed = read('public/js/editor.js');
   assert.match(ed, /id="modal-so-name-' \+ t\[0\]/); assert.match(ed, /config\.names = soNames; else delete config\.names/);
 });
+check('weather tile details: most useful first, escaped, trimmed to the room there is', () => {
+  assert.match(src, /\['High \/ low', hiLo\],\s*\['Feels like'/);
+  assert.match(src, /\['Sunrise', clock\(w\.sunrise\)\],\s*\['Sunset', clock\(w\.sunset\)\]/);
+  assert.match(src, /\.filter\(\(\[, v\]\) => v\)/, 'missing values are left out');
+  assert.match(src, /<dd>\$\{escapeHtml\(v\)\}<\/dd>/);
+  assert.match(src, /drawLines\(card\); fitWeather\(card\);/, 'refitted when the card resizes');
+});
 check('weather tile reads the shared forecast fetch and says when it is unavailable', () => {
   assert.match(src, /getSharedForecastData\('auto'/); assert.match(src, /'Unavailable'/); assert.match(src, /config\.showWeather === true/);
 });
