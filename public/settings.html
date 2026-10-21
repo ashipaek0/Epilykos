@@ -389,12 +389,15 @@
         <!-- ════════════ NETWORK ════════════ -->
         <section class="st-section" id="section-network" data-section="network" aria-labelledby="h-network" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-network">Network</h1><p class="st-lede">The installed app picks the fastest of these addresses on its own.</p></div>
+            <div><h1 id="h-network">Network</h1><p class="st-lede">How you reach Epilykos, at home and away.</p></div>
           </div>
+          <!-- EpilykosOS only (system-settings.js): Wi-Fi and the dashboard port, which act at once. -->
+          <div id="sys-network-root" data-own-save hidden></div>
           <div class="st-card">
+            <div class="st-card-head"><h2>App addresses</h2></div>
             <div class="st-field"><label for="network-local-url">Address at home</label><input id="network-local-url" class="input" name="network_local_url" type="url" placeholder="http://192.168.1.10:3000"><span class="st-help">Used when your phone or computer is on your home network. Fast, and works without internet.</span></div>
             <div class="st-field"><label for="network-remote-url">Address away from home</label><input id="network-remote-url" class="input" name="network_remote_url" type="url" placeholder="https://energy.example.com"><span class="st-help">Used everywhere else.</span></div>
-            <p class="st-help">Save these, then install Epilykos to your home screen to get automatic switching.</p>
+            <p class="st-help">Save these, then install Epilykos to your home screen: the app picks the faster address on its own.</p>
           </div>
           <div class="st-card" id="rm-card" data-own-save>
             <div class="st-card-head"><h2>Remote access</h2><span class="st-badge" id="rm-badge" hidden></span></div>
@@ -903,7 +906,7 @@
            The nav entry stays hidden unless the server reports an appliance. -->
       <section class="st-section" id="section-system" data-section="system" aria-labelledby="h-system" hidden>
         <div class="st-section-head">
-          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, change its Wi-Fi or dashboard port, and the SSH maintenance login.</p></div>
+          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, the SSH maintenance login, time and storage, and Bluetooth devices. Wi-Fi and the dashboard port are under Network.</p></div>
         </div>
         <div id="sys-root"><p class="st-help">Loading…</p></div>
       </section>
@@ -1007,7 +1010,7 @@
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
-<script src="js/system-settings.js?v=2"></script>
+<script src="js/system-settings.js?v=3"></script>
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=1"></script>
 <script src="js/updates-settings.js?v=1"></script>

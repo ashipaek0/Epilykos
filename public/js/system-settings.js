@@ -1,20 +1,22 @@
 /**
- * Settings → System (EpilykosOS appliances only; contract C-HOST-001).
+ * The appliance's own settings (EpilykosOS only; contract C-HOST-001).
  * Self-contained like the Notifications section: talks to /api/system and
  * acts at once, outside the settings form and its save bar.
  *
- *   Power   Restart, Shut down
- *   Wi-Fi   Change Wi-Fi: opens Bluetooth setup for 15 minutes
- *   Address the dashboard's port (80 or 1024-65535); the page follows it
- *   SSH     on/off, password, public keys (user epilykos; never root)
+ *   System → Power    Restart, Shut down
+ *   System → SSH      on/off, password, public keys (user epilykos; never root)
+ *   Network → Wi-Fi   Change Wi-Fi: opens Bluetooth setup for 15 minutes
+ *   Network → Address the dashboard's port (80 or 1024-65535); the page follows it
  *
- * The nav entry stays hidden unless /api/system reports an appliance.
+ * The System nav entry and the Network cards stay hidden unless
+ * /api/system reports an appliance.
  * Loaded after settings-shell.js (window.stShell, window.stConfirm).
  */
 (function () {
   'use strict';
 
   var root = document.getElementById('sys-root');
+  var netRoot = document.getElementById('sys-network-root');
   var navItem = document.getElementById('st-nav-system');
   if (!root) return;
   var shell = window.stShell || {};
@@ -54,19 +56,17 @@
     if (state.error) {
       root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>';
       root.querySelector('p').textContent = 'The appliance\'s system service did not answer: ' + state.error;
+      if (netRoot) netRoot.innerHTML = root.innerHTML;
       return;
     }
-    var ssh = state.ssh || { enabled: false, password_set: false, keys: [], user: 'epilykos' };
+    root.innerHTML = renderSystem();
+    if (netRoot) netRoot.innerHTML = renderNetwork();
+  }
+
+  function renderNetwork() {
     var now = Date.now() / 1000;
     var wifiOpen = state.wifi_setup_until && state.wifi_setup_until > now;
     var html = '';
-
-    html += '<div class="st-card"><div class="st-card-head"><h2>Power</h2></div>'
-      + '<p class="st-help">Restart or shut down the whole appliance. Epilykos stops cleanly first, so nothing is lost.'
-      + ' After shutting down, unplug the power once the green light on the board stops flashing.</p>'
-      + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="restart">Restart</button>'
-      + '<button type="button" class="st-btn st-btn-danger" data-act="shutdown">Shut down</button></div>'
-      + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>Wi-Fi</h2></div>'
       + '<p class="st-help">To join a different Wi-Fi network, open Bluetooth setup, then on a phone or computer with Chrome go to '
@@ -85,6 +85,19 @@
       + '<input id="sys-port" class="input" type="number" inputmode="numeric" min="80" max="65535" step="1" value="' + esc(port) + '" style="max-width:10em"></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="port">Change port</button></div>'
       + '<div class="test-status" id="sys-port-status" role="status"></div></div>';
+    return html;
+  }
+
+  function renderSystem() {
+    var ssh = state.ssh || { enabled: false, password_set: false, keys: [], user: 'epilykos' };
+    var html = '';
+
+    html += '<div class="st-card"><div class="st-card-head"><h2>Power</h2></div>'
+      + '<p class="st-help">Restart or shut down the whole appliance. Epilykos stops cleanly first, so nothing is lost.'
+      + ' After shutting down, unplug the power once the green light on the board stops flashing.</p>'
+      + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="restart">Restart</button>'
+      + '<button type="button" class="st-btn st-btn-danger" data-act="shutdown">Shut down</button></div>'
+      + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>SSH maintenance login</h2>'
       + '<span class="st-badge" style="background:var(--st-hover)">' + (ssh.enabled ? 'On' : 'Off') + '</span></div>'
@@ -116,8 +129,7 @@
       + '<span class="st-help">Paste the contents of a <code>.pub</code> file, e.g. <code>~/.ssh/id_ed25519.pub</code>. Never paste a private key.</span></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="ssh-add-key">Add key</button></div>'
       + '</div>';
-
-    root.innerHTML = html;
+    return html;
   }
 
   function status(id, msg, tone) {
@@ -131,12 +143,13 @@
   async function load() {
     try {
       var data = await api('GET', '');
-      if (!data.appliance) { if (navItem) navItem.hidden = true; return data; }
+      if (!data.appliance) { if (navItem) navItem.hidden = true; if (netRoot) netRoot.hidden = true; return data; }
       state = data;
     } catch (e) {
       state = { error: e.message };
     }
     if (navItem) navItem.hidden = false;
+    if (netRoot) netRoot.hidden = false;
     render();
     return state;
   }
@@ -175,9 +188,9 @@
     status('sys-port-status', 'Epilykos has not answered on port ' + port + ' yet. Try ' + originForPort(port) + '/ in a minute.', 'error');
   }
 
-  root.addEventListener('click', async function (ev) {
+  async function onClick(ev) {
     var btn = ev.target.closest('button');
-    if (!btn || !root.contains(btn)) return;
+    if (!btn || !ev.currentTarget.contains(btn)) return;
     var act = btn.dataset.act;
     var removeKey = btn.dataset.removeKey;
     try {
@@ -245,10 +258,22 @@
       status(target, e.message, 'error');
       toast(e.message, 'error');
     }
-  });
+  }
+  root.addEventListener('click', onClick);
+  if (netRoot) {
+    netRoot.addEventListener('click', onClick);
+    // The port box sits in the settings form: Enter changes the port
+    // instead of submitting the form.
+    netRoot.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' || ev.target.id !== 'sys-port') return;
+      ev.preventDefault();
+      var btn = netRoot.querySelector('[data-act="port"]');
+      if (btn && !btn.disabled) btn.click();
+    });
+  }
 
   document.addEventListener('st:section-shown', function (ev) {
-    if (ev.detail && ev.detail.section === 'system') load();
+    if (ev.detail && (ev.detail.section === 'system' || ev.detail.section === 'network')) load();
   });
   load();
 })();
