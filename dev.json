@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39616024469.1",
-    "version": "1.0.3-dev+f2ca0bd",
-    "commit": "f2ca0bdd3b54dd78f95d8c5ec4514e20eff04c7b",
-    "digest": "sha256:26a115d0557ac265cc782d839088c30944ec89f3e3b8fcd537fbbc72e62a0264",
+    "buildId": "39617168464.1",
+    "version": "1.0.3-dev+2878ce0",
+    "commit": "2878ce008b10afb0e59b6c990a9e5c9f073385d6",
+    "digest": "sha256:5211fc642c3dbb064b18770b042159bab397af5d2e2e42601e7ce41287911a50",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T14:20:52Z",
+    "builtAt": "2026-10-21T14:29:23Z",
     "kind": "release",
     "notes": [
-      "Layout editor: copy and paste blocks; System overview: rename its tiles"
+      "System overview: more detail on the weather tile"
     ]
   },
   "history": [
+    {
+      "buildId": "39617168464.1",
+      "version": "1.0.3-dev+2878ce0",
+      "commit": "2878ce008b10afb0e59b6c990a9e5c9f073385d6",
+      "digest": "sha256:5211fc642c3dbb064b18770b042159bab397af5d2e2e42601e7ce41287911a50",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T14:29:23Z",
+      "kind": "release",
+      "notes": [
+        "System overview: more detail on the weather tile"
+      ]
+    },
     {
       "buildId": "39616024469.1",
       "version": "1.0.3-dev+f2ca0bd",
