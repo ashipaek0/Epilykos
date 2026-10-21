@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39563473769.1",
-    "version": "1.0.2-dev+fbe5d7e",
-    "commit": "fbe5d7ea80430c6ea8be212068ad278ec8e871d3",
-    "digest": "sha256:27c0ef399fdf8f4a9dce24f65cd2f5f626d326774ce2e9200bbea79051f1723c",
+    "buildId": "39563507981.1",
+    "version": "1.0.2-dev+5edc965",
+    "commit": "5edc9656df92007305ae9fcb72b65f356229ccdc",
+    "digest": "sha256:005f40748c909c7c08c6b25bd1b250f869d23067533890e4b078f5dcbcd38a78",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T07:39:21Z",
+    "builtAt": "2026-10-21T07:39:42Z",
     "kind": "release",
     "notes": [
-      "Retention: roll up readings older than 30 days, fast enough to run"
+      "Dashboard: no empty notice banner; backup page card matches the others"
     ]
   },
   "history": [
+    {
+      "buildId": "39563507981.1",
+      "version": "1.0.2-dev+5edc965",
+      "commit": "5edc9656df92007305ae9fcb72b65f356229ccdc",
+      "digest": "sha256:005f40748c909c7c08c6b25bd1b250f869d23067533890e4b078f5dcbcd38a78",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T07:39:42Z",
+      "kind": "release",
+      "notes": [
+        "Dashboard: no empty notice banner; backup page card matches the others"
+      ]
+    },
     {
       "buildId": "39563473769.1",
       "version": "1.0.2-dev+fbe5d7e",
