@@ -92,7 +92,7 @@ export const BLOCKS = {
   'text-metric':        { group: 'values', name: 'Text metric', desc: "One metric's current value as text", icon: 'text', w: 4, h: 2 },
   'grid-card':          { group: 'values', name: 'Grid status', desc: 'Grid on/off, hours, a 24-hour timeline, and optional costs and hours per day', icon: 'plug', w: 6, h: 6 },
   'energy-totals':      { group: 'values', name: 'Day totals', desc: 'Energy to and from the grid, consumption and solar today, against forecast', icon: 'cards', w: 12, h: 3 },
-  'savings-summary':    { group: 'values', name: 'Savings', desc: 'Savings today, this week, month and all time', icon: 'coin', w: 4, h: 4 },
+  'savings-summary':    { group: 'values', name: 'Savings', desc: 'Savings today, this week, month, year and all time', icon: 'coin', w: 4, h: 4 },
 
   'gauge-card':         { group: 'gauges', name: 'Gauge', desc: 'One value on a round dial', icon: 'gauge', w: 3, h: 5 },
   'configurable-gauge': { group: 'gauges', name: 'Configurable gauge', desc: 'A fully configurable dial with bands and history', icon: 'gauge', w: 4, h: 5 },

@@ -108,3 +108,9 @@ export function formatMoney(value, currency) {
   const decimals = Math.abs(value) < 100 ? 2 : 0;
   return (currency || '') + nf(decimals).format(value);
 }
+
+/** Money for a small tile: ₦1.78M from a million up (put the exact figure in its title). */
+export function formatMoneyShort(value, currency) {
+  if (!isNumericValue(value) || Math.abs(value) < 1e6) return formatMoney(value, currency);
+  return (currency || '') + new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 2 }).format(value);
+}

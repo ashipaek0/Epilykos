@@ -908,6 +908,8 @@ function buildBatteryBlockForm(block) {
 
 /** Grid Card: grid_status metric, and the optional parts of the card */
 var GRID_PERIODS = [['day', 'Today'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']];
+// Savings card periods: [config key, label, off unless chosen].
+var SAVINGS_PERIODS = [['showToday', 'Today'], ['showWeek', 'This week'], ['showMonth', 'This month'], ['showYear', 'This year', true], ['showAll', 'All time']];
 function buildGridCardForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || {};
@@ -1305,6 +1307,14 @@ function buildSimpleForm(block) {
     html += '<div data-ui="row">';
     html += '<span data-ui="row-label">Metric</span>';
     html += '<div data-ui="grow">' + metricSelect(cfg.savings_metric || '', 'modal-simple-metric') + '</div>';
+    html += '</div>';
+    html += '<p data-ui="help">The periods to show.</p>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:8px 16px;margin-bottom:8px">';
+    SAVINGS_PERIODS.forEach(function (p) {
+      // Year is new, so off unless chosen; the rest were always shown.
+      var on = p[2] ? cfg[p[0]] === true : cfg[p[0]] !== false;
+      html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-savings-' + p[0] + '"' + (on ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-savings-' + p[0] + '">' + p[1] + '</label></span>';
+    });
     html += '</div>';
   } else if (block.type === 'forecast-pvtoday') {
     html += '<label data-ui="field">Location Name <input type="text" id="modal-simple-title" value="' + escHtml(cfg.location_name || '') + '" data-ui="input"></label>';
@@ -2483,6 +2493,12 @@ function readSettingsForm(block) {
         var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;
         if (edF) config.showForecast = edF.checked;
         if (edB) config.showBattery = edB.checked;
+      }
+      if (type === 'savings-summary') {
+        SAVINGS_PERIODS.forEach(function (p) {
+          var el = document.getElementById('modal-savings-' + p[0]);
+          if (el) config[p[0]] = el.checked;
+        });
       }
       var metEl = document.getElementById('modal-simple-metric');
       if (metEl) {
