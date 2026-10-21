@@ -907,6 +907,9 @@ function buildBatteryBlockForm(block) {
 }
 
 /** Grid Card: grid_status metric, and the optional parts of the card */
+// System overview parts that can be renamed: [key, field label, usual name].
+var SO_NAMES = [['grid', 'Grid', 'Grid'], ['battery', 'Battery', 'Battery'], ['solar', 'Solar', 'Solar'], ['home', 'Home', 'Home'],
+  ['pvi', 'PV inverter', 'PV inverter'], ['pvc', 'PV charger', 'PV charger'], ['weather', 'Weather', 'Weather']];
 var GRID_PERIODS = [['day', 'Today'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']];
 // Savings card periods: [config key, label, off unless chosen].
 var SAVINGS_PERIODS = [['showToday', 'Today'], ['showWeek', 'This week'], ['showMonth', 'This month'], ['showYear', 'This year', true], ['showAll', 'All time']];
@@ -1350,6 +1353,13 @@ function buildSimpleForm(block) {
     html += '<h4 class="ps-subhead">PV split</h4><p data-ui="help">If you have both AC-coupled PV inverters and DC solar chargers (MPPTs), pick a power metric for each to show them separately, with Total solar beside the diagram. Leave both blank for a single Solar value.</p>';
     html += '<div data-ui="grid2"><label data-ui="field">PV inverter ' + metricSelect(soPv.inverter || '', 'modal-so-pvi') + '</label><label data-ui="field">PV charger ' + metricSelect(soPv.charger || '', 'modal-so-pvc') + '</label></div>';
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-so-weather"' + (cfg.showWeather === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-so-weather">Weather (from your forecast source)</label></span>';
+    var soNames = cfg.names || {};
+    html += '<h4 class="ps-subhead">Names</h4><p data-ui="help">Leave a name blank to keep the usual one. With the PV split, Solar names Total solar, and PV inverter and PV charger appear; Weather shows when it is on.</p>';
+    html += '<div data-ui="grid2">';
+    SO_NAMES.forEach(function (t) {
+      html += '<label data-ui="field">' + t[1] + ' <input type="text" id="modal-so-name-' + t[0] + '" value="' + escHtml(soNames[t[0]] || '') + '" placeholder="' + t[2] + '" maxlength="40" data-ui="input"></label>';
+    });
+    html += '</div>';
     html += buildBreakdownFields(cfg);
     html += '<h4 class="ps-subhead">Extra values</h4><p data-ui="help">Up to three more values beside the diagram, such as a temperature.</p>';
     for (var soi = 0; soi < 3; soi++) {
@@ -2488,6 +2498,13 @@ function readSettingsForm(block) {
           if (pvi.value) config.pv = { inverter: pvi.value, charger: pvc.value }; else delete config.pv;
         }
         var wx = document.getElementById('modal-so-weather'); if (wx) config.showWeather = wx.checked;
+        var soNames = {};
+        SO_NAMES.forEach(function (t) {
+          var el = document.getElementById('modal-so-name-' + t[0]);
+          var v = el ? el.value.trim().slice(0, 40) : '';
+          if (v) soNames[t[0]] = v;
+        });
+        if (Object.keys(soNames).length) config.names = soNames; else delete config.names;
       }
       if (type === 'energy-day' || type === 'energy-flows' || type === 'energy-costs') {
         var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;
@@ -2809,6 +2826,7 @@ function buildToolbar() {
   [
     ['settings', 'settings', 'Edit settings'],
     ['duplicate', 'copy', 'Duplicate'],
+    ['copy', 'clipboard', 'Copy, to paste here or on another dashboard'],
     ['visibility', 'eyeOff', 'Hide on dashboard'],
     ['remove', 'trash', 'Remove block']
   ].forEach(function(def) {
@@ -2832,6 +2850,7 @@ function buildToolbar() {
     var id = selectedBlockId;
     if (b.dataset.act === 'settings') openSettings();
     else if (b.dataset.act === 'duplicate') duplicateBlock(id);
+    else if (b.dataset.act === 'copy') copyBlock(id);
     else if (b.dataset.act === 'visibility') toggleBlockHidden(id);
     else if (b.dataset.act === 'remove') removeBlock(id);
   });
@@ -2945,6 +2964,54 @@ function duplicateBlock(id) {
   placeNewItem(copy);
   scheduleSave(0);
   toast(blockInfo(block.type).name + ' duplicated', { actionLabel: 'Undo', onAction: undo, timeout: 4000 });
+}
+
+// ── Copy and paste ───────────────────────────────────────────────────────
+// The copied card lives in this browser's storage, so it can be pasted into
+// another dashboard, or another editor tab, on the same device.
+
+var CLIPBOARD_KEY = 'epilykos-editor-clipboard';
+
+function readClipboard() {
+  try {
+    var c = JSON.parse(localStorage.getItem(CLIPBOARD_KEY) || 'null');
+    return c && typeof c.type === 'string' && BLOCK_BUILDERS.has(c.type) ? c : null;
+  } catch (e) { return null; }
+}
+
+function copyBlock(id) {
+  var block = findBlock(id);
+  if (!block) return;
+  syncLayoutFromGrid();
+  var copy = { type: block.type, gridW: block.gridW, gridH: block.gridH, enabled: block.enabled !== false, config: JSON.parse(JSON.stringify(block.config || {})) };
+  try { localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(copy)); } catch (e) { toast('Could not copy: this browser is not keeping data for the site'); return; }
+  if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
+  toast(blockInfo(block.type).name + ' copied. Paste with ' + (/Mac|iPhone|iPad/.test(navigator.platform) ? '\u2318V' : 'Ctrl+V') + ' or from Add block', { timeout: 4000 });
+}
+
+/** Paste the copied card below the selected block, or at the bottom, with a new id. */
+function pasteBlock() {
+  var clip = readClipboard();
+  var tab = currentTab();
+  if (readOnly || !tab) return;
+  if (!clip) { toast('Nothing copied yet. Select a block and press Copy'); return; }
+  var info = blockInfo(clip.type);
+  if (!typeFitsTab(clip.type)) {
+    toast(onControlsTab() ? info.name + ' blocks go on dashboards, not the Controls page' : info.name + ' blocks go on the Controls page');
+    return;
+  }
+  pushUndo();
+  syncLayoutFromGrid();
+  var w = Math.min(Number(clip.gridW) || info.w, GRID_COLUMNS);
+  var sel = selectedBlockId && findBlock(selectedBlockId);
+  var x = sel ? Math.min(sel.gridX || 0, GRID_COLUMNS - w) : 0;
+  var y = sel ? (sel.gridY || 0) + (sel.gridH || 1) : grid.getRow();
+  var block = { id: newBlockId(), type: clip.type, enabled: clip.enabled !== false, gridX: x, gridY: y, gridW: w, gridH: Number(clip.gridH) || info.h, config: JSON.parse(JSON.stringify(clip.config || {})) };
+  tab.layout.push(block);
+  placeNewItem(block);
+  closeSheets();
+  scheduleSave(0);
+  toast(info.name + ' pasted', { actionLabel: 'Undo', onAction: undo, timeout: 4000 });
 }
 
 function removeBlock(id) {
@@ -3388,17 +3455,29 @@ function renderLibrary(query) {
     html += '</ul></section>';
   });
   if (!shown) html = '<p class="lib-empty">No blocks match “' + escHtml(query.trim()) + '”.</p>';
+  var clip = !q && !readOnly && readClipboard();
+  if (clip && typeFitsTab(clip.type)) {
+    var clipInfo = blockInfo(clip.type), clipTitle = clip.config && typeof clip.config.title === 'string' ? clip.config.title.trim() : '';
+    html = '<section class="lib-group"><h3 class="lib-group-head lib-copied-head">Copied</h3><ul class="lib-items"><li>' +
+      '<button type="button" class="lib-item lib-paste">' +
+        '<span class="lib-icon">' + icon('clipboard', 20) + '</span>' +
+        '<span class="lib-text"><span class="lib-name">Paste ' + escHtml(clipInfo.name) + '</span>' +
+        '<span class="lib-desc">' + (clipTitle ? '“' + escHtml(clipTitle) + '”, with its settings' : 'With its settings') + '</span></span>' +
+      '</button></li></ul></section>' + html;
+  }
   list.innerHTML = html;
 }
 
 function wireLibrary() {
   loadCollapsed();
   renderLibrary('');
+  // A card copied in another editor tab shows up here too.
+  window.addEventListener('storage', function(e) { if (e.key === CLIPBOARD_KEY) renderLibrary($('library-search').value); });
   var search = $('library-search');
   search.addEventListener('input', function() { renderLibrary(search.value); });
   search.addEventListener('keydown', function(e) {
     if (e.key === 'ArrowDown') { var first = $('library-list').querySelector('.lib-item'); if (first) { e.preventDefault(); first.focus(); } }
-    if (e.key === 'Enter') { var only = $('library-list').querySelectorAll('.lib-item'); if (only.length) { e.preventDefault(); addBlock(only[0].dataset.type); } }
+    if (e.key === 'Enter') { var only = $('library-list').querySelectorAll('.lib-item:not(.lib-paste)'); if (only.length) { e.preventDefault(); addBlock(only[0].dataset.type); } }
   });
 
   var list = $('library-list');
@@ -3413,6 +3492,7 @@ function wireLibrary() {
       if (again) again.focus();
       return;
     }
+    if (e.target.closest('.lib-paste')) { pasteBlock(); return; }
     var item = e.target.closest('.lib-item');
     if (item) addBlock(item.dataset.type);
   });
@@ -3427,7 +3507,7 @@ function wireLibrary() {
   });
   list.addEventListener('dragstart', function(e) {
     var item = e.target.closest('.lib-item');
-    if (!item || readOnly) { e.preventDefault(); return; }
+    if (!item || item.classList.contains('lib-paste') || readOnly) { e.preventDefault(); return; }
     draggingType = item.dataset.type;
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('blockType', draggingType);
@@ -3856,6 +3936,10 @@ function wireKeyboard() {
     var key = (e.key || '').toLowerCase();
     if (mod && !typing && key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && !typing && key === 'y') { e.preventDefault(); redo(); return; }
+    // Copy the selected block, unless text is selected (then the browser copies that).
+    var textSelected = window.getSelection && String(window.getSelection()).length > 0;
+    if (mod && !typing && !e.shiftKey && !e.altKey && key === 'c' && selectedBlockId && !textSelected) { e.preventDefault(); copyBlock(selectedBlockId); return; }
+    if (mod && !typing && !e.shiftKey && !e.altKey && key === 'v' && readClipboard()) { e.preventDefault(); pasteBlock(); return; }
     if (e.key === 'Escape') {
       if (isMenuOpen()) { closeMenu(true); return; }
       if (document.body.dataset.sheet) { closeSheets(); return; }
