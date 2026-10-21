@@ -61,7 +61,7 @@ export function buildGridCard(block = {}) {
     <div class="grid-stats ep-tiles ep-tiles-compact" data-count="${periods.length}">${periods.map(tile).join('')}</div>` : ''}
     ${showTimeline ? `<div id="${uid('grid-timeline', id)}"></div>` : ''}
     ${showDays ? `<div class="ep-grid-days-head"><span class="ep-label">Grid hours per day</span>
-      <span class="ep-grid-range" role="group" aria-label="Days shown">${GRID_DAY_RANGES.map(n => `<button type="button" data-range="${n}" aria-pressed="${n === range}">${n} d</button>`).join('')}</span></div>
+      <span class="chart-controls ep-grid-range" role="group" aria-label="Days shown">${GRID_DAY_RANGES.map(n => `<button type="button" data-range="${n}"${n === range ? ' class="active"' : ''} aria-pressed="${n === range}">${n}d</button>`).join('')}</span></div>
     <div class="ep-grid-days" id="${uid('grid-days', id)}" role="group" aria-label="Grid hours per day"></div>
     <div class="ep-grid-days-axis"><span id="${uid('grid-days-from', id)}"></span><span>Today</span></div>
     <div class="ep-grid-days-sum" id="${uid('grid-days-sum', id)}" aria-live="polite"></div>` : ''}
@@ -87,7 +87,7 @@ export function buildGridCard(block = {}) {
       const btn = ev.target.closest('button[data-range]');
       if (!btn || !card.contains(btn)) return;
       card.dataset.daysShown = btn.dataset.range;
-      card.querySelectorAll('button[data-range]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      card.querySelectorAll('button[data-range]').forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', String(b === btn)); });
       renderDays(card, lastState);
     });
   }

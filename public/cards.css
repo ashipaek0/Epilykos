@@ -220,9 +220,8 @@
 .ep-grid-cost { display: block; margin-top: 2px; font-size: calc(0.74rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Grid hours per day: one bar per day, out of 24 h; today is still running. */
 .ep-grid-days-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
-.ep-grid-range { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--bg); border: 1px solid var(--border); }
-.ep-grid-range button { border: 0; background: transparent; color: var(--text-secondary); font-family: inherit; font-weight: 700; font-size: calc(0.72rem * var(--card-font-scale, 1)); line-height: 1; padding: 4px 8px; border-radius: 7px; cursor: pointer; }
-.ep-grid-range button[aria-pressed="true"] { background: var(--card-bg, var(--surface)); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+/* The day range uses the charts' .chart-controls look. */
+.ep-grid-range { display: inline-flex; }
 .ep-grid-range button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ep-grid-days { position: relative; display: flex; align-items: flex-end; gap: clamp(1px, 0.8cqi, 4px); height: 64px; flex: 0 0 auto; margin-right: 30px; border-bottom: 1px solid var(--border); }
 .ep-grid-days::before, .ep-grid-days::after { content: ""; position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); pointer-events: none; }
