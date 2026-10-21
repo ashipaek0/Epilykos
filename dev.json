@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39570329775.1",
-    "version": "1.0.2-dev+12d40d6",
-    "commit": "12d40d6a2093f9268778dde2908873d2b1af290f",
-    "digest": "sha256:bec76e1e2b1d684892a4f796f4fb3f714a7b7123d1b549c980a0b6adfd9589b3",
+    "buildId": "39586003218.1",
+    "version": "1.0.3-dev+fd27048",
+    "commit": "fd270486656816404f14ee20db244080d0d1539c",
+    "digest": "sha256:bd224191597840dbd0a675d8c2ab5b1d5726532208080de629e59aed716b4dab",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T08:35:14Z",
+    "builtAt": "2026-10-21T10:38:19Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Updates: automatic installation card matches the rest of the page"
+    ]
   },
   "history": [
+    {
+      "buildId": "39586003218.1",
+      "version": "1.0.3-dev+fd27048",
+      "commit": "fd270486656816404f14ee20db244080d0d1539c",
+      "digest": "sha256:bd224191597840dbd0a675d8c2ab5b1d5726532208080de629e59aed716b4dab",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T10:38:19Z",
+      "kind": "release",
+      "notes": [
+        "Updates: automatic installation card matches the rest of the page"
+      ]
+    },
     {
       "buildId": "39570329775.1",
       "version": "1.0.2-dev+12d40d6",
