@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39452103583.1",
-    "version": "1.0.2-dev+445f8ba",
-    "commit": "445f8ba38dd7e15b6fbc0438df0a06912e747725",
-    "digest": "sha256:67ea8d60195d2b890971454bf7d77fe90cd268ef57ea2089373a5799b92cf300",
+    "buildId": "39563473769.1",
+    "version": "1.0.2-dev+fbe5d7e",
+    "commit": "fbe5d7ea80430c6ea8be212068ad278ec8e871d3",
+    "digest": "sha256:27c0ef399fdf8f4a9dce24f65cd2f5f626d326774ce2e9200bbea79051f1723c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-20T15:50:49Z",
+    "builtAt": "2026-10-21T07:39:21Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Retention: roll up readings older than 30 days, fast enough to run"
+    ]
   },
   "history": [
+    {
+      "buildId": "39563473769.1",
+      "version": "1.0.2-dev+fbe5d7e",
+      "commit": "fbe5d7ea80430c6ea8be212068ad278ec8e871d3",
+      "digest": "sha256:27c0ef399fdf8f4a9dce24f65cd2f5f626d326774ce2e9200bbea79051f1723c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T07:39:21Z",
+      "kind": "release",
+      "notes": [
+        "Retention: roll up readings older than 30 days, fast enough to run"
+      ]
+    },
     {
       "buildId": "39452103583.1",
       "version": "1.0.2-dev+445f8ba",
