@@ -90,9 +90,9 @@ export function buildSystemOverview(block = {}) {
         <div class="so-hub"><div class="so-hub-box">${hub}<span class="so-hub-state">—</span></div></div>
         <div class="so-col so-right">${split ? tileHtml('pvi', name('pvi')) + tileHtml('home', name('home')) + tileHtml('pvc', name('pvc')) : tileHtml('solar', name('solar')) + tileHtml('home', name('home'))}</div>
       </div>
-      ${side ? `<div class="so-extras">${split ? tileHtml('solar', names.solar || 'Total solar') : ''}${weather ? `<section class="so-tile so-weather" data-tile="weather"><header><h4><span class="so-name">${escapeHtml(names.weather || 'Weather')}</span></h4><span class="so-corner so-wx-desc"></span></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span><span class="so-wx-icon"></span></p></section>` : ''}${extras.map((e, i) => `<section class="so-tile so-extra" data-extra="${i}"><header><h4><span class="so-name">${escapeHtml(e.label || e.metric)}</span></h4></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span></p></section>`).join('')}</div>` : ''}
+      ${side ? `<div class="so-extras">${split ? tileHtml('solar', names.solar || 'Total solar') : ''}${weather ? `<section class="so-tile so-weather" data-tile="weather"><header><h4><span class="so-name">${escapeHtml(names.weather || 'Weather')}</span></h4><span class="so-corner so-wx-desc"></span></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span><span class="so-wx-icon"></span></p><dl class="so-wx-facts"></dl></section>` : ''}${extras.map((e, i) => `<section class="so-tile so-extra" data-extra="${i}"><header><h4><span class="so-name">${escapeHtml(e.label || e.metric)}</span></h4></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span></p></section>`).join('')}</div>` : ''}
     </div>`;
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!card.isConnected) ro.disconnect(); else drawLines(card); }) : null;
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!card.isConnected) ro.disconnect(); else { drawLines(card); fitWeather(card); } }) : null;
   requestAnimationFrame(() => { ro?.observe(card); drawLines(card); });
   const clock = setInterval(() => { if (!card.isConnected) clearInterval(clock); else tick(card); }, 15000);
   tick(card);
@@ -116,17 +116,57 @@ async function loadPvHistory(card) {
 }
 
 /** Weather tile: temperature, conditions and icon from the forecast source. */
+const deg = v => (Number.isFinite(Number(v)) && v !== null ? `${Math.round(Number(v))}°` : null);
+const pct = v => (Number.isFinite(Number(v)) && v !== null ? `${Math.round(Number(v))}%` : null);
+const clock = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null; };
+
+/**
+ * The weather tile's details, most useful first: today's high and low,
+ * feels like, cloud cover, today's chance of rain, UV, wind, sunrise and
+ * sunset. Ones the source doesn't give are left out; fitWeather() hides
+ * the rows a small tile has no room for.
+ */
+function weatherFacts(w) {
+  const today = w.today || {};
+  const hiLo = deg(today.temp_max) && deg(today.temp_min) ? `${deg(today.temp_max)} / ${deg(today.temp_min)}` : null;
+  const wind = Number.isFinite(Number(w.wind_speed)) && w.wind_speed !== null ? `${Math.round(Number(w.wind_speed))} m/s${w.wind_compass ? ' ' + w.wind_compass : ''}` : null;
+  const uv = Number.isFinite(Number(w.uv_index)) && w.uv_index !== null ? String(Math.round(Number(w.uv_index))) : null;
+  return [
+    ['High / low', hiLo],
+    ['Feels like', deg(w.feels_like)],
+    ['Cloud', pct(w.cloud_cover)],
+    ['Rain today', pct(today.precip_probability ?? w.precip_probability)],
+    ['UV', uv],
+    ['Wind', wind],
+    ['Sunrise', clock(w.sunrise)],
+    ['Sunset', clock(w.sunset)],
+  ].filter(([, v]) => v);
+}
+
+/** Hide the weather details that would be cut off by the bottom of the tile. */
+function fitWeather(card) {
+  const dl = card.querySelector('.so-wx-facts'); if (!dl) return;
+  const limit = dl.getBoundingClientRect().bottom;
+  for (const item of dl.children) {
+    item.style.visibility = '';
+    if (item.getBoundingClientRect().bottom > limit + 0.5) item.style.visibility = 'hidden';
+  }
+}
+
 async function loadWeather(card) {
   const tile = card.querySelector('.so-weather'); if (!tile) return;
+  const facts = tile.querySelector('.so-wx-facts');
   try {
     const data = await getSharedForecastData('auto', {});
     const w = data && data.weather;
-    if (!w || w.available === false || w.temp == null) { tile.querySelector('.so-num').textContent = '—'; tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; return; }
+    if (!w || w.available === false || w.temp == null) { tile.querySelector('.so-num').textContent = '—'; tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; facts.innerHTML = ''; return; }
     tile.querySelector('.so-num').textContent = String(Math.round(Number(w.temp)));
     tile.querySelector('.so-unit').textContent = '°C';
     tile.querySelector('.so-wx-desc').textContent = w.desc || '';
     tile.querySelector('.so-wx-icon').innerHTML = iconHtml(w.icon_class, w.code, w.is_day !== 0);
-  } catch (_) { tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; }
+    facts.innerHTML = weatherFacts(w).map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+    fitWeather(card);
+  } catch (_) { tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; facts.innerHTML = ''; }
 }
 
 /** Orthogonal lines from each tile's inner edge to the hub. */
