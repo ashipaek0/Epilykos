@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39594135487.1",
-    "version": "1.0.3-dev+8dafe28",
-    "commit": "8dafe28e8e24fca274d312f3b07818247570aec9",
-    "digest": "sha256:cd3dd65edf38f30e845af4c14c3bd1208962b736c5241d3ffbf95a10883e1d6a",
+    "buildId": "39607287790.1",
+    "version": "1.0.3-dev+a0aec6a",
+    "commit": "a0aec6a606d3910eb603235109c80bd84a544f3c",
+    "digest": "sha256:b8580d1804affe8a066989037b97b0122ff95c1a5c0c235617e63bd2cdb4cf02",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T11:44:19Z",
+    "builtAt": "2026-10-21T13:21:50Z",
     "kind": "release",
     "notes": [
-      "Grid card: optional periods, grid energy cost and grid hours per day"
+      "Modify Docker socket mapping instructions"
     ]
   },
   "history": [
+    {
+      "buildId": "39607287790.1",
+      "version": "1.0.3-dev+a0aec6a",
+      "commit": "a0aec6a606d3910eb603235109c80bd84a544f3c",
+      "digest": "sha256:b8580d1804affe8a066989037b97b0122ff95c1a5c0c235617e63bd2cdb4cf02",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T13:21:50Z",
+      "kind": "release",
+      "notes": [
+        "Modify Docker socket mapping instructions"
+      ]
+    },
     {
       "buildId": "39594135487.1",
       "version": "1.0.3-dev+8dafe28",
