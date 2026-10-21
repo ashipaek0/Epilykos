@@ -189,7 +189,9 @@
 .bar-single-status, .bar-stacked-status { font-style: normal !important; font-size: calc(0.82rem * var(--card-font-scale, 1)); }
 
 /* ── Savings ──────────────────────────────────────────────── */
-.savings-block-container .ep-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr)); }
+/* Same columns and sizing as the grid card's tiles (below), so a long total
+   such as ₦1,894,880 isn't cut off. */
+.savings-block-container .ep-tiles { grid-template-columns: repeat(var(--grid-cols, 4), minmax(0, 1fr)) !important; --tile-chars: 7; }
 
 /* ── Grid status ──────────────────────────────────────────── */
 .grid-card.ep-card { gap: var(--card-gap); padding: var(--card-pad); }
@@ -203,6 +205,40 @@
 .ep-grid-hours-title { margin-top: 2px; }
 .grid-card [id^="grid-timeline"] { overflow: hidden; }
 .grid-card .grid-stats { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 72px), 1fr)); flex: 0 0 auto; }
+/* One row of tiles where they fit; on narrower cards 2 × 2 (four) or 3 + 2
+   (five). The numbers shrink with the column, never below 0.8rem, so a long
+   total such as 3210:00 isn't clipped; wide cards keep the usual size. */
+.grid-card .grid-stats { grid-template-columns: repeat(var(--grid-cols, 4), minmax(0, 1fr)) !important; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="1"] { --grid-cols: 1; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="2"] { --grid-cols: 2; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="3"] { --grid-cols: 3; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="5"] { --grid-cols: 5; }
+@container (max-width: 699px) { :is(.grid-card .grid-stats, .savings-block-container .ep-tiles)[data-count="5"] { --grid-cols: 3; } }
+@container (max-width: 559px) { .grid-card .grid-stats[data-count="4"] { --grid-cols: 2; } }
+/* Savings tiles carry no second line, so four stay in a row longer. */
+@container (max-width: 399px) { .savings-block-container .ep-tiles[data-count="4"] { --grid-cols: 2; } }
+@container (max-width: 299px) { :is(.grid-card .grid-stats, .savings-block-container .ep-tiles):is([data-count="3"], [data-count="5"]) { --grid-cols: 2; } }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles) > .ep-tile .ep-value { font-size: calc(clamp(0.8rem, min(4.6cqi, (100cqi - 3rem) / var(--grid-cols, 4) / var(--tile-chars, 5.4)), 1.6rem) * var(--card-font-scale, 1)); }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles) > .ep-tile { min-width: 0; }
+:is(.grid-card .grid-stats, .savings-block-container .ep-tiles) > .ep-tile .ep-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-grid-cost { display: block; margin-top: 2px; font-size: calc(0.74rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Grid hours per day: one bar per day, out of 24 h; today is still running. */
+.ep-grid-days-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+/* The day range uses the charts' .chart-controls look. */
+.ep-grid-range { display: inline-flex; }
+.ep-grid-range button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ep-grid-days { position: relative; display: flex; align-items: flex-end; gap: clamp(1px, 0.8cqi, 4px); height: 64px; flex: 0 0 auto; margin-right: 30px; border-bottom: 1px solid var(--border); }
+.ep-grid-days::before, .ep-grid-days::after { content: ""; position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); pointer-events: none; }
+.ep-grid-days::before { top: 0; }
+.ep-grid-days::after { top: 50%; }
+.ep-grid-days-y { position: absolute; left: calc(100% + 4px); transform: translateY(-50%); font-size: calc(0.62rem * var(--card-font-scale, 1)); color: var(--text-secondary); white-space: nowrap; }
+.ep-grid-day { flex: 1 1 0; position: relative; z-index: 1; min-width: 2px; border-radius: 3px 3px 0 0; background: var(--success); cursor: pointer; }
+.ep-grid-day.today { background: repeating-linear-gradient(45deg, var(--success) 0 4px, color-mix(in srgb, var(--success) 45%, transparent) 4px 8px); }
+.ep-grid-day.none, .ep-grid-day.unknown { height: 2px !important; background: var(--border); }
+.ep-grid-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ep-grid-days-axis { display: flex; justify-content: space-between; margin-right: 30px; font-size: calc(0.68rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.ep-grid-days-sum { font-size: calc(0.74rem * var(--card-font-scale, 1)); color: var(--text-secondary); min-height: 1.3em; }
+.ep-grid-days-sum b { color: var(--text); }
 
 /* ── Text and embeds ──────────────────────────────────────── */
 .text-card.ep-card { white-space: pre-wrap; word-break: break-word; font-size: calc(clamp(0.85rem, 2.8cqi, 1rem) * var(--card-font-scale, 1)); line-height: 1.55; color: var(--text); overflow: auto; }
@@ -556,6 +592,12 @@
 .so-weather .so-value { display: flex; align-items: baseline; gap: 4px; }
 .so-wx-icon { margin-left: auto; font-size: calc(1.8rem * var(--card-font-scale, 1)); color: var(--accent); line-height: 1; }
 .so-wx-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+/* Weather details: one line each (label, value), in two columns when the
+   tile is wide; fitWeather() hides the lines a short tile has no room for. */
+.so-wx-facts { flex: 1 1 0; min-height: 0; overflow: hidden; margin: 6px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5em), 1fr)); gap: 3px 14px; align-content: start; }
+.so-wx-facts > div { min-width: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-top: 3px; border-top: 1px solid var(--border); }
+.so-wx-facts dt { font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.so-wx-facts dd { margin: 0; font-size: calc(0.78rem * var(--card-font-scale, 1)); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Switch / selector placeholder (the working controls are on the Controls page) */
 .control-placeholder { display: flex; flex-direction: column; justify-content: center; gap: .35rem; height: 100%; box-sizing: border-box; padding: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); }

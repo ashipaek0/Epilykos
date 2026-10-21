@@ -10,26 +10,40 @@
     var r = await fetch('/api/system' + path, { method: body === undefined ? 'GET' : 'POST', headers: body === undefined ? {} : {'Content-Type':'application/json'}, body: body === undefined ? undefined : JSON.stringify(body) });
     var d = await r.json(); if (!r.ok) throw new Error(d.error || 'The appliance refused the action'); return d;
   }
-  function message(s) { var el = root.querySelector('[data-extra-status]'); if (el) el.textContent = s; }
+  // Each card has its own status line: 'time' or 'bt'.
+  function message(s, where) {
+    var el = root.querySelector('[data-status="' + (where || 'bt') + '"]');
+    if (el) { el.className = 'test-status' + (s ? ' error' : ''); el.textContent = s; }
+  }
+  function note(s, where) {
+    var el = root.querySelector('[data-status="' + where + '"]');
+    if (el) { el.className = 'test-status success'; el.textContent = s; }
+  }
+  function row(label, key) {
+    return '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">' + label + '</span><span class="st-help" ' + key + '></span></div></div>';
+  }
   function renderHost(s) {
     if (!initialized) {
-      root.innerHTML = '<div class="st-card"><h2>Time and storage</h2><p data-clock-status></p><p data-storage-status></p><p data-data-storage-status role="status"></p>'
-        + '<div class="st-field"><label for="sys-timezone">Site time zone</label><input class="input" id="sys-timezone" value="' + esc((s.clock || {}).timezone || 'UTC') + '" placeholder="Africa/Lagos"><p class="st-help">Use an IANA name. Daily totals follow this zone; changing it restarts Epilykos.</p></div>'
-        + '<button class="st-btn" type="button" data-extra="timezone">Save time zone</button> <button class="st-btn" type="button" data-extra="clock">Set time from this browser</button></div>'
-        + '<div class="st-card"><h2>Bluetooth devices</h2><p class="st-help">Pair a device here if its source needs a PIN or a bond. Pairing does not add a source or add support for its protocol. Select the device in source settings afterwards. Nearby devices can be paired only during the five-minute window.</p><div data-bt></div></div><p role="status" data-extra-status></p>';
+      root.innerHTML = '<div class="st-card"><div class="st-card-head"><h2>Time and storage</h2></div>'
+        + '<div class="st-snapshots">' + row('Clock', 'data-clock-status') + row('SD card', 'data-storage-status') + row('DATA', 'data-data-storage-status role="status"') + '</div>'
+        + '<div class="st-field" style="margin-top:14px"><label for="sys-timezone">Site time zone</label><input class="input" id="sys-timezone" value="' + esc((s.clock || {}).timezone || 'UTC') + '" placeholder="Africa/Lagos"><span class="st-help">Use an IANA name. Daily totals follow this zone; changing it restarts Epilykos.</span></div>'
+        + '<div class="st-inline-actions"><button class="st-btn" type="button" data-extra="timezone">Save time zone</button><button class="st-btn" type="button" data-extra="clock">Set time from this browser</button></div>'
+        + '<div class="test-status" data-status="time" role="status"></div></div>'
+        + '<div class="st-card"><div class="st-card-head"><h2>Bluetooth devices</h2></div><p class="st-help">Pair a device here if its source needs a PIN or a bond. Pairing does not add a source or add support for its protocol. Select the device in source settings afterwards. Nearby devices can be paired only during the five-minute window.</p>'
+        + '<div data-bt></div><div class="test-status" data-status="bt" role="status"></div></div>';
       initialized = true;
     }
     var clock = s.clock || {};
-    root.querySelector('[data-clock-status]').textContent = clock.epoch ? new Date(clock.epoch*1000).toLocaleString() + ' · ' + clock.timezone + ' · ' + (clock.synchronized ? 'network time synchronized' : 'clock not synchronized; connect to the Internet or correct it below') : 'Clock state unavailable on this OS version.';
+    root.querySelector('[data-clock-status]').textContent = clock.epoch ? ' · ' + new Date(clock.epoch*1000).toLocaleString() + ' · ' + clock.timezone + ' · ' + (clock.synchronized ? 'network time synchronized' : 'not synchronized; connect to the Internet or set it below') : ' · unavailable on this OS version';
     var storage = s.storage;
-    root.querySelector('[data-storage-status]').textContent = storage ? (storage.bytes/1e9).toFixed(1) + ' GB card' + (storage.undersized ? ' — below the 32 GB minimum; snapshots and restores may not fit. Use 64 GB if possible.' : ' · 64 GB recommended.') : 'Card size unavailable.';
+    root.querySelector('[data-storage-status]').textContent = storage ? ' · ' + (storage.bytes/1e9).toFixed(1) + ' GB' + (storage.undersized ? ' — below the 32 GB minimum; snapshots and restores may not fit. Use 64 GB if possible.' : ' · 64 GB recommended') : ' · size unavailable';
     var space = s.data_storage;
     var GiB = 1073741824;
     root.querySelector('[data-data-storage-status]').textContent = space && space.available
-      ? 'DATA: ' + (space.available_bytes/GiB).toFixed(1) + ' GiB free of ' + (space.total_bytes/GiB).toFixed(1) + ' GiB.'
-        + (space.state === 'critical' ? ' Critically low free space.' : space.state === 'warning' ? ' Low free space.' : '')
-        + ' Keep at least ' + (Math.ceil(space.maintenance_floor_bytes/GiB*10)/10).toFixed(1) + ' GiB free after maintenance.'
-      : 'DATA free-space measurement unavailable.';
+      ? ' · ' + (space.available_bytes/GiB).toFixed(1) + ' GiB free of ' + (space.total_bytes/GiB).toFixed(1) + ' GiB'
+        + (space.state === 'critical' ? ' · critically low' : space.state === 'warning' ? ' · low' : '')
+        + ' · keep at least ' + (Math.ceil(space.maintenance_floor_bytes/GiB*10)/10).toFixed(1) + ' GiB free after maintenance'
+      : ' · free space unavailable';
   }
   function renderBluetooth(state) {
     bt = state;
@@ -40,46 +54,56 @@
     var input = box.querySelector('#sys-bt-pin');
     if (input && state.pending && input.dataset.request === state.pending.id) return;
     lastBt = serialized;
-    if (!state.available) { box.innerHTML = '<p>Bluetooth is not ready. Check that the adapter is available; this page retries.</p>'; return; }
+    if (!state.available) { box.innerHTML = '<p class="st-help">Bluetooth is not ready. Check that the adapter is available; this page retries.</p>'; return; }
     var open = state.until > Date.now()/1000;
-    var h = '<p>' + (open ? 'Pairing is open until ' + esc(new Date(state.until*1000).toLocaleTimeString()) : 'Pairing is closed.') + '</p>'
-      + '<button type="button" class="st-btn" data-extra="' + (open ? 'bt-close' : 'bt-open') + '">' + (open ? 'Close pairing' : 'Pair a Bluetooth device') + '</button>';
-    if (state.result) h += '<p role="status">' + esc(state.result.message) + '</p>';
-    if (state.pairing) h += '<p>Pairing… keep the device nearby.</p>';
+    var h = '<p class="st-help"><b>' + (open ? 'Pairing is open until ' + esc(new Date(state.until*1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) + '.' : 'Pairing is closed.') + '</b></p>'
+      + '<div class="st-inline-actions"><button type="button" class="st-btn" data-extra="' + (open ? 'bt-close' : 'bt-open') + '">' + (open ? 'Close pairing' : 'Pair a Bluetooth device') + '</button></div>';
+    if (state.result) h += '<p class="st-help" role="status">' + esc(state.result.message) + '</p>';
+    if (state.pairing) h += '<p class="st-help">Pairing… keep the device nearby.</p>';
     var pending = state.pending;
     if (pending) {
-      if (pending.kind === 'display') h += '<p>Enter this code on the device: <b>' + esc(pending.value) + '</b></p>';
-      else if (pending.kind === 'confirm') h += '<p>Does the device show <b>' + esc(pending.value) + '</b>?</p><button class="st-btn" type="button" data-extra="bt-confirm">Codes match</button> <button class="st-btn" type="button" data-extra="bt-reject">Reject</button>';
-      else h += '<div class="st-field"><label for="sys-bt-pin">Device ' + (pending.kind === 'pin' ? 'PIN' : 'numeric passkey') + '</label><input type="password" autocomplete="off" class="input" id="sys-bt-pin" data-request="' + esc(pending.id) + '" maxlength="16"></div><button class="st-btn" type="button" data-extra="bt-reply">Send PIN</button>';
+      if (pending.kind === 'display') h += '<p class="st-help">Enter this code on the device: <b>' + esc(pending.value) + '</b></p>';
+      else if (pending.kind === 'confirm') h += '<p class="st-help">Does the device show <b>' + esc(pending.value) + '</b>?</p><div class="st-inline-actions"><button class="st-btn st-btn-primary" type="button" data-extra="bt-confirm">Codes match</button><button class="st-btn" type="button" data-extra="bt-reject">Reject</button></div>';
+      else h += '<div class="st-field"><label for="sys-bt-pin">Device ' + (pending.kind === 'pin' ? 'PIN' : 'numeric passkey') + '</label><input type="password" autocomplete="off" class="input" id="sys-bt-pin" data-request="' + esc(pending.id) + '" maxlength="16" style="max-width:14em"></div><div class="st-inline-actions"><button class="st-btn st-btn-primary" type="button" data-extra="bt-reply">Send PIN</button></div>';
     }
-    (state.devices || []).forEach(function (d) {
-      if (!open && !d.paired) return;
-      h += '<p><b>' + esc(d.name) + '</b> · <code>' + esc(d.address) + '</code> · ' + (d.paired ? 'Paired' : 'Nearby') + (d.connected ? ' · connected' : '') + ' <button class="st-btn" type="button" data-extra="' + (d.paired ? 'bt-remove' : 'bt-pair') + '" data-address="' + esc(d.address) + '"' + (state.pairing ? ' disabled' : '') + '>' + (d.paired ? 'Forget' : 'Pair') + '</button></p>';
-    });
+    var devices = (state.devices || []).filter(function (d) { return open || d.paired; });
+    if (devices.length) {
+      h += '<div class="st-snapshots" style="margin-top:12px">' + devices.map(function (d) {
+        return '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">' + esc(d.name) + '</span>'
+          + '<span class="st-help"> · <code>' + esc(d.address) + '</code> · ' + (d.paired ? 'paired' : 'nearby') + (d.connected ? ' · connected' : '') + '</span></div>'
+          + '<button class="st-btn" type="button" data-extra="' + (d.paired ? 'bt-remove' : 'bt-pair') + '" data-address="' + esc(d.address) + '"' + (state.pairing ? ' disabled' : '') + '>' + (d.paired ? 'Forget' : 'Pair') + '</button></div>';
+      }).join('') + '</div>';
+    } else if (open) {
+      h += '<p class="st-help">Looking for nearby devices… put the device in pairing mode.</p>';
+    }
     box.innerHTML = h;
   }
   async function refresh() {
     if (refreshing) return; refreshing = true;
     try { var s = await api(''); if (!s.appliance) return; renderHost(s); var r = await api('/bluetooth'); renderBluetooth(r.bluetooth); }
-    catch (e) { message(e.message); }
+    catch (e) { message(e.message, 'bt'); }
     finally { refreshing = false; }
   }
   root.addEventListener('click', async function (e) {
     var b = e.target.closest('[data-extra]'); if (!b) return;
     var act = b.dataset.extra;
+    var where = act === 'timezone' || act === 'clock' ? 'time' : 'bt';
+    if (act === 'bt-remove') {
+      var ask = { title: 'Forget ' + b.dataset.address + '?', message: 'Its source will need pairing again.', confirmLabel: 'Forget' };
+      if (!(await (window.stConfirm ? window.stConfirm(ask) : Promise.resolve(window.confirm(ask.title + ' ' + ask.message))))) return;
+    }
     b.disabled = true;
     try {
       if (act === 'timezone') {
         await api('/timezone', {timezone: root.querySelector('#sys-timezone').value.trim()});
-        message('Time zone saved. Epilykos is restarting…'); setTimeout(function () { location.reload(); }, 15000);
+        note('Time zone saved. Epilykos is restarting…', 'time'); setTimeout(function () { location.reload(); }, 15000);
       } else if (act === 'clock') {
-        await api('/clock', {epoch: Math.floor(Date.now()/1000)}); message('Clock set from this browser. Network time remains enabled.'); await refresh();
+        await api('/clock', {epoch: Math.floor(Date.now()/1000)}); await refresh(); note('Clock set from this browser. Network time remains enabled.', 'time');
       } else {
         var path, body = {};
         if (act === 'bt-open') path = '/bluetooth/open';
         if (act === 'bt-close') path = '/bluetooth/close';
         if (act === 'bt-pair' || act === 'bt-remove') {
-          if (act === 'bt-remove' && !window.confirm('Forget ' + b.dataset.address + '? Its source will need pairing again.')) return;
           path = act === 'bt-pair' ? '/bluetooth/pair' : '/bluetooth/remove'; body.address = b.dataset.address;
         }
         if (act === 'bt-reply' || act === 'bt-confirm' || act === 'bt-reject') {
@@ -89,9 +113,9 @@
         if (!path) return;
         var r = await api(path, body);
         var pin = root.querySelector('#sys-bt-pin'); if (pin) pin.value = '';
-        lastBt = ''; renderBluetooth(r.bluetooth); message('');
+        lastBt = ''; renderBluetooth(r.bluetooth); message('', 'bt');
       }
-    } catch (err) { message(err.message); }
+    } catch (err) { message(err.message, where); }
     finally { b.disabled = false; }
   });
   refresh(); setInterval(function () { if (initialized && !document.getElementById('section-system').hidden) refresh(); }, 2000);

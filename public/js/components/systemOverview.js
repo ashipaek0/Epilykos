@@ -37,11 +37,19 @@ const state = { history: null };   // last power history seen (deltas don't repe
 const watts = kw => (Number.isFinite(kw) ? kw * 1000 : null);
 const kwhText = v => (Number.isFinite(v) ? `${v >= 100 ? Math.round(v) : v.toFixed(1)} kWh` : '');
 
-function tileHtml(key) {
+/** Tile names the user chose, by tile key (grid, battery, solar, home, pvi, pvc, weather). */
+function tileNames(config) {
+  const out = {};
+  const names = config.names && typeof config.names === 'object' ? config.names : {};
+  for (const [k, v] of Object.entries(names)) if (typeof v === 'string' && v.trim()) out[k] = v.trim();
+  return out;
+}
+
+function tileHtml(key, label = TILES[key].label) {
   const t = TILES[key];
   return `<section class="so-tile so-${key}" data-tile="${key}" style="--so-c: var(${t.color})">
     <svg class="so-spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path class="so-spark-area"/><path class="so-spark-line"/></svg>
-    <header><h4><span class="so-icon" aria-hidden="true">${icon(t.icon, 16)}</span><span class="so-name">${t.label}</span></h4><span class="so-corner"></span></header>
+    <header><h4><span class="so-icon" aria-hidden="true">${icon(t.icon, 16)}</span><span class="so-name">${escapeHtml(label)}</span></h4><span class="so-corner"></span></header>
     <p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span></p>
   </section>`;
 }
@@ -52,9 +60,12 @@ export function buildSystemOverview(block = {}) {
   const pv = config.pv || {}, split = !!(pv.inverter && pv.charger);
   const weather = config.showWeather === true;
   const side = split || weather || extras.length;
+  const names = tileNames(config);
+  const name = key => names[key] || TILES[key].label;
   const card = document.createElement('div');
   card.className = 'system-overview-card';
   card.dataset.blockId = block.id || '';
+  card.dataset.names = JSON.stringify(names);
   markBreakdown(card, config);
   card.dataset.extras = JSON.stringify(extras);
   if (split) card.dataset.pv = JSON.stringify({ inverter: pv.inverter, charger: pv.charger });
@@ -75,13 +86,13 @@ export function buildSystemOverview(block = {}) {
     <div class="so-body${side ? ' has-extras' : ''}${split ? ' is-split' : ''}">
       <div class="so-diagram">
         <svg class="so-lines" aria-hidden="true"></svg>
-        <div class="so-col so-left">${tileHtml('grid')}${tileHtml('battery')}</div>
+        <div class="so-col so-left">${tileHtml('grid', name('grid'))}${tileHtml('battery', name('battery'))}</div>
         <div class="so-hub"><div class="so-hub-box">${hub}<span class="so-hub-state">—</span></div></div>
-        <div class="so-col so-right">${split ? tileHtml('pvi') + tileHtml('home') + tileHtml('pvc') : tileHtml('solar') + tileHtml('home')}</div>
+        <div class="so-col so-right">${split ? tileHtml('pvi', name('pvi')) + tileHtml('home', name('home')) + tileHtml('pvc', name('pvc')) : tileHtml('solar', name('solar')) + tileHtml('home', name('home'))}</div>
       </div>
-      ${side ? `<div class="so-extras">${split ? tileHtml('solar').replace('<span class="so-name">Solar</span>', '<span class="so-name">Total solar</span>') : ''}${weather ? `<section class="so-tile so-weather" data-tile="weather"><header><h4><span class="so-name">Weather</span></h4><span class="so-corner so-wx-desc"></span></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span><span class="so-wx-icon"></span></p></section>` : ''}${extras.map((e, i) => `<section class="so-tile so-extra" data-extra="${i}"><header><h4><span class="so-name">${escapeHtml(e.label || e.metric)}</span></h4></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span></p></section>`).join('')}</div>` : ''}
+      ${side ? `<div class="so-extras">${split ? tileHtml('solar', names.solar || 'Total solar') : ''}${weather ? `<section class="so-tile so-weather" data-tile="weather"><header><h4><span class="so-name">${escapeHtml(names.weather || 'Weather')}</span></h4><span class="so-corner so-wx-desc"></span></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span><span class="so-wx-icon"></span></p><dl class="so-wx-facts"></dl></section>` : ''}${extras.map((e, i) => `<section class="so-tile so-extra" data-extra="${i}"><header><h4><span class="so-name">${escapeHtml(e.label || e.metric)}</span></h4></header><p class="so-value"><span class="so-num">—</span> <span class="so-unit"></span></p></section>`).join('')}</div>` : ''}
     </div>`;
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!card.isConnected) ro.disconnect(); else drawLines(card); }) : null;
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!card.isConnected) ro.disconnect(); else { drawLines(card); fitWeather(card); } }) : null;
   requestAnimationFrame(() => { ro?.observe(card); drawLines(card); });
   const clock = setInterval(() => { if (!card.isConnected) clearInterval(clock); else tick(card); }, 15000);
   tick(card);
@@ -105,17 +116,57 @@ async function loadPvHistory(card) {
 }
 
 /** Weather tile: temperature, conditions and icon from the forecast source. */
+const deg = v => (Number.isFinite(Number(v)) && v !== null ? `${Math.round(Number(v))}°` : null);
+const pct = v => (Number.isFinite(Number(v)) && v !== null ? `${Math.round(Number(v))}%` : null);
+const clock = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null; };
+
+/**
+ * The weather tile's details, most useful first: today's high and low,
+ * feels like, cloud cover, today's chance of rain, UV, wind, sunrise and
+ * sunset. Ones the source doesn't give are left out; fitWeather() hides
+ * the rows a small tile has no room for.
+ */
+function weatherFacts(w) {
+  const today = w.today || {};
+  const hiLo = deg(today.temp_max) && deg(today.temp_min) ? `${deg(today.temp_max)} / ${deg(today.temp_min)}` : null;
+  const wind = Number.isFinite(Number(w.wind_speed)) && w.wind_speed !== null ? `${Math.round(Number(w.wind_speed))} m/s${w.wind_compass ? ' ' + w.wind_compass : ''}` : null;
+  const uv = Number.isFinite(Number(w.uv_index)) && w.uv_index !== null ? String(Math.round(Number(w.uv_index))) : null;
+  return [
+    ['High / low', hiLo],
+    ['Feels like', deg(w.feels_like)],
+    ['Cloud', pct(w.cloud_cover)],
+    ['Rain today', pct(today.precip_probability ?? w.precip_probability)],
+    ['UV', uv],
+    ['Wind', wind],
+    ['Sunrise', clock(w.sunrise)],
+    ['Sunset', clock(w.sunset)],
+  ].filter(([, v]) => v);
+}
+
+/** Hide the weather details that would be cut off by the bottom of the tile. */
+function fitWeather(card) {
+  const dl = card.querySelector('.so-wx-facts'); if (!dl) return;
+  const limit = dl.getBoundingClientRect().bottom;
+  for (const item of dl.children) {
+    item.style.visibility = '';
+    if (item.getBoundingClientRect().bottom > limit + 0.5) item.style.visibility = 'hidden';
+  }
+}
+
 async function loadWeather(card) {
   const tile = card.querySelector('.so-weather'); if (!tile) return;
+  const facts = tile.querySelector('.so-wx-facts');
   try {
     const data = await getSharedForecastData('auto', {});
     const w = data && data.weather;
-    if (!w || w.available === false || w.temp == null) { tile.querySelector('.so-num').textContent = '—'; tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; return; }
+    if (!w || w.available === false || w.temp == null) { tile.querySelector('.so-num').textContent = '—'; tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; facts.innerHTML = ''; return; }
     tile.querySelector('.so-num').textContent = String(Math.round(Number(w.temp)));
     tile.querySelector('.so-unit').textContent = '°C';
     tile.querySelector('.so-wx-desc').textContent = w.desc || '';
     tile.querySelector('.so-wx-icon').innerHTML = iconHtml(w.icon_class, w.code, w.is_day !== 0);
-  } catch (_) { tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; }
+    facts.innerHTML = weatherFacts(w).map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+    fitWeather(card);
+  } catch (_) { tile.querySelector('.so-wx-desc').textContent = 'Unavailable'; facts.innerHTML = ''; }
 }
 
 /** Orthogonal lines from each tile's inner edge to the hub. */
@@ -192,17 +243,21 @@ export function updateSystemOverview(dashboardState) {
       card._soLast = c;
       card._soTimestamp = c.timestamp || card._soTimestamp;
       const tile = k => card.querySelector(`.so-tile[data-tile="${k}"]`);
+      let names = {}; try { names = JSON.parse(card.dataset.names || '{}'); } catch (_) { /* default names */ }
+      const name = k => names[k] || TILES[k].label;
       // Grid: net import (+) / export (-), or Off when grid status says so.
       const gs = dashboardState.gridStatus || {};
       const gridW = watts((c.grid_import_kw || 0) - (c.grid_export_kw || 0));
       if (gs.configured && gs.available && gs.current === false) { setValue(tile('grid'), { value: 'Off', unit: '' }); }
       else setValue(tile('grid'), formatMetric(gridW, 'W'));
-      tile('grid').querySelector('.so-name').textContent = gridW < -FLOW_MIN_W ? 'Grid (export)' : 'Grid';
+      tile('grid').querySelector('.so-name').textContent = gridW < -FLOW_MIN_W ? `${name('grid')} (export)` : name('grid');
       tile('grid').querySelector('.so-corner').textContent = kwhText(c.daily_grid_import_kwh);
-      // Battery: charge % big, power in the corner, state as the name.
+      // Battery: charge % big, power in the corner, state as the name (after
+      // the tile's own name, when it has one).
       const battW = watts(c.battery_power_kw);
       setValue(tile('battery'), formatMetric(c.battery_soc, '%'));
-      tile('battery').querySelector('.so-name').textContent = !Number.isFinite(battW) || Math.abs(battW) < FLOW_MIN_W ? 'Battery' : battW > 0 ? 'Charging' : 'Discharging';
+      const battState = !Number.isFinite(battW) || Math.abs(battW) < FLOW_MIN_W ? '' : battW > 0 ? 'Charging' : 'Discharging';
+      tile('battery').querySelector('.so-name').textContent = !battState ? name('battery') : names.battery ? `${names.battery} · ${battState.toLowerCase()}` : battState;
       tile('battery').querySelector('.so-corner').textContent = Number.isFinite(battW) ? formatMetric(battW, 'W').text : '';
       setValue(tile('solar'), formatMetric(watts(c.solar_kw), 'W'));
       let pv = null; try { pv = JSON.parse(card.dataset.pv || 'null'); } catch (_) { /* no split */ }
@@ -225,10 +280,10 @@ export function updateSystemOverview(dashboardState) {
       // Tiles follow the roles, so their parts come from the roles' combined totals.
       const t = k => card.querySelector(`.so-tile[data-tile="${k}"]`);
       applyBreakdowns(card, dashboardState, [
-        { host: t('grid'), title: 'Grid', specs: [{ name: 'grid_import', unit: 'W' }, { name: 'grid_export', format: exportFormat }] },
-        { host: t('battery'), title: 'Battery', specs: [{ name: 'battery_soc', unit: '%' }, { name: 'battery_charge', format: chargeFormat }, { name: 'battery_discharge', format: dischargeFormat }] },
-        { host: t('solar'), title: 'Solar', specs: [{ name: 'solar', unit: 'W' }] },
-        { host: t('home'), title: 'Home', specs: [{ name: 'consumption', unit: 'W' }] }
+        { host: t('grid'), title: name('grid'), specs: [{ name: 'grid_import', unit: 'W' }, { name: 'grid_export', format: exportFormat }] },
+        { host: t('battery'), title: name('battery'), specs: [{ name: 'battery_soc', unit: '%' }, { name: 'battery_charge', format: chargeFormat }, { name: 'battery_discharge', format: dischargeFormat }] },
+        { host: t('solar'), title: name('solar'), specs: [{ name: 'solar', unit: 'W' }] },
+        { host: t('home'), title: name('home'), specs: [{ name: 'consumption', unit: 'W' }] }
       ]);
       applyFlows(card, c);
       tick(card);

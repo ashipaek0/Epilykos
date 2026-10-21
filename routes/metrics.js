@@ -10,7 +10,7 @@ const express = require('express');
 const { logger } = require('../modules/logger');
 const { getConfig, getDb } = require('../modules/database');
 const { computeTodaySolar, getSolarForecast } = require('../modules/solar');
-const { getGridHours, getGridTimeline, getCurrentGridStatus } = require('../modules/grid');
+const { getGridHours, getGridDailyHours, getGridTimeline, getCurrentGridStatus } = require('../modules/grid');
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
@@ -92,6 +92,35 @@ function buildCurrentData(db, savings) {
   };
 }
 
+/**
+ * What the grid energy bought cost, per period: each day's grid import
+ * counter (kWh) times the grid buy price in Settings. Unavailable when no
+ * daily grid import metric is mapped, rather than a misleading 0.
+ */
+function computeGridCost(db) {
+  let roles = {};
+  try { roles = JSON.parse(getConfig('role_metrics') || '{}') || {}; } catch (e) { roles = {}; }
+  if (!roles.daily_grid_import) return { available: false };
+  const n = parseFloat(getConfig('savings_rate'));
+  const price = Number.isFinite(n) && n >= 0 ? n : 0.30;
+  const now = new Date();
+  const today = localDateString(now);
+  const dow = now.getDay();
+  const weekStart = localDateString(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow === 0 ? 6 : dow - 1)));
+  const kwh = { day: 0, week: 0, month: 0, year: 0, all: 0 };
+  for (const r of readDailySnapshots(db, { fields: ['daily_grid_import'], cached: true })) {
+    const v = Number(r.daily_grid_import);
+    if (!Number.isFinite(v) || v <= 0 || r.day > today) continue;
+    kwh.all += v;
+    if (r.day.slice(0, 4) === today.slice(0, 4)) kwh.year += v;
+    if (r.day.slice(0, 7) === today.slice(0, 7)) kwh.month += v;
+    if (r.day >= weekStart) kwh.week += v;
+    if (r.day === today) kwh.day += v;
+  }
+  const cost = Object.fromEntries(Object.entries(kwh).map(([k, v]) => [k, Math.round(v * price * 100) / 100]));
+  return { available: true, currency: getConfig('savings_currency') || '€', price, kwh, cost };
+}
+
 async function buildDashboardState() {
   const db = getDb();
   const start = Date.now();
@@ -111,21 +140,24 @@ async function buildDashboardState() {
     Promise.resolve(readDailySnapshots(db, { from: barSince, to: now, toInclusive: true, fields: ['daily_solar', 'daily_consumption', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export', 'daily_generator'] }).map(r => ({ day: r.day, solar_kwh: r.daily_solar, consumption_kwh: r.daily_consumption, battery_charge_kwh: r.daily_battery_charge, battery_discharge_kwh: r.daily_battery_discharge, grid_import_kwh: r.daily_grid_import, grid_export_kwh: r.daily_grid_export, generator_kwh: r.daily_generator })))
   ]);
 
-  const [gridHoursDay, gridHoursWeek, gridHoursMonth, gridHoursYear, gridTimeline] = gridStatus.configured
+  const [gridHoursDay, gridHoursWeek, gridHoursMonth, gridHoursYear, gridHoursAll, gridTimeline] = gridStatus.configured
     ? await Promise.all([
-        getGridHours('day'), getGridHours('week'), getGridHours('month'), getGridHours('year'),
+        getGridHours('day'), getGridHours('week'), getGridHours('month'), getGridHours('year'), getGridHours('all'),
         getGridTimeline('24h')
       ])
-    : [0, 0, 0, 0, { configured: false, available: false, segments: [], windowStart: 0, windowEnd: 0 }];
+    : [0, 0, 0, 0, 0, { configured: false, available: false, segments: [], windowStart: 0, windowEnd: 0 }];
 
   const gridHours = {
     day: gridHoursDay,
     week: gridHoursWeek,
     month: gridHoursMonth,
     year: gridHoursYear,
+    all: gridHoursAll,
     configured: gridStatus.configured,
     available: gridStatus.available
   };
+  const gridDaily = { configured: gridStatus.configured, days: gridStatus.configured ? getGridDailyHours(30) : [] };
+  const gridCost = computeGridCost(db);
 
   const powerHistory = historyRows.map(r => ({
     timestamp: r.timestamp * 1000,
@@ -161,6 +193,8 @@ async function buildDashboardState() {
     gridStatus,
     gridHours,
     gridTimeline,
+    gridDaily,
+    gridCost,
     powerHistory,
     dailyEnergyBar,
     breakdowns: safeBreakdowns()
@@ -494,4 +528,4 @@ router.get('/dashboard-config', async (req, res) => {
   }
 });
 
-module.exports = { router, buildDashboardState, sharedDashboardState };
+module.exports = { router, buildDashboardState, sharedDashboardState, computeGridCost };

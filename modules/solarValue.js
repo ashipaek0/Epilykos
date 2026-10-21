@@ -123,7 +123,7 @@ function pastDays(db, settings, today, todayStart) {
 function clearSolarValueCache(db) { if (db) { cache.delete(db); splitCache.delete(db); } }
 
 /**
- * Savings for today, this week (from Monday), this month and all time, plus
+ * Savings for today, this week (from Monday), this month, this year and all time, plus
  * the price used today. `todaySolarKwh` is the live solar energy today.
  */
 function computeSavings({ todaySolarKwh = 0, db = getDb(), now = new Date() } = {}) {
@@ -133,26 +133,28 @@ function computeSavings({ todaySolarKwh = 0, db = getDb(), now = new Date() } = 
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const weekStr = localDateString(weekStart), monthStr = localDateString(monthStart);
+  const yearStr = localDateString(new Date(now.getFullYear(), 0, 1));
 
   const todayRow = readDailySnapshots(db, { from: todayStart, fields: FIELDS }).find(d => d.day === today) || { day: today };
   if (settings.method === 'availability') todayRow.split = solarByGrid(db, todayStart, Math.floor(now.getTime() / 1000) + 1).get(today) || null;
   const todayPrice = dayPrice(settings, todayRow);
   const todayValue = (Number(todaySolarKwh) || 0) * todayPrice;
 
-  // As before: today/week/month use the live solar figure; all time uses
+  // As before: today/week/month/year use the live solar figure; all time uses
   // today's stored daily total when there is one.
   const todayStored = Number.isFinite(todayRow.daily_solar) ? todayRow.daily_solar : (Number(todaySolarKwh) || 0);
-  let week = todayValue, month = todayValue, all = todayStored * todayPrice, allSolar = todayStored;
+  let week = todayValue, month = todayValue, year = todayValue, all = todayStored * todayPrice, allSolar = todayStored;
   for (const d of pastDays(db, settings, today, todayStart)) {
     const value = (d.daily_solar || 0) * dayPrice(settings, d);
     all += value; allSolar += d.daily_solar || 0;
     if (d.day >= weekStr) week += value;
     if (d.day >= monthStr) month += value;
+    if (d.day >= yearStr) year += value;
   }
   return {
     currency: settings.currency, rate: settings.grid, generatorPrice: settings.generator,
     method: settings.method, todayPrice,
-    today: todayValue, week, month, all, allTimeSolarKwh: allSolar
+    today: todayValue, week, month, year, all, allTimeSolarKwh: allSolar
   };
 }
 
