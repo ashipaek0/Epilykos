@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39615632437.1",
-    "version": "1.0.3-dev+4a279ef",
-    "commit": "4a279ef3448177a5a49078533f4dd9fecb0c4a67",
-    "digest": "sha256:432e4584ac0882bf44cec4b9b12256b76b72f47155839afc7891e33159bf7478",
+    "buildId": "39615847247.1",
+    "version": "1.0.3-dev+b2e7df1",
+    "commit": "b2e7df1bd95b39a3c46b072eb9e0858c9f4dba8e",
+    "digest": "sha256:58172978d90f9a02fbbad64e10b81dfe75a0387375335500f13692b8c8eda683",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T14:18:06Z",
+    "builtAt": "2026-10-21T14:19:46Z",
     "kind": "release",
     "notes": [
-      "Settings > Network: show this box's addresses and connection"
+      "Savings card: a This year option, a toggle for each period, no cut-off totals"
     ]
   },
   "history": [
+    {
+      "buildId": "39615847247.1",
+      "version": "1.0.3-dev+b2e7df1",
+      "commit": "b2e7df1bd95b39a3c46b072eb9e0858c9f4dba8e",
+      "digest": "sha256:58172978d90f9a02fbbad64e10b81dfe75a0387375335500f13692b8c8eda683",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T14:19:46Z",
+      "kind": "release",
+      "notes": [
+        "Savings card: a This year option, a toggle for each period, no cut-off totals"
+      ]
+    },
     {
       "buildId": "39615632437.1",
       "version": "1.0.3-dev+4a279ef",
