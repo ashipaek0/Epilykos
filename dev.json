@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39617168464.1",
-    "version": "1.0.3-dev+2878ce0",
-    "commit": "2878ce008b10afb0e59b6c990a9e5c9f073385d6",
-    "digest": "sha256:5211fc642c3dbb064b18770b042159bab397af5d2e2e42601e7ce41287911a50",
+    "buildId": "39628618272.1",
+    "version": "1.0.4-dev+0a035ec",
+    "commit": "0a035eca704ab04bbefe39044c33dd54a24edc77",
+    "digest": "sha256:b018d98fbd17c6cb0ca62d741bb0cce6bc2e4a88c59ae46da1885ffe835db201",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T14:29:23Z",
+    "builtAt": "2026-10-21T15:46:07Z",
     "kind": "release",
     "notes": [
-      "System overview: more detail on the weather tile"
+      "Square corners option; grid hours per day fill the card and fit the data"
     ]
   },
   "history": [
+    {
+      "buildId": "39628618272.1",
+      "version": "1.0.4-dev+0a035ec",
+      "commit": "0a035eca704ab04bbefe39044c33dd54a24edc77",
+      "digest": "sha256:b018d98fbd17c6cb0ca62d741bb0cce6bc2e4a88c59ae46da1885ffe835db201",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-21T15:46:07Z",
+      "kind": "release",
+      "notes": [
+        "Square corners option; grid hours per day fill the card and fit the data"
+      ]
+    },
     {
       "buildId": "39617168464.1",
       "version": "1.0.3-dev+2878ce0",
