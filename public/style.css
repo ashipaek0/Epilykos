@@ -1715,6 +1715,13 @@ details.help-sub.help-hidden { display: none; }
 }
 .setup-banner-dismiss:hover { opacity: 1; }
 [data-theme="dark"] .setup-banner { background: #2a1f08; color: #fde7c7; border-color: #4a3410; }
+/* Maintenance notices (js/maintenance.js): one line per notice, each with its link. */
+.notice-banner-list { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; }
+.notice-banner-item { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.notice-banner-item span { flex: 1 1 16rem; }
+.notice-banner-link { font-weight: 600; color: inherit; text-decoration: underline; white-space: nowrap; }
+.notice-banner.is-critical { background: #fdecea; color: #5c1a12; border-color: #f2c4bd; }
+[data-theme="dark"] .notice-banner.is-critical { background: #3a1410; color: #fbd9d3; border-color: #5c241c; }
 .setup-wizard-entry {
   display: inline-block; margin-top: 0.5rem; padding: 0.4rem 0.9rem;
   border: 1px solid var(--border, #d4d2cc); border-radius: 8px;

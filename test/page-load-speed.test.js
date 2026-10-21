@@ -27,12 +27,16 @@ if (process.argv[2] === 'tz-child') {
     CREATE TABLE history_5m (bucket_start INTEGER PRIMARY KEY, daily_solar_last REAL, daily_consumption_last REAL);`);
   const ins = db.prepare('INSERT INTO history VALUES (?,?,?)');
   const ins5 = db.prepare('INSERT INTO history_5m VALUES (?,?,?)');
-  // Made-up readings across 2026's DST changes (both hemispheres), every 7 minutes.
-  let n = 0;
+  // Made-up readings across 2026's DST changes (both hemispheres), every 7
+  // minutes. They fall steadily, so each local day's maximum is its first
+  // reading after local midnight: a day boundary off by one bucket shows.
+  // (Falling values are also never mistaken for a counter still carrying
+  // the previous day's total, which the reader skips early in a day.)
+  const END = Date.UTC(2026, 11, 31) / 1000;
   for (const [a, b] of [[Date.UTC(2026, 2, 26), Date.UTC(2026, 3, 7)], [Date.UTC(2026, 9, 22), Date.UTC(2026, 10, 3)]]) {
-    for (let t = a / 1000; t < b / 1000; t += 420) { ins.run(t, (t % 86400) / 3600, n++ % 50); }
+    for (let t = a / 1000; t < b / 1000; t += 420) { ins.run(t, (END - t) / 3600, (END - t) / 7200); }
   }
-  for (let t = Date.UTC(2026, 0, 1) / 1000; t < Date.UTC(2026, 0, 6) / 1000; t += 300) ins5.run(t, (t % 86400) / 7200, 3);
+  for (let t = Date.UTC(2026, 0, 1) / 1000; t < Date.UTC(2026, 0, 6) / 1000; t += 300) ins5.run(t, (END - t) / 7200, (END - t) / 14400);
   const ref = db.prepare(`SELECT day, MAX(daily_solar) AS daily_solar, MAX(daily_consumption) AS daily_consumption FROM (
     SELECT date(timestamp, 'unixepoch', 'localtime') AS day, daily_solar, daily_consumption FROM history
     UNION ALL SELECT date(bucket_start, 'unixepoch', 'localtime') AS day, daily_solar_last, daily_consumption_last FROM history_5m

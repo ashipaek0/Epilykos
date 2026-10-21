@@ -59,6 +59,8 @@ function readHistorySeries(db, { from, to, toInclusive = false, fields }) {
 // midnight. Grouping by bucket in SQL is cheap integer arithmetic; SQLite's
 // 'localtime' per row (the old way) took seconds over a month of readings.
 const DAY_PART_SECONDS = 900;
+// How long into a day a counter may still show the previous day's total.
+const CARRY_OVER_SECONDS = 2 * 3600;
 
 // All-time reads (no from/to) with `cached: true` keep the finished days for a
 // while and only re-read today: the dashboard asks for all-time totals on every
@@ -77,7 +79,10 @@ function readDailySnapshots(db, { from, to, toInclusive = false, fields, cached 
   const rawWhere = [hasFrom ? 'timestamp >= @from' : '', hasTo ? `timestamp ${op} @to` : ''].filter(Boolean).join(' AND ') || '1=1';
   const aggWhere = [hasFrom ? 'bucket_start > @fromBucket' : '', hasTo ? `bucket_start ${op} @to` : ''].filter(Boolean).join(' AND ') || '1=1';
   const params = {};
-  if (hasFrom) { params.from = Number(from); params.fromBucket = Number(from) - BUCKET_SECONDS; }
+  // One day earlier than asked: the first day's carry-over check needs the
+  // previous day's final values. That day is left out of the result.
+  const firstDay = hasFrom ? localDateString(new Date(Number(from) * 1000)) : null;
+  if (hasFrom) { params.from = Number(from) - 86400; params.fromBucket = params.from - BUCKET_SECONDS; }
   if (hasTo) params.to = Number(to);
   const parts = db.prepare(`SELECT part, ${requested.map(field => `MAX(${field}) AS ${field}`).join(', ')} FROM (
     SELECT timestamp / ${DAY_PART_SECONDS} AS part, ${requested.join(', ')} FROM history WHERE ${rawWhere}
@@ -85,16 +90,36 @@ function readDailySnapshots(db, { from, to, toInclusive = false, fields, cached 
     SELECT bucket_start / ${DAY_PART_SECONDS} AS part, ${requested.map(field => `${field}_last AS ${field}`).join(', ')} FROM history_5m WHERE ${aggWhere}
   ) GROUP BY part ORDER BY part ASC`).all(params);
   const days = new Map();
+  // A day's counters start out carrying the previous day's final totals until
+  // the source resets them (its own clock decides when) or, if it is offline,
+  // until it next reports. Taken as the day's maximum, that carry-over made
+  // "today" repeat yesterday's totals. Early in a day, a value at or above
+  // the previous day's final value is that carry-over, not today's energy.
+  let prevDay = null, prevFinal = {}, last = {};
   for (const row of parts) {
-    const day = localDateString(new Date(row.part * DAY_PART_SECONDS * 1000));
+    const partStart = row.part * DAY_PART_SECONDS;
+    const date = new Date(partStart * 1000);
+    const day = localDateString(date);
     let out = days.get(day);
-    if (!out) { out = { day }; for (const field of requested) out[field] = null; days.set(day, out); }
+    if (!out) {
+      const yesterday = localDateString(new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1, 12));
+      prevFinal = prevDay === yesterday ? last : {};
+      prevDay = day;
+      last = {};
+      out = { day }; for (const field of requested) out[field] = null; days.set(day, out);
+    }
+    const sinceMidnight = partStart - Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000);
+    const lookbackOnly = hasFrom && partStart + DAY_PART_SECONDS <= Number(from);
     for (const field of requested) {
       const v = row[field];
-      if (v !== null && v !== undefined && (out[field] === null || v > out[field])) out[field] = v;
+      if (v === null || v === undefined) continue;
+      last[field] = v;
+      if (lookbackOnly) continue;
+      if (sinceMidnight < CARRY_OVER_SECONDS && prevFinal[field] > 0 && v >= prevFinal[field]) continue;
+      if (out[field] === null || v > out[field]) out[field] = v;
     }
   }
-  return [...days.values()];
+  return [...days.values()].filter(d => firstDay === null || d.day >= firstDay);
 }
 
 /** Forget cached finished days (after writing into past days directly). */
