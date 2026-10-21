@@ -1283,6 +1283,12 @@ body.transparent-blocks .stat-card {
   box-shadow: none !important;
 }
 
+/* Square corners toggle: dashboard cards, and the tiles and boxes inside
+   them, lose their rounding (most use --radius; a few set their own). The
+   header, banners and controls such as range pickers keep theirs. */
+body.square-corners #dashboard-container { --radius: 0px; }
+body.square-corners #dashboard-container :is(.dashboard-block, .grid-stack-item-content, .fc-day, .topo-hub, .so-hub-box, .ep-tile, .so-tile, .stat-card) { border-radius: 0 !important; }
+
 /* Screen-reader-only utility */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;

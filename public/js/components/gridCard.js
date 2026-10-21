@@ -120,12 +120,16 @@ function renderDays(card, state) {
     return;
   }
   const days = all.slice(-Number(card.dataset.daysShown || 7));
-  box.innerHTML = '<span class="ep-grid-days-y" style="top:0">24 h</span><span class="ep-grid-days-y" style="top:50%">12 h</span>'
+  // The scale fits the longest day shown, in steps of 6 hours, so a run of
+  // short days still reads; the lines are labelled with what they mean.
+  const longest = Math.max(0, ...days.map(d => d.hours ?? 0));
+  const scale = Math.min(24, Math.max(6, Math.ceil(longest / 6) * 6));
+  box.innerHTML = `<span class="ep-grid-days-y" style="top:0">${scale} h</span><span class="ep-grid-days-y" style="top:50%">${scale / 2} h</span>`
     + days.map(d => {
       const known = d.hours != null;
       const text = `${d.today ? 'Today so far' : dayLabel(d.day, { weekday: 'short', day: 'numeric', month: 'short' })}: ${known ? hoursText(d.hours) + ' on grid' : 'no data'}`;
       const cls = 'ep-grid-day' + (d.today ? ' today' : '') + (!known ? ' unknown' : d.hours === 0 ? ' none' : '');
-      const height = known ? Math.min(100, d.hours / 24 * 100).toFixed(1) : 0;
+      const height = known ? Math.min(100, d.hours / scale * 100).toFixed(1) : 0;
       return `<div class="${cls}" style="height:${height}%" tabindex="0" role="img" aria-label="${text}" data-text="${text}"></div>`;
     }).join('');
   if (fromEl) fromEl.textContent = dayLabel(days[0].day, { day: 'numeric', month: 'short' });
