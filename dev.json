@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39749702269.1",
-    "version": "1.0.5-dev+c73c25e",
-    "commit": "c73c25e8415ad63ef3f2cba620c76e74ec864708",
-    "digest": "sha256:7ab6a2c9a83a5a0f7697c6051ae4dc38676a364b2d417a4a94e2791bf2a8108a",
+    "buildId": "39749747728.1",
+    "version": "1.0.5-dev+a58a276",
+    "commit": "a58a2765722c577ad0e77dad42708d08fb5759e5",
+    "digest": "sha256:b77bbf0810113428c4d86eb4d011d2047208676245f8de8f35e1d3ab28d6a09d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-22T08:42:20Z",
+    "builtAt": "2026-10-22T08:42:46Z",
     "kind": "release",
     "notes": [
-      "Settings > System: factory reset"
+      "Energy chart: 6 month and 1 year ranges"
     ]
   },
   "history": [
+    {
+      "buildId": "39749747728.1",
+      "version": "1.0.5-dev+a58a276",
+      "commit": "a58a2765722c577ad0e77dad42708d08fb5759e5",
+      "digest": "sha256:b77bbf0810113428c4d86eb4d011d2047208676245f8de8f35e1d3ab28d6a09d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-22T08:42:46Z",
+      "kind": "release",
+      "notes": [
+        "Energy chart: 6 month and 1 year ranges"
+      ]
+    },
     {
       "buildId": "39749702269.1",
       "version": "1.0.5-dev+c73c25e",
