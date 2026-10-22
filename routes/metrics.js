@@ -354,8 +354,9 @@ function attachParts(rows, fromDay, toDay, daysOf) {
 
 router.get('/daily', async (req, res) => {
   const requestedDays = parseInt(req.query.days);
-  if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-365)' });
-  const days = Math.min(requestedDays, 365);
+  // 366: the energy chart's year view starts on the 1st of the month 11 months back.
+  if (isNaN(requestedDays) || requestedDays < 1) return res.status(400).json({ error: 'days must be a positive integer (1-366)' });
+  const days = Math.min(requestedDays, 366);
   const now = new Date();
   const dateArray = [];
   for (let i = days - 1; i >= 0; i--) {
