@@ -97,6 +97,8 @@ async function call(method, routePath, body) {
     ['/bluetooth/remove', {address:'AA:BB:CC:DD:EE:FF'}, {action:'bluetooth_remove',address:'AA:BB:CC:DD:EE:FF'}],
     ['/restart', undefined, { action: 'restart' }],
     ['/shutdown', undefined, { action: 'shutdown' }],
+    ['/factory-reset', { confirm: 'ERASE', action: 'shutdown' }, { action: 'factory_reset', confirm: 'ERASE' }],
+    ['/factory-reset', { confirm: { $ne: 1 } }, { action: 'factory_reset', confirm: '' }],
     ['/wifi-setup', undefined, { action: 'wifi_setup' }],
     ['/port', { port: 8080, action: 'shutdown' }, { action: 'set_port', port: 8080 }],
     ['/port', { port: { $gt: 1 } }, { action: 'set_port', port: null }],

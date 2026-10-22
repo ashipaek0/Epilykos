@@ -910,9 +910,11 @@
            The nav entry stays hidden unless the server reports an appliance. -->
       <section class="st-section" id="section-system" data-section="system" aria-labelledby="h-system" hidden>
         <div class="st-section-head">
-          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, the SSH maintenance login, time and storage, and Bluetooth devices. Wi-Fi and the dashboard port are under Network.</p></div>
+          <div><h1 id="h-system">System</h1><p class="st-lede">Restart or shut down the appliance, the SSH maintenance login, time and storage, Bluetooth devices, and factory reset. Wi-Fi and the dashboard port are under Network.</p></div>
         </div>
         <div id="sys-root"><p class="st-help">Loading…</p></div>
+        <!-- Last in the section, after the time, storage and Bluetooth cards. -->
+        <div id="sys-reset-root"></div>
       </section>
 
       <!-- ════════════ UPDATES ════════════
@@ -1014,7 +1016,7 @@
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
-<script src="js/system-settings.js?v=3"></script>
+<script src="js/system-settings.js?v=4"></script>
 <script src="js/network-status.js?v=1"></script>
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=1"></script>

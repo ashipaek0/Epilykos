@@ -1,6 +1,6 @@
 /**
  * Appliance system actions for Settings → System (EpilykosOS only,
- * contract C-HOST-001): Restart, Shut down, Change Wi-Fi (Bluetooth setup),
+ * contract C-HOST-001): Restart, Shut down, Factory reset, Change Wi-Fi (Bluetooth setup),
  * the dashboard port, and the SSH maintenance login. Every route needs an
  * admin session; the global /api CSRF check applies too. Passwords are never
  * logged.
@@ -68,6 +68,9 @@ router.post('/bluetooth/remove', forward('bluetooth_remove', b => ({ address: ty
 
 router.post('/restart', (req, res, next) => { logger.info('Settings: restart requested'); next(); }, forward('restart'));
 router.post('/shutdown', (req, res, next) => { logger.info('Settings: shutdown requested'); next(); }, forward('shutdown'));
+// Erases DATA on the next boot and restarts now; the host refuses it without ERASE.
+router.post('/factory-reset', (req, res, next) => { logger.info('Settings: factory reset requested'); next(); },
+  forward('factory_reset', b => ({ confirm: typeof b.confirm === 'string' ? b.confirm : '' })));
 router.post('/wifi-setup', forward('wifi_setup'));
 // The host checks the port (80 or 1024-65535, free) and restarts the app on it.
 router.post('/port', forward('set_port', b => ({ port: typeof b.port === 'number' || typeof b.port === 'string' ? b.port : null })));
