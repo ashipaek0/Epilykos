@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39628618272.1",
-    "version": "1.0.4-dev+0a035ec",
-    "commit": "0a035eca704ab04bbefe39044c33dd54a24edc77",
-    "digest": "sha256:b018d98fbd17c6cb0ca62d741bb0cce6bc2e4a88c59ae46da1885ffe835db201",
+    "buildId": "39749702269.1",
+    "version": "1.0.5-dev+c73c25e",
+    "commit": "c73c25e8415ad63ef3f2cba620c76e74ec864708",
+    "digest": "sha256:7ab6a2c9a83a5a0f7697c6051ae4dc38676a364b2d417a4a94e2791bf2a8108a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-21T15:46:07Z",
+    "builtAt": "2026-10-22T08:42:20Z",
     "kind": "release",
     "notes": [
-      "Square corners option; grid hours per day fill the card and fit the data"
+      "Settings > System: factory reset"
     ]
   },
   "history": [
+    {
+      "buildId": "39749702269.1",
+      "version": "1.0.5-dev+c73c25e",
+      "commit": "c73c25e8415ad63ef3f2cba620c76e74ec864708",
+      "digest": "sha256:7ab6a2c9a83a5a0f7697c6051ae4dc38676a364b2d417a4a94e2791bf2a8108a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-22T08:42:20Z",
+      "kind": "release",
+      "notes": [
+        "Settings > System: factory reset"
+      ]
+    },
     {
       "buildId": "39628618272.1",
       "version": "1.0.4-dev+0a035ec",
