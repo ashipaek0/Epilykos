@@ -824,7 +824,8 @@ function batteryEstimatorView() {
   let saved = {};
   try { saved = JSON.parse(getConfig(be.CONFIG_KEY) || '{}') || {}; } catch (_) { saved = {}; }
   const chemistries = Object.fromEntries(Object.entries(be.CHEMISTRY).map(([k, { curve, ...v }]) => [k, v]));
-  return { settings: saved, effective: be.settings(saved), status: be.getStatus(), suggestions: be.suggestions(), chemistries };
+  const suggestions = be.suggestions(), detected = be.detectNominal(suggestions);
+  return { settings: saved, effective: be.settings(saved, detected), detected_nominal: detected, status: be.getStatus(), suggestions, chemistries };
 }
 app.get('/api/battery-estimator', (req, res) => res.json(batteryEstimatorView()));
 app.post('/api/battery-estimator', (req, res) => {
