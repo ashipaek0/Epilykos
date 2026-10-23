@@ -1,21 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39950581903.1",
-    "version": "1.0.5-dev+e2c9e84",
-    "commit": "e2c9e848fb180ba65d7fe1723c415d3b68e3fb7b",
-    "digest": "sha256:9ebfdf8c6ead6b24f77dd85a7d7863b1649c15dda39e6bd857b1396d873b5916",
+    "buildId": "39955399811.1",
+    "version": "1.0.5-dev+c02ce6f",
+    "commit": "c02ce6f2c9df0f7d2fbd4da96543538062ccad27",
+    "digest": "sha256:d5e6db77f7bc59d9d6fc1d69c1c6c35698ef3e97e5e12cba128fe75fc9d9d321",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-23T12:04:29Z",
+    "builtAt": "2026-10-23T12:43:13Z",
     "kind": "release",
     "notes": [
-      "Several inverters: roles use totals across them",
-      "Settings > System: poll less",
-      "Bluetooth: a link per inverter, polls started apart",
-      "Inverter names: keep each inverter's readings under its own prefix"
+      "Battery estimate: state of charge from counting the battery current"
     ]
   },
   "history": [
+    {
+      "buildId": "39955399811.1",
+      "version": "1.0.5-dev+c02ce6f",
+      "commit": "c02ce6f2c9df0f7d2fbd4da96543538062ccad27",
+      "digest": "sha256:d5e6db77f7bc59d9d6fc1d69c1c6c35698ef3e97e5e12cba128fe75fc9d9d321",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-23T12:43:13Z",
+      "kind": "release",
+      "notes": [
+        "Battery estimate: state of charge from counting the battery current"
+      ]
+    },
     {
       "buildId": "39950581903.1",
       "version": "1.0.5-dev+e2c9e84",
