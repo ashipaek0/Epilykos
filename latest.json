@@ -1,18 +1,42 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "39630097648.1",
-    "version": "1.0.4",
-    "commit": "6a9b79b89be9aab4bd90d3087cc6dcd0ba7e6672",
-    "digest": "sha256:364ab09d874effadd16648a06b0dc7a48bc3b47aba61239050d1e90a9b43f5e2",
+    "buildId": "39956030488.1",
+    "version": "1.0.5",
+    "commit": "2a0c409f11e6efc368215ac3652a0bdd15837977",
+    "digest": "sha256:76bc752236ced7cc738d5f3589c9063e4c7ea1198ac499c1942421a069f30b19",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-21T15:55:59Z",
+    "builtAt": "2026-10-23T12:48:01Z",
     "kind": "release",
     "notes": [
-      "Square corners option; grid hours per day fill the card and fit the data"
+      "Battery estimate: state of charge from counting the battery current",
+      "Several inverters: roles use totals across them",
+      "Settings > System: poll less",
+      "Bluetooth: a link per inverter, polls started apart",
+      "Inverter names: keep each inverter's readings under its own prefix",
+      "Energy chart: 6 month and 1 year ranges",
+      "Settings > System: factory reset"
     ]
   },
   "history": [
+    {
+      "buildId": "39956030488.1",
+      "version": "1.0.5",
+      "commit": "2a0c409f11e6efc368215ac3652a0bdd15837977",
+      "digest": "sha256:76bc752236ced7cc738d5f3589c9063e4c7ea1198ac499c1942421a069f30b19",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-23T12:48:01Z",
+      "kind": "release",
+      "notes": [
+        "Battery estimate: state of charge from counting the battery current",
+        "Several inverters: roles use totals across them",
+        "Settings > System: poll less",
+        "Bluetooth: a link per inverter, polls started apart",
+        "Inverter names: keep each inverter's readings under its own prefix",
+        "Energy chart: 6 month and 1 year ranges",
+        "Settings > System: factory reset"
+      ]
+    },
     {
       "buildId": "39630097648.1",
       "version": "1.0.4",
