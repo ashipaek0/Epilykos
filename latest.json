@@ -1,24 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "39956030488.1",
-    "version": "1.0.5",
-    "commit": "2a0c409f11e6efc368215ac3652a0bdd15837977",
-    "digest": "sha256:76bc752236ced7cc738d5f3589c9063e4c7ea1198ac499c1942421a069f30b19",
+    "buildId": "39963530614.1",
+    "version": "1.0.6",
+    "commit": "efa3793e3dbf733e4d99b7002c0453bb9a726bd4",
+    "digest": "sha256:76285e86aa8c2489c1c2826593ac403e0051ab028365a15cdb60c97fc70ca6c0",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-23T12:48:01Z",
+    "builtAt": "2026-10-23T13:43:32Z",
     "kind": "release",
     "notes": [
-      "Battery estimate: state of charge from counting the battery current",
-      "Several inverters: roles use totals across them",
-      "Settings > System: poll less",
-      "Bluetooth: a link per inverter, polls started apart",
-      "Inverter names: keep each inverter's readings under its own prefix",
-      "Energy chart: 6 month and 1 year ranges",
-      "Settings > System: factory reset"
+      "Battery estimate: 24 V banks, voltage mismatch guard, cells in series"
     ]
   },
   "history": [
+    {
+      "buildId": "39963530614.1",
+      "version": "1.0.6",
+      "commit": "efa3793e3dbf733e4d99b7002c0453bb9a726bd4",
+      "digest": "sha256:76285e86aa8c2489c1c2826593ac403e0051ab028365a15cdb60c97fc70ca6c0",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-23T13:43:32Z",
+      "kind": "release",
+      "notes": [
+        "Battery estimate: 24 V banks, voltage mismatch guard, cells in series"
+      ]
+    },
     {
       "buildId": "39956030488.1",
       "version": "1.0.5",
