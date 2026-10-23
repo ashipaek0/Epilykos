@@ -1863,14 +1863,43 @@
     });
     return out;
   }
+  /**
+   * A name without its prefix, also when the prefix was typed without its
+   * underscore (inv1battery_soc under inv1_); null when it isn't under it.
+   */
+  function stripPrefix(name, prefix) {
+    if (!prefix) return name;
+    if (name.indexOf(prefix) === 0) return name.slice(prefix.length);
+    var loose = prefix.replace(/_+$/, '');
+    if (loose && loose !== prefix && name.indexOf(loose) === 0) return name.slice(loose.length).replace(/^_+/, '');
+    return null;
+  }
   /** The same mappings under another prefix: inv1_pv_power -> inv2_pv_power. */
   function withPrefix(mappings, from, to) {
     var out = {};
     Object.keys(mappings || {}).forEach(function (name) {
-      var base = from && name.indexOf(from) === 0 ? name.slice(from.length) : name;
-      out[to + base] = mappings[name];
+      var base = stripPrefix(name, from);
+      out[to + (base === null ? name : base)] = mappings[name];
     });
     return out;
+  }
+  /**
+   * The first inverter's prefix changed: its mapped names follow it
+   * (battery_soc -> inv1_battery_soc), and so do the roles chosen for them.
+   * Names not under the old prefix (picked by hand) stay.
+   */
+  function reprefixDongle(from, to) {
+    var src = state.sources.dongle, maps = src.mappings || {}, out = {}, renamed = {};
+    Object.keys(maps).forEach(function (name) {
+      var base = stripPrefix(name, from), next = base === null ? name : to + base;
+      if (next !== name && (maps[next] !== undefined || out[next] !== undefined)) next = name;
+      out[next] = maps[name];
+      if (next !== name) renamed[name] = next;
+    });
+    src.mappings = out;
+    Object.keys(state.roleMetrics || {}).forEach(function (role) {
+      if (renamed[state.roleMetrics[role]]) state.roleMetrics[role] = renamed[state.roleMetrics[role]];
+    });
   }
   function buildRS232Device(opts) {
     var r = state.sources.rs232;
@@ -2706,7 +2735,9 @@
       var t = e.target;
       if (t.matches('[data-field]')) {
         var field = t.getAttribute('data-field');
+        var oldPrefix = field === 'sources.dongle.prefix' ? String(state.sources.dongle.prefix || '') : null;
         setPath(state, field, t.type === 'checkbox' ? t.checked : t.value);
+        if (oldPrefix !== null) reprefixDongle(oldPrefix, String(state.sources.dongle.prefix || ''));
         afterFieldChange(field);
         // The Bluetooth timing hint under More inverters follows Read every.
         if (field === 'sources.dongle.poll_interval' && $('#dongle-bt-interval-hint')) { var dm = $('#dongle-more'); if (dm) dm.outerHTML = moreInvertersHtml('dongle'); }
