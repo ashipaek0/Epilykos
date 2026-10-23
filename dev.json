@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39955399811.1",
-    "version": "1.0.5-dev+c02ce6f",
-    "commit": "c02ce6f2c9df0f7d2fbd4da96543538062ccad27",
-    "digest": "sha256:d5e6db77f7bc59d9d6fc1d69c1c6c35698ef3e97e5e12cba128fe75fc9d9d321",
+    "buildId": "39961898962.1",
+    "version": "1.0.6-dev+b3cc579",
+    "commit": "b3cc57990da2de30fa84c609910ba0a70544685e",
+    "digest": "sha256:643db54fef1930f8fa01bc217b0d082a6169828cb232ae20df80f629a4add975",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-23T12:43:13Z",
+    "builtAt": "2026-10-23T13:31:46Z",
     "kind": "release",
     "notes": [
-      "Battery estimate: state of charge from counting the battery current"
+      "Battery estimate: 24 V banks, voltage mismatch guard, cells in series"
     ]
   },
   "history": [
+    {
+      "buildId": "39961898962.1",
+      "version": "1.0.6-dev+b3cc579",
+      "commit": "b3cc57990da2de30fa84c609910ba0a70544685e",
+      "digest": "sha256:643db54fef1930f8fa01bc217b0d082a6169828cb232ae20df80f629a4add975",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-23T13:31:46Z",
+      "kind": "release",
+      "notes": [
+        "Battery estimate: 24 V banks, voltage mismatch guard, cells in series"
+      ]
+    },
     {
       "buildId": "39955399811.1",
       "version": "1.0.5-dev+c02ce6f",
