@@ -81,6 +81,6 @@ assert.equal(planRepair([{ ...inv1, profile: 'no-such-profile' }]).renames.lengt
 console.log('ok - a second run, an inverter without a prefix and an unknown profile change nothing');
 
 const server = fs.readFileSync(path.join(REPO, 'server.js'), 'utf8');
-assert.match(server, /repairInverterNames\(\);\n\s*startExternalPolling\(\); startBmsPolling\(\); startBmsWiredPolling\(\); startDonglePolling\(\);/, 'before the inverters are polled');
-assert.match(server, /if \(has\('dongle_config'\)\) \{ repairInverterNames\(\); restartDonglePolling\(\); \}/);
+assert.match(server, /updateInverterMetrics\(\);\n\s*startExternalPolling\(\); startBmsPolling\(\); startBmsWiredPolling\(\); startDonglePolling\(\);/, 'before the inverters are polled');
+assert.match(server, /if \(has\('dongle_config'\)\) \{ updateInverterMetrics\(\); restartDonglePolling\(\); \}/);
 checks.done();

@@ -448,9 +448,11 @@ require('./modules/dbCheck').start();
 loadProfiles(); loadRs232Profiles();
 try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); }
 
-// Inverter readings saved without their prefix get it back (modules/inverterNames).
-function repairInverterNames() {
+// Inverter readings saved without their prefix get it back (modules/inverterNames);
+// with several inverters of one kind, roles use totals across them (modules/inverterTotals).
+function updateInverterMetrics() {
   try { require('./modules/inverterNames').repairSavedNames(); } catch (e) { logger.warn('Inverter name repair failed: ' + e.message); }
+  try { require('./modules/inverterTotals').updateTotals(); } catch (e) { logger.warn('Inverter totals failed: ' + e.message); }
 }
 
 // The same synchronous handover is used for startup, candidate health and
@@ -470,7 +472,7 @@ const restoreLifecycle = {
     require('./modules/circuitBreaker').resetAll();
     require('./routes/logs').init();
     restartRs232Streaming();
-    repairInverterNames();
+    updateInverterMetrics();
     startExternalPolling(); startBmsPolling(); startBmsWiredPolling(); startDonglePolling();
     startMetricAutoFlush(); pvoutput.start(); notifications.init();
     require('./modules/updates').start();
@@ -1554,7 +1556,7 @@ function applySourceConfigChanges(savedKeys, oldBanksRaw) {
     restartBmsPolling();
     restartBmsWiredPolling();
   }
-  if (has('dongle_config')) { repairInverterNames(); restartDonglePolling(); }
+  if (has('dongle_config')) { updateInverterMetrics(); restartDonglePolling(); }
   if (has('pvoutput_config')) pvoutput.restart();
   if (has('rs232_devices')) restartRs232Streaming();
 }
