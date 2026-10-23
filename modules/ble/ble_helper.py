@@ -55,11 +55,17 @@ log = logging.getLogger("ble-helper")
 DBUS_SOCKET = os.getenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/run/dbus/system_bus_socket")
 SEEN_TTL = float(os.getenv("BLE_SEEN_TTL", "600"))  # reuse a scan result for 10 min
 KEEP_ALIVE = os.getenv("BLE_KEEP_ALIVE", "true").lower() not in ("0", "false", "no")
-# Bluetooth links (inverters and BMS packs) kept open at once. With one
-# adapter, a link held open to one device makes BlueZ's scan and connect to the
-# next unreliable ("device disappeared", GATT error 14), so by default only one
-# stays open and the others reconnect when their turn comes.
+# Bluetooth links (inverters and BMS packs) kept open at once. modules/ble.js
+# sets one per configured Bluetooth device (up to 3): with a single link, two
+# inverters meant a disconnect and a reconnect on every poll, which wore the
+# Pi 3B's Bluetooth down until its adapter disappeared. Connecting while other
+# links are open can be unreliable on some adapters ("device disappeared",
+# GATT error 14), so after CROWDED_FAILURES such failures in a row the helper
+# goes back to one link at a time (_single) until it restarts.
 MAX_LINKS = max(1, int(os.getenv("BLE_MAX_LINKS", "1") or 1))
+CROWDED_FAILURES = 2
+_single = False
+_crowded = 0
 MAX_DEVICES = 256  # scan results kept in memory
 
 
@@ -466,7 +472,8 @@ async def _make_room(address):
     its identified type) and reconnects on its next read."""
     others = [("gatt", a) for a in _gatt if a != address]
     others += [("bms", a) for a, b in _bms.items() if a != address and _bms_connected(b)]
-    while len(others) >= MAX_LINKS:
+    cap = 1 if _single else MAX_LINKS
+    while len(others) >= cap:
         kind, other = others.pop(0)
         if kind == "gatt":
             await _drop_gatt(other)
@@ -491,6 +498,19 @@ def _not_found(exc):
     return "notfound" in low or "not found" in low or "disappeared" in low
 
 
+def _note_connect(crowded, ok):
+    """Count connects that fail while other links are open; after
+    CROWDED_FAILURES in a row, keep one link at a time from then on."""
+    global _single, _crowded
+    if ok or not crowded:
+        _crowded = 0 if ok else _crowded
+        return
+    _crowded += 1
+    if _crowded >= CROWDED_FAILURES and not _single and MAX_LINKS > 1:
+        _single = True
+        log.warning("connecting with other Bluetooth links open keeps failing; keeping one link at a time from now on")
+
+
 async def _establish(device, address):
     from bleak import BleakClient
     from bleak_retry_connector import establish_connection
@@ -508,19 +528,25 @@ async def _gatt_link(address, notify_uuid, timeout):
         return link
     await _drop_gatt(address)
     await _make_room(address)
+    crowded = any(a != address for a in _gatt)
     scan_timeout = min(10.0, timeout / 2)
-    device, _adv = await _find(address, scan_timeout)
     try:
-        client = await _establish(device, address)
-    except Exception as exc:
-        # The cached scan result goes stale once BlueZ forgets the device, and
-        # every retry with it fails ("device disappeared"). Forget it, and when
-        # that is the error, scan again straight away.
-        _seen.pop(address, None)
-        if not _not_found(exc):
-            raise
         device, _adv = await _find(address, scan_timeout)
-        client = await _establish(device, address)
+        try:
+            client = await _establish(device, address)
+        except Exception as exc:
+            # The cached scan result goes stale once BlueZ forgets the device, and
+            # every retry with it fails ("device disappeared"). Forget it, and when
+            # that is the error, scan again straight away.
+            _seen.pop(address, None)
+            if not _not_found(exc):
+                raise
+            device, _adv = await _find(address, scan_timeout)
+            client = await _establish(device, address)
+    except Exception:
+        _note_connect(crowded, ok=False)
+        raise
+    _note_connect(crowded, ok=True)
     link = GattLink(client, notify_uuid)
     if notify_uuid:
         await client.start_notify(notify_uuid, link.on_notify)
@@ -874,6 +900,18 @@ async def cmd_set_log_level(args):
     return {"level": level}
 
 
+async def cmd_set_max_links(args):
+    """Bluetooth devices added or removed in Settings: links kept open at once.
+    Extra links close when their device's turn comes (_make_room)."""
+    global MAX_LINKS
+    try:
+        n = int(args.get("links"))
+    except (TypeError, ValueError):
+        raise HelperError("links must be a number", "bad_request")
+    MAX_LINKS = max(1, min(n, 7))
+    return {"links": MAX_LINKS, "single": _single}
+
+
 async def cmd_disconnect_all(_args):
     for address in list(_bms):
         await _drop_bms(address)
@@ -894,6 +932,7 @@ COMMANDS = {
     "disconnect": cmd_disconnect,
     "disconnect_all": cmd_disconnect_all,
     "set_log_level": cmd_set_log_level,
+    "set_max_links": cmd_set_max_links,
 }
 
 
@@ -1066,7 +1105,8 @@ def _self_test_bms_switch():
 
 def _self_test_gatt_link():
     """_gatt_link: a stale scan result is dropped and rescanned; only
-    MAX_LINKS links (inverter or BMS) stay open."""
+    MAX_LINKS links (inverter or BMS) stay open, and only one once connects
+    with others open keep failing."""
     g = globals()
     saved = {k: g[k] for k in ("_find", "_establish", "MAX_LINKS")}
     finds, closed = [], []
@@ -1141,8 +1181,32 @@ def _self_test_gatt_link():
         closed.clear()
         asyncio.run(_gatt_link("AA:00:00:00:00:05", None, 20))
         assert closed == ["AA:00:00:00:00:04"], closed  # oldest of the two others goes
+
+        # Two inverters, two links: both stay open, nothing is closed.
+        _bms.clear()
+        _gatt.clear()
+        closed.clear()
+        asyncio.run(_gatt_link("AA:00:00:00:00:06", None, 20))
+        asyncio.run(_gatt_link("AA:00:00:00:00:07", None, 20))
+        asyncio.run(_gatt_link("AA:00:00:00:00:06", None, 20))
+        assert closed == [] and sorted(_gatt) == ["AA:00:00:00:00:06", "AA:00:00:00:00:07"], (closed, list(_gatt))
+
+        # Connecting with another link open keeps failing: one link at a time.
+        g["_establish"] = refused
+        for _ in range(CROWDED_FAILURES):
+            try:
+                asyncio.run(_gatt_link("AA:00:00:00:00:08", None, 20))
+            except RuntimeError:
+                pass
+        assert g["_single"] is True
+        g["_establish"] = lambda _d, a: _ok(a)
+        closed.clear()
+        asyncio.run(_gatt_link("AA:00:00:00:00:08", None, 20))
+        # 06 was closed to make room for the failed tries; 07 goes now.
+        assert list(_gatt) == ["AA:00:00:00:00:08"] and closed == ["AA:00:00:00:00:07"], (closed, list(_gatt))
     finally:
         g.update(saved)
+        g.update(_single=False, _crowded=0)
         _gatt.clear()
         _seen.clear()
         _bms.clear()

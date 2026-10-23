@@ -17,6 +17,7 @@
 
   var root = document.getElementById('sys-root');
   var netRoot = document.getElementById('sys-network-root');
+  var resetRoot = document.getElementById('sys-reset-root');
   var navItem = document.getElementById('st-nav-system');
   if (!root) return;
   var shell = window.stShell || {};
@@ -57,9 +58,12 @@
       root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>';
       root.querySelector('p').textContent = 'The appliance\'s system service did not answer: ' + state.error;
       if (netRoot) netRoot.innerHTML = root.innerHTML;
+      if (resetRoot) resetRoot.innerHTML = '';
       return;
     }
     root.innerHTML = renderSystem();
+    // Drawn once, so a reload of the section keeps what was typed.
+    if (resetRoot && !resetRoot.firstChild) resetRoot.innerHTML = renderReset();
     if (netRoot) netRoot.innerHTML = renderNetwork();
   }
 
@@ -132,6 +136,23 @@
     return html;
   }
 
+  /** Factory reset: typed ERASE, then the host erases DATA on the next boot. */
+  function renderReset() {
+    return '<div class="st-card"><div class="st-card-head"><h2>Factory reset</h2></div>'
+      + '<p class="st-help">Erases everything this box keeps: Epilykos data, settings and backups, Wi-Fi networks, SSH settings and keys,'
+      + ' Bluetooth pairings and logs. The box then restarts as if newly flashed, and is set up again over Bluetooth or with'
+      + ' <code>wifi.txt</code> on the SD card. Epilykos comes back as this system version shipped it.'
+      + ' <a href="#backup">Download a backup</a> first if you want your data back later.</p>'
+      + '<div class="st-field"><label for="sys-reset-confirm">Type ERASE to confirm</label>'
+      + '<input id="sys-reset-confirm" class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ERASE"></div>'
+      + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-danger" data-act="factory-reset" disabled>Erase everything and restart</button></div>'
+      + '<div class="test-status" id="sys-reset-status" role="status"></div></div>';
+  }
+  function resetConfirmed() {
+    var input = document.getElementById('sys-reset-confirm');
+    return !!input && input.value.trim().toUpperCase() === 'ERASE';
+  }
+
   function status(id, msg, tone) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -200,6 +221,13 @@
         await api('POST', '/restart');
         status('sys-power-status', 'Restarting… this page reloads when Epilykos is back.', 'warning');
         waitForReturn();
+      } else if (act === 'factory-reset') {
+        if (!resetConfirmed()) return;
+        btn.disabled = true;
+        document.getElementById('sys-reset-confirm').disabled = true;
+        await api('POST', '/factory-reset', { confirm: document.getElementById('sys-reset-confirm').value });
+        status('sys-reset-status', 'The box is restarting to erase its data. This takes a few minutes. Afterwards it waits to be set up again,'
+          + ' like a newly flashed box: over Bluetooth (improv-wifi.com in Chrome or Edge), or with wifi.txt on the SD card.', 'warning');
       } else if (act === 'shutdown') {
         if (!(await confirmIt({ title: 'Shut down the appliance?', message: 'Monitoring stops until the power is unplugged and plugged back in.', confirmLabel: 'Shut down' }))) return;
         btn.disabled = true;
@@ -254,12 +282,27 @@
       }
     } catch (e) {
       btn.disabled = false;
-      var target = /^ssh|^$/.test(act || '') || removeKey ? 'sys-ssh-status' : act === 'wifi' ? 'sys-wifi-status' : act === 'port' ? 'sys-port-status' : 'sys-power-status';
+      var target = /^ssh|^$/.test(act || '') || removeKey ? 'sys-ssh-status' : act === 'wifi' ? 'sys-wifi-status' : act === 'port' ? 'sys-port-status'
+        : act === 'factory-reset' ? 'sys-reset-status' : 'sys-power-status';
+      if (act === 'factory-reset') { var box = document.getElementById('sys-reset-confirm'); if (box) box.disabled = false; btn.disabled = !resetConfirmed(); }
       status(target, e.message, 'error');
       toast(e.message, 'error');
     }
   }
   root.addEventListener('click', onClick);
+  if (resetRoot) {
+    resetRoot.addEventListener('click', onClick);
+    resetRoot.addEventListener('input', function () {
+      var btn = resetRoot.querySelector('[data-act="factory-reset"]');
+      if (btn) btn.disabled = !resetConfirmed();
+    });
+    resetRoot.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' || ev.target.id !== 'sys-reset-confirm') return;
+      ev.preventDefault();
+      var btn = resetRoot.querySelector('[data-act="factory-reset"]');
+      if (btn && !btn.disabled) btn.click();
+    });
+  }
   if (netRoot) {
     netRoot.addEventListener('click', onClick);
     // The port box sits in the settings form: Enter changes the port

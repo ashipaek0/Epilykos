@@ -8,7 +8,7 @@
  * a fresh chart.
  *
  * Power chart: 24h/3d range, configurable datasets, solar/grid zone shading.
- * Energy chart: 7d/30d/90d range, configurable datasets.
+ * Energy chart: 7d/30d/90d of daily bars, 6m of weekly and 1y of monthly totals; configurable datasets.
  * Metric chart: 24h/3d/7d of any metrics from /api/metrics/history.
  *
  * @module charts
@@ -155,7 +155,9 @@ function initKind(kind) {
         data: { labels: [], datasets: ds.map(d => ({ label: d.label, backgroundColor: d.color || '#888', data: [], borderRadius: 4, maxBarThickness: 28 })) },
         options: { responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
           scales: { x: { grid: { color: grid, display: !cfg.hideGrid }, ticks: { color: text, maxRotation: 0, autoSkipPadding: 8 } }, y: { title: { display: true, text: 'Energy (kWh)', color: text }, grid: { color: grid, display: !cfg.hideGrid }, ticks: { color: text }, beginAtZero: true } },
-          plugins: { legend: { labels: { color: text, boxWidth: 12, boxHeight: 12, usePointStyle: true } }, tooltip: { mode: 'index', intersect: false } } }
+          plugins: { legend: { labels: { color: text, boxWidth: 12, boxHeight: 12, usePointStyle: true } },
+            // "Week of 12 Jun" / "June 2026" for the 6m and 1y views.
+            tooltip: { mode: 'index', intersect: false, callbacks: { title: items => (items[0] && items[0].chart.$epTitles?.[items[0].dataIndex]) || items[0]?.label || '' } } } }
       });
     } else if (kind === 'power') {
       const appearance = cfg.appearance || {}, axes = appearance.axes || {};
@@ -337,10 +339,50 @@ export function updatePowerChartFromState(state) {
 
 // ── Energy ────────────────────────────────────────────────────────────────
 
+// Daily bars up to 90 days; 6 months as weekly and a year as monthly
+// totals, so the bars stay readable.
+const ENERGY_GROUPING = { '6m': 'week', '1y': 'month' };
+
+/** Days of daily totals a range needs, ending today. */
+export function energyRangeDays(range, now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysSince = start => Math.round((today - start) / 86400000) + 1;
+  if (range === '6m') return 25 * 7 + ((today.getDay() + 6) % 7) + 1;          // 26 weeks, each from a Monday
+  if (range === '1y') return daysSince(new Date(today.getFullYear(), today.getMonth() - 11, 1));  // 12 months
+  return parseInt(range, 10) || 7;
+}
+
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Daily rows summed into weeks (from Monday) or months; days are left as they are. */
+export function groupEnergy(rows, by) {
+  if (by !== 'week' && by !== 'month') return rows;
+  const out = [];
+  let cur = null;
+  for (const r of rows) {
+    const d = new Date(r.day + 'T00:00:00');
+    const start = by === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1)
+      : new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+    const key = ymd(start);
+    if (!cur || cur.day !== key) { cur = { day: key, by }; out.push(cur); }
+    for (const [k, v] of Object.entries(r)) if (k.endsWith('_kwh')) cur[k] = (cur[k] || 0) + (Number(v) || 0);
+  }
+  return out;
+}
+
+function energyLabels(d) {
+  const date = new Date(d.day + 'T00:00:00');
+  if (d.by === 'month') return [date.toLocaleDateString(undefined, { month: 'short' }), date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })];
+  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return [day, d.by === 'week' ? `Week of ${day}` : day];
+}
+
 function updateEnergyChartData(chart, container, data) {
   if (!data || !data.length) return;
   const src = getDatasets(container) || withGenerator(defaultEnergy(), data, 'generator_kwh', { label: 'Generator', metric: 'daily_generator' });
-  chart.data.labels = data.map(d => new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+  const labels = data.map(energyLabels);
+  chart.data.labels = labels.map(l => l[0]);
+  chart.$epTitles = labels.map(l => l[1]);
   const existing = chart.data.datasets;
   src.forEach((s, i) => {
     const f = resolveEnergyField(s.metric);
@@ -354,9 +396,9 @@ function updateEnergyChartData(chart, container, data) {
 
 async function refreshEnergyChartFor({ chart, container }) {
   try {
-    const days = parseInt(rangeOf(container, 'energy'), 10) || 7;
-    const r = await fetch(`/api/daily?days=${days}`);
-    updateEnergyChartData(chart, container, await r.json());
+    const range = rangeOf(container, 'energy');
+    const r = await fetch(`/api/daily?days=${energyRangeDays(range)}`);
+    updateEnergyChartData(chart, container, groupEnergy(await r.json(), ENERGY_GROUPING[range]));
   } catch (e) { console.warn('[charts] energy refresh failed:', e); }
 }
 
@@ -376,7 +418,7 @@ export function updateEnergyChartFromState(state) {
   initKind('energy');
   for (const c of chartsOf('energy')) {
     if (rangeOf(c.container, 'energy') !== '7d') {
-      // 30/90-day ranges are fetched; once a minute is plenty for daily totals.
+      // Longer ranges are fetched; once a minute is plenty for daily totals.
       if (Date.now() - (energyFetchedAt.get(c.container) || 0) < 60_000) continue;
       energyFetchedAt.set(c.container, Date.now());
       refreshEnergyChartFor(c);

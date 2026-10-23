@@ -448,6 +448,13 @@ require('./modules/dbCheck').start();
 loadProfiles(); loadRs232Profiles();
 try { migrateSecretsToEncrypted(); } catch (e) { logger.warn('Secret migration failed:', e.message); }
 
+// Inverter readings saved without their prefix get it back (modules/inverterNames);
+// with several inverters of one kind, roles use totals across them (modules/inverterTotals).
+function updateInverterMetrics() {
+  try { require('./modules/inverterNames').repairSavedNames(); } catch (e) { logger.warn('Inverter name repair failed: ' + e.message); }
+  try { require('./modules/inverterTotals').updateTotals(); } catch (e) { logger.warn('Inverter totals failed: ' + e.message); }
+}
+
 // The same synchronous handover is used for startup, candidate health and
 // rollback. Local initialization must succeed before old files are discarded.
 const restoreLifecycle = {
@@ -465,6 +472,7 @@ const restoreLifecycle = {
     require('./modules/circuitBreaker').resetAll();
     require('./routes/logs').init();
     restartRs232Streaming();
+    updateInverterMetrics();
     startExternalPolling(); startBmsPolling(); startBmsWiredPolling(); startDonglePolling();
     startMetricAutoFlush(); pvoutput.start(); notifications.init();
     require('./modules/updates').start();
@@ -807,6 +815,25 @@ app.post('/api/role-metrics', (req, res) => {
   setConfig('role_metrics', JSON.stringify(mapping));
   logger.info('[role-metrics] Updated mapping:', mapping);
   res.json({ success: true });
+});
+
+// Battery estimate (Settings > Metrics): SOC from counting the inverters' battery current.
+app.use('/api/battery-estimator', isAuthenticated);
+function batteryEstimatorView() {
+  const be = require('./modules/batteryEstimator');
+  let saved = {};
+  try { saved = JSON.parse(getConfig(be.CONFIG_KEY) || '{}') || {}; } catch (_) { saved = {}; }
+  const chemistries = Object.fromEntries(Object.entries(be.CHEMISTRY).map(([k, { curve, ...v }]) => [k, v]));
+  return { settings: saved, effective: be.settings(saved), status: be.getStatus(), suggestions: be.suggestions(), chemistries };
+}
+app.get('/api/battery-estimator', (req, res) => res.json(batteryEstimatorView()));
+app.post('/api/battery-estimator', (req, res) => {
+  try { require('./modules/batteryEstimator').saveSettings(req.body && req.body.settings); } catch (e) { return res.status(400).json({ error: e.message }); }
+  res.json(batteryEstimatorView());
+});
+app.post('/api/battery-estimator/soc', (req, res) => {
+  try { require('./modules/batteryEstimator').setSoc(req.body && req.body.soc); } catch (e) { return res.status(400).json({ error: e.message }); }
+  res.json(batteryEstimatorView());
 });
 
 // Combined metrics (Settings > Metrics): definitions, last-cycle status, preview.
@@ -1543,11 +1570,12 @@ function applySourceConfigChanges(savedKeys, oldBanksRaw) {
       }
     }
   }
+  if (has('bms_devices') || has('dongle_config')) require('./modules/ble').updateMaxLinks();
   if (has('bms_devices') || has('bms_banks')) {
     restartBmsPolling();
     restartBmsWiredPolling();
   }
-  if (has('dongle_config')) restartDonglePolling();
+  if (has('dongle_config')) { updateInverterMetrics(); restartDonglePolling(); }
   if (has('pvoutput_config')) pvoutput.restart();
   if (has('rs232_devices')) restartRs232Streaming();
 }
