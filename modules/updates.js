@@ -174,6 +174,8 @@ function start() {
     if (!autoCheck()) return;
     if (installed().buildId) check().catch(() => {});
     hostCheck().then(host => host && maybeAutoInstall(host)).catch(err => logger.warn(`[updates] Automatic check/install: ${err.message}`));
+    // System updates are only ever checked (and notified) automatically, never installed.
+    if (require('./hostActions').available()) require('./osUpdates').check().catch(() => {});
   };
   timer = setTimeout(function tick() { run(); timer = setTimeout(tick, DAY_MS); if (timer.unref) timer.unref(); }, FIRST_CHECK_MS);
   if (timer.unref) timer.unref();

@@ -17,6 +17,26 @@ const { verifyPassword } = require('../modules/sessionAuth');
 const updates = require('../modules/updates');
 const dockerUpdate = require('../modules/dockerUpdate');
 const hostActions = require('../modules/hostActions');
+const osUpdates = require('../modules/osUpdates');
+
+/** The admin password again, checked here and never sent to the host. */
+function passwordOk(body) {
+  return !!body && typeof body.password === 'string' && verifyPassword(body.password);
+}
+
+/** EpilykosOS update actions reply { os } or { error } with the host's reason. */
+function osRoute(fn, { password } = {}) {
+  return async (req, res) => {
+    const body = req.body || {};
+    if (password && !passwordOk(body)) return res.status(403).json({ error: `Enter your admin password to ${password}.` });
+    try {
+      res.json({ os: await fn(body) });
+    } catch (err) {
+      if (!err.status || err.status >= 500) logger.warn(`[updates] EpilykosOS update: ${err.message}`);
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  };
+}
 
 function method() {
   if (hostActions.available()) {
@@ -59,6 +79,7 @@ function router() {
       installed: updates.installed(),
       status: updates.lastStatus(),
       host: m.kind === 'epilykos-os' ? updates.lastHostStatus() : null,
+      os: m.kind === 'epilykos-os' ? await osUpdates.status() : null,
       auto: updates.autoCheck(),
       autoInstall: updates.autoInstall(),
       autoLocked: /^(off|false|0|no)$/i.test(String(process.env.UPDATE_CHECK || '')),
@@ -98,18 +119,34 @@ function router() {
     res.json({ ok: true });
   });
 
+  // EpilykosOS system updates (design §10.2). The appliance does the work;
+  // a job keeps going whether or not this page stays open.
+  r.post('/os/check', osRoute(() => osUpdates.check()));
+  r.post('/os/install', osRoute(b => {
+    logger.warn(`[updates] EpilykosOS update ${b.sequence} requested from Settings`);
+    return osUpdates.install({ sequence: b.sequence, sha256: b.sha256, requestId: b.request_id });
+  }, { password: 'install the system update' }));
+  r.post('/os/cancel', osRoute(b => osUpdates.cancel(b.job)));
+  r.post('/os/restart', osRoute(b => {
+    logger.warn('[updates] Restart to finish the EpilykosOS update requested from Settings');
+    return osUpdates.restart(b.job);
+  }, { password: 'restart onto the new system' }));
+  r.post('/os/discard', osRoute(b => osUpdates.discard(b.job), { password: 'discard the system update' }));
+  r.post('/os/dismiss', osRoute(b => osUpdates.dismiss(b.job)));
+
   r.post('/apply', async (req, res) => {
     const body = req.body || {};
-    if (typeof body.password !== 'string' || !verifyPassword(body.password)) {
+    if (!passwordOk(body)) {
       return res.status(403).json({ error: 'Enter your admin password to install the update.' });
     }
     const m = method();
     try {
       if (m.kind === 'epilykos-os') {
-        const target = body.target === 'os' ? 'os' : 'app';
-        const reply = await hostActions.call('update_apply', { target }, { timeoutMs: 60000 });
+        // System updates go only through the EpilykosOS card (/os/*).
+        if (body.target === 'os') return res.status(400).json({ error: 'Install system updates from the EpilykosOS card.' });
+        const reply = await hostActions.call('update_apply', { target: 'app' }, { timeoutMs: 60000 });
         if (!reply || reply.ok !== true) return res.status(400).json({ error: (reply && reply.error) || 'The appliance refused the update' });
-        logger.warn(`[updates] EpilykosOS is installing the ${target === 'os' ? 'system' : 'Epilykos'} update`);
+        logger.warn('[updates] EpilykosOS is installing the Epilykos update');
         return res.json({ state: reply.state || 'applying', message: reply.message || '' });
       }
       if (m.kind === 'docker') {

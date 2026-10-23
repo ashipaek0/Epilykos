@@ -48,6 +48,9 @@ ENTRYPOINT ["/usr/local/bin/epilykos-entrypoint"]
 
 # Paired EpilykosOS versions opt into the shared DATA maintenance lock.
 LABEL io.epilykos.maintenance-lock="flock-v1"
+# ...and respect EpilykosOS update jobs through the host's read-only guard
+# (modules/osUpdateGuard.js); without this label the host offers no OS install.
+LABEL io.epilykos.os-update-guard="guard-v1"
 EXPOSE 3000
 # /healthz proves the app started and SQLite opened; it never depends on the
 # network, so a box with no Internet stays "healthy".

@@ -312,7 +312,8 @@ function request(server, method, url, body) {
     assert.equal(a.body.state, 'applying');
     assert.deepEqual(hostCalls.filter(c => c.action === 'update_apply'), [{ action: 'update_apply', target: 'app' }], 'the app names no digest');
     a = await request(server2, 'POST', '/api/updates/apply', { password: 'admin-password', target: 'os' });
-    assert.equal(a.status, 400); assert.match(a.body.error, /not published yet/);
+    assert.equal(a.status, 400); assert.match(a.body.error, /EpilykosOS card/);
+    assert.equal(hostCalls.filter(c => c.action === 'update_apply').length, 1, 'system updates never take the app path');
     hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z' } };
     g = await request(server2, 'GET', '/api/updates');
     assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z' }, 'the page keeps waiting while the appliance works');

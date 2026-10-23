@@ -38,20 +38,29 @@ function acquireLocalLock(label, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   });
 }
 
+/**
+ * `maintenance` also respects the EpilykosOS update guard, read while the
+ * shared lease is held. Pass `allowPendingOsUpdate: true` for work that does
+ * not change the app's data compatibility (backups, snapshots, checks).
+ */
 async function acquireLock(label, options = {}) {
   const started = performance.now();
   const releaseLocal = await acquireLocalLock(label, options);
   const file = process.env.EPILYKOS_MAINTENANCE_LOCK;
-  if (label !== 'maintenance' || !file) return releaseLocal;
+  if (label !== 'maintenance') return releaseLocal;
+  let release = releaseLocal;
   try {
-    const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const budget = Number.isFinite(timeout) && timeout >= 0
-      ? Math.max(0, timeout - (performance.now() - started)) : Infinity;
-    const lease = await require('./maintenanceFileLock').acquireFileLease(file, budget);
-    const release = () => { lease.release(); releaseLocal(); };
-    release.leaseFd = lease.fd; // a native child can retain this same kernel lease
+    if (file) {
+      const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      const budget = Number.isFinite(timeout) && timeout >= 0
+        ? Math.max(0, timeout - (performance.now() - started)) : Infinity;
+      const lease = await require('./maintenanceFileLock').acquireFileLease(file, budget);
+      release = () => { lease.release(); releaseLocal(); };
+      release.leaseFd = lease.fd; // a native child can retain this same kernel lease
+    }
+    require('./osUpdateGuard').assertAllowed({ allowPending: options.allowPendingOsUpdate === true });
     return release;
-  } catch (error) { releaseLocal(); throw error; }
+  } catch (error) { release(); throw error; }
 }
 
 async function withLock(label, fn, options) {
