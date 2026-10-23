@@ -104,7 +104,7 @@ function stubRegistry({ failId = null } = {}) {
     await ok('default registry maps the real zero-arg source ids, combined metrics before history', async () => {
       const pm = new PollingManager(); // default registry, no pollFns invoked
       assert.deepStrictEqual(pm.sources.map((s) => s.id),
-        ['ha', 'modbus', 'tuya', 'rs232', 'combined', 'history', 'grid']);
+        ['ha', 'modbus', 'tuya', 'rs232', 'battery', 'combined', 'history', 'grid']);
       for (const s of pm.sources) assert.strictEqual(typeof s.pollFn, 'function');
       pm.stop();
     });
