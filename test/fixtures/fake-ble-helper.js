@@ -6,6 +6,7 @@
  *   fail        -> error with code args.code
  *   hang        -> never answers
  *   die         -> exits with code 3
+ *   env {name}  -> result = { value: process.env[name] }
  */
 'use strict';
 const readline = require('readline');
@@ -25,6 +26,9 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       emit({ id: req.id, ok: false, error: 'nope', code: args.code || 'ble_error' });
       break;
     case 'hang':
+      break;
+    case 'env':
+      emit({ id: req.id, ok: true, result: { value: process.env[args.name] } });
       break;
     case 'die':
       process.exit(3);

@@ -45,6 +45,23 @@ function dbusSocketPath() {
   return '/run/dbus/system_bus_socket';
 }
 
+/**
+ * Bluetooth links the helper keeps open at once (BLE_MAX_LINKS): one per
+ * enabled Bluetooth inverter or BMS, 1 to 3. With a single link, two
+ * inverters meant a disconnect and a reconnect on every poll.
+ */
+const MAX_LINKS_CAP = 3;
+function bleLinkCount() {
+  let n = 0;
+  try {
+    const { getConfig } = require('./database');
+    const list = key => { try { const v = JSON.parse(getConfig(key) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    n += list('dongle_config').filter(d => d && d.enabled && /^ble/.test(String(d.transport || ''))).length;
+    n += list('bms_devices').filter(d => d && d.enabled && d.address && d.transport !== 'wired').length;
+  } catch (_) { /* no database (tests): one link */ }
+  return Math.min(MAX_LINKS_CAP, Math.max(1, n));
+}
+
 /** False when Bluetooth is switched off or no D-Bus socket is mounted. */
 function isConfigured() {
   if (/^(0|false|off|no)$/i.test(process.env.BLUETOOTH || '')) return false;
@@ -64,6 +81,7 @@ class BleHelper {
     this.command = opts.command || process.env.BLE_HELPER_PYTHON || 'python3';
     this.args = opts.args || ['-u', HELPER_SCRIPT];
     this.isConfigured = opts.isConfigured || isConfigured;
+    this.linkCount = opts.linkCount || bleLinkCount;
     this.idleExitMs = opts.idleExitMs || IDLE_EXIT_MS;
     this.idleTimer = null;
     this.child = null;
@@ -84,7 +102,9 @@ class BleHelper {
       return Promise.reject(new BleError(`Bluetooth helper restarting (retry in ${wait}s)`, 'restarting'));
     }
     this.stopped = false;
-    const child = spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const env = { ...process.env };
+    if (!env.BLE_MAX_LINKS) env.BLE_MAX_LINKS = String(this.linkCount());
+    const child = spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'], env });
     this.child = child;
 
     this.ready = new Promise((resolve, reject) => {
@@ -339,6 +359,15 @@ function disconnect(address) {
   return helper().request('disconnect', { address }, 10000);
 }
 
+/**
+ * Settings changed the Bluetooth devices: tell a running helper how many links
+ * to keep (a new one reads it at start). BLE_MAX_LINKS set by hand wins.
+ */
+function updateMaxLinks() {
+  if (process.env.BLE_MAX_LINKS || !shared || !shared.child) return;
+  shared.request('set_max_links', { links: shared.linkCount() }, 5000).catch(() => {});
+}
+
 async function shutdownBle() {
   if (shared) await shared.stop();
 }
@@ -358,5 +387,6 @@ function setLogLevel(appLevel) {
 module.exports = {
   BleHelper, BleError, isConfigured, isValidAddress, setLogLevel,
   status, scan, readBms, bmsKind, bmsSwitch, modbusExchange, luxpowerExchange, gattRead, phocosGattChange, disconnect, shutdownBle,
+  updateMaxLinks, bleLinkCount,
   _setHelperForTests(h) { shared = h; }
 };
