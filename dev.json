@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39961898962.1",
-    "version": "1.0.6-dev+b3cc579",
-    "commit": "b3cc57990da2de30fa84c609910ba0a70544685e",
-    "digest": "sha256:643db54fef1930f8fa01bc217b0d082a6169828cb232ae20df80f629a4add975",
+    "buildId": "39977329297.1",
+    "version": "1.0.7-dev+39b154c",
+    "commit": "39b154c804f1b3086aa157bc7daa181abc36d4f0",
+    "digest": "sha256:435aa221eac005cf1c38209fb5340815a3caa20c8187017423afa374edf6bc20",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-23T13:31:46Z",
+    "builtAt": "2026-10-23T15:20:14Z",
     "kind": "release",
     "notes": [
-      "Battery estimate: 24 V banks, voltage mismatch guard, cells in series"
+      "Bluetooth: ask EpilykosOS to restart a stuck BlueZ; clearer pairing card errors"
     ]
   },
   "history": [
+    {
+      "buildId": "39977329297.1",
+      "version": "1.0.7-dev+39b154c",
+      "commit": "39b154c804f1b3086aa157bc7daa181abc36d4f0",
+      "digest": "sha256:435aa221eac005cf1c38209fb5340815a3caa20c8187017423afa374edf6bc20",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-23T15:20:14Z",
+      "kind": "release",
+      "notes": [
+        "Bluetooth: ask EpilykosOS to restart a stuck BlueZ; clearer pairing card errors"
+      ]
+    },
     {
       "buildId": "39961898962.1",
       "version": "1.0.6-dev+b3cc579",
