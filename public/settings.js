@@ -2231,13 +2231,14 @@ async function runBmsScan(force) {
     const url = bmsScanTarget === 'dongle' ? '/api/bluetooth/scan' : (force ? '/api/bms/scan?force=1' : '/api/bms/scan');
     // Generous: the scan may wait behind a BMS/inverter poll on the shared adapter.
     const res = await fetch(url, { signal: AbortSignal.timeout(60000), credentials: 'include' });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      bmsScanStatus.textContent = err.error || 'Scan failed';
+    // Not JSON: something in front of Epilykos answered (the remote link while the app restarts).
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !Array.isArray(body)) {
+      bmsScanStatus.textContent = body ? (body.error || 'Scan failed') : 'Epilykos didn\u2019t answer (it may be restarting). Try again in a moment.';
       bmsScanList.innerHTML = '<div class="bms-scan-empty">Scan failed — check the Bluetooth status above the device list</div>';
       return;
     }
-    const devices = await res.json();
+    const devices = body;
     bmsScanTimestamp = Date.now();
 
     if (!devices.length) {
