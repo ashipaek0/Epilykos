@@ -232,6 +232,12 @@
             <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
             <div id="role-metrics-container" class="st-roles"></div>
           </div>
+          <div class="st-card" id="battery-est-card" data-own-save>
+            <div class="st-card-head"><h2>Battery estimate</h2></div>
+            <p class="st-help">For inverters with no link to the battery's BMS, whose own battery % is a guess from voltage. Epilykos counts the current going in and out of the battery through every inverter, and sets the charge to 100% each time the battery is full.</p>
+            <div id="be-root"><p class="st-help">Loading…</p></div>
+            <p class="status" id="be-status" role="status"></p>
+          </div>
           <div class="st-card" id="combined-card" data-own-save>
             <div class="st-card-head"><h2>Combined metrics</h2><button type="button" class="st-btn" id="cm-add"><span data-icon="plus" data-size="16"></span>Add combined metric</button></div>
             <p class="st-help">Add up readings from several inverters, MPPTs or batteries, or work out energy from power. Each result is a new metric you can pick in roles and cards. Switch one off to stop computing it. Several BMS packs that make up one battery go in a <a href="#sources/bms">battery bank</a> (weighted charge by capacity); its bank_ metrics can be used here too.</p>
@@ -1014,6 +1020,7 @@
 <script src="js/restore-upload.js?v=1"></script>
 <script src="js/settings-shell.js?v=8"></script>
 <script src="js/combined-metrics.js?v=8"></script>
+<script src="js/battery-estimator.js?v=1"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
 <script src="js/system-settings.js?v=4"></script>

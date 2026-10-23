@@ -817,6 +817,25 @@ app.post('/api/role-metrics', (req, res) => {
   res.json({ success: true });
 });
 
+// Battery estimate (Settings > Metrics): SOC from counting the inverters' battery current.
+app.use('/api/battery-estimator', isAuthenticated);
+function batteryEstimatorView() {
+  const be = require('./modules/batteryEstimator');
+  let saved = {};
+  try { saved = JSON.parse(getConfig(be.CONFIG_KEY) || '{}') || {}; } catch (_) { saved = {}; }
+  const chemistries = Object.fromEntries(Object.entries(be.CHEMISTRY).map(([k, { curve, ...v }]) => [k, v]));
+  return { settings: saved, effective: be.settings(saved), status: be.getStatus(), suggestions: be.suggestions(), chemistries };
+}
+app.get('/api/battery-estimator', (req, res) => res.json(batteryEstimatorView()));
+app.post('/api/battery-estimator', (req, res) => {
+  try { require('./modules/batteryEstimator').saveSettings(req.body && req.body.settings); } catch (e) { return res.status(400).json({ error: e.message }); }
+  res.json(batteryEstimatorView());
+});
+app.post('/api/battery-estimator/soc', (req, res) => {
+  try { require('./modules/batteryEstimator').setSoc(req.body && req.body.soc); } catch (e) { return res.status(400).json({ error: e.message }); }
+  res.json(batteryEstimatorView());
+});
+
 // Combined metrics (Settings > Metrics): definitions, last-cycle status, preview.
 app.use('/api/combined-metrics', isAuthenticated);
 app.get('/api/combined-metrics', (req, res) => {
