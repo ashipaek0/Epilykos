@@ -4,11 +4,16 @@
   var system = document.getElementById('sys-root');
   if (!system) return;
   var root = document.createElement('div'); system.after(root);
-  var initialized = false, bt = null, lastBt = '', refreshing = false, lastRefresh = 0;
+  var initialized = false, bt = null, lastBt = '', refreshing = false, lastRefresh = 0, refreshFailed = false, notAppliance = false;
+  // A reply that isn't JSON came from something in front of Epilykos (the remote
+  // link's error page while the app restarts, say), not from Epilykos.
+  var NOT_ANSWERING = 'Epilykos didn\u2019t answer (it may be restarting). This page tries again by itself.';
   var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
   async function api(path, body) {
     var r = await fetch('/api/system' + path, { method: body === undefined ? 'GET' : 'POST', headers: body === undefined ? {} : {'Content-Type':'application/json'}, body: body === undefined ? undefined : JSON.stringify(body) });
-    var d = await r.json(); if (!r.ok) throw new Error(d.error || 'The appliance refused the action'); return d;
+    var d;
+    try { d = await r.json(); } catch (_) { throw new Error(NOT_ANSWERING); }
+    if (!r.ok) throw new Error(d.error || 'The appliance refused the action'); return d;
   }
   // Each card has its own status line: 'time' or 'bt'.
   function message(s, where) {
@@ -80,8 +85,12 @@
   }
   async function refresh() {
     if (refreshing) return; refreshing = true; lastRefresh = Date.now();
-    try { var s = await api(''); if (!s.appliance) return; renderHost(s); var r = await api('/bluetooth'); renderBluetooth(r.bluetooth); }
-    catch (e) { message(e.message, 'bt'); }
+    try {
+      var s = await api(''); if (!s.appliance) { notAppliance = true; return; } renderHost(s); var r = await api('/bluetooth'); renderBluetooth(r.bluetooth);
+      // An error from an earlier refresh is over once one works (a button's error stays).
+      if (refreshFailed) { refreshFailed = false; message('', 'bt'); }
+    }
+    catch (e) { refreshFailed = true; message(e.message, 'bt'); }
     finally { refreshing = false; }
   }
   root.addEventListener('click', async function (e) {
@@ -120,7 +129,8 @@
   });
   // Every 2 s while pairing is open (nearby devices and PIN requests come and
   // go), otherwise every 30 s; not at all while the tab or section is hidden.
-  function shown() { return initialized && !document.hidden && !document.getElementById('section-system').hidden; }
+  // Not waiting for a first load that worked: one that failed (Epilykos restarting) is tried again too.
+  function shown() { return !notAppliance && !document.hidden && !document.getElementById('section-system').hidden; }
   function pairing() { return !!(bt && (bt.until > Date.now()/1000 || bt.pending || bt.pairing)); }
   refresh(); setInterval(function () { if (shown() && (pairing() || Date.now() - lastRefresh >= 30000)) refresh(); }, 2000);
   document.addEventListener('visibilitychange', function () { if (shown()) refresh(); });
