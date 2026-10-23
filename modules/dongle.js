@@ -69,6 +69,17 @@ function withBleBackoff(inst, poll) {
   };
 }
 
+// Bluetooth units start polling this far apart, so two inverters on one
+// adapter don't both connect the moment polling starts.
+const BLE_STAGGER_MS = 5000;
+
+/** Poll now and every intervalMs, after delayMs; stopDonglePolling clears both timers. */
+function startPolls(poll, intervalMs, delayMs = 0) {
+  const begin = () => { pollIntervals.push(setInterval(poll, intervalMs)); poll(); };
+  if (delayMs > 0) pollIntervals.push(setTimeout(begin, delayMs));
+  else begin();
+}
+
 function startDonglePolling() {
   stopDonglePolling();
 
@@ -83,6 +94,7 @@ function startDonglePolling() {
   if (clash) logger.warn(`[dongle] ${clash}`);
 
   const growattInstances = [];
+  let bleUnits = 0;
 
   for (const inst of config) {
     if (!inst.enabled) continue;
@@ -107,8 +119,7 @@ function startDonglePolling() {
       if (profile.capabilities && profile.capabilities.write === true) phocosInstances.set(inst.name, { instance: inst, profile, transport });
       const intervalMs = (inst.poll_interval || profile.default_poll_interval || 15) * 1000;
       const poll = singleFlight(inst, withBleBackoff(inst, () => pollJsonInstance(inst, transport, profile)));
-      pollIntervals.push(setInterval(poll, intervalMs));
-      poll();
+      startPolls(poll, intervalMs, bleUnits++ * BLE_STAGGER_MS);
       continue;
     }
 
@@ -171,8 +182,7 @@ function startDonglePolling() {
     const intervalMs = (inst.poll_interval || 30) * 1000;
     const read = () => pollInstance(inst, transport, profile);
     const poll = singleFlight(inst, inst.transport === 'ble-modbus' ? withBleBackoff(inst, read) : read);
-    pollIntervals.push(setInterval(poll, intervalMs));
-    poll();
+    startPolls(poll, intervalMs, inst.transport === 'ble-modbus' ? bleUnits++ * BLE_STAGGER_MS : 0);
   }
 
   if (growattInstances.length > 0) {

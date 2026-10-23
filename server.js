@@ -1549,6 +1549,7 @@ function applySourceConfigChanges(savedKeys, oldBanksRaw) {
       }
     }
   }
+  if (has('bms_devices') || has('dongle_config')) require('./modules/ble').updateMaxLinks();
   if (has('bms_devices') || has('bms_banks')) {
     restartBmsPolling();
     restartBmsWiredPolling();
