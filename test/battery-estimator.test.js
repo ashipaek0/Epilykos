@@ -106,13 +106,67 @@ assert.throws(() => be.saveSettings({ enabled: true, capacity_ah: 0, current_inp
 assert.throws(() => be.saveSettings({ enabled: true, capacity_ah: 100, current_inputs: '', voltage_inputs: 'a_v' }), /current/);
 assert.throws(() => be.saveSettings({ enabled: true, capacity_ah: 100, current_inputs: 'a', voltage_inputs: 'a_v', charge_efficiency: 2 }), /efficiency/);
 console.log('ok - saving uses the estimate for Battery % and gives the old reading back');
+// 24 V: thresholds, full and empty scale with the cells.
+const v24 = { ...be.settings({ enabled: true, nominal_voltage: 24, capacity_ah: 200, current_inputs: 'a', voltage_inputs: 'v' }) };
+assert.deepEqual([v24.cells, v24.pack_voltage, v24.full_voltage, v24.tail_current_a, v24.empty_voltage], [8, 25.6, 27.6, 8, 24]);
+const lead24 = be.settings({ enabled: true, chemistry: 'lead_acid', nominal_voltage: 24, capacity_ah: 200, current_inputs: 'a', voltage_inputs: 'v' });
+assert.deepEqual([lead24.cells, lead24.pack_voltage, lead24.full_voltage, lead24.empty_voltage], [12, 24, 28.2, 23.4]);
+const run = (c, st, volts, amps, n) => { let t = (st.lastT || 2e6); for (let i = 0; i < n; i++) { t += 30; st = be.advance(c, st, { samples: { a: [{ t, v: amps }] }, voltage: volts }, t).state; } st.lastT = t; return st; };
+let st = be.advance(v24, {}, { samples: { a: [{ t: 2e6, v: 0 }] }, voltage: 26.6 }, 2e6).state;
+assert.equal(Math.round(st.ah / 2), 75, 'voltage guess on a 24 V LiFePO4 bank');
+st = run(v24, { ...st, ah: 150 }, 27.7, 2, 22);
+assert.equal(st.origin, 'full'); assert.equal(st.ah, 200);
+st = run(v24, { ...st, ah: 100 }, 23.9, -3, 12);
+assert.equal(st.origin, 'empty'); assert.ok(Math.abs(st.ah - 10) < 0.5);
+let ls = run(lead24, { ah: 120, capacity: 200, origin: 'manual', last: {} }, 28.3, 1, 32);
+assert.equal(ls.origin, 'full', '24 V lead-acid full after 15 minutes');
+console.log('ok - 24 V LiFePO4 and lead-acid: voltage guess, full and empty at 24 V levels');
+
+// A 24 V bank left on 48 V: counting goes on, nothing is reset, no voltage guess.
+const wrong = be.settings({ enabled: true, capacity_ah: 200, current_inputs: 'a', voltage_inputs: 'v' });
+let w = be.advance(wrong, {}, { samples: { a: [{ t: 3e6, v: 0 }] }, voltage: 26.4 }, 3e6);
+assert.equal(w.state.ah, undefined, 'no start from a voltage that does not fit');
+assert.deepEqual(w.status.mismatch, { voltage: 26.4, pack_voltage: 51.2, cells: 16, nominal_voltage: 48 });
+w = { ah: 150, capacity: 200, origin: 'manual', last: {}, lastT: 3e6 };
+w = run(wrong, w, 26.4, -3, 20);
+assert.equal(w.origin, 'manual', 'no empty reset'); assert.ok(w.ah < 150 && w.ah > 148, 'still counting');
+const last = be.advance(wrong, w, { samples: { a: [{ t: w.lastT + 30, v: -3 }] }, voltage: 26.4 }, w.lastT + 30);
+assert.ok(last.status.mismatch && last.status.soc > 70);
+console.log('ok - a battery voltage that does not fit the pack stops resets and the voltage guess, not counting');
+
+// Cells in series: a 15-cell "48 V" LiFePO4 pack.
+const c15 = be.settings({ enabled: true, nominal_voltage: 48, cells: 15, capacity_ah: 100, current_inputs: 'a', voltage_inputs: 'v' });
+assert.deepEqual([c15.cells, c15.pack_voltage, c15.full_voltage, c15.empty_voltage], [15, 48, 51.75, 45]);
+assert.equal(be.settings({ cells: 40 }).cells, 16, 'out of range: the usual count');
+assert.throws(() => be.saveSettings({ enabled: false, cells: 2.5 }), /whole number/);
+assert.equal(be.saveSettings({ enabled: false, cells: '15' }).cells, 15);
+assert.equal(be.saveSettings({ enabled: false, cells: '' }).cells, undefined);
+console.log('ok - cells in series override the usual count');
+
+// The system voltage found on the inverters: their nominal voltage, else their battery voltage.
+assert.deepEqual([13.2, 26.4, 29.8, 52, 57.6, 100].map(be.voltageClass), [12, 24, 24, 48, 48, null]);
+const names2 = require(path.join(REPO, 'modules/inverterNames')).profileNames('phocos-anygrid-ble');
+const hh = n => [...names2].find(([, v]) => v === n)[0];
+setConfig('dongle_config', JSON.stringify([{ name: 'Inverter 1', profile: 'phocos-anygrid-ble', transport: 'ble-gatt', enabled: true, prefix: 'inv1_',
+  mappings: { inv1_battery_net_current: hh('battery_net_current'), inv1_battery_voltage: hh('battery_voltage'), inv1_rated_battery_voltage: hh('rated_battery_voltage') } }]));
+assert.equal(be.detectNominal(), null, 'no readings yet');
+latest.run('inv1_battery_voltage', 26.5, T);
+assert.equal(be.detectNominal(), 24, 'from the battery voltage');
+latest.run('inv1_rated_battery_voltage', 48, T);
+assert.equal(be.detectNominal(), 48, 'the nominal voltage comes first');
+assert.deepEqual(be.suggestions().rated_inputs, ['inv1_rated_battery_voltage']);
+assert.equal(be.settings({}, 24).nominal_voltage, 24, 'used while none is saved');
+assert.equal(be.settings({ nominal_voltage: 12 }, 24).nominal_voltage, 12, 'a saved choice wins');
+console.log('ok - system voltage found from the inverters');
+
 // Settings > Metrics card, its routes, and the cycle order.
 const html = fs.readFileSync(path.join(REPO, 'public/settings.html'), 'utf8');
 assert.match(html, /<div class="st-card" id="battery-est-card" data-own-save>/);
-assert.match(html, /<script src="js\/battery-estimator\.js\?v=1"><\/script>/);
+assert.match(html, /<script src="js\/battery-estimator\.js\?v=2"><\/script>/);
 const ui = fs.readFileSync(path.join(REPO, 'public/js/battery-estimator.js'), 'utf8');
 assert.doesNotMatch(ui, /type="radio"/);
 assert.match(ui, /class="toggle-switch"/, 'toggle switches');
+assert.match(ui, /id="be-cells"|'be-cells'/); assert.match(ui, /view\.detected_nominal/); assert.match(ui, /function mismatchText/);
 assert.match(ui, /window\.loadRoleMetrics\(\)/, 'the roles card shows Battery % as saved');
 const server = fs.readFileSync(path.join(REPO, 'server.js'), 'utf8');
 for (const r of ["app.get('/api/battery-estimator'", "app.post('/api/battery-estimator'", "app.post('/api/battery-estimator/soc'", "app.use('/api/battery-estimator', isAuthenticated)"]) assert.ok(server.includes(r), r);

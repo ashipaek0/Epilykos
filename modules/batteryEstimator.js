@@ -6,6 +6,8 @@
  *
  * Settings (config `battery_estimator`, Settings > Metrics):
  *   capacity_ah, chemistry ('lifepo4' | 'lead_acid'), nominal_voltage (12/24/48),
+ *   cells            cells in series when not the usual count for the voltage
+ *                    (a 15-cell "48 V" LiFePO4 pack, say)
  *   current_inputs   battery current readings, A, + while charging: one per
  *                    inverter on the bank (they each see only their share)
  *   voltage_inputs   battery voltage readings (averaged)
@@ -21,6 +23,10 @@
  * tail_current_a either way, for full_minutes. Optionally it is set to
  * empty_soc when the voltage sits at empty_voltage under a light load. Until
  * the first full charge it starts from a guess from the voltage.
+ *
+ * A battery voltage that doesn't fit the pack (a 24 V bank set up as 48 V)
+ * would reset the count wrongly, so then only counting goes on: no voltage
+ * guess and no full or empty resets, and the card says why.
  *
  * Writes battery_soc_estimate (%) and battery_remaining_ah (Ah) every cycle,
  * before combined metrics, so they can use it.
@@ -40,16 +46,19 @@ const LIGHT_LOAD_C = 0.05;   // "light load" for the empty check: up to 5% of ca
 const EMPTY_MINUTES = 5;
 const MAX_INPUTS = 8;
 const NAME_RE = /^[A-Za-z0-9_.:\- ()%]{1,80}$/;
+const NOMINALS = [12, 24, 48];
+// A battery voltage outside this share of the pack's nominal voltage belongs to another pack.
+const FIT = [0.75, 1.3];
 
 // Per cell: resting voltage -> SOC %, and defaults scaled by the cell count.
 const CHEMISTRY = {
   lifepo4: {
-    label: 'Lithium iron phosphate (LiFePO4)', cells: { 12: 4, 24: 8, 48: 16 }, efficiency: 0.99,
+    label: 'Lithium iron phosphate (LiFePO4)', cell: 3.2, cells: { 12: 4, 24: 8, 48: 16 }, efficiency: 0.99,
     full_cell: 3.45, tail_pct: 4, full_minutes: 10, empty_cell: 3.0, empty_soc: 5,
     curve: [[2.8, 0], [3.0, 5], [3.15, 10], [3.2, 20], [3.25, 30], [3.27, 40], [3.29, 50], [3.3, 60], [3.32, 70], [3.33, 80], [3.35, 90], [3.4, 97], [3.45, 100]]
   },
   lead_acid: {
-    label: 'Lead-acid (flooded, AGM, gel)', cells: { 12: 6, 24: 12, 48: 24 }, efficiency: 0.85,
+    label: 'Lead-acid (flooded, AGM, gel)', cell: 2.0, cells: { 12: 6, 24: 12, 48: 24 }, efficiency: 0.85,
     full_cell: 2.35, tail_pct: 2, full_minutes: 15, empty_cell: 1.95, empty_soc: 20,
     curve: [[1.75, 0], [1.918, 10], [1.943, 20], [1.968, 30], [1.993, 40], [2.017, 50], [2.04, 60], [2.062, 70], [2.083, 80], [2.103, 90], [2.122, 100]]
   }
@@ -67,18 +76,27 @@ function names(list) {
     .map(s => String(s).trim()).filter(s => NAME_RE.test(s)).filter((s, i, a) => a.indexOf(s) === i).slice(0, MAX_INPUTS);
 }
 
-/** The saved settings with every default filled in. */
-function settings(raw) {
+function cellsOf(v) {
+  const n = Number(v);
+  return v !== '' && v != null && Number.isInteger(n) && n >= 1 && n <= 32 ? n : null;
+}
+
+/**
+ * The saved settings with every default filled in. `detected`: the system
+ * voltage found on the inverters, used while none is saved.
+ */
+function settings(raw, detected) {
   const c = raw && typeof raw === 'object' ? raw : {};
   const chemistry = CHEMISTRY[c.chemistry] ? c.chemistry : 'lifepo4';
   const k = CHEMISTRY[chemistry];
-  const nominal = [12, 24, 48].includes(Number(c.nominal_voltage)) ? Number(c.nominal_voltage) : 48;
-  const cells = k.cells[nominal];
+  const nominal = NOMINALS.includes(Number(c.nominal_voltage)) ? Number(c.nominal_voltage)
+    : NOMINALS.includes(Number(detected)) ? Number(detected) : 48;
+  const cells = cellsOf(c.cells) || k.cells[nominal];
   const capacity = Number(c.capacity_ah) > 0 ? Number(c.capacity_ah) : 0;
   const current = names(c.current_inputs), voltage = names(c.voltage_inputs);
   const enabled = !!c.enabled && capacity > 0 && current.length > 0;
   return {
-    enabled, chemistry, nominal_voltage: nominal, cells, capacity_ah: capacity,
+    enabled, chemistry, nominal_voltage: nominal, cells, pack_voltage: round(k.cell * cells, 1), capacity_ah: capacity,
     current_inputs: current, voltage_inputs: voltage,
     charge_efficiency: Math.min(1, Math.max(0.5, num(c.charge_efficiency, k.efficiency))),
     full_voltage: num(c.full_voltage, round(k.full_cell * cells, 2)),
@@ -89,6 +107,11 @@ function settings(raw) {
     empty_soc: Math.min(50, Math.max(0, num(c.empty_soc, k.empty_soc))),
     use_for_role: enabled && !!c.use_for_role
   };
+}
+
+/** Whether a battery voltage belongs to this pack. */
+function fitsPack(cfg, volts) {
+  return volts >= cfg.pack_voltage * FIT[0] && volts <= cfg.pack_voltage * FIT[1];
 }
 
 /** Rough SOC % from a resting battery voltage (under load it reads low). */
@@ -142,9 +165,11 @@ function advance(cfg, prev, data, now) {
     else current += last.v;
   }
   const v = Number.isFinite(data.voltage) ? data.voltage : null;
+  const mismatch = v != null && !fitsPack(cfg, v)
+    ? { voltage: round(v, 2), pack_voltage: cfg.pack_voltage, cells: cfg.cells, nominal_voltage: cfg.nominal_voltage } : null;
 
   if (!counting) {
-    if (v == null) return { state: s, status: { waiting: 'battery voltage', missing } };
+    if (v == null || mismatch) return { state: s, status: { waiting: mismatch ? 'a battery voltage that fits the pack' : 'battery voltage', mismatch, missing } };
     s.ah = cap * socFromVoltage(v, cfg.chemistry, cfg.cells) / 100;
     s.origin = 'voltage'; s.originAt = now; s.uncounted = 0;
   } else {
@@ -152,7 +177,7 @@ function advance(cfg, prev, data, now) {
     s.uncounted = (s.uncounted || 0) + gap;
   }
 
-  const settled = v != null && !missing.length;
+  const settled = v != null && !mismatch && !missing.length;
   if (settled && v >= cfg.full_voltage && Math.abs(current) <= cfg.tail_current_a) {
     s.fullSince = s.fullSince || now;
     if (now - s.fullSince >= cfg.full_minutes * 60) {
@@ -175,7 +200,7 @@ function advance(cfg, prev, data, now) {
     state: s,
     status: {
       soc: round(s.ah / cap * 100, 1), ah: round(s.ah, 1), current: missing.length ? null : round(current, 2), voltage: v == null ? null : round(v, 2),
-      missing, origin: s.origin, origin_at: s.originAt || null, last_full: s.lastFull || null, last_empty: s.lastEmpty || null,
+      missing, mismatch, origin: s.origin, origin_at: s.originAt || null, last_full: s.lastFull || null, last_empty: s.lastEmpty || null,
       uncounted_s: Math.round(s.uncounted || 0), full_for_s: s.fullSince ? now - s.fullSince : 0
     }
   };
@@ -233,7 +258,7 @@ function getStatus() { return lastStatus; }
 
 /** Battery current and voltage readings of the enabled inverters, for the settings form. */
 function suggestions() {
-  const out = { current_inputs: [], voltage_inputs: [] };
+  const out = { current_inputs: [], voltage_inputs: [], rated_inputs: [] };
   let dongles = [];
   try { dongles = JSON.parse(getConfig('dongle_config') || '[]'); } catch (_) { dongles = []; }
   const { profileNames } = require('./inverterNames');
@@ -245,9 +270,31 @@ function suggestions() {
       const base = map.get(String(handle));
       if (base === 'battery_net_current') out.current_inputs.push(key);
       if (base === 'battery_voltage') out.voltage_inputs.push(key);
+      if (base === 'rated_battery_voltage') out.rated_inputs.push(key);
     }
   }
   return out;
+}
+
+/** The class (12/24/48 V) a voltage belongs to, or null. */
+function voltageClass(volts) {
+  return NOMINALS.find(n => volts >= n * FIT[0] && volts <= n * FIT[1]) || null;
+}
+
+/**
+ * The system voltage of the inverters: their nominal battery voltage, else
+ * the class their battery voltage reading falls in. Null when unknown.
+ */
+function detectNominal(found = suggestions()) {
+  const stmt = getDb().prepare('SELECT value FROM latest_metrics WHERE metric = ?');
+  for (const list of [found.rated_inputs, found.voltage_inputs]) {
+    for (const name of list || []) {
+      const r = stmt.get(name);
+      const n = r && Number.isFinite(Number(r.value)) && Number(r.value) > 0 ? voltageClass(Number(r.value)) : null;
+      if (n) return n;
+    }
+  }
+  return null;
 }
 
 /** Save from Settings; points the Battery % role at the estimate, or back. */
@@ -255,10 +302,14 @@ function saveSettings(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Expected battery settings.');
   const clean = {
     enabled: !!raw.enabled, chemistry: CHEMISTRY[raw.chemistry] ? raw.chemistry : 'lifepo4',
-    nominal_voltage: [12, 24, 48].includes(Number(raw.nominal_voltage)) ? Number(raw.nominal_voltage) : 48,
+    nominal_voltage: NOMINALS.includes(Number(raw.nominal_voltage)) ? Number(raw.nominal_voltage) : 48,
     capacity_ah: Number(raw.capacity_ah), current_inputs: names(raw.current_inputs), voltage_inputs: names(raw.voltage_inputs),
     empty_enabled: raw.empty_enabled !== false, use_for_role: !!raw.use_for_role
   };
+  if (raw.cells !== '' && raw.cells != null) {
+    if (!cellsOf(raw.cells)) throw new Error('Cells in series must be a whole number from 1 to 32.');
+    clean.cells = Number(raw.cells);
+  }
   if (clean.enabled && !(clean.capacity_ah > 0 && clean.capacity_ah <= 100000)) throw new Error('Enter the battery capacity in Ah.');
   if (clean.enabled && !clean.current_inputs.length) throw new Error('Pick at least one battery current reading.');
   if (clean.enabled && !clean.voltage_inputs.length) throw new Error('Pick a battery voltage reading.');
@@ -299,6 +350,6 @@ function saveSettings(raw) {
 }
 
 module.exports = {
-  runBatteryEstimator, advance, settings, socFromVoltage, setSoc, getStatus, suggestions, saveSettings,
+  runBatteryEstimator, advance, settings, socFromVoltage, setSoc, getStatus, suggestions, saveSettings, detectNominal, voltageClass, fitsPack,
   CHEMISTRY, CONFIG_KEY, STATE_KEY, OUT_SOC, OUT_AH, MAX_GAP_S
 };

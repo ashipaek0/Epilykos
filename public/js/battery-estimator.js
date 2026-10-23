@@ -34,20 +34,23 @@
       + (opts.type ? ' type="' + opts.type + '" step="any" inputmode="decimal"' : ' spellcheck="false" autocomplete="off"') + (opts.placeholder != null ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '>'
       + (opts.help ? '<span class="st-help">' + opts.help + '</span>' : '') + '</div>';
   }
-  function select(id, label, value, options) {
+  function select(id, label, value, options, help) {
     return '<div class="st-field"><label for="' + id + '">' + label + '</label><select class="input" id="' + id + '">'
-      + options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(value) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
+      + options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(value) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'
+      + (help ? '<span class="st-help">' + help + '</span>' : '') + '</div>';
   }
 
-  // Defaults for the chosen chemistry, system voltage and capacity (as the server works them out).
+  // Defaults for the chosen chemistry, system voltage, cells and capacity (as the server works them out).
   function defaults() {
     var chem = view.chemistries[$('be-chemistry').value] || view.chemistries.lifepo4;
-    var cells = chem.cells[$('be-nominal').value] || chem.cells[48];
+    var usual = chem.cells[$('be-nominal').value] || chem.cells[48];
+    var own = Number($('be-cells').value);
+    var cells = own >= 1 && own <= 32 && Math.round(own) === own ? own : usual;
     var cap = Number($('be-capacity').value) || 0;
     var r = function (v, d) { var f = Math.pow(10, d); return Math.round(v * f) / f; };
     return {
       charge_efficiency: chem.efficiency, full_voltage: r(chem.full_cell * cells, 2), tail_current_a: cap ? r(cap * chem.tail_pct / 100, 1) : '',
-      full_minutes: chem.full_minutes, empty_voltage: r(chem.empty_cell * cells, 2), empty_soc: chem.empty_soc
+      full_minutes: chem.full_minutes, empty_voltage: r(chem.empty_cell * cells, 2), empty_soc: chem.empty_soc, cells: usual
     };
   }
   function placeholders() {
@@ -60,7 +63,8 @@
     if (!view.settings.enabled) return '';
     if (!e.enabled) return '<p class="st-help">Not counting: enter the capacity and the battery current readings.</p>';
     if (!s) return '<p class="st-help">Starts with the next reading (within 30 seconds).</p>';
-    if (s.waiting) return '<p class="st-help">Waiting for a battery voltage reading to start from.</p>';
+    if (s.waiting && !s.mismatch) return '<p class="st-help">Waiting for a battery voltage reading to start from.</p>';
+    if (s.waiting) return '<p class="test-status error">' + mismatchText(s.mismatch) + ' Counting starts once it fits.</p>';
     var lines = [];
     var now = '<b>' + s.soc + '%</b> · ' + s.ah + ' Ah of ' + e.capacity_ah + ' Ah';
     if (s.current != null) now += ' · ' + (s.current > 0 ? 'charging ' : s.current < 0 ? 'discharging ' : '') + Math.abs(s.current) + ' A';
@@ -74,7 +78,13 @@
     if (s.full_for_s) lines.push('Looks full; set to 100% after ' + e.full_minutes + ' minutes like this (' + Math.floor(s.full_for_s / 60) + ' so far).');
     if (s.uncounted_s >= 60) lines.push('Not counted: ' + Math.round(s.uncounted_s / 60) + ' min with no readings since then, so it may be off until the next full charge.');
     if (s.missing && s.missing.length) lines.push('No recent reading from ' + s.missing.map(esc).join(', ') + '.');
+    if (s.mismatch) lines.push('<span class="test-status error" style="display:inline;padding:0">' + mismatchText(s.mismatch) + ' Counting goes on, but the full and empty resets wait until it fits.</span>');
     return '<div class="st-snapshots"><div class="st-snapshot"><div style="min-width:0">' + lines.map(function (l, i) { return i ? '<span class="st-help" style="display:block">' + l + '</span>' : '<span class="st-snapshot-date" style="display:block">' + l + '</span>'; }).join('') + '</div></div></div>';
+  }
+
+  // The battery voltage doesn't fit the pack: System voltage or Cells in series is wrong.
+  function mismatchText(m) {
+    return 'The battery reads ' + m.voltage + ' V, which doesn\u2019t fit a ' + m.nominal_voltage + ' V pack of ' + m.cells + ' cells (' + m.pack_voltage + ' V). Check System voltage and Cells in series.';
   }
 
   function render() {
@@ -88,9 +98,11 @@
       + '<div class="st-toggle-row" style="margin-top:12px">' + toggle('be-enabled', 'Count the battery’s charge', !!s.enabled) + toggle('be-role', 'Use it as Battery %', !!s.use_for_role) + '</div>'
       + '<h2 class="st-card-subhead">Battery</h2><div class="st-grid-2">'
       + select('be-chemistry', 'Type', s.chemistry || 'lifepo4', chems)
-      + select('be-nominal', 'System voltage', s.nominal_voltage || 48, [[12, '12 V'], [24, '24 V'], [48, '48 V']])
+      + select('be-nominal', 'System voltage', s.nominal_voltage || view.detected_nominal || 48, [[12, '12 V'], [24, '24 V'], [48, '48 V']],
+        view.detected_nominal && view.detected_nominal !== s.nominal_voltage ? 'Your inverters say ' + view.detected_nominal + ' V.' : '')
       + field('be-capacity', 'Capacity (Ah)', s.capacity_ah, { type: 'number', help: 'The whole bank, at system voltage: two 200 Ah packs in parallel are 400 Ah.' })
       + field('be-charge-efficiency', 'Charge efficiency', s.charge_efficiency, { type: 'number', help: 'Share of the charge that stays in the battery (0.5 to 1).' })
+      + field('be-cells', 'Cells in series', s.cells, { type: 'number', help: 'Empty: the usual count for this voltage. Set it for other packs, for example 15 for some 48 V LiFePO4.' })
       + '</div><h2 class="st-card-subhead">Readings</h2><div class="st-grid-2">'
       + field('be-current', 'Battery current (+ while charging)', cur, { help: 'One per inverter on this battery, separated by commas: each inverter only sees its own share.' + found(sug.current_inputs, cur) })
       + field('be-voltage', 'Battery voltage', volt, { help: 'Averaged if more than one.' + found(sug.voltage_inputs, volt) })
@@ -117,14 +129,14 @@
   root.addEventListener('change', function (e) {
     if (e.target.id === 'be-chemistry' || e.target.id === 'be-nominal') placeholders();
   });
-  root.addEventListener('input', function (e) { if (e.target.id === 'be-capacity') placeholders(); });
+  root.addEventListener('input', function (e) { if (e.target.id === 'be-capacity' || e.target.id === 'be-cells') placeholders(); });
   root.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     if (b.id === 'be-save') {
       var v = function (id) { return $(id).value.trim(); };
       var settings = {
         enabled: $('be-enabled').checked, use_for_role: $('be-role').checked, chemistry: v('be-chemistry'), nominal_voltage: Number(v('be-nominal')),
-        capacity_ah: v('be-capacity') === '' ? 0 : Number(v('be-capacity')), current_inputs: v('be-current'), voltage_inputs: v('be-voltage'),
+        capacity_ah: v('be-capacity') === '' ? 0 : Number(v('be-capacity')), cells: v('be-cells'), current_inputs: v('be-current'), voltage_inputs: v('be-voltage'),
         charge_efficiency: v('be-charge-efficiency'), full_voltage: v('be-full-voltage'), tail_current_a: v('be-tail-current-a'), full_minutes: v('be-full-minutes'),
         empty_enabled: $('be-empty').checked, empty_voltage: v('be-empty-voltage'), empty_soc: v('be-empty-soc')
       };
