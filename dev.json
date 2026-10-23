@@ -1,18 +1,36 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39749747728.1",
-    "version": "1.0.5-dev+a58a276",
-    "commit": "a58a2765722c577ad0e77dad42708d08fb5759e5",
-    "digest": "sha256:b77bbf0810113428c4d86eb4d011d2047208676245f8de8f35e1d3ab28d6a09d",
+    "buildId": "39950581903.1",
+    "version": "1.0.5-dev+e2c9e84",
+    "commit": "e2c9e848fb180ba65d7fe1723c415d3b68e3fb7b",
+    "digest": "sha256:9ebfdf8c6ead6b24f77dd85a7d7863b1649c15dda39e6bd857b1396d873b5916",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-22T08:42:46Z",
+    "builtAt": "2026-10-23T12:04:29Z",
     "kind": "release",
     "notes": [
-      "Energy chart: 6 month and 1 year ranges"
+      "Several inverters: roles use totals across them",
+      "Settings > System: poll less",
+      "Bluetooth: a link per inverter, polls started apart",
+      "Inverter names: keep each inverter's readings under its own prefix"
     ]
   },
   "history": [
+    {
+      "buildId": "39950581903.1",
+      "version": "1.0.5-dev+e2c9e84",
+      "commit": "e2c9e848fb180ba65d7fe1723c415d3b68e3fb7b",
+      "digest": "sha256:9ebfdf8c6ead6b24f77dd85a7d7863b1649c15dda39e6bd857b1396d873b5916",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-23T12:04:29Z",
+      "kind": "release",
+      "notes": [
+        "Several inverters: roles use totals across them",
+        "Settings > System: poll less",
+        "Bluetooth: a link per inverter, polls started apart",
+        "Inverter names: keep each inverter's readings under its own prefix"
+      ]
+    },
     {
       "buildId": "39749747728.1",
       "version": "1.0.5-dev+a58a276",
