@@ -4,7 +4,7 @@
   var system = document.getElementById('sys-root');
   if (!system) return;
   var root = document.createElement('div'); system.after(root);
-  var initialized = false, bt = null, lastBt = '', refreshing = false;
+  var initialized = false, bt = null, lastBt = '', refreshing = false, lastRefresh = 0;
   var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
   async function api(path, body) {
     var r = await fetch('/api/system' + path, { method: body === undefined ? 'GET' : 'POST', headers: body === undefined ? {} : {'Content-Type':'application/json'}, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -79,7 +79,7 @@
     box.innerHTML = h;
   }
   async function refresh() {
-    if (refreshing) return; refreshing = true;
+    if (refreshing) return; refreshing = true; lastRefresh = Date.now();
     try { var s = await api(''); if (!s.appliance) return; renderHost(s); var r = await api('/bluetooth'); renderBluetooth(r.bluetooth); }
     catch (e) { message(e.message, 'bt'); }
     finally { refreshing = false; }
@@ -118,6 +118,11 @@
     } catch (err) { message(err.message, where); }
     finally { b.disabled = false; }
   });
-  refresh(); setInterval(function () { if (initialized && !document.getElementById('section-system').hidden) refresh(); }, 2000);
+  // Every 2 s while pairing is open (nearby devices and PIN requests come and
+  // go), otherwise every 30 s; not at all while the tab or section is hidden.
+  function shown() { return initialized && !document.hidden && !document.getElementById('section-system').hidden; }
+  function pairing() { return !!(bt && (bt.until > Date.now()/1000 || bt.pending || bt.pairing)); }
+  refresh(); setInterval(function () { if (shown() && (pairing() || Date.now() - lastRefresh >= 30000)) refresh(); }, 2000);
+  document.addEventListener('visibilitychange', function () { if (shown()) refresh(); });
   document.addEventListener('st:section-shown', function(e) { if (e.detail && e.detail.section === 'system') refresh(); });
 })();
