@@ -116,9 +116,9 @@ async function runRollupOnce(options = {}) {
   const budgetMs = options.budgetMs || BUDGET_MS;
   let release;
   try {
-    release = await acquireLock('maintenance', { timeoutMs: options.lockTimeoutMs });
+    release = await acquireLock('maintenance', { timeoutMs: options.lockTimeoutMs, allowPendingOsUpdate: true });
   } catch (error) {
-    if (/timed out/i.test(error.message)) {
+    if (/timed out/i.test(error.message) || error.code === 'LOCK_BUSY') {
       logger.info('Retention rollup deferred: maintenance lock is busy');
       return { deferred: true, metricsGroups: 0, historyGroups: 0, more: true };
     }

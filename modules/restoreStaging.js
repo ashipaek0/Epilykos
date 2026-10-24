@@ -182,7 +182,7 @@ function startRestoreStagingCleanup(root) {
   const controller = new AbortController(); let running;
   const tick = () => {
     if (controller.signal.aborted || running) return;
-    running = require('./maintenanceLock').withLock('maintenance', () => reapRestoreStaging(root, { signal: controller.signal }))
+    running = require('./maintenanceLock').withLock('maintenance', () => reapRestoreStaging(root, { signal: controller.signal }), { allowPendingOsUpdate: true })
       .catch(error => logger.warn('Restore staging cleanup deferred: ' + error.message))
       .finally(() => { running = null; });
   };
