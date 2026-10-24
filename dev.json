@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40088840887.1",
-    "version": "1.0.7-dev+5687283",
-    "commit": "56872834883cc71f7e76acb4acaa49df3bf92291",
-    "digest": "sha256:a07158e7f5ee5f9467ae12c2d759ae8dfdeecc8f75756faae99cd78fabd36c0f",
+    "buildId": "40114623248.1",
+    "version": "1.0.7-dev+1abedf9",
+    "commit": "1abedf98eac2de6ab6bb840ce1b5a24fe4ec826f",
+    "digest": "sha256:ae398360e3c35128afa046177b9609a22326f9c4ddaf9fb9beff35606feba34c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-24T11:11:03Z",
+    "builtAt": "2026-10-24T17:07:07Z",
     "kind": "release",
     "notes": [
-      "docs: the OS update guard and Settings › Updates routes",
-      "Settings › Updates: EpilykosOS system updates and the guard-v1 maintenance guard"
+      "Settings › Updates: progress bars and steps for app and system updates"
     ]
   },
   "history": [
+    {
+      "buildId": "40114623248.1",
+      "version": "1.0.7-dev+1abedf9",
+      "commit": "1abedf98eac2de6ab6bb840ce1b5a24fe4ec826f",
+      "digest": "sha256:ae398360e3c35128afa046177b9609a22326f9c4ddaf9fb9beff35606feba34c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-24T17:07:07Z",
+      "kind": "release",
+      "notes": [
+        "Settings › Updates: progress bars and steps for app and system updates"
+      ]
+    },
     {
       "buildId": "40088840887.1",
       "version": "1.0.7-dev+5687283",
