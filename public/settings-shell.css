@@ -606,3 +606,12 @@ body.st {
 .st .up-notes li { margin: 2px 0; }
 .st .up-cmd { margin: 8px 0; padding: 10px 12px; border-radius: 8px; background: var(--st-hover); overflow-x: auto; font-size: 0.78rem; line-height: 1.5; white-space: pre; }
 .st .up-cmd code { background: none; padding: 0; }
+/* Update progress: a bar where the size is known, steps where it is not. */
+.st .up-progress { display: block; width: 100%; height: 10px; margin: 8px 0 4px; accent-color: var(--st-amber); }
+.st .up-steps { list-style: none; margin: 8px 0 10px; padding: 0; font-size: 0.85rem; }
+.st .up-steps li { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--st-muted); }
+.st .up-steps li::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--st-line); }
+.st .up-steps li.is-done { color: var(--st-text); }
+.st .up-steps li.is-done::before { background: var(--st-ok); border-color: var(--st-ok); }
+.st .up-steps li.is-now { color: var(--st-text); font-weight: 600; }
+.st .up-steps li.is-now::before { border-color: var(--st-amber); background: var(--st-amber-soft); }
