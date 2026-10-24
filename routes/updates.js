@@ -62,7 +62,10 @@ async function hostProgress() {
     const lastResult = last && last.finished_at && last.finished_at !== getConfig('update_host_result_dismissed')
       ? { ok: !!last.ok, error: last.error || '', rolledBack: !!last.rolled_back, toVersion: last.release || '', finishedAt: last.finished_at }
       : null;
-    return { applying: reply.app.state === 'applying' ? { startedAt: (reply.app.job && reply.app.job.started_at) || null } : null, lastResult };
+    const job = reply.app.job || {};
+    // step: the host's own job state (downloading, then starting: the new
+    // version is started and must report healthy before it is kept).
+    return { applying: reply.app.state === 'applying' ? { startedAt: job.started_at || null, step: job.state || null } : null, lastResult };
   } catch (_) {
     return null;
   }

@@ -67,6 +67,8 @@ const click = async (dataset) => { await listener({ target: { closest: () => ({ 
   await click({ osInstall: '12' });
   assert.deepEqual(posts[0], { url: '/api/updates/os/install', body: { sequence: 12, sha256: SHA, request_id: 'req-fixed-0001', password: 'correct horse battery' } });
   assert.match(root.innerHTML, /Downloading 120 MB \/ 393 MB/);
+  assert.match(root.innerHTML, /<progress class="up-progress" max="412345678" value="125829120"/, 'download bar in bytes');
+  assert.match(root.innerHTML, /<li class="is-now">Download<\/li><li class="">Verify<\/li>/);
   assert.match(root.innerHTML, /data-os-cancel=/);
   assert.match(root.innerHTML, /Monitoring keeps running/);
   const poll = timers.find(t => t.ms === 2000);
@@ -77,6 +79,8 @@ const click = async (dataset) => { await listener({ target: { closest: () => ({ 
   page.os = osView({ job: { id: JOB, state: 'installing', percent: 37, version: '0.7' } });
   await poll.fn(); await flush();
   assert.match(root.innerHTML, /Installing 37 %/);
+  assert.match(root.innerHTML, /<progress class="up-progress" max="100" value="37"/);
+  assert.match(root.innerHTML, /<li class="is-done">Download<\/li><li class="is-done">Verify<\/li><li class="is-now">Install<\/li>/);
   assert.doesNotMatch(root.innerHTML, /data-os-cancel=/, 'no cancel once installing');
   const next = timers.find(t => t.ms === 2000);
   offline = true;
@@ -96,6 +100,8 @@ const click = async (dataset) => { await listener({ target: { closest: () => ({ 
   await click({ osRestart: JOB });
   assert.deepEqual(posts[0], { url: '/api/updates/os/restart', body: { job: JOB, password: 'correct horse battery' } });
   assert.match(root.innerHTML, /Restarting onto the new system/);
+  assert.match(root.innerHTML, /<progress class="up-progress" aria-label="Working"><\/progress>/, 'a moving bar where the size is unknown');
+  assert.match(root.innerHTML, /<li class="is-now">Restart<\/li><li class="">Confirm<\/li>/);
   console.log('ok - ready: Restart to finish (password, names the job)');
 
   page.os = osView({ last_result: { id: JOB, outcome: 'rolled_back', version: '0.7', reason: 'not healthy within 1200 s' } });
