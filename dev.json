@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "39977329297.1",
-    "version": "1.0.7-dev+39b154c",
-    "commit": "39b154c804f1b3086aa157bc7daa181abc36d4f0",
-    "digest": "sha256:435aa221eac005cf1c38209fb5340815a3caa20c8187017423afa374edf6bc20",
+    "buildId": "40088840887.1",
+    "version": "1.0.7-dev+5687283",
+    "commit": "56872834883cc71f7e76acb4acaa49df3bf92291",
+    "digest": "sha256:a07158e7f5ee5f9467ae12c2d759ae8dfdeecc8f75756faae99cd78fabd36c0f",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-23T15:20:14Z",
+    "builtAt": "2026-10-24T11:11:03Z",
     "kind": "release",
     "notes": [
-      "Bluetooth: ask EpilykosOS to restart a stuck BlueZ; clearer pairing card errors"
+      "docs: the OS update guard and Settings › Updates routes",
+      "Settings › Updates: EpilykosOS system updates and the guard-v1 maintenance guard"
     ]
   },
   "history": [
+    {
+      "buildId": "40088840887.1",
+      "version": "1.0.7-dev+5687283",
+      "commit": "56872834883cc71f7e76acb4acaa49df3bf92291",
+      "digest": "sha256:a07158e7f5ee5f9467ae12c2d759ae8dfdeecc8f75756faae99cd78fabd36c0f",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-24T11:11:03Z",
+      "kind": "release",
+      "notes": [
+        "docs: the OS update guard and Settings › Updates routes",
+        "Settings › Updates: EpilykosOS system updates and the guard-v1 maintenance guard"
+      ]
+    },
     {
       "buildId": "39977329297.1",
       "version": "1.0.7-dev+39b154c",
