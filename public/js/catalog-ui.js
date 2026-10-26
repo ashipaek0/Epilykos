@@ -497,8 +497,20 @@
 
   // ---- Flows ----------------------------------------------------------------
 
-  // "Fetch … Entities": one row per catalog entity with an EMPTY metric
-  // dropdown. No auto-creation — metric names come only from user selections.
+  // Rows to keep when the list is rebuilt: a metric is chosen, or the row held
+  // one that was just cleared and the save-time removal warning is still
+  // pending (dataset.prevMetric / dataset.cleared). Fetching must never unset
+  // what the user mapped.
+  function takeMappedRows(listEl) {
+    return Array.from(listEl.querySelectorAll('.metric-row')).filter(row => {
+      const sel = row.querySelector('.metric-name');
+      return (sel && sel.value) || row.dataset.prevMetric || row.dataset.cleared === '1';
+    });
+  }
+
+  // "Fetch … Entities": one row per catalog entity that is not mapped yet, with
+  // an EMPTY metric dropdown. No auto-creation — metric names come only from
+  // user selections, and rows already mapped are left untouched.
   function fetchAndRender(adapter, listEl, btn, ctx) {
     if (!listEl) return Promise.resolve();
     if (!adapter || typeof adapter.fetch !== 'function') {
@@ -512,8 +524,13 @@
         const list = Array.isArray(entities) ? entities : [];
         const card = listEl.closest ? listEl.closest('.device-card') : null;
         setCatalogCache(adapter, card, list);
+        // Rows that already carry a mapping stay exactly as they are; fetching
+        // only adds a row for every entity that is not mapped yet.
+        const kept = takeMappedRows(listEl);
+        const mapped = new Set(kept.map(r => r.dataset.address).filter(Boolean));
         listEl.innerHTML = '';
-        if (!list.length) {
+        kept.forEach(r => listEl.appendChild(r));
+        if (!list.length && !kept.length) {
           listEl.appendChild(makeNote(
             (adapter.emptyEntitiesNote) || 'This profile has no entities.'
           ));
@@ -522,7 +539,7 @@
         }
         list.forEach(e => {
           const id = adapter.entityId(e);
-          if (!id) return;
+          if (!id || mapped.has(id)) return;
           listEl.appendChild(createRow(adapter, {
             metricName: '', handle: id, entity: e, entities: list, mode: 'chip'
           }));
@@ -531,8 +548,10 @@
         return refreshDropdowns();
       })
       .catch(err => {
+        const kept = takeMappedRows(listEl);
         listEl.innerHTML = '';
         listEl.appendChild(makeNote((err && err.message) || 'Failed to load profile entities', true));
+        kept.forEach(r => listEl.appendChild(r));
       })
       .finally(() => {
         if (btn) { btn.disabled = false; btn.textContent = oldText || 'Fetch Profile Entities'; }

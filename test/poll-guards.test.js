@@ -83,9 +83,12 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   });
 
   await check('rate limit, delete tidy-up and combined refusal are in the routes', () => {
+    // The rules live in modules/metricDeletion.js (shared by deleting one and several); the route refuses with 409.
     const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    assert.match(srv, /rolesCleared\.forEach\(r => \{ roles\[r\] = ''; \}\)/);
-    assert.match(srv, /return res\.status\(409\)\.json\(\{ error: `\$\{name\} is a combined metric/);
+    const rules = fs.readFileSync(path.join(__dirname, '..', 'modules', 'metricDeletion.js'), 'utf8');
+    assert.match(rules, /rolesCleared\.forEach\(r => \{ roles\[r\] = ''; \}\)/);
+    assert.match(rules, /reason: `\$\{name\} is a combined metric/);
+    assert.match(srv, /return res\.status\(409\)\.json\(\{ error: result\.blocked\[0\]\.reason \}\)/);
   });
 
   assert.strictEqual(passed, 5, 'every check ran');

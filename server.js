@@ -2641,26 +2641,29 @@ app.post('/api/metrics/create', isAuthenticated, (req, res) => {
 
 app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   try {
-    const { deleteMetric } = require('./modules/metricsManager');
+    const { deleteMetrics } = require('./modules/metricDeletion');
     const { name } = req.params;
-    // A combined metric is written again every cycle while its definition exists.
-    const cm = require('./modules/combinedMetrics');
-    if (cm.loadDefinitions().some(d => d && String(d.name).trim() === name)) {
-      return res.status(409).json({ error: `${name} is a combined metric. Delete it under Combined metrics, or it is worked out again on the next reading.` });
-    }
-    deleteMetric(name);
-    // Roles pointing at it would point at nothing: clear them. Combined metrics
-    // that add it up are left for the person to change, but named.
-    let rolesCleared = [];
-    try {
-      const roles = JSON.parse(getConfig('role_metrics') || '{}') || {};
-      rolesCleared = Object.keys(roles).filter(r => roles[r] === name);
-      if (rolesCleared.length) { rolesCleared.forEach(r => { roles[r] = ''; }); setConfig('role_metrics', JSON.stringify(roles)); }
-    } catch (_) { /* roles unreadable: nothing to clear */ }
-    const usedBy = cm.loadDefinitions().filter(d => d && (d.inputs || []).map(x => String(x).trim()).includes(name)).map(d => d.name);
-    res.json({ success: true, roles_cleared: rolesCleared, used_by: usedBy });
+    const result = deleteMetrics([name]);
+    if (result.blocked.length) return res.status(409).json({ error: result.blocked[0].reason });
+    res.json({ success: true, roles_cleared: result.rolesCleared, used_by: result.usedBy[name] || [] });
   } catch (err) {
     logger.error('Error deleting metric:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Several at once (Settings > Metrics: select, then Delete selected).
+app.post('/api/metrics/delete', isAuthenticated, (req, res) => {
+  const names = req.body && req.body.names;
+  if (!Array.isArray(names) || !names.length || names.some(n => typeof n !== 'string')) {
+    return res.status(400).json({ error: 'A list of metric names is required' });
+  }
+  try {
+    const result = require('./modules/metricDeletion').deleteMetrics(names);
+    res.json({ success: true, deleted: result.deleted, blocked: result.blocked, roles_cleared: result.rolesCleared, used_by: result.usedBy });
+  } catch (err) {
+    if (err instanceof RangeError) return res.status(400).json({ error: err.message });
+    logger.error('Error deleting metrics:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

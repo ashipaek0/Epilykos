@@ -615,3 +615,9 @@ body.st {
 .st .up-steps li.is-done::before { background: var(--st-ok); border-color: var(--st-ok); }
 .st .up-steps li.is-now { color: var(--st-text); font-weight: 600; }
 .st .up-steps li.is-now::before { border-color: var(--st-amber); background: var(--st-amber-soft); }
+
+/* Metrics: select several, delete together */
+.st .st-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--st-border, currentColor); border-radius: 0.5rem; }
+.st .st-bulk[hidden] { display: none; }
+.st .st-bulk-count { font-weight: 600; margin-right: auto; }
+.st .st-table .st-select-col { width: 1%; white-space: nowrap; }

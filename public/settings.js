@@ -101,8 +101,11 @@ async function loadSettings() {
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
-    buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
-    buildBmsWiredDeviceList(JSON.parse(data.bms_devices || '[]'));
+    // One stored list holds both kinds; each section shows only its own, or the
+    // other kind's devices come back as empty copies and pile up on every save.
+    const bmsDevices = JSON.parse(data.bms_devices || '[]');
+    buildBmsDeviceList(bmsDevices.filter(d => d && d.transport !== 'wired'));
+    buildBmsWiredDeviceList(bmsDevices.filter(d => d && d.transport === 'wired'));
     buildBmsBankList(JSON.parse(data.bms_banks || '[]'));
     buildRs232DeviceList(JSON.parse(data.rs232_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));
@@ -4817,6 +4820,8 @@ window.addEventListener('beforeunload', () => { if (bmsScanInterval) clearInterv
 
 // ======================== METRICS MANAGEMENT ========================
 let metricsList = [];
+// Metrics ticked for "Delete selected"; kept across the 60 s refresh of the list.
+const selectedMetrics = new Set();
 async function loadMetricsList() {
   try {
     const authRes = await fetch('/api/auth/status');
@@ -4831,7 +4836,7 @@ async function loadMetricsList() {
   } catch (err) {
     console.error('Error loading metrics:', err);
     const tbody = document.getElementById('metrics-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5">Failed to load metrics</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6">Failed to load metrics</td></tr>';
   }
 }
 // A reading as people read it: rounded by size, W → kW from 1000, text as is.
@@ -4857,19 +4862,26 @@ function renderMetricsTable() {
   const count = document.getElementById('metrics-count');
   if (count) count.textContent = metricsList.length ? `(${metricsList.length})` : '';
   if (!metricsList.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No metrics yet. They appear here once a source reports, or add one with New metric.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">No metrics yet. They appear here once a source reports, or add one with New metric.</td></tr>';
+    selectedMetrics.clear();
+    updateMetricsBulk();
     return;
   }
   // Newest reading first; never-read metrics last, by name.
   const ts = m => (m.timestamp ? (m.timestamp > 1e12 ? m.timestamp / 1000 : m.timestamp) : 0);
   const rows = metricsList.slice().sort((a, b) => (ts(b) - ts(a)) || a.name.localeCompare(b.name));
+  const present = new Set(metricsList.filter(m => !m.combined).map(m => m.name));
+  selectedMetrics.forEach(n => { if (!present.has(n)) selectedMetrics.delete(n); });
   tbody.innerHTML = rows.map(metric => {
     const age = readingAge(metric.timestamp);
     const name = escapeHtml(metric.name);
     const action = metric.combined
       ? `<a class="st-btn" href="#metrics/combined" aria-label="Edit ${name} under Combined metrics">Edit</a>`
       : `<button type="button" class="st-btn st-btn-danger-text delete-metric-btn" data-name="${name}" aria-label="Delete ${name}">Delete</button>`;
+    // A combined metric is edited, not deleted here: no toggle for it.
+    const pick = metric.combined ? '' : `<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="metric-select" data-name="${name}" aria-label="Select ${name}"${selectedMetrics.has(metric.name) ? ' checked' : ''}><span class="slider"></span></label></span>`;
     return `<tr data-filter="${escapeHtml((metric.name + ' ' + (metric.unit || '')).toLowerCase())}"${metric.timestamp ? '' : ' class="is-never"'}>
+      <td class="st-select-col">${pick}</td>
       <td>${name.replace(/_/g, '_<wbr>')}${metric.combined ? ' <span class="st-chip">Combined</span>' : ''}<span class="st-metric-age">${escapeHtml(age.text)}</span></td>
       <td class="num">${escapeHtml(formatMetricReading(metric.value, metric.unit))}</td>
       <td${age.title ? ` title="${escapeHtml(age.title)}"` : ''}>${escapeHtml(age.text)}</td>
@@ -4880,6 +4892,7 @@ function renderMetricsTable() {
   // Keep the filter applied across reloads of the list.
   const ms = document.getElementById('metrics-search');
   if (ms && ms.value) ms.dispatchEvent(new Event('input'));
+  updateMetricsBulk();
   const status = document.getElementById('metrics-status');
   tbody.querySelectorAll('.delete-metric-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -4908,6 +4921,83 @@ function renderMetricsTable() {
     });
   });
 }
+// ---- Select several metrics, then delete them in one go ----
+function shownMetricToggles() {
+  return Array.from(document.querySelectorAll('#metrics-table-body tr:not([hidden]) .metric-select'));
+}
+function updateMetricsBulk() {
+  const bar = document.getElementById('metrics-bulk');
+  if (!bar) return;
+  const n = selectedMetrics.size;
+  bar.hidden = n === 0;
+  const count = document.getElementById('metrics-selected-count');
+  if (count) count.textContent = `${n} selected`;
+  const all = document.getElementById('metrics-select-all');
+  if (all) {
+    const shown = shownMetricToggles();
+    all.checked = shown.length > 0 && shown.every(cb => cb.checked);
+    all.disabled = shown.length === 0;
+  }
+}
+(function wireMetricsBulk() {
+  const tbody = document.getElementById('metrics-table-body');
+  if (!tbody) return;
+  tbody.addEventListener('change', e => {
+    const cb = e.target.closest ? e.target.closest('.metric-select') : null;
+    if (!cb) return;
+    if (cb.checked) selectedMetrics.add(cb.dataset.name); else selectedMetrics.delete(cb.dataset.name);
+    updateMetricsBulk();
+  });
+  const all = document.getElementById('metrics-select-all');
+  if (all) all.addEventListener('change', () => {
+    // Only what the filter shows, so "select all" never reaches a hidden metric.
+    shownMetricToggles().forEach(cb => {
+      cb.checked = all.checked;
+      if (all.checked) selectedMetrics.add(cb.dataset.name); else selectedMetrics.delete(cb.dataset.name);
+    });
+    updateMetricsBulk();
+  });
+  const search = document.getElementById('metrics-search');
+  if (search) search.addEventListener('input', () => setTimeout(updateMetricsBulk, 0));
+  const clear = document.getElementById('metrics-clear-selected');
+  if (clear) clear.addEventListener('click', () => {
+    selectedMetrics.clear();
+    document.querySelectorAll('.metric-select').forEach(cb => { cb.checked = false; });
+    updateMetricsBulk();
+  });
+  const del = document.getElementById('metrics-delete-selected');
+  if (del) del.addEventListener('click', async () => {
+    const names = Array.from(selectedMetrics);
+    if (!names.length) return;
+    const status = document.getElementById('metrics-status');
+    const shownNames = names.slice(0, 6).map(n => `"${n}"`).join(', ') + (names.length > 6 ? ` and ${names.length - 6} more` : '');
+    const one = names.length === 1;
+    if (!(await showConfirm(`${shownNames}: ${one ? 'it is' : 'they are'} removed from every source mapping and role, and ${one ? 'its readings are' : 'their readings are'} deleted. This can't be undone.`,
+      { title: one ? 'Delete this metric?' : `Delete ${names.length} metrics?`, confirmLabel: 'Delete' }))) return;
+    del.disabled = true;
+    try {
+      const res = await fetch('/api/metrics/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ names }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { showStatus(status, body.error || `Couldn't delete them (error ${res.status}).`, 'error'); return; }
+      const notes = [];
+      if (body.blocked && body.blocked.length) notes.push(`Not deleted: ${body.blocked.map(b => b.name).join(', ')} (combined metrics: delete them under Combined metrics).`);
+      if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length} role${body.roles_cleared.length === 1 ? '' : 's'} they filled ${body.roles_cleared.length === 1 ? 'is' : 'are'} now not mapped.`);
+      const users = Array.from(new Set(Object.values(body.used_by || {}).flat()));
+      if (users.length) notes.push(`Still an input of ${users.join(', ')}: edit ${users.length === 1 ? 'it' : 'them'} under Combined metrics.`);
+      (body.deleted || []).forEach(n => selectedMetrics.delete(n));
+      (body.blocked || []).forEach(b => selectedMetrics.delete(b.name));
+      showStatus(status, [`Deleted ${(body.deleted || []).length} metric${(body.deleted || []).length === 1 ? '' : 's'}.`].concat(notes).join(' '), notes.length ? 'warning' : 'success');
+      if (body.roles_cleared && body.roles_cleared.length && typeof loadRoleMetrics === 'function') loadRoleMetrics();
+      await loadMetricsList();
+      await refreshAllMetricDropdowns();
+    } catch (err) {
+      showStatus(status, "Couldn't reach the server to delete them.", 'error');
+    } finally {
+      del.disabled = false;
+      updateMetricsBulk();
+    }
+  });
+})();
 // Keep "Current value" and "Last updated" current while Metrics is open.
 setInterval(() => {
   const sec = document.getElementById('section-metrics');
