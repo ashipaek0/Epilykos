@@ -15,7 +15,7 @@
   </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
-  <link rel="stylesheet" href="settings-shell.css?v=6">
+  <link rel="stylesheet" href="settings-shell.css?v=7">
   <link rel="stylesheet" href="notifications.css?v=3">
   <link rel="stylesheet" href="color-picker.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -246,17 +246,22 @@
             <div id="cm-list" class="cm-list"><p class="st-help">Loading…</p></div>
             <div id="cm-editor" class="cm-editor" hidden></div>
           </div>
-          <div class="st-card">
+          <div class="st-card" data-own-save>
             <div class="st-card-head">
               <h2>All metrics <span class="st-count" id="metrics-count"></span></h2>
               <div class="st-filter"><label for="metrics-search" class="st-visually-hidden">Filter metrics</label><input type="search" class="input" id="metrics-search" placeholder="Filter metrics"></div>
             </div>
             <p class="st-help">Everything your sources and combined metrics report, newest reading first. Metrics with no reading yet are listed last.</p>
             <p class="status" id="metrics-status" role="status"></p>
+            <div class="st-bulk" id="metrics-bulk" hidden>
+              <span class="st-bulk-count" id="metrics-selected-count" role="status"></span>
+              <button type="button" class="st-btn st-btn-danger-text" id="metrics-delete-selected">Delete selected</button>
+              <button type="button" class="st-btn" id="metrics-clear-selected">Clear selection</button>
+            </div>
             <div class="table-wrap st-table-scroll">
               <table class="mapping-table st-table" id="metrics-table">
-                <thead><tr><th scope="col">Metric</th><th scope="col">Current value</th><th scope="col">Last updated</th><th scope="col">Unit</th><th scope="col"><span class="st-visually-hidden">Actions</span></th></tr></thead>
-                <tbody id="metrics-table-body"><tr><td colspan="5">Loading metrics…</td></tr></tbody>
+                <thead><tr><th scope="col" class="st-select-col"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="metrics-select-all" aria-label="Select every metric shown"><span class="slider"></span></label></span></th><th scope="col">Metric</th><th scope="col">Current value</th><th scope="col">Last updated</th><th scope="col">Unit</th><th scope="col"><span class="st-visually-hidden">Actions</span></th></tr></thead>
+                <tbody id="metrics-table-body"><tr><td colspan="6">Loading metrics…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1015,7 +1020,7 @@
 <script src="/js/csrf.js"></script>
 <script src="js/source-labels.js"></script>
 <script src="js/pvoutput-units.js?v=1"></script>
-<script src="settings.js?v=23"></script>
+<script src="settings.js?v=24"></script>
 <script src="js/catalog-ui.js?v=2"></script>
 <script src="js/restore-upload.js?v=1"></script>
 <script src="js/settings-shell.js?v=8"></script>

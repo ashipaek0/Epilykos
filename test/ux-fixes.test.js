@@ -74,8 +74,8 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(read('public/settings-shell.css'), /\.st #metrics-table \.delete-metric-btn \{ opacity: 1; \}/);
     assert.doesNotMatch(read('public/js/combined-metrics.js'), /alert\(/);
     const srv = read('server.js');
-    assert.match(srv, /is a combined metric\. Delete it under Combined metrics/);
-    assert.match(srv, /res\.json\(\{ success: true, roles_cleared: rolesCleared, used_by: usedBy \}\)/);
+    assert.match(read('modules/metricDeletion.js'), /is a combined metric\. Delete it under Combined metrics/);
+    assert.match(srv, /res\.json\(\{ success: true, roles_cleared: result\.rolesCleared, used_by: result\.usedBy\[name\] \|\| \[\] \}\)/);
     assert.match(read('modules/metricsManager.js'), /SELECT metric, value, value_text, timestamp, unit FROM latest_metrics/, 'units the sources reported are listed');
   });
 
@@ -103,7 +103,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     const js = read('public/settings.js');
     assert.match(js, /if \(typeof window\.stConfirm === 'function'\) return window\.stConfirm\(/);
     assert.match(js, /return Promise\.resolve\(false\);/, 'no dialog: refuse rather than act unasked');
-    assert.strictEqual((js.match(/await showConfirm\(/g) || []).length, 17, 'every caller waits for the answer');
+    assert.strictEqual((js.match(/await showConfirm\(/g) || []).length, 18, 'every caller waits for the answer');
     assert.match(js, /if \(!\(await confirmImplicitToExplicitNoneFlips\(\)\)\)/);
     const shell = read('public/js/settings-shell.js');
     assert.match(shell, /window\.stConfirm = stConfirm;/);
