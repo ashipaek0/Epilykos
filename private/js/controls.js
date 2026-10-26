@@ -273,7 +273,7 @@ async function loadDevices() {
     const reads = [];
     for (const s of dev.settings) { const [row, msg, read] = settingRow(dev, s); table.tBodies[0].append(row, msg); reads.push(read); }
     head.querySelector('button').addEventListener('click', async () => { for (const read of reads) await read(); });
-    if (dev.profile === 'luxpower-geta') {
+    if (/^luxpower-geta/.test(String(dev.profile))) {
       const verify = document.createElement('button'); verify.type = 'button'; verify.className = 'ct-btn'; verify.textContent = 'Download verification';
       const note = document.createElement('p'); note.className = 'ct-help'; note.setAttribute('role', 'status');
       verify.addEventListener('click', async () => {
