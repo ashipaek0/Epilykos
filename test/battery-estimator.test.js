@@ -162,7 +162,7 @@ console.log('ok - system voltage found from the inverters');
 // Settings > Metrics card, its routes, and the cycle order.
 const html = fs.readFileSync(path.join(REPO, 'public/settings.html'), 'utf8');
 assert.match(html, /<div class="st-card" id="battery-est-card" data-own-save>/);
-assert.match(html, /<script src="js\/battery-estimator\.js\?v=2"><\/script>/);
+assert.match(html, /<script src="js\/battery-estimator\.js\?v=3"><\/script>/);
 const ui = fs.readFileSync(path.join(REPO, 'public/js/battery-estimator.js'), 'utf8');
 assert.doesNotMatch(ui, /type="radio"/);
 assert.match(ui, /class="toggle-switch"/, 'toggle switches');
