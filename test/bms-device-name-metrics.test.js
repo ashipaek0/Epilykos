@@ -29,4 +29,16 @@ console.log('ok - metrics are read under the name they were stored with');
 assert.deepEqual(agg.getAvailableSourceKeys('135 Ah').map(k => k.key), ['current', 'voltage'], 'the mapping list offers them');
 assert.equal(agg.isDeviceFresh(agg.readLatestBmsMetrics('135 Ah'), 60), true, 'the device shows as connected');
 console.log('ok - the metrics to map and the connected state follow');
-checks.done();
+// A combined bank of two such devices adds up and publishes (it published nothing before).
+(async () => {
+  const bank = { name: 'Main bank', enabled: true, devices: [{ name: '135 Ah' }, { name: '300 Ah' }],
+    functions: [{ fn: 'sum', source: 'voltage', output: 'main_bank_voltage_total' }] };
+  await agg.computeBankAggregates(bank, 30);
+  db.flushMetrics();
+  const row = metric => db.getDb().prepare('SELECT value FROM latest_metrics WHERE metric = ?').get(metric);
+  assert.equal(row('bank_main_bank_voltage_total').value.toFixed(1), '104.0');
+  assert.equal(row('bank_Main_bank_devices_online').value, 2);
+  console.log('ok - a combined bank of devices with spaces in their names publishes');
+  checks.done();
+})().catch(e => { console.error(e); process.exit(1); });
+
