@@ -67,4 +67,4 @@ Run `npm test`. Focused checks: `node test/luxpower-analysis.test.js`, `node tes
 
 The documents also describe the RS-485 frame (the 10-character serial number inside every request). That wired transport is not implemented: this profile is for the dongle.
 
-The older profile, `luxpower-geta`, is now named **LuxPowerTek Generic Hybrid (multi-PV, 3-phase, split-phase)**: it is the one for the other LuxPowerTek models, with PV2 to PV6, the S and T phases, split-phase, smart load and AC couple. Its id is unchanged, so saved sources keep working.
+The older profile, `luxpower-geta`, is now named **LuxPowerTek Generic Hybrid**: it is the one for the other LuxPowerTek models, with PV2 to PV6, the S and T phases, split-phase, smart load and AC couple. Its id is unchanged, so saved sources keep working.
