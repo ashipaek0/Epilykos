@@ -1,5 +1,5 @@
 {
-  "name": "LuxPower GETA Hybrid (Wi-Fi / Bluetooth dongle)",
+  "name": "LuxPowerTek Generic Hybrid (multi-PV, 3-phase, split-phase) (Wi-Fi / Bluetooth dongle)",
   "protocol": "luxpower-tcp",
   "transport": "luxpower-tcp",
   "default_port": 8000,
