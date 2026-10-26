@@ -101,8 +101,11 @@ async function loadSettings() {
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
     buildExternalSourceList(JSON.parse(data.external_sources || '[]'));
-    buildBmsDeviceList(JSON.parse(data.bms_devices || '[]'));
-    buildBmsWiredDeviceList(JSON.parse(data.bms_devices || '[]'));
+    // One stored list holds both kinds; each section shows only its own, or the
+    // other kind's devices come back as empty copies and pile up on every save.
+    const bmsDevices = JSON.parse(data.bms_devices || '[]');
+    buildBmsDeviceList(bmsDevices.filter(d => d && d.transport !== 'wired'));
+    buildBmsWiredDeviceList(bmsDevices.filter(d => d && d.transport === 'wired'));
     buildBmsBankList(JSON.parse(data.bms_banks || '[]'));
     buildRs232DeviceList(JSON.parse(data.rs232_devices || '[]'));
     buildDongleDeviceList(JSON.parse(data.dongle_config || '[]'));

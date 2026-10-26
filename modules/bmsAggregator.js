@@ -46,7 +46,9 @@ const { logger } = require('./logger');
 function readLatestBmsMetrics(deviceName) {
   flushMetrics(); // read-your-write: the BMS pollers queue their writes
   const db = getDb();
-  const prefix = `bms_${deviceName}_`;
+  // The pollers store `bms_<name>_<key>` with every character outside A-Z a-z 0-9 _ turned
+  // into an underscore, so a device called "135 Ah" is read back the same way.
+  const prefix = `bms_${deviceName}_`.replace(/[^a-zA-Z0-9_]/g, '_');
   const metrics = {};
 
   // Escape LIKE special chars: \ → \\, _ → \_, % → \%
