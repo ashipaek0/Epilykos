@@ -1,5 +1,5 @@
 {
-  "name": "LuxPowerTek GETA 3.6kW 24V (Wi-Fi / Bluetooth dongle)",
+  "name": "LuxPowerTek GETA 3.6kW 24V",
   "protocol": "luxpower-tcp",
   "transport": "luxpower-tcp",
   "default_port": 8000,
