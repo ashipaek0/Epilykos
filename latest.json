@@ -1,16 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "40481705161.1",
-    "version": "1.0.7",
-    "commit": "747a305e356385c41ac879c604fe4c38aaa16190",
-    "digest": "sha256:e639c63f614ac1683283ae1ad195f9f91f5267a5f5b52a1822fb4c561befdd0f",
+    "buildId": "40484358749.1",
+    "version": "1.0.8",
+    "commit": "511c82fe76c3319edb74e2b763a2899b0e092acd",
+    "digest": "sha256:14a80438eda37673d3d66473f314084cac621859d01cc77aa51a0a2fc9af9a1e",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-27T09:34:01Z",
+    "builtAt": "2026-10-27T09:54:46Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Refactor epilykos service configuration in docker-compose",
+      "Revise Docker setup instructions in README"
+    ]
   },
   "history": [
+    {
+      "buildId": "40484358749.1",
+      "version": "1.0.8",
+      "commit": "511c82fe76c3319edb74e2b763a2899b0e092acd",
+      "digest": "sha256:14a80438eda37673d3d66473f314084cac621859d01cc77aa51a0a2fc9af9a1e",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-27T09:54:46Z",
+      "kind": "release",
+      "notes": [
+        "Refactor epilykos service configuration in docker-compose",
+        "Revise Docker setup instructions in README"
+      ]
+    },
     {
       "buildId": "40481705161.1",
       "version": "1.0.7",
