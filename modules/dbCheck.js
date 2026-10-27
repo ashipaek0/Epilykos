@@ -32,7 +32,7 @@ function run(reason = 'manual check') {
     let release;
     try {
       if (stopping) return { cancelled: true };
-      release = await acquireLock('maintenance', { timeoutMs: 5000 });
+      release = await acquireLock('maintenance', { timeoutMs: 5000, allowPendingOsUpdate: true });
       if (stopping) return { cancelled: true };
       const started = Date.now();
       controller = new AbortController();

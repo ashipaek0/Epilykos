@@ -231,7 +231,9 @@ router.get('/public-config', async (req, res) => {
     config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
     config.savings_currency = config.savings_currency || '€';
     config.savings_rate = config.savings_rate || '0.30';
-    res.set('Cache-Control', 'public, max-age=300');
+    // Looks (square corners, colours, title) are changed in Settings and must show on
+    // the next page load: the browser asks again every time (a 304 when unchanged).
+    res.set('Cache-Control', 'no-cache');
     res.json(config);
   } catch (err) {
     logger.error('Error in /api/public-config:', err);

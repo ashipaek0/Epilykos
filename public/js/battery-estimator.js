@@ -104,8 +104,8 @@
       + field('be-charge-efficiency', 'Charge efficiency', s.charge_efficiency, { type: 'number', help: 'Share of the charge that stays in the battery (0.5 to 1).' })
       + field('be-cells', 'Cells in series', s.cells, { type: 'number', help: 'Empty: the usual count for this voltage. Set it for other packs, for example 15 for some 48 V LiFePO4.' })
       + '</div><h2 class="st-card-subhead">Readings</h2><div class="st-grid-2">'
-      + field('be-current', 'Battery current (+ while charging)', cur, { help: 'One per inverter on this battery, separated by commas: each inverter only sees its own share.' + found(sug.current_inputs, cur) })
-      + field('be-voltage', 'Battery voltage', volt, { help: 'Averaged if more than one.' + found(sug.voltage_inputs, volt) })
+      + field('be-current', 'Battery current (+ while charging)', cur, { help: 'Enter the metric that shows the battery current: + while charging, − while discharging. With more than one inverter on this battery, enter one metric per inverter, separated by commas: each inverter only sees its own share.' + found(sug.current_inputs, cur) })
+      + field('be-voltage', 'Battery voltage', volt, { help: 'Enter the metric that shows the battery voltage. With more than one inverter, separate them with commas: the readings are averaged.' + found(sug.voltage_inputs, volt) })
       + '</div><h2 class="st-card-subhead">Full and empty</h2><p class="st-help">Empty fields use the value shown, the usual one for this battery. Use your charger’s settings if they differ: full is a little under the absorption voltage.</p><div class="st-grid-2">'
       + field('be-full-voltage', 'Full at or above (V)', s.full_voltage, { type: 'number' })
       + field('be-tail-current-a', 'With the current settled within (A)', s.tail_current_a, { type: 'number', help: 'Charging has tapered off to this or less.' })

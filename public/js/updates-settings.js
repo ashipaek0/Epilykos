@@ -21,6 +21,19 @@
 
   var state = null;
   var installing = false;
+  // App update step while this page follows it: 0 downloading, 1 restarting
+  // (this page cannot reach Epilykos), 2 checking the new version is healthy.
+  var appStep = 0;
+
+  /** A step list: those before `current` done, `current` in progress. */
+  function steps(labels, current) {
+    return '<ol class="up-steps">' + labels.map(function (label, i) {
+      return '<li class="' + (i < current ? 'is-done' : i === current ? 'is-now' : '') + '">' + esc(label) + '</li>';
+    }).join('') + '</ol>';
+  }
+  function hostStep(applying) { return applying && applying.step === 'starting' ? 2 : 0; }
+  var HOST_APP_STEPS = ['Downloading the new version', 'Starting the new version', 'Checking it is healthy'];
+  var DOCKER_STEPS = ['Downloading the new version', 'Restarting Epilykos on it', 'Checking it is healthy'];
 
   async function api(method, path, body) {
     var res = await fetch('/api/updates' + path, {
@@ -45,7 +58,7 @@
   function updateReady() {
     if (!state) return false;
     var host = state.host || {};
-    return (state.status && state.status.state === 'available') || !!(host.app && host.app.available) || !!(host.os && host.os.available);
+    return (state.status && state.status.state === 'available') || !!(host.app && host.app.available) || !!(state.os && state.os.available);
   }
 
   // ── Render ───────────────────────────────────────────────────────────
@@ -67,7 +80,7 @@
     }
     html += '</div>';
 
-    if (m.kind === 'epilykos-os') html += hostCard();
+    if (m.kind === 'epilykos-os') html += hostCard() + osCard();
     else if (inst.buildId) html += statusCard(st, m);
     else if (m.kind === 'none') html += '<div class="st-card"><div class="st-card-head"><h2>Updating</h2></div><p class="st-help">Not running in Docker. Update this copy with <code>git pull</code>, then <code>npm ci</code>, and restart it.</p></div>';
 
@@ -78,6 +91,7 @@
     if (m.kind === 'epilykos-os') html += autoInstallCard();
     root.innerHTML = html;
     if (shell.setNavBadge) shell.setNavBadge('updates', updateReady() ? '<span class="st-badge is-ok">New</span>' : '');
+    schedulePoll();
   }
 
   function autoInstallCard() {
@@ -96,11 +110,11 @@
 
   function statusCard(st, m) {
     var h = '<div class="st-card"><div class="st-card-head"><h2>Status</h2>';
-    if (installing) {
-      return h + '<span class="st-badge is-warn">Installing</span></div><p class="st-help"><b>Installing the update.</b> Epilykos restarts in a moment; this page reconnects by itself. It can take a few minutes on a Raspberry Pi.</p></div>';
-    }
-    if (state.applying) {
-      return h + '<span class="st-badge is-warn">Installing</span></div><p class="st-help">An update started ' + esc(when(state.applying.startedAt)) + ' is still finishing.</p></div>';
+    if (installing || state.applying) {
+      return h + '<span class="st-badge is-warn">Installing</span></div>'
+        + steps(DOCKER_STEPS, installing ? appStep : 2)
+        + '<p class="st-help">Epilykos restarts on the new version; this page reconnects by itself. It can take a few minutes on a Raspberry Pi'
+        + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p></div>';
     }
     if (st.state === 'available') {
       var l = st.latest || {};
@@ -139,24 +153,134 @@
   function hostCard() {
     var host = state.host;
     var h = '<div class="st-card"><div class="st-card-head"><h2>Status</h2></div>';
-    if (installing) return h + '<p class="st-help"><b>The appliance is installing the update.</b> The dashboard comes back by itself in a few minutes.</p></div>';
-    if (state.applying) return h + '<p class="st-help"><b>The appliance is installing an update</b> (started ' + esc(when(state.applying.startedAt)) + '). The dashboard restarts on the new version when it is ready.</p></div>';
+    if (installing || state.applying) {
+      return h + '<p class="st-help"><b>The appliance is installing the Epilykos update</b>'
+        + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p>'
+        + steps(HOST_APP_STEPS, installing ? appStep : hostStep(state.applying))
+        + '<p class="st-help">The dashboard is away while the new version starts and comes back by itself. If it does not start properly, the appliance puts the previous version back.</p></div>';
+    }
     if (!host) return h + '<p class="st-help">Not checked yet. Use <b>Check now</b>.</p></div>';
     if (host.supported === false) return h + '<p class="st-help">This EpilykosOS version installs updates on its own. Updates can be installed from here after its next update.</p></div>';
     if (host.error) return h + '<p class="st-help">The appliance could not check: ' + esc(host.error) + '</p></div>';
-    var app = host.app || {}, os = host.os || {};
+    var app = host.app || {};
     h += '<div class="st-snapshots">';
     h += '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Epilykos</span><span class="st-help"> · '
       + (app.available ? 'version ' + esc(app.latest_version || '') + ' is ready' : app.error ? esc(app.error) : 'up to date') + '</span></div>'
       + (app.available ? '<button type="button" class="st-btn st-btn-primary" data-host-apply="app">Update</button>' : '') + '</div>';
-    if (os.version || os.available) {
-      h += '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">EpilykosOS ' + esc(os.version || '') + '</span><span class="st-help"> · '
-        + (os.available ? esc(os.latest_version || 'a new version') + ' is ready' : 'up to date') + '</span></div>'
-        + (os.available ? '<button type="button" class="st-btn st-btn-primary" data-host-apply="os">Update</button>' : '') + '</div>';
-    }
     h += '</div>';
-    if (os.available && os.notes && os.notes.length) h += '<ul class="st-help up-notes">' + os.notes.slice(0, 15).map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';
     return h + checkedLine(host) + '</div>';
+  }
+
+  // ── EpilykosOS (the system itself) ───────────────────────────────────
+  var OS_WORKING = ['queued', 'downloading', 'verifying', 'installing', 'restarting', 'trying'];
+  var OS_CANCELLABLE = ['queued', 'downloading', 'verifying'];
+  function mb(n) { return (n / 1048576).toFixed(n >= 104857600 ? 0 : 1) + ' MB'; }
+
+  function osProgress(job) {
+    if (job.state === 'queued') return 'Starting…';
+    if (job.state === 'downloading') return job.total ? 'Downloading ' + mb(job.bytes || 0) + ' / ' + mb(job.total) : 'Downloading…';
+    if (job.state === 'verifying') return 'Verifying the signature and contents…';
+    if (job.state === 'installing') return 'Installing' + (job.percent != null ? ' ' + job.percent + ' %' : '…');
+    if (job.state === 'restarting') return 'Restarting onto the new system…';
+    if (job.state === 'trying') return 'The new system is starting. It is kept once it has run properly; otherwise the box goes back to the previous version by itself.';
+    if (job.state === 'reconciling') return 'EpilykosOS is checking an update that was interrupted.';
+    return '';
+  }
+
+  var OS_STEPS = ['Download', 'Verify', 'Install', 'Restart', 'Confirm'];
+  var OS_STEP = { queued: 0, downloading: 0, verifying: 1, installing: 2, ready: 3, restarting: 3, trying: 4 };
+
+  /** A bar where the amount is known (download, install), moving where not. */
+  function osBar(job) {
+    if (job.state === 'downloading' && job.total) return '<progress class="up-progress" max="' + esc(job.total) + '" value="' + esc(job.bytes || 0) + '" aria-label="Download progress"></progress>';
+    if (job.state === 'installing' && job.percent != null) return '<progress class="up-progress" max="100" value="' + esc(job.percent) + '" aria-label="Install progress"></progress>';
+    if (job.state === 'ready' || job.state === 'reconciling') return '';
+    return '<progress class="up-progress" aria-label="Working"></progress>';
+  }
+
+  function osResult(r, os) {
+    var v = esc(r.version || 'the new version');
+    var text = r.outcome === 'confirmed' ? 'Updated to EpilykosOS ' + v + '.'
+      : r.outcome === 'rolled_back' ? v + ' didn\u2019t start properly; the box went back to ' + esc(os.version || 'the previous version') + (r.reason ? ' (' + esc(r.reason) + ')' : '') + '.'
+        : r.outcome === 'cancelled' ? 'The system update was cancelled.'
+          : r.outcome === 'discarded' ? 'The prepared system update was discarded; nothing changed.'
+            : 'The system update did not finish' + (r.reason ? ': ' + esc(r.reason) : '') + '. Nothing changed.';
+    return '<p class="st-help"><b>' + text + '</b></p><div class="st-inline-actions"><button type="button" class="st-btn" data-os-dismiss="' + esc(r.id) + '">Dismiss</button></div>';
+  }
+
+  function osCard() {
+    var os = state.os;
+    var h = '<div class="st-card" id="up-os"><div class="st-card-head"><h2>EpilykosOS</h2>';
+    if (!os) return h + '</div><p class="st-help">The appliance is not answering right now.</p></div>';
+    if (!os.supported) return h + '</div><p class="st-help">' + esc(os.unsupported_reason || '') + '</p></div>';
+    var job = os.job;
+    if (job && job.state === 'ready') {
+      h += '<span class="st-badge is-warn">Restart to finish</span></div>'
+        + steps(OS_STEPS, OS_STEP.ready)
+        + '<p class="st-help"><b>EpilykosOS ' + esc(job.version || '') + ' is installed and ready.</b> '
+        + 'Monitoring stops for a few minutes while the new system starts. If it doesn\u2019t start properly, the box goes back to this version by itself.</p>'
+        + (job.error ? '<p class="st-help">' + esc(job.error) + '</p>' : '')
+        + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-os-restart="' + esc(job.id) + '">Restart to finish</button>'
+        + '<button type="button" class="st-btn" data-os-discard="' + esc(job.id) + '">Discard</button></div>';
+      return h + '</div>';
+    }
+    if (job) {
+      h += '<span class="st-badge is-warn">' + (job.state === 'reconciling' ? 'Checking' : 'Updating') + '</span></div>'
+        + '<p class="st-help"><b>EpilykosOS ' + esc(job.version || '') + '</b> · <span class="up-os-progress">' + esc(osProgress(job)) + '</span></p>'
+        + osBar(job)
+        + (OS_STEP[job.state] != null ? steps(OS_STEPS, OS_STEP[job.state]) : '')
+        + (job.state === 'downloading' || job.state === 'verifying' || job.state === 'installing'
+          ? '<p class="st-help">Monitoring keeps running. You can close this page; the appliance carries on.</p>' : '')
+        + (OS_CANCELLABLE.indexOf(job.state) !== -1 ? '<div class="st-inline-actions"><button type="button" class="st-btn" data-os-cancel="' + esc(job.id) + '">Cancel</button></div>' : '');
+      return h + '</div>';
+    }
+    var latest = os.latest;
+    h += (os.available ? '<span class="st-badge is-ok">Update ready</span>' : '<span class="st-badge is-ok">Up to date</span>') + '</div>';
+    if (os.last_result) h += osResult(os.last_result, os);
+    h += '<p class="st-help">This system: <b>EpilykosOS ' + esc(os.version || '') + '</b>.</p>';
+    if (os.error) h += '<p class="st-help">' + esc(os.error) + '</p>';
+    if (os.available && latest) {
+      h += '<p class="st-help"><b>EpilykosOS ' + esc(latest.version) + ' is ready</b>' + (latest.size ? ' (' + mb(latest.size) + ')' : '')
+        + (latest.notes_url ? ' · <a href="' + esc(latest.notes_url) + '" target="_blank" rel="noopener">Release notes</a>' : '') + '.</p>';
+      var blockers = os.blockers || [];
+      if (blockers.length) h += '<ul class="st-help up-notes">' + blockers.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>';
+      h += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-os-install="' + esc(latest.sequence) + '"'
+        + (blockers.length ? ' disabled' : '') + '>Install</button></div>'
+        + '<p class="st-help">It installs into the other system slot while monitoring keeps running; you choose when to restart.</p>';
+    }
+    return h + '</div>';
+  }
+
+  // While a system update runs, look every 2 s (backing off when the box is away).
+  var osTimer = null, osDelay = 2000;
+  function osWorking() { return !!(state && state.os && state.os.job && OS_WORKING.concat(['reconciling']).indexOf(state.os.job.state) !== -1); }
+  function schedulePoll() {
+    if (osTimer || !osWorking()) return;
+    osTimer = setTimeout(async function () {
+      osTimer = null;
+      if (document.hidden) { schedulePoll(); return; }
+      try { state = await api('GET', ''); osDelay = 2000; render(); }
+      catch (_) { osDelay = Math.min(osDelay * 2, 30000); }
+      schedulePoll();
+    }, osDelay);
+  }
+
+  function requestId() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  }
+
+  async function osAction(path, body, confirm) {
+    if (confirm) {
+      var pw = await askPassword(confirm.title, confirm.text, confirm.label);
+      if (pw == null) return;
+      body.password = pw;
+    }
+    try {
+      var r = await api('POST', '/os/' + path, body);
+      if (r.os) state.os = r.os;
+      render();
+    } catch (e) { toast(e.message, 'error'); await load(); }
   }
 
   function resultCard(r) {
@@ -176,6 +300,13 @@
   async function load() {
     try { state = await api('GET', ''); }
     catch (e) { root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>'; root.querySelector('p').textContent = e.message; return; }
+    if (state.applying && !installing) {
+      // Opened while an app update is under way: follow it to the end.
+      var isHost = state.method && state.method.kind === 'epilykos-os';
+      installing = true;
+      appStep = isHost ? hostStep(state.applying) : 2;
+      waitForRestart(isHost);
+    }
     render();
   }
 
@@ -191,15 +322,22 @@
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
 
   /** Wait for the restart: first for this app to go away, then for an answer that is not "still installing". */
-  async function waitForRestart() {
+  async function waitForRestart(isHost) {
     var started = Date.now();
-    await sleep(8000);
+    await sleep(isHost ? 3000 : 8000);
     while (Date.now() - started < 15 * 60 * 1000) {
       try {
         var data = await api('GET', '');
         if (!data.applying) { installing = false; state = data; render(); return; }
-      } catch (_) { /* restarting */ }
-      await sleep(5000);
+        // Answering while still applying: on the appliance the host says which
+        // step; on Docker the helper is finishing its health check.
+        state = data;
+        appStep = isHost ? hostStep(data.applying) : 2;
+      } catch (_) {
+        appStep = 1;               // restarting: Epilykos is away
+      }
+      render();
+      await sleep(isHost ? 3000 : 5000);
     }
     installing = false;
     load();
@@ -211,15 +349,17 @@
       isHost ? 'The appliance installs it and restarts. The dashboard is away for a few minutes.' : 'Epilykos restarts on the new version. The dashboard is away for a minute or two.',
       'Update now');
     if (pw == null) return;
-    var btns = root.querySelectorAll('#up-apply, [data-host-apply]');
-    btns.forEach(function (b) { b.disabled = true; b.textContent = 'Downloading…'; });
+    installing = true;
+    appStep = 0;                   // Docker downloads during this request; the host replies at once
+    render();
     try {
       var r = await api('POST', '/apply', { password: pw, target: target });
-      if (r.state === 'current') { toast('This is already the newest version.'); await load(); return; }
-      installing = true;
+      if (r.state === 'current') { installing = false; toast('This is already the newest version.'); await load(); return; }
+      appStep = isHost ? 0 : 1;
       render();
-      waitForRestart();
+      waitForRestart(isHost);
     } catch (e) {
+      installing = false;
       toast(e.message, 'error');
       render();
     }
@@ -231,6 +371,22 @@
     if (btn.id === 'up-apply') install('app');
     else if (btn.dataset.hostApply) install(btn.dataset.hostApply);
     else if (btn.id === 'up-dismiss') api('POST', '/result/dismiss', {}).then(load, function (e) { toast(e.message, 'error'); });
+    else if (btn.dataset.osInstall) {
+      var latest = state.os && state.os.latest;
+      if (!latest) return;
+      osAction('install', { sequence: latest.sequence, sha256: latest.sha256, request_id: requestId() }, {
+        title: 'Install EpilykosOS ' + latest.version + '?',
+        text: 'The appliance downloads and installs it into the other system slot while monitoring keeps running. Nothing changes until you restart.',
+        label: 'Install' });
+    }
+    else if (btn.dataset.osCancel) osAction('cancel', { job: btn.dataset.osCancel });
+    else if (btn.dataset.osRestart) osAction('restart', { job: btn.dataset.osRestart }, {
+      title: 'Restart to finish the update?',
+      text: 'Monitoring stops for a few minutes while the new system starts. If it doesn\u2019t start properly, the box goes back to this version by itself.',
+      label: 'Restart' });
+    else if (btn.dataset.osDiscard) osAction('discard', { job: btn.dataset.osDiscard }, {
+      title: 'Discard the system update?', text: 'The box keeps running this version. You can install the update again later.', label: 'Discard' });
+    else if (btn.dataset.osDismiss) osAction('dismiss', { job: btn.dataset.osDismiss });
   });
 
   root.addEventListener('change', function (ev) {
@@ -261,6 +417,9 @@
     checkBtn.disabled = true;
     try {
       await api('POST', '/check', {});
+      if (state && state.method && state.method.kind === 'epilykos-os') {
+        await api('POST', '/os/check', {}).catch(function (e) { toast(e.message, 'error'); });
+      }
       await load();
       toast(updateReady() ? 'An update is ready.' : (state.status && state.status.state === 'error') ? 'Could not check for updates.' : 'You are up to date.', state.status && state.status.state === 'error' ? 'error' : undefined);
     } catch (e) { toast(e.message, 'error'); }

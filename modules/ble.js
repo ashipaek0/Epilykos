@@ -82,6 +82,7 @@ class BleHelper {
     this.args = opts.args || ['-u', HELPER_SCRIPT];
     this.isConfigured = opts.isConfigured || isConfigured;
     this.linkCount = opts.linkCount || bleLinkCount;
+    this.onOutcome = opts.onOutcome || null;
     this.idleExitMs = opts.idleExitMs || IDLE_EXIT_MS;
     this.idleTimer = null;
     this.child = null;
@@ -196,6 +197,8 @@ class BleHelper {
     const run = () => this._send(cmd, args, timeoutMs);
     const p = this.queue.then(run, run);
     this.queue = p.catch(() => {});
+    // A BlueZ that refuses every device is restarted (modules/bleRecovery).
+    if (this.onOutcome) p.then(() => this.onOutcome(cmd, args, null), err => this.onOutcome(cmd, args, err)).catch(() => {});
     const tail = this.queue;
     tail.then(() => {
       if (this.queue !== tail || !this.child) return; // more work queued
@@ -261,7 +264,10 @@ class BleHelper {
 
 let shared = null;
 function helper() {
-  if (!shared) shared = new BleHelper();
+  if (!shared) {
+    const recovery = require('./bleRecovery').monitor();
+    shared = new BleHelper({ onOutcome: (cmd, args, err) => recovery.record(cmd, args, err) });
+  }
   return shared;
 }
 

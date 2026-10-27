@@ -53,3 +53,18 @@ Supply the value actually requested, not these illustrative values. The tool che
 ## Developer validation
 
 Run `npm test`. Focused checks: `node test/luxpower-analysis.test.js`, `node test/luxpower-tls.test.js`, `node test/luxpower-controls.test.js`, `node test/luxpower-ble-write.test.js`, `node test/luxpower-ble.test.js`, `node test/device-controls.test.js`, and `node test/phocos-controls-ui.test.js`. The TLS tests use a real local PSK server; BLE writes and inverter operations use fake clients/devices. See `validation.json` for the final result. Hardware results are intentionally unfilled until the owner's test.
+
+## 24 V GETA 3.6 kW profile
+
+`profiles/dongles/luxpower-geta-3k6-24v.json` ("LuxPowerTek GETA 3.6kW 24V") is the same dongle family (Wi-Fi / Bluetooth, `luxpower-tcp`, explicit mapping) cut down to what the 24 V unit (GETA-LB-EU 3.6K/24V: one MPPT, single phase, 230 V) has, from the LuxPowerTek Modbus RTU register table and the 24 V register polling configuration:
+
+- 114 entities instead of 225. Left out: PV2 to PV6, the S and T phases, split-phase (L1N/L2N), AFCI and the grid auto-test, smart load and AC couple, meter offsets and the lead-acid temperature guards.
+- Input and holding registers are read in five 40-register blocks (0-39 to 160-199) that never cross a boundary; the general profile also reads 200-279.
+- Same twelve named controls and the SOC settings the 24 V documents list (stop-discharge SOC on grid and off grid, grid and generator charge start/stop SOC). Two the documents do not list (charge-first stop SOC, stop-charge SOC) are not offered.
+- Temperatures are signed.
+- Voltages are 0.1 V (240 = 24.0 V). Read the battery settings (charge voltage 99, cut-off 100, float 144, grid-charge 158 to 169) on the unit before writing any of them.
+- Battery SOH shares input register 5 with SOC (high byte); a source maps one metric to a register, so only SOC is offered.
+
+The documents also describe the RS-485 frame (the 10-character serial number inside every request). That wired transport is not implemented: this profile is for the dongle.
+
+The older profile, `luxpower-geta`, is now named **LuxPowerTek Generic Hybrid**: it is the one for the other LuxPowerTek models, with PV2 to PV6, the S and T phases, split-phase, smart load and AC couple. Its id is unchanged, so saved sources keep working.

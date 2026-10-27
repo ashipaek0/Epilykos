@@ -56,7 +56,7 @@ async function backupDatabase(res) {
     activeDownloads--;
   };
   try {
-    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
+    release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS, allowPendingOsUpdate: true });
     controller.signal.throwIfAborted();
     await reapRestoreStaging(path.dirname(DB_PATH), { signal: controller.signal });
     controller.signal.throwIfAborted();
@@ -209,7 +209,7 @@ function startSnapshotScheduler() {
     stateFile: path.join(path.dirname(DB_PATH), '.snapshot-retry.json'),
     latest: () => getSnapshots().find(s => s.managed) || null,
     healthy() { try { require('../routes/health').checkHealth(); return true; } catch (_) { return false; } },
-    acquire: () => acquireLock('maintenance', { timeoutMs: 0 }),
+    acquire: () => acquireLock('maintenance', { timeoutMs: 0, allowPendingOsUpdate: true }),
     async run(release, signal) {
       flushMetrics();
       const result = await snapshotFiles.createCompressedSnapshot(getDb(), SNAPSHOT_DIR, {

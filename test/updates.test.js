@@ -312,10 +312,11 @@ function request(server, method, url, body) {
     assert.equal(a.body.state, 'applying');
     assert.deepEqual(hostCalls.filter(c => c.action === 'update_apply'), [{ action: 'update_apply', target: 'app' }], 'the app names no digest');
     a = await request(server2, 'POST', '/api/updates/apply', { password: 'admin-password', target: 'os' });
-    assert.equal(a.status, 400); assert.match(a.body.error, /not published yet/);
-    hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z' } };
+    assert.equal(a.status, 400); assert.match(a.body.error, /EpilykosOS card/);
+    assert.equal(hostCalls.filter(c => c.action === 'update_apply').length, 1, 'system updates never take the app path');
+    hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z', state: 'starting' } };
     g = await request(server2, 'GET', '/api/updates');
-    assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z' }, 'the page keeps waiting while the appliance works');
+    assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z', step: 'starting' }, 'the page keeps waiting while the appliance works, and sees its step');
     hostApp = { state: 'idle', current_version: '2.7.0-dev+aaaa', last_result: { ok: false, error: 'The new version did not start, so the previous version was put back', rolled_back: true, release: '2.8.0-dev+bbbb', finished_at: '2026-10-16T10:05:00Z' } };
     g = await request(server2, 'GET', '/api/updates');
     assert.equal(g.body.lastResult.rolledBack, true); assert.equal(g.body.lastResult.toVersion, '2.8.0-dev+bbbb');
