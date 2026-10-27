@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40484400457.1",
-    "version": "1.0.8-dev+776deb3",
-    "commit": "776deb3ee70980390416fe2286e971eeb9978545",
-    "digest": "sha256:846d6bc12a349eb52b560d7693110a97364a1ea6753d0a8a68fe6867249ee0a3",
+    "buildId": "40484449615.1",
+    "version": "1.0.8-dev+40f0440",
+    "commit": "40f044002b0ec2ba45bc95d326698fc819d7936f",
+    "digest": "sha256:ebe539d2a5e84674cc4b93eef4df76ac056b80f20c6b8d0440014459f8ef0a51",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-27T09:55:08Z",
+    "builtAt": "2026-10-27T09:55:36Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Refine Docker setup instructions in README"
+    ]
   },
   "history": [
+    {
+      "buildId": "40484449615.1",
+      "version": "1.0.8-dev+40f0440",
+      "commit": "40f044002b0ec2ba45bc95d326698fc819d7936f",
+      "digest": "sha256:ebe539d2a5e84674cc4b93eef4df76ac056b80f20c6b8d0440014459f8ef0a51",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-27T09:55:36Z",
+      "kind": "release",
+      "notes": [
+        "Refine Docker setup instructions in README"
+      ]
+    },
     {
       "buildId": "40484400457.1",
       "version": "1.0.8-dev+776deb3",
