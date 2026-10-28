@@ -59,41 +59,62 @@ when the server is reachable by people you don't trust).
 ## Docker Compose
 
 ```yaml
+# Epilykos on Docker.
+#   Start:   docker compose up -d
+#   Update:  docker compose pull && docker compose up -d
+#
+# Lines starting with "# " below are options that are OFF. To turn one on, remove
+# the "# " from every line of its block (the key and its items together) and keep
+# the indentation exactly as it is, then run: docker compose up -d
 services:
   epilykos:
     image: irunmole/epilykos:latest
     container_name: epilykos
     restart: unless-stopped
-    # network_mode: "host"           # Host networking is only needed for Tuya LAN broadcast discovery.
     ports:
       - "3000:3000"                  # Ignored with network_mode: host (the app then listens on host port 3000)
     volumes:
       - ./data:/app/data
-      - /etc/localtime:/etc/localtime:ro
+      - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
       - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
-      - /var/run/docker.sock:/var/run/docker.sock # "Update now" in Settings.
-    environment:
-      - TZ=Africa/Lagos              # Time zone for day boundaries. Remove this line to follow the host clock.
-    devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0" # USB serial adapter (RS232 / RS485).
-    group_add:
-      - "dialout"                  # Serial port permissions
-    #   - "108"                      # the host bluetooth group ID from `getent group bluetooth`.
+      # "Update now" in Settings → Updates. This gives Epilykos full control of Docker on
+      # this computer (it could start any container), so only keep it if you want one-click
+      # updates. Without it, update with: docker compose pull && docker compose up -d
+      - /var/run/docker.sock:/var/run/docker.sock
     security_opt:
-      - "apparmor=unconfined"
+      - "apparmor=unconfined"        # Lets the container reach the host's Bluetooth service on Ubuntu; harmless elsewhere.
+
+    # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
+    # Uncomment `group_add:` and only the lines you need (at least one), and `devices:` with its line.
+    # Add one line to `devices` per adapter. Docker refuses to start if a listed device does not exist.
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # group_add:
+    #   - "dialout"                  # Serial port permission.
+    #   - "108"                      # The host's bluetooth group ID, from `getent group bluetooth`; only if Settings says "D-Bus denied access to BlueZ".
+
+    # ── Option: a time zone other than this computer's (uncomment both lines).
+    # environment:
+    #   - TZ=Europe/London
+
+    # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
+    # network_mode: "host"
 ```
 
-> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built in. It uses the host's
-> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount:
+> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built in. They use the host's
+> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount (already in the file):
 >
-> - Mount the **`/run/dbus` directory**
 > - The host must run BlueZ with a powered adapter: `systemctl status bluetooth` shows *active*, `bluetoothctl show`
 >   shows `Powered: yes`.
-> - If Settings reports *D-Bus denied access to BlueZ*, add the host's `bluetooth` group ID (`getent group bluetooth`)
->   under `group_add`; on Ubuntu hosts also add `security_opt: [apparmor=unconfined]`.
+> - If Settings reports *D-Bus denied access to BlueZ*, turn on `group_add` and add the host's `bluetooth` group ID
+>   (`getent group bluetooth`). `security_opt: apparmor=unconfined`, also in the file, covers Ubuntu hosts.
 >
-> Drop the mount if you don't use Bluetooth. Drop `devices` and `group_add` if you don't use a USB serial adapter —
-> `devices` must list at least one device or be removed entirely.
+> **USB serial adapter** (RS232 / RS485): turn on `devices` and `group_add` with `dialout`, one `devices` line per adapter.
+> Docker will not start the container if a listed device is missing, which is why they are off until you need them.
+>
+> **Editing the file:** each option is a block of commented lines. Remove the `# ` from *every* line of the block, key
+> and items together, and leave the indentation alone. A key with no items under it (for example `devices:` on its own)
+> is an error. Check the result with `docker compose config`, which prints the file or says what is wrong.
 
 **Docker Hub image:** `irunmole/epilykos:latest`
 
