@@ -688,7 +688,6 @@ h1, h2, h3, h4,
   .flow-arrow { display: none; }
   .flow-item { min-height: auto; }
   .stat-value { font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); }
-  #signin-btn { display: none !important; }
   /* Signed out, the header row would be empty: drop it so it leaves no gap. */
   .container > header:not(.is-signed-in) .header-right { display: none; }
   .container > header { margin-bottom: 1rem; }

@@ -214,11 +214,9 @@ function renderDashboard() {
       if (auth.authenticated) {
         const pageHeader = document.querySelector('.container > header');
         if (pageHeader) pageHeader.classList.add('is-signed-in');
-        // Swap sign-in for settings + signout
-        const signinBtn = document.getElementById('signin-btn');
+        // Signed in: settings + signout
         const signoutBtn = document.getElementById('signout-btn');
         const settingsBtn = document.getElementById('settings-btn');
-        if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
         // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).

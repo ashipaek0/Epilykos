@@ -588,7 +588,49 @@ function setConfig(key, value) {
 //   preserved verbatim via idempotent passthrough).
 //
 // READ PATH: getConfig() decrypts symmetric to the write path. One bad field
-// never kills a whole read — per-field try/catch returns the field raw + warn.
+// never kills a whole read — per-field try/catch. A field that cannot be
+// decrypted (a different encryption key, usually a backup restored onto a new
+// box) reads as EMPTY, never as its ciphertext: an integration then says "no
+// token" and code that makes a key on first use makes a fresh one, instead of
+// sending "$enc1$..." somewhere and failing in a confusing way. Each one is
+// logged once at error level and listed by unreadableSecrets() (shown as a
+// notice) until the value is saved again.
+
+const SECRET_LABELS = {
+  solcast_api_key: 'Solcast API key',
+  mqtt_password: 'MQTT password',
+  ha_token: 'Home Assistant token',
+  pvoutput_config: 'PVOutput API key',
+  tuya_cloud: 'Tuya cloud login',
+  ha_devices: 'Home Assistant device tokens',
+  mqtt_devices: 'MQTT device passwords',
+  tuya_devices: 'Tuya device keys',
+  cloudflare_tunnel: 'Cloudflare Tunnel token',
+  notification_channels: 'Notification channel credentials',
+  notification_devices: 'Notification devices (subscribe again)',
+  notification_vapid: 'Web push keys (made again automatically)'
+};
+const unreadable = new Map();   // 'key' or 'key.field' -> config key
+
+function noteUnreadable(configKey, field, err) {
+  const id = field ? `${configKey}.${field}` : configKey;
+  if (!unreadable.has(id)) {
+    logger.error(`encryption: '${id}' cannot be decrypted and reads as empty (${err.message}). `
+      + 'Its encryption key is not the one that saved it, usually after a backup was restored onto a different box. '
+      + 'Enter it again in Settings, or put the old data/encryption-key back.');
+  }
+  unreadable.set(id, configKey);
+}
+
+// After reading `configKey`, forget the ones that read fine this time.
+function dropReadable(configKey, stillBad) {
+  for (const [id, key] of unreadable) if (key === configKey && !stillBad.has(id)) unreadable.delete(id);
+}
+
+/** Labels of the saved secrets that currently cannot be decrypted. */
+function unreadableSecrets() {
+  return [...new Set(unreadable.values())].map(key => SECRET_LABELS[key] || key);
+}
 
 /**
  * Encrypt `strValue` for storage under `key`. Idempotent (existing $enc1$
@@ -619,20 +661,23 @@ function encryptConfigValue(key, strValue) {
 /**
  * Inverse of encryptConfigValue: decrypt stored `strValue` for `key`.
  * Non-envelopes pass through (partial-migration safety). Per-field try/catch
- * on blob keys: a corrupt/wrong-key field is returned raw + warn without
- * killing the whole read. Scalar decrypt failure likewise returns raw + warn
- * (resilience at read time; use decryptString directly when a throw is wanted).
+ * on blob keys: a corrupt/wrong-key field reads as empty without killing the
+ * whole read; a scalar that cannot be decrypted reads as empty too (see
+ * unreadableSecrets(); use decryptString directly when a throw is wanted).
  */
 function decryptConfigValue(key, strValue) {
   const fields = SECRET_FIELDS[key];
   if (fields === undefined || typeof strValue !== 'string' || strValue === '') return strValue;
+  const bad = new Set();
   if (fields.length === 0) {
-    if (!isEncrypted(strValue)) return strValue;
+    if (!isEncrypted(strValue)) { dropReadable(key, bad); return strValue; }
     try {
-      return decryptString(strValue);
+      const plain = decryptString(strValue);
+      dropReadable(key, bad);
+      return plain;
     } catch (err) {
-      logger.warn(`encryption: scalar key '${key}' failed to decrypt — returning raw: ${err.message}`);
-      return strValue;
+      noteUnreadable(key, null, err);
+      return '';
     }
   }
   let parsed;
@@ -642,26 +687,27 @@ function decryptConfigValue(key, strValue) {
     return strValue;
   }
   const wanted = new Set(fields.map((f) => String(f).toLowerCase()));
-  decryptLeaves(parsed, wanted, key);
+  decryptLeaves(parsed, wanted, key, bad);
+  dropReadable(key, bad);
   return JSON.stringify(parsed);
 }
 
-function decryptLeaves(node, wanted, configKey) {
+function decryptLeaves(node, wanted, configKey, bad) {
   if (Array.isArray(node)) {
     // Bare array scalars are never secret leaves (encrypt side only touches
     // keyed leaves) — recurse into objects only.
     for (let i = 0; i < node.length; i++) {
       const v = node[i];
-      if (v !== null && typeof v === 'object') decryptLeaves(v, wanted, configKey);
+      if (v !== null && typeof v === 'object') decryptLeaves(v, wanted, configKey, bad);
     }
   } else if (node !== null && typeof node === 'object') {
     for (const k of Object.keys(node)) {
       const v = node[k];
-      if (v !== null && typeof v === 'object') { decryptLeaves(v, wanted, configKey); continue; }
+      if (v !== null && typeof v === 'object') { decryptLeaves(v, wanted, configKey, bad); continue; }
       if (!wanted.has(String(k).toLowerCase())) continue;
       if (typeof v !== 'string' || !isEncrypted(v)) continue;
       try { node[k] = decryptString(v); }
-      catch (err) { logger.warn(`encryption: key '${configKey}' field '${k}' failed to decrypt — returning raw: ${err.message}`); }
+      catch (err) { noteUnreadable(configKey, k, err); bad.add(`${configKey}.${k}`); node[k] = ''; }
     }
   }
 }
@@ -854,7 +900,7 @@ function resolveStoredSecret(value, configKeys) {
   for (const key of configKeys) {
     const row = getDb().prepare('SELECT value FROM config WHERE key = ?').get(key);
     if (row && typeof row.value === 'string' && row.value.includes(value)) {
-      try { return decryptString(value); } catch (err) { logger.warn(`encryption: stored secret for '${key}' failed to decrypt: ${err.message}`); return value; }
+      try { return decryptString(value); } catch (err) { noteUnreadable(key, null, err); return ''; }
     }
   }
   return value;
@@ -866,6 +912,7 @@ module.exports = {
   initializeDatabase,
   migratePowerStatsSchema,
   resolveStoredSecret,
+  unreadableSecrets,
   getConfig,
   setConfig,
   encryptConfigValue,

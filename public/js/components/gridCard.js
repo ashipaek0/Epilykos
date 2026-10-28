@@ -50,7 +50,6 @@ export function buildGridCard(block = {}) {
 
   card.innerHTML = `
     <div class="ep-grid-head">
-      <h3 class="ep-card-title">Grid</h3>
       <div class="grid-date" id="${uid('grid-date', id)}"></div>
     </div>
     <div class="ep-grid-now">
