@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40681036831.1",
-    "version": "1.0.9-dev+2f0a2a2",
-    "commit": "2f0a2a2b962a3314c65c8e1c5bf69fb8a29b1f5f",
-    "digest": "sha256:7d686dcf123715aac045b064f7d3501f2f874c7fb9369161a087c4369e6656ec",
+    "buildId": "40682285103.1",
+    "version": "1.0.9-dev+140726d",
+    "commit": "140726dd2030cfb1b7feb8cc6379c8b9af4a9726",
+    "digest": "sha256:12175b4e139f19a1ce305ea8f2118f34a3eb2875af74a8700d1c908d7b4c723f",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T11:35:03Z",
+    "builtAt": "2026-10-28T11:44:46Z",
     "kind": "release",
     "notes": [
-      "Energy chart Compare: Yearly totals (#231)"
+      "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)"
     ]
   },
   "history": [
+    {
+      "buildId": "40682285103.1",
+      "version": "1.0.9-dev+140726d",
+      "commit": "140726dd2030cfb1b7feb8cc6379c8b9af4a9726",
+      "digest": "sha256:12175b4e139f19a1ce305ea8f2118f34a3eb2875af74a8700d1c908d7b4c723f",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T11:44:46Z",
+      "kind": "release",
+      "notes": [
+        "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)"
+      ]
+    },
     {
       "buildId": "40681036831.1",
       "version": "1.0.9-dev+2f0a2a2",
