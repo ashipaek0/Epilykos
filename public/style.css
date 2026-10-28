@@ -536,6 +536,12 @@ h1, h2, h3, h4,
   background: var(--bg); border: 1px solid var(--border); color: var(--text);
   padding: 0.4rem 0.8rem; border-radius: var(--radius); cursor: pointer; font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); transition: background 0.2s;
 }
+.chart-compare { display: inline-flex; gap: 0.5rem; margin-right: 0.25rem; }
+.chart-compare[hidden] { display: none; }
+.chart-compare select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); max-width: 11rem;
+  padding: 0.35rem 0.5rem; border-radius: var(--radius); font-size: calc(var(--fs-small) * var(--card-font-scale, 1));
+}
 .chart-controls button.active, .chart-controls button:hover { background: var(--accent); color: var(--color-text-on-accent); border-color: var(--accent); }
 .chart-loading { flex: 1 1 0; display: flex; align-items: center; justify-content: center; color: var(--text); opacity: 0.5; font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); min-height: 100px; }
 
