@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40682285103.1",
-    "version": "1.0.9-dev+140726d",
-    "commit": "140726dd2030cfb1b7feb8cc6379c8b9af4a9726",
-    "digest": "sha256:12175b4e139f19a1ce305ea8f2118f34a3eb2875af74a8700d1c908d7b4c723f",
+    "buildId": "40683758190.1",
+    "version": "1.0.9-dev+bb88c02",
+    "commit": "bb88c02cee9951792edbd1dab2698a9e540a6eae",
+    "digest": "sha256:5befb15c05acb7fe6d56d649032948a4e53a1c76565953728d6e3049d98bc4ab",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T11:44:46Z",
+    "builtAt": "2026-10-28T11:56:24Z",
     "kind": "release",
     "notes": [
-      "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)"
+      "Custom favicon: replace every built-in icon link, not just the first (#233)",
+      "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)"
     ]
   },
   "history": [
+    {
+      "buildId": "40683758190.1",
+      "version": "1.0.9-dev+bb88c02",
+      "commit": "bb88c02cee9951792edbd1dab2698a9e540a6eae",
+      "digest": "sha256:5befb15c05acb7fe6d56d649032948a4e53a1c76565953728d6e3049d98bc4ab",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T11:56:24Z",
+      "kind": "release",
+      "notes": [
+        "Custom favicon: replace every built-in icon link, not just the first (#233)",
+        "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)"
+      ]
+    },
     {
       "buildId": "40682285103.1",
       "version": "1.0.9-dev+140726d",
