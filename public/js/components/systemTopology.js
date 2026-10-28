@@ -20,7 +20,7 @@ import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
 const watts = (w) => formatMetric(w, 'W').text;
 import { uid } from '../utils/uid.js';
-import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
+import { markBreakdown, applyBreakdowns, exportFormat, socFormat } from './breakdown.js';
 
 const flowLineObservers = new Map();
 let flowLineResizePending = new Set();
@@ -210,7 +210,7 @@ export function updateSystemTopology(state) {
       { host: container.querySelector('.topo-solar'), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }], before: container.querySelector('.topo-solar-circle') },
       { host: container.querySelector('.topo-grid-node'), title: 'Grid', specs: [{ name: mm.grid_import, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] },
       { host: container.querySelector('.topo-home'), title: 'Home', specs: [{ name: mm.consumption, unit: 'W' }] },
-      { host: container.querySelector('.topo-battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] }
+      { host: container.querySelector('.topo-battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, power: 'charge' }, { name: mm.battery_discharge, power: 'discharge' }] }
     ]);
 
     // Parts listed above Solar and below Battery take height from the circles.

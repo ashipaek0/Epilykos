@@ -18,7 +18,7 @@ import { formatMetric, formatEntry } from './format.js';
 import { icon } from '../editor-catalog.js';
 import { getSharedForecastData } from '../forecast.js';
 import { iconHtml } from '../weatherFormat.js';
-import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat } from './breakdown.js';
+import { markBreakdown, applyBreakdowns, exportFormat } from './breakdown.js';
 
 const FLOW_MIN_W = 20;          // below this a line is drawn idle
 const STALE_MS = 5 * 60 * 1000; // data older than this marks the status as delayed
@@ -281,7 +281,7 @@ export function updateSystemOverview(dashboardState) {
       const t = k => card.querySelector(`.so-tile[data-tile="${k}"]`);
       applyBreakdowns(card, dashboardState, [
         { host: t('grid'), title: name('grid'), specs: [{ name: 'grid_import', unit: 'W' }, { name: 'grid_export', format: exportFormat }] },
-        { host: t('battery'), title: name('battery'), specs: [{ name: 'battery_soc', unit: '%' }, { name: 'battery_charge', format: chargeFormat }, { name: 'battery_discharge', format: dischargeFormat }] },
+        { host: t('battery'), title: name('battery'), specs: [{ name: 'battery_soc', unit: '%' }, { name: 'battery_charge', power: 'charge' }, { name: 'battery_discharge', power: 'discharge' }] },
         { host: t('solar'), title: name('solar'), specs: [{ name: 'solar', unit: 'W' }] },
         { host: t('home'), title: name('home'), specs: [{ name: 'consumption', unit: 'W' }] }
       ]);

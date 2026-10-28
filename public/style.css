@@ -2203,6 +2203,9 @@ details.help-sub.help-hidden { display: none; }
 .bd-list li { display: flex; justify-content: space-between; gap: 0.6rem; min-width: 0; }
 .bd-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .bd-value { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bd-charging .bd-value { color: var(--battery); }
+.bd-discharging .bd-value { color: var(--discharge); }
+.bd-idle .bd-value { color: var(--text-secondary); font-weight: 500; }
 .bd-host { cursor: pointer; border-radius: var(--radius-xs); }
 .bd-host:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .bd-pop {

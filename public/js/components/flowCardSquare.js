@@ -1,7 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
-import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
+import { markBreakdown, applyBreakdowns, exportFormat, socFormat } from './breakdown.js';
 const watts = (w) => formatMetric(w, 'W').text;
 
 
@@ -109,7 +109,7 @@ export function updateFlowCardSquare(state) {
 
     applyBreakdowns(card, state, [
       { host: card.querySelector(`#${uid('fcs-solar',id)} .fcs-info`), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }] },
-      { host: card.querySelector(`#${uid('fcs-battery',id)} .fcs-info`), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_power, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] },
+      { host: card.querySelector(`#${uid('fcs-battery',id)} .fcs-info`), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_power, power: 'charge' }, { name: mm.battery_discharge, power: 'discharge' }] },
       { host: card.querySelector(`#${uid('fcs-grid',id)} .fcs-info`), title: 'Grid', specs: [{ name: mm.grid, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] }
     ]);
 
