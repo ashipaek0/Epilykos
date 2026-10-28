@@ -74,6 +74,20 @@ assert.equal(twoStep.check('', { now: t4 }).ok, false);
 assert.equal(twoStep.check(null, { now: t4 }).ok, false);
 console.log('ok - about a minute of clock drift is tolerated, no more; junk is refused');
 
+// Recovery codes use every letter and digit of the alphabet about equally (no modulo bias).
+{
+  const counts = {};
+  for (let i = 0; i < 20000; i++) {
+    const code = twoStep.newRecoveryCode();
+    assert.match(code, /^[A-HJKMNP-Z2-9]{5}-[A-HJKMNP-Z2-9]{5}$/);
+    for (const c of code.replace('-', '')) counts[c] = (counts[c] || 0) + 1;
+  }
+  const mean = Object.values(counts).reduce((a, b) => a + b, 0) / 31;
+  assert.equal(Object.keys(counts).length, 31, 'every character of the alphabet appears');
+  assert.ok(Object.values(counts).every(n => Math.abs(n - mean) / mean < 0.06), 'none is favoured: ' + JSON.stringify(counts));
+  console.log('ok - recovery codes draw every character about equally');
+}
+
 const first = codes[0];
 assert.deepEqual(twoStep.check(first.toLowerCase().replace('-', ' ')), { ok: true, kind: 'recovery', recoveryLeft: 9 });
 assert.equal(twoStep.check(first).ok, false, 'a recovery code works once');

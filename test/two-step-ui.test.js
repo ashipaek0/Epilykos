@@ -17,7 +17,11 @@ assert.match(login, /fetch\('\/api\/login\/code'/);
 assert.match(login, /data\.needsCode/);
 assert.match(login, /RESET_TWO_STEP=true/);
 // The script is valid JavaScript.
-new Function(login.match(/<script>([\s\S]*?)<\/script>/)[1]);
+const inline = [...login.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script\s*>/gi)].map(m => m[1]).find(t => t.trim());
+new Function(inline);
+assert.match(login, /<script src="js\/safe-next\.js\?v=1"><\/script>/);
+assert.match(inline, /safeNext\(new URLSearchParams\(location\.search\)\.get\('next'\), location\.origin\)/);
+assert.doesNotMatch(inline, /location\.href = \/\^/, 'no hand-written pattern decides where to go');
 console.log('ok - the login page has the code step, a recovery switch and the Docker note');
 
 const settings = read('public/settings.html');

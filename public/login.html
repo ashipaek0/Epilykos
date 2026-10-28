@@ -73,6 +73,7 @@
   </style>
   <!-- CSRF protection -->
   <script defer src="js/csrf.js"></script>
+  <script src="js/safe-next.js?v=1"></script>
 </head>
 <body>
 <div class="container">
@@ -105,9 +106,8 @@
 </div>
 <script>
   function goNext() {
-    // Only same-site paths: "/setup" yes, "//evil.example" no.
-    const next = new URLSearchParams(location.search).get('next') || '';
-    window.location.href = /^\/(?![\/\\])/.test(next) ? next : '/';
+    // Back to the page that asked for sign-in, if it is on this site (js/safe-next.js).
+    window.location.href = safeNext(new URLSearchParams(location.search).get('next'), location.origin);
   }
   const loginForm = document.getElementById('login-form');
   const codeForm = document.getElementById('code-form');
