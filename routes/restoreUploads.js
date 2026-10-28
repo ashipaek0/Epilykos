@@ -17,6 +17,7 @@ module.exports = function restoreUploadRoutes(manager) {
     const result = await manager.receive(req.params.id, Number(offset), req, length === undefined ? undefined : Number(length));
     res.status(result.phase === 'uploading' ? 200 : 202).json(result);
   }));
+  router.post('/:id/passphrase', handle(async (req, res) => res.json(await manager.passphrase(req.params.id, { passphrase: req.body?.passphrase, skip: req.body?.skip }))));
   router.post('/:id/cancel', handle(async (req, res) => res.json(await manager.cancel(req.params.id))));
   return router;
 };

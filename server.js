@@ -1422,7 +1422,7 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 });
 
 app.use('/api/backup', isAuthenticated);
-app.get('/api/backup', (req, res) => backupDatabase(res));
+app.use('/api/backup', require('./routes/backup')(backupDatabase));
 
 // Capture authorization only at pre-close, so logout/expiry during a long
 // preparation is respected. Copy before confirmation without an open response.
