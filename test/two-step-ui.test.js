@@ -17,7 +17,11 @@ assert.match(login, /fetch\('\/api\/login\/code'/);
 assert.match(login, /data\.needsCode/);
 assert.match(login, /RESET_TWO_STEP=true/);
 // The script is valid JavaScript.
-const inline = [...login.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script\s*>/gi)].map(m => m[1]).find(t => t.trim());
+// The page has one inline script, a bare <script>; find it by plain text, not by a pattern over HTML.
+assert.equal(login.split('<script>').length, 2, 'exactly one bare inline <script>');
+const opening = login.indexOf('<script>') + '<script>'.length;
+const inline = login.slice(opening, login.indexOf('</script>', opening));
+assert.ok(inline.trim().length > 0 && !inline.includes('<script'));
 new Function(inline);
 assert.match(login, /<script src="js\/safe-next\.js\?v=1"><\/script>/);
 assert.match(inline, /safeNext\(new URLSearchParams\(location\.search\)\.get\('next'\), location\.origin\)/);
