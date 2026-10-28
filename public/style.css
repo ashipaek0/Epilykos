@@ -536,6 +536,12 @@ h1, h2, h3, h4,
   background: var(--bg); border: 1px solid var(--border); color: var(--text);
   padding: 0.4rem 0.8rem; border-radius: var(--radius); cursor: pointer; font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); transition: background 0.2s;
 }
+.chart-compare { display: inline-flex; gap: 0.5rem; margin-right: 0.25rem; }
+.chart-compare[hidden] { display: none; }
+.chart-compare select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); max-width: 11rem;
+  padding: 0.35rem 0.5rem; border-radius: var(--radius); font-size: calc(var(--fs-small) * var(--card-font-scale, 1));
+}
 .chart-controls button.active, .chart-controls button:hover { background: var(--accent); color: var(--color-text-on-accent); border-color: var(--accent); }
 .chart-loading { flex: 1 1 0; display: flex; align-items: center; justify-content: center; color: var(--text); opacity: 0.5; font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); min-height: 100px; }
 
@@ -688,7 +694,6 @@ h1, h2, h3, h4,
   .flow-arrow { display: none; }
   .flow-item { min-height: auto; }
   .stat-value { font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); }
-  #signin-btn { display: none !important; }
   /* Signed out, the header row would be empty: drop it so it leaves no gap. */
   .container > header:not(.is-signed-in) .header-right { display: none; }
   .container > header { margin-bottom: 1rem; }
@@ -2198,6 +2203,9 @@ details.help-sub.help-hidden { display: none; }
 .bd-list li { display: flex; justify-content: space-between; gap: 0.6rem; min-width: 0; }
 .bd-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .bd-value { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bd-charging .bd-value { color: var(--battery); }
+.bd-discharging .bd-value { color: var(--discharge); }
+.bd-idle .bd-value { color: var(--text-secondary); font-weight: 500; }
 .bd-host { cursor: pointer; border-radius: var(--radius-xs); }
 .bd-host:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .bd-pop {

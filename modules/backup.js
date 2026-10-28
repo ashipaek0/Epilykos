@@ -10,6 +10,7 @@ const { prepareRestore } = require('./restorePreparation');
 const { createRestoreStaging, reapRestoreStaging } = require('./restoreStaging');
 const { beginRestoreSwap, recoverRestore, recoveryError } = require('./restoreTransaction');
 const databaseWork = require('./databaseWork');
+const backupSecrets = require('./backupSecrets');
 
 const MAINTENANCE_TIMEOUT_MS = 5000;
 const SNAPSHOT_DIR = path.join(path.dirname(DB_PATH), 'snapshots');
@@ -35,7 +36,7 @@ function checkpointWal() {
 const MAX_BACKUP_DOWNLOADS = 2;
 let activeDownloads = 0;
 
-async function backupDatabase(res) {
+async function backupDatabase(res, { passphrase } = {}) {
   if (activeDownloads >= MAX_BACKUP_DOWNLOADS) {
     return res.status(503).json({ error: 'Two backup downloads are already active. Finish or cancel one before trying again.' });
   }
@@ -68,6 +69,8 @@ async function backupDatabase(res) {
     await createBackupSnapshot(getDb(), tmpPath, { signal: controller.signal, scratch,
       leaseFds: [...(job.leaseFd === undefined ? [] : [job.leaseFd]), ...(release.leaseFd === undefined ? [] : [release.leaseFd])] });
     fs.chmodSync(tmpPath, 0o600);
+    // With a passphrase, the copy's saved passwords are locked with it instead of this box's key.
+    if (passphrase) { await backupSecrets.protect(tmpPath, passphrase); controller.signal.throwIfAborted(); }
     // This file is now immutable and private to this transfer. Holding the
     // maintenance lock during HTTP transfer would prevent restore for hours.
     // The private job lease remains live until the response transfer finishes.
@@ -87,6 +90,8 @@ async function backupDatabase(res) {
       if (err.code === 'LOCK_BUSY') {
         logger.info('Backup deferred: maintenance is already running');
         if (!res.headersSent) res.status(503).json({ error: 'A snapshot, backup or restore is already running. Wait for it to finish, then try again.' });
+      } else if (err.code === 'PASSPHRASE_INVALID') {
+        if (!res.headersSent) res.status(400).json({ error: err.message });
       } else {
         logger.error('Backup failed:', err);
         if (!res.headersSent) res.status(err.code === 'INSUFFICIENT_STORAGE' ? 507 : 500).json({ error: 'Backup failed: ' + err.message });
@@ -102,9 +107,19 @@ async function restoreDatabaseUnlocked(filePath, lifecycle, options) {
   const input = await require('./restoreInput').normalizeRestoreInput(filePath, getDb(), DB_PATH, options);
   let prepared;
   try {
+    // A backup made with a passphrase asks for it before anything else happens.
+    const marker = backupSecrets.inspect(input.filePath);
+    let passphrase;
+    if (marker) {
+      if (!options.askPassphrase) throw Object.assign(new Error('This backup\'s saved passwords are protected by a passphrase. Restore it from Settings → Backup and restore, where you can enter it.'), { status: 400, restorePreflight: true });
+      passphrase = await options.askPassphrase(marker);   // a string, or null to restore without the saved passwords
+      options.signal?.throwIfAborted();
+    }
     prepared = await prepareRestore(input.filePath, getDb(), DB_PATH, {
       ...options, leaseFds: [...options.leaseFds, ...(input.leaseFd === undefined ? [] : [input.leaseFd])]
     });
+    // The candidate is a private copy: lock its secrets with this box's key before it can be selected.
+    if (marker) await backupSecrets.unlock(prepared.filePath, marker, passphrase);
     return restorePreparedDatabaseUnlocked(prepared.filePath, lifecycle, options);
   } finally { prepared?.cleanup(); input.cleanup(); }
 }
@@ -188,11 +203,11 @@ function activatePreparedDatabase(filePath, lifecycle, options) {
   }
 }
 
-async function restoreDatabase(filePath, { lifecycle = {}, signal, maintenanceLease, leaseFds = [], beforeActivate, afterActivate } = {}) {
+async function restoreDatabase(filePath, { lifecycle = {}, signal, maintenanceLease, leaseFds = [], beforeActivate, afterActivate, askPassphrase } = {}) {
   const release = maintenanceLease || await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS });
   try {
     return await restoreDatabaseUnlocked(filePath, lifecycle, {
-      signal, beforeActivate, afterActivate,
+      signal, beforeActivate, afterActivate, askPassphrase,
       leaseFds: [...leaseFds, ...(release.leaseFd === undefined ? [] : [release.leaseFd])]
     });
   } finally { databaseWork.refresh(); if (!maintenanceLease) release(); }

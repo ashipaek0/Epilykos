@@ -721,8 +721,10 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/api', metricsRouter);
 
 // ---------- Authentication & Setup routes ----------
+require('./modules/twoStep').applyEnvReset();   // RESET_TWO_STEP=true (Docker's way back in)
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
+app.use('/api/two-step', isAuthenticated, require('./routes/twoStep'));
 
 // Public page (pre-auth; setup.js gates sources behind login)
 app.get('/setup', (req, res) => {
@@ -1420,7 +1422,7 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 });
 
 app.use('/api/backup', isAuthenticated);
-app.get('/api/backup', (req, res) => backupDatabase(res));
+app.use('/api/backup', require('./routes/backup')(backupDatabase));
 
 // Capture authorization only at pre-close, so logout/expiry during a long
 // preparation is respected. Copy before confirmation without an open response.

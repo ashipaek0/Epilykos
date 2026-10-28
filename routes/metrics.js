@@ -397,6 +397,7 @@ router.get('/daily', async (req, res) => {
 router.get('/monthly', async (req, res) => {
   try {
     const now = new Date();
+    const allMonths = req.query.all === '1' || req.query.all === 'true';
     const months = [];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     for (let i = 11; i >= 0; i--) {
@@ -415,6 +416,16 @@ router.get('/monthly', async (req, res) => {
       total.generator_kwh += r.daily_generator || 0;
       total.consumption_kwh += r.daily_consumption || 0; total.solar_kwh += r.daily_solar || 0; total.battery_charge_kwh += r.daily_battery_charge || 0; total.battery_discharge_kwh += r.daily_battery_discharge || 0; total.grid_import_kwh += r.daily_grid_import || 0; total.grid_export_kwh += r.daily_grid_export || 0;
       monthTotals.set(month, total);
+    }
+    // ?all=1 — every month with recorded days, oldest first (the energy chart's year-on-year view).
+    if (allMonths) {
+      const round = v => Math.round(v * 1000) / 1000;
+      return res.json([...monthTotals.values()].sort((a, b) => a.month.localeCompare(b.month)).map(t => ({
+        month: t.month,
+        consumption_kwh: round(t.consumption_kwh), solar_kwh: round(t.solar_kwh),
+        battery_charge_kwh: round(t.battery_charge_kwh), battery_discharge_kwh: round(t.battery_discharge_kwh),
+        grid_import_kwh: round(t.grid_import_kwh), grid_export_kwh: round(t.grid_export_kwh), generator_kwh: round(t.generator_kwh)
+      })));
     }
     const rows = [...monthTotals.values()].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 12);
     const dataMap = {};

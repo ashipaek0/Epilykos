@@ -13,6 +13,7 @@
  *
  * @module dashboard
  */
+import { applyFavicon } from './favicon.js';
 import { fetchDashboardConfig, saveDashboardConfig, fetchPublicConfig } from './api.js';
 import { getBuilder } from './components/index.js';
 import { destroyCharts, initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
@@ -214,11 +215,9 @@ function renderDashboard() {
       if (auth.authenticated) {
         const pageHeader = document.querySelector('.container > header');
         if (pageHeader) pageHeader.classList.add('is-signed-in');
-        // Swap sign-in for settings + signout
-        const signinBtn = document.getElementById('signin-btn');
+        // Signed in: settings + signout
         const signoutBtn = document.getElementById('signout-btn');
         const settingsBtn = document.getElementById('settings-btn');
-        if (signinBtn) signinBtn.style.display = 'none';
         if (signoutBtn) signoutBtn.style.display = '';
         if (settingsBtn) settingsBtn.style.display = '';
         // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).
@@ -323,11 +322,7 @@ function applyBranding(cfg) {
   document.title = title;
   if (cfg.dashboard_logo) { logoEl.src = cfg.dashboard_logo; logoEl.style.display = 'inline'; }
   else { logoEl.src = '/icons/epilykos-mark.svg'; logoEl.style.display = 'inline'; }
-  if (cfg.dashboard_favicon) {
-    let link = document.querySelector('link[rel="icon"]');
-    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-    link.href = cfg.dashboard_favicon;
-  }
+  applyFavicon(document, cfg.dashboard_favicon);
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
   document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
   document.body.classList.toggle('square-corners', cfg.square_corners === 'true');

@@ -68,9 +68,12 @@
       color: var(--accent);
       text-decoration: none;
     }
+    .code-help { color: var(--text-secondary, #6b7280); font-size: 0.85rem; margin: 0 0 10px; }
+    .login-container .link-btn { background: none; border: 0; color: inherit; display: block; margin-left: auto; margin-right: auto; text-decoration: underline; cursor: pointer; font-size: 0.85rem; margin-top: 8px; padding: 4px; width: auto; }
   </style>
   <!-- CSRF protection -->
   <script defer src="js/csrf.js"></script>
+  <script src="js/safe-next.js?v=1"></script>
 </head>
 <body>
 <div class="container">
@@ -82,39 +85,110 @@
       <button type="submit">Login</button>
       <div id="error-msg" class="error" style="display:none;"></div>
     </form>
+    <form id="code-form" hidden>
+      <p class="code-help" id="code-help">Enter the 6-digit code from your authenticator app.</p>
+      <input type="text" id="code" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="6-digit code">
+      <button type="submit">Continue</button>
+      <button type="button" id="code-switch" class="link-btn">Use a recovery code instead</button>
+      <div id="code-error" class="error" style="display:none;"></div>
+      <div id="code-time" class="code-help" style="display:none;"></div>
+    </form>
     <details class="forgot">
       <summary>Forgot the password?</summary>
       <p><b>On an EpilykosOS box:</b> put a file named <code>dashboard-password.txt</code> with the new password on its
         first line on the SD card's BOOT drive, then start the box. Or, on its console (or over SSH with
         <code>sudo</code>), run <code>epilykos-reset-password</code>.</p>
-      <p><b>With Docker:</b> set <code>SETTINGS_PASSWORD</code> for the container and restart it.</p>
+      <p>Either way also switches off two-step sign-in, so you are not locked out.</p>
+      <p><b>With Docker:</b> set <code>SETTINGS_PASSWORD</code> for the container and restart it. If two-step sign-in is on, also add <code>RESET_TWO_STEP=true</code> to the container's <code>environment</code> in docker-compose.yaml for one start, then take it out again.</p>
     </details>
     <a href="/" class="back-link">← Back to Dashboard</a>
   </div>
 </div>
 <script>
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
+  function goNext() {
+    // Back to the page that asked for sign-in, if it is on this site (js/safe-next.js).
+    window.location.href = safeNext(new URLSearchParams(location.search).get('next'), location.origin);
+  }
+  const loginForm = document.getElementById('login-form');
+  const codeForm = document.getElementById('code-form');
+  const errorDiv = document.getElementById('error-msg');
+  const codeError = document.getElementById('code-error');
+  const codeTime = document.getElementById('code-time');
+  const codeInput = document.getElementById('code');
+  let recoveryMode = false;
+
+  function showError(div, text) { div.textContent = text; div.style.display = 'block'; }
+
+  function setRecoveryMode(on) {
+    recoveryMode = on;
+    codeInput.value = '';
+    codeInput.maxLength = on ? 12 : 6;
+    codeInput.placeholder = on ? 'XXXXX-XXXXX' : '123456';
+    codeInput.inputMode = on ? 'text' : 'numeric';
+    codeInput.setAttribute('aria-label', on ? 'Recovery code' : '6-digit code');
+    document.getElementById('code-help').textContent = on
+      ? 'Enter one of your recovery codes. Each one works once.'
+      : 'Enter the 6-digit code from your authenticator app.';
+    document.getElementById('code-switch').textContent = on ? 'Use the app code instead' : 'Use a recovery code instead';
+    codeInput.focus();
+  }
+
+  function showCodeStep() {
+    loginForm.hidden = true;
+    codeForm.hidden = false;
+    codeError.style.display = 'none';
+    setRecoveryMode(false);
+  }
+
+  function backToPassword(message) {
+    codeForm.hidden = true;
+    loginForm.hidden = false;
+    document.getElementById('password').value = '';
+    document.getElementById('password').focus();
+    if (message) showError(errorDiv, message); else errorDiv.style.display = 'none';
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const password = document.getElementById('password').value;
-    const errorDiv = document.getElementById('error-msg');
     try {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
       });
-      if (res.ok) {
-        // Only same-site paths: "/setup" yes, "//evil.example" no.
-        const next = new URLSearchParams(location.search).get('next') || '';
-        window.location.href = /^\/(?![\/\\])/.test(next) ? next : '/';
-      } else {
-        const data = await res.json();
-        errorDiv.textContent = data.error || 'Invalid password';
-        errorDiv.style.display = 'block';
-      }
+      if (res.ok) return goNext();
+      const data = await res.json();
+      if (data.needsCode) return showCodeStep();
+      showError(errorDiv, data.error || 'Invalid password');
     } catch (err) {
-      errorDiv.textContent = 'Login failed';
-      errorDiv.style.display = 'block';
+      showError(errorDiv, 'Login failed');
+    }
+  });
+
+  document.getElementById('code-switch').addEventListener('click', () => setRecoveryMode(!recoveryMode));
+
+  codeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/login/code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: codeInput.value })
+      });
+      if (res.ok) return goNext();
+      const data = await res.json();
+      if (data.restart) return backToPassword(data.error);
+      showError(codeError, data.error || 'That code did not work.');
+      if (data.serverTime) {
+        // Codes only match when this box's clock is within about a minute of the phone's.
+        codeTime.textContent = 'This box thinks it is ' + new Date(data.serverTime).toLocaleString() +
+          '. If that is more than a minute off your phone, use a recovery code.';
+        codeTime.style.display = 'block';
+      }
+      codeInput.select();
+    } catch (err) {
+      showError(codeError, 'Login failed');
     }
   });
 </script>

@@ -1,7 +1,7 @@
 import { uid } from '../utils/uid.js';
 import { escapeHtml, isNumericValue, formatValueText } from '../utils.js';
 import { formatMetric } from './format.js';
-import { markBreakdown, applyBreakdowns, chargeFormat, dischargeFormat, exportFormat, socFormat } from './breakdown.js';
+import { markBreakdown, applyBreakdowns, exportFormat, socFormat } from './breakdown.js';
 const watts = (w) => formatMetric(w, 'W').text;
 
 
@@ -55,7 +55,7 @@ export function updateFlowCard(state) {
     const ga = card.querySelector('.flow-arrow.grid'); if (ga) { if (gi > ge) { ga.style.color = 'var(--grid)'; ga.textContent = '←'; } else if (ge > gi) { ga.style.color = 'var(--export)'; ga.textContent = '→'; } else { ga.style.color = 'var(--text-secondary)'; ga.textContent = '⇄'; } }
     applyBreakdowns(card, state, [
       { host: card.querySelector('.flow-item.solar'), title: 'Solar', specs: [{ name: mm.solar, unit: 'W' }], before: card.querySelector('.flow-item.solar .solar-now-gauge') },
-      { host: card.querySelector('.flow-item.battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, format: chargeFormat }, { name: mm.battery_discharge, format: dischargeFormat }] },
+      { host: card.querySelector('.flow-item.battery'), title: 'Battery', specs: [{ name: mm.battery_soc, format: socFormat }, { name: mm.battery_charge, power: 'charge' }, { name: mm.battery_discharge, power: 'discharge' }] },
       { host: card.querySelector('.flow-item.home'), title: 'Home', specs: [{ name: mm.consumption, unit: 'W' }] },
       { host: card.querySelector('.flow-item.grid'), title: 'Grid', specs: [{ name: mm.grid_import, unit: 'W' }, { name: mm.grid_export, format: exportFormat }] }
     ]);

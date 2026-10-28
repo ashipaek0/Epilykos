@@ -49,11 +49,15 @@ function flatten(parts, depth, parent) {
  * Rows for one node. `specs` lists the node's metrics in order, each
  * { name, unit?, format?(number, entry) }; those that are combined totals
  * contribute their parts, merged by label, so a battery node reads
- * "Phocos 1  52% · ↑ 400 W". A metric used twice (charge and discharge on one
- * signed total) counts once. Returns [] when nothing on the node is combined.
+ * "Phocos 1  52% · Charging 400 W". A metric used twice (charge and discharge on one
+ * signed total) counts once. A spec with `power: 'charge' | 'discharge'` is a
+ * battery's power: the charge and discharge of a part become ONE value, in words
+ * ("Charging 1.21 kW", "Discharging 1.26 kW", "Idle") and a `tone` for its
+ * colour, so every part reads the same whichever way it is going.
+ * Returns [] when nothing on the node is combined.
  */
 export function nodeRows(state, specs, depth = 'one') {
-  const rows = new Map(), seen = new Set();
+  const rows = new Map(), seen = new Set(), power = new Map();
   for (const spec of specs) {
     const total = spec && lookup(state, spec.name);
     if (!total || seen.has(total.name)) continue;
@@ -63,12 +67,45 @@ export function nodeRows(state, specs, depth = 'one') {
       const entry = part.value != null ? { value: part.value, unit: total.unit } : state.metrics && state.metrics[part.metric];
       const n = Number(entry && entry.value);
       const unit = part.value != null ? total.unit : (entry && entry.unit) || total.unit || spec.unit || '';
-      const text = entry && entry.value != null && Number.isFinite(n) ? (spec.format ? spec.format(n, entry) : formatMetric(n, unit).text) : '—';
+      const known = entry && entry.value != null && Number.isFinite(n);
       if (!rows.has(part.label)) rows.set(part.label, []);
-      rows.get(part.label).push(text);
+      if (spec.power) {
+        // One slot per part, filled when every power spec has been read.
+        if (!power.has(part.label)) { power.set(part.label, {}); rows.get(part.label).push({ power: part.label }); }
+        power.get(part.label)[spec.power] = known ? n : null;
+        continue;
+      }
+      rows.get(part.label).push(known ? (spec.format ? spec.format(n, entry) : formatMetric(n, unit).text) : '—');
     }
   }
-  return [...rows].map(([label, values]) => ({ label, value: values.join(' · ') }));
+  return [...rows].map(([label, values]) => {
+    let tone;
+    const texts = values.map(v => {
+      if (!v || typeof v !== 'object') return v;
+      const p = batteryPower(power.get(v.power));
+      tone = p.tone;
+      return p.text;
+    });
+    return tone ? { label, value: texts.join(' · '), tone } : { label, value: texts.join(' · ') };
+  });
+}
+
+// Below this a battery is idle, not charging or discharging (watts).
+const IDLE_W = 10;
+
+/**
+ * A battery part's charge and discharge as one reading. The charge value may be
+ * signed (negative: discharging), as when one total carries both.
+ */
+export function batteryPower({ charge = null, discharge = null } = {}) {
+  if (charge === null && discharge === null) return { text: '—' };
+  const up = Math.max(0, charge ?? 0);
+  const down = Math.max(0, -(charge ?? 0)) + Math.max(0, discharge ?? 0);
+  const net = up - down;
+  if (Math.abs(net) <= IDLE_W) return { text: 'Idle', tone: 'idle' };
+  return net > 0
+    ? { text: `Charging ${formatMetric(net, 'W').text}`, tone: 'charging' }
+    : { text: `Discharging ${formatMetric(-net, 'W').text}`, tone: 'discharging' };
 }
 
 /**
@@ -98,15 +135,12 @@ export function applyBreakdowns(card, state, nodes) {
   }
 }
 
-/** Battery power parts: arrows for charging and discharging. */
-export const chargeFormat = (n) => `${n > 0 ? '↑ ' : n < 0 ? '↓ ' : ''}${formatMetric(Math.abs(n), 'W').text}`;
-export const dischargeFormat = (n) => `${n > 0 ? '↓ ' : ''}${formatMetric(Math.abs(n), 'W').text}`;
 /** Energy parts in the tile's own style: number only, the tile already says kWh. */
 export const kwhFormat = (n) => `${n === 0 ? '0' : n >= 100 ? Math.round(n) : n >= 10 ? n.toFixed(1) : n.toFixed(2)} kWh`;
 export const socFormat = (n) => `${Math.round(n)}%`;
 export const exportFormat = (n) => `${formatMetric(Math.abs(n), 'W').text} out`;
 
-const rowsHtml = rows => rows.map(r => `<li><span class="bd-label">${escapeHtml(r.label)}</span><span class="bd-value">${escapeHtml(r.value)}</span></li>`).join('');
+const rowsHtml = rows => rows.map(r => `<li${r.tone ? ` class="bd-${r.tone}"` : ''}><span class="bd-label">${escapeHtml(r.label)}</span><span class="bd-value">${escapeHtml(r.value)}</span></li>`).join('');
 
 /**
  * Draw `rows` on `host` (the node element) in `mode`. `title` names the node

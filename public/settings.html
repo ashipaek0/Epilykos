@@ -51,6 +51,7 @@
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#security" class="st-nav-link" data-section="security"><span data-icon="lock" data-size="18"></span><span class="st-nav-label">Security</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#logs" class="st-nav-link" data-section="logs"><span data-icon="terminal" data-size="18"></span><span class="st-nav-label">Logs</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#backup" class="st-nav-link" data-section="backup"><span data-icon="database" data-size="18"></span><span class="st-nav-label">Backup and restore</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#updates" class="st-nav-link" data-section="updates"><span data-icon="refresh" data-size="18"></span><span class="st-nav-label">Updates</span><span class="st-nav-meta"></span></a></li>
@@ -424,6 +425,17 @@
           </div>
         </section>
 
+        <!-- ════════════ SECURITY ════════════ -->
+        <section class="st-section" id="section-security" data-section="security" aria-labelledby="h-security" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-security">Security</h1><p class="st-lede">Who can sign in to Settings.</p></div>
+          </div>
+          <div class="st-card" id="ts-card" data-own-save>
+            <div class="st-card-head"><h2>Two-step sign-in</h2><span class="st-badge" id="ts-badge" hidden></span></div>
+            <div id="ts-root"><p class="st-help">Loading…</p></div>
+          </div>
+        </section>
+
         <!-- ════════════ BACKUP ════════════ -->
         <section class="st-section" id="section-backup" data-section="backup" aria-labelledby="h-backup" hidden>
           <div class="st-section-head">
@@ -432,6 +444,12 @@
           <div class="st-card">
             <div class="st-card-head"><h2>Backup file</h2></div>
             <div class="st-inline-actions"><button type="button" id="backup-btn" class="st-btn st-btn-primary"><span data-icon="download" data-size="16"></span>Download backup</button><button type="button" id="restore-btn" class="st-btn">Restore from file…</button><input type="file" id="restore-file" accept=".db,.db.gz,.gz" hidden></div>
+            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="backup-protect"><span class="slider"></span></label><label for="backup-protect">Protect saved passwords with a passphrase</label></span></div>
+            <div id="backup-passphrase-fields" hidden>
+              <div class="st-field"><label for="backup-pass">Passphrase</label><input type="password" id="backup-pass" autocomplete="new-password" minlength="8" maxlength="256"></div>
+              <div class="st-field"><label for="backup-pass2">Type it again</label><input type="password" id="backup-pass2" autocomplete="new-password" minlength="8" maxlength="256"></div>
+            </div>
+            <p class="st-help">Passphrase required to restore saved passwords and tokens. Without a passphrase, passwords and tokens need to be entered again in new install</p>
             <div id="backup-status" class="test-status" role="status"></div>
             <div id="restore-progress-row" class="st-inline-actions" hidden><progress id="restore-progress" aria-label="Backup upload progress" max="100" value="0"></progress><button type="button" id="restore-cancel" class="st-btn">Cancel restore</button></div>
           </div>
@@ -810,6 +828,7 @@
             <ul>
               <li><strong>Manual backup:</strong> Click <em>Download backup</em> to save the whole database (settings, layouts and history) as a <code>.db</code> file</li>
               <li><strong>Restore:</strong> <em>Restore from file…</em> replaces everything with the backup</li>
+              <li><strong>Passphrase:</strong> switch on <em>Protect saved passwords with a passphrase</em> before downloading, to restore the backup on another box with its saved passwords. Epilykos asks for the passphrase when you restore the file</li>
               <li><strong>Snapshots:</strong> One is made automatically each day and the last 2 are kept. Click <em>Restore</em> on one to roll back</li>
             </ul>
           </div>
@@ -1023,8 +1042,8 @@
 <script src="js/pvoutput-units.js?v=1"></script>
 <script src="settings.js?v=24"></script>
 <script src="js/catalog-ui.js?v=2"></script>
-<script src="js/restore-upload.js?v=1"></script>
-<script src="js/settings-shell.js?v=8"></script>
+<script src="js/restore-upload.js?v=2"></script>
+<script src="js/settings-shell.js?v=10"></script>
 <script src="js/combined-metrics.js?v=8"></script>
 <script src="js/battery-estimator.js?v=3"></script>
 <script src="js/pv-arrays.js?v=1"></script>
@@ -1033,6 +1052,7 @@
 <script src="js/network-status.js?v=1"></script>
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=1"></script>
+<script src="js/two-step-settings.js?v=1"></script>
 <script src="js/updates-settings.js?v=4"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>

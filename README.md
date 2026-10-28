@@ -27,6 +27,7 @@ Public display with no login required — settings are password-protected.
 - [Notifications](#notifications)
 - [Updates](#updates)
 - [Key Features](#key-features)
+- [Two-step sign-in](#two-step-sign-in)
 - [Reverse Proxy](#reverse-proxy)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
@@ -59,41 +60,62 @@ when the server is reachable by people you don't trust).
 ## Docker Compose
 
 ```yaml
+# Epilykos on Docker.
+#   Start:   docker compose up -d
+#   Update:  docker compose pull && docker compose up -d
+#
+# Lines starting with "# " below are options that are OFF. To turn one on, remove
+# the "# " from every line of its block (the key and its items together) and keep
+# the indentation exactly as it is, then run: docker compose up -d
 services:
   epilykos:
     image: irunmole/epilykos:latest
     container_name: epilykos
     restart: unless-stopped
-    # network_mode: "host"           # Host networking is only needed for Tuya LAN broadcast discovery.
     ports:
       - "3000:3000"                  # Ignored with network_mode: host (the app then listens on host port 3000)
     volumes:
       - ./data:/app/data
-      - /etc/localtime:/etc/localtime:ro
+      - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
       - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
-      - /var/run/docker.sock:/var/run/docker.sock # "Update now" in Settings.
-    environment:
-      - TZ=Africa/Lagos              # Time zone for day boundaries. Remove this line to follow the host clock.
-    devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0" # USB serial adapter (RS232 / RS485).
-    group_add:
-      - "dialout"                  # Serial port permissions
-    #   - "108"                      # the host bluetooth group ID from `getent group bluetooth`.
+      # "Update now" in Settings → Updates. This gives Epilykos full control of Docker on
+      # this computer (it could start any container), so only keep it if you want one-click
+      # updates. Without it, update with: docker compose pull && docker compose up -d
+      - /var/run/docker.sock:/var/run/docker.sock
     security_opt:
-      - "apparmor=unconfined"
+      - "apparmor=unconfined"        # Lets the container reach the host's Bluetooth service on Ubuntu; harmless elsewhere.
+
+    # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
+    # Uncomment `group_add:` and only the lines you need (at least one), and `devices:` with its line.
+    # Add one line to `devices` per adapter. Docker refuses to start if a listed device does not exist.
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # group_add:
+    #   - "dialout"                  # Serial port permission.
+    #   - "108"                      # The host's bluetooth group ID, from `getent group bluetooth`; only if Settings says "D-Bus denied access to BlueZ".
+
+    # ── Option: a time zone other than this computer's (uncomment both lines).
+    # environment:
+    #   - TZ=Europe/London
+
+    # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
+    # network_mode: "host"
 ```
 
-> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built in. It uses the host's
-> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount:
+> **Bluetooth:** Bluetooth BMS and inverter Bluetooth modules are built in. They use the host's
+> Bluetooth adapter through BlueZ over D-Bus, so the only requirement is the `/run/dbus` mount (already in the file):
 >
-> - Mount the **`/run/dbus` directory**
 > - The host must run BlueZ with a powered adapter: `systemctl status bluetooth` shows *active*, `bluetoothctl show`
 >   shows `Powered: yes`.
-> - If Settings reports *D-Bus denied access to BlueZ*, add the host's `bluetooth` group ID (`getent group bluetooth`)
->   under `group_add`; on Ubuntu hosts also add `security_opt: [apparmor=unconfined]`.
+> - If Settings reports *D-Bus denied access to BlueZ*, turn on `group_add` and add the host's `bluetooth` group ID
+>   (`getent group bluetooth`). `security_opt: apparmor=unconfined`, also in the file, covers Ubuntu hosts.
 >
-> Drop the mount if you don't use Bluetooth. Drop `devices` and `group_add` if you don't use a USB serial adapter —
-> `devices` must list at least one device or be removed entirely.
+> **USB serial adapter** (RS232 / RS485): turn on `devices` and `group_add` with `dialout`, one `devices` line per adapter.
+> Docker will not start the container if a listed device is missing, which is why they are off until you need them.
+>
+> **Editing the file:** each option is a block of commented lines. Remove the `# ` from *every* line of the block, key
+> and items together, and leave the indentation alone. A key with no items under it (for example `devices:` on its own)
+> is an error. Check the result with `docker compose config`, which prints the file or says what is wrong.
 
 **Docker Hub image:** `irunmole/epilykos:latest`
 
@@ -279,6 +301,33 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 
 ---
 
+## Two-step sign-in
+
+Settings → **Security** → **Two-step sign-in** adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password and similar) after the admin password. It works without internet and costs nothing.
+
+1. Turn on the switch and enter your password. Scan the QR code, then type the code the app shows.
+2. Save the **10 recovery codes** shown once. Each signs you in once if you lose the phone; **New recovery codes** replaces them.
+3. Signing in is then password, then code (or a recovery code). Turning it off, or making new recovery codes, asks for your password and a current code.
+
+Codes only match when the box's clock is within about a minute of your phone's. A box without internet can drift: when a code fails, the sign-in page shows the box's time, and a recovery code always works. A code works once, so a seen code cannot be replayed, and five wrong codes send you back to the password.
+
+The setting lives in `data/two-step.json` (the secret is encrypted with the app's encryption key). A database-only backup does not carry it, so a restored box starts with two-step sign-in off.
+
+**Locked out?** Any password reset also switches it off:
+- EpilykosOS: `dashboard-password.txt` on the BOOT drive, or `sudo epilykos-reset-password` on the console.
+- Docker: in `docker-compose.yaml` turn on the `environment:` block (remove the `# ` from its two lines) and put `- RESET_TWO_STEP=true` under it, run `docker compose up -d`, then comment it out again.
+
+
+### Backups and saved passwords
+
+Settings → **Backup and restore** → **Download backup** saves the whole database as one file. Saved passwords and tokens (Solcast, MQTT, Home Assistant, Tuya, notifications and so on) are inside it locked with a key that stays on the box, in `data/encryption-key`. Restored onto a different box they cannot be read, so they have to be entered again.
+
+To carry them across, switch on **Protect saved passwords with a passphrase** before downloading and choose a passphrase (8 to 256 characters). The saved passwords in that file are locked with the passphrase instead of the box's key. When you restore it, Epilykos asks for the passphrase after the upload, then locks the passwords again with the new box's own key. **Restore without saved passwords** restores everything else and leaves them empty if the passphrase is lost.
+
+The passphrase is not stored anywhere and cannot be recovered. A wrong one is refused and asked for again, and nothing is replaced until the right one is given or the restore is cancelled.
+
+---
+
 ## Remote Access with Tailscale
 
 No reverse proxy or port forwarding needed: Settings → Network → **Remote access** → **Connect with Tailscale**.
@@ -366,6 +415,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 |---------|------------|
 | **No data displayed** | Verify at least one data source is enabled and actively producing metrics |
 | **Settings page unavailable** | Confirm `SETTINGS_PASSWORD` is set correctly in `.env` |
+| **Two-step code never matches** | Compare the box's clock with your phone's (the failed-code message shows it); use a recovery code, or see [Two-step sign-in](#two-step-sign-in) |
 | **Inverter dongle timeout** | Ping the dongle IP from the server and verify the port is reachable |
 | **Charts are blank** | Open the browser console (`F12`) and check for JavaScript errors |
 | **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |
