@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40655739412.1",
-    "version": "1.0.9-dev+7e276c0",
-    "commit": "7e276c0289db34a6864632aed38e603e437a8a80",
-    "digest": "sha256:78b093505151ce9dd0dd4e496dcd35b384a429578eb999d99cd007f67ac6c552",
+    "buildId": "40657231395.1",
+    "version": "1.0.9-dev+077b8a7",
+    "commit": "077b8a75c664f22dcca8accac0f640a4c017b61c",
+    "digest": "sha256:a3d801d5ac09da685b3f67a0c41793623e6c6b943bb2f5249a097b26680fcfcb",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T08:17:57Z",
+    "builtAt": "2026-10-28T08:30:28Z",
     "kind": "release",
     "notes": [
-      "Two-step sign-in, unreadable secrets, home page cleanup (#223)"
+      "Backups: optional passphrase for saved passwords (#226)"
     ]
   },
   "history": [
+    {
+      "buildId": "40657231395.1",
+      "version": "1.0.9-dev+077b8a7",
+      "commit": "077b8a75c664f22dcca8accac0f640a4c017b61c",
+      "digest": "sha256:a3d801d5ac09da685b3f67a0c41793623e6c6b943bb2f5249a097b26680fcfcb",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T08:30:28Z",
+      "kind": "release",
+      "notes": [
+        "Backups: optional passphrase for saved passwords (#226)"
+      ]
+    },
     {
       "buildId": "40655739412.1",
       "version": "1.0.9-dev+7e276c0",
