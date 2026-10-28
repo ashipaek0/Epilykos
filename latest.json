@@ -1,19 +1,54 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "40484358749.1",
-    "version": "1.0.8",
-    "commit": "511c82fe76c3319edb74e2b763a2899b0e092acd",
-    "digest": "sha256:14a80438eda37673d3d66473f314084cac621859d01cc77aa51a0a2fc9af9a1e",
+    "buildId": "40704053562.1",
+    "version": "1.0.9",
+    "commit": "79c07254a2b4b126d36a311374cd66e20ab3c587",
+    "digest": "sha256:221d1a56a6c2f3fea463ab6f19b0f79aefe63ed98758489bc152b5490c096d60",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-27T09:54:46Z",
+    "builtAt": "2026-10-28T14:15:24Z",
     "kind": "release",
     "notes": [
-      "Refactor epilykos service configuration in docker-compose",
-      "Revise Docker setup instructions in README"
+      "Custom favicon: replace every built-in icon link, not just the first (#233)",
+      "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)",
+      "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)",
+      "Energy chart Compare: Yearly totals (#231)",
+      "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)",
+      "Backup page: say the passphrase is needed to restore saved passwords (#228)",
+      "Energy chart: Compare view (year on year, month on month) (#227)",
+      "Backups: optional passphrase for saved passwords (#226)",
+      "Two-step sign-in, unreadable secrets, home page cleanup (#223)",
+      "Energy chart opens on 30d; power chart statistics start at midnight (#224)",
+      "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)",
+      "Refine Docker setup instructions in README",
+      "Refactor docker-compose.yaml for clarity and updates"
     ]
   },
   "history": [
+    {
+      "buildId": "40704053562.1",
+      "version": "1.0.9",
+      "commit": "79c07254a2b4b126d36a311374cd66e20ab3c587",
+      "digest": "sha256:221d1a56a6c2f3fea463ab6f19b0f79aefe63ed98758489bc152b5490c096d60",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-28T14:15:24Z",
+      "kind": "release",
+      "notes": [
+        "Custom favicon: replace every built-in icon link, not just the first (#233)",
+        "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)",
+        "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)",
+        "Energy chart Compare: Yearly totals (#231)",
+        "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)",
+        "Backup page: say the passphrase is needed to restore saved passwords (#228)",
+        "Energy chart: Compare view (year on year, month on month) (#227)",
+        "Backups: optional passphrase for saved passwords (#226)",
+        "Two-step sign-in, unreadable secrets, home page cleanup (#223)",
+        "Energy chart opens on 30d; power chart statistics start at midnight (#224)",
+        "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)",
+        "Refine Docker setup instructions in README",
+        "Refactor docker-compose.yaml for clarity and updates"
+      ]
+    },
     {
       "buildId": "40484358749.1",
       "version": "1.0.8",
