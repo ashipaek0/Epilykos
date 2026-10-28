@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40677157210.1",
-    "version": "1.0.9-dev+f80c2db",
-    "commit": "f80c2db564b0e10072bff8d6164a8601fa70c6d2",
-    "digest": "sha256:6ef9c4d4b21581ceedaa9c4e56a694e04e3b5a987303a3be9ddfea2d6c008663",
+    "buildId": "40681036831.1",
+    "version": "1.0.9-dev+2f0a2a2",
+    "commit": "2f0a2a2b962a3314c65c8e1c5bf69fb8a29b1f5f",
+    "digest": "sha256:7d686dcf123715aac045b064f7d3501f2f874c7fb9369161a087c4369e6656ec",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T11:05:17Z",
+    "builtAt": "2026-10-28T11:35:03Z",
     "kind": "release",
     "notes": [
-      "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)"
+      "Energy chart Compare: Yearly totals (#231)"
     ]
   },
   "history": [
+    {
+      "buildId": "40681036831.1",
+      "version": "1.0.9-dev+2f0a2a2",
+      "commit": "2f0a2a2b962a3314c65c8e1c5bf69fb8a29b1f5f",
+      "digest": "sha256:7d686dcf123715aac045b064f7d3501f2f874c7fb9369161a087c4369e6656ec",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T11:35:03Z",
+      "kind": "release",
+      "notes": [
+        "Energy chart Compare: Yearly totals (#231)"
+      ]
+    },
     {
       "buildId": "40677157210.1",
       "version": "1.0.9-dev+f80c2db",
