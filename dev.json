@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40666255080.1",
-    "version": "1.0.9-dev+435a32f",
-    "commit": "435a32fc651fae988e39fb5d5f3cf5149f063705",
-    "digest": "sha256:4a824382f938762e2aeebedae541dbcf1e02391986bd4d427e61202954591258",
+    "buildId": "40666608724.1",
+    "version": "1.0.9-dev+d593056",
+    "commit": "d593056045ebd2225a6b03b1d23d7631aa9c255d",
+    "digest": "sha256:244e5673ecbbf2aa373311dda0f9c8f9b0b6e7c6828929d73993e11bf2e05bb1",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T09:42:11Z",
+    "builtAt": "2026-10-28T09:44:52Z",
     "kind": "release",
     "notes": [
-      "Energy chart: Compare view (year on year, month on month) (#227)"
+      "Backup page: say the passphrase is needed to restore saved passwords (#228)"
     ]
   },
   "history": [
+    {
+      "buildId": "40666608724.1",
+      "version": "1.0.9-dev+d593056",
+      "commit": "d593056045ebd2225a6b03b1d23d7631aa9c255d",
+      "digest": "sha256:244e5673ecbbf2aa373311dda0f9c8f9b0b6e7c6828929d73993e11bf2e05bb1",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T09:44:52Z",
+      "kind": "release",
+      "notes": [
+        "Backup page: say the passphrase is needed to restore saved passwords (#228)"
+      ]
+    },
     {
       "buildId": "40666255080.1",
       "version": "1.0.9-dev+435a32f",
