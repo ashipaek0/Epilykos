@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40683758190.1",
-    "version": "1.0.9-dev+bb88c02",
-    "commit": "bb88c02cee9951792edbd1dab2698a9e540a6eae",
-    "digest": "sha256:5befb15c05acb7fe6d56d649032948a4e53a1c76565953728d6e3049d98bc4ab",
+    "buildId": "40683751603.1",
+    "version": "1.0.9-dev+9dfd3c5",
+    "commit": "9dfd3c565400a8589ec3faeca86ba08f7ea5dc4f",
+    "digest": "sha256:b43ac4b7a6dafdef7c3705645fbf30f8fcbab9b95cea342e163dc4b0b296694c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T11:56:24Z",
+    "builtAt": "2026-10-28T11:56:15Z",
     "kind": "release",
-    "notes": [
-      "Custom favicon: replace every built-in icon link, not just the first (#233)",
-      "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "40683751603.1",
+      "version": "1.0.9-dev+9dfd3c5",
+      "commit": "9dfd3c565400a8589ec3faeca86ba08f7ea5dc4f",
+      "digest": "sha256:b43ac4b7a6dafdef7c3705645fbf30f8fcbab9b95cea342e163dc4b0b296694c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T11:56:15Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "40683758190.1",
       "version": "1.0.9-dev+bb88c02",
