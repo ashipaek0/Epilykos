@@ -27,6 +27,7 @@ Public display with no login required — settings are password-protected.
 - [Notifications](#notifications)
 - [Updates](#updates)
 - [Key Features](#key-features)
+- [Two-step sign-in](#two-step-sign-in)
 - [Reverse Proxy](#reverse-proxy)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
@@ -300,6 +301,24 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 
 ---
 
+## Two-step sign-in
+
+Settings → **Security** → **Two-step sign-in** adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password and similar) after the admin password. It works without internet and costs nothing.
+
+1. Turn on the switch and enter your password. Scan the QR code, then type the code the app shows.
+2. Save the **10 recovery codes** shown once. Each signs you in once if you lose the phone; **New recovery codes** replaces them.
+3. Signing in is then password, then code (or a recovery code). Turning it off, or making new recovery codes, asks for your password and a current code.
+
+Codes only match when the box's clock is within about a minute of your phone's. A box without internet can drift: when a code fails, the sign-in page shows the box's time, and a recovery code always works. A code works once, so a seen code cannot be replayed, and five wrong codes send you back to the password.
+
+The setting lives in `data/two-step.json` (the secret is encrypted with the app's encryption key). A database-only backup does not carry it, so a restored box starts with two-step sign-in off.
+
+**Locked out?** Any password reset also switches it off:
+- EpilykosOS: `dashboard-password.txt` on the BOOT drive, or `sudo epilykos-reset-password` on the console.
+- Docker: in `docker-compose.yaml` turn on the `environment:` block (remove the `# ` from its two lines) and put `- RESET_TWO_STEP=true` under it, run `docker compose up -d`, then comment it out again.
+
+---
+
 ## Remote Access with Tailscale
 
 No reverse proxy or port forwarding needed: Settings → Network → **Remote access** → **Connect with Tailscale**.
@@ -387,6 +406,7 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 |---------|------------|
 | **No data displayed** | Verify at least one data source is enabled and actively producing metrics |
 | **Settings page unavailable** | Confirm `SETTINGS_PASSWORD` is set correctly in `.env` |
+| **Two-step code never matches** | Compare the box's clock with your phone's (the failed-code message shows it); use a recovery code, or see [Two-step sign-in](#two-step-sign-in) |
 | **Inverter dongle timeout** | Ping the dongle IP from the server and verify the port is reachable |
 | **Charts are blank** | Open the browser console (`F12`) and check for JavaScript errors |
 | **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |

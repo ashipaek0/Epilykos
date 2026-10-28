@@ -721,8 +721,10 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/api', metricsRouter);
 
 // ---------- Authentication & Setup routes ----------
+require('./modules/twoStep').applyEnvReset();   // RESET_TWO_STEP=true (Docker's way back in)
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
+app.use('/api/two-step', isAuthenticated, require('./routes/twoStep'));
 
 // Public page (pre-auth; setup.js gates sources behind login)
 app.get('/setup', (req, res) => {

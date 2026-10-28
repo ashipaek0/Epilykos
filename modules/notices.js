@@ -1,6 +1,6 @@
 /** Maintenance reminders; local snapshots do not replace an off-device backup. */
 'use strict';
-const { getConfig, setConfig, DB_PATH } = require('./database');
+const { getConfig, setConfig, DB_PATH, unreadableSecrets } = require('./database');
 const { readSpace } = require('./storageStatus');
 const path = require('node:path');
 const dbCheck = require('./dbCheck');
@@ -34,6 +34,12 @@ async function status(now = Date.now()) {
         ? 'DATA is critically low on free space. Monitoring may stop when storage fills. Review storage and backup options.'
         : 'DATA free space is low. Review storage before creating backups, restoring data or installing updates.',
       href: '/settings#system' });
+  }
+  const lost = unreadableSecrets().filter(label => !/made again automatically/.test(label));
+  if (lost.length) {
+    notices.push({ id: 'secrets', severity: 'warning',
+      message: `This box cannot read some saved passwords and tokens: ${lost.join(', ')}. They were saved with a different encryption key, usually because a backup was restored onto a new box. Enter them again in Settings. The old box's data/encryption-key would bring them back.`,
+      href: '/settings' });
   }
   if (database.last && !database.last.ok) notices.push({ id: 'database', message: 'The database check found problems. Download a backup and review restore options.', href: '/settings#backup' });
   if (backup.due) notices.push({ id: 'backup', message: 'Save a backup somewhere outside this appliance. Your last download was over 30 days ago, or no download has been recorded.', href: '/settings#backup' });

@@ -102,6 +102,7 @@ function publicDevice(d) {
 function getVapid() {
   const v = readJson(KEYS.vapid, null);
   if (v && v.publicKey && v.privateKey) return { subject: 'https://github.com/ashipaek0/epilykos', ...v };
+  if (v && v.publicKey) logger.warn('notifications: the saved web push key could not be read, so a new pair is made. Devices subscribed with the old key must subscribe again.');
   const keys = require('web-push').generateVAPIDKeys();
   const created = { publicKey: keys.publicKey, privateKey: keys.privateKey, subject: 'https://github.com/ashipaek0/epilykos' };
   writeJson(KEYS.vapid, created);
