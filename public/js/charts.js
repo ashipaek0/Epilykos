@@ -437,6 +437,33 @@ export function compareYears(rows, field, maxYears = MAX_COMPARE_YEARS, now = ne
   };
 }
 
+/**
+ * The whole of each year, for every year on record (oldest first): one value per
+ * field per year. `titles` says when a year is not a full 12 months.
+ */
+export function compareTotals(rows, fields, now = new Date()) {
+  const byYear = new Map();
+  for (const r of rows || []) {
+    const y = Number(String(r.month).slice(0, 4)), m = Number(String(r.month).slice(5, 7));
+    if (!Number.isFinite(y) || !(m >= 1 && m <= 12)) continue;
+    if (!byYear.has(y)) byYear.set(y, { months: new Set(), sums: Object.fromEntries(fields.map(f => [f, 0])) });
+    const e = byYear.get(y);
+    e.months.add(m);
+    for (const f of fields) e.sums[f] += Number(r[f]) || 0;
+  }
+  const years = [...byYear.keys()].sort((a, b) => a - b);
+  const monthName = m => new Date(2000, m - 1, 1).toLocaleDateString(undefined, { month: 'long' });
+  return {
+    labels: years.map(String),
+    titles: years.map(y => {
+      const months = [...byYear.get(y).months].sort((a, b) => a - b);
+      if (y === now.getFullYear()) return `${y} · so far`;
+      return months.length < 12 ? `${y} · ${monthName(months[0])} to ${monthName(months[months.length - 1])}` : String(y);
+    }),
+    series: fields.map(f => ({ field: f, values: years.map(y => Math.round(byYear.get(y).sums[f] * 100) / 100) }))
+  };
+}
+
 /** Days of daily totals needed to cover last month and this month. */
 export function compareMonthDays(now = new Date()) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -492,6 +519,16 @@ function updateEnergyCompareData(chart, container, view, color) {
   chart.update();
 }
 
+function updateEnergyTotalsData(chart, view, series) {
+  chart.data.labels = view.labels;
+  chart.$epTitles = view.titles;
+  chart.data.datasets = series.map((s, i) => ({
+    $name: s.label, label: s.label, data: view.series[i].values,
+    backgroundColor: s.color || '#888', borderRadius: 4, maxBarThickness: 36
+  }));
+  chart.update();
+}
+
 /** Show or hide the Compare selectors and keep their choices in step with the card's series. */
 function syncCompareControls(container, on, mode, series, metric) {
   const box = container.querySelector('.chart-compare');
@@ -500,6 +537,7 @@ function syncCompareControls(container, on, mode, series, metric) {
   if (!on) return;
   box.querySelector('.chart-compare-mode').value = mode;
   const select = box.querySelector('.chart-compare-metric');
+  select.hidden = mode === 'total';   // yearly totals show every series of the card
   const wanted = series.map(s => s.metric).join('|');
   if (select.dataset.metrics !== wanted) {
     select.dataset.metrics = wanted;
@@ -512,11 +550,15 @@ function syncCompareControls(container, on, mode, series, metric) {
 async function refreshEnergyCompare({ chart, container }) {
   const series = (getDatasets(container) || defaultEnergy()).filter(s => resolveEnergyField(s.metric));
   if (!series.length) return;
-  const mode = container.dataset.compareMode === 'month' ? 'month' : 'year';
+  const mode = ['month', 'total'].includes(container.dataset.compareMode) ? container.dataset.compareMode : 'year';
   const chosen = series.find(s => s.metric === container.dataset.compareMetric) || series[0];
   syncCompareControls(container, true, mode, series, chosen.metric);
   const field = resolveEnergyField(chosen.metric);
   const now = new Date();
+  if (mode === 'total') {
+    const view = compareTotals(await (await fetch('/api/monthly?all=1')).json(), series.map(s => resolveEnergyField(s.metric)), now);
+    return updateEnergyTotalsData(chart, view, series);
+  }
   const view = mode === 'month'
     ? compareMonths(await (await fetch(`/api/daily?days=${compareMonthDays(now)}`)).json(), field, now)
     : compareYears(await (await fetch('/api/monthly?all=1')).json(), field, MAX_COMPARE_YEARS, now);
@@ -543,7 +585,7 @@ export function setEnergyRange(range, container) {
   });
 }
 
-/** Change what one energy chart compares: { mode: 'year' | 'month' } and/or { metric }. */
+/** Change what one energy chart compares: { mode: 'year' | 'month' | 'total' } and/or { metric }. */
 export function setEnergyCompare({ mode, metric } = {}, container) {
   chartsOf('energy').filter(c => !container || c.container === container).forEach(c => {
     if (mode) c.container.dataset.compareMode = mode;
