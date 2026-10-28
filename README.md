@@ -294,7 +294,7 @@ The setting lives in `data/two-step.json` (the secret is encrypted with the app'
 
 **Locked out?** Any password reset also switches it off:
 - EpilykosOS: `dashboard-password.txt` on the BOOT drive, or `sudo epilykos-reset-password` on the console.
-- Docker: add `- RESET_TWO_STEP=true` under `environment:` in `docker-compose.yaml`, run `docker compose up -d`, then remove the line again.
+- Docker: in `docker-compose.yaml` turn on the `environment:` block (remove the `# ` from its two lines) and put `- RESET_TWO_STEP=true` under it, run `docker compose up -d`, then comment it out again.
 
 ---
 

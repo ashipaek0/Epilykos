@@ -10,10 +10,7 @@ services:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
-      # "Update now" in Settings → Updates. This gives Epilykos full control of Docker on
-      # this computer (it could start any container), so only keep it if you want one-click
-      # updates. Without it, update with: docker compose pull && docker compose up -d
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock # "Update now" in Settings.
     environment:
       - TZ=Africa/Lagos              # Time zone for day boundaries. Remove this line to follow the host clock.
     devices:
