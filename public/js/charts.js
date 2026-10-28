@@ -157,7 +157,9 @@ function initKind(kind) {
           scales: { x: { grid: { color: grid, display: !cfg.hideGrid }, ticks: { color: text, maxRotation: 0, autoSkipPadding: 8 } }, y: { title: { display: true, text: 'Energy (kWh)', color: text }, grid: { color: grid, display: !cfg.hideGrid }, ticks: { color: text }, beginAtZero: true } },
           plugins: { legend: { labels: { color: text, boxWidth: 12, boxHeight: 12, usePointStyle: true } },
             // "Week of 12 Jun" / "June 2026" for the 6m and 1y views.
-            tooltip: { mode: 'index', intersect: false, callbacks: { title: items => (items[0] && items[0].chart.$epTitles?.[items[0].dataIndex]) || items[0]?.label || '' } } } }
+            tooltip: { mode: 'index', intersect: false, callbacks: { title: items => (items[0] && items[0].chart.$epTitles?.[items[0].dataIndex]) || items[0]?.label || '',
+              // Compare series are named by year or month; the legend adds their totals.
+              label: ctx => ctx.dataset.$name ? `${ctx.dataset.$name}: ${ctx.formattedValue} kWh` : `${ctx.dataset.label ? ctx.dataset.label + ': ' : ''}${ctx.formattedValue}` } } } }
       });
     } else if (kind === 'power') {
       const appearance = cfg.appearance || {}, axes = appearance.axes || {};
@@ -411,9 +413,121 @@ function updateEnergyChartData(chart, container, data) {
   chart.update();
 }
 
+// ── Energy: compare ───────────────────────────────────────────────────────
+// "Compare" puts one metric side by side: each year against the others (Jan to
+// Dec), or this month against last month, day by day.
+const COMPARE_ALPHA = [1, 0.7, 0.5, 0.35];   // newest first
+const MAX_COMPARE_YEARS = 4;
+
+/** One metric's monthly totals per year, newest years last; months with no record are null. */
+export function compareYears(rows, field, maxYears = MAX_COMPARE_YEARS, now = new Date()) {
+  const byMonth = new Map((rows || []).map(r => [r.month, r]));
+  const years = [...new Set((rows || []).map(r => Number(String(r.month).slice(0, 4))).filter(Number.isFinite))].sort((a, b) => b - a).slice(0, maxYears).reverse();
+  const month = i => new Date(2000, i, 1);
+  return {
+    labels: Array.from({ length: 12 }, (_, i) => month(i).toLocaleDateString(undefined, { month: 'short' })),
+    titles: Array.from({ length: 12 }, (_, i) => month(i).toLocaleDateString(undefined, { month: 'long' })),
+    series: years.map(y => {
+      const values = Array.from({ length: 12 }, (_, i) => {
+        const row = byMonth.get(`${y}-${String(i + 1).padStart(2, '0')}`);
+        return row ? Math.round((Number(row[field]) || 0) * 100) / 100 : null;
+      });
+      return { name: String(y), total: values.reduce((a, v) => a + (v || 0), 0), values, partial: y === now.getFullYear() };
+    })
+  };
+}
+
+/** Days of daily totals needed to cover last month and this month. */
+export function compareMonthDays(now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((today - new Date(now.getFullYear(), now.getMonth() - 1, 1)) / 86400000) + 1;
+}
+
+/** Last month and this month, one value per day of the month; days not yet reached are null. */
+export function compareMonths(rows, field, now = new Date()) {
+  const byDay = new Map((rows || []).map(r => [r.day, r]));
+  const months = [new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 1)];
+  const length = d => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const n = Math.max(...months.map(length));
+  return {
+    labels: Array.from({ length: n }, (_, i) => String(i + 1)),
+    titles: Array.from({ length: n }, (_, i) => `Day ${i + 1}`),
+    series: months.map((m, k) => {
+      const current = k === months.length - 1;
+      const values = Array.from({ length: n }, (_, i) => {
+        const day = i + 1;
+        if (day > length(m) || (current && day > now.getDate())) return null;
+        const row = byDay.get(ymd(new Date(m.getFullYear(), m.getMonth(), day)));
+        return row ? Math.round((Number(row[field]) || 0) * 100) / 100 : 0;
+      });
+      return { name: m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), total: values.reduce((a, v) => a + (v || 0), 0), values, partial: current };
+    })
+  };
+}
+
+/** The colour with an alpha, for a hex or rgb() colour; anything else is used as it is. */
+export function shade(color, alpha) {
+  const c = String(color || '').trim();
+  let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+  if (m) {
+    const h = m[1].length === 3 ? m[1].replace(/./g, x => x + x) : m[1];
+    return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${alpha})`;
+  }
+  m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(c);
+  return m ? `rgba(${m[1]},${m[2]},${m[3]},${alpha})` : c || '#888';
+}
+
+const fmtKwh = v => Math.round(v).toLocaleString();
+
+function updateEnergyCompareData(chart, container, view, color) {
+  chart.data.labels = view.labels;
+  chart.$epTitles = view.titles;
+  const last = view.series.length - 1;
+  chart.data.datasets = view.series.map((s, i) => ({
+    $name: s.name,
+    label: `${s.name} · ${fmtKwh(s.total)} kWh${s.partial ? ' so far' : ''}`,
+    data: s.values, backgroundColor: shade(color, COMPARE_ALPHA[Math.min(last - i, COMPARE_ALPHA.length - 1)]),
+    borderRadius: 3, maxBarThickness: 18
+  }));
+  chart.update();
+}
+
+/** Show or hide the Compare selectors and keep their choices in step with the card's series. */
+function syncCompareControls(container, on, mode, series, metric) {
+  const box = container.querySelector('.chart-compare');
+  if (!box) return;
+  box.hidden = !on;
+  if (!on) return;
+  box.querySelector('.chart-compare-mode').value = mode;
+  const select = box.querySelector('.chart-compare-metric');
+  const wanted = series.map(s => s.metric).join('|');
+  if (select.dataset.metrics !== wanted) {
+    select.dataset.metrics = wanted;
+    select.innerHTML = '';
+    for (const s of series) { const o = document.createElement('option'); o.value = s.metric; o.textContent = s.label; select.appendChild(o); }
+  }
+  select.value = metric;
+}
+
+async function refreshEnergyCompare({ chart, container }) {
+  const series = (getDatasets(container) || defaultEnergy()).filter(s => resolveEnergyField(s.metric));
+  if (!series.length) return;
+  const mode = container.dataset.compareMode === 'month' ? 'month' : 'year';
+  const chosen = series.find(s => s.metric === container.dataset.compareMetric) || series[0];
+  syncCompareControls(container, true, mode, series, chosen.metric);
+  const field = resolveEnergyField(chosen.metric);
+  const now = new Date();
+  const view = mode === 'month'
+    ? compareMonths(await (await fetch(`/api/daily?days=${compareMonthDays(now)}`)).json(), field, now)
+    : compareYears(await (await fetch('/api/monthly?all=1')).json(), field, MAX_COMPARE_YEARS, now);
+  updateEnergyCompareData(chart, container, view, chosen.color);
+}
+
 async function refreshEnergyChartFor({ chart, container }) {
   try {
     const range = rangeOf(container, 'energy');
+    if (range === 'compare') return await refreshEnergyCompare({ chart, container });
+    syncCompareControls(container, false);
     const r = await fetch(`/api/daily?days=${energyRangeDays(range)}`);
     updateEnergyChartData(chart, container, groupEnergy(await r.json(), ENERGY_GROUPING[range]));
   } catch (e) { console.warn('[charts] energy refresh failed:', e); }
@@ -425,6 +539,15 @@ export async function refreshEnergyChart() { for (const c of chartsOf('energy'))
 export function setEnergyRange(range, container) {
   chartsOf('energy').filter(c => !container || c.container === container).forEach(c => {
     c.container.dataset.range = range;
+    refreshEnergyChartFor(c);
+  });
+}
+
+/** Change what one energy chart compares: { mode: 'year' | 'month' } and/or { metric }. */
+export function setEnergyCompare({ mode, metric } = {}, container) {
+  chartsOf('energy').filter(c => !container || c.container === container).forEach(c => {
+    if (mode) c.container.dataset.compareMode = mode;
+    if (metric) c.container.dataset.compareMetric = metric;
     refreshEnergyChartFor(c);
   });
 }
