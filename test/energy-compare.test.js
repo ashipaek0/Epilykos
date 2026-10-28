@@ -9,7 +9,7 @@ const { pathToFileURL } = require('node:url');
 const read = rel => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 
 (async () => {
-  const { compareYears, compareMonths, compareMonthDays, shade } = await import(pathToFileURL(path.join(__dirname, '../public/js/charts.js')).href);
+  const { compareYears, compareMonths, compareMonthDays, compareTotals, shade } = await import(pathToFileURL(path.join(__dirname, '../public/js/charts.js')).href);
   const now = new Date(2026, 9, 21, 15);          // Wednesday 21 October 2026
 
   // Year on year.
@@ -58,6 +58,24 @@ const read = rel => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
   assert.match(jan.series[0].name, /December/, 'January compares with the December before it');
   console.log('ok - month on month: last month and this month day by day, no values for days that have not happened');
 
+  // Yearly totals: every year on record, whole.
+  const long = [];
+  for (let y = 2020; y <= 2026; y++) {
+    const from = y === 2020 ? 3 : 1, to = y === 2026 ? 10 : 12;
+    for (let m = from; m <= to; m++) long.push({ month: `${y}-${String(m).padStart(2, '0')}`, solar_kwh: 100, consumption_kwh: 50.555, grid_import_kwh: 0 });
+  }
+  const totals = compareTotals(long, ['solar_kwh', 'consumption_kwh'], now);
+  assert.deepEqual(totals.labels, ['2020', '2021', '2022', '2023', '2024', '2025', '2026'], 'every year, oldest first, not just the newest four');
+  assert.deepEqual(totals.series.map(s => s.field), ['solar_kwh', 'consumption_kwh']);
+  assert.deepEqual(totals.series[0].values, [1000, 1200, 1200, 1200, 1200, 1200, 1000], 'each year added up');
+  assert.equal(totals.series[1].values[1], 606.66, '12 x 50.555, rounded to 2 places');
+  assert.match(totals.titles[0], /^2020 · .+ to .+$/, 'a year recording began part-way says from when');
+  assert.equal(totals.titles[1], '2021');
+  assert.equal(totals.titles[6], '2026 · so far');
+  assert.deepEqual(compareTotals([], ['solar_kwh'], now), { labels: [], titles: [], series: [{ field: 'solar_kwh', values: [] }] });
+  assert.deepEqual(compareTotals([{ month: 'bad', solar_kwh: 5 }, { month: '2025-13', solar_kwh: 5 }], ['solar_kwh'], now).labels, [], 'rows that are not a month are ignored');
+  console.log('ok - yearly totals: every year on record whole, with the partial years named');
+
   assert.equal(shade('#f59e0b', 0.5), 'rgba(245,158,11,0.5)');
   assert.equal(shade('#fb0', 1), 'rgba(255,187,0,1)');
   assert.equal(shade('rgb(10, 20, 30)', 0.35), 'rgba(10,20,30,0.35)');
@@ -68,6 +86,7 @@ const read = rel => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
   const card = read('public/js/components/chartEnergy.js');
   assert.match(card, /<button data-range="1y">1y<\/button><button data-range="compare">Compare<\/button>/);
   assert.match(card, /<option value="year">Year on year<\/option><option value="month">Month on month<\/option>/);
+  assert.match(card, /<option value="month">Month on month<\/option><option value="total">Yearly totals<\/option>/);
   assert.match(card, /chart-compare-metric/);
   assert.doesNotMatch(card, /type="radio"/);
   const server = read('routes/metrics.js');
