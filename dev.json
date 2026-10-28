@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40657231395.1",
-    "version": "1.0.9-dev+077b8a7",
-    "commit": "077b8a75c664f22dcca8accac0f640a4c017b61c",
-    "digest": "sha256:a3d801d5ac09da685b3f67a0c41793623e6c6b943bb2f5249a097b26680fcfcb",
+    "buildId": "40666255080.1",
+    "version": "1.0.9-dev+435a32f",
+    "commit": "435a32fc651fae988e39fb5d5f3cf5149f063705",
+    "digest": "sha256:4a824382f938762e2aeebedae541dbcf1e02391986bd4d427e61202954591258",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T08:30:28Z",
+    "builtAt": "2026-10-28T09:42:11Z",
     "kind": "release",
     "notes": [
-      "Backups: optional passphrase for saved passwords (#226)"
+      "Energy chart: Compare view (year on year, month on month) (#227)"
     ]
   },
   "history": [
+    {
+      "buildId": "40666255080.1",
+      "version": "1.0.9-dev+435a32f",
+      "commit": "435a32fc651fae988e39fb5d5f3cf5149f063705",
+      "digest": "sha256:4a824382f938762e2aeebedae541dbcf1e02391986bd4d427e61202954591258",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T09:42:11Z",
+      "kind": "release",
+      "notes": [
+        "Energy chart: Compare view (year on year, month on month) (#227)"
+      ]
+    },
     {
       "buildId": "40657231395.1",
       "version": "1.0.9-dev+077b8a7",
