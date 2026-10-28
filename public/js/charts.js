@@ -21,7 +21,7 @@ import { normalizePowerStatsConfig, buildPowerStatsSection, updatePowerStatsSect
 /** canvas element → { chart, kind } */
 const instances = new Map();
 const KINDS = { power: 'powerChart', energy: 'energyBarChart', metric: 'metricChart' };
-const DEFAULT_RANGE = { power: '24h', energy: '7d', metric: '24h' };
+const DEFAULT_RANGE = { power: '24h', energy: '30d', metric: '24h' };
 
 /** Resolve any arbitrary metric name to the matching API power field via keyword matching. */
 function resolvePowerField(metricName) {
@@ -261,6 +261,21 @@ export function updatePowerChartData(chart, container, data) {
   if (cfg.fill !== false) applyGradientFills(chart);
 }
 
+/**
+ * The window the power chart's statistics (mean, min, max, last) cover. The
+ * 24h view: today since local midnight, so they start again at midnight (a
+ * rolling 24 h still held yesterday's readings after midnight). The 3d view
+ * is by definition the last 72 hours. The chart itself keeps its rolling
+ * axis. `from` stays a minute behind `to` (the server needs from < to, and
+ * a second after midnight there is hardly any data).
+ */
+export function powerStatsWindow(range, now = new Date()) {
+  const to = Math.floor(now.getTime() / 1000);
+  if (range === '3d') return { from: to - 72 * 3600, to };
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return { from: Math.min(Math.floor(midnight.getTime() / 1000), to - 60), to };
+}
+
 const powerRequestGates = new WeakMap();
 const powerStatsCache = new WeakMap(); // container → { key, at, response, range }
 const POWER_STATS_TTL_MS = 60_000;
@@ -287,12 +302,14 @@ export async function refreshPowerChartFor({ chart, container }, suppliedState) 
     if (!fields.length) { mount.hidden = false; const body=mount.querySelector('tbody'); if(body)body.replaceChildren(); return; }
     // Live updates arrive every few seconds; statistics over 24 h / 3 d don't
     // need re-querying that often. Reuse a response for a minute, with its range.
-    const statsKey = `${range}|${fields.join(',')}`, cachedStats = powerStatsCache.get(container);
-    let response, statsRange = { from, to };
+    const statsWindow = powerStatsWindow(range);
+    // The window's start is part of the key, so the first request after midnight is never served the old day.
+    const statsKey = `${range}|${statsWindow.from}|${fields.join(',')}`, cachedStats = powerStatsCache.get(container);
+    let response, statsRange = statsWindow;
     if (!suppliedState?.forceStats && cachedStats && cachedStats.key === statsKey && Date.now() - cachedStats.at < POWER_STATS_TTL_MS) {
       response = cachedStats.response; statsRange = cachedStats.range;
     } else {
-      const r = await fetch(`/api/history/power-stats?from=${from}&to=${to}&fields=${encodeURIComponent(fields.join(','))}`);
+      const r = await fetch(`/api/history/power-stats?from=${statsWindow.from}&to=${statsWindow.to}&fields=${encodeURIComponent(fields.join(','))}`);
       if (!r.ok) throw new Error(`Statistics request failed (HTTP ${r.status})`);
       response = await r.json();
       powerStatsCache.set(container, { key: statsKey, at: Date.now(), response, range: statsRange });
