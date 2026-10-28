@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40654901959.1",
-    "version": "1.0.9-dev+787adf4",
-    "commit": "787adf455e534106622b895e908e025a6816a69c",
-    "digest": "sha256:dc70f9e778a8469d3888fdb567700aa55ec381099355618eecb410e678ed2f00",
+    "buildId": "40655707968.1",
+    "version": "1.0.9-dev+00ca119",
+    "commit": "00ca11985a5f84a33bccee94581a6c2a521ccfb8",
+    "digest": "sha256:176db4787b71685440b6868e9c36fd1b253d6826bf0aedc0fc77ceca08e7f75d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T08:10:49Z",
+    "builtAt": "2026-10-28T08:17:42Z",
     "kind": "release",
     "notes": [
-      "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)"
+      "Energy chart opens on 30d; power chart statistics start at midnight (#224)"
     ]
   },
   "history": [
+    {
+      "buildId": "40655707968.1",
+      "version": "1.0.9-dev+00ca119",
+      "commit": "00ca11985a5f84a33bccee94581a6c2a521ccfb8",
+      "digest": "sha256:176db4787b71685440b6868e9c36fd1b253d6826bf0aedc0fc77ceca08e7f75d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T08:17:42Z",
+      "kind": "release",
+      "notes": [
+        "Energy chart opens on 30d; power chart statistics start at midnight (#224)"
+      ]
+    },
     {
       "buildId": "40654901959.1",
       "version": "1.0.9-dev+787adf4",
