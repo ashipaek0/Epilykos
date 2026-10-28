@@ -960,14 +960,22 @@
   function formatBytes(n) {
     return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
   }
-  function downloadBackup() {
+  function downloadBackup(protect) {
     // Navigating to the download keeps the page (attachment response).
     var a = document.createElement('a');
-    a.href = '/api/backup';
+    a.href = protect ? '/api/backup?protect=1' : '/api/backup';
     a.download = '';
     document.body.appendChild(a);
     a.click();
     a.remove();
+  }
+  // The passphrase goes to the server in a POST body, which holds it for the
+  // download that follows; it never appears in the address.
+  async function sendBackupPassphrase(passphrase) {
+    var token = await window.EpilykosCsrf.token();
+    var res = await fetch('/api/backup/protect', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': token }, body: JSON.stringify({ passphrase: passphrase }) });
+    var body = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(body.error || 'The passphrase was not accepted (' + res.status + ')');
   }
   function restoreDialogBody(what) {
     var wrap = document.createElement('div');
@@ -984,13 +992,48 @@
     }
     return true;
   }
+  // The restore has the whole file and is waiting: this backup's saved
+  // passwords are locked with a passphrase. Resolves { passphrase },
+  // { skip: true } (restore without the saved passwords) or null (cancel).
+  async function askRestorePassphrase(ctx) {
+    var wrap = document.createElement('div');
+    wrap.innerHTML = '<p>This backup was made with a passphrase protecting its saved passwords and tokens. Enter it to restore them.</p>' +
+      '<div class="st-field"><label for="restore-pass">Passphrase</label><input type="password" id="restore-pass" name="passphrase" autocomplete="off" maxlength="256"></div>' +
+      '<p class="st-help st-dialog-error" role="alert"></p>' +
+      '<p class="st-help">No passphrase? <em>Restore without saved passwords</em> restores everything else, and you enter the passwords again.</p>';
+    wrap.querySelector('.st-dialog-error').textContent = ctx && ctx.error ? ctx.error : '';
+    var r = await openDialog({ title: 'Passphrase needed', body: wrap, alert: true, actions: [
+      { label: 'Cancel restore', value: null },
+      { label: 'Restore without saved passwords', value: 'skip' },
+      { label: 'Restore', value: 'ok', kind: 'primary' }] });
+    if (r.value === 'skip') return { skip: true };
+    if (r.value !== 'ok') return null;
+    return { passphrase: r.form.elements.passphrase.value };
+  }
   function wireBackup() {
     var statusEl = $('backup-status');
-    $('backup-btn').addEventListener('click', function () {
-      downloadBackup();
-      showStatus(statusEl, 'Your backup is downloading.', 'success');
+    var protect = $('backup-protect'), fields = $('backup-passphrase-fields'), pass = $('backup-pass'), pass2 = $('backup-pass2');
+    protect.addEventListener('change', function () {
+      fields.hidden = !protect.checked;
+      if (!protect.checked) { pass.value = ''; pass2.value = ''; }
+      else pass.focus();
     });
-    var restoreUpload = window.EpilykosRestoreUploads.connect({ status: statusEl, progress: $('restore-progress'), row: $('restore-progress-row'), cancel: $('restore-cancel'), restore: $('restore-btn'), backup: $('backup-btn'), onSelected: function () { leaving = true; location.reload(); } });
+    $('backup-btn').addEventListener('click', async function () {
+      if (!protect.checked) {
+        downloadBackup(false);
+        showStatus(statusEl, 'Your backup is downloading.', 'success');
+        return;
+      }
+      if (pass.value.length < 8) { showStatus(statusEl, 'The passphrase needs at least 8 characters.', 'error'); pass.focus(); return; }
+      if (pass.value !== pass2.value) { showStatus(statusEl, 'The two passphrases are not the same.', 'error'); pass2.focus(); return; }
+      try {
+        await sendBackupPassphrase(pass.value);
+      } catch (e) { showStatus(statusEl, e.message, 'error'); return; }
+      pass.value = ''; pass2.value = '';
+      downloadBackup(true);
+      showStatus(statusEl, 'Your backup is downloading. Keep the passphrase: it is needed to restore the saved passwords.', 'success');
+    });
+    var restoreUpload = window.EpilykosRestoreUploads.connect({ askPassphrase: askRestorePassphrase, status: statusEl, progress: $('restore-progress'), row: $('restore-progress-row'), cancel: $('restore-cancel'), restore: $('restore-btn'), backup: $('backup-btn'), onSelected: function () { leaving = true; location.reload(); } });
     restoreUpload.refresh();
     $('snapshot-refresh').addEventListener('click', loadSnapshots);
     var file = $('restore-file');

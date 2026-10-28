@@ -317,6 +317,15 @@ The setting lives in `data/two-step.json` (the secret is encrypted with the app'
 - EpilykosOS: `dashboard-password.txt` on the BOOT drive, or `sudo epilykos-reset-password` on the console.
 - Docker: in `docker-compose.yaml` turn on the `environment:` block (remove the `# ` from its two lines) and put `- RESET_TWO_STEP=true` under it, run `docker compose up -d`, then comment it out again.
 
+
+### Backups and saved passwords
+
+Settings → **Backup and restore** → **Download backup** saves the whole database as one file. Saved passwords and tokens (Solcast, MQTT, Home Assistant, Tuya, notifications and so on) are inside it locked with a key that stays on the box, in `data/encryption-key`. Restored onto a different box they cannot be read, so they have to be entered again.
+
+To carry them across, switch on **Protect saved passwords with a passphrase** before downloading and choose a passphrase (8 to 256 characters). The saved passwords in that file are locked with the passphrase instead of the box's key. When you restore it, Epilykos asks for the passphrase after the upload, then locks the passwords again with the new box's own key. **Restore without saved passwords** restores everything else and leaves them empty if the passphrase is lost.
+
+The passphrase is not stored anywhere and cannot be recovered. A wrong one is refused and asked for again, and nothing is replaced until the right one is given or the restore is cancelled.
+
 ---
 
 ## Remote Access with Tailscale

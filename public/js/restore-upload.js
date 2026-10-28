@@ -2,11 +2,11 @@
 (function (root) {
   'use strict';
   function connect(options) {
-    var job = null, timer, xhr, cancelled = false, disposed = false, uploading = false, watching = false, authRequired = false;
+    var job = null, timer, xhr, cancelled = false, disposed = false, uploading = false, watching = false, authRequired = false, prompting = false;
     var status = options.status, progress = options.progress, cancelButton = options.cancel, row = options.row;
     function terminal(phase) { return ['selected', 'recovered', 'failed', 'cancelled', 'unknown'].indexOf(phase) !== -1; }
     function describe(s) {
-      var labels = { uploading: 'Uploading backup', preparing: 'Validating and preparing backup. This can take a while.', activating: 'Activating backup. The connection may briefly drop.', recovering: 'Restarting to recover the restore result.', selected: 'Backup restored.', recovered: 'Restore interrupted. The original database was recovered.', failed: 'Restore failed.', cancelled: 'Restore cancelled.', unknown: 'Restore result needs inspection.' };
+      var labels = { uploading: 'Uploading backup', passphrase: 'This backup has saved passwords protected by a passphrase. Waiting for the passphrase.', preparing: 'Validating and preparing backup. This can take a while.', activating: 'Activating backup. The connection may briefly drop.', recovering: 'Restarting to recover the restore result.', selected: 'Backup restored.', recovered: 'Restore interrupted. The original database was recovered.', failed: 'Restore failed.', cancelled: 'Restore cancelled.', unknown: 'Restore result needs inspection.' };
       return (labels[s.phase] || s.phase) + (s.error ? ' ' + s.error : '');
     }
     function controls(s) {
@@ -18,10 +18,34 @@
       job = s; controls(s);
       if (!s) return;
       status.textContent = describe(s);
+      if (s.phase === 'passphrase') ask(s);
       if (s.phase === 'uploading') {
         progress.max = s.bytes; progress.value = bytes === undefined ? s.received : bytes;
         status.textContent += ' — ' + Math.floor(100 * progress.value / s.bytes) + '% (' + progress.value.toLocaleString() + ' / ' + s.bytes.toLocaleString() + ' bytes).';
       } else progress.removeAttribute('value');
+    }
+    // The upload is done and the restore is waiting. The dialog is the page's
+    // (options.askPassphrase → { passphrase } | { skip: true } | null); a wrong
+    // passphrase leaves the job waiting with the reason, so it asks again.
+    async function ask(s) {
+      if (prompting || disposed || authRequired || typeof options.askPassphrase !== 'function') return;
+      prompting = true;
+      var id = encodeURIComponent(s.id), error = s.error || '';
+      try {
+        for (;;) {
+          var answer = await options.askPassphrase({ error: error });
+          if (disposed) return;
+          try {
+            if (!answer) render(await json('/api/restore-jobs/' + id + '/cancel', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } }));
+            else render(await json('/api/restore-jobs/' + id + '/passphrase', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(answer) }));
+            return;
+          } catch (failure) {
+            if (authorizationEnded(failure)) return;
+            if (answer && (failure.status === 422 || failure.status === 400)) { error = failure.message; continue; }
+            status.textContent = failure.message; return;
+          }
+        }
+      } finally { prompting = false; schedule(); }
     }
     async function json(url, settings) {
       var response = await root.fetch(url, settings), body = await response.json().catch(function () { return {}; });
