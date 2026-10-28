@@ -137,9 +137,45 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.deepStrictEqual(bd.nodeRows(state, [{ name: 'plain_metric' }]), [], 'not a combined total: nothing to show');
   });
 
-  await check('cards: a battery node merges charge % and power by part; one total used twice counts once', () => {
-    const rows = bd.nodeRows(state, [{ name: 'avg_soc', format: bd.socFormat }, { name: 'batt', format: bd.chargeFormat }, { name: 'batt', format: bd.dischargeFormat }]);
-    assert.deepStrictEqual(rows, [{ label: 'Phocos 1', value: '64% · ↑ 400 W' }, { label: 'Phocos 2', value: '66% · ↓ 150 W' }]);
+  await check('cards: a battery node merges charge % and power by part; one signed total used twice counts once', () => {
+    const rows = bd.nodeRows(state, [{ name: 'avg_soc', format: bd.socFormat }, { name: 'batt', power: 'charge' }, { name: 'batt', power: 'discharge' }]);
+    assert.deepStrictEqual(rows, [{ label: 'Phocos 1', value: '64% · Charging 400 W', tone: 'charging' }, { label: 'Phocos 2', value: '66% · Discharging 150 W', tone: 'discharging' }]);
+  });
+
+  await check('cards: separate charge and discharge totals read as ONE value per part, the same way for every part', () => {
+    const two = {
+      breakdowns: { metrics: {
+        chg: { fn: 'sum', unit: 'W', parts: [{ metric: 'a_chg', label: 'Phocos1' }, { metric: 'b_chg', label: 'Phocos2' }, { metric: 'c_chg', label: 'Phocos3' }] },
+        dis: { fn: 'sum', unit: 'W', parts: [{ metric: 'a_dis', label: 'Phocos1' }, { metric: 'b_dis', label: 'Phocos2' }, { metric: 'c_dis', label: 'Phocos3' }] }
+      }, roles: {} },
+      metrics: { a_chg: { value: 0, unit: 'W' }, a_dis: { value: 1260, unit: 'W' }, b_chg: { value: 1210, unit: 'W' }, b_dis: { value: 0, unit: 'W' }, c_chg: { value: 0, unit: 'W' }, c_dis: { value: 4, unit: 'W' } }
+    };
+    const rows = bd.nodeRows(two, [{ name: 'chg', power: 'charge' }, { name: 'dis', power: 'discharge' }]);
+    assert.deepStrictEqual(rows, [
+      { label: 'Phocos1', value: 'Discharging 1.26 kW', tone: 'discharging' },
+      { label: 'Phocos2', value: 'Charging 1.21 kW', tone: 'charging' },
+      { label: 'Phocos3', value: 'Idle', tone: 'idle' }
+    ]);
+    assert.ok(rows.every(r => !/[↑↓]/.test(r.value)), 'no arrows');
+    // A part that has not reported says so, rather than "Idle".
+    delete two.metrics.a_chg; delete two.metrics.a_dis;
+    assert.strictEqual(bd.nodeRows(two, [{ name: 'chg', power: 'charge' }, { name: 'dis', power: 'discharge' }])[0].value, '—');
+    // With the state of charge in front, the power is still one value.
+    two.breakdowns.metrics.soc = { fn: 'mean', unit: '%', parts: [{ metric: 'a_soc', label: 'Phocos1' }, { metric: 'b_soc', label: 'Phocos2' }, { metric: 'c_soc', label: 'Phocos3' }] };
+    Object.assign(two.metrics, { a_soc: { value: 20 }, b_soc: { value: 21 }, c_soc: { value: 20 } });
+    assert.strictEqual(bd.nodeRows(two, [{ name: 'soc', format: bd.socFormat }, { name: 'chg', power: 'charge' }, { name: 'dis', power: 'discharge' }])[1].value, '21% · Charging 1.21 kW');
+    assert.deepStrictEqual(bd.batteryPower({ charge: 10, discharge: 0 }), { text: 'Idle', tone: 'idle' }, '10 W is still idle');
+    assert.strictEqual(bd.batteryPower({ charge: 11 }).tone, 'charging');
+  });
+
+  await check('cards: the battery rows are coloured, and every battery card asks for power, not arrows', () => {
+    assert.match(read('public/style.css'), /\.bd-charging \.bd-value \{ color: var\(--battery\)/);
+    assert.match(read('public/style.css'), /\.bd-discharging \.bd-value \{ color: var\(--discharge\)/);
+    for (const card of ['systemOverview', 'flowCard', 'flowCardSquare', 'flowCardSquare2', 'systemTopology']) {
+      const src = read(`public/js/components/${card}.js`);
+      assert.match(src, /power: 'charge'/, card); assert.match(src, /power: 'discharge'/, card);
+      assert.doesNotMatch(src, /chargeFormat|dischargeFormat/, card);
+    }
   });
 
   await check('cards: off by default, so a combined total shows no sign of its parts', () => {
