@@ -107,7 +107,8 @@ function normaliseRecovery(code) { return String(code == null ? '' : code).toUpp
 
 function newRecoveryCode() {
   let out = '';
-  for (const byte of crypto.randomBytes(10)) out += RECOVERY_ALPHABET[byte % RECOVERY_ALPHABET.length];
+  // randomInt is unbiased; a byte modulo 31 would favour the first few characters.
+  for (let i = 0; i < 10; i++) out += RECOVERY_ALPHABET[crypto.randomInt(RECOVERY_ALPHABET.length)];
   return out.slice(0, 5) + '-' + out.slice(5);
 }
 
@@ -222,6 +223,6 @@ function applyEnvReset() {
 
 module.exports = {
   isEnabled, status, enable, check, disable, regenerateRecovery, applyEnvReset,
-  generateSecret, otpauthUri, verifyTotp, codeAt, base32Encode, base32Decode, hotp,
+  generateSecret, otpauthUri, verifyTotp, codeAt, base32Encode, base32Decode, hotp, newRecoveryCode,
   STEP_SECONDS, RECOVERY_COUNT
 };
