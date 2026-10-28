@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40666608724.1",
-    "version": "1.0.9-dev+d593056",
-    "commit": "d593056045ebd2225a6b03b1d23d7631aa9c255d",
-    "digest": "sha256:244e5673ecbbf2aa373311dda0f9c8f9b0b6e7c6828929d73993e11bf2e05bb1",
+    "buildId": "40677157210.1",
+    "version": "1.0.9-dev+f80c2db",
+    "commit": "f80c2db564b0e10072bff8d6164a8601fa70c6d2",
+    "digest": "sha256:6ef9c4d4b21581ceedaa9c4e56a694e04e3b5a987303a3be9ddfea2d6c008663",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T09:44:52Z",
+    "builtAt": "2026-10-28T11:05:17Z",
     "kind": "release",
     "notes": [
-      "Backup page: say the passphrase is needed to restore saved passwords (#228)"
+      "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)"
     ]
   },
   "history": [
+    {
+      "buildId": "40677157210.1",
+      "version": "1.0.9-dev+f80c2db",
+      "commit": "f80c2db564b0e10072bff8d6164a8601fa70c6d2",
+      "digest": "sha256:6ef9c4d4b21581ceedaa9c4e56a694e04e3b5a987303a3be9ddfea2d6c008663",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T11:05:17Z",
+      "kind": "release",
+      "notes": [
+        "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)"
+      ]
+    },
     {
       "buildId": "40666608724.1",
       "version": "1.0.9-dev+d593056",
