@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "40655707968.1",
-    "version": "1.0.9-dev+00ca119",
-    "commit": "00ca11985a5f84a33bccee94581a6c2a521ccfb8",
-    "digest": "sha256:176db4787b71685440b6868e9c36fd1b253d6826bf0aedc0fc77ceca08e7f75d",
+    "buildId": "40655739412.1",
+    "version": "1.0.9-dev+7e276c0",
+    "commit": "7e276c0289db34a6864632aed38e603e437a8a80",
+    "digest": "sha256:78b093505151ce9dd0dd4e496dcd35b384a429578eb999d99cd007f67ac6c552",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-28T08:17:42Z",
+    "builtAt": "2026-10-28T08:17:57Z",
     "kind": "release",
     "notes": [
-      "Energy chart opens on 30d; power chart statistics start at midnight (#224)"
+      "Two-step sign-in, unreadable secrets, home page cleanup (#223)"
     ]
   },
   "history": [
+    {
+      "buildId": "40655739412.1",
+      "version": "1.0.9-dev+7e276c0",
+      "commit": "7e276c0289db34a6864632aed38e603e437a8a80",
+      "digest": "sha256:78b093505151ce9dd0dd4e496dcd35b384a429578eb999d99cd007f67ac6c552",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-28T08:17:57Z",
+      "kind": "release",
+      "notes": [
+        "Two-step sign-in, unreadable secrets, home page cleanup (#223)"
+      ]
+    },
     {
       "buildId": "40655707968.1",
       "version": "1.0.9-dev+00ca119",
