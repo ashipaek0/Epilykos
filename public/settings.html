@@ -449,7 +449,7 @@
               <div class="st-field"><label for="backup-pass">Passphrase</label><input type="password" id="backup-pass" autocomplete="new-password" minlength="8" maxlength="256"></div>
               <div class="st-field"><label for="backup-pass2">Type it again</label><input type="password" id="backup-pass2" autocomplete="new-password" minlength="8" maxlength="256"></div>
             </div>
-            <p class="st-help">Passphrase is necessary to restore a backup that includes saved passwords and tokens (Solcast, MQTT, Home Assistant, Tuya, notifications). Without it, the backup still restores but without the saved passwords and tokens.</p>
+            <p class="st-help">Passphrase required to restore saved passwords and tokens. Without a passphrase, passwords and tokens need to be entered again in new install</p>
             <div id="backup-status" class="test-status" role="status"></div>
             <div id="restore-progress-row" class="st-inline-actions" hidden><progress id="restore-progress" aria-label="Backup upload progress" max="100" value="0"></progress><button type="button" id="restore-cancel" class="st-btn">Cancel restore</button></div>
           </div>
