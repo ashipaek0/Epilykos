@@ -190,6 +190,20 @@ Wired JBD and JK packs report the same metric names as over Bluetooth (`voltage`
 Most BMS and inverter modules accept **one Bluetooth connection at a time**, so close the vendor phone app while
 Epilykos is connected. All Bluetooth devices share one adapter and are polled one after another.
 
+### Phocos Any-Grid BLE
+Phocos Any-Grid PSW-H inverters report over Bluetooth LE without pairing: Epilykos reads their live values, ratings, identity and settings, and can change an allowlisted set of settings (each change is read, compared, written and read back). The profile comes from analysis of the PhocosLink 2.1.4 app and has not been checked against a unit.
+
+How far each reading is trusted (`confidence` in the field list):
+- **app_confirmed**: the app shows it the same way (grid and output voltage, load, battery voltage, SOC, charge and discharge current, PV voltage and power, mode, identity, ratings, settings).
+- **corroborated**: also matches Phocos's RS-232 command document (2020-12-14): output apparent power, DC bus voltage and heatsink temperature. The live block has the same ten readings, in the same order and number formats, as that document's `QPIGS` reply.
+- **inferred**: PV1 and PV2 current. The document defines PV input current as measured on the battery side, so PV voltage times PV current need not equal PV power.
+- **derived / estimated**: calculated by Epilykos (PV power, battery net power, estimated grid power).
+- **unverified**: the fault bytes. The document names 29 fault codes (see the wired profile), but does not say how this Bluetooth block encodes them.
+
+The document lists four battery types (0 AGM/Gel, 1 Flooded, 2 User-defined, 3 Pylontech) for firmware 06.11 or later; the app offers up to eight, so the Battery type setting still shows plain numbers.
+
+For a wired connection to the same inverter, see **Phocos Any-Grid PSW-H (RS-232 / RS-485)** below.
+
 ### RS232 Serial
 Connect inverters via USB-to-RS232/RS485 adapter. Supported protocols:
 - **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, Phocos, MUST, Sako (2400 8N1)

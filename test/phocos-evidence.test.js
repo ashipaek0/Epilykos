@@ -42,7 +42,8 @@ function fixture(watts = 8000, nominal = 48) {
   assert.equal(data.settings.force_equalization,undefined);
   const entities = dongleProfileEntities(profile);
   assert.equal(entities.find(e=>e.name==='estimated_grid_power').confidence,'estimated');
-  assert.equal(entities.find(e=>e.name==='bus_voltage').confidence,'inferred');
+  assert.equal(entities.find(e=>e.name==='bus_voltage').confidence,'corroborated');
+  assert.equal(entities.find(e=>e.name==='pv1_current').confidence,'inferred','PV current is battery-side in the Phocos document, so it stays inferred');
   assert.equal(entities.find(e=>e.name==='setting_float_voltage').writable,false);
   assert.equal(entities.find(e=>e.name==='rated_output_power').id,'ratings.outputPower');
   raws = fixture(); raws[profile.blocks.findIndex(b=>b.id==='status')] = null;
