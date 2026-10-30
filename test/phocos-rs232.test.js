@@ -10,6 +10,7 @@ const path = require('node:path');
 process.env.LOG_TO_FILE = 'false';
 const phocos = require('../modules/rs232-decoders/phocos-ascii');
 const profile = require('../profiles/rs232/phocos-anygrid-rs232.json');
+const rs232 = require('../modules/rs232');
 
 const src = fs.readFileSync(path.join(__dirname, '../modules/rs232.js'), 'utf8');
 const start = src.indexOf('function decodeAsciiResponse'), end = src.indexOf('function decodeVedirectFrame');
@@ -63,7 +64,7 @@ const unit = read('QPGS0', '0 92931901100123 L 00 230.0 50.00 230.0 50.00 0450 0
 assert.equal(unit.serial_number, '92931901100123');
 assert.equal(unit.operating_mode, 'L'); assert.equal(unit.operating_mode_label, 'Grid / line');
 num(unit, { other_units_connected: 0, fault_code: 0, total_charging_current: 4, total_output_va: 450, total_output_power: 380, total_nominal_power_percent: 9, ac_output_mode: 0, charger_priority: 2, max_charging_current_set: 60, max_charging_current_possible: 80, max_ac_charging_current_set: 30 });
-assert.equal(unit.fault_description, 'No fault'); assert.equal(unit.charger_priority_label, 'Solar and utility'); assert.equal(unit.ac_output_mode_label, 'Single unit');
+assert.equal(unit.fault_description, 'No fault'); assert.equal(unit.charger_priority_label, 'Solar and utility (SNU)'); assert.equal(unit.ac_output_mode_label, 'Single');
 // status 10001010: b7 MPPT active, b4b3 = 01 voltage low, b2 = 0 AC input available, b1 = 1 AC output on
 num(unit, { mppt_active: 1, battery_state_code: 1, ac_input_available: 1, ac_output_on: 1 }); assert.equal(unit.battery_state, 'Voltage low');
 const faulty = read('QPGS0', '1 92931901100123 F 04 000.0 00.00 000.0 00.00 0000 0000 000 40.1 000 010 000.0 000 00000 00000 000 00003100 0 1 060 080 30 00.0 000');
@@ -84,7 +85,7 @@ console.log('ok - all 29 fault codes of the document have their name');
 // AAA.A BB.B CCC.C DD.D EE.E FFFF GGGG HH.H II.I JJ.J KK.K LL.L M NN OOO P Q R S TT U V WW.W X Y ZZZ a bbb cc.c
 const settings = read('QPIRI', '230.0 50.0 230.0 50.0 21.7 5000 5000 48.0 46.0 42.0 56.4 54.0 3 30 060 0 2 2 9 00 0 0 48.0 0 0 000 0 000 44.0');
 num(settings, { rated_output_voltage: 230, rated_output_frequency: 50, rated_output_current: 21.7, rated_output_va: 5000, rated_output_power: 5000, rated_battery_voltage: 48, setting_recharge_voltage: 46, setting_disconnect_voltage: 42, setting_boost_voltage: 56.4, setting_float_voltage: 54, setting_battery_type: 3, setting_max_utility_charging_current: 30, setting_max_charging_current: 60, setting_input_range: 0, setting_output_priority: 2, setting_charger_priority: 2, setting_max_units: 9, setting_offgrid_switch_voltage: 48, setting_boost_duration: 0, setting_discharge_current: 0, setting_reconnect_voltage: 44 });
-assert.equal(settings.setting_battery_type_label, 'Pylontech'); assert.equal(settings.setting_output_priority_label, 'SBU'); assert.equal(settings.setting_input_range_label, 'Appliances'); assert.equal(settings.setting_charger_priority_label, 'Solar and utility');
+assert.equal(settings.setting_battery_type_label, 'Pylontech'); assert.equal(settings.setting_output_priority_label, 'SBU'); assert.equal(settings.setting_input_range_label, 'Appliances (APL)'); assert.equal(settings.setting_charger_priority_label, 'Solar and utility (SNU)');
 const flags = read('QFLAG', 'EDEEEDEDE');   // a b c d e f g h i
 num(flags, { setting_buzzer: 1, setting_overload_bypass: 0, setting_lcd_auto_return: 1, setting_restart_overload: 1, setting_restart_overtemperature: 0, setting_lcd_backlight: 1, setting_alarm_source_interrupted: 0, setting_record_fault_codes: 1 });
 assert.equal(read('QVFW', 'VERFW:00006.11').firmware_version, '00006.11');
@@ -95,24 +96,85 @@ const mapped = read('QPIGS', '230.0 50.0 231.5 50.1 0450 0380 009 380 51.20 004 
 assert.deepEqual(mapped, { my_soc: 75, my_solar: 1 });
 console.log('ok - mappings pick fields by their command and index, derived fields too');
 
+// ── Parallel units ──────────────────────────────────────────────────
+// A B C DD EEE.E FF.FF GGG.G HH.HH IIII JJJJ KKK LL.L MMM NNN OOO.O PPP QQQQQ RRRRR SSS status T U VVV WWW XX YY.Y ZZZ
+const second = read('QPGS2', '1 92931901100456 B 00 000.0 00.00 230.0 50.00 0450 0380 009 51.2 004 075 120.5 004 00900 00760 009 11100010 0 2 060 080 30 07.6 008');
+assert.equal(second.unit2_serial_number, '92931901100456'); assert.equal(second.unit2_operating_mode_label, 'Off-grid / battery');
+num(second, { unit2_fault_code: 0, unit2_grid_voltage: 0, unit2_output_voltage: 230, unit2_output_frequency: 50, unit2_output_va: 450, unit2_output_power: 380, unit2_load_percent: 9, unit2_battery_voltage: 51.2, unit2_battery_charge_current: 4, unit2_battery_soc: 75, unit2_pv_voltage: 120.5, unit2_pv_current: 7.6, unit2_battery_discharge_current: 8, unit2_mppt_active: 1, unit2_ac_charging: 1, unit2_solar_charging: 1, unit2_ac_input_available: 1, unit2_ac_output_on: 1 });
+assert.equal(second.unit2_battery_state, 'Normal'); assert.equal(second.unit2_ac_output_mode, 'Single'); assert.equal(second.unit2_charger_priority, 'Solar and utility (SNU)');
+assert.equal(second.unit1_serial_number, undefined, 'a unit reads under its own name');
+// A unit that is not there answers with a zero serial number: nothing is read from it.
+assert.deepEqual(read('QPGS4', '0 00000000000000 P 00 000.0 00.00 000.0 00.00 0000 0000 000 00.0 000 000 000.0 000 00000 00000 000 00000000 0 0 000 000 00 00.0 000'), {});
+assert.deepEqual(read('QPGS9', '0 0 P 00'), {});
+console.log('ok - paralleled units QPGS1 to QPGS9 read under their own names; an absent unit gives nothing');
+
+// ── Every other command of the document ─────────────────────────────
+assert.equal(read('QPI', 'PI30').family_id, 30);
+assert.equal(read('QVFW3', 'VERFW:00004.20').display_firmware_version, '00004.20');
+assert.equal(read('VERFW', 'VERFW:00001.05').ble_firmware_version, '00001.05');
+assert.equal(read('QT', '20261030124503').unit_time, '2026-10-30 12:45:03');
+assert.equal(read('QT', '2026103').unit_time, undefined, 'a time that is not 14 digits is not shown');
+assert.equal(read('QMCHGCR', '010 020 030 040 050 060 070 080').available_max_charging_currents, '010, 020, 030, 040, 050, 060, 070, 080');
+assert.equal(read('QMUCHGCR', '002 010 020 030').available_max_utility_charging_currents, '002, 010, 020, 030');
+num(read('QBATCD', '101'), { battery_discharge_flag: 1, battery_standby_discharge_flag: 0, battery_charge_flag: 1 });
+// AAA.A BB.B CCCC DD.D EE.E FF.F GG.G HH I J K L M N O P Q R S T U V WW.W X Y ZZZ
+const defaults = read('QDI', '230.0 50.0 0030 42.0 54.0 56.4 46.0 60 0 2 2 3 0 0 1 1 0 1 1 0 1 0 48.0 0 0 000');
+num(defaults, { default_output_voltage: 230, default_output_frequency: 50, default_max_utility_charging_current: 30, default_disconnect_voltage: 42, default_float_voltage: 54, default_boost_voltage: 56.4, default_recharge_voltage: 46, default_max_charging_current: 60, default_input_range: 0, default_output_priority: 2, default_charger_priority: 2, default_battery_type: 3, default_buzzer: 1, default_restart_overload: 1, default_restart_overtemperature: 1, default_lcd_backlight: 0, default_alarm_source_interrupted: 1, default_record_fault_codes: 1, default_overload_bypass: 0, default_lcd_auto_return: 1, default_ac_output_mode: 0, default_offgrid_switch_voltage: 48, default_boost_duration: 0 });
+const more = read('QPIRI', '230.0 50.0 230.0 50.0 21.7 5000 5000 48.0 46.0 42.0 56.4 54.0 3 30 060 0 2 2 9 00 0 1 48.0 0 0 000 0 000 44.0');
+num(more, { rated_input_voltage: 230, rated_input_frequency: 50, setting_ac_output_mode: 1 }); assert.equal(more.setting_unit_type, 'Grid-tied'); assert.equal(more.setting_topology, 'Transformerless'); assert.equal(more.setting_ac_output_mode_label, 'Parallel');
+console.log('ok - family, firmware (main, display, Bluetooth), time, available currents, permission flags, defaults and the rest of QPIRI');
+
+// ── Optional commands and back-off ──────────────────────────────────
+{
+  const unitCmd = cmdOf('QPGS3'), state = {};
+  assert.equal(rs232.commandDue(unitCmd, 0, state, null), true, 'asked on the first poll');
+  rs232.backOff(unitCmd, 0, state);
+  assert.deepEqual([1, 10, 19].map(n => rs232.commandDue(unitCmd, n, state, null)), [false, false, false], 'not asked again for 20 polls when absent');
+  assert.equal(rs232.commandDue(unitCmd, 20, state, null), true, 'then asked again');
+  assert.equal(rs232.commandDue(cmdOf('QPIGS'), 5, { until: 99 }, null), true, 'the live readings never back off');
+  const mappings = { grid_in: 'QPIGS:0', unit_two_w: 'QPGS2:9' };
+  assert.equal(rs232.commandDue(cmdOf('QPGS2'), 0, {}, mappings), true, 'an optional command with a mapped field is asked');
+  assert.equal(rs232.commandDue(cmdOf('QPGS3'), 0, {}, mappings), false, 'one with nothing mapped is not asked at all');
+  assert.equal(rs232.commandDue(cmdOf('QVFW'), 0, {}, { x: 'QVFW3:0' }), false, 'QVFW is not QVFW3');
+  assert.equal(rs232.commandDue(cmdOf('QVFW'), 0, {}, { x: 'QVFW:0' }), true);
+  assert.equal(rs232.commandDue(cmdOf('QPIGS'), 3, {}, { x: 'QPGS2:9' }), true, 'QPIGS is asked whatever is mapped');
+  assert.equal(rs232.commandDue({ name: 'X', optional: true, retry_every: 3 }, 2, (() => { const st = {}; rs232.backOff({ retry_every: 3 }, 0, st); return st; })(), null), false);
+  console.log('ok - optional commands wait out a back-off and are skipped when none of their fields is mapped');
+}
+
+// The names a unit's own display and app use: CSO / SNU / OSO, USB / SUB / SBU, and all eight battery types.
+{
+  const label = (cmd, metric) => cmdOf(cmd).fields.find(f => f.metric === metric).lookup;
+  assert.deepEqual(label('QPIRI', 'setting_charger_priority_label'), { 1: 'Solar first (CSO)', 2: 'Solar and utility (SNU)', 3: 'Only solar (OSO)' });
+  assert.deepEqual(label('QPIRI', 'setting_output_priority_label'), { 0: 'USB', 1: 'SUB', 2: 'SBU' });
+  assert.deepEqual(Object.values(label('QPIRI', 'setting_battery_type_label')), ['AGM', 'Flooded', 'User defined', 'Pylontech', 'BYD', 'WeCo', 'MODBUS RTU RS-485', 'Any-Cell']);
+  assert.equal(read('QPIRI', '230.0 50.0 230.0 50.0 21.7 5000 5000 48.0 46.0 42.0 56.4 54.0 7 30 060 0 2 3 9 00 0 0 48.0 0 0 000 0 000 44.0').setting_battery_type_label, 'Any-Cell');
+  assert.equal(read('QPIRI', '230.0 50.0 230.0 50.0 21.7 5000 5000 48.0 46.0 42.0 56.4 54.0 7 30 060 0 2 3 9 00 0 0 48.0 0 0 000 0 000 44.0').setting_charger_priority_label, 'Only solar (OSO)');
+  console.log('ok - charger priority reads CSO / SNU / OSO and battery types BYD to Any-Cell, as on the unit');
+}
+
 // ── The profile ─────────────────────────────────────────────────────
 assert.equal(profile.protocol, 'phocos-ascii'); assert.equal(profile.decoder, undefined, 'no decoder: the field list and mapping screens use the ASCII form');
 assert.deepEqual(profile.defaults, { baud: 2400, dataBits: 8, stopBits: 1, parity: 'none' });
-assert.deepEqual(profile.call_order, ['QPIGS', 'QPGS0', 'QPIRI', 'QFLAG', 'QVFW']);
+const names = profile.commands.map(c => c.name);
+assert.deepEqual(names, ['QPIGS', 'QPGS0', 'QPGS1', 'QPGS2', 'QPGS3', 'QPGS4', 'QPGS5', 'QPGS6', 'QPGS7', 'QPGS8', 'QPGS9', 'QPIRI', 'QFLAG', 'QDI', 'QMCHGCR', 'QMUCHGCR', 'QBATCD', 'QT', 'QPI', 'QVFW', 'QVFW3', 'VERFW']);
+assert.deepEqual(profile.call_order, names);
 const seenMetrics = new Set();
 for (const cmd of profile.commands) {
   const indexes = cmd.fields.map(f => f.index);
   assert.equal(new Set(indexes).size, indexes.length, `${cmd.name}: every field has its own index (its mapping key)`);
   for (const f of cmd.fields) { assert.ok(f.metric && f.label, `${cmd.name}:${f.index} has a name`); assert.ok(!seenMetrics.has(f.metric), `${f.metric} is named once`); seenMetrics.add(f.metric); assert.ok((f.source ?? f.index) <= 28, `${cmd.name}:${f.index} reads a token the reply has`); }
 }
-assert.equal(cmdOf('QPIRI').every, 20); assert.equal(cmdOf('QFLAG').every, 20); assert.equal(cmdOf('QVFW').every, 100); assert.equal(cmdOf('QPIGS').every, undefined);
-const rs232 = require('../modules/rs232');
+assert.deepEqual(profile.commands.filter(c => !c.optional).map(c => c.name), ['QPIGS', 'QPGS0'], 'only the live readings are asked of every unit; the rest is optional');
+for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) { const c = cmdOf('QPGS' + n); assert.equal(c.query, 'QPGS' + n); assert.equal(c.absentWhenZero, 1); assert.equal(c.retry_every, 20); assert.ok(c.fields.every(f => f.metric.startsWith(`unit${n}_`))); }
+assert.deepEqual(Object.fromEntries(profile.commands.filter(c => c.every).map(c => [c.name, c.every])), { QPIRI: 20, QFLAG: 20, QDI: 100, QMCHGCR: 100, QMUCHGCR: 100, QBATCD: 5, QT: 100, QPI: 100, QVFW: 100, QVFW3: 100, VERFW: 100 });
+assert.equal(cmdOf('VERFW').query, 'VERFW:', 'the BLE controller query carries its colon');
 assert.equal(typeof rs232.commandDue, 'function');
 assert.deepEqual([0, 1, 19, 20, 21, 40].map(n => rs232.commandDue({ every: 20 }, n)), [true, false, false, true, false, true]);
 assert.ok([0, 1, 7, 99].every(n => rs232.commandDue({}, n)), 'a command with no "every" is asked every time');
 rs232.loadRs232Profiles();
 const loaded = rs232.availableProfiles.find(p => p.id === 'phocos-anygrid-rs232');
-assert.ok(loaded && loaded.protocol === 'phocos-ascii' && loaded.commands.length === 5, 'the poller lists the profile');
+assert.ok(loaded && loaded.protocol === 'phocos-ascii' && loaded.commands.length === 22, 'the poller lists the profile');
 console.log('ok - the profile: unique fields, 2400 8N1, settings asked now and then, listed by the poller');
 
 // Old ASCII profiles read the same as before.
