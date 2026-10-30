@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41054284908.1",
-    "version": "1.0.10-dev+9cbe994",
-    "commit": "9cbe994921fc378c1d2b8ac740d07f9a7aab921c",
-    "digest": "sha256:bc13cb9f7f2f93eed66949dd655f3b57c60d04807c908786165578729ee0d2de",
+    "buildId": "41054841260.1",
+    "version": "1.0.10-dev+abf0263",
+    "commit": "abf026357ac3a5e49c6f3f672c18a48d66cdcc72",
+    "digest": "sha256:7adad83d79c1eec6d3b4899c8222bbc478d1ddf4ba7ec33f4a03c70d736d41f0",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-30T12:18:17Z",
+    "builtAt": "2026-10-30T12:22:45Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
+      "Phocos Any-Grid RS-232 / RS-485 profile (#236)"
+    ]
   },
   "history": [
+    {
+      "buildId": "41054841260.1",
+      "version": "1.0.10-dev+abf0263",
+      "commit": "abf026357ac3a5e49c6f3f672c18a48d66cdcc72",
+      "digest": "sha256:7adad83d79c1eec6d3b4899c8222bbc478d1ddf4ba7ec33f4a03c70d736d41f0",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-30T12:22:45Z",
+      "kind": "release",
+      "notes": [
+        "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
+        "Phocos Any-Grid RS-232 / RS-485 profile (#236)"
+      ]
+    },
     {
       "buildId": "41054284908.1",
       "version": "1.0.10-dev+9cbe994",
