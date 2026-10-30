@@ -1,0 +1,717 @@
+{
+  "name": "Phocos Any-Grid PSW-H (RS-232 / RS-485)",
+  "protocol": "phocos-ascii",
+  "transport": "rs232",
+  "description": "Phocos Any-Grid PSW-H hybrid inverters over the RS-232 port (supplied cable) or RS-485: live readings, mode, fault code and status, plus settings and firmware now and then. Read-only. Needs firmware 06.11 or later.",
+  "notes": "Built from Phocos's RS-232 PhocosLink command document (2020-12-14); each request and reply carries a CRC-16/XMODEM. A fault code of 00 is shown as 'No fault' (the document lists no code for it). Reads the directly connected unit (QPGS0); the other units of a parallel system (QPGS1 to QPGS9) are not read yet. Not yet checked against a unit.",
+  "defaults": {
+    "baud": 2400,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "call_order": [
+    "QPIGS",
+    "QPGS0",
+    "QPIRI",
+    "QFLAG",
+    "QVFW"
+  ],
+  "commands": [
+    {
+      "name": "QPIGS",
+      "query": "QPIGS",
+      "response": {
+        "type": "ascii-line",
+        "prefix": "(",
+        "delimiter": " "
+      },
+      "fields": [
+        {
+          "index": 0,
+          "metric": "grid_voltage",
+          "label": "Grid Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 1,
+          "metric": "grid_frequency",
+          "label": "Grid Frequency",
+          "unit": "Hz"
+        },
+        {
+          "index": 2,
+          "metric": "output_voltage",
+          "label": "AC Output Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 3,
+          "metric": "output_frequency",
+          "label": "AC Output Frequency",
+          "unit": "Hz"
+        },
+        {
+          "index": 4,
+          "metric": "output_va",
+          "label": "AC Output Apparent Power",
+          "unit": "VA"
+        },
+        {
+          "index": 5,
+          "metric": "output_power",
+          "label": "AC Output Active Power",
+          "unit": "W"
+        },
+        {
+          "index": 6,
+          "metric": "load_percent",
+          "label": "Output Load Percent",
+          "unit": "%"
+        },
+        {
+          "index": 7,
+          "metric": "bus_voltage",
+          "label": "Internal Bus Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 8,
+          "metric": "battery_voltage",
+          "label": "Battery Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 9,
+          "metric": "battery_charge_current",
+          "label": "Battery Charging Current",
+          "unit": "A"
+        },
+        {
+          "index": 10,
+          "metric": "battery_soc",
+          "label": "Battery SOC (approx.)",
+          "unit": "%"
+        },
+        {
+          "index": 11,
+          "metric": "inverter_temp",
+          "label": "Inverter Heatsink Temperature",
+          "unit": "°C"
+        },
+        {
+          "index": 12,
+          "metric": "pv_current",
+          "label": "PV Input Current (battery side)",
+          "unit": "A"
+        },
+        {
+          "index": 13,
+          "metric": "pv_voltage",
+          "label": "PV Input Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 14,
+          "metric": "battery_scc_voltage",
+          "label": "Battery Voltage (solar charge controller)",
+          "unit": "V"
+        },
+        {
+          "index": 15,
+          "metric": "battery_discharge_current",
+          "label": "Battery Discharge Current",
+          "unit": "A"
+        },
+        {
+          "index": 19,
+          "metric": "pv_power",
+          "label": "PV Power",
+          "unit": "W"
+        },
+        {
+          "index": 100,
+          "metric": "ac_load_on",
+          "label": "AC Load On",
+          "source": 16,
+          "bit": 4
+        },
+        {
+          "index": 101,
+          "metric": "battery_charging",
+          "label": "Battery Currently Charging",
+          "source": 16,
+          "bit": 2
+        },
+        {
+          "index": 102,
+          "metric": "solar_charging",
+          "label": "Solar Charging",
+          "source": 16,
+          "bit": 1
+        },
+        {
+          "index": 103,
+          "metric": "ac_charging",
+          "label": "AC Charging",
+          "source": 16,
+          "bit": 0
+        },
+        {
+          "index": 104,
+          "metric": "float_charging",
+          "label": "Charging To Float",
+          "source": 20,
+          "bit": 2
+        },
+        {
+          "index": 105,
+          "metric": "unit_powered_on",
+          "label": "Unit Powered On",
+          "source": 20,
+          "bit": 1
+        }
+      ]
+    },
+    {
+      "name": "QPGS0",
+      "query": "QPGS0",
+      "response": {
+        "type": "ascii-line",
+        "prefix": "(",
+        "delimiter": " "
+      },
+      "fields": [
+        {
+          "index": 0,
+          "metric": "other_units_connected",
+          "label": "Other Units Connected (0 = single unit)"
+        },
+        {
+          "index": 1,
+          "metric": "serial_number",
+          "label": "Serial Number",
+          "type": "text"
+        },
+        {
+          "index": 2,
+          "metric": "operating_mode",
+          "label": "Operating Mode (letter)",
+          "type": "text"
+        },
+        {
+          "index": 100,
+          "metric": "operating_mode_label",
+          "label": "Operating Mode",
+          "source": 2,
+          "type": "text",
+          "lookup": {
+            "P": "Powered on",
+            "S": "Stand-by",
+            "L": "Grid / line",
+            "B": "Off-grid / battery",
+            "F": "Fault",
+            "D": "Shutdown"
+          }
+        },
+        {
+          "index": 3,
+          "metric": "fault_code",
+          "label": "Fault Code"
+        },
+        {
+          "index": 101,
+          "metric": "fault_description",
+          "label": "Fault",
+          "source": 3,
+          "type": "text",
+          "lookup": {
+            "00": "No fault",
+            "01": "Fan locked while inverter off",
+            "02": "Over-temperature",
+            "03": "Battery voltage too high",
+            "04": "Battery voltage too low",
+            "05": "AC output short-circuit",
+            "06": "AC output voltage too high",
+            "07": "AC output overload",
+            "08": "Internal bus voltage too high",
+            "09": "Internal bus soft-start failed",
+            "10": "PV over-current",
+            "11": "PV over-voltage",
+            "12": "Internal DC converter over-current",
+            "13": "Battery discharge over-current",
+            "51": "Over-current",
+            "52": "Internal bus voltage too low",
+            "53": "Inverter soft-start failed",
+            "55": "DC over-voltage at AC output",
+            "57": "Current sensor failed",
+            "58": "AC output voltage too low",
+            "60": "Reverse-current protection active",
+            "71": "Firmware version inconsistent",
+            "72": "Current sharing fault",
+            "80": "CAN communication fault",
+            "81": "Host loss",
+            "82": "Synchronization loss",
+            "83": "Battery voltage detected inconsistent",
+            "84": "AC input voltage/frequency inconsistent",
+            "85": "AC output current imbalance",
+            "86": "AC output mode inconsistent"
+          }
+        },
+        {
+          "index": 15,
+          "metric": "total_charging_current",
+          "label": "Total Charging Current (all units)",
+          "unit": "A"
+        },
+        {
+          "index": 16,
+          "metric": "total_output_va",
+          "label": "Total AC Output Apparent Power (all units)",
+          "unit": "VA"
+        },
+        {
+          "index": 17,
+          "metric": "total_output_power",
+          "label": "Total AC Output Active Power (all units)",
+          "unit": "W"
+        },
+        {
+          "index": 18,
+          "metric": "total_nominal_power_percent",
+          "label": "Total Nominal Output Power (all units)",
+          "unit": "%"
+        },
+        {
+          "index": 102,
+          "metric": "mppt_active",
+          "label": "MPPT Active",
+          "source": 19,
+          "bit": 7
+        },
+        {
+          "index": 103,
+          "metric": "ac_input_available",
+          "label": "AC Input Available",
+          "source": 19,
+          "bit": 2,
+          "invert": true
+        },
+        {
+          "index": 104,
+          "metric": "ac_output_on",
+          "label": "AC Output On",
+          "source": 19,
+          "bit": 1
+        },
+        {
+          "index": 105,
+          "metric": "battery_state_code",
+          "label": "Battery State Code",
+          "source": 19,
+          "slice": [
+            3,
+            5
+          ]
+        },
+        {
+          "index": 106,
+          "metric": "battery_state",
+          "label": "Battery State",
+          "source": 19,
+          "slice": [
+            3,
+            5
+          ],
+          "type": "text",
+          "lookup": {
+            "00": "Normal",
+            "01": "Voltage low",
+            "02": "Disconnected",
+            "03": "Charging and discharging disabled by the BMS"
+          }
+        },
+        {
+          "index": 20,
+          "metric": "ac_output_mode",
+          "label": "AC Output Mode"
+        },
+        {
+          "index": 107,
+          "metric": "ac_output_mode_label",
+          "label": "AC Output Mode (label)",
+          "source": 20,
+          "type": "text",
+          "lookup": {
+            "0": "Single unit",
+            "1": "Parallel",
+            "2": "3-phase, phase 1",
+            "3": "3-phase, phase 2",
+            "4": "3-phase, phase 3",
+            "5": "2-phase, phase 1",
+            "6": "2-phase, phase 2"
+          }
+        },
+        {
+          "index": 21,
+          "metric": "charger_priority",
+          "label": "Charger Source Priority"
+        },
+        {
+          "index": 108,
+          "metric": "charger_priority_label",
+          "label": "Charger Source Priority (label)",
+          "source": 21,
+          "type": "text",
+          "lookup": {
+            "1": "Solar first",
+            "2": "Solar and utility",
+            "3": "Solar only"
+          }
+        },
+        {
+          "index": 22,
+          "metric": "max_charging_current_set",
+          "label": "Max Charging Current (set)",
+          "unit": "A"
+        },
+        {
+          "index": 23,
+          "metric": "max_charging_current_possible",
+          "label": "Max Charging Current (possible)",
+          "unit": "A"
+        },
+        {
+          "index": 24,
+          "metric": "max_ac_charging_current_set",
+          "label": "Max AC Charging Current (set)",
+          "unit": "A"
+        }
+      ]
+    },
+    {
+      "name": "QPIRI",
+      "query": "QPIRI",
+      "response": {
+        "type": "ascii-line",
+        "prefix": "(",
+        "delimiter": " "
+      },
+      "every": 20,
+      "fields": [
+        {
+          "index": 2,
+          "metric": "rated_output_voltage",
+          "label": "Rated Output Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 3,
+          "metric": "rated_output_frequency",
+          "label": "Rated Output Frequency",
+          "unit": "Hz"
+        },
+        {
+          "index": 4,
+          "metric": "rated_output_current",
+          "label": "Rated Output Current",
+          "unit": "A"
+        },
+        {
+          "index": 5,
+          "metric": "rated_output_va",
+          "label": "Rated Output Apparent Power",
+          "unit": "VA"
+        },
+        {
+          "index": 6,
+          "metric": "rated_output_power",
+          "label": "Rated Output Power",
+          "unit": "W"
+        },
+        {
+          "index": 7,
+          "metric": "rated_battery_voltage",
+          "label": "Nominal Battery Voltage",
+          "unit": "V"
+        },
+        {
+          "index": 8,
+          "metric": "setting_recharge_voltage",
+          "label": "Switch back to grid at (SBU priority)",
+          "unit": "V"
+        },
+        {
+          "index": 9,
+          "metric": "setting_disconnect_voltage",
+          "label": "Low voltage disconnect",
+          "unit": "V"
+        },
+        {
+          "index": 10,
+          "metric": "setting_boost_voltage",
+          "label": "Boost voltage",
+          "unit": "V"
+        },
+        {
+          "index": 11,
+          "metric": "setting_float_voltage",
+          "label": "Float voltage",
+          "unit": "V"
+        },
+        {
+          "index": 12,
+          "metric": "setting_battery_type",
+          "label": "Battery type"
+        },
+        {
+          "index": 100,
+          "metric": "setting_battery_type_label",
+          "label": "Battery type (label)",
+          "source": 12,
+          "type": "text",
+          "lookup": {
+            "0": "AGM / Gel",
+            "1": "Flooded",
+            "2": "User-defined",
+            "3": "Pylontech"
+          }
+        },
+        {
+          "index": 13,
+          "metric": "setting_max_utility_charging_current",
+          "label": "Max AC charging current (set)",
+          "unit": "A"
+        },
+        {
+          "index": 14,
+          "metric": "setting_max_charging_current",
+          "label": "Max total charging current (set)",
+          "unit": "A"
+        },
+        {
+          "index": 15,
+          "metric": "setting_input_range",
+          "label": "AC input range"
+        },
+        {
+          "index": 101,
+          "metric": "setting_input_range_label",
+          "label": "AC input range (label)",
+          "source": 15,
+          "type": "text",
+          "lookup": {
+            "0": "Appliances",
+            "1": "UPS"
+          }
+        },
+        {
+          "index": 16,
+          "metric": "setting_output_priority",
+          "label": "AC output source priority"
+        },
+        {
+          "index": 102,
+          "metric": "setting_output_priority_label",
+          "label": "AC output source priority (label)",
+          "source": 16,
+          "type": "text",
+          "lookup": {
+            "0": "USB",
+            "1": "SUB",
+            "2": "SBU"
+          }
+        },
+        {
+          "index": 17,
+          "metric": "setting_charger_priority",
+          "label": "Charger source priority"
+        },
+        {
+          "index": 103,
+          "metric": "setting_charger_priority_label",
+          "label": "Charger source priority (label)",
+          "source": 17,
+          "type": "text",
+          "lookup": {
+            "1": "Solar first",
+            "2": "Solar and utility",
+            "3": "Solar only"
+          }
+        },
+        {
+          "index": 18,
+          "metric": "setting_max_units",
+          "label": "Max synchronised units"
+        },
+        {
+          "index": 22,
+          "metric": "setting_offgrid_switch_voltage",
+          "label": "Switch to off-grid at (SBU priority)",
+          "unit": "V"
+        },
+        {
+          "index": 25,
+          "metric": "setting_boost_duration",
+          "label": "Boost charge duration (0 = automatic)",
+          "unit": "min"
+        },
+        {
+          "index": 27,
+          "metric": "setting_discharge_current",
+          "label": "Max battery discharge current (0 = unlimited)",
+          "unit": "A"
+        },
+        {
+          "index": 28,
+          "metric": "setting_reconnect_voltage",
+          "label": "Low voltage reconnect",
+          "unit": "V"
+        }
+      ]
+    },
+    {
+      "name": "QFLAG",
+      "query": "QFLAG",
+      "response": {
+        "type": "ascii-line",
+        "prefix": "(",
+        "delimiter": " "
+      },
+      "every": 20,
+      "fields": [
+        {
+          "index": 0,
+          "metric": "setting_buzzer",
+          "label": "Alarm / buzzer",
+          "source": 0,
+          "slice": [
+            0,
+            1
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 1,
+          "metric": "setting_overload_bypass",
+          "label": "Overload bypass",
+          "source": 0,
+          "slice": [
+            1,
+            2
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 2,
+          "metric": "setting_lcd_auto_return",
+          "label": "Auto-return display",
+          "source": 0,
+          "slice": [
+            3,
+            4
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 3,
+          "metric": "setting_restart_overload",
+          "label": "Restart after overload",
+          "source": 0,
+          "slice": [
+            4,
+            5
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 4,
+          "metric": "setting_restart_overtemperature",
+          "label": "Restart after overtemperature",
+          "source": 0,
+          "slice": [
+            5,
+            6
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 5,
+          "metric": "setting_lcd_backlight",
+          "label": "Display backlight",
+          "source": 0,
+          "slice": [
+            6,
+            7
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 6,
+          "metric": "setting_alarm_source_interrupted",
+          "label": "Alarm when primary source interrupted",
+          "source": 0,
+          "slice": [
+            7,
+            8
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        },
+        {
+          "index": 7,
+          "metric": "setting_record_fault_codes",
+          "label": "Record fault codes",
+          "source": 0,
+          "slice": [
+            8,
+            9
+          ],
+          "lookup": {
+            "E": 1,
+            "D": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "QVFW",
+      "query": "QVFW",
+      "response": {
+        "type": "ascii-line",
+        "prefix": "(",
+        "delimiter": " "
+      },
+      "every": 100,
+      "fields": [
+        {
+          "index": 0,
+          "metric": "firmware_version",
+          "label": "Main Unit Firmware Version",
+          "type": "text",
+          "strip": "VERFW:"
+        }
+      ]
+    }
+  ]
+}
