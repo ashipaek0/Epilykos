@@ -53,6 +53,15 @@ const settingsProfile = {
   assert.equal(result.values.equalization_voltage.writable, false);
   assert.deepStrictEqual(result.capabilities.find(x=>x.id==='float_voltage') && [result.capabilities.find(x=>x.id==='float_voltage').min,result.capabilities.find(x=>x.id==='float_voltage').max],[48,64]);
   assert.deepStrictEqual(result.capabilities.find(x=>x.id==='output_voltage').allowed,[220,230,240]);
+  // Values come with the names the unit's display and the app use, so the Controls page can show them.
+  const named = id => result.capabilities.find(x => x.id === id).labels;
+  assert.deepStrictEqual(named('charger_priority'), { 1: 'Solar first (CSO)', 2: 'Solar and Utility (SNU)', 3: 'Only Solar (OSO)' });
+  assert.deepStrictEqual(named('output_priority'), { 0: 'USB', 1: 'SUB', 2: 'SBU' });
+  assert.deepStrictEqual(named('input_range'), { 0: 'APL', 1: 'UPS' });
+  assert.deepStrictEqual(Object.values(named('battery_type')), ['AGM', 'Flooded', 'User defined', 'Pylontech', 'BYD', 'WeCo', 'MODBUS RTU RS-485', 'Any-Cell']);
+  assert.equal(result.capabilities.find(x => x.id === 'float_voltage').labels, undefined, 'a number setting has no value names');
+  assert.deepStrictEqual(require('../modules/dongle/bleGatt').enumLabels('charger_priority'), named('charger_priority'));
+  assert.equal(require('../modules/dongle/bleGatt').enumLabels('float_voltage'), undefined);
   assert.equal(result.raw.settings_2a0e, 'aa64bb');
   assert.equal(result.provenance.settings_2a0d.output_mode, 'app_confirmed');
   assert.ok(result.capabilities.some(x => x.id === 'output_voltage' && x.writable && !x.blockedReason));

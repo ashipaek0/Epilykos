@@ -200,7 +200,7 @@ How far each reading is trusted (`confidence` in the field list):
 - **derived / estimated**: calculated by Epilykos (PV power, battery net power, estimated grid power).
 - **unverified**: the fault bytes. The document names 29 fault codes (see the wired profile), but does not say how this Bluetooth block encodes them.
 
-The document lists four battery types (0 AGM/Gel, 1 Flooded, 2 User-defined, 3 Pylontech) for firmware 06.11 or later; the app offers up to eight, so the Battery type setting still shows plain numbers.
+Settings with a fixed list of values show the names the unit's display and the app use, not numbers: charger source priority as Solar first (CSO) / Solar and Utility (SNU) / Only Solar (OSO), output priority as USB / SUB / SBU, AC input range as APL / UPS, and battery type as AGM, Flooded, User defined, Pylontech, BYD, WeCo, MODBUS RTU RS-485 or Any-Cell. Phocos's RS-232 document agrees for the ones it names (battery types 0 to 3, the three charger priorities, USB / SUB / SBU); BYD to Any-Cell come from the app. What is sent to the inverter is still the number.
 
 For a wired connection to the same inverter, see **Phocos Any-Grid PSW-H (RS-232 / RS-485)** below.
 
