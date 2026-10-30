@@ -1,20 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41054291258.1",
-    "version": "1.0.10-dev+4384613",
-    "commit": "43846135439ea40db1a2b0a01c6f773e9d585eaf",
-    "digest": "sha256:9859d2070fc5c1049e23b53acdb77168d0636e54f61c798c8900dad31aa419fc",
+    "buildId": "41054284908.1",
+    "version": "1.0.10-dev+9cbe994",
+    "commit": "9cbe994921fc378c1d2b8ac740d07f9a7aab921c",
+    "digest": "sha256:bc13cb9f7f2f93eed66949dd655f3b57c60d04807c908786165578729ee0d2de",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-30T12:18:18Z",
+    "builtAt": "2026-10-30T12:18:17Z",
     "kind": "release",
-    "notes": [
-      "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
-      "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)",
-      "Custom favicon: replace every built-in icon link, not just the first (#233)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41054284908.1",
+      "version": "1.0.10-dev+9cbe994",
+      "commit": "9cbe994921fc378c1d2b8ac740d07f9a7aab921c",
+      "digest": "sha256:bc13cb9f7f2f93eed66949dd655f3b57c60d04807c908786165578729ee0d2de",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-30T12:18:17Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "41054291258.1",
       "version": "1.0.10-dev+4384613",
