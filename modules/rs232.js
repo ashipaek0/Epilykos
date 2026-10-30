@@ -3,6 +3,7 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
+const phocosAscii = require('./rs232-decoders/phocos-ascii');
 const { logger } = require('./logger');
 const databaseWork = require('./databaseWork');
 const { createBackoff } = require('./pollBackoff');
@@ -119,6 +120,8 @@ async function closeSerialPort(port) {
 
 function defaultFrameDetect(buffer, profile) {
   if (buffer.length < 4) return false;
+  // Phocos ASCII: "(" … CRC CR, complete only when the CRC checks out
+  if (profile.protocol === 'phocos-ascii') return phocosAscii.isCompleteFrame(buffer);
   // Voltronic ASCII: response ends with \r
   if (profile.protocol === 'voltronic-qpigs' || profile.protocol === 'voltronic-ascii') {
     const text = buffer.toString('utf8');
@@ -176,7 +179,40 @@ async function queryDevice(port, query, profile, timeoutMs = 3000) {
 
 // ── Decoder Implementations ─────────────────────────────────────────────
 
+/**
+ * What one reply token becomes for a field. Plain fields are numbers (parseFloat × scale).
+ * Derived fields point at a token with `source` (the field's own `index` stays its
+ * unique mapping key) and may use: `strip` (drop a leading label), `slice`
+ * ([from, to) of the token), `bit` (the character of a status string such as
+ * "00010110", counted from the right as b0; `invert` flips it), `lookup`
+ * (token → label), `rest` (every token from `source` on, joined), `datetime` (YYYYMMDDHHMMSS →
+ * "YYYY-MM-DD HH:MM:SS") and `type: 'text'`. Returns undefined when there is no value.
+ */
 function decodeAsciiResponse(buffer, cmd, mappings) {
+  function fieldValue(fieldDef, token) {
+    let t = token;
+    if (fieldDef.strip && t.startsWith(fieldDef.strip)) t = t.slice(fieldDef.strip.length);
+    if (Array.isArray(fieldDef.slice)) t = t.slice(fieldDef.slice[0], fieldDef.slice[1]);
+    if (fieldDef.datetime) {
+      const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(t);
+      return m ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}` : undefined;
+    }
+    if (fieldDef.bit !== undefined) {
+      const ch = t[t.length - 1 - fieldDef.bit];
+      if (ch !== '0' && ch !== '1') return undefined;
+      return (ch === '1') !== (fieldDef.invert === true) ? 1 : 0;
+    }
+    if (fieldDef.lookup) {
+      if (fieldDef.lookup[t] !== undefined) return fieldDef.lookup[t];
+      return fieldDef.type === 'text' ? `Unknown (${t})` : undefined;
+    }
+    if (fieldDef.type === 'text') return t === '' ? undefined : t;
+    let raw = parseFloat(t);
+    if (isNaN(raw)) return undefined;
+    if (fieldDef.scale) raw *= fieldDef.scale;
+    return raw;
+  }
+
   const text = buffer.toString('utf8').trim();
   const prefix = cmd.response?.prefix || '';
   let dataStr = text;
@@ -186,13 +222,17 @@ function decodeAsciiResponse(buffer, cmd, mappings) {
   const delimiter = cmd.response?.delimiter || '\t';
   const fields = dataStr.split(delimiter);
 
+  // A parallel unit that is not there answers with a zero serial number: nothing to read.
+  if (cmd.absentWhenZero !== undefined && /^0*$/.test((fields[cmd.absentWhenZero] || '').trim())) return {};
+
   const results = {};
   for (const fieldDef of cmd.fields || []) {
     const idx = fieldDef.index;
-    if (idx >= fields.length || idx < 0) continue;
-    let raw = parseFloat(fields[idx].trim());
-    if (isNaN(raw)) continue;
-    if (fieldDef.scale) raw *= fieldDef.scale;
+    const src = fieldDef.source !== undefined ? fieldDef.source : idx;
+    if (src >= fields.length || src < 0) continue;
+    const token = fieldDef.rest ? fields.slice(src).map(t => t.trim()).filter(Boolean).join(', ') : fields[src].trim();
+    const raw = fieldValue(fieldDef, token);
+    if (raw === undefined) continue;
     // Build reverse lookup: key → metric name (mappings is { metricName → key })
     let keyToMetric = null;
     if (mappings) {
@@ -267,6 +307,10 @@ function decodeResponse(rawResponse, cmd, profile, mappings) {
       return {};
     }
   }
+  // Phocos: check the CRC, then read the fields like any other ASCII reply
+  if (profile.protocol === 'phocos-ascii') {
+    return decodeAsciiResponse(Buffer.from('(' + phocosAscii.unwrap(rawResponse) + '\r'), cmd, mappings);
+  }
   // Default: ASCII field-index decoder (Voltronic, Infinisolar, etc.)
   return decodeAsciiResponse(rawResponse, cmd, mappings);
 }
@@ -282,6 +326,7 @@ function encodeQuery(cmd, device, profile) {
       return Buffer.alloc(0);
     }
   }
+  if (profile.protocol === 'phocos-ascii') return phocosAscii.encodeQuery(cmd);
   // Default: send command string as-is (Voltronic ASCII)
   return Buffer.from(cmd.query || '');
 }
@@ -333,20 +378,64 @@ async function pollRs232() {
   return result;
 }
 
+// How many times each query device has been polled, and each command's
+// back-off, for commands that need asking only now and then (`every`:
+// settings and ratings change rarely) or that may not be there (`optional`).
+const pollCounts = new Map();
+const commandStates = new Map();   // "device|command" → { until }
+
+/**
+ * Is this command due on the Nth poll (0 first)?
+ *  - `every: 20` asks on the 1st, 21st, 41st … poll.
+ *  - `optional` commands (a unit that is not there, a query an older firmware
+ *    does not answer) wait out their back-off, and a device that maps fields
+ *    asks only the optional commands it has mapped something from.
+ */
+function commandDue(cmd, count, state = {}, mappings = null) {
+  const every = Number(cmd && cmd.every);
+  if (every > 1 && count % every !== 0) return false;
+  if (cmd && cmd.optional) {
+    if (state.until !== undefined && count < state.until) return false;
+    if (mappings && !Object.values(mappings).some(key => typeof key === 'string' && key.startsWith(cmd.name + ':'))) return false;
+  }
+  return true;
+}
+
+/** An optional command failed, or its unit is absent: do not ask again for a while (`retry_every` polls, default 20). */
+function backOff(cmd, count, state) {
+  state.until = count + (Number(cmd.retry_every) > 0 ? Number(cmd.retry_every) : 20);
+}
+
 async function pollQueryDevice(device, profile) {
   const port = await openSerialPort(device);
   try {
     const results = {};
+    const count = pollCounts.get(device.name) || 0;
+    pollCounts.set(device.name, count + 1);
 
     // Determine command order
     const order = profile.call_order || profile.commands.map(c => c.name);
     for (const cmdName of order) {
       const cmd = profile.commands.find(c => c.name === cmdName);
       if (!cmd) continue;
+      const stateKey = `${device.name}|${cmd.name}`;
+      const state = commandStates.get(stateKey) || {};
+      commandStates.set(stateKey, state);
+      if (!commandDue(cmd, count, state, device.mappings)) continue;
       const queryBuffer = encodeQuery(cmd, device, profile);
       if (queryBuffer.length === 0) continue;
-      const rawResponse = await queryDevice(port, queryBuffer, profile, parseInt(device.timeout) || 5000);
-      const parsed = decodeResponse(rawResponse, cmd, profile, device.mappings);
+      let parsed;
+      try {
+        const rawResponse = await queryDevice(port, queryBuffer, profile, parseInt(device.timeout) || 5000);
+        parsed = decodeResponse(rawResponse, cmd, profile, device.mappings);
+      } catch (err) {
+        if (!cmd.optional) throw err;
+        backOff(cmd, count, state);
+        logger.debug(`RS232 ${device.name}: optional ${cmd.name} not answered (${err.message}); asking again in ${cmd.retry_every || 20} polls`);
+        continue;
+      }
+      // A unit that is not there answers with a zero serial number: its readings are not data.
+      if (cmd.absentWhenZero !== undefined && !Object.keys(parsed).length) backOff(cmd, count, state);
       Object.assign(results, parsed);
     }
 
@@ -854,5 +943,7 @@ module.exports = {
   executeRs232Action,
   executeRs232ProfileAction,
   getProfileById,
+  commandDue,
+  backOff,
   availableProfiles: availableProfiles, // getter — always up to date
 };

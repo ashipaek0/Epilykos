@@ -206,7 +206,8 @@ For a wired connection to the same inverter, see **Phocos Any-Grid PSW-H (RS-232
 
 ### RS232 Serial
 Connect inverters via USB-to-RS232/RS485 adapter. Supported protocols:
-- **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, Phocos, MUST, Sako (2400 8N1)
+- **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, MUST, Sako (2400 8N1)
+- **Phocos Any-Grid PSW-H (RS-232 / RS-485)** — Phocos's own protocol, firmware 06.11 or later (2400 8N1, read-only). Every poll: live readings, PV power, operating mode, fault code with its name, status flags (MPPT, charging, battery state, AC input and output), totals and set charging currents. Now and then: ratings and settings (charger priority as CSO / SNU / OSO, battery type and so on), the unit's defaults, available charging currents, date and time, serial number and firmware (main, display and Bluetooth). Up to nine paralleled units are read as `unit1_…` to `unit9_…`: map a unit's fields to have it asked, and a unit that is not there is left alone for a while. The units are numbered by the inverters themselves and the numbering can change when they restart, so follow each by its serial number. Use the cable supplied with the inverter; other cables can damage it.
 - **Victron VE.Direct** — SmartSolar, BMV, MultiPlus via VE.Direct cable (19200 8N1, streaming)
 - **SolaX Pocket USB** — SolaX X1/X3 series via USB-to-TTL adapter (9600 8N1, binary AA55)
 - **Modbus-RTU** — e.g. Anern EVO4200L over RS485
