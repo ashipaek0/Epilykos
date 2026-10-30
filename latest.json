@@ -1,30 +1,34 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "40704053562.1",
-    "version": "1.0.9",
-    "commit": "79c07254a2b4b126d36a311374cd66e20ab3c587",
-    "digest": "sha256:221d1a56a6c2f3fea463ab6f19b0f79aefe63ed98758489bc152b5490c096d60",
+    "buildId": "41057908621.1",
+    "version": "1.0.10",
+    "commit": "6bb8c1d50f9ab6a90c0bee1c9d38857f99901c26",
+    "digest": "sha256:ef9b43206b0d516830088631efa1f95e3224081653b5ede7d871ac82fce7fc11",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-28T14:15:24Z",
+    "builtAt": "2026-10-30T12:46:59Z",
     "kind": "release",
     "notes": [
-      "Custom favicon: replace every built-in icon link, not just the first (#233)",
-      "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)",
-      "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)",
-      "Energy chart Compare: Yearly totals (#231)",
-      "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)",
-      "Backup page: say the passphrase is needed to restore saved passwords (#228)",
-      "Energy chart: Compare view (year on year, month on month) (#227)",
-      "Backups: optional passphrase for saved passwords (#226)",
-      "Two-step sign-in, unreadable secrets, home page cleanup (#223)",
-      "Energy chart opens on 30d; power chart statistics start at midnight (#224)",
-      "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)",
-      "Refine Docker setup instructions in README",
-      "Refactor docker-compose.yaml for clarity and updates"
+      "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
+      "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
+      "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)"
     ]
   },
   "history": [
+    {
+      "buildId": "41057908621.1",
+      "version": "1.0.10",
+      "commit": "6bb8c1d50f9ab6a90c0bee1c9d38857f99901c26",
+      "digest": "sha256:ef9b43206b0d516830088631efa1f95e3224081653b5ede7d871ac82fce7fc11",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-30T12:46:59Z",
+      "kind": "release",
+      "notes": [
+        "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
+        "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
+        "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)"
+      ]
+    },
     {
       "buildId": "40704053562.1",
       "version": "1.0.9",
