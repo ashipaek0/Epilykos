@@ -117,7 +117,7 @@ async function loadCards() {
   box.replaceChildren();
   if (!blocks.length) {
     const p = document.createElement('p'); p.className = 'ct-empty';
-    p.innerHTML = 'No switches or selectors yet. <a href="/editor?tab=controls-page">Add them in the layout editor</a>, under Controls page.';
+    p.innerHTML = 'No controls yet. <a href="/editor?tab=controls-page">Add them in the layout editor</a>, under Controls page.';
     box.appendChild(p); return;
   }
   cardTypes = new Set(blocks.map(b => b.type));

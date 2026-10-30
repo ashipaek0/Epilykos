@@ -48,8 +48,8 @@ layout = getControlsLayout();
 assert.deepStrictEqual(layout.map(b => b.id), ['s1', 'q1', 's2', 's9'], 'new card added, known one not duplicated');
 assert.strictEqual(layout[3].gridY, 5, 'added below the existing cards');
 
-// Only switch, selector and button cards, each with an id.
-assert.throws(() => saveControlsLayout([text('x')]), /Only switch, selector and button cards/);
+// Only switch, selector, button, slider and knob cards, each with an id.
+assert.throws(() => saveControlsLayout([text('x')]), /Only switch, selector, button, slider and knob cards/);
 assert.throws(() => saveControlsLayout({}), /list of blocks/);
 assert.throws(() => saveControlsLayout([{ type: 'switch-block' }]), /needs an id/);
 assert.throws(() => saveControlsLayout(Array.from({ length: 201 }, (_, i) => sw('m' + i))), /At most 200/);

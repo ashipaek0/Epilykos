@@ -75,7 +75,7 @@ test('wired into Controls, the editor, showcase and HA entities', () => {
   assert.match(editor, /case 'button-card':\s+html \+= buildButtonCardForm\(block\)/);
   assert.match(editor, /BLOCK_BUILDERS\.set\('button-card'/);
   assert.match(read('private/js/showcase-layout.js'), /type: 'button-card'/);
-  assert.match(read('modules/dashboard-config.js'), /CONTROL_TYPES = new Set\(\[[^\]]*'button-card'\]\)/, 'the Controls layout keeps button cards');
+  assert.match(read('modules/dashboard-config.js'), /CONTROL_TYPES = new Set\(\[[^\]]*'button-card'/, 'the Controls layout keeps button cards');
   const ha = require('../modules/ha');
   assert.deepEqual(ha.getActionsForEntity('button.lux_buzzer'), ['press']);
 });

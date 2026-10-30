@@ -223,6 +223,7 @@
   .ct-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: auto; }
   .ct-card { grid-column: 1 / -1 !important; grid-row: auto !important; min-height: 100px; }
   .ct-card[data-type="button-card"] { grid-column: auto !important; min-height: 140px; }
+  .ct-card[data-type="rotary-card"] { min-height: 230px; }
   .ct-nav-list { mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
   .ct-section { scroll-margin-top: 190px; }
   .ct-content { padding: 20px 16px 120px; }

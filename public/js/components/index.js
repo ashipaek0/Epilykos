@@ -38,6 +38,8 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildButtonCard } from './buttonCard.js';
+import { buildSliderCard } from './sliderCard.js';
+import { buildRotaryCard } from './rotaryCard.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
 import { buildControlPlaceholder } from './controlPlaceholder.js';
 import { registerBlock } from './blockRegistry.js';
@@ -85,14 +87,18 @@ export const componentBuilders = {
   // change log); everywhere else they show a placeholder linking there.
   'switch-block': buildControlPlaceholder,
   'state-select': buildControlPlaceholder,
-  'button-card': buildControlPlaceholder
+  'button-card': buildControlPlaceholder,
+  'slider-card': buildControlPlaceholder,
+  'rotary-card': buildControlPlaceholder
 };
 
 /** The working switch and selector cards, for the Controls page (and the showcase). */
 export const controlBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock,
-  'button-card': buildButtonCard
+  'button-card': buildButtonCard,
+  'slider-card': buildSliderCard,
+  'rotary-card': buildRotaryCard
 };
 
 // Every build registers its block so cards can look up their own config when

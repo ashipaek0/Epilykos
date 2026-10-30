@@ -1438,7 +1438,7 @@ function switchableSelect(cfg, kind, prefix) {
   var current = !!cfg.entity, found = false;
   var groups = {}, order = [];
   switchables.forEach(function(s, i) {
-    if (!(kind === 'select' ? s.selectAction : kind === 'button' ? (s.action || s.pressAction) : s.action)) return;
+    if (!(kind === 'select' ? s.selectAction : kind === 'set' ? s.setAction : kind === 'button' ? (s.action || s.pressAction) : s.action)) return;
     if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
     groups[s.group].push(i);
   });
@@ -1477,10 +1477,11 @@ function bindSwitchPicker(kind, prefix) {
     document.getElementById(prefix + '-entity').value = s.entity;
     document.getElementById(prefix + '-metric').value = s.metric || '';
     var action = document.getElementById(prefix + '-action');
-    if (action) action.value = kind === 'select' ? s.selectAction : kind === 'button' ? (s.action || s.pressAction) : s.action;
+    if (action) action.value = kind === 'select' ? s.selectAction : kind === 'set' ? s.setAction : kind === 'button' ? (s.action || s.pressAction) : s.action;
     var label = document.getElementById(prefix + '-label') || document.getElementById(prefix + '-name');
     if (label && !label.value.trim()) label.value = s.metric || s.entity;
     if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
+    if (kind === 'set' && s.source === 'ha') fillRangeFromHA(s);
     if (kind === 'button') onButtonPicked(s);
   });
 }
@@ -1603,6 +1604,47 @@ function bindButtonCardForm() {
 }
 
 /** State Select Block: entity, source, label, action, display style, state-list editor */
+// Slider and rotary cards take the same settings: what to set, and the range it can be set to.
+function buildNumericControlForm(block) {
+  var cfg = block.config || {};
+  var knob = block.type === 'rotary-card';
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">' + (knob ? 'Rotary knob' : 'Slider') + ' Config</legend>';
+  html += '<div data-ui="row">';
+  html += '<span data-ui="row-label">Control</span>';
+  html += '<div data-ui="grow">' + switchableSelect(cfg, 'set', 'modal-num') + '</div>';
+  html += '</div>';
+  if (!switchables.some(function(x) { return x.setAction; })) html += '<p data-ui="help">Nothing to set yet. Map a Home Assistant number or input_number, a Tuya value or an MQTT topic to a metric in Settings → Sources first.</p>';
+  html += '<label data-ui="field">Label <input type="text" id="modal-num-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
+  html += '<div data-ui="row"><span data-ui="row-label">Action</span>';
+  html += '<input type="text" id="modal-num-action" value="' + escHtml(cfg.action || '') + '" placeholder="number.set_value" data-ui="input grow"></div>';
+  html += '</fieldset>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Range</legend>';
+  html += '<p data-ui="help">The lowest and highest value the control can send, and the step between values. Home Assistant numbers fill these in for you.</p>';
+  html += '<div data-ui="row"><span data-ui="row-label">Lowest</span><input type="number" id="modal-num-min" value="' + escHtml(cfg.min == null ? '' : cfg.min) + '" step="any" data-ui="input grow"></div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Highest</span><input type="number" id="modal-num-max" value="' + escHtml(cfg.max == null ? '' : cfg.max) + '" step="any" data-ui="input grow"></div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Step</span><input type="number" id="modal-num-step" value="' + escHtml(cfg.step == null ? '' : cfg.step) + '" step="any" min="0" placeholder="1" data-ui="input grow"></div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Unit</span><input type="text" id="modal-num-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="A, V, %, °C" data-ui="input grow"></div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Colour</span><input type="text" id="modal-num-color" value="' + escHtml(cfg.color || '') + '" placeholder="#f59e0b (optional)" data-ui="input grow"></div>';
+  html += '</fieldset>';
+  return html;
+}
+// A Home Assistant number knows its own range and unit: fill in what is still empty.
+function fillRangeFromHA(s) {
+  fetch('/api/ha/entity-actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({ device: s.device, entityId: s.entity })
+  }).then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
+    var m = (d && d.modes) || {};
+    [['min', m.min], ['max', m.max], ['step', m.step], ['unit', m.unit]].forEach(function(pair) {
+      var el = document.getElementById('modal-num-' + pair[0]);
+      if (el && pair[1] != null && !String(el.value).trim()) el.value = pair[1];
+    });
+  }).catch(function() { /* the range stays as typed */ });
+}
+
 function buildStateSelectForm(block) {
   var cfg = block.config || {};
   var states = Array.isArray(cfg.states) ? cfg.states : [];
@@ -1901,6 +1943,10 @@ function buildSettingsForm(block) {
       break;
     case 'state-select':
       html += buildStateSelectForm(block);
+      break;
+    case 'slider-card':
+    case 'rotary-card':
+      html += buildNumericControlForm(block);
       break;
     default:
       // forecast-*, weather-block, savings-summary, forecast-pvtoday etc.
@@ -2425,6 +2471,33 @@ function readSettingsForm(block) {
       if (!config.entity) return 'Pick what this button controls.';
       break;
     }
+    case 'slider-card':
+    case 'rotary-card': {
+      var nv = function(id) { var el = document.getElementById('modal-num-' + id); return el ? String(el.value).trim() : ''; };
+      var what = type === 'rotary-card' ? 'knob' : 'slider';
+      config.entity = nv('entity');
+      config.source = nv('source') || 'ha';
+      config.device = nv('device');
+      config.metric = nv('metric');
+      if (!config.entity) return 'Pick what this ' + what + ' controls.';
+      config.label = nv('label');
+      config.action = nv('action');
+      if (!config.action) return 'Set the action this ' + what + ' sends (for a Home Assistant number: number.set_value).';
+      config.unit = nv('unit');
+      if (nv('min') === '' || nv('max') === '') return 'Set the lowest and highest value this ' + what + ' can send.';
+      config.min = Number(nv('min')); config.max = Number(nv('max'));
+      if (!isFinite(config.min) || !isFinite(config.max)) return 'The lowest and highest values must be numbers.';
+      if (config.max <= config.min) return 'The highest value must be above the lowest.';
+      if (nv('step') === '') { config.step = 1; }
+      else {
+        config.step = Number(nv('step'));
+        if (!isFinite(config.step) || config.step <= 0) return 'The step must be a number above zero.';
+        if (config.step > config.max - config.min) return 'The step is larger than the range.';
+      }
+      config.color = nv('color');
+      if (config.color && !/^#[0-9a-f]{3,8}$/i.test(config.color)) return 'The colour must be a hex colour such as #f59e0b, or empty.';
+      break;
+    }
     case 'state-select': {
       config.entity = document.getElementById('modal-state-entity')?.value || '';
       config.source = document.getElementById('modal-state-source')?.value || 'ha';
@@ -2724,9 +2797,9 @@ function updateEmptyState() {
   empty.hidden = !!(tab && tab.layout.length);
   var h = empty.querySelector('h2'), p = empty.querySelector('p');
   if (h && p && !empty.dataset.failed) {
-    h.textContent = onControlsTab() ? 'No switches or selectors yet' : 'This dashboard is empty';
+    h.textContent = onControlsTab() ? 'No controls yet' : 'This dashboard is empty';
     p.textContent = onControlsTab()
-      ? 'Add a Toggle switch or State select from the library. They show on the Controls page, where changes need your password.'
+      ? 'Add a Toggle switch, Button, State select, Slider or Rotary knob from the library. They show on the Controls page, where changes need your password.'
       : 'Add a block from the library to get started.';
   }
 }
@@ -3386,6 +3459,10 @@ function wireSettingsForm(body, block) {
     case 'switch-block':
       bindSwitchPicker('toggle', 'modal-switch');
       break;
+    case 'slider-card':
+    case 'rotary-card':
+      bindSwitchPicker('set', 'modal-num');
+      break;
     case 'button-card':
       bindButtonCardForm();
       break;
@@ -3811,7 +3888,7 @@ function openDashboardMenu() {
   });
   if (controlsTab) {
     items.push({ separator: true });
-    items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches and selectors', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
+    items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches, selectors, sliders and knobs', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
   }
   items.push({ separator: true });
   items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
