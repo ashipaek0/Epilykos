@@ -62,6 +62,8 @@ const OPTIONS = {
   'switch-block': [text('label', 'Label')],
   'button-card': [text('name', 'Name'), text('icon', 'Icon (mdi:name, image URL or emoji)')],
   'state-select': [text('label', 'Label')],
+  'slider-card': [text('label', 'Label'), text('unit', 'Unit')],
+  'rotary-card': [text('label', 'Label'), text('unit', 'Unit')],
   'text-card': [{ path: 'content', label: 'Text', kind: 'textarea' }]
 };
 

@@ -234,6 +234,8 @@ Multiple dashboards are supported, with automatic switching between desktop and 
   - **Expert register writes** (off by default) allow any register number, for registers you have checked in your device's manual.
   - Every attempt, refused ones included, is kept in the change log.
 
+**Control cards** are added in the layout editor under *Controls page*: Toggle switch, Button, State select, **Slider** and **Rotary knob**. The slider and the knob set a number on a Home Assistant `number` or `input_number`, a Tuya value or an MQTT topic. Pick what to set and give its lowest value, highest value and step (a Home Assistant number fills these in itself). Moving the control only shows the value: it is sent when you let go of the slider, or when you stop turning the knob or pressing keys, so one gesture is one change in the change log. A tap on the knob changes nothing, and the arrow keys, Page Up/Down, Home and End work on both. They follow the same rules as every control above: *Allow device changes* must be on, and a change needs the unlock.
+
 Settings available so far:
 
 - **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits plus model-gated charging/discharging power limits, charging-mode flags and three grid-charging windows. Controls can download a read-only verification snapshot.

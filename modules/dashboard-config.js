@@ -95,7 +95,7 @@ function saveDashboardConfig(config) {
 // page" in the layout editor and shown only on the signed-in Controls page.
 // It is kept apart from the dashboards, whose config is public.
 
-const CONTROL_TYPES = new Set(['switch-block', 'state-select', 'button-card']);
+const CONTROL_TYPES = new Set(['switch-block', 'state-select', 'button-card', 'slider-card', 'rotary-card']);
 const CONTROLS_MAX_BLOCKS = 200;
 const GRID_COLUMNS = 12;
 
@@ -181,7 +181,7 @@ function saveControlsLayout(layout) {
   if (layout.length > CONTROLS_MAX_BLOCKS) throw new Error(`At most ${CONTROLS_MAX_BLOCKS} blocks`);
   for (const b of layout) {
     if (!b || typeof b !== 'object' || Array.isArray(b)) throw new Error('Each block must be an object');
-    if (!CONTROL_TYPES.has(b.type)) throw new Error('Only switch, selector and button cards go on the Controls page');
+    if (!CONTROL_TYPES.has(b.type)) throw new Error('Only switch, selector, button, slider and knob cards go on the Controls page');
     if (typeof b.id !== 'string' || !b.id || b.id.length > 100) throw new Error('Each block needs an id');
   }
   setConfig('controls_layout', JSON.stringify(layout));

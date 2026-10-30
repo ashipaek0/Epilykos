@@ -32,6 +32,8 @@ import { updateForecast } from './forecast.js';
 import { updateWeatherBlock } from './components/weatherBlock.js';
 import { updateSwitchBlockFromState } from './components/switchBlock.js';
 import { updateButtonCardsFromState } from './components/buttonCard.js';
+import { updateSliderCardsFromState } from './components/sliderCard.js';
+import { updateRotaryCardsFromState } from './components/rotaryCard.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
@@ -75,4 +77,6 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);
   if (blockTypes.has('state-select')) updateStateSelectBlockFromState(state);
   if (blockTypes.has('button-card')) updateButtonCardsFromState(state);
+  if (blockTypes.has('slider-card')) updateSliderCardsFromState(state);
+  if (blockTypes.has('rotary-card')) updateRotaryCardsFromState(state);
 }
