@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41054841260.1",
-    "version": "1.0.10-dev+abf0263",
-    "commit": "abf026357ac3a5e49c6f3f672c18a48d66cdcc72",
-    "digest": "sha256:7adad83d79c1eec6d3b4899c8222bbc478d1ddf4ba7ec33f4a03c70d736d41f0",
+    "buildId": "41080095234.1",
+    "version": "1.0.11-dev+fec1393",
+    "commit": "fec1393ef15cc4ba6820482397b7e7940becbd06",
+    "digest": "sha256:ca7649b73f71a606e8a50aeb8fa1c20818f4de9be592ed34490480a0fe60eb97",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-30T12:22:45Z",
+    "builtAt": "2026-10-30T15:22:37Z",
     "kind": "release",
     "notes": [
-      "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
-      "Phocos Any-Grid RS-232 / RS-485 profile (#236)"
+      "Controls page: Slider and Rotary knob cards"
     ]
   },
   "history": [
+    {
+      "buildId": "41080095234.1",
+      "version": "1.0.11-dev+fec1393",
+      "commit": "fec1393ef15cc4ba6820482397b7e7940becbd06",
+      "digest": "sha256:ca7649b73f71a606e8a50aeb8fa1c20818f4de9be592ed34490480a0fe60eb97",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-30T15:22:37Z",
+      "kind": "release",
+      "notes": [
+        "Controls page: Slider and Rotary knob cards"
+      ]
+    },
     {
       "buildId": "41054841260.1",
       "version": "1.0.10-dev+abf0263",
