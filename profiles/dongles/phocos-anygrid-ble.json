@@ -7,7 +7,7 @@
   "capabilities": {"read": true, "write": true},
   "default_poll_interval": 15,
   "description": "Phocos Any-Grid PSW-H BLE telemetry and settings. Writes use allowlisted, read/compare/write/readback transactions; hardware acceptance remains unverified.",
-  "notes": "Static PhocosLink 2.1.4 analysis. App-confirmed SOC, discharge and charging current; temperature, PV current, bus voltage and apparent power remain inferred. No live firmware validation.",
+  "notes": "Static PhocosLink 2.1.4 analysis. App-confirmed SOC, discharge and charging current. Apparent power, bus voltage and heatsink temperature are corroborated by Phocos's RS-232 command document (2020-12-14): the live block holds the same ten readings in the same order and number formats as its QPIGS reply, and the status block continues it with SOC, heatsink temperature and discharge current. PV current stays inferred: that document defines it as measured on the battery side, so PV voltage times PV current need not equal PV power. The fault bytes are still unverified. No live firmware validation.",
   "blocks": [
     {"id": "live", "service": "1810", "characteristic": "2a03", "minimumLength": 20},
     {"id": "status", "service": "1810", "characteristic": "2a04", "minimumLength": 13},
@@ -65,20 +65,20 @@
     {"name": "grid_frequency", "path": "live[1]", "scale": 0.1, "unit": "Hz", "label": "Grid Frequency"},
     {"name": "output_voltage", "path": "live[2]", "scale": 0.1, "unit": "V", "label": "AC Output Voltage"},
     {"name": "output_frequency", "path": "live[3]", "scale": 0.1, "unit": "Hz", "label": "AC Output Frequency"},
-    {"name": "output_va", "path": "live[4]", "scale": 1, "unit": "VA", "label": "AC Output Apparent Power (inferred)", "confidence": "inferred"},
+    {"name": "output_va", "path": "live[4]", "scale": 1, "unit": "VA", "label": "AC Output Apparent Power", "confidence": "corroborated"},
     {"name": "output_power", "path": "live[5]", "scale": 1, "unit": "W", "label": "AC Output Active Power"},
     {"name": "load_percent", "path": "live[6]", "scale": 1, "unit": "%", "label": "Output Load Percent"},
-    {"name": "bus_voltage", "path": "live[7]", "scale": 1, "unit": "V", "label": "DC Bus Voltage (inferred)", "confidence": "inferred"},
+    {"name": "bus_voltage", "path": "live[7]", "scale": 1, "unit": "V", "label": "DC Bus Voltage", "confidence": "corroborated"},
     {"name": "battery_voltage", "path": "live[8]", "scale": 0.01, "unit": "V", "label": "Battery Voltage"},
     {"name": "battery_charging_current", "path": "live[9]", "scale": 1, "unit": "A", "confidence": "app_confirmed", "label": "Battery Charging Current"},
     {"name": "operating_mode", "path": "operating_mode", "type": "string", "unit": "", "confidence": "app_confirmed", "label": "Operating Mode"},
     {"name": "battery_soc", "path": "status[0]", "scale": 1, "unit": "%", "confidence": "app_confirmed", "label": "Battery SOC"},
-    {"name": "inverter_temp", "path": "status[1]", "scale": 1, "unit": "°C", "confidence": "inferred", "label": "Inverter Heatsink Temperature (inferred)"},
+    {"name": "inverter_temp", "path": "status[1]", "scale": 1, "unit": "°C", "confidence": "corroborated", "label": "Inverter Heatsink Temperature"},
     {"name": "battery_discharge_current", "path": "status[2]", "scale": 1, "unit": "A", "confidence": "app_confirmed", "label": "Battery Discharge Current"},
-    {"name": "pv1_current", "path": "pv1[5]", "scale": 0.1, "unit": "A", "confidence": "inferred", "label": "PV1 Current (inferred)"},
+    {"name": "pv1_current", "path": "pv1[5]", "scale": 0.1, "unit": "A", "confidence": "inferred", "label": "PV1 Current (battery side, inferred)"},
     {"name": "pv1_voltage", "path": "pv1[6]", "scale": 0.1, "unit": "V", "label": "PV1 Voltage"},
     {"name": "pv1_power", "path": "pv1[7]", "scale": 1, "unit": "W", "label": "PV1 Power"},
-    {"name": "pv2_current", "path": "pv2[5]", "scale": 0.1, "unit": "A", "confidence": "inferred", "label": "PV2 Current (inferred)"},
+    {"name": "pv2_current", "path": "pv2[5]", "scale": 0.1, "unit": "A", "confidence": "inferred", "label": "PV2 Current (battery side, inferred)"},
     {"name": "pv2_voltage", "path": "pv2[6]", "scale": 0.1, "unit": "V", "label": "PV2 Voltage"},
     {"name": "pv2_power", "path": "pv2[7]", "scale": 1, "unit": "W", "label": "PV2 Power"},
     {"name": "pv_power", "path": "derived.pv_power", "scale": 1, "unit": "W", "label": "PV Power (PV1 + PV2)", "confidence": "derived"},
@@ -127,5 +127,5 @@
     {"name": "setting_discharge_current", "path": "settings.discharge_current", "scale": 1, "unit": "A", "label": "Maximum discharge current (read-only snapshot)", "confidence": "app_confirmed", "type": "number", "record": "on_change"}
   ],
   "decoder": "phocos-pswh",
-  "evidence": {"source": "PhocosLink 2.1.4 APK static analysis", "sha256": "105e075605f7653b49987e1494802af2aba0d272f41603e637cb4f8b2a004a30", "hardware_validated": false, "documentation": "README.md#phocos-any-grid-ble"}
+  "evidence": {"source": "PhocosLink 2.1.4 APK static analysis", "corroboration": "Phocos Any-Grid PSW-H RS-232 PhocosLink PC commands, version 2020-12-14: field order and formats of QPIGS (live, status and PV blocks)", "sha256": "105e075605f7653b49987e1494802af2aba0d272f41603e637cb4f8b2a004a30", "hardware_validated": false, "documentation": "README.md#phocos-any-grid-ble"}
 }

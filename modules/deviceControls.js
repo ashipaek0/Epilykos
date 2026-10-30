@@ -109,7 +109,7 @@ function dongleDevices() {
 
 /** A profile's listed settings, in the shape the Controls page shows. */
 function settingsOf(profile) {
-  if (profile && profile.protocol === 'ble-gatt' && Array.isArray(profile.settings)) return profile.settings.map(w => ({ type: w.type === 'boolean' ? 'switch' : w.type === 'enum' ? 'select' : 'number', name: w.id, label: w.label || w.id, description: w.reason || '', unit: w.unit || '', min: w.min, max: w.max, step: w.step, allowed: w.allowed, writable: false, blockedReason: 'Read the device first to verify its model and setting capability' }));
+  if (profile && profile.protocol === 'ble-gatt' && Array.isArray(profile.settings)) return profile.settings.map(w => ({ type: w.type === 'boolean' ? 'switch' : w.type === 'enum' ? 'select' : 'number', name: w.id, label: w.label || w.id, description: w.reason || '', unit: w.unit || '', min: w.min, max: w.max, step: w.step, allowed: w.allowed, labels: w.type === 'enum' ? require('./dongle/bleGatt').enumLabels(w.id) : undefined, writable: false, blockedReason: 'Read the device first to verify its model and setting capability' }));
   if (!profile || !profile.capabilities || profile.capabilities.write !== true) return [];
   const additions = (profile.geta_controls || []).map(require('./dongle/luxpowerSettings').descriptor);
   return additions.concat((Array.isArray(profile.writable_registers) ? profile.writable_registers : [])

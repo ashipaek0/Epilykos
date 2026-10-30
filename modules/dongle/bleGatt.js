@@ -194,6 +194,8 @@ function decodeSettings(profile, blocks, raws, model) {
   const capabilities=(profile.settings||[]).map(s=>{
     let setting={...s};
     if(model?.supported) setting = modelSetting(s, model);
+    // The names the unit's display and the app give each value (CSO / SNU / OSO …), for the controls page.
+    if(setting.type==='enum'&&ENUMS[setting.id]) setting={...setting,labels:{...ENUMS[setting.id]}};
     const blockedReason=!knownModel?(model?.readSupported?'No validated write profile for this model/rating; telemetry remains read-only':'Unknown or unsupported model/rating combination'):s.writable!==true?(s.reason||'Setting is read-only or unsupported by the transaction backend'):values[s.id]==null?'Setting value unavailable':null;
     return {...setting,writable:s.writable===true&&knownModel&&values[s.id]!=null,blockedReason};
   });
@@ -311,4 +313,7 @@ function identityCheck(data) {
   };
 }
 
-module.exports = { BleGattTransport, decodeBlocks, wordsLE, identityCheck };
+/** The names of a setting's values ({ value: name }), or undefined for a setting without names. */
+function enumLabels(id) { return ENUMS[id] ? { ...ENUMS[id] } : undefined; }
+
+module.exports = { BleGattTransport, decodeBlocks, wordsLE, identityCheck, enumLabels };
