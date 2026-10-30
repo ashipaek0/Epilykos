@@ -190,9 +190,24 @@ Wired JBD and JK packs report the same metric names as over Bluetooth (`voltage`
 Most BMS and inverter modules accept **one Bluetooth connection at a time**, so close the vendor phone app while
 Epilykos is connected. All Bluetooth devices share one adapter and are polled one after another.
 
+### Phocos Any-Grid BLE
+Phocos Any-Grid PSW-H inverters report over Bluetooth LE without pairing: Epilykos reads their live values, ratings, identity and settings, and can change an allowlisted set of settings (each change is read, compared, written and read back). The profile comes from analysis of the PhocosLink 2.1.4 app and has not been checked against a unit.
+
+How far each reading is trusted (`confidence` in the field list):
+- **app_confirmed**: the app shows it the same way (grid and output voltage, load, battery voltage, SOC, charge and discharge current, PV voltage and power, mode, identity, ratings, settings).
+- **corroborated**: also matches Phocos's RS-232 command document (2020-12-14): output apparent power, DC bus voltage and heatsink temperature. The live block has the same ten readings, in the same order and number formats, as that document's `QPIGS` reply.
+- **inferred**: PV1 and PV2 current. The document defines PV input current as measured on the battery side, so PV voltage times PV current need not equal PV power.
+- **derived / estimated**: calculated by Epilykos (PV power, battery net power, estimated grid power).
+- **unverified**: the fault bytes. The document names 29 fault codes (see the wired profile), but does not say how this Bluetooth block encodes them.
+
+Settings with a fixed list of values show the names the unit's display and the app use, not numbers: charger source priority as Solar first (CSO) / Solar and Utility (SNU) / Only Solar (OSO), output priority as USB / SUB / SBU, AC input range as APL / UPS, and battery type as AGM, Flooded, User defined, Pylontech, BYD, WeCo, MODBUS RTU RS-485 or Any-Cell. Phocos's RS-232 document agrees for the ones it names (battery types 0 to 3, the three charger priorities, USB / SUB / SBU); BYD to Any-Cell come from the app. What is sent to the inverter is still the number.
+
+For a wired connection to the same inverter, see **Phocos Any-Grid PSW-H (RS-232 / RS-485)** below.
+
 ### RS232 Serial
 Connect inverters via USB-to-RS232/RS485 adapter. Supported protocols:
-- **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, Phocos, MUST, Sako (2400 8N1)
+- **Voltronic QPIGS** — Voltronic, Axpert, Infinisolar, MUST, Sako (2400 8N1)
+- **Phocos Any-Grid PSW-H (RS-232 / RS-485)** — Phocos's own protocol, firmware 06.11 or later (2400 8N1, read-only). Every poll: live readings, PV power, operating mode, fault code with its name, status flags (MPPT, charging, battery state, AC input and output), totals and set charging currents. Now and then: ratings and settings (charger priority as CSO / SNU / OSO, battery type and so on), the unit's defaults, available charging currents, date and time, serial number and firmware (main, display and Bluetooth). Up to nine paralleled units are read as `unit1_…` to `unit9_…`: map a unit's fields to have it asked, and a unit that is not there is left alone for a while. The units are numbered by the inverters themselves and the numbering can change when they restart, so follow each by its serial number. Use the cable supplied with the inverter; other cables can damage it.
 - **Victron VE.Direct** — SmartSolar, BMV, MultiPlus via VE.Direct cable (19200 8N1, streaming)
 - **SolaX Pocket USB** — SolaX X1/X3 series via USB-to-TTL adapter (9600 8N1, binary AA55)
 - **Modbus-RTU** — e.g. Anern EVO4200L over RS485

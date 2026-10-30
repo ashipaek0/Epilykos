@@ -164,7 +164,9 @@ function settingRow(dev, s) {
   // A number setting with a fixed list of values (e.g. 2, 10, 20 … A) gets a
   // dropdown once its read says which values the device accepts.
   let pickList = false;
-  const options = (s.allowed || []).map(o => typeof o === 'object' ? o : { value: o, label: String(o) });
+  // A value may have a name of its own (charger priority 2 is "Solar and utility (SNU)").
+  const named = (o, labels) => typeof o === 'object' ? o : { value: o, label: (labels && labels[o]) || String(o) };
+  const options = (s.allowed || []).map(o => named(o, s.labels));
   if (isSwitch) options.push(...(dev.kind === 'bms' ? [{ value:'on',label:'On' },{ value:'off',label:'Off' }] : [{ value:true,label:'On' },{ value:false,label:'Off' }]));
   if (isSwitch || isSelect) for (const o of options) { const opt = document.createElement('option'); opt.value = String(o.value); opt.textContent = o.label; input.appendChild(opt); }
   if (s.type === 'number') Object.assign(input, { min: s.min, max: s.max, step: s.step });
@@ -185,7 +187,7 @@ function settingRow(dev, s) {
       if (!r.ok) { shown = null; cur.textContent = '—'; input.value = ''; updateBlocked(r.data.error || 'Could not read it. Read again before changing.'); return null; }
       const d = r.data; shown = d.value; cur.textContent = show(shown);
       if (d.capability) {
-        const c = d.capability; options.splice(0, options.length, ...((c.allowed || []).map(o => typeof o === 'object' ? o : { value:o, label:String(o) })));
+        const c = d.capability; options.splice(0, options.length, ...((c.allowed || []).map(o => named(o, c.labels || s.labels))));
         if (isSwitch && !options.length) options.push({ value:true,label:'On' },{ value:false,label:'Off' });
         if (isSelect) { input.replaceChildren(); const blank=document.createElement('option'); blank.value=''; blank.textContent='Choose'; input.appendChild(blank); for (const o of options) { const opt=document.createElement('option'); opt.value=String(o.value); opt.textContent=o.label; input.appendChild(opt); } }
         if (s.type === 'number') {
