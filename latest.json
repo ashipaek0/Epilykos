@@ -1,20 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "41057908621.1",
-    "version": "1.0.10",
-    "commit": "6bb8c1d50f9ab6a90c0bee1c9d38857f99901c26",
-    "digest": "sha256:ef9b43206b0d516830088631efa1f95e3224081653b5ede7d871ac82fce7fc11",
+    "buildId": "41193929223.1",
+    "version": "1.0.11",
+    "commit": "ae31a3c39b0b2badd4d20bf26711e40e01917dcf",
+    "digest": "sha256:1036b16b17f4b90be63ab82408ed38087386204a864868f20115cdca9a589078",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-10-30T12:46:59Z",
+    "builtAt": "2026-10-31T10:44:08Z",
     "kind": "release",
     "notes": [
-      "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
-      "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
-      "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)"
+      "Settings → System: Restart button on Docker installs",
+      "Controls page: Slider and Rotary knob cards"
     ]
   },
   "history": [
+    {
+      "buildId": "41193929223.1",
+      "version": "1.0.11",
+      "commit": "ae31a3c39b0b2badd4d20bf26711e40e01917dcf",
+      "digest": "sha256:1036b16b17f4b90be63ab82408ed38087386204a864868f20115cdca9a589078",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-10-31T10:44:08Z",
+      "kind": "release",
+      "notes": [
+        "Settings → System: Restart button on Docker installs",
+        "Controls page: Slider and Rotary knob cards"
+      ]
+    },
     {
       "buildId": "41057908621.1",
       "version": "1.0.10",
