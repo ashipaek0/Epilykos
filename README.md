@@ -299,6 +299,8 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 - **Docker Compose without the socket**: the page shows the commands, `docker compose pull` then `docker compose up -d`.
 - **EpilykosOS**: the appliance checks for and installs signed Epilykos releases itself, and goes back to the previous version if the new one is not healthy.
 
+**Restarting:** Settings → System has a **Restart** button on Docker too. With the Docker socket mounted it asks Docker to restart the container; without it, Epilykos stops cleanly and relies on the container's restart policy (`restart: unless-stopped` in the compose file) to start it again. Shut down and factory reset are EpilykosOS only.
+
 ---
 
 ## Key Features
