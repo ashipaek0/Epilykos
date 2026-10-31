@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41080095234.1",
-    "version": "1.0.11-dev+fec1393",
-    "commit": "fec1393ef15cc4ba6820482397b7e7940becbd06",
-    "digest": "sha256:ca7649b73f71a606e8a50aeb8fa1c20818f4de9be592ed34490480a0fe60eb97",
+    "buildId": "41191289529.1",
+    "version": "1.0.11-dev+7b220d1",
+    "commit": "7b220d1a0814fcce455ef3c92eb7d18b314595a7",
+    "digest": "sha256:925b3ec5b27874da5a5cf4ca09c2cebd0f6b4ae0ac97483314f8621fd72a2253",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-30T15:22:37Z",
+    "builtAt": "2026-10-31T10:05:30Z",
     "kind": "release",
     "notes": [
-      "Controls page: Slider and Rotary knob cards"
+      "Settings → System: Restart button on Docker installs"
     ]
   },
   "history": [
+    {
+      "buildId": "41191289529.1",
+      "version": "1.0.11-dev+7b220d1",
+      "commit": "7b220d1a0814fcce455ef3c92eb7d18b314595a7",
+      "digest": "sha256:925b3ec5b27874da5a5cf4ca09c2cebd0f6b4ae0ac97483314f8621fd72a2253",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-10-31T10:05:30Z",
+      "kind": "release",
+      "notes": [
+        "Settings → System: Restart button on Docker installs"
+      ]
+    },
     {
       "buildId": "41080095234.1",
       "version": "1.0.11-dev+fec1393",
