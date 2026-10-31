@@ -1,6 +1,6 @@
 /**
  * Appliance system actions for Settings → System (EpilykosOS only,
- * contract C-HOST-001): Restart, Shut down, Factory reset, Change Wi-Fi (Bluetooth setup),
+ * contract C-HOST-001; in Docker only Restart is offered): Restart, Shut down, Factory reset, Change Wi-Fi (Bluetooth setup),
  * the dashboard port, and the SSH maintenance login. Every route needs an
  * admin session; the global /api CSRF check applies too. Passwords are never
  * logged.
@@ -11,6 +11,7 @@
 const express = require('express');
 const { logger } = require('../modules/logger');
 const hostActions = require('../modules/hostActions');
+const containerRestart = require('../modules/containerRestart');
 const { readSpace } = require('../modules/storageStatus');
 const { DB_PATH } = require('../modules/database');
 const networkInfo = require('../modules/networkInfo');
@@ -40,7 +41,11 @@ function forward(action, pick = () => ({})) {
 
 // Whether this instance is an EpilykosOS appliance, and its current state.
 router.get('/', async (req, res) => {
-  if (!hostActions.available()) return res.json({ appliance: false });
+  if (!hostActions.available()) {
+    // Docker: only Restart is offered (how it is done: containerRestart.mode()).
+    const restart = containerRestart.mode();
+    return res.json(restart === 'none' ? { appliance: false } : { appliance: false, container: { restart } });
+  }
   try {
     const reply = await hostActions.call('status');
     if (!reply || reply.ok !== true) throw Object.assign(new Error(reply && reply.error || 'status failed'), { status: 502 });
@@ -66,7 +71,19 @@ router.post('/bluetooth/pair', forward('bluetooth_pair', b => ({ address: typeof
 router.post('/bluetooth/reply', forward('bluetooth_reply', b => ({ id: typeof b.id === 'string' ? b.id : '', value: typeof b.value === 'string' || typeof b.value === 'boolean' ? b.value : null })));
 router.post('/bluetooth/remove', forward('bluetooth_remove', b => ({ address: typeof b.address === 'string' ? b.address : '' })));
 
-router.post('/restart', (req, res, next) => { logger.info('Settings: restart requested'); next(); }, forward('restart'));
+// Restart Epilykos in Docker: answer first, then restart (the restart ends this process).
+async function restartContainer(req, res) {
+  try {
+    const plan = await containerRestart.prepare();
+    res.json({ success: true, mode: plan.mode });
+    res.once('finish', () => setTimeout(plan.go, 300));
+  } catch (err) {
+    logger.warn(`Container restart refused: ${err.message}`);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+}
+router.post('/restart', (req, res, next) => { logger.info('Settings: restart requested'); next(); },
+  (req, res, next) => (hostActions.available() ? next() : restartContainer(req, res)), forward('restart'));
 router.post('/shutdown', (req, res, next) => { logger.info('Settings: shutdown requested'); next(); }, forward('shutdown'));
 // Erases DATA on the next boot and restarts now; the host refuses it without ERASE.
 router.post('/factory-reset', (req, res, next) => { logger.info('Settings: factory reset requested'); next(); },

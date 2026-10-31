@@ -37,6 +37,7 @@ const server = net.createServer(conn => {
 
 const router = require('../routes/system');
 const hostActions = require('../modules/hostActions');
+const containerRestart = require('../modules/containerRestart');
 
 function route(method, routePath) {
   const layer = router.stack.find(l => l.route && l.route.path === routePath && l.route.methods[method]);
@@ -57,6 +58,7 @@ async function call(method, routePath, body) {
 
 (async () => {
   delete process.env.EPILYKOS_HOST_SOCKET;
+  containerRestart.setForTests({ availability: () => 'none' });   // not in Docker, wherever this test runs
   let r = await call('get', '/');
   assert.deepEqual(r.data, { appliance: false });
   r = await call('post', '/restart');

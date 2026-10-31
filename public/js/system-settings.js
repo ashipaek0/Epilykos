@@ -9,7 +9,8 @@
  *   Network → Address the dashboard's port (80 or 1024-65535); the page follows it
  *
  * The System nav entry and the Network cards stay hidden unless
- * /api/system reports an appliance.
+ * /api/system reports an appliance. In Docker (no appliance) the System
+ * entry shows just a Restart button.
  * Loaded after settings-shell.js (window.stShell, window.stConfirm).
  */
 (function () {
@@ -61,6 +62,7 @@
       if (resetRoot) resetRoot.innerHTML = '';
       return;
     }
+    if (state.container) { root.innerHTML = renderContainer(); return; }
     root.innerHTML = renderSystem();
     // Drawn once, so a reload of the section keeps what was typed.
     if (resetRoot && !resetRoot.firstChild) resetRoot.innerHTML = renderReset();
@@ -90,6 +92,16 @@
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="port">Change port</button></div>'
       + '<div class="test-status" id="sys-port-status" role="status"></div></div>';
     return html;
+  }
+
+  /** Docker: Restart only. With the Docker socket Docker restarts it; without, Epilykos stops and the restart policy starts it. */
+  function renderContainer() {
+    var viaDocker = state.container.restart === 'docker';
+    return '<div class="st-card"><div class="st-card-head"><h2>Restart</h2></div>'
+      + '<p class="st-help">Restart Epilykos. It stops cleanly first, so nothing is lost, and this page reloads when it is back.'
+      + (viaDocker ? '' : ' Docker starts it again by itself only if the container has a restart policy, as in the compose file (<code>restart: unless-stopped</code>).') + '</p>'
+      + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="restart">Restart</button></div>'
+      + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
   }
 
   function renderSystem() {
@@ -164,8 +176,17 @@
   async function load() {
     try {
       var data = await api('GET', '');
-      if (!data.appliance) { if (navItem) navItem.hidden = true; if (netRoot) netRoot.hidden = true; return data; }
+      if (!data.appliance && !data.container) { if (navItem) navItem.hidden = true; if (netRoot) netRoot.hidden = true; return data; }
       state = data;
+      if (data.container) {
+        if (netRoot) netRoot.hidden = true;
+        if (resetRoot) resetRoot.hidden = true;
+        var lede = document.querySelector('#section-system .st-lede');
+        if (lede) lede.textContent = 'Restart Epilykos without touching the computer it runs on.';
+        if (navItem) navItem.hidden = false;
+        render();
+        return state;
+      }
     } catch (e) {
       state = { error: e.message };
     }
@@ -216,7 +237,10 @@
     var removeKey = btn.dataset.removeKey;
     try {
       if (act === 'restart') {
-        if (!(await confirmIt({ title: 'Restart the appliance?', message: 'Epilykos stops, the box restarts, and the dashboard comes back in a minute or two.', confirmLabel: 'Restart' }))) return;
+        var inDocker = !!state.container;
+        if (!(await confirmIt(inDocker
+          ? { title: 'Restart Epilykos?', message: 'Epilykos stops and starts again. The dashboard is back in under a minute.', confirmLabel: 'Restart' }
+          : { title: 'Restart the appliance?', message: 'Epilykos stops, the box restarts, and the dashboard comes back in a minute or two.', confirmLabel: 'Restart' }))) return;
         btn.disabled = true;
         await api('POST', '/restart');
         status('sys-power-status', 'Restarting… this page reloads when Epilykos is back.', 'warning');
