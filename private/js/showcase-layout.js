@@ -71,6 +71,9 @@ export const SHOWCASE_BLOCKS = [
   { type: 'state-select', config: { entity: 'select.inverter_mode', source: 'showcase', label: 'Inverter mode',
     states: [{ value: 'Solar first', label: 'Solar first' }, { value: 'Battery first', label: 'Battery first' }, { value: 'Grid first', label: 'Grid first' }] } },
 
+  { type: 'slider-card', config: { entity: 'number.charge_current', source: 'showcase', label: 'Charge current', unit: 'A', min: 0, max: 80, step: 5, action: 'number.set_value' }, gridH: 3 },
+  { type: 'rotary-card', config: { entity: 'number.battery_cutoff', source: 'showcase', label: 'Battery cut-off', unit: '%', min: 10, max: 90, step: 5, action: 'number.set_value' }, gridH: 5 },
+
   { type: 'text-card', config: { content: 'Roof array: 12 × 400 W panels, facing south.' } },
   { type: 'iframe-card', config: { url: 'about:blank', title: 'Embedded page' } }
 ];

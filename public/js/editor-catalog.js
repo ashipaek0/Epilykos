@@ -61,6 +61,8 @@ const ICON_PATHS = {
   toggle: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
   select: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 6v12M15 6v12"/>',
   button: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="10" r="3.2"/><path d="M8 17h8"/>',
+  slider: '<path d="M3 12h18"/><circle cx="9" cy="12" r="3"/><path d="M3 6h18M3 18h18" opacity=".35"/>',
+  rotary: '<circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-4"/><path d="M5.5 18.5A9.5 9.5 0 0 1 3 12M18.5 18.5A9.5 9.5 0 0 0 21 12" opacity=".35"/>',
   embed: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'
 };
 
@@ -124,6 +126,8 @@ export const BLOCKS = {
   'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns an entity on or off, on the Controls page', icon: 'toggle', w: 3, h: 2 },
   'button-card':        { group: 'controls', name: 'Button', desc: 'Big icon button like Home Assistant: tap to toggle, turn on or off, or press, on the Controls page', icon: 'button', w: 3, h: 4 },
   'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity, on the Controls page', icon: 'select', w: 4, h: 3 },
+  'slider-card':        { group: 'controls', name: 'Slider', desc: 'Drag to set a number, such as a charge current or a level, on the Controls page', icon: 'slider', w: 4, h: 3 },
+  'rotary-card':        { group: 'controls', name: 'Rotary knob', desc: 'Turn a knob to set a number, on the Controls page', icon: 'rotary', w: 3, h: 5 },
 
   'text-card':          { group: 'content', name: 'Text', desc: 'A note or heading you write', icon: 'text', w: 6, h: 2 },
   'iframe-card':        { group: 'content', name: 'Embed', desc: 'Another web page in a frame', icon: 'embed', w: 6, h: 6 }

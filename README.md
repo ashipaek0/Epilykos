@@ -234,6 +234,8 @@ Multiple dashboards are supported, with automatic switching between desktop and 
   - **Expert register writes** (off by default) allow any register number, for registers you have checked in your device's manual.
   - Every attempt, refused ones included, is kept in the change log.
 
+**Control cards** are added in the layout editor under *Controls page*: Toggle switch, Button, State select, **Slider** and **Rotary knob**. The slider and the knob set a number on a Home Assistant `number` or `input_number`, a Tuya value or an MQTT topic. Pick what to set and give its lowest value, highest value and step (a Home Assistant number fills these in itself). Moving the control only shows the value: it is sent when you let go of the slider, or when you stop turning the knob or pressing keys, so one gesture is one change in the change log. A tap on the knob changes nothing, and the arrow keys, Page Up/Down, Home and End work on both. They follow the same rules as every control above: *Allow device changes* must be on, and a change needs the unlock.
+
 Settings available so far:
 
 - **LuxPower** (GETA dongle, Wi-Fi or Bluetooth): battery charge-level limits plus model-gated charging/discharging power limits, charging-mode flags and three grid-charging windows. Controls can download a read-only verification snapshot.
@@ -296,6 +298,8 @@ It checks once a day (turn that off on the same page, or set `UPDATE_CHECK=off`)
 - **Docker Compose with the Docker socket mounted** (the `docker.sock` line in the compose file above): **Update now** asks for your admin password, downloads the new image, and restarts Epilykos on it with the same settings, volumes and devices. If the new version does not report healthy within three minutes, the previous one is started again and the page says so. The socket gives Epilykos full control of Docker on that computer; leave the line out if you don't want that.
 - **Docker Compose without the socket**: the page shows the commands, `docker compose pull` then `docker compose up -d`.
 - **EpilykosOS**: the appliance checks for and installs signed Epilykos releases itself, and goes back to the previous version if the new one is not healthy.
+
+**Restarting:** Settings → System has a **Restart** button on Docker too. With the Docker socket mounted it asks Docker to restart the container; without it, Epilykos stops cleanly and relies on the container's restart policy (`restart: unless-stopped` in the compose file) to start it again. Shut down and factory reset are EpilykosOS only.
 
 ---
 

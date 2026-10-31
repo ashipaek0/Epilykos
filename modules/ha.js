@@ -124,7 +124,9 @@ async function fetchHAEntities(url, token) {
     e.entity_id.startsWith('button.') ||
     e.entity_id.startsWith('input_button.') ||
     e.entity_id.startsWith('scene.') ||
-    e.entity_id.startsWith('script.')
+    e.entity_id.startsWith('script.') ||
+    e.entity_id.startsWith('number.') ||
+    e.entity_id.startsWith('input_number.')
   ).map(e => e.entity_id);
 }
 
@@ -248,7 +250,9 @@ const DOMAIN_ACTIONS = {
   'button': [{ service: 'button.press', label: 'Press', type: 'button' }],
   'input_button': [{ service: 'input_button.press', label: 'Press', type: 'button' }],
   'scene': [{ service: 'scene.turn_on', label: 'Activate', type: 'button' }],
-  'script': [{ service: 'script.turn_on', label: 'Run', type: 'button' }]
+  'script': [{ service: 'script.turn_on', label: 'Run', type: 'button' }],
+  'number': [{ service: 'number.set_value', label: 'Set value', type: 'number', param: 'value' }],
+  'input_number': [{ service: 'input_number.set_value', label: 'Set value', type: 'number', param: 'value' }]
 };
 
 // Spec AC-7.1: flat action names per domain, exactly as asserted by the spec tests.
@@ -264,7 +268,9 @@ const SPEC_DOMAIN_ACTIONS = {
   'button': ['press'],
   'input_button': ['press'],
   'scene': ['turn_on'],
-  'script': ['turn_on']
+  'script': ['turn_on'],
+  'number': ['set_value'],
+  'input_number': ['set_value']
 };
 
 /**
@@ -305,7 +311,7 @@ const ENTITY_MODES_TTL_MS = 5 * 60 * 1000;
  * @returns {Promise<{hvac_modes: string[], fan_modes: string[], min_temp: number|null, max_temp: number|null}>}
  */
 async function getEntityModes(url, token, entityId) {
-  const empty = { hvac_modes: [], fan_modes: [], preset_modes: [], options: [], min_temp: null, max_temp: null };
+  const empty = { hvac_modes: [], fan_modes: [], preset_modes: [], options: [], min_temp: null, max_temp: null, min: null, max: null, step: null, unit: null };
   if (!url || !token || !entityId) return empty;
   const key = `${url}|${entityId}`;
   const cached = entityModesCache.get(key);
@@ -328,7 +334,12 @@ async function getEntityModes(url, token, entityId) {
         preset_modes: Array.isArray(attrs.preset_modes) ? attrs.preset_modes : [],
         options: Array.isArray(attrs.options) ? attrs.options : [], // select / input_select
         min_temp: (attrs.min_temp !== undefined && attrs.min_temp !== null) ? attrs.min_temp : null,
-        max_temp: (attrs.max_temp !== undefined && attrs.max_temp !== null) ? attrs.max_temp : null
+        max_temp: (attrs.max_temp !== undefined && attrs.max_temp !== null) ? attrs.max_temp : null,
+        // number / input_number: the range a slider or knob can be set to
+        min: Number.isFinite(Number(attrs.min)) && attrs.min !== null ? Number(attrs.min) : null,
+        max: Number.isFinite(Number(attrs.max)) && attrs.max !== null ? Number(attrs.max) : null,
+        step: Number.isFinite(Number(attrs.step)) && attrs.step !== null && Number(attrs.step) > 0 ? Number(attrs.step) : null,
+        unit: typeof attrs.unit_of_measurement === 'string' ? attrs.unit_of_measurement : null
       };
     }
   } catch (e) {

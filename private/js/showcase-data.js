@@ -147,7 +147,7 @@ function extras(s) {
 }
 
 /** Control states the showcase's own switch and selector change (in this page only). */
-export const controls = { 'switch.generator': 'off', 'select.inverter_mode': 'Solar first' };
+export const controls = { 'switch.generator': 'off', 'select.inverter_mode': 'Solar first', 'number.charge_current': '30', 'number.battery_cutoff': '20' };
 
 function metricsFor(s, now, today) {
   const ex = extras(s);
@@ -165,7 +165,9 @@ function metricsFor(s, now, today) {
     battery_voltage: m(ex.battery_voltage, 'V'), pv_voltage: m(ex.pv_voltage, 'V'), load_percent: m(ex.load_percent, '%'),
     inverter_mode: m(s.grid ? (s.solar > s.load ? 'Solar + battery' : 'Grid + battery') : 'Off grid, battery', null, 'text'),
     'switch.generator': m(controls['switch.generator'], null, 'text'),
-    'select.inverter_mode': m(controls['select.inverter_mode'], null, 'text')
+    'select.inverter_mode': m(controls['select.inverter_mode'], null, 'text'),
+    'number.charge_current': m(Number(controls['number.charge_current']), 'A'),
+    'number.battery_cutoff': m(Number(controls['number.battery_cutoff']), '%')
   };
 }
 

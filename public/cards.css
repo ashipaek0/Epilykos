@@ -609,6 +609,44 @@
 .control-placeholder-text { margin: 0; font-size: var(--fs-small, .85rem); color: var(--text-secondary); }
 .control-placeholder-text a { color: var(--text); }
 
+/* ── Slider and rotary controls (Controls page) ─────────────── */
+.numctl { --nc-accent: var(--accent, #f59e0b); --nc-pct: 0%; justify-content: center; color: var(--text); user-select: none; -webkit-tap-highlight-color: transparent; }
+.numctl-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; min-width: 0; }
+.numctl-label { font-weight: 600; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.numctl-value { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--nc-accent); white-space: nowrap; }
+.numctl-scale { display: flex; justify-content: space-between; font-size: var(--fs-small, .8rem); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.numctl-status { min-height: 1.1em; font-size: var(--fs-small, .8rem); color: var(--color-danger, #dc2626); }
+.numctl-empty { font-size: var(--fs-small, .85rem); color: var(--text-secondary); }
+.numctl.is-unknown .numctl-value { color: var(--text-secondary); }
+.numctl.is-unavailable { opacity: .55; }
+.numctl.is-busy { opacity: .75; }
+.numctl.is-error { border-color: var(--color-danger, #dc2626); animation: switch-shake .4s ease; }
+
+.numctl-range { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; margin: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+.numctl-range:disabled { cursor: progress; }
+.numctl-range::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--nc-accent) var(--nc-pct), var(--border) var(--nc-pct)); }
+.numctl-range::-moz-range-track { height: 8px; border-radius: 4px; background: var(--border); }
+.numctl-range::-moz-range-progress { height: 8px; border-radius: 4px; background: var(--nc-accent); }
+.numctl-range::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -8px; border-radius: 50%; background: var(--card-bg); border: 3px solid var(--nc-accent); box-shadow: var(--shadow); }
+.numctl-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--card-bg); border: 3px solid var(--nc-accent); box-shadow: var(--shadow); }
+.numctl-range:focus-visible { outline: 2px solid var(--nc-accent); outline-offset: 4px; border-radius: 4px; }
+.numctl.is-unknown .numctl-range::-webkit-slider-thumb { border-color: var(--text-secondary); }
+.numctl.is-unknown .numctl-range::-moz-range-thumb { border-color: var(--text-secondary); }
+
+.numctl-rotary { align-items: center; text-align: center; }
+.numctl-rotary .numctl-scale { width: min(70%, 12rem); }
+.numctl-knob { position: relative; width: min(100%, 10rem); aspect-ratio: 1; touch-action: none; cursor: grab; border-radius: 50%; outline: none; }
+.numctl-knob:active { cursor: grabbing; }
+.numctl-knob svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.numctl-knob .knob-track, .numctl-knob .knob-fill { fill: none; stroke-width: 8; stroke-linecap: round; }
+.numctl-knob .knob-track { stroke: var(--border); }
+.numctl-knob .knob-fill { stroke: var(--nc-accent); }
+.numctl-knob .knob-cap { fill: var(--card-bg); stroke: var(--border); stroke-width: 2; }
+.numctl-knob .knob-mark { stroke: var(--nc-accent); stroke-width: 4; stroke-linecap: round; }
+.numctl.is-unknown .knob-mark { stroke: var(--text-secondary); }
+.numctl-knob:focus-visible .knob-cap { stroke: var(--nc-accent); stroke-width: 3; }
+.numctl-knob .numctl-value { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(1.05rem * var(--card-font-scale, 1)); pointer-events: none; }
+
 /* ── Button card (Home Assistant style) ─────────────────────── */
 .button-card {
   box-sizing: border-box; width: 100%; height: 100%; min-width: 0;
