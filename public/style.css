@@ -2306,3 +2306,27 @@ details.help-sub.help-hidden { display: none; }
 .tl-segment { cursor: pointer; }
 .tl-segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; position: relative; z-index: 1; }
 .tl-tooltip { white-space: nowrap; max-width: calc(100vw - 32px); transform: translateX(-50%); }
+
+/* Eye button on masked fields (js/secret-reveal.js) */
+.sr-wrap { position: relative; display: block; }
+.sr-wrap > input { width: 100%; box-sizing: border-box; padding-right: 44px; }
+.sr-wrap > .sr-btn {
+  /* !important: cards that restyle every button inside them (the device cards) must not box the eye */
+  position: absolute !important; top: 0 !important; right: 0 !important; bottom: 0 !important; width: 44px !important; height: auto !important;
+  min-height: 0 !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important;
+  color: inherit; opacity: .6; cursor: pointer;
+}
+.sr-wrap > .sr-btn:hover, .sr-wrap > .sr-btn:focus-visible, .sr-wrap > .sr-btn[aria-pressed="true"] { opacity: 1; background: transparent; }
+.sr-wrap > .sr-btn:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+
+/* A sensitive display (a sign-in link, an address, a QR code) until it is asked for */
+.sr-toggle {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 6px 12px; min-height: 36px;
+  border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit;
+  font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer; opacity: .85;
+}
+.sr-toggle:hover, .sr-toggle:focus-visible, .sr-toggle[aria-pressed="true"] { opacity: 1; }
+.sr-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.sr-masked { filter: blur(10px); user-select: none; pointer-events: none; }

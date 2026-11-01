@@ -5048,7 +5048,7 @@ function renderTuyaDevice(device, idx) {
       <input type="text" name="tuya_devices[${idx}][address]" placeholder="IP Address" value="${escapeHtml(device.address || '')}">
     </div>
     <div class="form-row">
-      <input type="text" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
+      <input type="password" autocomplete="off" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
       <select name="tuya_devices[${idx}][version]" style="width:120px;flex:0 0 auto;">${versionOptsHtml}</select>
     </div>
     <div class="section-divider"><span class="stg-divider-icon">⏱</span> Polling</div>
