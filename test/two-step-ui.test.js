@@ -32,7 +32,7 @@ const settings = read('public/settings.html');
 assert.match(settings, /data-section="security"/);
 assert.match(settings, /id="section-security"/);
 assert.match(settings, /id="ts-root"/);
-assert.match(settings, /<script src="js\/two-step-settings\.js\?v=1"><\/script>/);
+assert.match(settings, /<script src="js\/two-step-settings\.js\?v=2"><\/script>/);
 assert.match(read('public/js/settings-shell.js'), /security: 'Security'/);
 assert.match(read('public/js/settings-shell.js'), /\block: '/);
 const script = read('public/js/two-step-settings.js');
