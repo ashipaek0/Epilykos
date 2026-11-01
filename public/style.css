@@ -2308,8 +2308,8 @@ details.help-sub.help-hidden { display: none; }
 .tl-tooltip { white-space: nowrap; max-width: calc(100vw - 32px); transform: translateX(-50%); }
 
 /* Eye button on masked fields (js/secret-reveal.js) */
-.sr-wrap { position: relative; display: block; }
-.sr-wrap > input { width: 100%; box-sizing: border-box; padding-right: 44px; }
+.sr-wrap { position: relative; display: block; min-width: 0; }
+.sr-wrap > input { display: block; width: 100%; box-sizing: border-box; padding-right: 44px; }
 .sr-wrap > .sr-btn {
   /* !important: cards that restyle every button inside them (the device cards) must not box the eye */
   position: absolute !important; top: 0 !important; right: 0 !important; bottom: 0 !important; width: 44px !important; height: auto !important;
