@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41191402836.1",
-    "version": "1.0.11-dev+7207632",
-    "commit": "720763244577db60166db35370c7d2fc3e9375bf",
-    "digest": "sha256:7b145792731aed2e47a000758c77fc38d09a878c067e8db6ecae7a4a87027170",
+    "buildId": "41325961904.1",
+    "version": "1.0.12-dev+790f1a9",
+    "commit": "790f1a954568ba22b21c1b8b68f945d633f519c6",
+    "digest": "sha256:11be05eb7f665008cbf9210deb8b845379dad8d6b4cf375e5fa8c334482b50f2",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-10-31T10:06:59Z",
+    "builtAt": "2026-11-01T16:22:14Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Mask sensitive fields and displays, with a way to reveal them"
+    ]
   },
   "history": [
+    {
+      "buildId": "41325961904.1",
+      "version": "1.0.12-dev+790f1a9",
+      "commit": "790f1a954568ba22b21c1b8b68f945d633f519c6",
+      "digest": "sha256:11be05eb7f665008cbf9210deb8b845379dad8d6b4cf375e5fa8c334482b50f2",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-01T16:22:14Z",
+      "kind": "release",
+      "notes": [
+        "Mask sensitive fields and displays, with a way to reveal them"
+      ]
+    },
     {
       "buildId": "41191402836.1",
       "version": "1.0.11-dev+7207632",
