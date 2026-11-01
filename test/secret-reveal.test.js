@@ -72,4 +72,18 @@ assert.match(css, /\.sr-masked\s*\{[^}]*user-select:\s*none/);
 assert.match(css, /\.sr-wrap > \.sr-btn\s*\{[^}]*border:\s*0 !important/);
 console.log('ok - the hidden display is blurred and unselectable');
 
+// What went wrong once, kept from happening again.
+const script = read('public/js/secret-reveal.js');
+// A number box empties itself when it holds something that is not a clean number (6,5244 or 6.5244°),
+// so a masked number field comes back as text, never as a number.
+assert.match(script, /input\.type === 'number' \? 'text'/);
+assert.doesNotMatch(script, /shownType = input\.type;/);
+// A page hides a field by hiding the input itself; the wrapper and eye follow it, and so does the page's own label rule.
+assert.match(script, /attributeFilter: \['style', 'class', 'hidden'\]/);
+assert.match(script, /wrap\.style\.display = window\.getComputedStyle\(input\)\.display === 'none' \? 'none' : ''/);
+const shell = read('public/settings-shell.css');
+assert.match(shell, /\.st-autolabel:has\(> \.sr-wrap > input\[style\*="display: none"\]\)/);
+assert.match(read('public/settings.html'), /settings-shell\.css\?v=8/);
+console.log('ok - number fields keep what was typed, and a hidden field takes its eye and label with it');
+
 checks.done();

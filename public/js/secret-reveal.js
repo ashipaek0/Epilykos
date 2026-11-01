@@ -66,7 +66,10 @@
     input.dataset.revealBound = '1';
 
     // A field that is not a password is shown as one while hidden, and gets its own type back when shown.
-    var shownType = input.type === 'password' ? 'text' : input.type;
+    // A number box is the exception: the browser empties it when what is in it is not a clean number
+    // (6,5244 or 6.5244°), so it comes back as text.
+    var shownType = input.type === 'password' || input.type === 'number' ? 'text' : input.type;
+    if (input.type === 'number' && !input.hasAttribute('inputmode')) input.setAttribute('inputmode', 'decimal');
     if (input.type !== 'password') {
       input.type = 'password';
       input.setAttribute('autocomplete', 'off');
@@ -90,6 +93,14 @@
     btn.type = 'button';
     btn.className = 'sr-btn';
     wrap.appendChild(btn);
+
+    // The page hides a field by hiding the input itself (style, class or hidden); the wrapper and
+    // the eye must go with it.
+    function followInput() {
+      wrap.style.display = window.getComputedStyle(input).display === 'none' ? 'none' : '';
+    }
+    followInput();
+    new MutationObserver(followInput).observe(input, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
 
     var timer = null;
     function paint(shown) {

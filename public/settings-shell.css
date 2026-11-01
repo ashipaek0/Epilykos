@@ -305,7 +305,9 @@ body.st {
 }
 .st-autolabel { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .st-autolabel:has(> :is(input, select, textarea)[style*="display: none"]),
-.st-autolabel:has(> :is(input, select, textarea)[style*="display:none"]) { display: none; }
+.st-autolabel:has(> :is(input, select, textarea)[style*="display:none"]),
+.st-autolabel:has(> .sr-wrap > input[style*="display: none"]),
+.st-autolabel:has(> .sr-wrap > input[style*="display:none"]) { display: none; }
 .st .tuya-intro, .st .tuya-guide, .st-note {
   margin-bottom: 14px; padding: 14px 16px; border-radius: 12px; background: var(--st-hover);
   font-size: 0.8rem; line-height: 1.6; color: var(--st-muted);
