@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41408013621.1",
-    "version": "1.0.12-dev+57269e0",
-    "commit": "57269e034e55a81b00fa61d1c1bcf0f211174394",
-    "digest": "sha256:78597a1230a363da67fbd99e74d19d68f645824525cca47e9e25f1763e2df29d",
+    "buildId": "41470278901.1",
+    "version": "1.0.13-dev+1d3a20a",
+    "commit": "1d3a20ab0f5fd58df368bac47924375d98a8fd8a",
+    "digest": "sha256:7d54640af136323d6d39f8b24ef1b627902594ca46db29e0fed76f9377671a9c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-02T07:42:36Z",
-    "kind": "rebuild",
-    "notes": []
+    "builtAt": "2026-11-02T15:19:03Z",
+    "kind": "release",
+    "notes": [
+      "README: link the new documentation site",
+      "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port"
+    ]
   },
   "history": [
+    {
+      "buildId": "41470278901.1",
+      "version": "1.0.13-dev+1d3a20a",
+      "commit": "1d3a20ab0f5fd58df368bac47924375d98a8fd8a",
+      "digest": "sha256:7d54640af136323d6d39f8b24ef1b627902594ca46db29e0fed76f9377671a9c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-02T15:19:03Z",
+      "kind": "release",
+      "notes": [
+        "README: link the new documentation site",
+        "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port"
+      ]
+    },
     {
       "buildId": "41408013621.1",
       "version": "1.0.12-dev+57269e0",
