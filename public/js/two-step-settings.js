@@ -77,7 +77,9 @@
     body.appendChild(el('p', {}, 'Keep these somewhere safe, apart from your phone. Each one signs you in once if you lose the app. They are shown only now.'));
     var list = el('pre', { class: 'st-code', 'aria-label': 'Recovery codes', style: 'user-select: all; font-size: 1.05rem; line-height: 1.6;' });
     list.textContent = text;
-    body.appendChild(list);
+    var listBox = el('div', { 'data-sensitive-display': 'two-step-codes', 'data-sensitive-label': 'recovery codes' });
+    listBox.appendChild(list);
+    body.appendChild(listBox);
     var row = el('div', { class: 'st-inline-actions' });
     var copy = el('button', { type: 'button', class: 'st-btn' }, 'Copy');
     copy.addEventListener('click', function () {
@@ -120,8 +122,10 @@
           body.appendChild(el('p', {}, 'Open an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password and others), add an account, and scan this code.'));
           var img = el('img', { alt: 'QR code for your authenticator app', width: '240', height: '240', style: 'display:block; margin: 8px auto; background: #fff; border-radius: 6px;' });
           img.src = setup.qr;
-          body.appendChild(img);
-          body.appendChild(el('p', { class: 'st-help' }, 'Cannot scan? Enter this key instead: <code style="user-select: all; word-break: break-all;">' + esc(setup.secret) + '</code>'));
+          var secretBox = el('div', { 'data-sensitive-display': 'two-step-setup', 'data-sensitive-label': 'QR code and key' });
+          secretBox.appendChild(img);
+          secretBox.appendChild(el('p', { class: 'st-help' }, 'Cannot scan? Enter this key instead: <code style="user-select: all; word-break: break-all;">' + esc(setup.secret) + '</code>'));
+          body.appendChild(secretBox);
           body.appendChild(field('ts-code', 'Then enter the 6-digit code it shows', { type: 'text', inputmode: 'numeric', maxlength: '7', pattern: '[0-9 ]{6,7}' }));
         },
         submit: function (f) { return api('/enable', { code: f['ts-code'].value }); }

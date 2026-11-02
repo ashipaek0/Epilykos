@@ -79,7 +79,7 @@
       h = st.needsApproval
         ? '<p>Signed in. Approve this device in the <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener">Tailscale admin console</a>, then come back.</p>'
         : '<p><strong>Sign in to Tailscale to finish.</strong> Open the link, or scan the code with your phone, and sign in with the account you want to use.</p>'
-          + '<div class="rm-pair"><div class="rm-qr" aria-hidden="true">' + (st.signInQr || '') + '</div><div class="rm-pair-text">'
+          + '<div class="rm-pair" data-sensitive-display="tailscale-signin" data-sensitive-label="sign-in link and code"><div class="rm-qr" aria-hidden="true">' + (st.signInQr || '') + '</div><div class="rm-pair-text">'
           + '<a class="st-btn st-btn-primary" href="' + esc(st.signInLink) + '" target="_blank" rel="noopener">Open sign-in page</a>'
           + '<p class="st-help">This page updates by itself once you have signed in.</p></div></div>';
       h += offButton();
@@ -99,7 +99,7 @@
       } else {
         badge(st.funnel ? 'Open to the internet' : 'Private', st.funnel ? 'warn' : 'ok');
         h = where
-          + '<div class="rm-pair"><div class="rm-qr" aria-hidden="true">' + (st.urlQr || '') + '</div><div class="rm-pair-text">'
+          + '<div class="rm-pair" data-sensitive-display="tailscale-url" data-sensitive-label="address and QR code"><div class="rm-qr" aria-hidden="true">' + (st.urlQr || '') + '</div><div class="rm-pair-text">'
           + '<div class="rm-url"><a href="' + esc(st.privateUrl) + '" target="_blank" rel="noopener">' + esc(st.privateUrl) + '</a>' + copyButton(st.privateUrl) + '</div>'
           + '<p class="st-help">' + (st.funnel
             ? 'Anyone with this address can reach your sign-in page from any browser.'
@@ -245,7 +245,7 @@
         + (st.tunnelId ? ' Tunnel <code>' + esc(String(st.tunnelId).slice(0, 8)) + '…</code>.' : '') + '</p>';
       if (st.error && !connected) h += '<p class="rm-warn">' + esc(st.error) + '</p>';
       if (st.publicUrl) {
-        h += '<div class="rm-pair"><div class="rm-qr" aria-hidden="true">' + (st.urlQr || '') + '</div><div class="rm-pair-text">'
+        h += '<div class="rm-pair" data-sensitive-display="tunnel-url" data-sensitive-label="address and QR code"><div class="rm-qr" aria-hidden="true">' + (st.urlQr || '') + '</div><div class="rm-pair-text">'
           + '<div class="rm-url"><a href="' + esc(st.publicUrl) + '" target="_blank" rel="noopener">' + esc(st.publicUrl) + '</a><button type="button" class="st-btn cf-copy" data-copy="' + esc(st.publicUrl) + '">Copy</button></div>'
           + '<p class="st-help">Open to the internet. If it shows a Cloudflare error page, check the public hostname points to <code>localhost:' + esc(st.port || 3000) + '</code> (service HTTP).</p></div></div>';
       }
