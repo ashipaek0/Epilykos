@@ -84,6 +84,10 @@ assert.match(script, /wrap\.style\.display = window\.getComputedStyle\(input\)\.
 const shell = read('public/settings-shell.css');
 assert.match(shell, /\.st-autolabel:has\(> \.sr-wrap > input\[style\*="display: none"\]\)/);
 assert.match(read('public/settings.html'), /settings-shell\.css\?v=8/);
+// CodeQL: no selector built from an id (backslashes), no markup built from the page's label text.
+assert.doesNotMatch(script, /label\[for=/);
+assert.doesNotMatch(script, /innerHTML\s*=[^;]*\bwhat\b/);
+assert.match(script, /caption\.textContent = \(shown \? 'Hide ' : 'Show '\) \+ what/);
 console.log('ok - number fields keep what was typed, and a hidden field takes its eye and label with it');
 
 checks.done();
