@@ -1,20 +1,26 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "41407655994.1",
+    "buildId": "41433100435.1",
     "version": "1.0.12",
     "commit": "60796ba4763f76f233abfa59a64cb5348c052e9a",
-    "digest": "sha256:a077feb6fbfe464e030a3f817c6921e56787481e4dd2cf2acde4cd977efbaba4",
+    "digest": "sha256:223318962c517a342859e32d26db125f91b47e006ebc51d4d5a844da3d4e5415",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-02T07:39:17Z",
-    "kind": "release",
-    "notes": [
-      "Fix two CodeQL alerts in the reveal script",
-      "Fix masked fields losing their value and misaligning boxes",
-      "Mask sensitive fields and displays, with a way to reveal them"
-    ]
+    "builtAt": "2026-11-02T10:59:29Z",
+    "kind": "rebuild",
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41433100435.1",
+      "version": "1.0.12",
+      "commit": "60796ba4763f76f233abfa59a64cb5348c052e9a",
+      "digest": "sha256:223318962c517a342859e32d26db125f91b47e006ebc51d4d5a844da3d4e5415",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-02T10:59:29Z",
+      "kind": "rebuild",
+      "notes": []
+    },
     {
       "buildId": "41407655994.1",
       "version": "1.0.12",
