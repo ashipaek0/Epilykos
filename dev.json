@@ -1,22 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41530897422.1",
-    "version": "1.0.13-dev+f216ce9",
-    "commit": "f216ce9fef3211f467735f87282b20024eee4973",
-    "digest": "sha256:1cc1254c70e7233dada679b447169d99de48571b545f041f9fabbe9eed42e0cc",
+    "buildId": "41530928744.1",
+    "version": "1.0.13-dev+cd95efe",
+    "commit": "cd95efe8ab2c9ebcefbf1bfa4cb0521b8c91a56d",
+    "digest": "sha256:b1b86508248f91a530599f7b1c5d84f98640ef2a3b093ca1f97a4d34af14184e",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-02T21:43:27Z",
+    "builtAt": "2026-11-02T21:43:44Z",
     "kind": "release",
     "notes": [
-      "Save the Windows port findings as a pending plan",
-      "CI: show the first error of each failing Windows fixture",
-      "CI: also print the Windows failure list in the job log",
-      "CI: install on Windows with the shipped binaries",
-      "CI: run the fixtures on Windows too (report only)"
+      "Forecast and PV Today cards update with the live cards"
     ]
   },
   "history": [
+    {
+      "buildId": "41530928744.1",
+      "version": "1.0.13-dev+cd95efe",
+      "commit": "cd95efe8ab2c9ebcefbf1bfa4cb0521b8c91a56d",
+      "digest": "sha256:b1b86508248f91a530599f7b1c5d84f98640ef2a3b093ca1f97a4d34af14184e",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-02T21:43:44Z",
+      "kind": "release",
+      "notes": [
+        "Forecast and PV Today cards update with the live cards"
+      ]
+    },
     {
       "buildId": "41530897422.1",
       "version": "1.0.13-dev+f216ce9",
