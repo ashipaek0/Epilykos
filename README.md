@@ -40,14 +40,17 @@ Public display with no login required — settings are password-protected.
 ```bash
 git clone https://github.com/ashipaek0/epilykos.git
 cd epilykos
-cp .env.example .env && nano .env   # set SETTINGS_PASSWORD (optional — see below)
 docker compose up -d
 ```
 
-Then open `http://localhost:3000/setup`. If you set `SETTINGS_PASSWORD`, the wizard asks for it.
-Otherwise the first person to open the wizard chooses the admin password; after that, setup and
-Settings need it. Open the wizard yourself right after the first start (or set `SETTINGS_PASSWORD`
-when the server is reachable by people you don't trust).
+Then open `http://localhost:3000/setup`. The first person to open the wizard chooses the admin
+password; after that, setup and Settings need it. Open the wizard yourself right after the first start.
+
+If people you don't trust can reach the server, set the password before the first start instead: in
+`docker-compose.yaml` uncomment `environment:` and `- SETTINGS_PASSWORD=`, type the password after the
+`=` (write each `$` as `$$`), and run `docker compose up -d`. The wizard then asks for that password,
+and only the compose file can change it. A `.env` file is not passed to the container, so
+`SETTINGS_PASSWORD` set there has no effect.
 
 | URL | Purpose |
 |-----|---------|
@@ -74,6 +77,7 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"                  # Ignored with network_mode: host (the app then listens on host port 3000)
+      # - "5279:5279"                # Growatt SPF stick (Growatt dongle profile): it pushes its data to this port. Not needed with network_mode: host.
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
@@ -94,8 +98,11 @@ services:
     #   - "dialout"                  # Serial port permission.
     #   - "108"                      # The host's bluetooth group ID, from `getent group bluetooth`; only if Settings says "D-Bus denied access to BlueZ".
 
-    # ── Option: a time zone other than this computer's (uncomment both lines).
+    # ── Option: the admin password and/or a time zone other than this computer's.
+    # Uncomment `environment:` and only the lines you need (at least one). A .env file is not passed
+    # to the container, so environment variables go here. Write a "$" in a value as "$$".
     # environment:
+    #   - SETTINGS_PASSWORD=         # Admin password, typed after the "=". The setup wizard then asks for it; only this file can change it.
     #   - TZ=Europe/London
 
     # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
@@ -132,6 +139,12 @@ over Bluetooth **Modbus over BLE**, **LuxPower** and **Phocos Any-Grid**.
 
 Choose **Connection** (TCP/IP or Bluetooth), then the **Profile** — the list only offers profiles that work over the
 chosen connection. For TCP/IP enter the dongle's IP address; for Bluetooth use 🔍 Scan. Then test the connection.
+
+**Growatt SPF stick** (*Growatt SPF Series (TCP Server)* profile) works the other way round: the stick pushes its data
+to Epilykos about every 5 minutes. In the stick's web page, change its server address from `server.growatt.com` to this
+computer's address. Epilykos listens for it on port 5279 (the card's **Port** field), so on Docker uncomment
+`- "5279:5279"` under `ports:` in `docker-compose.yaml` and run `docker compose up -d` (if you change the card's port,
+publish that one instead). EpilykosOS and `network_mode: host` use host networking and need nothing extra.
 
 **Bluetooth modules:** some inverters ship a Bluetooth module that carries plain Modbus-RTU over BLE, e.g. SRNE and
 Renogy-style BT modules. Set Connection to **Bluetooth**, pick your inverter's register profile, use 🔍 Scan to pick
@@ -334,7 +347,7 @@ The setting lives in `data/two-step.json` (the secret is encrypted with the app'
 
 **Locked out?** Any password reset also switches it off:
 - EpilykosOS: `dashboard-password.txt` on the BOOT drive, or `sudo epilykos-reset-password` on the console.
-- Docker: in `docker-compose.yaml` turn on the `environment:` block (remove the `# ` from its two lines) and put `- RESET_TWO_STEP=true` under it, run `docker compose up -d`, then comment it out again.
+- Docker: in `docker-compose.yaml` put `- RESET_TWO_STEP=true` under `environment:` (uncomment `environment:` if it is off) and run `docker compose up -d`. Then take the line out (comment `environment:` out again if nothing else is under it) and run `docker compose up -d` again: while it is set, two-step sign-in is switched off at every start.
 
 
 ### Backups and saved passwords
@@ -414,6 +427,8 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 
 `GET /healthz` (no login) returns `200 {"status":"ok",…}` once the app is serving and its database opens with the expected schema, and `503` otherwise. It never depends on the network, so a box with no Internet stays healthy. The Docker image uses it as its `HEALTHCHECK`.
 
+The settings below are environment variables; on Docker, put them under `environment:` in `docker-compose.yaml`.
+
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LOG_TO_FILE` | `true` | `false` logs to stdout/stderr only (no `logs/` directory) — for read-only container roots |
@@ -433,9 +448,10 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | Symptom | Resolution |
 |---------|------------|
 | **No data displayed** | Verify at least one data source is enabled and actively producing metrics |
-| **Settings page unavailable** | Confirm `SETTINGS_PASSWORD` is set correctly in `.env` |
+| **Settings page unavailable** | If you set `SETTINGS_PASSWORD`, check it under `environment:` in `docker-compose.yaml` (each `$` written as `$$`; a `.env` file is not used), then run `docker compose up -d` |
 | **Two-step code never matches** | Compare the box's clock with your phone's (the failed-code message shows it); use a recovery code, or see [Two-step sign-in](#two-step-sign-in) |
 | **Inverter dongle timeout** | Ping the dongle IP from the server and verify the port is reachable |
+| **No data from a Growatt stick (Docker)** | Port 5279 isn't published: uncomment `- "5279:5279"` under `ports:` in `docker-compose.yaml` and run `docker compose up -d` |
 | **Charts are blank** | Open the browser console (`F12`) and check for JavaScript errors |
 | **RS232 no ports found** | Verify USB-to-serial adapter is connected and user is in the `dialout` group |
 | **`EACCES` on `/app/data` / `SQLITE_CANTOPEN` at startup** | Fixed in current images (the container now makes `./data` writable itself). On an older image: `sudo chown -R 1000:1000 ./data` then `docker compose up -d` |
@@ -447,8 +463,8 @@ If proxying through Cloudflare (orange cloud), WebSocket is supported on all pla
 | **Bluetooth: no adapter / adapter powered off** | Check `bluetoothctl show` on the host; `rfkill unblock bluetooth` and `bluetoothctl power on` |
 | **BMS scan returns no devices** | Move the adapter closer (BLE range is ~10 m), close the vendor app, and scan again. On a Raspberry Pi 3 a USB Bluetooth dongle is more reliable than the onboard radio |
 | **Daily totals roll over at the wrong hour** | Set `TZ` (e.g. `TZ=Europe/Berlin`) or mount `/etc/localtime:/etc/localtime:ro`; the startup log line shows the active time zone |
-| **Setup wizard says Epilykos is already set up, but you never set a password** | Someone else opened the wizard first. Set `SETTINGS_PASSWORD` in `.env` and recreate the container: that password then unlocks setup and Settings |
-| **Need verbose logs** | Settings → Logs → **How much to log: Debug**. It applies at once, includes the Bluetooth helper, and turns itself back off after 30 minutes. **Diagnostics file** saves recent lines and settings with secrets hidden, to send when asking for help. (`LOG_LEVEL` in `.env` still sets the starting level; a level chosen in Settings overrides it.) |
+| **Setup wizard says Epilykos is already set up, but you never set a password** | Someone else opened the wizard first. Set `SETTINGS_PASSWORD` under `environment:` in `docker-compose.yaml` and run `docker compose up -d`: that password then unlocks setup and Settings |
+| **Need verbose logs** | Settings → Logs → **How much to log: Debug**. It applies at once, includes the Bluetooth helper, and turns itself back off after 30 minutes. **Diagnostics file** saves recent lines and settings with secrets hidden, to send when asking for help. (`LOG_LEVEL` under `environment:` still sets the starting level; a level chosen in Settings overrides it.) |
 
 ---
 
