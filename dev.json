@@ -1,18 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41406221264.1",
+    "buildId": "41408013621.1",
     "version": "1.0.12-dev+57269e0",
     "commit": "57269e034e55a81b00fa61d1c1bcf0f211174394",
-    "digest": "sha256:720fb57c72b358372d5466a2860aede53492bf1083c572d1c784a901f6f4570a",
+    "digest": "sha256:78597a1230a363da67fbd99e74d19d68f645824525cca47e9e25f1763e2df29d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-02T07:25:54Z",
-    "kind": "release",
-    "notes": [
-      "Fix two CodeQL alerts in the reveal script"
-    ]
+    "builtAt": "2026-11-02T07:42:36Z",
+    "kind": "rebuild",
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41408013621.1",
+      "version": "1.0.12-dev+57269e0",
+      "commit": "57269e034e55a81b00fa61d1c1bcf0f211174394",
+      "digest": "sha256:78597a1230a363da67fbd99e74d19d68f645824525cca47e9e25f1763e2df29d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-02T07:42:36Z",
+      "kind": "rebuild",
+      "notes": []
+    },
     {
       "buildId": "41406221264.1",
       "version": "1.0.12-dev+57269e0",
