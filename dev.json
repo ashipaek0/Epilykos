@@ -1,19 +1,38 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41470278901.1",
-    "version": "1.0.13-dev+1d3a20a",
-    "commit": "1d3a20ab0f5fd58df368bac47924375d98a8fd8a",
-    "digest": "sha256:7d54640af136323d6d39f8b24ef1b627902594ca46db29e0fed76f9377671a9c",
+    "buildId": "41530897422.1",
+    "version": "1.0.13-dev+f216ce9",
+    "commit": "f216ce9fef3211f467735f87282b20024eee4973",
+    "digest": "sha256:1cc1254c70e7233dada679b447169d99de48571b545f041f9fabbe9eed42e0cc",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-02T15:19:03Z",
+    "builtAt": "2026-11-02T21:43:27Z",
     "kind": "release",
     "notes": [
-      "README: link the new documentation site",
-      "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port"
+      "Save the Windows port findings as a pending plan",
+      "CI: show the first error of each failing Windows fixture",
+      "CI: also print the Windows failure list in the job log",
+      "CI: install on Windows with the shipped binaries",
+      "CI: run the fixtures on Windows too (report only)"
     ]
   },
   "history": [
+    {
+      "buildId": "41530897422.1",
+      "version": "1.0.13-dev+f216ce9",
+      "commit": "f216ce9fef3211f467735f87282b20024eee4973",
+      "digest": "sha256:1cc1254c70e7233dada679b447169d99de48571b545f041f9fabbe9eed42e0cc",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-02T21:43:27Z",
+      "kind": "release",
+      "notes": [
+        "Save the Windows port findings as a pending plan",
+        "CI: show the first error of each failing Windows fixture",
+        "CI: also print the Windows failure list in the job log",
+        "CI: install on Windows with the shipped binaries",
+        "CI: run the fixtures on Windows too (report only)"
+      ]
+    },
     {
       "buildId": "41470278901.1",
       "version": "1.0.13-dev+1d3a20a",
