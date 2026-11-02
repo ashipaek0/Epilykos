@@ -85,4 +85,4 @@ jobs:
           {
             echo '## Windows fixture results'
             grep -E '^(run-all\.js:|\[FAIL\])' test-run.log || echo 'No summary line found; see the Run tests step.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
