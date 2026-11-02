@@ -86,3 +86,13 @@ jobs:
             echo '## Windows fixture results'
             grep -E '^(run-all\.js:|\[FAIL\])' test-run.log || echo 'No summary line found; see the Run tests step.'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The first error line of each failing fixture, to group the failures by cause.
+      - name: Why they fail
+        if: always()
+        shell: bash
+        run: |
+          grep -E '^\[FAIL\]' test-run.log | sed -E 's/^\[FAIL\] ([^ ]+) .*/\1/' | tr '\\' '/' | while read -r f; do
+            echo "== $f"
+            timeout 120 node "$f" 2>&1 | grep -m2 -E 'Error|ENOENT|EPERM|EBUSY|EACCES|ERR_|expected|Expected|not found|Cannot find' | cut -c1-230 || true
+          done 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
