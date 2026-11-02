@@ -179,7 +179,9 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
         if (actualKwh < 0) actualKwh = ds[ds.length - 1].daily_solar || 0;
       }
     }
-    if (actualKwh === 0 && generatedField === 'solar') actualKwh = today?.actual_so_far ?? 0;
+    // The server's figure for today (the same one the live cards and savings use) wins for
+    // solar, so the number does not jump between a live update and the next full load.
+    if (generatedField === 'solar' && Number(today?.actual_so_far) > 0) actualKwh = Number(today.actual_so_far);
     // Remaining: sum forecast from now until end of today
     const nowMs = Date.now();
     const remKwh = todayHourly
@@ -277,6 +279,42 @@ export async function updatePvToday(forecastData, targetCards, lastGoodTime = ''
     chart.update('none');
     } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] chart error:', e); }
     } catch (e) { DEBUG_PVTODAY && console.error('[pvToday] card processing error:', e); }
+  }
+}
+
+/**
+ * Show a new "generated today" figure without asking the server for anything: the
+ * generated number, what is still expected and the progress bar. The chart and the
+ * weather strip are redrawn by the next full load. Cards that show another metric
+ * are left to it too.
+ * @param {object} forecastData the payload the cards were last drawn from
+ * @param {Element[]} targetCards
+ */
+export function updatePvTodayLive(forecastData, targetCards) {
+  if (!forecastData || forecastData.error || !Array.isArray(forecastData.daily)) return;
+  const nowDate = new Date();
+  const todayDate = localDate(nowDate);
+  const today = forecastData.daily.find(d => d.date === todayDate);
+  const actualKwh = today ? Number(today.actual_so_far) : NaN;
+  if (!Number.isFinite(actualKwh)) return;
+  const nowMs = nowDate.getTime();
+  const remKwh = (forecastData.hourly || [])
+    .filter(h => localDate(new Date(h.period_end)) === todayDate && new Date(h.period_end).getTime() > nowMs)
+    .reduce((sum, h) => sum + (h.energy_kwh != null ? h.energy_kwh : (h.pv_estimate || 0)), 0);
+  const totalForecastKwh = today.total_kwh || 0;
+  const progPct = totalForecastKwh > 0 ? Math.min(100, (actualKwh / Math.max(totalForecastKwh, actualKwh + remKwh)) * 100) : 0;
+  for (const card of targetCards || []) {
+    let generatedField = 'solar';
+    try { const mm = JSON.parse(card.dataset.metricMap); if (mm.generated) generatedField = mm.generated; } catch (e) { /* default */ }
+    if (generatedField !== 'solar') continue;
+    const id = card.dataset.blockId || '';
+    const el = (s) => document.getElementById(id ? `${s}-${id}` : s);
+    const genEl = el('pvt-generated');
+    if (genEl) genEl.textContent = actualKwh.toFixed(1) + ' kWh';
+    const remEl = el('pvt-remaining');
+    if (remEl) remEl.textContent = remKwh.toFixed(1) + ' kWh';
+    const fillEl = el('pvt-progress-fill');
+    if (fillEl) fillEl.style.width = progPct + '%';
   }
 }
 

@@ -72,7 +72,7 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('savings-summary')) updateSavingsFromState(state);
   // Day totals also appear as a tab inside Energy, tabbed.
   if (blockTypes.has('energy-totals') || blockTypes.has('energy-tabs')) updateEnergyTotalsFromState(state);
-  if (FORECAST_TYPES.some(t => blockTypes.has(t))) updateForecast();
+  if (FORECAST_TYPES.some(t => blockTypes.has(t))) updateForecast(state);
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
   if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);
   if (blockTypes.has('state-select')) updateStateSelectBlockFromState(state);

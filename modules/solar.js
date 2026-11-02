@@ -70,11 +70,16 @@ function computeSolarForDate(dateStr) {
   return totalKwh;
 }
 
-function computeTodaySolar() {
+/**
+ * Energy produced today, in kWh. Cached for 30 s unless `fresh` is set: the
+ * dashboard state build asks for a fresh figure each cycle, so the number it
+ * pushes is from the same moment as the live readings beside it.
+ */
+function computeTodaySolar({ fresh = false } = {}) {
   const db = getDb();
   const nowMs = Date.now();
   // Cache hit within 30s TTL (only if we have a real value)
-  if (solarCache.value > 0 && (nowMs - solarCache.timestamp) < SOLAR_CACHE_MS) {
+  if (!fresh && solarCache.value > 0 && (nowMs - solarCache.timestamp) < SOLAR_CACHE_MS) {
     return solarCache.value;
   }
 
