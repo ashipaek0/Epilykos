@@ -65,8 +65,12 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # better-sqlite3 and serialport ship ready-made Windows binaries, but npm
+      # still tries to compile better-sqlite3 here, and node-gyp does not know
+      # the runner's Visual Studio. Skipping the install scripts uses the shipped
+      # binaries.
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --no-audit --no-fund --ignore-scripts
 
       - name: Run tests
         id: tests
