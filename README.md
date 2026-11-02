@@ -12,6 +12,8 @@ Connects directly to inverters, Battery BMS, Home Assistant, over MQTT, Modbus, 
 Public display with no login required — settings are password-protected.  
 **PWA** with real-time WebSocket push, network auto-switching, and background sync.
 
+**Documentation:** [ashipaek0.github.io/epilykos-wiki](https://ashipaek0.github.io/epilykos-wiki/) (install guides, every data source, every Settings page, troubleshooting)
+
 </div>
 
 ---
@@ -479,7 +481,7 @@ PORT=3002 SETTINGS_PASSWORD=dev node server.js      # local instance (data/ in t
 
 Bluetooth outside Docker needs Python ≥ 3.12 with `pip install -r modules/ble/requirements.txt` and a running BlueZ.
 
-For a complete walkthrough of the codebase architecture — adding new block types, integrating new data sources, settings UI patterns, performance best practices, deployment workflows, and common pitfalls — see the **[Development Guide](https://github.com/ashipaek0/Epilykos/wiki/Development-Guide)** on the wiki.
+For how the code fits together — the stack, repository layout, how data flows, adding a card or a data source, secrets at rest, builds and releases — see the **[Development guide](https://ashipaek0.github.io/epilykos-wiki/development/development-guide/)** on the wiki.
 
 ---
 
