@@ -38,9 +38,7 @@
 
   /** What the field is called, for the button's label: its <label>, else its placeholder. */
   function nameOf(input) {
-    var text = '';
-    if (input.labels && input.labels[0]) text = input.labels[0].textContent;
-    else if (input.id) { var l = document.querySelector('label[for="' + input.id.replace(/"/g, '\\"') + '"]'); if (l) text = l.textContent; }
+    var text = input.labels && input.labels[0] ? input.labels[0].textContent : '';
     text = (text || input.getAttribute('aria-label') || input.placeholder || '').replace(/\s+/g, ' ').trim();
     return text || 'value';
   }
@@ -139,10 +137,15 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'sr-toggle';
+    var icon = document.createElement('span');
+    var caption = document.createElement('span');
+    btn.appendChild(icon);
+    btn.appendChild(caption);
     box.parentNode.insertBefore(btn, box);
 
     function paint(shown) {
-      btn.innerHTML = (shown ? EYE_OFF : EYE) + '<span>' + (shown ? 'Hide ' : 'Show ') + what + '</span>';
+      icon.innerHTML = shown ? EYE_OFF : EYE;                    // fixed markup
+      caption.textContent = (shown ? 'Hide ' : 'Show ') + what;    // text from the page, never markup
       btn.setAttribute('aria-pressed', String(shown));
       box.classList.toggle('sr-masked', !shown);
       box.inert = !shown;

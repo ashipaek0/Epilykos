@@ -68,3 +68,33 @@ Run `npm test`. Focused checks: `node test/luxpower-analysis.test.js`, `node tes
 The documents also describe the RS-485 frame (the 10-character serial number inside every request). That wired transport is not implemented: this profile is for the dongle.
 
 The older profile, `luxpower-geta`, is now named **LuxPowerTek Generic Hybrid**: it is the one for the other LuxPowerTek models, with PV2 to PV6, the S and T phases, split-phase, smart load and AC couple. Its id is unchanged, so saved sources keep working.
+
+## Parity with the Home Assistant integration
+
+The generic profile now also reads what [ant0nkr/luxpower-ha-integration](https://github.com/ant0nkr/luxpower-ha-integration) (`lxp_modbus`) reads, with the addresses, scales and signs from its source and the LuxPower protocol document it transcribes:
+
+- Input: AFCI currents, flag and arc values (140-152).
+- Holding: grid connection and protection settings, Q(V)/P(V) curves, derating, power percentages (charge-first, forced discharge, export, the 0.1 % variants 138-143), grid-charge SOC limit and current, battery alarm and transfer thresholds, SOC calibration, peak shaving, generator rating, function enables 4 and 5, quick charge time and more: 111 registers, all read-only metrics.
+- `ct_power_offset` (119) is signed and `charge_first_soc_limit` (75) is the low byte of its register, as in the integration.
+
+New named controls use the same write path as the GETA ones (identity read, current value in range, expected value, other bits kept, full-word readback), and carry a `family`:
+
+- `geta` (the default, the twelve LuxCloud controls): single-phase/type 13 GETA identity only.
+- `luxpower` (the 38 added to the generic profile): any LuxPower identity, because the protocol document and the integration don't split these settings by model. `evidence` names the protocol register.
+
+| Added control | Holding word | Value |
+|---|---:|---|
+| Grid charging SOC limit | 67 | 0-100 % |
+| Charge-first power, forced discharging power, export power limit | 74, 82, 103 | 0-100 % |
+| Forced discharging stops at | 83 low byte | 0-100 % |
+| Max charging, discharging and grid charging current | 101, 102, 168 | 0-140 A |
+| Export to grid | 21 bit 15 | on/off |
+| Fast zero export, charge last, buzzer, green mode, eco mode | 110 bits 1, 4, 7, 14, 15 | on/off |
+| Grid charging rule | 120 bits 1-3 | off, time windows, battery voltage, battery level, or either with time windows |
+| Discharge stop rule, on-grid discharge stop rule, generator charging rule | 120 bits 4-5, 6, 7 | battery voltage, battery level (or both) |
+| Output priority, AC input mode | 145, 146 | battery/solar/grid first; appliance/UPS/generator |
+| Charge-first, forced-discharge and AC-first windows 1-3 | 76-81, 84-89, 152-157 | HH:MM |
+
+The 24 V GETA profile gets the twelve of these whose registers its own register table lists (67, 101, 102, 168, 21 bit 15, 110 bits 7/14/15, 120 bits 1-5, 145, 146), with the GETA identity check. None of them has been tried on hardware.
+
+Not added: SOH and other second values in an already-mapped register (a source maps one metric to a register), the per-battery block at input 5000+, registers the integration flags as unresolved or contradicts itself on (136, 183, 206, 232, 252, 260, 261), the LCD password, the 7-day schedules (500-723, multi-register writes only), and controls for grid protection, identity, resets/standby, backup output, EPS voltage/frequency and battery voltage thresholds (the integration's voltage ranges are for 48 V and rescaled by a user-chosen class).

@@ -234,7 +234,7 @@ function settingRow(dev, s) {
         title: isSwitch ? `Turn ${s.label.toLowerCase()} ${wanted}?` : `Change ${s.label}?`,
         text: cutsPower ? `${dev.name}: the pack stops supplying power, so everything it powers goes off now (possibly including this system). You may need to reach the pack to turn it back on.`
           : isSwitch ? `${dev.name}: ${s.label.toLowerCase()} goes from ${show(shown)} to ${show(wanted)} straight away.`
-            : `${dev.name}: from ${fmt(shown, s.unit)} to ${fmt(wanted, s.unit)}. The inverter starts using it straight away.`,
+            : `${dev.name}: from ${show(shown)} to ${show(wanted)}. The inverter starts using it straight away.`,
         ok: isSwitch ? `Turn ${wanted}` : 'Change', danger: true,
         check: cutsPower ? 'I understand this cuts the power this battery supplies' : ''
       });

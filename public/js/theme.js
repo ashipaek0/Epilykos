@@ -29,7 +29,7 @@ export function toggleTheme() {
   if (toggle) toggle.innerHTML = newTheme === 'dark' ? '<span class="theme-icon">☀</span>' : '<span class="theme-icon">☾</span>';
   dispatchThemeEvent();
   updateChartColors();
-  import('./forecast.js').then(m => m.updateForecast());
+  import('./forecast.js').then(m => m.updateForecast(undefined, { force: true }));
 }
 
 // This function will be called from toggleTheme

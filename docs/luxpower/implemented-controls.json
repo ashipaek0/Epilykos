@@ -15,7 +15,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "How fast the battery may charge, as a percentage."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -59,7 +59,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "How fast the battery may discharge, as a percentage."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -103,7 +103,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "How fast the battery charges from the grid, as a percentage of the inverter's rated power."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -143,7 +143,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "Lets the battery charge from the grid. The grid charging rule decides when."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -179,7 +179,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "During its time windows, solar charges the battery before powering the home."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -215,7 +215,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "During its time windows, the battery discharges at the forced discharging power."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -250,7 +250,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 1 starts, on the inverter's clock."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -282,7 +282,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 1 ends, on the inverter's clock."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -314,7 +314,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 2 starts, on the inverter's clock."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -346,7 +346,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 2 ends, on the inverter's clock."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -378,7 +378,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 3 starts, on the inverter's clock."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",
@@ -410,7 +410,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 3 ends, on the inverter's clock."
     },
     "app_evidence": {
       "family_class": "LocalSetFragment",

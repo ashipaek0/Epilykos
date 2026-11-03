@@ -31,11 +31,13 @@ assert.match(compose, /^services:$/m, 'starts with a services: header');
 assert.match(compose, /full control of Docker/, 'the socket line says what it grants');
 console.log('ok - the README block is the compose file; no tabs, trailing spaces or CRs');
 
-// Every option is a commented block that turns on by removing "# " after four spaces.
+// Every option is a commented block that turns on by removing "# " after its indentation.
 const OPTIONS = {
+  growatt: ['      # - "5279:5279"'],
   devices: ['    # devices:', '    #   - "/dev/ttyUSB0:/dev/ttyUSB0"'],
   dialout: ['    # group_add:', '    #   - "dialout"'],
   bluetoothGroup: ['    # group_add:', '    #   - "108"'],
+  password: ['    # environment:', '    #   - SETTINGS_PASSWORD='],
   timezone: ['    # environment:', '    #   - TZ=Europe/London'],
   host: ['    # network_mode: "host"']
 };
@@ -51,17 +53,20 @@ function turnOn(names) {
     // A key shared by two options (group_add:) is turned on once.
     if (hit.endsWith(':') && seen.has(hit)) return l;
     seen.add(hit);
-    return l.replace(/^(    )# /, '$1');
+    return l.replace(/^( +)# /, '$1');
   }).join('\n');
 }
 const variants = {
   'as shipped': [],
+  'growatt port': ['growatt'],
   'serial adapter': ['devices', 'dialout'],
   'bluetooth group only': ['bluetoothGroup'],
   'serial and bluetooth groups': ['devices', 'dialout', 'bluetoothGroup'],
+  'admin password': ['password'],
   'time zone': ['timezone'],
+  'admin password and time zone': ['password', 'timezone'],
   'host networking': ['host'],
-  'everything': ['devices', 'dialout', 'bluetoothGroup', 'timezone', 'host']
+  'everything': ['growatt', 'devices', 'dialout', 'bluetoothGroup', 'password', 'timezone', 'host']
 };
 console.log('ok - each option is a block that turns on by removing "# "');
 
@@ -93,7 +98,7 @@ if (probe.status !== 0) {
   assert.deepEqual(s.security_opt, ['apparmor=unconfined']);
   assert.equal(s.devices, undefined, 'no USB device is required by default');
   assert.equal(s.group_add, undefined);
-  assert.equal(s.environment, undefined, 'the time zone follows the host unless one is chosen');
+  assert.equal(s.environment, undefined, 'no admin password or time zone unless one is chosen');
   assert.equal(s.network_mode, undefined);
   console.log('ok - shipped: the dashboard on 3000, data on ./data, no device or group needed to start');
 
@@ -104,8 +109,16 @@ if (probe.status !== 0) {
   assert.deepEqual(s.group_add, ['108']);
   s = svc(config(turnOn(['dialout', 'bluetoothGroup'])));
   assert.deepEqual(s.group_add, ['dialout', '108']);
+  s = svc(config(turnOn(['growatt'])));
+  assert.deepEqual(s.ports.map(p => `${p.published}:${p.target}`), ['3000:3000', '5279:5279']);
   s = svc(config(turnOn(['timezone'])));
   assert.equal(s.environment.TZ, 'Europe/London');
+  // Turned on but left empty, the password line sets nothing (the app treats '' as unset);
+  // typed after the "=", the password reaches the container and the time zone stays the host's.
+  s = svc(config(turnOn(['password'])));
+  assert.deepEqual(s.environment, { SETTINGS_PASSWORD: '' });
+  s = svc(config(turnOn(['password']).replace('- SETTINGS_PASSWORD= ', '- SETTINGS_PASSWORD=a-long-admin-password ')));
+  assert.deepEqual(s.environment, { SETTINGS_PASSWORD: 'a-long-admin-password' });
   s = svc(config(turnOn(['host'])));
   assert.equal(s.network_mode, 'host');
   console.log('ok - each option does what its comment says');

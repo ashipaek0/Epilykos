@@ -619,7 +619,8 @@ function decodeLuxpowerMetrics(profile, instance, registerData) {
     }
 
     let scale = m.scale || 1;
-    if (m.decode === 'lux_soc_low_byte') raw &= 255;
+    // A value in the low byte of its register (the high byte holds something else).
+    if (m.decode === 'lux_soc_low_byte' || m.decode === 'low_byte') raw &= 255;
     if (m.decode === 'lux_bms_current') {
       const flags = registerData['input:80'];
       const divisor = currentDivisor(model, flags);
