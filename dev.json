@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41648735392.1",
-    "version": "1.0.13-dev+25d2ddf",
-    "commit": "25d2ddfe0fc58644e110dd05c23a77c4e7d10888",
-    "digest": "sha256:4ed1efffe224ba559a4e73c1e62c89515a89d732fc3447c5aa19b63f3d19ab41",
+    "buildId": "41648565746.1",
+    "version": "1.0.13-dev+022cd13",
+    "commit": "022cd13381459e1499477dc91258dea75df1db99",
+    "digest": "sha256:f22a8f6ad8146e9b51d079a89e7ea4ef0a93598256604d370b0b7f64f2e3796a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T13:56:04Z",
+    "builtAt": "2026-11-03T13:54:51Z",
     "kind": "release",
-    "notes": [
-      "Remove the LuxPower RS-485 Modbus profile",
-      "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41648565746.1",
+      "version": "1.0.13-dev+022cd13",
+      "commit": "022cd13381459e1499477dc91258dea75df1db99",
+      "digest": "sha256:f22a8f6ad8146e9b51d079a89e7ea4ef0a93598256604d370b0b7f64f2e3796a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T13:54:51Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "41648735392.1",
       "version": "1.0.13-dev+25d2ddf",
@@ -364,16 +371,6 @@
       "notes": [
         "Refine Docker setup instructions in README"
       ]
-    },
-    {
-      "buildId": "40484400457.1",
-      "version": "1.0.8-dev+776deb3",
-      "commit": "776deb3ee70980390416fe2286e971eeb9978545",
-      "digest": "sha256:846d6bc12a349eb52b560d7693110a97364a1ea6753d0a8a68fe6867249ee0a3",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-27T09:55:08Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
