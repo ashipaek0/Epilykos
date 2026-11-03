@@ -1,0 +1,28 @@
+# Version updates. Security updates for known vulnerabilities come from the
+# repository's Dependabot alerts setting and do not need this file; this keeps
+# the rest current in small weekly batches, on dev (where CI and CodeQL run
+# before anything reaches main).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: docker
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly

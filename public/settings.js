@@ -4596,8 +4596,7 @@ function buildPvoutputConfig(config) {
   if (interval) interval.value = config.upload_interval_minutes || 5;
   const sysSize = document.getElementById('pvoutput-system-size');
   if (sysSize) sysSize.value = config.system_size_w || '';
-  const webhookUrl = document.getElementById('pvoutput-webhook-url');
-  if (webhookUrl) webhookUrl.value = config.webhook_url || '';
+  loadPvoutputWebhook();
 
   const cumulativeRadio = document.querySelector('input[name="pvoutput-mode"][value="cumulative"]');
   const netRadio = document.querySelector('input[name="pvoutput-mode"][value="net"]');
@@ -4637,10 +4636,33 @@ function collectPvoutputConfig() {
     upload_interval_minutes: parseInt(document.getElementById('pvoutput-interval')?.value) || 5,
     system_size_w: parseInt(document.getElementById('pvoutput-system-size')?.value) || 0,
     net_mode: document.querySelector('input[name="pvoutput-mode"]:checked')?.value === 'net',
-    webhook_url: document.getElementById('pvoutput-webhook-url')?.value || '',
     metric_map: mm
   };
 }
+
+// The alert address carries a secret token that Settings makes; it is shown masked and never saved with the form.
+async function loadPvoutputWebhook(rotate) {
+  const field = document.getElementById('pvoutput-webhook-url');
+  if (!field) return;
+  try {
+    const res = await fetch('/api/pvoutput/webhook-address' + (rotate ? '/new' : ''), { method: rotate ? 'POST' : 'GET' });
+    const body = await res.json();
+    if (!res.ok || !body.path) throw new Error(body.error || 'failed');
+    field.value = location.origin + body.path;
+  } catch (e) { field.value = ''; field.placeholder = 'Could not make the address: ' + e.message; }
+}
+document.addEventListener('click', async (event) => {
+  const copy = event.target.closest('#pvoutput-webhook-copy');
+  const fresh = event.target.closest('#pvoutput-webhook-new');
+  if (!copy && !fresh) return;
+  const field = document.getElementById('pvoutput-webhook-url');
+  if (fresh) {
+    if (!window.confirm('Make a new address? The old one stops working, so give the new one to PVOutput.')) return;
+    await loadPvoutputWebhook(true);
+    return;
+  }
+  if (field && field.value) { try { await navigator.clipboard.writeText(field.value); } catch (_) { field.select && field.select(); } }
+});
 
 async function refreshPvoutputQueue() {
   const statusEl = document.getElementById('pvoutput-queue-status');

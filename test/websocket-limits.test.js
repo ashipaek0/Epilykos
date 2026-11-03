@@ -35,7 +35,7 @@ const open = (port, headers = {}) => new Promise(resolve => {
     process.chdir(${JSON.stringify(dir)});
     const db = require(${JSON.stringify(path.join(repo, 'modules/database'))}); db.initializeDatabase(); db.setConfig('setup_wizard_completed', 'true');
     require(${JSON.stringify(path.join(repo, 'server.js'))});
-  `], { env: { ...process.env, PORT: String(port), LOG_TO_FILE: 'false', ENC_KEY_FILE: path.join(dir, 'key'), SETTINGS_PASSWORD: 'fixture-password-1', SESSION_SECRET: 'fixture' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  `], { env: { ...process.env, PORT: String(port), LOG_TO_FILE: 'false', ENC_KEY_FILE: path.join(dir, 'key'), SETTINGS_PASSWORD: 'pw-' + require('node:crypto').randomBytes(8).toString('hex'), SESSION_SECRET: 'fixture' }, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = ''; child.stdout.on('data', b => { output += b; }); child.stderr.on('data', b => { output += b; });
   const deadline = Date.now() + 15000;
   for (;;) {

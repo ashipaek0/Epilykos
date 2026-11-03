@@ -394,7 +394,8 @@
             <div id="pvoutput-queue-status" class="st-help"></div>
             <div class="st-inline-actions"><button type="button" id="pvoutput-backfill-btn" class="st-btn">Run backfill</button><button type="button" id="pvoutput-view-queue-btn" class="st-btn">View queue</button></div>
             <h3 class="st-card-subhead">Notifications</h3>
-            <div class="st-field"><label for="pvoutput-webhook-url">Webhook URL (optional)</label><input type="url" id="pvoutput-webhook-url" class="input" placeholder="https://energy.example.com/api/pvoutput/webhook"><span class="st-help">Needs a public URL. Leave empty to skip.</span></div>
+            <div class="st-field"><label for="pvoutput-webhook-url">Alert address for PVOutput</label><input type="password" id="pvoutput-webhook-url" class="input" readonly autocomplete="off"><span class="st-help">Give PVOutput this address for its alerts. It needs the dashboard to be reachable from the internet. It contains a secret, so only PVOutput should have it.</span></div>
+            <div class="st-inline-actions"><button type="button" id="pvoutput-webhook-copy" class="st-btn">Copy address</button><button type="button" id="pvoutput-webhook-new" class="st-btn">Make a new address</button></div>
           </div>
         </section>
 

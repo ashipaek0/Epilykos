@@ -129,6 +129,9 @@ class BleHelper {
       if (/^(ERROR|CRITICAL|Traceback)/.test(line)) logger.warn(`[ble] ${line}`);
       else logger.debug(`[ble] ${line}`);
     });
+    // Writing to a helper that has just gone is an error event on its stdin; it is not a crash,
+    // the exit handler below resets everything.
+    child.stdin.on('error', err => logger.debug(`[ble] helper stdin: ${err.message}`));
     child.on('exit', (code, signal) => this._onExit(child, code, signal));
     child.on('error', err => {
       logger.warn(`[ble] helper process error: ${err.message}`);

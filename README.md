@@ -83,13 +83,18 @@ services:
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
-      - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
-      # "Update now" in Settings → Updates. This gives Epilykos full control of Docker on
-      # this computer (it could start any container), so only keep it if you want one-click
-      # updates. Without it, update with: docker compose pull && docker compose up -d
-      - /var/run/docker.sock:/var/run/docker.sock
-    security_opt:
-      - "apparmor=unconfined"        # Lets the container reach the host's Bluetooth service on Ubuntu; harmless elsewhere.
+      # Option: "Update now" in Settings → Updates, and a Restart that works without a restart policy.
+      # This gives Epilykos full control of Docker on this computer (it could start any container,
+      # which is control of the computer), so it is off unless you want it. Without it, update with:
+      # docker compose pull && docker compose up -d
+      # - /var/run/docker.sock:/var/run/docker.sock
+      # Option: Bluetooth BMS / inverter Bluetooth modules talk to the host's BlueZ over D-Bus.
+      # Turn on the security_opt option below with it.
+      # - /run/dbus:/run/dbus:ro
+
+    # ── Option: Bluetooth on Ubuntu needs AppArmor lifted for this container (with the D-Bus line above).
+    # security_opt:
+    #   - "apparmor=unconfined"
 
     # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
     # Uncomment `group_add:` and only the lines you need (at least one), and `devices:` with its line.

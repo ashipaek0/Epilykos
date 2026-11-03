@@ -33,6 +33,9 @@ console.log('ok - the README block is the compose file; no tabs, trailing spaces
 
 // Every option is a commented block that turns on by removing "# " after its indentation.
 const OPTIONS = {
+  dockerSocket: ['      # - /var/run/docker.sock:/var/run/docker.sock'],
+  dbus: ['      # - /run/dbus:/run/dbus:ro'],
+  apparmor: ['    # security_opt:', '    #   - "apparmor=unconfined"'],
   growatt: ['      # - "5279:5279"'],
   devices: ['    # devices:', '    #   - "/dev/ttyUSB0:/dev/ttyUSB0"'],
   dialout: ['    # group_add:', '    #   - "dialout"'],
@@ -66,7 +69,9 @@ const variants = {
   'time zone': ['timezone'],
   'admin password and time zone': ['password', 'timezone'],
   'host networking': ['host'],
-  'everything': ['growatt', 'devices', 'dialout', 'bluetoothGroup', 'password', 'timezone', 'host']
+  'docker socket': ['dockerSocket'],
+  'bluetooth (D-Bus and AppArmor)': ['dbus', 'apparmor'],
+  'everything': ['dockerSocket', 'dbus', 'apparmor', 'growatt', 'devices', 'dialout', 'bluetoothGroup', 'password', 'timezone', 'host']
 };
 console.log('ok - each option is a block that turns on by removing "# "');
 
@@ -94,8 +99,9 @@ if (probe.status !== 0) {
   assert.equal(s.image, 'irunmole/epilykos:latest');
   assert.deepEqual(s.ports.map(p => `${p.published}:${p.target}`), ['3000:3000']);
   assert.ok(s.volumes.some(v => v.target === '/app/data'));
-  assert.ok(s.volumes.some(v => v.target === '/var/run/docker.sock'));
-  assert.deepEqual(s.security_opt, ['apparmor=unconfined']);
+  assert.ok(!s.volumes.some(v => v.target === '/var/run/docker.sock'), 'the Docker socket (control of the host) is off unless chosen');
+  assert.ok(!s.volumes.some(v => v.target === '/run/dbus'), 'the host D-Bus is off unless Bluetooth is chosen');
+  assert.equal(s.security_opt, undefined, 'AppArmor stays on unless Bluetooth is chosen');
   assert.equal(s.devices, undefined, 'no USB device is required by default');
   assert.equal(s.group_add, undefined);
   assert.equal(s.environment, undefined, 'no admin password or time zone unless one is chosen');
@@ -121,6 +127,11 @@ if (probe.status !== 0) {
   assert.deepEqual(s.environment, { SETTINGS_PASSWORD: 'a-long-admin-password' });
   s = svc(config(turnOn(['host'])));
   assert.equal(s.network_mode, 'host');
+  s = svc(config(turnOn(['dockerSocket'])));
+  assert.ok(s.volumes.some(v => v.target === '/var/run/docker.sock'));
+  s = svc(config(turnOn(['dbus', 'apparmor'])));
+  assert.ok(s.volumes.some(v => v.target === '/run/dbus' && v.read_only));
+  assert.deepEqual(s.security_opt, ['apparmor=unconfined']);
   console.log('ok - each option does what its comment says');
 
   // The mistakes people make editing it are refused with a clear message, not silently accepted.
