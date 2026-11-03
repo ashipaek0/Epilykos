@@ -18,10 +18,13 @@ const result={supported:true,app:{available:true,auto_install_supported:true,sta
   const auth=require('../modules/sessionAuth'); auth.setSettingsPassword('test admin password');
   host.available=()=>true;
   const router=require('../routes/updates').router();
-  const handler=router.stack.find(l=>l.route && l.route.path==='/auto-install').route.stack[0].handle;
-  function enable(body) { let status=200,data; handler({body},{status(n){status=n;return this;},json(d){data=d;return this;}});return {status,data}; }
-  assert.equal(enable({on:true,password:'wrong'}).status,403);
-  assert.equal(enable({on:true,password:'test admin password'}).data.autoInstall,true);
-  assert.equal(enable({on:false}).data.autoInstall,false);
+  // The route is rate limited like the login (checked in security-auth.test.js); the handler is the last in its stack.
+  const stack=router.stack.find(l=>l.route && l.route.path==='/auto-install').route.stack;
+  assert.ok(stack.length>1,'the password route is behind the login rate limit');
+  const handler=stack[stack.length-1].handle;
+  async function enable(body) { let status=200,data; await handler({body},{status(n){status=n;return this;},json(d){data=d;return this;}});return {status,data}; }
+  assert.equal((await enable({on:true,password:'wrong'})).status,403);
+  assert.equal((await enable({on:true,password:'test admin password'})).data.autoInstall,true);
+  assert.equal((await enable({on:false})).data.autoInstall,false);
   db.getDb().close();fs.rmSync(dir,{recursive:true,force:true});checks.done();
 })().catch(e=>{console.error(e);process.exitCode=1;});

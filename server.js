@@ -377,7 +377,8 @@ function mqttSampleOf(rawText, retained) {
 // ================= /#108 catalog projections =================
 
 const app = express();
-app.set('trust proxy', 1);
+// What to believe about X-Forwarded-For (rate limits, Secure cookie): see modules/trustProxy.js.
+app.set('trust proxy', require('./modules/trustProxy').resolveTrustProxy(process.env.TRUST_PROXY));
 app.use((req, res, next) => databaseWork.run(next));
 const PORT = process.env.PORT || 3000;
 
@@ -1501,6 +1502,11 @@ app.post('/api/settings', (req, res) => {
     for (const [key, value] of Object.entries(updates)) {
       if (sensitivePattern.test(key) && !sensitiveKeyExempt.includes(key)) {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
+        continue;
+      }
+      // Keys with their own stricter route (device writes, first-run state, updates, remote access).
+      if (require('./modules/protectedConfig').isProtectedKey(key)) {
+        logger.warn(`[Settings] Rejected protected key: ${key}`);
         continue;
       }
       // Notification channels, rules, devices and keys are written only by /api/notifications.

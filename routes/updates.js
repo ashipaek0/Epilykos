@@ -13,7 +13,7 @@
 const express = require('express');
 const { logger } = require('../modules/logger');
 const { getConfig, setConfig } = require('../modules/database');
-const { verifyPassword } = require('../modules/sessionAuth');
+const { verifyPasswordAsync, loginLimiter } = require('../modules/sessionAuth');
 const updates = require('../modules/updates');
 const dockerUpdate = require('../modules/dockerUpdate');
 const hostActions = require('../modules/hostActions');
@@ -21,14 +21,14 @@ const osUpdates = require('../modules/osUpdates');
 
 /** The admin password again, checked here and never sent to the host. */
 function passwordOk(body) {
-  return !!body && typeof body.password === 'string' && verifyPassword(body.password);
+  return !!body && typeof body.password === 'string' ? verifyPasswordAsync(body.password) : Promise.resolve(false);
 }
 
 /** EpilykosOS update actions reply { os } or { error } with the host's reason. */
 function osRoute(fn, { password } = {}) {
-  return async (req, res) => {
+  const handler = async (req, res) => {
     const body = req.body || {};
-    if (password && !passwordOk(body)) return res.status(403).json({ error: `Enter your admin password to ${password}.` });
+    if (password && !(await passwordOk(body))) return res.status(403).json({ error: `Enter your admin password to ${password}.` });
     try {
       res.json({ os: await fn(body) });
     } catch (err) {
@@ -36,6 +36,8 @@ function osRoute(fn, { password } = {}) {
       res.status(err.status || 500).json({ error: err.message });
     }
   };
+  // A route that asks for the password is rate limited like the login.
+  return password ? [loginLimiter, handler] : handler;
 }
 
 function method() {
@@ -104,11 +106,11 @@ function router() {
     res.json({ auto: updates.autoCheck() });
   });
 
-  r.post('/auto-install', (req, res) => {
+  r.post('/auto-install', loginLimiter, async (req, res) => {
     const body = req.body || {};
     if (body.on !== false && body.on !== true) return res.status(400).json({error:'Choose on or off'});
     if (body.on && (!hostActions.available() || !updates.autoCheck())) return res.status(400).json({error:'Automatic installation needs EpilykosOS and daily checks enabled.'});
-    if (body.on && (typeof body.password !== 'string' || !verifyPassword(body.password))) return res.status(403).json({error:'Enter your admin password to enable automatic installation.'});
+    if (body.on && !(await passwordOk(body))) return res.status(403).json({error:'Enter your admin password to enable automatic installation.'});
     setConfig('update_install_auto', body.on ? 'true' : 'false');
     res.json({autoInstall: updates.autoInstall()});
   });
@@ -137,9 +139,9 @@ function router() {
   r.post('/os/discard', osRoute(b => osUpdates.discard(b.job), { password: 'discard the system update' }));
   r.post('/os/dismiss', osRoute(b => osUpdates.dismiss(b.job)));
 
-  r.post('/apply', async (req, res) => {
+  r.post('/apply', loginLimiter, async (req, res) => {
     const body = req.body || {};
-    if (!passwordOk(body)) {
+    if (!(await passwordOk(body))) {
       return res.status(403).json({ error: 'Enter your admin password to install the update.' });
     }
     const m = method();

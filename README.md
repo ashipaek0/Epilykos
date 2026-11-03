@@ -106,6 +106,7 @@ services:
     # environment:
     #   - SETTINGS_PASSWORD=         # Admin password, typed after the "=". The setup wizard then asks for it; only this file can change it.
     #   - TZ=Europe/London
+    #   - TRUST_PROXY=172.16.0.0/12  # Only if a reverse proxy runs on another machine or container: the proxy's address. Without it, everyone behind it shares one login limit.
 
     # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
     # network_mode: "host"

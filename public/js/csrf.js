@@ -38,6 +38,9 @@
       } catch (error) { console.warn('CSRF: failed to parse settings body', error); }
     }
     const response = await originalFetch.call(this, input, opts);
+    // Signing in starts a new session with a new token; the reply carries it.
+    const rotated = response.headers.get('X-CSRF-Token');
+    if (rotated && /^[a-f0-9]{64}$/.test(rotated)) tokenPromise = Promise.resolve(rotated);
     if (response.status === 403 && response.headers.get('X-CSRF-Error') === 'token') invalidate();
     // Never replay a state-changing request automatically.
     return response;
