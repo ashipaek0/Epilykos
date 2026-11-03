@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41648565746.1",
-    "version": "1.0.13-dev+022cd13",
-    "commit": "022cd13381459e1499477dc91258dea75df1db99",
-    "digest": "sha256:f22a8f6ad8146e9b51d079a89e7ea4ef0a93598256604d370b0b7f64f2e3796a",
+    "buildId": "41649221954.1",
+    "version": "1.0.13-dev+e779a8f",
+    "commit": "e779a8ffc0781e9e4fad0e7f05f25e178f6e04b5",
+    "digest": "sha256:0de1ea829f8195808481d4b8d7a797c6c00025665523cd32f9118ea5abbcf7d3",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T13:54:51Z",
+    "builtAt": "2026-11-03T13:59:11Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+      "Fix masked fields losing their value and misaligning boxes"
+    ]
   },
   "history": [
+    {
+      "buildId": "41649221954.1",
+      "version": "1.0.13-dev+e779a8f",
+      "commit": "e779a8ffc0781e9e4fad0e7f05f25e178f6e04b5",
+      "digest": "sha256:0de1ea829f8195808481d4b8d7a797c6c00025665523cd32f9118ea5abbcf7d3",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T13:59:11Z",
+      "kind": "release",
+      "notes": [
+        "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+        "Fix masked fields losing their value and misaligning boxes"
+      ]
+    },
     {
       "buildId": "41648565746.1",
       "version": "1.0.13-dev+022cd13",
@@ -358,18 +374,6 @@
       "kind": "release",
       "notes": [
         "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)"
-      ]
-    },
-    {
-      "buildId": "40484449615.1",
-      "version": "1.0.8-dev+40f0440",
-      "commit": "40f044002b0ec2ba45bc95d326698fc819d7936f",
-      "digest": "sha256:ebe539d2a5e84674cc4b93eef4df76ac056b80f20c6b8d0440014459f8ef0a51",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-27T09:55:36Z",
-      "kind": "release",
-      "notes": [
-        "Refine Docker setup instructions in README"
       ]
     }
   ]
