@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41649221954.1",
-    "version": "1.0.13-dev+e779a8f",
-    "commit": "e779a8ffc0781e9e4fad0e7f05f25e178f6e04b5",
-    "digest": "sha256:0de1ea829f8195808481d4b8d7a797c6c00025665523cd32f9118ea5abbcf7d3",
+    "buildId": "41649160397.1",
+    "version": "1.0.13-dev+8bda21e",
+    "commit": "8bda21ebb4e41f9092891d120bfe710696aa4e6e",
+    "digest": "sha256:d65a46bb24fe04a6bde5e54433b043b87a914cda349372ffc8c2642d6c77380b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T13:59:11Z",
+    "builtAt": "2026-11-03T13:58:50Z",
     "kind": "release",
-    "notes": [
-      "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
-      "Fix masked fields losing their value and misaligning boxes"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41649160397.1",
+      "version": "1.0.13-dev+8bda21e",
+      "commit": "8bda21ebb4e41f9092891d120bfe710696aa4e6e",
+      "digest": "sha256:d65a46bb24fe04a6bde5e54433b043b87a914cda349372ffc8c2642d6c77380b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T13:58:50Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "41649221954.1",
       "version": "1.0.13-dev+e779a8f",
@@ -362,18 +369,6 @@
       "kind": "release",
       "notes": [
         "Energy chart opens on 30d; power chart statistics start at midnight (#224)"
-      ]
-    },
-    {
-      "buildId": "40654901959.1",
-      "version": "1.0.9-dev+787adf4",
-      "commit": "787adf455e534106622b895e908e025a6816a69c",
-      "digest": "sha256:dc70f9e778a8469d3888fdb567700aa55ec381099355618eecb410e678ed2f00",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T08:10:49Z",
-      "kind": "release",
-      "notes": [
-        "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)"
       ]
     }
   ]
