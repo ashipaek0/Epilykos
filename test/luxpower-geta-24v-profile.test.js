@@ -40,9 +40,9 @@ const names = profile.metrics.map(m => m.name);
 assert.equal(new Set(names).size, names.length, 'metric names are unique');
 const slots = profile.metrics.map(m => `${m.register_type}:${m.register}:${m.decode || ''}`);
 assert.equal(new Set(slots).size, slots.length, 'one entry per register (and decode)');
-assert.equal(profile.geta_controls.length, 12);
+assert.equal(profile.geta_controls.length, 24);
 assert.ok(profile.geta_controls.every(w => w.evidence && w.hardware_verified === false));
-console.log('ok - unique names, the twelve named controls kept');
+console.log('ok - unique names, the twelve GETA app controls kept plus twelve from its register table');
 
 // Decode a frame the way the register table describes it.
 const words = {

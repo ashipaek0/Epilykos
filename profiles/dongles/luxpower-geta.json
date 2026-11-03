@@ -1749,7 +1749,8 @@
       "type": "uint16",
       "scale": 1,
       "unit": "%",
-      "label": "Charge First SOC Limit"
+      "label": "Charge First SOC Limit",
+      "decode": "low_byte"
     },
     {
       "name": "eps_voltage_set",
@@ -1856,7 +1857,7 @@
       "register": "0x0077",
       "register_type": "holding",
       "count": 1,
-      "type": "uint16",
+      "type": "int16",
       "scale": 1,
       "unit": "W",
       "label": "CT Power Offset"
@@ -2280,6 +2281,1247 @@
       "scale": 1,
       "unit": "",
       "label": "Unmapped Input Register 0xEE"
+    },
+    {
+      "name": "afci_current_ch1",
+      "register": "0x008C",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "mA",
+      "label": "AFCI Current CH1"
+    },
+    {
+      "name": "afci_current_ch2",
+      "register": "0x008D",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "mA",
+      "label": "AFCI Current CH2"
+    },
+    {
+      "name": "afci_current_ch3",
+      "register": "0x008E",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "mA",
+      "label": "AFCI Current CH3"
+    },
+    {
+      "name": "afci_current_ch4",
+      "register": "0x008F",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "mA",
+      "label": "AFCI Current CH4"
+    },
+    {
+      "name": "afci_flag",
+      "register": "0x0090",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Flag"
+    },
+    {
+      "name": "afci_arc_ch1",
+      "register": "0x0091",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Arc CH1"
+    },
+    {
+      "name": "afci_arc_ch2",
+      "register": "0x0092",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Arc CH2"
+    },
+    {
+      "name": "afci_arc_ch3",
+      "register": "0x0093",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Arc CH3"
+    },
+    {
+      "name": "afci_arc_ch4",
+      "register": "0x0094",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Arc CH4"
+    },
+    {
+      "name": "afci_max_arc_ch1",
+      "register": "0x0095",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Max Arc CH1"
+    },
+    {
+      "name": "afci_max_arc_ch2",
+      "register": "0x0096",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Max Arc CH2"
+    },
+    {
+      "name": "afci_max_arc_ch3",
+      "register": "0x0097",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Max Arc CH3"
+    },
+    {
+      "name": "afci_max_arc_ch4",
+      "register": "0x0098",
+      "register_type": "input",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "AFCI Max Arc CH4"
+    },
+    {
+      "name": "grid_connect_time",
+      "register": "0x0017",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "s",
+      "label": "Grid Connect Wait Time"
+    },
+    {
+      "name": "grid_reconnect_time",
+      "register": "0x0018",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "s",
+      "label": "Grid Reconnect Wait Time"
+    },
+    {
+      "name": "grid_voltage_connect_low",
+      "register": "0x0019",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Connect Voltage Low Limit"
+    },
+    {
+      "name": "grid_voltage_connect_high",
+      "register": "0x001A",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Connect Voltage High Limit"
+    },
+    {
+      "name": "grid_frequency_connect_low",
+      "register": "0x001B",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Connect Frequency Low Limit"
+    },
+    {
+      "name": "grid_frequency_connect_high",
+      "register": "0x001C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Connect Frequency High Limit"
+    },
+    {
+      "name": "grid_voltage_limit_1_low",
+      "register": "0x001D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Undervoltage Protection Level 1"
+    },
+    {
+      "name": "grid_voltage_limit_1_high",
+      "register": "0x001E",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Overvoltage Protection Level 1"
+    },
+    {
+      "name": "grid_voltage_limit_1_low_time",
+      "register": "0x001F",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Undervoltage Protection Level 1 Time"
+    },
+    {
+      "name": "grid_voltage_limit_1_high_time",
+      "register": "0x0020",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Overvoltage Protection Level 1 Time"
+    },
+    {
+      "name": "grid_voltage_limit_2_low",
+      "register": "0x0021",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Undervoltage Protection Level 2"
+    },
+    {
+      "name": "grid_voltage_limit_2_high",
+      "register": "0x0022",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Overvoltage Protection Level 2"
+    },
+    {
+      "name": "grid_voltage_limit_2_low_time",
+      "register": "0x0023",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Undervoltage Protection Level 2 Time"
+    },
+    {
+      "name": "grid_voltage_limit_2_high_time",
+      "register": "0x0024",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Overvoltage Protection Level 2 Time"
+    },
+    {
+      "name": "grid_voltage_limit_3_low",
+      "register": "0x0025",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Undervoltage Protection Level 3"
+    },
+    {
+      "name": "grid_voltage_limit_3_high",
+      "register": "0x0026",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Overvoltage Protection Level 3"
+    },
+    {
+      "name": "grid_voltage_limit_3_low_time",
+      "register": "0x0027",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Undervoltage Protection Level 3 Time"
+    },
+    {
+      "name": "grid_voltage_limit_3_high_time",
+      "register": "0x0028",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Overvoltage Protection Level 3 Time"
+    },
+    {
+      "name": "grid_voltage_moving_avg_high",
+      "register": "0x0029",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Overvoltage Protection (Moving Average)"
+    },
+    {
+      "name": "grid_frequency_limit_1_low",
+      "register": "0x002A",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Underfrequency Protection Level 1"
+    },
+    {
+      "name": "grid_frequency_limit_1_high",
+      "register": "0x002B",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Overfrequency Protection Level 1"
+    },
+    {
+      "name": "grid_frequency_limit_1_low_time",
+      "register": "0x002C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Underfrequency Protection Level 1 Time"
+    },
+    {
+      "name": "grid_frequency_limit_1_high_time",
+      "register": "0x002D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Overfrequency Protection Level 1 Time"
+    },
+    {
+      "name": "grid_frequency_limit_2_low",
+      "register": "0x002E",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Underfrequency Protection Level 2"
+    },
+    {
+      "name": "grid_frequency_limit_2_high",
+      "register": "0x002F",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Overfrequency Protection Level 2"
+    },
+    {
+      "name": "grid_frequency_limit_2_low_time",
+      "register": "0x0030",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Underfrequency Protection Level 2 Time"
+    },
+    {
+      "name": "grid_frequency_limit_2_high_time",
+      "register": "0x0031",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Overfrequency Protection Level 2 Time"
+    },
+    {
+      "name": "grid_frequency_limit_3_low",
+      "register": "0x0032",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Underfrequency Protection Level 3"
+    },
+    {
+      "name": "grid_frequency_limit_3_high",
+      "register": "0x0033",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Grid Overfrequency Protection Level 3"
+    },
+    {
+      "name": "grid_frequency_limit_3_low_time",
+      "register": "0x0034",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Underfrequency Protection Level 3 Time"
+    },
+    {
+      "name": "grid_frequency_limit_3_high_time",
+      "register": "0x0035",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Grid Overfrequency Protection Level 3 Time"
+    },
+    {
+      "name": "qv_max_reactive_percent",
+      "register": "0x0036",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(V) Curve Max Reactive Power"
+    },
+    {
+      "name": "qv_curve_v2_low",
+      "register": "0x0037",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Q(V) Curve Undervoltage 2"
+    },
+    {
+      "name": "qv_curve_v1_low",
+      "register": "0x0038",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Q(V) Curve Undervoltage 1"
+    },
+    {
+      "name": "qv_curve_v1_high",
+      "register": "0x0039",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Q(V) Curve Overvoltage 1"
+    },
+    {
+      "name": "qv_curve_v2_high",
+      "register": "0x003A",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Q(V) Curve Overvoltage 2"
+    },
+    {
+      "name": "reactive_power_cmd_type",
+      "register": "0x003B",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Reactive Power Mode (0=unit PF 1=fixed PF 2=default PF curve 3=custom PF curve 4=capacitive % 5=inductive % 6=Q(V) 7=Q(V) dynamic)"
+    },
+    {
+      "name": "active_power_percent",
+      "register": "0x003C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Active Power Limit"
+    },
+    {
+      "name": "reactive_power_percent",
+      "register": "0x003D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Reactive Power Setting"
+    },
+    {
+      "name": "pf_cmd",
+      "register": "0x003E",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.001,
+      "unit": "",
+      "label": "Power Factor Setting"
+    },
+    {
+      "name": "power_soft_start_slope",
+      "register": "0x003F",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%/min",
+      "label": "Power Soft-Start Slope"
+    },
+    {
+      "name": "ac_charge_soc_limit",
+      "register": "0x0043",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "AC Charge SOC Limit"
+    },
+    {
+      "name": "charge_first_power_percent",
+      "register": "0x004A",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Charge First Power"
+    },
+    {
+      "name": "forced_discharge_power_percent",
+      "register": "0x0052",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Forced Discharge Power"
+    },
+    {
+      "name": "forced_discharge_soc_limit",
+      "register": "0x0053",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Forced Discharge SOC Limit",
+      "decode": "low_byte"
+    },
+    {
+      "name": "pf_curve_lock_in_voltage",
+      "register": "0x005C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PF Curve Lock-In Voltage"
+    },
+    {
+      "name": "pf_curve_lock_out_voltage",
+      "register": "0x005D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "PF Curve Lock-Out Voltage"
+    },
+    {
+      "name": "qv_lock_in_power",
+      "register": "0x005E",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(V) Lock-In Power"
+    },
+    {
+      "name": "qv_lock_out_power",
+      "register": "0x005F",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(V) Lock-Out Power"
+    },
+    {
+      "name": "qv_delay_time",
+      "register": "0x0060",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Q(V) Delay"
+    },
+    {
+      "name": "ovf_derate_delay",
+      "register": "0x0061",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "cycles",
+      "label": "Over-Frequency Derating Delay"
+    },
+    {
+      "name": "max_backflow_power_percent",
+      "register": "0x0067",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Export (Feed-In) Power Limit"
+    },
+    {
+      "name": "lead_acid_charge_low_temp",
+      "register": "0x006C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "int16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Lead Acid Temp Lower Limit (Charge)"
+    },
+    {
+      "name": "system_type",
+      "register": "0x0070",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "System Type (0=single 1=parallel primary 2=parallel secondary 3=three-phase primary 4=2x208 primary)"
+    },
+    {
+      "name": "ovf_derate_start",
+      "register": "0x0073",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Over-Frequency Derating Start"
+    },
+    {
+      "name": "ptouser_start_discharge",
+      "register": "0x0074",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Start Discharging Above Grid Import"
+    },
+    {
+      "name": "ptouser_start_charge",
+      "register": "0x0075",
+      "register_type": "holding",
+      "count": 1,
+      "type": "int16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Start Charging Below Grid Import"
+    },
+    {
+      "name": "battery_derating_start_voltage",
+      "register": "0x0076",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Lead Acid Discharge Derating Voltage"
+    },
+    {
+      "name": "ovf_derate_end",
+      "register": "0x007C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Over-Frequency Derating End"
+    },
+    {
+      "name": "uvf_derate_start",
+      "register": "0x0086",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Under-Frequency Derating Start"
+    },
+    {
+      "name": "uvf_derate_end",
+      "register": "0x0087",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "Hz",
+      "label": "Under-Frequency Derating End"
+    },
+    {
+      "name": "spec_load_compensate",
+      "register": "0x0089",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Specific Load Compensation"
+    },
+    {
+      "name": "charge_power_percent_precise",
+      "register": "0x008A",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Charge Power Limit (0.1 %)"
+    },
+    {
+      "name": "discharge_power_percent_precise",
+      "register": "0x008B",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Discharge Power Limit (0.1 %)"
+    },
+    {
+      "name": "ac_charge_power_percent_precise",
+      "register": "0x008C",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "AC Charge Power Limit (0.1 %)"
+    },
+    {
+      "name": "charge_first_power_percent_precise",
+      "register": "0x008D",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Charge First Power (0.1 %)"
+    },
+    {
+      "name": "forced_discharge_power_percent_precise",
+      "register": "0x008E",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Forced Discharge Power (0.1 %)"
+    },
+    {
+      "name": "active_power_percent_precise",
+      "register": "0x008F",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "%",
+      "label": "Active Power Limit (0.1 %)"
+    },
+    {
+      "name": "output_priority",
+      "register": "0x0091",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Output Priority (0=Battery first, 1=PV first, 2=AC first)"
+    },
+    {
+      "name": "equalization_time",
+      "register": "0x0097",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "h",
+      "label": "Equalization Duration"
+    },
+    {
+      "name": "battery_low_voltage",
+      "register": "0x00A2",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Low Voltage Alarm"
+    },
+    {
+      "name": "battery_low_recovery_voltage",
+      "register": "0x00A3",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Battery Low Voltage Recovery"
+    },
+    {
+      "name": "battery_low_soc",
+      "register": "0x00A4",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Battery Low SOC Alarm"
+    },
+    {
+      "name": "battery_low_recovery_soc",
+      "register": "0x00A5",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Battery Low SOC Recovery"
+    },
+    {
+      "name": "battery_low_to_grid_voltage",
+      "register": "0x00A6",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Switch Load Back to Grid Below"
+    },
+    {
+      "name": "battery_low_to_grid_soc",
+      "register": "0x00A7",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Switch Load Back to Grid Below SOC"
+    },
+    {
+      "name": "ac_charge_battery_current",
+      "register": "0x00A8",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "A",
+      "label": "Max Charge Current from Grid"
+    },
+    {
+      "name": "ongrid_eod_voltage",
+      "register": "0x00A9",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "On-Grid End-of-Discharge Voltage"
+    },
+    {
+      "name": "soc_curve_voltage_1",
+      "register": "0x00AB",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "SOC Calibration Voltage 1"
+    },
+    {
+      "name": "soc_curve_voltage_2",
+      "register": "0x00AC",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "SOC Calibration Voltage 2"
+    },
+    {
+      "name": "soc_curve_soc_1",
+      "register": "0x00AD",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "SOC Calibration SOC 1"
+    },
+    {
+      "name": "soc_curve_soc_2",
+      "register": "0x00AE",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "SOC Calibration SOC 2"
+    },
+    {
+      "name": "battery_inner_resistance",
+      "register": "0x00AF",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "\u00b5\u03a9",
+      "label": "Battery Inner Resistance"
+    },
+    {
+      "name": "max_grid_input_power",
+      "register": "0x00B0",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "kW",
+      "label": "Max Grid Import Power"
+    },
+    {
+      "name": "generator_rated_power",
+      "register": "0x00B1",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "W",
+      "label": "Generator Rated Power"
+    },
+    {
+      "name": "function_enable_4",
+      "register": "0x00B3",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Function Enable 4 (CT direction, peak shaving, AC coupling, smart load)"
+    },
+    {
+      "name": "afci_arc_threshold",
+      "register": "0x00B4",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "A",
+      "label": "AFCI Arc Threshold"
+    },
+    {
+      "name": "volt_watt_v1",
+      "register": "0x00B5",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Volt-Watt V1"
+    },
+    {
+      "name": "volt_watt_v2",
+      "register": "0x00B6",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Volt-Watt V2"
+    },
+    {
+      "name": "volt_watt_p2",
+      "register": "0x00B8",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Volt-Watt P2"
+    },
+    {
+      "name": "qv_vref",
+      "register": "0x00B9",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Q(V) Reference Voltage"
+    },
+    {
+      "name": "qv_vref_filter_time",
+      "register": "0x00BA",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "s",
+      "label": "Q(V) Reference Filter Time"
+    },
+    {
+      "name": "qv_q3",
+      "register": "0x00BB",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(V) Curve Q3"
+    },
+    {
+      "name": "qv_q4",
+      "register": "0x00BC",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(V) Curve Q4"
+    },
+    {
+      "name": "qp_p1",
+      "register": "0x00BD",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(P) Curve P1"
+    },
+    {
+      "name": "qp_p2",
+      "register": "0x00BE",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(P) Curve P2"
+    },
+    {
+      "name": "qp_p3",
+      "register": "0x00BF",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(P) Curve P3"
+    },
+    {
+      "name": "qp_p4",
+      "register": "0x00C0",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Q(P) Curve P4"
+    },
+    {
+      "name": "uvf_increase_ratio",
+      "register": "0x00C1",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%Pm/Hz",
+      "label": "Under-Frequency Load Ramp Rate"
+    },
+    {
+      "name": "over_temp_derate_point",
+      "register": "0x00C7",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "\u00b0C",
+      "label": "Over-Temperature Derating Point"
+    },
+    {
+      "name": "forced_discharge_end_voltage",
+      "register": "0x00CA",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Forced Discharge End Voltage"
+    },
+    {
+      "name": "grid_type",
+      "register": "0x00CD",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Grid Type (code; split-phase and three-phase models use different lists)"
+    },
+    {
+      "name": "grid_peak_shaving_soc",
+      "register": "0x00CF",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Grid Peak Shaving SOC"
+    },
+    {
+      "name": "grid_peak_shaving_voltage",
+      "register": "0x00D0",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Peak Shaving Voltage"
+    },
+    {
+      "name": "grid_peak_shaving_soc_1",
+      "register": "0x00DA",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "%",
+      "label": "Grid Peak Shaving SOC 1"
+    },
+    {
+      "name": "grid_peak_shaving_voltage_1",
+      "register": "0x00DB",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "Grid Peak Shaving Voltage 1"
+    },
+    {
+      "name": "function_enable_5",
+      "register": "0x00E9",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "label": "Function Enable 5 (quick charge, battery backup, maintenance, 7-day schedule)"
+    },
+    {
+      "name": "quick_charge_time",
+      "register": "0x00EA",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "min",
+      "label": "Quick Charge Time"
+    },
+    {
+      "name": "float_charge_current_threshold",
+      "register": "0x00EC",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.01,
+      "unit": "C",
+      "label": "Float Charge Current Threshold (C-rate)"
+    },
+    {
+      "name": "generator_cool_down_time",
+      "register": "0x00ED",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "min",
+      "label": "Generator Cool-Down Time"
+    },
+    {
+      "name": "npe_threshold",
+      "register": "0x00F2",
+      "register_type": "holding",
+      "count": 1,
+      "type": "uint16",
+      "scale": 0.1,
+      "unit": "V",
+      "label": "NPE (Zero-Ground) Detection Threshold"
     }
   ],
   "read_ranges": {
@@ -2466,7 +3708,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "How fast the battery may charge, as a percentage."
     },
     {
       "name": "discharge_power_percent",
@@ -2482,7 +3724,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "How fast the battery may discharge, as a percentage."
     },
     {
       "name": "ac_charge_power_percent",
@@ -2498,7 +3740,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "How fast the battery charges from the grid, as a percentage of the inverter's rated power."
     },
     {
       "name": "ac_charge_enabled",
@@ -2510,7 +3752,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "Lets the battery charge from the grid. The grid charging rule decides when."
     },
     {
       "name": "charge_first_enabled",
@@ -2522,7 +3764,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "During its time windows, solar charges the battery before powering the home."
     },
     {
       "name": "forced_discharge_enabled",
@@ -2534,7 +3776,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. "
+      "description": "During its time windows, the battery discharges at the forced discharging power."
     },
     {
       "name": "ac_charge_start_time_1",
@@ -2545,7 +3787,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 1 starts, on the inverter's clock."
     },
     {
       "name": "ac_charge_end_time_1",
@@ -2556,7 +3798,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 1 ends, on the inverter's clock."
     },
     {
       "name": "ac_charge_start_time_2",
@@ -2567,7 +3809,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 2 starts, on the inverter's clock."
     },
     {
       "name": "ac_charge_end_time_2",
@@ -2578,7 +3820,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 2 ends, on the inverter's clock."
     },
     {
       "name": "ac_charge_start_time_3",
@@ -2589,7 +3831,7 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 3 starts, on the inverter's clock."
     },
     {
       "name": "ac_charge_end_time_3",
@@ -2600,7 +3842,545 @@
       "register_type": "holding",
       "geta_control": true,
       "hardware_verified": false,
-      "description": "GETA app definition; compare with LuxCloud on this unit before changing. Inverter local clock, HH:MM. Equal start/end interpretation is firmware-dependent."
+      "description": "When grid charging window 3 ends, on the inverter's clock."
+    },
+    {
+      "name": "ac_charge_soc_limit",
+      "register": "0x0043",
+      "kind": "value",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "label": "Grid charging SOC limit",
+      "evidence": "H_AC_CHARGE_SOC_LIMIT",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "Charging from the grid stops when the battery reaches this level."
+    },
+    {
+      "name": "charge_first_power_percent",
+      "register": "0x004A",
+      "kind": "value",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "label": "Charge-first power",
+      "evidence": "H_CHARGE_FIRST_POWER_CMD",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "How fast the battery charges in charge-first mode, as a percentage."
+    },
+    {
+      "name": "forced_discharge_power_percent",
+      "register": "0x0052",
+      "kind": "value",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "label": "Forced discharging power",
+      "evidence": "H_FORCED_DISCHARGE_POWER_CMD",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "How fast the battery discharges in forced-discharge mode, as a percentage of the inverter's rated power."
+    },
+    {
+      "name": "forced_discharge_soc_limit",
+      "register": "0x0053",
+      "kind": "value",
+      "mask": 255,
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "label": "Forced discharging stops at",
+      "evidence": "H_FORCED_DISCHARGE_SOC_LIMIT_AND_START_TIME (low byte)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "Forced discharging stops when the battery falls to this level."
+    },
+    {
+      "name": "max_charge_current",
+      "register": "0x0065",
+      "kind": "value",
+      "unit": "A",
+      "min": 0,
+      "max": 140,
+      "step": 1,
+      "scale": 1,
+      "label": "Max charging current",
+      "evidence": "H_CHARGE_CURRENT",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The most current the inverter charges the battery with."
+    },
+    {
+      "name": "max_discharge_current",
+      "register": "0x0066",
+      "kind": "value",
+      "unit": "A",
+      "min": 0,
+      "max": 140,
+      "step": 1,
+      "scale": 1,
+      "label": "Max discharging current",
+      "evidence": "H_DISCHARGE_CURRENT",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The most current the inverter takes from the battery."
+    },
+    {
+      "name": "max_backflow_power_percent",
+      "register": "0x0067",
+      "kind": "value",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 1,
+      "label": "Export power limit",
+      "evidence": "H_MAX_BACKFLOW_POWER",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The most power sent to the grid, as a percentage. Applies while Export to grid is on."
+    },
+    {
+      "name": "ac_charge_battery_current",
+      "register": "0x00A8",
+      "kind": "value",
+      "unit": "A",
+      "min": 0,
+      "max": 140,
+      "step": 1,
+      "scale": 1,
+      "label": "Max grid charging current",
+      "evidence": "H_AC_CHARGE_BAT_CURRENT",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The most current used to charge the battery from the grid."
+    },
+    {
+      "name": "feed_in_grid_enabled",
+      "register": "0x0015",
+      "kind": "bitfield",
+      "mask": 32768,
+      "label": "Export to grid",
+      "evidence": "H_FUNCTION_ENABLE_1 bit 15 (FeedInGridEn)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "Lets the inverter send spare power to the grid."
+    },
+    {
+      "name": "fast_zero_export_enabled",
+      "register": "0x006E",
+      "kind": "bitfield",
+      "mask": 2,
+      "label": "Fast zero export",
+      "evidence": "H_FUNCTION_ENABLE_3 bit 1 (ubFastZeroExport)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "Reacts faster to load changes when keeping export to the grid at zero."
+    },
+    {
+      "name": "charge_last_enabled",
+      "register": "0x006E",
+      "kind": "bitfield",
+      "mask": 16,
+      "label": "Charge last",
+      "evidence": "H_FUNCTION_ENABLE_3 bit 4 (ubChgLastEn)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "Solar powers the home and export first; the battery charges from what is left."
+    },
+    {
+      "name": "buzzer_enabled",
+      "register": "0x006E",
+      "kind": "bitfield",
+      "mask": 128,
+      "label": "Buzzer",
+      "evidence": "H_FUNCTION_ENABLE_3 bit 7 (BuzzerEn)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The inverter's beeper."
+    },
+    {
+      "name": "green_mode_enabled",
+      "register": "0x006E",
+      "kind": "bitfield",
+      "mask": 16384,
+      "label": "Green mode",
+      "evidence": "H_FUNCTION_ENABLE_3 bit 14 (GreenModeEn)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The inverter's Green mode setting, as named in the LuxPower app."
+    },
+    {
+      "name": "eco_mode_enabled",
+      "register": "0x006E",
+      "kind": "bitfield",
+      "mask": 32768,
+      "label": "Eco mode",
+      "evidence": "H_FUNCTION_ENABLE_3 bit 15 (EcoModeEn)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "The inverter's Eco mode setting, as named in the LuxPower app."
+    },
+    {
+      "name": "ac_charge_type",
+      "register": "0x0078",
+      "kind": "enum",
+      "mask": 14,
+      "options": {
+        "0": "Off",
+        "1": "Time windows",
+        "2": "Battery voltage",
+        "3": "Battery level",
+        "4": "Battery voltage and time windows",
+        "5": "Battery level and time windows"
+      },
+      "label": "Grid charging rule",
+      "evidence": "H_SYSTEM_ENABLE_2 bits 1-3 (ACChargeType)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "What starts and stops charging from the grid."
+    },
+    {
+      "name": "discharge_control_type",
+      "register": "0x0078",
+      "kind": "enum",
+      "mask": 48,
+      "options": {
+        "0": "Battery voltage",
+        "1": "Battery level",
+        "2": "Both"
+      },
+      "label": "Discharge stop rule",
+      "evidence": "H_SYSTEM_ENABLE_2 bits 4-5 (DischgCtrlType)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "What stops the battery discharging: a set voltage, a set level, or both."
+    },
+    {
+      "name": "ongrid_eod_type",
+      "register": "0x0078",
+      "kind": "enum",
+      "mask": 64,
+      "options": {
+        "0": "Battery voltage",
+        "1": "Battery level"
+      },
+      "label": "On-grid discharge stop rule",
+      "evidence": "H_SYSTEM_ENABLE_2 bit 6 (OnGridEODType)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "While the grid is up, what stops the battery discharging: a set voltage or a set level."
+    },
+    {
+      "name": "gen_charge_type",
+      "register": "0x0078",
+      "kind": "enum",
+      "mask": 128,
+      "options": {
+        "0": "Battery voltage",
+        "1": "Battery level"
+      },
+      "label": "Generator charging rule",
+      "evidence": "H_SYSTEM_ENABLE_2 bit 7 (GenChargeType)",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "What starts and stops charging from a generator."
+    },
+    {
+      "name": "output_priority",
+      "register": "0x0091",
+      "kind": "enum",
+      "options": {
+        "0": "Battery first",
+        "1": "Solar first",
+        "2": "Grid first"
+      },
+      "label": "Output priority",
+      "evidence": "H_OUTPUT_PRIORITY_CONFIG",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "Which source powers the home first."
+    },
+    {
+      "name": "line_mode",
+      "register": "0x0092",
+      "kind": "enum",
+      "options": {
+        "0": "Appliance (APL)",
+        "1": "UPS",
+        "2": "Generator (GEN)"
+      },
+      "label": "AC input mode",
+      "evidence": "H_LINE_MODE",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "How strict the inverter is about its AC input: Appliance accepts a wide voltage range, UPS a narrow one for faster switching, Generator suits a generator."
+    },
+    {
+      "name": "charge_first_start_time_1",
+      "register": "0x004C",
+      "kind": "time",
+      "label": "Charge-first window 1 start",
+      "evidence": "H_CHARGE_FIRST_START_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When charge-first window 1 starts, on the inverter's clock. In the window, solar charges the battery first."
+    },
+    {
+      "name": "charge_first_end_time_1",
+      "register": "0x004D",
+      "kind": "time",
+      "label": "Charge-first window 1 end",
+      "evidence": "H_CHARGE_FIRST_END_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When charge-first window 1 ends, on the inverter's clock."
+    },
+    {
+      "name": "charge_first_start_time_2",
+      "register": "0x004E",
+      "kind": "time",
+      "label": "Charge-first window 2 start",
+      "evidence": "H_CHARGE_FIRST_START_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When charge-first window 2 starts, on the inverter's clock. In the window, solar charges the battery first."
+    },
+    {
+      "name": "charge_first_end_time_2",
+      "register": "0x004F",
+      "kind": "time",
+      "label": "Charge-first window 2 end",
+      "evidence": "H_CHARGE_FIRST_END_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When charge-first window 2 ends, on the inverter's clock."
+    },
+    {
+      "name": "charge_first_start_time_3",
+      "register": "0x0050",
+      "kind": "time",
+      "label": "Charge-first window 3 start",
+      "evidence": "H_CHARGE_FIRST_START_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When charge-first window 3 starts, on the inverter's clock. In the window, solar charges the battery first."
+    },
+    {
+      "name": "charge_first_end_time_3",
+      "register": "0x0051",
+      "kind": "time",
+      "label": "Charge-first window 3 end",
+      "evidence": "H_CHARGE_FIRST_END_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When charge-first window 3 ends, on the inverter's clock."
+    },
+    {
+      "name": "forced_discharge_start_time_1",
+      "register": "0x0054",
+      "kind": "time",
+      "label": "Forced-discharge window 1 start",
+      "evidence": "H_FORCED_DISCHARGE_START_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When forced-discharge window 1 starts, on the inverter's clock. In the window, the battery discharges at the forced discharging power."
+    },
+    {
+      "name": "forced_discharge_end_time_1",
+      "register": "0x0055",
+      "kind": "time",
+      "label": "Forced-discharge window 1 end",
+      "evidence": "H_FORCED_DISCHARGE_END_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When forced-discharge window 1 ends, on the inverter's clock."
+    },
+    {
+      "name": "forced_discharge_start_time_2",
+      "register": "0x0056",
+      "kind": "time",
+      "label": "Forced-discharge window 2 start",
+      "evidence": "H_FORCED_DISCHARGE_START_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When forced-discharge window 2 starts, on the inverter's clock. In the window, the battery discharges at the forced discharging power."
+    },
+    {
+      "name": "forced_discharge_end_time_2",
+      "register": "0x0057",
+      "kind": "time",
+      "label": "Forced-discharge window 2 end",
+      "evidence": "H_FORCED_DISCHARGE_END_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When forced-discharge window 2 ends, on the inverter's clock."
+    },
+    {
+      "name": "forced_discharge_start_time_3",
+      "register": "0x0058",
+      "kind": "time",
+      "label": "Forced-discharge window 3 start",
+      "evidence": "H_FORCED_DISCHARGE_START_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When forced-discharge window 3 starts, on the inverter's clock. In the window, the battery discharges at the forced discharging power."
+    },
+    {
+      "name": "forced_discharge_end_time_3",
+      "register": "0x0059",
+      "kind": "time",
+      "label": "Forced-discharge window 3 end",
+      "evidence": "H_FORCED_DISCHARGE_END_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When forced-discharge window 3 ends, on the inverter's clock."
+    },
+    {
+      "name": "ac_first_start_time_1",
+      "register": "0x0098",
+      "kind": "time",
+      "label": "AC-first window 1 start",
+      "evidence": "H_AC_FIRST_START_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When AC-first window 1 starts, on the inverter's clock. In the window, the home runs from the grid first."
+    },
+    {
+      "name": "ac_first_end_time_1",
+      "register": "0x0099",
+      "kind": "time",
+      "label": "AC-first window 1 end",
+      "evidence": "H_AC_FIRST_END_TIME",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When AC-first window 1 ends, on the inverter's clock."
+    },
+    {
+      "name": "ac_first_start_time_2",
+      "register": "0x009A",
+      "kind": "time",
+      "label": "AC-first window 2 start",
+      "evidence": "H_AC_FIRST_START_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When AC-first window 2 starts, on the inverter's clock. In the window, the home runs from the grid first."
+    },
+    {
+      "name": "ac_first_end_time_2",
+      "register": "0x009B",
+      "kind": "time",
+      "label": "AC-first window 2 end",
+      "evidence": "H_AC_FIRST_END_TIME_1",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When AC-first window 2 ends, on the inverter's clock."
+    },
+    {
+      "name": "ac_first_start_time_3",
+      "register": "0x009C",
+      "kind": "time",
+      "label": "AC-first window 3 start",
+      "evidence": "H_AC_FIRST_START_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When AC-first window 3 starts, on the inverter's clock. In the window, the home runs from the grid first."
+    },
+    {
+      "name": "ac_first_end_time_3",
+      "register": "0x009D",
+      "kind": "time",
+      "label": "AC-first window 3 end",
+      "evidence": "H_AC_FIRST_END_TIME_2",
+      "register_type": "holding",
+      "geta_control": true,
+      "family": "luxpower",
+      "hardware_verified": false,
+      "description": "When AC-first window 3 ends, on the inverter's clock."
     }
   ]
 }

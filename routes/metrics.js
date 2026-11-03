@@ -125,7 +125,9 @@ async function buildDashboardState() {
   const db = getDb();
   const start = Date.now();
   // Savings once per build, shared by the current values and the savings block.
-  const computedSavings = computeSavings({ todaySolarKwh: computeTodaySolar(), db });
+  // Fresh each cycle: the same figure feeds savings and the forecast / PV Today cards.
+  const todaySolarKwh = computeTodaySolar({ fresh: true });
+  const computedSavings = computeSavings({ todaySolarKwh, db });
   const currentData = buildCurrentData(db, computedSavings);
 
   const gridStatus = await getCurrentGridStatus();
@@ -197,7 +199,10 @@ async function buildDashboardState() {
     gridCost,
     powerHistory,
     dailyEnergyBar,
-    breakdowns: safeBreakdowns()
+    breakdowns: safeBreakdowns(),
+    // Energy produced today, pushed with the live readings so the forecast and PV Today
+    // cards update with them. No timestamp: an unchanged value must stay an empty delta.
+    solarToday: { kwh: Math.round(todaySolarKwh * 1000) / 1000, date: localDateString() }
   };
 }
 

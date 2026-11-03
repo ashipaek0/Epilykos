@@ -9,7 +9,7 @@
  * @module forecast
  */
 import { blockFor } from './components/blockRegistry.js';
-import { updatePvToday } from './components/pvToday.js';
+import { updatePvToday, updatePvTodayLive } from './components/pvToday.js';
 import { ensureChartJS } from './chartLoader.js';
 import { escapeHtml } from './utils.js';
 import { fmtTemp, fmtKwh, fmtNum, dayLabel, localDate, iconHtml } from './weatherFormat.js';
@@ -261,7 +261,72 @@ function startClock(card) {
   card._fcClock = setInterval(tick, 15000);
 }
 
-export async function updateForecast() {
+// ── Refresh cadence ────────────────────────────────────────────────────
+// The forecast curve changes every few hours and the weather every 15 minutes, so a
+// push from the server does not fetch them again. What a push does carry is the energy
+// produced today (state.solarToday): the cards show that straight away, with no request.
+const FORECAST_REFRESH_MS = 5 * 60 * 1000;
+const FORECAST_RETRY_MS = 60 * 1000;   // after a failed load
+
+// What the last load rendered, so a live update can redraw without asking the server.
+const loaded = { at: 0, date: '', failed: false, groups: [] };
+const seenCards = new WeakSet();
+let loading = null;
+
+/** True when the page needs to ask the server again. */
+function loadDue(els, force) {
+  if (force || !loaded.at) return true;
+  if (loaded.date !== localDate()) return true;
+  if (els.some(el => !seenCards.has(el))) return true;       // a card the last load did not draw
+  return Date.now() - loaded.at >= (loaded.failed ? FORECAST_RETRY_MS : FORECAST_REFRESH_MS);
+}
+
+/** Today's row of a payload, given the live figure. */
+function setActual(data, kwh) {
+  if (!data || !Array.isArray(data.daily) || kwh == null) return;
+  const today = localDate();
+  for (const day of data.daily) if (day.date === today) day.actual_so_far = kwh;
+}
+
+// The last figure pushed for today, so a full reload (new card, theme change, timer) draws it
+// instead of the older one in the server's payload.
+let lastLive = null;
+function liveKwhFrom(state) {
+  const s = state && state.solarToday;
+  if (s && s.date === localDate() && num(s.kwh) != null) lastLive = { kwh: num(s.kwh), date: s.date };
+  return lastLive && lastLive.date === localDate() ? lastLive.kwh : null;
+}
+
+/** Redraw the cards from the last payloads with the new figure: no request. */
+function applyLive(kwh) {
+  for (const g of loaded.groups) {
+    if (g.failed) continue;
+    setActual(g.data, kwh);
+    for (const { el, cfg } of g.cards) {
+      if (el.isConnected && el.querySelector('.fc-today')) { try { renderSummary(el, g.data, cfg); } catch (e) { console.error('Forecast card render error:', e); } }
+    }
+    const pvEls = g.pvs.map(p => p.el).filter(el => el.isConnected);
+    if (pvEls.length) updatePvTodayLive(g.data, pvEls);
+  }
+}
+
+/**
+ * Called with every state push (and without state when the theme changes, which redraws
+ * everything). Fetches only when the data is due; otherwise shows the pushed figure.
+ */
+export async function updateForecast(state, { force = false } = {}) {
+  const els = [...document.querySelectorAll('.forecast-banner-instance, .forecast-info-instance, .forecast-sparkline-instance, .pv-today-instance')];
+  if (!els.length) return;
+  if (loading) { await loading; return; }
+  const live = liveKwhFrom(state);
+  if (loadDue(els, force || !state)) {
+    loading = loadForecast(live).finally(() => { loading = null; });
+    return loading;
+  }
+  if (live != null) applyLive(live);
+}
+
+async function loadForecast(liveKwh) {
   const cards = [...document.querySelectorAll('.forecast-banner-instance, .forecast-info-instance, .forecast-sparkline-instance')];
   const pvCards = [...document.querySelectorAll('.pv-today-instance')];
   if (!cards.length && !pvCards.length) return;
@@ -290,11 +355,17 @@ export async function updateForecast() {
     try { historyData = await (await fetch('/api/history?days=1')).json(); } catch { historyData = []; }
   }
 
+  const rendered = [];
+  let anyFailed = false;
   for (let i = 0; i < entries.length; i++) {
     const g = entries[i];
     const data = results[i];
     const label = sourceLabelFor(data, g.src);
     const failed = !data || data.error || !Array.isArray(data.daily);
+    if (failed) anyFailed = true;
+    else setActual(data, liveKwh);   // the pushed figure is newer than the payload's
+    rendered.push({ data, failed, cards: g.cards, pvs: g.pvs });
+    [...g.cards, ...g.pvs].forEach(({ el }) => seenCards.add(el));
 
     for (const { el: card, cfg } of g.cards) {
       const srcEl = card.querySelector('.fc-source');
@@ -325,6 +396,10 @@ export async function updateForecast() {
       else updatePvToday(data, pvEls);
     }
   }
+  loaded.at = Date.now();
+  loaded.date = localDate();
+  loaded.failed = anyFailed;
+  loaded.groups = rendered;
 }
 
 /**

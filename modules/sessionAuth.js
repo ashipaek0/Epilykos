@@ -17,6 +17,10 @@ const passwordEnvManaged = !!process.env.SETTINGS_PASSWORD;
 if (passwordEnvManaged) {
   storedSalt = crypto.randomBytes(16).toString('hex');
   storedHash = hashPasswordWithSalt(process.env.SETTINGS_PASSWORD, storedSalt);
+  // Still accepted, so an existing install keeps working; the wizard needs 12 for a new one.
+  if (process.env.SETTINGS_PASSWORD.length < 12) {
+    console.warn('⚠️  SETTINGS_PASSWORD is shorter than 12 characters. Use at least 12: remote access refuses a shorter admin password.');
+  }
 } else {
   try {
     if (fs.existsSync(PASSWORD_FILE)) {

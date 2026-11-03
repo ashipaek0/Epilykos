@@ -12,6 +12,7 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"                  # Ignored with network_mode: host (the app then listens on host port 3000)
+      # - "5279:5279"                # Growatt SPF stick (Growatt dongle profile): it pushes its data to this port. Not needed with network_mode: host.
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
@@ -32,8 +33,11 @@ services:
     #   - "dialout"                  # Serial port permission.
     #   - "108"                      # The host's bluetooth group ID, from `getent group bluetooth`; only if Settings says "D-Bus denied access to BlueZ".
 
-    # ── Option: a time zone other than this computer's (uncomment both lines).
+    # ── Option: the admin password and/or a time zone other than this computer's.
+    # Uncomment `environment:` and only the lines you need (at least one). A .env file is not passed
+    # to the container, so environment variables go here. Write a "$" in a value as "$$".
     # environment:
+    #   - SETTINGS_PASSWORD=         # Admin password, typed after the "=". The setup wizard then asks for it; only this file can change it.
     #   - TZ=Europe/London
 
     # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).

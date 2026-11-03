@@ -70,10 +70,11 @@ const lastLog = () => controls.recentLog(1)[0];
       assert.strictEqual(fake.connections.opened, 1, 'one connection: polling\'s');
     });
 
-    await check('the settings list: existing battery levels plus separately gated GETA controls', () => {
+    await check('the settings list: existing battery levels plus separately gated named controls', () => {
       const lux = controls.listDevices().find(d => d.name === 'Lux');
-      assert.strictEqual(lux.settings.length, 20);
-      assert.strictEqual(lux.settings.filter(s => s.geta_control).length, 12);
+      assert.strictEqual(lux.settings.length, 58);
+      assert.strictEqual(lux.settings.filter(s => s.geta_control).length, 50);
+      assert.strictEqual(lux.settings.filter(s => s.family === 'luxpower').length, 38);
       assert.ok(lux.settings.filter(s => !s.geta_control).every(s => s.unit === '%' && s.min >= 0 && s.max <= 100));
       assert.ok(!lux.settings.some(s => /eps_(voltage|frequency)/.test(s.name)));
       assert.ok(controls.listDevices().some(d => d.kind === 'modbus' && d.name === 'Meter' && d.rawWrites));
