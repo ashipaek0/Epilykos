@@ -1,16 +1,60 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "41433100435.1",
-    "version": "1.0.12",
-    "commit": "60796ba4763f76f233abfa59a64cb5348c052e9a",
-    "digest": "sha256:223318962c517a342859e32d26db125f91b47e006ebc51d4d5a844da3d4e5415",
+    "buildId": "41663921265.1",
+    "version": "1.0.13",
+    "commit": "d016347356d09c4ac53c1a913085a371fe426a5d",
+    "digest": "sha256:a4a80d703ccedac2594fbfe71b5ab76d140cb7b1b40173ae46664619ad4bbe8d",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-02T10:59:29Z",
-    "kind": "rebuild",
-    "notes": []
+    "builtAt": "2026-11-03T15:26:57Z",
+    "kind": "release",
+    "notes": [
+      "Update multer, body-parser and ip-address for the Dependabot alerts",
+      "LuxPower: plain help text for the twelve GETA controls",
+      "Remove the LuxPower RS-485 Modbus profile",
+      "LuxPower: read and control what the Home Assistant integration does",
+      "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+      "Require at least 12 characters for a new admin password",
+      "Forecast and PV Today cards update with the live cards",
+      "Save the Windows port findings as a pending plan",
+      "CI: show the first error of each failing Windows fixture",
+      "CI: also print the Windows failure list in the job log",
+      "CI: install on Windows with the shipped binaries",
+      "CI: run the fixtures on Windows too (report only)",
+      "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+      "README: link the new documentation site",
+      "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port",
+      "Fix masked fields losing their value and misaligning boxes"
+    ]
   },
   "history": [
+    {
+      "buildId": "41663921265.1",
+      "version": "1.0.13",
+      "commit": "d016347356d09c4ac53c1a913085a371fe426a5d",
+      "digest": "sha256:a4a80d703ccedac2594fbfe71b5ab76d140cb7b1b40173ae46664619ad4bbe8d",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-03T15:26:57Z",
+      "kind": "release",
+      "notes": [
+        "Update multer, body-parser and ip-address for the Dependabot alerts",
+        "LuxPower: plain help text for the twelve GETA controls",
+        "Remove the LuxPower RS-485 Modbus profile",
+        "LuxPower: read and control what the Home Assistant integration does",
+        "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+        "Require at least 12 characters for a new admin password",
+        "Forecast and PV Today cards update with the live cards",
+        "Save the Windows port findings as a pending plan",
+        "CI: show the first error of each failing Windows fixture",
+        "CI: also print the Windows failure list in the job log",
+        "CI: install on Windows with the shipped binaries",
+        "CI: run the fixtures on Windows too (report only)",
+        "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+        "README: link the new documentation site",
+        "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port",
+        "Fix masked fields losing their value and misaligning boxes"
+      ]
+    },
     {
       "buildId": "41433100435.1",
       "version": "1.0.12",
