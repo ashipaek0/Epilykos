@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41733910188.1",
-    "version": "1.0.14-dev+a50cfde",
-    "commit": "a50cfdefdbd296401670f08163bb88ce0b3469d9",
-    "digest": "sha256:478873cc3afef3c1786d1a25c21ac44099dc5ce520cc8be01ce997b01f83f5fa",
+    "buildId": "41735755996.1",
+    "version": "1.0.14-dev+c17afb5",
+    "commit": "c17afb511b13831eb6f4b73c9bda4661aba7a20b",
+    "digest": "sha256:ba53e48108061e53fb700a80a7acbf9496d0cdc1d3b09722a849e04e0231fbca",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T22:48:24Z",
+    "builtAt": "2026-11-03T23:01:54Z",
     "kind": "release",
     "notes": [
-      "Harden the PVOutput callback, logs, headers and Docker defaults (security audit) (#261)"
+      "Fix a flaky WebSocket test and the CodeQL cookie finding in a test app (#263)"
     ]
   },
   "history": [
+    {
+      "buildId": "41735755996.1",
+      "version": "1.0.14-dev+c17afb5",
+      "commit": "c17afb511b13831eb6f4b73c9bda4661aba7a20b",
+      "digest": "sha256:ba53e48108061e53fb700a80a7acbf9496d0cdc1d3b09722a849e04e0231fbca",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T23:01:54Z",
+      "kind": "release",
+      "notes": [
+        "Fix a flaky WebSocket test and the CodeQL cookie finding in a test app (#263)"
+      ]
+    },
     {
       "buildId": "41733910188.1",
       "version": "1.0.14-dev+a50cfde",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)"
-      ]
-    },
-    {
-      "buildId": "40666608724.1",
-      "version": "1.0.9-dev+d593056",
-      "commit": "d593056045ebd2225a6b03b1d23d7631aa9c255d",
-      "digest": "sha256:244e5673ecbbf2aa373311dda0f9c8f9b0b6e7c6828929d73993e11bf2e05bb1",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T09:44:52Z",
-      "kind": "release",
-      "notes": [
-        "Backup page: say the passphrase is needed to restore saved passwords (#228)"
       ]
     }
   ]
