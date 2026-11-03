@@ -244,8 +244,8 @@ function parseAndCheck(buf, expect, label) {
     assert.ok(!seen.has(pairKey), `AC15: duplicate (register_type, register) ${pairKey}`);
     seen.add(pairKey);
   }
-  assert.strictEqual(inputCount, 167, 'AC15: profile must hold exactly 167 input metrics (165 + 2 unmapped raws, issue #109)');
-  assert.strictEqual(holdingCount, 58, 'AC15: profile must hold exactly 58 holding metrics (18 + 40, issue #109)');
+  assert.strictEqual(inputCount, 180, 'AC15: profile must hold exactly 180 input metrics (165 + 2 unmapped raws, issue #109; + 13 AFCI, HA parity)');
+  assert.strictEqual(holdingCount, 169, 'AC15: profile must hold exactly 169 holding metrics (18 + 40, issue #109; + 111, HA parity)');
   assert.strictEqual(count2Count, 20, 'AC15: count:2 uint32 metric count must stay 20 (issue #109 adds no count:2)');
 
   const names = profile.metrics.map(m => m.name);
