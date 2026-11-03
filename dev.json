@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41659370859.1",
-    "version": "1.0.13-dev+085f0a8",
-    "commit": "085f0a80cfa3c926643eabcb3b8db9396fefec06",
-    "digest": "sha256:974f7f580d2b2b5c3ec3c94f3aa1c4630f433326331948e9014f7294dc807955",
+    "buildId": "41730324614.1",
+    "version": "1.0.14-dev+21144ed",
+    "commit": "21144ed9bb68079c1778b8cd63ad2f02e50ed0d8",
+    "digest": "sha256:472ddfd0411916f3809fcf8ec9c18168c88f1f70ac51743e36fa1a0adbaec938",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T15:00:58Z",
+    "builtAt": "2026-11-03T22:23:30Z",
     "kind": "release",
     "notes": [
-      "Update multer, body-parser and ip-address for the Dependabot alerts"
+      "Harden sign-in and sessions (security audit) (#259)"
     ]
   },
   "history": [
+    {
+      "buildId": "41730324614.1",
+      "version": "1.0.14-dev+21144ed",
+      "commit": "21144ed9bb68079c1778b8cd63ad2f02e50ed0d8",
+      "digest": "sha256:472ddfd0411916f3809fcf8ec9c18168c88f1f70ac51743e36fa1a0adbaec938",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T22:23:30Z",
+      "kind": "release",
+      "notes": [
+        "Harden sign-in and sessions (security audit) (#259)"
+      ]
+    },
     {
       "buildId": "41659370859.1",
       "version": "1.0.13-dev+085f0a8",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Backups: optional passphrase for saved passwords (#226)"
-      ]
-    },
-    {
-      "buildId": "40655739412.1",
-      "version": "1.0.9-dev+7e276c0",
-      "commit": "7e276c0289db34a6864632aed38e603e437a8a80",
-      "digest": "sha256:78b093505151ce9dd0dd4e496dcd35b384a429578eb999d99cd007f67ac6c552",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T08:17:57Z",
-      "kind": "release",
-      "notes": [
-        "Two-step sign-in, unreadable secrets, home page cleanup (#223)"
       ]
     }
   ]
