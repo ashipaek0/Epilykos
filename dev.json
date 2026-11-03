@@ -1,16 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41594113617.1",
-    "version": "1.0.13-dev+6fe3ce7",
-    "commit": "6fe3ce7f3a6b524023e1de753472b48593c4d160",
-    "digest": "sha256:de599e49599668e0a13a9740d69abc8a98226b0e2051fa06c7e9d35a545a3873",
+    "buildId": "41648523526.1",
+    "version": "1.0.13-dev+3f0ff44",
+    "commit": "3f0ff444a506386a95cbe716302944632b5e849e",
+    "digest": "sha256:8a1da4fe7782c8c930e01a6403ac2efc56f73ad206763616dade2cd388550491",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T07:07:03Z",
+    "builtAt": "2026-11-03T13:54:34Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "LuxPower: plain help text for the twelve GETA controls",
+      "LuxPower: read and control what the Home Assistant integration does",
+      "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
+    ]
   },
   "history": [
+    {
+      "buildId": "41648523526.1",
+      "version": "1.0.13-dev+3f0ff44",
+      "commit": "3f0ff444a506386a95cbe716302944632b5e849e",
+      "digest": "sha256:8a1da4fe7782c8c930e01a6403ac2efc56f73ad206763616dade2cd388550491",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T13:54:34Z",
+      "kind": "release",
+      "notes": [
+        "LuxPower: plain help text for the twelve GETA controls",
+        "LuxPower: read and control what the Home Assistant integration does",
+        "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
+      ]
+    },
     {
       "buildId": "41594113617.1",
       "version": "1.0.13-dev+6fe3ce7",
