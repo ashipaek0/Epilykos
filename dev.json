@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41594160314.1",
-    "version": "1.0.13-dev+d48fdfe",
-    "commit": "d48fdfec1ca8444d4724ac48097c24f39b5ef3ca",
-    "digest": "sha256:0de8f82dc3060047c75cb73223bbac89d84e1ed9adcfae6fdaa2b03d1b46c74a",
+    "buildId": "41594113617.1",
+    "version": "1.0.13-dev+6fe3ce7",
+    "commit": "6fe3ce7f3a6b524023e1de753472b48593c4d160",
+    "digest": "sha256:de599e49599668e0a13a9740d69abc8a98226b0e2051fa06c7e9d35a545a3873",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T07:07:12Z",
+    "builtAt": "2026-11-03T07:07:03Z",
     "kind": "release",
-    "notes": [
-      "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
-      "Require at least 12 characters for a new admin password"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41594113617.1",
+      "version": "1.0.13-dev+6fe3ce7",
+      "commit": "6fe3ce7f3a6b524023e1de753472b48593c4d160",
+      "digest": "sha256:de599e49599668e0a13a9740d69abc8a98226b0e2051fa06c7e9d35a545a3873",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T07:07:03Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "41594160314.1",
       "version": "1.0.13-dev+d48fdfe",
