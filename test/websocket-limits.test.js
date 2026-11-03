@@ -63,10 +63,20 @@ const open = (port, headers = {}) => new Promise(resolve => {
     console.log('ok - only the site that served the page may open the socket');
 
     // ── Message size ─────────────────────────────────────────────────────
+    // Just over the limit, so the whole frame is on the wire before the server answers: the server's own
+    // close (1009, message too big) is what the client sees. (A multi-megabyte send can instead meet a
+    // dropped connection, which a client reports as 1006, depending on timing.)
     const big = sockets[0];
     const closed = new Promise(res => big.once('close', code => res(code)));
-    big.send(Buffer.alloc(2 * 1024 * 1024, 65));
-    assert.equal(await closed, 1009, 'a 2 MB message closes the connection (limit 64 KB)');
+    big.send(Buffer.alloc(80 * 1024, 65));
+    assert.equal(await closed, 1009, 'an 80 KB message closes the connection (limit 64 KB)');
+    // And a huge one is refused too, whichever way the client sees the connection end.
+    const huge = await open(port); assert.equal(huge.ok, true);
+    const hugeClosed = new Promise(res => huge.ws.once('close', code => res(code)));
+    huge.ws.on('error', () => {});
+    huge.ws.send(Buffer.alloc(8 * 1024 * 1024, 65));
+    assert.ok([1009, 1006].includes(await hugeClosed), 'an 8 MB message ends the connection');
+    assert.equal((await fetch(`http://127.0.0.1:${port}/healthz`)).ok, true, 'and the server carries on');
     console.log('ok - a client cannot send more than 64 KB');
 
     // ── Connections per address ──────────────────────────────────────────

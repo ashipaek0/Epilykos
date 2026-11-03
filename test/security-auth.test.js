@@ -52,7 +52,7 @@ const sessionAuth = require('../modules/sessionAuth');
     const app = express();
     app.set('trust proxy', trust);
     app.use(express.json());
-    app.use(session({ store, secret: 'test', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax' } }));
+    app.use(session({ store, secret: 'test', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto' } }));   // as in server.js: Secure whenever the request is HTTPS
     app.use(csrfProtection);
     app.get('/api/csrf-token', csrfToken);
     app.use('/api', require('../routes/auth'));

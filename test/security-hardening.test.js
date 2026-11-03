@@ -118,12 +118,15 @@ process.env.ENC_KEY_FILE = path.join(dir, 'key');
       require(${JSON.stringify(path.join(repo, 'modules/logBuffer'))}).setSecretValues([${JSON.stringify(CONFIGURED)}]);
       logger.info('connecting with ${CONFIGURED} and Bearer ${BEARER}');
       logger.warn('request', { url: '/api/pvoutput/webhook/${TOKEN}', note: '${CONFIGURED}' });
-      setTimeout(() => process.exit(0), 1500);
+      setTimeout(() => process.exit(0), 3000);
     `], { env: { ...process.env, LOG_TO_FILE: 'true', LOG_DIR: logDir }, stdio: ['ignore', 'pipe', 'pipe'] });
     let text = ''; child.stdout.on('data', b => { text += b; }); child.stderr.on('data', b => { text += b; });
     child.on('exit', () => resolve(text)); child.on('error', reject);
   });
-  const fileText = fs.readdirSync(logDir).map(f => fs.readFileSync(path.join(logDir, f), 'utf8')).join('\n');
+  // The log file is written a moment after the line is logged; a slow machine may need longer.
+  const readLogs = () => { try { return fs.readdirSync(logDir).map(f => fs.readFileSync(path.join(logDir, f), 'utf8')).join('\n'); } catch (_) { return ''; } };
+  let fileText = readLogs();
+  for (let i = 0; i < 40 && !fileText.includes('connecting with'); i++) { await new Promise(r => setTimeout(r, 250)); fileText = readLogs(); }
   for (const [where, text] of [['the console', out], ['the log file', fileText]]) {
     assert.ok(text.includes('connecting with'), `${where} has the line`);
     assert.ok(!text.includes(CONFIGURED), `${where} hides a configured secret`);
