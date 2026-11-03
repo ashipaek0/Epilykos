@@ -377,6 +377,7 @@ function mqttSampleOf(rawText, retained) {
 // ================= /#108 catalog projections =================
 
 const app = express();
+app.disable('x-powered-by');   // do not announce the framework
 // What to believe about X-Forwarded-For (rate limits, Secure cookie): see modules/trustProxy.js.
 app.set('trust proxy', require('./modules/trustProxy').resolveTrustProxy(process.env.TRUST_PROXY));
 app.use((req, res, next) => databaseWork.run(next));
@@ -502,10 +503,12 @@ const walCheckpointInterval = setInterval(() => {
   try { checkpointWal(); } catch (e) { logger.warn('Periodic WAL checkpoint failed:', e.message); }
 }, 60 * 60 * 1000);
 
-// Multer for restore and import
+// Multer for restore and import. Uploads (a whole backup can be one) land in a folder only this
+// process can read, not loose in the shared temp directory. os.tmpdir() honours TMPDIR
+// (EpilykosOS points it at a tmpfs).
+const uploadDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'epilykos-uploads-'));
 const upload = multer({
-  // os.tmpdir() honours TMPDIR (EpilykosOS points it at a tmpfs).
-  dest: require('os').tmpdir(),
+  dest: uploadDir,
   fileFilter: (req, file, cb) => {
     if (file.originalname.endsWith('.db') || file.originalname.endsWith('.json')) cb(null, true);
     else cb(new Error('Only .db or .json files allowed'));
@@ -817,7 +820,7 @@ function bundledProfilePath(subdir, id) {
 
 /** Path of a multer upload, checked to sit in the upload directory; else null. */
 function uploadedFilePath(file) {
-  const root = path.resolve(require('os').tmpdir());
+  const root = path.resolve(uploadDir);
   const resolved = path.resolve(String((file && file.path) || ''));
   return resolved.startsWith(root + path.sep) ? resolved : null;
 }
@@ -1590,11 +1593,12 @@ app.post('/api/settings', (req, res) => {
       // Reject undefined values; coerce null to empty string
       if (value === undefined) continue;
       const safeValue = value === null ? '' : String(value);
-      setConfig(key, safeValue); // encrypt-at-write ($enc1$ passthrough)
+      setConfig(key, key === 'pvoutput_config' ? pvoutput.keepWebhookToken(safeValue) : safeValue); // encrypt-at-write ($enc1$ passthrough)
       saved.push(key);
     }
     applySourceConfigChanges(saved, oldBanksRaw);
     if (shouldInvalidateForecastCache(saved)) clearForecastCache();
+    try { require('./routes/logs').refreshSecrets(); } catch (_) { /* logs not ready */ }
     logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
@@ -1672,9 +1676,10 @@ function saveConfigKeys(allowedKeys, req, res) {
   }
   const saved = [];
   for (const [key, value] of Object.entries(filtered)) {
-    setConfig(key, value); // encrypt-at-write ($enc1$ passthrough)
+    setConfig(key, key === 'pvoutput_config' ? pvoutput.keepWebhookToken(value) : value); // encrypt-at-write ($enc1$ passthrough)
     saved.push(key);
   }
+  try { require('./routes/logs').refreshSecrets(); } catch (_) { /* logs not ready */ }   // new secrets are hidden in logs at once
   return { saved };
 }
 
@@ -2829,11 +2834,19 @@ app.use((err, req, res, next) => {
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'}, time zone: ${timeZoneName()})`));
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
+// Something threw where nothing could catch it. State may be half done, so stop cleanly and
+// let the supervisor (Docker's restart policy, systemd) start a fresh process; exit code 1 so
+// `restart: on-failure` counts it. The timer covers a shutdown that itself hangs.
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught exception: ${err && err.stack || err}`);
+  const hard = setTimeout(() => process.exit(1), 5000); if (hard.unref) hard.unref();
+  shutdown('uncaughtException', 1).catch(() => process.exit(1));
+});
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
 });
 let shuttingDown = false;
-async function shutdown(signal) {
+async function shutdown(signal, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info(`${signal} received — shutting down`);
@@ -2865,8 +2878,9 @@ async function shutdown(signal) {
   await require('./modules/dbCheck').stop();
   getDb().close();
   require('./modules/dbCheck').markCleanStop();
+  try { fs.rmSync(uploadDir, { recursive: true, force: true }); } catch (_) { /* a later start makes a new one */ }
   logger.info('Shutdown complete');
-  process.exit(0);
+  process.exit(exitCode);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

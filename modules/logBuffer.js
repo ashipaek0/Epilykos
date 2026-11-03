@@ -26,6 +26,7 @@ const PATTERNS = [
   [/\b(https?:\/\/)[^\s/:@]+:[^\s/@]+@/gi, '$1[hidden]@'],                       // user:pass@ in URLs
   [/((?:token|password|passwd|secret|api[_-]?key|local[_-]?key|access[_-]?key|auth)["']?\s*[:=]\s*["']?)[^\s"',&}]{4,}/gi, '$1[hidden]'],
   [/\b(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b/g, '[hidden token]'], // JWT
+  [/(\/api\/pvoutput\/webhook\/)[^\s/?#"']+/gi, '$1[hidden]'],                    // PVOutput alert address: the token is in the path
 ];
 
 function redact(text) {

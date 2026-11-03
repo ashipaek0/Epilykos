@@ -161,4 +161,4 @@ function init() {
   refreshSecrets();
 }
 
-module.exports = { router, init, changeLevel, secretValues, redactedConfig, _state: () => ({ revertAt }) };
+module.exports = { router, init, changeLevel, secretValues, redactedConfig, refreshSecrets, _state: () => ({ revertAt }) };

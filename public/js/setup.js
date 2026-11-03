@@ -2538,10 +2538,9 @@
         field('Upload every', sel('optional.pvoutput.upload_interval_minutes', [['5', '5 minutes'], ['10', '10 minutes'], ['15', '15 minutes']], pv.upload_interval_minutes))
       )
       + grid(
-        field('System size (W)', inp('optional.pvoutput.system_size_w', pv.system_size_w, { type: 'number' })),
-        field('Webhook URL', inp('optional.pvoutput.webhook_url', pv.webhook_url, { type: 'url' }), { optional: true })
+        field('System size (W)', inp('optional.pvoutput.system_size_w', pv.system_size_w, { type: 'number' }))
       )
-      + '<p class="wz-hint">Choose which readings are uploaded in Settings → Uploads.</p>', pvOn);
+      + '<p class="wz-hint">Choose which readings are uploaded in Settings → Uploads. The address PVOutput sends its alerts to is made in Settings → Uploads once this is saved.</p>', pvOn);
 
     html += extraCard('forecast', 'sun', 'Solar forecast', 'Predict today\'s and tomorrow\'s production from the weather.',
       sw('optional.forecast.enabled', fcOn, 'Solar forecast'),
