@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41649160397.1",
-    "version": "1.0.13-dev+8bda21e",
-    "commit": "8bda21ebb4e41f9092891d120bfe710696aa4e6e",
-    "digest": "sha256:d65a46bb24fe04a6bde5e54433b043b87a914cda349372ffc8c2642d6c77380b",
+    "buildId": "41659370859.1",
+    "version": "1.0.13-dev+085f0a8",
+    "commit": "085f0a80cfa3c926643eabcb3b8db9396fefec06",
+    "digest": "sha256:974f7f580d2b2b5c3ec3c94f3aa1c4630f433326331948e9014f7294dc807955",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T13:58:50Z",
+    "builtAt": "2026-11-03T15:00:58Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Update multer, body-parser and ip-address for the Dependabot alerts"
+    ]
   },
   "history": [
+    {
+      "buildId": "41659370859.1",
+      "version": "1.0.13-dev+085f0a8",
+      "commit": "085f0a80cfa3c926643eabcb3b8db9396fefec06",
+      "digest": "sha256:974f7f580d2b2b5c3ec3c94f3aa1c4630f433326331948e9014f7294dc807955",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T15:00:58Z",
+      "kind": "release",
+      "notes": [
+        "Update multer, body-parser and ip-address for the Dependabot alerts"
+      ]
+    },
     {
       "buildId": "41649160397.1",
       "version": "1.0.13-dev+8bda21e",
@@ -357,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Two-step sign-in, unreadable secrets, home page cleanup (#223)"
-      ]
-    },
-    {
-      "buildId": "40655707968.1",
-      "version": "1.0.9-dev+00ca119",
-      "commit": "00ca11985a5f84a33bccee94581a6c2a521ccfb8",
-      "digest": "sha256:176db4787b71685440b6868e9c36fd1b253d6826bf0aedc0fc77ceca08e7f75d",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T08:17:42Z",
-      "kind": "release",
-      "notes": [
-        "Energy chart opens on 30d; power chart statistics start at midnight (#224)"
       ]
     }
   ]
