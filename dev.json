@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41731676571.1",
-    "version": "1.0.14-dev+efcc1e1",
-    "commit": "efcc1e1dcc4d0598332078d726e131e37e41d94d",
-    "digest": "sha256:954cd6eda9c78b6051ef2271b320098ee3191024487f77453a73f1e7be5d2463",
+    "buildId": "41733910188.1",
+    "version": "1.0.14-dev+a50cfde",
+    "commit": "a50cfdefdbd296401670f08163bb88ce0b3469d9",
+    "digest": "sha256:478873cc3afef3c1786d1a25c21ac44099dc5ce520cc8be01ce997b01f83f5fa",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T22:32:47Z",
+    "builtAt": "2026-11-03T22:48:24Z",
     "kind": "release",
     "notes": [
-      "Limit the live-state WebSocket (security audit) (#260)"
+      "Harden the PVOutput callback, logs, headers and Docker defaults (security audit) (#261)"
     ]
   },
   "history": [
+    {
+      "buildId": "41733910188.1",
+      "version": "1.0.14-dev+a50cfde",
+      "commit": "a50cfdefdbd296401670f08163bb88ce0b3469d9",
+      "digest": "sha256:478873cc3afef3c1786d1a25c21ac44099dc5ce520cc8be01ce997b01f83f5fa",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T22:48:24Z",
+      "kind": "release",
+      "notes": [
+        "Harden the PVOutput callback, logs, headers and Docker defaults (security audit) (#261)"
+      ]
+    },
     {
       "buildId": "41731676571.1",
       "version": "1.0.14-dev+efcc1e1",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Backup page: say the passphrase is needed to restore saved passwords (#228)"
-      ]
-    },
-    {
-      "buildId": "40666255080.1",
-      "version": "1.0.9-dev+435a32f",
-      "commit": "435a32fc651fae988e39fb5d5f3cf5149f063705",
-      "digest": "sha256:4a824382f938762e2aeebedae541dbcf1e02391986bd4d427e61202954591258",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T09:42:11Z",
-      "kind": "release",
-      "notes": [
-        "Energy chart: Compare view (year on year, month on month) (#227)"
       ]
     }
   ]
