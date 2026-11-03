@@ -7,7 +7,7 @@
  */
 const express = require('express');
 const controls = require('../modules/deviceControls');
-const { verifyPassword, loginLimiter } = require('../modules/sessionAuth');
+const { verifyPasswordAsync, loginLimiter } = require('../modules/sessionAuth');
 const { getControlsLayout, saveControlsLayout } = require('../modules/dashboard-config');
 
 const router = express.Router();
@@ -21,8 +21,8 @@ function status(req) {
 
 router.get('/status', (req, res) => res.json(status(req)));
 
-router.post('/unlock', loginLimiter, (req, res) => {
-  const ok = verifyPassword(body(req).password);
+router.post('/unlock', loginLimiter, async (req, res) => {
+  const ok = await verifyPasswordAsync(body(req).password);
   controls.logAttempt({ source: 'unlock', label: 'Unlock changes', outcome: ok ? 'done' : 'refused', detail: ok ? 'Changes unlocked' : 'Wrong password' }, req);
   if (!ok) return res.status(401).json({ error: 'That password is not right' });
   controls.unlock(req);

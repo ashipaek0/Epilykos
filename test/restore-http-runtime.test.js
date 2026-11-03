@@ -43,7 +43,7 @@ test('HTTP restore rebinds engines before confirmation, preserves session access
     }
     const bootstrap = await request('/api/csrf-token'); cookie = bootstrap.headers.get('set-cookie').split(';')[0]; csrf = (await bootstrap.json()).token;
     const login = await request('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'fixture-password' }) });
-    assert.equal(login.status, 200); if (login.headers.get('set-cookie')) cookie = login.headers.get('set-cookie').split(';')[0];
+    assert.equal(login.status, 200); if (login.headers.get('set-cookie')) cookie = login.headers.get('set-cookie').split(';')[0]; if (login.headers.get('x-csrf-token')) csrf = login.headers.get('x-csrf-token');
     assert.equal((await (await request('/api/pvoutput/status')).json()).enabled, true);
     const before = await (await request('/api/current')).json();
     assert.deepEqual(Object.keys(before.metric_sanity), ['original']);

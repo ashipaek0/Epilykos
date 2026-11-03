@@ -94,6 +94,12 @@ function createSessionStore(session) {
       } catch (err) { return cb && cb(err); }
     }
 
+    /** Sign everyone out but one session (after the admin password changes). */
+    destroyAllExcept(sid, cb) {
+      try { this._db().prepare('DELETE FROM sessions WHERE sid != ?').run(sid); return cb && cb(null); }
+      catch (err) { return cb && cb(err); }
+    }
+
     clear(cb) {
       try { this._db().prepare('DELETE FROM sessions').run(); return cb && cb(null); }
       catch (err) { return cb && cb(err); }

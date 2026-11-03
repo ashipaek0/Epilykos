@@ -22,7 +22,7 @@ const { logger } = require('../modules/logger');
 const { getConfig, setConfig } = require('../modules/database');
 const tailscale = require('../modules/tailscale');
 const cloudflared = require('../modules/cloudflared');
-const { verifyPassword } = require('../modules/sessionAuth');
+const { verifyPasswordAsync, loginLimiter } = require('../modules/sessionAuth');
 
 const PORT = () => parseInt(process.env.PORT, 10) || 3000;
 const FUNNEL_MIN_PASSWORD = 12;
@@ -55,8 +55,8 @@ function send(res, promise) {
 }
 
 /** The admin password, 12+ characters, before anything is opened to the internet. Returns an error reply or null. */
-function publicAccessRefusal(password, what) {
-  if (typeof password !== 'string' || !verifyPassword(password)) return { status: 403, body: { error: `Enter your admin password to open the dashboard to the internet${what ? ` with ${what}` : ''}.` } };
+async function publicAccessRefusal(password, what) {
+  if (typeof password !== 'string' || !(await verifyPasswordAsync(password))) return { status: 403, body: { error: `Enter your admin password to open the dashboard to the internet${what ? ` with ${what}` : ''}.` } };
   if (password.length < FUNNEL_MIN_PASSWORD) return { status: 400, body: { error: `Your admin password is shorter than ${FUNNEL_MIN_PASSWORD} characters. Change it to a longer one first: anyone on the internet will be able to try it.`, code: 'weak_password' } };
   return null;
 }
@@ -93,9 +93,9 @@ function router() {
     cloudflareStatus().then(st => res.json(st), err => res.status(500).json({ error: err.message }));
   });
 
-  r.post('/cloudflare/connect', async (req, res) => {
+  r.post('/cloudflare/connect', loginLimiter, async (req, res) => {
     const body = req.body || {};
-    const refusal = publicAccessRefusal(body.password, 'a Cloudflare Tunnel');
+    const refusal = await publicAccessRefusal(body.password, 'a Cloudflare Tunnel');
     if (refusal) return res.status(refusal.status).json(refusal.body);
     let parsed, publicUrl;
     try { parsed = cloudflared.parseToken(body.token); publicUrl = normalisePublicUrl(body.publicUrl); }
@@ -135,10 +135,10 @@ function router() {
 
   r.post('/tailscale/serve', (req, res) => send(res, tailscale.servePrivately(PORT())));
 
-  r.post('/tailscale/funnel', (req, res) => {
+  r.post('/tailscale/funnel', async (req, res) => {
     const on = !!(req.body && req.body.on);
     if (on) {
-      const refusal = publicAccessRefusal(req.body && req.body.password);
+      const refusal = await publicAccessRefusal(req.body && req.body.password);
       if (refusal) return res.status(refusal.status).json(refusal.body);
       logger.warn('[tailscale] Dashboard opened to the internet (Funnel on)');
     } else {

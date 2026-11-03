@@ -218,7 +218,14 @@ function renderDashboard() {
         // Signed in: settings + signout
         const signoutBtn = document.getElementById('signout-btn');
         const settingsBtn = document.getElementById('settings-btn');
-        if (signoutBtn) signoutBtn.style.display = '';
+        if (signoutBtn) {
+          signoutBtn.style.display = '';
+          // A POST, so another site cannot sign anyone out with a link.
+          signoutBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            fetch('/api/logout', { method: 'POST' }).catch(() => {}).finally(() => { window.location.href = '/'; });
+          });
+        }
         if (settingsBtn) settingsBtn.style.display = '';
         // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).
         if (settingsBtn && !document.getElementById('showcase-link')) {
