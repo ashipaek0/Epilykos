@@ -91,19 +91,23 @@ test('day summary reads the day totals and grid time', async () => {
   getDb().prepare('INSERT INTO history (timestamp, daily_solar, daily_consumption, daily_grid_import, daily_grid_export) VALUES (?, ?, ?, ?, ?)')
     .run(start + 3600, 12.34, 20.5, 6.1, 0);
   setConfig('grid_status_entity', 'Grid Status');
+  // The grid goes off a quarter, and back on half, of the way through the day so far. (Fixed offsets such as
+  // +30 min and +90 min are in the future in the first hour or two of the day, which no real log has.)
+  const elapsed = Math.floor(Date.now() / 1000) - start;
+  const offAt = start + Math.floor(elapsed / 4), onAt = start + Math.floor(elapsed / 2);
   getDb().prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(start - 600, 1);
-  getDb().prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(start + 1800, 0);
-  getDb().prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(start + 5400, 1);
+  getDb().prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(offAt, 0);
+  getDb().prepare('INSERT INTO grid_status (timestamp, state) VALUES (?, ?)').run(onAt, 1);
   const r = await reports.daySummary('today');
   assert.strictEqual(r.title, "Today's energy");
   assert.match(r.body, /☀️ Solar: 12\.3 kWh/);
   assert.match(r.body, /🏠 Used: 20\.5 kWh/);
   assert.match(r.body, /🔌 Grid: 6\.1 kWh in, 0 kWh out/);
   assert.match(r.body, /⚡ Grid available: /);
-  // On at start → off at +30 min → on again at +90 min: off for exactly an hour.
+  // On at start → off at a quarter of the day so far → on again at half: off for the time between.
   const { end } = reports.dayBounds(today);
   const span = Math.min(end, Math.floor(Date.now() / 1000)) - start;
-  assert.strictEqual(reports.gridOnSeconds(getDb(), start, end), span - 3600);
+  assert.strictEqual(reports.gridOnSeconds(getDb(), start, end), span - (onAt - offAt));
   const y = await reports.daySummary('yesterday');
   assert.match(y.body, /No energy totals recorded/);
 });

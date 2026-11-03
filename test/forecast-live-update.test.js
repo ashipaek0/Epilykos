@@ -63,7 +63,8 @@ const path = require('node:path');
   const calls = [];
   const payload = () => ({
     source: 'auto', daily: [{ date: today, total_kwh: 20, actual_so_far: 3 }],
-    hourly: [{ period_end: new Date(Date.now() + 3600000).toISOString(), energy_kwh: 2, pv_estimate: 2 }], weather: null
+    // Still to come today, whatever the time now (an hour from now is tomorrow late in the evening).
+    hourly: [{ period_end: new Date(new Date().setHours(23, 59, 59, 0)).toISOString(), energy_kwh: 2, pv_estimate: 2 }], weather: null
   });
   globalThis.fetch = async (url) => { calls.push(String(url)); return { ok: true, json: async () => (String(url).startsWith('/api/solar-forecast') ? payload() : []) }; };
 

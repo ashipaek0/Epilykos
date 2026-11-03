@@ -86,11 +86,11 @@ check('computeSolarForDate: rollup bucket + raw row merge at the raw/aggregate b
   const startUnix = Math.floor(new Date(dateStr + 'T00:00:00').getTime() / 1000);
   const endUnix = Math.floor(new Date(dateStr + 'T23:59:59').getTime() / 1000);
   // Aggregate bucket just BEFORE the cutoff (old enough to be rolled up).
-  const bucket = cutoffNow - 1000;
+  const bucket = cutoffNow - 60;
   db.prepare(`INSERT INTO history_5m (bucket_start, solar_avg, solar_min, solar_max, solar_count, consumption_count, battery_charge_count, battery_discharge_count, grid_import_count, grid_export_count, battery_soc_count) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)`)
     .run(bucket, 500, 400, 600, 10);
   // Raw row just AT/AFTER the cutoff (recent enough to still be raw), same local day.
-  const rawTs = cutoffNow + 1000;
+  const rawTs = cutoffNow + 60;
   const fields = ['consumption','solar','battery_charge','battery_discharge','grid_import','grid_export','battery_soc','daily_consumption','daily_solar','daily_battery_charge','daily_battery_discharge','daily_grid_import','daily_grid_export'];
   db.prepare(`INSERT INTO history(timestamp, ${fields.join(',')}) VALUES (${fields.map(() => '?').join(',')}, ?)`)
     .run(rawTs, 0, 900, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
