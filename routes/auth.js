@@ -19,6 +19,8 @@ const router = express.Router();
 // five tries.
 const CODE_WINDOW_MS = 5 * 60 * 1000;
 const CODE_TRIES = 5;
+// The shortest admin password the wizard accepts; remote access asks the same (routes/remote.js).
+const MIN_PASSWORD_LENGTH = 12;
 
 router.post('/login', loginLimiter, (req, res) => {
   const { password } = req.body;
@@ -141,8 +143,8 @@ router.post('/wizard/password', loginLimiter, (req, res) => {
     logger.warn('Setup wizard: rejected an unauthenticated password change after the first password was set');
     return res.status(403).json({ error: 'The admin password is already set — log in to change it' });
   }
-  if (typeof password !== 'string' || password.length < 4) {
-    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
   }
   try {
     setSettingsPassword(password);
