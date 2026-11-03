@@ -42,7 +42,6 @@ test('new controls are declared like the GETA ones: evidence, family, hardware-u
   for (const [p, family] of [[generic, 'luxpower'], [v24, 'geta']]) {
     for (const w of added(p)) {
       assert.ok(w.evidence && w.label && w.description, w.name);
-      assert.doesNotMatch(w.description, /hardware|lxp_modbus|register|byte/i, `${w.name}: help text says what it does`);
       assert.equal(w.hardware_verified, false, w.name);
       assert.equal(w.geta_control, true, w.name);
       assert.equal(w.register_type, 'holding', w.name);
@@ -53,6 +52,14 @@ test('new controls are declared like the GETA ones: evidence, family, hardware-u
     for (const name of GETA_APP_CONTROLS) assert.equal(control(p, name).family, undefined, name);
     const names = p.geta_controls.map(w => w.name);
     assert.equal(new Set(names).size, names.length, 'control names are unique');
+  }
+});
+
+test('every named control\'s help text says what it does, in plain words', () => {
+  const jargon = /hardware|lxp_modbus|LuxCloud|app definition|firmware|register|byte/i;
+  for (const p of [generic, v24]) {
+    for (const w of p.geta_controls) assert.doesNotMatch(w.description || '', jargon, `${p.name} ${w.name}`);
+    for (const w of p.geta_controls) assert.ok(w.description, `${p.name} ${w.name} has help text`);
   }
 });
 
