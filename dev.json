@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41530928744.1",
-    "version": "1.0.13-dev+cd95efe",
-    "commit": "cd95efe8ab2c9ebcefbf1bfa4cb0521b8c91a56d",
-    "digest": "sha256:b1b86508248f91a530599f7b1c5d84f98640ef2a3b093ca1f97a4d34af14184e",
+    "buildId": "41594160314.1",
+    "version": "1.0.13-dev+d48fdfe",
+    "commit": "d48fdfec1ca8444d4724ac48097c24f39b5ef3ca",
+    "digest": "sha256:0de8f82dc3060047c75cb73223bbac89d84e1ed9adcfae6fdaa2b03d1b46c74a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-02T21:43:44Z",
+    "builtAt": "2026-11-03T07:07:12Z",
     "kind": "release",
     "notes": [
-      "Forecast and PV Today cards update with the live cards"
+      "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+      "Require at least 12 characters for a new admin password"
     ]
   },
   "history": [
+    {
+      "buildId": "41594160314.1",
+      "version": "1.0.13-dev+d48fdfe",
+      "commit": "d48fdfec1ca8444d4724ac48097c24f39b5ef3ca",
+      "digest": "sha256:0de8f82dc3060047c75cb73223bbac89d84e1ed9adcfae6fdaa2b03d1b46c74a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T07:07:12Z",
+      "kind": "release",
+      "notes": [
+        "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
+        "Require at least 12 characters for a new admin password"
+      ]
+    },
     {
       "buildId": "41530928744.1",
       "version": "1.0.13-dev+cd95efe",
