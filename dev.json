@@ -1,20 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41648523526.1",
-    "version": "1.0.13-dev+3f0ff44",
-    "commit": "3f0ff444a506386a95cbe716302944632b5e849e",
-    "digest": "sha256:8a1da4fe7782c8c930e01a6403ac2efc56f73ad206763616dade2cd388550491",
+    "buildId": "41648735392.1",
+    "version": "1.0.13-dev+25d2ddf",
+    "commit": "25d2ddfe0fc58644e110dd05c23a77c4e7d10888",
+    "digest": "sha256:4ed1efffe224ba559a4e73c1e62c89515a89d732fc3447c5aa19b63f3d19ab41",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T13:54:34Z",
+    "builtAt": "2026-11-03T13:56:04Z",
     "kind": "release",
     "notes": [
-      "LuxPower: plain help text for the twelve GETA controls",
-      "LuxPower: read and control what the Home Assistant integration does",
+      "Remove the LuxPower RS-485 Modbus profile",
       "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
     ]
   },
   "history": [
+    {
+      "buildId": "41648735392.1",
+      "version": "1.0.13-dev+25d2ddf",
+      "commit": "25d2ddfe0fc58644e110dd05c23a77c4e7d10888",
+      "digest": "sha256:4ed1efffe224ba559a4e73c1e62c89515a89d732fc3447c5aa19b63f3d19ab41",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-03T13:56:04Z",
+      "kind": "release",
+      "notes": [
+        "Remove the LuxPower RS-485 Modbus profile",
+        "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
+      ]
+    },
     {
       "buildId": "41648523526.1",
       "version": "1.0.13-dev+3f0ff44",
