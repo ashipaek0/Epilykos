@@ -108,6 +108,8 @@
     { label: 'Finish', sub: 'Review and go', title: 'Review and finish', lede: 'Here\'s what\'s set up. Finish setup, then open your dashboard.' }
   ];
   var LAST_STEP = STEPS.length;
+  // The shortest admin password routes/auth.js accepts.
+  var MIN_PASSWORD = 12;
 
   // Source types offered in step 2, grouped like Settings' add-source picker.
   var SOURCE_GROUPS = [
@@ -641,7 +643,7 @@
   // ── VALIDATION ────────────────────────────────────────────
   function validNewPassword() {
     var p = state.password;
-    return p.newPw && p.newPw.length >= 4 && p.newPw === p.confirmPw;
+    return p.newPw && p.newPw.length >= MIN_PASSWORD && p.newPw === p.confirmPw;
   }
   function selectedSourcesCount() {
     return SOURCE_KEYS.filter(function (k) { return state.sources[k].selected; }).length;
@@ -729,7 +731,7 @@
         field('New password', passwordInput('password.newPw', 'pw-new', 'new-password'), { forId: 'pw-new' }),
         field('Confirm password', passwordInput('password.confirmPw', 'pw-confirm', 'new-password'), { forId: 'pw-confirm' })
       )
-        + '<ul class="wz-reqs" id="pw-reqs"><li data-req="len">At least 4 characters</li><li data-req="match">Both passwords match</li></ul>'
+        + '<ul class="wz-reqs" id="pw-reqs"><li data-req="len">At least ' + MIN_PASSWORD + ' characters</li><li data-req="match">Both passwords match</li></ul>'
         + '<div class="wz-actions"><button class="wz-btn wz-btn-sm" type="button" data-action="regenerate">' + icon('refresh', 16) + 'Generate a strong password</button>'
         + '<button class="wz-btn wz-btn-sm" type="button" data-action="copy-password" id="pw-copy" hidden>' + icon('copy', 16) + 'Copy</button></div>'
         + '<p class="wz-hint" id="pw-msg" style="margin-top:12px">Keep it somewhere safe: it unlocks Settings and the REST API.</p>';
@@ -750,7 +752,7 @@
   function syncPasswordReqs() {
     var p = state.password;
     var len = $('[data-req="len"]'), match = $('[data-req="match"]');
-    if (len) len.classList.toggle('is-met', (p.newPw || '').length >= 4);
+    if (len) len.classList.toggle('is-met', (p.newPw || '').length >= MIN_PASSWORD);
     if (match) match.classList.toggle('is-met', !!p.newPw && p.newPw === p.confirmPw);
     var submit = $('#pw-submit');
     if (submit && state.status && !state.status.passwordEnvManaged) submit.disabled = !validNewPassword();
@@ -765,7 +767,7 @@
       payload = { password: p.envPw };
     } else {
       if (!validNewPassword()) {
-        setGlobalError((p.newPw.length < 4) ? 'The password needs at least 4 characters.' : 'The two passwords don\'t match.');
+        setGlobalError((p.newPw.length < MIN_PASSWORD) ? 'The password needs at least ' + MIN_PASSWORD + ' characters.' : 'The two passwords don\'t match.');
         return;
       }
       payload = { password: p.newPw };

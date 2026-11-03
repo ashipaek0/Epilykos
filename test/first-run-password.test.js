@@ -65,13 +65,20 @@ async function call(method, routePath, { body = {}, session = {} } = {}) {
   assert.equal(r.status, 403);
   console.log('ok - a second, unauthenticated visitor cannot replace it during setup');
 
-  r = await call('post', '/wizard/password', { body: { password: 'changed' }, session: { authenticated: true } });
+  r = await call('post', '/wizard/password', { body: { password: 'changed-password' }, session: { authenticated: true } });
   assert.equal(r.status, 200);
-  assert.equal(savedPassword, 'changed');
+  assert.equal(savedPassword, 'changed-password');
   console.log('ok - a signed-in session can still change it');
 
-  r = await call('post', '/wizard/password', { body: { password: 'abc' }, session: { authenticated: true } });
-  assert.equal(r.status, 400);
-  console.log('ok - short passwords are refused');
+  for (const short of ['abc', 'eleven-char']) {
+    r = await call('post', '/wizard/password', { body: { password: short }, session: { authenticated: true } });
+    assert.equal(r.status, 400, short);
+    assert.match(r.data.error, /at least 12 characters/);
+  }
+  assert.equal(savedPassword, 'changed-password');
+  r = await call('post', '/wizard/password', { body: { password: 'twelve-chars' }, session: { authenticated: true } });
+  assert.equal(r.status, 200);
+  assert.equal(savedPassword, 'twelve-chars');
+  console.log('ok - passwords shorter than 12 characters are refused, 12 is accepted');
   checks.done();
 })().catch(err => { console.error(err); process.exitCode = 1; });
