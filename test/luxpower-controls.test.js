@@ -11,7 +11,7 @@ function fake(words = {}) {
   return { raw, writes, async readRegisters(start, count, fn) { const b = Buffer.alloc(2 * count); for (let i = 0; i < count; i++) b.writeUInt16LE(fn === 4 ? 0 : raw[start + i] || 0, i * 2); return b; }, async writeRegister(r, v) { writes.push([r, v]); raw[r] = v; } };
 }
 test('GETA controls have traced identifiers, bounds and explicit hardware-unverified status', () => {
-  assert.equal(profile.geta_controls.length, 12);
+  assert.equal(profile.geta_controls.length, 50);
   assert.ok(profile.geta_controls.every(w => w.evidence && w.hardware_verified === false));
 });
 test('new controls require live GETA identity and a readable valid current value', async () => {

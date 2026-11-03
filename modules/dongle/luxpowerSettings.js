@@ -9,14 +9,28 @@ function serialized(key, operation) {
   queues.set(key, tail);
   return result.finally(() => { if (queues.get(key) === tail) queues.delete(key); });
 }
+// Which inverters a named control is for. 'geta' (the default) needs the
+// LuxCloud single-phase/type13 GETA identity. 'luxpower' needs any inverter
+// identity: the LuxPower protocol document and the Home Assistant integration
+// it comes from give those settings for every model, not per model.
+const familyOf = w => w.family || 'geta';
+function familyRefusal(w, model) {
+  if (familyOf(w) === 'luxpower') return model ? null : 'Could not read the inverter identity';
+  return model && model.geta ? null : 'Detected device is not single-phase GETA (type13)';
+}
+// A setting can be a field inside its register (mask); the rest of the word is kept.
+const fieldMask = w => (w.mask === undefined ? 0xFFFF : w.mask);
+const shiftOf = mask => { let n = 0; while (n < 15 && !((mask >> n) & 1)) n++; return n; };
 function descriptor(w) {
-  return { ...w, type: w.kind === 'bitfield' ? 'switch' : w.kind === 'time' ? 'time' : 'number',
-    writable: false, blockedReason: 'Read the device to check GETA identity and the current value' };
+  const choices = w.kind === 'enum' ? { allowed: Object.keys(w.options).map(Number), labels: w.options } : {};
+  return { ...w, ...choices, type: w.kind === 'bitfield' ? 'switch' : w.kind === 'time' ? 'time' : w.kind === 'enum' ? 'select' : 'number',
+    writable: false, blockedReason: `Read the device to check ${familyOf(w) === 'geta' ? 'GETA' : 'its'} identity and the current value` };
 }
 function decode(w, raw) {
   if (w.kind === 'bitfield') return !!(raw & w.mask);
   if (w.kind === 'time') return `${String(raw & 255).padStart(2, '0')}:${String(raw >> 8).padStart(2, '0')}`;
-  return raw * (w.scale || 1);
+  const field = (raw & fieldMask(w)) >> shiftOf(fieldMask(w));
+  return w.kind === 'enum' ? field : field * (w.scale || 1);
 }
 function encode(w, value) {
   if (w.kind === 'bitfield') {
@@ -27,11 +41,20 @@ function encode(w, value) {
     if (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) throw new Error('Use HH:MM from 00:00 to 23:59');
     const [h, m] = value.split(':').map(Number); return h | (m << 8);
   }
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < w.min || value > w.max || Math.abs((value - w.min) / w.step - Math.round((value - w.min) / w.step)) > 1e-6) throw new Error(`Must be between ${w.min} and ${w.max}, in steps of ${w.step}`);
-  return Math.round(value / (w.scale || 1));
+  let field;
+  if (w.kind === 'enum') {
+    if (!Number.isInteger(value) || !Object.prototype.hasOwnProperty.call(w.options, String(value))) throw new Error(`Choose one of: ${Object.values(w.options).join(', ')}`);
+    field = value;
+  } else {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < w.min || value > w.max || Math.abs((value - w.min) / w.step - Math.round((value - w.min) / w.step)) > 1e-6) throw new Error(`Must be between ${w.min} and ${w.max}, in steps of ${w.step}`);
+    field = Math.round(value / (w.scale || 1));
+  }
+  const bits = field << shiftOf(fieldMask(w));
+  if (bits < 0 || (bits & ~fieldMask(w))) throw new Error('Does not fit the register');
+  return bits;
 }
 function inRange(w, raw) {
-  try { return encode(w, decode(w, raw)) === (w.kind === 'bitfield' ? raw & w.mask : raw); }
+  try { return encode(w, decode(w, raw)) === (raw & fieldMask(w)); }
   catch { return false; }
 }
 async function word(t, address) {
@@ -43,7 +66,7 @@ async function read(t, w) {
   const id = identityFromHolding(await t.readRegisters(0, 40, 3));
   const raw = await word(t, Number(w.register));
   const valid = inRange(w, raw);
-  const blockedReason = !id.model.geta ? 'Detected device is not single-phase GETA (type13)' : !valid ? 'The current value is outside the supported format/range' : null;
+  const blockedReason = familyRefusal(w, id.model) || (!valid ? 'The current value is outside the supported format/range' : null);
   return { value: decode(w, raw), raw, inRange: valid, writable: !blockedReason, blockedReason,
     identity: id, hardwareValidated: false, evidence: w.evidence };
 }
@@ -55,7 +78,7 @@ async function change(t, w, expected, value, mayWrite = () => true) {
   if (!now.writable) return { success: false, error: now.blockedReason };
   if (typeof expected !== typeof now.value || expected !== now.value) return { success: false, error: 'It changed since you looked; read it again', current: now.value };
   if (value === now.value) return { success: true, value: now.value, unchanged: true };
-  const raw = w.kind === 'bitfield' ? ((now.raw & ~w.mask) | target) : target;
+  const raw = (now.raw & ~fieldMask(w) & 0xFFFF) | target;
   if (!mayWrite()) return { success: false, error: 'Changing device settings was turned off' };
   // Once submitted, an error is ambiguous. Never retry or report "not written".
   try { await t.writeRegister(Number(w.register), raw); }

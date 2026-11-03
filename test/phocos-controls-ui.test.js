@@ -19,12 +19,12 @@ class El {
 }
 function harness({answers=[], fetches=[]}={}) {
   const els=new Map(), rows=[]; const document={createElement:t=>new El(t),getElementById:id=>{if(!els.has(id))els.set(id,new El());return els.get(id)},querySelectorAll:sel=>sel==='[data-needs-unlock]'?rows.flatMap(row=>row.map?.['.ct-change']?[row.map['.ct-change']]:[]):[]};
-  const askResolvers=[]; const ctx={document,$:id=>document.getElementById(id),fetch:async(url,opts={})=>{fetches.push({url,body:opts.body&&JSON.parse(opts.body)});const r=answers.shift()||{ok:true,status:200,data:{}};return {ok:r.ok,status:r.status||200,json:async()=>r.data||{}}},
-    ask:()=>new Promise(resolve=>{askResolvers.push(resolve)}),unlocked:()=>!!ctx.status.unlockedUntil&&ctx.status.unlockedUntil+ctx.clockSkew>Date.now(),fmt:(v,u)=>v==null?'—':`${v}${u?' '+u:''}`,api:async(path,body)=>{fetches.push({url:'/api/controls'+path,body});const r=answers.shift()||{ok:true,status:200,data:{}};return r},loadLog:()=>{},setInterval:()=>1,clearInterval(){},Date,Math,Number,String,Object,Array,Set,JSON,console,status:{unlockedUntil:null,writesEnabled:false,expertEnabled:false,unlockMinutes:5},clockSkew:0,countdown:null};
+  const askResolvers=[], asked=[]; const ctx={document,$:id=>document.getElementById(id),fetch:async(url,opts={})=>{fetches.push({url,body:opts.body&&JSON.parse(opts.body)});const r=answers.shift()||{ok:true,status:200,data:{}};return {ok:r.ok,status:r.status||200,json:async()=>r.data||{}}},
+    ask:o=>new Promise(resolve=>{asked.push(o);askResolvers.push(resolve)}),unlocked:()=>!!ctx.status.unlockedUntil&&ctx.status.unlockedUntil+ctx.clockSkew>Date.now(),fmt:(v,u)=>v==null?'—':`${v}${u?' '+u:''}`,api:async(path,body)=>{fetches.push({url:'/api/controls'+path,body});const r=answers.shift()||{ok:true,status:200,data:{}};return r},loadLog:()=>{},setInterval:()=>1,clearInterval(){},Date,Math,Number,String,Object,Array,Set,JSON,console,status:{unlockedUntil:null,writesEnabled:false,expertEnabled:false,unlockMinutes:5},clockSkew:0,countdown:null};
   const start=source.indexOf('function settingRow('), end=source.indexOf('\nasync function loadDevices()',start);
   const ss=source.indexOf('function setStatus('), se=source.indexOf("\n$('ct-unlock-form')",ss);
   vm.createContext(ctx);vm.runInContext(source.slice(ss,se)+'\n'+source.slice(start,end)+'\nthis.settingRow=settingRow;this.setStatus=setStatus;',ctx);
-  return {ctx,els,fetches,answer:v=>{const resolve=askResolvers.shift();if(!resolve)throw Error('No pending confirmation');resolve(v)},rows};
+  return {ctx,els,fetches,asked,answer:v=>{const resolve=askResolvers.shift();if(!resolve)throw Error('No pending confirmation');resolve(v)},rows};
 }
 async function rowFor(dev,s,answers){const h=harness({answers});const [row,msg,read]=h.ctx.settingRow(dev,s);h.rows.push(row);return {...h,row,msg,read,change:row.querySelector('.ct-change'),get input(){let e=row.querySelector('input, select');while(e.replacement)e=e.replacement;return e;},current:row.querySelector('.ct-current')};}
 async function run(){let count=0;const check=(fn)=>{fn();count++};
@@ -55,6 +55,15 @@ async function run(){let count=0;const check=(fn)=>{fn();count++};
  await r.read();check(()=>assert.match(r.row.innerHTML,/type="time"/));check(()=>assert.equal(r.input.value,'10:30'));
  r.input.value='11:45';r.change.dataset.locked='false';r.change.disabled=false;const tp=r.change.click();await new Promise(setImmediate);r.answer(true);await tp;
  check(()=>assert.equal(r.fetches.find(x=>x.url.endsWith('/change')).body.value,'11:45'));check(()=>assert.equal(r.fetches.find(x=>x.url.endsWith('/change')).body.expected,'10:30'));
+ // A LuxPower selector (bits 1-3 of holding 120) shows the profile's names and sends the number.
+ const luxRule=require('../modules/dongle/luxpowerSettings').descriptor(require('../profiles/dongles/luxpower-geta.json').geta_controls.find(w=>w.name==='ac_charge_type'));
+ r=await rowFor({name:'Lux',kind:'dongle'},luxRule,[{ok:true,data:{value:3,inRange:true,writable:true}},{ok:true,data:{value:5}}]);
+ check(()=>assert.deepEqual(r.input.children.map(o=>o.textContent),['Off','Time windows','Battery voltage','Battery level','Battery voltage and time windows','Battery level and time windows']));
+ await r.read();check(()=>assert.equal(r.current.textContent,'Battery level'));check(()=>assert.equal(r.change.dataset.blocked,'false'));
+ r.input.value='5';r.change.dataset.locked='false';r.change.disabled=false;const lp=r.change.click();await new Promise(setImmediate);r.answer(true);await lp;
+ check(()=>assert.deepEqual(JSON.parse(JSON.stringify(r.fetches.find(x=>x.url.endsWith('/change')).body)),{device:'Lux',setting:'ac_charge_type',value:5,expected:3}));
+ check(()=>assert.equal(r.asked[0].text,'Lux: from Battery level to Battery level and time windows. The inverter starts using it straight away.','the confirmation names the choices'));
+ check(()=>assert.equal(r.current.textContent,'Battery level and time windows'));
  // A sent/unverified write blocks another attempt until an explicit fresh read.
  r=await rowFor({name:'GETA',kind:'dongle'},{name:'power',label:'Charging limit',description:'',type:'number',min:0,max:100,step:1},[{ok:true,data:{value:50,inRange:true,writable:true}},{ok:false,data:{written:true,status:'sent_unverified',error:'Lost reply'}}]);
  await r.read();r.input.value='49';r.change.dataset.locked='false';r.change.disabled=false;const up=r.change.click();await new Promise(setImmediate);r.answer(true);await up;
