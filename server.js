@@ -563,7 +563,45 @@ app.use((req, res, next) => {
 
 // Create HTTP server and attach WebSocket server
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+
+// WebSocket limits. The live state is public, but anyone on the network (or any web page
+// opened on a computer that can reach this one) could otherwise hold unlimited connections
+// open, each costing a state build and every later broadcast, and send huge messages.
+const WS_MAX_PAYLOAD = 64 * 1024;   // clients send nothing the server reads
+const WS_MAX_CLIENTS = 150;
+const WS_MAX_PER_ADDRESS = 30;      // browser tabs behind one address
+const WS_PING_MS = 30 * 1000;
+const wsPerAddress = new Map();
+
+/** The client's address as Express reports it (a forwarded address only from a trusted proxy). */
+function wsClientAddress(req) {
+  const asRequest = Object.create(app.request);
+  asRequest.app = app; asRequest.headers = req.headers; asRequest.connection = req.socket; asRequest.socket = req.socket;
+  return asRequest.ip || req.socket.remoteAddress || '';
+}
+
+/** A page may open the socket only from the site that served it (browsers do not apply CORS to sockets). */
+function wsOriginAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;   // not a browser: curl, scripts, other tools
+  let host; try { host = new URL(origin).host; } catch (_) { return false; }
+  if (host === req.headers.host) return true;
+  // A trusted proxy may have rewritten Host; it reports the one the browser used.
+  const forwarded = req.headers['x-forwarded-host'];
+  const trusted = app.get('trust proxy fn');
+  if (forwarded && typeof trusted === 'function' && trusted(req.socket.remoteAddress, 0)) return host === String(forwarded).split(',')[0].trim();
+  return false;
+}
+
+const wss = new WebSocket.Server({
+  server,
+  maxPayload: WS_MAX_PAYLOAD,
+  verifyClient: ({ req }, done) => {
+    if (!wsOriginAllowed(req)) return done(false, 403, 'Forbidden');
+    if (wss.clients.size >= WS_MAX_CLIENTS || (wsPerAddress.get(wsClientAddress(req)) || 0) >= WS_MAX_PER_ADDRESS) return done(false, 429, 'Too many connections');
+    done(true);
+  }
+});
 
 // Store connected WebSocket clients
 const wsClients = new Set();
@@ -641,7 +679,16 @@ function broadcastDashboardState(state) {
 }
 
 // WebSocket connection handler
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  ws._address = wsClientAddress(req);
+  wsPerAddress.set(ws._address, (wsPerAddress.get(ws._address) || 0) + 1);
+  const release = () => {
+    const left = (wsPerAddress.get(ws._address) || 1) - 1;
+    if (left > 0) wsPerAddress.set(ws._address, left); else wsPerAddress.delete(ws._address);
+  };
+  ws.once('close', release);
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   wsClients.add(ws);
   logger.info(`WebSocket client connected (${wsClients.size} total)`);
   
@@ -713,6 +760,15 @@ function pollAllSources() { return databaseWork.run(async () => {
 }); }
 pollAllSources();
 const pollInterval = setInterval(pollAllSources, 30000);
+// A connection whose other end vanished (a phone out of range) never sends a close: ping, and drop what does not answer.
+const wsPingTimer = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) { ws.terminate(); continue; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch (_) { ws.terminate(); }
+  }
+}, WS_PING_MS);
+if (wsPingTimer.unref) wsPingTimer.unref();
 // Read the all-time daily totals once now, so the first page load doesn't pay for it.
 setTimeout(() => { buildDashboardState().catch(() => {}); }, 2000).unref();
 
@@ -2776,6 +2832,7 @@ async function shutdown(signal) {
   shuttingDown = true;
   logger.info(`${signal} received — shutting down`);
   clearInterval(pollInterval);
+  clearInterval(wsPingTimer);
   clearInterval(walCheckpointInterval);
   try { await shutdownRs232(); } catch (e) { logger.warn(`RS232 shutdown failed: ${e.message}`); }
   stopExternalPolling();
