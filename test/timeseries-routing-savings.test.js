@@ -103,6 +103,8 @@ await checkAsync('getSavings: rollup bucket (daily_solar_last) + raw row merge a
   insertHistoryRow(rawTs, { daily_solar: 21.0, daily_consumption: 10.5 });
 
   const { getSavings } = require(path.join(REPO, 'modules/savings'));
+  // Earlier checks already counted the finished days, and the rows above are for days that are over: count them again.
+  require(path.join(REPO, 'modules/solarValue')).recalculateSavingsHistory(getDb());
   const result = await getSavings();
   // Both the rolled-up day (18.0) and the raw day (21.0) are >7 days and
   // >1 month back (cutoff is 30 days), so they only reach `all`, not week/month.
