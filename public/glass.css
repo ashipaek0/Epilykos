@@ -1,13 +1,17 @@
-/* Glass cards: a frosted, translucent look for the metric cards (metric trend and dual metric), in the spirit of
- * Apple's "Liquid Glass". Off unless <body> has the class `glass-cards`.
+/* Glass cards: a frosted, translucent look for the dashboard cards, in the spirit of Apple's
+ * "Liquid Glass". Off unless <body> has the class `glass-cards` (Settings → Appearance).
  *
  * What makes it read as glass, from the back to the front:
  *   backdrop-filter   blurs and slightly boosts whatever is behind the card
  *   a light tint      the card's own fill, mostly transparent
- *   sheen             a soft highlight from the top left, and a darker wash to the bottom right
+ *   sheen             a highlight from the top left and along the top edge, and a darker wash to the bottom right
  *   rim               a thin light edge plus an inner highlight on the top edge
  *   shadow            lifts it off the background
  * It needs something behind it to show: over a flat colour it is just a faint box.
+ *
+ * Which elements: the card each dashboard block holds (the first rule below lists their classes), and for the
+ * blocks that are a set of tiles with no card of their own (multi-value, stat grids, energy totals, system
+ * overview) the tiles. Tiles inside a glass card stay as they are, and the embedded page card is left alone.
  *
  * Set from Settings → Appearance (dashboard.js applyGlass):
  *   --glass-blur   blur radius          default 18px
@@ -19,7 +23,6 @@ body.glass-cards {
   --glass-tint: calc(.36 * var(--glass-frost));
   --glass-rim: 255 255 255;
   --glass-shade: 15 23 42;
-  --glass-text-shadow: none;
 }
 [data-theme="dark"] body.glass-cards, body.glass-cards[data-theme="dark"] {
   --glass-tint: calc(.14 * var(--glass-frost));
@@ -27,10 +30,23 @@ body.glass-cards {
   --glass-shade: 0 0 0;
 }
 
-body.glass-cards :is(.metric-trend-card, .dual-metric-card) {
-  position: relative;
-  isolation: isolate;
+body.glass-cards .dashboard-block > :is(
+  .stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card,
+  .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2,
+  .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container
+),
+body.glass-cards .dashboard-block > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) {
+  /* Small text sits on whatever the glass shows through, so it is stronger than on a solid card. */
+  --text-secondary: color-mix(in srgb, var(--text, var(--text-primary)) 82%, transparent);
+  /* The boxes, bars and tiles inside a card take their fill from these, and would stay solid slabs on
+     the glass: they get a light translucent fill instead. */
+  --glass-inner: rgb(var(--glass-rim) / calc(var(--glass-tint) * .55));
+  --bg: var(--glass-inner);
+  --surface: var(--glass-inner);
+  --surface-raised: var(--glass-inner);
+  --card-bg: var(--glass-inner);
   background:
+    linear-gradient(180deg, rgb(var(--glass-rim) / .16) 0, transparent 38%),
     radial-gradient(140% 90% at 0% 0%, rgb(var(--glass-rim) / calc(var(--glass-tint) + .22)) 0%, transparent 55%),
     linear-gradient(135deg, rgb(var(--glass-rim) / calc(var(--glass-tint) + .08)) 0%, rgb(var(--glass-shade) / calc(var(--glass-tint) * .35)) 100%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.7) brightness(1.06);
@@ -42,50 +58,24 @@ body.glass-cards :is(.metric-trend-card, .dual-metric-card) {
     inset 0 0 18px rgb(var(--glass-rim) / .07),
     0 10px 30px rgb(var(--glass-shade) / .22),
     0 2px 6px rgb(var(--glass-shade) / .12);
-  transition: transform .25s ease, box-shadow .25s ease;
 }
-/* A faint highlight along the top, as light catching the edge. */
-body.glass-cards :is(.metric-trend-card, .dual-metric-card)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgb(var(--glass-rim) / .16) 0, transparent 38%);
-}
-@media (hover: hover) {
-  body.glass-cards :is(.metric-trend-card, .dual-metric-card):hover {
-    transform: translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 rgb(var(--glass-rim) / .7),
-      inset 0 -1px 0 rgb(var(--glass-rim) / .1),
-      inset 0 0 22px rgb(var(--glass-rim) / .1),
-      0 16px 38px rgb(var(--glass-shade) / .26),
-      0 3px 8px rgb(var(--glass-shade) / .14);
-  }
-}
-/* Small text sits on whatever the glass shows through, so it is stronger than on a solid card. */
+/* A metric card's own panels stay clear so the glass shows through. */
+body.glass-cards .metric-trend-card .metric-trend-body,
+body.glass-cards .metric-trend-card .metric-trend-header { background: transparent; border-color: rgb(var(--glass-rim) / .22); }
 body.glass-cards .metric-trend-card .metric-trend-status,
 body.glass-cards .metric-trend-card .metric-trend-context,
 body.glass-cards .metric-trend-card .metric-trend-unit,
 body.glass-cards .metric-trend-card .metric-trend-graph-unit { color: color-mix(in srgb, var(--text-primary) 82%, transparent); }
-/* The card's own panels stay clear so the glass shows through. */
-body.glass-cards .metric-trend-card .metric-trend-body,
-body.glass-cards .metric-trend-card .metric-trend-header { background: transparent; border-color: rgb(var(--glass-rim) / .22); }
-body.glass-cards .metric-trend-card .metric-trend-value,
-body.glass-cards .metric-trend-card .metric-trend-unit,
-body.glass-cards .metric-trend-card .metric-trend-title { text-shadow: var(--glass-text-shadow); }
 
 /* Blurring behind a card is the costly part: fall back to a plain translucent fill where it is unsupported
-   or the person asks their system for less motion/transparency. */
+   or the person asks their system for less transparency. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  body.glass-cards :is(.metric-trend-card, .dual-metric-card) { background: rgb(var(--glass-shade) / .45); }
+  body.glass-cards .dashboard-block > :is(.stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card, .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2, .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container),
+  body.glass-cards .dashboard-block > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) { background: rgb(var(--glass-shade) / .45); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  body.glass-cards :is(.metric-trend-card, .dual-metric-card) { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface-raised, var(--card-bg)); }
-}
-@media (prefers-reduced-motion: reduce) {
-  body.glass-cards .metric-trend-card { transition: none; }
-  body.glass-cards :is(.metric-trend-card, .dual-metric-card):hover { transform: none; }
+  body.glass-cards .dashboard-block > :is(.stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card, .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2, .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container),
+  body.glass-cards .dashboard-block > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) {
+    -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface-raised, var(--card-bg));
+  }
 }

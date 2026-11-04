@@ -346,6 +346,8 @@ function applyBranding(cfg) {
 function applyGlass(cfg) {
   const on = cfg.glass_cards === 'true';
   document.body.classList.toggle('glass-cards', on);
+  // Glass replaces the transparent blocks look (that one forces a clear fill, which leaves a blur with no tint).
+  if (on) document.body.classList.remove('transparent-blocks');
   const num = (v, lo, hi, fallback) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback; };
   if (on) {
     document.body.style.setProperty('--glass-blur', num(cfg.glass_blur, 0, 40, 18) + 'px');
