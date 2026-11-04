@@ -1,4 +1,4 @@
-/* Glass cards (prototype): a frosted, translucent look for the metric cards (metric trend and dual metric), in the spirit of
+/* Glass cards: a frosted, translucent look for the metric cards (metric trend and dual metric), in the spirit of
  * Apple's "Liquid Glass". Off unless <body> has the class `glass-cards`.
  *
  * What makes it read as glass, from the back to the front:
@@ -9,19 +9,20 @@
  *   shadow            lifts it off the background
  * It needs something behind it to show: over a flat colour it is just a faint box.
  *
- * Tunables (set on <body> or :root):
+ * Set from Settings → Appearance (dashboard.js applyGlass):
  *   --glass-blur   blur radius          default 18px
- *   --glass-tint   fill strength 0..1   default .36 light, .14 dark (set on <body> to override both)
+ *   --glass-frost  fill strength factor default 1 (the base is .36 in light mode and .14 in dark)
  */
 body.glass-cards {
   --glass-blur: 18px;
-  --glass-tint: .36;
+  --glass-frost: 1;
+  --glass-tint: calc(.36 * var(--glass-frost));
   --glass-rim: 255 255 255;
   --glass-shade: 15 23 42;
   --glass-text-shadow: none;
 }
 [data-theme="dark"] body.glass-cards, body.glass-cards[data-theme="dark"] {
-  --glass-tint: .14;
+  --glass-tint: calc(.14 * var(--glass-frost));
   --glass-rim: 255 255 255;
   --glass-shade: 0 0 0;
 }

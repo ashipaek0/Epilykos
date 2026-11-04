@@ -333,12 +333,27 @@ function applyBranding(cfg) {
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
   document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
   document.body.classList.toggle('square-corners', cfg.square_corners === 'true');
+  applyGlass(cfg);
   // Store bg colors for theme-aware application
   window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '#f8fafc';
   window._bgDark = cfg.dashboard_bg_color_dark || '#0f172a';
   applyBodyBg();
   document.body.addEventListener('theme-changed', applyBodyBg);
   if (cfg.dashboard_bg_image) { const safeBg = String(cfg.dashboard_bg_image).replace(/["'()\\\n\r]/g, ''); document.body.style.backgroundImage = `url("${safeBg}")`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
+}
+
+/** Glass cards (public/glass.css): the class turns the look on, blur and frost are numbers clamped here so only a number reaches the stylesheet. */
+function applyGlass(cfg) {
+  const on = cfg.glass_cards === 'true';
+  document.body.classList.toggle('glass-cards', on);
+  const num = (v, lo, hi, fallback) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback; };
+  if (on) {
+    document.body.style.setProperty('--glass-blur', num(cfg.glass_blur, 0, 40, 18) + 'px');
+    document.body.style.setProperty('--glass-frost', String(num(cfg.glass_frost, 20, 200, 100) / 100));
+  } else {
+    document.body.style.removeProperty('--glass-blur');
+    document.body.style.removeProperty('--glass-frost');
+  }
 }
 
 export { dashboardConfig, renderDashboard, switchDashboard };
