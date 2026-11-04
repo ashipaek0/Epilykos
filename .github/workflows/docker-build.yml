@@ -130,7 +130,7 @@ jobs:
             "$SERVICE" "$repo" "$IMAGE_DIGEST" "$IMAGE_TAG" "$GITHUB_SHA" "$REF" "$VERSION" "$BUILD_ID" "$BUILT_AT" > "digest-${SERVICE}.json"
 
       - name: Upload digest record
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: image-digest-${{ matrix.service.name }}
           path: digest-${{ matrix.service.name }}.json
@@ -151,7 +151,7 @@ jobs:
           fetch-depth: 0
 
       - name: Collect digest records
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: image-digest-*
           merge-multiple: true
@@ -209,7 +209,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Collect digest records
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: image-digest-*
           merge-multiple: true
