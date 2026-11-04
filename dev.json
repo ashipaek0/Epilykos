@@ -1,16 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41850777976.1",
-    "version": "1.1.1-dev+2355f26",
-    "commit": "2355f26341e95ddb0584d62f878a9c7321837c30",
-    "digest": "sha256:39cabceb6a9e50f318f3f32fb21e99dcc31df120d9c82265f3785cdebbbb0d9c",
+    "buildId": "41850943326.1",
+    "version": "1.1.1-dev+ee74cc6",
+    "commit": "ee74cc67d1552eb55fc7d89223f5954baa82d49e",
+    "digest": "sha256:8bab1def53f29a1c9a43506d813a1351aeab825837ed9c0f5a87f141a2bd08a5",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T14:45:57Z",
+    "builtAt": "2026-11-04T14:46:51Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Bump gridstack from 13.2.0 to 14.0.0",
+      "Bump the minor-and-patch group with 6 updates",
+      "Bump the actions group with 2 updates"
+    ]
   },
   "history": [
+    {
+      "buildId": "41850943326.1",
+      "version": "1.1.1-dev+ee74cc6",
+      "commit": "ee74cc67d1552eb55fc7d89223f5954baa82d49e",
+      "digest": "sha256:8bab1def53f29a1c9a43506d813a1351aeab825837ed9c0f5a87f141a2bd08a5",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T14:46:51Z",
+      "kind": "release",
+      "notes": [
+        "Bump gridstack from 13.2.0 to 14.0.0",
+        "Bump the minor-and-patch group with 6 updates",
+        "Bump the actions group with 2 updates"
+      ]
+    },
     {
       "buildId": "41850777976.1",
       "version": "1.1.1-dev+2355f26",
@@ -358,16 +376,6 @@
       "notes": [
         "Mask sensitive fields and displays, with a way to reveal them"
       ]
-    },
-    {
-      "buildId": "41191402836.1",
-      "version": "1.0.11-dev+7207632",
-      "commit": "720763244577db60166db35370c7d2fc3e9375bf",
-      "digest": "sha256:7b145792731aed2e47a000758c77fc38d09a878c067e8db6ecae7a4a87027170",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-31T10:06:59Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
