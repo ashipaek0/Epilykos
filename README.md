@@ -12,8 +12,6 @@ Connects directly to inverters, Battery BMS, Home Assistant, over MQTT, Modbus, 
 Public display with no login required — settings are password-protected.  
 **PWA** with real-time WebSocket push, network auto-switching, and background sync.
 
-**Documentation:** [ashipaek0.github.io/epilykos-wiki](https://ashipaek0.github.io/epilykos-wiki/) (install guides, every data source, every Settings page, troubleshooting)
-
 </div>
 
 ---
