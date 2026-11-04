@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41801408651.1",
-    "version": "1.0.14-dev+b9dd10c",
-    "commit": "b9dd10c5d8ab0cb9492a46cc3c4668b2c3fcd223",
-    "digest": "sha256:df0ba29a972121764487f0c8bc1c6957cabb164108c8b661e8e19ef46f040506",
+    "buildId": "41801467401.1",
+    "version": "1.0.14-dev+75e27d2",
+    "commit": "75e27d2a6deb62110b0b87fa82133feb15e4c5af",
+    "digest": "sha256:17d1cf432239414bc533da126c877d7eed98ff24937f2790ed770cd9e73bf73b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T08:41:26Z",
+    "builtAt": "2026-11-04T08:41:57Z",
     "kind": "release",
     "notes": [
-      "Update README.md"
+      "Remove documentation link from README"
     ]
   },
   "history": [
+    {
+      "buildId": "41801467401.1",
+      "version": "1.0.14-dev+75e27d2",
+      "commit": "75e27d2a6deb62110b0b87fa82133feb15e4c5af",
+      "digest": "sha256:17d1cf432239414bc533da126c877d7eed98ff24937f2790ed770cd9e73bf73b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T08:41:57Z",
+      "kind": "release",
+      "notes": [
+        "Remove documentation link from README"
+      ]
+    },
     {
       "buildId": "41801408651.1",
       "version": "1.0.14-dev+b9dd10c",
@@ -361,16 +373,6 @@
         "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)",
         "Custom favicon: replace every built-in icon link, not just the first (#233)"
       ]
-    },
-    {
-      "buildId": "40683751603.1",
-      "version": "1.0.9-dev+9dfd3c5",
-      "commit": "9dfd3c565400a8589ec3faeca86ba08f7ea5dc4f",
-      "digest": "sha256:b43ac4b7a6dafdef7c3705645fbf30f8fcbab9b95cea342e163dc4b0b296694c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T11:56:15Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
