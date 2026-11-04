@@ -16,7 +16,8 @@
  *
  * A fixture must also say how many checks it ran, or it fails even with exit
  * code 0 (an await that never settles lets Node exit 0 half-way through):
- *   - node:test files: their own TAP summary, "# pass N" (N > 0) and "# fail 0"
+ *   - node:test files: their own summary, "# pass N" (TAP) or "ℹ pass N" (spec reporter,
+ *     the default from Node 23 on), N > 0, and fail 0
  *   - plain files: "# checks: N" (N > 0) from test/_checks.js done(), printed
  *     after the last check, or "# checks: skipped (reason)"
  *
@@ -69,7 +70,8 @@ for (const file of files) {
   });
   const ms = Date.now() - t0;
   const out = r.stdout || '';
-  const tapPass = /^# pass (\d+)$/m.exec(out), tapFail = /^# fail (\d+)$/m.exec(out);
+  // node:test prints "# pass N" (TAP, Node 22) or "ℹ pass N" (the spec reporter, the default from Node 23 on).
+  const tapPass = /^(?:# |ℹ )pass (\d+)$/m.exec(out), tapFail = /^(?:# |ℹ )fail (\d+)$/m.exec(out);
   const plain = /^# checks: (\d+|skipped \(([^)]*)\))$/m.exec(out);
   let checks = null, skipped = null, why = '';
   if (tapPass) { checks = Number(tapPass[1]); if (!tapFail || Number(tapFail[1]) !== 0) why = 'TAP summary shows failures'; }
