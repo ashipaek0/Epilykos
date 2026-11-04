@@ -76,9 +76,11 @@ function middleware() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'same-origin');
-    // Nothing here uses the camera, microphone, payments, USB or the browser's Bluetooth; the
-    // location button on Settings asks for the position, from this site only.
-    res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=(), payment=(), usb=(), bluetooth=()');
+    // Nothing here uses the camera, microphone, payments or USB; the location button on Settings
+    // asks for the position, from this site only. Only names Chrome knows are listed: it logs a
+    // console warning for each unknown one (`bluetooth` was one), and the page's Bluetooth is the
+    // server's, not the browser's.
+    res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=(), payment=(), usb=()');
     // Over HTTPS (directly, or through a trusted proxy), browsers keep to HTTPS for six months.
     // Not sent over plain HTTP, where it is ignored, and without includeSubDomains.
     if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=15552000');

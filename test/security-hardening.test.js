@@ -139,6 +139,9 @@ process.env.ENC_KEY_FILE = path.join(dir, 'key');
   const mw = require('../modules/securityHeaders').middleware();
   const run = secure => { const h = {}; mw({ secure }, { setHeader: (k, v) => { h[k] = v; } }, () => {}); return h; };
   assert.match(run(false)["Permissions-Policy"], /geolocation=\(self\).*camera=\(\).*microphone=\(\)/);
+  // Chrome warns in the console about every name it does not know (it did for bluetooth).
+  const KNOWN = ['geolocation', 'camera', 'microphone', 'payment', 'usb'];
+  for (const part of run(false)['Permissions-Policy'].split(',')) assert.ok(KNOWN.includes(part.trim().split('=')[0]), `known Permissions-Policy feature: ${part}`);
   assert.equal(run(false)['Strict-Transport-Security'], undefined, 'no HSTS over plain HTTP');
   assert.equal(run(true)['Strict-Transport-Security'], 'max-age=15552000', 'HSTS over HTTPS, without includeSubDomains');
   const server = read('server.js');
