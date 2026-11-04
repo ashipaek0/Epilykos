@@ -1,20 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41850889196.1",
-    "version": "1.1.1-dev+3618ac4",
-    "commit": "3618ac47e68f3cd32620459928f1272af601ac46",
-    "digest": "sha256:fbd6f953cdd0d726be7b9175364498b02cdbc0693877bd922c66dabe1dffb959",
+    "buildId": "41850829198.1",
+    "version": "1.1.1-dev+d27f9dd",
+    "commit": "d27f9ddb234dd02497bc233ef5a0be6614257287",
+    "digest": "sha256:f6c49ee004eb37b7ee427c21253a6d2697ffadf4ea1dda439ac8332a609b2b8b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T14:46:37Z",
+    "builtAt": "2026-11-04T14:46:23Z",
     "kind": "release",
-    "notes": [
-      "Bump the minor-and-patch group with 6 updates",
-      "Bump the actions group with 2 updates",
-      "Bump node from 22-trixie-slim to 26-trixie-slim"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "41850829198.1",
+      "version": "1.1.1-dev+d27f9dd",
+      "commit": "d27f9ddb234dd02497bc233ef5a0be6614257287",
+      "digest": "sha256:f6c49ee004eb37b7ee427c21253a6d2697ffadf4ea1dda439ac8332a609b2b8b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T14:46:23Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "41850889196.1",
       "version": "1.1.1-dev+3618ac4",
@@ -363,18 +369,6 @@
       "kind": "release",
       "notes": [
         "Settings → System: Restart button on Docker installs"
-      ]
-    },
-    {
-      "buildId": "41080095234.1",
-      "version": "1.0.11-dev+fec1393",
-      "commit": "fec1393ef15cc4ba6820482397b7e7940becbd06",
-      "digest": "sha256:ca7649b73f71a606e8a50aeb8fa1c20818f4de9be592ed34490480a0fe60eb97",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-30T15:22:37Z",
-      "kind": "release",
-      "notes": [
-        "Controls page: Slider and Rotary knob cards"
       ]
     }
   ]
