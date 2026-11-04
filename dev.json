@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41858161754.1",
-    "version": "1.1.1-dev+e2c9b4e",
-    "commit": "e2c9b4ee938adf4bd80b736e4746acce279be025",
-    "digest": "sha256:c0eace6fbc6d36db67ae8e5cd1a3ca8e2b96d23e440e11ed4196d7c46fb3c5fa",
+    "buildId": "41871773181.1",
+    "version": "1.1.1-dev+54378d2",
+    "commit": "54378d20c7f96a7234291e3caf931cf33f905578",
+    "digest": "sha256:02aca3a00f05eb6c560dbe7e2d5a3d76b16c1ee94809d8336b6d4555731c515d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T15:29:08Z",
+    "builtAt": "2026-11-04T16:52:09Z",
     "kind": "release",
     "notes": [
-      "Align package.json with the lockfile for dotenv 18 (#274)",
-      "Bump dotenv from 17.4.2 to 18.0.9"
+      "Savings: finished days keep the value they had when they were counted (#275)"
     ]
   },
   "history": [
+    {
+      "buildId": "41871773181.1",
+      "version": "1.1.1-dev+54378d2",
+      "commit": "54378d20c7f96a7234291e3caf931cf33f905578",
+      "digest": "sha256:02aca3a00f05eb6c560dbe7e2d5a3d76b16c1ee94809d8336b6d4555731c515d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T16:52:09Z",
+      "kind": "release",
+      "notes": [
+        "Savings: finished days keep the value they had when they were counted (#275)"
+      ]
+    },
     {
       "buildId": "41858161754.1",
       "version": "1.1.1-dev+e2c9b4e",
@@ -364,18 +375,6 @@
       "builtAt": "2026-11-02T07:42:36Z",
       "kind": "rebuild",
       "notes": []
-    },
-    {
-      "buildId": "41406221264.1",
-      "version": "1.0.12-dev+57269e0",
-      "commit": "57269e034e55a81b00fa61d1c1bcf0f211174394",
-      "digest": "sha256:720fb57c72b358372d5466a2860aede53492bf1083c572d1c784a901f6f4570a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-02T07:25:54Z",
-      "kind": "release",
-      "notes": [
-        "Fix two CodeQL alerts in the reveal script"
-      ]
     }
   ]
 }
