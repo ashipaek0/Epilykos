@@ -71,7 +71,9 @@ const UNKNOWN_SENTINEL = 's6p-verbatim';
 function buildPeriods({ dropDni = false } = {}) {
   const periods = [];
   const base = new Date();
-  base.setUTCHours(0, 0, 0, 0);
+  // Forecast days follow the process time zone, so the series starts at local midnight (the same
+  // instant as UTC midnight when the zone is UTC).
+  base.setHours(0, 0, 0, 0);
   for (let i = 0; i < 336; i++) {
     const t = new Date(base.getTime() + i * 30 * 60 * 1000);
     const p = {

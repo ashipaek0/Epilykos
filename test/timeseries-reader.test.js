@@ -48,8 +48,11 @@ assert.deepStrictEqual(readHistorySeries(db, { from: histBucket, to: cutoff + 30
 assert.deepStrictEqual(readHistorySeries(db, { from: now + 1, to: now + 10, fields: ['solar'] }), []);
 
 // Daily MAX combines raw and aggregate values grouped by the shared local-day expression.
-const day1 = Math.floor((cutoff - 900) / 86400) * 86400;
-const day2 = day1 + 86400;
+// Local days, as the reader groups them: local midnight of the cutoff's day and of the day after (not a
+// multiple of 86400 s, which is a UTC day and splits the rows differently in any other time zone).
+const localMidnight = (ts, addDays = 0) => { const d = new Date(ts * 1000); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + addDays); return Math.floor(d.getTime() / 1000); };
+const day1 = localMidnight(cutoff);
+const day2 = localMidnight(cutoff, 1);
 db.prepare('INSERT INTO history(timestamp, daily_solar) VALUES (?, ?)').run(day1 + 10, 7);
 db.prepare('INSERT INTO history(timestamp, daily_solar) VALUES (?, ?)').run(day1 + 20, 11);
 db.prepare(`INSERT INTO history_5m (bucket_start, consumption_count, solar_count, battery_charge_count, battery_discharge_count, grid_import_count, grid_export_count, battery_soc_count, daily_solar_last) VALUES (?, 0, 0, 0, 0, 0, 0, 0, ?)`).run(day1 + 300, 9);
