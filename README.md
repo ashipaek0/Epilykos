@@ -82,29 +82,23 @@ services:
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
-      # Option: "Update now" in Settings → Updates, and a Restart that works without a restart policy.
+      # - /var/run/docker.sock:/var/run/docker.sock # Option: "Update now" in Settings → Updates, and a Restart that works without a restart policy.
       # This gives Epilykos full control of Docker on this computer (it could start any container,
       # which is control of the computer), so it is off unless you want it. Without it, update with:
       # docker compose pull && docker compose up -d
-      # - /var/run/docker.sock:/var/run/docker.sock
-      # Option: Bluetooth BMS / inverter Bluetooth modules talk to the host's BlueZ over D-Bus.
+
+      # - /run/dbus:/run/dbus:ro           # Option: Bluetooth BMS / inverter Bluetooth modules talk to the host's BlueZ over D-Bus.
       # Turn on the security_opt option below with it.
-      # - /run/dbus:/run/dbus:ro
-
-    # ── Option: Bluetooth on Ubuntu needs AppArmor lifted for this container (with the D-Bus line above).
     # security_opt:
-    #   - "apparmor=unconfined"
-
-    # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
+    #   - "apparmor=unconfined"          # ── Option: Bluetooth on Ubuntu needs AppArmor lifted for this container (with the D-Bus line above).
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"        # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
     # Uncomment `group_add:` and only the lines you need (at least one), and `devices:` with its line.
     # Add one line to `devices` per adapter. Docker refuses to start if a listed device does not exist.
-    # devices:
-    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
     # group_add:
     #   - "dialout"                  # Serial port permission.
     #   - "108"                      # The host's bluetooth group ID, from `getent group bluetooth`; only if Settings says "D-Bus denied access to BlueZ".
 
-    # ── Option: the admin password and/or a time zone other than this computer's.
     # Uncomment `environment:` and only the lines you need (at least one). A .env file is not passed
     # to the container, so environment variables go here. Write a "$" in a value as "$$".
     # environment:
@@ -112,8 +106,7 @@ services:
     #   - TZ=Europe/London
     #   - TRUST_PROXY=172.16.0.0/12  # Only if a reverse proxy runs on another machine or container: the proxy's address. Without it, everyone behind it shares one login limit.
 
-    # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
-    # network_mode: "host"
+    # network_mode: "host"               # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
 ```
 
 Bluetooth, USB serial adapters, a time zone, host networking for Tuya discovery and one-click updates
