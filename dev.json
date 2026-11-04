@@ -1,16 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41850829198.1",
-    "version": "1.1.1-dev+d27f9dd",
-    "commit": "d27f9ddb234dd02497bc233ef5a0be6614257287",
-    "digest": "sha256:f6c49ee004eb37b7ee427c21253a6d2697ffadf4ea1dda439ac8332a609b2b8b",
+    "buildId": "41850777976.1",
+    "version": "1.1.1-dev+2355f26",
+    "commit": "2355f26341e95ddb0584d62f878a9c7321837c30",
+    "digest": "sha256:39cabceb6a9e50f318f3f32fb21e99dcc31df120d9c82265f3785cdebbbb0d9c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T14:46:23Z",
+    "builtAt": "2026-11-04T14:45:57Z",
     "kind": "release",
     "notes": []
   },
   "history": [
+    {
+      "buildId": "41850777976.1",
+      "version": "1.1.1-dev+2355f26",
+      "commit": "2355f26341e95ddb0584d62f878a9c7321837c30",
+      "digest": "sha256:39cabceb6a9e50f318f3f32fb21e99dcc31df120d9c82265f3785cdebbbb0d9c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T14:45:57Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "41850829198.1",
       "version": "1.1.1-dev+d27f9dd",
@@ -358,18 +368,6 @@
       "builtAt": "2026-10-31T10:06:59Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "41191289529.1",
-      "version": "1.0.11-dev+7b220d1",
-      "commit": "7b220d1a0814fcce455ef3c92eb7d18b314595a7",
-      "digest": "sha256:925b3ec5b27874da5a5cf4ca09c2cebd0f6b4ae0ac97483314f8621fd72a2253",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-31T10:05:30Z",
-      "kind": "release",
-      "notes": [
-        "Settings → System: Restart button on Docker installs"
-      ]
     }
   ]
 }
