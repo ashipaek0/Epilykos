@@ -197,6 +197,18 @@ function initializeDatabase({ filePath = DB_PATH } = {}) {
     );
   `);
 
+  // What each finished day's solar was worth, at the prices in force when the day was counted
+  // (modules/solarValue.js). Changing prices later does not re-value these days.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS savings_daily (
+      day TEXT PRIMARY KEY,
+      kwh REAL NOT NULL,
+      price REAL NOT NULL,
+      value REAL NOT NULL,
+      method TEXT NOT NULL
+    );
+  `);
+
   const hasColumn = (tableName, columnName) => {
     const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
     return columns.some(c => c.name === columnName);

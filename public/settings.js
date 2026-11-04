@@ -80,6 +80,27 @@ function syncGlassOptions() {
 document.addEventListener('input', e => { if (e.target && ['glass-cards', 'glass-blur', 'glass-frost'].includes(e.target.id)) syncGlassOptions(); });
 document.addEventListener('change', e => { if (e.target && e.target.id === 'glass-cards') syncGlassOptions(); });
 
+// ── Savings history: count every finished day again at the saved prices ──────
+document.addEventListener('click', async e => {
+  const btn = e.target && e.target.closest && e.target.closest('#savings-recalculate');
+  if (!btn) return;
+  const status = document.getElementById('savings-recalculate-status');
+  const unsaved = document.getElementById('st-savebar');
+  if (unsaved && !unsaved.hidden) { showStatus(status, 'Save your changes first: this uses the prices saved now.', 'error'); return; }
+  if (!(await showConfirm('Re-value every finished day at the prices and method saved now? All time and This year will change to match.', { title: 'Recalculate savings history', confirmLabel: 'Recalculate', danger: false }))) return;
+  btn.disabled = true;
+  showStatus(status, 'Recalculating...', 'info');
+  try {
+    const res = await fetch('/api/savings/recalculate', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    const money = n => (body.currency || '') + Math.round(n).toLocaleString();
+    showStatus(status, `Done. All time ${money(body.all)}, this year ${money(body.year)}.`, 'success');
+  } catch (err) {
+    showStatus(status, 'Could not recalculate: ' + err.message, 'error');
+  } finally { btn.disabled = false; }
+});
+
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
   try {
