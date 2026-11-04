@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41780174883.1",
-    "version": "1.0.14-dev+6a27765",
-    "commit": "6a27765e43297407d63519733822e0912cc8a579",
-    "digest": "sha256:98195cb294ce1eb6d48d50c4d29af637b8744c808298b220e5eea7894fea4d0c",
+    "buildId": "41796391757.1",
+    "version": "1.0.14-dev+78ebf2b",
+    "commit": "78ebf2bb6a298c9241fc2d8c566f4d7c63387a7f",
+    "digest": "sha256:cb5346d64860ac8f1067b4ccab3a6a5b404ceef334eaa32b9ac22968774ea440",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T05:35:38Z",
+    "builtAt": "2026-11-04T08:02:15Z",
     "kind": "release",
     "notes": [
-      "Make fixtures independent of the time of day (#264)"
+      "Make the forecast and time-series reader fixtures work in any time zone (#265)"
     ]
   },
   "history": [
+    {
+      "buildId": "41796391757.1",
+      "version": "1.0.14-dev+78ebf2b",
+      "commit": "78ebf2bb6a298c9241fc2d8c566f4d7c63387a7f",
+      "digest": "sha256:cb5346d64860ac8f1067b4ccab3a6a5b404ceef334eaa32b9ac22968774ea440",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T08:02:15Z",
+      "kind": "release",
+      "notes": [
+        "Make the forecast and time-series reader fixtures work in any time zone (#265)"
+      ]
+    },
     {
       "buildId": "41780174883.1",
       "version": "1.0.14-dev+6a27765",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)"
-      ]
-    },
-    {
-      "buildId": "40681036831.1",
-      "version": "1.0.9-dev+2f0a2a2",
-      "commit": "2f0a2a2b962a3314c65c8e1c5bf69fb8a29b1f5f",
-      "digest": "sha256:7d686dcf123715aac045b064f7d3501f2f874c7fb9369161a087c4369e6656ec",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T11:35:03Z",
-      "kind": "release",
-      "notes": [
-        "Energy chart Compare: Yearly totals (#231)"
       ]
     }
   ]
