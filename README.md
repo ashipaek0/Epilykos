@@ -12,8 +12,6 @@ Connects directly to inverters, Battery BMS, Home Assistant, over MQTT, Modbus, 
 Public display with no login required — settings are password-protected.  
 **PWA** with real-time WebSocket push, network auto-switching, and background sync.
 
-**Documentation:** [ashipaek0.github.io/epilykos-wiki](https://ashipaek0.github.io/epilykos-wiki/) (install guides, every data source, every Settings page, troubleshooting)
-
 </div>
 
 ---
@@ -48,8 +46,7 @@ and use at least 12 characters: opening Epilykos to the internet refuses a short
 If people you don't trust can reach the server, set the password before the first start instead: in
 `docker-compose.yaml` uncomment `environment:` and `- SETTINGS_PASSWORD=`, type the password after the
 `=` (write each `$` as `$$`), and run `docker compose up -d`. The wizard then asks for that password,
-and only the compose file can change it. A `.env` file is not passed to the container, so
-`SETTINGS_PASSWORD` set there has no effect.
+and only the compose file can change it.
 
 On a Raspberry Pi, flash **[EpilykosOS](https://github.com/ashipaek0/epilykos-os)** instead and open
 `http://epilykos.local:3000`: see [Install on a Raspberry Pi](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-epilykos-os/).
@@ -83,37 +80,38 @@ services:
     volumes:
       - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro   # The container follows this computer's time zone.
-      - /run/dbus:/run/dbus:ro       # Bluetooth BMS / inverter Bluetooth modules: talk to the host's BlueZ over D-Bus.
-      # "Update now" in Settings → Updates. This gives Epilykos full control of Docker on
-      # this computer (it could start any container), so only keep it if you want one-click
-      # updates. Without it, update with: docker compose pull && docker compose up -d
-      - /var/run/docker.sock:/var/run/docker.sock
-    security_opt:
-      - "apparmor=unconfined"        # Lets the container reach the host's Bluetooth service on Ubuntu; harmless elsewhere.
+      # - /var/run/docker.sock:/var/run/docker.sock # Option: "Update now" in Settings → Updates, and a Restart that works without a restart policy.
+      # This gives Epilykos full control of Docker on this computer (it could start any container,
+      # which is control of the computer), so it is off unless you want it. Without it, update with:
+      # docker compose pull && docker compose up -d
 
-    # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
+      # - /run/dbus:/run/dbus:ro           # Option: Bluetooth BMS / inverter Bluetooth modules talk to the host's BlueZ over D-Bus.
+      # Turn on the security_opt option below with it.
+    # security_opt:
+    #   - "apparmor=unconfined"          # ── Option: Bluetooth on Ubuntu needs AppArmor lifted for this container (with the D-Bus line above).
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"        # ── Option: USB serial adapter (RS232 / RS485 inverter or wired BMS) and/or the Bluetooth group.
     # Uncomment `group_add:` and only the lines you need (at least one), and `devices:` with its line.
     # Add one line to `devices` per adapter. Docker refuses to start if a listed device does not exist.
-    # devices:
-    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
     # group_add:
     #   - "dialout"                  # Serial port permission.
     #   - "108"                      # The host's bluetooth group ID, from `getent group bluetooth`; only if Settings says "D-Bus denied access to BlueZ".
 
-    # ── Option: the admin password and/or a time zone other than this computer's.
     # Uncomment `environment:` and only the lines you need (at least one). A .env file is not passed
     # to the container, so environment variables go here. Write a "$" in a value as "$$".
     # environment:
     #   - SETTINGS_PASSWORD=         # Admin password, typed after the "=". The setup wizard then asks for it; only this file can change it.
     #   - TZ=Europe/London
+    #   - TRUST_PROXY=172.16.0.0/12  # Only if a reverse proxy runs on another machine or container: the proxy's address. Without it, everyone behind it shares one login limit.
 
-    # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
-    # network_mode: "host"
+    # network_mode: "host"               # ── Option: host networking, only for Tuya LAN broadcast discovery (then `ports` above is ignored).
 ```
 
 Bluetooth, USB serial adapters, a time zone, host networking for Tuya discovery and one-click updates
 are explained in [Install with Docker](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/), with the environment
-variables and the `/healthz` health check. On Docker Desktop (Windows, macOS), USB adapters need
+variables and the `/healthz` health check. 
+
+On Docker Desktop (Windows, macOS), USB adapters need
 USB/IP and Bluetooth isn't available: see
 [Docker Desktop on Windows and macOS](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/#docker-desktop-on-windows-and-macos).
 

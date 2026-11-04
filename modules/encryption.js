@@ -139,7 +139,7 @@ const SECRET_FIELDS = {
   solcast_api_key: [],
   mqtt_password: [],
   ha_token: [],
-  pvoutput_config: ['api_key'],
+  pvoutput_config: ['api_key', 'webhook_token'],
   tuya_cloud: ['access_token', 'refresh_token'],
   ha_devices: ['token'],
   mqtt_devices: ['password'],

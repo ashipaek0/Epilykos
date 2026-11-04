@@ -28,10 +28,22 @@ const appendPrimitiveArgs = winston.format((info) => {
   return info;
 });
 
+// Every transport hides secrets, not only Settings → Logs: the log file and `docker logs` are
+// read by whoever reads the box, and a request line or a debug line can carry a token.
+// (Values from the saved settings are registered by routes/logs.js; token shapes always match.)
+const hideSecrets = winston.format((info) => {
+  for (const key of Object.keys(info)) {
+    if (key === 'level' || typeof info[key] !== 'string') continue;
+    info[key] = logBuffer.redact(info[key]);
+  }
+  return info;
+});
+
 // Define custom format for console (pretty)
 // Colour codes only when a human is watching a terminal; journald and
 // `docker logs` capture plain text.
 const consoleFormat = winston.format.combine(
+  hideSecrets(),
   ...(process.stdout.isTTY ? [winston.format.colorize()] : []),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
@@ -42,6 +54,7 @@ const consoleFormat = winston.format.combine(
 
 // File format (JSON for structured logging)
 const fileFormat = winston.format.combine(
+  hideSecrets(),
   winston.format.timestamp(),
   winston.format.json()
 );

@@ -5,10 +5,12 @@
  * so it is gated defensively:
  *   - PVOutput must be configured AND enabled (otherwise the endpoint is shut);
  *   - the request `sid` must equal the configured system_id (timing-safe);
- *   - if a `webhook_token` is configured, the request must carry it
- *     (?token=… or a trailing /path segment) — this lets an operator lock the
- *     endpoint shut even though the system_id is semi-public;
- *   - rate-limited (10 req/min), and the stored message is length-capped.
+ *   - the request must carry the webhook token (a trailing /path segment or
+ *     ?token=…), which Settings creates and shows. The system_id is semi-public,
+ *     so without a token anyone who knew it could raise alerts here (they reach
+ *     Telegram, ntfy and the like). With no token configured the endpoint is shut;
+ *   - rate-limited (10 req/min), the stored message is length-capped and only the
+ *     newest MAX_ALERTS alerts are kept.
  *
  * @module pvoutput/webhook
  */
@@ -16,6 +18,8 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const { logger } = require('../logger');
+
+const MAX_ALERTS = 500;
 
 function timingSafeEqual(a, b) {
   const ba = Buffer.from(String(a));
@@ -50,13 +54,15 @@ function createRouter(db, getConfigFn) {
       logger.warn(`[pvoutput:webhook] rejected alert for unknown system ${sid}`);
       return res.status(403).send('Forbidden');
     }
-    // Optional shared secret: when set, it must be present and correct.
-    if (config.webhook_token) {
-      const given = req.params.token || req.query.token || '';
-      if (!timingSafeEqual(given, config.webhook_token)) {
-        logger.warn('[pvoutput:webhook] rejected alert with bad/absent token');
-        return res.status(403).send('Forbidden');
-      }
+    // The shared secret is required: no token configured, or the wrong one, is refused.
+    if (typeof config.webhook_token !== 'string' || config.webhook_token.length < 16) {
+      logger.warn('[pvoutput:webhook] refused an alert: no webhook token yet (open Settings → PVOutput to create one)');
+      return res.status(403).send('Forbidden');
+    }
+    const given = req.params.token || req.query.token || '';
+    if (!timingSafeEqual(given, config.webhook_token)) {
+      logger.warn('[pvoutput:webhook] rejected alert with bad/absent token');
+      return res.status(403).send('Forbidden');
     }
 
     const alertType = parseInt(type);
@@ -67,6 +73,7 @@ function createRouter(db, getConfigFn) {
         `INSERT INTO pvoutput_alerts (system_id, alert_type, message, pvoutput_datetime, received_at)
          VALUES (?, ?, ?, ?, datetime('now'))`
       ).run(String(sid), alertType, safeMessage, String(datetime || '').slice(0, 64));
+      db.prepare('DELETE FROM pvoutput_alerts WHERE id NOT IN (SELECT id FROM pvoutput_alerts ORDER BY id DESC LIMIT ?)').run(MAX_ALERTS);
       logger.info(`[pvoutput:webhook] alert type=${alertType}`);
       require('../notifications/events').emitEvent('pvoutput.alert', { subject: String(alertType), message: safeMessage || `PVOutput alert type ${alertType}`, data: { type: alertType, datetime } });
     } catch (e) {
@@ -84,4 +91,4 @@ function createRouter(db, getConfigFn) {
   return router;
 }
 
-module.exports = { createRouter };
+module.exports = { createRouter, MAX_ALERTS };

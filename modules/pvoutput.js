@@ -12,7 +12,8 @@
  * @module pvoutput
  */
 const express = require('express');
-const { getConfig, getDb, resolveStoredSecret } = require('./database');
+const crypto = require('crypto');
+const { getConfig, setConfig, getDb, resolveStoredSecret } = require('./database');
 const { logger } = require('./logger');
 const { init: initRateLimiter, canCall } = require('./pvoutput/rateLimiter');
 const { PVOutputClient } = require('./pvoutput/client');
@@ -75,6 +76,47 @@ function restart() {
 
 // Protected API router (SC1)
 const apiRouter = express.Router();
+
+// ── The webhook token ────────────────────────────────────────────────
+// PVOutput's alert callback is public, so it carries a secret token in its
+// address. Settings shows the address (GET /webhook-address) and can make a new one;
+// the token is stored encrypted inside pvoutput_config.
+function readPvConfig() {
+  try { const c = JSON.parse(getConfig('pvoutput_config') || '{}'); return c && typeof c === 'object' && !Array.isArray(c) ? c : {}; }
+  catch (_) { return {}; }
+}
+
+/** The current token, made if there is none (or a new one when `rotate`). */
+function webhookToken({ rotate = false } = {}) {
+  const config = readPvConfig();
+  if (!rotate && typeof config.webhook_token === 'string' && config.webhook_token.length >= 16) return config.webhook_token;
+  config.webhook_token = crypto.randomBytes(24).toString('hex');
+  setConfig('pvoutput_config', JSON.stringify(config));
+  return config.webhook_token;
+}
+
+/**
+ * The page saves pvoutput_config as the form shows it, which has no token. Keep the
+ * one that is stored, so saving Settings never silently shuts the callback.
+ */
+function keepWebhookToken(raw) {
+  let incoming;
+  try { incoming = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { return raw; }
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return raw;
+  if (typeof incoming.webhook_token === 'string' && incoming.webhook_token) return raw;
+  const kept = readPvConfig().webhook_token;
+  if (!kept) return raw;
+  return JSON.stringify({ ...incoming, webhook_token: kept });
+}
+
+// Not under /webhook/…: that path belongs to the public callback router (and is exempt from the CSRF check).
+apiRouter.get('/webhook-address', (req, res) => {
+  res.json({ path: `/api/pvoutput/webhook/${webhookToken()}` });
+});
+apiRouter.post('/webhook-address/new', (req, res) => {
+  logger.info('[pvoutput] A new webhook address was made; the old one stops working');
+  res.json({ path: `/api/pvoutput/webhook/${webhookToken({ rotate: true })}` });
+});
 
 apiRouter.get('/status', (req, res) => {
   try {
@@ -174,6 +216,7 @@ apiRouter.post('/alerts/:id/ack', (req, res) => {
 });
 
 module.exports = {
+  keepWebhookToken,
   start,
   stop,
   restart,

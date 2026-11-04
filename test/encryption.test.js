@@ -138,7 +138,7 @@ check('SECRET_FIELDS registry covers inventory', () => {
   for (const k of ['pvoutput_config', 'tuya_cloud', 'ha_devices', 'mqtt_devices', 'tuya_devices']) {
     assert.ok(Array.isArray(enc.SECRET_FIELDS[k]) && enc.SECRET_FIELDS[k].length > 0, k);
   }
-  assert.deepStrictEqual(enc.SECRET_FIELDS.pvoutput_config, ['api_key']);
+  assert.deepStrictEqual(enc.SECRET_FIELDS.pvoutput_config, ['api_key', 'webhook_token']);   // the alert callback's token is a secret too
   assert.deepStrictEqual([...enc.SECRET_FIELDS.tuya_cloud].sort(), ['access_token', 'refresh_token']);
 });
 

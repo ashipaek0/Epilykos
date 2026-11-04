@@ -34,9 +34,16 @@ function handler(method, routePath) {
   const stack = layer.route.stack;
   return stack[stack.length - 1].handle;
 }
+// express-session's regenerate: the same request gets a new, empty session.
+function fakeSession(initial) {
+  const session = initial;   // the caller's own object, so state carries across calls
+  Object.defineProperty(session, 'regenerate', { enumerable: false, configurable: true, value(cb) { for (const k of Object.keys(session)) delete session[k]; cb(null); } });
+  return session;
+}
 async function call(method, routePath, { body = {}, session = {} } = {}) {
   let status = 200, data;
-  const res = { status(code) { status = code; return this; }, json(value) { data = value; return this; } };
+  session = fakeSession(session);
+  const res = { status(code) { status = code; return this; }, json(value) { data = value; return this; }, set() { return this; } };
   await handler(method, routePath)({ body, session }, res);
   return { status, data, session };
 }

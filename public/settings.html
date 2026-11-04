@@ -356,7 +356,12 @@
               <div class="st-field"><label for="dashboard-bg-color-dark">Background in dark mode</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" value="#0f172a" class="st-color"></div>
             </div>
             <div class="st-field"><label for="dashboard-bg-image">Background image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" type="url" placeholder="https://…"></div>
-            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="transparent-blocks" name="transparent_blocks"><span class="slider"></span></label><label for="transparent-blocks">Transparent blocks</label></span><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="square-corners" name="square_corners"><span class="slider"></span></label><label for="square-corners">Square corners</label></span></div>
+            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="transparent-blocks" name="transparent_blocks"><span class="slider"></span></label><label for="transparent-blocks">Transparent blocks</label></span><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="square-corners" name="square_corners"><span class="slider"></span></label><label for="square-corners">Square corners</label></span><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="glass-cards" name="glass_cards"><span class="slider"></span></label><label for="glass-cards">Glass cards</label></span></div>
+            <div class="st-grid-2" id="glass-options" hidden>
+              <div class="st-field"><label for="glass-blur">Glass blur: <output id="glass-blur-out">18</output> px</label><input id="glass-blur" name="glass_blur" type="range" min="0" max="40" step="1" value="18" data-no-reveal></div>
+              <div class="st-field"><label for="glass-frost">Glass frost: <output id="glass-frost-out">100</output>%</label><input id="glass-frost" name="glass_frost" type="range" min="20" max="200" step="5" value="100" data-no-reveal></div>
+            </div>
+            <p class="st-help">Glass cards blur and tint what is behind the dashboard cards, so they look best over a background image. It replaces Transparent blocks while it is on. Turn it off if the dashboard is slow on this screen.</p>
             <h2 class="st-card-subhead">Default dashboards</h2>
             <div class="st-grid-2">
               <div class="st-field"><label for="desktop-dashboard">On computers</label><select id="desktop-dashboard" class="input" name="desktop_dashboard"></select></div>
@@ -394,7 +399,8 @@
             <div id="pvoutput-queue-status" class="st-help"></div>
             <div class="st-inline-actions"><button type="button" id="pvoutput-backfill-btn" class="st-btn">Run backfill</button><button type="button" id="pvoutput-view-queue-btn" class="st-btn">View queue</button></div>
             <h3 class="st-card-subhead">Notifications</h3>
-            <div class="st-field"><label for="pvoutput-webhook-url">Webhook URL (optional)</label><input type="url" id="pvoutput-webhook-url" class="input" placeholder="https://energy.example.com/api/pvoutput/webhook"><span class="st-help">Needs a public URL. Leave empty to skip.</span></div>
+            <div class="st-field"><label for="pvoutput-webhook-url">Alert address for PVOutput</label><input type="password" id="pvoutput-webhook-url" class="input" readonly autocomplete="off"><span class="st-help">Give PVOutput this address for its alerts. It needs the dashboard to be reachable from the internet. It contains a secret, so only PVOutput should have it.</span></div>
+            <div class="st-inline-actions"><button type="button" id="pvoutput-webhook-copy" class="st-btn">Copy address</button><button type="button" id="pvoutput-webhook-new" class="st-btn">Make a new address</button></div>
           </div>
         </section>
 

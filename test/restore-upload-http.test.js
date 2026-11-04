@@ -55,7 +55,7 @@ test('authenticated HTTP large restores, cancellation, restart status and indepe
     await start();
     const bootstrap = await request('/api/csrf-token'); cookie = bootstrap.headers.get('set-cookie').split(';')[0]; csrf = (await bootstrap.json()).token;
     assert.equal((await post('/api/restore-jobs', { bytes })).status, 401);
-    const login = await post('/api/login', { password: 'fixture-password' }); assert.equal(login.status, 200); if (login.headers.get('set-cookie')) cookie = login.headers.get('set-cookie').split(';')[0];
+    const login = await post('/api/login', { password: 'fixture-password' }); assert.equal(login.status, 200); if (login.headers.get('set-cookie')) cookie = login.headers.get('set-cookie').split(';')[0]; if (login.headers.get('x-csrf-token')) csrf = login.headers.get('x-csrf-token');
     assert.equal((await request('/api/restore-jobs', { method: 'POST', headers: { origin: 'https://invalid.fixture', 'content-type': 'application/json' }, body: JSON.stringify({ bytes }) })).status, 403);
     await t.test('bad declaration and JSON envelope stay bounded', async () => {
       assert.equal((await post('/api/restore-jobs', { bytes: null })).status, 400);

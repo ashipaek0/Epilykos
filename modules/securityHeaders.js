@@ -15,7 +15,9 @@
  * style-src keeps 'unsafe-inline' — the UI uses inline style attributes
  * throughout, and CSS injection is not script execution. img/frame/connect
  * are scoped to what the dashboard genuinely needs (user logos/backgrounds,
- * the iframe card, same-origin WebSocket).
+ * the iframe card, same-origin WebSocket). img-src and frame-src stay open to
+ * http(s) on purpose: a logo, a background or an embedded page is a URL the
+ * admin chooses, and it may be on the local network over plain HTTP.
  */
 const fs = require('fs');
 const path = require('path');
@@ -74,6 +76,14 @@ function middleware() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'same-origin');
+    // Nothing here uses the camera, microphone, payments or USB; the location button on Settings
+    // asks for the position, from this site only. Only names Chrome knows are listed: it logs a
+    // console warning for each unknown one (`bluetooth` was one), and the page's Bluetooth is the
+    // server's, not the browser's.
+    res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=(), payment=(), usb=()');
+    // Over HTTPS (directly, or through a trusted proxy), browsers keep to HTTPS for six months.
+    // Not sent over plain HTTP, where it is ignored, and without includeSubDomains.
+    if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=15552000');
     next();
   };
 }

@@ -377,7 +377,9 @@ function mqttSampleOf(rawText, retained) {
 // ================= /#108 catalog projections =================
 
 const app = express();
-app.set('trust proxy', 1);
+app.disable('x-powered-by');   // do not announce the framework
+// What to believe about X-Forwarded-For (rate limits, Secure cookie): see modules/trustProxy.js.
+app.set('trust proxy', require('./modules/trustProxy').resolveTrustProxy(process.env.TRUST_PROXY));
 app.use((req, res, next) => databaseWork.run(next));
 const PORT = process.env.PORT || 3000;
 
@@ -501,10 +503,12 @@ const walCheckpointInterval = setInterval(() => {
   try { checkpointWal(); } catch (e) { logger.warn('Periodic WAL checkpoint failed:', e.message); }
 }, 60 * 60 * 1000);
 
-// Multer for restore and import
+// Multer for restore and import. Uploads (a whole backup can be one) land in a folder only this
+// process can read, not loose in the shared temp directory. os.tmpdir() honours TMPDIR
+// (EpilykosOS points it at a tmpfs).
+const uploadDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'epilykos-uploads-'));
 const upload = multer({
-  // os.tmpdir() honours TMPDIR (EpilykosOS points it at a tmpfs).
-  dest: require('os').tmpdir(),
+  dest: uploadDir,
   fileFilter: (req, file, cb) => {
     if (file.originalname.endsWith('.db') || file.originalname.endsWith('.json')) cb(null, true);
     else cb(new Error('Only .db or .json files allowed'));
@@ -563,7 +567,45 @@ app.use((req, res, next) => {
 
 // Create HTTP server and attach WebSocket server
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+
+// WebSocket limits. The live state is public, but anyone on the network (or any web page
+// opened on a computer that can reach this one) could otherwise hold unlimited connections
+// open, each costing a state build and every later broadcast, and send huge messages.
+const WS_MAX_PAYLOAD = 64 * 1024;   // clients send nothing the server reads
+const WS_MAX_CLIENTS = 150;
+const WS_MAX_PER_ADDRESS = 30;      // browser tabs behind one address
+const WS_PING_MS = 30 * 1000;
+const wsPerAddress = new Map();
+
+/** The client's address as Express reports it (a forwarded address only from a trusted proxy). */
+function wsClientAddress(req) {
+  const asRequest = Object.create(app.request);
+  asRequest.app = app; asRequest.headers = req.headers; asRequest.connection = req.socket; asRequest.socket = req.socket;
+  return asRequest.ip || req.socket.remoteAddress || '';
+}
+
+/** A page may open the socket only from the site that served it (browsers do not apply CORS to sockets). */
+function wsOriginAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;   // not a browser: curl, scripts, other tools
+  let host; try { host = new URL(origin).host; } catch (_) { return false; }
+  if (host === req.headers.host) return true;
+  // A trusted proxy may have rewritten Host; it reports the one the browser used.
+  const forwarded = req.headers['x-forwarded-host'];
+  const trusted = app.get('trust proxy fn');
+  if (forwarded && typeof trusted === 'function' && trusted(req.socket.remoteAddress, 0)) return host === String(forwarded).split(',')[0].trim();
+  return false;
+}
+
+const wss = new WebSocket.Server({
+  server,
+  maxPayload: WS_MAX_PAYLOAD,
+  verifyClient: ({ req }, done) => {
+    if (!wsOriginAllowed(req)) return done(false, 403, 'Forbidden');
+    if (wss.clients.size >= WS_MAX_CLIENTS || (wsPerAddress.get(wsClientAddress(req)) || 0) >= WS_MAX_PER_ADDRESS) return done(false, 429, 'Too many connections');
+    done(true);
+  }
+});
 
 // Store connected WebSocket clients
 const wsClients = new Set();
@@ -641,7 +683,16 @@ function broadcastDashboardState(state) {
 }
 
 // WebSocket connection handler
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  ws._address = wsClientAddress(req);
+  wsPerAddress.set(ws._address, (wsPerAddress.get(ws._address) || 0) + 1);
+  const release = () => {
+    const left = (wsPerAddress.get(ws._address) || 1) - 1;
+    if (left > 0) wsPerAddress.set(ws._address, left); else wsPerAddress.delete(ws._address);
+  };
+  ws.once('close', release);
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   wsClients.add(ws);
   logger.info(`WebSocket client connected (${wsClients.size} total)`);
   
@@ -713,6 +764,15 @@ function pollAllSources() { return databaseWork.run(async () => {
 }); }
 pollAllSources();
 const pollInterval = setInterval(pollAllSources, 30000);
+// A connection whose other end vanished (a phone out of range) never sends a close: ping, and drop what does not answer.
+const wsPingTimer = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) { ws.terminate(); continue; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch (_) { ws.terminate(); }
+  }
+}, WS_PING_MS);
+if (wsPingTimer.unref) wsPingTimer.unref();
 // Read the all-time daily totals once now, so the first page load doesn't pay for it.
 setTimeout(() => { buildDashboardState().catch(() => {}); }, 2000).unref();
 
@@ -760,7 +820,7 @@ function bundledProfilePath(subdir, id) {
 
 /** Path of a multer upload, checked to sit in the upload directory; else null. */
 function uploadedFilePath(file) {
-  const root = path.resolve(require('os').tmpdir());
+  const root = path.resolve(uploadDir);
   const resolved = path.resolve(String((file && file.path) || ''));
   return resolved.startsWith(root + path.sep) ? resolved : null;
 }
@@ -1503,6 +1563,11 @@ app.post('/api/settings', (req, res) => {
         logger.warn(`[Settings] Rejected sensitive key: ${key}`);
         continue;
       }
+      // Keys with their own stricter route (device writes, first-run state, updates, remote access).
+      if (require('./modules/protectedConfig').isProtectedKey(key)) {
+        logger.warn(`[Settings] Rejected protected key: ${key}`);
+        continue;
+      }
       // Notification channels, rules, devices and keys are written only by /api/notifications.
       if (key.startsWith('notification_')) {
         logger.warn(`[Settings] Rejected notification key (use /api/notifications): ${key}`);
@@ -1528,11 +1593,12 @@ app.post('/api/settings', (req, res) => {
       // Reject undefined values; coerce null to empty string
       if (value === undefined) continue;
       const safeValue = value === null ? '' : String(value);
-      setConfig(key, safeValue); // encrypt-at-write ($enc1$ passthrough)
+      setConfig(key, key === 'pvoutput_config' ? pvoutput.keepWebhookToken(safeValue) : safeValue); // encrypt-at-write ($enc1$ passthrough)
       saved.push(key);
     }
     applySourceConfigChanges(saved, oldBanksRaw);
     if (shouldInvalidateForecastCache(saved)) clearForecastCache();
+    try { require('./routes/logs').refreshSecrets(); } catch (_) { /* logs not ready */ }
     logger.info('Settings saved successfully');
     res.json({ success: true });
   } catch (err) {
@@ -1610,9 +1676,10 @@ function saveConfigKeys(allowedKeys, req, res) {
   }
   const saved = [];
   for (const [key, value] of Object.entries(filtered)) {
-    setConfig(key, value); // encrypt-at-write ($enc1$ passthrough)
+    setConfig(key, key === 'pvoutput_config' ? pvoutput.keepWebhookToken(value) : value); // encrypt-at-write ($enc1$ passthrough)
     saved.push(key);
   }
+  try { require('./routes/logs').refreshSecrets(); } catch (_) { /* logs not ready */ }   // new secrets are hidden in logs at once
   return { saved };
 }
 
@@ -1664,7 +1731,7 @@ app.post('/api/settings/dashboard', isAuthenticated, (req, res) => {
   try {
     const allowed = [
       'dashboard_layouts', 'dashboard_active',
-      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks', 'square_corners',
+      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost',
       'dashboard_bg_color_light', 'dashboard_bg_color_dark',
       'dashboard_bg_image', 'grid_status_entity'
     ];
@@ -2767,15 +2834,24 @@ app.use((err, req, res, next) => {
 server.listen(PORT, () => logger.info(`Energy dashboard running on port ${PORT} (session-based auth, log level: ${process.env.LOG_LEVEL || 'info'}, time zone: ${timeZoneName()})`));
 
 // ── Graceful Shutdown ──────────────────────────────────────────────────
+// Something threw where nothing could catch it. State may be half done, so stop cleanly and
+// let the supervisor (Docker's restart policy, systemd) start a fresh process; exit code 1 so
+// `restart: on-failure` counts it. The timer covers a shutdown that itself hangs.
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught exception: ${err && err.stack || err}`);
+  const hard = setTimeout(() => process.exit(1), 5000); if (hard.unref) hard.unref();
+  shutdown('uncaughtException', 1).catch(() => process.exit(1));
+});
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
 });
 let shuttingDown = false;
-async function shutdown(signal) {
+async function shutdown(signal, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info(`${signal} received — shutting down`);
   clearInterval(pollInterval);
+  clearInterval(wsPingTimer);
   clearInterval(walCheckpointInterval);
   try { await shutdownRs232(); } catch (e) { logger.warn(`RS232 shutdown failed: ${e.message}`); }
   stopExternalPolling();
@@ -2802,8 +2878,9 @@ async function shutdown(signal) {
   await require('./modules/dbCheck').stop();
   getDb().close();
   require('./modules/dbCheck').markCleanStop();
+  try { fs.rmSync(uploadDir, { recursive: true, force: true }); } catch (_) { /* a later start makes a new one */ }
   logger.info('Shutdown complete');
-  process.exit(0);
+  process.exit(exitCode);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

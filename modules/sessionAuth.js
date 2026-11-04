@@ -55,14 +55,33 @@ if (passwordEnvManaged) {
   }
 }
 
+// A longer "password" costs nothing extra to check but is never a real one.
+const MAX_PASSWORD_LENGTH = 1024;
+
 function verifyPassword(inputPassword) {
-  if (typeof inputPassword !== 'string' || !storedSalt || !storedHash) return false;
+  if (typeof inputPassword !== 'string' || inputPassword.length > MAX_PASSWORD_LENGTH || !storedSalt || !storedHash) return false;
   const computedHash = hashPasswordWithSalt(inputPassword, storedSalt);
   try {
     return crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(storedHash, 'hex'));
   } catch (_) {
     return false;
   }
+}
+
+/**
+ * The same check without blocking the server: scrypt takes ~50 ms (several
+ * hundred on a Raspberry Pi), and the synchronous version stops every other
+ * request, the live dashboard included, for that long on each attempt.
+ */
+function verifyPasswordAsync(inputPassword) {
+  if (typeof inputPassword !== 'string' || inputPassword.length > MAX_PASSWORD_LENGTH || !storedSalt || !storedHash) return Promise.resolve(false);
+  const salt = storedSalt, expected = storedHash;
+  return new Promise(resolve => {
+    crypto.scrypt(inputPassword, salt, 64, (err, key) => {
+      if (err) return resolve(false);
+      try { resolve(crypto.timingSafeEqual(key, Buffer.from(expected, 'hex'))); } catch (_) { resolve(false); }
+    });
+  });
 }
 
 function setSettingsPassword(pw) {
@@ -92,12 +111,34 @@ function isAuthenticated(req, res, next) {
   }
 }
 
-// Rate limiter for login attempts only (10 per minute)
-const loginLimiter = rateLimit({
+// Rate limit for every route that checks the admin password: 10 a minute per
+// client address (the address is what Express reports; see modules/trustProxy.js
+// for why a forwarded address is only believed from a trusted proxy), and
+// GLOBAL_LIMIT a minute from all addresses together, so a spread of addresses
+// cannot turn the limit into nothing.
+const perAddressLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 10,
   message: { error: 'Too many login attempts, please try again later' }
 });
+const GLOBAL_WINDOW_MS = 60 * 1000;
+const GLOBAL_LIMIT = 30;
+let globalAttempts = [];
+function resetLoginThrottle() { globalAttempts = []; }
+function globalLoginGuard(req, res, next) {
+  const now = Date.now();
+  globalAttempts = globalAttempts.filter(t => now - t < GLOBAL_WINDOW_MS);
+  if (globalAttempts.length >= GLOBAL_LIMIT) {
+    const wait = Math.max(1, Math.ceil((globalAttempts[0] + GLOBAL_WINDOW_MS - now) / 1000));
+    res.set('Retry-After', String(wait));
+    return res.status(429).json({ error: 'Too many login attempts, please try again later' });
+  }
+  globalAttempts.push(now);
+  next();
+}
+function loginLimiter(req, res, next) {
+  perAddressLimiter(req, res, err => (err ? next(err) : globalLoginGuard(req, res, next)));
+}
 
 // Shared session-bound CSRF guard (also used by HTTP fixtures).
 const { csrfProtection } = require('./csrfProtection');
@@ -108,6 +149,9 @@ module.exports = {
   csrfProtection,
   passwordEnvManaged,
   verifyPassword,
-  setSettingsPassword
+  verifyPasswordAsync,
+  setSettingsPassword,
+  resetLoginThrottle,
+  MAX_PASSWORD_LENGTH
 };
 

@@ -7,15 +7,15 @@
 const express = require('express');
 const QRCode = require('qrcode');
 const { logger } = require('../modules/logger');
-const { loginLimiter, verifyPassword } = require('../modules/sessionAuth');
+const { loginLimiter, verifyPasswordAsync } = require('../modules/sessionAuth');
 const twoStep = require('../modules/twoStep');
 
 const router = express.Router();
 const SETUP_MS = 10 * 60 * 1000;
 
-function needPassword(req, res) {
+async function needPassword(req, res) {
   const password = req.body && req.body.password;
-  if (typeof password === 'string' && verifyPassword(password)) return true;
+  if (typeof password === 'string' && await verifyPasswordAsync(password)) return true;
   logger.warn('Two-step settings: wrong password');
   res.status(403).json({ error: 'That password is not right.' });
   return false;
@@ -29,7 +29,7 @@ router.get('/status', (req, res) => {
 // until /enable sees a code from the app.
 router.post('/begin', loginLimiter, async (req, res) => {
   if (twoStep.isEnabled()) return res.status(409).json({ error: 'Two-step sign-in is already on.' });
-  if (!needPassword(req, res)) return;
+  if (!(await needPassword(req, res))) return;
   try {
     const secret = twoStep.generateSecret();
     const uri = twoStep.otpauthUri(secret, { account: req.hostname || 'dashboard' });
@@ -58,9 +58,9 @@ router.post('/enable', loginLimiter, (req, res) => {
   res.json({ success: true, recoveryCodes });
 });
 
-router.post('/disable', loginLimiter, (req, res) => {
+router.post('/disable', loginLimiter, async (req, res) => {
   if (!twoStep.isEnabled()) return res.json({ success: true });
-  if (!needPassword(req, res)) return;
+  if (!(await needPassword(req, res))) return;
   if (!twoStep.check(req.body && req.body.code).ok) {
     return res.status(403).json({ error: 'That code did not work. Use a code from the app or a recovery code.', serverTime: new Date().toISOString() });
   }
@@ -69,9 +69,9 @@ router.post('/disable', loginLimiter, (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/recovery', loginLimiter, (req, res) => {
+router.post('/recovery', loginLimiter, async (req, res) => {
   if (!twoStep.isEnabled()) return res.status(409).json({ error: 'Two-step sign-in is off.' });
-  if (!needPassword(req, res)) return;
+  if (!(await needPassword(req, res))) return;
   if (!twoStep.check(req.body && req.body.code).ok) {
     return res.status(403).json({ error: 'That code did not work.', serverTime: new Date().toISOString() });
   }
