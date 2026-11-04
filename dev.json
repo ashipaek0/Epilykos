@@ -1,18 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41830333137.1",
-    "version": "1.0.14-dev+0a4b166",
-    "commit": "0a4b1666a549f7a3841d7c9d5d40813e5b86ee6e",
-    "digest": "sha256:d763ed2338122c894389e73e427e1a95fbbac99ae99eee9811ee2999605ec9c8",
+    "buildId": "41850889196.1",
+    "version": "1.1.1-dev+3618ac4",
+    "commit": "3618ac47e68f3cd32620459928f1272af601ac46",
+    "digest": "sha256:fbd6f953cdd0d726be7b9175364498b02cdbc0693877bd922c66dabe1dffb959",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T12:34:01Z",
+    "builtAt": "2026-11-04T14:46:37Z",
     "kind": "release",
     "notes": [
-      "Glass cards setting for every dashboard card (Settings → Appearance) (#267)"
+      "Bump the minor-and-patch group with 6 updates",
+      "Bump the actions group with 2 updates",
+      "Bump node from 22-trixie-slim to 26-trixie-slim"
     ]
   },
   "history": [
+    {
+      "buildId": "41850889196.1",
+      "version": "1.1.1-dev+3618ac4",
+      "commit": "3618ac47e68f3cd32620459928f1272af601ac46",
+      "digest": "sha256:fbd6f953cdd0d726be7b9175364498b02cdbc0693877bd922c66dabe1dffb959",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T14:46:37Z",
+      "kind": "release",
+      "notes": [
+        "Bump the minor-and-patch group with 6 updates",
+        "Bump the actions group with 2 updates",
+        "Bump node from 22-trixie-slim to 26-trixie-slim"
+      ]
+    },
     {
       "buildId": "41830333137.1",
       "version": "1.0.14-dev+0a4b166",
@@ -359,19 +375,6 @@
       "kind": "release",
       "notes": [
         "Controls page: Slider and Rotary knob cards"
-      ]
-    },
-    {
-      "buildId": "41054841260.1",
-      "version": "1.0.10-dev+abf0263",
-      "commit": "abf026357ac3a5e49c6f3f672c18a48d66cdcc72",
-      "digest": "sha256:7adad83d79c1eec6d3b4899c8222bbc478d1ddf4ba7ec33f4a03c70d736d41f0",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-30T12:22:45Z",
-      "kind": "release",
-      "notes": [
-        "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
-        "Phocos Any-Grid RS-232 / RS-485 profile (#236)"
       ]
     }
   ]
