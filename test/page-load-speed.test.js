@@ -66,7 +66,12 @@ for (const tz of ['UTC', 'Europe/London', 'America/New_York', 'Australia/Sydney'
   assert.deepStrictEqual(readDailySnapshots(db, { fields: ['daily_solar'], cached: true }), plain, 'cached = uncached');
   ins.run(now, 999);
   const after = readDailySnapshots(db, { fields: ['daily_solar'], cached: true });
-  assert.strictEqual(after[after.length - 1].daily_solar, 999, "today's new reading is seen");
+  // The cache must not hold today back: the cached read is the uncached read. In the first two hours of a
+  // local day a total at or above yesterday's last is taken as carried over and left out (by design), so
+  // the reading itself is only expected to show after that.
+  assert.deepStrictEqual(after, readDailySnapshots(db, { fields: ['daily_solar'] }), "today's new reading is seen as an uncached read sees it");
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  if (now - Math.floor(midnight.getTime() / 1000) >= 2 * 3600) assert.strictEqual(after[after.length - 1].daily_solar, 999, "today's new reading is seen");
   assert.deepStrictEqual(after.slice(0, -1), plain.slice(0, -1), 'finished days unchanged');
 }
 

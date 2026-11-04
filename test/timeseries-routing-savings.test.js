@@ -97,9 +97,9 @@ await checkAsync('getSavings: raw-only data (week/month/all) matches pre-routing
 
 await checkAsync('getSavings: rollup bucket (daily_solar_last) + raw row merge at the raw/aggregate boundary feeds all-time correctly', async () => {
   const cutoff = cutoffNow();
-  const bucketTs = cutoff - 6000;
+  const bucketTs = cutoff - 60;
   insertHistory5m(bucketTs, { daily_solar_last: 18.0, daily_consumption_last: 9.0 });
-  const rawTs = cutoff + 6000;
+  const rawTs = cutoff + 60;
   insertHistoryRow(rawTs, { daily_solar: 21.0, daily_consumption: 10.5 });
 
   const { getSavings } = require(path.join(REPO, 'modules/savings'));

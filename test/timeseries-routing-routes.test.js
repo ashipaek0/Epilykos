@@ -157,8 +157,10 @@ await checkAsync('bucketPowerHistory count-weighting logic (direct unit test via
 // ================= 2. buildDashboardState: barRows (7-day daily energy) =================
 
 await checkAsync('buildDashboardState dailyEnergyBar: raw-only data matches pre-routing reference (MAX(daily_solar) per day)', async () => {
-  const now = Math.floor(Date.now() / 1000);
-  const dayTs = now - 2 * 86400; // within the 7-day bar window
+  // Noon two days ago: inside the 7-day bar window, and an hour later is the same local day whatever the
+  // time is now (`now - 2 days + 1 h` is the next local day when this runs in the last hour of the day).
+  const noon = new Date(); noon.setDate(noon.getDate() - 2); noon.setHours(12, 0, 0, 0);
+  const dayTs = Math.floor(noon.getTime() / 1000);
   insertHistoryRow(dayTs, { daily_solar: 5.5, daily_consumption: 3.2 });
   insertHistoryRow(dayTs + 3600, { daily_solar: 8.1, daily_consumption: 4.0 }); // same local day, higher cumulative
 
@@ -172,9 +174,9 @@ await checkAsync('buildDashboardState dailyEnergyBar: raw-only data matches pre-
 
 await checkAsync('buildDashboardState dailyEnergyBar: rollup bucket (daily_*_last) + raw row merge at the raw/aggregate boundary', async () => {
   const cutoff = cutoffNow();
-  const bucketTs = cutoff - 2000; // just before cutoff -> rolled up
+  const bucketTs = cutoff - 20; // just before cutoff -> rolled up
   insertHistory5m(bucketTs, { daily_solar_last: 6.0, daily_consumption_last: 3.0 });
-  const rawTs = cutoff + 2000; // just after cutoff -> raw
+  const rawTs = cutoff + 20; // just after cutoff -> raw
   insertHistoryRow(rawTs, { daily_solar: 9.0, daily_consumption: 4.5 });
 
   const state = await buildDashboardState();
@@ -243,9 +245,9 @@ await checkAsync('/api/history: raw-only data matches pre-routing reference (fie
 
 await checkAsync('/api/history: rollup bucket + raw row merge at the raw/aggregate boundary', async () => {
   const cutoff = cutoffNow();
-  const bucketTs = cutoff - 500;
+  const bucketTs = cutoff - 30;
   insertHistory5m(bucketTs, { solar_avg: 1500, solar_count: 10, solar_min: 1000, solar_max: 2000, consumption_avg: 700, consumption_count: 10, consumption_min: 500, consumption_max: 900, daily_solar_last: 15, daily_consumption_last: 7 });
-  const rawTs = cutoff + 500;
+  const rawTs = cutoff + 30;
   insertHistoryRow(rawTs, { solar: 3000, consumption: 1500, daily_solar: 18, daily_consumption: 8 });
 
   const { srv, port } = await startServer();
@@ -276,7 +278,9 @@ await checkAsync('/api/history: rollup bucket + raw row merge at the raw/aggrega
 
 await checkAsync('/api/daily: raw-only data matches pre-routing reference (per-day consumption/solar, zero-filled gaps)', async () => {
   const now = new Date();
-  const d = new Date(now); d.setDate(now.getDate() - 1);
+  // Five days back, not yesterday: the checks above seed rows 1 to 2 hours before now, and in the first two
+  // hours after local midnight those rows are on yesterday's date and would win its MAX(daily_solar).
+  const d = new Date(now); d.setDate(now.getDate() - 5);
   const dayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const ts = Math.floor(new Date(dayStr + 'T12:00:00').getTime() / 1000);
   insertHistoryRow(ts, { daily_solar: 12.5, daily_consumption: 7.3, daily_battery_charge: 1.1, daily_battery_discharge: 0.9, daily_grid_import: 2.0, daily_grid_export: 0.5 });
@@ -302,11 +306,14 @@ await checkAsync('/api/daily: raw-only data matches pre-routing reference (per-d
   } finally { srv.close(); }
 });
 
+// The pairs of rows below sit either side of the 30-day cutoff, one a minute before it and one a minute after
+// (they were 8 to 83 minutes apart), so both are on one local day unless the cutoff is within a minute of
+// midnight. Assuming "almost always the same day" failed on every run between about 23:10 and 00:50.
 await checkAsync('/api/daily: rollup bucket (daily_*_last) + raw row merge at the raw/aggregate boundary (readDailySnapshots MAX()-per-day semantics)', async () => {
   const cutoff = cutoffNow();
-  const bucketTs = cutoff - 3000;
+  const bucketTs = cutoff - 40;
   insertHistory5m(bucketTs, { daily_solar_last: 22.0, daily_consumption_last: 11.0 });
-  const rawTs = cutoff + 3000;
+  const rawTs = cutoff + 40;
   insertHistoryRow(rawTs, { daily_solar: 25.0, daily_consumption: 13.0 });
 
   const d1 = new Date(bucketTs * 1000);
@@ -367,8 +374,8 @@ await checkAsync('/api/monthly: raw-only data matches pre-routing reference (sum
 
 await checkAsync('/api/monthly: rollup bucket + raw row merge at the raw/aggregate boundary', async () => {
   const cutoff = cutoffNow();
-  const bucketTs = cutoff - 4000;
-  const rawTs = cutoff + 4000;
+  const bucketTs = cutoff - 50;
+  const rawTs = cutoff + 50;
   insertHistory5m(bucketTs, { daily_solar_last: 30.0, daily_consumption_last: 15.0 });
   insertHistoryRow(rawTs, { daily_solar: 33.0, daily_consumption: 16.5 });
   const dBucket = new Date(bucketTs * 1000);
@@ -412,9 +419,9 @@ await checkAsync('buildCurrentData all_time_savings: raw-only data matches pre-r
 
 await checkAsync('buildCurrentData all_time_savings: rollup bucket (daily_solar_last) + raw row merge at the raw/aggregate boundary', async () => {
   const cutoff = cutoffNow();
-  const bucketTs = cutoff - 5000;
+  const bucketTs = cutoff - 60;
   insertHistory5m(bucketTs, { daily_solar_last: 40.0 });
-  const rawTs = cutoff + 5000;
+  const rawTs = cutoff + 60;
   insertHistoryRow(rawTs, { solar: 100, daily_solar: 45.0 }); // also becomes the new "latest" row
 
   const stateBefore = await buildDashboardState();
