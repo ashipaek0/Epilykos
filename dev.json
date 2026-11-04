@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41814205215.1",
-    "version": "1.0.14-dev+87e4117",
-    "commit": "87e41171c3a9d6a826f1750c8298a5521d1e5c95",
-    "digest": "sha256:73a12275628cbbbd7cff2376ba9b05240856c491b1ac74313dc40b14e56c808c",
+    "buildId": "41830333137.1",
+    "version": "1.0.14-dev+0a4b166",
+    "commit": "0a4b1666a549f7a3841d7c9d5d40813e5b86ee6e",
+    "digest": "sha256:d763ed2338122c894389e73e427e1a95fbbac99ae99eee9811ee2999605ec9c8",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T10:26:47Z",
+    "builtAt": "2026-11-04T12:34:01Z",
     "kind": "release",
     "notes": [
-      "Compose file follows the edited README; drop the bluetooth Permissions-Policy entry (#266)"
+      "Glass cards setting for every dashboard card (Settings → Appearance) (#267)"
     ]
   },
   "history": [
+    {
+      "buildId": "41830333137.1",
+      "version": "1.0.14-dev+0a4b166",
+      "commit": "0a4b1666a549f7a3841d7c9d5d40813e5b86ee6e",
+      "digest": "sha256:d763ed2338122c894389e73e427e1a95fbbac99ae99eee9811ee2999605ec9c8",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T12:34:01Z",
+      "kind": "release",
+      "notes": [
+        "Glass cards setting for every dashboard card (Settings → Appearance) (#267)"
+      ]
+    },
     {
       "buildId": "41814205215.1",
       "version": "1.0.14-dev+87e4117",
@@ -361,16 +373,6 @@
         "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
         "Phocos Any-Grid RS-232 / RS-485 profile (#236)"
       ]
-    },
-    {
-      "buildId": "41054284908.1",
-      "version": "1.0.10-dev+9cbe994",
-      "commit": "9cbe994921fc378c1d2b8ac740d07f9a7aab921c",
-      "digest": "sha256:bc13cb9f7f2f93eed66949dd655f3b57c60d04807c908786165578729ee0d2de",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-30T12:18:17Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
