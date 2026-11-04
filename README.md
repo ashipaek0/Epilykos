@@ -48,8 +48,7 @@ and use at least 12 characters: opening Epilykos to the internet refuses a short
 If people you don't trust can reach the server, set the password before the first start instead: in
 `docker-compose.yaml` uncomment `environment:` and `- SETTINGS_PASSWORD=`, type the password after the
 `=` (write each `$` as `$$`), and run `docker compose up -d`. The wizard then asks for that password,
-and only the compose file can change it. A `.env` file is not passed to the container, so
-`SETTINGS_PASSWORD` set there has no effect.
+and only the compose file can change it.
 
 On a Raspberry Pi, flash **[EpilykosOS](https://github.com/ashipaek0/epilykos-os)** instead and open
 `http://epilykos.local:3000`: see [Install on a Raspberry Pi](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-epilykos-os/).
@@ -119,7 +118,9 @@ services:
 
 Bluetooth, USB serial adapters, a time zone, host networking for Tuya discovery and one-click updates
 are explained in [Install with Docker](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/), with the environment
-variables and the `/healthz` health check. On Docker Desktop (Windows, macOS), USB adapters need
+variables and the `/healthz` health check. 
+
+On Docker Desktop (Windows, macOS), USB adapters need
 USB/IP and Bluetooth isn't available: see
 [Docker Desktop on Windows and macOS](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/#docker-desktop-on-windows-and-macos).
 
