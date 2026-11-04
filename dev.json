@@ -1,20 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41850943326.1",
-    "version": "1.1.1-dev+ee74cc6",
-    "commit": "ee74cc67d1552eb55fc7d89223f5954baa82d49e",
-    "digest": "sha256:8bab1def53f29a1c9a43506d813a1351aeab825837ed9c0f5a87f141a2bd08a5",
+    "buildId": "41855873349.1",
+    "version": "1.1.1-dev+3042c32",
+    "commit": "3042c32549af25b6770329cfcdf58e02daf6614e",
+    "digest": "sha256:61f1aae7aa4a597c10684640a03d0e65815f88ca713511c70a73c6556323d48a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T14:46:51Z",
+    "builtAt": "2026-11-04T15:16:06Z",
     "kind": "release",
     "notes": [
-      "Bump gridstack from 13.2.0 to 14.0.0",
-      "Bump the minor-and-patch group with 6 updates",
-      "Bump the actions group with 2 updates"
+      "Test on Node 26, the runtime the image now ships"
     ]
   },
   "history": [
+    {
+      "buildId": "41855873349.1",
+      "version": "1.1.1-dev+3042c32",
+      "commit": "3042c32549af25b6770329cfcdf58e02daf6614e",
+      "digest": "sha256:61f1aae7aa4a597c10684640a03d0e65815f88ca713511c70a73c6556323d48a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T15:16:06Z",
+      "kind": "release",
+      "notes": [
+        "Test on Node 26, the runtime the image now ships"
+      ]
+    },
     {
       "buildId": "41850943326.1",
       "version": "1.1.1-dev+ee74cc6",
@@ -363,18 +373,6 @@
       "kind": "release",
       "notes": [
         "Fix masked fields losing their value and misaligning boxes"
-      ]
-    },
-    {
-      "buildId": "41325961904.1",
-      "version": "1.0.12-dev+790f1a9",
-      "commit": "790f1a954568ba22b21c1b8b68f945d633f519c6",
-      "digest": "sha256:11be05eb7f665008cbf9210deb8b845379dad8d6b4cf375e5fa8c334482b50f2",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-01T16:22:14Z",
-      "kind": "release",
-      "notes": [
-        "Mask sensitive fields and displays, with a way to reveal them"
       ]
     }
   ]
