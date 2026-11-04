@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41801467401.1",
-    "version": "1.0.14-dev+75e27d2",
-    "commit": "75e27d2a6deb62110b0b87fa82133feb15e4c5af",
-    "digest": "sha256:17d1cf432239414bc533da126c877d7eed98ff24937f2790ed770cd9e73bf73b",
+    "buildId": "41814205215.1",
+    "version": "1.0.14-dev+87e4117",
+    "commit": "87e41171c3a9d6a826f1750c8298a5521d1e5c95",
+    "digest": "sha256:73a12275628cbbbd7cff2376ba9b05240856c491b1ac74313dc40b14e56c808c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T08:41:57Z",
+    "builtAt": "2026-11-04T10:26:47Z",
     "kind": "release",
     "notes": [
-      "Remove documentation link from README"
+      "Compose file follows the edited README; drop the bluetooth Permissions-Policy entry (#266)"
     ]
   },
   "history": [
+    {
+      "buildId": "41814205215.1",
+      "version": "1.0.14-dev+87e4117",
+      "commit": "87e41171c3a9d6a826f1750c8298a5521d1e5c95",
+      "digest": "sha256:73a12275628cbbbd7cff2376ba9b05240856c491b1ac74313dc40b14e56c808c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T10:26:47Z",
+      "kind": "release",
+      "notes": [
+        "Compose file follows the edited README; drop the bluetooth Permissions-Policy entry (#266)"
+      ]
+    },
     {
       "buildId": "41801467401.1",
       "version": "1.0.14-dev+75e27d2",
@@ -359,20 +371,6 @@
       "builtAt": "2026-10-30T12:18:17Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "41054291258.1",
-      "version": "1.0.10-dev+4384613",
-      "commit": "43846135439ea40db1a2b0a01c6f773e9d585eaf",
-      "digest": "sha256:9859d2070fc5c1049e23b53acdb77168d0636e54f61c798c8900dad31aa419fc",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-30T12:18:18Z",
-      "kind": "release",
-      "notes": [
-        "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
-        "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)",
-        "Custom favicon: replace every built-in icon link, not just the first (#233)"
-      ]
     }
   ]
 }
