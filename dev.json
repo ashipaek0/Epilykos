@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41855873349.1",
-    "version": "1.1.1-dev+3042c32",
-    "commit": "3042c32549af25b6770329cfcdf58e02daf6614e",
-    "digest": "sha256:61f1aae7aa4a597c10684640a03d0e65815f88ca713511c70a73c6556323d48a",
+    "buildId": "41858161754.1",
+    "version": "1.1.1-dev+e2c9b4e",
+    "commit": "e2c9b4ee938adf4bd80b736e4746acce279be025",
+    "digest": "sha256:c0eace6fbc6d36db67ae8e5cd1a3ca8e2b96d23e440e11ed4196d7c46fb3c5fa",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T15:16:06Z",
+    "builtAt": "2026-11-04T15:29:08Z",
     "kind": "release",
     "notes": [
-      "Test on Node 26, the runtime the image now ships"
+      "Align package.json with the lockfile for dotenv 18 (#274)",
+      "Bump dotenv from 17.4.2 to 18.0.9"
     ]
   },
   "history": [
+    {
+      "buildId": "41858161754.1",
+      "version": "1.1.1-dev+e2c9b4e",
+      "commit": "e2c9b4ee938adf4bd80b736e4746acce279be025",
+      "digest": "sha256:c0eace6fbc6d36db67ae8e5cd1a3ca8e2b96d23e440e11ed4196d7c46fb3c5fa",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T15:29:08Z",
+      "kind": "release",
+      "notes": [
+        "Align package.json with the lockfile for dotenv 18 (#274)",
+        "Bump dotenv from 17.4.2 to 18.0.9"
+      ]
+    },
     {
       "buildId": "41855873349.1",
       "version": "1.1.1-dev+3042c32",
@@ -361,18 +375,6 @@
       "kind": "release",
       "notes": [
         "Fix two CodeQL alerts in the reveal script"
-      ]
-    },
-    {
-      "buildId": "41329177946.1",
-      "version": "1.0.12-dev+db549a4",
-      "commit": "db549a40066be35053450a7faab0a28323ee3bb1",
-      "digest": "sha256:e09bf7d054da6039e2b3d7c194d6de0ef9331bc4d31e937ca0f33b0a1ce1735d",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-01T17:00:27Z",
-      "kind": "release",
-      "notes": [
-        "Fix masked fields losing their value and misaligning boxes"
       ]
     }
   ]
