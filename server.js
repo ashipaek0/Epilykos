@@ -1731,7 +1731,7 @@ app.post('/api/settings/dashboard', isAuthenticated, (req, res) => {
   try {
     const allowed = [
       'dashboard_layouts', 'dashboard_active',
-      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks', 'square_corners',
+      'desktop_dashboard', 'mobile_dashboard', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost',
       'dashboard_bg_color_light', 'dashboard_bg_color_dark',
       'dashboard_bg_image', 'grid_status_entity'
     ];

@@ -67,6 +67,19 @@ function showConfirm(message, opts = {}) {
   return Promise.resolve(false);
 }
 
+// ── Glass cards: the blur and frost sliders show only while the option is on ──
+function syncGlassOptions() {
+  const on = document.getElementById('glass-cards');
+  const box = document.getElementById('glass-options');
+  if (box && on) box.hidden = !on.checked;
+  for (const id of ['glass-blur', 'glass-frost']) {
+    const input = document.getElementById(id), out = document.getElementById(id + '-out');
+    if (input && out) out.textContent = input.value;
+  }
+}
+document.addEventListener('input', e => { if (e.target && ['glass-cards', 'glass-blur', 'glass-frost'].includes(e.target.id)) syncGlassOptions(); });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'glass-cards') syncGlassOptions(); });
+
 // ── Load existing settings ─────────────────────────────────────────────────
 async function loadSettings() {
   try {
@@ -97,6 +110,7 @@ async function loadSettings() {
         }
       }
     }
+    syncGlassOptions();
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
     buildModbusDeviceList(JSON.parse(data.modbus_devices || '[]'));
