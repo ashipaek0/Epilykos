@@ -34,9 +34,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          # Matches the Dockerfile base image (node:22-slim), so CI tests the
+          # Matches the Dockerfile base image (node:26-trixie-slim), so CI tests the
           # same runtime that ships to production.
-          node-version: '22'
+          node-version: '26'
           cache: npm
 
       - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '26'
           cache: npm
 
       # better-sqlite3 and serialport ship ready-made Windows binaries, but npm
