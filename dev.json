@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41735755996.1",
-    "version": "1.0.14-dev+c17afb5",
-    "commit": "c17afb511b13831eb6f4b73c9bda4661aba7a20b",
-    "digest": "sha256:ba53e48108061e53fb700a80a7acbf9496d0cdc1d3b09722a849e04e0231fbca",
+    "buildId": "41780174883.1",
+    "version": "1.0.14-dev+6a27765",
+    "commit": "6a27765e43297407d63519733822e0912cc8a579",
+    "digest": "sha256:98195cb294ce1eb6d48d50c4d29af637b8744c808298b220e5eea7894fea4d0c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-03T23:01:54Z",
+    "builtAt": "2026-11-04T05:35:38Z",
     "kind": "release",
     "notes": [
-      "Fix a flaky WebSocket test and the CodeQL cookie finding in a test app (#263)"
+      "Make fixtures independent of the time of day (#264)"
     ]
   },
   "history": [
+    {
+      "buildId": "41780174883.1",
+      "version": "1.0.14-dev+6a27765",
+      "commit": "6a27765e43297407d63519733822e0912cc8a579",
+      "digest": "sha256:98195cb294ce1eb6d48d50c4d29af637b8744c808298b220e5eea7894fea4d0c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T05:35:38Z",
+      "kind": "release",
+      "notes": [
+        "Make fixtures independent of the time of day (#264)"
+      ]
+    },
     {
       "buildId": "41735755996.1",
       "version": "1.0.14-dev+c17afb5",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Energy chart Compare: Yearly totals (#231)"
-      ]
-    },
-    {
-      "buildId": "40677157210.1",
-      "version": "1.0.9-dev+f80c2db",
-      "commit": "f80c2db564b0e10072bff8d6164a8601fa70c6d2",
-      "digest": "sha256:6ef9c4d4b21581ceedaa9c4e56a694e04e3b5a987303a3be9ddfea2d6c008663",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T11:05:17Z",
-      "kind": "release",
-      "notes": [
-        "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)"
       ]
     }
   ]
