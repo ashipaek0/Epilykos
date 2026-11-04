@@ -11,7 +11,7 @@ FROM tailscale/tailscale:stable AS tailscale
 # only while a tunnel is on.
 FROM cloudflare/cloudflared:latest AS cloudflared
 
-FROM node:22-trixie-slim
+FROM node:26-trixie-slim
 
 # Install build tools required for better-sqlite3 native compilation
 # tzdata: lets TZ names and a host-mounted /etc/localtime resolve to a zone
