@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41796391757.1",
-    "version": "1.0.14-dev+78ebf2b",
-    "commit": "78ebf2bb6a298c9241fc2d8c566f4d7c63387a7f",
-    "digest": "sha256:cb5346d64860ac8f1067b4ccab3a6a5b404ceef334eaa32b9ac22968774ea440",
+    "buildId": "41800869669.1",
+    "version": "1.0.14-dev+98b5e0a",
+    "commit": "98b5e0ad12ca0f5056fa75f9896073d8c0848cc9",
+    "digest": "sha256:baa9f6ae14ccd9b09a24d547db5c19470562eaaf0c5089164c11f6691662506f",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-04T08:02:15Z",
+    "builtAt": "2026-11-04T08:37:19Z",
     "kind": "release",
     "notes": [
-      "Make the forecast and time-series reader fixtures work in any time zone (#265)"
+      "Update README.md"
     ]
   },
   "history": [
+    {
+      "buildId": "41800869669.1",
+      "version": "1.0.14-dev+98b5e0a",
+      "commit": "98b5e0ad12ca0f5056fa75f9896073d8c0848cc9",
+      "digest": "sha256:baa9f6ae14ccd9b09a24d547db5c19470562eaaf0c5089164c11f6691662506f",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-04T08:37:19Z",
+      "kind": "release",
+      "notes": [
+        "Update README.md"
+      ]
+    },
     {
       "buildId": "41796391757.1",
       "version": "1.0.14-dev+78ebf2b",
@@ -359,18 +371,6 @@
       "notes": [
         "Custom favicon: replace every built-in icon link, not just the first (#233)",
         "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)"
-      ]
-    },
-    {
-      "buildId": "40682285103.1",
-      "version": "1.0.9-dev+140726d",
-      "commit": "140726dd2030cfb1b7feb8cc6379c8b9af4a9726",
-      "digest": "sha256:12175b4e139f19a1ce305ea8f2118f34a3eb2875af74a8700d1c908d7b4c723f",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-10-28T11:44:46Z",
-      "kind": "release",
-      "notes": [
-        "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)"
       ]
     }
   ]
