@@ -40,11 +40,13 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   }
   assert.match(editor, /Pick the metric to chart, or choose solar power\./);
   assert.match(editor, /Bands: a whole number from 4 to 30\./);
-  assert.match(read('public/cards.css'), /\.pk-range\[aria-pressed="true"\]/);
-  // The cards use the energy day card's frame, so glass cards, square corners and the rest apply to them.
+  // The cards use the Daily Energy chart's frame and segmented buttons, so glass cards, square corners and the rest apply to them.
   const card = read('public/js/components/peakCharts.js');
-  assert.equal((card.match(/energy-day-card pk-card/g) || []).length, 2);
-  assert.match(read('public/glass.css'), /\.energy-day-card/);
+  assert.equal((card.match(/chart-container pk-card/g) || []).length, 2);
+  assert.match(card, /class="chart-header"/); assert.match(card, /chart-controls pk-ranges/); assert.match(card, /chart-controls pk-modes/);
+  assert.ok(!/ed-(btn|title|header|status|panel)/.test(card), 'none of the energy day card\'s classes are left');
+  assert.match(read('public/glass.css'), /\.chart-container/);
+  assert.match(read('public/cards.css'), /\.pk-panel canvas/);
   assert.match(card, /\/api\/peaks\?days=/); assert.match(card, /\/api\/histogram\?days=/);
   assert.ok(!/innerHTML\s*=\s*[^;]*\b(config|settings)\b\.(title|metric|unit)/.test(card.replace(/escapeHtml\([^)]*\)/g, '')), 'config text is escaped before it goes into markup');
   console.log('ok - wired into the dashboard, the palette and the editor');
