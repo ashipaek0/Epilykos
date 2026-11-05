@@ -17,7 +17,7 @@ import { ensureChartJS } from '../chartLoader.js';
 import { tokens, alpha } from './energyChartKit.js';
 
 const REFRESH_MS = 10 * 60 * 1000;
-const RANGES = [[30, '30 days'], [90, '90 days'], [365, '1 year']];
+const RANGES = [[30, '30d'], [90, '90d'], [365, '1y']];
 
 /** The card's settings with defaults; solar is shown in kW, a metric in its own unit. */
 export function peakSettings(config = {}) {
@@ -38,29 +38,33 @@ const dayLong = day => { const [y, m, d] = day.split('-').map(Number); return ne
 
 function shell(card, title, controlsHtml, label) {
   card.innerHTML = `
-    <div class="ed-header">
-      <h3 class="ed-title">${escapeHtml(title)}</h3>
-      <div class="ed-controls">${controlsHtml}</div>
+    <div class="chart-header">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="pk-controls">${controlsHtml}</div>
     </div>
-    <div class="ed-panels"><div class="ed-panel pk-panel"><canvas aria-label="${escapeHtml(label)}"></canvas></div></div>
-    <p class="ed-status" role="status"></p>`;
+    <div class="pk-panel"><canvas aria-label="${escapeHtml(label)}"></canvas></div>
+    <p class="pk-status" role="status"></p>`;
 }
-const rangeButtons = days => `<div class="pk-ranges" role="group" aria-label="Days shown">${RANGES.map(([n, text]) => `<button type="button" class="ed-btn pk-range" data-days="${n}" aria-pressed="${n === days}">${text}</button>`).join('')}</div>`;
+// The same segmented buttons as the Daily Energy chart (.chart-controls); the chosen one is .active.
+const pressed = on => `aria-pressed="${on}"${on ? ' class="active"' : ''}`;
+const rangeButtons = days => `<div class="chart-controls pk-ranges" role="group" aria-label="Days shown">${RANGES.map(([n, text]) => `<button type="button" data-days="${n}" data-pk="range" ${pressed(n === days)}>${text}</button>`).join('')}</div>`;
+const choose = (group, chosen) => group.forEach(o => { o.setAttribute('aria-pressed', String(o === chosen)); o.classList.toggle('active', o === chosen); });
 
 function baseOptions(yTitle, xTitle) {
   const t = tokens();
+  const line = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || t.grid;   // the Daily Energy chart's grid colour
   return {
     responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
     scales: {
       x: { title: { display: !!xTitle, text: xTitle || '', color: t.text }, grid: { display: false }, ticks: { color: t.text, maxRotation: 0, autoSkipPadding: 10 } },
-      y: { beginAtZero: true, title: { display: true, text: yTitle, color: t.text }, grid: { color: t.grid }, ticks: { color: t.text }, grace: '5%' }
+      y: { beginAtZero: true, title: { display: true, text: yTitle, color: t.text }, grid: { color: line }, ticks: { color: t.text }, grace: '5%' }
     },
     plugins: { legend: { display: false } }
   };
 }
 
 function setStatus(card, text, empty) {
-  card.querySelector('.ed-status').textContent = text || '';
+  card.querySelector('.pk-status').textContent = text || '';
   const panel = card.querySelector('.pk-panel');
   if (panel) panel.style.visibility = empty ? 'hidden' : '';
 }
@@ -73,9 +77,10 @@ async function getJson(url) {
 
 /** Wire the refresh timer, the theme watcher and the range buttons for a card. */
 function run(card, state, load, draw) {
-  card.querySelectorAll('.pk-range').forEach(b => b.addEventListener('click', () => {
+  const ranges = card.querySelectorAll('[data-pk="range"]');
+  ranges.forEach(b => b.addEventListener('click', () => {
     state.settings.days = Number(b.dataset.days);
-    card.querySelectorAll('.pk-range').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+    choose(ranges, b);
     load(card, false);
   }));
   requestAnimationFrame(() => load(card, false));
@@ -94,7 +99,7 @@ export function buildPeakBars(block = {}) {
   const config = block.config || {};
   const settings = peakSettings(config);
   const card = document.createElement('div');
-  card.className = 'energy-day-card pk-card pk-bars-card';
+  card.className = 'chart-container pk-card pk-bars-card';
   card.dataset.blockId = block.id || '';
   shell(card, config.title || (settings.source === 'solar' ? 'Daily peak solar power' : `Daily highest: ${settings.metric}`), rangeButtons(settings.days), 'Highest value of each day');
   const state = { settings, data: null, chart: null, timer: null };
@@ -137,17 +142,18 @@ export function buildPeakHistogram(block = {}) {
   const config = block.config || {};
   const settings = peakSettings(config);
   const card = document.createElement('div');
-  card.className = 'energy-day-card pk-card pk-histogram-card';
+  card.className = 'chart-container pk-card pk-histogram-card';
   card.dataset.blockId = block.id || '';
   const modeButtons = settings.source === 'solar'
-    ? `<div class="pk-modes" role="group" aria-label="What to count"><button type="button" class="ed-btn pk-mode" data-mode="peaks" aria-pressed="${settings.mode === 'peaks'}">Daily peaks</button><button type="button" class="ed-btn pk-mode" data-mode="time" aria-pressed="${settings.mode === 'time'}">Time at power</button></div>`
+    ? `<div class="chart-controls pk-modes" role="group" aria-label="What to count"><button type="button" data-mode="peaks" data-pk="mode" ${pressed(settings.mode === 'peaks')}>Daily peaks</button><button type="button" data-mode="time" data-pk="mode" ${pressed(settings.mode === 'time')}>Time at power</button></div>`
     : '';
   shell(card, config.title || (settings.source === 'solar' ? 'Solar power histogram' : `Histogram: ${settings.metric}`), modeButtons + rangeButtons(settings.days), 'Histogram');
   const state = { settings, data: null, chart: null, timer: null };
   card._peakHistogram = state;
-  card.querySelectorAll('.pk-mode').forEach(b => b.addEventListener('click', () => {
+  const modes = card.querySelectorAll('[data-pk="mode"]');
+  modes.forEach(b => b.addEventListener('click', () => {
     state.settings.mode = b.dataset.mode;
-    card.querySelectorAll('.pk-mode').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+    choose(modes, b);
     loadHistogram(card, false);
   }));
   run(card, state, loadHistogram, drawHistogram);
