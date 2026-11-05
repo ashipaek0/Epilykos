@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41990301092.1",
-    "version": "1.1.1-dev+b76abb7",
-    "commit": "b76abb7364a147c48cf7fcbe67459a70742ca408",
-    "digest": "sha256:1fd4d3154db7ce429e7072e7951745fc8ae5782b2d3ff3c27c3822e322a49586",
+    "buildId": "41995469714.1",
+    "version": "1.1.1-dev+fd4b1d4",
+    "commit": "fd4b1d4d86c159eb917e51b04251ab9d281a7e40",
+    "digest": "sha256:cce165b34e5b7534c86462e8ab5bc706adf2bbf936e48c9a22c6c64c317f238f",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-05T07:52:56Z",
+    "builtAt": "2026-11-05T08:34:23Z",
     "kind": "release",
     "notes": [
-      "Combined metrics: \"Highest today\", for the day's peak solar power (#276)"
+      "Daily peak and Histogram cards, with peak solar power for every day on record"
     ]
   },
   "history": [
+    {
+      "buildId": "41995469714.1",
+      "version": "1.1.1-dev+fd4b1d4",
+      "commit": "fd4b1d4d86c159eb917e51b04251ab9d281a7e40",
+      "digest": "sha256:cce165b34e5b7534c86462e8ab5bc706adf2bbf936e48c9a22c6c64c317f238f",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-05T08:34:23Z",
+      "kind": "release",
+      "notes": [
+        "Daily peak and Histogram cards, with peak solar power for every day on record"
+      ]
+    },
     {
       "buildId": "41990301092.1",
       "version": "1.1.1-dev+b76abb7",
@@ -363,19 +375,6 @@
         "CI: also print the Windows failure list in the job log",
         "CI: install on Windows with the shipped binaries",
         "CI: run the fixtures on Windows too (report only)"
-      ]
-    },
-    {
-      "buildId": "41470278901.1",
-      "version": "1.0.13-dev+1d3a20a",
-      "commit": "1d3a20ab0f5fd58df368bac47924375d98a8fd8a",
-      "digest": "sha256:7d54640af136323d6d39f8b24ef1b627902594ca46db29e0fed76f9377671a9c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-02T15:19:03Z",
-      "kind": "release",
-      "notes": [
-        "README: link the new documentation site",
-        "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port"
       ]
     }
   ]
