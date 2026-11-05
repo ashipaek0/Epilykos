@@ -64,6 +64,29 @@ check('counter today: today\'s increase, surviving a counter reset', () => {
   assert.strictEqual(step(5), 7);
 });
 
+check('peak today: the highest so far, added across inputs, starting again at midnight', () => {
+  const DAY = 86400;
+  let s = null;
+  const step = (vals, t = T0) => { const o = cm.evaluate(def('peak_today', Object.keys(vals)), name => ({ value: vals[name], timestamp: t }), s, t); s = o.state; return o.value; };
+  assert.strictEqual(step({ a: 100 }), 100, 'the first reading is the peak');
+  assert.strictEqual(step({ a: 900 }, T0 + 60), 900);
+  assert.strictEqual(step({ a: 400 }, T0 + 120), 900, 'a lower reading leaves it');
+  assert.strictEqual(step({ a: 300 }, T0 + 180), 900);
+  assert.strictEqual(step({ a: 1000 }, T0 + 240), 1000, 'a higher one raises it');
+  assert.strictEqual(step({ a: 0 }, T0 + 6 * 3600), 1000, 'through the evening');
+  const nextDay = T0 + DAY - 12 * 3600 + 60;       // the next morning, local time
+  assert.strictEqual(step({ a: 0 }, nextDay), 0, 'a new day starts again');
+  assert.strictEqual(step({ a: 350 }, nextDay + 3600), 350);
+  // Several inputs are added first (all the PV strings), and the reading is not a sum of peaks.
+  s = null;
+  assert.strictEqual(step({ p1: 500, p2: 700 }), 1200);
+  assert.strictEqual(step({ p1: 900, p2: 100 }, T0 + 60), 1200, 'the highest total, not each string\u2019s own highest');
+  // A stale or missing input writes nothing and does not touch the peak.
+  const late = cm.evaluate(def('peak_today', ['p1']), () => ({ value: 9999, timestamp: T0 - 1000 }), s, T0 + 120);
+  assert.ok(late.skip && !late.state, 'stale input is skipped');
+  assert.deepStrictEqual(cm.validateDefinition(def('peak_today', ['p1', 'p2'])), []);
+});
+
 check('validation explains problems plainly', () => {
   assert.deepStrictEqual(cm.validateDefinition(def('sum', ['a', 'b'])), []);
   assert.match(cm.validateDefinition(def('sum', []))[0], /at least one input/);
@@ -97,6 +120,25 @@ check('a poll cycle writes enabled definitions, chained in the same cycle, and s
   assert.ok(row.get('pv_today'), 'energy written in the same cycle');
   assert.strictEqual(row.get('unused'), undefined);
   assert.strictEqual(cm.getCombinedStatus().total.value, 1400);
+});
+
+check('a poll cycle keeps the day\u2019s peak, writes it to the history, and a restart does not lose it', () => {
+  const db = database.getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const put = (m, v, t) => db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)').run(m, v, t);
+  database.setConfig('combined_metrics_state', '{}');
+  database.setConfig('combined_metrics', JSON.stringify([
+    { id: 'pk', name: 'pv_peak_today', unit: 'W', fn: 'peak_today', inputs: ['s_pv1', 's_pv2'] }
+  ]));
+  const cycle = (a, b, t) => { put('s_pv1', a, t); put('s_pv2', b, t); cm.runCombinedMetrics(t); database.flushMetrics(); };
+  const latest = () => db.prepare('SELECT value FROM latest_metrics WHERE metric = ?').get('pv_peak_today').value;
+  cycle(1000, 500, now);             assert.strictEqual(latest(), 1500);
+  cycle(2500, 900, now + 30);        assert.strictEqual(latest(), 3400);
+  cycle(300, 200, now + 60);         assert.strictEqual(latest(), 3400, 'a quieter reading leaves the peak');
+  // The state is stored, so the peak survives a restart (a new process reads it back).
+  assert.ok(JSON.parse(database.getConfig('combined_metrics_state')).pk.peak === 3400);
+  const rows = db.prepare('SELECT COUNT(*) n, MAX(value) m FROM metrics WHERE metric = ?').get('pv_peak_today');
+  assert.ok(rows.n >= 3 && rows.m === 3400, 'every cycle is in the history, so a chart can take each day\u2019s highest');
 });
 
 check('Settings: own-save card, server validation, loops refused, units listed', () => {
