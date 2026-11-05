@@ -76,7 +76,7 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('weather-block')) updateWeatherBlock(state);
   if (blockTypes.has('switch-block')) updateSwitchBlockFromState(state);
   if (blockTypes.has('state-select')) updateStateSelectBlockFromState(state);
-  if (blockTypes.has('button-card')) updateButtonCardsFromState(state);
+  if (blockTypes.has('button-card') || blockTypes.has('quick-actions')) updateButtonCardsFromState(state);
   if (blockTypes.has('slider-card')) updateSliderCardsFromState(state);
   if (blockTypes.has('rotary-card')) updateRotaryCardsFromState(state);
 }

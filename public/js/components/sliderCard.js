@@ -9,6 +9,7 @@
  * @module components/sliderCard
  */
 import { escapeHtml } from '../utils.js';
+import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
 import { createNumericController, formatValue, fractionOf, rangeOf, updateNumericControls } from './numericControl.js';
 
 /** An accent colour from the card's settings: #rgb to #rrggbbaa only. */
@@ -20,7 +21,8 @@ export function accentOf(config) {
 export function buildSliderCard(block = {}) {
   const config = block.config || {};
   const container = document.createElement('div');
-  container.className = 'ep-card numctl numctl-slider is-unknown';
+  const style = controlStyle(config, 'numctl');
+  container.className = ['ep-card numctl numctl-slider is-unknown', styleClasses(style, 'numctl')].filter(Boolean).join(' ');
   container.dataset.blockId = block.id || '';
   // The reading comes from the metric (an HA entity id or MQTT topic isn't one).
   container.dataset.metric = config.metric || config.entity || '';
@@ -39,6 +41,7 @@ export function buildSliderCard(block = {}) {
   const unit = config.unit || '';
   container.innerHTML = `
     <div class="numctl-head"><span class="numctl-label">${label}</span><output class="numctl-value">—</output></div>
+    ${subLabelHtml(style, 'numctl-sub')}
     <input type="range" class="numctl-range" min="${r.min}" max="${r.max}" step="${r.step}" value="${r.min}" aria-label="${label}">
     <div class="numctl-scale"><span>${escapeHtml(formatValue(r.min, r, unit))}</span><span>${escapeHtml(formatValue(r.max, r, unit))}</span></div>
     <div class="numctl-status" role="status" aria-live="polite"></div>`;

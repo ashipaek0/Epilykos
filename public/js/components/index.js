@@ -38,6 +38,7 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildButtonCard } from './buttonCard.js';
+import { buildQuickActions } from './quickActions.js';
 import { buildSliderCard } from './sliderCard.js';
 import { buildRotaryCard } from './rotaryCard.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
@@ -91,6 +92,7 @@ export const componentBuilders = {
   'switch-block': buildControlPlaceholder,
   'state-select': buildControlPlaceholder,
   'button-card': buildControlPlaceholder,
+  'quick-actions': buildControlPlaceholder,
   'slider-card': buildControlPlaceholder,
   'rotary-card': buildControlPlaceholder
 };
@@ -100,6 +102,7 @@ export const controlBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock,
   'button-card': buildButtonCard,
+  'quick-actions': buildQuickActions,
   'slider-card': buildSliderCard,
   'rotary-card': buildRotaryCard
 };

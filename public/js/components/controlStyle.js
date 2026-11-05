@@ -29,6 +29,13 @@ export const LAYOUT_LABELS = {
   compact: 'Compact (small icon over the name, for quick actions)', row: 'Row (icon, name, toggle pill)'
 };
 
+/** The text for a layout in the editor's list; slider, knob and selector cards describe tile in their own words. */
+export function layoutLabel(kind, layout) {
+  if (layout === 'tile' && kind === 'numctl') return 'Tile (name and room, large value, thick track)';
+  if (layout === 'tile' && kind === 'state-select') return 'Tile (name and room, options as chips)';
+  return LAYOUT_LABELS[layout] || layout;
+}
+
 /** Whether a layout shows the on/off pill by default. */
 export const layoutHasPill = layout => layout === 'tile' || layout === 'row';
 
@@ -45,6 +52,24 @@ export function controlStyle(config = {}, kind = 'button-card') {
     group: text(config.group, 24)
   };
 }
+
+/** The filter-chip group a card's config names ('' when none). */
+export const groupOf = config => String((config && config.group) || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+
+/** Chips for a list of blocks: the distinct groups in order, plus "Other" when some cards have none. [] when no card has a group. */
+export function filterChips(blocks) {
+  const groups = [];
+  let ungrouped = false;
+  for (const b of blocks || []) {
+    const g = groupOf(b && b.config);
+    if (!g) ungrouped = true; else if (!groups.includes(g)) groups.push(g);
+  }
+  if (!groups.length) return [];
+  return ungrouped ? [...groups, ''] : groups;
+}
+
+/** Whether a block shows under a filter: null is "All"; '' is the cards with no group. */
+export const matchesFilter = (block, filter) => filter == null || groupOf(block && block.config) === filter;
 
 /** Classes for the card element: cs-<layout> and cs-fill. The default layout adds none, so existing cards do not change. */
 export function styleClasses(style, kind) {

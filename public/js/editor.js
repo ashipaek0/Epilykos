@@ -8,10 +8,11 @@ import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { applyBlockStyle, fontScale } from './components/blockStyle.js';
-import { controlStyle, layoutHasPill, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
+import { controlStyle, layoutHasPill, layoutLabel, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
 import { iconHtml, buildButtonCard, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR } from './components/buttonCard.js';
+import { buildQuickActions, MAX_QUICK_ACTIONS } from './components/quickActions.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
 const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
@@ -19,6 +20,13 @@ const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
 // tapped here: actions run on the Controls page only.
 BLOCK_BUILDERS.set('button-card', function(block) {
   return buildButtonCard(Object.assign({}, block, { config: Object.assign({}, block.config, { tapAction: 'none' }) }));
+});
+
+// Quick actions preview the same way: icons, colours and live state, but no taps.
+BLOCK_BUILDERS.set('quick-actions', function(block) {
+  var cfg = Object.assign({}, block.config);
+  cfg.items = (Array.isArray(cfg.items) ? cfg.items : []).map(function(it) { return Object.assign({}, it, { tapAction: 'none' }); });
+  return buildQuickActions(Object.assign({}, block, { config: cfg }));
 });
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1502,7 +1510,7 @@ function bindSwitchPicker(kind, prefix) {
     if (label && !label.value.trim()) label.value = s.metric || s.entity;
     if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
     if (kind === 'set' && s.source === 'ha') fillRangeFromHA(s);
-    if (kind === 'button') onButtonPicked(s);
+    if (kind === 'button') onButtonPicked(s, prefix);
   });
 }
 
@@ -1571,11 +1579,11 @@ function controlStyleFields(cfg, kind, prefix) {
   var style = controlStyle(cfg, kind);
   var html = '<fieldset data-ui="section"><legend data-ui="legend">Layout</legend>';
   html += '<label data-ui="field">Layout <select id="' + prefix + '-layout" data-ui="input">' + CONTROL_LAYOUTS[kind].map(function(l) {
-    return '<option value="' + l + '"' + (l === style.layout ? ' selected' : '') + '>' + escHtml(CONTROL_LAYOUT_LABELS[l] || l) + '</option>';
+    return '<option value="' + l + '"' + (l === style.layout ? ' selected' : '') + '>' + escHtml(layoutLabel(kind, l)) + '</option>';
   }).join('') + '</select></label>';
   html += '<label data-ui="field">Sub-label <input type="text" id="' + prefix + '-sub" value="' + escHtml(style.sublabel) + '" placeholder="e.g. Living room" maxlength="40" data-ui="input"></label>';
   if (kind === 'button-card') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-pill"' + (style.pill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-pill">Show the on/off pill</label></span>';
-  if (kind === 'button-card' || kind === 'switch-block') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-fill"' + (style.fill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-fill">Fill the card with its on colour while on</label></span>';
+  if (kind !== 'state-select') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-fill"' + (style.fill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-fill">' + (kind === 'numctl' ? 'Tint the card with its accent colour' : 'Fill the card with its on colour while on') + '</label></span>';
   html += '<label data-ui="field">Group <input type="text" id="' + prefix + '-group" value="' + escHtml(style.group) + '" placeholder="e.g. Lights" maxlength="24" data-ui="input"></label>';
   html += '<p data-ui="help">The group becomes a filter chip at the top of the Controls page (All, Lights, Security...). Cards with the same group name share a chip.</p>';
   return html + '</fieldset>';
@@ -1625,16 +1633,42 @@ var ICON_GUESSES = [[/\b(a\/?c|air ?con|aircon)\b/i, 'mdi:air-conditioner'], [/f
   [/fridge|freezer/i, 'mdi:fridge'], [/server|nas|computer|pc\b/i, 'mdi:desktop-tower-monitor'], [/tv|television/i, 'mdi:television'], [/buzz|bell|alarm|siren/i, 'mdi:bell'],
   [/pump/i, 'mdi:water-pump'], [/heat|boiler|geyser/i, 'mdi:water-boiler'], [/wash/i, 'mdi:washing-machine'], [/kettle/i, 'mdi:kettle'], [/router|wifi/i, 'mdi:router-wireless'],
   [/gate/i, 'mdi:gate'], [/garage/i, 'mdi:garage'], [/generator|gen\b/i, 'mdi:generator-stationary'], [/charger|ev\b/i, 'mdi:ev-station'], [/socket|plug|outlet/i, 'mdi:power-socket-uk']];
-function onButtonPicked(s) {
-  var tap = document.getElementById('modal-btn-tap');
+function onButtonPicked(s, prefix) {
+  prefix = prefix || 'modal-btn';
+  var tap = document.getElementById(prefix + '-tap');
   if (tap && s.pressAction && !s.action) tap.value = 'press';
-  var icon = document.getElementById('modal-btn-icon');
+  var icon = document.getElementById(prefix + '-icon');
   if (icon && !icon.value.trim()) {
-    var name = (document.getElementById('modal-btn-name') || {}).value || s.metric || s.entity;
+    var name = (document.getElementById(prefix + '-name') || {}).value || s.metric || s.entity;
     var hit = ICON_GUESSES.find(function(g) { return g[0].test(name); });
     icon.value = hit ? hit[1] : (s.pressAction && !s.action ? 'mdi:gesture-tap-button' : 'mdi:power');
     icon.dispatchEvent(new Event('input', { bubbles: true }));
   }
+}
+
+/** Quick actions card: up to six buttons, each with what it controls, a name, icon, tap action and colours. */
+function buildQuickActionsForm(block) {
+  var cfg = block.config || {};
+  var items = Array.isArray(cfg.items) ? cfg.items : [];
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Quick actions</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-qa-title" value="' + escHtml(cfg.title || '') + '" placeholder="Optional" data-ui="input"></label>';
+  html += '<label data-ui="field">Group <input type="text" id="modal-qa-group" value="' + escHtml(cfg.group || '') + '" maxlength="24" placeholder="Optional, for the filter chips" data-ui="input"></label>';
+  html += '<p data-ui="help">Up to six buttons. Leave a button without a control to skip it.</p>';
+  html += '</fieldset>';
+  for (var i = 0; i < MAX_QUICK_ACTIONS; i++) {
+    var it = items[i] || {}, p = 'modal-qa' + i, tap = it.tapAction || 'toggle';
+    html += '<fieldset data-ui="section"><legend data-ui="legend">Button ' + (i + 1) + '</legend>';
+    html += '<div data-ui="row"><span data-ui="row-label">Control</span><div data-ui="grow">' + switchableSelect(it, 'button', p) + '</div></div>';
+    html += '<input type="hidden" id="' + p + '-action" value="' + escHtml(it.action || '') + '">';
+    html += '<div data-ui="grid2"><label data-ui="field">Name <input type="text" id="' + p + '-name" value="' + escHtml(it.name || '') + '" data-ui="input"></label>';
+    html += '<label data-ui="field">On tap <select id="' + p + '-tap" data-ui="input">' +
+      [['toggle', 'Toggle'], ['on', 'Turn on'], ['off', 'Turn off'], ['press', 'Press'], ['none', 'Nothing']]
+        .map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === tap ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>';
+    html += iconField(p + '-icon', 'Icon', it.icon || '', 'mdi:power');
+    html += '<div data-ui="grid2">' + optionalColorField(p + '-oncolor', 'Colour when on', it.onColor || '') + optionalColorField(p + '-offcolor', 'Colour when off', it.offColor || '') + '</div>';
+    html += '</fieldset>';
+  }
+  return html;
 }
 
 /** Icon previews, the name list for typing, and a filterable grid to click. */
@@ -1700,6 +1734,7 @@ function buildNumericControlForm(block) {
   html += '<div data-ui="row"><span data-ui="row-label">Unit</span><input type="text" id="modal-num-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="A, V, %, °C" data-ui="input grow"></div>';
   html += '<div data-ui="row"><span data-ui="row-label">Colour</span><input type="text" id="modal-num-color" value="' + escHtml(cfg.color || '') + '" placeholder="#f59e0b (optional)" data-ui="input grow"></div>';
   html += '</fieldset>';
+  html += controlStyleFields(cfg, 'numctl', 'modal-num');
   return html;
 }
 // A Home Assistant number knows its own range and unit: fill in what is still empty.
@@ -1746,6 +1781,7 @@ function buildStateSelectForm(block) {
   html += '<button type="button" id="state-add-row" data-ui="add">+ Add State</button>';
   html += '</fieldset>';
   html += '<script id="state-data" type="application/json">' + JSON.stringify(states).replace(/</g, '\\u003c') + '</script>';
+  html += controlStyleFields(cfg, 'state-select', 'modal-state');
   return html;
 }
 
@@ -2012,6 +2048,9 @@ function buildSettingsForm(block) {
       break;
     case 'button-card':
       html += buildButtonCardForm(block);
+      break;
+    case 'quick-actions':
+      html += buildQuickActionsForm(block);
       break;
     case 'state-select':
       html += buildStateSelectForm(block);
@@ -2547,6 +2586,23 @@ function readSettingsForm(block) {
       if (!config.entity) return 'Pick what this button controls.';
       break;
     }
+    case 'quick-actions': {
+      var qv = function(i, id) { var el = document.getElementById('modal-qa' + i + '-' + id); return el ? String(el.value).trim() : ''; };
+      var qt = document.getElementById('modal-qa-title'), qg = document.getElementById('modal-qa-group');
+      config.title = qt ? qt.value.trim() : '';
+      config.group = qg ? qg.value.replace(/\s+/g, ' ').trim().slice(0, 24) : '';
+      var qitems = [];
+      for (var qi = 0; qi < MAX_QUICK_ACTIONS; qi++) {
+        if (!qv(qi, 'entity')) continue;
+        qitems.push({
+          source: qv(qi, 'source') || 'ha', device: qv(qi, 'device'), entity: qv(qi, 'entity'), metric: qv(qi, 'metric'), action: qv(qi, 'action'),
+          name: qv(qi, 'name'), tapAction: qv(qi, 'tap') || 'toggle', icon: qv(qi, 'icon'), onColor: qv(qi, 'oncolor'), offColor: qv(qi, 'offcolor')
+        });
+      }
+      if (!qitems.length) return 'Pick what at least one button controls.';
+      config.items = qitems;
+      break;
+    }
     case 'slider-card':
     case 'rotary-card': {
       var nv = function(id) { var el = document.getElementById('modal-num-' + id); return el ? String(el.value).trim() : ''; };
@@ -2572,6 +2628,7 @@ function readSettingsForm(block) {
       }
       config.color = nv('color');
       if (config.color && !/^#[0-9a-f]{3,8}$/i.test(config.color)) return 'The colour must be a hex colour such as #f59e0b, or empty.';
+      readControlStyle(config, 'numctl', 'modal-num');
       break;
     }
     case 'state-select': {
@@ -2602,6 +2659,7 @@ function readSettingsForm(block) {
         outStates.push(out);
       }
       config.states = outStates;
+      readControlStyle(config, 'state-select', 'modal-state');
       break;
     }
     default: {
@@ -3569,6 +3627,9 @@ function wireSettingsForm(body, block) {
       break;
     case 'button-card':
       bindButtonCardForm();
+      break;
+    case 'quick-actions':
+      for (var qi = 0; qi < MAX_QUICK_ACTIONS; qi++) { bindSwitchPicker('button', 'modal-qa' + qi); bindIconPreview('modal-qa' + qi + '-icon'); }
       break;
     case 'weather-block':
       renderWeatherAlertRows(body);

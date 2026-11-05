@@ -13,6 +13,7 @@
 import { escapeHtml } from '../utils.js';
 import { createNumericController, formatValue, fractionOf, rangeOf, updateNumericControls } from './numericControl.js';
 import { accentOf } from './sliderCard.js';
+import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
 
 const CENTER = 60, TRACK_R = 46;
 /** The knob turns from 135° (bottom left) clockwise through 270° to 45° (bottom right), in SVG degrees. */
@@ -42,7 +43,8 @@ export const pointerAngle = (dx, dy) => Math.atan2(dy, dx) * 180 / Math.PI;
 export function buildRotaryCard(block = {}) {
   const config = block.config || {};
   const container = document.createElement('div');
-  container.className = 'ep-card numctl numctl-rotary is-unknown';
+  const style = controlStyle(config, 'numctl');
+  container.className = ['ep-card numctl numctl-rotary is-unknown', styleClasses(style, 'numctl')].filter(Boolean).join(' ');
   container.dataset.blockId = block.id || '';
   container.dataset.metric = config.metric || config.entity || '';
   container.dataset.source = config.source || 'ha';
@@ -60,6 +62,7 @@ export function buildRotaryCard(block = {}) {
   const unit = config.unit || '';
   container.innerHTML = `
     <div class="numctl-label">${label}</div>
+    ${subLabelHtml(style, 'numctl-sub')}
     <div class="numctl-knob" role="slider" tabindex="0" aria-label="${label}" aria-valuemin="${r.min}" aria-valuemax="${r.max}">
       <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
         <path class="knob-track" d="${arcPath(1)}"/>

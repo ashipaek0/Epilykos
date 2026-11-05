@@ -68,6 +68,11 @@ export const SHOWCASE_BLOCKS = [
 
   { type: 'switch-block', config: { entity: 'switch.generator', source: 'showcase', label: 'Generator' } },
   { type: 'button-card', config: { entity: 'switch.generator', source: 'showcase', name: 'Generator', icon: 'mdi:generator-stationary' }, gridH: 4 },
+  { type: 'quick-actions', config: { title: 'Quick actions', items: [
+    { entity: 'switch.generator', source: 'showcase', name: 'Generator', icon: 'mdi:generator-stationary' },
+    { entity: 'switch.generator', source: 'showcase', name: 'Pump', icon: 'mdi:water-pump', onColor: '#38bdf8' },
+    { entity: 'switch.generator', source: 'showcase', name: 'Lights', icon: 'mdi:lightbulb' },
+    { entity: 'switch.generator', source: 'showcase', name: 'Gate', icon: 'mdi:gate', tapAction: 'press' }] }, gridH: 3 },
   { type: 'state-select', config: { entity: 'select.inverter_mode', source: 'showcase', label: 'Inverter mode',
     states: [{ value: 'Solar first', label: 'Solar first' }, { value: 'Battery first', label: 'Battery first' }, { value: 'Grid first', label: 'Grid first' }] } },
 

@@ -61,6 +61,7 @@ const OPTIONS = {
   'weather-block': [text('title', 'Title')],
   'switch-block': [text('label', 'Label')],
   'button-card': [text('name', 'Name'), text('icon', 'Icon (mdi:name, image URL or emoji)')],
+  'quick-actions': [text('title', 'Title')],
   'state-select': [text('label', 'Label')],
   'slider-card': [text('label', 'Label'), text('unit', 'Unit')],
   'rotary-card': [text('label', 'Label'), text('unit', 'Unit')],
