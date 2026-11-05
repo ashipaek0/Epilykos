@@ -1,6 +1,8 @@
 import { escapeHtml } from '../utils.js';
 import { emptyBlock } from './emptyState.js';
 import { isStaleReading } from './readingAge.js';
+import { iconHtml } from './buttonCard.js';
+import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
 
 const SWITCH_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (the device may not
@@ -13,7 +15,8 @@ export function buildSwitchBlock(block = {}) {
   // No entity: nothing to switch, so no toggle that would send an empty action.
   if (!config.entity) return emptyBlock('Choose the switch for this block in the layout editor.', id);
   const container = document.createElement('div');
-  container.className = 'switch-block';
+  const style = controlStyle(config, 'switch-block');
+  container.className = ['switch-block', styleClasses(style, 'switch-block')].filter(Boolean).join(' ');
   container.dataset.blockId = id;
   // The state comes from the metric (HA and MQTT entities are an entity id or
   // topic, not the metric name); older cards only have `entity`.
@@ -29,8 +32,14 @@ export function buildSwitchBlock(block = {}) {
   if (config.onColor) container.style.setProperty('--switch-on-color', config.onColor);
   if (config.offColor) container.style.setProperty('--switch-off-color', config.offColor);
 
+  // Icon and sub-label come from the card's style options; with none of them the card is as it was.
+  const iconMarkup = config.icon ? `<span class="cs-icon" data-icon="${escapeHtml(config.icon)}">${iconHtml(config.icon)}</span>` : '';
+  if (config.onColor) container.style.setProperty('--cs-on', config.onColor);
+  if (config.offColor) container.style.setProperty('--cs-off', config.offColor);
   container.innerHTML = `
+    ${iconMarkup}
     <div class="switch-label">${label}</div>
+    ${subLabelHtml(style, 'cs-sub')}
     <div class="switch-control">
       <span class="switch-state"></span>
       <label class="toggle-switch action-toggle">
@@ -52,6 +61,14 @@ export function buildSwitchBlock(block = {}) {
   const stateText = (isOn) => (isOn ? onIcon : offIcon) || '';
   const setStateText = (isOn) => { if (stateEl) stateEl.textContent = stateText(isOn); };
   setStateText(false);
+
+  // In the tile and compact layouts the whole card is the switch.
+  if (style.layout === 'tile' || style.layout === 'compact') {
+    container.addEventListener('click', e => { if (!e.target.closest('.toggle-switch') && !checkbox.disabled) checkbox.click(); });
+  }
+  const paintOn = () => container.classList.toggle('is-on', checkbox.checked);
+  checkbox.addEventListener('change', paintOn);
+  paintOn();
 
   let activeController = null;
 
@@ -146,6 +163,7 @@ export function updateSwitchBlockFromState(state) {
     if (checkbox && checkbox.disabled) return; // a change is in flight
 
     if (checkbox) checkbox.checked = isOn;
+    container.classList.toggle('is-on', isOn);
     if (stateEl) {
       const onIcon = container.dataset.onIcon || '';
       const offIcon = container.dataset.offIcon || '';

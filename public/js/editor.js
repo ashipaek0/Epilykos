@@ -8,6 +8,7 @@ import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { applyBlockStyle, fontScale } from './components/blockStyle.js';
+import { controlStyle, layoutHasPill, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
 import { iconHtml, buildButtonCard, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR } from './components/buttonCard.js';
@@ -1441,7 +1442,10 @@ function buildSwitchBlockForm(block) {
   html += '<label data-ui="label">On Icon <input type="text" id="modal-switch-onicon" value="' + escHtml(cfg.onIcon || '') + '" placeholder="🔆" data-ui="input"></label>';
   html += '<label data-ui="label">Off Icon <input type="text" id="modal-switch-officon" value="' + escHtml(cfg.offIcon || '') + '" placeholder="🔅" data-ui="input"></label>';
   html += '</div>';
+  html += '<p data-ui="help">On and off icon are short texts shown beside the switch. For a picture on the card, use the icon below.</p>';
+  html += iconField('modal-switch-icon', 'Card icon', cfg.icon || '', 'mdi:lightbulb, an image address or an emoji');
   html += '</fieldset>';
+  html += controlStyleFields(cfg, 'switch-block', 'modal-switch');
   return html;
 }
 
@@ -1555,7 +1559,59 @@ function buildButtonCardForm(block) {
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-btn-showname"' + (cfg.showName !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-btn-showname">Show the name</label></span>';
   html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-btn-showstate"' + (cfg.showState !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-btn-showstate">Show the state</label></span>';
   html += '</fieldset>';
+  html += controlStyleFields(cfg, 'button-card', 'modal-btn');
   return html;
+}
+
+/**
+ * Layout, sub-label, pill, fill and group: the look of a control card (components/controlStyle.js).
+ * `kind`: 'button-card', 'switch-block', 'numctl' or 'state-select'; `prefix` the form's id prefix.
+ */
+function controlStyleFields(cfg, kind, prefix) {
+  var style = controlStyle(cfg, kind);
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Layout</legend>';
+  html += '<label data-ui="field">Layout <select id="' + prefix + '-layout" data-ui="input">' + CONTROL_LAYOUTS[kind].map(function(l) {
+    return '<option value="' + l + '"' + (l === style.layout ? ' selected' : '') + '>' + escHtml(CONTROL_LAYOUT_LABELS[l] || l) + '</option>';
+  }).join('') + '</select></label>';
+  html += '<label data-ui="field">Sub-label <input type="text" id="' + prefix + '-sub" value="' + escHtml(style.sublabel) + '" placeholder="e.g. Living room" maxlength="40" data-ui="input"></label>';
+  if (kind === 'button-card') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-pill"' + (style.pill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-pill">Show the on/off pill</label></span>';
+  if (kind === 'button-card' || kind === 'switch-block') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-fill"' + (style.fill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-fill">Fill the card with its on colour while on</label></span>';
+  html += '<label data-ui="field">Group <input type="text" id="' + prefix + '-group" value="' + escHtml(style.group) + '" placeholder="e.g. Lights" maxlength="24" data-ui="input"></label>';
+  html += '<p data-ui="help">The group becomes a filter chip at the top of the Controls page (All, Lights, Security...). Cards with the same group name share a chip.</p>';
+  return html + '</fieldset>';
+}
+/** Put the layout fields back into `config`; values equal to the defaults are left out. */
+function readControlStyle(config, kind, prefix) {
+  var el = function(id) { return document.getElementById(prefix + '-' + id); };
+  var layout = el('layout') ? el('layout').value : '';
+  if (layout && layout !== CONTROL_DEFAULT_LAYOUT[kind] && CONTROL_LAYOUTS[kind].indexOf(layout) !== -1) config.layout = layout; else delete config.layout;
+  var sub = el('sub') ? el('sub').value.replace(/\s+/g, ' ').trim().slice(0, 40) : '';
+  if (sub) config.sublabel = sub; else delete config.sublabel;
+  if (el('pill')) config.pill = el('pill').checked; else delete config.pill;
+  if (el('fill') && el('fill').checked) config.fill = true; else delete config.fill;
+  var group = el('group') ? el('group').value.replace(/\s+/g, ' ').trim().slice(0, 24) : '';
+  if (group) config.group = group; else delete config.group;
+}
+// Choosing a layout with a pill ticks the pill box (the person can still untick it).
+document.addEventListener('change', function(e) {
+  var t = e.target;
+  if (!t || !/-layout$/.test(t.id || '')) return;
+  var pill = document.getElementById(t.id.replace(/-layout$/, '-pill'));
+  if (pill) pill.checked = layoutHasPill(t.value);
+});
+/** Name list and live preview for an icon box that is not on a Button form. */
+function bindIconPreview(id) {
+  if (!document.getElementById('bc-icon-names')) {
+    var dl = document.createElement('datalist');
+    dl.id = 'bc-icon-names';
+    dl.innerHTML = Object.keys(MDI_ICONS).map(function(n) { return '<option value="mdi:' + n + '">'; }).join('');
+    document.body.appendChild(dl);
+  }
+  var input = document.getElementById(id);
+  if (input) input.addEventListener('input', function() {
+    var prev = document.getElementById(id + '-preview');
+    if (prev) prev.innerHTML = input.value.trim() ? iconHtml(input.value.trim()) : '';
+  });
 }
 
 function iconField(id, label, value, placeholder) {
@@ -2465,6 +2521,9 @@ function readSettingsForm(block) {
       if (config.offColor === '#000000' && ofEl?.dataset.dirty !== 'true') config.offColor = '';
       config.onIcon = document.getElementById('modal-switch-onicon')?.value || '';
       config.offIcon = document.getElementById('modal-switch-officon')?.value || '';
+      var swIcon = (document.getElementById('modal-switch-icon')?.value || '').trim();
+      if (swIcon) config.icon = swIcon; else delete config.icon;
+      readControlStyle(config, 'switch-block', 'modal-switch');
       break;
     }
     case 'button-card': {
@@ -2484,6 +2543,7 @@ function readSettingsForm(block) {
       config.offText = bv('offtext');
       config.showName = document.getElementById('modal-btn-showname')?.checked !== false;
       config.showState = document.getElementById('modal-btn-showstate')?.checked !== false;
+      readControlStyle(config, 'button-card', 'modal-btn');
       if (!config.entity) return 'Pick what this button controls.';
       break;
     }
@@ -3501,6 +3561,7 @@ function wireSettingsForm(body, block) {
       break;
     case 'switch-block':
       bindSwitchPicker('toggle', 'modal-switch');
+      bindIconPreview('modal-switch-icon');
       break;
     case 'slider-card':
     case 'rotary-card':
