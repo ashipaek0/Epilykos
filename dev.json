@@ -1,18 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42006993442.1",
-    "version": "1.1.1-dev+3058e6b",
-    "commit": "3058e6b84ea50d13dee487d93ca5741e8fd14af5",
-    "digest": "sha256:c0db15b7930725ad74f41de26a7a1fc8a11899cbf805f027b3deca699106fdce",
+    "buildId": "42007021675.1",
+    "version": "1.1.1-dev+29b7e48",
+    "commit": "29b7e4899519e0ed3a8af9b071bc48eb8d56ff8c",
+    "digest": "sha256:9cd32b1a003dbc1dd7a92f2e64dcb088319fdfa1e5ebe6545146eed054041b35",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-05T10:00:20Z",
+    "builtAt": "2026-11-05T10:00:28Z",
     "kind": "release",
     "notes": [
-      "Daily peak and Histogram cards: use the Daily Energy chart's frame and buttons"
+      "Controls: sub-label, tile layout, tint and group for Slider, Rotary knob and State select",
+      "Controls page: filter chips by group",
+      "Controls page: Quick actions card, one card with up to six compact buttons"
     ]
   },
   "history": [
+    {
+      "buildId": "42007021675.1",
+      "version": "1.1.1-dev+29b7e48",
+      "commit": "29b7e4899519e0ed3a8af9b071bc48eb8d56ff8c",
+      "digest": "sha256:9cd32b1a003dbc1dd7a92f2e64dcb088319fdfa1e5ebe6545146eed054041b35",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-05T10:00:28Z",
+      "kind": "release",
+      "notes": [
+        "Controls: sub-label, tile layout, tint and group for Slider, Rotary knob and State select",
+        "Controls page: filter chips by group",
+        "Controls page: Quick actions card, one card with up to six compact buttons"
+      ]
+    },
     {
       "buildId": "42006993442.1",
       "version": "1.1.1-dev+3058e6b",
@@ -359,19 +375,6 @@
       "builtAt": "2026-11-03T07:07:03Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "41594160314.1",
-      "version": "1.0.13-dev+d48fdfe",
-      "commit": "d48fdfec1ca8444d4724ac48097c24f39b5ef3ca",
-      "digest": "sha256:0de8f82dc3060047c75cb73223bbac89d84e1ed9adcfae6fdaa2b03d1b46c74a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T07:07:12Z",
-      "kind": "release",
-      "notes": [
-        "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
-        "Require at least 12 characters for a new admin password"
-      ]
     }
   ]
 }
