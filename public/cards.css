@@ -694,3 +694,92 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 /* A Tuya device that is not answering (readingAge.js): its last reading is not shown as live. */
 .switch-block.is-unavailable,
 .state-select-block.is-unavailable { opacity: 0.55; }
+
+/* ── Control card styles (components/controlStyle.js) ─────────────────────
+   Layout, sub-label, on/off pill and fill-when-on for the Button and Toggle cards, set in the layout
+   editor. A card with none of them has none of these classes and looks as it always did. */
+.button-card .bc-sub, .switch-block .cs-sub { display: none; }
+.button-card .bc-pill { display: none; }
+.button-card .bc-sub, .switch-block .cs-sub {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(clamp(.66rem, 6.5cqh, .8rem) * var(--card-font-scale, 1)); color: var(--text-secondary); line-height: 1.2;
+}
+.switch-block .cs-sub { font-size: calc(var(--fs-small, .8rem) * var(--card-font-scale, 1)); }
+/* The on/off pill on a Button card: the same track and knob as the Toggle's switch. */
+.button-card .bc-pill { position: relative; flex: none; width: 40px; height: 22px; border-radius: 999px; background: var(--switch-off-color, #a8a59e); transition: background .2s ease; }
+[data-theme="dark"] .button-card .bc-pill { background: var(--switch-off-color, #4a4a4a); }
+.button-card .bc-pill::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .2s ease; }
+[data-theme="dark"] .button-card .bc-pill::after { background: #111; }
+.button-card.is-on .bc-pill { background: var(--bc-on); }
+.button-card.is-on .bc-pill::after { transform: translateX(18px); }
+.button-card.is-unknown .bc-pill { opacity: .45; }
+.button-card.is-press .bc-pill { display: none; }
+
+/* Fill while on: the card takes a tint of its "on" colour. */
+.button-card.cs-fill.is-on, .button-card.cs-fill.is-press { background: color-mix(in srgb, var(--bc-on) 16%, var(--card-bg)); border-color: color-mix(in srgb, var(--bc-on) 55%, var(--border)); }
+.switch-block.cs-fill.is-on { background: color-mix(in srgb, var(--cs-on, var(--accent, #f59e0b)) 16%, var(--card-bg)); border-color: color-mix(in srgb, var(--cs-on, var(--accent, #f59e0b)) 55%, var(--border)); }
+
+/* Button: tile. Name, room and state on the left, the icon large on the right, the pill bottom right. */
+.button-card.cs-tile {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(44px, 36%); grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "name icon" "sub icon" "state icon" "pill pill";
+  align-items: start; justify-items: start; text-align: left; gap: 2px 8px;
+}
+.button-card.cs-tile .bc-name { grid-area: name; font-weight: 600; }
+.button-card.cs-tile .bc-sub { grid-area: sub; display: block; }
+.button-card.cs-tile .bc-state { grid-area: state; align-self: end; }
+.button-card.cs-tile .bc-icon { grid-area: icon; width: 100%; height: auto; max-height: 100%; aspect-ratio: 1; align-self: center; justify-self: end; flex: none; min-height: 0; }
+.button-card.cs-tile .bc-icon svg, .button-card.cs-tile .bc-icon img { height: 100%; width: 100%; object-fit: contain; }
+.button-card.cs-tile .bc-pill { grid-area: pill; display: block; justify-self: end; align-self: end; }
+.button-card.cs-tile.is-press .bc-pill { display: none; }
+
+/* Button: row. Icon, then name and room, then the pill. */
+.button-card.cs-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto auto;
+  grid-template-areas: "icon name pill" "icon sub pill" "icon state pill";
+  align-items: center; justify-items: start; text-align: left; gap: 0 12px; padding-block: 8px;
+}
+.button-card.cs-row .bc-icon { grid-area: icon; width: auto; height: min(70cqh, 52px); aspect-ratio: 1; flex: none; max-height: none; }
+.button-card.cs-row .bc-icon svg, .button-card.cs-row .bc-icon img { height: 100%; width: 100%; object-fit: contain; }
+.button-card.cs-row .bc-name { grid-area: name; }
+.button-card.cs-row .bc-sub { grid-area: sub; display: block; }
+.button-card.cs-row .bc-state { grid-area: state; }
+.button-card.cs-row .bc-pill { grid-area: pill; display: block; justify-self: end; }
+.button-card.cs-row.is-press .bc-pill { display: none; }
+
+/* Button: compact, for rows of quick actions. */
+.button-card.cs-compact { gap: 6px; padding: 10px 6px; border-radius: 16px; }
+.button-card.cs-compact .bc-icon { flex: none; width: auto; height: clamp(22px, 36cqh, 40px); max-height: none; }
+.button-card.cs-compact .bc-icon svg, .button-card.cs-compact .bc-icon img { height: 100%; width: auto; }
+.button-card.cs-compact .bc-name { font-size: calc(clamp(.68rem, 14cqh, .86rem) * var(--card-font-scale, 1)); text-align: center; }
+.button-card.cs-compact .bc-state, .button-card.cs-compact .bc-sub, .button-card.cs-compact .bc-pill { display: none; }
+
+/* Toggle: icon and room. The classic card is a label on the left and the switch on the right; these add to it. */
+.switch-block { container-type: size; gap: 10px; }
+.switch-block .cs-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 1.8em; height: 1.8em; color: var(--cs-off, var(--text-secondary)); transition: color .2s ease; }
+.switch-block.is-on .cs-icon { color: var(--cs-on, var(--accent, #f59e0b)); }
+.switch-block .cs-icon svg, .switch-block .cs-icon img { width: 100%; height: 100%; object-fit: contain; }
+.switch-block .cs-icon .bc-emoji { font-size: 1.5em; }
+.switch-block > .switch-label { flex: 1 1 auto; min-width: 0; }
+.switch-block.cs-row, .switch-block.cs-tile, .switch-block.cs-compact { align-items: center; }
+.switch-block.cs-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon label control" "icon sub control"; column-gap: 12px; }
+.switch-block.cs-row .cs-icon { grid-area: icon; width: 2.2em; height: 2.2em; }
+.switch-block.cs-row .switch-label { grid-area: label; align-self: end; }
+.switch-block.cs-row .cs-sub { grid-area: sub; display: block; align-self: start; }
+.switch-block.cs-row .switch-control { grid-area: control; }
+.switch-block.cs-tile {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(44px, 36%); grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "label icon" "sub icon" ". icon" "control control"; align-items: start; gap: 2px 8px; cursor: pointer;
+}
+.switch-block.cs-tile .switch-label { grid-area: label; font-weight: 600; }
+.switch-block.cs-tile .cs-sub { grid-area: sub; display: block; }
+.switch-block.cs-tile .cs-icon { grid-area: icon; width: 100%; height: auto; max-height: 100%; aspect-ratio: 1; align-self: center; justify-self: end; }
+.switch-block.cs-tile .switch-control { grid-area: control; justify-self: end; align-self: end; }
+.switch-block.cs-compact { flex-direction: column; justify-content: center; gap: 6px; text-align: center; cursor: pointer; padding: 10px 6px !important; border-radius: 16px; }
+.switch-block.cs-compact .cs-icon { width: clamp(22px, 36cqh, 40px); height: clamp(22px, 36cqh, 40px); }
+.switch-block.cs-compact .switch-label { flex: none; font-size: calc(clamp(.68rem, 14cqh, .86rem) * var(--card-font-scale, 1)); }
+.switch-block.cs-compact .cs-sub { display: none; }
+/* The whole compact card is the switch; the real checkbox stays for keyboards and screen readers. */
+.switch-block.cs-compact .switch-control { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.switch-block.cs-compact { position: relative; }
+.switch-block.cs-compact:focus-within { outline: 2px solid var(--cs-on, var(--accent, #f59e0b)); outline-offset: 2px; }
