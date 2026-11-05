@@ -17,6 +17,9 @@
  *   energy_total             lifetime kWh from power (never resets; `start`
  *                            sets the starting value)
  *   counter_today            today's increase of a lifetime counter
+ *   peak_today               the highest value so far today (inputs summed first, e.g. all PV
+ *                            strings -> the day's peak solar power), starting again at local
+ *                            midnight; the last value of a day is that day's peak
  *
  * An input counts only while it is fresh (updated within `stale_seconds`,
  * default 300). With `missing: 'skip'` (default) nothing is written while any
@@ -37,7 +40,7 @@ const { localDateString } = require('./localTime');
 
 const CONFIG_KEY = 'combined_metrics';
 const STATE_KEY = 'combined_metrics_state';
-const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today'];
+const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today', 'peak_today'];
 const ENERGY_FNS = new Set(['energy_today', 'energy_total']);
 const MAX_GAP_SECONDS = 600;
 const MAX_INPUTS = 64;   // e.g. 6 inverters x 4 MPPTs fits with room to spare
@@ -171,6 +174,13 @@ function evaluate(def, read, prevState, now) {
       }
       s.last = vals[0];
       return { value: Math.max(0, (s.carried || 0) + vals[0] - s.base), state: s };
+    }
+    case 'peak_today': {
+      const today = localDateString(new Date(now * 1000));
+      const s = { ...(prevState || {}) };
+      if (s.day !== today || !Number.isFinite(s.peak)) { s.day = today; s.peak = sum; }
+      else if (sum > s.peak) s.peak = sum;
+      return { value: s.peak, state: s };
     }
     default: return { skip: 'unknown calculation' };
   }
