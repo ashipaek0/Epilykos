@@ -42,6 +42,7 @@ import { buildSliderCard } from './sliderCard.js';
 import { buildRotaryCard } from './rotaryCard.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
 import { buildControlPlaceholder } from './controlPlaceholder.js';
+import { buildPeakBars, buildPeakHistogram } from './peakCharts.js';
 import { registerBlock } from './blockRegistry.js';
 
 export const componentBuilders = {
@@ -72,6 +73,8 @@ export const componentBuilders = {
   'iframe-card': buildIframeCard,
   'forecast-pvtoday': buildPvToday,
   'energy-day': buildEnergyDay,
+  'peak-bars': buildPeakBars,
+  'peak-histogram': buildPeakHistogram,
   'energy-totals': buildEnergyTotals,
   'energy-flows': buildEnergyFlows,
   'energy-costs': buildEnergyCosts,

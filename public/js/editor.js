@@ -1381,6 +1381,22 @@ function buildSimpleForm(block) {
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-forecast"' + (cfg.showForecast !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-forecast">Show forecast at first</label></span>';
     html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-ed-battery"' + (cfg.showBattery !== false ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-ed-battery">Battery charge panel</label></span>';
     html += '<p data-ui="help">Forecasts use Settings \u203a Prices and savings (battery capacity and lowest charge) and your solar forecast source. The consumption forecast starts after 3 days of history.</p>';
+  } else if (block.type === 'peak-bars' || block.type === 'peak-histogram') {
+    var pkHist = block.type === 'peak-histogram';
+    var pkOpt = function(value, label, current) { return '<option value="' + value + '"' + (String(current) === String(value) ? ' selected' : '') + '>' + label + '</option>'; };
+    html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" placeholder="' + (pkHist ? 'Solar power histogram' : 'Daily peak solar power') + '" data-ui="input"></label>';
+    html += '<label data-ui="field">What to chart <select id="modal-pk-source" data-ui="input">' + pkOpt('solar', 'Solar power (from the stored readings)', cfg.source === 'metric' ? 'metric' : 'solar') + pkOpt('metric', 'A metric’s highest value each day', cfg.source === 'metric' ? 'metric' : 'solar') + '</select></label>';
+    html += '<label data-ui="field">Metric (when charting a metric) ' + metricSelect(cfg.metric || '', 'modal-pk-metric') + '</label>';
+    html += '<div data-ui="grid2"><label data-ui="field">Unit <input type="text" id="modal-pk-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="e.g. W" maxlength="12" data-ui="input"></label>';
+    html += '<label data-ui="field">Multiply by <input type="number" id="modal-pk-scale" value="' + escHtml(cfg.scale == null ? '' : String(cfg.scale)) + '" placeholder="1 (0.001 for W to kW)" step="any" data-ui="input"></label></div>';
+    html += '<p data-ui="help">Unit and multiply-by apply to a metric; solar power is shown in kW. A “Highest today” combined metric (Settings › Metrics) gives each day’s peak from the day it was saved; solar power has a peak for every day on record.</p>';
+    html += '<label data-ui="field">Days shown at first <select id="modal-pk-days" data-ui="input">' + pkOpt(30, '30 days', cfg.days || 30) + pkOpt(90, '90 days', cfg.days) + pkOpt(365, '1 year', cfg.days) + '</select></label>';
+    if (pkHist) {
+      html += '<label data-ui="field">Count <select id="modal-pk-mode" data-ui="input">' + pkOpt('peaks', 'Days by their peak', cfg.mode === 'time' ? 'time' : 'peaks') + pkOpt('time', 'Hours at each solar power (solar only)', cfg.mode === 'time' ? 'time' : 'peaks') + '</select></label>';
+      html += '<label data-ui="field">Bands <input type="number" id="modal-pk-bins" min="4" max="30" step="1" value="' + escHtml(String(cfg.bins || 10)) + '" data-ui="input"></label>';
+      html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="modal-pk-night"' + (cfg.includeNight === true ? ' checked' : '') + '><span class="slider"></span></label><label for="modal-pk-night">Count the night (readings under 10 W) in hours at power</label></span>';
+    }
+    html += '<label data-ui="field">Bar colour <input type="text" id="modal-pk-color" value="' + escHtml(cfg.color || '') + '" placeholder="Solar colour (or a hex like #f59e0b)" data-ui="input"></label>';
   } else if (block.type === 'weather-block') {
     html += '<label data-ui="field">Title <input type="text" id="modal-simple-title" value="' + escHtml(cfg.title || '') + '" data-ui="input"></label>';
   } else if (block.type === 'forecast-banner' || block.type === 'forecast-info' || block.type === 'forecast-sparkline') {
@@ -2583,6 +2599,33 @@ function readSettingsForm(block) {
         var edF = document.getElementById('modal-ed-forecast'), edB = type === 'energy-day' ? document.getElementById('modal-ed-battery') : null;
         if (edF) config.showForecast = edF.checked;
         if (edB) config.showBattery = edB.checked;
+      }
+      if (type === 'peak-bars' || type === 'peak-histogram') {
+        var pkSrc = document.getElementById('modal-pk-source').value === 'metric' ? 'metric' : 'solar';
+        var pkMetric = document.getElementById('modal-pk-metric').value;
+        if (pkSrc === 'metric' && !pkMetric) return 'Pick the metric to chart, or choose solar power.';
+        config.source = pkSrc;
+        if (pkSrc === 'metric') {
+          config.metric = pkMetric;
+          var pkUnit = document.getElementById('modal-pk-unit').value.trim().slice(0, 12);
+          if (pkUnit) config.unit = pkUnit; else delete config.unit;
+          var pkScale = document.getElementById('modal-pk-scale').value.trim();
+          if (pkScale !== '') {
+            if (!isFinite(Number(pkScale)) || Number(pkScale) === 0) return 'Multiply by must be a number other than zero, or empty.';
+            config.scale = Number(pkScale);
+          } else delete config.scale;
+        } else { delete config.metric; delete config.unit; delete config.scale; }
+        config.days = Number(document.getElementById('modal-pk-days').value) || 30;
+        var pkColor = document.getElementById('modal-pk-color').value.trim();
+        if (pkColor && !/^#[0-9a-f]{6}$/i.test(pkColor)) return 'The bar colour must be a hex colour such as #f59e0b, or empty.';
+        if (pkColor) config.color = pkColor; else delete config.color;
+        if (type === 'peak-histogram') {
+          config.mode = pkSrc === 'solar' && document.getElementById('modal-pk-mode').value === 'time' ? 'time' : 'peaks';
+          var pkBins = parseInt(document.getElementById('modal-pk-bins').value, 10);
+          if (!isFinite(pkBins) || pkBins < 4 || pkBins > 30) return 'Bands: a whole number from 4 to 30.';
+          config.bins = pkBins;
+          config.includeNight = document.getElementById('modal-pk-night').checked;
+        }
       }
       if (type === 'savings-summary') {
         SAVINGS_PERIODS.forEach(function (p) {

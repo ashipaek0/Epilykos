@@ -463,6 +463,10 @@
 .ed-swatch-dots { border-top-style: dotted; }
 .ed-status { margin: 0; flex-shrink: 0; font-size: calc(0.72rem * var(--card-font-scale, 1)); color: var(--text-secondary); }
 .ed-status:empty { display: none; }
+/* Daily peak and Histogram cards: the energy day card's frame with range and mode buttons. */
+.pk-ranges, .pk-modes { display: inline-flex; gap: 4px; }
+.pk-range[aria-pressed="true"], .pk-mode[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--color-text-on-accent, #1a1204); font-weight: 600; }
+.pk-panel { flex: 1 1 auto; min-height: 140px; }
 
 /* ── Day totals card ───────────────────────────────────────────────────── */
 .energy-totals-card { height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; min-height: 0; container-type: inline-size; }

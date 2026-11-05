@@ -110,6 +110,8 @@ export const BLOCKS = {
   'chart-power':        { group: 'charts', name: 'Power chart', desc: 'Solar, load, battery and grid power over time', icon: 'chartLine', w: 12, h: 6 },
   'chart-energy':       { group: 'charts', name: 'Energy chart', desc: 'Daily solar, grid and load energy as bars', icon: 'chartArea', w: 12, h: 6 },
   'energy-day':         { group: 'charts', name: 'Energy day', desc: 'Hourly consumption, solar and generator with forecast, and battery charge', icon: 'chartArea', w: 12, h: 7 },
+  'peak-bars':          { group: 'charts', name: 'Daily peak', desc: 'The highest solar power of each day as bars (or any metric\'s daily highest)', icon: 'chartArea', w: 12, h: 6 },
+  'peak-histogram':     { group: 'charts', name: 'Histogram', desc: 'How often each power level happens: days by their peak, or hours at each solar power', icon: 'chartArea', w: 6, h: 6 },
   'energy-flows':       { group: 'charts', name: 'Energy flows', desc: 'Where each hour\'s energy came from and went: solar, battery, grid, generator, home', icon: 'stack', w: 12, h: 6 },
   'energy-costs':       { group: 'charts', name: 'Costs and earnings', desc: 'Grid and generator costs, grid earnings and battery wear per hour, with day totals', icon: 'coin', w: 12, h: 8 },
   'energy-tabs':        { group: 'charts', name: 'Energy, tabbed', desc: 'Energy day, flows, costs and day totals in one card, one tab each', icon: 'layers', w: 12, h: 9 },
