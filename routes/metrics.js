@@ -19,6 +19,7 @@ const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../mo
 const { computeSavings } = require('../modules/solarValue');
 const { readHourlyEnergy } = require('../modules/energyHourly');
 const { hourlyForecast, projectBattery } = require('../modules/energyForecast');
+const peaks = require('../modules/peaks');
 
 const { getCurrentMetrics } = require('../modules/metrics');
 
@@ -395,6 +396,61 @@ router.get('/daily', async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('Error in /api/daily:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Peaks and histograms (Daily peak and Histogram cards; modules/peaks.js) ──
+const MAX_PEAK_DAYS = 3660;
+function peakParams(req) {
+  const days = parseInt(req.query.days, 10);
+  const source = req.query.source === 'metric' ? 'metric' : 'solar';
+  const metric = String(req.query.metric || '').trim().slice(0, 200);
+  if (!Number.isInteger(days) || days < 1 || days > MAX_PEAK_DAYS) return { error: `days must be a whole number from 1 to ${MAX_PEAK_DAYS}` };
+  if (source === 'metric' && !metric) return { error: 'metric is needed when source is metric' };
+  const now = new Date(), { from, fromDay } = peaks.windowOf(days, now);
+  return { days, source, metric, now, from, fromDay, to: Math.floor(now.getTime() / 1000) + 1 };
+}
+function peakMap(db, p) {
+  return p.source === 'metric' ? peaks.dailyMetricPeaks(db, p.metric, p.from, p.to, p.fromDay) : peaks.dailySolarPeaks(db, p.from, p.to, p.fromDay);
+}
+
+/** The highest value of each of the last `days` days: stored solar power (W) or one metric's daily highest. */
+router.get('/peaks', (req, res) => {
+  const p = peakParams(req);
+  if (p.error) return res.status(400).json({ error: p.error });
+  try {
+    const series = peaks.peaksSeries(peakMap(getDb(), p), p.days, p.now);
+    const values = series.map(d => d.value).filter(v => v !== null);
+    const best = series.reduce((b, d) => (d.value !== null && (!b || d.value > b.value) ? d : b), null);
+    res.json({ source: p.source, metric: p.source === 'metric' ? p.metric : undefined, unit: p.source === 'solar' ? 'W' : undefined, days: series, highest: best, median: peaks.median(values), daysWithData: values.length });
+  } catch (err) {
+    logger.error('Error in /api/peaks:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * A histogram: mode=peaks counts days by their peak; mode=time (solar only) counts hours by
+ * the 5-minute average power, night left out unless night=1.
+ */
+router.get('/histogram', (req, res) => {
+  const p = peakParams(req);
+  if (p.error) return res.status(400).json({ error: p.error });
+  const mode = req.query.mode === 'time' ? 'time' : 'peaks';
+  const bins = Math.min(40, Math.max(2, parseInt(req.query.bins, 10) || 10));
+  try {
+    const db = getDb();
+    if (mode === 'time') {
+      const includeNight = req.query.night === '1' || req.query.night === 'true';
+      const samples = peaks.solarPowerSamples(db, p.from, p.to, { includeNight });
+      const h = peaks.histogram(samples, { bins, fromZero: true, weight: 5 / 60 });
+      return res.json({ mode, source: 'solar', unit: 'W', includeNight, nightBelowWatts: includeNight ? 0 : peaks.NIGHT_WATTS, ...h });
+    }
+    const values = [...peakMap(db, p).values()];
+    res.json({ mode, source: p.source, metric: p.source === 'metric' ? p.metric : undefined, unit: p.source === 'solar' ? 'W' : undefined, ...peaks.histogram(values, { bins }) });
+  } catch (err) {
+    logger.error('Error in /api/histogram:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
