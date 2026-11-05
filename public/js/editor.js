@@ -12,6 +12,7 @@ import { controlStyle, layoutHasPill, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
 import { iconHtml, buildButtonCard, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR } from './components/buttonCard.js';
+import { buildQuickActions, MAX_QUICK_ACTIONS } from './components/quickActions.js';
 // Builders by block type. A Map has no inherited entries, so a saved or imported
 // layout naming "constructor" / "toString" can never resolve to a callable.
 const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
@@ -19,6 +20,13 @@ const BLOCK_BUILDERS = new Map(Object.entries(componentBuilders));
 // tapped here: actions run on the Controls page only.
 BLOCK_BUILDERS.set('button-card', function(block) {
   return buildButtonCard(Object.assign({}, block, { config: Object.assign({}, block.config, { tapAction: 'none' }) }));
+});
+
+// Quick actions preview the same way: icons, colours and live state, but no taps.
+BLOCK_BUILDERS.set('quick-actions', function(block) {
+  var cfg = Object.assign({}, block.config);
+  cfg.items = (Array.isArray(cfg.items) ? cfg.items : []).map(function(it) { return Object.assign({}, it, { tapAction: 'none' }); });
+  return buildQuickActions(Object.assign({}, block, { config: cfg }));
 });
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1502,7 +1510,7 @@ function bindSwitchPicker(kind, prefix) {
     if (label && !label.value.trim()) label.value = s.metric || s.entity;
     if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
     if (kind === 'set' && s.source === 'ha') fillRangeFromHA(s);
-    if (kind === 'button') onButtonPicked(s);
+    if (kind === 'button') onButtonPicked(s, prefix);
   });
 }
 
@@ -1625,16 +1633,42 @@ var ICON_GUESSES = [[/\b(a\/?c|air ?con|aircon)\b/i, 'mdi:air-conditioner'], [/f
   [/fridge|freezer/i, 'mdi:fridge'], [/server|nas|computer|pc\b/i, 'mdi:desktop-tower-monitor'], [/tv|television/i, 'mdi:television'], [/buzz|bell|alarm|siren/i, 'mdi:bell'],
   [/pump/i, 'mdi:water-pump'], [/heat|boiler|geyser/i, 'mdi:water-boiler'], [/wash/i, 'mdi:washing-machine'], [/kettle/i, 'mdi:kettle'], [/router|wifi/i, 'mdi:router-wireless'],
   [/gate/i, 'mdi:gate'], [/garage/i, 'mdi:garage'], [/generator|gen\b/i, 'mdi:generator-stationary'], [/charger|ev\b/i, 'mdi:ev-station'], [/socket|plug|outlet/i, 'mdi:power-socket-uk']];
-function onButtonPicked(s) {
-  var tap = document.getElementById('modal-btn-tap');
+function onButtonPicked(s, prefix) {
+  prefix = prefix || 'modal-btn';
+  var tap = document.getElementById(prefix + '-tap');
   if (tap && s.pressAction && !s.action) tap.value = 'press';
-  var icon = document.getElementById('modal-btn-icon');
+  var icon = document.getElementById(prefix + '-icon');
   if (icon && !icon.value.trim()) {
-    var name = (document.getElementById('modal-btn-name') || {}).value || s.metric || s.entity;
+    var name = (document.getElementById(prefix + '-name') || {}).value || s.metric || s.entity;
     var hit = ICON_GUESSES.find(function(g) { return g[0].test(name); });
     icon.value = hit ? hit[1] : (s.pressAction && !s.action ? 'mdi:gesture-tap-button' : 'mdi:power');
     icon.dispatchEvent(new Event('input', { bubbles: true }));
   }
+}
+
+/** Quick actions card: up to six buttons, each with what it controls, a name, icon, tap action and colours. */
+function buildQuickActionsForm(block) {
+  var cfg = block.config || {};
+  var items = Array.isArray(cfg.items) ? cfg.items : [];
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Quick actions</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-qa-title" value="' + escHtml(cfg.title || '') + '" placeholder="Optional" data-ui="input"></label>';
+  html += '<label data-ui="field">Group <input type="text" id="modal-qa-group" value="' + escHtml(cfg.group || '') + '" maxlength="24" placeholder="Optional, for the filter chips" data-ui="input"></label>';
+  html += '<p data-ui="help">Up to six buttons. Leave a button without a control to skip it.</p>';
+  html += '</fieldset>';
+  for (var i = 0; i < MAX_QUICK_ACTIONS; i++) {
+    var it = items[i] || {}, p = 'modal-qa' + i, tap = it.tapAction || 'toggle';
+    html += '<fieldset data-ui="section"><legend data-ui="legend">Button ' + (i + 1) + '</legend>';
+    html += '<div data-ui="row"><span data-ui="row-label">Control</span><div data-ui="grow">' + switchableSelect(it, 'button', p) + '</div></div>';
+    html += '<input type="hidden" id="' + p + '-action" value="' + escHtml(it.action || '') + '">';
+    html += '<div data-ui="grid2"><label data-ui="field">Name <input type="text" id="' + p + '-name" value="' + escHtml(it.name || '') + '" data-ui="input"></label>';
+    html += '<label data-ui="field">On tap <select id="' + p + '-tap" data-ui="input">' +
+      [['toggle', 'Toggle'], ['on', 'Turn on'], ['off', 'Turn off'], ['press', 'Press'], ['none', 'Nothing']]
+        .map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === tap ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>';
+    html += iconField(p + '-icon', 'Icon', it.icon || '', 'mdi:power');
+    html += '<div data-ui="grid2">' + optionalColorField(p + '-oncolor', 'Colour when on', it.onColor || '') + optionalColorField(p + '-offcolor', 'Colour when off', it.offColor || '') + '</div>';
+    html += '</fieldset>';
+  }
+  return html;
 }
 
 /** Icon previews, the name list for typing, and a filterable grid to click. */
@@ -2012,6 +2046,9 @@ function buildSettingsForm(block) {
       break;
     case 'button-card':
       html += buildButtonCardForm(block);
+      break;
+    case 'quick-actions':
+      html += buildQuickActionsForm(block);
       break;
     case 'state-select':
       html += buildStateSelectForm(block);
@@ -2545,6 +2582,23 @@ function readSettingsForm(block) {
       config.showState = document.getElementById('modal-btn-showstate')?.checked !== false;
       readControlStyle(config, 'button-card', 'modal-btn');
       if (!config.entity) return 'Pick what this button controls.';
+      break;
+    }
+    case 'quick-actions': {
+      var qv = function(i, id) { var el = document.getElementById('modal-qa' + i + '-' + id); return el ? String(el.value).trim() : ''; };
+      var qt = document.getElementById('modal-qa-title'), qg = document.getElementById('modal-qa-group');
+      config.title = qt ? qt.value.trim() : '';
+      config.group = qg ? qg.value.replace(/\s+/g, ' ').trim().slice(0, 24) : '';
+      var qitems = [];
+      for (var qi = 0; qi < MAX_QUICK_ACTIONS; qi++) {
+        if (!qv(qi, 'entity')) continue;
+        qitems.push({
+          source: qv(qi, 'source') || 'ha', device: qv(qi, 'device'), entity: qv(qi, 'entity'), metric: qv(qi, 'metric'), action: qv(qi, 'action'),
+          name: qv(qi, 'name'), tapAction: qv(qi, 'tap') || 'toggle', icon: qv(qi, 'icon'), onColor: qv(qi, 'oncolor'), offColor: qv(qi, 'offcolor')
+        });
+      }
+      if (!qitems.length) return 'Pick what at least one button controls.';
+      config.items = qitems;
       break;
     }
     case 'slider-card':
@@ -3569,6 +3623,9 @@ function wireSettingsForm(body, block) {
       break;
     case 'button-card':
       bindButtonCardForm();
+      break;
+    case 'quick-actions':
+      for (var qi = 0; qi < MAX_QUICK_ACTIONS; qi++) { bindSwitchPicker('button', 'modal-qa' + qi); bindIconPreview('modal-qa' + qi + '-icon'); }
       break;
     case 'weather-block':
       renderWeatherAlertRows(body);

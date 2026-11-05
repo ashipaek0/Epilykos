@@ -69,7 +69,7 @@ test('wired into Controls, the editor, showcase and HA entities', () => {
   const index = read('public/js/components/index.js');
   assert.match(index, /'button-card': buildButtonCard/);
   assert.match(index, /'button-card': buildControlPlaceholder/);
-  assert.match(read('public/js/cards-update.js'), /blockTypes\.has\('button-card'\)\) updateButtonCardsFromState/);
+  assert.match(read('public/js/cards-update.js'), /blockTypes\.has\('button-card'\) \|\| blockTypes\.has\('quick-actions'\)\) updateButtonCardsFromState/);
   assert.match(read('public/js/editor-catalog.js'), /'button-card':\s+\{ group: 'controls'/);
   const editor = read('public/js/editor.js');
   assert.match(editor, /case 'button-card':\s+html \+= buildButtonCardForm\(block\)/);
