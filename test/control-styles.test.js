@@ -11,7 +11,7 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 (async () => {
   // escapeHtml uses the DOM; a tiny stand-in is enough to check the output is escaped.
   global.document = { createElement: () => { const el = { set textContent(v) { this._t = String(v); }, get innerHTML() { return this._t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }; return el; } };
-  const { controlStyle, styleClasses, subLabelHtml, LAYOUTS, DEFAULT_LAYOUT } =
+  const { controlStyle, styleClasses, subLabelHtml, LAYOUTS, DEFAULT_LAYOUT, groupOf, filterChips, matchesFilter } =
     await import(pathToFileURL(path.join(__dirname, '..', 'public/js/components/controlStyle.js')).href);
 
   // A card with no style options looks as it always did.
@@ -50,6 +50,18 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   assert.ok(html.includes('&lt;img') && !html.includes('<img'), 'the sub-label is escaped');
   console.log('ok - style settings');
 
+  // Filter chips on the Controls page.
+  const B = (group) => ({ config: group === undefined ? {} : { group } });
+  assert.equal(groupOf({ group: '  Living   room ' }), 'Living room'); assert.equal(groupOf(null), ''); assert.equal(groupOf({ group: 'z'.repeat(40) }).length, 24);
+  assert.deepEqual(filterChips([B(), B('')]), [], 'no groups, no chips');
+  assert.deepEqual(filterChips([]), []); assert.deepEqual(filterChips(null), []);
+  assert.deepEqual(filterChips([B('Lights'), B('Water'), B('Lights')]), ['Lights', 'Water'], 'in order, no repeats');
+  assert.deepEqual(filterChips([B('Lights'), B(), B('Water')]), ['Lights', 'Water', ''], 'cards with no group get "Other" (the empty name)');
+  assert.equal(matchesFilter(B('Lights'), null), true, 'All shows everything');
+  assert.equal(matchesFilter(B('Lights'), 'Lights'), true); assert.equal(matchesFilter(B('Water'), 'Lights'), false);
+  assert.equal(matchesFilter(B(), ''), true, 'Other shows the cards with no group'); assert.equal(matchesFilter(B('Lights'), ''), false);
+  console.log('ok - filter chips');
+
   // Wired in.
   const bc = read('public/js/components/buttonCard.js'), sw = read('public/js/components/switchBlock.js');
   for (const [name, src] of [['button card', bc], ['toggle card', sw]]) {
@@ -66,6 +78,10 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   for (const sel of ['.button-card.cs-tile', '.button-card.cs-row', '.button-card.cs-compact', '.switch-block.cs-tile', '.switch-block.cs-row', '.switch-block.cs-compact', '.cs-fill', '.bc-pill'])
     assert.ok(css.includes(sel), 'stylesheet has ' + sel);
   assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public/_ctl-preview.html')), 'no preview page left behind');
+  const page = read('private/pages/controls.html'), ctl = read('private/js/controls.js');
+  assert.ok(page.includes('id="ct-filters"'), 'the page has the chip row');
+  assert.ok(ctl.includes('filterChips(') && ctl.includes('matchesFilter('), 'the Controls page filters by group');
+  assert.ok(read('private/css/private.css').includes('.ct-filter'), 'chip styles');
   console.log('ok - wiring');
   checks.done && checks.done();
 })().catch(e => { console.error(e); process.exit(1); });
