@@ -29,6 +29,13 @@ export const LAYOUT_LABELS = {
   compact: 'Compact (small icon over the name, for quick actions)', row: 'Row (icon, name, toggle pill)'
 };
 
+/** The text for a layout in the editor's list; slider, knob and selector cards describe tile in their own words. */
+export function layoutLabel(kind, layout) {
+  if (layout === 'tile' && kind === 'numctl') return 'Tile (name and room, large value, thick track)';
+  if (layout === 'tile' && kind === 'state-select') return 'Tile (name and room, options as chips)';
+  return LAYOUT_LABELS[layout] || layout;
+}
+
 /** Whether a layout shows the on/off pill by default. */
 export const layoutHasPill = layout => layout === 'tile' || layout === 'row';
 

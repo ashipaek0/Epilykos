@@ -796,3 +796,35 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
   grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); grid-auto-rows: minmax(0, 1fr);
 }
 .quick-actions .button-card { min-height: 0; }
+
+/* ── Slider, knob and State select: sub-label, tile layout, tint (components/controlStyle.js) ── */
+.numctl-sub, .state-select-sub { font-size: calc(.76rem * var(--card-font-scale, 1)); color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.state-select-sub { margin: -.35rem 0 .5rem; }
+.numctl.cs-fill { background: color-mix(in srgb, var(--nc-accent) 14%, var(--card-bg)); border-color: color-mix(in srgb, var(--nc-accent) 45%, var(--border)); }
+
+/* Slider and knob tile: name and room at the top left, the value large, a thick track. */
+.numctl.cs-tile { border-radius: 24px; padding: 16px 18px !important; gap: 4px; justify-content: space-between; align-items: stretch; text-align: left; }
+.numctl.cs-tile .numctl-head { display: contents; }
+.numctl.cs-tile .numctl-label { order: 1; font-size: calc(.95rem * var(--card-font-scale, 1)); font-weight: 700; }
+.numctl.cs-tile .numctl-sub { order: 2; }
+.numctl.cs-tile .numctl-value { order: 3; font-size: calc(2rem * var(--card-font-scale, 1)); font-weight: 700; line-height: 1.1; margin-top: auto; }
+.numctl-slider.cs-tile .numctl-range { order: 4; height: 32px; }
+.numctl-slider.cs-tile .numctl-scale { order: 5; }
+.numctl-slider.cs-tile .numctl-status { order: 6; }
+.numctl-slider.cs-tile .numctl-range::-webkit-slider-runnable-track { height: 14px; border-radius: 10px; }
+.numctl-slider.cs-tile .numctl-range::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -7px; }
+.numctl-slider.cs-tile .numctl-range::-moz-range-track, .numctl-slider.cs-tile .numctl-range::-moz-range-progress { height: 14px; border-radius: 10px; }
+.numctl-slider.cs-tile .numctl-range::-moz-range-thumb { width: 22px; height: 22px; }
+.numctl-rotary.cs-tile .numctl-knob { order: 3; align-self: center; margin-top: auto; }
+.numctl-rotary.cs-tile .numctl-knob .numctl-value { margin-top: 0; font-size: calc(1.25rem * var(--card-font-scale, 1)); }
+.numctl-rotary.cs-tile .numctl-scale { order: 5; align-self: center; }
+.numctl-rotary.cs-tile .numctl-status { order: 6; }
+
+/* State select tile: name and room above, the options as round chips. */
+.state-select-block.cs-tile { border-radius: 24px; padding: 16px 18px !important; }
+.state-select-block.cs-tile .state-select-label { font-weight: 700; }
+.state-select-block.cs-tile .state-select-label:has(+ .state-select-sub) { margin-bottom: .1rem; }
+.state-select-block.cs-tile .state-select-sub { margin: 0 0 .6rem; }
+.state-select-block.cs-tile .state-select-buttons { gap: .5rem; }
+.state-select-block.cs-tile .state-btn { border-radius: 999px; padding-inline: 1rem; }
+.state-select-block.cs-tile .state-select-dropdown { border-radius: 999px; }

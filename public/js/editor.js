@@ -8,7 +8,7 @@ import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { applyBlockStyle, fontScale } from './components/blockStyle.js';
-import { controlStyle, layoutHasPill, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
+import { controlStyle, layoutHasPill, layoutLabel, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
 import { iconHtml, buildButtonCard, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR } from './components/buttonCard.js';
@@ -1579,11 +1579,11 @@ function controlStyleFields(cfg, kind, prefix) {
   var style = controlStyle(cfg, kind);
   var html = '<fieldset data-ui="section"><legend data-ui="legend">Layout</legend>';
   html += '<label data-ui="field">Layout <select id="' + prefix + '-layout" data-ui="input">' + CONTROL_LAYOUTS[kind].map(function(l) {
-    return '<option value="' + l + '"' + (l === style.layout ? ' selected' : '') + '>' + escHtml(CONTROL_LAYOUT_LABELS[l] || l) + '</option>';
+    return '<option value="' + l + '"' + (l === style.layout ? ' selected' : '') + '>' + escHtml(layoutLabel(kind, l)) + '</option>';
   }).join('') + '</select></label>';
   html += '<label data-ui="field">Sub-label <input type="text" id="' + prefix + '-sub" value="' + escHtml(style.sublabel) + '" placeholder="e.g. Living room" maxlength="40" data-ui="input"></label>';
   if (kind === 'button-card') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-pill"' + (style.pill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-pill">Show the on/off pill</label></span>';
-  if (kind === 'button-card' || kind === 'switch-block') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-fill"' + (style.fill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-fill">Fill the card with its on colour while on</label></span>';
+  if (kind !== 'state-select') html += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + prefix + '-fill"' + (style.fill ? ' checked' : '') + '><span class="slider"></span></label><label for="' + prefix + '-fill">' + (kind === 'numctl' ? 'Tint the card with its accent colour' : 'Fill the card with its on colour while on') + '</label></span>';
   html += '<label data-ui="field">Group <input type="text" id="' + prefix + '-group" value="' + escHtml(style.group) + '" placeholder="e.g. Lights" maxlength="24" data-ui="input"></label>';
   html += '<p data-ui="help">The group becomes a filter chip at the top of the Controls page (All, Lights, Security...). Cards with the same group name share a chip.</p>';
   return html + '</fieldset>';
@@ -1734,6 +1734,7 @@ function buildNumericControlForm(block) {
   html += '<div data-ui="row"><span data-ui="row-label">Unit</span><input type="text" id="modal-num-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="A, V, %, °C" data-ui="input grow"></div>';
   html += '<div data-ui="row"><span data-ui="row-label">Colour</span><input type="text" id="modal-num-color" value="' + escHtml(cfg.color || '') + '" placeholder="#f59e0b (optional)" data-ui="input grow"></div>';
   html += '</fieldset>';
+  html += controlStyleFields(cfg, 'numctl', 'modal-num');
   return html;
 }
 // A Home Assistant number knows its own range and unit: fill in what is still empty.
@@ -1780,6 +1781,7 @@ function buildStateSelectForm(block) {
   html += '<button type="button" id="state-add-row" data-ui="add">+ Add State</button>';
   html += '</fieldset>';
   html += '<script id="state-data" type="application/json">' + JSON.stringify(states).replace(/</g, '\\u003c') + '</script>';
+  html += controlStyleFields(cfg, 'state-select', 'modal-state');
   return html;
 }
 
@@ -2626,6 +2628,7 @@ function readSettingsForm(block) {
       }
       config.color = nv('color');
       if (config.color && !/^#[0-9a-f]{3,8}$/i.test(config.color)) return 'The colour must be a hex colour such as #f59e0b, or empty.';
+      readControlStyle(config, 'numctl', 'modal-num');
       break;
     }
     case 'state-select': {
@@ -2656,6 +2659,7 @@ function readSettingsForm(block) {
         outStates.push(out);
       }
       config.states = outStates;
+      readControlStyle(config, 'state-select', 'modal-state');
       break;
     }
     default: {

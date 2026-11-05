@@ -11,7 +11,7 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 (async () => {
   // escapeHtml uses the DOM; a tiny stand-in is enough to check the output is escaped.
   global.document = { createElement: () => { const el = { set textContent(v) { this._t = String(v); }, get innerHTML() { return this._t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }; return el; } };
-  const { controlStyle, styleClasses, subLabelHtml, LAYOUTS, DEFAULT_LAYOUT, groupOf, filterChips, matchesFilter } =
+  const { controlStyle, styleClasses, subLabelHtml, LAYOUTS, DEFAULT_LAYOUT, groupOf, filterChips, matchesFilter, layoutLabel } =
     await import(pathToFileURL(path.join(__dirname, '..', 'public/js/components/controlStyle.js')).href);
 
   // A card with no style options looks as it always did.
@@ -50,6 +50,15 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   assert.ok(html.includes('&lt;img') && !html.includes('<img'), 'the sub-label is escaped');
   console.log('ok - style settings');
 
+  // Slider, knob and State select: classic and tile only; their own words for the tile.
+  assert.deepEqual([controlStyle({}, 'numctl').layout, controlStyle({ layout: 'tile' }, 'numctl').layout, controlStyle({ layout: 'compact' }, 'numctl').layout], ['classic', 'tile', 'classic']);
+  assert.equal(controlStyle({ layout: 'tile' }, 'state-select').layout, 'tile');
+  assert.equal(controlStyle({ fill: true }, 'numctl').fill, true);
+  assert.equal(styleClasses(controlStyle({ layout: 'tile', fill: true }, 'numctl'), 'numctl'), 'cs cs-tile cs-fill');
+  assert.notEqual(layoutLabel('numctl', 'tile'), layoutLabel('button-card', 'tile'));
+  assert.notEqual(layoutLabel('state-select', 'tile'), layoutLabel('numctl', 'tile'));
+  assert.equal(layoutLabel('button-card', 'row'), layoutLabel('switch-block', 'row'));
+
   // Filter chips on the Controls page.
   const B = (group) => ({ config: group === undefined ? {} : { group } });
   assert.equal(groupOf({ group: '  Living   room ' }), 'Living room'); assert.equal(groupOf(null), ''); assert.equal(groupOf({ group: 'z'.repeat(40) }).length, 24);
@@ -78,6 +87,13 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   for (const sel of ['.button-card.cs-tile', '.button-card.cs-row', '.button-card.cs-compact', '.switch-block.cs-tile', '.switch-block.cs-row', '.switch-block.cs-compact', '.cs-fill', '.bc-pill'])
     assert.ok(css.includes(sel), 'stylesheet has ' + sel);
   assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public/_ctl-preview.html')), 'no preview page left behind');
+  for (const f of ['sliderCard', 'rotaryCard', 'stateSelectBlock']) {
+    const src = read(`public/js/components/${f}.js`);
+    assert.ok(src.includes("from './controlStyle.js'") && src.includes('styleClasses(') && src.includes('subLabelHtml('), f + ' uses the style options');
+  }
+  assert.ok(ed.includes("controlStyleFields(cfg, 'numctl', 'modal-num')") && ed.includes("controlStyleFields(cfg, 'state-select', 'modal-state')"), 'slider, knob and selector forms have the style fields');
+  assert.ok(ed.includes("readControlStyle(config, 'numctl', 'modal-num')") && ed.includes("readControlStyle(config, 'state-select', 'modal-state')"), 'and save them');
+  for (const sel of ['.numctl.cs-tile', '.numctl-slider.cs-tile', '.numctl-rotary.cs-tile', '.state-select-block.cs-tile', '.numctl.cs-fill']) assert.ok(css.includes(sel), 'stylesheet has ' + sel);
   const page = read('private/pages/controls.html'), ctl = read('private/js/controls.js');
   assert.ok(page.includes('id="ct-filters"'), 'the page has the chip row');
   assert.ok(ctl.includes('filterChips(') && ctl.includes('matchesFilter('), 'the Controls page filters by group');
