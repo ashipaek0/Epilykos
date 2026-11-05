@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41999123200.1",
-    "version": "1.1.1-dev+8046d77",
-    "commit": "8046d7700aa2018a7b300a26e68e194fbfe9d6c3",
-    "digest": "sha256:42d94aa0324da374d58e3bc60b7dbcb5c6b1e0066761e65fd940f1dd25f8a944",
+    "buildId": "42006993442.1",
+    "version": "1.1.1-dev+3058e6b",
+    "commit": "3058e6b84ea50d13dee487d93ca5741e8fd14af5",
+    "digest": "sha256:c0db15b7930725ad74f41de26a7a1fc8a11899cbf805f027b3deca699106fdce",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-05T09:02:49Z",
+    "builtAt": "2026-11-05T10:00:20Z",
     "kind": "release",
     "notes": [
-      "Control cards: Layout, sub-label, pill and fill options for Button and Toggle (#279)"
+      "Daily peak and Histogram cards: use the Daily Energy chart's frame and buttons"
     ]
   },
   "history": [
+    {
+      "buildId": "42006993442.1",
+      "version": "1.1.1-dev+3058e6b",
+      "commit": "3058e6b84ea50d13dee487d93ca5741e8fd14af5",
+      "digest": "sha256:c0db15b7930725ad74f41de26a7a1fc8a11899cbf805f027b3deca699106fdce",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-05T10:00:20Z",
+      "kind": "release",
+      "notes": [
+        "Daily peak and Histogram cards: use the Daily Energy chart's frame and buttons"
+      ]
+    },
     {
       "buildId": "41999123200.1",
       "version": "1.1.1-dev+8046d77",
@@ -359,18 +371,6 @@
       "notes": [
         "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
         "Require at least 12 characters for a new admin password"
-      ]
-    },
-    {
-      "buildId": "41530928744.1",
-      "version": "1.0.13-dev+cd95efe",
-      "commit": "cd95efe8ab2c9ebcefbf1bfa4cb0521b8c91a56d",
-      "digest": "sha256:b1b86508248f91a530599f7b1c5d84f98640ef2a3b093ca1f97a4d34af14184e",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-02T21:43:44Z",
-      "kind": "release",
-      "notes": [
-        "Forecast and PV Today cards update with the live cards"
       ]
     }
   ]
