@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "41995469714.1",
-    "version": "1.1.1-dev+fd4b1d4",
-    "commit": "fd4b1d4d86c159eb917e51b04251ab9d281a7e40",
-    "digest": "sha256:cce165b34e5b7534c86462e8ab5bc706adf2bbf936e48c9a22c6c64c317f238f",
+    "buildId": "41999123200.1",
+    "version": "1.1.1-dev+8046d77",
+    "commit": "8046d7700aa2018a7b300a26e68e194fbfe9d6c3",
+    "digest": "sha256:42d94aa0324da374d58e3bc60b7dbcb5c6b1e0066761e65fd940f1dd25f8a944",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-05T08:34:23Z",
+    "builtAt": "2026-11-05T09:02:49Z",
     "kind": "release",
     "notes": [
-      "Daily peak and Histogram cards, with peak solar power for every day on record"
+      "Control cards: Layout, sub-label, pill and fill options for Button and Toggle (#279)"
     ]
   },
   "history": [
+    {
+      "buildId": "41999123200.1",
+      "version": "1.1.1-dev+8046d77",
+      "commit": "8046d7700aa2018a7b300a26e68e194fbfe9d6c3",
+      "digest": "sha256:42d94aa0324da374d58e3bc60b7dbcb5c6b1e0066761e65fd940f1dd25f8a944",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-05T09:02:49Z",
+      "kind": "release",
+      "notes": [
+        "Control cards: Layout, sub-label, pill and fill options for Button and Toggle (#279)"
+      ]
+    },
     {
       "buildId": "41995469714.1",
       "version": "1.1.1-dev+fd4b1d4",
@@ -359,22 +371,6 @@
       "kind": "release",
       "notes": [
         "Forecast and PV Today cards update with the live cards"
-      ]
-    },
-    {
-      "buildId": "41530897422.1",
-      "version": "1.0.13-dev+f216ce9",
-      "commit": "f216ce9fef3211f467735f87282b20024eee4973",
-      "digest": "sha256:1cc1254c70e7233dada679b447169d99de48571b545f041f9fabbe9eed42e0cc",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-02T21:43:27Z",
-      "kind": "release",
-      "notes": [
-        "Save the Windows port findings as a pending plan",
-        "CI: show the first error of each failing Windows fixture",
-        "CI: also print the Windows failure list in the job log",
-        "CI: install on Windows with the shipped binaries",
-        "CI: run the fixtures on Windows too (report only)"
       ]
     }
   ]
