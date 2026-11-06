@@ -135,6 +135,10 @@ function initializeDatabase({ filePath = DB_PATH } = {}) {
       state INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_grid_status_state ON grid_status(state);
+    CREATE TABLE IF NOT EXISTS generator_status (
+      timestamp INTEGER PRIMARY KEY,
+      state INTEGER
+    );
   `);
 
   db.exec(`
@@ -315,7 +319,7 @@ function initializeDatabase({ filePath = DB_PATH } = {}) {
     'solar_loss_factor', 'solar_install_date', 'solcast_resource_id',
     'forecast_default_source', 'weather_default_source',
     'savings_currency', 'savings_rate', 'savings_solar_metric', 'dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost', 'desktop_dashboard', 'mobile_dashboard',
-    'grid_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
+    'grid_status_entity', 'generator_status_entity', 'all_time_pv_savings_override', 'external_sources', 'external_poll_interval',
     'user_metrics', 'bms_devices', 'dongle_config', 'pvoutput_config', 'pvoutput_stats_cache', 'pvoutput_rate_limit_state',
     'rs232_devices',
     'tuya_devices',

@@ -18,8 +18,8 @@ export function formatTimestamp(ts) {
   }
 }
 
-export function updateGridDate(id) {
-  const dateEl = document.getElementById(id ? `grid-date-${id}` : 'grid-date');
+export function updateGridDate(id, prefix = 'grid') {
+  const dateEl = document.getElementById(id ? `${prefix}-date-${id}` : `${prefix}-date`);
   if (dateEl) {
     dateEl.textContent = new Date().toLocaleDateString(undefined, {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -27,8 +27,8 @@ export function updateGridDate(id) {
   }
 }
 
-export function renderTimelineBar(segments, windowStart, windowEnd, id) {
-  const container = document.getElementById(id ? `grid-timeline-${id}` : 'grid-timeline');
+export function renderTimelineBar(segments, windowStart, windowEnd, id, { prefix = 'grid', noun = 'Grid' } = {}) {
+  const container = document.getElementById(id ? `${prefix}-timeline-${id}` : `${prefix}-timeline`);
   if (!container) return;
   container.innerHTML = '';
   if (!segments.length) return;
@@ -59,7 +59,7 @@ export function renderTimelineBar(segments, windowStart, windowEnd, id) {
     // Details on hover, keyboard focus and tap (not mouse-only), read out too.
     // The whole period, also the part before the window (it may have begun days ago).
     const span = Math.round((segEnd - seg.start) / 60000), dur = span >= 60 ? `${Math.floor(span / 60)} h${span % 60 ? ` ${span % 60} min` : ''}` : `${span} min`;
-    const text = `Grid ${seg.state === 1 ? 'on' : 'off'} from ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'now'}, ${dur}`;
+    const text = `${noun} ${seg.state === 1 ? 'on' : 'off'} from ${new Date(seg.start).toLocaleString()} until ${segEnd < windowEnd ? new Date(segEnd).toLocaleString() : 'now'}, ${dur}`;
     el.tabIndex = 0;
     el.setAttribute('role', 'img');
     el.setAttribute('aria-label', text);

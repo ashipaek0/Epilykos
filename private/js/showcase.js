@@ -44,6 +44,7 @@ const OPTIONS = {
   'dual-metric': [text('title', 'Title'), pick('preset', 'Look', [['neutral', 'Plain'], ['split-fill', 'Split colour']])],
   'text-metric': [text('label', 'Label')],
   'grid-card': [yes('showTimeline', 'Show the 24-hour timeline')],
+  'generator-card': [yes('showTimeline', 'Show the 24-hour timeline')],
   'savings-summary': [text('title', 'Title')],
   'gauge-card': [text('title', 'Title'), num('min', 'Lowest', -10000, 10000), num('max', 'Highest', -10000, 10000)],
   'configurable-gauge': [text('title', 'Title'), pick('preset', 'Arc', [['continuous', 'Continuous'], ['segmented', 'Segmented']]),
@@ -166,7 +167,7 @@ function optionField(item, opt, n) {
 
 /** Checkbox options that are on when the config leaves them out. */
 function defaultOn(type, path) {
-  return (type === 'flow-card' && path === 'showGauge') || (type === 'grid-card' && path === 'showTimeline') ||
+  return (type === 'flow-card' && path === 'showGauge') || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
     (type === 'energy-day' && path === 'showForecast');
 }
 

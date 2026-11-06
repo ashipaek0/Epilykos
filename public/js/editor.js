@@ -922,8 +922,9 @@ var SO_NAMES = [['grid', 'Grid', 'Grid'], ['battery', 'Battery', 'Battery'], ['s
 var GRID_PERIODS = [['day', 'Today'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']];
 // Savings card periods: [config key, label, off unless chosen].
 var SAVINGS_PERIODS = [['showToday', 'Today'], ['showWeek', 'This week'], ['showMonth', 'This month'], ['showYear', 'This year', true], ['showAll', 'All time']];
-function buildGridCardForm(block) {
+function buildGridCardForm(block, generator) {
   var cfg = block.config || {};
+  var thing = generator ? 'generator' : 'grid';
   var metrics = cfg.metrics || {};
   // Cards saved before the choice existed show the first four.
   var periods = Array.isArray(cfg.periods) ? cfg.periods : ['day', 'week', 'month', 'year'];
@@ -932,25 +933,31 @@ function buildGridCardForm(block) {
   };
   var range = [7, 14, 30].indexOf(Number(cfg.dailyRange)) >= 0 ? Number(cfg.dailyRange) : 7;
   var html = '<fieldset data-ui="section">';
-  html += '<legend data-ui="legend">Grid Status Config</legend>';
-  html += '<div data-ui="row">';
-  html += '<span data-ui="row-label">Metric</span>';
-  html += '<div data-ui="grow">' + metricSelect(metrics.grid_status || '', 'modal-metric-grid-status') + '</div>';
-  html += '</div>';
+  html += '<legend data-ui="legend">' + (generator ? 'Generator Status Config' : 'Grid Status Config') + '</legend>';
+  if (generator) {
+    html += '<p data-ui="help">Running or off comes from Settings: the generator status metric, or else the generator power metric (running above 20 W). Map one of them there.</p>';
+  } else {
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">Metric</span>';
+    html += '<div data-ui="grow">' + metricSelect(metrics.grid_status || '', 'modal-metric-grid-status') + '</div>';
+    html += '</div>';
+  }
   html += toggle('modal-showtimeline', 'Show timeline', cfg.showTimeline !== false);
   html += '</fieldset>';
-  html += '<fieldset data-ui="section"><legend data-ui="legend">Time on grid</legend>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">' + (generator ? 'Run time' : 'Time on grid') + '</legend>';
   html += '<p data-ui="help">The periods to show. All off hides the section.</p>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:8px 16px;margin-bottom:8px">';
   GRID_PERIODS.forEach(function (p) {
     html += toggle('modal-grid-period-' + p[0], p[1], periods.indexOf(p[0]) >= 0, 'modal-grid-period');
   });
   html += '</div>';
-  html += toggle('modal-grid-showcost', 'Show grid energy cost under each period', cfg.showCost === true);
-  html += '<p data-ui="help">Grid energy bought × the grid buy price in Settings → Prices and savings. Needs a daily grid import metric.</p>';
+  html += toggle('modal-grid-showcost', generator ? 'Show generator energy cost under each period' : 'Show grid energy cost under each period', cfg.showCost === true);
+  html += '<p data-ui="help">' + (generator
+    ? 'Generator energy × the generator price in Settings → Prices and savings. Needs a daily generator energy metric.'
+    : 'Grid energy bought × the grid buy price in Settings → Prices and savings. Needs a daily grid import metric.') + '</p>';
   html += '</fieldset>';
-  html += '<fieldset data-ui="section"><legend data-ui="legend">Grid hours per day</legend>';
-  html += toggle('modal-grid-showdays', 'Show grid hours per day', cfg.showDailyHours === true);
+  html += '<fieldset data-ui="section"><legend data-ui="legend">' + (generator ? 'Generator' : 'Grid') + ' hours per day</legend>';
+  html += toggle('modal-grid-showdays', 'Show ' + thing + ' hours per day', cfg.showDailyHours === true);
   html += '<div data-ui="row"><span data-ui="row-label">Start on</span><div data-ui="grow"><select id="modal-grid-dayrange" data-ui="input">'
     + [7, 14, 30].map(function (n) { return '<option value="' + n + '"' + (n === range ? ' selected' : '') + '>' + n + ' days</option>'; }).join('')
     + '</select></div></div>';
@@ -2034,6 +2041,9 @@ function buildSettingsForm(block) {
     case 'grid-card':
       html += buildGridCardForm(block);
       break;
+    case 'generator-card':
+      html += buildGridCardForm(block, true);
+      break;
     case 'chart-power':
       html += buildChartForm(block, true);
       break;
@@ -2465,9 +2475,13 @@ function readSettingsForm(block) {
       config.title = document.getElementById('modal-batt-title')?.value || '';
       break;
     }
-    case 'grid-card': {
-      config.metrics = config.metrics || {};
-      config.metrics.grid_status = document.getElementById('modal-metric-grid-status')?.value || '';
+    case 'grid-card':
+    case 'generator-card': {
+      // The generator card has no metric of its own: Settings says what "running" is.
+      if (block.type === 'grid-card') {
+        config.metrics = config.metrics || {};
+        config.metrics.grid_status = document.getElementById('modal-metric-grid-status')?.value || '';
+      }
       config.showTimeline = document.getElementById('modal-showtimeline')?.checked !== false;
       config.periods = GRID_PERIODS.map(function (p) { return p[0]; }).filter(function (k) { return document.getElementById('modal-grid-period-' + k)?.checked; });
       config.showCost = document.getElementById('modal-grid-showcost')?.checked === true;

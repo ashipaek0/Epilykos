@@ -173,38 +173,48 @@ function metricsFor(s, now, today) {
 
 // ── Grid status ───────────────────────────────────────────────────────────
 
-function segmentsFor(from, to) {
+function segmentsFor(from, to, on = s => s.grid) {
   const segs = [];
   for (const s of between(from, to)) {
-    const state = s.grid ? 1 : 0, last = segs[segs.length - 1];
+    const state = on(s) ? 1 : 0, last = segs[segs.length - 1];
     if (last && last.state === state) last.end = Math.min(to, s.t + STEP_MS);
     else segs.push({ start: Math.max(from, s.t), end: Math.min(to, s.t + STEP_MS), state });
   }
   return segs;
 }
-const onHours = (from, to) => between(from, to).filter(s => s.grid).length * DT_H;
+const onHours = (from, to, on = s => s.grid) => between(from, to).filter(on).length * DT_H;
 
-function gridState(now) {
+/** On / off status, hours per period and a 24-hour timeline for the grid, or for the generator. */
+function statusState(now, on, yearHoursPerDay) {
   const all = simulate(now);
   const cur = all[all.length - 1];
   let i = all.length - 1;
-  while (i > 0 && all[i - 1].grid === cur.grid) i--;
+  while (i > 0 && !!on(all[i - 1]) === !!on(cur)) i--;
   const changed = all[i].t;
   let lastOn = null, lastOff = null;
   for (let k = all.length - 1; k > 0 && (lastOn === null || lastOff === null); k--) {
-    if (all[k].grid && !all[k - 1].grid && lastOn === null) lastOn = all[k].t;
-    if (!all[k].grid && all[k - 1].grid && lastOff === null) lastOff = all[k].t;
+    if (on(all[k]) && !on(all[k - 1]) && lastOn === null) lastOn = all[k].t;
+    if (!on(all[k]) && on(all[k - 1]) && lastOff === null) lastOff = all[k].t;
   }
   const d = new Date(now);
   const dayStart = startOfDay(now);
   const weekStart = dayStart - ((d.getDay() + 6) % 7) * 86400000;
   const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
   const daysBefore = Math.floor((monthStart - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000);
-  const month = onHours(monthStart, now + 1);
+  const month = onHours(monthStart, now + 1, on);
   return {
-    gridStatus: { configured: true, available: true, current: cur.grid, lastOn, lastOff, lastChange: { time: changed, state: cur.grid ? 1 : 0 } },
-    gridHours: { day: onHours(dayStart, now + 1), week: onHours(weekStart, now + 1), month, year: month + daysBefore * 20.6, configured: true, available: true },
-    gridTimeline: { configured: true, available: true, segments: segmentsFor(now - 86400000, now), windowStart: now - 86400000, windowEnd: now }
+    status: { configured: true, available: true, current: !!on(cur), lastOn, lastOff, lastChange: { time: changed, state: on(cur) ? 1 : 0 } },
+    hours: { day: onHours(dayStart, now + 1, on), week: onHours(weekStart, now + 1, on), month, year: month + daysBefore * yearHoursPerDay, configured: true, available: true },
+    timeline: { configured: true, available: true, segments: segmentsFor(now - 86400000, now, on), windowStart: now - 86400000, windowEnd: now }
+  };
+}
+
+function gridState(now) {
+  const g = statusState(now, s => s.grid, 20.6);
+  const w = statusState(now, s => (s.gen || 0) > 20, 0.6);
+  return {
+    gridStatus: g.status, gridHours: g.hours, gridTimeline: g.timeline,
+    generatorStatus: w.status, generatorHours: w.hours, generatorTimeline: w.timeline
   };
 }
 

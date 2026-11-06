@@ -25,6 +25,14 @@ const { haApiUrl } = require('./ha');
 const { emitEvent } = require('./notifications/events');
 const { localDateString } = require('./localTime');
 
+// The state-change tables this module can read: the grid, and the generator
+// (modules/generator.js keeps its own table in the same shape).
+const STATUS_TABLES = new Set(['grid_status', 'generator_status']);
+function statusTable(table) {
+  if (!STATUS_TABLES.has(table)) throw new Error('Invalid status table');
+  return table;
+}
+
 function fmtDuration(seconds) {
   const m = Math.round(seconds / 60);
   if (m < 60) return `${m} min`;
@@ -211,12 +219,17 @@ async function getCurrentGridStatus() {
 
 /** Compute cumulative ON hours within a time period ('all': since tracking began). */
 async function getGridHours(period) {
+  return hoursOn('grid_status', period);
+}
+
+function hoursOn(table, period) {
+  table = statusTable(table);
   const db = getDb();
   const now = new Date();
   let start;
 
   if (period === 'all') {
-    const first = db.prepare('SELECT MIN(timestamp) AS t FROM grid_status').get().t;
+    const first = db.prepare(`SELECT MIN(timestamp) AS t FROM ${table}`).get().t;
     if (first == null) return 0;
     start = new Date(first * 1000);
   } else if (period === 'day') {
@@ -236,10 +249,10 @@ async function getGridHours(period) {
   const endUnix = Math.floor(now.getTime() / 1000);
 
   // Get the state before period start as initial
-  const before = db.prepare('SELECT state FROM grid_status WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1').get(startUnix);
+  const before = db.prepare(`SELECT state FROM ${table} WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1`).get(startUnix);
   const initialState = before ? before.state : 0;
 
-  const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, endUnix);
+  const rows = db.prepare(`SELECT timestamp, state FROM ${table} WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC`).all(startUnix, endUnix);
 
   let hours = 0, lastState = initialState, lastTime = startUnix;
   for (const row of rows) {
@@ -260,11 +273,12 @@ async function getGridHours(period) {
  * last one is today so far. A day that ended before tracking began has
  * hours null (no data), not 0; a day it began during counts from then.
  */
-function getGridDailyHours(days = 30) {
+function getGridDailyHours(days = 30, table = 'grid_status') {
+  table = statusTable(table);
   const db = getDb();
   const now = new Date();
   const nowUnix = Math.floor(now.getTime() / 1000);
-  const first = db.prepare('SELECT MIN(timestamp) AS t FROM grid_status').get().t;
+  const first = db.prepare(`SELECT MIN(timestamp) AS t FROM ${table}`).get().t;
   // Local midnights (DST-safe): bounds[i] .. bounds[i + 1] is day i.
   const bounds = [];
   for (let i = 0; i <= days; i++) bounds.push(Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1) + i).getTime() / 1000));
@@ -278,9 +292,9 @@ function getGridDailyHours(days = 30) {
   };
   if (first != null) {
     const from = Math.max(bounds[0], first);
-    const before = db.prepare('SELECT state FROM grid_status WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1').get(from);
+    const before = db.prepare(`SELECT state FROM ${table} WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1`).get(from);
     let state = before ? before.state : 0, t = from;
-    for (const row of db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp > ? AND timestamp <= ? ORDER BY timestamp ASC').all(from, nowUnix)) {
+    for (const row of db.prepare(`SELECT timestamp, state FROM ${table} WHERE timestamp > ? AND timestamp <= ? ORDER BY timestamp ASC`).all(from, nowUnix)) {
       if (state === 1) addOn(t, row.timestamp);
       state = row.state; t = row.timestamp;
     }
@@ -295,18 +309,23 @@ function getGridDailyHours(days = 30) {
 
 /** Build timeline segments for the last 24 hours. */
 async function getGridTimeline() {
-  const db = getDb();
   const entity = getConfig('grid_status_entity');
   if (!entity) return { configured: false, available: false, segments: [] };
+  return timelineOf('grid_status');
+}
 
+/** The last 24 hours of one status table as ON/OFF segments. */
+function timelineOf(table) {
+  table = statusTable(table);
+  const db = getDb();
   const now = new Date();
   const endUnix = Math.floor(now.getTime() / 1000);
   const startUnix = endUnix - 24 * 3600;
 
-  const before = db.prepare('SELECT state FROM grid_status WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1').get(startUnix);
+  const before = db.prepare(`SELECT state FROM ${table} WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1`).get(startUnix);
   const initialState = before ? before.state : 0;
 
-  const rows = db.prepare('SELECT timestamp, state FROM grid_status WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC').all(startUnix, endUnix);
+  const rows = db.prepare(`SELECT timestamp, state FROM ${table} WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC`).all(startUnix, endUnix);
 
   const segments = [];
   let lastState = initialState, lastTime = startUnix;
@@ -330,4 +349,4 @@ async function getGridTimeline() {
   };
 }
 
-module.exports = { pollGridStatus, getCurrentGridStatus, getGridHours, getGridDailyHours, getGridTimeline };
+module.exports = { pollGridStatus, getCurrentGridStatus, getGridHours, getGridDailyHours, getGridTimeline, hoursOn, timelineOf };

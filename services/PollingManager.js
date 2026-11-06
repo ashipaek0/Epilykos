@@ -30,6 +30,7 @@ function defaultRegistry() {
     { id: 'combined', pollFn: () => require('../modules/combinedMetrics').runCombinedMetrics() },
     { id: 'history', pollFn: () => require('../modules/history').pollLegacyHistory() },
     { id: 'grid', pollFn: () => require('../modules/grid').pollGridStatus() },
+    { id: 'generator', pollFn: () => require('../modules/generator').pollGeneratorStatus() },
   ];
 }
 
