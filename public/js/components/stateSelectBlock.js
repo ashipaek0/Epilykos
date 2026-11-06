@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils.js';
 import { isStaleReading } from './readingAge.js';
+import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
 
 const STATE_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (see switchBlock.js).
@@ -37,7 +38,8 @@ function stateText(s) {
 export function buildStateSelectBlock(block = {}) {
   const config = block.config || {};
   const container = document.createElement('div');
-  container.className = 'state-select-block';
+  const style = controlStyle(config, 'state-select');
+  container.className = ['state-select-block', styleClasses(style, 'state-select')].filter(Boolean).join(' ');
   container.dataset.blockId = block.id || '';
   // State comes from the metric (an HA entity id or MQTT topic isn't one).
   container.dataset.metric = config.metric || config.entity || '';
@@ -52,6 +54,7 @@ export function buildStateSelectBlock(block = {}) {
   if (!states.length) {
     container.innerHTML = `
       <div class="state-select-label">${label}</div>
+      ${subLabelHtml(style, 'state-select-sub')}
       <div class="state-select-empty">Choose the entity and its states for this block in the layout editor.</div>
       ${statusHtml}
     `;
@@ -67,6 +70,7 @@ export function buildStateSelectBlock(block = {}) {
     }).join('');
     container.innerHTML = `
       <div class="state-select-label">${label}</div>
+      ${subLabelHtml(style, 'state-select-sub')}
       <select class="state-select-dropdown" aria-label="${label}">
         <option value="">-- select --</option>
         ${opts}
@@ -80,6 +84,7 @@ export function buildStateSelectBlock(block = {}) {
     }).join('');
     container.innerHTML = `
       <div class="state-select-label">${label}</div>
+      ${subLabelHtml(style, 'state-select-sub')}
       <div class="state-select-buttons">${buttons}</div>
       ${statusHtml}
     `;

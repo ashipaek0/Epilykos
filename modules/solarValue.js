@@ -11,17 +11,19 @@
  *  - bought: each day at the average price of the grid and generator energy
  *    bought that day; on a day neither was bought, the grid price.
  *
- * Finished days are kept for a while (they don't change); today is worked out
- * on each call.
+ * A finished day's value is kept (savings_daily) at the prices in force when it
+ * was counted, so changing the prices or the method re-values today and the days
+ * to come, not the past. "Recalculate history" counts every day again. Today is
+ * worked out on each call.
  *
  * @module solarValue
  */
-const { getConfig, getDb } = require('./database');
+const { getConfig, setConfig, getDb } = require('./database');
+const { logger } = require('./logger');
 const { localDateString } = require('./localTime');
-const { readDailySnapshots, readHistorySeries, dailyCacheGeneration } = require('./timeseriesReader');
+const { readDailySnapshots, readHistorySeries } = require('./timeseriesReader');
 
 const METHODS = ['grid', 'availability', 'bought'];
-const CACHE_MS = 10 * 60 * 1000;
 const MAX_RAW_GAP = 120;      // a raw sample counts for at most 2 min (gaps aren't sunshine)
 const BUCKET_SECONDS = 300;
 
@@ -92,39 +94,62 @@ function dayPrice(settings, day) {
 }
 
 const FIELDS = ['daily_solar', 'daily_grid_import', 'daily_generator'];
-const cache = new WeakMap();   // db -> { key, today, at, days }
-const splitCache = new WeakMap();   // db -> { gen, days: Map(day -> { up, down } | null) }
+// A finished day is counted (and its value kept) this long after midnight, so a source that reports late
+// still lands in it. Until then it is worked out on each call, at the current prices.
+const FREEZE_AFTER_MS = 3 * 3600 * 1000;
+const FROZEN_KEY = 'savings_frozen_through';   // days before this date are in savings_daily
 
-/** Finished days (before `todayStart`) with their solar kWh and price inputs. */
-function pastDays(db, settings, today, todayStart) {
-  const key = settings.method + '|' + dailyCacheGeneration();
-  const hit = cache.get(db);
-  if (hit && hit.key === key && hit.today === today && Date.now() - hit.at < CACHE_MS) return hit.days;
-  const days = readDailySnapshots(db, { to: todayStart, fields: FIELDS }).filter(d => d.day < today);
+const dayStartSeconds = day => Math.floor(new Date(day + 'T00:00:00').getTime() / 1000);
+
+/** Days in [fromDay, toStart) that have a total, with what their price needs (counters, availability split). */
+function daysBetween(db, settings, fromDay, toStart, today) {
+  const options = { to: toStart, fields: FIELDS };
+  if (fromDay) options.from = dayStartSeconds(fromDay);
+  const days = readDailySnapshots(db, options).filter(d => d.day < today && (!fromDay || d.day >= fromDay));
   if (settings.method === 'availability' && days.length) {
-    // A finished day's grid up/down split doesn't change: work each one out
-    // once and only scan the days not done yet (usually just yesterday).
-    const gen = dailyCacheGeneration();
-    let done = splitCache.get(db);
-    if (!done || done.gen !== gen) { done = { gen, days: new Map() }; splitCache.set(db, done); }
-    const missing = days.filter(d => !done.days.has(d.day));
-    if (missing.length) {
-      const from = Math.floor(new Date(missing[0].day + 'T00:00:00').getTime() / 1000);
-      const split = solarByGrid(db, from, todayStart);
-      for (const d of missing) done.days.set(d.day, split.get(d.day) || null);
-    }
-    for (const d of days) d.split = done.days.get(d.day) || null;
+    const split = solarByGrid(db, dayStartSeconds(days[0].day), toStart);
+    for (const d of days) d.split = split.get(d.day) || null;
   }
-  cache.set(db, { key, today, at: Date.now(), days });
   return days;
 }
 
-/** Forget cached days (tests, or after writing into past days). */
-function clearSolarValueCache(db) { if (db) { cache.delete(db); splitCache.delete(db); } }
+/**
+ * Count the days that are over: work out each one's value at the prices in force now and keep it in
+ * savings_daily, so later changes to the prices or the method only touch today and the days to come.
+ * Days before the returned date are kept; the first run counts all history at the current settings.
+ */
+function freezeFinishedDays(db, settings, now) {
+  const cut = localDateString(new Date(now.getTime() - FREEZE_AFTER_MS));
+  const through = getConfig(FROZEN_KEY) || '';
+  if (through >= cut) return through;
+  const days = daysBetween(db, settings, through || null, dayStartSeconds(cut), cut);
+  const insert = db.prepare('INSERT OR REPLACE INTO savings_daily (day, kwh, price, value, method) VALUES (?, ?, ?, ?, ?)');
+  db.transaction(() => {
+    for (const d of days) {
+      const kwh = d.daily_solar || 0, p = dayPrice(settings, d);
+      insert.run(d.day, kwh, p, kwh * p, settings.method);
+    }
+    setConfig(FROZEN_KEY, cut);
+  })();
+  if (days.length) logger.info(`[savings] Counted ${days.length} finished day${days.length === 1 ? '' : 's'} at the current prices`);
+  return cut;
+}
+
+/**
+ * Forget every finished day's kept value; the next call counts them all again at the current prices
+ * (Settings > Prices and savings > Recalculate history).
+ */
+function recalculateSavingsHistory(db = getDb()) {
+  db.transaction(() => {
+    db.prepare('DELETE FROM savings_daily').run();
+    setConfig(FROZEN_KEY, '');
+  })();
+}
 
 /**
  * Savings for today, this week (from Monday), this month, this year and all time, plus
- * the price used today. `todaySolarKwh` is the live solar energy today.
+ * the price used today. `todaySolarKwh` is the live solar energy today. Finished days keep the
+ * value they had when they were counted (see freezeFinishedDays); today is worked out now.
  */
 function computeSavings({ todaySolarKwh = 0, db = getDb(), now = new Date() } = {}) {
   const settings = savingsSettings();
@@ -144,12 +169,24 @@ function computeSavings({ todaySolarKwh = 0, db = getDb(), now = new Date() } = 
   // today's stored daily total when there is one.
   const todayStored = Number.isFinite(todayRow.daily_solar) ? todayRow.daily_solar : (Number(todaySolarKwh) || 0);
   let week = todayValue, month = todayValue, year = todayValue, all = todayStored * todayPrice, allSolar = todayStored;
-  for (const d of pastDays(db, settings, today, todayStart)) {
-    const value = (d.daily_solar || 0) * dayPrice(settings, d);
-    all += value; allSolar += d.daily_solar || 0;
-    if (d.day >= weekStr) week += value;
-    if (d.day >= monthStr) month += value;
-    if (d.day >= yearStr) year += value;
+  const add = (day, kwh, value) => {
+    all += value; allSolar += kwh;
+    if (day >= weekStr) week += value;
+    if (day >= monthStr) month += value;
+    if (day >= yearStr) year += value;
+  };
+
+  let through = '';
+  try { through = freezeFinishedDays(db, settings, now); }
+  catch (err) { logger.warn(`[savings] Could not keep the finished days' values (${err.message}); working them out each time`); through = getConfig(FROZEN_KEY) || ''; }
+  try { for (const d of db.prepare('SELECT day, kwh, value FROM savings_daily').all()) add(d.day, d.kwh, d.value); }
+  catch (err) { through = ''; all = todayStored * todayPrice; allSolar = todayStored; week = month = year = todayValue; }
+  // Days that are over but not counted yet (the first hours after midnight, or the counting failed): at the current prices.
+  if (through < today) {
+    for (const d of daysBetween(db, settings, through || null, todayStart, today)) {
+      const kwh = d.daily_solar || 0;
+      add(d.day, kwh, kwh * dayPrice(settings, d));
+    }
   }
   return {
     currency: settings.currency, rate: settings.grid, generatorPrice: settings.generator,
@@ -158,4 +195,4 @@ function computeSavings({ todaySolarKwh = 0, db = getDb(), now = new Date() } = 
   };
 }
 
-module.exports = { computeSavings, savingsSettings, solarByGrid, dayPrice, clearSolarValueCache, METHODS };
+module.exports = { computeSavings, savingsSettings, solarByGrid, dayPrice, recalculateSavingsHistory, METHODS };

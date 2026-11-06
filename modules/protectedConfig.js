@@ -13,6 +13,7 @@
  *   two_step*            two-step sign-in
  *   session*, encryption*   the keys sessions and secrets rest on
  *   cloudflare_tunnel, tailscale*, remote_*   remote access (/api/remote)
+ *   savings_frozen*      how far finished days are counted (modules/solarValue.js); only the server moves it
  *
  * Keys ending in _token, _password or _secret, and notification_*, are
  * refused by the route itself.
@@ -21,7 +22,8 @@
  */
 const PROTECTED = [
   /^device_writes_/i, /^setup_/i, /^update_/i, /^two_step/i,
-  /^session/i, /^encryption/i, /^cloudflare_tunnel$/i, /^tailscale/i, /^remote_/i
+  /^session/i, /^encryption/i, /^cloudflare_tunnel$/i, /^tailscale/i, /^remote_/i,
+  /^savings_frozen/i
 ];
 
 function isProtectedKey(key) {

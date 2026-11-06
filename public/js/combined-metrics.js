@@ -20,7 +20,8 @@
     scale: { label: 'Scale', help: 'One input × factor + offset, e.g. Wh to kWh (factor 0.001).', single: true },
     energy_today: { label: 'Energy today from power', help: 'kWh so far today from a power reading (inputs are added first). Resets at midnight. When the input is an Add up, each part\u2019s kWh is counted too, for cards that list parts; that starts when you save it, so earlier days show no parts.', many: true, energy: true },
     energy_total: { label: 'Lifetime energy from power', help: 'A kWh total that only goes up. Set a starting value to match a meter.', many: true, energy: true, start: true },
-    counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true }
+    counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true },
+    peak_today: { label: 'Highest today', help: 'The highest value so far today (inputs are added first, e.g. all PV strings for the day\u2019s peak solar power). Starts again at midnight, so the last value of each day is that day\u2019s peak: use it for bar charts and histograms of daily peaks. It starts when you save it; earlier days have no peak.', many: true }
   };
   // Sums and averages can be shown split into their parts on cards; each part can be renamed.
   var SPLITTABLE = { sum: true, mean: true, weighted_mean: true };
@@ -88,6 +89,7 @@
     var socs = pick(/(^|_)battery_soc$/i);
     if (socs.length >= 2 && !taken.battery_soc_average) out.push({ label: 'Average battery charge from ' + socs.length + ' readings', def: { name: 'battery_soc_average', unit: '%', fn: 'mean', inputs: socs } });
     var pvSource = taken.pv_total_power || pv.length >= 2 ? 'pv_total_power' : (pvTotals[0] || null);
+    if (pvSource && !taken.pv_peak_today) out.push({ label: 'Peak solar power each day from ' + pvSource, def: { name: 'pv_peak_today', unit: 'W', fn: 'peak_today', inputs: [pvSource] } });
     if (pvSource && !taken.pv_energy_today) out.push({ label: 'Solar energy today from ' + pvSource, def: { name: 'pv_energy_today', unit: 'kWh', fn: 'energy_today', inputs: [pvSource], input_unit: 'W' } });
     // Drop suggestions an existing combined metric already covers (same inputs,
     // whatever it is called), and energy suggestions whose source doesn't exist.
@@ -95,9 +97,9 @@
     var known = {}; state.metrics.forEach(function (m) { known[m.name] = true; }); state.defs.forEach(function (d) { known[d.name] = true; });
     // ...and kinds already done under another name (a PV total built from MPPT sums, say).
     var hasKind = function (fns, re) { return state.defs.some(function (d) { return fns.indexOf(d.fn) !== -1 && re.test(d.name); }); };
-    var kindDone = { pv_total_power: hasKind(['sum'], /(pv|solar)/i), load_total_power: hasKind(['sum'], /(load|output|consumption)/i), battery_soc_average: hasKind(['mean', 'weighted_mean'], /(soc|charge)/i), pv_energy_today: hasKind(['energy_today', 'counter_today'], /(pv|solar)/i) };
+    var kindDone = { pv_total_power: hasKind(['sum'], /(pv|solar)/i), load_total_power: hasKind(['sum'], /(load|output|consumption)/i), battery_soc_average: hasKind(['mean', 'weighted_mean'], /(soc|charge)/i), pv_energy_today: hasKind(['energy_today', 'counter_today'], /(pv|solar)/i), pv_peak_today: hasKind(['peak_today'], /(pv|solar)/i) };
     out = out.filter(function (o) { return !kindDone[o.def.name]; });
-    out = out.filter(function (o) { return o.def.fn === 'energy_today' ? known[o.def.inputs[0]] && !state.defs.some(function (d) { return d.fn === 'energy_today' && d.inputs[0] === o.def.inputs[0]; }) : !covered(o.def.inputs); });
+    out = out.filter(function (o) { return o.def.fn === 'energy_today' || o.def.fn === 'peak_today' ? known[o.def.inputs[0]] && !state.defs.some(function (d) { return d.fn === o.def.fn && d.inputs[0] === o.def.inputs[0]; }) : !covered(o.def.inputs); });
     box.hidden = !out.length;
     box.innerHTML = out.length ? '<p class="st-help">Suggested from your metrics:</p>' + out.map(function (s, i) { return '<button type="button" class="st-chip cm-suggest" data-s="' + i + '">' + esc(s.label) + '</button>'; }).join('') : '';
     box._suggestions = out;

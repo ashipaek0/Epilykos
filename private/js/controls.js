@@ -9,6 +9,7 @@
 import { controlBuilders } from '/js/components/index.js';
 import { updateCards } from '/js/cards-update.js';
 import { initTheme, toggleTheme } from '/js/theme.js';
+import { filterChips, matchesFilter } from '/js/components/controlStyle.js';
 
 const $ = id => document.getElementById(id);
 const STATE_REFRESH_MS = 10000;
@@ -108,6 +109,43 @@ $('ct-expert').addEventListener('click', () => flip('expert'));
 // ── Switch and selector cards ─────────────────────────────────────────────
 
 let cardTypes = new Set();
+let cardFilter = null;                       // null = All; otherwise a group name ('' = cards with none)
+try { const f = localStorage.getItem('epilykos_controls_filter'); if (f !== null) cardFilter = f === '\u0000all' ? null : f; } catch { /* no storage */ }
+
+/** Chips above the cards: All, one per group, and Other. Hidden when no card has a group. */
+function renderFilters(blocks) {
+  const box = $('ct-filters');
+  const chips = filterChips(blocks);
+  if (cardFilter !== null && !chips.includes(cardFilter)) cardFilter = null;   // that group is gone
+  box.replaceChildren();
+  box.hidden = !chips.length;
+  if (!chips.length) return;
+  for (const [value, label] of [[null, 'All'], ...chips.map(g => [g, g || 'Other'])]) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'ct-filter'; b.textContent = label;
+    b.setAttribute('aria-pressed', String(value === cardFilter));
+    b.addEventListener('click', () => {
+      cardFilter = value;
+      try { localStorage.setItem('epilykos_controls_filter', value === null ? '\u0000all' : value); } catch { /* no storage */ }
+      for (const c of box.children) c.setAttribute('aria-pressed', String(c === b));
+      applyFilter(blocks);
+    });
+    box.appendChild(b);
+  }
+}
+
+/** Show the cards of the chosen group. All keeps the layout editor's places; a group packs its cards together. */
+function applyFilter(blocks) {
+  const box = $('ct-cards');
+  box.classList.toggle('is-filtered', cardFilter !== null);
+  box.querySelectorAll('.ct-card').forEach((item, i) => {
+    const block = blocks[i];
+    item.hidden = !matchesFilter(block, cardFilter);
+    if (cardFilter === null) { item.style.gridColumn = item.dataset.col; item.style.gridRow = item.dataset.row; }
+    else { item.style.gridColumn = `span ${item.dataset.w}`; item.style.gridRow = `span ${item.dataset.h}`; }
+  });
+}
+
 async function loadCards() {
   const box = $('ct-cards');
   const r = await api('/layout');
@@ -118,7 +156,7 @@ async function loadCards() {
   if (!blocks.length) {
     const p = document.createElement('p'); p.className = 'ct-empty';
     p.innerHTML = 'No controls yet. <a href="/editor?tab=controls-page">Add them in the layout editor</a>, under Controls page.';
-    box.appendChild(p); return;
+    box.appendChild(p); $('ct-filters').hidden = true; return;
   }
   cardTypes = new Set(blocks.map(b => b.type));
   for (const block of blocks) {
@@ -129,11 +167,16 @@ async function loadCards() {
     // A card past the 12th column would add columns and run off the page.
     const w = Math.max(1, Math.min(12, block.gridW || 3));
     const x = Math.max(0, Math.min(12 - w, block.gridX || 0));
-    item.style.gridColumn = `${x + 1} / span ${w}`;
-    item.style.gridRow = `${(block.gridY || 0) + 1} / span ${block.gridH || 2}`;
+    item.dataset.col = `${x + 1} / span ${w}`;
+    item.dataset.row = `${(block.gridY || 0) + 1} / span ${block.gridH || 2}`;
+    item.dataset.w = String(w); item.dataset.h = String(block.gridH || 2);
+    item.style.gridColumn = item.dataset.col;
+    item.style.gridRow = item.dataset.row;
     item.appendChild(controlBuilders[block.type](block));
     box.appendChild(item);
   }
+  renderFilters(blocks);
+  applyFilter(blocks);
   refreshState();
 }
 async function refreshState() {

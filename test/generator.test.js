@@ -81,7 +81,7 @@ const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesR
   // Savings by method, on two made-up past days.
   db.exec('DELETE FROM history; DELETE FROM history_5m; DELETE FROM grid_status;');
   clearDailySnapshotCache(db);
-  const { computeSavings, clearSolarValueCache } = require(path.join(REPO, 'modules/solarValue'));
+  const { computeSavings, recalculateSavingsHistory } = require(path.join(REPO, 'modules/solarValue'));
   const day1 = new Date(); day1.setDate(day1.getDate() - 3); day1.setHours(0, 0, 0, 0);
   const d1 = Math.floor(day1.getTime() / 1000);
   const hist = db.prepare('INSERT INTO history (timestamp, solar, daily_solar, daily_grid_import, daily_generator) VALUES (?, ?, ?, ?, ?)');
@@ -94,7 +94,7 @@ const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesR
   database.setConfig('generator_price', '0.50');
   const past = s => s.all - s.today;   // today has no data: all = the past day
 
-  const run = method => { database.setConfig('savings_method', method); clearSolarValueCache(db); return computeSavings({ todaySolarKwh: 0, db }); };
+  const run = method => { database.setConfig('savings_method', method); recalculateSavingsHistory(db); return computeSavings({ todaySolarKwh: 0, db }); };
   const grid = run('grid');
   assert.ok(Math.abs(past(grid) - 4 * 0.30) < 1e-6, `grid price: 4 kWh x 0.30 (${past(grid)})`);
   const avail = run('availability');

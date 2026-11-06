@@ -61,6 +61,7 @@ const ICON_PATHS = {
   toggle: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
   select: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 6v12M15 6v12"/>',
   button: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="10" r="3.2"/><path d="M8 17h8"/>',
+  quick: '<rect x="3" y="8" width="5" height="8" rx="1.5"/><rect x="9.5" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="8" width="5" height="8" rx="1.5"/>',
   slider: '<path d="M3 12h18"/><circle cx="9" cy="12" r="3"/><path d="M3 6h18M3 18h18" opacity=".35"/>',
   rotary: '<circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-4"/><path d="M5.5 18.5A9.5 9.5 0 0 1 3 12M18.5 18.5A9.5 9.5 0 0 0 21 12" opacity=".35"/>',
   embed: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'
@@ -110,6 +111,8 @@ export const BLOCKS = {
   'chart-power':        { group: 'charts', name: 'Power chart', desc: 'Solar, load, battery and grid power over time', icon: 'chartLine', w: 12, h: 6 },
   'chart-energy':       { group: 'charts', name: 'Energy chart', desc: 'Daily solar, grid and load energy as bars', icon: 'chartArea', w: 12, h: 6 },
   'energy-day':         { group: 'charts', name: 'Energy day', desc: 'Hourly consumption, solar and generator with forecast, and battery charge', icon: 'chartArea', w: 12, h: 7 },
+  'peak-bars':          { group: 'charts', name: 'Daily peak', desc: 'The highest solar power of each day as bars (or any metric\'s daily highest)', icon: 'chartArea', w: 12, h: 6 },
+  'peak-histogram':     { group: 'charts', name: 'Histogram', desc: 'How often each power level happens: days by their peak, or hours at each solar power', icon: 'chartArea', w: 6, h: 6 },
   'energy-flows':       { group: 'charts', name: 'Energy flows', desc: 'Where each hour\'s energy came from and went: solar, battery, grid, generator, home', icon: 'stack', w: 12, h: 6 },
   'energy-costs':       { group: 'charts', name: 'Costs and earnings', desc: 'Grid and generator costs, grid earnings and battery wear per hour, with day totals', icon: 'coin', w: 12, h: 8 },
   'energy-tabs':        { group: 'charts', name: 'Energy, tabbed', desc: 'Energy day, flows, costs and day totals in one card, one tab each', icon: 'layers', w: 12, h: 9 },
@@ -125,6 +128,7 @@ export const BLOCKS = {
 
   'switch-block':       { group: 'controls', name: 'Toggle switch', desc: 'Turns an entity on or off, on the Controls page', icon: 'toggle', w: 3, h: 2 },
   'button-card':        { group: 'controls', name: 'Button', desc: 'Big icon button like Home Assistant: tap to toggle, turn on or off, or press, on the Controls page', icon: 'button', w: 3, h: 4 },
+  'quick-actions':      { group: 'controls', name: 'Quick actions', desc: 'A row of up to six small buttons in one card, on the Controls page', icon: 'quick', w: 6, h: 2 },
   'state-select':       { group: 'controls', name: 'State select', desc: 'Pick one of several states for an entity, on the Controls page', icon: 'select', w: 4, h: 3 },
   'slider-card':        { group: 'controls', name: 'Slider', desc: 'Drag to set a number, such as a charge current or a level, on the Controls page', icon: 'slider', w: 4, h: 3 },
   'rotary-card':        { group: 'controls', name: 'Rotary knob', desc: 'Turn a knob to set a number, on the Controls page', icon: 'rotary', w: 3, h: 5 },

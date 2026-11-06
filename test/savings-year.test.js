@@ -16,7 +16,7 @@ process.chdir(fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-savings-year-')));
 const { initializeDatabase, getDb, setConfig } = require(path.join(REPO, 'modules/database'));
 initializeDatabase();
 const db = getDb();
-const { computeSavings, clearSolarValueCache } = require(path.join(REPO, 'modules/solarValue'));
+const { computeSavings, recalculateSavingsHistory } = require(path.join(REPO, 'modules/solarValue'));
 const { clearDailySnapshotCache } = require(path.join(REPO, 'modules/timeseriesReader'));
 const { runHistoryBatch } = require(path.join(REPO, 'modules/retentionJob'));
 
@@ -37,7 +37,7 @@ day(2026, 2, 9, 4);      // this week (Monday)
 
 function savings() {
   clearDailySnapshotCache(db);
-  clearSolarValueCache(db);
+  recalculateSavingsHistory(db);
   return computeSavings({ todaySolarKwh: 3, db, now });
 }
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg}: ${a} vs ${b}`);

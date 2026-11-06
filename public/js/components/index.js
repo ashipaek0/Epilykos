@@ -38,10 +38,12 @@ import { buildBarThresholdCard } from './barThresholdCard.js';
 import { buildWeatherBlock } from './weatherBlock.js';
 import { buildSwitchBlock } from './switchBlock.js';
 import { buildButtonCard } from './buttonCard.js';
+import { buildQuickActions } from './quickActions.js';
 import { buildSliderCard } from './sliderCard.js';
 import { buildRotaryCard } from './rotaryCard.js';
 import { buildStateSelectBlock } from './stateSelectBlock.js';
 import { buildControlPlaceholder } from './controlPlaceholder.js';
+import { buildPeakBars, buildPeakHistogram } from './peakCharts.js';
 import { registerBlock } from './blockRegistry.js';
 
 export const componentBuilders = {
@@ -72,6 +74,8 @@ export const componentBuilders = {
   'iframe-card': buildIframeCard,
   'forecast-pvtoday': buildPvToday,
   'energy-day': buildEnergyDay,
+  'peak-bars': buildPeakBars,
+  'peak-histogram': buildPeakHistogram,
   'energy-totals': buildEnergyTotals,
   'energy-flows': buildEnergyFlows,
   'energy-costs': buildEnergyCosts,
@@ -88,6 +92,7 @@ export const componentBuilders = {
   'switch-block': buildControlPlaceholder,
   'state-select': buildControlPlaceholder,
   'button-card': buildControlPlaceholder,
+  'quick-actions': buildControlPlaceholder,
   'slider-card': buildControlPlaceholder,
   'rotary-card': buildControlPlaceholder
 };
@@ -97,6 +102,7 @@ export const controlBuilders = {
   'switch-block': buildSwitchBlock,
   'state-select': buildStateSelectBlock,
   'button-card': buildButtonCard,
+  'quick-actions': buildQuickActions,
   'slider-card': buildSliderCard,
   'rotary-card': buildRotaryCard
 };

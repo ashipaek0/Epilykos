@@ -1799,6 +1799,28 @@ app.post('/api/settings/savings', isAuthenticated, (req, res) => {
   }
 });
 
+// Savings: count every finished day again at the current prices
+// (Settings > Prices and savings > Recalculate history). Finished days otherwise
+// keep the value they had when they were counted (modules/solarValue.js).
+let recalculatingSavings = false;
+app.post('/api/savings/recalculate', isAuthenticated, (req, res) => {
+  if (recalculatingSavings) return res.status(409).json({ error: 'Already recalculating' });
+  recalculatingSavings = true;
+  try {
+    const { recalculateSavingsHistory, computeSavings } = require('./modules/solarValue');
+    const { computeTodaySolar } = require('./modules/solar');
+    recalculateSavingsHistory(getDb());
+    const s = computeSavings({ todaySolarKwh: computeTodaySolar({ fresh: true }) });
+    logger.info('[savings] History recalculated at the current prices');
+    res.json({ ok: true, all: s.all, year: s.year, month: s.month, currency: s.currency });
+  } catch (err) {
+    logger.error('[savings] Recalculate error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    recalculatingSavings = false;
+  }
+});
+
 // Branding: dashboard appearance
 app.post('/api/settings/branding', isAuthenticated, (req, res) => {
   try {

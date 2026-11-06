@@ -5,7 +5,8 @@
  *
  * config: { source, device, entity, metric, action, name, tapAction,
  *           icon, iconOff, onColor, offColor, showName, showState,
- *           onText, offText }
+ *           onText, offText,
+ *           layout, sublabel, pill, fill, group }   (the last five: see controlStyle.js)
  * icon / iconOff: "mdi:fan" (see buttonIcons.js), an image URL or path
  * ("/uploads/ac.png", "https://…"), or an emoji. iconOff empty = same icon.
  */
@@ -13,6 +14,7 @@ import { escapeHtml } from '../utils.js';
 import { emptyBlock } from './emptyState.js';
 import { mdiSvg } from './buttonIcons.js';
 import { isStaleReading } from './readingAge.js';
+import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
 
 const TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (see switchBlock.js).
@@ -118,7 +120,8 @@ export function buildButtonCard(block = {}) {
   if (interactive) card.type = 'button';
   // A press button (HA button, scene, script) has no on/off: it shows ready,
   // in the "on" colour, rather than unknown.
-  card.className = 'button-card ' + (tap === 'press' ? 'is-press' : 'is-unknown');
+  const style = controlStyle(config, 'button-card');
+  card.className = ['button-card', tap === 'press' ? 'is-press' : 'is-unknown', styleClasses(style, 'button-card')].filter(Boolean).join(' ');
   card.dataset.blockId = block.id || '';
   card.dataset.metric = config.metric || config.entity;
   card._config = config;
@@ -128,7 +131,9 @@ export function buildButtonCard(block = {}) {
   card.innerHTML =
     `<span class="bc-icon" data-icon="${escapeHtml(config.icon || '')}">${iconHtml(config.icon)}</span>` +
     (config.showName === false ? '' : `<span class="bc-name">${escapeHtml(name)}</span>`) +
-    (config.showState === false ? '' : '<span class="bc-state">…</span>');
+    subLabelHtml(style, 'bc-sub') +
+    (config.showState === false ? '' : '<span class="bc-state">…</span>') +
+    (style.pill ? '<span class="bc-pill" aria-hidden="true"></span>' : '');
   if (interactive) card.setAttribute('aria-label', name);
   if (tap === 'press') paint(card, null);
 

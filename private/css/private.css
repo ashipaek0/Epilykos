@@ -247,3 +247,16 @@
   .ct-settings tbody th { grid-column: 1 / -1; min-width: 0; }
   .ct-row-actions { grid-column: 1 / -1; }
 }
+
+/* Filter chips above the control cards (a Group set on a card in the layout editor) */
+.ct-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.ct-filters[hidden] { display: none; }
+.st .ct-filter {
+  min-height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--st-line); background: var(--st-panel);
+  color: var(--st-text); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer;
+}
+.st .ct-filter:hover { background: var(--st-hover); }
+.st .ct-filter[aria-pressed="true"] { background: var(--st-amber); border-color: var(--st-amber); color: var(--st-amber-ink); font-weight: 800; }
+.st .ct-filter:focus-visible { outline: none; box-shadow: var(--st-focus); }
+.ct-cards.is-filtered { grid-auto-flow: row dense; }
+.ct-card[hidden] { display: none; }
