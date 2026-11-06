@@ -368,7 +368,8 @@ export { dashboardConfig, renderDashboard, switchDashboard };
 // non-partial event (isPartial false/undefined), fall back to renderDashboard().
 const PARTIAL_RENDER_KEYS = new Set([
   'current', 'metrics', 'savings', 'gridStatus',
-  'gridHours', 'gridTimeline', 'gridDaily', 'gridCost', 'powerHistory', 'dailyEnergyBar', 'breakdowns', 'solarToday',
+  'gridHours', 'gridTimeline', 'gridDaily', 'gridCost',
+  'generatorStatus', 'generatorHours', 'generatorTimeline', 'generatorDaily', 'generatorCost', 'powerHistory', 'dailyEnergyBar', 'breakdowns', 'solarToday',
 ]);
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('state-updated', (event) => {

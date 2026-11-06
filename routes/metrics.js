@@ -11,6 +11,7 @@ const { logger } = require('../modules/logger');
 const { getConfig, getDb } = require('../modules/database');
 const { computeTodaySolar, getSolarForecast } = require('../modules/solar');
 const { getGridHours, getGridDailyHours, getGridTimeline, getCurrentGridStatus } = require('../modules/grid');
+const { getGeneratorHours, getGeneratorDailyHours, getGeneratorTimeline, getCurrentGeneratorStatus } = require('../modules/generator');
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
@@ -94,23 +95,23 @@ function buildCurrentData(db, savings) {
 }
 
 /**
- * What the grid energy bought cost, per period: each day's grid import
- * counter (kWh) times the grid buy price in Settings. Unavailable when no
- * daily grid import metric is mapped, rather than a misleading 0.
+ * What energy cost, per period: each day's counter (kWh) times a price from
+ * Settings. Unavailable when no daily counter is mapped, rather than a
+ * misleading 0.
  */
-function computeGridCost(db) {
+function computeEnergyCost(db, { role, price: priceKey, fallback }) {
   let roles = {};
   try { roles = JSON.parse(getConfig('role_metrics') || '{}') || {}; } catch (e) { roles = {}; }
-  if (!roles.daily_grid_import) return { available: false };
-  const n = parseFloat(getConfig('savings_rate'));
-  const price = Number.isFinite(n) && n >= 0 ? n : 0.30;
+  if (!roles[role]) return { available: false };
+  const n = parseFloat(getConfig(priceKey));
+  const price = Number.isFinite(n) && n >= 0 ? n : fallback;
   const now = new Date();
   const today = localDateString(now);
   const dow = now.getDay();
   const weekStart = localDateString(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow === 0 ? 6 : dow - 1)));
   const kwh = { day: 0, week: 0, month: 0, year: 0, all: 0 };
-  for (const r of readDailySnapshots(db, { fields: ['daily_grid_import'], cached: true })) {
-    const v = Number(r.daily_grid_import);
+  for (const r of readDailySnapshots(db, { fields: [role], cached: true })) {
+    const v = Number(r[role]);
     if (!Number.isFinite(v) || v <= 0 || r.day > today) continue;
     kwh.all += v;
     if (r.day.slice(0, 4) === today.slice(0, 4)) kwh.year += v;
@@ -120,6 +121,18 @@ function computeGridCost(db) {
   }
   const cost = Object.fromEntries(Object.entries(kwh).map(([k, v]) => [k, Math.round(v * price * 100) / 100]));
   return { available: true, currency: getConfig('savings_currency') || '€', price, kwh, cost };
+}
+
+/** What the grid energy bought cost: the daily grid import times the grid buy price. */
+function computeGridCost(db) {
+  return computeEnergyCost(db, { role: 'daily_grid_import', price: 'savings_rate', fallback: 0.30 });
+}
+
+/** What the generator's energy cost: the daily generator counter times the generator price. */
+function computeGeneratorCost(db) {
+  const out = computeEnergyCost(db, { role: 'daily_generator', price: 'generator_price', fallback: 0 });
+  // No price set: a cost of 0 would read as free power.
+  return out.available && !(out.price > 0) ? { available: false, needsPrice: true } : out;
 }
 
 async function buildDashboardState() {
@@ -132,6 +145,7 @@ async function buildDashboardState() {
   const currentData = buildCurrentData(db, computedSavings);
 
   const gridStatus = await getCurrentGridStatus();
+  const generatorStatus = await getCurrentGeneratorStatus();
   const now = Math.floor(Date.now() / 1000);
   const powerHistorySince = now - 86400;
   const barSince = now - (7 * 86400);
@@ -161,6 +175,19 @@ async function buildDashboardState() {
   };
   const gridDaily = { configured: gridStatus.configured, days: gridStatus.configured ? getGridDailyHours(30) : [] };
   const gridCost = computeGridCost(db);
+
+  const [genDay, genWeek, genMonth, genYear, genAll, generatorTimeline] = generatorStatus.configured
+    ? await Promise.all([
+        getGeneratorHours('day'), getGeneratorHours('week'), getGeneratorHours('month'), getGeneratorHours('year'), getGeneratorHours('all'),
+        getGeneratorTimeline()
+      ])
+    : [0, 0, 0, 0, 0, { configured: false, available: false, segments: [], windowStart: 0, windowEnd: 0 }];
+  const generatorHours = {
+    day: genDay, week: genWeek, month: genMonth, year: genYear, all: genAll,
+    configured: generatorStatus.configured, available: generatorStatus.available
+  };
+  const generatorDaily = { configured: generatorStatus.configured, days: generatorStatus.configured ? getGeneratorDailyHours(30) : [] };
+  const generatorCost = computeGeneratorCost(db);
 
   const powerHistory = historyRows.map(r => ({
     timestamp: r.timestamp * 1000,
@@ -198,6 +225,11 @@ async function buildDashboardState() {
     gridTimeline,
     gridDaily,
     gridCost,
+    generatorStatus,
+    generatorHours,
+    generatorTimeline,
+    generatorDaily,
+    generatorCost,
     powerHistory,
     dailyEnergyBar,
     breakdowns: safeBreakdowns(),
@@ -603,4 +635,4 @@ router.get('/dashboard-config', async (req, res) => {
   }
 });
 
-module.exports = { router, buildDashboardState, sharedDashboardState, computeGridCost };
+module.exports = { router, buildDashboardState, sharedDashboardState, computeGridCost, computeGeneratorCost };

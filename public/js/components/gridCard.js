@@ -1,5 +1,5 @@
 /**
- * Grid Card — displays grid ON/OFF status, cumulative hours, last change timestamp,
+ * Grid Card (and its generator twin) — displays grid ON/OFF status, cumulative hours, last change timestamp,
  * and a 24h timeline bar of state changes. Optional, per card:
  *   periods         which "time on grid" tiles to show (today, week, month, year, all time)
  *   showCost        the cost of the grid energy bought, under each tile
@@ -19,6 +19,28 @@ export const GRID_PERIODS = [
 export const DEFAULT_GRID_PERIODS = ['day', 'week', 'month', 'year'];
 export const GRID_DAY_RANGES = [7, 14, 30];
 
+/**
+ * The grid card and the generator card are one card with different wording
+ * and different state keys: what the card is called, which parts of the
+ * dashboard state it reads, and how it words "on".
+ */
+const KINDS = {
+  grid: {
+    cls: 'grid-card', state: 'gridStatus', hours: 'gridHours', timeline: 'gridTimeline', daily: 'gridDaily', cost: 'gridCost',
+    on: 'Grid on', off: 'Grid off', hoursTitle: 'Time on grid', costTitle: 'Time on grid / grid energy cost',
+    daysTitle: 'Grid hours per day', onWord: 'on grid', kwhWord: 'bought', noun: 'Grid', notSetUp: 'Grid status is not set up.',
+    costHint: () => 'Map a daily grid import metric to see what the grid energy cost',
+  },
+  generator: {
+    cls: 'grid-card generator-card', state: 'generatorStatus', hours: 'generatorHours', timeline: 'generatorTimeline', daily: 'generatorDaily', cost: 'generatorCost',
+    on: 'Generator running', off: 'Generator off', hoursTitle: 'Run time', costTitle: 'Run time / generator energy cost',
+    daysTitle: 'Generator hours per day', onWord: 'running', kwhWord: 'from the generator', noun: 'Generator', notSetUp: 'The generator is not set up.',
+    costHint: gc => gc?.needsPrice ? 'Set the generator price in Settings to see what the generator energy cost'
+      : 'Map a daily generator energy metric to see what the generator energy cost',
+  },
+};
+const kindOf = card => KINDS[card?.dataset?.kind] || KINDS.grid;
+
 /** The tiles a card shows, in a fixed order; older cards have none set and keep the four they had. */
 export function gridPeriods(config = {}) {
   const chosen = Array.isArray(config.periods) ? config.periods : DEFAULT_GRID_PERIODS;
@@ -27,7 +49,14 @@ export function gridPeriods(config = {}) {
 
 let lastState = null;
 
-export function buildGridCard(block = {}) {
+export function buildGridCard(block = {}) { return buildStatusCard(block, 'grid'); }
+
+/** The generator card: running / off, run time per period, timeline and hours per day. */
+export function buildGeneratorCard(block = {}) { return buildStatusCard(block, 'generator'); }
+
+function buildStatusCard(block, kindName) {
+  const kind = KINDS[kindName];
+  const p = kindName;
   const id = block.id || '';
   const config = block.config || {};
   const showTimeline = config.showTimeline !== false;
@@ -39,31 +68,32 @@ export function buildGridCard(block = {}) {
   const gridStatusMetric = metrics.grid_status || '';
 
   const card = document.createElement('div');
-  card.className = 'grid-card ep-card';
+  card.className = kind.cls + ' ep-card';
+  card.dataset.kind = kindName;
   card.dataset.metricMap = JSON.stringify({ grid_status: gridStatusMetric });
   card.dataset.blockId = id;
   card.dataset.daysShown = String(range);
 
-  const tile = p => `<div class="stat-card ep-tile"><div class="stat-label ep-label">${p.label}</div>`
-    + `<div class="stat-value ep-value" id="${uid('grid-hours-' + p.key, id)}">—</div>`
-    + (showCost ? `<span class="ep-grid-cost" id="${uid('grid-cost-' + p.key, id)}"></span>` : '') + '</div>';
+  const tile = t => `<div class="stat-card ep-tile"><div class="stat-label ep-label">${t.label}</div>`
+    + `<div class="stat-value ep-value" id="${uid(p + '-hours-' + t.key, id)}">—</div>`
+    + (showCost ? `<span class="ep-grid-cost" id="${uid(p + '-cost-' + t.key, id)}"></span>` : '') + '</div>';
 
   card.innerHTML = `
     <div class="ep-grid-head">
-      <div class="grid-date" id="${uid('grid-date', id)}"></div>
+      <div class="grid-date" id="${uid(p + '-date', id)}"></div>
     </div>
     <div class="ep-grid-now">
-      <span class="ep-grid-state" id="${uid('grid-state', id)}">—</span>
-      <span class="ep-grid-since stat-sub" id="${uid('grid-state-since', id)}"></span>
+      <span class="ep-grid-state" id="${uid(p + '-state', id)}">—</span>
+      <span class="ep-grid-since stat-sub" id="${uid(p + '-state-since', id)}"></span>
     </div>
-    ${periods.length ? `<div class="ep-grid-hours-title ep-label">${showCost ? 'Time on grid / grid energy cost' : 'Time on grid'}</div>
+    ${periods.length ? `<div class="ep-grid-hours-title ep-label">${showCost ? kind.costTitle : kind.hoursTitle}</div>
     <div class="grid-stats ep-tiles ep-tiles-compact" data-count="${periods.length}">${periods.map(tile).join('')}</div>` : ''}
-    ${showTimeline ? `<div id="${uid('grid-timeline', id)}"></div>` : ''}
-    ${showDays ? `<div class="ep-grid-days-head"><span class="ep-label">Grid hours per day</span>
+    ${showTimeline ? `<div id="${uid(p + '-timeline', id)}"></div>` : ''}
+    ${showDays ? `<div class="ep-grid-days-head"><span class="ep-label">${kind.daysTitle}</span>
       <span class="chart-controls ep-grid-range" role="group" aria-label="Days shown">${GRID_DAY_RANGES.map(n => `<button type="button" data-range="${n}"${n === range ? ' class="active"' : ''} aria-pressed="${n === range}">${n}d</button>`).join('')}</span></div>
-    <div class="ep-grid-days" id="${uid('grid-days', id)}" role="group" aria-label="Grid hours per day"></div>
-    <div class="ep-grid-days-axis"><span id="${uid('grid-days-from', id)}"></span><span>Today</span></div>
-    <div class="ep-grid-days-sum" id="${uid('grid-days-sum', id)}" aria-live="polite"></div>` : ''}
+    <div class="ep-grid-days" id="${uid(p + '-days', id)}" role="group" aria-label="${kind.daysTitle}"></div>
+    <div class="ep-grid-days-axis"><span id="${uid(p + '-days-from', id)}"></span><span>Today</span></div>
+    <div class="ep-grid-days-sum" id="${uid(p + '-days-sum', id)}" aria-live="polite"></div>` : ''}
   `;
 
   if (showDays) {
@@ -106,16 +136,18 @@ function dayLabel(day, opts) {
 
 /** The last N days as bars of grid hours out of 24, with a summary below them. */
 function renderDays(card, state) {
+  const kind = kindOf(card), p = card.dataset.kind || 'grid';
   const id = card.dataset.blockId || '';
-  const box = document.getElementById(uid('grid-days', id));
+  const box = document.getElementById(uid(p + '-days', id));
   if (!box) return;
-  const sumEl = document.getElementById(uid('grid-days-sum', id));
-  const fromEl = document.getElementById(uid('grid-days-from', id));
-  const all = state?.gridDaily?.days || [];
-  if (!state?.gridDaily?.configured || !all.length) {
+  const sumEl = document.getElementById(uid(p + '-days-sum', id));
+  const fromEl = document.getElementById(uid(p + '-days-from', id));
+  const daily = state?.[kind.daily];
+  const all = daily?.days || [];
+  if (!daily?.configured || !all.length) {
     box.innerHTML = '';
     if (fromEl) fromEl.textContent = '';
-    if (sumEl) sumEl.textContent = state?.gridDaily?.configured === false ? 'Grid status is not set up.' : 'No data yet.';
+    if (sumEl) sumEl.textContent = daily?.configured === false ? kind.notSetUp : 'No data yet.';
     return;
   }
   const days = all.slice(-Number(card.dataset.daysShown || 7));
@@ -126,7 +158,7 @@ function renderDays(card, state) {
   box.innerHTML = `<span class="ep-grid-days-y" style="top:0">${scale} h</span><span class="ep-grid-days-y" style="top:50%">${scale / 2} h</span>`
     + days.map(d => {
       const known = d.hours != null;
-      const text = `${d.today ? 'Today so far' : dayLabel(d.day, { weekday: 'short', day: 'numeric', month: 'short' })}: ${known ? hoursText(d.hours) + ' on grid' : 'no data'}`;
+      const text = `${d.today ? 'Today so far' : dayLabel(d.day, { weekday: 'short', day: 'numeric', month: 'short' })}: ${known ? hoursText(d.hours) + ' ' + kind.onWord : 'no data'}`;
       const cls = 'ep-grid-day' + (d.today ? ' today' : '') + (!known ? ' unknown' : d.hours === 0 ? ' none' : '');
       const height = known ? Math.min(100, d.hours / scale * 100).toFixed(1) : 0;
       return `<div class="${cls}" style="height:${height}%" tabindex="0" role="img" aria-label="${text}" data-text="${text}"></div>`;
@@ -153,12 +185,12 @@ function renderDays(card, state) {
 export function updateGridCardFromState(state) {
   if (!state) return;
   lastState = state;
-  const gs = state.gridStatus || {};
-  const gh = state.gridHours || {};
-  const gt = state.gridTimeline || {};
-  const gc = state.gridCost || {};
-
   document.querySelectorAll('.grid-card').forEach(card => {
+    const kind = kindOf(card), p = card.dataset.kind || 'grid';
+    const gs = state[kind.state] || {};
+    const gh = state[kind.hours] || {};
+    const gt = state[kind.timeline] || {};
+    const gc = state[kind.cost] || {};
     const id = card.dataset.blockId || '';
     let mm;
     try { mm = JSON.parse(card.dataset.metricMap); } catch (e) { mm = { grid_status: '' }; }
@@ -166,7 +198,7 @@ export function updateGridCardFromState(state) {
 
     // Determine current state
     let current = null, lastChange = null;
-    if (gsm && state.metrics?.[gsm] !== undefined) {
+    if (p === 'grid' && gsm && state.metrics?.[gsm] !== undefined) {
       const m = state.metrics[gsm];
       let rawState = m?.value;
       if (rawState === null || rawState === undefined) rawState = m?.value_text;
@@ -180,41 +212,42 @@ export function updateGridCardFromState(state) {
     }
 
     // Status display
-    const se = document.getElementById(uid('grid-state', id));
+    const se = document.getElementById(uid(p + '-state', id));
     if (se) {
-      se.textContent = current === null ? 'No data' : current ? 'Grid on' : 'Grid off';
+      se.textContent = gs.configured === false && p === 'generator' ? 'Not set up' : current === null ? 'No data' : current ? kind.on : kind.off;
       se.dataset.state = current === null ? 'unknown' : current ? 'on' : 'off';
     }
-    const si = document.getElementById(uid('grid-state-since', id));
+    const si = document.getElementById(uid(p + '-state-since', id));
     if (si) {
-      si.textContent = lastChange ? `Since ${formatTimestamp(lastChange)}` : '';
+      si.textContent = lastChange ? `Since ${formatTimestamp(lastChange)}`
+        : gs.configured === false && p === 'generator' ? 'Map a generator power metric, or set a generator status metric, in Settings' : '';
     }
 
     // Hours, and what the grid energy cost, for each period the card shows
     for (const { key } of GRID_PERIODS) {
-      const hoursEl = document.getElementById(uid('grid-hours-' + key, id));
+      const hoursEl = document.getElementById(uid(p + '-hours-' + key, id));
       if (hoursEl) {
         if (gh.configured === false) hoursEl.textContent = 'Not configured';
         else if (gh.available === false) hoursEl.textContent = 'No data';
         else hoursEl.textContent = formatDuration(gh[key] || 0);
       }
-      const costEl = document.getElementById(uid('grid-cost-' + key, id));
+      const costEl = document.getElementById(uid(p + '-cost-' + key, id));
       if (costEl) {
         const cost = gc.cost?.[key] ?? 0;
         costEl.textContent = gc.available ? formatMoneyShort(cost, gc.currency) : '—';
         costEl.title = gc.available
-          ? `${formatMoney(cost, gc.currency)}: ${(gc.kwh?.[key] ?? 0).toFixed(1)} kWh bought at ${formatMoney(gc.price, gc.currency)} per kWh`
-          : 'Map a daily grid import metric to see what the grid energy cost';
+          ? `${formatMoney(cost, gc.currency)}: ${(gc.kwh?.[key] ?? 0).toFixed(1)} kWh ${kind.kwhWord} at ${formatMoney(gc.price, gc.currency)} per kWh`
+          : kind.costHint(gc);
       }
     }
 
     // Date
-    updateGridDate(id);
+    updateGridDate(id, p);
 
     // Timeline
-    const te = document.getElementById(uid('grid-timeline', id));
+    const te = document.getElementById(uid(p + '-timeline', id));
     if (te && gt.segments?.length) {
-      renderTimelineBar(gt.segments, gt.windowStart, gt.windowEnd, id);
+      renderTimelineBar(gt.segments, gt.windowStart, gt.windowEnd, id, { prefix: p, noun: kind.noun });
     }
 
     renderDays(card, state);
