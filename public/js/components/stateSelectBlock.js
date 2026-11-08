@@ -1,6 +1,7 @@
 import { escapeHtml } from '../utils.js';
 import { isStaleReading } from './readingAge.js';
 import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
+import { isDeviceSetting, changeDeviceSetting, watchDeviceSetting } from './deviceSetting.js';
 
 const STATE_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (see switchBlock.js).
@@ -42,8 +43,10 @@ export function buildStateSelectBlock(block = {}) {
   container.className = ['state-select-block', styleClasses(style, 'state-select')].filter(Boolean).join(' ');
   container.dataset.blockId = block.id || '';
   // State comes from the metric (an HA entity id or MQTT topic isn't one).
-  container.dataset.metric = config.metric || config.entity || '';
+  const device = isDeviceSetting(config);   // an inverter or battery setting: read live, see deviceSetting.js
+  container.dataset.metric = device ? '' : (config.metric || config.entity || '');
   container.dataset.source = config.source || 'ha';
+  let deviceValue = null;   // what the setting was when the card last read it
 
   const label = escapeHtml(config.label || config.entity || 'Mode');
   const states = normalizeStates(config);
@@ -91,6 +94,7 @@ export function buildStateSelectBlock(block = {}) {
   }
 
   statusEl = container.querySelector('.state-select-status');
+  let watcher = null;
 
   const controls = container.querySelectorAll('.state-btn, .state-select-dropdown');
 
@@ -124,6 +128,13 @@ export function buildStateSelectBlock(block = {}) {
     const timeoutId = setTimeout(() => controller.abort(), STATE_TIMEOUT_MS);
 
     try {
+      if (device) {
+        // Sent only if the setting still is what the card showed; the device's read-back is the new state.
+        const out = await changeDeviceSetting(config, deviceNumber(value), deviceValue);
+        deviceValue = out.value;
+        paintState(container, String(out.value).toLowerCase());
+        return;
+      }
       const res = await fetch('/api/action', {
         method: 'POST',
         signal: controller.signal,
@@ -141,6 +152,10 @@ export function buildStateSelectBlock(block = {}) {
       container.dataset.pending = String(value).toLowerCase();
       container.dataset.pendingUntil = String(Date.now() + PENDING_HOLD_MS);
     } catch (e) {
+      if (device) {
+        if (e.current !== undefined) deviceValue = e.current;
+        if (watcher) watcher.refresh();   // show what it is now
+      }
       // Revert
       container.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
       if (previousActive) previousActive.classList.add('active');
@@ -183,7 +198,68 @@ export function buildStateSelectBlock(block = {}) {
     });
   }
 
+  if (device) {
+    watcher = watchDeviceSetting(container, config, result => {
+      if (container.querySelector('.state-btn:disabled, .state-select-dropdown:disabled')) return;   // a change is on its way
+      if (result.error) {
+        container.classList.add('is-unavailable');
+        container.title = result.error;
+        return;
+      }
+      container.classList.remove('is-unavailable');
+      container.removeAttribute('title');
+      deviceValue = result.value;
+      paintState(container, String(result.value).toLowerCase());
+      if (result.writable === false) {
+        controls.forEach(c => { c.disabled = true; });
+        if (result.blockedReason) container.title = result.blockedReason;
+      }
+    });
+  }
+
   return container;
+}
+
+/** A number-looking state value is sent as a number (a device enum is a number); anything else as written. */
+function deviceNumber(value) {
+  const n = Number(value);
+  return String(value).trim() !== '' && Number.isFinite(n) && String(n) === String(value).trim() ? n : value;
+}
+
+/** Show `currentValue` (lower case) as the selected state: the matching button or dropdown option. */
+function paintState(container, currentValue) {
+  const selectEl = container.querySelector('.state-select-dropdown');
+  if (selectEl) {
+    let matched = false;
+    selectEl.querySelectorAll('option').forEach(opt => {
+      const match = String(opt.value).toLowerCase() === currentValue ||
+                    String(opt.textContent).trim().toLowerCase() === currentValue;
+      if (match) {
+        opt.selected = true;
+        matched = true;
+      }
+    });
+    if (!matched) {
+      const first = selectEl.querySelector('option');
+      if (first) first.selected = true;
+    }
+    const sel = selectEl.querySelectorAll('option');
+    let color = '';
+    for (let i = 0; i < sel.length; i++) {
+      if (sel[i].selected) { color = sel[i].dataset.color || ''; break; }
+    }
+    selectEl.style.borderColor = color || '';
+    selectEl.style.color = color || '';
+  } else {
+    container.querySelectorAll('.state-btn').forEach(btn => {
+      const btnValue = btn.dataset.value.toLowerCase();
+      if (btnValue === currentValue) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
 }
 
 export function updateStateSelectBlockFromState(state) {
@@ -198,7 +274,6 @@ export function updateStateSelectBlockFromState(state) {
     container.title = stale ? 'The device is not answering' : '';
 
     const currentValue = stale ? '' : String(data.value).toLowerCase();
-    const selectEl = container.querySelector('.state-select-dropdown');
     // A reading older than the user's change: keep the change on screen.
     if (container.dataset.pending) {
       const held = Date.now() < Number(container.dataset.pendingUntil || 0);
@@ -208,36 +283,6 @@ export function updateStateSelectBlockFromState(state) {
     }
     if (container.querySelector('.state-btn:disabled, .state-select-dropdown:disabled')) return; // in flight
 
-    if (selectEl) {
-      let matched = false;
-      selectEl.querySelectorAll('option').forEach(opt => {
-        const match = String(opt.value).toLowerCase() === currentValue ||
-                      String(opt.textContent).trim().toLowerCase() === currentValue;
-        if (match) {
-          opt.selected = true;
-          matched = true;
-        }
-      });
-      if (!matched) {
-        const first = selectEl.querySelector('option');
-        if (first) first.selected = true;
-      }
-      const sel = selectEl.querySelectorAll('option');
-      let color = '';
-      for (let i = 0; i < sel.length; i++) {
-        if (sel[i].selected) { color = sel[i].dataset.color || ''; break; }
-      }
-      selectEl.style.borderColor = color || '';
-      selectEl.style.color = color || '';
-    } else {
-      container.querySelectorAll('.state-btn').forEach(btn => {
-        const btnValue = btn.dataset.value.toLowerCase();
-        if (btnValue === currentValue) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
-      });
-    }
+    paintState(container, currentValue);
   });
 }

@@ -3,6 +3,7 @@ import { emptyBlock } from './emptyState.js';
 import { isStaleReading } from './readingAge.js';
 import { iconHtml } from './buttonCard.js';
 import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
+import { isDeviceSetting, changeDeviceSetting, watchDeviceSetting } from './deviceSetting.js';
 
 const SWITCH_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (the device may not
@@ -20,7 +21,9 @@ export function buildSwitchBlock(block = {}) {
   container.dataset.blockId = id;
   // The state comes from the metric (HA and MQTT entities are an entity id or
   // topic, not the metric name); older cards only have `entity`.
-  container.dataset.metric = config.metric || config.entity || '';
+  // An inverter or battery setting has no metric: it is read live (see deviceSetting.js).
+  const device = isDeviceSetting(config);
+  container.dataset.metric = device ? '' : (config.metric || config.entity || '');
 
   const label = escapeHtml(config.label || config.entity || 'Switch');
   const onIcon = config.onIcon || '';
@@ -71,6 +74,8 @@ export function buildSwitchBlock(block = {}) {
   paintOn();
 
   let activeController = null;
+  let deviceValue = null;   // what the setting was when the card last read it
+  let watcher = null;
 
   checkbox.addEventListener('change', async function () {
     const wasChecked = !this.checked; // pre-toggle state (for revert)
@@ -96,6 +101,15 @@ export function buildSwitchBlock(block = {}) {
     };
 
     try {
+      if (device) {
+        // Sent only if the setting still is what the card showed; the device's read-back is the new state.
+        const out = await changeDeviceSetting(config, this.checked, deviceValue);
+        deviceValue = out.value === true || out.value === false ? out.value : this.checked;
+        this.checked = deviceValue;
+        setStateText(deviceValue);
+        paintOn();
+        return;
+      }
       const res = await fetch('/api/action', {
         method: 'POST',
         signal: controller.signal,
@@ -117,6 +131,11 @@ export function buildSwitchBlock(block = {}) {
       container.dataset.pending = this.checked ? 'on' : 'off';
       container.dataset.pendingUntil = String(Date.now() + PENDING_HOLD_MS);
     } catch (e) {
+      if (device) {
+        // Refused or changed since: show what the setting is now.
+        if (typeof e.current === 'boolean') { deviceValue = e.current; }
+        watcher && watcher.refresh();
+      }
       if (e.name === 'AbortError') {
         fail('timeout');
       } else {
@@ -128,6 +147,27 @@ export function buildSwitchBlock(block = {}) {
       this.disabled = false;
     }
   });
+
+  if (device) {
+    watcher = watchDeviceSetting(container, config, result => {
+      if (checkbox.disabled) return;   // a change is on its way
+      if (result.error) {
+        container.classList.add('is-unavailable');
+        container.title = result.error;
+        if (stateEl) stateEl.textContent = 'Unavailable';
+        return;
+      }
+      container.classList.remove('is-unavailable');
+      container.removeAttribute('title');
+      deviceValue = !!result.value;
+      checkbox.checked = deviceValue;
+      setStateText(deviceValue);
+      paintOn();
+      // A setting this device can't change (for example a model it isn't for) is shown, not offered.
+      checkbox.disabled = result.writable === false;
+      if (result.writable === false && result.blockedReason) container.title = result.blockedReason;
+    });
+  }
 
   return container;
 }

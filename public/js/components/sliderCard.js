@@ -10,6 +10,7 @@
  */
 import { escapeHtml } from '../utils.js';
 import { controlStyle, styleClasses, subLabelHtml } from './controlStyle.js';
+import { isDeviceSetting } from './deviceSetting.js';
 import { createNumericController, formatValue, fractionOf, rangeOf, updateNumericControls } from './numericControl.js';
 
 /** An accent colour from the card's settings: #rgb to #rrggbbaa only. */
@@ -25,7 +26,7 @@ export function buildSliderCard(block = {}) {
   container.className = ['ep-card numctl numctl-slider is-unknown', styleClasses(style, 'numctl')].filter(Boolean).join(' ');
   container.dataset.blockId = block.id || '';
   // The reading comes from the metric (an HA entity id or MQTT topic isn't one).
-  container.dataset.metric = config.metric || config.entity || '';
+  container.dataset.metric = isDeviceSetting(config) ? '' : (config.metric || config.entity || '');   // a device setting is read live
   container.dataset.source = config.source || 'ha';
   const accent = accentOf(config);
   if (accent) container.style.setProperty('--nc-accent', accent);
