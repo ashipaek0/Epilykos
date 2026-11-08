@@ -1,20 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42007021675.1",
-    "version": "1.1.1-dev+29b7e48",
-    "commit": "29b7e4899519e0ed3a8af9b071bc48eb8d56ff8c",
-    "digest": "sha256:9cd32b1a003dbc1dd7a92f2e64dcb088319fdfa1e5ebe6545146eed054041b35",
+    "buildId": "42467341097.1",
+    "version": "1.1.2-dev+3f35c73",
+    "commit": "3f35c736f29ac49b9a7b367a12e09c75e3acb673",
+    "digest": "sha256:0cce30ba22b32cd4148107f7a7f5fbfa3f30f711e2900f145566b9c2f5aa4bd4",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-05T10:00:28Z",
+    "builtAt": "2026-11-08T09:29:04Z",
     "kind": "release",
     "notes": [
-      "Controls: sub-label, tile layout, tint and group for Slider, Rotary knob and State select",
-      "Controls page: filter chips by group",
-      "Controls page: Quick actions card, one card with up to six compact buttons"
+      "Combined metrics: On/Off from a limit (#284)",
+      "Generator status card (#282)"
     ]
   },
   "history": [
+    {
+      "buildId": "42467341097.1",
+      "version": "1.1.2-dev+3f35c73",
+      "commit": "3f35c736f29ac49b9a7b367a12e09c75e3acb673",
+      "digest": "sha256:0cce30ba22b32cd4148107f7a7f5fbfa3f30f711e2900f145566b9c2f5aa4bd4",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T09:29:04Z",
+      "kind": "release",
+      "notes": [
+        "Combined metrics: On/Off from a limit (#284)",
+        "Generator status card (#282)"
+      ]
+    },
     {
       "buildId": "42007021675.1",
       "version": "1.1.1-dev+29b7e48",
@@ -365,16 +377,6 @@
         "LuxPower: read and control what the Home Assistant integration does",
         "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
       ]
-    },
-    {
-      "buildId": "41594113617.1",
-      "version": "1.0.13-dev+6fe3ce7",
-      "commit": "6fe3ce7f3a6b524023e1de753472b48593c4d160",
-      "digest": "sha256:de599e49599668e0a13a9740d69abc8a98226b0e2051fa06c7e9d35a545a3873",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T07:07:03Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
