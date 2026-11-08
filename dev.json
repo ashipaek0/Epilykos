@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42486511850.1",
-    "version": "1.1.3-dev+d72612f",
-    "commit": "d72612f406e54acd1afb12bd1226a996ce9f2a93",
-    "digest": "sha256:9d7b2951b26ae8760de02eddf1865b93a8b50dfdceb42751f2387ee40b57de67",
+    "buildId": "42496425535.1",
+    "version": "1.1.4-dev+c5dd5c5",
+    "commit": "c5dd5c54878e52f2375629b0d8b8f5c2df1c3024",
+    "digest": "sha256:fc08d7322754a5fef93e7554d02fa73e4656b4a6cd999c0b02aabb8f757b722e",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T13:46:28Z",
+    "builtAt": "2026-11-08T15:45:49Z",
     "kind": "release",
     "notes": [
-      "CI: remove the report-only Windows test job (#295)"
+      "Notifications: any browser can offer itself as a push device (#296)"
     ]
   },
   "history": [
+    {
+      "buildId": "42496425535.1",
+      "version": "1.1.4-dev+c5dd5c5",
+      "commit": "c5dd5c54878e52f2375629b0d8b8f5c2df1c3024",
+      "digest": "sha256:fc08d7322754a5fef93e7554d02fa73e4656b4a6cd999c0b02aabb8f757b722e",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T15:45:49Z",
+      "kind": "release",
+      "notes": [
+        "Notifications: any browser can offer itself as a push device (#296)"
+      ]
+    },
     {
       "buildId": "42486511850.1",
       "version": "1.1.3-dev+d72612f",
@@ -366,18 +378,6 @@
       "kind": "release",
       "notes": [
         "Update README.md"
-      ]
-    },
-    {
-      "buildId": "41796391757.1",
-      "version": "1.0.14-dev+78ebf2b",
-      "commit": "78ebf2bb6a298c9241fc2d8c566f4d7c63387a7f",
-      "digest": "sha256:cb5346d64860ac8f1067b4ccab3a6a5b404ceef334eaa32b9ac22968774ea440",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T08:02:15Z",
-      "kind": "release",
-      "notes": [
-        "Make the forecast and time-series reader fixtures work in any time zone (#265)"
       ]
     }
   ]
