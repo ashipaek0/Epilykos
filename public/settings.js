@@ -2402,6 +2402,9 @@ function renderBmsDevice(device, idx) {
       </select>
     </div>
     <div class="form-row" style="gap:0.5rem;">
+      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
+    </div>
+    <div class="form-row" style="gap:0.5rem;">
       <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">🔍 Scan</button>
       <button type="button" class="fetch-btn test-bms" style="flex:1;">Test Connection</button>
       <span class="test-status" id="bms-test-status-${idx}"></span>
@@ -2587,6 +2590,7 @@ function renderBmsWiredDevice(device, idx) {
       <select name="bms_devices[${idx}][profile]" class="bms-wired-profile-select" style="flex:1;">
         <option value="">-- Select profile --</option>
       </select>
+      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
       <input type="number" name="bms_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;" title="Timeout in milliseconds">
       <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
       <span class="test-status"></span>
@@ -2739,6 +2743,20 @@ function reindexBmsWired() {
   });
 }
 
+// BMS mapping rows get the same "+ New" control as the inverter rows, so a metric can
+// be created right where it is mapped. The unit is prefilled when the BMS reports one.
+const bmsAdapter = { defaultUnit(entity) { return entity && entity.unit ? String(entity.unit) : ''; } };
+function addBmsNewMetricControl(row, metricSelect, removeBtn, entity) {
+  if (!(window.CatalogUI && typeof window.CatalogUI.createInlineMetricControl === 'function')) return;
+  row._catalogEntity = entity || null;
+  const newBtn = window.CatalogUI.createInlineMetricControl(bmsAdapter, row, metricSelect, () => row._catalogEntity);
+  const panel = row.lastElementChild;           // the name + unit editor it appended
+  row.insertBefore(newBtn, removeBtn);          // select, + New, ✕
+  // The editor needs more room than these rows have: it takes a line of its own while open.
+  row.style.flexWrap = 'wrap';
+  panel.style.flex = '1 1 100%';
+}
+
 function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
   const infoMap = {};
   (fieldsInfo || []).forEach(f => { if (f && f.field != null) infoMap[String(f.field)] = f; });
@@ -2768,8 +2786,10 @@ function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
     removeBtn.className = 'remove-btn remove-metric';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
+      const card = row.closest('.device-card');
       row.remove();
       if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      updateMappingSaveNote(card);
     });
 
     metricSelect.addEventListener('change', () => {
@@ -2779,8 +2799,10 @@ function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
     row.appendChild(keyLabel);
     row.appendChild(metricSelect);
     row.appendChild(removeBtn);
+    addBmsNewMetricControl(row, metricSelect, removeBtn, info);
     container.appendChild(row);
   });
+  updateMappingSaveNote(container.closest('.device-card'));
 }
 
 function collectBmsWiredConfig(card) {
@@ -2797,6 +2819,7 @@ function collectBmsWiredConfig(card) {
   dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]')?.value) || 1;
   dev.profile = card.querySelector('.bms-wired-profile-select').value;
   dev.timeout = parseInt(card.querySelector('input[name$="[timeout]"]').value) || 5000;
+  dev.poll_interval = Math.min(3600, Math.max(5, parseInt(card.querySelector('input[name$="[poll_interval]"]')?.value, 10) || 30));
   dev.mappings = {};
   card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
     const bmsKey = row.dataset.bmsKey;
@@ -2844,8 +2867,10 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     removeBtn.className = 'remove-btn remove-metric';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
+      const card = row.closest('.device-card');
       row.remove();
       if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      updateMappingSaveNote(card);
     });
 
     metricSelect.addEventListener('change', () => {
@@ -2855,8 +2880,10 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     row.appendChild(keyLabel);
     row.appendChild(metricSelect);
     row.appendChild(removeBtn);
+    addBmsNewMetricControl(row, metricSelect, removeBtn, null);
     container.appendChild(row);
   });
+  updateMappingSaveNote(container.closest('.device-card'));
 }
 
 // Poll BMS connection status and update indicator dots
@@ -2945,6 +2972,7 @@ function renderBmsBank(bank, idx) {
     <h4 class="bank-subhead">Bank metrics</h4>
     <p class="st-help">Each one is saved as <code>bank_</code> + its name (for example <code>bank_${escapeHtml(bankSlug(bank.name))}_soc</code>) and can be used in roles, cards and Combined metrics. Weighted charge uses each battery's capacity.</p>
     <div class="bank-functions-list" id="bank-functions-${idx}"></div>
+    <p class="st-help bank-empty-hint" role="status" hidden>No bank metrics yet, so this bank publishes nothing. Press “Add the usual battery metrics”, or “+ Add metric” and choose each battery’s reading. A metric with no reading chosen is not saved.</p>
     <div class="bank-actions">
       <button type="button" class="st-btn add-bank-starter" data-bank="${idx}">Add the usual battery metrics</button>
       <button type="button" class="st-btn add-bank-function" data-bank="${idx}">+ Add metric</button>
@@ -2956,6 +2984,9 @@ function renderBmsBank(bank, idx) {
 
   // Populate device checkboxes from configured BMS devices
   populateBankDevices(card, idx, bank.devices || []);
+  card.addEventListener('change', () => updateBankHint(card));
+  card.addEventListener('input', () => updateBankHint(card));
+  updateBankHint(card);   // a bank saved with no metrics says so at once
 
   // Render function rows
   const fnContainer = card.querySelector(`#bank-functions-${idx}`);
@@ -3011,37 +3042,92 @@ function renderBmsBank(bank, idx) {
 
 function populateBankDevices(card, bankIdx, selectedDevices) {
   const container = card.querySelector(`#bank-devices-${bankIdx}`);
-  // Get all configured BMS device names from the DOM
-  const bmsCards = document.querySelectorAll('#bms-devices-container .device-card');
+  // Every configured battery, Bluetooth and wired: both store their readings the same way.
   const allDevices = [];
-  bmsCards.forEach(c => {
+  const addFrom = (selector, kind) => document.querySelectorAll(selector).forEach(c => {
     const nameInput = c.querySelector('.device-header input[type="text"]');
-    if (nameInput && nameInput.value.trim()) {
-      allDevices.push(nameInput.value.trim());
-    }
+    const name = nameInput && nameInput.value.trim();
+    if (name && !allDevices.some(d => d.name === name)) allDevices.push({ name, kind });
   });
+  addFrom('#bms-devices-container .device-card', '');
+  addFrom('#bms-wired-devices-container .device-card', 'wired');
 
-  if (allDevices.length === 0) {
+  const selectedNames = new Set((selectedDevices || []).map(d => typeof d === 'string' ? d : d.name));
+  // A battery saved in this bank that no longer exists (renamed or removed) stays listed, so
+  // the bank doesn't quietly lose it, and it is clear why that battery gives no data.
+  const missing = [...selectedNames].filter(n => n && !allDevices.some(d => d.name === n));
+  const rows = allDevices.concat(missing.map(name => ({ name, kind: 'missing' })));
+
+  if (rows.length === 0) {
     container.innerHTML = '<div class="note">No BMS devices configured. Add devices above first.</div>';
     return;
   }
 
-  const selectedNames = new Set((selectedDevices || []).map(d => typeof d === 'string' ? d : d.name));
-
-  container.innerHTML = allDevices.map(name => {
+  container.innerHTML = rows.map(({ name, kind }) => {
     const checked = selectedNames.has(name) ? 'checked' : '';
     // Find existing capacity_override if any
     const existing = (selectedDevices || []).find(d => (typeof d === 'string' ? d : d.name) === name);
     const capOverride = (existing && typeof existing === 'object' && existing.capacity_override) ? existing.capacity_override : '';
+    const tag = kind === 'wired' ? ' <span class="st-help">(wired)</span>'
+      : kind === 'missing' ? ' <span class="st-help is-error">no battery with this name: it was renamed or removed. Untick it, or rename the battery back.</span>' : '';
     return `
       <div class="form-row bank-device-row" style="align-items:center; gap:8px; margin-bottom:4px;">
         <span class="toggle-wrap" style="flex:1;">
           <label class="toggle-switch"><input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}><span class="slider"></span></label>
-          <label style="cursor:pointer;">${escapeHtml(name)}</label>
+          <label style="cursor:pointer;">${escapeHtml(name)}${tag}</label>
         </span>
-        <input type="number" class="bank-device-capacity input" placeholder="Capacity (Ah), auto" aria-label="Capacity in Ah" value="${capOverride}" style="width:170px; font-size:0.85em;" title="Leave blank to use the capacity the BMS reports.">
+        <input type="number" class="bank-device-capacity input" placeholder="Capacity (Ah), auto" aria-label="Capacity in Ah" value="${capOverride}" style="width:170px; font-size:0.85em;" title="Leave empty to use the capacity the battery reports">
       </div>`;
   }).join('');
+}
+
+// Rebuild every bank's battery list from the battery cards as they are now, keeping what is
+// ticked and each capacity. Wired battery cards are drawn after a port lookup, and batteries
+// can be added or removed while a bank is open.
+function refreshBankDeviceLists() {
+  document.querySelectorAll('#bms-banks-container .device-card').forEach(card => {
+    const list = card.querySelector('.bank-devices-list');
+    if (!list) return;
+    const idx = list.id.replace('bank-devices-', '');   // the id the card was built with (cards can be re-numbered after)
+    const selected = Array.from(card.querySelectorAll('.bank-device-cb:checked')).map(cb => {
+      const dev = { name: cb.value };
+      const cap = parseFloat(cb.closest('.bank-device-row').querySelector('.bank-device-capacity').value);
+      if (!isNaN(cap) && cap > 0) dev.capacity_override = cap;
+      return dev;
+    });
+    // Capacities typed for batteries that are not ticked are kept too.
+    card.querySelectorAll('.bank-device-row').forEach(row => {
+      const cb = row.querySelector('.bank-device-cb');
+      if (cb.checked) return;
+      const cap = parseFloat(row.querySelector('.bank-device-capacity').value);
+      if (!isNaN(cap) && cap > 0) selected.push({ name: cb.value, capacity_override: cap, _unticked: true });
+    });
+    populateBankDevices(card, idx, selected.map(d => d));
+    // populateBankDevices ticks what it is given: untick the ones that were only carrying a capacity.
+    selected.filter(d => d._unticked).forEach(d => {
+      const cb = Array.from(card.querySelectorAll('.bank-device-cb')).find(x => x.value === d.name);
+      if (cb) cb.checked = false;
+    });
+    updateBankHint(card);
+  });
+}
+(function watchBatteryCards() {
+  if (typeof MutationObserver === 'undefined') return;
+  let timer = null;
+  const later = () => { clearTimeout(timer); timer = setTimeout(refreshBankDeviceLists, 60); };
+  ['bms-devices-container', 'bms-wired-devices-container'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) new MutationObserver(later).observe(el, { childList: true });
+  });
+})();
+
+// Say so when a bank would save with no metrics, instead of quietly publishing nothing.
+function updateBankHint(card) {
+  const hint = card && card.querySelector('.bank-empty-hint');
+  if (!hint) return;
+  const usable = Array.from(card.querySelectorAll('.bank-function-row')).some(row =>
+    row.querySelector('.bank-fn-output').value.trim() && Array.from(row.querySelectorAll('.bank-fn-source')).some(sel => sel.value));
+  hint.hidden = usable;
 }
 
 function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
@@ -3094,20 +3180,24 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
       return;
     }
     try {
-      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}`, { credentials: 'include' });
+      // fallback=1: a battery that has not reported yet still offers the usual readings.
+      const res = await fetch(`/api/bms/device-metrics/${encodeURIComponent(deviceName)}?fallback=1`, { credentials: 'include' });
       if (!res.ok) throw new Error('failed');
       const items = await res.json();
-      if (!items || items.length === 0) {
+      const keys = (items || []).map(item => typeof item === 'string' ? item : item.key);
+      // The reading already chosen stays in the list even if the battery doesn't report it
+      // right now, so saving never drops it.
+      if (selectedKey && !keys.includes(selectedKey)) keys.unshift(selectedKey);
+      if (keys.length === 0) {
         selectEl.innerHTML = '<option value="">-- test connection first --</option>';
         return;
       }
       selectEl.innerHTML = '<option value="">-- source --</option>' +
-        items.map(item => {
-          const k = typeof item === 'string' ? item : item.key;
-          return `<option value="${escapeHtml(k)}" ${k === selectedKey ? 'selected' : ''}>${escapeHtml(k)}</option>`;
-        }).join('');
+        keys.map(k => `<option value="${escapeHtml(k)}" ${k === selectedKey ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('');
     } catch (_) {
       selectEl.innerHTML = '<option value="">-- unavailable --</option>';
+    } finally {
+      updateBankHint(card);
     }
   }
 
@@ -3124,7 +3214,8 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   });
 
   // Remove button
-  row.querySelector('.remove-bank-fn').addEventListener('click', () => row.remove());
+  row.querySelector('.remove-bank-fn').addEventListener('click', () => { row.remove(); updateBankHint(card); });
+  updateBankHint(card);
 }
 
 async function testBank(card, idx) {
@@ -4372,6 +4463,7 @@ function cardMappedRowCount(card) {
     const textInput = row.querySelector('.topic-input, .jsonpath');
     const entitySel = row.querySelector('.entity-select');
     const handle = row.dataset.address
+      || row.dataset.bmsKey
       || (entitySel && entitySel.value ? entitySel.value : '')
       || (textInput ? textInput.value.trim() : '');
     if (handle) n++;
@@ -4412,7 +4504,7 @@ document.addEventListener('catalog-rows-changed', (e) => {
 // build rows directly — cover their metric picks and row removals too. The HA,
 // MQTT and external cards use the same legacy row anatomy, so they join here
 // for a live "Save will persist N of M mapped" note (AC-29/AC-31).
-['ha-devices-container', 'mqtt-devices-container', 'external-sources-container', 'modbus-devices-container', 'rs232-devices-container', 'dongle-devices-container'].forEach(id => {
+['ha-devices-container', 'mqtt-devices-container', 'external-sources-container', 'modbus-devices-container', 'rs232-devices-container', 'dongle-devices-container', 'bms-devices-container', 'bms-wired-devices-container'].forEach(id => {
   const container = document.getElementById(id);
   if (!container) return;
   container.addEventListener('change', (e) => {
@@ -5653,6 +5745,7 @@ async function buildSourcesPayload() {
       dev.address = card.querySelector('input[name$="[address]"]').value;
       dev.bms_type = card.querySelector('.bms-type-select')?.value || '';
       dev.transport = 'bluetooth';
+      dev.poll_interval = Math.min(3600, Math.max(5, parseInt(card.querySelector('input[name$="[poll_interval]"]')?.value, 10) || 30));
       // Collect metric mappings: { bmsKey → metricName }
       dev.mappings = {};
       card.querySelectorAll('.mappings-list .metric-row').forEach(row => {

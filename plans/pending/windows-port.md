@@ -1,6 +1,6 @@
 # Windows package: findings so far
 
-Status: not started. Only the report-only CI job exists (`test-windows` in `.github/workflows/test.yml`, PR #248). Nothing in the app has been changed for Windows.
+Status: not started. The report-only CI job that ran the fixtures on Windows (`test-windows` in `.github/workflows/test.yml`, PR #248) has been removed; the findings below are from its last runs. Nothing in the app has been changed for Windows.
 
 ## Why
 
@@ -48,4 +48,4 @@ Core app (Node 22, `better-sqlite3`, `serialport`, `modbus-serial`, `mqtt`, `ws`
 
 ## Re-running the report
 
-Open a PR (or run the Tests workflow): the `test-windows` job prints the failing fixtures and the first error of each in its log and job summary.
+To get these results again, restore the `test-windows` job from the git history of `.github/workflows/test.yml` (it prints the failing fixtures and the first error of each in its job summary).

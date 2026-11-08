@@ -3,6 +3,7 @@
 const { getDb } = require('./database');
 const { acquireLock } = require('./maintenanceLock');
 const { logger } = require('./logger');
+const { compactOnce } = require('./dbCompact');
 
 const ROLLUP_INTERVAL_MS = 60 * 60 * 1000;
 const RETENTION_SECONDS = 30 * 24 * 60 * 60;
@@ -172,7 +173,12 @@ class RetentionManager {
     if (this._running) return this._running;
     this._running = (async () => {
       let more = false;
-      try { more = (await runRollupOnce({ lockTimeoutMs: this.lockTimeoutMs, budgetMs: this.budgetMs })).more; }
+      try {
+        const result = await runRollupOnce({ lockTimeoutMs: this.lockTimeoutMs, budgetMs: this.budgetMs });
+        more = result.more;
+        // Once the backlog is cleared, give back the space the deleted rows left behind.
+        if (!result.deferred && !result.more) await compactOnce({ lockTimeoutMs: this.lockTimeoutMs });
+      }
       catch (error) { logger.error(`Retention rollup tick failed: ${error.message}`); }
       finally { this._running = null; }
       this._schedule(more ? this.catchUpMs : this.intervalMs);

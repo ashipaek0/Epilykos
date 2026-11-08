@@ -496,6 +496,8 @@ startSnapshotScheduler();
 // Raw readings older than 30 days become 5-minute summaries (metrics_5m,
 // history_5m), which the chart and table readers use past that point.
 const retention = new (require('./modules/retentionJob').RetentionManager)().start();
+// A metric deleted just before a restart: finish removing its stored readings.
+setTimeout(() => require('./modules/metricHistoryPurge').resume(), 30 * 1000).unref();
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -2146,8 +2148,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
   }
   try {
     const { readLatestBmsMetrics, isDeviceFresh, resolveSource, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
-    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
-    const stalenessThreshold = pollInterval * 2;
+    const { stalenessForName } = require('./modules/bmsInterval');
     const now = Math.floor(Date.now() / 1000);
 
     // Gather raw data and freshness per device
@@ -2156,7 +2157,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
     let freshCount = 0;
     for (const device of (bank.devices || [])) {
       const raw = readLatestBmsMetrics(device.name);
-      const fresh = isDeviceFresh(raw, stalenessThreshold);
+      const fresh = isDeviceFresh(raw, stalenessForName(device.name));
       const newestTs = Object.keys(raw).length > 0
         ? Math.max(...Object.values(raw).map(m => m.timestamp))
         : null;
@@ -2249,7 +2250,7 @@ app.get('/api/bms/device-metrics/:name', (req, res) => {
   if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
   try {
     const { getAvailableSourceKeys } = require('./modules/bmsAggregator');
-    const keys = getAvailableSourceKeys(name);
+    const keys = getAvailableSourceKeys(name, { fallback: req.query.fallback === '1' });
     res.json(keys);
   } catch (err) {
     logger.error('BMS device-metrics error:', err.message);
@@ -2264,9 +2265,8 @@ app.get('/api/bms/device-status', (req, res) => {
   if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
   try {
     const { readLatestBmsMetrics, isDeviceFresh } = require('./modules/bmsAggregator');
-    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
     const raw = readLatestBmsMetrics(name);
-    const connected = isDeviceFresh(raw, pollInterval * 2);
+    const connected = isDeviceFresh(raw, require('./modules/bmsInterval').stalenessForName(name));
     const newestTs = Object.keys(raw).length > 0
       ? Math.max(...Object.values(raw).map(m => m.timestamp))
       : null;
@@ -2734,7 +2734,7 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   try {
     const { deleteMetrics } = require('./modules/metricDeletion');
     const { name } = req.params;
-    const result = deleteMetrics([name]);
+    const result = deleteMetrics([name], { deferHistory: true });
     if (result.blocked.length) return res.status(409).json({ error: result.blocked[0].reason });
     res.json({ success: true, roles_cleared: result.rolesCleared, used_by: result.usedBy[name] || [] });
   } catch (err) {
@@ -2750,7 +2750,7 @@ app.post('/api/metrics/delete', isAuthenticated, (req, res) => {
     return res.status(400).json({ error: 'A list of metric names is required' });
   }
   try {
-    const result = require('./modules/metricDeletion').deleteMetrics(names);
+    const result = require('./modules/metricDeletion').deleteMetrics(names, { deferHistory: true });
     res.json({ success: true, deleted: result.deleted, blocked: result.blocked, roles_cleared: result.rolesCleared, used_by: result.usedBy });
   } catch (err) {
     if (err instanceof RangeError) return res.status(400).json({ error: err.message });
