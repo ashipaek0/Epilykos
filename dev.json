@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42484700283.1",
-    "version": "1.1.3-dev+b7464f3",
-    "commit": "b7464f316dbd4a3fda8c5173754a87fead380570",
-    "digest": "sha256:7a93382fbcdd6fea85cb7acf3ceab14ad14ef98f08966aeabc76dc9009eefa61",
+    "buildId": "42485461405.1",
+    "version": "1.1.3-dev+0e91423",
+    "commit": "0e914230862c43379c5f5a3ee26c1611ea326d45",
+    "digest": "sha256:8e4453498404a95f5a36f67a29e9fe49270e42dd73a78fa63529693c1c895eec",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T13:23:23Z",
+    "builtAt": "2026-11-08T13:33:03Z",
     "kind": "release",
     "notes": [
-      "Deleting a metric no longer freezes the app on a large database (#293)"
+      "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)"
     ]
   },
   "history": [
+    {
+      "buildId": "42485461405.1",
+      "version": "1.1.3-dev+0e91423",
+      "commit": "0e914230862c43379c5f5a3ee26c1611ea326d45",
+      "digest": "sha256:8e4453498404a95f5a36f67a29e9fe49270e42dd73a78fa63529693c1c895eec",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T13:33:03Z",
+      "kind": "release",
+      "notes": [
+        "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)"
+      ]
+    },
     {
       "buildId": "42484700283.1",
       "version": "1.1.3-dev+b7464f3",
@@ -366,18 +378,6 @@
       "kind": "release",
       "notes": [
         "Make fixtures independent of the time of day (#264)"
-      ]
-    },
-    {
-      "buildId": "41735755996.1",
-      "version": "1.0.14-dev+c17afb5",
-      "commit": "c17afb511b13831eb6f4b73c9bda4661aba7a20b",
-      "digest": "sha256:ba53e48108061e53fb700a80a7acbf9496d0cdc1d3b09722a849e04e0231fbca",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T23:01:54Z",
-      "kind": "release",
-      "notes": [
-        "Fix a flaky WebSocket test and the CodeQL cookie finding in a test app (#263)"
       ]
     }
   ]
