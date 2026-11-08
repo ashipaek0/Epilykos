@@ -108,6 +108,30 @@ function storeSample(device, data, now) {
   }
 }
 
+/**
+ * Compute every battery bank from the readings of its batteries. Bluetooth and wired
+ * batteries both store bms_<name>_<key>, so this does not care which kind they are, and it
+ * runs after every cycle of this poller, also when no Bluetooth battery is set up (a bank
+ * of wired batteries) or Bluetooth is unavailable.
+ */
+async function computeBanks() {
+  try {
+    let banks;
+    try {
+      banks = JSON.parse(getConfig('bms_banks') || '[]');
+    } catch (e) {
+      logger.error(`BMS: failed to parse bms_banks config: ${e.message}`);
+      return;
+    }
+    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
+    for (const bank of banks) {
+      await computeBankAggregates(bank, pollInterval);
+    }
+  } catch (err) {
+    logger.error(`BMS bank aggregation error: ${err.message}`);
+  }
+}
+
 async function pollBMS() {
   if (bmsPollingActive) {
     logger.warn('BMS poll skipped — previous cycle still running');
@@ -123,7 +147,7 @@ async function pollBMS() {
       return;
     }
     devices = devices.filter(d => d && d.enabled && d.address);
-    if (!devices.length) return;
+    if (!devices.length) { await computeBanks(); return; }   // wired batteries only: banks still need computing
 
     const bridge = legacyBridgeUrl();
     if (bridge) {
@@ -135,6 +159,7 @@ async function pollBMS() {
       }
     } else if (!ble.isConfigured()) {
       logger.warn('BMS: Bluetooth devices configured but no D-Bus socket is mounted — mount /run/dbus into the container');
+      await computeBanks();   // a bank that also has wired batteries still has data
       return;
     }
 
@@ -157,21 +182,7 @@ async function pollBMS() {
     }
 
     // Compute bank aggregates after all devices polled
-    try {
-      let banks;
-      try {
-        banks = JSON.parse(getConfig('bms_banks') || '[]');
-      } catch (e) {
-        logger.error(`BMS: failed to parse bms_banks config: ${e.message}`);
-        return;
-      }
-      const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
-      for (const bank of banks) {
-        await computeBankAggregates(bank, pollInterval);
-      }
-    } catch (err) {
-      logger.error(`BMS bank aggregation error: ${err.message}`);
-    }
+    await computeBanks();
   } finally {
     bmsPollingActive = false;
   }
@@ -202,5 +213,5 @@ function stopBmsPolling() {
 
 module.exports = {
   startBmsPolling, restartBmsPolling, pollBMS, stopBmsPolling,
-  scanDevices, readDevice, storeSample, BmsBackendError
+  scanDevices, readDevice, storeSample, computeBanks, BmsBackendError
 };

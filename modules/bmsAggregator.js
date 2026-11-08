@@ -234,10 +234,6 @@ function resolveSource(fn, deviceName) {
  */
 async function computeBankAggregates(bank, pollIntervalSec) {
   if (!bank.enabled) return;
-  if (!bank.functions || bank.functions.length === 0) {
-    logger.debug(`bmsAggregator: bank '${bank.name}' has no functions — skipping`);
-    return;
-  }
   if (!bank.devices || bank.devices.length === 0) {
     logger.warn(`bmsAggregator: bank '${bank.name}' has no devices — skipping`);
     return;
@@ -278,8 +274,8 @@ async function computeBankAggregates(bank, pollIntervalSec) {
   writeMetric(companionOnline, freshCount);
   writeMetric(companionUpdate, oldestFreshTs);
 
-  // 4. Compute each function
-  for (const fn of bank.functions) {
+  // 4. Compute each function (a bank with none still reports how many batteries answer)
+  for (const fn of bank.functions || []) {
     try {
       // Gather values and timestamps from fresh devices
       const values = [];
@@ -404,16 +400,18 @@ const COMMON_BMS_KEYS = [
 
 /**
  * List available source keys for a BMS device.
- * Falls back to COMMON_BMS_KEYS if no data exists yet (cold-start).
+ * With `fallback`, a device that has not reported yet (cold start, or off for now) is
+ * offered the usual keys, so a bank can be set up before the first reading.
  * @param {string} deviceName
- * @returns {string[]}
+ * @param {{fallback?: boolean}} [opts]
+ * @returns {Array<{key: string, value: number|null}>}
  */
-function getAvailableSourceKeys(deviceName) {
+function getAvailableSourceKeys(deviceName, { fallback = false } = {}) {
   const raw = readLatestBmsMetrics(deviceName);
   const keys = Object.keys(raw);
   if (keys.length === 0) {
     logger.info(`bmsAggregator: no metrics found for '${deviceName}' — test connection or wait for next poll`);
-    return [];
+    return fallback ? COMMON_BMS_KEYS.map(k => ({ key: k, value: null })) : [];
   }
   // Return all keys with their values, sorted alphabetically
   return keys
