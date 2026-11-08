@@ -65,7 +65,7 @@ const SETTINGS = {
   dashboard_config: (v, rename) => renameInLayout(v, rename),
   controls_layout: (v, rename) => renameInLayout(v, rename),
 };
-const STRING_SETTINGS = ['grid_status_entity', 'savings_solar_metric'];
+const STRING_SETTINGS = ['grid_status_entity', 'generator_status_entity', 'savings_solar_metric'];
 const LIST_SETTINGS = ['metric_sanity_allow', 'metric_sanity_deny'];
 
 /**

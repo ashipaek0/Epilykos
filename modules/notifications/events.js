@@ -23,6 +23,8 @@ const SEVERITIES = ['info', 'warning', 'critical'];
 const EVENT_TYPES = {
   'grid.off': { label: 'Grid outage started', category: 'Grid', severity: 'critical', description: 'The grid status metric went OFF.' },
   'grid.on': { label: 'Grid restored', category: 'Grid', severity: 'info', description: 'The grid status metric came back ON, with the outage length.' },
+  'generator.on': { label: 'Generator started', category: 'Generator', severity: 'warning', description: 'The generator began running (its status metric turned ON, or its power rose above 20 W).' },
+  'generator.off': { label: 'Generator stopped', category: 'Generator', severity: 'info', description: 'The generator stopped, with how long it ran.' },
   'source.offline': { label: 'Source stopped responding', category: 'Sources', severity: 'warning', description: 'A polled source (Home Assistant, Modbus, Tuya, RS232, grid) failed 3 polls in a row.' },
   'source.online': { label: 'Source responding again', category: 'Sources', severity: 'info', description: 'A source that was offline answered a poll.' },
   'mqtt.disconnected': { label: 'MQTT broker disconnected', category: 'Sources', severity: 'warning', description: 'The connection to an MQTT broker dropped.' },

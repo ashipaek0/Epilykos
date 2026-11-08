@@ -253,7 +253,7 @@
     'metric-cards': 'Metric cards', 'multi-value': 'Multi-value', 'text-metric': 'Text value', 'gauge': 'Gauge', 'half-gauge': 'Half gauge', 'half-gauge-2': 'Half gauge',
     'bar-gauge': 'Bar gauge', 'bar-gauge-retro': 'Retro bar gauge', 'bar-single': 'Bar chart', 'bar-stacked': 'Stacked bars', 'bar-threshold': 'Threshold bars',
     'chart-power': 'Power chart', 'chart-energy': 'Daily energy', 'chart-metric': 'Metric chart', 'daily-table': 'Daily table', 'monthly-table': 'Monthly table',
-    'grid-card': 'Grid status', 'savings-summary': 'Savings', 'weather-block': 'Weather', 'forecast-pvtoday': 'Solar today', 'forecast-solar': 'Solar forecast',
+    'grid-card': 'Grid status', 'generator-card': 'Generator status', 'savings-summary': 'Savings', 'weather-block': 'Weather', 'forecast-pvtoday': 'Solar today', 'forecast-solar': 'Solar forecast',
     'switch-block': 'Switch', 'state-select': 'Mode select', 'button-card': 'Button', 'quick-actions': 'Quick actions', 'slider-card': 'Slider', 'rotary-card': 'Rotary knob', 'iframe': 'Embedded page', 'text': 'Text'
   };
 
