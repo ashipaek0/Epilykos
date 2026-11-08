@@ -2249,7 +2249,7 @@ app.get('/api/bms/device-metrics/:name', (req, res) => {
   if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
   try {
     const { getAvailableSourceKeys } = require('./modules/bmsAggregator');
-    const keys = getAvailableSourceKeys(name);
+    const keys = getAvailableSourceKeys(name, { fallback: req.query.fallback === '1' });
     res.json(keys);
   } catch (err) {
     logger.error('BMS device-metrics error:', err.message);
