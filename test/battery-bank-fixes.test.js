@@ -87,5 +87,10 @@ const bankMetrics = () => { database.flushMetrics(); return Object.fromEntries(d
   assert.match(js, /card\.addEventListener\('change', \(\) => updateBankHint\(card\)\)/);
   console.log('ok - settings: wired batteries in a bank, renamed batteries visible, chosen readings kept, empty-bank hint');
 
+  // The Sources list looks for readings under the name the bank publishes (bank_ + name).
+  const shell = fs.readFileSync(path.join(REPO, 'public/js/settings-shell.js'), 'utf8');
+  assert.match(shell, /el\.classList\.contains\('bank-fn-output'\)\) v = 'bank_' \+ v/, 'a bank shows as connected when its bank_ metrics have readings');
+  console.log('ok - Sources list: a working bank is not shown as "No readings yet"');
+
   checks.done();
 })().catch(err => { console.error(err); process.exitCode = 1; });
