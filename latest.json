@@ -1,19 +1,50 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42468775873.1",
-    "version": "1.1.2",
-    "commit": "2851532a3b140b20b6193f502aa3cbb1c110cf8c",
-    "digest": "sha256:cd8a5fa5825c01e153f8aa14ba49a63142dfd517b26033648b5497f81479782c",
+    "buildId": "42487025088.1",
+    "version": "1.1.3",
+    "commit": "6f8b91b2559a894a6eaf4b352ccb8c212acaca49",
+    "digest": "sha256:7034b1bdae61c2c9312c4bdeae17575e0638c178e73f55d0a6647f0735cc8c54",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-08T09:49:23Z",
+    "builtAt": "2026-11-08T13:52:47Z",
     "kind": "release",
     "notes": [
-      "Combined metrics: On/Off from a limit (#284)",
-      "Generator status card (#282)"
+      "CI: remove the report-only Windows test job (#295)",
+      "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)",
+      "Deleting a metric no longer freezes the app on a large database (#293)",
+      "Updates page: stop offering the version that is already running",
+      "Give back database space freed by the retention rollup",
+      "BMS pollers: read each battery on its own interval (#289)",
+      "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
+      "Battery bank test: don't depend on a D-Bus socket",
+      "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+      "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks",
+      "Bump express-rate-limit from 8.7.2 to 8.7.3 in the minor-and-patch group"
     ]
   },
   "history": [
+    {
+      "buildId": "42487025088.1",
+      "version": "1.1.3",
+      "commit": "6f8b91b2559a894a6eaf4b352ccb8c212acaca49",
+      "digest": "sha256:7034b1bdae61c2c9312c4bdeae17575e0638c178e73f55d0a6647f0735cc8c54",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-08T13:52:47Z",
+      "kind": "release",
+      "notes": [
+        "CI: remove the report-only Windows test job (#295)",
+        "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)",
+        "Deleting a metric no longer freezes the app on a large database (#293)",
+        "Updates page: stop offering the version that is already running",
+        "Give back database space freed by the retention rollup",
+        "BMS pollers: read each battery on its own interval (#289)",
+        "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
+        "Battery bank test: don't depend on a D-Bus socket",
+        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks",
+        "Bump express-rate-limit from 8.7.2 to 8.7.3 in the minor-and-patch group"
+      ]
+    },
     {
       "buildId": "42468775873.1",
       "version": "1.1.2",
