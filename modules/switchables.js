@@ -7,7 +7,7 @@ const { getConfig } = require('./database');
  * identifiers each /api/action branch expects: Tuya and HA resolve by device
  * name, MQTT by broker and topic. `metric` is what the card reads its state
  * from. Listed whether or not the metric has a reading yet, so a switch can
- * be placed before its first poll.
+ * be placed before its first poll. Device settings (source 'device') come last.
  */
 // What each HA domain can be: a toggle (on/off) and/or a selector (pick a value).
 const HA_TOGGLE = { switch: 'switch.toggle', light: 'light.toggle', fan: 'fan.toggle', input_boolean: 'input_boolean.toggle' };
@@ -52,6 +52,37 @@ function switchableEntities() {
     for (const [metric, topic] of Object.entries(d.topics || {})) {
       if (!topic) continue;
       out.push({ source: 'mqtt', device: d.broker, entity: topic, metric, action: 'toggle', selectAction: 'set', setAction: 'set', group: `MQTT · ${d.name || d.broker}`, label: `${metric} (${topic})` });
+    }
+  }
+  out.push(...deviceSettingEntities());
+  return out;
+}
+
+/**
+ * Inverter and battery settings (the Controls page's own list: LuxPower and
+ * Phocos dongles, JBD and JK batteries), so the control cards can use them.
+ * They are not read from a polled metric and are not sent through /api/action:
+ * the cards read and change them live through /api/controls/read and /change,
+ * which keep every safety rule (read first, expected value, read-back, change
+ * log, "Device changes", unlock). `deviceKind` says which cards can use one:
+ * switch (toggle), select (state select) or number (slider and knob).
+ */
+function deviceSettingEntities() {
+  let devices = [];
+  try { devices = require('./deviceControls').listDevices(); } catch (_) { return []; }
+  const out = [];
+  for (const d of devices) {
+    for (const s of d.settings || []) {
+      const deviceKind = s.type === 'switch' ? 'switch' : s.type === 'select' ? 'select' : s.type === 'number' ? 'number' : null;
+      if (!deviceKind) continue;   // times of day have no control card
+      const entry = { source: 'device', device: d.name, entity: s.name, metric: '', deviceKind, action: null, selectAction: null, setAction: null,
+        group: `Inverter and battery · ${d.name}`, label: s.label || s.name, unit: s.unit || '' };
+      if (deviceKind === 'number') Object.assign(entry, { min: s.min, max: s.max, step: s.step });
+      if (deviceKind === 'select') {
+        const labels = s.labels || {};
+        entry.options = (Array.isArray(s.allowed) ? s.allowed : Object.keys(labels)).map(v => ({ value: String(v), label: String(labels[v] != null ? labels[v] : v) }));
+      }
+      out.push(entry);
     }
   }
   return out;
