@@ -1,18 +1,26 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42506202470.1",
-    "version": "1.1.5",
+    "buildId": "42506274647.1",
+    "version": "1.2.0",
     "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
-    "digest": "sha256:a4c81083d8cc4422c24b67dc272846df3731c92c99f612d458f2dd7de1a5fb0d",
+    "digest": "sha256:e0c0b1a8e7702ef16573698fd7332a9a8456521a45c3cd6d28f2620d952e2417",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-08T17:41:40Z",
-    "kind": "release",
-    "notes": [
-      "Control cards: use inverter and battery settings as a source (#298)"
-    ]
+    "builtAt": "2026-11-08T17:46:12Z",
+    "kind": "rebuild",
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "42506274647.1",
+      "version": "1.2.0",
+      "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
+      "digest": "sha256:e0c0b1a8e7702ef16573698fd7332a9a8456521a45c3cd6d28f2620d952e2417",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-08T17:46:12Z",
+      "kind": "rebuild",
+      "notes": []
+    },
     {
       "buildId": "42506202470.1",
       "version": "1.1.5",
