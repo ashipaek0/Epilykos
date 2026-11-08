@@ -11,11 +11,13 @@ const MAX_AT_ONCE = 500;
 
 /**
  * @param {string[]} names
+ * @param {{deferHistory?: boolean}} options deferHistory: leave the stored readings to
+ *   metricHistoryPurge (the routes do; a restored database can hold millions of rows per metric)
  * @returns {{ deleted: string[], blocked: {name: string, reason: string}[],
  *   rolesCleared: string[], usedBy: Object<string, string[]> }}
  *   rolesCleared: the roles left unmapped; usedBy: deleted metric -> combined metrics that use it
  */
-function deleteMetrics(names) {
+function deleteMetrics(names, { deferHistory = false } = {}) {
   const unique = [...new Set((Array.isArray(names) ? names : []).map(n => String(n).trim()).filter(Boolean))];
   if (unique.length > MAX_AT_ONCE) throw new RangeError(`At most ${MAX_AT_ONCE} metrics can be deleted at once.`);
   const combined = new Set(combinedMetrics.loadDefinitions().filter(Boolean).map(d => String(d.name).trim()));
@@ -25,7 +27,7 @@ function deleteMetrics(names) {
       blocked.push({ name, reason: `${name} is a combined metric. Delete it under Combined metrics, or it is worked out again on the next reading.` });
       continue;
     }
-    deleteMetric(name);
+    deleteMetric(name, { history: !deferHistory });
     deleted.push(name);
   }
   // Roles pointing at a deleted metric would point at nothing: clear them.
@@ -44,6 +46,7 @@ function deleteMetrics(names) {
       if (deleted.includes(input)) (usedBy[input] = usedBy[input] || []).push(def.name);
     }
   }
+  if (deferHistory && deleted.length) require('./metricHistoryPurge').schedule(deleted);
   return { deleted, blocked, rolesCleared, usedBy };
 }
 

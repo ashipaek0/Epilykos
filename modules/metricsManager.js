@@ -52,7 +52,11 @@ function createMetric(name, unit) {
   logger.info(`Created new metric: ${name}`);
 }
 
-function deleteMetric(name) {
+/**
+ * @param {{history?: boolean}} options history: false leaves the stored readings
+ *   (metrics, metrics_5m) to modules/metricHistoryPurge, which removes them in batches.
+ */
+function deleteMetric(name, { history = true } = {}) {
   // 1. Remove from user_metrics config
   let userMetrics = JSON.parse(getConfig('user_metrics') || '[]');
   const originalLength = userMetrics.length;
@@ -67,7 +71,10 @@ function deleteMetric(name) {
   flushMetrics();
   const db = getDb();
   db.prepare('DELETE FROM latest_metrics WHERE metric = ?').run(name);
-  db.prepare('DELETE FROM metrics WHERE metric = ?').run(name);
+  if (history) {
+    db.prepare('DELETE FROM metrics WHERE metric = ?').run(name);
+    db.prepare('DELETE FROM metrics_5m WHERE metric = ?').run(name);
+  }
 
   // 3. Remove from HA device mappings
   const haDevices = JSON.parse(getConfig('ha_devices') || '[]');
