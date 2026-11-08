@@ -81,7 +81,8 @@ async function sendToChannel(channel, message, opts = {}) {
 }
 
 /**
- * Deliver `message` ({ title, body, severity, tag, url? }) to `channelIds`.
+ * Deliver `message` ({ title, body, severity, tag, url? }) to `channelIds` and
+ * to the push devices the rule lists (rule.devices).
  * `rule` is for the log. opts.force skips the enabled/quiet checks (tests);
  * opts.ignoreQuiet skips quiet hours only (reports scheduled for a set time).
  */
@@ -109,6 +110,15 @@ async function deliver(message, channelIds, rule, opts = {}) {
     if (!r.ok) logger.warn(`notifications: ${ch.type} "${ch.name}" failed: ${r.error}`);
     return { id, name: ch.name, ...r };
   }));
+  // Devices chosen on the rule itself (Settings → Notifications → the rule's "Send to").
+  const deviceIds = rule && Array.isArray(rule.devices) ? rule.devices : [];
+  if (deviceIds.length) {
+    const target = { id: 'devices', type: 'webpush', name: 'Push devices', enabled: true, config: { devices: deviceIds } };
+    const r = await sendToChannel(target, msg, opts);
+    store.addLog({ ...base, channel_id: null, channel_name: target.name, status: r.ok ? 'sent' : 'failed', error: r.error });
+    if (!r.ok) logger.warn(`notifications: push devices failed: ${r.error}`);
+    results.push({ id: target.id, name: target.name, ...r });
+  }
   return results;
 }
 
