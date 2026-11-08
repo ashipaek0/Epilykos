@@ -17,6 +17,13 @@
  *   energy_total             lifetime kWh from power (never resets; `start`
  *                            sets the starting value)
  *   counter_today            today's increase of a lifetime counter
+ *   threshold                1 (On) or 0 (Off) from one input: On when it is at or above
+ *                            `on_at` (`when: 'above'`, the default) or at or below it
+ *                            (`when: 'below'`). `off_at` makes a gap so a reading that
+ *                            hovers near the limit does not flip back and forth: Off only
+ *                            when it falls below `off_at` (or rises above it, for 'below');
+ *                            in between it keeps the last state. Without `off_at` it
+ *                            is a plain comparison with `on_at`.
  *   peak_today               the highest value so far today (inputs summed first, e.g. all PV
  *                            strings -> the day's peak solar power), starting again at local
  *                            midnight; the last value of a day is that day's peak
@@ -40,7 +47,7 @@ const { localDateString } = require('./localTime');
 
 const CONFIG_KEY = 'combined_metrics';
 const STATE_KEY = 'combined_metrics_state';
-const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today', 'peak_today'];
+const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today', 'peak_today', 'threshold'];
 const ENERGY_FNS = new Set(['energy_today', 'energy_total']);
 const MAX_GAP_SECONDS = 600;
 const MAX_INPUTS = 64;   // e.g. 6 inverters x 4 MPPTs fits with room to spare
@@ -73,6 +80,22 @@ function sumTreeMetrics(sums, name) {
   return out;
 }
 
+const isNum = v => v !== null && v !== '' && v !== undefined && Number.isFinite(Number(v));
+
+/** Problems with a threshold's limits, as plain sentences. */
+function validateThreshold(def) {
+  const errors = [];
+  if (def.when != null && !['above', 'below'].includes(def.when)) errors.push('Turn On when the input is above or below the limit.');
+  if (!isNum(def.on_at)) { errors.push('Give the value it turns On at.'); return errors; }
+  if (def.off_at != null && def.off_at !== '') {
+    if (!isNum(def.off_at)) errors.push('The value it turns Off at must be a number.');
+    else if (def.when === 'below' ? Number(def.off_at) < Number(def.on_at) : Number(def.off_at) > Number(def.on_at)) {
+      errors.push(def.when === 'below' ? 'The Off value must be the same as the On value or higher.' : 'The Off value must be the same as the On value or lower.');
+    }
+  }
+  return errors;
+}
+
 /** Problems with one definition, as plain sentences ([] when fine). */
 function validateDefinition(def, others = []) {
   const errors = [];
@@ -83,7 +106,7 @@ function validateDefinition(def, others = []) {
   if (others.some(o => o && o.id !== def.id && String(o.name || '').trim().toLowerCase() === name.toLowerCase())) errors.push(`Another combined metric is already called "${name}".`);
   if (!FNS.includes(def.fn)) errors.push('Pick what to compute.');
   const inputs = Array.isArray(def.inputs) ? def.inputs.map(s => String(s || '').trim()).filter(Boolean) : [];
-  const single = ['scale', 'counter_today'].includes(def.fn);
+  const single = ['scale', 'counter_today', 'threshold'].includes(def.fn);
   if (!inputs.length) errors.push('Pick at least one input metric.');
   if (inputs.length > MAX_INPUTS) errors.push(`Up to ${MAX_INPUTS} inputs (this has ${inputs.length}). Split them into groups, then add the groups together.`);
   if (new Set(inputs).size !== inputs.length) errors.push('Each input can only be used once.');
@@ -94,6 +117,7 @@ function validateDefinition(def, others = []) {
     const w = Array.isArray(def.weights) ? def.weights : [];
     if (w.length !== inputs.length || !w.every(x => Number.isFinite(Number(x)) && Number(x) >= 0) || !w.some(x => Number(x) > 0)) errors.push('Give each input a weight of 0 or more (at least one above 0).');
   }
+  if (def.fn === 'threshold') errors.push(...validateThreshold(def));
   if (def.fn === 'scale' && (!Number.isFinite(Number(def.factor ?? 1)) || !Number.isFinite(Number(def.offset ?? 0)))) errors.push('Factor and offset must be numbers.');
   if (ENERGY_FNS.has(def.fn) && def.input_unit && !['W', 'kW'].includes(def.input_unit)) errors.push('Input unit must be W or kW.');
   if (def.stale_seconds != null && def.stale_seconds !== '' && !(Number(def.stale_seconds) >= 10 && Number(def.stale_seconds) <= 86400)) errors.push('Stale after: 10 seconds to 1 day.');
@@ -174,6 +198,18 @@ function evaluate(def, read, prevState, now) {
       }
       s.last = vals[0];
       return { value: Math.max(0, (s.carried || 0) + vals[0] - s.base), state: s };
+    }
+    case 'threshold': {
+      const below = def.when === 'below';
+      const on = Number(def.on_at);
+      const off = def.off_at == null || def.off_at === '' ? on : Number(def.off_at);
+      const v = vals[0];
+      // On at the On limit; Off past the Off limit; in the gap, whatever it was.
+      const turnsOn = below ? v <= on : v >= on;
+      const turnsOff = below ? v > off : v < off;
+      const was = prevState && (prevState.on === 1 || prevState.on === 0) ? prevState.on : null;
+      const next = turnsOn ? 1 : turnsOff ? 0 : (was === null ? 0 : was);
+      return { value: next, state: { on: next } };
     }
     case 'peak_today': {
       const today = localDateString(new Date(now * 1000));
