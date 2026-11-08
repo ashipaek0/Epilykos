@@ -87,6 +87,79 @@ check('peak today: the highest so far, added across inputs, starting again at mi
   assert.deepStrictEqual(cm.validateDefinition(def('peak_today', ['p1', 'p2'])), []);
 });
 
+check('on/off from a limit: above or below, with a gap so a hovering reading does not flip', () => {
+  let s = null;
+  const step = (v, extra, t = T0) => { const o = cm.evaluate(def('threshold', ['v'], extra), () => ({ value: v, timestamp: t }), s, t); s = o.state; return o.value; };
+  // A plain limit: On at 180 and above.
+  assert.strictEqual(step(230, { on_at: 180 }), 1);
+  assert.strictEqual(step(180, { on_at: 180 }), 1, 'at the limit is On');
+  assert.strictEqual(step(179.9, { on_at: 180 }), 0);
+  assert.strictEqual(step(0, { on_at: 180 }), 0);
+  // With a gap: On at 180, Off below 160; in between it keeps its last state.
+  const gap = { on_at: 180, off_at: 160 };
+  s = null;
+  assert.strictEqual(step(170, gap), 0, 'first reading inside the gap starts Off');
+  assert.strictEqual(step(185, gap), 1);
+  assert.strictEqual(step(170, gap), 1, 'brown-out inside the gap stays On');
+  assert.strictEqual(step(161, gap), 1);
+  assert.strictEqual(step(159, gap), 0, 'below the Off value turns Off');
+  assert.strictEqual(step(175, gap), 0, 'and stays Off until it reaches the On value');
+  assert.strictEqual(step(180, gap), 1);
+  // Below: On when it falls to 5 or lower, Off again above 8 (e.g. a low-battery or frost flag).
+  s = null;
+  const low = { when: 'below', on_at: 5, off_at: 8 };
+  assert.strictEqual(step(20, low), 0);
+  assert.strictEqual(step(5, low), 1, 'at the limit is On');
+  assert.strictEqual(step(7, low), 1, 'inside the gap it keeps its state');
+  assert.strictEqual(step(8.5, low), 0);
+  assert.strictEqual(step(-3, { when: 'below', on_at: 0 }), 1, 'negative limits work');
+  // Any input, any number: power, SoC, a decimal limit.
+  s = null;
+  assert.strictEqual(step(0.05, { on_at: 0.02 }), 1);
+  // A late input writes nothing; counting it as 0 turns it Off.
+  const lateRead = () => ({ value: 230, timestamp: T0 - 1000 });
+  assert.ok(cm.evaluate(def('threshold', ['v'], { on_at: 180 }), lateRead, null, T0).skip, 'late input waits');
+  assert.strictEqual(cm.evaluate(def('threshold', ['v'], { on_at: 180, missing: 'zero' }), lateRead, null, T0).value, 0, 'counted as 0 is Off');
+  // Validation.
+  assert.deepStrictEqual(cm.validateDefinition(def('threshold', ['v'], gap)), []);
+  assert.deepStrictEqual(cm.validateDefinition(def('threshold', ['v'], low)), []);
+  assert.match(cm.validateDefinition(def('threshold', ['v'])).join(' '), /On at/, 'needs an On value');
+  assert.match(cm.validateDefinition(def('threshold', ['v'], { on_at: 'x' })).join(' '), /On at/);
+  assert.match(cm.validateDefinition(def('threshold', ['v'], { on_at: 180, off_at: 200 })).join(' '), /Off value must be .* lower/, 'Off above On makes no gap');
+  assert.match(cm.validateDefinition(def('threshold', ['v'], { when: 'below', on_at: 5, off_at: 2 })).join(' '), /Off value must be .* higher/);
+  assert.match(cm.validateDefinition(def('threshold', ['v'], { on_at: 1, when: 'sideways' })).join(' '), /above or below/);
+  assert.match(cm.validateDefinition(def('threshold', ['a', 'b'], { on_at: 1 })).join(' '), /one input/);
+  assert.deepStrictEqual(cm.validateDefinition(def('threshold', ['v'], { on_at: 180, off_at: '' })), [], 'an empty Off value means the same as On');
+});
+
+check('on/off metric: runs each cycle, remembers its state, feeds a status consumer', () => {
+  const db = database.getDb();
+  const NOW = Math.floor(Date.now() / 1000);
+  database.setConfig(cm.CONFIG_KEY, JSON.stringify([{ id: 'gs', name: 'grid_status', unit: '', fn: 'threshold', inputs: ['grid_voltage'], when: 'above', on_at: 180, off_at: 160, enabled: true }]));
+  database.setConfig(cm.STATE_KEY, '{}');
+  const put = v => db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)').run('grid_voltage', v, NOW, 'V');
+  const read = () => { database.flushMetrics(); return db.prepare('SELECT value FROM latest_metrics WHERE metric = ?').get('grid_status')?.value; };
+  let t = NOW;
+  for (const [volts, want] of [[231, 1], [172, 1], [158, 0], [171, 0], [226, 1], [0, 0]]) {
+    put(volts); cm.runCombinedMetrics(t++);
+    assert.strictEqual(read(), want, `${volts} V -> ${want ? 'On' : 'Off'}`);
+  }
+  // The grid tracker understands the 1 / 0 it writes.
+  const { parseGridState } = require('../modules/utils');
+  assert.strictEqual(parseGridState(1, 'grid_status'), 1); assert.strictEqual(parseGridState(0, 'grid_status'), 0);
+});
+
+check('editor: On/Off calculation, fields, words and the grid voltage suggestion', () => {
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/combined-metrics.js'), 'utf8');
+  assert.match(js, /threshold: \{ label: 'On\/Off from a limit'/);
+  for (const id of ['cm-when', 'cm-onat', 'cm-offat']) assert.match(js, new RegExp(`id="${id}"`));
+  assert.match(js, /function shown\(d, v\)/); assert.match(js, /'On' : 'Off'/);
+  assert.match(js, /name: 'grid_status', unit: '', fn: 'threshold'/);
+  const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(srv, /'note', 'when', 'on_at', 'off_at'\]/, 'the limits are saved');
+  assert.ok(cm.FNS.includes('threshold'));
+});
+
 check('validation explains problems plainly', () => {
   assert.deepStrictEqual(cm.validateDefinition(def('sum', ['a', 'b'])), []);
   assert.match(cm.validateDefinition(def('sum', []))[0], /at least one input/);
