@@ -76,6 +76,28 @@ function compare(mine, feed) {
   return { state: 'available', latest, kind: release ? 'release' : 'rebuild', behind: newer.length, notes: notes.slice(0, 25) };
 }
 
+/**
+ * A saved "an update is ready" goes stale the moment that update is installed:
+ * the app restarts on the new version, but nothing re-runs the check. Drop the
+ * claim when this build is already the one the saved result offers. Pure.
+ */
+function reconcileStatus(status, mine) {
+  const latest = status && status.state === 'available' && status.latest;
+  if (!latest || !mine || !mine.buildId) return status;
+  const same = latest.buildId === mine.buildId || (latest.builtAt && mine.builtAt && latest.builtAt <= mine.builtAt);
+  return same ? { ...status, state: 'up-to-date' } : status;
+}
+
+/**
+ * The same for the appliance's saved check: `running` is what the host says is
+ * installed now (update_status: current_digest, current_version). Pure.
+ */
+function reconcileHostStatus(host, running) {
+  const app = host && host.app;
+  if (!app || !app.available || !running || !running.digest || app.latest_digest !== running.digest) return host;
+  return { ...host, app: { ...app, available: false, current_digest: running.digest, current_version: running.version || app.current_version } };
+}
+
 /** Check the feed now. Saves and returns the result; never throws. */
 async function check() {
   const mine = installed();
@@ -186,4 +208,5 @@ function stop() {
   clearInterval(reconcileTimer); reconcileTimer = null;
 }
 
-module.exports = { installed, compare, check, hostCheck, lastStatus, lastHostStatus, autoCheck, autoInstall, maybeAutoInstall, start, stop, setFetchForTests, FEED_BASE };
+module.exports = {
+  reconcileStatus, reconcileHostStatus, installed, compare, check, hostCheck, lastStatus, lastHostStatus, autoCheck, autoInstall, maybeAutoInstall, start, stop, setFetchForTests, FEED_BASE };

@@ -67,7 +67,10 @@ async function hostProgress() {
     const job = reply.app.job || {};
     // step: the host's own job state (downloading, then starting: the new
     // version is started and must report healthy before it is kept).
-    return { applying: reply.app.state === 'applying' ? { startedAt: job.started_at || null, step: job.state || null } : null, lastResult };
+    return {
+      applying: reply.app.state === 'applying' ? { startedAt: job.started_at || null, step: job.state || null } : null, lastResult,
+      running: { digest: reply.app.current_digest || '', version: reply.app.current_version || '' },
+    };
   } catch (_) {
     return null;
   }
@@ -82,8 +85,9 @@ function router() {
     const result = m.kind === 'docker' ? await dockerUpdate.reconcile() : host ? host.lastResult : dockerUpdate.lastResult();
     res.json({
       installed: updates.installed(),
-      status: updates.lastStatus(),
-      host: m.kind === 'epilykos-os' ? updates.lastHostStatus() : null,
+      // Saved results can predate an install: do not offer what is already running.
+      status: updates.reconcileStatus(updates.lastStatus(), updates.installed()),
+      host: m.kind === 'epilykos-os' ? updates.reconcileHostStatus(updates.lastHostStatus(), host && host.running) : null,
       os: m.kind === 'epilykos-os' ? await osUpdates.status() : null,
       auto: updates.autoCheck(),
       autoInstall: updates.autoInstall(),
