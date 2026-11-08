@@ -580,6 +580,8 @@
     var names = [];
     card.querySelectorAll('.metric-row .metric-name, .bank-fn-output').forEach(function (el) {
       var v = (el.value || '').trim();
+      // A bank metric is published as bank_ + its name, and that is the metric that has readings.
+      if (v && el.classList.contains('bank-fn-output')) v = 'bank_' + v;
       if (v && names.indexOf(v) === -1) names.push(v);
     });
     return names;
