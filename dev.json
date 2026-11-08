@@ -1,12 +1,12 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42472547075.1",
-    "version": "1.1.3-dev+aa38c99",
-    "commit": "aa38c994f717e14c32f0b700d0e4142c9d11c66c",
-    "digest": "sha256:b1e69abd09f163ddca5ca05fd61c068ef66404ee1b4ad0b7fca80203fd7d2161",
+    "buildId": "42472982931.1",
+    "version": "1.1.3-dev+6fe9792",
+    "commit": "6fe9792c17289499ae147cc666aec784d4d1d31c",
+    "digest": "sha256:e139b7134aeb9cb0b0cdfc9b494ee65c165e4c159a502ecf33bcf54e0ca18b0e",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T10:42:41Z",
+    "builtAt": "2026-11-08T10:48:53Z",
     "kind": "release",
     "notes": [
       "Battery bank test: don't depend on a D-Bus socket",
@@ -15,6 +15,20 @@
     ]
   },
   "history": [
+    {
+      "buildId": "42472982931.1",
+      "version": "1.1.3-dev+6fe9792",
+      "commit": "6fe9792c17289499ae147cc666aec784d4d1d31c",
+      "digest": "sha256:e139b7134aeb9cb0b0cdfc9b494ee65c165e4c159a502ecf33bcf54e0ca18b0e",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T10:48:53Z",
+      "kind": "release",
+      "notes": [
+        "Battery bank test: don't depend on a D-Bus socket",
+        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
+      ]
+    },
     {
       "buildId": "42472547075.1",
       "version": "1.1.3-dev+aa38c99",
@@ -365,19 +379,6 @@
       "builtAt": "2026-11-03T13:58:50Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "41649221954.1",
-      "version": "1.0.13-dev+e779a8f",
-      "commit": "e779a8ffc0781e9e4fad0e7f05f25e178f6e04b5",
-      "digest": "sha256:0de1ea829f8195808481d4b8d7a797c6c00025665523cd32f9118ea5abbcf7d3",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T13:59:11Z",
-      "kind": "release",
-      "notes": [
-        "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
-        "Fix masked fields losing their value and misaligning boxes"
-      ]
     }
   ]
 }
