@@ -1,18 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42497070972.1",
-    "version": "1.1.4",
-    "commit": "db066056e30fee155e88d9210411e1c9db58fde3",
-    "digest": "sha256:b90f433702a649567baa3bc9dd87cf617d045ac522056322e8c861d5b898edf0",
+    "buildId": "42506202470.1",
+    "version": "1.1.5",
+    "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
+    "digest": "sha256:a4c81083d8cc4422c24b67dc272846df3731c92c99f612d458f2dd7de1a5fb0d",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-08T15:53:43Z",
+    "builtAt": "2026-11-08T17:41:40Z",
     "kind": "release",
     "notes": [
-      "Notifications: any browser can offer itself as a push device (#296)"
+      "Control cards: use inverter and battery settings as a source (#298)"
     ]
   },
   "history": [
+    {
+      "buildId": "42506202470.1",
+      "version": "1.1.5",
+      "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
+      "digest": "sha256:a4c81083d8cc4422c24b67dc272846df3731c92c99f612d458f2dd7de1a5fb0d",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-08T17:41:40Z",
+      "kind": "release",
+      "notes": [
+        "Control cards: use inverter and battery settings as a source (#298)"
+      ]
+    },
     {
       "buildId": "42497070972.1",
       "version": "1.1.4",
