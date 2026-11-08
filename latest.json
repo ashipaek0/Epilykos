@@ -1,32 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42204879248.1",
-    "version": "1.1.1",
-    "commit": "9806bbb2197d4b5e3a9c0bafc087df0c9ee4f6b2",
-    "digest": "sha256:c38ee9cf4154aa3e43c73132c3ea4e7ad866e17ea2e171f1ef6611323146c75b",
+    "buildId": "42468775873.1",
+    "version": "1.1.2",
+    "commit": "2851532a3b140b20b6193f502aa3cbb1c110cf8c",
+    "digest": "sha256:cd8a5fa5825c01e153f8aa14ba49a63142dfd517b26033648b5497f81479782c",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-06T10:44:11Z",
+    "builtAt": "2026-11-08T09:49:23Z",
     "kind": "release",
     "notes": [
-      "Daily peak and Histogram cards: use the Daily Energy chart's frame and buttons",
-      "Controls: sub-label, tile layout, tint and group for Slider, Rotary knob and State select",
-      "Controls page: filter chips by group",
-      "Controls page: Quick actions card, one card with up to six compact buttons",
-      "Control cards: Layout, sub-label, pill and fill options for Button and Toggle (#279)",
-      "Daily peak and Histogram cards, with peak solar power for every day on record",
-      "Combined metrics: \"Highest today\", for the day's peak solar power (#276)",
-      "Savings: finished days keep the value they had when they were counted (#275)",
-      "Align package.json with the lockfile for dotenv 18 (#274)",
-      "Test on Node 26, the runtime the image now ships",
-      "Bump dotenv from 17.4.2 to 18.0.9",
-      "Bump gridstack from 13.2.0 to 14.0.0",
-      "Bump the minor-and-patch group with 6 updates",
-      "Bump the actions group with 2 updates",
-      "Bump node from 22-trixie-slim to 26-trixie-slim"
+      "Combined metrics: On/Off from a limit (#284)",
+      "Generator status card (#282)"
     ]
   },
   "history": [
+    {
+      "buildId": "42468775873.1",
+      "version": "1.1.2",
+      "commit": "2851532a3b140b20b6193f502aa3cbb1c110cf8c",
+      "digest": "sha256:cd8a5fa5825c01e153f8aa14ba49a63142dfd517b26033648b5497f81479782c",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-08T09:49:23Z",
+      "kind": "release",
+      "notes": [
+        "Combined metrics: On/Off from a limit (#284)",
+        "Generator status card (#282)"
+      ]
+    },
     {
       "buildId": "42204879248.1",
       "version": "1.1.1",
