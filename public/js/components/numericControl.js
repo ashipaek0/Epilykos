@@ -10,6 +10,7 @@
  * @module components/numericControl
  */
 import { isStaleReading } from './readingAge.js';
+import { isDeviceSetting, changeDeviceSetting, watchDeviceSetting } from './deviceSetting.js';
 
 const SEND_TIMEOUT_MS = 8000;
 // After a change, keep showing it until a reading agrees (see switchBlock.js).
@@ -61,8 +62,16 @@ export function formatValue(value, r, unit = '') {
   return /^(%|°)/.test(unit) ? text + unit : `${text} ${unit}`;
 }
 
-/** Send one value for a card's control, through the same route as the other control cards. */
-export async function sendValue(config, value, doFetch = (typeof fetch === 'function' ? fetch : null)) {
+/**
+ * Send one value for a card's control, through the same route as the other control cards.
+ * An inverter or battery setting goes through /api/controls/change instead, with `expected`,
+ * the value the card last showed; that resolves the device's read-back value.
+ */
+export async function sendValue(config, value, doFetch = (typeof fetch === 'function' ? fetch : null), expected) {
+  if (isDeviceSetting(config)) {
+    try { return (await changeDeviceSetting(config, value, expected, doFetch)).value; }
+    catch (e) { const err = new Error((e && e.message) || 'failed'); if (e && e.current !== undefined) err.current = e.current; throw err; }
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
   try {
@@ -98,7 +107,7 @@ export function createNumericController(container, config, view, { doFetch, now 
   const r = rangeOf(config);
   const statusEl = container.querySelector('.numctl-status');
   let settled = null;         // the value the device is known to have, or was last sent
-  let timer = null, sending = false, messageTimer = null;
+  let timer = null, sending = false, messageTimer = null, watcher = null;
 
   const say = text => {
     if (!statusEl) return;
@@ -113,13 +122,17 @@ export function createNumericController(container, config, view, { doFetch, now 
     if (value == null || value === settled) return;
     sending = true; container.dataset.busy = '1'; container.classList.add('is-busy'); view.busy(true); say('');
     try {
-      await sendValue(config, value, doFetch);
-      settled = value;
-      container.dataset.pending = String(value);
+      const back = await sendValue(config, value, doFetch, settled);
+      // A device setting reports the value it read back: that is what it now is.
+      settled = isDeviceSetting(config) && Number.isFinite(Number(back)) ? Number(back) : value;
+      if (settled !== value) view.show(settled);
+      container.dataset.pending = String(settled);
       container.dataset.pendingUntil = String(now() + PENDING_HOLD_MS);
     } catch (e) {
+      if (e && e.current !== undefined && Number.isFinite(Number(e.current))) settled = Number(e.current);
       if (settled != null) view.show(settled);
       say(`Error: ${e.message}`);
+      if (isDeviceSetting(config) && watcher) watcher.refresh();   // show what it is now
       container.classList.add('is-error'); setTimeout(() => container.classList.remove('is-error'), 800);
     } finally {
       sending = false; delete container.dataset.busy; container.classList.remove('is-busy'); view.busy(false);
@@ -167,6 +180,17 @@ export function createNumericController(container, config, view, { doFetch, now 
     get settled() { return settled; }
   };
   container._numeric = api;
+  // An inverter or battery setting has no polled metric: read it live now and every minute.
+  if (isDeviceSetting(config)) {
+    watcher = watchDeviceSetting(container, config, result => {
+      if (result.error) { container.classList.add('is-unavailable'); container.title = result.error; return; }
+      container.classList.remove('is-unavailable');
+      container.removeAttribute('title');
+      api.reading(result.value, 'device', {});
+      view.busy(result.writable === false);
+      if (result.writable === false && result.blockedReason) container.title = result.blockedReason;
+    }, { doFetch });
+  }
   return api;
 }
 
