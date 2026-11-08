@@ -44,6 +44,8 @@ const bankMetrics = () => { database.flushMetrics(); return Object.fromEntries(d
   console.log('ok - a bank of wired batteries is computed with no Bluetooth battery set up');
 
   // Bluetooth batteries configured but Bluetooth unavailable: the bank still uses what is there.
+  // Stubbed, so the test doesn't depend on whether this machine has a D-Bus socket (CI may).
+  require('../modules/ble').isConfigured = () => false;
   database.setConfig('bms_devices', JSON.stringify([
     { name: 'Wired A', enabled: true, transport: 'wired', serial_path: '/dev/ttyUSB0', profile: 'x', mappings: {} },
     { name: 'Wired B', enabled: true, transport: 'wired', serial_path: '/dev/ttyUSB0', profile: 'x', mappings: {} },
@@ -93,4 +95,5 @@ const bankMetrics = () => { database.flushMetrics(); return Object.fromEntries(d
   console.log('ok - Sources list: a working bank is not shown as "No readings yet"');
 
   checks.done();
-})().catch(err => { console.error(err); process.exitCode = 1; });
+})().catch(err => { console.error(err); process.exitCode = 1; })
+  .finally(() => setTimeout(() => process.exit(process.exitCode || 0), 50));
