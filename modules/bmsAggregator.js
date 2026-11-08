@@ -23,6 +23,7 @@
 
 const { getDb, queueMetricValue, flushMetrics } = require('./database');
 const { logger } = require('./logger');
+const { stalenessForName } = require('./bmsInterval');
 
 // ---------------------------------------------------------------------------
 // Read raw BMS metrics for a single device from latest_metrics
@@ -240,7 +241,9 @@ async function computeBankAggregates(bank, pollIntervalSec) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const stalenessThreshold = pollIntervalSec * 2;
+  // Each battery's readings stay fresh for twice its own read interval (at least a minute);
+  // a battery not in the settings, as in a test, uses the interval passed in.
+  const fallbackStaleness = pollIntervalSec * 2;
 
   // 1. Read raw metrics for all devices, determine freshness
   const deviceData = {}; // { deviceName: { metrics: {...}, fresh: bool } }
@@ -248,7 +251,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
 
   for (const device of bank.devices) {
     const raw = readLatestBmsMetrics(device.name);
-    const fresh = isDeviceFresh(raw, stalenessThreshold);
+    const fresh = isDeviceFresh(raw, stalenessForName(device.name, fallbackStaleness));
     deviceData[device.name] = { raw, fresh, device };
     if (fresh) freshCount++;
   }

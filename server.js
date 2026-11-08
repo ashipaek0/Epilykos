@@ -2146,8 +2146,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
   }
   try {
     const { readLatestBmsMetrics, isDeviceFresh, resolveSource, resolveCapacity, computeFunction } = require('./modules/bmsAggregator');
-    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
-    const stalenessThreshold = pollInterval * 2;
+    const { stalenessForName } = require('./modules/bmsInterval');
     const now = Math.floor(Date.now() / 1000);
 
     // Gather raw data and freshness per device
@@ -2156,7 +2155,7 @@ app.post('/api/bms/bank/test', async (req, res) => {
     let freshCount = 0;
     for (const device of (bank.devices || [])) {
       const raw = readLatestBmsMetrics(device.name);
-      const fresh = isDeviceFresh(raw, stalenessThreshold);
+      const fresh = isDeviceFresh(raw, stalenessForName(device.name));
       const newestTs = Object.keys(raw).length > 0
         ? Math.max(...Object.values(raw).map(m => m.timestamp))
         : null;
@@ -2264,9 +2263,8 @@ app.get('/api/bms/device-status', (req, res) => {
   if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid device name' });
   try {
     const { readLatestBmsMetrics, isDeviceFresh } = require('./modules/bmsAggregator');
-    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
     const raw = readLatestBmsMetrics(name);
-    const connected = isDeviceFresh(raw, pollInterval * 2);
+    const connected = isDeviceFresh(raw, require('./modules/bmsInterval').stalenessForName(name));
     const newestTs = Object.keys(raw).length > 0
       ? Math.max(...Object.values(raw).map(m => m.timestamp))
       : null;
