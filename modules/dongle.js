@@ -420,7 +420,7 @@ async function pollInstance(instance, transport, profile) {
     writeMetrics(metrics, units);
     instance.lastSeen = Date.now();
     instance.consecutiveFails = 0;
-    logger.debug(`[dongle] ${instance.name}: ${Object.keys(metrics).length} metrics in ${Date.now() - start}ms`);
+    logger.debug(`[dongle] ${instance.name}: ${Object.keys(metrics).length} metrics in ${Date.now() - start}ms (${reads} reads)`);
 
   } catch (err) {
     logger.warn(`[dongle] ${instance.name}: poll failed — ${err.message}`);
@@ -636,6 +636,52 @@ function decodeLuxpowerMetrics(profile, instance, registerData) {
 }
 
 /**
+ * Which registers a LuxPower poll cycle has to read for this instance.
+ *
+ * A profile lists every register block the inverter has (the GETA 24 V one
+ * has ten), but an instance that maps only a few metrics needs only the
+ * blocks those metrics sit in. Every extra read is another chance for the
+ * dongle to drop the connection, and a control change waits in the same
+ * queue behind them.
+ *
+ *   all: true     read everything the profile lists (nothing mapped on a profile
+ *                 that is not 'explicit': every metric is emitted)
+ *   words         the register words the emitted metrics need, per space
+ *   entries       the same as { register, count } items, for profiles without read_ranges
+ *
+ * Besides the mapped registers: a battery-current metric (lux_bms_current) is
+ * scaled by input word 80 and the inverter model, which is read from holding
+ * word 19, so those are read whenever such a metric is mapped. Pure.
+ */
+function luxpowerPollPlan(profile, instance) {
+  const mapped = hasMappings(instance);
+  if (!mapped && profile.mapping !== 'explicit') return { all: true };
+  const words = { input: new Set(), holding: new Set() };
+  const entries = { input: [], holding: [] };
+  const need = (space, addr, count) => {
+    for (let i = 0; i < count; i++) words[space].add(addr + i);
+    entries[space].push({ register: addr.toString(16), count });
+  };
+  if (mapped) {
+    const regToMetric = {};
+    for (const [metric, reg] of Object.entries(instance.mappings)) regToMetric[reg] = metric;
+    for (const m of profile.metrics) {
+      const key = m.register_type ? `${m.register_type}:${m.register}` : m.register;
+      if (regToMetric[key] === undefined && regToMetric[m.register] === undefined) continue;
+      const space = m.register_type || 'holding';
+      need(space, parseInt(m.register, 16), m.type === 'uint64' ? 4 : (m.count || 1));
+      if (m.decode === 'lux_bms_current') { need('input', 80, 1); need('holding', 19, 1); }
+    }
+  }
+  return { all: false, words, entries };
+}
+
+/** The listed blocks that hold at least one needed word. */
+function blocksWithWords(blocks, wanted) {
+  return blocks.filter(b => { for (let a = b.start; a < b.start + b.count; a++) if (wanted.has(a)) return true; return false; });
+}
+
+/**
  * LuxPower local-TCP poll cycle (issue #106 phase 2): reads EVERY input range
  * from profile.read_ranges.input (devFn 0x04) and, when the profile models
  * holding metrics or advertises capabilities.write, every holding range from
@@ -661,14 +707,24 @@ async function pollLuxpowerInstance(instance, transport, profile) {
     const holdingMetrics = profile.metrics.filter(m => (m.register_type || 'holding') === 'holding');
 
     const readRanges = profile.read_ranges;
-    const inputRanges = (readRanges && Array.isArray(readRanges.input))
-      ? readRanges.input.map(r => ({ start: r[0], count: r[1] }))
-      : buildPollRanges(inputMetrics);
-    // Holding is the only writable space, so write-capable profiles poll it too.
-    const pollHolding = holdingMetrics.length > 0 || !!(profile.capabilities && profile.capabilities.write);
-    const holdingRanges = (readRanges && Array.isArray(readRanges.holding))
-      ? readRanges.holding.map(r => ({ start: r[0], count: r[1] }))
-      : (holdingMetrics.length ? buildPollRanges(holdingMetrics) : []);
+    const plan = luxpowerPollPlan(profile, instance);
+    const listed = space => (readRanges && Array.isArray(readRanges[space])) ? readRanges[space].map(r => ({ start: r[0], count: r[1] })) : null;
+    let inputRanges, holdingRanges, pollHolding;
+    if (plan.all) {
+      inputRanges = listed('input') || buildPollRanges(inputMetrics);
+      // Holding is the only writable space, so write-capable profiles poll it too.
+      pollHolding = holdingMetrics.length > 0 || !!(profile.capabilities && profile.capabilities.write);
+      holdingRanges = listed('holding') || (holdingMetrics.length ? buildPollRanges(holdingMetrics) : []);
+    } else {
+      // Only the blocks the mapped metrics sit in (see luxpowerPollPlan).
+      const pick = space => listed(space) ? blocksWithWords(listed(space), plan.words[space]) : buildPollRanges(plan.entries[space]);
+      inputRanges = pick('input');
+      holdingRanges = pick('holding');
+      pollHolding = holdingRanges.length > 0;
+      // Nothing mapped: one small read still tells whether the dongle answers.
+      if (!inputRanges.length && !pollHolding) inputRanges = [(listed('input') || [{ start: 0, count: 1 }])[0]];
+    }
+    let reads = 0;
 
     // Words are stored per namespace so identical input/holding addresses never
     // overwrite each other (decimal key suffix; hex is only used for mapping).
@@ -676,6 +732,7 @@ async function pollLuxpowerInstance(instance, transport, profile) {
     const readRangesInto = async (ranges, devFn, space) => {
       for (const range of ranges) {
         try {
+          reads++;
           const buf = await transport.readRegisters(range.start, range.count, devFn);
           if (buf.length < range.count * 2) {
             logger.warn(`[dongle] ${instance.name}: short buffer at ${space} range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
@@ -1135,6 +1192,6 @@ module.exports = {
   pollJsonInstance,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
-  luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame,
+  luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame, luxpowerPollPlan, pollLuxpowerInstance,
   readLuxpowerControl, changeLuxpowerControl, luxpowerVerification, createLuxpowerTransport
 };
