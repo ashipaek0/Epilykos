@@ -105,6 +105,16 @@
     return state.devices.find(function (d) { return d.endpoint_hash === thisDevice.hash; }) || null;
   }
 
+  /** Where a device is chosen: the rules that list it, and push channels that include it. */
+  function deviceUse(d) {
+    var rules = state.rules.filter(function (r) { return (r.devices || []).indexOf(d.id) >= 0; }).length;
+    var channels = state.channels.filter(function (c) { return c.type === 'webpush' && c.config && (c.config.devices === 'all' || (c.config.devices || []).indexOf(d.id) >= 0); }).length;
+    var parts = [];
+    if (rules) parts.push(rules + (rules === 1 ? ' rule' : ' rules'));
+    if (channels) parts.push(channels + (channels === 1 ? ' push channel' : ' push channels'));
+    return parts.length ? 'chosen by ' + esc(parts.join(' and ')) : 'not chosen for any notification yet';
+  }
+
   function b64ToBytes(b64) {
     var pad = '='.repeat((4 - b64.length % 4) % 4);
     var raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
@@ -125,9 +135,8 @@
       if (existing && existing.join(',') !== key.join(',')) { await sub.unsubscribe(); sub = null; }
     }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-    var label = (document.getElementById('nt-device-label') || {}).value || '';
-    var out = await api('POST', '/devices', { subscription: sub.toJSON(), label: label.trim() });
-    toast(out.channel ? 'Push is on for this device. A "' + out.channel.name + '" channel was added for your rules.' : 'Push is on for this device.');
+    var out = await api('POST', '/devices', { subscription: sub.toJSON() });
+    toast(out.channel ? 'This device is registered. A "' + out.channel.name + '" channel was added for your rules.' : 'This device is registered. Pick it in a rule (or a push channel) to receive notifications.');
     await load();
   }
 
@@ -193,6 +202,7 @@
       when = r.metric + ' ' + opLabel(r.operator) + ' ' + r.value + (r.for_s >= 60 ? ' for ' + Math.round(r.for_s / 60) + ' min' : '');
     }
     var to = (r.channels || []).map(channelName).filter(Boolean);
+    (r.devices || []).forEach(function (id) { var dv = state.devices.find(function (x) { return x.id === id; }); if (dv) to.push(dv.label); });
     return esc(when) + ' → ' + (to.length ? esc(to.join(', ')) : '<span class="nt-warn">no channels</span>');
   }
 
@@ -236,23 +246,23 @@
       }[thisDevice.reason] || 'Push is not available here.';
       here = '<p class="st-help">' + esc(why) + '</p>';
     } else if (cur) {
-      here = '<p class="st-help">This device gets push notifications as <strong>' + esc(cur.label) + '</strong>.</p>' +
+      here = '<p class="st-help">This device is registered as <strong>' + esc(cur.label) + '</strong>.</p>' +
         '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="device-test" data-id="' + esc(cur.id) + '">Test</button><button type="button" class="st-btn st-btn-danger-text" data-act="push-off" data-id="' + esc(cur.id) + '">Turn off on this device</button></div>';
     } else {
       here = (thisDevice.permission === 'denied' ? '<p class="st-help nt-warn">Notifications are blocked for this site in the browser settings.</p>' : '') +
-        '<div class="nt-row-form">' + field('nt-device-label', 'Name for this device', input('nt-device-label', '', ' placeholder="e.g. My phone" maxlength="60"')) +
-        '<button type="button" class="st-btn st-btn-primary" data-act="push-on">Turn on push for this device</button></div>';
+        '<div class="nt-row-form"><button type="button" class="st-btn st-btn-primary" data-act="push-on">Turn on push for this device</button></div>';
     }
     var list = state.devices.length ? '<ul class="nt-list">' + state.devices.map(function (d) {
       var status = d.last_error_at && (!d.last_ok_at || d.last_error_at > d.last_ok_at) ? pill('Last push failed', 'error') : (d.last_ok_at ? pill('Working', 'ok') : pill('Not used yet', 'unknown'));
       return '<li class="nt-item"><div class="nt-item-text"><span class="nt-item-name">' + esc(d.label) + (cur && cur.id === d.id ? ' <span class="nt-this">this device</span>' : '') + '</span>' +
-        '<span class="nt-item-sub">' + esc(d.service) + ' · added ' + esc(fmtTime(d.created_at)) + '</span></div>' + status +
+        '<span class="nt-item-sub">' + esc(d.service) + ' · added ' + esc(fmtTime(d.created_at)) + ' · ' + deviceUse(d) + '</span></div>' + status +
         '<div class="nt-item-actions"><button type="button" class="st-btn" data-act="device-rename" data-id="' + esc(d.id) + '">Rename</button>' +
         '<button type="button" class="st-btn" data-act="device-test" data-id="' + esc(d.id) + '">Test</button>' +
         '<button type="button" class="st-btn st-btn-danger-text" data-act="device-remove" data-id="' + esc(d.id) + '">Remove</button></div></li>';
-    }).join('') + '</ul>' : '<p class="st-help">No devices yet. Turn on push on each phone, tablet or computer you want alerts on.</p>';
-    return '<div class="st-card"><div class="st-card-head"><h2>Push devices</h2></div>' + here +
-      '<h3 class="st-card-subhead">Subscribed devices</h3>' + list + '</div>';
+    }).join('') + '</ul>' : '<p class="st-help">No devices yet. A browser appears here when it accepts the "Get notifications on this device?" prompt on the dashboard.</p>';
+    return '<div class="st-card"><div class="st-card-head"><h2>Push devices</h2></div>' +
+      '<p class="st-help">Any browser that opens the dashboard is offered a prompt to enable notifications. The ones that accept are listed here. A device only receives what you choose: pick it in a rule\'s "Send to", or in a push channel.</p>' + here +
+      '<h3 class="st-card-subhead">Registered devices</h3>' + list + '</div>';
   }
 
   function channelsCard() {
@@ -300,7 +310,8 @@
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Address is on my local network') + '</div>';
     } else if (t === 'webpush') {
       var all = cfg.devices === 'all';
-      html += '<div class="st-toggle-row">' + toggle('nt-ch-alldev', all, 'All devices, including ones added later', ' data-act="webpush-all"') + '</div>';
+      html += '<div class="st-toggle-row">' + toggle('nt-ch-alldev', all, 'All devices, including ones added later', ' data-act="webpush-all"') + '</div>' +
+        (all ? '<p class="st-help nt-gap">Any browser that accepts the dashboard\'s notifications prompt will receive what this channel sends. Pick devices below instead to keep it to the ones you choose.</p>' : '');
       if (!all) {
         html += state.devices.length
           ? toggleList('nt-ch-dev', state.devices.map(function (dv) { return toggleItem('nt-ch-dev', dv.id, Array.isArray(cfg.devices) && cfg.devices.indexOf(dv.id) >= 0, dv.label); }), 'Send to these devices')
@@ -429,9 +440,11 @@
       (kind === 'schedule' ? '<div></div>' : field('nt-r-cool', 'Wait before alerting again (minutes)', input('nt-r-cool', d.cooldown_s ? d.cooldown_s / 60 : 0, ' type="number" min="0" step="1"'))) +
       '</div>';
     var chosen = d.channels || [];
-    html += state.channels.length
-      ? toggleList('nt-r-ch', state.channels.map(function (c) { return toggleItem('nt-r-ch', c.id, chosen.indexOf(c.id) >= 0, c.name, TYPE_LABEL[c.type] + (c.enabled ? '' : ', off')); }), 'Send to')
-      : '<p class="st-help nt-warn">Add a channel first (Channels, above).</p>';
+    var chosenDev = d.devices || [];
+    if (state.channels.length) html += toggleList('nt-r-ch', state.channels.map(function (c) { return toggleItem('nt-r-ch', c.id, chosen.indexOf(c.id) >= 0, c.name, TYPE_LABEL[c.type] + (c.enabled ? '' : ', off')); }), 'Send to');
+    if (state.devices.length) html += toggleList('nt-r-dev', state.devices.map(function (dv) { return toggleItem('nt-r-dev', dv.id, chosenDev.indexOf(dv.id) >= 0, dv.label, dv.service); }), 'Send push to these devices');
+    if (!state.channels.length && !state.devices.length) html += '<p class="st-help nt-warn">Add a channel first (Channels, above), or register a device: open the dashboard in a browser and accept the notifications prompt.</p>';
+    else if (!state.devices.length) html += '<p class="st-help">Browsers that accept the dashboard\'s notifications prompt appear here as devices you can pick.</p>';
     html += field('nt-r-msg', kind === 'schedule' ? 'Note above the report (optional)' : 'Custom message (optional)', input('nt-r-msg', d.message, ' maxlength="500"'),
       { metric: 'Use {metric}, {value}, {threshold}, {previous} and {rule}.', event: 'Use {message}, {subject}, {event} and {rule}.', schedule: '' }[kind]);
     html += '<div class="st-toggle-row">' + toggle('nt-r-enabled', d.enabled !== false, 'Rule on') + '</div>';
@@ -449,6 +462,7 @@
     d.message = val('nt-r-msg');
     d.enabled = checked('nt-r-enabled');
     d.channels = checkedValues('nt-r-ch');
+    d.devices = checkedValues('nt-r-dev');
     if (d.kind === 'metric') {
       d.metric = val('nt-r-metric').trim();
       d.operator = val('nt-r-op') || d.operator;
@@ -672,7 +686,7 @@
         syncRuleDraft();
         var k = el.dataset.kind;
         if (editRule.draft.kind !== k) {
-          var keep = { name: editRule.draft.name, channels: editRule.draft.channels, enabled: editRule.draft.enabled };
+          var keep = { name: editRule.draft.name, channels: editRule.draft.channels, devices: editRule.draft.devices, enabled: editRule.draft.enabled };
           editRule.draft = Object.assign(PRESETS[k](), keep);
         }
         return render();

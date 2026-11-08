@@ -2698,6 +2698,8 @@ app.use('/api/pvoutput/webhook', pvoutput.webhookRouter);
 // Protected routes
 app.use('/api/pvoutput', isAuthenticated, pvoutput.router);
 app.use('/api/notifications', isAuthenticated, require('./modules/notifications/routes').createRouter());
+// Any browser that opens the dashboard can offer itself as a push device (js/push-prompt.js). It gets nothing until the admin picks it for a rule.
+app.use('/api/push', require('./modules/notifications/routes').createPublicRouter());
 // Settings → Logs: recent lines, the level (changed while running), downloads.
 app.use('/api/logs', isAuthenticated, require('./routes/logs').router());
 // Settings → Network → Remote access (Tailscale). Signed-in only, so never before the admin password exists.

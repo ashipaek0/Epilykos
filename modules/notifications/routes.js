@@ -64,11 +64,13 @@ function normalizeRule(input, stored) {
   if (!name) fail('Give the rule a name');
   const knownChannels = new Set(store.getChannels().map(c => c.id));
   const channels = (Array.isArray(input.channels) ? input.channels : []).map(x => str(x, 40)).filter(id => knownChannels.has(id));
-  if (!channels.length) fail('Pick at least one channel to send to');
+  const knownDevices = new Set(store.getDevices().map(d => d.id));
+  const devices = (Array.isArray(input.devices) ? input.devices : []).map(x => str(x, 40)).filter(id => knownDevices.has(id));
+  if (!channels.length && !devices.length) fail('Pick at least one channel or device to send to');
   const severity = SEVERITIES.includes(input.severity) ? input.severity : ({ event: '', schedule: 'info' }[kind] ?? 'warning');
   const rule = {
     id: stored ? stored.id : store.newId('rule'),
-    kind, name, enabled: input.enabled !== false, channels, severity,
+    kind, name, enabled: input.enabled !== false, channels, devices, severity,
     cooldown_s: int(input.cooldown_s, 0, 7 * 86400, kind === 'event' ? 0 : 900),
     message: str(input.message, 500),
   };
@@ -136,12 +138,39 @@ function deviceLabel(ua) {
   return br ? `${os} · ${br}` : os;
 }
 
+/**
+ * Validate a browser's push subscription and store it as a device. A new
+ * device is a possible target only: it gets nothing until a rule lists it.
+ * `onlyKnownServices` limits the address to the push services browsers use
+ * (the public prompt, which anyone can call).
+ */
+const PUSH_SERVICES = /(^|\.)(googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/i;
+async function registerDevice(req, { onlyKnownServices = false } = {}) {
+  const sub = (req.body || {}).subscription || {};
+  const endpoint = str(sub.endpoint, 1000);
+  const keys = sub.keys || {};
+  if (!/^https:\/\//.test(endpoint) || !keys.p256dh || !keys.auth) fail('The browser did not return a usable push subscription');
+  if (onlyKnownServices) {
+    let host = '';
+    try { host = new URL(endpoint).hostname; } catch (_) { /* malformed */ }
+    if (!PUSH_SERVICES.test(host)) fail('That push service is not supported');
+  }
+  // The endpoint is where the server will POST: keep it to public hosts.
+  const safe = await assertSafeFetchUrl(endpoint);
+  if (!safe.ok) fail('Push service address not allowed');
+  const userAgent = str(req.get('user-agent'), 300);
+  const label = str((req.body || {}).label, 60) || deviceLabel(userAgent);
+  const out = store.addDevice({ endpoint, keys: { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 200) } }, { label, userAgent });
+  if (out.full) throw Object.assign(new InputError('Too many devices are registered. Ask the admin to remove some.'), { status: 429 });
+  return out;
+}
+
 function handle(fn) {
   return async (req, res) => {
     try {
       await fn(req, res);
     } catch (e) {
-      if (e instanceof InputError) return res.status(400).json({ error: e.message });
+      if (e instanceof InputError) return res.status(e.status || 400).json({ error: e.message });
       logger.error('notifications API error:', e);
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -313,31 +342,16 @@ function createRouter() {
   }));
 
   // ── Push devices ──
+  // Signed in, from Settings. The same registration as the public prompt (below), plus the starter channel.
   r.post('/devices', handle(async (req, res) => {
-    const sub = (req.body || {}).subscription || {};
-    const endpoint = str(sub.endpoint, 1000);
-    const keys = sub.keys || {};
-    if (!/^https:\/\//.test(endpoint) || !keys.p256dh || !keys.auth) fail('The browser did not return a usable push subscription');
-    // The endpoint is where the server will POST: keep it to public hosts.
-    const safe = await assertSafeFetchUrl(endpoint);
-    if (!safe.ok) fail('Push service address not allowed');
-    const list = store.getDevices();
-    const ua = str(req.get('user-agent'), 300);
-    const label = str((req.body || {}).label, 60) || deviceLabel(ua);
-    let dev = list.find(d => d.endpoint === endpoint);
-    if (dev) Object.assign(dev, { keys: { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 200) }, label, user_agent: ua });
-    else {
-      dev = { id: store.newId('dev'), label, endpoint, keys: { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 200) }, user_agent: ua, created_at: Math.floor(Date.now() / 1000) };
-      list.push(dev);
-    }
-    store.saveDevices(list);
-    // First device: give the user a working push channel straight away.
+    const out = await registerDevice(req);
+    // First device registered from Settings: give the user a working push channel straight away.
     let channel = null;
     if (!store.getChannels().some(c => c.type === 'webpush')) {
       channel = { id: store.newId('ch'), type: 'webpush', name: 'All my devices', enabled: true, config: { devices: 'all' } };
       store.saveChannels([...store.getChannels(), channel]);
     }
-    res.json({ device: store.publicDevice(dev), channel });
+    res.json({ device: store.publicDevice(out.device), channel });
   }));
 
   r.patch('/devices/:id', handle((req, res) => {
@@ -373,4 +387,28 @@ function createRouter() {
   return r;
 }
 
-module.exports = { createRouter, normalizeRule, normalizeChannel, deviceLabel };
+
+/**
+ * Public: any browser that opens the dashboard may offer itself as a push
+ * device (the toast in js/push-prompt.js). Registering gives it no
+ * notifications; the admin picks it for rules in Settings. Limited per address
+ * and in total, and only the push services browsers use are accepted.
+ */
+function createPublicRouter({ limit = 10 } = {}) {
+  const rateLimit = require('express-rate-limit');
+  const limiter = rateLimit({ windowMs: 60 * 60 * 1000, limit, message: { error: 'Too many requests, try again later' } });
+  const r = express.Router();
+  r.get('/key', (req, res) => res.json({ publicKey: store.getVapid().publicKey }));
+  // Does the server list the browser whose push address hashes to this? (js/push-prompt.js)
+  r.post('/known', handle((req, res) => {
+    const hash = str((req.body || {}).endpoint_hash, 64);
+    res.json({ known: /^[a-f0-9]{64}$/.test(hash) && store.getDevices().some(d => store.publicDevice(d).endpoint_hash === hash) });
+  }));
+  r.post('/register', limiter, handle(async (req, res) => {
+    const out = await registerDevice(req, { onlyKnownServices: true });
+    if (out.created) logger.info(`notifications: a browser registered as a push device (${out.device.label})`);
+    res.json({ success: true });
+  }));
+  return r;
+}
+module.exports = { createRouter, createPublicRouter, normalizeRule, normalizeChannel, deviceLabel };
