@@ -64,7 +64,7 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('flow-card-square')) updateFlowCardSquare(state);
   if (blockTypes.has('flow-card-square-2')) updateFlowCardSquare2(state);
   if (blockTypes.has('metric-cards')) updateMetricCardsFromState(state);
-  if (blockTypes.has('grid-card')) updateGridCardFromState(state);
+  if (blockTypes.has('grid-card') || blockTypes.has('generator-card')) updateGridCardFromState(state);
   if (blockTypes.has('chart-power')) updatePowerChartFromState(state);
   if (blockTypes.has('chart-energy')) updateEnergyChartFromState(state);
   if (blockTypes.has('chart-metric')) updateMetricChartFromState(state);

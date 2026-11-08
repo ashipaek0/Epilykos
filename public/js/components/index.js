@@ -1,7 +1,7 @@
 import { buildFlowCard } from './flowCard.js';
 import { buildForecastBanner } from './forecastBanner.js';
 import { buildMetricCards } from './metricCards.js';
-import { buildGridCard } from './gridCard.js';
+import { buildGridCard, buildGeneratorCard } from './gridCard.js';
 import { buildChartPower } from './chartPower.js';
 import { buildChartEnergy } from './chartEnergy.js';
 import { buildChartMetric } from './chartMetric.js';
@@ -53,6 +53,7 @@ export const componentBuilders = {
   'forecast-info': buildForecastInfo,
   'metric-cards': buildMetricCards,
   'grid-card': buildGridCard,
+  'generator-card': buildGeneratorCard,
   'chart-power': buildChartPower,
   'chart-energy': buildChartEnergy,
   'chart-metric': buildChartMetric,

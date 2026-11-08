@@ -30,6 +30,7 @@ export const SHOWCASE_BLOCKS = [
     { label: 'PV voltage', metric: 'pv_voltage', unit: 'V' }, { label: 'Mode', metric: 'inverter_mode', unit: '' }] } },
   { type: 'text-metric', config: { metric: 'inverter_mode', label: 'Inverter mode', unit: '' } },
   { type: 'grid-card', config: {} },
+  { type: 'generator-card', config: {} },
   { type: 'energy-totals', config: {} },
   { type: 'savings-summary', config: { title: 'Savings' } },
 

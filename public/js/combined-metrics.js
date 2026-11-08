@@ -21,6 +21,7 @@
     energy_today: { label: 'Energy today from power', help: 'kWh so far today from a power reading (inputs are added first). Resets at midnight. When the input is an Add up, each part\u2019s kWh is counted too, for cards that list parts; that starts when you save it, so earlier days show no parts.', many: true, energy: true },
     energy_total: { label: 'Lifetime energy from power', help: 'A kWh total that only goes up. Set a starting value to match a meter.', many: true, energy: true, start: true },
     counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true },
+    threshold: { label: 'On/Off from a limit', help: 'One input turned into On or Off (1 or 0): On at or past a limit you choose, e.g. grid voltage above 180 V for a grid status. Use it as a status metric, or in a card or notification.', single: true, threshold: true },
     peak_today: { label: 'Highest today', help: 'The highest value so far today (inputs are added first, e.g. all PV strings for the day\u2019s peak solar power). Starts again at midnight, so the last value of each day is that day\u2019s peak: use it for bar charts and histograms of daily peaks. It starts when you save it; earlier days have no peak.', many: true }
   };
   // Sums and averages can be shown split into their parts on cards; each part can be renamed.
@@ -38,6 +39,8 @@
     if (unit === 'W' && a >= 1000) return (v / 1000).toFixed(2) + ' kW';
     return Number(v).toFixed(d) + (unit ? ' ' + unit : '');
   }
+  // An On/Off metric reads 1 or 0; show it as the word.
+  function shown(d, v) { return d && d.fn === 'threshold' ? (v == null ? '—' : Number(v) >= 1 ? 'On' : 'Off') : fmt(v, d && d.unit); }
   function unitOf(name) { var m = state.metrics.find(function (x) { return x.name === name; }); return m && m.unit ? m.unit : ''; }
 
   function load() {
@@ -51,6 +54,7 @@
   function summary(d) {
     var info = FN_INFO[d.fn] || { label: d.fn };
     var n = (d.inputs || []).length;
+    if (d.fn === 'threshold' && n === 1) return 'On ' + (d.when === 'below' ? 'at or below ' : 'at or above ') + esc(d.on_at) + (d.off_at != null && d.off_at !== '' ? ', Off ' + (d.when === 'below' ? 'above ' : 'below ') + esc(d.off_at) : '') + ' · ' + esc(d.inputs[0]);
     return esc(info.label) + ' · ' + (n === 1 ? esc(d.inputs[0]) : n + ' inputs');
   }
   function renderList() {
@@ -60,7 +64,7 @@
       var st = state.status[d.id] || null;
       var live = d.enabled === false ? '<span class="cm-state is-off">Off</span>'
         : !st ? '<span class="cm-state">Waiting for the next reading</span>'
-        : st.ok ? '<span class="cm-state is-ok">' + esc(fmt(st.value, d.unit)) + '</span>'
+        : st.ok ? '<span class="cm-state is-ok">' + esc(shown(d, st.value)) + '</span>'
         : '<span class="cm-state is-warn">Waiting: ' + esc(st.reason) + '</span>';
       return '<div class="cm-row" data-i="' + i + '">'
         + '<label class="toggle-switch" title="Compute this metric"><input type="checkbox" class="cm-enabled"' + (d.enabled === false ? '' : ' checked') + ' aria-label="Compute ' + esc(d.name) + '"><span class="slider"></span></label>'
@@ -91,6 +95,13 @@
     var pvSource = taken.pv_total_power || pv.length >= 2 ? 'pv_total_power' : (pvTotals[0] || null);
     if (pvSource && !taken.pv_peak_today) out.push({ label: 'Peak solar power each day from ' + pvSource, def: { name: 'pv_peak_today', unit: 'W', fn: 'peak_today', inputs: [pvSource] } });
     if (pvSource && !taken.pv_energy_today) out.push({ label: 'Solar energy today from ' + pvSource, def: { name: 'pv_energy_today', unit: 'kWh', fn: 'energy_today', inputs: [pvSource], input_unit: 'W' } });
+    // A grid status from the grid voltage: a 230 V grid turns On at 180 V, a 120 V grid at 90 V.
+    var gridV = pick(/(^|_)(grid|ac_input|mains)_(input_)?voltage$/i)[0];
+    if (gridV && !taken.grid_status) {
+      var now0 = state.metrics.filter(function (m) { return m.name === gridV; })[0], volts = now0 ? Number(now0.value) : NaN;
+      var low = volts >= 60 && volts < 150;
+      out.push({ label: 'Grid status (On/Off) from ' + gridV, def: { name: 'grid_status', unit: '', fn: 'threshold', inputs: [gridV], when: 'above', on_at: low ? 90 : 180, off_at: low ? 80 : 160 } });
+    }
     // Drop suggestions an existing combined metric already covers (same inputs,
     // whatever it is called), and energy suggestions whose source doesn't exist.
     var covered = function (inputs) { return state.defs.some(function (d) { return (d.inputs || []).length && inputs.every(function (n) { return d.inputs.indexOf(n) !== -1; }); }); };
@@ -99,7 +110,7 @@
     var hasKind = function (fns, re) { return state.defs.some(function (d) { return fns.indexOf(d.fn) !== -1 && re.test(d.name); }); };
     var kindDone = { pv_total_power: hasKind(['sum'], /(pv|solar)/i), load_total_power: hasKind(['sum'], /(load|output|consumption)/i), battery_soc_average: hasKind(['mean', 'weighted_mean'], /(soc|charge)/i), pv_energy_today: hasKind(['energy_today', 'counter_today'], /(pv|solar)/i), pv_peak_today: hasKind(['peak_today'], /(pv|solar)/i) };
     out = out.filter(function (o) { return !kindDone[o.def.name]; });
-    out = out.filter(function (o) { return o.def.fn === 'energy_today' || o.def.fn === 'peak_today' ? known[o.def.inputs[0]] && !state.defs.some(function (d) { return d.fn === o.def.fn && d.inputs[0] === o.def.inputs[0]; }) : !covered(o.def.inputs); });
+    out = out.filter(function (o) { return o.def.fn === 'energy_today' || o.def.fn === 'peak_today' || o.def.fn === 'threshold' ? known[o.def.inputs[0]] && !state.defs.some(function (d) { return d.fn === o.def.fn && d.inputs[0] === o.def.inputs[0]; }) : !covered(o.def.inputs); });
     box.hidden = !out.length;
     box.innerHTML = out.length ? '<p class="st-help">Suggested from your metrics:</p>' + out.map(function (s, i) { return '<button type="button" class="st-chip cm-suggest" data-s="' + i + '">' + esc(s.label) + '</button>'; }).join('') : '';
     box._suggestions = out;
@@ -113,6 +124,16 @@
     $('cm-name').focus();
   }
   function closeEditor() { state.editing = null; $('cm-editor').hidden = true; $('cm-editor').innerHTML = ''; }
+  // "Turns On when the input is [at or above | at or below] [value]", and an optional different Off value.
+  function thresholdFields(d) {
+    var below = d.when === 'below', unit = (d.inputs && d.inputs[0] ? unitOf(d.inputs[0]) : '') || '';
+    return '<div class="st-field"><span class="cm-label">Turns On when the input is</span><div class="st-grid-2">'
+      + '<select id="cm-when" class="input" aria-label="Above or below"><option value="above"' + (below ? '' : ' selected') + '>at or above</option><option value="below"' + (below ? ' selected' : '') + '>at or below</option></select>'
+      + '<input id="cm-onat" class="input" type="number" step="any" value="' + esc(d.on_at == null ? '' : d.on_at) + '" placeholder="e.g. 180' + (unit ? ' ' + esc(unit) : '') + '" aria-label="On value"></div></div>'
+      + '<div class="st-field"><label for="cm-offat">Turns Off when it is ' + (below ? 'above' : 'below') + ' (optional)</label>'
+      + '<input id="cm-offat" class="input" type="number" step="any" value="' + esc(d.off_at == null ? '' : d.off_at) + '" placeholder="Same as the On value">'
+      + '<span class="st-help">Set a different Off value to leave a gap, e.g. On at 180, Off below 160. A reading that hovers near the limit then does not flip On and Off. Inside the gap it keeps its last state.</span></div>';
+  }
   function renderEditor() {
     var d = state.editing.def, info = FN_INFO[d.fn] || FN_INFO.sum;
     var opts = Object.keys(FN_INFO).map(function (k) { return '<option value="' + k + '"' + (k === d.fn ? ' selected' : '') + '>' + esc(FN_INFO[k].label) + '</option>'; }).join('');
@@ -135,6 +156,7 @@
       + (full ? '' : '<select id="cm-add-input" class="input" aria-label="Add an input">' + metricOpts + '</select>'
         + (info.single ? '' : '<div class="cm-match"><input id="cm-match" class="input" placeholder="Add all that match, e.g. pv_power or inv*_pv1_power" aria-label="Add all metrics whose name matches" autocomplete="off"><button type="button" class="st-btn" id="cm-find">Find</button></div><div id="cm-matches" class="cm-matches" hidden></div>')) + '</div>'
       + (d.fn === 'scale' ? '<div class="st-grid-2"><div class="st-field"><label for="cm-factor">Factor</label><input id="cm-factor" class="input" type="number" step="any" value="' + esc(d.factor == null ? 1 : d.factor) + '"></div><div class="st-field"><label for="cm-offset">Offset</label><input id="cm-offset" class="input" type="number" step="any" value="' + esc(d.offset == null ? 0 : d.offset) + '"></div></div>' : '')
+      + (info.threshold ? thresholdFields(d) : '')
       + (info.energy ? '<div class="st-grid-2"><div class="st-field"><label for="cm-iu">Input power is in</label><select id="cm-iu" class="input"><option value="W"' + (d.input_unit !== 'kW' ? ' selected' : '') + '>W</option><option value="kW"' + (d.input_unit === 'kW' ? ' selected' : '') + '>kW</option></select></div>'
         + (info.start ? '<div class="st-field"><label for="cm-start">Start at (kWh)</label><input id="cm-start" class="input" type="number" step="any" min="0" value="' + esc(d.start == null ? 0 : d.start) + '"></div>' : '') + '</div>' : '')
       + '<details class="cm-more"><summary>When readings are late</summary><div class="st-grid-2">'
@@ -173,6 +195,11 @@
     d.name = (v('cm-name') || '').trim(); d.unit = (v('cm-unit') || '').trim();
     if ($('cm-factor')) { d.factor = Number(v('cm-factor')); d.offset = Number(v('cm-offset')); } else { delete d.factor; delete d.offset; }
     if ($('cm-iu')) d.input_unit = v('cm-iu'); else delete d.input_unit;
+    if ($('cm-onat')) {
+      d.when = v('cm-when') === 'below' ? 'below' : 'above';
+      d.on_at = v('cm-onat') === '' ? '' : Number(v('cm-onat'));
+      if (v('cm-offat') === '') delete d.off_at; else d.off_at = Number(v('cm-offat'));
+    } else { delete d.when; delete d.on_at; delete d.off_at; }
     if ($('cm-start')) d.start = Number(v('cm-start')); else delete d.start;
     if (FN_INFO[d.fn] && FN_INFO[d.fn].weights) d.weights = Array.from(document.querySelectorAll('#cm-editor .cm-w')).map(function (el) { return Number(el.value); }); else delete d.weights;
     d.stale_seconds = Number(v('cm-stale')) || 300; d.missing = v('cm-missing') || 'skip';
@@ -220,7 +247,7 @@
       readEditor();
       var picked = Array.from(document.querySelectorAll('#cm-matches .cm-match-cb:checked')).map(function (cb) { return cb.value; });
       picked.forEach(function (n) { if (d.inputs.indexOf(n) === -1) { d.inputs.push(n); if (d.weights) d.weights.push(1); } });
-      if (!d.unit && picked.length && !FN_INFO[d.fn].energy) d.unit = unitOf(picked[0]);
+      if (!d.unit && picked.length && !FN_INFO[d.fn].energy && !FN_INFO[d.fn].threshold) d.unit = unitOf(picked[0]);
       renderEditor();
       return;
     }
@@ -228,7 +255,7 @@
       readEditor(); showError('');
       api('/api/combined-metrics/preview', d).then(function (r) {
         var lines = r.inputs.map(function (x) { return esc(x.name) + ': ' + (x.value == null ? 'no reading' : esc(fmt(x.value, unitOf(x.name))) + (x.age != null && x.age > (d.stale_seconds || 300) ? ' (late)' : '')); });
-        $('cm-preview').innerHTML = '<p>' + lines.join(' · ') + '</p><p><strong>' + (r.skip ? 'Would wait: ' + esc(r.skip) : 'Result now: ' + esc(fmt(r.value, d.unit))) + '</strong>' + (r.note ? ' ' + esc(r.note) : '') + '</p>';
+        $('cm-preview').innerHTML = '<p>' + lines.join(' · ') + '</p><p><strong>' + (r.skip ? 'Would wait: ' + esc(r.skip) : 'Result now: ' + esc(shown(d, r.value))) + '</strong>' + (r.note ? ' ' + esc(r.note) : '') + '</p>';
       }).catch(function (err) { showError(err.message); });
       return;
     }
@@ -250,11 +277,12 @@
     }
     if (!state.editing) return;
     var d = state.editing.def;
-    if (e.target.id === 'cm-fn') { readEditor(); d.fn = e.target.value; if (FN_INFO[d.fn].single) d.inputs = d.inputs.slice(0, 1); if (FN_INFO[d.fn].energy && !d.unit) d.unit = 'kWh'; renderEditor(); return; }
+    if (e.target.id === 'cm-fn') { readEditor(); d.fn = e.target.value; if (FN_INFO[d.fn].single) d.inputs = d.inputs.slice(0, 1); if (FN_INFO[d.fn].energy && !d.unit) d.unit = 'kWh'; if (FN_INFO[d.fn].threshold) d.unit = ''; renderEditor(); return; }
+    if (e.target.id === 'cm-when') { readEditor(); renderEditor(); return; }   // the Off label follows above / below
     if (e.target.id === 'cm-add-input' && e.target.value) {
       readEditor(); d.inputs.push(e.target.value);
       if (d.weights) d.weights.push(1);
-      if (!d.unit && !FN_INFO[d.fn].energy) d.unit = unitOf(e.target.value);
+      if (!d.unit && !FN_INFO[d.fn].energy && !FN_INFO[d.fn].threshold) d.unit = unitOf(e.target.value);
       renderEditor();
     }
   });

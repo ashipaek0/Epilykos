@@ -206,7 +206,7 @@
 .ep-grid-state[data-state="off"] { color: var(--color-grid); }
 .ep-grid-since { font-size: calc(0.78rem * var(--card-font-scale, 1)) !important; color: var(--text-secondary); opacity: 1 !important; }
 .ep-grid-hours-title { margin-top: 2px; }
-.grid-card [id^="grid-timeline"] { overflow: hidden; }
+.grid-card :is([id^="grid-timeline"], [id^="generator-timeline"]) { overflow: hidden; }
 .grid-card .grid-stats { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 72px), 1fr)); flex: 0 0 auto; }
 /* One row of tiles where they fit; on narrower cards 2 × 2 (four) or 3 + 2
    (five). The numbers shrink with the column, never below 0.8rem, so a long
@@ -830,3 +830,13 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 .state-select-block.cs-tile .state-select-buttons { gap: .5rem; }
 .state-select-block.cs-tile .state-btn { border-radius: 999px; padding-inline: 1rem; }
 .state-select-block.cs-tile .state-select-dropdown { border-radius: 999px; }
+
+/* Generator card: the grid card's layout. Running is the state to notice, so it is amber, and stopped is plain. */
+.grid-card.generator-card .ep-grid-state[data-state="on"] { color: var(--color-warning); }
+.grid-card.generator-card .ep-grid-state[data-state="off"] { color: var(--text-secondary); }
+.grid-card.generator-card .tl-segment.on { background: var(--color-warning); color: #fff; }
+.grid-card.generator-card .tl-segment.off,
+[data-theme="dark"] .grid-card.generator-card .tl-segment.off { background: color-mix(in srgb, var(--text-secondary) 14%, transparent); color: var(--text-secondary); }
+.grid-card.generator-card .ep-grid-day { background: var(--color-warning); }
+.grid-card.generator-card .ep-grid-day.today { background: repeating-linear-gradient(45deg, var(--color-warning) 0 4px, color-mix(in srgb, var(--color-warning) 45%, transparent) 4px 8px); }
+.grid-card.generator-card .ep-grid-day.none, .grid-card.generator-card .ep-grid-day.unknown { height: 2px !important; background: var(--border); }
