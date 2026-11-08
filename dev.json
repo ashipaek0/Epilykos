@@ -1,18 +1,36 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42496425535.1",
-    "version": "1.1.4-dev+c5dd5c5",
-    "commit": "c5dd5c54878e52f2375629b0d8b8f5c2df1c3024",
-    "digest": "sha256:fc08d7322754a5fef93e7554d02fa73e4656b4a6cd999c0b02aabb8f757b722e",
+    "buildId": "42503978718.1",
+    "version": "1.1.5-dev+db06605",
+    "commit": "db066056e30fee155e88d9210411e1c9db58fde3",
+    "digest": "sha256:93c4e55ed44de10230d227823a2e88df5b08069bb9ad027e6c92e3e06605861d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T15:45:49Z",
+    "builtAt": "2026-11-08T17:15:07Z",
     "kind": "release",
     "notes": [
-      "Notifications: any browser can offer itself as a push device (#296)"
+      "Refactor epilykos service configuration in docker-compose",
+      "Revise Docker setup instructions in README",
+      "Update README.md",
+      "Update README.md"
     ]
   },
   "history": [
+    {
+      "buildId": "42503978718.1",
+      "version": "1.1.5-dev+db06605",
+      "commit": "db066056e30fee155e88d9210411e1c9db58fde3",
+      "digest": "sha256:93c4e55ed44de10230d227823a2e88df5b08069bb9ad027e6c92e3e06605861d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T17:15:07Z",
+      "kind": "release",
+      "notes": [
+        "Refactor epilykos service configuration in docker-compose",
+        "Revise Docker setup instructions in README",
+        "Update README.md",
+        "Update README.md"
+      ]
+    },
     {
       "buildId": "42496425535.1",
       "version": "1.1.4-dev+c5dd5c5",
@@ -363,18 +381,6 @@
       "digest": "sha256:df0ba29a972121764487f0c8bc1c6957cabb164108c8b661e8e19ef46f040506",
       "image": "irunmole/epilykos:dev",
       "builtAt": "2026-11-04T08:41:26Z",
-      "kind": "release",
-      "notes": [
-        "Update README.md"
-      ]
-    },
-    {
-      "buildId": "41800869669.1",
-      "version": "1.0.14-dev+98b5e0a",
-      "commit": "98b5e0ad12ca0f5056fa75f9896073d8c0848cc9",
-      "digest": "sha256:baa9f6ae14ccd9b09a24d547db5c19470562eaaf0c5089164c11f6691662506f",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T08:37:19Z",
       "kind": "release",
       "notes": [
         "Update README.md"
