@@ -2402,6 +2402,9 @@ function renderBmsDevice(device, idx) {
       </select>
     </div>
     <div class="form-row" style="gap:0.5rem;">
+      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
+    </div>
+    <div class="form-row" style="gap:0.5rem;">
       <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">🔍 Scan</button>
       <button type="button" class="fetch-btn test-bms" style="flex:1;">Test Connection</button>
       <span class="test-status" id="bms-test-status-${idx}"></span>
@@ -2587,6 +2590,7 @@ function renderBmsWiredDevice(device, idx) {
       <select name="bms_devices[${idx}][profile]" class="bms-wired-profile-select" style="flex:1;">
         <option value="">-- Select profile --</option>
       </select>
+      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
       <input type="number" name="bms_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;" title="Timeout in milliseconds">
       <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
       <span class="test-status"></span>
@@ -2815,6 +2819,7 @@ function collectBmsWiredConfig(card) {
   dev.modbus_unit_id = parseInt(card.querySelector('input[name$="[modbus_unit_id]"]')?.value) || 1;
   dev.profile = card.querySelector('.bms-wired-profile-select').value;
   dev.timeout = parseInt(card.querySelector('input[name$="[timeout]"]').value) || 5000;
+  dev.poll_interval = Math.min(3600, Math.max(5, parseInt(card.querySelector('input[name$="[poll_interval]"]')?.value, 10) || 30));
   dev.mappings = {};
   card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
     const bmsKey = row.dataset.bmsKey;
@@ -5740,6 +5745,7 @@ async function buildSourcesPayload() {
       dev.address = card.querySelector('input[name$="[address]"]').value;
       dev.bms_type = card.querySelector('.bms-type-select')?.value || '';
       dev.transport = 'bluetooth';
+      dev.poll_interval = Math.min(3600, Math.max(5, parseInt(card.querySelector('input[name$="[poll_interval]"]')?.value, 10) || 30));
       // Collect metric mappings: { bmsKey → metricName }
       dev.mappings = {};
       card.querySelectorAll('.mappings-list .metric-row').forEach(row => {
