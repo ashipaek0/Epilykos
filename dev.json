@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42467266617.1",
-    "version": "1.1.2-dev+b29a21e",
-    "commit": "b29a21e6d1ea005fa4adc0929359af8284412692",
-    "digest": "sha256:b07760bc309caf009264ec646ffce51650a66272b90a9946fbc2e0839257e844",
+    "buildId": "42472031122.1",
+    "version": "1.1.3-dev+5162867",
+    "commit": "516286766365ed13b9a39e885d839a07e374afe3",
+    "digest": "sha256:ae1f22e0340cb0f094b86401138a69ccd6712ebeca3b719fdd7a1a1460453480",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T09:27:56Z",
+    "builtAt": "2026-11-08T10:35:10Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
+      "Combined metrics: On/Off from a limit (#284)"
+    ]
   },
   "history": [
+    {
+      "buildId": "42472031122.1",
+      "version": "1.1.3-dev+5162867",
+      "commit": "516286766365ed13b9a39e885d839a07e374afe3",
+      "digest": "sha256:ae1f22e0340cb0f094b86401138a69ccd6712ebeca3b719fdd7a1a1460453480",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T10:35:10Z",
+      "kind": "release",
+      "notes": [
+        "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
+        "Combined metrics: On/Off from a limit (#284)"
+      ]
+    },
     {
       "buildId": "42467266617.1",
       "version": "1.1.2-dev+b29a21e",
@@ -357,19 +373,6 @@
       "builtAt": "2026-11-03T13:54:51Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "41648735392.1",
-      "version": "1.0.13-dev+25d2ddf",
-      "commit": "25d2ddfe0fc58644e110dd05c23a77c4e7d10888",
-      "digest": "sha256:4ed1efffe224ba559a4e73c1e62c89515a89d732fc3447c5aa19b63f3d19ab41",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T13:56:04Z",
-      "kind": "release",
-      "notes": [
-        "Remove the LuxPower RS-485 Modbus profile",
-        "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
-      ]
     }
   ]
 }
