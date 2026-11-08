@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42467341097.1",
-    "version": "1.1.2-dev+3f35c73",
-    "commit": "3f35c736f29ac49b9a7b367a12e09c75e3acb673",
-    "digest": "sha256:0cce30ba22b32cd4148107f7a7f5fbfa3f30f711e2900f145566b9c2f5aa4bd4",
+    "buildId": "42467266617.1",
+    "version": "1.1.2-dev+b29a21e",
+    "commit": "b29a21e6d1ea005fa4adc0929359af8284412692",
+    "digest": "sha256:b07760bc309caf009264ec646ffce51650a66272b90a9946fbc2e0839257e844",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T09:29:04Z",
+    "builtAt": "2026-11-08T09:27:56Z",
     "kind": "release",
-    "notes": [
-      "Combined metrics: On/Off from a limit (#284)",
-      "Generator status card (#282)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "42467266617.1",
+      "version": "1.1.2-dev+b29a21e",
+      "commit": "b29a21e6d1ea005fa4adc0929359af8284412692",
+      "digest": "sha256:b07760bc309caf009264ec646ffce51650a66272b90a9946fbc2e0839257e844",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T09:27:56Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "42467341097.1",
       "version": "1.1.2-dev+3f35c73",
@@ -361,20 +368,6 @@
       "kind": "release",
       "notes": [
         "Remove the LuxPower RS-485 Modbus profile",
-        "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
-      ]
-    },
-    {
-      "buildId": "41648523526.1",
-      "version": "1.0.13-dev+3f0ff44",
-      "commit": "3f0ff444a506386a95cbe716302944632b5e849e",
-      "digest": "sha256:8a1da4fe7782c8c930e01a6403ac2efc56f73ad206763616dade2cd388550491",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T13:54:34Z",
-      "kind": "release",
-      "notes": [
-        "LuxPower: plain help text for the twelve GETA controls",
-        "LuxPower: read and control what the Home Assistant integration does",
         "Docs: point README, in-app Help and CONTRIBUTING at the wiki"
       ]
     }
