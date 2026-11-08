@@ -75,6 +75,9 @@ function migratePowerStatsSchema(handle) {
 function openConnection(dbFile, fileMustExist = false) {
   db = new Database(dbFile, { fileMustExist });
   db.pragma('trusted_schema = OFF');
+  // Only takes effect on a new, empty file: its free pages can then be returned
+  // to the disk (modules/dbCompact.js does this after the retention rollup).
+  if (db.pragma('page_count', { simple: true }) === 0) db.pragma('auto_vacuum = INCREMENTAL');
   db.pragma('journal_mode = WAL');
   applySynchronousMode(db);
   return db;
