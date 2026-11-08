@@ -18,7 +18,7 @@ assert.match(js, /tr:not\(\[hidden\]\) \.metric-select/, 'select all reaches onl
 assert.match(js, /fetch\('\/api\/metrics\/delete', \{ method: 'POST'/, 'one request deletes them all');
 assert.match(js, /confirmLabel: 'Delete'/, 'it asks once, naming how many');
 assert.match(server, /app\.post\('\/api\/metrics\/delete', isAuthenticated/, 'signed-in only');
-assert.match(server, /require\('\.\/modules\/metricDeletion'\)\.deleteMetrics\(names\)/);
-assert.match(server, /const result = deleteMetrics\(\[name\]\);/, 'deleting one uses the same rules');
+assert.match(server, /require\('\.\/modules\/metricDeletion'\)\.deleteMetrics\(names, \{ deferHistory: true \}\)/);
+assert.match(server, /const result = deleteMetrics\(\[name\], \{ deferHistory: true \}\);/, 'deleting one uses the same rules');
 console.log('ok - select several metrics and delete them together');
 checks.done();

@@ -496,6 +496,8 @@ startSnapshotScheduler();
 // Raw readings older than 30 days become 5-minute summaries (metrics_5m,
 // history_5m), which the chart and table readers use past that point.
 const retention = new (require('./modules/retentionJob').RetentionManager)().start();
+// A metric deleted just before a restart: finish removing its stored readings.
+setTimeout(() => require('./modules/metricHistoryPurge').resume(), 30 * 1000).unref();
 
 // Periodic WAL checkpoint — prevents unbounded WAL file growth
 // Runs every hour via setInterval (TRUNCATE resets WAL to 0 bytes after full checkpoint)
@@ -2732,7 +2734,7 @@ app.delete('/api/metrics/:name', isAuthenticated, (req, res) => {
   try {
     const { deleteMetrics } = require('./modules/metricDeletion');
     const { name } = req.params;
-    const result = deleteMetrics([name]);
+    const result = deleteMetrics([name], { deferHistory: true });
     if (result.blocked.length) return res.status(409).json({ error: result.blocked[0].reason });
     res.json({ success: true, roles_cleared: result.rolesCleared, used_by: result.usedBy[name] || [] });
   } catch (err) {
@@ -2748,7 +2750,7 @@ app.post('/api/metrics/delete', isAuthenticated, (req, res) => {
     return res.status(400).json({ error: 'A list of metric names is required' });
   }
   try {
-    const result = require('./modules/metricDeletion').deleteMetrics(names);
+    const result = require('./modules/metricDeletion').deleteMetrics(names, { deferHistory: true });
     res.json({ success: true, deleted: result.deleted, blocked: result.blocked, roles_cleared: result.rolesCleared, used_by: result.usedBy });
   } catch (err) {
     if (err instanceof RangeError) return res.status(400).json({ error: err.message });
