@@ -2739,6 +2739,20 @@ function reindexBmsWired() {
   });
 }
 
+// BMS mapping rows get the same "+ New" control as the inverter rows, so a metric can
+// be created right where it is mapped. The unit is prefilled when the BMS reports one.
+const bmsAdapter = { defaultUnit(entity) { return entity && entity.unit ? String(entity.unit) : ''; } };
+function addBmsNewMetricControl(row, metricSelect, removeBtn, entity) {
+  if (!(window.CatalogUI && typeof window.CatalogUI.createInlineMetricControl === 'function')) return;
+  row._catalogEntity = entity || null;
+  const newBtn = window.CatalogUI.createInlineMetricControl(bmsAdapter, row, metricSelect, () => row._catalogEntity);
+  const panel = row.lastElementChild;           // the name + unit editor it appended
+  row.insertBefore(newBtn, removeBtn);          // select, + New, ✕
+  // The editor needs more room than these rows have: it takes a line of its own while open.
+  row.style.flexWrap = 'wrap';
+  panel.style.flex = '1 1 100%';
+}
+
 function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
   const infoMap = {};
   (fieldsInfo || []).forEach(f => { if (f && f.field != null) infoMap[String(f.field)] = f; });
@@ -2768,8 +2782,10 @@ function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
     removeBtn.className = 'remove-btn remove-metric';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
+      const card = row.closest('.device-card');
       row.remove();
       if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      updateMappingSaveNote(card);
     });
 
     metricSelect.addEventListener('change', () => {
@@ -2779,8 +2795,10 @@ function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
     row.appendChild(keyLabel);
     row.appendChild(metricSelect);
     row.appendChild(removeBtn);
+    addBmsNewMetricControl(row, metricSelect, removeBtn, info);
     container.appendChild(row);
   });
+  updateMappingSaveNote(container.closest('.device-card'));
 }
 
 function collectBmsWiredConfig(card) {
@@ -2844,8 +2862,10 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     removeBtn.className = 'remove-btn remove-metric';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
+      const card = row.closest('.device-card');
       row.remove();
       if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
+      updateMappingSaveNote(card);
     });
 
     metricSelect.addEventListener('change', () => {
@@ -2855,8 +2875,10 @@ function renderBmsMappings(deviceIdx, container, mappings, values) {
     row.appendChild(keyLabel);
     row.appendChild(metricSelect);
     row.appendChild(removeBtn);
+    addBmsNewMetricControl(row, metricSelect, removeBtn, null);
     container.appendChild(row);
   });
+  updateMappingSaveNote(container.closest('.device-card'));
 }
 
 // Poll BMS connection status and update indicator dots
@@ -4372,6 +4394,7 @@ function cardMappedRowCount(card) {
     const textInput = row.querySelector('.topic-input, .jsonpath');
     const entitySel = row.querySelector('.entity-select');
     const handle = row.dataset.address
+      || row.dataset.bmsKey
       || (entitySel && entitySel.value ? entitySel.value : '')
       || (textInput ? textInput.value.trim() : '');
     if (handle) n++;
@@ -4412,7 +4435,7 @@ document.addEventListener('catalog-rows-changed', (e) => {
 // build rows directly — cover their metric picks and row removals too. The HA,
 // MQTT and external cards use the same legacy row anatomy, so they join here
 // for a live "Save will persist N of M mapped" note (AC-29/AC-31).
-['ha-devices-container', 'mqtt-devices-container', 'external-sources-container', 'modbus-devices-container', 'rs232-devices-container', 'dongle-devices-container'].forEach(id => {
+['ha-devices-container', 'mqtt-devices-container', 'external-sources-container', 'modbus-devices-container', 'rs232-devices-container', 'dongle-devices-container', 'bms-devices-container', 'bms-wired-devices-container'].forEach(id => {
   const container = document.getElementById(id);
   if (!container) return;
   container.addEventListener('change', (e) => {
