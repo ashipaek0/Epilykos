@@ -1,19 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42472031122.1",
-    "version": "1.1.3-dev+5162867",
-    "commit": "516286766365ed13b9a39e885d839a07e374afe3",
-    "digest": "sha256:ae1f22e0340cb0f094b86401138a69ccd6712ebeca3b719fdd7a1a1460453480",
+    "buildId": "42472547075.1",
+    "version": "1.1.3-dev+aa38c99",
+    "commit": "aa38c994f717e14c32f0b700d0e4142c9d11c66c",
+    "digest": "sha256:b1e69abd09f163ddca5ca05fd61c068ef66404ee1b4ad0b7fca80203fd7d2161",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T10:35:10Z",
+    "builtAt": "2026-11-08T10:42:41Z",
     "kind": "release",
     "notes": [
-      "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
-      "Combined metrics: On/Off from a limit (#284)"
+      "Battery bank test: don't depend on a D-Bus socket",
+      "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+      "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
     ]
   },
   "history": [
+    {
+      "buildId": "42472547075.1",
+      "version": "1.1.3-dev+aa38c99",
+      "commit": "aa38c994f717e14c32f0b700d0e4142c9d11c66c",
+      "digest": "sha256:b1e69abd09f163ddca5ca05fd61c068ef66404ee1b4ad0b7fca80203fd7d2161",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T10:42:41Z",
+      "kind": "release",
+      "notes": [
+        "Battery bank test: don't depend on a D-Bus socket",
+        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
+      ]
+    },
     {
       "buildId": "42472031122.1",
       "version": "1.1.3-dev+5162867",
@@ -363,16 +378,6 @@
         "Docs: point README, in-app Help and CONTRIBUTING at the wiki",
         "Fix masked fields losing their value and misaligning boxes"
       ]
-    },
-    {
-      "buildId": "41648565746.1",
-      "version": "1.0.13-dev+022cd13",
-      "commit": "022cd13381459e1499477dc91258dea75df1db99",
-      "digest": "sha256:f22a8f6ad8146e9b51d079a89e7ea4ef0a93598256604d370b0b7f64f2e3796a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-03T13:54:51Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
