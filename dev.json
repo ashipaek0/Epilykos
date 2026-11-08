@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42485461405.1",
-    "version": "1.1.3-dev+0e91423",
-    "commit": "0e914230862c43379c5f5a3ee26c1611ea326d45",
-    "digest": "sha256:8e4453498404a95f5a36f67a29e9fe49270e42dd73a78fa63529693c1c895eec",
+    "buildId": "42486511850.1",
+    "version": "1.1.3-dev+d72612f",
+    "commit": "d72612f406e54acd1afb12bd1226a996ce9f2a93",
+    "digest": "sha256:9d7b2951b26ae8760de02eddf1865b93a8b50dfdceb42751f2387ee40b57de67",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T13:33:03Z",
+    "builtAt": "2026-11-08T13:46:28Z",
     "kind": "release",
     "notes": [
-      "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)"
+      "CI: remove the report-only Windows test job (#295)"
     ]
   },
   "history": [
+    {
+      "buildId": "42486511850.1",
+      "version": "1.1.3-dev+d72612f",
+      "commit": "d72612f406e54acd1afb12bd1226a996ce9f2a93",
+      "digest": "sha256:9d7b2951b26ae8760de02eddf1865b93a8b50dfdceb42751f2387ee40b57de67",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-08T13:46:28Z",
+      "kind": "release",
+      "notes": [
+        "CI: remove the report-only Windows test job (#295)"
+      ]
+    },
     {
       "buildId": "42485461405.1",
       "version": "1.1.3-dev+0e91423",
@@ -366,18 +378,6 @@
       "kind": "release",
       "notes": [
         "Make the forecast and time-series reader fixtures work in any time zone (#265)"
-      ]
-    },
-    {
-      "buildId": "41780174883.1",
-      "version": "1.0.14-dev+6a27765",
-      "commit": "6a27765e43297407d63519733822e0912cc8a579",
-      "digest": "sha256:98195cb294ce1eb6d48d50c4d29af637b8744c808298b220e5eea7894fea4d0c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T05:35:38Z",
-      "kind": "release",
-      "notes": [
-        "Make fixtures independent of the time of day (#264)"
       ]
     }
   ]
