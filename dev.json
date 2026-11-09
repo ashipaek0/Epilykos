@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42593133542.1",
-    "version": "1.2.1-dev+708f52a",
-    "commit": "708f52a4dfdc1ee6e1744ef113ad691252707862",
-    "digest": "sha256:2b46cbaf69b7183b396ccd6f5cdf8c2d97242b5a026baa63001ddaf7a2db33f8",
+    "buildId": "42593089430.1",
+    "version": "1.2.1-dev+0851b8c",
+    "commit": "0851b8cc2b6c98f764ee0ef2b346dd2691c1a4f5",
+    "digest": "sha256:9bbbb53c4e490fe72ec1b01d8434bf6a5c24c73a8df042c7a065b98490143111",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-09T09:24:22Z",
+    "builtAt": "2026-11-09T09:23:58Z",
     "kind": "release",
-    "notes": [
-      "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
-      "Control cards: use inverter and battery settings as a source"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "42593089430.1",
+      "version": "1.2.1-dev+0851b8c",
+      "commit": "0851b8cc2b6c98f764ee0ef2b346dd2691c1a4f5",
+      "digest": "sha256:9bbbb53c4e490fe72ec1b01d8434bf6a5c24c73a8df042c7a065b98490143111",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T09:23:58Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "42593133542.1",
       "version": "1.2.1-dev+708f52a",
@@ -370,16 +377,6 @@
       "digest": "sha256:39cabceb6a9e50f318f3f32fb21e99dcc31df120d9c82265f3785cdebbbb0d9c",
       "image": "irunmole/epilykos:dev",
       "builtAt": "2026-11-04T14:45:57Z",
-      "kind": "release",
-      "notes": []
-    },
-    {
-      "buildId": "41850829198.1",
-      "version": "1.1.1-dev+d27f9dd",
-      "commit": "d27f9ddb234dd02497bc233ef5a0be6614257287",
-      "digest": "sha256:f6c49ee004eb37b7ee427c21253a6d2697ffadf4ea1dda439ac8332a609b2b8b",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T14:46:23Z",
       "kind": "release",
       "notes": []
     }
