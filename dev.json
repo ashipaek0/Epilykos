@@ -1,16 +1,36 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42593089430.1",
-    "version": "1.2.1-dev+0851b8c",
-    "commit": "0851b8cc2b6c98f764ee0ef2b346dd2691c1a4f5",
-    "digest": "sha256:9bbbb53c4e490fe72ec1b01d8434bf6a5c24c73a8df042c7a065b98490143111",
+    "buildId": "42593387790.1",
+    "version": "1.2.1-dev+8c9ca39",
+    "commit": "8c9ca398d5861ab6910edfbea21382e9d4b302bd",
+    "digest": "sha256:d0a4872148798ccfdde18e985942f535cdb74eefcf8a67f0ee0c0f5705577a3e",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-09T09:23:58Z",
+    "builtAt": "2026-11-09T09:26:29Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
+      "Battery bank test: don't depend on a D-Bus socket",
+      "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+      "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
+    ]
   },
   "history": [
+    {
+      "buildId": "42593387790.1",
+      "version": "1.2.1-dev+8c9ca39",
+      "commit": "8c9ca398d5861ab6910edfbea21382e9d4b302bd",
+      "digest": "sha256:d0a4872148798ccfdde18e985942f535cdb74eefcf8a67f0ee0c0f5705577a3e",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T09:26:29Z",
+      "kind": "release",
+      "notes": [
+        "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
+        "Battery bank test: don't depend on a D-Bus socket",
+        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
+        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
+      ]
+    },
     {
       "buildId": "42593089430.1",
       "version": "1.2.1-dev+0851b8c",
@@ -369,16 +389,6 @@
         "Bump the minor-and-patch group with 6 updates",
         "Bump the actions group with 2 updates"
       ]
-    },
-    {
-      "buildId": "41850777976.1",
-      "version": "1.1.1-dev+2355f26",
-      "commit": "2355f26341e95ddb0584d62f878a9c7321837c30",
-      "digest": "sha256:39cabceb6a9e50f318f3f32fb21e99dcc31df120d9c82265f3785cdebbbb0d9c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T14:45:57Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
