@@ -1,21 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42593387790.1",
-    "version": "1.2.1-dev+8c9ca39",
-    "commit": "8c9ca398d5861ab6910edfbea21382e9d4b302bd",
-    "digest": "sha256:d0a4872148798ccfdde18e985942f535cdb74eefcf8a67f0ee0c0f5705577a3e",
+    "buildId": "42598305569.1",
+    "version": "1.2.1-dev+3e8a44d",
+    "commit": "3e8a44d913d7029007af7e85110b5ccd7322ab37",
+    "digest": "sha256:cf1a924fa6874a383af49737a5aa2c16dc63afdc277376e0b65e2cbed6c31f36",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-09T09:26:29Z",
+    "builtAt": "2026-11-09T10:05:48Z",
     "kind": "release",
-    "notes": [
-      "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
-      "Battery bank test: don't depend on a D-Bus socket",
-      "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
-      "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "42598305569.1",
+      "version": "1.2.1-dev+3e8a44d",
+      "commit": "3e8a44d913d7029007af7e85110b5ccd7322ab37",
+      "digest": "sha256:cf1a924fa6874a383af49737a5aa2c16dc63afdc277376e0b65e2cbed6c31f36",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T10:05:48Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "42593387790.1",
       "version": "1.2.1-dev+8c9ca39",
@@ -374,20 +379,6 @@
       "kind": "release",
       "notes": [
         "Test on Node 26, the runtime the image now ships"
-      ]
-    },
-    {
-      "buildId": "41850943326.1",
-      "version": "1.1.1-dev+ee74cc6",
-      "commit": "ee74cc67d1552eb55fc7d89223f5954baa82d49e",
-      "digest": "sha256:8bab1def53f29a1c9a43506d813a1351aeab825837ed9c0f5a87f141a2bd08a5",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T14:46:51Z",
-      "kind": "release",
-      "notes": [
-        "Bump gridstack from 13.2.0 to 14.0.0",
-        "Bump the minor-and-patch group with 6 updates",
-        "Bump the actions group with 2 updates"
       ]
     }
   ]
