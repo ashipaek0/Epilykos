@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42593033023.1",
-    "version": "1.2.1-dev+ffab8cb",
-    "commit": "ffab8cb3d328d2df5ffd18359230c278273a3867",
-    "digest": "sha256:27f4edcc43f48b7c476ec7e78f93f7b3959d0ee114518d59eaffefd81bb6aedb",
+    "buildId": "42593133542.1",
+    "version": "1.2.1-dev+708f52a",
+    "commit": "708f52a4dfdc1ee6e1744ef113ad691252707862",
+    "digest": "sha256:2b46cbaf69b7183b396ccd6f5cdf8c2d97242b5a026baa63001ddaf7a2db33f8",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-09T09:23:36Z",
+    "builtAt": "2026-11-09T09:24:22Z",
     "kind": "release",
     "notes": [
-      "BMS readings carry their unit, so a bank's Wh total shows as kWh"
+      "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
+      "Control cards: use inverter and battery settings as a source"
     ]
   },
   "history": [
+    {
+      "buildId": "42593133542.1",
+      "version": "1.2.1-dev+708f52a",
+      "commit": "708f52a4dfdc1ee6e1744ef113ad691252707862",
+      "digest": "sha256:2b46cbaf69b7183b396ccd6f5cdf8c2d97242b5a026baa63001ddaf7a2db33f8",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T09:24:22Z",
+      "kind": "release",
+      "notes": [
+        "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
+        "Control cards: use inverter and battery settings as a source"
+      ]
+    },
     {
       "buildId": "42593033023.1",
       "version": "1.2.1-dev+ffab8cb",
@@ -368,20 +382,6 @@
       "builtAt": "2026-11-04T14:46:23Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "41850889196.1",
-      "version": "1.1.1-dev+3618ac4",
-      "commit": "3618ac47e68f3cd32620459928f1272af601ac46",
-      "digest": "sha256:fbd6f953cdd0d726be7b9175364498b02cdbc0693877bd922c66dabe1dffb959",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T14:46:37Z",
-      "kind": "release",
-      "notes": [
-        "Bump the minor-and-patch group with 6 updates",
-        "Bump the actions group with 2 updates",
-        "Bump node from 22-trixie-slim to 26-trixie-slim"
-      ]
     }
   ]
 }
