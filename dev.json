@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42598305569.1",
-    "version": "1.2.1-dev+3e8a44d",
-    "commit": "3e8a44d913d7029007af7e85110b5ccd7322ab37",
-    "digest": "sha256:cf1a924fa6874a383af49737a5aa2c16dc63afdc277376e0b65e2cbed6c31f36",
+    "buildId": "42609924093.1",
+    "version": "1.2.2-dev+b7ce0ce",
+    "commit": "b7ce0cef86e0c4e71d5d2fcbc0a1fc65c7254bc7",
+    "digest": "sha256:a67de7ff6783b4ac8cbd62bb5f3ae30a11b28caeea3b28ed6654cf95ecc9661c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-09T10:05:48Z",
+    "builtAt": "2026-11-09T11:33:26Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Battery bank energy totals are published in kWh (#307)"
+    ]
   },
   "history": [
+    {
+      "buildId": "42609924093.1",
+      "version": "1.2.2-dev+b7ce0ce",
+      "commit": "b7ce0cef86e0c4e71d5d2fcbc0a1fc65c7254bc7",
+      "digest": "sha256:a67de7ff6783b4ac8cbd62bb5f3ae30a11b28caeea3b28ed6654cf95ecc9661c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T11:33:26Z",
+      "kind": "release",
+      "notes": [
+        "Battery bank energy totals are published in kWh (#307)"
+      ]
+    },
     {
       "buildId": "42598305569.1",
       "version": "1.2.1-dev+3e8a44d",
@@ -367,18 +381,6 @@
       "notes": [
         "Align package.json with the lockfile for dotenv 18 (#274)",
         "Bump dotenv from 17.4.2 to 18.0.9"
-      ]
-    },
-    {
-      "buildId": "41855873349.1",
-      "version": "1.1.1-dev+3042c32",
-      "commit": "3042c32549af25b6770329cfcdf58e02daf6614e",
-      "digest": "sha256:61f1aae7aa4a597c10684640a03d0e65815f88ca713511c70a73c6556323d48a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T15:16:06Z",
-      "kind": "release",
-      "notes": [
-        "Test on Node 26, the runtime the image now ships"
       ]
     }
   ]
