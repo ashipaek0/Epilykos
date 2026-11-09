@@ -1,16 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42506274647.1",
-    "version": "1.2.0",
-    "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
-    "digest": "sha256:e0c0b1a8e7702ef16573698fd7332a9a8456521a45c3cd6d28f2620d952e2417",
+    "buildId": "42599219402.1",
+    "version": "1.2.1",
+    "commit": "4f4df99da095b0b15544cd7be35604a527bc473f",
+    "digest": "sha256:c00575ff0a4950bc0e4b55c2bb0de314ca2806ba1793e9c6e19e7ace89f580ab",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-08T17:46:12Z",
-    "kind": "rebuild",
-    "notes": []
+    "builtAt": "2026-11-09T10:13:10Z",
+    "kind": "release",
+    "notes": [
+      "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
+      "BMS readings carry their unit, so a bank's Wh total shows as kWh"
+    ]
   },
   "history": [
+    {
+      "buildId": "42599219402.1",
+      "version": "1.2.1",
+      "commit": "4f4df99da095b0b15544cd7be35604a527bc473f",
+      "digest": "sha256:c00575ff0a4950bc0e4b55c2bb0de314ca2806ba1793e9c6e19e7ace89f580ab",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-09T10:13:10Z",
+      "kind": "release",
+      "notes": [
+        "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
+        "BMS readings carry their unit, so a bank's Wh total shows as kWh"
+      ]
+    },
     {
       "buildId": "42506274647.1",
       "version": "1.2.0",
