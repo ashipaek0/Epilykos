@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42587633762.1",
-    "version": "1.2.1-dev+5ea35fe",
-    "commit": "5ea35fec5f6a7ce9ac3453ff18056261fd0ef57b",
-    "digest": "sha256:d000b74c6a89ec9fe760bf8051e3ae92056e9bc098b1e9d9a98ba98624891d02",
+    "buildId": "42593033023.1",
+    "version": "1.2.1-dev+ffab8cb",
+    "commit": "ffab8cb3d328d2df5ffd18359230c278273a3867",
+    "digest": "sha256:27f4edcc43f48b7c476ec7e78f93f7b3959d0ee114518d59eaffefd81bb6aedb",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-09T08:40:31Z",
+    "builtAt": "2026-11-09T09:23:36Z",
     "kind": "release",
     "notes": [
-      "BMS readings carry their unit, so a bank's Wh total shows as kWh (#301)"
+      "BMS readings carry their unit, so a bank's Wh total shows as kWh"
     ]
   },
   "history": [
+    {
+      "buildId": "42593033023.1",
+      "version": "1.2.1-dev+ffab8cb",
+      "commit": "ffab8cb3d328d2df5ffd18359230c278273a3867",
+      "digest": "sha256:27f4edcc43f48b7c476ec7e78f93f7b3959d0ee114518d59eaffefd81bb6aedb",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T09:23:36Z",
+      "kind": "release",
+      "notes": [
+        "BMS readings carry their unit, so a bank's Wh total shows as kWh"
+      ]
+    },
     {
       "buildId": "42587633762.1",
       "version": "1.2.1-dev+5ea35fe",
@@ -369,18 +381,6 @@
         "Bump the minor-and-patch group with 6 updates",
         "Bump the actions group with 2 updates",
         "Bump node from 22-trixie-slim to 26-trixie-slim"
-      ]
-    },
-    {
-      "buildId": "41830333137.1",
-      "version": "1.0.14-dev+0a4b166",
-      "commit": "0a4b1666a549f7a3841d7c9d5d40813e5b86ee6e",
-      "digest": "sha256:d763ed2338122c894389e73e427e1a95fbbac99ae99eee9811ee2999605ec9c8",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T12:34:01Z",
-      "kind": "release",
-      "notes": [
-        "Glass cards setting for every dashboard card (Settings → Appearance) (#267)"
       ]
     }
   ]
