@@ -22,6 +22,7 @@
  */
 
 const { getDb, queueMetricValue, flushMetrics } = require('./database');
+const { unitOfBankFunction } = require('./bmsUnits');
 const { logger } = require('./logger');
 const { stalenessForName } = require('./bmsInterval');
 
@@ -272,7 +273,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
       .map(d => Math.max(...Object.values(d.raw).map(m => m.timestamp)))
   );
 
-  const writeMetric = (metricName, rawValue) => queueMetricValue(metricName, rawValue, now);
+  const writeMetric = (metricName, rawValue, unit) => queueMetricValue(metricName, rawValue, now, unit);
 
   writeMetric(companionOnline, freshCount);
   writeMetric(companionUpdate, oldestFreshTs);
@@ -332,7 +333,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
 
       const result = computeFunction(fn.fn, values, weights, timestamps);
       if (result != null) {
-        writeMetric(`bank_${fn.output}`, result);
+        writeMetric(`bank_${fn.output}`, result, unitOfBankFunction(fn));   // a total of Wh readings stays in Wh
         logger.debug(`bmsAggregator: bank '${bank.name}' — bank_${fn.output} = ${result.toFixed(2)}`);
       }
     } catch (err) {
