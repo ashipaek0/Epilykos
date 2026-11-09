@@ -1,5 +1,5 @@
 /**
- * "Get notifications on this device?" — a small toast any browser can accept,
+ * "Enable notifications from this dashboard" — a small toast any browser can accept,
  * signed in or not. Accepting registers the browser with the server as a
  * possible push target (POST /api/push/register). It receives nothing until the
  * admin picks it for a rule in Settings → Notifications.
@@ -63,7 +63,7 @@
     var box = document.createElement('div');
     box.className = 'push-prompt';
     box.setAttribute('role', 'status');
-    box.innerHTML = '<p><strong>Get notifications on this device?</strong><span class="push-prompt-text">The dashboard admin can then choose to send alerts here. Nothing is sent unless they pick this device.</span></p>' +
+    box.innerHTML = '<p class="push-prompt-text">Enable notifications from this dashboard</p>' +
       '<div class="push-prompt-actions"><button type="button" class="push-prompt-no">Not now</button><button type="button" class="push-prompt-yes">Enable</button></div>';
     document.body.appendChild(box);
     var yes = box.querySelector('.push-prompt-yes'), no = box.querySelector('.push-prompt-no'), text = box.querySelector('.push-prompt-text');

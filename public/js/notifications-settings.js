@@ -259,7 +259,7 @@
         '<div class="nt-item-actions"><button type="button" class="st-btn" data-act="device-rename" data-id="' + esc(d.id) + '">Rename</button>' +
         '<button type="button" class="st-btn" data-act="device-test" data-id="' + esc(d.id) + '">Test</button>' +
         '<button type="button" class="st-btn st-btn-danger-text" data-act="device-remove" data-id="' + esc(d.id) + '">Remove</button></div></li>';
-    }).join('') + '</ul>' : '<p class="st-help">No devices yet. A browser appears here when it accepts the "Get notifications on this device?" prompt on the dashboard.</p>';
+    }).join('') + '</ul>' : '<p class="st-help">No devices yet. A browser appears here when it accepts the "Enable notifications from this dashboard" prompt on the dashboard.</p>';
     return '<div class="st-card"><div class="st-card-head"><h2>Push devices</h2></div>' +
       '<p class="st-help">Any browser that opens the dashboard is offered a prompt to enable notifications. The ones that accept are listed here. A device only receives what you choose: pick it in a rule\'s "Send to", or in a push channel.</p>' + here +
       '<h3 class="st-card-subhead">Registered devices</h3>' + list + '</div>';
