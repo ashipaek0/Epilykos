@@ -46,7 +46,12 @@ function restoreUploadAdmission(db, directory, declaredBytes, received = 0) {
   if (declaredBytes !== null) {
     if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 1 || !Number.isSafeInteger(received) || received < 0 || received > declaredBytes) throw invalid('Invalid restore upload size');
     const required = 3 * declaredBytes - received;
-    if (!Number.isSafeInteger(required) || usable < required) throw Object.assign(new Error('Not enough usable DATA space for the upload, rollback and migration allowance'), { status: 507, restorePreflight: true });
+    if (!Number.isSafeInteger(required) || usable < required) {
+      const gib = bytes => (Math.max(0, bytes) / 1024 ** 3).toFixed(1) + ' GiB';
+      throw Object.assign(new Error('Not enough usable DATA space for the upload, rollback and migration allowance'
+        + ` (this ${gib(declaredBytes)} backup needs about ${gib(required)} free, ${gib(usable)} is usable).`
+        + ' If the backup is much larger than the data in it, compact the database it came from first.'), { status: 507, restorePreflight: true });
+    }
   }
   return { maxBytes };
 }

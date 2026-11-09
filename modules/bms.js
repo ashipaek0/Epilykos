@@ -4,10 +4,14 @@ const { createBackoff } = require('./pollBackoff');
 const backoff = createBackoff('BMS');
 const { computeBankAggregates } = require('./bmsAggregator');
 const ble = require('./ble');
+const { unitOfBmsKey } = require('./bmsUnits');
 const databaseWork = require('./databaseWork');
+const { TICK_S, deviceInterval, createDueTracker, devicesByName } = require('./bmsInterval');
 
 let bmsPollInterval = null;
 let bmsPollingActive = false;
+const due = createDueTracker();      // when each battery was last tried
+const bankLast = new Map();          // when each bank was last computed
 
 // Bluetooth BMS runs inside this container (modules/ble.js). Setting
 // BMS_BRIDGE_URL keeps using a separately deployed legacy bms-bridge sidecar
@@ -100,21 +104,24 @@ function storeSample(device, data, now) {
     if (typeof val === 'object' && !Array.isArray(val)) continue;
     // Always store raw metric: bms_<device_name>_<key> (aggregator needs this)
     const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-    queueMetricValue(safeName, val, now);
+    const unit = unitOfBmsKey(key);
+    queueMetricValue(safeName, val, now, unit);
     // If device has metric mappings, also publish under the mapped name
     if (hasMappings && mappings[key]) {
-      queueMetricValue(mappings[key], val, now);
+      queueMetricValue(mappings[key], val, now, unit);
     }
   }
 }
 
 /**
- * Compute every battery bank from the readings of its batteries. Bluetooth and wired
- * batteries both store bms_<name>_<key>, so this does not care which kind they are, and it
- * runs after every cycle of this poller, also when no Bluetooth battery is set up (a bank
- * of wired batteries) or Bluetooth is unavailable.
+ * Compute the battery banks from the readings of their batteries. Bluetooth and wired
+ * batteries both store bms_<name>_<key>, so a bank does not care which kind it has, and this
+ * runs whether or not any Bluetooth battery is set up or Bluetooth is available.
+ *
+ * With dueOnly (the poller's tick) a bank is computed when its own interval has passed: the
+ * shortest read interval of its batteries.
  */
-async function computeBanks() {
+async function computeBanks({ dueOnly = false } = {}) {
   try {
     let banks;
     try {
@@ -123,18 +130,32 @@ async function computeBanks() {
       logger.error(`BMS: failed to parse bms_banks config: ${e.message}`);
       return;
     }
-    const pollInterval = parseInt(getConfig('bms_poll_interval')) || 30;
+    if (!Array.isArray(banks) || !banks.length) return;
+    const byName = devicesByName();
+    const defaultPoll = parseInt(getConfig('bms_poll_interval')) || 30;
+    const nowMs = Date.now();
     for (const bank of banks) {
-      await computeBankAggregates(bank, pollInterval);
+      const intervals = (bank.devices || []).map(d => deviceInterval(byName.get(String(d.name)) || {}));
+      const every = intervals.length ? Math.min(...intervals) : defaultPoll;
+      if (dueOnly) {
+        const at = bankLast.get(bank.name);
+        if (at !== undefined && nowMs - at < every * 1000 - 500) continue;
+      }
+      bankLast.set(bank.name, nowMs);
+      await computeBankAggregates(bank, defaultPoll);
     }
   } catch (err) {
     logger.error(`BMS bank aggregation error: ${err.message}`);
   }
 }
 
-async function pollBMS() {
+/**
+ * One look at the batteries. From the poller's tick (dueOnly) only the batteries whose own
+ * interval has passed are read; called directly, every battery is read.
+ */
+async function pollBMS({ dueOnly = false } = {}) {
   if (bmsPollingActive) {
-    logger.warn('BMS poll skipped — previous cycle still running');
+    (dueOnly ? logger.debug : logger.warn)('BMS poll skipped — previous cycle still running');
     return;
   }
   bmsPollingActive = true;
@@ -147,7 +168,10 @@ async function pollBMS() {
       return;
     }
     devices = devices.filter(d => d && d.enabled && d.address);
-    if (!devices.length) { await computeBanks(); return; }   // wired batteries only: banks still need computing
+    const nowMs = Date.now();
+    const todo = dueOnly ? devices.filter(d => due.isDue(d, nowMs)) : devices;
+    // Nothing due (or no Bluetooth battery at all, as with wired batteries only): banks still need computing.
+    if (!todo.length) { await computeBanks({ dueOnly }); return; }
 
     const bridge = legacyBridgeUrl();
     if (bridge) {
@@ -159,12 +183,13 @@ async function pollBMS() {
       }
     } else if (!ble.isConfigured()) {
       logger.warn('BMS: Bluetooth devices configured but no D-Bus socket is mounted — mount /run/dbus into the container');
-      await computeBanks();   // a bank that also has wired batteries still has data
+      await computeBanks({ dueOnly });   // a bank that also has wired batteries still has data
       return;
     }
 
-    for (const device of devices) {
+    for (const device of todo) {
       if (!databaseWork.isCurrent()) return;
+      due.mark(device);   // the attempt counts, so a failing battery waits its interval too
       // Packs are read one after another over one adapter: a pack that is off
       // or out of range is tried less often so it doesn't hold up the others.
       if (backoff.skip(device.name)) continue;
@@ -181,8 +206,8 @@ async function pollBMS() {
       }
     }
 
-    // Compute bank aggregates after all devices polled
-    await computeBanks();
+    // Compute bank aggregates after the devices are read
+    await computeBanks({ dueOnly });
   } finally {
     bmsPollingActive = false;
   }
@@ -191,12 +216,12 @@ async function pollBMS() {
 function startBmsPolling() {
   if (bmsPollInterval) clearInterval(bmsPollInterval);
   backoff.reset();   // saving settings retries every pack straight away
-  const intervalSec = parseInt(getConfig('bms_poll_interval')) || 30;
+  due.reset(); bankLast.clear();
   const backend = legacyBridgeUrl() ? `legacy bridge ${legacyBridgeUrl()}` : 'built-in Bluetooth';
-  logger.info(`BMS polling started: interval=${intervalSec}s, stale_threshold=${intervalSec * 2}s, backend=${backend}`);
-  const run = () => pollBMS().catch(err => logger.error(`BMS poll failed: ${err.message}`));
-  bmsPollInterval = setInterval(run, intervalSec * 1000);
-  run(); // immediate first run
+  logger.info(`BMS polling started: each battery on its own interval (default ${parseInt(getConfig('bms_poll_interval')) || 30}s), backend=${backend}`);
+  const run = () => pollBMS({ dueOnly: true }).catch(err => logger.error(`BMS poll failed: ${err.message}`));
+  bmsPollInterval = setInterval(run, TICK_S * 1000);
+  run(); // immediate first run: every battery is due
 }
 
 function restartBmsPolling() {

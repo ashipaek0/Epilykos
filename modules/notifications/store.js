@@ -61,11 +61,40 @@ function saveState(v) { writeJson(KEYS.state, v); }
 function getDevices() { const v = readJson(KEYS.devices, []); return Array.isArray(v) ? v : []; }
 function saveDevices(list) { writeJson(KEYS.devices, list); }
 
-/** Remove a push device and drop it from push channels that list it. */
+/** Most push devices that can be registered. Anyone who opens the dashboard may register one. */
+const MAX_DEVICES = 50;
+
+/**
+ * Remove a push device and drop it from everything that lists it: push
+ * channels and the rules that name it.
+ */
 function removeDevice(id) {
   saveDevices(getDevices().filter(d => d.id !== id));
   saveChannels(getChannels().map(c => (c.type === 'webpush' && c.config && Array.isArray(c.config.devices))
     ? { ...c, config: { ...c.config, devices: c.config.devices.filter(x => x !== id) } } : c));
+  saveRules(getRules().map(r => (Array.isArray(r.devices) && r.devices.includes(id)) ? { ...r, devices: r.devices.filter(x => x !== id) } : r));
+}
+
+/**
+ * Register a browser (or refresh it, matched by its push address). A new
+ * device receives nothing by itself: only the rules and push channels that
+ * list it, or a push channel set to "all devices" (which includes devices added
+ * later, as its switch says), reach it. Returns { device, created }, or { full: true }.
+ */
+function addDevice(sub, { label, userAgent }) {
+  const list = getDevices();
+  const keys = { p256dh: sub.keys.p256dh, auth: sub.keys.auth };
+  const existing = list.find(d => d.endpoint === sub.endpoint);
+  if (existing) {
+    Object.assign(existing, { keys, user_agent: userAgent, ...(label ? { label } : {}) });
+    saveDevices(list);
+    return { device: existing, created: false };
+  }
+  if (list.length >= MAX_DEVICES) return { full: true };
+  const device = { id: newId('dev'), label, endpoint: sub.endpoint, keys, user_agent: userAgent, created_at: Math.floor(Date.now() / 1000) };
+  list.push(device);
+  saveDevices(list);
+  return { device, created: true };
 }
 
 /** Channel as the browser sees it: secrets replaced by has_<field> flags. */
@@ -168,7 +197,7 @@ module.exports = {
   getSettings, saveSettings,
   getChannels, saveChannels,
   getRules, saveRules,
-  getDevices, saveDevices, removeDevice,
+  getDevices, saveDevices, removeDevice, addDevice, MAX_DEVICES,
   getState, saveState,
   publicChannel, mergeChannelConfig, publicDevice,
   getVapid,

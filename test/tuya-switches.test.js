@@ -60,7 +60,7 @@ test('every mapped Tuya DP, HA switch-like entity and MQTT topic is listed', () 
 test('the toggle card sends Tuya the new state, and nothing extra to HA', () => {
   const src = fs.readFileSync(path.join(ROOT, 'public/js/components/switchBlock.js'), 'utf8');
   assert.match(src, /this\.dataset\.source === 'tuya' \? \{ params: \{ value: this\.checked \} \} : \{\}/);
-  assert.match(src, /container\.dataset\.metric = config\.metric \|\| config\.entity/);
+  assert.match(src, /container\.dataset\.metric = device \? '' : \(config\.metric \|\| config\.entity/);
   const editor = fs.readFileSync(path.join(ROOT, 'public/js/editor.js'), 'utf8');
   assert.match(editor, /fetch\('\/api\/switchable-entities'\)/);
   assert.match(editor, /fetch\('\/api\/metrics\/list'\)/, 'metrics with no reading yet are offered too');
@@ -122,7 +122,7 @@ test('selectors send HA the field its service wants, and MQTT the value', () => 
   assert.match(server, /'select\.select_option': 'option'/);
   assert.match(server, /executeHAAction\(device, action, entity, haServiceData\(action, params\)\)/);
   assert.match(server, /let payload = params\?\.payload !== undefined && params\?\.payload !== null \? params\.payload : params\?\.value;/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'public/js/components/stateSelectBlock.js'), 'utf8'), /container\.dataset\.metric = config\.metric \|\| config\.entity/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/js/components/stateSelectBlock.js'), 'utf8'), /container\.dataset\.metric = device \? '' : \(config\.metric \|\| config\.entity/);
 });
 
 test('a toggle keeps the change through a stale reading; Tuya writes the new value at once', () => {

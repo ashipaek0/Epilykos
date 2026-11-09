@@ -30,9 +30,11 @@ const { SerialPort } = require('serialport');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
+const { unitOfBmsKey } = require('./bmsUnits');
 const { logger } = require('./logger');
 const databaseWork = require('./databaseWork');
 const { createBackoff } = require('./pollBackoff');
+const { TICK_S, createDueTracker } = require('./bmsInterval');
 const backoff = createBackoff('BMS-wired');
 const {
   buildModbusReadRequest,
@@ -304,8 +306,8 @@ async function pollWiredDevice(device, profile) {
       let writeCount = 0;
       for (const [key, value] of Object.entries(data)) {
         if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-        queueMetricValue(`bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_'), value, now);
-        if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
+        queueMetricValue(`bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_'), value, now, unitOfBmsKey(key));
+        if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now, unitOfBmsKey(key));
         writeCount++;
       }
       logger.info(`BMS-wired poll ${device.name} (${profile.protocol}): ${writeCount} metrics`);
@@ -339,10 +341,11 @@ async function pollWiredDevice(device, profile) {
       if (decoded[key] === undefined) continue;
       const value = decoded[key];
       const metricName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      queueMetricValue(metricName, value, now);
+      const unit = m.unit || unitOfBmsKey(key) || undefined;   // the profile's own unit first
+      queueMetricValue(metricName, value, now, unit);
       writeCount++;
       const wiredMappings = device.mappings || {};
-      if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
+      if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now, unit);
     }
     logger.info(`BMS-wired poll ${device.name} (unit ${unitId}): ${writeCount} metrics`);
   } finally {
@@ -353,12 +356,14 @@ async function pollWiredDevice(device, profile) {
 /**
  * Poll every enabled WIRED BMS device (transport === 'wired') and write its
  * metrics as bms_<deviceName>_<field>. On any per-device failure, the device is
- * logged and SKIPPED — the loop never throws. Bank aggregation is NOT done here;
- * that stays central in bms.js.
+ * logged and SKIPPED — the loop never throws. Each battery is read on its own interval
+ * (bmsInterval.js). Bank aggregation is NOT done here; that stays central in bms.js.
  */
-async function pollBmsWired() {
+const due = createDueTracker();   // when each battery was last tried
+
+async function pollBmsWired({ dueOnly = false } = {}) {
   if (bmsWiredPollingActive) {
-    logger.warn('BMS-wired poll skipped — previous cycle still running');
+    (dueOnly ? logger.debug : logger.warn)('BMS-wired poll skipped — previous cycle still running');
     return;
   }
   bmsWiredPollingActive = true;
@@ -375,6 +380,8 @@ async function pollBmsWired() {
     for (const device of devices) {
       if (!databaseWork.isCurrent()) return;
       if (!device.enabled || device.transport !== 'wired') continue;
+      // From the tick, only the batteries whose own read interval has passed.
+      if (dueOnly && !due.isDue(device)) continue;
       if (!device.serial_path) {
         logger.warn(`BMS-wired ${device.name}: no serial_path set — skipping`);
         continue;
@@ -386,6 +393,7 @@ async function pollBmsWired() {
       }
       // Devices on one serial port or RS485 bus are read in turn: one that
       // doesn't answer is tried less often so its timeouts don't hold up the rest.
+      due.mark(device);   // the attempt counts, so a failing battery waits its interval too
       if (backoff.skip(device.name)) continue;
       try {
         await pollWiredDevice(device, profile);
@@ -498,10 +506,11 @@ function startBmsWiredPolling() {
   if (bmsWiredPollInterval) clearInterval(bmsWiredPollInterval);
   loadBmsWiredProfiles();
   backoff.reset();
-  const intervalSec = parseInt(getConfig('bms_poll_interval'), 10) || 30;
-  logger.info(`BMS-wired polling started: interval=${intervalSec}s`);
-  bmsWiredPollInterval = setInterval(pollBmsWired, intervalSec * 1000);
-  pollBmsWired().catch(err => logger.error('BMS-wired initial poll failed:', err.message)); // immediate first run
+  due.reset();
+  logger.info(`BMS-wired polling started: each battery on its own interval (default ${parseInt(getConfig('bms_poll_interval'), 10) || 30}s)`);
+  const run = () => pollBmsWired({ dueOnly: true }).catch(err => logger.error('BMS-wired poll failed:', err.message));
+  bmsWiredPollInterval = setInterval(run, TICK_S * 1000);
+  run(); // immediate first run: every battery is due
 }
 
 function restartBmsWiredPolling() {

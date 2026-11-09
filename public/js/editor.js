@@ -1448,7 +1448,7 @@ function buildSwitchBlockForm(block) {
   html += '<span data-ui="row-label">Switch</span>';
   html += '<div data-ui="grow">' + switchableSelect(cfg, 'toggle', 'modal-switch') + '</div>';
   html += '</div>';
-  if (!switchables.some(function(x) { return x.action; })) html += '<p data-ui="help">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first.</p>';
+  if (!switchables.some(function(x) { return switchableFor(x, 'toggle'); })) html += '<p data-ui="help">No switches found. Map a Tuya DP, a Home Assistant switch or an MQTT topic to a metric in Settings → Sources first, or add an inverter or battery that has settings to change (Settings → Sources).</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-switch-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<label data-ui="field">Action <input type="text" id="modal-switch-action" value="' + escHtml(cfg.action || 'switch.toggle') + '" placeholder="switch.toggle" data-ui="input"></label>';
   html += '<div data-ui="grid2">';
@@ -1469,11 +1469,21 @@ function buildSwitchBlockForm(block) {
  * state selectors (kind 'select'): one option per entity, grouped by source
  * and device. `prefix` names the form's fields (modal-switch-*, modal-state-*).
  */
+/**
+ * Can this entry back a card of this kind? Device settings (inverter and battery) are
+ * typed: a switch for the toggle, a list for the state select, a number for slider and knob.
+ * The Button card does not offer them: it needs a one-shot action.
+ */
+function switchableFor(s, kind) {
+  if (s.source === 'device') return s.deviceKind === (kind === 'select' ? 'select' : kind === 'set' ? 'number' : kind === 'toggle' ? 'switch' : '');
+  return !!(kind === 'select' ? s.selectAction : kind === 'set' ? s.setAction : kind === 'button' ? (s.action || s.pressAction) : s.action);
+}
+
 function switchableSelect(cfg, kind, prefix) {
   var current = !!cfg.entity, found = false;
   var groups = {}, order = [];
   switchables.forEach(function(s, i) {
-    if (!(kind === 'select' ? s.selectAction : kind === 'set' ? s.setAction : kind === 'button' ? (s.action || s.pressAction) : s.action)) return;
+    if (!switchableFor(s, kind)) return;
     if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
     groups[s.group].push(i);
   });
@@ -1512,12 +1522,35 @@ function bindSwitchPicker(kind, prefix) {
     document.getElementById(prefix + '-entity').value = s.entity;
     document.getElementById(prefix + '-metric').value = s.metric || '';
     var action = document.getElementById(prefix + '-action');
-    if (action) action.value = kind === 'select' ? s.selectAction : kind === 'set' ? s.setAction : kind === 'button' ? (s.action || s.pressAction) : s.action;
+    // A device setting is changed through /api/controls/change, not by an action name.
+    if (action) action.value = s.source === 'device' ? '' : kind === 'select' ? s.selectAction : kind === 'set' ? s.setAction : kind === 'button' ? (s.action || s.pressAction) : s.action;
     var label = document.getElementById(prefix + '-label') || document.getElementById(prefix + '-name');
-    if (label && !label.value.trim()) label.value = s.metric || s.entity;
+    if (label && !label.value.trim()) label.value = s.source === 'device' ? s.label : (s.metric || s.entity);
     if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
     if (kind === 'set' && s.source === 'ha') fillRangeFromHA(s);
+    if (kind === 'select' && s.source === 'device') fillStatesFromDevice(s);
+    if (kind === 'set' && s.source === 'device') fillRangeFromDevice(s);
     if (kind === 'button') onButtonPicked(s, prefix);
+  });
+}
+
+/** A device setting with a list of choices fills in its own states, unless some were typed. */
+function fillStatesFromDevice(s) {
+  var dataEl = document.getElementById('state-data');
+  if (!dataEl || !Array.isArray(s.options) || !s.options.length) return;
+  var current = [];
+  try { current = JSON.parse(dataEl.textContent); } catch (e) {}
+  var typed = Array.prototype.some.call(document.querySelectorAll('.state-value'), function(el) { return el.value.trim(); });
+  if (current.length || typed) return; // never overwrite states someone entered
+  dataEl.textContent = JSON.stringify(s.options.map(function(o) { return { value: o.value, label: o.label }; }));
+  renderStateSelectRows(document);
+}
+
+/** A device setting knows its own range, step and unit: fill in what is still empty. */
+function fillRangeFromDevice(s) {
+  [['min', s.min], ['max', s.max], ['step', s.step], ['unit', s.unit]].forEach(function(pair) {
+    var el = document.getElementById('modal-num-' + pair[0]);
+    if (el && pair[1] != null && pair[1] !== '' && !String(el.value).trim()) el.value = pair[1];
   });
 }
 
@@ -1727,7 +1760,7 @@ function buildNumericControlForm(block) {
   html += '<span data-ui="row-label">Control</span>';
   html += '<div data-ui="grow">' + switchableSelect(cfg, 'set', 'modal-num') + '</div>';
   html += '</div>';
-  if (!switchables.some(function(x) { return x.setAction; })) html += '<p data-ui="help">Nothing to set yet. Map a Home Assistant number or input_number, a Tuya value or an MQTT topic to a metric in Settings → Sources first.</p>';
+  if (!switchables.some(function(x) { return switchableFor(x, 'set'); })) html += '<p data-ui="help">Nothing to set yet. Map a Home Assistant number or input_number, a Tuya value or an MQTT topic to a metric in Settings → Sources first, or add an inverter or battery that has settings to change.</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-num-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<div data-ui="row"><span data-ui="row-label">Action</span>';
   html += '<input type="text" id="modal-num-action" value="' + escHtml(cfg.action || '') + '" placeholder="number.set_value" data-ui="input grow"></div>';
@@ -1768,7 +1801,7 @@ function buildStateSelectForm(block) {
   html += '<span data-ui="row-label">Control</span>';
   html += '<div data-ui="grow">' + switchableSelect(cfg, 'select', 'modal-state') + '</div>';
   html += '</div>';
-  if (!switchables.some(function(x) { return x.selectAction; })) html += '<p data-ui="help">Nothing to control yet. Map a Tuya DP, a Home Assistant select or climate entity, or an MQTT topic to a metric in Settings → Sources first.</p>';
+  if (!switchables.some(function(x) { return switchableFor(x, 'select'); })) html += '<p data-ui="help">Nothing to control yet. Map a Tuya DP, a Home Assistant select or climate entity, or an MQTT topic to a metric in Settings → Sources first, or add an inverter or battery that has settings to change.</p>';
   html += '<label data-ui="field">Label <input type="text" id="modal-state-label" value="' + escHtml(cfg.label || '') + '" data-ui="input"></label>';
   html += '<div data-ui="row">';
   html += '<span data-ui="row-label">Action</span>';

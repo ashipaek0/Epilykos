@@ -22,7 +22,9 @@
  */
 
 const { getDb, queueMetricValue, flushMetrics } = require('./database');
+const { unitOfBankFunction } = require('./bmsUnits');
 const { logger } = require('./logger');
+const { stalenessForName } = require('./bmsInterval');
 
 // ---------------------------------------------------------------------------
 // Read raw BMS metrics for a single device from latest_metrics
@@ -240,7 +242,9 @@ async function computeBankAggregates(bank, pollIntervalSec) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const stalenessThreshold = pollIntervalSec * 2;
+  // Each battery's readings stay fresh for twice its own read interval (at least a minute);
+  // a battery not in the settings, as in a test, uses the interval passed in.
+  const fallbackStaleness = pollIntervalSec * 2;
 
   // 1. Read raw metrics for all devices, determine freshness
   const deviceData = {}; // { deviceName: { metrics: {...}, fresh: bool } }
@@ -248,7 +252,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
 
   for (const device of bank.devices) {
     const raw = readLatestBmsMetrics(device.name);
-    const fresh = isDeviceFresh(raw, stalenessThreshold);
+    const fresh = isDeviceFresh(raw, stalenessForName(device.name, fallbackStaleness));
     deviceData[device.name] = { raw, fresh, device };
     if (fresh) freshCount++;
   }
@@ -269,7 +273,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
       .map(d => Math.max(...Object.values(d.raw).map(m => m.timestamp)))
   );
 
-  const writeMetric = (metricName, rawValue) => queueMetricValue(metricName, rawValue, now);
+  const writeMetric = (metricName, rawValue, unit) => queueMetricValue(metricName, rawValue, now, unit);
 
   writeMetric(companionOnline, freshCount);
   writeMetric(companionUpdate, oldestFreshTs);
@@ -329,7 +333,7 @@ async function computeBankAggregates(bank, pollIntervalSec) {
 
       const result = computeFunction(fn.fn, values, weights, timestamps);
       if (result != null) {
-        writeMetric(`bank_${fn.output}`, result);
+        writeMetric(`bank_${fn.output}`, result, unitOfBankFunction(fn));   // a total of Wh readings stays in Wh
         logger.debug(`bmsAggregator: bank '${bank.name}' — bank_${fn.output} = ${result.toFixed(2)}`);
       }
     } catch (err) {
