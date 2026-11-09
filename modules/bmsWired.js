@@ -30,6 +30,7 @@ const { SerialPort } = require('serialport');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
+const { unitOfBmsKey } = require('./bmsUnits');
 const { logger } = require('./logger');
 const databaseWork = require('./databaseWork');
 const { createBackoff } = require('./pollBackoff');
@@ -305,8 +306,8 @@ async function pollWiredDevice(device, profile) {
       let writeCount = 0;
       for (const [key, value] of Object.entries(data)) {
         if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-        queueMetricValue(`bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_'), value, now);
-        if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
+        queueMetricValue(`bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_'), value, now, unitOfBmsKey(key));
+        if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now, unitOfBmsKey(key));
         writeCount++;
       }
       logger.info(`BMS-wired poll ${device.name} (${profile.protocol}): ${writeCount} metrics`);
@@ -340,10 +341,11 @@ async function pollWiredDevice(device, profile) {
       if (decoded[key] === undefined) continue;
       const value = decoded[key];
       const metricName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      queueMetricValue(metricName, value, now);
+      const unit = m.unit || unitOfBmsKey(key) || undefined;   // the profile's own unit first
+      queueMetricValue(metricName, value, now, unit);
       writeCount++;
       const wiredMappings = device.mappings || {};
-      if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now);
+      if (wiredMappings[key]) queueMetricValue(wiredMappings[key], value, now, unit);
     }
     logger.info(`BMS-wired poll ${device.name} (unit ${unitId}): ${writeCount} metrics`);
   } finally {

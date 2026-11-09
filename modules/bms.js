@@ -4,6 +4,7 @@ const { createBackoff } = require('./pollBackoff');
 const backoff = createBackoff('BMS');
 const { computeBankAggregates } = require('./bmsAggregator');
 const ble = require('./ble');
+const { unitOfBmsKey } = require('./bmsUnits');
 const databaseWork = require('./databaseWork');
 const { TICK_S, deviceInterval, createDueTracker, devicesByName } = require('./bmsInterval');
 
@@ -103,10 +104,11 @@ function storeSample(device, data, now) {
     if (typeof val === 'object' && !Array.isArray(val)) continue;
     // Always store raw metric: bms_<device_name>_<key> (aggregator needs this)
     const safeName = `bms_${device.name}_${key}`.replace(/[^a-zA-Z0-9_]/g, '_');
-    queueMetricValue(safeName, val, now);
+    const unit = unitOfBmsKey(key);
+    queueMetricValue(safeName, val, now, unit);
     // If device has metric mappings, also publish under the mapped name
     if (hasMappings && mappings[key]) {
-      queueMetricValue(mappings[key], val, now);
+      queueMetricValue(mappings[key], val, now, unit);
     }
   }
 }
