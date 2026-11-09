@@ -22,7 +22,7 @@
  */
 
 const { getDb, queueMetricValue, flushMetrics } = require('./database');
-const { unitOfBankFunction } = require('./bmsUnits');
+const { unitOfBankFunction, bankReading } = require('./bmsUnits');
 const { logger } = require('./logger');
 const { stalenessForName } = require('./bmsInterval');
 
@@ -333,8 +333,9 @@ async function computeBankAggregates(bank, pollIntervalSec) {
 
       const result = computeFunction(fn.fn, values, weights, timestamps);
       if (result != null) {
-        writeMetric(`bank_${fn.output}`, result, unitOfBankFunction(fn));   // a total of Wh readings stays in Wh
-        logger.debug(`bmsAggregator: bank '${bank.name}' — bank_${fn.output} = ${result.toFixed(2)}`);
+        const out = bankReading(result, unitOfBankFunction(fn));   // a total of Wh readings is published in kWh
+        writeMetric(`bank_${fn.output}`, out.value, out.unit);
+        logger.debug(`bmsAggregator: bank '${bank.name}' — bank_${fn.output} = ${out.value.toFixed(2)}`);
       }
     } catch (err) {
       logger.error(`bmsAggregator: bank '${bank.name}' — error computing ${fn.fn}(${fn.source}): ${err.message}`);

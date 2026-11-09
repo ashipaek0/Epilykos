@@ -38,4 +38,14 @@ function unitOfBankFunction(fn) {
   return units.size === 1 ? [...units][0] : undefined;
 }
 
-module.exports = { BMS_KEY_UNITS, unitOfBmsKey, unitOfBankFunction };
+/**
+ * A bank's value as it is published. Stored energy is in Wh, but a gauge, a
+ * threshold or a chart works on the stored number, and nobody sets a 0-12 scale
+ * for 3,890: a bank total in Wh is published in kWh (3.89), the way it is shown.
+ * Each battery's own reading stays in Wh.
+ */
+function bankReading(value, unit) {
+  return unit === 'Wh' ? { value: value / 1000, unit: 'kWh' } : { value, unit };
+}
+
+module.exports = { BMS_KEY_UNITS, unitOfBmsKey, unitOfBankFunction, bankReading };
