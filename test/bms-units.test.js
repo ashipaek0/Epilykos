@@ -22,7 +22,7 @@ database.initializeDatabase();
 const db = database.getDb();
 const bms = require('../modules/bms');
 const agg = require('../modules/bmsAggregator');
-const { unitOfBmsKey, unitOfBankFunction } = require('../modules/bmsUnits');
+const { unitOfBmsKey, unitOfBankFunction, bankReading } = require('../modules/bmsUnits');
 const { getCurrentMetrics } = require('../modules/metrics');
 const now = () => Math.floor(Date.now() / 1000);
 const put = (metric, value) => db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp) VALUES (?, ?, ?)').run(metric, value, now());
@@ -62,14 +62,17 @@ const put = (metric, value) => db.prepare('INSERT OR REPLACE INTO latest_metrics
   await agg.computeBankAggregates(bank, 30);
   database.flushMetrics();
   const b = getCurrentMetrics();
-  assert.equal(b.bank_stored_energy.value, 1026);
-  assert.equal(b.bank_stored_energy.unit, 'Wh', 'a total of Wh readings stays in Wh');
+  assert.equal(b.bank_stored_energy.value, 1.026, 'a total of Wh readings is published in kWh, so a gauge scaled 0-12 respects it');
+  assert.equal(b.bank_stored_energy.unit, 'kWh');
+  assert.equal(getCurrentMetrics().bms_300Ah_cycle_capacity.value, 786, 'each battery keeps its own Wh');
   assert.equal(b.bank_soc.unit, '%');
   assert.equal(b.bank_remaining_ah.unit, 'Ah');
   assert.equal(b.bank_any_charging.unit, null, 'an on/off result has none');
-  assert.equal(b.bank_per_battery.unit, 'Wh', 'a key per battery that agrees');
+  assert.equal(b.bank_per_battery.unit, 'kWh', 'a key per battery that agrees');
   assert.equal(b.bank_mixed.unit, null, 'and none when they do not');
   assert.equal(b.bank_Bank_devices_online.unit, null);
+  assert.deepEqual(bankReading(3890, 'Wh'), { value: 3.89, unit: 'kWh' });
+  assert.deepEqual(bankReading(80, '%'), { value: 80, unit: '%' });
   assert.deepEqual([unitOfBankFunction({ fn: 'mean', source: 'voltage' }), unitOfBankFunction({ fn: 'max', source: 'temperature' })], ['V', '°C']);
   console.log('ok - a bank result keeps the unit of what it adds up');
 
@@ -77,6 +80,7 @@ const put = (metric, value) => db.prepare('INSERT OR REPLACE INTO latest_metrics
   const { formatEntry } = await import(pathToFileURL(path.join(REPO, 'public/js/components/format.js')).href);
   const shown = formatEntry(b.bank_stored_energy, '', 'bank_stored_energy');
   assert.equal(shown.text.replace(/,/g, '.'), '1.03 kWh');
+  assert.equal(b.bank_stored_energy.value, 1.026, 'and the number a gauge fills from is that same 1.03');
   assert.equal(formatEntry({ value: 786, unit: 'Wh' }, '', 'bms_300Ah_cycle_capacity').text, '786 Wh', 'under 1000 stays in Wh');
   assert.equal(formatEntry({ value: 1026, unit: null }, '', 'bank_energy_total').unit, 'kWh', 'with no unit the name was guessed: that is what showed 1,026 kWh');
   console.log('ok - the card shows the total as kWh');
