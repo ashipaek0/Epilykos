@@ -1,16 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42609145789.1",
-    "version": "1.2.1",
-    "commit": "4f4df99da095b0b15544cd7be35604a527bc473f",
-    "digest": "sha256:c007e01544fe4fdc7550a01cc5861ae6c6185a7e8a29f015769bf5cc0f3ede47",
+    "buildId": "42621348534.1",
+    "version": "1.2.2",
+    "commit": "e2d8330a76fac21cde567534024698cd070dae3c",
+    "digest": "sha256:cb90f28a2849bd8e544acbd6b24938842b3c50ec34eece3582d3b667dc4ec4ba",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-09T11:27:39Z",
-    "kind": "rebuild",
-    "notes": []
+    "builtAt": "2026-11-09T12:58:14Z",
+    "kind": "release",
+    "notes": [
+      "Battery bank energy totals are published in kWh (#307)"
+    ]
   },
   "history": [
+    {
+      "buildId": "42621348534.1",
+      "version": "1.2.2",
+      "commit": "e2d8330a76fac21cde567534024698cd070dae3c",
+      "digest": "sha256:cb90f28a2849bd8e544acbd6b24938842b3c50ec34eece3582d3b667dc4ec4ba",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-09T12:58:14Z",
+      "kind": "release",
+      "notes": [
+        "Battery bank energy totals are published in kWh (#307)"
+      ]
+    },
     {
       "buildId": "42609145789.1",
       "version": "1.2.1",
