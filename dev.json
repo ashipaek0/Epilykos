@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42505702709.1",
-    "version": "1.1.5-dev+e44c352",
-    "commit": "e44c3528c8a1672dad7bcf10e3890c05e404bee9",
-    "digest": "sha256:874bdcfbb2acf4b3faf00e1b344bc7173983580d4a0e40f325917d5d98cbb628",
+    "buildId": "42587397930.1",
+    "version": "1.2.1-dev+2bcc849",
+    "commit": "2bcc849e9afcc22f185a436a1eea90b8ee62eda7",
+    "digest": "sha256:77ee234087af1d3ff6d7447afe133bfbb1e85af6e09656c6b3a6606b216b1921",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-08T17:35:31Z",
+    "builtAt": "2026-11-09T08:38:37Z",
     "kind": "release",
     "notes": [
-      "Control cards: use inverter and battery settings as a source (#298)"
+      "Push prompt: shorten the toast to \"Enable notifications from this dashboard\" (#300)"
     ]
   },
   "history": [
+    {
+      "buildId": "42587397930.1",
+      "version": "1.2.1-dev+2bcc849",
+      "commit": "2bcc849e9afcc22f185a436a1eea90b8ee62eda7",
+      "digest": "sha256:77ee234087af1d3ff6d7447afe133bfbb1e85af6e09656c6b3a6606b216b1921",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-09T08:38:37Z",
+      "kind": "release",
+      "notes": [
+        "Push prompt: shorten the toast to \"Enable notifications from this dashboard\" (#300)"
+      ]
+    },
     {
       "buildId": "42505702709.1",
       "version": "1.1.5-dev+e44c352",
@@ -369,18 +381,6 @@
       "kind": "release",
       "notes": [
         "Compose file follows the edited README; drop the bluetooth Permissions-Policy entry (#266)"
-      ]
-    },
-    {
-      "buildId": "41801467401.1",
-      "version": "1.0.14-dev+75e27d2",
-      "commit": "75e27d2a6deb62110b0b87fa82133feb15e4c5af",
-      "digest": "sha256:17d1cf432239414bc533da126c877d7eed98ff24937f2790ed770cd9e73bf73b",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T08:41:57Z",
-      "kind": "release",
-      "notes": [
-        "Remove documentation link from README"
       ]
     }
   ]
