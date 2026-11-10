@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42792735963.1",
-    "version": "1.2.3-dev+8de634c",
-    "commit": "8de634c5e2dfb8a1d5a3f7a86c18eecbc4a87da1",
-    "digest": "sha256:0e58e445bf06d5c99a7cc83c8360605632cb826adb7b19e102a3806f2148b321",
+    "buildId": "42796322357.1",
+    "version": "1.2.3-dev+ecce1c5",
+    "commit": "ecce1c57f76f16f3227b94df08763ec9709e3934",
+    "digest": "sha256:41ae558703a2a6a142e859515a00dd5d04c8bb9bad9a15de140b14d2603e56bb",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-10T09:41:13Z",
+    "builtAt": "2026-11-10T10:06:56Z",
     "kind": "release",
     "notes": [
-      "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
+      "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)"
     ]
   },
   "history": [
+    {
+      "buildId": "42796322357.1",
+      "version": "1.2.3-dev+ecce1c5",
+      "commit": "ecce1c57f76f16f3227b94df08763ec9709e3934",
+      "digest": "sha256:41ae558703a2a6a142e859515a00dd5d04c8bb9bad9a15de140b14d2603e56bb",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-10T10:06:56Z",
+      "kind": "release",
+      "notes": [
+        "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)"
+      ]
+    },
     {
       "buildId": "42792735963.1",
       "version": "1.2.3-dev+8de634c",
@@ -366,18 +378,6 @@
       "kind": "release",
       "notes": [
         "Daily peak and Histogram cards, with peak solar power for every day on record"
-      ]
-    },
-    {
-      "buildId": "41990301092.1",
-      "version": "1.1.1-dev+b76abb7",
-      "commit": "b76abb7364a147c48cf7fcbe67459a70742ca408",
-      "digest": "sha256:1fd4d3154db7ce429e7072e7951745fc8ae5782b2d3ff3c27c3822e322a49586",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-05T07:52:56Z",
-      "kind": "release",
-      "notes": [
-        "Combined metrics: \"Highest today\", for the day's peak solar power (#276)"
       ]
     }
   ]
