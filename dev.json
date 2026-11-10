@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42791337827.1",
-    "version": "1.2.3-dev+e2d8330",
-    "commit": "e2d8330a76fac21cde567534024698cd070dae3c",
-    "digest": "sha256:f2585565809f3e4c162359ca4c3afcf7882f46ba9b49b751540ef637f555bedb",
+    "buildId": "42792735963.1",
+    "version": "1.2.3-dev+8de634c",
+    "commit": "8de634c5e2dfb8a1d5a3f7a86c18eecbc4a87da1",
+    "digest": "sha256:0e58e445bf06d5c99a7cc83c8360605632cb826adb7b19e102a3806f2148b321",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-10T09:31:15Z",
+    "builtAt": "2026-11-10T09:41:13Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
+    ]
   },
   "history": [
+    {
+      "buildId": "42792735963.1",
+      "version": "1.2.3-dev+8de634c",
+      "commit": "8de634c5e2dfb8a1d5a3f7a86c18eecbc4a87da1",
+      "digest": "sha256:0e58e445bf06d5c99a7cc83c8360605632cb826adb7b19e102a3806f2148b321",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-10T09:41:13Z",
+      "kind": "release",
+      "notes": [
+        "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
+      ]
+    },
     {
       "buildId": "42791337827.1",
       "version": "1.2.3-dev+e2d8330",
@@ -364,18 +378,6 @@
       "kind": "release",
       "notes": [
         "Combined metrics: \"Highest today\", for the day's peak solar power (#276)"
-      ]
-    },
-    {
-      "buildId": "41871773181.1",
-      "version": "1.1.1-dev+54378d2",
-      "commit": "54378d20c7f96a7234291e3caf931cf33f905578",
-      "digest": "sha256:02aca3a00f05eb6c560dbe7e2d5a3d76b16c1ee94809d8336b6d4555731c515d",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-04T16:52:09Z",
-      "kind": "release",
-      "notes": [
-        "Savings: finished days keep the value they had when they were counted (#275)"
       ]
     }
   ]
