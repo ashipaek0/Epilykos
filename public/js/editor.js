@@ -2664,7 +2664,8 @@ function readSettingsForm(block) {
       if (!config.entity) return 'Pick what this ' + what + ' controls.';
       config.label = nv('label');
       config.action = nv('action');
-      if (!config.action) return 'Set the action this ' + what + ' sends (for a Home Assistant number: number.set_value).';
+      // An inverter or battery setting is changed through its own route, not by an action name.
+      if (!config.action && config.source !== 'device') return 'Set the action this ' + what + ' sends (for a Home Assistant number: number.set_value).';
       config.unit = nv('unit');
       if (nv('min') === '' || nv('max') === '') return 'Set the lowest and highest value this ' + what + ' can send.';
       config.min = Number(nv('min')); config.max = Number(nv('max'));
