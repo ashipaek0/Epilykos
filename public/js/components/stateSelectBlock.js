@@ -204,15 +204,19 @@ export function buildStateSelectBlock(block = {}) {
       if (result.error) {
         container.classList.add('is-unavailable');
         container.title = result.error;
+        if (statusEl) statusEl.textContent = `Can't read this setting: ${result.error}`;
         return;
       }
       container.classList.remove('is-unavailable');
       container.removeAttribute('title');
       deviceValue = result.value;
       paintState(container, String(result.value).toLowerCase());
+      // Why a setting can't be changed is said on the card, not only in its tooltip.
+      if (statusEl) statusEl.textContent = '';
       if (result.writable === false) {
         controls.forEach(c => { c.disabled = true; });
         if (result.blockedReason) container.title = result.blockedReason;
+        if (statusEl) statusEl.textContent = `Can't be changed: ${result.blockedReason || 'the device does not allow it now'}`;
       }
     });
   }
