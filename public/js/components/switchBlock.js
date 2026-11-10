@@ -154,7 +154,7 @@ export function buildSwitchBlock(block = {}) {
       if (result.error) {
         container.classList.add('is-unavailable');
         container.title = result.error;
-        if (stateEl) stateEl.textContent = 'Unavailable';
+        if (stateEl) stateEl.textContent = `Can't read: ${result.error}`;
         return;
       }
       container.classList.remove('is-unavailable');
@@ -166,6 +166,8 @@ export function buildSwitchBlock(block = {}) {
       // A setting this device can't change (for example a model it isn't for) is shown, not offered.
       checkbox.disabled = result.writable === false;
       if (result.writable === false && result.blockedReason) container.title = result.blockedReason;
+      // Why it can't be changed is said on the card, not only in its tooltip.
+      if (result.writable === false && stateEl) stateEl.textContent = `Can't be changed: ${result.blockedReason || 'the device does not allow it now'}`;
     });
   }
 
