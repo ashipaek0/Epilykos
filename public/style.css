@@ -2051,7 +2051,10 @@ details.help-sub.help-hidden { display: none; }
   padding: 0;
   overflow: hidden;
   color: var(--text-primary, var(--text));
-  background: var(--surface-raised, var(--card-bg));
+  /* The card's surface: the header and the panes paint it too, so the block's Background colour
+     and Transparent (components/blockStyle.js sets --dual-surface) reach all of them. */
+  --dual-surface: var(--surface-raised, var(--card-bg));
+  background: var(--dual-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius, 14px);
   box-shadow: none;
@@ -2068,7 +2071,7 @@ details.help-sub.help-hidden { display: none; }
   margin: 0;
   padding: var(--dual-padding, 16px);
   color: var(--text-primary, var(--text));
-  background: var(--surface-raised, var(--card-bg));
+  background: var(--dual-surface, var(--surface-raised, var(--card-bg)));
   border-bottom: 1px solid var(--border);
 }
 .dual-metric-title { min-width: 0; color: inherit; font-size: 1.25rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
@@ -2110,7 +2113,7 @@ details.help-sub.help-hidden { display: none; }
   padding: var(--dual-padding, 16px);
   overflow: visible;
   color: var(--text-primary, var(--text));
-  background: var(--surface-raised, var(--card-bg));
+  background: var(--dual-surface, var(--surface-raised, var(--card-bg)));
 }
 .dual-metric-neutral .dual-metric-pane { background: transparent; }
 .dual-metric-label {
