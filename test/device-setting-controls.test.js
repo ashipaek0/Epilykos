@@ -68,6 +68,9 @@ test('each card offers only the device settings of its type, and the Button card
   assert.equal(f({ source: 'ha', action: null, selectAction: 'select.select_option' }, 'select'), true);
   assert.equal(f({ source: 'mqtt', action: 'toggle', selectAction: 'set', setAction: 'set' }, 'button'), true);
   assert.match(src, /fillStatesFromDevice\(s\)/); assert.match(src, /fillRangeFromDevice\(s, replaced\)/); assert.match(src, /var replaced = !!before && before !== s\.entity;/, 'a different control gets its own range, not the old one\'s');
+  // A device setting has no action name, so the slider and knob form must not ask for one (it refused to save the card, with only a small red line saying why).
+  assert.match(src, /if \(!config\.action && config\.source !== 'device'\) return 'Set the action this '/);
+  assert.doesNotMatch(src, /if \(!config\.action\) return 'Set the action this '/);
 });
 
 // ── Reading and changing ────────────────────────────────────────────
