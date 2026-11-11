@@ -1,4 +1,5 @@
-import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
+import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState, fetchPublicConfig } from './api.js';
+import { globalAppearance, effectiveAppearance, cleanOverrides, applyAppearance, clearAppearance } from './appearance.js';
 import { componentBuilders } from './components/index.js';
 import { initTheme } from './theme.js';
 import { GROUPS, BLOCKS, blockInfo, icon } from './editor-catalog.js';
@@ -3369,6 +3370,162 @@ function buildLayoutFields(block) {
   ].join('\n');
 }
 
+// ── Dashboard style ──────────────────────────────────────────────────────
+// A dashboard's own background, blocks and glass (its `appearance`, see appearance.js). Anything left on
+// "Default" follows Settings → Appearance. The canvas shows the result as it is edited.
+
+var defaultLook = globalAppearance({});   // Settings → Appearance; replaced when the settings arrive
+var STYLE_COLORS = [['bgLight', 'Background, light mode'], ['bgDark', 'Background, dark mode']];
+var STYLE_SWITCHES = [['transparentBlocks', 'Transparent blocks'], ['squareCorners', 'Square corners'], ['glassCards', 'Glass cards']];
+var styleUndoTaken = false;
+
+/** What the canvas shows: this dashboard's look, or the editor's own background on the Controls page. */
+function applyEditorLook() {
+  var canvas = $('ed-canvas');
+  if (!canvas) return;
+  var tab = currentTab();
+  if (!tab || onControlsTab()) { clearAppearance({ backgroundEl: canvas }); return; }
+  applyAppearance(effectiveAppearance(defaultLook, tab.appearance), { backgroundEl: canvas, fixed: false });
+}
+
+function onOff(v) { return v ? 'On' : 'Off'; }
+
+function buildDashboardStyle(tab) {
+  var own = cleanOverrides(tab.appearance);
+  var look = effectiveAppearance(defaultLook, own);
+  // .ins-body carries the inspector's field styles; ds-wrap lets it sit in the empty inspector without its own scroll.
+  var html = '<div class="ins-body ds-wrap"><fieldset data-ui="section" class="ds-panel" id="dash-style">' +
+    '<legend data-ui="legend">Dashboard style</legend>' +
+    '<p data-ui="help">The look of this dashboard only. What you leave on Default follows Settings → Appearance, so other dashboards can look very different. Title, logo and favicon are the same everywhere.</p>';
+  STYLE_COLORS.forEach(function(c) {
+    var key = c[0];
+    html += '<div class="ds-row" data-key="' + key + '">' +
+      '<label data-ui="label" for="ds-' + key + '">' + c[1] + '</label>' +
+      '<input type="color" id="ds-' + key + '" value="' + escHtml(look[key]) + '" data-dirty="false" data-ui="color">' +
+      '<span class="ds-state" id="ds-' + key + '-state"></span>' +
+      '<button type="button" class="ed-btn-text ds-reset" data-reset="' + key + '">Use default</button>' +
+    '</div>';
+  });
+  html += '<div class="ds-row ds-row-stack" data-key="bgImage">' +
+    '<label data-ui="field" for="ds-bgImage">Background image address<input type="url" id="ds-bgImage" data-ui="input" placeholder="' + escHtml(defaultLook.bgImage || 'https://…') + '" value="' + escHtml(own.bgImage || '') + '"></label>' +
+    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="ds-noImage"' + (own.bgImage === '' ? ' checked' : '') + '><span class="slider"></span></label><label for="ds-noImage">No image on this dashboard</label></span>' +
+    '<span class="ds-state" id="ds-bgImage-state"></span>' +
+    '<button type="button" class="ed-btn-text ds-reset" data-reset="bgImage">Default</button>' +
+  '</div>';
+  STYLE_SWITCHES.forEach(function(sw) {
+    var key = sw[0];
+    html += '<div class="ds-row" data-key="' + key + '">' +
+      '<label data-ui="label" for="ds-' + key + '">' + sw[1] + '</label>' +
+      '<select id="ds-' + key + '" data-ui="input">' +
+        '<option value="">Default (' + onOff(defaultLook[key]) + ')</option><option value="on">On</option><option value="off">Off</option>' +
+      '</select>' +
+    '</div>';
+  });
+  html += '<div id="ds-glass" ' + (look.glassCards ? '' : 'hidden') + '>';
+  [['glassBlur', 'Glass blur', 0, 40, 1, ' px'], ['glassFrost', 'Glass frost', 20, 200, 5, '%']].forEach(function(r) {
+    var key = r[0];
+    html += '<div class="ds-row" data-key="' + key + '">' +
+      '<label data-ui="label" for="ds-' + key + '">' + r[1] + ': <output id="ds-' + key + '-out">' + escHtml(look[key]) + '</output>' + r[5] + '</label>' +
+      '<input type="range" id="ds-' + key + '" min="' + r[2] + '" max="' + r[3] + '" step="' + r[4] + '" value="' + escHtml(look[key]) + '" data-no-reveal>' +
+      '<span class="ds-state" id="ds-' + key + '-state"></span>' +
+      '<button type="button" class="ed-btn-text ds-reset" data-reset="' + key + '">Use default</button>' +
+    '</div>';
+  });
+  html += '</div>' +
+    '<button type="button" class="ed-btn-text" id="ds-reset-all">Reset this dashboard to the defaults</button>' +
+  '</fieldset></div>';
+  return html;
+}
+
+/** One field of the panel: set or clear (undefined) this dashboard's override, preview it, and save. */
+function setStyleOverride(key, value) {
+  var tab = currentTab();
+  if (!tab || readOnly || tab.controls) return;
+  if (!styleUndoTaken) { pushUndo(); styleUndoTaken = true; }
+  var own = Object.assign({}, cleanOverrides(tab.appearance));
+  if (value === undefined) delete own[key]; else own[key] = value;
+  own = cleanOverrides(own);
+  if (Object.keys(own).length) tab.appearance = own; else delete tab.appearance;
+  applyEditorLook();
+  refreshDashboardStyle();
+  scheduleSave();
+}
+
+/** Bring the panel's labels in step with the overrides, without rebuilding it (a slider is being dragged). */
+function refreshDashboardStyle() {
+  var tab = currentTab();
+  if (!tab || !$('dash-style')) return;
+  var own = cleanOverrides(tab.appearance);
+  var look = effectiveAppearance(defaultLook, own);
+  ['bgLight', 'bgDark', 'bgImage', 'glassBlur', 'glassFrost'].forEach(function(key) {
+    var state = $('ds-' + key + '-state');
+    if (state) state.textContent = key in own ? 'Custom' : 'Default';
+    var reset = document.querySelector('#dash-style [data-reset="' + key + '"]');
+    if (reset) reset.hidden = !(key in own);
+  });
+  ['bgLight', 'bgDark'].forEach(function(key) { var el = $('ds-' + key); if (el && el !== document.activeElement) el.value = look[key]; });
+  STYLE_SWITCHES.forEach(function(sw) {
+    var el = $('ds-' + sw[0]);
+    if (!el) return;
+    var want = sw[0] in own ? (own[sw[0]] ? 'on' : 'off') : '';
+    if (el.value !== want) el.value = want;
+  });
+  var glass = $('ds-glass');
+  if (glass) glass.hidden = !look.glassCards;
+  ['glassBlur', 'glassFrost'].forEach(function(key) {
+    var out = $('ds-' + key + '-out');
+    if (out) out.textContent = String(look[key]);
+  });
+  var img = $('ds-bgImage'), none = $('ds-noImage');
+  if (none) none.checked = own.bgImage === '';
+  if (img) { img.disabled = own.bgImage === ''; if (img !== document.activeElement) img.value = own.bgImage || ''; }
+}
+
+function wireDashboardStyle(root) {
+  var panel = root.querySelector('#dash-style');
+  if (!panel) return;
+  refreshDashboardStyle();
+  panel.addEventListener('change', function() { styleUndoTaken = false; });
+  STYLE_COLORS.forEach(function(c) {
+    var el = $('ds-' + c[0]);
+    if (el) el.addEventListener('input', function() { setStyleOverride(c[0], el.value); });
+  });
+  var img = $('ds-bgImage'), none = $('ds-noImage');
+  if (img) img.addEventListener('input', function() { setStyleOverride('bgImage', img.value.trim() === '' ? undefined : img.value.trim()); });
+  if (none) none.addEventListener('change', function() { setStyleOverride('bgImage', none.checked ? '' : undefined); });
+  STYLE_SWITCHES.forEach(function(sw) {
+    var el = $('ds-' + sw[0]);
+    if (el) el.addEventListener('change', function() { setStyleOverride(sw[0], el.value === '' ? undefined : el.value === 'on'); });
+  });
+  ['glassBlur', 'glassFrost'].forEach(function(key) {
+    var el = $('ds-' + key);
+    if (el) el.addEventListener('input', function() { setStyleOverride(key, Number(el.value)); });
+  });
+  panel.querySelectorAll('[data-reset]').forEach(function(btn) {
+    btn.addEventListener('click', function() { styleUndoTaken = false; setStyleOverride(btn.dataset.reset, undefined); styleUndoTaken = false; });
+  });
+  var all = $('ds-reset-all');
+  if (all) all.addEventListener('click', function() {
+    var tab = currentTab();
+    if (!tab || !tab.appearance) return;
+    pushUndo();
+    delete tab.appearance;
+    applyEditorLook();
+    refreshDashboardStyle();
+    scheduleSave();
+    toast('This dashboard follows the defaults again', { actionLabel: 'Undo', onAction: undo, timeout: 8000 });
+  });
+}
+
+/** "Dashboard style…" in the dashboard menu: nothing selected, so the inspector shows it. */
+function showDashboardStyle() {
+  if (onControlsTab() || readOnly) return;
+  selectBlock(null, { force: true });
+  if (isNarrow()) openSheet('inspector');
+  var first = $('ds-bgLight');
+  if (first) { first.scrollIntoView({ block: 'nearest' }); first.focus(); }
+}
+
 function renderDashboardSummary(aside) {
   var tab = currentTab();
   var total = tab ? tab.layout.length : 0;
@@ -3379,6 +3536,7 @@ function renderDashboardSummary(aside) {
       '<h2 class="ed-panel-title">' + escHtml(tab ? tab.name || 'Dashboard' : 'Dashboard') + '</h2>' +
       '<p class="ins-empty-meta">' + total + (total === 1 ? ' block' : ' blocks') + (hidden ? ' · ' + hidden + ' hidden' : '') + '</p>' +
       '<p class="ins-empty-hint">Select a block on the layout to change its data, style and size.</p>' +
+      (tab && !onControlsTab() && !readOnly ? buildDashboardStyle(tab) : '') +
       '<ul class="ins-keys">' +
         '<li><span><kbd>Ctrl</kbd> <kbd>Z</kbd></span>Undo</li>' +
         '<li><span><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></span>Redo</li>' +
@@ -3387,6 +3545,7 @@ function renderDashboardSummary(aside) {
         '<li><span><kbd>Shift</kbd> + arrows</span>Resize selected block</li>' +
       '</ul>' +
     '</div>';
+  wireDashboardStyle(aside);
 }
 
 function renderInspector() {
@@ -3910,6 +4069,7 @@ function loadTab(tabId, opts) {
 
   updateHeader();
   updateEmptyState();
+  applyEditorLook();
   selectBlock(opts.keepSelection || null, { force: true });
   schedulePreview();
 }
@@ -4107,6 +4267,7 @@ function openDashboardMenu() {
     items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches, selectors, sliders and knobs', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
   }
   items.push({ separator: true });
+  items.push({ label: 'Dashboard style…', icon: 'sun', hint: onControls ? 'Not on the Controls page' : '', disabled: readOnly || onControls, onSelect: showDashboardStyle });
   items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
   items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly || onControls, onSelect: duplicateDashboard });
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
@@ -4286,6 +4447,8 @@ async function initEditor() {
       availableMetrics = res[0].concat(res[1]).filter(function(n) { return seen[n] ? false : (seen[n] = true); }).sort();
       switchables = Array.isArray(res[2]) ? res[2] : [];
     });
+    // Settings → Appearance: what a dashboard looks like unless it sets its own.
+    fetchPublicConfig().then(function(cfg) { defaultLook = globalAppearance(cfg || {}); applyEditorLook(); refreshDashboardStyle(); }).catch(function() { /* the built-in defaults stay */ });
     var authPromise = fetch('/api/auth/status').then(function(r) { return r.json(); }).catch(function() { return { authenticated: true }; });
 
     dashboardConfig = await fetchDashboardConfig();
