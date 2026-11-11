@@ -1,7 +1,7 @@
 'use strict';
 const checks = require('./_checks');
 /**
- * Bluetooth and wired BMS mapping rows have the "+ New" control the inverter,
+ * Bluetooth and wired BMS mapping rows, and Tuya data point rows, have the "+ New" control the inverter,
  * Home Assistant and MQTT rows have, so a metric can be created where it is
  * mapped; and the "Save will persist N of M mapped" note counts BMS rows.
  */
@@ -21,9 +21,16 @@ for (const [name, src] of [['Bluetooth', ble], ['wired', wired]]) {
 assert.match(wired, /addBmsNewMetricControl\(row, metricSelect, removeBtn, info\)/, 'a wired BMS field gives its unit to the new metric');
 
 const helper = section('const bmsAdapter =', 'function renderBmsWiredMappings(');
-assert.match(helper, /createInlineMetricControl\(bmsAdapter, row, metricSelect/);
+assert.match(helper, /createInlineMetricControl\(adapter, row, metricSelect/);
+assert.match(helper, /addNewMetricControl\(bmsAdapter, row, metricSelect, removeBtn, entity\)/, 'BMS rows use the shared helper with the BMS adapter');
 assert.match(helper, /row\.style\.flexWrap = 'wrap'/, 'the editor gets a line of its own');
 assert.match(helper, /entity && entity\.unit/, 'unit is prefilled when the BMS reports one');
+
+// Tuya data point rows have it too (the unit is left to the person: a data point carries none).
+const tuyaRow = section('function addTuyaDpRow(', 'function reindexTuya(');
+assert.match(tuyaRow, /row\.appendChild\(removeBtn\);\s*\n\s*addNewMetricControl\(tuyaAdapter, row, metricSelect, removeBtn, null\);/, 'a Tuya DP row gets the + New control');
+assert.match(js, /const tuyaAdapter = \{ defaultUnit\(\) \{ return ''; \} \};/);
+assert.match(helper, /newBtn\.style\.whiteSpace = 'nowrap'/, 'the label stays on one line');
 
 assert.match(js, /\|\| row\.dataset\.bmsKey\n/, 'a BMS row counts as mapped when it has a metric');
 assert.match(js, /'bms-devices-container', 'bms-wired-devices-container'\]\.forEach/, 'the note follows changes on BMS cards');

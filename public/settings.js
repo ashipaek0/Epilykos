@@ -2743,18 +2743,23 @@ function reindexBmsWired() {
   });
 }
 
-// BMS mapping rows get the same "+ New" control as the inverter rows, so a metric can
-// be created right where it is mapped. The unit is prefilled when the BMS reports one.
+// BMS and Tuya mapping rows get the same "+ New" control as the inverter rows, so a metric can
+// be created right where it is mapped. The unit is prefilled when the device reports one.
 const bmsAdapter = { defaultUnit(entity) { return entity && entity.unit ? String(entity.unit) : ''; } };
-function addBmsNewMetricControl(row, metricSelect, removeBtn, entity) {
+const tuyaAdapter = { defaultUnit() { return ''; } };   // a Tuya data point does not carry a unit
+function addNewMetricControl(adapter, row, metricSelect, removeBtn, entity) {
   if (!(window.CatalogUI && typeof window.CatalogUI.createInlineMetricControl === 'function')) return;
   row._catalogEntity = entity || null;
-  const newBtn = window.CatalogUI.createInlineMetricControl(bmsAdapter, row, metricSelect, () => row._catalogEntity);
+  const newBtn = window.CatalogUI.createInlineMetricControl(adapter, row, metricSelect, () => row._catalogEntity);
   const panel = row.lastElementChild;           // the name + unit editor it appended
   row.insertBefore(newBtn, removeBtn);          // select, + New, ✕
+  newBtn.style.whiteSpace = 'nowrap';
   // The editor needs more room than these rows have: it takes a line of its own while open.
   row.style.flexWrap = 'wrap';
   panel.style.flex = '1 1 100%';
+}
+function addBmsNewMetricControl(row, metricSelect, removeBtn, entity) {
+  addNewMetricControl(bmsAdapter, row, metricSelect, removeBtn, entity);
 }
 
 function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
@@ -5294,6 +5299,7 @@ function addTuyaDpRow(card, deviceIdx, metricName, dpNumber, dpLabel) {
     refreshAllMetricDropdowns();
   });
   row.appendChild(removeBtn);
+  addNewMetricControl(tuyaAdapter, row, metricSelect, removeBtn, null);
 
   metricSelect.addEventListener('change', () => {
     refreshAllMetricDropdowns();
