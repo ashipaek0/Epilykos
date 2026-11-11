@@ -24,6 +24,7 @@ import { ensureBlockIds } from './utils/blockId.js';
 import { ensureChartJS } from './chartLoader.js';
 import { applyBlockStyle } from './components/blockStyle.js';
 import { globalAppearance, effectiveAppearance, applyAppearance } from './appearance.js';
+import { gridOf, placeBlocks, blockStyle, areaHeight } from './layoutGrid.js';
 
 let dashboardConfig;
 let defaultLook = null;   // Settings → Appearance: the look of every dashboard that does not override it
@@ -138,50 +139,21 @@ function renderDashboard() {
     saveDashboardConfig(dashboardConfig).catch(e => console.warn('Migration save failed:', e));
   }
 
-  // Render blocks with absolute positioning based on GridStack coordinates
-  const ROW_HEIGHT = 50; // matches editor cellHeight
-  const GAP = 1; // px on each side of a card, so cards sit 2px apart (editor: GRID_MARGIN)
+  // Render blocks with absolute positioning based on GridStack coordinates (public/js/layoutGrid.js)
+  const grid = gridOf(active);
 
-  // Build position descriptors sorted by gridY for overlap prevention
   const positioned = [];
   layoutWithIds.forEach((block) => {
     if (block.enabled === false) return;
     const builder = getBuilder(block.type);
     if (!builder) return;
-    const x = block.gridX ?? 0;
-    const y = block.gridY ?? 0;
-    const w = block.gridW ?? 12;
-    const h = block.gridH ?? 4;
-    positioned.push({ block, x, y, w, h });
+    positioned.push({ block, x: block.gridX ?? 0, y: block.gridY ?? 0, w: block.gridW ?? 12, h: block.gridH ?? 4 });
   });
-  positioned.sort((a, b) => a.y - b.y || a.x - b.x);
+  const placed = placeBlocks(positioned, grid);
 
-  // De-overlap pass: for each block, check against all previously placed blocks
-  // and push down if their vertical spans overlap within the same horizontal region
-  for (let i = 0; i < positioned.length; i++) {
-    const cur = positioned[i];
-    let adjustedY = cur.y;
-    for (let j = 0; j < i; j++) {
-      const prev = positioned[j];
-      // Horizontal overlap check: columns intersect?
-      const curLeft = cur.x;
-      const curRight = cur.x + cur.w;
-      const prevLeft = prev.x;
-      const prevRight = prev.x + prev.w;
-      if (curRight > prevLeft && curLeft < prevRight) {
-        // Vertical: check if cur would overlap prev's bottom edge
-        const prevBottom = prev._top + prev.h;
-        if (adjustedY < prevBottom) {
-          adjustedY = prevBottom;
-        }
-      }
-    }
-    cur._top = adjustedY;
-  }
-
-  let maxBottom = 0;
-
-  positioned.forEach(({ block, x, w, h, _top }) => {
+  const rendered = [];   // the area is as tall as what was drawn
+  placed.forEach(item => {
+    const block = item.block;
     let content;
     try {
       content = getBuilder(block.type)(block);
@@ -197,20 +169,16 @@ function renderDashboard() {
     wrapper.className = 'dashboard-block';
     wrapper.dataset.blockId = block.id;
     wrapper.style.position = 'absolute';
-    wrapper.style.left = `calc(${((x / 12) * 100)}% + ${GAP}px)`;
-    wrapper.style.top = (_top * ROW_HEIGHT + GAP) + 'px';
-    wrapper.style.width = `calc(${((w / 12) * 100)}% - ${GAP * 2}px)`;
-    wrapper.style.height = (h * ROW_HEIGHT - GAP * 2) + 'px';
+    Object.assign(wrapper.style, blockStyle(item, grid));
 
     applyBlockStyle(content, block);
     wrapper.appendChild(content);
     container.appendChild(wrapper);
-
-    maxBottom = Math.max(maxBottom, (_top + h) * ROW_HEIGHT);
+    rendered.push(item);
   });
 
   container.style.position = 'relative';
-  container.style.height = maxBottom + 'px';
+  container.style.height = areaHeight(rendered, grid) + 'px';
 
   // Auth-dependent UI: sign-in/out, editor link
   fetch('/api/auth/status')
