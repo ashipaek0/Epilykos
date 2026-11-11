@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43006212187.1",
-    "version": "1.2.4-dev+8f2a303",
-    "commit": "8f2a303a8aedc22ecdaa34fc6669fc7d87bcda35",
-    "digest": "sha256:277a810113d0c3d26a93267b3ba0ed971aab5fda37088305aa7c292e0a2e21fb",
+    "buildId": "43007405097.1",
+    "version": "1.2.4-dev+7bcd9a3",
+    "commit": "7bcd9a3e51063995768c5ce34a37fc9ecbcd6121",
+    "digest": "sha256:0be8c44fc98543a10916ddb8003b8dd6313a08dfcc8812e3e420d07317f02e68",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T10:45:24Z",
+    "builtAt": "2026-11-11T10:53:59Z",
     "kind": "release",
     "notes": [
-      "Dashboard grid, step 1: the placement of blocks moves to one module (#317)"
+      "Dashboard grid, step 2: the dashboard page uses the grid a dashboard sets (#318)"
     ]
   },
   "history": [
+    {
+      "buildId": "43007405097.1",
+      "version": "1.2.4-dev+7bcd9a3",
+      "commit": "7bcd9a3e51063995768c5ce34a37fc9ecbcd6121",
+      "digest": "sha256:0be8c44fc98543a10916ddb8003b8dd6313a08dfcc8812e3e420d07317f02e68",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T10:53:59Z",
+      "kind": "release",
+      "notes": [
+        "Dashboard grid, step 2: the dashboard page uses the grid a dashboard sets (#318)"
+      ]
+    },
     {
       "buildId": "43006212187.1",
       "version": "1.2.4-dev+8f2a303",
@@ -364,19 +376,6 @@
         "Battery bank test: don't depend on a D-Bus socket",
         "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
         "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
-      ]
-    },
-    {
-      "buildId": "42472031122.1",
-      "version": "1.1.3-dev+5162867",
-      "commit": "516286766365ed13b9a39e885d839a07e374afe3",
-      "digest": "sha256:ae1f22e0340cb0f094b86401138a69ccd6712ebeca3b719fdd7a1a1460453480",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T10:35:10Z",
-      "kind": "release",
-      "notes": [
-        "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
-        "Combined metrics: On/Off from a limit (#284)"
       ]
     }
   ]
