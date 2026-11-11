@@ -9,7 +9,7 @@ import { updateCards } from './cards-update.js';
 import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
-import { applyBlockStyle, fontScale } from './components/blockStyle.js';
+import { applyBlockStyle, fontScale, cardGlass } from './components/blockStyle.js';
 import { controlStyle, layoutHasPill, layoutLabel, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
@@ -315,6 +315,29 @@ function buildAppearanceFields(block) {
     '<label data-ui="label">Font Color <input type="color" id="modal-fontcolor" value="' + escHtml(fontColor) + '" data-dirty="false" data-ui="color"></label>',
     '</div>',
     '<label data-ui="field">Text size ' + fontSizeSelect(fontSize) + '</label>',
+    '</fieldset>',
+    buildGlassFields(block)
+  ].join('\n');
+}
+
+/** A card's own glass: on, off or the dashboard's, with its own blur and frost. Empty = follows the dashboard. */
+function buildGlassFields(block) {
+  var own = cardGlass(Object.assign({}, block.config, block));
+  var tab = currentTab();
+  var look = effectiveAppearance(defaultLook, tab && !tab.controls ? tab.appearance : null);
+  return [
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Glass</legend>',
+    '<label data-ui="field">Glass effect <select id="modal-glass" data-ui="input">',
+    '<option value=""' + (own.glass ? '' : ' selected') + '>Follow the dashboard (' + onOff(look.glassCards) + ')</option>',
+    '<option value="on"' + (own.glass === 'on' ? ' selected' : '') + '>On</option>',
+    '<option value="off"' + (own.glass === 'off' ? ' selected' : '') + '>Off</option>',
+    '</select></label>',
+    '<div data-ui="grid2">',
+    '<label data-ui="label">Blur (px) <input type="number" id="modal-glassblur" min="0" max="40" step="1" data-ui="input" placeholder="' + escHtml(look.glassBlur) + '" value="' + (own.glassBlur === undefined ? '' : own.glassBlur) + '"></label>',
+    '<label data-ui="label">Frost (%) <input type="number" id="modal-glassfrost" min="20" max="200" step="5" data-ui="input" placeholder="' + escHtml(look.glassFrost) + '" value="' + (own.glassFrost === undefined ? '' : own.glassFrost) + '"></label>',
+    '</div>',
+    '<p data-ui="help">Leave blur and frost empty to follow the dashboard. They show only where the card is glass.</p>',
     '</fieldset>'
   ].join('\n');
 }
@@ -2234,6 +2257,14 @@ function readSettingsForm(block) {
   config.fontColor = document.getElementById('modal-fontcolor')?.value || '';
   if (config.fontColor === '#000000' && document.getElementById('modal-fontcolor')?.dataset.dirty !== 'true') config.fontColor = '';
   config.fontSize = document.getElementById('modal-fontsize')?.value || '';
+  // Glass: on or off for this card (empty = the dashboard's), and its own blur and frost (empty = the dashboard's)
+  var glassChoice = document.getElementById('modal-glass')?.value;
+  if (glassChoice === 'on' || glassChoice === 'off') config.glass = glassChoice; else delete config.glass;
+  [['glassBlur', 'modal-glassblur', 0, 40], ['glassFrost', 'modal-glassfrost', 20, 200]].forEach(function(g) {
+    var raw = String(document.getElementById(g[1])?.value ?? '').trim();
+    var n = raw === '' ? NaN : Number(raw);
+    if (Number.isFinite(n)) config[g[0]] = Math.min(g[3], Math.max(g[2], Math.round(n))); else delete config[g[0]];
+  });
 
   // Apply common fields to block
   block.enabled = config.enabled;
@@ -2241,6 +2272,9 @@ function readSettingsForm(block) {
   block.bgColor = config.bgColor;
   block.fontColor = config.fontColor;
   block.fontSize = config.fontSize;
+  ['glass', 'glassBlur', 'glassFrost'].forEach(function(key) {
+    if (config[key] === undefined) delete block[key]; else block[key] = config[key];
+  });
 
   var type = block.type;
 

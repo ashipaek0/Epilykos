@@ -68,7 +68,7 @@ for (const c of ['metric-trend-card', 'dual-metric-card', 'grid-card', 'text-car
 // The stylesheet is inert without the class, and has fallbacks.
 const css = read('public/glass.css');
 const rules = css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').map(r => r.split('{')[0].trim()).filter(Boolean);
-for (const sel of rules.filter(s => !s.startsWith('@') && !s.startsWith(' '))) assert.ok(/glass-cards/.test(sel) || sel.startsWith('['), `rule only applies with .glass-cards: ${sel}`);
+for (const sel of rules.filter(s => !s.startsWith('@') && !s.startsWith(' '))) assert.ok(/glass-(cards|on|own)/.test(sel) || sel.startsWith('['), `rule only applies with glass on (the dashboard's or a card's): ${sel}`);
 assert.match(css, /@supports not/);
 assert.match(css, /prefers-reduced-transparency/);
 assert.match(read('public/index.html'), /<link rel="stylesheet" href="glass\.css">/);
