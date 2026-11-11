@@ -22,6 +22,7 @@ class El {
   set innerHTML(v) { this.children.forEach(c => { c.parent = null; }); this.children = []; this._html = v; }
   get innerHTML() { return this._html || ''; }
   appendChild(c) { if (c.parent) c.parent.children = c.parent.children.filter(x => x !== c); c.parent = this; this.children.push(c); return c; }
+  after(n) { const p = this.parent; if (!p) return; if (n.parent) n.parent.children = n.parent.children.filter(x => x !== n); n.parent = p; p.children.splice(p.children.indexOf(this) + 1, 0, n); }
   addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); this.parent = null; }
   setAttribute() {} focus() {}
