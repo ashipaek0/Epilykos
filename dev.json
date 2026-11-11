@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43021726288.1",
-    "version": "1.2.4-dev+4bee25a",
-    "commit": "4bee25a17d5e50278eca09ab0355e3d2201f1c84",
-    "digest": "sha256:3ef2debfc41f0862444615ca6eb8d2ebbdcbfe3635674795362dafd71b6c205c",
+    "buildId": "43024504629.1",
+    "version": "1.2.4-dev+c339c11",
+    "commit": "c339c1163b0d6a88c55f2acc413cad02d849f6fb",
+    "digest": "sha256:6d618389c566763085cdbedc4766bbd40fdbf3553e27a591e820ff30b3cffab0",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T12:36:16Z",
+    "builtAt": "2026-11-11T12:55:38Z",
     "kind": "release",
     "notes": [
-      "Every mapping row can create a metric: a \"+\" beside the dropdown (#323)"
+      "Scale to screen width, and the editor shows cards where they are saved (#324)"
     ]
   },
   "history": [
+    {
+      "buildId": "43024504629.1",
+      "version": "1.2.4-dev+c339c11",
+      "commit": "c339c1163b0d6a88c55f2acc413cad02d849f6fb",
+      "digest": "sha256:6d618389c566763085cdbedc4766bbd40fdbf3553e27a591e820ff30b3cffab0",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T12:55:38Z",
+      "kind": "release",
+      "notes": [
+        "Scale to screen width, and the editor shows cards where they are saved (#324)"
+      ]
+    },
     {
       "buildId": "43021726288.1",
       "version": "1.2.4-dev+4bee25a",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Deleting a metric no longer freezes the app on a large database (#293)"
-      ]
-    },
-    {
-      "buildId": "42481239454.1",
-      "version": "1.1.3-dev+8593cbe",
-      "commit": "8593cbe2b70ed308303e7edcd6b3025c96e7e4e5",
-      "digest": "sha256:8e53492f9e612f625e0906b4e8b4aadbbfb0b7958cbadab0d084326d692392f1",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T12:39:12Z",
-      "kind": "release",
-      "notes": [
-        "Updates page: stop offering the version that is already running"
       ]
     }
   ]
