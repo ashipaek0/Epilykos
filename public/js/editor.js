@@ -1,5 +1,6 @@
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState, fetchPublicConfig } from './api.js';
 import { globalAppearance, effectiveAppearance, cleanOverrides, applyAppearance, clearAppearance } from './appearance.js';
+import { STANDARD_GRID, PRECISIONS, MAX_GAP, gridOf, cleanGrid, precisionOf, rescaleLayout, sizeOnGrid } from './layoutGrid.js';
 import { componentBuilders } from './components/index.js';
 import { initTheme } from './theme.js';
 import { GROUPS, BLOCKS, blockInfo, icon } from './editor-catalog.js';
@@ -32,7 +33,19 @@ BLOCK_BUILDERS.set('quick-actions', function(block) {
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// The grid the dashboard on the canvas is placed on (public/js/layoutGrid.js): columns across the width and
+// the height of a row in px. The standard grid is 12 x 50; a dashboard can be finer. The Controls page
+// is always the standard grid. loadTab sets these for the tab it shows.
 var GRID_COLUMNS = 12, CELL_HEIGHT = 50;
+var editorGrid = STANDARD_GRID;
+function setEditorGrid(tab) {
+  editorGrid = !tab || tab.controls ? STANDARD_GRID : gridOf(tab);
+  GRID_COLUMNS = editorGrid.columns;
+  CELL_HEIGHT = editorGrid.rowHeight;
+  GRID_MARGIN = editorGrid.gap / 2;   // the space between blocks is half on each side of a block
+}
+/** Blocks may stay where they are dropped: free placement, and overlap needs it. */
+function gridIsFree() { return !!(editorGrid.free || editorGrid.overlap); }
 
 var grid = null, dashboardConfig = null, currentTabId = null;
 var selectedBlockId = null;      // block shown in the inspector
@@ -2981,7 +2994,7 @@ function buildGridItem(block) {
   item.dataset.blockType = block.type;
   item.setAttribute('gs-x', block.gridX ?? 0);
   item.setAttribute('gs-y', block.gridY ?? 0);
-  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? info.w);
+  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? sizeOnGrid(info, editorGrid).w);
   item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / CELL_HEIGHT)));
   item.setAttribute('gs-min-w', 1);
   item.setAttribute('gs-min-h', 1);
@@ -3223,13 +3236,14 @@ function addBlock(type, at) {
   if (!tab) return;
   var info = blockInfo(type);
   pushUndo();
-  var w = Math.min(info.w, GRID_COLUMNS);
+  var size = sizeOnGrid(info, editorGrid);
+  var w = size.w;
   var x = 0, y;
   var sel = selectedBlockId && findBlock(selectedBlockId);
   if (at) { x = at.x; y = at.y; }
   else if (sel) { x = Math.min(sel.gridX || 0, GRID_COLUMNS - w); y = (sel.gridY || 0) + (sel.gridH || 1); }
   else { y = grid.getRow(); }
-  var block = { id: newBlockId(), type: type, enabled: true, gridX: x, gridY: y, gridW: w, gridH: info.h, config: {} };
+  var block = { id: newBlockId(), type: type, enabled: true, gridX: x, gridY: y, gridW: w, gridH: size.h, config: {} };
   tab.layout.push(block);
   placeNewItem(block);
   closeSheets();
@@ -3269,7 +3283,7 @@ function copyBlock(id) {
   var block = findBlock(id);
   if (!block) return;
   syncLayoutFromGrid();
-  var copy = { type: block.type, gridW: block.gridW, gridH: block.gridH, enabled: block.enabled !== false, config: JSON.parse(JSON.stringify(block.config || {})) };
+  var copy = { type: block.type, gridW: block.gridW, gridH: block.gridH, columns: GRID_COLUMNS, enabled: block.enabled !== false, config: JSON.parse(JSON.stringify(block.config || {})) };
   try { localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(copy)); } catch (e) { toast('Could not copy: this browser is not keeping data for the site'); return; }
   if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
   toast(blockInfo(block.type).name + ' copied. Paste with ' + (/Mac|iPhone|iPad/.test(navigator.platform) ? '\u2318V' : 'Ctrl+V') + ' or from Add block', { timeout: 4000 });
@@ -3288,11 +3302,14 @@ function pasteBlock() {
   }
   pushUndo();
   syncLayoutFromGrid();
-  var w = Math.min(Number(clip.gridW) || info.w, GRID_COLUMNS);
+  // A block copied from a dashboard on another precision keeps its size on the page, not its cell count.
+  var ratio = GRID_COLUMNS / (Number(clip.columns) || 12);
+  var size = sizeOnGrid(info, editorGrid);
+  var w = Math.min(GRID_COLUMNS, Math.max(1, clip.gridW ? Math.round(Number(clip.gridW) * ratio) : size.w));
   var sel = selectedBlockId && findBlock(selectedBlockId);
   var x = sel ? Math.min(sel.gridX || 0, GRID_COLUMNS - w) : 0;
   var y = sel ? (sel.gridY || 0) + (sel.gridH || 1) : grid.getRow();
-  var block = { id: newBlockId(), type: clip.type, enabled: clip.enabled !== false, gridX: x, gridY: y, gridW: w, gridH: Number(clip.gridH) || info.h, config: JSON.parse(JSON.stringify(clip.config || {})) };
+  var block = { id: newBlockId(), type: clip.type, enabled: clip.enabled !== false, gridX: x, gridY: y, gridW: w, gridH: clip.gridH ? Math.max(1, Math.round(Number(clip.gridH) * ratio)) : size.h, config: JSON.parse(JSON.stringify(clip.config || {})) };
   tab.layout.push(block);
   placeNewItem(block);
   closeSheets();
@@ -3394,7 +3411,7 @@ function buildDashboardStyle(tab) {
   var own = cleanOverrides(tab.appearance);
   var look = effectiveAppearance(defaultLook, own);
   // .ins-body carries the inspector's field styles; ds-wrap lets it sit in the empty inspector without its own scroll.
-  var html = '<div class="ins-body ds-wrap"><fieldset data-ui="section" class="ds-panel" id="dash-style">' +
+  var html = '<div class="ins-body ds-wrap">' + buildLayoutGrid(tab) + '<fieldset data-ui="section" class="ds-panel" id="dash-style">' +
     '<legend data-ui="legend">Dashboard style</legend>' +
     '<p data-ui="help">The look of this dashboard only. What you leave on Default follows Settings → Appearance, so other dashboards can look very different. Title, logo and favicon are the same everywhere.</p>';
   STYLE_COLORS.forEach(function(c) {
@@ -3432,7 +3449,7 @@ function buildDashboardStyle(tab) {
     '</div>';
   });
   html += '</div>' +
-    '<button type="button" class="ed-btn-text" id="ds-reset-all">Reset this dashboard to the defaults</button>' +
+    '<button type="button" class="ed-btn-text" id="ds-reset-all">Reset the style to the defaults</button>' +
   '</fieldset></div>';
   return html;
 }
@@ -3513,16 +3530,105 @@ function wireDashboardStyle(root) {
     applyEditorLook();
     refreshDashboardStyle();
     scheduleSave();
-    toast('This dashboard follows the defaults again', { actionLabel: 'Undo', onAction: undo, timeout: 8000 });
+    toast('The style follows the defaults again', { actionLabel: 'Undo', onAction: undo, timeout: 8000 });
   });
 }
 
+// ── Layout grid ──────────────────────────────────────────────────────────
+// How finely this dashboard's cards are placed (public/js/layoutGrid.js): precision, the space between
+// cards, free placement (cards stay where they are dropped instead of packing upward) and overlap.
+
+function buildLayoutGrid(tab) {
+  var g = gridOf(tab), own = cleanGrid(tab.grid), p = precisionOf(g);
+  var opts = PRECISIONS.map(function(q) {
+    return '<option value="' + q.columns + '"' + (q.columns === p.columns ? ' selected' : '') + '>' + q.label + ': ' + q.columns + ' columns, ' + q.rowHeight + ' px rows</option>';
+  }).join('');
+  var toggle = function(id, label, on, disabled) {
+    return '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + (disabled ? ' disabled' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>';
+  };
+  return '<fieldset data-ui="section" class="ds-panel" id="dash-grid">' +
+    '<legend data-ui="legend">Layout grid</legend>' +
+    '<p data-ui="help">A finer grid lets you place and size cards more exactly. Changing it keeps every card where it is on the page.</p>' +
+    '<div class="ds-row ds-row-stack"><label data-ui="field" for="dg-precision">Precision<select id="dg-precision" data-ui="input">' + opts + '</select></label></div>' +
+    '<div class="ds-row" data-key="gap">' +
+      '<label data-ui="label" for="dg-gap">Space between cards: <output id="dg-gap-out">' + escHtml(g.gap) + '</output> px</label>' +
+      '<input type="range" id="dg-gap" min="0" max="' + MAX_GAP + '" step="1" value="' + escHtml(g.gap) + '" data-no-reveal>' +
+      '<span class="ds-state" id="dg-gap-state">' + ('gap' in own ? 'Custom' : 'Default') + '</span>' +
+      '<button type="button" class="ed-btn-text ds-reset" id="dg-gap-reset"' + ('gap' in own ? '' : ' hidden') + '>Use default</button>' +
+    '</div>' +
+    '<div class="ds-row ds-row-stack">' + toggle('dg-free', 'Free placement', gridIsFreeFor(g), !!g.overlap) +
+      '<p data-ui="help">Cards stay where you drop them. Without it, they move up to fill empty space.</p></div>' +
+    '<div class="ds-row ds-row-stack">' + toggle('dg-overlap', 'Allow overlap', !!g.overlap, false) +
+      '<p data-ui="help">Cards can sit on top of each other, for example over a picture. It needs free placement, so that turns on with it. On the dashboard the card lower down is on top.</p></div>' +
+  '</fieldset>';
+}
+function gridIsFreeFor(g) { return !!(g.free || g.overlap); }
+
+/** Change this dashboard's grid. A change of precision rescales the cards; the canvas is rebuilt on the new grid. */
+function setGrid(patch, opts) {
+  opts = opts || {};
+  var tab = currentTab();
+  if (!tab || readOnly || tab.controls) return;
+  var before = gridOf(tab);
+  pushUndo();
+  syncLayoutFromGrid();
+  var own = cleanGrid(Object.assign({}, cleanGrid(tab.grid), patch));
+  var moved = 0;
+  if (own.columns !== undefined && own.columns !== before.columns) moved = rescaleLayout(tab.layout, before.columns, own.columns);
+  if (Object.keys(own).length) tab.grid = own; else delete tab.grid;
+  var scroller = document.querySelector('#inspector .ins-empty');
+  var scrollTop = scroller ? scroller.scrollTop : 0;
+  loadTab(tab.id, { skipSync: true, keepSelection: selectedBlockId });
+  var again = document.querySelector('#inspector .ins-empty');
+  if (again) again.scrollTop = scrollTop;
+  scheduleSave();
+  if (moved) toast(moved + (moved === 1 ? ' card was' : ' cards were') + ' moved to the nearest cell of the coarser grid', { actionLabel: 'Undo', onAction: undo, timeout: 10000 });
+}
+
+var gridUndoTaken = false;
+/** The gap changes while a slider is dragged: no rebuild, one undo step. */
+function setGridGap(value) {
+  var tab = currentTab();
+  if (!tab || readOnly || tab.controls) return;
+  if (!gridUndoTaken) { pushUndo(); gridUndoTaken = true; }
+  var own = cleanGrid(Object.assign({}, cleanGrid(tab.grid), { gap: value }));
+  tab.grid = own;
+  setEditorGrid(tab);
+  if (grid) grid.margin(GRID_MARGIN * previewScale);
+  var out = $('dg-gap-out'), state = $('dg-gap-state'), reset = $('dg-gap-reset');
+  if (out) out.textContent = String(own.gap);
+  if (state) state.textContent = 'Custom';
+  if (reset) reset.hidden = false;
+  scheduleSave();
+}
+
+function wireLayoutGrid(root) {
+  var panel = root.querySelector('#dash-grid');
+  if (!panel) return;
+  panel.addEventListener('change', function() { gridUndoTaken = false; });
+  var precision = $('dg-precision');
+  if (precision) precision.addEventListener('change', function() { setGrid({ columns: Number(precision.value) }); });
+  var gap = $('dg-gap');
+  if (gap) gap.addEventListener('input', function() { setGridGap(Number(gap.value)); });
+  var gapReset = $('dg-gap-reset');
+  if (gapReset) gapReset.addEventListener('click', function() {
+    var tab = currentTab(); if (!tab) return;
+    var own = cleanGrid(tab.grid); delete own.gap;
+    pushUndo(); if (Object.keys(own).length) tab.grid = own; else delete tab.grid;
+    setEditorGrid(tab); if (grid) grid.margin(GRID_MARGIN * previewScale);
+    scheduleSave(); selectBlock(null, { force: true });
+  });
+  var free = $('dg-free'), overlap = $('dg-overlap');
+  if (free) free.addEventListener('change', function() { setGrid({ free: free.checked }); });
+  if (overlap) overlap.addEventListener('change', function() { setGrid(overlap.checked ? { overlap: true, free: true } : { overlap: false }); });
+}
+
 /** "Dashboard style…" in the dashboard menu: nothing selected, so the inspector shows it. */
-function showDashboardStyle() {
+function showDashboardStyle(focusId) {
   if (onControlsTab() || readOnly) return;
   selectBlock(null, { force: true });
   if (isNarrow()) openSheet('inspector');
-  var first = $('ds-bgLight');
+  var first = $(typeof focusId === 'string' ? focusId : 'ds-bgLight');
   if (first) { first.scrollIntoView({ block: 'nearest' }); first.focus(); }
 }
 
@@ -3546,6 +3652,7 @@ function renderDashboardSummary(aside) {
       '</ul>' +
     '</div>';
   wireDashboardStyle(aside);
+  wireLayoutGrid(aside);
 }
 
 function renderInspector() {
@@ -3991,7 +4098,7 @@ function wireCanvas() {
     draggingType = null;
     if (!type || readOnly) return;
     e.preventDefault();
-    addBlock(type, cellFromPoint(e.clientX, e.clientY, Math.min(blockInfo(type).w, GRID_COLUMNS)));
+    addBlock(type, cellFromPoint(e.clientX, e.clientY, sizeOnGrid(blockInfo(type), editorGrid).w));
   });
 
   // Selecting blocks: click or Enter / Space; click on empty space clears it.
@@ -4044,6 +4151,7 @@ function loadTab(tabId, opts) {
   if (!tab) return;
   if (!opts.skipSync) syncLayoutFromGrid();
   currentTabId = tabId;
+  setEditorGrid(tab);
   if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
   if (toolbar) toolbar.remove();
   selectedBlockId = null;
@@ -4059,11 +4167,14 @@ function loadTab(tabId, opts) {
   applyPreviewScale();
   grid = GridStack.init({
     column: GRID_COLUMNS, cellHeight: CELL_HEIGHT * previewScale, margin: GRID_MARGIN * previewScale,
-    float: false, animate: true, minRow: 4,
+    float: gridIsFree(), animate: true, minRow: Math.round(4 * GRID_COLUMNS / 12),
     staticGrid: readOnly,
     resizable: { handles: 'e, se, s, sw, w' },
     draggable: { cancel: 'input,textarea,button,select,option,.blk-toolbar' }
   }, container);
+  // Overlap: blocks may sit on top of each other, so the grid stops treating a block under another as a collision.
+  // (It only makes sense without packing upward, which gridIsFree() has already switched off.)
+  if (editorGrid.overlap) { grid.engine.collide = function() { return undefined; }; grid.engine.collideAll = function() { return []; }; }
   grid.on('dragstart resizestart', function() { pushUndo(); });
   grid.on('dragstop resizestop', function() { syncLayoutFromGrid(); refreshInspectorLayout(); scheduleSave(); });
 
@@ -4267,7 +4378,8 @@ function openDashboardMenu() {
     items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches, selectors, sliders and knobs', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
   }
   items.push({ separator: true });
-  items.push({ label: 'Dashboard style…', icon: 'sun', hint: onControls ? 'Not on the Controls page' : '', disabled: readOnly || onControls, onSelect: showDashboardStyle });
+  items.push({ label: 'Layout grid…', icon: 'cards', hint: onControls ? 'Not on the Controls page' : '', disabled: readOnly || onControls, onSelect: function() { showDashboardStyle('dg-precision'); } });
+  items.push({ label: 'Dashboard style…', icon: 'sun', hint: onControls ? 'Not on the Controls page' : '', disabled: readOnly || onControls, onSelect: function() { showDashboardStyle(); } });
   items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
   items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly || onControls, onSelect: duplicateDashboard });
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });

@@ -100,3 +100,35 @@ export function areaHeight(placed, grid = STANDARD_GRID) {
   for (const item of placed) bottom = Math.max(bottom, (item.top + item.h) * grid.rowHeight);
   return bottom;
 }
+
+/**
+ * Move a layout to another precision without moving anything on the page: columns and rows scale by
+ * the same ratio (a row is 50 × 12 / columns px tall). Going finer is exact. Going coarser rounds to
+ * the nearest cell (a block is never made smaller than one cell, nor pushed past the right edge), and
+ * the blocks that had to move are counted so the editor can say so. Changes the blocks in place.
+ * @param {Array<{gridX:number,gridY:number,gridW:number,gridH:number}>} layout
+ * @returns {number} how many blocks could not keep their exact place and size
+ */
+export function rescaleLayout(layout, fromColumns, toColumns) {
+  if (!(fromColumns > 0) || !(toColumns > 0) || fromColumns === toColumns) return 0;
+  const ratio = toColumns / fromColumns;
+  const exact = v => Math.abs(v * ratio - Math.round(v * ratio)) < 1e-9;
+  let inexact = 0;
+  for (const block of layout) {
+    const parts = ['gridX', 'gridY', 'gridW', 'gridH'];
+    if (!parts.every(k => Number.isFinite(Number(block[k])))) continue;
+    if (!parts.every(k => exact(Number(block[k])))) inexact++;
+    const w = Math.min(toColumns, Math.max(1, Math.round(block.gridW * ratio)));
+    block.gridW = w;
+    block.gridX = Math.max(0, Math.min(toColumns - w, Math.round(block.gridX * ratio)));
+    block.gridY = Math.max(0, Math.round(block.gridY * ratio));
+    block.gridH = Math.max(1, Math.round(block.gridH * ratio));
+  }
+  return inexact;
+}
+
+/** A library block's size (given for the standard grid) on a grid. */
+export function sizeOnGrid(info, grid) {
+  const k = grid.columns / STANDARD_GRID.columns;
+  return { w: Math.min(grid.columns, Math.max(1, Math.round(info.w * k))), h: Math.max(1, Math.round(info.h * k)) };
+}
