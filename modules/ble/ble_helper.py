@@ -244,6 +244,12 @@ def _remember(device, adv):
             _seen.pop(addr, None)
 
 
+def _dbus_lost(low):
+    """The D-Bus socket this process holds was closed under it: every call then ends in
+    EOFError or "Bad file descriptor" within milliseconds, and only a new process helps."""
+    return "eoferror" in low or "bad file descriptor" in low or "[errno 9]" in low or "broken pipe" in low
+
+
 def _map_error(exc):
     """Turn bleak / D-Bus exceptions into a message a user can act on."""
     text = f"{type(exc).__name__}: {exc}"
@@ -263,6 +269,13 @@ def _map_error(exc):
         return HelperError("No Bluetooth adapter found on the host.", "no_adapter")
     if "org.bluez" in low and ("serviceunknown" in low or "not provided" in low):
         return HelperError("BlueZ (bluetoothd) is not running on the host.", "no_bluez")
+    if _dbus_lost(low):
+        return HelperError(
+            "The Bluetooth helper lost its connection to the host's D-Bus. It is restarted "
+            "automatically; if it keeps happening, restart Bluetooth on the host "
+            "(sudo systemctl restart bluetooth).",
+            "dbus_lost",
+        )
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
         return HelperError("Bluetooth operation timed out", "timeout")
     if "unlikely_error" in low or "unlikely error" in low:
@@ -1156,6 +1169,12 @@ def _self_test_gatt_link():
             pass
         assert finds == ["AA:00:00:00:00:03"] and "AA:00:00:00:00:03" not in _seen  # no rescan, cache dropped
         assert _map_error(RuntimeError("BleakGATTProtocolError: (14, 'GATT Protocol Error: Unlikely Error')")).code == "gatt_error"
+        # The D-Bus socket closed under the helper (seen after hours of running): every connect fails at once.
+        for lost in (RuntimeError("BleakConnectionError: 58:2B:0A:50:89:D7 - 58:2B:0A:50:89:D7: Failed to connect after 9 attempt(s): EOFError"),
+                     OSError(9, "Bad file descriptor"), BrokenPipeError(32, "Broken pipe")):
+            assert _map_error(lost).code == "dbus_lost", lost
+        assert _map_error(TimeoutError()).code == "timeout"
+        assert _map_error(RuntimeError("BleakDeviceNotFoundError: not found")).code == "ble_error", "a device that is out of range is not a lost bus"
 
         # A connected BMS counts too: it is disconnected (object kept) to make room.
         class Bms:

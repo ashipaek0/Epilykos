@@ -1517,6 +1517,9 @@ function bindSwitchPicker(kind, prefix) {
   pick.addEventListener('change', function() {
     var s = switchables[Number(pick.value)];
     if (!s) return;
+    // A different control has its own range and unit: the old ones belonged to the one it replaces.
+    var before = document.getElementById(prefix + '-entity').value;
+    var replaced = !!before && before !== s.entity;
     document.getElementById(prefix + '-source').value = s.source;
     document.getElementById(prefix + '-device').value = s.device || '';
     document.getElementById(prefix + '-entity').value = s.entity;
@@ -1527,9 +1530,9 @@ function bindSwitchPicker(kind, prefix) {
     var label = document.getElementById(prefix + '-label') || document.getElementById(prefix + '-name');
     if (label && !label.value.trim()) label.value = s.source === 'device' ? s.label : (s.metric || s.entity);
     if (kind === 'select' && s.source === 'ha') fillStatesFromHA(s);
-    if (kind === 'set' && s.source === 'ha') fillRangeFromHA(s);
+    if (kind === 'set' && s.source === 'ha') fillRangeFromHA(s, replaced);
     if (kind === 'select' && s.source === 'device') fillStatesFromDevice(s);
-    if (kind === 'set' && s.source === 'device') fillRangeFromDevice(s);
+    if (kind === 'set' && s.source === 'device') fillRangeFromDevice(s, replaced);
     if (kind === 'button') onButtonPicked(s, prefix);
   });
 }
@@ -1547,10 +1550,10 @@ function fillStatesFromDevice(s) {
 }
 
 /** A device setting knows its own range, step and unit: fill in what is still empty. */
-function fillRangeFromDevice(s) {
+function fillRangeFromDevice(s, replace) {
   [['min', s.min], ['max', s.max], ['step', s.step], ['unit', s.unit]].forEach(function(pair) {
     var el = document.getElementById('modal-num-' + pair[0]);
-    if (el && pair[1] != null && pair[1] !== '' && !String(el.value).trim()) el.value = pair[1];
+    if (el && pair[1] != null && pair[1] !== '' && (replace || !String(el.value).trim())) el.value = pair[1];
   });
 }
 
@@ -1778,7 +1781,7 @@ function buildNumericControlForm(block) {
   return html;
 }
 // A Home Assistant number knows its own range and unit: fill in what is still empty.
-function fillRangeFromHA(s) {
+function fillRangeFromHA(s, replace) {
   fetch('/api/ha/entity-actions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -1787,7 +1790,7 @@ function fillRangeFromHA(s) {
     var m = (d && d.modes) || {};
     [['min', m.min], ['max', m.max], ['step', m.step], ['unit', m.unit]].forEach(function(pair) {
       var el = document.getElementById('modal-num-' + pair[0]);
-      if (el && pair[1] != null && !String(el.value).trim()) el.value = pair[1];
+      if (el && pair[1] != null && (replace || !String(el.value).trim())) el.value = pair[1];
     });
   }).catch(function() { /* the range stays as typed */ });
 }
@@ -2661,7 +2664,8 @@ function readSettingsForm(block) {
       if (!config.entity) return 'Pick what this ' + what + ' controls.';
       config.label = nv('label');
       config.action = nv('action');
-      if (!config.action) return 'Set the action this ' + what + ' sends (for a Home Assistant number: number.set_value).';
+      // An inverter or battery setting is changed through its own route, not by an action name.
+      if (!config.action && config.source !== 'device') return 'Set the action this ' + what + ' sends (for a Home Assistant number: number.set_value).';
       config.unit = nv('unit');
       if (nv('min') === '' || nv('max') === '') return 'Set the lowest and highest value this ' + what + ' can send.';
       config.min = Number(nv('min')); config.max = Number(nv('max'));

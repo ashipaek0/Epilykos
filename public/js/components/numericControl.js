@@ -109,12 +109,16 @@ export function createNumericController(container, config, view, { doFetch, now 
   let settled = null;         // the value the device is known to have, or was last sent
   let timer = null, sending = false, messageTimer = null, watcher = null;
 
+  // Why the control can't be used (it can't be read, or can't be changed) stays on the card
+  // until that changes; a message about a change fades after a few seconds back to it.
+  let note = '';
+  const show = text => { if (statusEl) statusEl.textContent = text; };
   const say = text => {
-    if (!statusEl) return;
-    statusEl.textContent = text;
     clearTimeout(messageTimer);
-    if (text) messageTimer = setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    show(text || note);
+    if (text) messageTimer = setTimeout(() => show(note), 4000);
   };
+  const setNote = text => { note = text || ''; if (!messageTimer) show(note); };
 
   async function commit(value) {
     clearTimeout(timer); timer = null;
@@ -174,8 +178,12 @@ export function createNumericController(container, config, view, { doFetch, now 
         delete container.dataset.pending; delete container.dataset.pendingUntil;
       }
       if (sending || container.dataset.dragging) return;
-      settled = v;
-      view.show(v);
+      // What the device has, as it is. The card's own step or range may not fit it (45 A on a
+      // step of 10): showing or remembering the nearest step would send that as "the value
+      // you saw", and the device refuses it as changed since. The control itself still moves in steps.
+      const exact = Number(raw);
+      settled = exact;
+      view.show(exact);
     },
     get settled() { return settled; }
   };
@@ -183,12 +191,19 @@ export function createNumericController(container, config, view, { doFetch, now 
   // An inverter or battery setting has no polled metric: read it live now and every minute.
   if (isDeviceSetting(config)) {
     watcher = watchDeviceSetting(container, config, result => {
-      if (result.error) { container.classList.add('is-unavailable'); container.title = result.error; return; }
+      if (sending) return;   // a change is on its way
+      if (result.error) {
+        container.classList.add('is-unavailable'); container.title = result.error;
+        setNote(`Can't read this setting: ${result.error}`);
+        return;
+      }
       container.classList.remove('is-unavailable');
       container.removeAttribute('title');
       api.reading(result.value, 'device', {});
-      view.busy(result.writable === false);
-      if (result.writable === false && result.blockedReason) container.title = result.blockedReason;
+      const locked = result.writable === false;
+      view.busy(locked);
+      if (locked && result.blockedReason) container.title = result.blockedReason;
+      setNote(locked ? `Can't be changed: ${result.blockedReason || 'the device does not allow it now'}` : '');
     }, { doFetch });
   }
   return api;

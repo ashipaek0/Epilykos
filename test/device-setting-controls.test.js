@@ -67,7 +67,10 @@ test('each card offers only the device settings of its type, and the Button card
   assert.equal(f({ source: 'ha', action: 'switch.toggle' }, 'toggle'), true, 'other sources are unchanged');
   assert.equal(f({ source: 'ha', action: null, selectAction: 'select.select_option' }, 'select'), true);
   assert.equal(f({ source: 'mqtt', action: 'toggle', selectAction: 'set', setAction: 'set' }, 'button'), true);
-  assert.match(src, /fillStatesFromDevice\(s\)/); assert.match(src, /fillRangeFromDevice\(s\)/);
+  assert.match(src, /fillStatesFromDevice\(s\)/); assert.match(src, /fillRangeFromDevice\(s, replaced\)/); assert.match(src, /var replaced = !!before && before !== s\.entity;/, 'a different control gets its own range, not the old one\'s');
+  // A device setting has no action name, so the slider and knob form must not ask for one (it refused to save the card, with only a small red line saying why).
+  assert.match(src, /if \(!config\.action && config\.source !== 'device'\) return 'Set the action this '/);
+  assert.doesNotMatch(src, /if \(!config\.action\) return 'Set the action this '/);
 });
 
 // ── Reading and changing ────────────────────────────────────────────
@@ -176,6 +179,41 @@ test('a setting that cannot be changed locks the control and says why; a read er
   await later();
   assert.equal(h.classes.has('is-unavailable'), true);
   assert.equal(h.container.title, 'timeout');
+});
+
+test('a setting that is off the card\'s step grid is shown and remembered as the device has it, so a change is not refused as "changed since you looked"', async () => {
+  const { createNumericController } = await load('public/js/components/numericControl.js');
+  const h = harness();
+  // The device has 45 A; the card was set up with a step of 10 (0 to 100), so 45 is between two steps.
+  const grid = { source: 'device', device: 'Lux', entity: 'ac_charge_battery_current', min: 0, max: 100, step: 10, unit: 'A' };
+  const r = recorder([reply({ value: 45, writable: true }), reply({ success: true, value: 60 })]);
+  const c = createNumericController(h.container, grid, h.view, { doFetch: r.doFetch });
+  await later();
+  assert.deepEqual(h.shown, [45], 'shows 45, not the nearest step (50)');
+  assert.equal(c.settled, 45, 'and remembers 45');
+  await c.commitNow(60);
+  assert.deepEqual(r.sent[1].body, { device: 'Lux', setting: 'ac_charge_battery_current', value: 60, expected: 45 }, 'the change carries what the device has, which it matches');
+  assert.equal(c.settled, 60);
+  // A device above the card's top is not clamped to it either.
+  const h2 = harness();
+  const r2 = recorder([reply({ value: 120, writable: true }), reply({ success: true, value: 90 })]);
+  const c2 = createNumericController(h2.container, grid, h2.view, { doFetch: r2.doFetch });
+  await later();
+  assert.equal(c2.settled, 120);
+  await c2.commitNow(90);
+  assert.equal(r2.sent[1].body.expected, 120);
+});
+
+test('why a control is locked or cannot be read stays on the card, not only in its tooltip', async () => {
+  const { createNumericController } = await load('public/js/components/numericControl.js');
+  let h = harness();
+  createNumericController(h.container, cfg, h.view, { doFetch: recorder([reply({ value: 30, writable: false, blockedReason: 'Detected device is not single-phase GETA (type13)' })]).doFetch });
+  await later();
+  assert.match(h.status.textContent, /^Can't be changed: Detected device is not single-phase GETA/);
+  h = harness();
+  createNumericController(h.container, cfg, h.view, { doFetch: recorder([reply({ error: 'timeout' }, false)]).doFetch });
+  await later();
+  assert.equal(h.status.textContent, "Can't read this setting: timeout");
 });
 
 test('other sources still send through /api/action with no read of their own', async () => {
