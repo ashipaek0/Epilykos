@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42994477276.1",
-    "version": "1.2.4-dev+1eced94",
-    "commit": "1eced9421393a6fad3c18d240280a89aecf277c0",
-    "digest": "sha256:3f4bd2ed4448124e2d0d302a60d3840ad1ca2f42b10eb2417e2721f492921e43",
+    "buildId": "42998633248.1",
+    "version": "1.2.4-dev+7475737",
+    "commit": "7475737374fd9cd6b43e6dbab034a71174e884f6",
+    "digest": "sha256:daf1d45a08546edd9bca9e42b0b04300d98c2267a50f2be09466e8f28ffa8ccc",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T09:21:43Z",
+    "builtAt": "2026-11-11T09:51:26Z",
     "kind": "release",
     "notes": [
-      "Dashboard style: each dashboard can have its own background and blocks (#315)"
+      "Layout editor: the Dashboard style panel scrolls (#316)"
     ]
   },
   "history": [
+    {
+      "buildId": "42998633248.1",
+      "version": "1.2.4-dev+7475737",
+      "commit": "7475737374fd9cd6b43e6dbab034a71174e884f6",
+      "digest": "sha256:daf1d45a08546edd9bca9e42b0b04300d98c2267a50f2be09466e8f28ffa8ccc",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T09:51:26Z",
+      "kind": "release",
+      "notes": [
+        "Layout editor: the Dashboard style panel scrolls (#316)"
+      ]
+    },
     {
       "buildId": "42994477276.1",
       "version": "1.2.4-dev+1eced94",
@@ -364,19 +376,6 @@
       "builtAt": "2026-11-08T09:27:56Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "42467341097.1",
-      "version": "1.1.2-dev+3f35c73",
-      "commit": "3f35c736f29ac49b9a7b367a12e09c75e3acb673",
-      "digest": "sha256:0cce30ba22b32cd4148107f7a7f5fbfa3f30f711e2900f145566b9c2f5aa4bd4",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T09:29:04Z",
-      "kind": "release",
-      "notes": [
-        "Combined metrics: On/Off from a limit (#284)",
-        "Generator status card (#282)"
-      ]
     }
   ]
 }
