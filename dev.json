@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42998633248.1",
-    "version": "1.2.4-dev+7475737",
-    "commit": "7475737374fd9cd6b43e6dbab034a71174e884f6",
-    "digest": "sha256:daf1d45a08546edd9bca9e42b0b04300d98c2267a50f2be09466e8f28ffa8ccc",
+    "buildId": "43006212187.1",
+    "version": "1.2.4-dev+8f2a303",
+    "commit": "8f2a303a8aedc22ecdaa34fc6669fc7d87bcda35",
+    "digest": "sha256:277a810113d0c3d26a93267b3ba0ed971aab5fda37088305aa7c292e0a2e21fb",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T09:51:26Z",
+    "builtAt": "2026-11-11T10:45:24Z",
     "kind": "release",
     "notes": [
-      "Layout editor: the Dashboard style panel scrolls (#316)"
+      "Dashboard grid, step 1: the placement of blocks moves to one module (#317)"
     ]
   },
   "history": [
+    {
+      "buildId": "43006212187.1",
+      "version": "1.2.4-dev+8f2a303",
+      "commit": "8f2a303a8aedc22ecdaa34fc6669fc7d87bcda35",
+      "digest": "sha256:277a810113d0c3d26a93267b3ba0ed971aab5fda37088305aa7c292e0a2e21fb",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T10:45:24Z",
+      "kind": "release",
+      "notes": [
+        "Dashboard grid, step 1: the placement of blocks moves to one module (#317)"
+      ]
+    },
     {
       "buildId": "42998633248.1",
       "version": "1.2.4-dev+7475737",
@@ -366,16 +378,6 @@
         "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
         "Combined metrics: On/Off from a limit (#284)"
       ]
-    },
-    {
-      "buildId": "42467266617.1",
-      "version": "1.1.2-dev+b29a21e",
-      "commit": "b29a21e6d1ea005fa4adc0929359af8284412692",
-      "digest": "sha256:b07760bc309caf009264ec646ffce51650a66272b90a9946fbc2e0839257e844",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T09:27:56Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
