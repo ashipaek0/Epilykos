@@ -24,7 +24,7 @@ import { ensureBlockIds } from './utils/blockId.js';
 import { ensureChartJS } from './chartLoader.js';
 import { applyBlockStyle } from './components/blockStyle.js';
 import { globalAppearance, effectiveAppearance, applyAppearance } from './appearance.js';
-import { gridOf, placeBlocks, blockStyle, areaHeight } from './layoutGrid.js';
+import { gridOf, placeBlocks, blockStyle, areaHeight, SCALE_REFERENCE_WIDTH } from './layoutGrid.js';
 
 let dashboardConfig;
 let defaultLook = null;   // Settings → Appearance: the look of every dashboard that does not override it
@@ -178,7 +178,18 @@ function renderDashboard() {
   });
 
   container.style.position = 'relative';
-  container.style.height = areaHeight(rendered, grid) + 'px';
+  if (grid.scale) {
+    // Scaled to the screen width: the area's height, like every px length in it, is its width's share of
+    // SCALE_REFERENCE_WIDTH times the stated size (style.css), so it follows the window without being redrawn.
+    container.style.height = '';
+    container.style.setProperty('--extent', String(areaHeight(rendered, grid)));
+    trackScale(container);
+  } else {
+    container.style.height = areaHeight(rendered, grid) + 'px';
+    container.style.removeProperty('--extent');
+    untrackScale(container);
+  }
+  container.classList.toggle('is-scaled', !!grid.scale);
 
   // Auth-dependent UI: sign-in/out, editor link
   fetch('/api/auth/status')
@@ -294,7 +305,26 @@ async function switchDashboard(id) {
 function applyDashboardLook() {
   if (!defaultLook) return;
   const active = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
-  applyAppearance(effectiveAppearance(defaultLook, active && active.appearance));
+  // A dashboard that scales to the screen width has its picture on the layout area, so a block sits on the same
+  // part of it on any screen; the page keeps it too, for phones, where the blocks stack (style.css hides it elsewhere).
+  const scaled = !!(active && gridOf(active).scale);
+  const area = document.getElementById('dashboard-container');
+  document.body.classList.toggle('scale-layout', scaled);
+  applyAppearance(effectiveAppearance(defaultLook, active && active.appearance), { anchored: scaled && area ? { el: area, fallback: true } : null });
+}
+
+// The area's width over SCALE_REFERENCE_WIDTH, as --s on the area, for a dashboard that scales to the screen width.
+let scaleObserver = null;
+function trackScale(area) {
+  const set = () => area.style.setProperty('--s', String(Math.round((area.clientWidth / SCALE_REFERENCE_WIDTH) * 1000) / 1000));
+  set();
+  if (typeof ResizeObserver !== 'function') { window.addEventListener('resize', set); return; }
+  if (!scaleObserver) scaleObserver = new ResizeObserver(entries => entries.forEach(e => e.target.style.setProperty('--s', String(Math.round((e.contentRect.width / SCALE_REFERENCE_WIDTH) * 1000) / 1000))));
+  scaleObserver.observe(area);
+}
+function untrackScale(area) {
+  if (scaleObserver) scaleObserver.unobserve(area);
+  area.style.removeProperty('--s');
 }
 
 function applyBranding(cfg) {

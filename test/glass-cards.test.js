@@ -34,7 +34,7 @@ async function glassRun(cfg) {
   return { on: classes.has('glass-cards'), transparent: classes.has('transparent-blocks'), props };
 }
 const dashSrc = read('public/js/dashboard.js');
-assert.match(dashSrc, /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\)\)/, 'the dashboard applies its look');
+assert.match(dashSrc, /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\), \{ anchored:/, 'the dashboard applies its look');
 
 (async () => {
 const run = glassRun;

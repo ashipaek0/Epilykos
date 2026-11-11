@@ -12,7 +12,7 @@ const row = html.split('\n').find(l => l.includes('id="transparent-blocks"'));
 assert.ok(row && row.includes('id="square-corners" name="square_corners"'), 'the toggle sits on the transparency row');
 assert.match(read('public/js/appearance.js'), /classList\.toggle\('square-corners', !!look\.squareCorners\)/);
 assert.match(read('public/js/appearance.js'), /squareCorners: cfg\.square_corners === 'true'/, 'the default comes from the setting');
-assert.match(read('public/js/dashboard.js'), /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\)\)/);
+assert.match(read('public/js/dashboard.js'), /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\), \{ anchored:/);
 assert.match(read('routes/metrics.js'), /'transparent_blocks', 'square_corners'/, 'the dashboard is told the setting');
 assert.match(read('server.js'), /'transparent_blocks', 'square_corners'/);
 const css = read('public/style.css');

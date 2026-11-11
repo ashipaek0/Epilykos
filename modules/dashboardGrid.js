@@ -26,6 +26,7 @@ function sanitizeGrid(raw) {
   if (raw.gap !== '' && raw.gap != null && Number.isFinite(gap)) out.gap = Math.min(MAX_GAP, Math.max(0, Math.round(gap)));
   if (typeof raw.free === 'boolean') out.free = raw.free;
   if (typeof raw.overlap === 'boolean') out.overlap = raw.overlap;
+  if (typeof raw.scale === 'boolean') out.scale = raw.scale;
   return Object.keys(out).length ? out : undefined;
 }
 

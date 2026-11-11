@@ -99,7 +99,7 @@ function fakeDom(theme = 'light') {
 
   // Wiring.
   const dash = read('public/js/dashboard.js'), editor = read('public/js/editor.js');
-  assert.match(dash, /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\)\)/);
+  assert.match(dash, /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\), \{ anchored:/);
   assert.match(dash, /function renderDashboard\(\) \{\s*if \(!dashboardConfig[^\n]*\n\s*applyDashboardLook\(\);/, 'every render applies the active dashboard\'s look');
   assert.doesNotMatch(dash, /applyGlass|_bgLight/, 'the old page-wide settings code is gone');
   assert.match(editor, /label: 'Dashboard style…'/); assert.match(editor, /applyEditorLook\(\);\s*\n\s*selectBlock\(opts\.keepSelection/, 'every tab shows its look');
