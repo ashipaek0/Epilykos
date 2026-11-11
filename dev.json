@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43007405097.1",
-    "version": "1.2.4-dev+7bcd9a3",
-    "commit": "7bcd9a3e51063995768c5ce34a37fc9ecbcd6121",
-    "digest": "sha256:0be8c44fc98543a10916ddb8003b8dd6313a08dfcc8812e3e420d07317f02e68",
+    "buildId": "43009458459.1",
+    "version": "1.2.4-dev+c2287ab",
+    "commit": "c2287ab15c558dff93e4963a3438408fecd17cbe",
+    "digest": "sha256:442b9e36277c8e3e6a82aac087de64f81473dbec7bc48f8ae954eddb19dae648",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T10:53:59Z",
+    "builtAt": "2026-11-11T11:09:01Z",
     "kind": "release",
     "notes": [
-      "Dashboard grid, step 2: the dashboard page uses the grid a dashboard sets (#318)"
+      "Dashboard grid, step 3: the editor places cards on the dashboard's grid (#319)"
     ]
   },
   "history": [
+    {
+      "buildId": "43009458459.1",
+      "version": "1.2.4-dev+c2287ab",
+      "commit": "c2287ab15c558dff93e4963a3438408fecd17cbe",
+      "digest": "sha256:442b9e36277c8e3e6a82aac087de64f81473dbec7bc48f8ae954eddb19dae648",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T11:09:01Z",
+      "kind": "release",
+      "notes": [
+        "Dashboard grid, step 3: the editor places cards on the dashboard's grid (#319)"
+      ]
+    },
     {
       "buildId": "43007405097.1",
       "version": "1.2.4-dev+7bcd9a3",
@@ -357,20 +369,6 @@
       "digest": "sha256:e139b7134aeb9cb0b0cdfc9b494ee65c165e4c159a502ecf33bcf54e0ca18b0e",
       "image": "irunmole/epilykos:dev",
       "builtAt": "2026-11-08T10:48:53Z",
-      "kind": "release",
-      "notes": [
-        "Battery bank test: don't depend on a D-Bus socket",
-        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
-        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
-      ]
-    },
-    {
-      "buildId": "42472547075.1",
-      "version": "1.1.3-dev+aa38c99",
-      "commit": "aa38c994f717e14c32f0b700d0e4142c9d11c66c",
-      "digest": "sha256:b1e69abd09f163ddca5ca05fd61c068ef66404ee1b4ad0b7fca80203fd7d2161",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T10:42:41Z",
       "kind": "release",
       "notes": [
         "Battery bank test: don't depend on a D-Bus socket",
