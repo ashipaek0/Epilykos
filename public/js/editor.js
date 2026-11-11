@@ -10,6 +10,7 @@ import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { applyBlockStyle, fontScale, cardGlass } from './components/blockStyle.js';
+import { barGaugeLook } from './components/barGaugeLook.js';
 import { controlStyle, layoutHasPill, layoutLabel, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
@@ -460,10 +461,40 @@ function renderMultiValueRows(container) {
 }
 
 /** Bar Gauge: metrics array with min/max/color/gradient */
+/** Orientation and bar ends, shared by the two bar gauge cards (see components/barGaugeLook.js). */
+function buildBarGaugeLookFields(cfg) {
+  var look = barGaugeLook(cfg);
+  return [
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Bars</legend>',
+    '<div data-ui="grid2">',
+    '<label data-ui="label">Orientation <select id="modal-bargauge-orientation" data-ui="input">',
+    '<option value="horizontal"' + (look.vertical ? '' : ' selected') + '>Horizontal (rows)</option>',
+    '<option value="vertical"' + (look.vertical ? ' selected' : '') + '>Vertical (columns)</option>',
+    '</select></label>',
+    '<label data-ui="label">Bar ends <select id="modal-bargauge-ends" data-ui="input">',
+    '<option value=""' + (look.ends ? '' : ' selected') + '>Default</option>',
+    '<option value="rounded"' + (look.ends === 'rounded' ? ' selected' : '') + '>Rounded</option>',
+    '<option value="square"' + (look.ends === 'square' ? ' selected' : '') + '>Square</option>',
+    '</select></label>',
+    '</div>',
+    '</fieldset>'
+  ].join('\n');
+}
+
+/** Save them on the card's config; the default (horizontal, default ends) is left out. */
+function readBarGaugeLook(config) {
+  var vertical = document.getElementById('modal-bargauge-orientation')?.value === 'vertical';
+  var ends = document.getElementById('modal-bargauge-ends')?.value;
+  if (vertical) config.orientation = 'vertical'; else delete config.orientation;
+  if (ends === 'rounded' || ends === 'square') config.barEnds = ends; else delete config.barEnds;
+}
+
 function buildBarGaugeForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset data-ui="section">';
+  var html = buildBarGaugeLookFields(cfg);
+  html += '<fieldset data-ui="section">';
   html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="bg-rows"></div>';
   html += '<button type="button" id="bg-add-row" data-ui="add">+ Add Row</button>';
@@ -521,7 +552,8 @@ function renderBarGaugeRows(container) {
 function buildBarGaugeRetroForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset data-ui="section">';
+  var html = buildBarGaugeLookFields(cfg);
+  html += '<fieldset data-ui="section">';
   html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="bgr-rows"></div>';
   html += '<button type="button" id="bgr-add-row" data-ui="add">+ Add Row</button>';
@@ -2327,6 +2359,7 @@ function readSettingsForm(block) {
       break;
     }
     case 'bar-gauge': {
+      readBarGaugeLook(config);
       var bgData = document.getElementById('bg-data');
       var bgRows = [];
       try { bgRows = JSON.parse(bgData.textContent); } catch(e) {}
@@ -2357,6 +2390,7 @@ function readSettingsForm(block) {
       break;
     }
     case 'bar-gauge-retro': {
+      readBarGaugeLook(config);
       var bgrData = document.getElementById('bgr-data');
       var bgrRows = [];
       try { bgrRows = JSON.parse(bgrData.textContent); } catch(e) {}
