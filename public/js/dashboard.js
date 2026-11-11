@@ -147,7 +147,7 @@ function renderDashboard() {
     if (block.enabled === false) return;
     const builder = getBuilder(block.type);
     if (!builder) return;
-    positioned.push({ block, x: block.gridX ?? 0, y: block.gridY ?? 0, w: block.gridW ?? 12, h: block.gridH ?? 4 });
+    positioned.push({ block, x: block.gridX ?? 0, y: block.gridY ?? 0, w: block.gridW ?? grid.columns, h: block.gridH ?? 4 });
   });
   const placed = placeBlocks(positioned, grid);
 

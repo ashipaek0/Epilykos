@@ -78,6 +78,7 @@ function getDashboardConfig() {
  */
 function saveDashboardConfig(config) {
   require('./dashboardAppearance').sanitizeDashboards(config);   // only valid looks are kept
+  require('./dashboardGrid').sanitizeGrids(config);               // and only valid grids
   moveControlBlocksOut(config);
   // Save to new granular keys
   if (config.dashboards) {
