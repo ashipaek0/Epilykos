@@ -62,7 +62,7 @@ function rng(seed) { let s = seed >>> 0; return () => ((s = (Math.imul(s, 166452
 
 (async () => {
   const M = await import(pathToFileURL(path.join(REPO, 'public/js/layoutGrid.js')).href);
-  assert.deepStrictEqual({ ...M.STANDARD_GRID }, { columns: 12, rowHeight: 50, gap: 1, free: false, overlap: false });
+  assert.deepStrictEqual({ ...M.STANDARD_GRID }, { columns: 12, rowHeight: 50, gap: 2, free: false, overlap: false });
   assert.strictEqual(M.gridOf({ id: 'x' }), M.STANDARD_GRID, 'a dashboard that says nothing is on the standard grid');
   assert.strictEqual(M.gridOf(undefined), M.STANDARD_GRID);
 
@@ -106,7 +106,7 @@ function rng(seed) { let s = seed >>> 0; return () => ((s = (Math.imul(s, 166452
   console.log('ok - the layout is not changed, and an empty dashboard has no height');
 
   // The grid is a parameter (used from the next steps on): the same blocks on another grid.
-  const fine = { columns: 24, rowHeight: 25, gap: 1, free: false, overlap: false };
+  const fine = { columns: 24, rowHeight: 25, gap: 2, free: false, overlap: false };
   const std = modulePlace(M, [{ id: 'a', gridX: 3, gridY: 2, gridW: 6, gridH: 4 }], M.STANDARD_GRID).blocks[0];
   const dbl = modulePlace(M, [{ id: 'a', gridX: 6, gridY: 4, gridW: 12, gridH: 8 }], fine).blocks[0];
   assert.deepStrictEqual(dbl, std, 'a layout doubled on a grid twice as fine looks the same');
