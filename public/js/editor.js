@@ -2257,14 +2257,13 @@ function readSettingsForm(block) {
   config.fontColor = document.getElementById('modal-fontcolor')?.value || '';
   if (config.fontColor === '#000000' && document.getElementById('modal-fontcolor')?.dataset.dirty !== 'true') config.fontColor = '';
   config.fontSize = document.getElementById('modal-fontsize')?.value || '';
-  var glassOwn = cardGlass({
-    glass: document.getElementById('modal-glass')?.value,
-    glassBlur: document.getElementById('modal-glassblur')?.value,
-    glassFrost: document.getElementById('modal-glassfrost')?.value
-  });
-  ['glass', 'glassBlur', 'glassFrost'].forEach(function(key) {
-    if (glassOwn[key] === undefined) { delete config[key]; delete block[key]; }
-    else { config[key] = glassOwn[key]; block[key] = glassOwn[key]; }
+  // Glass: on or off for this card (empty = the dashboard's), and its own blur and frost (empty = the dashboard's)
+  var glassChoice = document.getElementById('modal-glass')?.value;
+  if (glassChoice === 'on' || glassChoice === 'off') config.glass = glassChoice; else delete config.glass;
+  [['glassBlur', 'modal-glassblur', 0, 40], ['glassFrost', 'modal-glassfrost', 20, 200]].forEach(function(g) {
+    var raw = String(document.getElementById(g[1])?.value ?? '').trim();
+    var n = raw === '' ? NaN : Number(raw);
+    if (Number.isFinite(n)) config[g[0]] = Math.min(g[3], Math.max(g[2], Math.round(n))); else delete config[g[0]];
   });
 
   // Apply common fields to block
@@ -2273,6 +2272,9 @@ function readSettingsForm(block) {
   block.bgColor = config.bgColor;
   block.fontColor = config.fontColor;
   block.fontSize = config.fontSize;
+  ['glass', 'glassBlur', 'glassFrost'].forEach(function(key) {
+    if (config[key] === undefined) delete block[key]; else block[key] = config[key];
+  });
 
   var type = block.type;
 
