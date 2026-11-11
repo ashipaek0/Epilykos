@@ -77,6 +77,7 @@ function getDashboardConfig() {
  * Also updates the legacy dashboard_config blob for backward compatibility.
  */
 function saveDashboardConfig(config) {
+  require('./dashboardAppearance').sanitizeDashboards(config);   // only valid looks are kept
   moveControlBlocksOut(config);
   // Save to new granular keys
   if (config.dashboards) {

@@ -21,24 +21,31 @@ assert.match(html, /id="glass-options" hidden/, 'the sliders are hidden until th
 assert.match(read('public/settings.js'), /function syncGlassOptions\(\)/);
 
 // The dashboard: the class and two numbers; a stored value that is not a number never reaches the stylesheet.
-const src = read('public/js/dashboard.js');
-const fn = src.match(/function applyGlass\(cfg\) \{[\s\S]*?\n\}\n/);
-assert.ok(fn, 'applyGlass exists');
-function run(cfg) {
-  const classes = new Set(cfg.__start || []), props = {};
-  const document = { body: { classList: { toggle: (c, on) => { on ? classes.add(c) : classes.delete(c); }, remove: c => classes.delete(c) },
-    style: { setProperty: (k, v) => { props[k] = v; }, removeProperty: k => { delete props[k]; } } } };
-  new Function('document', fn[0] + '; applyGlass(arguments[1]);')(document, cfg);
+// (public/js/appearance.js, which also gives each dashboard its own look: test/dashboard-appearance.test.js.)
+const { pathToFileURL } = require('node:url');
+async function glassRun(cfg) {
+  const A = await import(pathToFileURL(path.join(__dirname, '..', 'public/js/appearance.js')).href);
+  const classes = new Set(), props = {};
+  const body = { classList: { toggle: (c, on) => { on ? classes.add(c) : classes.delete(c); }, add: c => classes.add(c), remove: (...c) => c.forEach(x => classes.delete(x)) },
+    style: { setProperty: (k, v) => { props[k] = v; }, removeProperty: k => { delete props[k]; } }, addEventListener() {} };
+  global.document = { body, documentElement: { getAttribute: () => 'light' } };
+  A.applyAppearance(A.effectiveAppearance(A.globalAppearance(cfg), undefined), {});
+  delete global.document;
   return { on: classes.has('glass-cards'), transparent: classes.has('transparent-blocks'), props };
 }
-assert.deepEqual(run({}), { on: false, transparent: false, props: {} }, 'off by default');
-assert.deepEqual(run({ glass_cards: 'false', glass_blur: '30' }), { on: false, transparent: false, props: {} });
-assert.deepEqual(run({ glass_cards: 'true' }), { on: true, transparent: false, props: { '--glass-blur': '18px', '--glass-frost': '1' } }, 'defaults');
-assert.equal(run({ glass_cards: 'true', __start: ['transparent-blocks'] }).transparent, false, 'glass replaces transparent blocks');
-assert.equal(run({ glass_cards: 'false', __start: ['transparent-blocks'] }).transparent, true, 'transparent blocks untouched when glass is off');
-assert.deepEqual(run({ glass_cards: 'true', glass_blur: '25', glass_frost: '150' }).props, { '--glass-blur': '25px', '--glass-frost': '1.5' });
-assert.deepEqual(run({ glass_cards: 'true', glass_blur: '9999', glass_frost: '0' }).props, { '--glass-blur': '40px', '--glass-frost': '0.2' }, 'clamped');
-assert.deepEqual(run({ glass_cards: 'true', glass_blur: '1px;} body{display:none', glass_frost: 'abc' }).props, { '--glass-blur': '18px', '--glass-frost': '1' }, 'text is never passed on');
+const dashSrc = read('public/js/dashboard.js');
+assert.match(dashSrc, /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\)\)/, 'the dashboard applies its look');
+
+(async () => {
+const run = glassRun;
+assert.deepEqual(await run({}), { on: false, transparent: false, props: {} }, 'off by default');
+assert.deepEqual(await run({ glass_cards: 'false', glass_blur: '30' }), { on: false, transparent: false, props: {} });
+assert.deepEqual(await run({ glass_cards: 'true' }), { on: true, transparent: false, props: { '--glass-blur': '18px', '--glass-frost': '1' } }, 'defaults');
+assert.equal((await run({ glass_cards: 'true', transparent_blocks: 'true' })).transparent, false, 'glass replaces transparent blocks');
+assert.equal((await run({ glass_cards: 'false', transparent_blocks: 'true' })).transparent, true, 'transparent blocks untouched when glass is off');
+assert.deepEqual((await run({ glass_cards: 'true', glass_blur: '25', glass_frost: '150' })).props, { '--glass-blur': '25px', '--glass-frost': '1.5' });
+assert.deepEqual((await run({ glass_cards: 'true', glass_blur: '9999', glass_frost: '0' })).props, { '--glass-blur': '40px', '--glass-frost': '0.2' }, 'clamped');
+assert.deepEqual((await run({ glass_cards: 'true', glass_blur: '1px;} body{display:none', glass_frost: 'abc' })).props, { '--glass-blur': '18px', '--glass-frost': '1' }, 'text is never passed on');
 
 // The stylesheet covers every card the dashboard builds (each block's root class), leaves the embedded page alone,
 // and gives the tiles of blocks that have no card of their own the glass instead.
@@ -68,3 +75,4 @@ assert.match(read('public/index.html'), /<link rel="stylesheet" href="glass\.css
 assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public/js/glass-proto.js')), 'the ?glass=1 prototype switch is gone');
 console.log('ok - glass cards setting');
 checks.done();
+})().catch(e => { console.error(e); process.exit(1); });
