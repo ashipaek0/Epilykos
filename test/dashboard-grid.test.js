@@ -40,8 +40,8 @@ const REPO = path.join(__dirname, '..');
   // The grid of a dashboard.
   assert.strictEqual(M.gridOf({ id: 'a' }), M.STANDARD_GRID); assert.strictEqual(M.gridOf({ grid: {} }), M.STANDARD_GRID);
   assert.strictEqual(M.gridOf({ grid: { columns: 99, gap: 'x' } }), M.STANDARD_GRID, 'nothing valid: the standard grid');
-  assert.deepStrictEqual({ ...M.gridOf({ grid: { columns: 60, gap: 0, overlap: true } }) }, { columns: 60, rowHeight: 10, gap: 0, free: false, overlap: true });
-  assert.deepStrictEqual({ ...M.gridOf({ grid: { gap: 8 } }) }, { columns: 12, rowHeight: 50, gap: 8, free: false, overlap: false }, 'what it leaves out is standard');
+  assert.deepStrictEqual({ ...M.gridOf({ grid: { columns: 60, gap: 0, overlap: true } }) }, { columns: 60, rowHeight: 10, gap: 0, free: false, overlap: true, scale: false });
+  assert.deepStrictEqual({ ...M.gridOf({ grid: { gap: 8 } }) }, { columns: 12, rowHeight: 50, gap: 8, free: false, overlap: false, scale: false }, 'what it leaves out is standard');
   assert.strictEqual(M.precisionOf(M.gridOf({ grid: { columns: 24 } })).id, 'fine'); assert.strictEqual(M.precisionOf(M.STANDARD_GRID).id, 'standard');
   console.log('ok - a dashboard is on its own grid over the standard one');
 
@@ -112,10 +112,10 @@ const REPO = path.join(__dirname, '..');
 
   // The editor.
   const ed = fs.readFileSync(path.join(REPO, 'public/js/editor.js'), 'utf8');
-  assert.match(ed, /import \{ STANDARD_GRID, PRECISIONS, MAX_GAP, gridOf, cleanGrid, precisionOf, rescaleLayout, sizeOnGrid \} from '\.\/layoutGrid\.js'/);
+  assert.match(ed, /import \{ STANDARD_GRID, PRECISIONS, MAX_GAP, SCALE_REFERENCE_WIDTH, gridOf, cleanGrid, precisionOf, rescaleLayout, sizeOnGrid, looseBlocks \} from '\.\/layoutGrid\.js'/);
   assert.match(ed, /editorGrid = !tab \|\| tab\.controls \? STANDARD_GRID : gridOf\(tab\)/, 'the Controls page is always the standard grid');
   assert.match(ed, /currentTabId = tabId;\s*\n\s*setEditorGrid\(tab\);/, 'every tab sets its grid before it is drawn');
-  assert.match(ed, /float: gridIsFree\(\)/); assert.match(ed, /function gridIsFree\(\) \{ return !!\(editorGrid\.free \|\| editorGrid\.overlap\); \}/, 'overlap needs free placement');
+  assert.match(ed, /float: true, animate: true/, 'the grid starts in float mode, so blocks are drawn where they are saved'); assert.match(ed, /function gridIsFree\(\) \{ return !!\(editorGrid\.free \|\| editorGrid\.overlap\); \}/, 'overlap needs free placement');
   assert.match(ed, /if \(editorGrid\.overlap\) \{ grid\.engine\.collide = /, 'overlap stops the grid treating a block under another as a collision');
   assert.match(ed, /margin: GRID_MARGIN \* previewScale/); assert.match(ed, /GRID_MARGIN = editorGrid\.gap \/ 2/);
   assert.match(ed, /sizeOnGrid\(blockInfo\(type\), editorGrid\)\.w/, 'a dropped library block is sized for the grid');

@@ -1,6 +1,6 @@
 import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState, fetchPublicConfig } from './api.js';
 import { globalAppearance, effectiveAppearance, cleanOverrides, applyAppearance, clearAppearance } from './appearance.js';
-import { STANDARD_GRID, PRECISIONS, MAX_GAP, gridOf, cleanGrid, precisionOf, rescaleLayout, sizeOnGrid } from './layoutGrid.js';
+import { STANDARD_GRID, PRECISIONS, MAX_GAP, SCALE_REFERENCE_WIDTH, gridOf, cleanGrid, precisionOf, rescaleLayout, sizeOnGrid, looseBlocks } from './layoutGrid.js';
 import { componentBuilders } from './components/index.js';
 import { initTheme } from './theme.js';
 import { GROUPS, BLOCKS, blockInfo, icon } from './editor-catalog.js';
@@ -3120,7 +3120,9 @@ function dashboardWidth() {
 function applyPreviewScale() {
   var el = $('grid');
   if (!el || !el.clientWidth) return;
-  var k = Math.min(1, el.clientWidth / dashboardWidth());
+  // A dashboard that scales to the screen width is a fixed picture shrunk to fit; one that does not is shown at the
+  // width the dashboard has in this window.
+  var k = editorGrid.scale ? el.clientWidth / SCALE_REFERENCE_WIDTH : Math.min(1, el.clientWidth / dashboardWidth());
   k = Math.round(k * 1000) / 1000;
   el.style.setProperty('--pv-scale', String(k));
   if (k === previewScale && grid && grid.getCellHeight() === CELL_HEIGHT * k) return;
@@ -3470,7 +3472,9 @@ function applyEditorLook() {
   if (!canvas) return;
   var tab = currentTab();
   if (!tab || onControlsTab()) { clearAppearance({ backgroundEl: canvas }); return; }
-  applyAppearance(effectiveAppearance(defaultLook, tab.appearance), { backgroundEl: canvas, fixed: false });
+  // Scaled to the screen width: the picture sits on the layout area itself, as on the dashboard, not on the canvas.
+  var anchored = editorGrid.scale && $('grid') ? { el: $('grid'), fallback: false } : null;
+  applyAppearance(effectiveAppearance(defaultLook, tab.appearance), { backgroundEl: canvas, fixed: false, anchored: anchored });
 }
 
 function onOff(v) { return v ? 'On' : 'Off'; }
@@ -3625,9 +3629,12 @@ function buildLayoutGrid(tab) {
       '<button type="button" class="ed-btn-text ds-reset" id="dg-gap-reset"' + ('gap' in own ? '' : ' hidden') + '>Use default</button>' +
     '</div>' +
     '<div class="ds-row ds-row-stack">' + toggle('dg-free', 'Free placement', gridIsFreeFor(g), !!g.overlap) +
-      '<p data-ui="help">Cards stay where you drop them. Without it, they move up to fill empty space.</p></div>' +
+      '<p data-ui="help">Cards stay where you drop them. Without it, they move up to fill empty space.</p>' +
+      (!gridIsFreeFor(g) && looseBlocks(tab.layout) ? '<p data-ui="help" id="dg-loose">Some cards have empty space above them. They move up to fill it as soon as you move a card; turn on Free placement to keep them where they are.</p>' : '') + '</div>' +
     '<div class="ds-row ds-row-stack">' + toggle('dg-overlap', 'Allow overlap', !!g.overlap, false) +
       '<p data-ui="help">Cards can sit on top of each other, for example over a picture. It needs free placement, so that turns on with it. On the dashboard the card lower down is on top.</p></div>' +
+    '<div class="ds-row ds-row-stack">' + toggle('dg-scale', 'Scale to screen width', !!g.scale, false) +
+      '<p data-ui="help">The rows, the space between cards and the background picture shrink with the screen, so cards stay on the same part of the picture on any screen. The picture then sits behind the cards, as wide as they are, and starts where they start. Phones are not affected.</p></div>' +
   '</fieldset>';
 }
 function gridIsFreeFor(g) { return !!(g.free || g.overlap); }
@@ -3686,6 +3693,8 @@ function wireLayoutGrid(root) {
     setEditorGrid(tab); if (grid) grid.margin(GRID_MARGIN * previewScale);
     scheduleSave(); selectBlock(null, { force: true });
   });
+  var scale = $('dg-scale');
+  if (scale) scale.addEventListener('change', function() { setGrid({ scale: scale.checked }); });
   var free = $('dg-free'), overlap = $('dg-overlap');
   if (free) free.addEventListener('change', function() { setGrid({ free: free.checked }); });
   if (overlap) overlap.addEventListener('change', function() { setGrid(overlap.checked ? { overlap: true, free: true } : { overlap: false }); });
@@ -4235,11 +4244,16 @@ function loadTab(tabId, opts) {
   applyPreviewScale();
   grid = GridStack.init({
     column: GRID_COLUMNS, cellHeight: CELL_HEIGHT * previewScale, margin: GRID_MARGIN * previewScale,
-    float: gridIsFree(), animate: true, minRow: Math.round(4 * GRID_COLUMNS / 12),
+    float: true, animate: true, minRow: Math.round(4 * GRID_COLUMNS / 12),
     staticGrid: readOnly,
     resizable: { handles: 'e, se, s, sw, w' },
     draggable: { cancel: 'input,textarea,button,select,option,.blk-toolbar' }
   }, container);
+  // The grid starts in float mode so the blocks are drawn exactly where they are saved (the dashboard draws them
+  // there too). Without free placement it then goes to packing upward, without packing now: that happens when a
+  // block is moved, resized or removed. (Switching modes the usual way would pack the whole layout at once, and
+  // the first change of any setting would save the packed positions.)
+  if (!gridIsFree()) { grid.opts.mode = 'top'; grid.engine._mode = 'top'; }
   // Overlap: blocks may sit on top of each other, so the grid stops treating a block under another as a collision.
   // (It only makes sense without packing upward, which gridIsFree() has already switched off.)
   if (editorGrid.overlap) { grid.engine.collide = function() { return undefined; }; grid.engine.collideAll = function() { return []; }; }

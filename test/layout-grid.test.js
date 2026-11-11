@@ -62,7 +62,7 @@ function rng(seed) { let s = seed >>> 0; return () => ((s = (Math.imul(s, 166452
 
 (async () => {
   const M = await import(pathToFileURL(path.join(REPO, 'public/js/layoutGrid.js')).href);
-  assert.deepStrictEqual({ ...M.STANDARD_GRID }, { columns: 12, rowHeight: 50, gap: 2, free: false, overlap: false });
+  assert.deepStrictEqual({ ...M.STANDARD_GRID }, { columns: 12, rowHeight: 50, gap: 2, free: false, overlap: false, scale: false });
   assert.strictEqual(M.gridOf({ id: 'x' }), M.STANDARD_GRID, 'a dashboard that says nothing is on the standard grid');
   assert.strictEqual(M.gridOf(undefined), M.STANDARD_GRID);
 

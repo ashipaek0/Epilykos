@@ -25,12 +25,21 @@ export const PRECISIONS = Object.freeze([
 ]);
 export const MAX_GAP = 24;
 
+/**
+ * The width, in px, at which a dashboard's rows and gap are their stated size when it scales to the
+ * screen width (grid.scale). It is the widest the dashboard's block area gets (the page is 1400 px at
+ * most), so on a large screen a scaled dashboard looks exactly as an unscaled one; on a narrower one
+ * every row, the gap and the picture behind shrink with the width. Phones (under 769 px) stack the
+ * blocks and are not scaled.
+ */
+export const SCALE_REFERENCE_WIDTH = 1400;
+
 /** `gap` is the space between two blocks in px (each block keeps half of it on its sides). */
-export const STANDARD_GRID = Object.freeze({ columns: 12, rowHeight: 50, gap: 2, free: false, overlap: false });
+export const STANDARD_GRID = Object.freeze({ columns: 12, rowHeight: 50, gap: 2, free: false, overlap: false, scale: false });
 
 /**
  * The valid grid settings of a dashboard, by name (an empty object when it sets none):
- * columns (one of the precisions above), gap (0 to MAX_GAP px), free and overlap (booleans).
+ * columns (one of the precisions above), gap (0 to MAX_GAP px), free, overlap and scale (booleans).
  * The row height follows from the columns. The same rules are in modules/dashboardGrid.js, which
  * keeps only these when dashboards are saved; test/dashboard-grid.test.js checks they agree.
  */
@@ -43,6 +52,7 @@ export function cleanGrid(raw) {
   if (raw.gap !== '' && raw.gap != null && Number.isFinite(gap)) out.gap = Math.min(MAX_GAP, Math.max(0, Math.round(gap)));
   if (typeof raw.free === 'boolean') out.free = raw.free;
   if (typeof raw.overlap === 'boolean') out.overlap = raw.overlap;
+  if (typeof raw.scale === 'boolean') out.scale = raw.scale;
   return out;
 }
 
@@ -83,9 +93,22 @@ export function placeBlocks(items, grid = STANDARD_GRID) {
   return placed;
 }
 
-/** The CSS position and size of a placed block, in the dashboard's own units. */
+/**
+ * The CSS position and size of a placed block, in the dashboard's own units. When the dashboard scales to
+ * the screen width (grid.scale), every length in px is multiplied by --s, the area's width over
+ * SCALE_REFERENCE_WIDTH (set on the area by dashboard.js); columns are already a share of the width.
+ */
 export function blockStyle(item, grid = STANDARD_GRID) {
   const { columns, rowHeight } = grid, side = grid.gap / 2;   // half the space between blocks on each side
+  if (grid.scale) {
+    const px = n => `calc(${n}px * var(--s, 1))`;
+    return {
+      left: `calc(${(item.x / columns) * 100}% + ${px(side)})`,
+      top: px(item.top * rowHeight + side),
+      width: `calc(${(item.w / columns) * 100}% - ${px(side * 2)})`,
+      height: px(item.h * rowHeight - side * 2)
+    };
+  }
   return {
     left: `calc(${(item.x / columns) * 100}% + ${side}px)`,
     top: `${item.top * rowHeight + side}px`,
@@ -125,6 +148,28 @@ export function rescaleLayout(layout, fromColumns, toColumns) {
     block.gridH = Math.max(1, Math.round(block.gridH * ratio));
   }
   return inexact;
+}
+
+/**
+ * How many blocks have empty space above them that a layout packed upward would close: the blocks a
+ * dashboard without free placement moves up when the layout editor packs it (see editor.js). The
+ * dashboard page never does, so these are where its blocks and the editor's could differ.
+ * @param {Array<{gridX:number,gridY:number,gridW:number,gridH:number}>} layout
+ */
+export function looseBlocks(layout) {
+  const boxes = layout
+    .map(b => ({ x: Number(b.gridX), y: Number(b.gridY), w: Number(b.gridW), h: Number(b.gridH) }))
+    .filter(b => [b.x, b.y, b.w, b.h].every(Number.isFinite));
+  let loose = 0;
+  for (const b of boxes) {
+    let rest = 0;   // the lowest edge above it that it would come to rest on
+    for (const o of boxes) {
+      if (o === b || o.y + o.h > b.y || !(b.x + b.w > o.x && b.x < o.x + o.w)) continue;
+      rest = Math.max(rest, o.y + o.h);
+    }
+    if (b.y > rest) loose++;
+  }
+  return loose;
 }
 
 /** A library block's size (given for the standard grid) on a grid. */

@@ -57,16 +57,52 @@ export function effectiveAppearance(base, overrides) {
   return Object.assign({}, base, cleanOverrides(overrides));
 }
 
-let painted = null;   // { el, look }: what the background was last painted on, for a theme change
+let painted = null;   // { el, look, fixed, anchored }: what the background was last painted on, for a theme change
+
+// A picture anchored to the layout area (a dashboard that scales to the screen width, see layoutGrid.js).
+// The area gets `--pic-url` and `--pic-ratio` (width over height) and the class `has-picture` once the
+// picture is known to load; the stylesheets (style.css, editor.css) draw it from those, as wide as the area,
+// from its top left, so a block sits on the same part of the picture whatever the screen or window.
+const ratios = new Map();
+function pictureRatio(url) {
+  if (ratios.has(url)) return Promise.resolve(ratios.get(url));
+  return new Promise(resolve => {
+    if (typeof Image !== 'function') { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null;
+      if (ratio) ratios.set(url, ratio);
+      resolve(ratio);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+function clearAnchored(el) {
+  if (!el) return;
+  el.classList.remove('has-picture');
+  el.style.removeProperty('--pic-url');
+  el.style.removeProperty('--pic-ratio');
+}
+function paintAnchored(el, url) {
+  if (!url) { clearAnchored(el); return; }
+  const wanted = `url("${url}")`;
+  el.style.setProperty('--pic-url', wanted);
+  pictureRatio(url).then(ratio => {
+    if (!ratio || el.style.getPropertyValue('--pic-url') !== wanted) return;   // it failed, or the picture changed meanwhile
+    el.style.setProperty('--pic-ratio', String(ratio));
+    el.classList.add('has-picture');
+  });
+}
 
 /** The background colour for the theme now in use. */
 function backgroundFor(look) {
   return document.documentElement.getAttribute('data-theme') === 'dark' ? look.bgDark : look.bgLight;
 }
 
-function paintBackground(el, look, fixed) {
+function paintBackground(el, look, fixed, anchored) {
   el.style.backgroundColor = backgroundFor(look) || '';
-  if (look.bgImage) {
+  if (look.bgImage && !(anchored && !anchored.fallback)) {
     el.style.backgroundImage = `url("${look.bgImage}")`;
     el.style.backgroundSize = 'cover';
     el.style.backgroundPosition = 'center';
@@ -83,15 +119,19 @@ let watching = false;
 function watchTheme() {
   if (watching || typeof document === 'undefined' || !document.body) return;
   watching = true;
-  document.body.addEventListener('theme-changed', () => { if (painted) paintBackground(painted.el, painted.look, painted.fixed); });
+  document.body.addEventListener('theme-changed', () => { if (painted) paintBackground(painted.el, painted.look, painted.fixed, painted.anchored); });
 }
 
 /**
  * Put a look on the page. The classes and glass numbers go on <body> (the card styles in style.css and
  * glass.css key off them); the background goes on `backgroundEl` (the page itself, or the editor's canvas).
  * Glass replaces the transparent-blocks look, as it always has.
+ *
+ * With `anchored` ({ el, fallback }) the picture is drawn on that element, the layout area, instead of on
+ * `backgroundEl`; with `fallback` it is also kept on `backgroundEl` (the dashboard hides that one on wide
+ * screens in CSS and shows it on phones, where the blocks stack and there is no area to anchor to).
  */
-export function applyAppearance(look, { backgroundEl = document.body, fixed = true } = {}) {
+export function applyAppearance(look, { backgroundEl = document.body, fixed = true, anchored = null } = {}) {
   const body = document.body;
   body.classList.toggle('square-corners', !!look.squareCorners);
   body.classList.toggle('glass-cards', !!look.glassCards);
@@ -103,8 +143,10 @@ export function applyAppearance(look, { backgroundEl = document.body, fixed = tr
     body.style.removeProperty('--glass-blur');
     body.style.removeProperty('--glass-frost');
   }
-  painted = { el: backgroundEl, look, fixed };
-  paintBackground(backgroundEl, look, fixed);
+  if (painted && painted.anchored && (!anchored || painted.anchored.el !== anchored.el)) clearAnchored(painted.anchored.el);
+  painted = { el: backgroundEl, look, fixed, anchored };
+  paintBackground(backgroundEl, look, fixed, anchored);
+  if (anchored) paintAnchored(anchored.el, look.bgImage);
   watchTheme();
 }
 
@@ -115,5 +157,8 @@ export function clearAppearance({ backgroundEl = document.body } = {}) {
   body.style.removeProperty('--glass-blur');
   body.style.removeProperty('--glass-frost');
   for (const prop of ['backgroundColor', 'backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundAttachment']) backgroundEl.style[prop] = '';
-  if (painted && painted.el === backgroundEl) painted = null;
+  if (painted && painted.el === backgroundEl) {
+    if (painted.anchored) clearAnchored(painted.anchored.el);
+    painted = null;
+  }
 }
