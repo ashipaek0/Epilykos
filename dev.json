@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42985979901.1",
-    "version": "1.2.3-dev+5194096",
-    "commit": "5194096619ad961a5789c40c27c11d2ff651ae85",
-    "digest": "sha256:a47df0ce8b308ee1ef1dea5e3a6c71a6e1f7649468ceff773a217c9bc26cbc65",
+    "buildId": "42986936818.1",
+    "version": "1.2.3-dev+f2d600e",
+    "commit": "f2d600e50989903ba77f77a5dfbb498f60a3999d",
+    "digest": "sha256:a004885c9928fb1dad80ecd4c7a88cda97999a03877c6295cb17194429d67044",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T08:18:47Z",
+    "builtAt": "2026-11-11T08:25:58Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Dual metric card: Background colour and Transparent reach the header and panes (#311)",
+      "External sources: back off when a source fails, and log it once (#313)"
+    ]
   },
   "history": [
+    {
+      "buildId": "42986936818.1",
+      "version": "1.2.3-dev+f2d600e",
+      "commit": "f2d600e50989903ba77f77a5dfbb498f60a3999d",
+      "digest": "sha256:a004885c9928fb1dad80ecd4c7a88cda97999a03877c6295cb17194429d67044",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T08:25:58Z",
+      "kind": "release",
+      "notes": [
+        "Dual metric card: Background colour and Transparent reach the header and panes (#311)",
+        "External sources: back off when a source fails, and log it once (#313)"
+      ]
+    },
     {
       "buildId": "42985979901.1",
       "version": "1.2.3-dev+5194096",
@@ -363,18 +379,6 @@
         "Controls: sub-label, tile layout, tint and group for Slider, Rotary knob and State select",
         "Controls page: filter chips by group",
         "Controls page: Quick actions card, one card with up to six compact buttons"
-      ]
-    },
-    {
-      "buildId": "42006993442.1",
-      "version": "1.1.1-dev+3058e6b",
-      "commit": "3058e6b84ea50d13dee487d93ca5741e8fd14af5",
-      "digest": "sha256:c0db15b7930725ad74f41de26a7a1fc8a11899cbf805f027b3deca699106fdce",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-05T10:00:20Z",
-      "kind": "release",
-      "notes": [
-        "Daily peak and Histogram cards: use the Daily Energy chart's frame and buttons"
       ]
     }
   ]
