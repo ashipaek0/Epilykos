@@ -106,6 +106,7 @@ function fakeDom(theme = 'light') {
   assert.match(editor, /buildDashboardStyle\(tab\)/); assert.match(editor, /tab && !onControlsTab\(\) && !readOnly/, 'not on the Controls page, not when read-only');
   assert.match(read('public/editor.html'), /href="glass\.css"/);
   assert.match(read('public/editor.css'), /body\.square-corners #ed-canvas/);
+  assert.match(read('public/editor.css'), /\.ins-empty \{[^}]*overflow-y: auto/, 'the inspector with nothing selected scrolls: Dashboard style is taller than the column');
   console.log('ok - the editor has the panel and previews on the canvas; the dashboard applies it on every render');
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });
