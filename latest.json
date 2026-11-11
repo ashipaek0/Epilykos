@@ -1,18 +1,38 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "42621348534.1",
-    "version": "1.2.2",
-    "commit": "e2d8330a76fac21cde567534024698cd070dae3c",
-    "digest": "sha256:cb90f28a2849bd8e544acbd6b24938842b3c50ec34eece3582d3b667dc4ec4ba",
+    "buildId": "42987743365.1",
+    "version": "1.2.3",
+    "commit": "339ee8a3f3f272b8a2e543104a8273ccec5e5ec9",
+    "digest": "sha256:c2c44bf6c9d30b139659d40ec8e7ab0126d61176dbbe62ae6b84f9366bcd65c8",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-09T12:58:14Z",
+    "builtAt": "2026-11-11T08:32:02Z",
     "kind": "release",
     "notes": [
-      "Battery bank energy totals are published in kWh (#307)"
+      "Dual metric card: Background colour and Transparent reach the header and panes (#311)",
+      "External sources: back off when a source fails, and log it once (#313)",
+      "Bluetooth: restart the helper when its D-Bus connection is lost (#312)",
+      "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)",
+      "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
     ]
   },
   "history": [
+    {
+      "buildId": "42987743365.1",
+      "version": "1.2.3",
+      "commit": "339ee8a3f3f272b8a2e543104a8273ccec5e5ec9",
+      "digest": "sha256:c2c44bf6c9d30b139659d40ec8e7ab0126d61176dbbe62ae6b84f9366bcd65c8",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-11T08:32:02Z",
+      "kind": "release",
+      "notes": [
+        "Dual metric card: Background colour and Transparent reach the header and panes (#311)",
+        "External sources: back off when a source fails, and log it once (#313)",
+        "Bluetooth: restart the helper when its D-Bus connection is lost (#312)",
+        "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)",
+        "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
+      ]
+    },
     {
       "buildId": "42621348534.1",
       "version": "1.2.2",
