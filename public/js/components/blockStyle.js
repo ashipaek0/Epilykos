@@ -1,5 +1,5 @@
 /**
- * A block's Style settings (background, text colour, text size, transparent)
+ * A block's Style settings (background, text colour, text size, transparent, glass)
  * applied to its rendered card. Shared by the dashboard and the layout
  * editor's previews so both look the same.
  *
@@ -33,6 +33,27 @@ export function fontScale(value) {
   return Math.abs(n - 1) < 0.001 ? null : Math.round(n * 1000) / 1000;
 }
 
+/**
+ * A card's own glass settings: whether it is glass at all ('on' or 'off'; anything else follows the
+ * dashboard), and its own blur (0–40 px) and frost (20–200 %). Only valid values are kept; a missing one
+ * follows the dashboard's glass.
+ */
+export function cardGlass(block) {
+  const out = {};
+  if (!block) return out;
+  if (block.glass === 'on' || block.glass === 'off') out.glass = block.glass;
+  const number = (value, lo, hi) => {
+    if (value === '' || value == null) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : null;
+  };
+  const blur = number(block.glassBlur, 0, 40);
+  if (blur !== null) out.glassBlur = blur;
+  const frost = number(block.glassFrost, 20, 200);
+  if (frost !== null) out.glassFrost = frost;
+  return out;
+}
+
 const DEFAULT_BG = '#ffffff';
 const DEFAULT_TEXT = '#000000';
 
@@ -56,6 +77,11 @@ export function applyBlockStyle(content, block) {
   }
   const scale = fontScale(block.fontSize);
   if (scale) content.style.setProperty('--card-font-scale', String(scale));
+  const glass = cardGlass(block);
+  if (glass.glass) content.classList.add('glass-' + glass.glass);
+  if (glass.glassBlur !== undefined || glass.glassFrost !== undefined) content.classList.add('glass-own');
+  if (glass.glassBlur !== undefined) content.style.setProperty('--glass-blur', glass.glassBlur + 'px');
+  if (glass.glassFrost !== undefined) content.style.setProperty('--glass-frost', String(glass.glassFrost / 100));
   if (block.transparent) {
     content.style.background = 'transparent';
     content.style.borderColor = 'transparent';
