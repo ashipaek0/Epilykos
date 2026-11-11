@@ -1551,7 +1551,7 @@
       "geta_control": true,
       "family": "geta",
       "hardware_verified": false,
-      "description": "The inverter's Green mode setting, as named in the LuxPower app."
+      "description": "Puts the inverter to sleep when the backup output is nearly idle, and wakes it when a load appears."
     },
     {
       "name": "eco_mode_enabled",
@@ -1564,7 +1564,7 @@
       "geta_control": true,
       "family": "geta",
       "hardware_verified": false,
-      "description": "The inverter's Eco mode setting, as named in the LuxPower app."
+      "description": "Lets the grid recharge the battery when it drops to a set voltage or charge level."
     },
     {
       "name": "ac_charge_type",
