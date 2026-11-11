@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43015631121.1",
-    "version": "1.2.4-dev+d72a7ad",
-    "commit": "d72a7ad5eddbac5af4efd0f20b57cca731507f3a",
-    "digest": "sha256:857f58d9b4eda1795eb5a25fd69296d9905bb65aa66b0c08b42bb69217c9f22c",
+    "buildId": "43018453532.1",
+    "version": "1.2.4-dev+9407702",
+    "commit": "94077025cba43ca1e8e480a56212fd03083b3ae9",
+    "digest": "sha256:481bb8906f18466fe39a2d83de1150f59b9da2a0ed64b6c6d199b1daa056a89a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T11:53:26Z",
+    "builtAt": "2026-11-11T12:13:36Z",
     "kind": "release",
     "notes": [
-      "Bar gauges: vertical bars, and rounded or square bar ends (#321)"
+      "LuxPower profiles: say what Green mode and Eco mode do (#322)"
     ]
   },
   "history": [
+    {
+      "buildId": "43018453532.1",
+      "version": "1.2.4-dev+9407702",
+      "commit": "94077025cba43ca1e8e480a56212fd03083b3ae9",
+      "digest": "sha256:481bb8906f18466fe39a2d83de1150f59b9da2a0ed64b6c6d199b1daa056a89a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T12:13:36Z",
+      "kind": "release",
+      "notes": [
+        "LuxPower profiles: say what Green mode and Eco mode do (#322)"
+      ]
+    },
     {
       "buildId": "43015631121.1",
       "version": "1.2.4-dev+d72a7ad",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Give back database space freed by the retention rollup"
-      ]
-    },
-    {
-      "buildId": "42476845995.1",
-      "version": "1.1.3-dev+c87b4de",
-      "commit": "c87b4decf85b5254b1301c5f4cd43f1c78c4b3f7",
-      "digest": "sha256:8e211ab15c04d207df8a02a9a12806c4e38e680b6dd1cc792744d9b9e86ffcef",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T11:41:44Z",
-      "kind": "release",
-      "notes": [
-        "Bump express-rate-limit from 8.7.2 to 8.7.3 in the minor-and-patch group"
       ]
     }
   ]
