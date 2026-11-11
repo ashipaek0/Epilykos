@@ -26,6 +26,12 @@ const START_TIMEOUT_MS = 20000;
 const RESTART_BACKOFF_MS = [1000, 5000, 15000, 60000];
 // Exit the helper after this long without requests (a polled device keeps it
 // alive), so installs that never use Bluetooth don't keep Python resident.
+// The helper's D-Bus connection to the host can close under it (after hours of running); every
+// request then fails at once, so it never times out and would never restart. A fresh process
+// opens a new connection. At most one restart a minute; seen again within REPEAT_MS of a
+// restart, the host (BlueZ or D-Bus) is at fault and the log says so.
+const DBUS_RESTART_MIN_MS = 60 * 1000;
+const DBUS_REPEAT_MS = 15 * 60 * 1000;
 const IDLE_EXIT_MS = parseInt(process.env.BLE_IDLE_EXIT_MS, 10) || 5 * 60 * 1000;
 
 class BleError extends Error {
@@ -93,6 +99,7 @@ class BleHelper {
     this.failures = 0;
     this.notBefore = 0;
     this.stopped = false;
+    this.lastDbusRestart = 0;
   }
 
   _start() {
@@ -160,6 +167,7 @@ class BleHelper {
       entry.resolve(msg.result);
     } else {
       entry.reject(new BleError(msg.error || 'Bluetooth request failed', msg.code || 'ble_error'));
+      if (msg.code === 'dbus_lost') this._onDbusLost(child);
     }
   }
 
@@ -179,6 +187,17 @@ class BleHelper {
       this.notBefore = Date.now() + delay;
       logger.warn(`[ble] helper exited (${why}); next start in ${delay / 1000}s`);
     }
+  }
+
+  /** The helper reports its D-Bus connection is gone: replace the process (rate limited). */
+  _onDbusLost(child) {
+    if (this.child !== child) return;
+    const now = Date.now();
+    if (now - this.lastDbusRestart < DBUS_RESTART_MIN_MS) return;
+    const repeat = this.lastDbusRestart > 0 && now - this.lastDbusRestart < DBUS_REPEAT_MS;
+    this.lastDbusRestart = now;
+    if (repeat) logger.warn('[ble] the D-Bus connection is lost again right after restarting the helper: restart Bluetooth on the host (sudo systemctl restart bluetooth), or the host D-Bus if that does not help');
+    this._kill('it lost its D-Bus connection to the host');
   }
 
   _kill(reason) {
