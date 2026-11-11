@@ -41,6 +41,8 @@ export function applyBlockStyle(content, block) {
   if (!content || !block) return;
   if (block.bgColor && block.bgColor !== DEFAULT_BG) {
     content.style.setProperty('background-color', block.bgColor, 'important');
+    // The dual metric card paints its header and panes itself; they follow this.
+    content.style.setProperty('--dual-surface', block.bgColor);
   }
   if (block.innerBgColor && block.innerBgColor !== DEFAULT_BG) {
     content.style.setProperty('--card-bg', block.innerBgColor, 'important');
@@ -61,6 +63,10 @@ export function applyBlockStyle(content, block) {
     // Children using var(--card-bg) / var(--bg) become transparent too.
     content.style.setProperty('--card-bg', 'transparent');
     content.style.setProperty('--bg', 'transparent');
+    content.style.setProperty('--dual-surface', 'transparent');
+    // The split layout's divider colour fills the gaps between panes: with no surface it would show everywhere.
+    content.querySelectorAll('.dual-metric-body').forEach(el => { el.style.background = 'transparent'; });
+    content.querySelectorAll('.dual-metric-header').forEach(el => { el.style.borderBottomColor = 'transparent'; });
     content.querySelectorAll('.stat-card, .topo-node-circle, .chart-container, .fcs-inverter-icon, .fcs2-inv').forEach(el => {
       el.style.background = 'transparent';
       el.style.borderColor = 'transparent';
