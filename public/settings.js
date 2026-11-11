@@ -1526,6 +1526,7 @@ function renderModbusMappings(profileId, mappings, container) {
       row.appendChild(metricSelect);
       row.appendChild(descSpan);
       row.appendChild(removeBtn);
+      addNewMetricControl(registerAdapter, row, metricSelect, reg);
       container.appendChild(row);
     });
     if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
@@ -1660,6 +1661,7 @@ function renderRs232Mappings(profileId, savedMappings, container) {
       row.appendChild(metricSelect);
       row.appendChild(descSpan);
       row.appendChild(removeBtn);
+      addNewMetricControl(registerAdapter, row, metricSelect, info);
       container.appendChild(row);
     });
 
@@ -2743,18 +2745,22 @@ function reindexBmsWired() {
   });
 }
 
-// BMS mapping rows get the same "+ New" control as the inverter rows, so a metric can
-// be created right where it is mapped. The unit is prefilled when the BMS reports one.
+// Mapping rows get the same "+" control as the inverter rows, so a metric can be created right where it
+// is mapped. The unit is prefilled when the device or profile gives one for the field.
 const bmsAdapter = { defaultUnit(entity) { return entity && entity.unit ? String(entity.unit) : ''; } };
-function addBmsNewMetricControl(row, metricSelect, removeBtn, entity) {
+const registerAdapter = bmsAdapter;                       // Modbus, RS-232 and dongle profile fields: the same
+const tuyaAdapter = { defaultUnit() { return ''; } };   // a Tuya data point does not carry a unit
+function addNewMetricControl(adapter, row, metricSelect, entity) {
   if (!(window.CatalogUI && typeof window.CatalogUI.createInlineMetricControl === 'function')) return;
   row._catalogEntity = entity || null;
-  const newBtn = window.CatalogUI.createInlineMetricControl(bmsAdapter, row, metricSelect, () => row._catalogEntity);
+  window.CatalogUI.createInlineMetricControl(adapter, row, metricSelect, () => row._catalogEntity);   // puts the + beside the dropdown
   const panel = row.lastElementChild;           // the name + unit editor it appended
-  row.insertBefore(newBtn, removeBtn);          // select, + New, ✕
   // The editor needs more room than these rows have: it takes a line of its own while open.
   row.style.flexWrap = 'wrap';
   panel.style.flex = '1 1 100%';
+}
+function addBmsNewMetricControl(row, metricSelect, removeBtn, entity) {
+  addNewMetricControl(bmsAdapter, row, metricSelect, entity);
 }
 
 function renderBmsWiredMappings(deviceIdx, container, mappings, fieldsInfo) {
@@ -3831,12 +3837,14 @@ function renderDongleMappings(profileId, mappings, container) {
     // Build lookup maps: key → label, key → type (register|field)
     const labelMap = {};   // keyed by register or field string
     const typeMap = {};    // key → 'register' or 'field'
+    const unitMap = {};    // key → the unit the profile gives it, if any
     if (profile.metrics) {
       profile.metrics.forEach(m => {
         const key = m.register || m.field;
         if (key) {
           labelMap[key] = m.label || m.name;
           typeMap[key] = m.register ? 'register' : 'field';
+          unitMap[key] = m.unit || '';
         }
       });
     }
@@ -3845,6 +3853,7 @@ function renderDongleMappings(profileId, mappings, container) {
         if (f.path) {
           labelMap[f.path] = f.label || f.name;
           typeMap[f.path] = 'field';
+          unitMap[f.path] = f.unit || '';
         }
       });
     }
@@ -3899,6 +3908,7 @@ function renderDongleMappings(profileId, mappings, container) {
       row.appendChild(metricSelect);
       row.appendChild(descSpan);
       row.appendChild(removeBtn);
+      addNewMetricControl(registerAdapter, row, metricSelect, { unit: unitMap[key] });
       container.appendChild(row);
     });
     if (refreshAllMetricDropdowns) refreshAllMetricDropdowns();
@@ -5294,6 +5304,7 @@ function addTuyaDpRow(card, deviceIdx, metricName, dpNumber, dpLabel) {
     refreshAllMetricDropdowns();
   });
   row.appendChild(removeBtn);
+  addNewMetricControl(tuyaAdapter, row, metricSelect, null);
 
   metricSelect.addEventListener('change', () => {
     refreshAllMetricDropdowns();

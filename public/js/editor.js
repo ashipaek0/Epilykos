@@ -1,4 +1,6 @@
-import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState } from './api.js';
+import { fetchDashboardConfig, saveDashboardConfig, fetchDashboardState, fetchPublicConfig } from './api.js';
+import { globalAppearance, effectiveAppearance, cleanOverrides, applyAppearance, clearAppearance } from './appearance.js';
+import { STANDARD_GRID, PRECISIONS, MAX_GAP, SCALE_REFERENCE_WIDTH, gridOf, cleanGrid, precisionOf, rescaleLayout, sizeOnGrid, looseBlocks } from './layoutGrid.js';
 import { componentBuilders } from './components/index.js';
 import { initTheme } from './theme.js';
 import { GROUPS, BLOCKS, blockInfo, icon } from './editor-catalog.js';
@@ -7,7 +9,8 @@ import { updateCards } from './cards-update.js';
 import { ensureChartJS } from './chartLoader.js';
 import { initPowerChart, initEnergyChart, initMetricChart } from './charts.js';
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
-import { applyBlockStyle, fontScale } from './components/blockStyle.js';
+import { applyBlockStyle, fontScale, cardGlass } from './components/blockStyle.js';
+import { barGaugeLook } from './components/barGaugeLook.js';
 import { controlStyle, layoutHasPill, layoutLabel, LAYOUTS as CONTROL_LAYOUTS, DEFAULT_LAYOUT as CONTROL_DEFAULT_LAYOUT, LAYOUT_LABELS as CONTROL_LAYOUT_LABELS } from './components/controlStyle.js';
 import { MDI_ICONS } from './components/buttonIcons.js';
 import { initColorPicker } from './editor-color.js';
@@ -31,7 +34,19 @@ BLOCK_BUILDERS.set('quick-actions', function(block) {
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// The grid the dashboard on the canvas is placed on (public/js/layoutGrid.js): columns across the width and
+// the height of a row in px. The standard grid is 12 x 50; a dashboard can be finer. The Controls page
+// is always the standard grid. loadTab sets these for the tab it shows.
 var GRID_COLUMNS = 12, CELL_HEIGHT = 50;
+var editorGrid = STANDARD_GRID;
+function setEditorGrid(tab) {
+  editorGrid = !tab || tab.controls ? STANDARD_GRID : gridOf(tab);
+  GRID_COLUMNS = editorGrid.columns;
+  CELL_HEIGHT = editorGrid.rowHeight;
+  GRID_MARGIN = editorGrid.gap / 2;   // the space between blocks is half on each side of a block
+}
+/** Blocks may stay where they are dropped: free placement, and overlap needs it. */
+function gridIsFree() { return !!(editorGrid.free || editorGrid.overlap); }
 
 var grid = null, dashboardConfig = null, currentTabId = null;
 var selectedBlockId = null;      // block shown in the inspector
@@ -301,6 +316,29 @@ function buildAppearanceFields(block) {
     '<label data-ui="label">Font Color <input type="color" id="modal-fontcolor" value="' + escHtml(fontColor) + '" data-dirty="false" data-ui="color"></label>',
     '</div>',
     '<label data-ui="field">Text size ' + fontSizeSelect(fontSize) + '</label>',
+    '</fieldset>',
+    buildGlassFields(block)
+  ].join('\n');
+}
+
+/** A card's own glass: on, off or the dashboard's, with its own blur and frost. Empty = follows the dashboard. */
+function buildGlassFields(block) {
+  var own = cardGlass(Object.assign({}, block.config, block));
+  var tab = currentTab();
+  var look = effectiveAppearance(defaultLook, tab && !tab.controls ? tab.appearance : null);
+  return [
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Glass</legend>',
+    '<label data-ui="field">Glass effect <select id="modal-glass" data-ui="input">',
+    '<option value=""' + (own.glass ? '' : ' selected') + '>Follow the dashboard (' + onOff(look.glassCards) + ')</option>',
+    '<option value="on"' + (own.glass === 'on' ? ' selected' : '') + '>On</option>',
+    '<option value="off"' + (own.glass === 'off' ? ' selected' : '') + '>Off</option>',
+    '</select></label>',
+    '<div data-ui="grid2">',
+    '<label data-ui="label">Blur (px) <input type="number" id="modal-glassblur" min="0" max="40" step="1" data-ui="input" placeholder="' + escHtml(look.glassBlur) + '" value="' + (own.glassBlur === undefined ? '' : own.glassBlur) + '"></label>',
+    '<label data-ui="label">Frost (%) <input type="number" id="modal-glassfrost" min="20" max="200" step="5" data-ui="input" placeholder="' + escHtml(look.glassFrost) + '" value="' + (own.glassFrost === undefined ? '' : own.glassFrost) + '"></label>',
+    '</div>',
+    '<p data-ui="help">Leave blur and frost empty to follow the dashboard. They show only where the card is glass.</p>',
     '</fieldset>'
   ].join('\n');
 }
@@ -423,10 +461,40 @@ function renderMultiValueRows(container) {
 }
 
 /** Bar Gauge: metrics array with min/max/color/gradient */
+/** Orientation and bar ends, shared by the two bar gauge cards (see components/barGaugeLook.js). */
+function buildBarGaugeLookFields(cfg) {
+  var look = barGaugeLook(cfg);
+  return [
+    '<fieldset data-ui="section">',
+    '<legend data-ui="legend">Bars</legend>',
+    '<div data-ui="grid2">',
+    '<label data-ui="label">Orientation <select id="modal-bargauge-orientation" data-ui="input">',
+    '<option value="horizontal"' + (look.vertical ? '' : ' selected') + '>Horizontal (rows)</option>',
+    '<option value="vertical"' + (look.vertical ? ' selected' : '') + '>Vertical (columns)</option>',
+    '</select></label>',
+    '<label data-ui="label">Bar ends <select id="modal-bargauge-ends" data-ui="input">',
+    '<option value=""' + (look.ends ? '' : ' selected') + '>Default</option>',
+    '<option value="rounded"' + (look.ends === 'rounded' ? ' selected' : '') + '>Rounded</option>',
+    '<option value="square"' + (look.ends === 'square' ? ' selected' : '') + '>Square</option>',
+    '</select></label>',
+    '</div>',
+    '</fieldset>'
+  ].join('\n');
+}
+
+/** Save them on the card's config; the default (horizontal, default ends) is left out. */
+function readBarGaugeLook(config) {
+  var vertical = document.getElementById('modal-bargauge-orientation')?.value === 'vertical';
+  var ends = document.getElementById('modal-bargauge-ends')?.value;
+  if (vertical) config.orientation = 'vertical'; else delete config.orientation;
+  if (ends === 'rounded' || ends === 'square') config.barEnds = ends; else delete config.barEnds;
+}
+
 function buildBarGaugeForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset data-ui="section">';
+  var html = buildBarGaugeLookFields(cfg);
+  html += '<fieldset data-ui="section">';
   html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="bg-rows"></div>';
   html += '<button type="button" id="bg-add-row" data-ui="add">+ Add Row</button>';
@@ -484,7 +552,8 @@ function renderBarGaugeRows(container) {
 function buildBarGaugeRetroForm(block) {
   var cfg = block.config || {};
   var metrics = cfg.metrics || [];
-  var html = '<fieldset data-ui="section">';
+  var html = buildBarGaugeLookFields(cfg);
+  html += '<fieldset data-ui="section">';
   html += '<legend data-ui="legend">Metrics Array</legend>';
   html += '<div id="bgr-rows"></div>';
   html += '<button type="button" id="bgr-add-row" data-ui="add">+ Add Row</button>';
@@ -2220,6 +2289,14 @@ function readSettingsForm(block) {
   config.fontColor = document.getElementById('modal-fontcolor')?.value || '';
   if (config.fontColor === '#000000' && document.getElementById('modal-fontcolor')?.dataset.dirty !== 'true') config.fontColor = '';
   config.fontSize = document.getElementById('modal-fontsize')?.value || '';
+  // Glass: on or off for this card (empty = the dashboard's), and its own blur and frost (empty = the dashboard's)
+  var glassChoice = document.getElementById('modal-glass')?.value;
+  if (glassChoice === 'on' || glassChoice === 'off') config.glass = glassChoice; else delete config.glass;
+  [['glassBlur', 'modal-glassblur', 0, 40], ['glassFrost', 'modal-glassfrost', 20, 200]].forEach(function(g) {
+    var raw = String(document.getElementById(g[1])?.value ?? '').trim();
+    var n = raw === '' ? NaN : Number(raw);
+    if (Number.isFinite(n)) config[g[0]] = Math.min(g[3], Math.max(g[2], Math.round(n))); else delete config[g[0]];
+  });
 
   // Apply common fields to block
   block.enabled = config.enabled;
@@ -2227,6 +2304,9 @@ function readSettingsForm(block) {
   block.bgColor = config.bgColor;
   block.fontColor = config.fontColor;
   block.fontSize = config.fontSize;
+  ['glass', 'glassBlur', 'glassFrost'].forEach(function(key) {
+    if (config[key] === undefined) delete block[key]; else block[key] = config[key];
+  });
 
   var type = block.type;
 
@@ -2279,6 +2359,7 @@ function readSettingsForm(block) {
       break;
     }
     case 'bar-gauge': {
+      readBarGaugeLook(config);
       var bgData = document.getElementById('bg-data');
       var bgRows = [];
       try { bgRows = JSON.parse(bgData.textContent); } catch(e) {}
@@ -2309,6 +2390,7 @@ function readSettingsForm(block) {
       break;
     }
     case 'bar-gauge-retro': {
+      readBarGaugeLook(config);
       var bgrData = document.getElementById('bgr-data');
       var bgrRows = [];
       try { bgrRows = JSON.parse(bgrData.textContent); } catch(e) {}
@@ -2980,7 +3062,7 @@ function buildGridItem(block) {
   item.dataset.blockType = block.type;
   item.setAttribute('gs-x', block.gridX ?? 0);
   item.setAttribute('gs-y', block.gridY ?? 0);
-  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? info.w);
+  item.setAttribute('gs-w', block.gridW ?? block.colSpan ?? sizeOnGrid(info, editorGrid).w);
   item.setAttribute('gs-h', block.gridH ?? Math.max(1, Math.round((block.rowSpan ?? 200) / CELL_HEIGHT)));
   item.setAttribute('gs-min-w', 1);
   item.setAttribute('gs-min-h', 1);
@@ -3038,7 +3120,9 @@ function dashboardWidth() {
 function applyPreviewScale() {
   var el = $('grid');
   if (!el || !el.clientWidth) return;
-  var k = Math.min(1, el.clientWidth / dashboardWidth());
+  // A dashboard that scales to the screen width is a fixed picture shrunk to fit; one that does not is shown at the
+  // width the dashboard has in this window.
+  var k = editorGrid.scale ? el.clientWidth / SCALE_REFERENCE_WIDTH : Math.min(1, el.clientWidth / dashboardWidth());
   k = Math.round(k * 1000) / 1000;
   el.style.setProperty('--pv-scale', String(k));
   if (k === previewScale && grid && grid.getCellHeight() === CELL_HEIGHT * k) return;
@@ -3222,13 +3306,14 @@ function addBlock(type, at) {
   if (!tab) return;
   var info = blockInfo(type);
   pushUndo();
-  var w = Math.min(info.w, GRID_COLUMNS);
+  var size = sizeOnGrid(info, editorGrid);
+  var w = size.w;
   var x = 0, y;
   var sel = selectedBlockId && findBlock(selectedBlockId);
   if (at) { x = at.x; y = at.y; }
   else if (sel) { x = Math.min(sel.gridX || 0, GRID_COLUMNS - w); y = (sel.gridY || 0) + (sel.gridH || 1); }
   else { y = grid.getRow(); }
-  var block = { id: newBlockId(), type: type, enabled: true, gridX: x, gridY: y, gridW: w, gridH: info.h, config: {} };
+  var block = { id: newBlockId(), type: type, enabled: true, gridX: x, gridY: y, gridW: w, gridH: size.h, config: {} };
   tab.layout.push(block);
   placeNewItem(block);
   closeSheets();
@@ -3268,7 +3353,7 @@ function copyBlock(id) {
   var block = findBlock(id);
   if (!block) return;
   syncLayoutFromGrid();
-  var copy = { type: block.type, gridW: block.gridW, gridH: block.gridH, enabled: block.enabled !== false, config: JSON.parse(JSON.stringify(block.config || {})) };
+  var copy = { type: block.type, gridW: block.gridW, gridH: block.gridH, columns: GRID_COLUMNS, enabled: block.enabled !== false, config: JSON.parse(JSON.stringify(block.config || {})) };
   try { localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(copy)); } catch (e) { toast('Could not copy: this browser is not keeping data for the site'); return; }
   if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
   toast(blockInfo(block.type).name + ' copied. Paste with ' + (/Mac|iPhone|iPad/.test(navigator.platform) ? '\u2318V' : 'Ctrl+V') + ' or from Add block', { timeout: 4000 });
@@ -3287,11 +3372,14 @@ function pasteBlock() {
   }
   pushUndo();
   syncLayoutFromGrid();
-  var w = Math.min(Number(clip.gridW) || info.w, GRID_COLUMNS);
+  // A block copied from a dashboard on another precision keeps its size on the page, not its cell count.
+  var ratio = GRID_COLUMNS / (Number(clip.columns) || 12);
+  var size = sizeOnGrid(info, editorGrid);
+  var w = Math.min(GRID_COLUMNS, Math.max(1, clip.gridW ? Math.round(Number(clip.gridW) * ratio) : size.w));
   var sel = selectedBlockId && findBlock(selectedBlockId);
   var x = sel ? Math.min(sel.gridX || 0, GRID_COLUMNS - w) : 0;
   var y = sel ? (sel.gridY || 0) + (sel.gridH || 1) : grid.getRow();
-  var block = { id: newBlockId(), type: clip.type, enabled: clip.enabled !== false, gridX: x, gridY: y, gridW: w, gridH: Number(clip.gridH) || info.h, config: JSON.parse(JSON.stringify(clip.config || {})) };
+  var block = { id: newBlockId(), type: clip.type, enabled: clip.enabled !== false, gridX: x, gridY: y, gridW: w, gridH: clip.gridH ? Math.max(1, Math.round(Number(clip.gridH) * ratio)) : size.h, config: JSON.parse(JSON.stringify(clip.config || {})) };
   tab.layout.push(block);
   placeNewItem(block);
   closeSheets();
@@ -3369,6 +3457,258 @@ function buildLayoutFields(block) {
   ].join('\n');
 }
 
+// ── Dashboard style ──────────────────────────────────────────────────────
+// A dashboard's own background, blocks and glass (its `appearance`, see appearance.js). Anything left on
+// "Default" follows Settings → Appearance. The canvas shows the result as it is edited.
+
+var defaultLook = globalAppearance({});   // Settings → Appearance; replaced when the settings arrive
+var STYLE_COLORS = [['bgLight', 'Background, light mode'], ['bgDark', 'Background, dark mode']];
+var STYLE_SWITCHES = [['transparentBlocks', 'Transparent blocks'], ['squareCorners', 'Square corners'], ['glassCards', 'Glass cards']];
+var styleUndoTaken = false;
+
+/** What the canvas shows: this dashboard's look, or the editor's own background on the Controls page. */
+function applyEditorLook() {
+  var canvas = $('ed-canvas');
+  if (!canvas) return;
+  var tab = currentTab();
+  if (!tab || onControlsTab()) { clearAppearance({ backgroundEl: canvas }); return; }
+  // Scaled to the screen width: the picture sits on the layout area itself, as on the dashboard, not on the canvas.
+  var anchored = editorGrid.scale && $('grid') ? { el: $('grid'), fallback: false } : null;
+  applyAppearance(effectiveAppearance(defaultLook, tab.appearance), { backgroundEl: canvas, fixed: false, anchored: anchored });
+}
+
+function onOff(v) { return v ? 'On' : 'Off'; }
+
+function buildDashboardStyle(tab) {
+  var own = cleanOverrides(tab.appearance);
+  var look = effectiveAppearance(defaultLook, own);
+  // .ins-body carries the inspector's field styles; ds-wrap lets it sit in the empty inspector without its own scroll.
+  var html = '<div class="ins-body ds-wrap">' + buildLayoutGrid(tab) + '<fieldset data-ui="section" class="ds-panel" id="dash-style">' +
+    '<legend data-ui="legend">Dashboard style</legend>' +
+    '<p data-ui="help">The look of this dashboard only. What you leave on Default follows Settings → Appearance, so other dashboards can look very different. Title, logo and favicon are the same everywhere.</p>';
+  STYLE_COLORS.forEach(function(c) {
+    var key = c[0];
+    html += '<div class="ds-row" data-key="' + key + '">' +
+      '<label data-ui="label" for="ds-' + key + '">' + c[1] + '</label>' +
+      '<input type="color" id="ds-' + key + '" value="' + escHtml(look[key]) + '" data-dirty="false" data-ui="color">' +
+      '<span class="ds-state" id="ds-' + key + '-state"></span>' +
+      '<button type="button" class="ed-btn-text ds-reset" data-reset="' + key + '">Use default</button>' +
+    '</div>';
+  });
+  html += '<div class="ds-row ds-row-stack" data-key="bgImage">' +
+    '<label data-ui="field" for="ds-bgImage">Background image address<input type="url" id="ds-bgImage" data-ui="input" placeholder="' + escHtml(defaultLook.bgImage || 'https://…') + '" value="' + escHtml(own.bgImage || '') + '"></label>' +
+    '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="ds-noImage"' + (own.bgImage === '' ? ' checked' : '') + '><span class="slider"></span></label><label for="ds-noImage">No image on this dashboard</label></span>' +
+    '<span class="ds-state" id="ds-bgImage-state"></span>' +
+    '<button type="button" class="ed-btn-text ds-reset" data-reset="bgImage">Default</button>' +
+  '</div>';
+  STYLE_SWITCHES.forEach(function(sw) {
+    var key = sw[0];
+    html += '<div class="ds-row" data-key="' + key + '">' +
+      '<label data-ui="label" for="ds-' + key + '">' + sw[1] + '</label>' +
+      '<select id="ds-' + key + '" data-ui="input">' +
+        '<option value="">Default (' + onOff(defaultLook[key]) + ')</option><option value="on">On</option><option value="off">Off</option>' +
+      '</select>' +
+    '</div>';
+  });
+  html += '<div id="ds-glass" ' + (look.glassCards ? '' : 'hidden') + '>';
+  [['glassBlur', 'Glass blur', 0, 40, 1, ' px'], ['glassFrost', 'Glass frost', 20, 200, 5, '%']].forEach(function(r) {
+    var key = r[0];
+    html += '<div class="ds-row" data-key="' + key + '">' +
+      '<label data-ui="label" for="ds-' + key + '">' + r[1] + ': <output id="ds-' + key + '-out">' + escHtml(look[key]) + '</output>' + r[5] + '</label>' +
+      '<input type="range" id="ds-' + key + '" min="' + r[2] + '" max="' + r[3] + '" step="' + r[4] + '" value="' + escHtml(look[key]) + '" data-no-reveal>' +
+      '<span class="ds-state" id="ds-' + key + '-state"></span>' +
+      '<button type="button" class="ed-btn-text ds-reset" data-reset="' + key + '">Use default</button>' +
+    '</div>';
+  });
+  html += '</div>' +
+    '<button type="button" class="ed-btn-text" id="ds-reset-all">Reset the style to the defaults</button>' +
+  '</fieldset></div>';
+  return html;
+}
+
+/** One field of the panel: set or clear (undefined) this dashboard's override, preview it, and save. */
+function setStyleOverride(key, value) {
+  var tab = currentTab();
+  if (!tab || readOnly || tab.controls) return;
+  if (!styleUndoTaken) { pushUndo(); styleUndoTaken = true; }
+  var own = Object.assign({}, cleanOverrides(tab.appearance));
+  if (value === undefined) delete own[key]; else own[key] = value;
+  own = cleanOverrides(own);
+  if (Object.keys(own).length) tab.appearance = own; else delete tab.appearance;
+  applyEditorLook();
+  refreshDashboardStyle();
+  scheduleSave();
+}
+
+/** Bring the panel's labels in step with the overrides, without rebuilding it (a slider is being dragged). */
+function refreshDashboardStyle() {
+  var tab = currentTab();
+  if (!tab || !$('dash-style')) return;
+  var own = cleanOverrides(tab.appearance);
+  var look = effectiveAppearance(defaultLook, own);
+  ['bgLight', 'bgDark', 'bgImage', 'glassBlur', 'glassFrost'].forEach(function(key) {
+    var state = $('ds-' + key + '-state');
+    if (state) state.textContent = key in own ? 'Custom' : 'Default';
+    var reset = document.querySelector('#dash-style [data-reset="' + key + '"]');
+    if (reset) reset.hidden = !(key in own);
+  });
+  ['bgLight', 'bgDark'].forEach(function(key) { var el = $('ds-' + key); if (el && el !== document.activeElement) el.value = look[key]; });
+  STYLE_SWITCHES.forEach(function(sw) {
+    var el = $('ds-' + sw[0]);
+    if (!el) return;
+    var want = sw[0] in own ? (own[sw[0]] ? 'on' : 'off') : '';
+    if (el.value !== want) el.value = want;
+  });
+  var glass = $('ds-glass');
+  if (glass) glass.hidden = !look.glassCards;
+  ['glassBlur', 'glassFrost'].forEach(function(key) {
+    var out = $('ds-' + key + '-out');
+    if (out) out.textContent = String(look[key]);
+  });
+  var img = $('ds-bgImage'), none = $('ds-noImage');
+  if (none) none.checked = own.bgImage === '';
+  if (img) { img.disabled = own.bgImage === ''; if (img !== document.activeElement) img.value = own.bgImage || ''; }
+}
+
+function wireDashboardStyle(root) {
+  var panel = root.querySelector('#dash-style');
+  if (!panel) return;
+  refreshDashboardStyle();
+  panel.addEventListener('change', function() { styleUndoTaken = false; });
+  STYLE_COLORS.forEach(function(c) {
+    var el = $('ds-' + c[0]);
+    if (el) el.addEventListener('input', function() { setStyleOverride(c[0], el.value); });
+  });
+  var img = $('ds-bgImage'), none = $('ds-noImage');
+  if (img) img.addEventListener('input', function() { setStyleOverride('bgImage', img.value.trim() === '' ? undefined : img.value.trim()); });
+  if (none) none.addEventListener('change', function() { setStyleOverride('bgImage', none.checked ? '' : undefined); });
+  STYLE_SWITCHES.forEach(function(sw) {
+    var el = $('ds-' + sw[0]);
+    if (el) el.addEventListener('change', function() { setStyleOverride(sw[0], el.value === '' ? undefined : el.value === 'on'); });
+  });
+  ['glassBlur', 'glassFrost'].forEach(function(key) {
+    var el = $('ds-' + key);
+    if (el) el.addEventListener('input', function() { setStyleOverride(key, Number(el.value)); });
+  });
+  panel.querySelectorAll('[data-reset]').forEach(function(btn) {
+    btn.addEventListener('click', function() { styleUndoTaken = false; setStyleOverride(btn.dataset.reset, undefined); styleUndoTaken = false; });
+  });
+  var all = $('ds-reset-all');
+  if (all) all.addEventListener('click', function() {
+    var tab = currentTab();
+    if (!tab || !tab.appearance) return;
+    pushUndo();
+    delete tab.appearance;
+    applyEditorLook();
+    refreshDashboardStyle();
+    scheduleSave();
+    toast('The style follows the defaults again', { actionLabel: 'Undo', onAction: undo, timeout: 8000 });
+  });
+}
+
+// ── Layout grid ──────────────────────────────────────────────────────────
+// How finely this dashboard's cards are placed (public/js/layoutGrid.js): precision, the space between
+// cards, free placement (cards stay where they are dropped instead of packing upward) and overlap.
+
+function buildLayoutGrid(tab) {
+  var g = gridOf(tab), own = cleanGrid(tab.grid), p = precisionOf(g);
+  var opts = PRECISIONS.map(function(q) {
+    return '<option value="' + q.columns + '"' + (q.columns === p.columns ? ' selected' : '') + '>' + q.label + ': ' + q.columns + ' columns, ' + q.rowHeight + ' px rows</option>';
+  }).join('');
+  var toggle = function(id, label, on, disabled) {
+    return '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + (disabled ? ' disabled' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>';
+  };
+  return '<fieldset data-ui="section" class="ds-panel" id="dash-grid">' +
+    '<legend data-ui="legend">Layout grid</legend>' +
+    '<p data-ui="help">A finer grid lets you place and size cards more exactly. Changing it keeps every card where it is on the page.</p>' +
+    '<div class="ds-row ds-row-stack"><label data-ui="field" for="dg-precision">Precision<select id="dg-precision" data-ui="input">' + opts + '</select></label></div>' +
+    '<div class="ds-row" data-key="gap">' +
+      '<label data-ui="label" for="dg-gap">Space between cards: <output id="dg-gap-out">' + escHtml(g.gap) + '</output> px</label>' +
+      '<input type="range" id="dg-gap" min="0" max="' + MAX_GAP + '" step="1" value="' + escHtml(g.gap) + '" data-no-reveal>' +
+      '<span class="ds-state" id="dg-gap-state">' + ('gap' in own ? 'Custom' : 'Default') + '</span>' +
+      '<button type="button" class="ed-btn-text ds-reset" id="dg-gap-reset"' + ('gap' in own ? '' : ' hidden') + '>Use default</button>' +
+    '</div>' +
+    '<div class="ds-row ds-row-stack">' + toggle('dg-free', 'Free placement', gridIsFreeFor(g), !!g.overlap) +
+      '<p data-ui="help">Cards stay where you drop them. Without it, they move up to fill empty space.</p>' +
+      (!gridIsFreeFor(g) && looseBlocks(tab.layout) ? '<p data-ui="help" id="dg-loose">Some cards have empty space above them. They move up to fill it as soon as you move a card; turn on Free placement to keep them where they are.</p>' : '') + '</div>' +
+    '<div class="ds-row ds-row-stack">' + toggle('dg-overlap', 'Allow overlap', !!g.overlap, false) +
+      '<p data-ui="help">Cards can sit on top of each other, for example over a picture. It needs free placement, so that turns on with it. On the dashboard the card lower down is on top.</p></div>' +
+    '<div class="ds-row ds-row-stack">' + toggle('dg-scale', 'Scale to screen width', !!g.scale, false) +
+      '<p data-ui="help">The rows, the space between cards and the background picture shrink with the screen, so cards stay on the same part of the picture on any screen. The picture then sits behind the cards, as wide as they are, and starts where they start. Phones are not affected.</p></div>' +
+  '</fieldset>';
+}
+function gridIsFreeFor(g) { return !!(g.free || g.overlap); }
+
+/** Change this dashboard's grid. A change of precision rescales the cards; the canvas is rebuilt on the new grid. */
+function setGrid(patch, opts) {
+  opts = opts || {};
+  var tab = currentTab();
+  if (!tab || readOnly || tab.controls) return;
+  var before = gridOf(tab);
+  pushUndo();
+  syncLayoutFromGrid();
+  var own = cleanGrid(Object.assign({}, cleanGrid(tab.grid), patch));
+  var moved = 0;
+  if (own.columns !== undefined && own.columns !== before.columns) moved = rescaleLayout(tab.layout, before.columns, own.columns);
+  if (Object.keys(own).length) tab.grid = own; else delete tab.grid;
+  var scroller = document.querySelector('#inspector .ins-empty');
+  var scrollTop = scroller ? scroller.scrollTop : 0;
+  loadTab(tab.id, { skipSync: true, keepSelection: selectedBlockId });
+  var again = document.querySelector('#inspector .ins-empty');
+  if (again) again.scrollTop = scrollTop;
+  scheduleSave();
+  if (moved) toast(moved + (moved === 1 ? ' card was' : ' cards were') + ' moved to the nearest cell of the coarser grid', { actionLabel: 'Undo', onAction: undo, timeout: 10000 });
+}
+
+var gridUndoTaken = false;
+/** The gap changes while a slider is dragged: no rebuild, one undo step. */
+function setGridGap(value) {
+  var tab = currentTab();
+  if (!tab || readOnly || tab.controls) return;
+  if (!gridUndoTaken) { pushUndo(); gridUndoTaken = true; }
+  var own = cleanGrid(Object.assign({}, cleanGrid(tab.grid), { gap: value }));
+  tab.grid = own;
+  setEditorGrid(tab);
+  if (grid) grid.margin(GRID_MARGIN * previewScale);
+  var out = $('dg-gap-out'), state = $('dg-gap-state'), reset = $('dg-gap-reset');
+  if (out) out.textContent = String(own.gap);
+  if (state) state.textContent = 'Custom';
+  if (reset) reset.hidden = false;
+  scheduleSave();
+}
+
+function wireLayoutGrid(root) {
+  var panel = root.querySelector('#dash-grid');
+  if (!panel) return;
+  panel.addEventListener('change', function() { gridUndoTaken = false; });
+  var precision = $('dg-precision');
+  if (precision) precision.addEventListener('change', function() { setGrid({ columns: Number(precision.value) }); });
+  var gap = $('dg-gap');
+  if (gap) gap.addEventListener('input', function() { setGridGap(Number(gap.value)); });
+  var gapReset = $('dg-gap-reset');
+  if (gapReset) gapReset.addEventListener('click', function() {
+    var tab = currentTab(); if (!tab) return;
+    var own = cleanGrid(tab.grid); delete own.gap;
+    pushUndo(); if (Object.keys(own).length) tab.grid = own; else delete tab.grid;
+    setEditorGrid(tab); if (grid) grid.margin(GRID_MARGIN * previewScale);
+    scheduleSave(); selectBlock(null, { force: true });
+  });
+  var scale = $('dg-scale');
+  if (scale) scale.addEventListener('change', function() { setGrid({ scale: scale.checked }); });
+  var free = $('dg-free'), overlap = $('dg-overlap');
+  if (free) free.addEventListener('change', function() { setGrid({ free: free.checked }); });
+  if (overlap) overlap.addEventListener('change', function() { setGrid(overlap.checked ? { overlap: true, free: true } : { overlap: false }); });
+}
+
+/** "Dashboard style…" in the dashboard menu: nothing selected, so the inspector shows it. */
+function showDashboardStyle(focusId) {
+  if (onControlsTab() || readOnly) return;
+  selectBlock(null, { force: true });
+  if (isNarrow()) openSheet('inspector');
+  var first = $(typeof focusId === 'string' ? focusId : 'ds-bgLight');
+  if (first) { first.scrollIntoView({ block: 'nearest' }); first.focus(); }
+}
+
 function renderDashboardSummary(aside) {
   var tab = currentTab();
   var total = tab ? tab.layout.length : 0;
@@ -3379,6 +3719,7 @@ function renderDashboardSummary(aside) {
       '<h2 class="ed-panel-title">' + escHtml(tab ? tab.name || 'Dashboard' : 'Dashboard') + '</h2>' +
       '<p class="ins-empty-meta">' + total + (total === 1 ? ' block' : ' blocks') + (hidden ? ' · ' + hidden + ' hidden' : '') + '</p>' +
       '<p class="ins-empty-hint">Select a block on the layout to change its data, style and size.</p>' +
+      (tab && !onControlsTab() && !readOnly ? buildDashboardStyle(tab) : '') +
       '<ul class="ins-keys">' +
         '<li><span><kbd>Ctrl</kbd> <kbd>Z</kbd></span>Undo</li>' +
         '<li><span><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></span>Redo</li>' +
@@ -3387,6 +3728,8 @@ function renderDashboardSummary(aside) {
         '<li><span><kbd>Shift</kbd> + arrows</span>Resize selected block</li>' +
       '</ul>' +
     '</div>';
+  wireDashboardStyle(aside);
+  wireLayoutGrid(aside);
 }
 
 function renderInspector() {
@@ -3832,7 +4175,7 @@ function wireCanvas() {
     draggingType = null;
     if (!type || readOnly) return;
     e.preventDefault();
-    addBlock(type, cellFromPoint(e.clientX, e.clientY, Math.min(blockInfo(type).w, GRID_COLUMNS)));
+    addBlock(type, cellFromPoint(e.clientX, e.clientY, sizeOnGrid(blockInfo(type), editorGrid).w));
   });
 
   // Selecting blocks: click or Enter / Space; click on empty space clears it.
@@ -3885,6 +4228,7 @@ function loadTab(tabId, opts) {
   if (!tab) return;
   if (!opts.skipSync) syncLayoutFromGrid();
   currentTabId = tabId;
+  setEditorGrid(tab);
   if ($('library-list')) renderLibrary($('library-search') ? $('library-search').value : '');
   if (toolbar) toolbar.remove();
   selectedBlockId = null;
@@ -3900,16 +4244,25 @@ function loadTab(tabId, opts) {
   applyPreviewScale();
   grid = GridStack.init({
     column: GRID_COLUMNS, cellHeight: CELL_HEIGHT * previewScale, margin: GRID_MARGIN * previewScale,
-    float: false, animate: true, minRow: 4,
+    float: true, animate: true, minRow: Math.round(4 * GRID_COLUMNS / 12),
     staticGrid: readOnly,
     resizable: { handles: 'e, se, s, sw, w' },
     draggable: { cancel: 'input,textarea,button,select,option,.blk-toolbar' }
   }, container);
+  // The grid starts in float mode so the blocks are drawn exactly where they are saved (the dashboard draws them
+  // there too). Without free placement it then goes to packing upward, without packing now: that happens when a
+  // block is moved, resized or removed. (Switching modes the usual way would pack the whole layout at once, and
+  // the first change of any setting would save the packed positions.)
+  if (!gridIsFree()) { grid.opts.mode = 'top'; grid.engine._mode = 'top'; }
+  // Overlap: blocks may sit on top of each other, so the grid stops treating a block under another as a collision.
+  // (It only makes sense without packing upward, which gridIsFree() has already switched off.)
+  if (editorGrid.overlap) { grid.engine.collide = function() { return undefined; }; grid.engine.collideAll = function() { return []; }; }
   grid.on('dragstart resizestart', function() { pushUndo(); });
   grid.on('dragstop resizestop', function() { syncLayoutFromGrid(); refreshInspectorLayout(); scheduleSave(); });
 
   updateHeader();
   updateEmptyState();
+  applyEditorLook();
   selectBlock(opts.keepSelection || null, { force: true });
   schedulePreview();
 }
@@ -4107,6 +4460,8 @@ function openDashboardMenu() {
     items.push({ label: 'Controls page', icon: 'toggle', checked: onControls, hint: 'Switches, selectors, sliders and knobs', onSelect: function() { if (!onControls) loadTab(CONTROLS_TAB_ID); } });
   }
   items.push({ separator: true });
+  items.push({ label: 'Layout grid…', icon: 'cards', hint: onControls ? 'Not on the Controls page' : '', disabled: readOnly || onControls, onSelect: function() { showDashboardStyle('dg-precision'); } });
+  items.push({ label: 'Dashboard style…', icon: 'sun', hint: onControls ? 'Not on the Controls page' : '', disabled: readOnly || onControls, onSelect: function() { showDashboardStyle(); } });
   items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
   items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly || onControls, onSelect: duplicateDashboard });
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
@@ -4286,6 +4641,8 @@ async function initEditor() {
       availableMetrics = res[0].concat(res[1]).filter(function(n) { return seen[n] ? false : (seen[n] = true); }).sort();
       switchables = Array.isArray(res[2]) ? res[2] : [];
     });
+    // Settings → Appearance: what a dashboard looks like unless it sets its own.
+    fetchPublicConfig().then(function(cfg) { defaultLook = globalAppearance(cfg || {}); applyEditorLook(); refreshDashboardStyle(); }).catch(function() { /* the built-in defaults stay */ });
     var authPromise = fetch('/api/auth/status').then(function(r) { return r.json(); }).catch(function() { return { authenticated: true }; });
 
     dashboardConfig = await fetchDashboardConfig();

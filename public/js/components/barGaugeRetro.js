@@ -1,12 +1,14 @@
 /**
  * Retro Bar Gauge — segmented LED/VU meter style.
  * Each row: label | [▮▮▮▮▯▯▯▯▯▯] | value+unit
- * Lit segments determined by value position between min and max.
+ * Lit segments determined by value position between min and max. Vertical: one column per metric, the
+ * segments stacked from the bottom up.
  */
 import { escapeHtml, isNumericValue } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
 import { emptyBlock } from './emptyState.js';
+import { barGaugeClasses } from './barGaugeLook.js';
 export function buildBarGaugeRetro(block = {}) {
   const id = block.id || '';
   const config = block.config || {};
@@ -14,7 +16,7 @@ export function buildBarGaugeRetro(block = {}) {
   if (!rows.some(r => r && r.metric)) return emptyBlock('Choose the metrics for this block in the layout editor.', id);
 
   const container = document.createElement('div');
-  container.className = 'bar-gauge-retro-card ep-card';
+  container.className = 'bar-gauge-retro-card ep-card' + barGaugeClasses(config);
   container.dataset.blockId = id;
   markBreakdown(container, config);
   container.dataset.metricMap = JSON.stringify(rows);

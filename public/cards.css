@@ -175,6 +175,29 @@
 .bg-retro-segments { gap: 3px !important; }
 .bg-retro-seg { height: clamp(12px, 4cqi, 22px) !important; border-radius: 3px !important; background: var(--border); }
 
+/* Bar ends (the card's "Bar ends" setting): rounded or square, on the bars and on each segment. */
+.bar-gauge-card.bar-ends-rounded :is(.bar-gauge-track, .bar-gauge-fill),
+.bar-gauge-retro-card.bar-ends-rounded .bg-retro-seg { border-radius: 99px !important; }
+.bar-gauge-card.bar-ends-square :is(.bar-gauge-track, .bar-gauge-fill),
+.bar-gauge-retro-card.bar-ends-square .bg-retro-seg { border-radius: 0 !important; }
+
+/* Vertical bars (the card's "Orientation" setting): one column per metric, the value on top, the bar in the
+   middle and the label below. The bars fill from the bottom; the segments are stacked from the bottom up. */
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical { flex-direction: row !important; align-items: stretch; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) {
+  display: flex !important; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; min-height: 0; gap: 0.5em;
+}
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-value, .bg-retro-value) { order: 0; text-align: center; max-width: 100%; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-label, .bg-retro-label) { order: 2; text-align: center; max-width: 100% !important; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) > .bd-list { order: 3; grid-column: auto; padding-left: 0; max-width: 100%; }
+.bar-gauge-card.is-vertical .bar-gauge-track {
+  order: 1; flex: 1 1 0; min-height: 0; height: auto !important; width: clamp(14px, 50%, 44px);
+  display: flex; flex-direction: column; justify-content: flex-end;
+}
+.bar-gauge-card.is-vertical .bar-gauge-fill { transition: height 0.5s ease; }
+.bar-gauge-retro-card.is-vertical .bg-retro-segments { order: 1; flex: 1 1 0; min-height: 0; width: clamp(14px, 50%, 44px); flex-direction: column-reverse; }
+.bar-gauge-retro-card.is-vertical .bg-retro-seg { height: auto !important; width: 100%; flex: 1 1 0; min-height: 0; }
+
 /* ── History and threshold bars ───────────────────────────── */
 .bar-single-card, .bar-stacked-card, .bar-threshold-card {
   display: flex !important; flex-direction: column !important;

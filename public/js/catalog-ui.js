@@ -308,7 +308,7 @@
     });
   }
 
-  // Append a '+ New' affordance for one catalog row: swaps the row's metric
+  // Append a '+' (new metric) affordance for one catalog row: swaps the row's metric
   // dropdown for an inline name+unit editor, unit prefilled from
   // adapter.defaultUnit(getEntity()) when the row knows its catalog entity.
   // Returns the button element (documented as CatalogUI.createInlineMetricControl).
@@ -316,9 +316,10 @@
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'inline-create-btn remove-btn';
-    btn.textContent = '+ New';
-    btn.title = 'Create a new metric (explicit only — nothing is created until you click Create)';
-    btn.style.cssText = 'flex-shrink:0;padding:0.3rem 0.55rem;font-size:0.74em;min-height:30px;';
+    btn.textContent = '+';
+    btn.setAttribute('aria-label', 'New metric');
+    btn.title = 'New metric: create one here (nothing is created until you click Create)';
+    btn.style.cssText = 'flex-shrink:0;padding:0;font-size:1.15em;font-weight:700;line-height:1;min-height:30px;min-width:30px;color:var(--accent);';   // a plain "+", in the accent colour: the red of a remove button would read as one
 
     const panel = document.createElement('div');
     panel.className = 'inline-create';
@@ -411,9 +412,9 @@
       else if (e.key === 'Escape') { closeEditor(); refreshDropdowns(); notifyRowsChanged(row); }
     });
 
-    // The panel rides at the end of the row (flex row) so the DOM contract
-    // stays intact: div.metric-row > select.metric-name (+ button) + chip.
-    row.appendChild(btn);
+    // The "+" sits right beside the dropdown; the editor panel rides at the end of the row (flex row) so
+    // the DOM contract stays intact: div.metric-row > select.metric-name (+ button) + chip.
+    metricSelect.after(btn);
     row.appendChild(panel);
     return btn;
   }

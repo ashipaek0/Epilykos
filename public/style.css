@@ -323,8 +323,23 @@ h1, h2, h3, h4,
   box-shadow: 0 8px 25px rgba(0,0,0,0.3);
 }
 
+/* A dashboard that scales to the screen width (its grid.scale; dashboard.js sets --s, the area's width over 1400 px,
+   and --extent, the height of the blocks in unscaled px): its height is that, or the picture's if that is taller.
+   The picture is drawn from the area's top left, as wide as the area, behind the blocks (::before comes first, so
+   the blocks paint over it); the page's own copy of it is for phones, where the blocks stack. */
+#dashboard-container.is-scaled { height: calc(var(--extent, 0) * 1px * var(--s, 1)); }
+#dashboard-container.is-scaled.has-picture {
+  height: max(calc(var(--extent, 0) * 1px * var(--s, 1)), calc(var(--s, 1) * 1400px / var(--pic-ratio, 1)));
+}
+#dashboard-container.is-scaled.has-picture::before {
+  content: ''; position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: var(--pic-ratio, 1);
+  background: var(--pic-url) 0 0 / 100% 100% no-repeat; pointer-events: none;
+}
+@media (min-width: 769px) { body.scale-layout { background-image: none !important; } }
+
 /* Responsive: stack vertically on mobile */
 @media (max-width: 768px) {
+  #dashboard-container.is-scaled::before { display: none; }
   #dashboard-container {
     position: static !important;
     height: auto !important;

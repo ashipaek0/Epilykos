@@ -234,6 +234,12 @@ body.ed {
 
 /* Canvas */
 .ed-canvas { flex: 1; min-width: 0; overflow: auto; position: relative; outline: none; }
+/* A dashboard that scales to the screen width has its background picture on the layout area, as wide as the area and
+   from its top left, behind the cards: the same as on the dashboard (style.css), so a card sits on the same part of it. */
+#grid.has-picture::before {
+  content: ''; position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: var(--pic-ratio, 1);
+  background: var(--pic-url) 0 0 / 100% 100% no-repeat; pointer-events: none;
+}
 .ed-canvas-inner { position: relative; max-width: 1400px; margin: 0 auto; padding: 56px 24px 96px; min-height: 100%; }
 .ed-canvas.is-drop-target .ed-canvas-inner { box-shadow: inset 0 0 0 2px var(--ed-accent); border-radius: 14px; }
 .ed .grid-stack { background: transparent; min-height: 200px; }
@@ -367,7 +373,8 @@ body.ed {
 .ins-msg { margin: 0; font-size: 12.5px; color: var(--ed-muted); }
 .ins-msg.is-error { color: var(--ed-err); font-weight: 700; }
 
-.ins-empty { padding: 24px 20px; display: flex; flex-direction: column; gap: 8px; }
+/* With nothing selected the inspector shows the dashboard summary and Dashboard style; it can be taller than the column, so it scrolls. */
+.ins-empty { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px 20px 32px; display: flex; flex-direction: column; gap: 8px; }
 .ins-empty-icon {
   width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
   background: var(--ed-hover); color: var(--ed-accent-strong); margin-bottom: 4px;
@@ -658,3 +665,23 @@ body.ed {
 .bc-icon-pick:hover, .bc-icon-pick:focus-visible { border-color: currentColor; }
 .bc-icon-pick svg { width: 22px; height: 22px; }
 
+
+/* Dashboard style (the inspector with nothing selected): this dashboard's own look. */
+.ds-wrap { flex: none; overflow: visible; padding: 0; margin-top: 12px; }
+.ds-panel { margin-top: 0; }
+.ds-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 4px 10px; padding: 6px 0; }
+.ds-row > label[data-ui~="label"] { font-size: 14px; font-weight: 600; color: var(--ed-text); }
+.ds-row-stack { grid-template-columns: minmax(0, 1fr) auto auto; }
+.ds-row-stack > label[data-ui~="field"], .ds-row-stack > .toggle-wrap { grid-column: 1 / -1; }
+.ds-row select, .ds-row input[type="range"] { grid-column: 2 / 4; min-width: 0; }
+.ds-row input[type="range"] { width: 100%; }
+.ds-row input[type="color"] { width: 44px; height: 32px; padding: 2px; cursor: pointer; }
+.ds-state { font-size: 12px; color: var(--ed-muted); }
+.ds-reset { font-size: 12px; }
+.ds-reset[hidden] { display: none; }
+#ds-glass[hidden] { display: none; }
+#ds-reset-all { margin-top: 8px; }
+
+/* The canvas previews the dashboard's square corners, as style.css does on the dashboard page. */
+body.square-corners #ed-canvas { --radius: 0px; }
+body.square-corners #ed-canvas :is(.dashboard-block, .grid-stack-item-content, .fc-day, .topo-hub, .so-hub-box, .ep-tile, .so-tile, .stat-card) { border-radius: 0 !important; }

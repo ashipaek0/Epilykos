@@ -23,8 +23,11 @@ import { updateAllComponents, updateWithState } from './updater.js';
 import { ensureBlockIds } from './utils/blockId.js';
 import { ensureChartJS } from './chartLoader.js';
 import { applyBlockStyle } from './components/blockStyle.js';
+import { globalAppearance, effectiveAppearance, applyAppearance } from './appearance.js';
+import { gridOf, placeBlocks, blockStyle, areaHeight, SCALE_REFERENCE_WIDTH } from './layoutGrid.js';
 
 let dashboardConfig;
+let defaultLook = null;   // Settings → Appearance: the look of every dashboard that does not override it
 
 /**
  * Fetch dashboard config from API, select active tab (honouring ?tab= param
@@ -59,6 +62,7 @@ export async function loadDashboardConfig() {
   } else if (activeDash && activeDash.name === 'Default') {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
+  defaultLook = globalAppearance(cfg);
   applyBranding(cfg);
 
   renderDashboard();
@@ -73,6 +77,7 @@ export async function loadDashboardConfig() {
  */
 function renderDashboard() {
   if (!dashboardConfig || !dashboardConfig.dashboards) return;
+  applyDashboardLook();
   destroyCharts();
   clearSparklineCharts();
 
@@ -134,50 +139,21 @@ function renderDashboard() {
     saveDashboardConfig(dashboardConfig).catch(e => console.warn('Migration save failed:', e));
   }
 
-  // Render blocks with absolute positioning based on GridStack coordinates
-  const ROW_HEIGHT = 50; // matches editor cellHeight
-  const GAP = 1; // px on each side of a card, so cards sit 2px apart (editor: GRID_MARGIN)
+  // Render blocks with absolute positioning based on GridStack coordinates (public/js/layoutGrid.js)
+  const grid = gridOf(active);
 
-  // Build position descriptors sorted by gridY for overlap prevention
   const positioned = [];
   layoutWithIds.forEach((block) => {
     if (block.enabled === false) return;
     const builder = getBuilder(block.type);
     if (!builder) return;
-    const x = block.gridX ?? 0;
-    const y = block.gridY ?? 0;
-    const w = block.gridW ?? 12;
-    const h = block.gridH ?? 4;
-    positioned.push({ block, x, y, w, h });
+    positioned.push({ block, x: block.gridX ?? 0, y: block.gridY ?? 0, w: block.gridW ?? grid.columns, h: block.gridH ?? 4 });
   });
-  positioned.sort((a, b) => a.y - b.y || a.x - b.x);
+  const placed = placeBlocks(positioned, grid);
 
-  // De-overlap pass: for each block, check against all previously placed blocks
-  // and push down if their vertical spans overlap within the same horizontal region
-  for (let i = 0; i < positioned.length; i++) {
-    const cur = positioned[i];
-    let adjustedY = cur.y;
-    for (let j = 0; j < i; j++) {
-      const prev = positioned[j];
-      // Horizontal overlap check: columns intersect?
-      const curLeft = cur.x;
-      const curRight = cur.x + cur.w;
-      const prevLeft = prev.x;
-      const prevRight = prev.x + prev.w;
-      if (curRight > prevLeft && curLeft < prevRight) {
-        // Vertical: check if cur would overlap prev's bottom edge
-        const prevBottom = prev._top + prev.h;
-        if (adjustedY < prevBottom) {
-          adjustedY = prevBottom;
-        }
-      }
-    }
-    cur._top = adjustedY;
-  }
-
-  let maxBottom = 0;
-
-  positioned.forEach(({ block, x, w, h, _top }) => {
+  const rendered = [];   // the area is as tall as what was drawn
+  placed.forEach(item => {
+    const block = item.block;
     let content;
     try {
       content = getBuilder(block.type)(block);
@@ -193,20 +169,27 @@ function renderDashboard() {
     wrapper.className = 'dashboard-block';
     wrapper.dataset.blockId = block.id;
     wrapper.style.position = 'absolute';
-    wrapper.style.left = `calc(${((x / 12) * 100)}% + ${GAP}px)`;
-    wrapper.style.top = (_top * ROW_HEIGHT + GAP) + 'px';
-    wrapper.style.width = `calc(${((w / 12) * 100)}% - ${GAP * 2}px)`;
-    wrapper.style.height = (h * ROW_HEIGHT - GAP * 2) + 'px';
+    Object.assign(wrapper.style, blockStyle(item, grid));
 
     applyBlockStyle(content, block);
     wrapper.appendChild(content);
     container.appendChild(wrapper);
-
-    maxBottom = Math.max(maxBottom, (_top + h) * ROW_HEIGHT);
+    rendered.push(item);
   });
 
   container.style.position = 'relative';
-  container.style.height = maxBottom + 'px';
+  if (grid.scale) {
+    // Scaled to the screen width: the area's height, like every px length in it, is its width's share of
+    // SCALE_REFERENCE_WIDTH times the stated size (style.css), so it follows the window without being redrawn.
+    container.style.height = '';
+    container.style.setProperty('--extent', String(areaHeight(rendered, grid)));
+    trackScale(container);
+  } else {
+    container.style.height = areaHeight(rendered, grid) + 'px';
+    container.style.removeProperty('--extent');
+    untrackScale(container);
+  }
+  container.classList.toggle('is-scaled', !!grid.scale);
 
   // Auth-dependent UI: sign-in/out, editor link
   fetch('/api/auth/status')
@@ -314,11 +297,34 @@ async function switchDashboard(id) {
   renderDashboard();
 }
 
-/** Apply the configured background colour for the current theme (light/dark) */
-function applyBodyBg() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const color = isDark ? (window._bgDark || '') : (window._bgLight || '');
-  document.body.style.backgroundColor = color || '';
+/**
+ * The active dashboard's look: the defaults from Settings → Appearance with the dashboard's own
+ * overrides on top (public/js/appearance.js). Applied on every render, so switching dashboards
+ * changes the background and blocks too.
+ */
+function applyDashboardLook() {
+  if (!defaultLook) return;
+  const active = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard);
+  // A dashboard that scales to the screen width has its picture on the layout area, so a block sits on the same
+  // part of it on any screen; the page keeps it too, for phones, where the blocks stack (style.css hides it elsewhere).
+  const scaled = !!(active && gridOf(active).scale);
+  const area = document.getElementById('dashboard-container');
+  document.body.classList.toggle('scale-layout', scaled);
+  applyAppearance(effectiveAppearance(defaultLook, active && active.appearance), { anchored: scaled && area ? { el: area, fallback: true } : null });
+}
+
+// The area's width over SCALE_REFERENCE_WIDTH, as --s on the area, for a dashboard that scales to the screen width.
+let scaleObserver = null;
+function trackScale(area) {
+  const set = () => area.style.setProperty('--s', String(Math.round((area.clientWidth / SCALE_REFERENCE_WIDTH) * 1000) / 1000));
+  set();
+  if (typeof ResizeObserver !== 'function') { window.addEventListener('resize', set); return; }
+  if (!scaleObserver) scaleObserver = new ResizeObserver(entries => entries.forEach(e => e.target.style.setProperty('--s', String(Math.round((e.contentRect.width / SCALE_REFERENCE_WIDTH) * 1000) / 1000))));
+  scaleObserver.observe(area);
+}
+function untrackScale(area) {
+  if (scaleObserver) scaleObserver.unobserve(area);
+  area.style.removeProperty('--s');
 }
 
 function applyBranding(cfg) {
@@ -331,31 +337,6 @@ function applyBranding(cfg) {
   else { logoEl.src = '/icons/epilykos-mark.svg'; logoEl.style.display = 'inline'; }
   applyFavicon(document, cfg.dashboard_favicon);
   window.systemCapacityKwp = parseFloat(cfg.solar_capacity_kwp) || 2.1;
-  document.body.classList.toggle('transparent-blocks', cfg.transparent_blocks === 'true');
-  document.body.classList.toggle('square-corners', cfg.square_corners === 'true');
-  applyGlass(cfg);
-  // Store bg colors for theme-aware application
-  window._bgLight = cfg.dashboard_bg_color_light || cfg.dashboard_bg_color || '#f8fafc';
-  window._bgDark = cfg.dashboard_bg_color_dark || '#0f172a';
-  applyBodyBg();
-  document.body.addEventListener('theme-changed', applyBodyBg);
-  if (cfg.dashboard_bg_image) { const safeBg = String(cfg.dashboard_bg_image).replace(/["'()\\\n\r]/g, ''); document.body.style.backgroundImage = `url("${safeBg}")`; document.body.style.backgroundSize = 'cover'; document.body.style.backgroundPosition = 'center'; document.body.style.backgroundAttachment = 'fixed'; }
-}
-
-/** Glass cards (public/glass.css): the class turns the look on, blur and frost are numbers clamped here so only a number reaches the stylesheet. */
-function applyGlass(cfg) {
-  const on = cfg.glass_cards === 'true';
-  document.body.classList.toggle('glass-cards', on);
-  // Glass replaces the transparent blocks look (that one forces a clear fill, which leaves a blur with no tint).
-  if (on) document.body.classList.remove('transparent-blocks');
-  const num = (v, lo, hi, fallback) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback; };
-  if (on) {
-    document.body.style.setProperty('--glass-blur', num(cfg.glass_blur, 0, 40, 18) + 'px');
-    document.body.style.setProperty('--glass-frost', String(num(cfg.glass_frost, 20, 200, 100) / 100));
-  } else {
-    document.body.style.removeProperty('--glass-blur');
-    document.body.style.removeProperty('--glass-frost');
-  }
 }
 
 export { dashboardConfig, renderDashboard, switchDashboard };
