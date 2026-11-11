@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "42796322357.1",
-    "version": "1.2.3-dev+ecce1c5",
-    "commit": "ecce1c57f76f16f3227b94df08763ec9709e3934",
-    "digest": "sha256:41ae558703a2a6a142e859515a00dd5d04c8bb9bad9a15de140b14d2603e56bb",
+    "buildId": "42985991377.1",
+    "version": "1.2.3-dev+9814999",
+    "commit": "9814999bf713438c0bffe79d33c8a089f373ed93",
+    "digest": "sha256:80e9e89c9bc0a427d93ba9c89238b7b28b43828dfcfd9129ef9024ee4fc5ad73",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-10T10:06:56Z",
+    "builtAt": "2026-11-11T08:18:46Z",
     "kind": "release",
     "notes": [
-      "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)"
+      "External sources: back off when a source fails, and log it once (#313)",
+      "Bluetooth: restart the helper when its D-Bus connection is lost (#312)"
     ]
   },
   "history": [
+    {
+      "buildId": "42985991377.1",
+      "version": "1.2.3-dev+9814999",
+      "commit": "9814999bf713438c0bffe79d33c8a089f373ed93",
+      "digest": "sha256:80e9e89c9bc0a427d93ba9c89238b7b28b43828dfcfd9129ef9024ee4fc5ad73",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-11T08:18:46Z",
+      "kind": "release",
+      "notes": [
+        "External sources: back off when a source fails, and log it once (#313)",
+        "Bluetooth: restart the helper when its D-Bus connection is lost (#312)"
+      ]
+    },
     {
       "buildId": "42796322357.1",
       "version": "1.2.3-dev+ecce1c5",
@@ -366,18 +380,6 @@
       "kind": "release",
       "notes": [
         "Control cards: Layout, sub-label, pill and fill options for Button and Toggle (#279)"
-      ]
-    },
-    {
-      "buildId": "41995469714.1",
-      "version": "1.1.1-dev+fd4b1d4",
-      "commit": "fd4b1d4d86c159eb917e51b04251ab9d281a7e40",
-      "digest": "sha256:cce165b34e5b7534c86462e8ab5bc706adf2bbf936e48c9a22c6c64c317f238f",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-05T08:34:23Z",
-      "kind": "release",
-      "notes": [
-        "Daily peak and Histogram cards, with peak solar power for every day on record"
       ]
     }
   ]
