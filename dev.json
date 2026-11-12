@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43213062992.1",
-    "version": "1.2.5-dev+22f7f37",
-    "commit": "22f7f37ab786dccf6a2e001abf2104b996330cd6",
-    "digest": "sha256:22e3863b9664c83494099ae924791d4b62e86a313e0270eb54d3f83af7f57d38",
+    "buildId": "43215826316.1",
+    "version": "1.2.5-dev+b9c4214",
+    "commit": "b9c421405f6e49a97a56303750758296058e756b",
+    "digest": "sha256:a5907ee5617414372921e6f3e764b6b0f0446828bcc5448759a88e2534bf1faa",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T11:54:03Z",
+    "builtAt": "2026-11-12T12:13:03Z",
     "kind": "release",
     "notes": [
-      "Add Power flow card: Grid, Generator and Battery appear when active (#331)"
+      "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)"
     ]
   },
   "history": [
+    {
+      "buildId": "43215826316.1",
+      "version": "1.2.5-dev+b9c4214",
+      "commit": "b9c421405f6e49a97a56303750758296058e756b",
+      "digest": "sha256:a5907ee5617414372921e6f3e764b6b0f0446828bcc5448759a88e2534bf1faa",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T12:13:03Z",
+      "kind": "release",
+      "notes": [
+        "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)"
+      ]
+    },
     {
       "buildId": "43213062992.1",
       "version": "1.2.5-dev+22f7f37",
@@ -357,18 +369,6 @@
       "kind": "release",
       "notes": [
         "BMS readings carry their unit, so a bank's Wh total shows as kWh"
-      ]
-    },
-    {
-      "buildId": "42587633762.1",
-      "version": "1.2.1-dev+5ea35fe",
-      "commit": "5ea35fec5f6a7ce9ac3453ff18056261fd0ef57b",
-      "digest": "sha256:d000b74c6a89ec9fe760bf8051e3ae92056e9bc098b1e9d9a98ba98624891d02",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T08:40:31Z",
-      "kind": "release",
-      "notes": [
-        "BMS readings carry their unit, so a bank's Wh total shows as kWh (#301)"
       ]
     }
   ]
