@@ -130,6 +130,34 @@ async function forecastReport(which = 'tomorrow') {
   return { title: `${dayLabel(date)}'s solar forecast`, body: lines.join('\n'), data: { date, kwh: day.total_kwh, peak_kw: day.peak_kw, average_kwh: avg, average_use_kwh: avgUse } };
 }
 
+/** What a forecast rule's "only below" can compare with: a fixed number of kWh, or a share of a 7-day average. */
+const BELOW_MODES = ['kwh', 'avg_solar', 'avg_use'];
+
+/**
+ * Whether a forecast rule's limit lets the report through: { skip } (a reason) when it should not be sent,
+ * { line } (the reason it was sent, for the message) when it should, {} when the rule has no limit.
+ * Modes: 'kwh' (below `below_kwh`; 0 = no limit), 'avg_solar' / 'avg_use' (below `below_pct` percent, 100 by default, of
+ * the 7-day average solar generation / use). A relative limit needs the average, so without enough history it sends nothing.
+ */
+function forecastLimit(rule, data) {
+  const mode = BELOW_MODES.includes(rule.below_mode) ? rule.below_mode : 'kwh';
+  if (mode === 'kwh') {
+    const limit = Number(rule.below_kwh);
+    if (!(limit > 0)) return {};
+    if (data.kwh === null || data.kwh === undefined) return { skip: 'no forecast available' };
+    if (data.kwh >= limit) return { skip: `forecast ${data.kwh} kWh is not below ${limit} kWh` };
+    return { line: `⚠️ Below your ${limit} kWh limit` };
+  }
+  const pct = Number(rule.below_pct) > 0 ? Number(rule.below_pct) : 100;
+  const solarBase = mode === 'avg_solar';
+  const what = solarBase ? 'solar' : 'use';
+  const base = solarBase ? data.average_kwh : data.average_use_kwh;
+  if (data.kwh === null || data.kwh === undefined) return { skip: 'no forecast available' };
+  if (!base) return { skip: `no 7-day average ${what} yet` };
+  if (data.kwh >= base * pct / 100) return { skip: `forecast ${data.kwh} kWh is not below ${pct}% of the 7-day average ${what} (${round(base, 1)} kWh)` };
+  return { line: `⚠️ Below ${pct === 100 ? 'your' : pct + '% of your'} 7-day average ${what} (${kwh(base)})` };
+}
+
 function roleMetrics() {
   try { return JSON.parse(getConfig('role_metrics') || '{}') || {}; } catch (_) { return {}; }
 }
@@ -190,4 +218,4 @@ const REPORTS = {
   status: { label: 'Current status', days: [], build: () => statusReport() },
 };
 
-module.exports = { REPORTS, daySummary, forecastReport, statusReport, gridOnSeconds, dayString, dayBounds, hm };
+module.exports = { REPORTS, BELOW_MODES, forecastLimit, daySummary, forecastReport, statusReport, gridOnSeconds, dayString, dayBounds, hm };

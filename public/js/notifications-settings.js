@@ -191,7 +191,9 @@
       var rep = (state.reports || []).find(function (x) { return x.id === r.report; });
       when = (rep ? rep.label : r.report) + (r.day ? ' (' + DAY_LABEL[r.day] + ')' : '') + ' at ' + r.time +
         (r.days && r.days.length ? ' on ' + r.days.map(function (d) { return WEEKDAYS[d]; }).join(', ') : ' every day') +
-        (r.report === 'forecast' && r.below_kwh > 0 ? ', only below ' + r.below_kwh + ' kWh' : '');
+        (r.report === 'forecast' && (r.below_mode === 'avg_solar' || r.below_mode === 'avg_use')
+          ? ', only below ' + (r.below_pct && r.below_pct !== 100 ? r.below_pct + '% of ' : '') + 'your 7-day average ' + (r.below_mode === 'avg_solar' ? 'solar' : 'use')
+          : r.report === 'forecast' && r.below_kwh > 0 ? ', only below ' + r.below_kwh + ' kWh' : '');
     } else if (r.kind === 'event') {
       when = 'When: ' + eventLabel(r.event) + (r.subject ? ' (' + r.subject + ')' : '');
     } else if (r.operator === 'changes') {
@@ -425,7 +427,15 @@
       var dsel = d.days || [];
       html += toggleList('nt-r-wd', [1, 2, 3, 4, 5, 6, 0].map(function (wd) { return toggleItem('nt-r-wd', wd, !dsel.length || dsel.indexOf(wd) >= 0, WEEKDAYS[wd]); }), 'On these days', 'nt-toggle-grid');
       if (rep.id === 'forecast') {
-        html += field('nt-r-below', 'Only send when the forecast is below (kWh)', input('nt-r-below', d.below_kwh || 0, ' type="number" min="0" step="0.5"'), '0 = send every time. Use it to be warned about a poor solar day ahead.');
+        // What "low" means: a fixed number of kWh, or a share of what the last 7 days actually made or used.
+        var bmode = d.below_mode === 'avg_solar' || d.below_mode === 'avg_use' ? d.below_mode : 'kwh';
+        html += '<div class="st-grid-2">' +
+          field('nt-r-below-mode', 'Only send when the forecast is below', '<select id="nt-r-below-mode" class="input">' +
+            [['kwh', 'A number of kWh'], ['avg_solar', 'A percentage of your 7-day average solar'], ['avg_use', 'A percentage of your 7-day average use']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === bmode ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>') +
+          (bmode === 'kwh'
+            ? field('nt-r-below', 'kWh', input('nt-r-below', d.below_kwh || 0, ' type="number" min="0" step="0.5"'), '0 = send every time. Use it to be warned about a poor solar day ahead.')
+            : field('nt-r-below-pct', 'Percent', input('nt-r-below-pct', d.below_pct || 100, ' type="number" min="1" max="1000" step="5"'), '100 = below the average itself. 80 = at least a fifth under it. Without a few days of totals yet, nothing is sent.')) +
+        '</div>';
       }
     } else {
       html += field('nt-r-event', 'Event', '<select id="nt-r-event" class="input">' + eventOptions(d.event) + '</select>', (function () {
@@ -477,7 +487,9 @@
       d.time = val('nt-r-time');
       var wds = checkedValues('nt-r-wd').map(Number);
       d.days = wds.length === 7 ? [] : wds;
+      if (document.getElementById('nt-r-below-mode')) d.below_mode = val('nt-r-below-mode');
       if (document.getElementById('nt-r-below')) d.below_kwh = val('nt-r-below');
+      if (document.getElementById('nt-r-below-pct')) d.below_pct = val('nt-r-below-pct');
     } else {
       d.event = val('nt-r-event');
       d.subject = val('nt-r-subject').trim();
@@ -755,6 +767,8 @@
       syncRuleDraft(); render();
     } else if (el.id === 'nt-r-event') {
       syncRuleDraft(); render();
+    } else if (el.id === 'nt-r-below-mode') {
+      syncRuleDraft(); render();   // a number of kWh or a percentage
     } else if (el.id === 'nt-r-report') {
       syncRuleDraft();
       var rp = (state.reports || []).find(function (x) { return x.id === editRule.draft.report; });

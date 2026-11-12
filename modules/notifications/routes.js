@@ -11,7 +11,7 @@ const store = require('./store');
 const { listEventTypes, SEVERITIES } = require('./events');
 const { OPERATORS } = require('./rules');
 const { CHANNEL_TYPES, deliver, sendToChannel } = require('./dispatcher');
-const { REPORTS } = require('./reports');
+const { REPORTS, BELOW_MODES } = require('./reports');
 const { clockMinutes } = require('./rules');
 const telegramBot = require('./telegramBot');
 
@@ -101,6 +101,12 @@ function normalizeRule(input, stored) {
     rule.days = (Array.isArray(input.days) ? input.days : []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
     if (rule.days.length === 7) rule.days = [];
     rule.below_kwh = rule.report === 'forecast' ? Math.max(0, Number(input.below_kwh) || 0) : 0;
+    if (rule.report === 'forecast') {
+      // What the limit is: a number of kWh (below_kwh), or a percentage (1-1000, 100 by default) of the 7-day average solar or use.
+      rule.below_mode = BELOW_MODES.includes(input.below_mode) ? input.below_mode : 'kwh';
+      const pct = Math.round(Number(input.below_pct));
+      rule.below_pct = pct >= 1 ? Math.min(1000, pct) : 100;
+    }
     rule.cooldown_s = 0;
   } else {
     rule.event = str(input.event, 80);

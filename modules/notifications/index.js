@@ -158,17 +158,14 @@ async function buildReport(rule) {
   const def = reports.REPORTS[rule.report];
   if (!def) throw new Error(`Unknown report ${rule.report}`);
   const r = await def.build(rule.day);
-  let skip = null;
-  if (rule.report === 'forecast' && Number(rule.below_kwh) > 0) {
-    if (r.data.kwh === null) skip = 'no forecast available';
-    else if (r.data.kwh >= Number(rule.below_kwh)) skip = `forecast ${r.data.kwh} kWh is not below ${rule.below_kwh} kWh`;
-  }
+  // A forecast rule can have a limit (a number of kWh, or a share of the 7-day average solar or use). It also says why
+  // a limited rule fired: its title ("Low solar tomorrow") is the rule's own, and the report alone can read as fine
+  // (above the recent average) when the limit is what it fell below.
+  const limit = rule.report === 'forecast' ? reports.forecastLimit(rule, r.data) : {};
+  const skip = limit.skip || null;
   // The rule's own name is the title; the report's title ("Tomorrow's solar
   // forecast") leads the body so the day is never ambiguous.
-  // Say why a limited forecast rule fired: its title ("Low solar tomorrow") is the rule's own, and the report
-  // alone can read as fine (above the recent average) when the limit is what it fell below.
-  const limit = !skip && rule.report === 'forecast' && Number(rule.below_kwh) > 0 ? `⚠️ Below your ${Number(rule.below_kwh)} kWh limit` : null;
-  const body = [rule.message, rule.name ? r.title : null, r.body, limit].filter(Boolean).join('\n');
+  const body = [rule.message, rule.name ? r.title : null, r.body, skip ? null : limit.line].filter(Boolean).join('\n');
   return { title: rule.name || r.title, body, skip };
 }
 
