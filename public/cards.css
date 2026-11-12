@@ -130,6 +130,30 @@
   .ep-tiles { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* ── Tile icons: an optional icon or image beside a tile's text (Metric cards, Multi-value rows, Text metric) ── */
+.stat-card.has-icon {
+  display: grid !important; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+  grid-template-areas: "icon label" "icon value"; align-content: center; align-items: center; justify-items: start;
+  column-gap: clamp(0.5rem, 2.2cqi, 1rem); row-gap: 0.15em;
+}
+.stat-card.has-icon > .tile-icon { grid-area: icon; align-self: center; }
+.stat-card.has-icon > .stat-label { grid-area: label; align-self: end; }
+.stat-card.has-icon > .stat-value { grid-area: value; align-self: start; }
+.stat-card.has-icon > :not(.tile-icon, .stat-label, .stat-value) { grid-column: 1 / -1; }   /* breakdown lists and the like span the tile */
+/* The icon's square follows the card (the block's width), with limits so it neither vanishes nor takes over. */
+.tile-icon {
+  --tile-icon-size: clamp(1.9rem, 5.2cqi, 3.4rem);
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; box-sizing: border-box;
+  width: var(--tile-icon-size); height: var(--tile-icon-size); border-radius: 0.7em; overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
+}
+.tile-icon > svg { width: 56%; height: 56%; }
+.tile-icon.is-image { background: transparent; }
+.tile-icon.is-image > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.tile-icon.is-emoji { font-size: calc(var(--tile-icon-size) * 0.52); line-height: 1; }
+/* A single card (Text metric) lays its icon out the same way. */
+.text-metric-card.has-icon { padding: var(--card-pad) !important; align-items: center !important; justify-content: start !important; }
+
 /* ── Text metric ──────────────────────────────────────────── */
 .text-metric-card {
   align-items: flex-start !important;
