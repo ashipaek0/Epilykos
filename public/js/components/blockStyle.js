@@ -90,6 +90,7 @@ export function applyBlockStyle(content, block) {
     content.style.setProperty('--card-bg', 'transparent');
     content.style.setProperty('--bg', 'transparent');
     content.style.setProperty('--dual-surface', 'transparent');
+    content.style.setProperty('--fc-tile', 'transparent');   // the forecast cards' day tiles (drawn later, so by variable)
     // The split layout's divider colour fills the gaps between panes: with no surface it would show everywhere.
     content.querySelectorAll('.dual-metric-body').forEach(el => { el.style.background = 'transparent'; });
     content.querySelectorAll('.dual-metric-header').forEach(el => { el.style.borderBottomColor = 'transparent'; });

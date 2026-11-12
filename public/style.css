@@ -1288,6 +1288,8 @@ h1, h2, h3, h4,
 .block-transparent-label { font-size: calc(0.7rem * var(--card-font-scale, 1)); color: var(--text-secondary); display: flex; align-items: center; gap: 0.15rem; cursor: pointer; }
 
 /* Transparency toggle */
+/* The day tiles of the forecast cards are drawn after the data arrives, so a transparent card gives them --fc-tile. */
+body.transparent-blocks .fc-card { --fc-tile: transparent; }
 body.transparent-blocks .flow-card,
 body.transparent-blocks .fc-card,
 body.transparent-blocks .pv-today-card,
@@ -1903,7 +1905,7 @@ details.help-sub.help-hidden { display: none; }
 .fc-day {
   display: grid; grid-template-columns: auto 1fr; grid-template-areas: "name icon" "kwh kwh" "wx wx";
   align-items: center; gap: 0.1rem 0.3rem; padding: 0.4rem 0.5rem; border-radius: 8px;
-  background: color-mix(in srgb, var(--border) 35%, transparent); min-width: 0;
+  background: var(--fc-tile, color-mix(in srgb, var(--border) 35%, transparent)); min-width: 0;   /* --fc-tile: transparent, from a transparent card */
 }
 .fc-day-name { grid-area: name; font-size: calc(0.75rem * var(--card-font-scale, 1)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fc-day-icon { grid-area: icon; justify-self: end; font-size: calc(1.1rem * var(--card-font-scale, 1)); }
