@@ -1,5 +1,6 @@
 /* Glass cards: a frosted, translucent look for the dashboard cards, in the spirit of Apple's
- * "Liquid Glass". Off unless <body> has the class `glass-cards` (Settings → Appearance).
+ * "Liquid Glass". Off unless <body> has the class `glass-cards` (Settings → Appearance). Cards sit in a dashboard block
+ * (.dashboard-block) or, on the Controls page, in a control slot (.ct-card); both are styled alike.
  *
  * What makes it read as glass, from the back to the front:
  *   backdrop-filter   blurs and slightly boosts whatever is behind the card
@@ -34,18 +35,18 @@ body.glass-cards {
   --glass-shade: 0 0 0;
 }
 
-.dashboard-block > :is(.glass-on, .glass-own) { --glass-tint: calc(.36 * var(--glass-frost)); }
-[data-theme="dark"] .dashboard-block > :is(.glass-on, .glass-own) { --glass-tint: calc(.14 * var(--glass-frost)); }
+:is(.dashboard-block, .ct-card) > :is(.glass-on, .glass-own) { --glass-tint: calc(.36 * var(--glass-frost)); }
+[data-theme="dark"] :is(.dashboard-block, .ct-card) > :is(.glass-on, .glass-own) { --glass-tint: calc(.14 * var(--glass-frost)); }
 /* A card with glass on a dashboard that has none starts from the usual numbers. */
-body:not(.glass-cards) .dashboard-block > .glass-on { --glass-blur: 18px; --glass-frost: 1; --glass-rim: 255 255 255; --glass-shade: 15 23 42; }
-[data-theme="dark"] body:not(.glass-cards) .dashboard-block > .glass-on { --glass-shade: 0 0 0; }
+body:not(.glass-cards) :is(.dashboard-block, .ct-card) > .glass-on { --glass-blur: 18px; --glass-frost: 1; --glass-rim: 255 255 255; --glass-shade: 15 23 42; }
+[data-theme="dark"] body:not(.glass-cards) :is(.dashboard-block, .ct-card) > .glass-on { --glass-shade: 0 0 0; }
 
-.dashboard-block > :is(
+:is(.dashboard-block, .ct-card) > :is(
   .stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card,
   .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2,
   .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container
 ):is(.glass-on, body.glass-cards :not(.glass-off)),
-.dashboard-block > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card):is(.glass-on, body.glass-cards :not(.glass-off)) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) {
+:is(.dashboard-block, .ct-card) > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card):is(.glass-on, body.glass-cards :not(.glass-off)) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) {
   /* Small text sits on whatever the glass shows through, so it is stronger than on a solid card. */
   --text-secondary: color-mix(in srgb, var(--text, var(--text-primary)) 82%, transparent);
   /* The boxes, bars and tiles inside a card take their fill from these, and would stay solid slabs on
@@ -80,12 +81,12 @@ body:not(.glass-cards) .dashboard-block > .glass-on { --glass-blur: 18px; --glas
 /* Blurring behind a card is the costly part: fall back to a plain translucent fill where it is unsupported
    or the person asks their system for less transparency. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .dashboard-block > :is(.stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card, .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2, .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container):is(.glass-on, body.glass-cards :not(.glass-off)),
-  .dashboard-block > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card):is(.glass-on, body.glass-cards :not(.glass-off)) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) { background: rgb(var(--glass-shade) / .45); }
+  :is(.dashboard-block, .ct-card) > :is(.stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card, .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2, .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container):is(.glass-on, body.glass-cards :not(.glass-off)),
+  :is(.dashboard-block, .ct-card) > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card):is(.glass-on, body.glass-cards :not(.glass-off)) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) { background: rgb(var(--glass-shade) / .45); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .dashboard-block > :is(.stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card, .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2, .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container):is(.glass-on, body.glass-cards :not(.glass-off)),
-  .dashboard-block > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card):is(.glass-on, body.glass-cards :not(.glass-off)) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) {
+  :is(.dashboard-block, .ct-card) > :is(.stat-card, .ep-card:not(.iframe-card), .metric-trend-card, .dual-metric-card, .configurable-gauge-card, .button-card, .switch-block, .state-select-block, .flow-card, .flow-card-square, .flow-card-square2, .flow-card-2, .energy-tabs-card, .energy-day-card, .pv-today-card, .fc-card, .weather-block, .chart-container, .daily-breakdown-container):is(.glass-on, body.glass-cards :not(.glass-off)),
+  :is(.dashboard-block, .ct-card) > :is(.multi-value-card, .stats-grid, .energy-totals-card, .system-overview-card):is(.glass-on, body.glass-cards :not(.glass-off)) :is(.ep-tile, .et-tile, .so-tile, .so-hub-box) {
     -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface-raised, var(--card-bg));
   }
 }

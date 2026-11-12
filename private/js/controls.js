@@ -10,6 +10,7 @@ import { controlBuilders } from '/js/components/index.js';
 import { updateCards } from '/js/cards-update.js';
 import { initTheme, toggleTheme } from '/js/theme.js';
 import { filterChips, matchesFilter } from '/js/components/controlStyle.js';
+import { applyBlockStyle } from '/js/components/blockStyle.js';
 
 const $ = id => document.getElementById(id);
 const STATE_REFRESH_MS = 10000;
@@ -172,7 +173,9 @@ async function loadCards() {
     item.dataset.w = String(w); item.dataset.h = String(block.gridH || 2);
     item.style.gridColumn = item.dataset.col;
     item.style.gridRow = item.dataset.row;
-    item.appendChild(controlBuilders[block.type](block));
+    const card = controlBuilders[block.type](block);
+    applyBlockStyle(card, block);   // the card's Style settings: colours, text size, transparent, glass, blur, frost
+    item.appendChild(card);
     box.appendChild(item);
   }
   renderFilters(blocks);
