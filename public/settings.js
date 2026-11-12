@@ -3364,8 +3364,8 @@ function getTransportForProfile(profileId, current) {
   return p.transport || 'solarman-v5';
 }
 
-// Profile list for a dongle card: Bluetooth offers register-map profiles (Modbus
-// over BLE) and Bluetooth-only profiles; TCP/IP hides Bluetooth-only ones.
+// Profile list for a dongle card: a Bluetooth dongle offers register-map profiles (Modbus
+// over BLE), LuxPower and Bluetooth-only profiles; a WiFi dongle hides Bluetooth-only ones.
 // Clears a profile that no longer fits.
 function fillDongleProfileOptions(card, selectedId) {
   const profileSelect = card.querySelector('.dongle-profile-select');
@@ -3374,23 +3374,17 @@ function fillDongleProfileOptions(card, selectedId) {
   const bt = linkSelect && linkSelect.value === 'bluetooth';
   profileSelect.innerHTML = '<option value="">-- Select profile --</option>';
   let kept = false;
-  // On TCP/IP, Bluetooth-only profiles (e.g. Phocos Any-Grid) are still listed,
-  // in their own group; picking one switches the card to Bluetooth.
-  let btGroup = null;
+  // A card is a WiFi dongle or a Bluetooth dongle (its own source type), so each lists only what fits it:
+  // Bluetooth-only profiles (e.g. Phocos Any-Grid) are for Bluetooth dongles.
   dongleProfilesCache.forEach(p => {
     if (bt && !isDongleRegisterProfile(p) && !isBleGattProfile(p) && !isLuxpowerDongleProfile(p)) return;
+    if (!bt && isBluetoothOnlyProfile(p)) return;
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
     if (p.id === selectedId) { opt.selected = true; kept = true; }
-    if (!bt && isBluetoothOnlyProfile(p)) {
-      if (!btGroup) { btGroup = document.createElement('optgroup'); btGroup.label = 'Bluetooth only'; }
-      btGroup.appendChild(opt);
-    } else {
-      profileSelect.appendChild(opt);
-    }
+    profileSelect.appendChild(opt);
   });
-  if (btGroup) profileSelect.appendChild(btGroup);
   if (selectedId && !kept) profileSelect.value = '';
 }
 
@@ -3475,7 +3469,7 @@ function renderDongleDevice(device, idx) {
     </div>
     <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
     <div class="form-row dongle-link-row">
-      <label class="dongle-field"><span class="dongle-field-label">Connection</span>
+      <label class="dongle-field" style="display:none;"><span class="dongle-field-label">Connection</span>
         <select class="dongle-link-select">
           <option value="network" ${isBleTransport(transport) ? '' : 'selected'}>TCP/IP (Wi-Fi / LAN)</option>
           <option value="bluetooth" ${isBleTransport(transport) ? 'selected' : ''}>Bluetooth</option>
@@ -3774,6 +3768,12 @@ const addDongleBtn = document.getElementById('add-dongle-device');
 if (addDongleBtn) addDongleBtn.addEventListener('click', () => {
   const idx = dongleDeviceCounter;
   renderDongleDevice({ name: '', host: '', port: '', serial_number: '', modbus_unit_id: 1, poll_interval: 30, transport: 'solarman-v5', profile: '', prefix: '', enabled: true, _newCard: true }, idx);
+});
+// A Bluetooth dongle is its own source type: the same card, started on Bluetooth (the profile then settles the exact kind).
+const addDongleBleBtn = document.getElementById('add-dongle-ble-device');
+if (addDongleBleBtn) addDongleBleBtn.addEventListener('click', () => {
+  const idx = dongleDeviceCounter;
+  renderDongleDevice({ name: '', ble_address: '', modbus_unit_id: 1, poll_interval: 30, transport: 'ble-modbus', profile: '', prefix: '', enabled: true, _newCard: true }, idx);
 });
 
 // ---------- Dongle register/field mapping helpers ----------
