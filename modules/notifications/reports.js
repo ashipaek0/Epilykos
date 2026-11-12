@@ -110,22 +110,24 @@ async function forecastReport(which = 'tomorrow') {
   const day = (forecast.daily || []).find(d => d.date === date);
   if (!day) return { title: `${dayLabel(date)}'s solar forecast`, body: 'The forecast does not cover this day yet.', data: { date, kwh: null } };
   const lines = [`☀️ Expected: ${kwh(day.total_kwh)} (peak ${round(day.peak_kw, 1)} kW)`];
-  // Compare with the last 7 days' actual generation.
-  let avg = null;
+  // Compare with the last 7 days' actual solar generation and use, so a "low" forecast can be judged against both.
+  let avg = null, avgUse = null;
   try {
     const db = getDb();
     const { readDailySnapshots } = require('../timeseriesReader');
     const from = dayBounds(dayString(-7)).start, to = dayBounds(dayString(-1)).end;
-    const rows = readDailySnapshots(db, { from, to, toInclusive: true, fields: ['daily_solar'] }).filter(r => r.daily_solar > 0);
-    if (rows.length >= 3) avg = rows.reduce((a, r) => a + r.daily_solar, 0) / rows.length;
+    const rows = readDailySnapshots(db, { from, to, toInclusive: true, fields: ['daily_solar', 'daily_consumption'] });
+    const mean = key => { const v = rows.map(r => r[key]).filter(x => x > 0); return v.length >= 3 ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    avg = mean('daily_solar'); avgUse = mean('daily_consumption');
   } catch (_) { /* no history yet */ }
   if (avg) {
     const pct = Math.round(day.total_kwh / avg * 100);
-    lines.push(`📊 ${pct}% of your 7-day average (${kwh(avg)})`);
+    lines.push(`📊 ${pct}% of your 7-day average solar (${kwh(avg)})`);
   }
+  if (avgUse) lines.push(`🏠 Your 7-day average use: ${kwh(avgUse)}`);
   if (which === 'today' && day.actual_so_far != null) lines.push(`So far: ${kwh(day.actual_so_far)}`);
   if (forecast.source_label) lines.push(`Source: ${forecast.source_label}`);
-  return { title: `${dayLabel(date)}'s solar forecast`, body: lines.join('\n'), data: { date, kwh: day.total_kwh, peak_kw: day.peak_kw, average_kwh: avg } };
+  return { title: `${dayLabel(date)}'s solar forecast`, body: lines.join('\n'), data: { date, kwh: day.total_kwh, peak_kw: day.peak_kw, average_kwh: avg, average_use_kwh: avgUse } };
 }
 
 function roleMetrics() {

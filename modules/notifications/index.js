@@ -165,7 +165,10 @@ async function buildReport(rule) {
   }
   // The rule's own name is the title; the report's title ("Tomorrow's solar
   // forecast") leads the body so the day is never ambiguous.
-  const body = [rule.message, rule.name ? r.title : null, r.body].filter(Boolean).join('\n');
+  // Say why a limited forecast rule fired: its title ("Low solar tomorrow") is the rule's own, and the report
+  // alone can read as fine (above the recent average) when the limit is what it fell below.
+  const limit = !skip && rule.report === 'forecast' && Number(rule.below_kwh) > 0 ? `⚠️ Below your ${Number(rule.below_kwh)} kWh limit` : null;
+  const body = [rule.message, rule.name ? r.title : null, r.body, limit].filter(Boolean).join('\n');
   return { title: rule.name || r.title, body, skip };
 }
 

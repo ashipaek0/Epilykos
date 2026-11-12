@@ -144,6 +144,31 @@ test('scheduled forecast report honours "only below"', async () => {
   assert.strictEqual(sent.length, 0);
 });
 
+test('a limited forecast says why it was sent, and compares with recent solar and use', async () => {
+  // Four recent days of totals: solar averages 22.5 kWh, use averages 26 kWh.
+  for (const [back, sol, use] of [[1, 22, 25], [2, 23, 26], [3, 21, 27], [4, 24, 26]]) {
+    const { start } = reports.dayBounds(reports.dayString(-back));
+    getDb().prepare('INSERT INTO history (timestamp, daily_solar, daily_consumption) VALUES (?, ?, ?)').run(start + 43200, sol, use);
+  }
+  solar.getSolarForecast = async () => ({ source_label: 'Open-Meteo', daily: [{ date: tomorrow, total_kwh: 28.9, peak_kw: 4.1 }] });
+  const rule = { id: 'sl', kind: 'schedule', enabled: true, name: 'Low solar tomorrow', report: 'forecast', day: 'tomorrow', time: '19:00', days: [], below_kwh: 30, severity: 'warning', channels: [TG.id] };
+  store.saveRules([rule]);
+  sent.length = 0;
+  await notifications.runSchedules(at(19, 4));
+  assert.strictEqual(sent.length, 1, 'below the limit, so it is sent');
+  const body = sent[0].msg.body;
+  assert.match(body, /📊 128% of your 7-day average solar \(22\.5 kWh\)/, 'the average is of solar, and says so');
+  assert.match(body, /🏠 Your 7-day average use: 26 kWh/, 'with recent use beside it');
+  assert.match(body, /⚠️ Below your 30 kWh limit$/m, 'and the limit that made it a warning');
+  // Without a limit nothing is added.
+  store.saveRules([{ ...rule, id: 'sl2', below_kwh: 0 }]);
+  sent.length = 0;
+  await notifications.runSchedules(at(19, 5));
+  assert.strictEqual(sent.length, 1);
+  assert.doesNotMatch(sent[0].msg.body, /limit/);
+  store.saveRules([]);
+});
+
 test('scheduled reports go out during quiet hours', async () => {
   store.saveSettings({ ...store.getSettings(), quiet_hours: { enabled: true, start: '00:00', end: '23:59' } });
   store.saveRules([{ id: 'sum', kind: 'schedule', enabled: true, name: 'Evening summary', report: 'day_summary', day: 'today', time: '00:00', days: [], severity: 'info', channels: [TG.id] }]);
