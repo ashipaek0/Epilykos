@@ -378,6 +378,43 @@ async def cmd_scan(args):
     return devices
 
 
+async def _release_stale(address):
+    """True when BlueZ held a connection to `address` that this process does not and it was dropped.
+
+    A helper that is killed or crashes leaves its Bluetooth links open in BlueZ, and a connected
+    device stops advertising, so every scan ends in "not found" until something disconnects it.
+    A link this process holds (_gatt, _bms) is never touched. Any failure here is ignored: the
+    caller reports the scan's own result."""
+    if address in _gatt or address in _bms:
+        return False
+    try:
+        from dbus_fast import BusType, Message
+        from dbus_fast.aio import MessageBus
+
+        bus = await asyncio.wait_for(MessageBus(bus_type=BusType.SYSTEM).connect(), 5)
+        try:
+            reply = await asyncio.wait_for(bus.call(Message(
+                destination="org.bluez", path="/", interface="org.freedesktop.DBus.ObjectManager",
+                member="GetManagedObjects")), 5)
+            if reply.message_type.name == "ERROR":
+                return False
+            for path, ifaces in (reply.body[0] or {}).items():
+                dev = ifaces.get("org.bluez.Device1")
+                if dev is None or "Address" not in dev or "Connected" not in dev:
+                    continue
+                if str(dev["Address"].value).upper() != address or not dev["Connected"].value:
+                    continue
+                log.warning("BlueZ still holds a connection to %s that this helper does not: disconnecting it", address)
+                off = await asyncio.wait_for(bus.call(Message(
+                    destination="org.bluez", path=path, interface="org.bluez.Device1", member="Disconnect")), 10)
+                return off.message_type.name != "ERROR"
+        finally:
+            bus.disconnect()
+    except Exception:
+        log.debug("could not check %s for a stale connection", address, exc_info=True)
+    return False
+
+
 async def _find(address, timeout):
     """Return (BLEDevice, AdvertisementData) for address, scanning if needed."""
     hit = _seen.get(address)
@@ -395,6 +432,10 @@ async def _find(address, timeout):
 
     try:
         device = await BleakScanner.find_device_by_filter(match, timeout=timeout)
+        if device is None and await _release_stale(address):
+            # The link BlueZ held is gone, so the device advertises again: look once more, briefly.
+            await asyncio.sleep(1)
+            device = await BleakScanner.find_device_by_filter(match, timeout=min(timeout, 6.0))
     except Exception as exc:
         raise _map_error(exc) from exc
     if device is None:
@@ -1175,6 +1216,61 @@ def _self_test_gatt_link():
             assert _map_error(lost).code == "dbus_lost", lost
         assert _map_error(TimeoutError()).code == "timeout"
         assert _map_error(RuntimeError("BleakDeviceNotFoundError: not found")).code == "ble_error", "a device that is out of range is not a lost bus"
+
+        # A device a killed helper left connected in BlueZ does not advertise, so the scan misses it:
+        # the stale link is dropped and the scan repeated once. A link this process holds is left alone.
+        import types
+        scans, released = [], []
+
+        class FakeScanner:
+            hit = None
+
+            @staticmethod
+            async def find_device_by_filter(match, timeout=None):
+                scans.append(timeout)
+                if FakeScanner.hit is None or len(scans) < 2:
+                    return None
+                match(types.SimpleNamespace(address="AA:00:00:00:00:09"), "adv")
+                return types.SimpleNamespace(address="AA:00:00:00:00:09")
+
+        saved_mod = sys.modules.get("bleak")
+        saved_rel = g["_release_stale"]
+        sys.modules["bleak"] = types.SimpleNamespace(BleakScanner=FakeScanner)
+        try:
+            async def stale_dropped(address):
+                released.append(address)
+                return True
+
+            async def nothing_stale(address):
+                released.append(address)
+                return False
+
+            FakeScanner.hit = True
+            g["_release_stale"] = stale_dropped
+            device = asyncio.run(saved["_find"]("AA:00:00:00:00:09", 10.0))
+            assert device[0].address == "AA:00:00:00:00:09" and len(scans) == 2 and scans[1] <= 6.0, scans
+            assert released == ["AA:00:00:00:00:09"], released
+            _seen.clear()
+            scans.clear(), released.clear()
+            g["_release_stale"] = nothing_stale
+            try:
+                asyncio.run(saved["_find"]("AA:00:00:00:00:09", 10.0))
+                raise AssertionError("expected not_found")
+            except HelperError as exc:
+                assert exc.code == "not_found" and len(scans) == 1, (exc.code, scans)
+            # held by this process: never released
+            g["_release_stale"] = saved_rel
+            _gatt["AA:00:00:00:00:09"] = object()
+            assert asyncio.run(_release_stale("AA:00:00:00:00:09")) is False
+            _gatt.clear()
+        finally:
+            g["_release_stale"] = saved_rel
+            if saved_mod is None:
+                sys.modules.pop("bleak", None)
+            else:
+                sys.modules["bleak"] = saved_mod
+            _seen.clear()
+            _gatt.clear()
 
         # A connected BMS counts too: it is disconnected (object kept) to make room.
         class Bms:
