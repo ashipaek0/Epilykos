@@ -1,20 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43212304888.1",
-    "version": "1.2.5-dev+dd39685",
-    "commit": "dd396858a1bf6c2d2592563b2832184feaad1d2c",
-    "digest": "sha256:8a2f822ad7cf04f285397b3477462c8bc8f84ee7ed174b9a992b96214326dd3c",
+    "buildId": "43213062992.1",
+    "version": "1.2.5-dev+22f7f37",
+    "commit": "22f7f37ab786dccf6a2e001abf2104b996330cd6",
+    "digest": "sha256:22e3863b9664c83494099ae924791d4b62e86a313e0270eb54d3f83af7f57d38",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T11:48:49Z",
+    "builtAt": "2026-11-12T11:54:03Z",
     "kind": "release",
     "notes": [
-      "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
-      "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
-      "Solar forecast cards: the day tiles follow the card's transparency (#328)"
+      "Add Power flow card: Grid, Generator and Battery appear when active (#331)"
     ]
   },
   "history": [
+    {
+      "buildId": "43213062992.1",
+      "version": "1.2.5-dev+22f7f37",
+      "commit": "22f7f37ab786dccf6a2e001abf2104b996330cd6",
+      "digest": "sha256:22e3863b9664c83494099ae924791d4b62e86a313e0270eb54d3f83af7f57d38",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T11:54:03Z",
+      "kind": "release",
+      "notes": [
+        "Add Power flow card: Grid, Generator and Battery appear when active (#331)"
+      ]
+    },
     {
       "buildId": "43212304888.1",
       "version": "1.2.5-dev+dd39685",
@@ -359,18 +369,6 @@
       "kind": "release",
       "notes": [
         "BMS readings carry their unit, so a bank's Wh total shows as kWh (#301)"
-      ]
-    },
-    {
-      "buildId": "42587397930.1",
-      "version": "1.2.1-dev+2bcc849",
-      "commit": "2bcc849e9afcc22f185a436a1eea90b8ee62eda7",
-      "digest": "sha256:77ee234087af1d3ff6d7447afe133bfbb1e85af6e09656c6b3a6606b216b1921",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T08:38:37Z",
-      "kind": "release",
-      "notes": [
-        "Push prompt: shorten the toast to \"Enable notifications from this dashboard\" (#300)"
       ]
     }
   ]
