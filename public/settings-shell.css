@@ -624,3 +624,5 @@ body.st {
 .st .st-bulk[hidden] { display: none; }
 .st .st-bulk-count { font-weight: 600; margin-right: auto; }
 .st .st-table .st-select-col { width: 1%; white-space: nowrap; }
+.cm-check { display: flex; align-items: center; gap: .5rem; font-size: .9rem; margin: .25rem 0; }
+.cm-state small { display: block; font-weight: 400; color: var(--st-muted); }

@@ -156,7 +156,7 @@ check('editor: On/Off calculation, fields, words and the grid voltage suggestion
   assert.match(js, /function shown\(d, v\)/); assert.match(js, /'On' : 'Off'/);
   assert.match(js, /name: 'grid_status', unit: '', fn: 'threshold'/);
   const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(srv, /'note', 'when', 'on_at', 'off_at'\]/, 'the limits are saved');
+  assert.match(srv, /'note', 'when', 'on_at', 'off_at'/, 'the limits are saved');
   assert.ok(cm.FNS.includes('threshold'));
 });
 

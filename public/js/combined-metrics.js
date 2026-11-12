@@ -22,6 +22,7 @@
     energy_total: { label: 'Lifetime energy from power', help: 'A kWh total that only goes up. Set a starting value to match a meter.', many: true, energy: true, start: true },
     counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true },
     threshold: { label: 'On/Off from a limit', help: 'One input turned into On or Off (1 or 0): On at or past a limit you choose, e.g. grid voltage above 180 V for a grid status. Use it as a status metric, or in a card or notification.', single: true, threshold: true },
+    average_per_day: { label: 'Average per day', help: 'The average of a daily figure over the days on record, for any one metric: the average daily load, solar energy, grid import and so on. It is worked out from the stored history, so it is right as soon as you save it. Only complete days count.', single: true, daily: true },
     peak_today: { label: 'Highest today', help: 'The highest value so far today (inputs are added first, e.g. all PV strings for the day\u2019s peak solar power). Starts again at midnight, so the last value of each day is that day\u2019s peak: use it for bar charts and histograms of daily peaks. It starts when you save it; earlier days have no peak.', many: true }
   };
   // Sums and averages can be shown split into their parts on cards; each part can be renamed.
@@ -41,6 +42,16 @@
   }
   // An On/Off metric reads 1 or 0; show it as the word.
   function shown(d, v) { return d && d.fn === 'threshold' ? (v == null ? '—' : Number(v) >= 1 ? 'On' : 'Off') : fmt(v, d && d.unit); }
+  // What a day's figure is, for the Average per day calculation.
+  var DAILY = {
+    total: { label: 'The day\u2019s total', help: 'The highest value of each day: for a reading that counts up through the day and starts again at midnight, such as Energy today or an inverter\u2019s daily kWh.' },
+    energy: { label: 'Energy from power (kWh)', help: 'Each day\u2019s kWh worked out from a power reading, such as load power or solar power.' },
+    average: { label: 'The day\u2019s average', help: 'The average value over each day, e.g. battery voltage or temperature.' },
+    peak: { label: 'The day\u2019s highest', help: 'The highest value of each day, e.g. the peak solar power.' }
+  };
+  var usesEnergyUnit = function (d) { return !!(FN_INFO[d.fn] && FN_INFO[d.fn].energy) || (d.fn === 'average_per_day' && d.daily === 'energy'); };
+  // The unit a new calculation or input suggests: kWh for energy, otherwise the input's own.
+  function suggestedUnit(d) { return usesEnergyUnit(d) ? 'kWh' : (d.inputs && d.inputs[0] ? unitOf(d.inputs[0]) : ''); }
   function unitOf(name) { var m = state.metrics.find(function (x) { return x.name === name; }); return m && m.unit ? m.unit : ''; }
 
   function load() {
@@ -55,6 +66,7 @@
     var info = FN_INFO[d.fn] || { label: d.fn };
     var n = (d.inputs || []).length;
     if (d.fn === 'threshold' && n === 1) return 'On ' + (d.when === 'below' ? 'at or below ' : 'at or above ') + esc(d.on_at) + (d.off_at != null && d.off_at !== '' ? ', Off ' + (d.when === 'below' ? 'above ' : 'below ') + esc(d.off_at) : '') + ' · ' + esc(d.inputs[0]);
+    if (d.fn === 'average_per_day' && n === 1) return esc(info.label) + ' · ' + esc(d.inputs[0]) + ' · ' + esc((DAILY[d.daily || 'total'] || DAILY.total).label.toLowerCase()) + (Number(d.days) > 0 ? ' · last ' + esc(d.days) + ' days' : ' · all days');
     return esc(info.label) + ' · ' + (n === 1 ? esc(d.inputs[0]) : n + ' inputs');
   }
   function renderList() {
@@ -64,7 +76,7 @@
       var st = state.status[d.id] || null;
       var live = d.enabled === false ? '<span class="cm-state is-off">Off</span>'
         : !st ? '<span class="cm-state">Waiting for the next reading</span>'
-        : st.ok ? '<span class="cm-state is-ok">' + esc(shown(d, st.value)) + '</span>'
+        : st.ok ? '<span class="cm-state is-ok">' + esc(shown(d, st.value)) + (st.note ? ' <small>' + esc(st.note) + '</small>' : '') + '</span>'
         : '<span class="cm-state is-warn">Waiting: ' + esc(st.reason) + '</span>';
       return '<div class="cm-row" data-i="' + i + '">'
         + '<label class="toggle-switch" title="Compute this metric"><input type="checkbox" class="cm-enabled"' + (d.enabled === false ? '' : ' checked') + ' aria-label="Compute ' + esc(d.name) + '"><span class="slider"></span></label>'
@@ -134,6 +146,17 @@
       + '<input id="cm-offat" class="input" type="number" step="any" value="' + esc(d.off_at == null ? '' : d.off_at) + '" placeholder="Same as the On value">'
       + '<span class="st-help">Set a different Off value to leave a gap, e.g. On at 180, Off below 160. A reading that hovers near the limit then does not flip On and Off. Inside the gap it keeps its last state.</span></div>';
   }
+  // Average per day: what each day's figure is, over which days, and whether today counts.
+  function dailyFields(d) {
+    var mode = d.daily || 'total', last = Number(d.days) > 0;
+    return '<div class="st-field"><label for="cm-daily">Each day\u2019s figure is</label><select id="cm-daily" class="input">'
+      + Object.keys(DAILY).map(function (k) { return '<option value="' + k + '"' + (k === mode ? ' selected' : '') + '>' + esc(DAILY[k].label) + '</option>'; }).join('') + '</select>'
+      + '<span class="st-help">' + esc((DAILY[mode] || DAILY.total).help) + '</span></div>'
+      + '<div class="st-grid-2"><div class="st-field"><label for="cm-span">Average over</label><select id="cm-span" class="input"><option value="all"' + (last ? '' : ' selected') + '>Every day on record</option><option value="last"' + (last ? ' selected' : '') + '>The last days</option></select></div>'
+      + (last ? '<div class="st-field"><label for="cm-days">Number of days</label><input id="cm-days" class="input" type="number" min="1" max="3650" step="1" value="' + esc(d.days) + '"></div>' : '<div></div>') + '</div>'
+      + '<label class="cm-check"><input type="checkbox" id="cm-today"' + (d.include_today === true ? ' checked' : '') + '> Include today so far</label>'
+      + '<span class="st-help">Leave it off for a steady figure that changes once a day. Days with no readings are left out, and the first day on record only counts if its readings began near midnight.</span>';
+  }
   function renderEditor() {
     var d = state.editing.def, info = FN_INFO[d.fn] || FN_INFO.sum;
     var opts = Object.keys(FN_INFO).map(function (k) { return '<option value="' + k + '"' + (k === d.fn ? ' selected' : '') + '>' + esc(FN_INFO[k].label) + '</option>'; }).join('');
@@ -157,6 +180,8 @@
         + (info.single ? '' : '<div class="cm-match"><input id="cm-match" class="input" placeholder="Add all that match, e.g. pv_power or inv*_pv1_power" aria-label="Add all metrics whose name matches" autocomplete="off"><button type="button" class="st-btn" id="cm-find">Find</button></div><div id="cm-matches" class="cm-matches" hidden></div>')) + '</div>'
       + (d.fn === 'scale' ? '<div class="st-grid-2"><div class="st-field"><label for="cm-factor">Factor</label><input id="cm-factor" class="input" type="number" step="any" value="' + esc(d.factor == null ? 1 : d.factor) + '"></div><div class="st-field"><label for="cm-offset">Offset</label><input id="cm-offset" class="input" type="number" step="any" value="' + esc(d.offset == null ? 0 : d.offset) + '"></div></div>' : '')
       + (info.threshold ? thresholdFields(d) : '')
+      + (info.daily ? dailyFields(d) : '')
+      + (usesEnergyUnit(d) && !info.energy ? '<div class="st-field"><label for="cm-iu">Input power is in</label><select id="cm-iu" class="input"><option value="W"' + (d.input_unit !== 'kW' ? ' selected' : '') + '>W</option><option value="kW"' + (d.input_unit === 'kW' ? ' selected' : '') + '>kW</option></select></div>' : '')
       + (info.energy ? '<div class="st-grid-2"><div class="st-field"><label for="cm-iu">Input power is in</label><select id="cm-iu" class="input"><option value="W"' + (d.input_unit !== 'kW' ? ' selected' : '') + '>W</option><option value="kW"' + (d.input_unit === 'kW' ? ' selected' : '') + '>kW</option></select></div>'
         + (info.start ? '<div class="st-field"><label for="cm-start">Start at (kWh)</label><input id="cm-start" class="input" type="number" step="any" min="0" value="' + esc(d.start == null ? 0 : d.start) + '"></div>' : '') + '</div>' : '')
       + '<details class="cm-more"><summary>When readings are late</summary><div class="st-grid-2">'
@@ -201,6 +226,11 @@
       if (v('cm-offat') === '') delete d.off_at; else d.off_at = Number(v('cm-offat'));
     } else { delete d.when; delete d.on_at; delete d.off_at; }
     if ($('cm-start')) d.start = Number(v('cm-start')); else delete d.start;
+    if ($('cm-daily')) {
+      d.daily = v('cm-daily');
+      if (v('cm-span') === 'last') { var nd = Math.round(Number(v('cm-days'))); d.days = nd >= 1 ? nd : 30; } else delete d.days;
+      d.include_today = !!($('cm-today') && $('cm-today').checked);
+    } else { delete d.daily; delete d.days; delete d.include_today; }
     if (FN_INFO[d.fn] && FN_INFO[d.fn].weights) d.weights = Array.from(document.querySelectorAll('#cm-editor .cm-w')).map(function (el) { return Number(el.value); }); else delete d.weights;
     d.stale_seconds = Number(v('cm-stale')) || 300; d.missing = v('cm-missing') || 'skip';
     var lbls = document.querySelectorAll('#cm-editor .cm-lbl');
@@ -247,7 +277,7 @@
       readEditor();
       var picked = Array.from(document.querySelectorAll('#cm-matches .cm-match-cb:checked')).map(function (cb) { return cb.value; });
       picked.forEach(function (n) { if (d.inputs.indexOf(n) === -1) { d.inputs.push(n); if (d.weights) d.weights.push(1); } });
-      if (!d.unit && picked.length && !FN_INFO[d.fn].energy && !FN_INFO[d.fn].threshold) d.unit = unitOf(picked[0]);
+      if (!d.unit && picked.length && !FN_INFO[d.fn].energy && !FN_INFO[d.fn].threshold) d.unit = suggestedUnit(d) || unitOf(picked[0]);
       renderEditor();
       return;
     }
@@ -277,12 +307,22 @@
     }
     if (!state.editing) return;
     var d = state.editing.def;
-    if (e.target.id === 'cm-fn') { readEditor(); d.fn = e.target.value; if (FN_INFO[d.fn].single) d.inputs = d.inputs.slice(0, 1); if (FN_INFO[d.fn].energy && !d.unit) d.unit = 'kWh'; if (FN_INFO[d.fn].threshold) d.unit = ''; renderEditor(); return; }
+    if (e.target.id === 'cm-fn') {
+      readEditor(); d.fn = e.target.value; if (FN_INFO[d.fn].single) d.inputs = d.inputs.slice(0, 1);
+      if (FN_INFO[d.fn].energy && !d.unit) d.unit = 'kWh'; if (FN_INFO[d.fn].threshold) d.unit = '';
+      if (d.fn === 'average_per_day' && !d.daily) { d.daily = 'total'; if (!d.unit) d.unit = suggestedUnit(d); }
+      renderEditor(); return;
+    }
+    if (e.target.id === 'cm-daily' || e.target.id === 'cm-span') {
+      var before = usesEnergyUnit(d); readEditor();
+      if (usesEnergyUnit(d) !== before || !d.unit) d.unit = suggestedUnit(d);   // kWh for energy, the input\u2019s own unit otherwise
+      renderEditor(); return;
+    }
     if (e.target.id === 'cm-when') { readEditor(); renderEditor(); return; }   // the Off label follows above / below
     if (e.target.id === 'cm-add-input' && e.target.value) {
       readEditor(); d.inputs.push(e.target.value);
       if (d.weights) d.weights.push(1);
-      if (!d.unit && !FN_INFO[d.fn].energy && !FN_INFO[d.fn].threshold) d.unit = unitOf(e.target.value);
+      if (!d.unit && !FN_INFO[d.fn].energy && !FN_INFO[d.fn].threshold) d.unit = suggestedUnit(d) || unitOf(e.target.value);
       renderEditor();
     }
   });
