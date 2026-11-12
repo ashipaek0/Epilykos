@@ -249,6 +249,54 @@
   .bar-gauge-card.is-vertical, .bar-gauge-retro-card.is-vertical { min-height: 14rem; }
 }
 
+/* ── Power flow ───────────────────────────────────────────── */
+/* Sources on the left, destinations on the right, lines through a junction between. The body is a size container: the
+   nodes in a column share its height equally (--pf-rows is the taller column's node count, set by the card), and the text
+   and icons follow the height of a row, limited by the width, so the card fills at any size. The lines are drawn from the
+   slot centres in a 0-100 box (powerFlow.js flowPaths), so they stay attached to the nodes. */
+.power-flow-card { display: flex !important; flex-direction: column; gap: 0.5em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.pf-title { flex: 0 0 auto; font-size: calc(clamp(0.8rem, 2.6cqi, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); }
+.pf-body {
+  flex: 1 1 0; min-height: 0; container-type: size;
+  display: grid; grid-template-columns: max-content minmax(1.5rem, 1fr) max-content; align-items: stretch;
+  --pf-font: calc(clamp(0.4rem, min(100cqh / var(--pf-rows, 3) * 0.24, 100cqw * 0.042), 1.6rem) * var(--card-font-scale, 1));
+}
+.pf-col { display: flex; flex-direction: column; min-height: 0; }
+.pf-sources { align-items: flex-end; }
+.pf-dests { align-items: flex-start; }
+.pf-node { flex: 1 1 0; min-height: 0; display: flex; align-items: center; gap: 0.6em; font-size: var(--pf-font); }
+.pf-node[hidden] { display: none; }
+.pf-icon {
+  flex: 0 0 auto; width: 2.6em; height: 2.6em; border-radius: 0.7em; display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--pf-color) 18%, transparent); color: var(--pf-color);
+}
+.pf-icon > svg { width: 58%; height: 58%; }
+.pf-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.pf-label { font-size: 0.8em; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.pf-value { font-size: 1.35em; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pf-sub { font-size: 0.8em; color: var(--text-secondary); white-space: nowrap; }
+.pf-sub:empty { display: none; }
+.pf-node:not(.is-flowing) .pf-value { color: var(--text-secondary); font-weight: 600; }
+.pf-mid { position: relative; min-width: 0; }
+.pf-lines { position: absolute; top: 0; bottom: 0; left: 0.5em; right: 0.5em; width: calc(100% - 1em); height: 100%; overflow: visible; }
+.pf-line {
+  fill: none; stroke: var(--pf-color); vector-effect: non-scaling-stroke; stroke-linecap: round;
+  stroke-width: calc(var(--pf-font, 14px) * 0.14); opacity: 0.22;
+}
+.pf-line.is-flowing { opacity: 0.9; stroke-dasharray: 0.5em 0.6em; animation: pf-flow 1.1s linear infinite; }
+@keyframes pf-flow { to { stroke-dashoffset: -1.1em; } }
+.pf-dot {
+  position: absolute; left: 50%; top: 50%; width: calc(var(--pf-font, 14px) * 0.7); height: calc(var(--pf-font, 14px) * 0.7);
+  transform: translate(-50%, -50%); border-radius: 50%; background: var(--text-secondary); opacity: 0.35;
+}
+.pf-dot.is-flowing { opacity: 0.9; background: var(--text); }
+@media (prefers-reduced-motion: reduce) { .pf-line.is-flowing { animation: none; stroke-dasharray: none; } }
+/* A narrow card drops the labels (the icons say which node is which); a short one drops the title. */
+@container (max-width: 300px) { .pf-label { display: none; } }
+@container (max-height: 150px) { .pf-title { display: none; } }
+/* Where a card has no height of its own (phones stack the blocks), each row keeps a height to be drawn in. */
+@media (max-width: 768px) { .power-flow-card { min-height: calc(var(--pf-rows, 3) * 4.2rem + 3rem); } }
+
 /* ── History and threshold bars ───────────────────────────── */
 .bar-single-card, .bar-stacked-card, .bar-threshold-card {
   display: flex !important; flex-direction: column !important;
