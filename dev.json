@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43220283228.1",
-    "version": "1.2.5-dev+c1e58ec",
-    "commit": "c1e58ec4220d924f8c27145b27a4c45bfd247863",
-    "digest": "sha256:8fa6e33a41638c0581ac85d242534ee6b0e14c10ae4829d85dcf729fa77722d2",
+    "buildId": "43232035392.1",
+    "version": "1.2.6-dev+f1aa302",
+    "commit": "f1aa3023fee591abdb7503dce31c2bc4796f1af8",
+    "digest": "sha256:7f20665c85982cbb18d3b81afeba8843a9f41517cfffe7d0e0d81fdfa1c55401",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T12:42:28Z",
+    "builtAt": "2026-11-12T13:56:14Z",
     "kind": "release",
     "notes": [
-      "Controls page cards honour transparent, glass, blur, frost and colours (#333)"
+      "Combined metrics: Average per day, for any metric (#335)"
     ]
   },
   "history": [
+    {
+      "buildId": "43232035392.1",
+      "version": "1.2.6-dev+f1aa302",
+      "commit": "f1aa3023fee591abdb7503dce31c2bc4796f1af8",
+      "digest": "sha256:7f20665c85982cbb18d3b81afeba8843a9f41517cfffe7d0e0d81fdfa1c55401",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T13:56:14Z",
+      "kind": "release",
+      "notes": [
+        "Combined metrics: Average per day, for any metric (#335)"
+      ]
+    },
     {
       "buildId": "43220283228.1",
       "version": "1.2.5-dev+c1e58ec",
@@ -357,19 +369,6 @@
       "builtAt": "2026-11-09T09:23:58Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "42593133542.1",
-      "version": "1.2.1-dev+708f52a",
-      "commit": "708f52a4dfdc1ee6e1744ef113ad691252707862",
-      "digest": "sha256:2b46cbaf69b7183b396ccd6f5cdf8c2d97242b5a026baa63001ddaf7a2db33f8",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T09:24:22Z",
-      "kind": "release",
-      "notes": [
-        "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
-        "Control cards: use inverter and battery settings as a source"
-      ]
     }
   ]
 }
