@@ -1,20 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43183893936.1",
-    "version": "1.2.5-dev+560c707",
-    "commit": "560c7072f190c2f41fcf7d2144dbb8f1ad8b78f6",
-    "digest": "sha256:bedf9f9b0462853c5a6c5a2fd7be6770fa9ae77d12981cee95acdf5b55ed0f08",
+    "buildId": "43183886092.1",
+    "version": "1.2.5-dev+eaacadf",
+    "commit": "eaacadf45b878c5cbd51301385529c51f7570386",
+    "digest": "sha256:f68ba4bdee422227a81240ca549506b07dff07188f72c543f4f316b4492e761b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T08:33:37Z",
+    "builtAt": "2026-11-12T08:33:28Z",
     "kind": "release",
-    "notes": [
-      "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
-      "Solar forecast cards: the day tiles follow the card's transparency (#328)",
-      "Bar gauges: the bars scale with the card, in every variant (#327)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "43183886092.1",
+      "version": "1.2.5-dev+eaacadf",
+      "commit": "eaacadf45b878c5cbd51301385529c51f7570386",
+      "digest": "sha256:f68ba4bdee422227a81240ca549506b07dff07188f72c543f4f316b4492e761b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T08:33:28Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "43183893936.1",
       "version": "1.2.5-dev+560c707",
@@ -364,18 +370,6 @@
         "Revise Docker setup instructions in README",
         "Update README.md",
         "Update README.md"
-      ]
-    },
-    {
-      "buildId": "42496425535.1",
-      "version": "1.1.4-dev+c5dd5c5",
-      "commit": "c5dd5c54878e52f2375629b0d8b8f5c2df1c3024",
-      "digest": "sha256:fc08d7322754a5fef93e7554d02fa73e4656b4a6cd999c0b02aabb8f757b722e",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T15:45:49Z",
-      "kind": "release",
-      "notes": [
-        "Notifications: any browser can offer itself as a push device (#296)"
       ]
     }
   ]
