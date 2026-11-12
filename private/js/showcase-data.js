@@ -287,6 +287,55 @@ export function metricHistory(metric, hours, now = Date.now()) {
   return between(now - hours * 3600000, now + 1).filter(p => p.t % 600000 === 0).map(p => ({ timestamp: p.t, value: get(p) }));
 }
 
+/** The highest solar power (W) of each of the last `days` local days, as /api/peaks gives it. */
+export function solarPeaks(days, now = Date.now()) {
+  const first = startOfDay(now) - (days - 1) * 86400000;
+  const best = new Map();
+  for (const p of between(first, now + 1)) { const k = dayKey(p.t); if (p.solar > (best.get(k) || 0)) best.set(k, p.solar); }
+  const series = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const day = dayKey(startOfDay(now) - i * 86400000 + 43200000);
+    series.push({ day, value: best.has(day) ? Math.round(best.get(day)) : null });
+  }
+  const values = series.map(d => d.value).filter(v => v !== null).sort((a, b) => a - b);
+  const highest = series.reduce((b, d) => (d.value !== null && (!b || d.value > b.value) ? d : b), null);
+  const m = values.length >> 1;
+  const median = !values.length ? null : values.length % 2 ? values[m] : (values[m - 1] + values[m]) / 2;
+  return { source: 'solar', unit: 'W', days: series, highest, median, daysWithData: values.length };
+}
+
+/** A tidy band width: 1, 2, 2.5 or 5 times a power of ten, giving about `target` bands over `range`. */
+function niceStep(range, target) {
+  if (!(range > 0) || !(target > 0)) return 1;
+  const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+/** Count values into bands about `bins` wide (the same banding as modules/peaks.js), each value counting `weight`. */
+function histogram(values, { bins = 10, fromZero = false, weight = 1 } = {}) {
+  const v = values.filter(x => Number.isFinite(x) && x >= 0);
+  if (!v.length) return { step: 0, bins: [], total: 0 };
+  const max = Math.max(...v), min = fromZero ? 0 : Math.min(...v);
+  const step = niceStep(max - min, Math.min(40, Math.max(2, bins)));
+  const start = fromZero ? 0 : Math.floor(min / step) * step;
+  const count = Math.max(1, Math.ceil((max - start) / step - 1e-9));
+  const clean = n => Number(n.toPrecision(12));
+  const out = Array.from({ length: count }, (_, i) => ({ from: clean(start + i * step), to: clean(start + (i + 1) * step), count: 0 }));
+  for (const x of v) out[Math.min(count - 1, Math.max(0, Math.floor((x - start) / step + 1e-9)))].count += weight;
+  return { step: clean(step), bins: out.map(b => ({ ...b, count: clean(b.count) })), total: clean(v.length * weight) };
+}
+const NIGHT_WATTS = 10;
+
+/** /api/histogram for solar power: days by their peak (mode peaks) or hours by the power of each 5 minutes (mode time). */
+export function solarHistogram(days, mode, bins, includeNight, now = Date.now()) {
+  if (mode === 'time') {
+    const first = startOfDay(now) - (days - 1) * 86400000;
+    const watts = between(first, now + 1).map(p => p.solar).filter(w => includeNight || w >= NIGHT_WATTS);
+    return { mode, source: 'solar', unit: 'W', includeNight, nightBelowWatts: includeNight ? 0 : NIGHT_WATTS, ...histogram(watts, { bins, fromZero: true, weight: DT_H }) };
+  }
+  const values = solarPeaks(days, now).days.map(d => d.value).filter(v => v !== null);
+  return { mode: 'peaks', source: 'solar', unit: 'W', ...histogram(values, { bins }) };
+}
+
 /** /api/history?days=N: raw power rows (W) with the day's running totals. */
 export function powerRows(days, now = Date.now()) {
   const out = [];

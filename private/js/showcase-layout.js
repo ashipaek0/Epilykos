@@ -53,6 +53,8 @@ export const SHOWCASE_BLOCKS = [
   { type: 'chart-power', config: { title: 'Power today' } },
   { type: 'chart-energy', config: {} },
   { type: 'energy-day', config: { showForecast: true, showBattery: true } },
+  { type: 'peak-bars', config: { days: 30 } },
+  { type: 'peak-histogram', config: { days: 30, bins: 10 } },
   { type: 'energy-flows', config: {} },
   { type: 'energy-costs', config: {} },
   { type: 'energy-tabs', config: {} },
