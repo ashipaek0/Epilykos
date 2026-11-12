@@ -20,16 +20,16 @@ export const SHOWCASE_BLOCKS = [
   { type: 'flow-card-square-2', config: { metrics: FLOW } },
 
   { type: 'metric-cards', config: {}, cards: [
-    { title: 'Solar', metric: 'solar', unit: 'W' }, { title: 'Load', metric: 'consumption', unit: 'W' },
-    { title: 'Battery', metric: 'battery_soc', unit: '%' }, { title: 'Grid', metric: 'grid_import', unit: 'W' }] },
+    { title: 'Solar', metric: 'solar', unit: 'W', icon: 'mdi:solar-power' }, { title: 'Load', metric: 'consumption', unit: 'W', icon: 'mdi:home' },
+    { title: 'Battery', metric: 'battery_soc', unit: '%', icon: 'mdi:battery' }, { title: 'Grid', metric: 'grid_import', unit: 'W', icon: 'mdi:transmission-tower' }] },
   { type: 'metric-trend', config: { title: 'Solar power', value: { source: 'metric', metric: 'solar', unit: 'W' },
     graph: { enabled: true, source: 'metric-history', metric: 'solar', window: '24h', lineStyle: 'area' } } },
   { type: 'dual-metric', config: { title: 'Battery', panes: {
     left: { metric: 'battery_soc', label: 'Charge', unit: '%' }, right: { metric: 'battery_voltage', label: 'Voltage', unit: 'V' } } } },
   { type: 'multi-value', config: { metrics: [
-    { label: 'Inverter temperature', metric: 'inverter_temperature', unit: '°C' }, { label: 'Grid voltage', metric: 'grid_voltage', unit: 'V' },
+    { label: 'Inverter temperature', metric: 'inverter_temperature', unit: '°C', icon: 'mdi:thermometer' }, { label: 'Grid voltage', metric: 'grid_voltage', unit: 'V', icon: 'mdi:flash' },
     { label: 'PV voltage', metric: 'pv_voltage', unit: 'V' }, { label: 'Mode', metric: 'inverter_mode', unit: '' }] } },
-  { type: 'text-metric', config: { metric: 'inverter_mode', label: 'Inverter mode', unit: '' } },
+  { type: 'text-metric', config: { metric: 'inverter_mode', label: 'Inverter mode', unit: '', icon: 'mdi:solar-panel' } },
   { type: 'grid-card', config: {} },
   { type: 'generator-card', config: {} },
   { type: 'energy-totals', config: {} },

@@ -314,7 +314,7 @@ const MODULE_PATH = path.join(__dirname, '..', 'public', 'js', 'components', 'te
   const editorSrc = read('public/js/editor.js');
 
   check('builder is registered in componentBuilders', () =>
-    ok(/'text-metric':\s*buildTextMetricCard/.test(indexSrc), 'no registry entry in components/index.js'));
+    ok(/'text-metric':\s*(buildTextMetricCard|block => \{ const card = buildTextMetricCard\(block\);)/.test(indexSrc), 'no registry entry in components/index.js'));
   check('builder module is imported and exports both builder and updater', () => {
     ok(/from '\.\/textMetricCard\.js'/.test(indexSrc), 'no import in components/index.js');
     ok(/export function buildTextMetricCard/.test(src), 'buildTextMetricCard not exported');

@@ -1,8 +1,9 @@
 import { escapeHtml } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
+import { applyTileIcon } from './tileIcon.js';
 
-/** A row of large single values. Each tile: label above, value with unit. */
+/** A row of large single values. Each tile: label above, value with unit, and an optional icon or image (`icon`). */
 export function buildMetricCards(block) {
   if (!block.cards || !block.cards.length) {
     const placeholder = document.createElement('div');
@@ -21,6 +22,7 @@ export function buildMetricCards(block) {
     cardEl.className = 'stat-card ep-tile';
     cardEl.dataset.metric = card.metric || '';
     cardEl.innerHTML = `<div class="stat-label ep-label">${escapeHtml(card.title || card.metric || '')}</div><div class="stat-value ep-value is-empty"><span class="ep-num">—</span></div>`;
+    applyTileIcon(cardEl, card.icon);
     grid.appendChild(cardEl);
   });
   return grid;
