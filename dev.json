@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43215826316.1",
-    "version": "1.2.5-dev+b9c4214",
-    "commit": "b9c421405f6e49a97a56303750758296058e756b",
-    "digest": "sha256:a5907ee5617414372921e6f3e764b6b0f0446828bcc5448759a88e2534bf1faa",
+    "buildId": "43220283228.1",
+    "version": "1.2.5-dev+c1e58ec",
+    "commit": "c1e58ec4220d924f8c27145b27a4c45bfd247863",
+    "digest": "sha256:8fa6e33a41638c0581ac85d242534ee6b0e14c10ae4829d85dcf729fa77722d2",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T12:13:03Z",
+    "builtAt": "2026-11-12T12:42:28Z",
     "kind": "release",
     "notes": [
-      "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)"
+      "Controls page cards honour transparent, glass, blur, frost and colours (#333)"
     ]
   },
   "history": [
+    {
+      "buildId": "43220283228.1",
+      "version": "1.2.5-dev+c1e58ec",
+      "commit": "c1e58ec4220d924f8c27145b27a4c45bfd247863",
+      "digest": "sha256:8fa6e33a41638c0581ac85d242534ee6b0e14c10ae4829d85dcf729fa77722d2",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T12:42:28Z",
+      "kind": "release",
+      "notes": [
+        "Controls page cards honour transparent, glass, blur, frost and colours (#333)"
+      ]
+    },
     {
       "buildId": "43215826316.1",
       "version": "1.2.5-dev+b9c4214",
@@ -357,18 +369,6 @@
       "notes": [
         "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
         "Control cards: use inverter and battery settings as a source"
-      ]
-    },
-    {
-      "buildId": "42593033023.1",
-      "version": "1.2.1-dev+ffab8cb",
-      "commit": "ffab8cb3d328d2df5ffd18359230c278273a3867",
-      "digest": "sha256:27f4edcc43f48b7c476ec7e78f93f7b3959d0ee114518d59eaffefd81bb6aedb",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T09:23:36Z",
-      "kind": "release",
-      "notes": [
-        "BMS readings carry their unit, so a bank's Wh total shows as kWh"
       ]
     }
   ]
