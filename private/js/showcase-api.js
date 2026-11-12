@@ -30,6 +30,9 @@ const GET = {
   },
   '/api/daily': q => data.dailyRows(Math.min(30, Math.max(1, parseInt(q.get('days'), 10) || 7))),
   '/api/monthly': () => data.monthlyRows(),
+  '/api/peaks': q => data.solarPeaks(Math.min(365, Math.max(1, parseInt(q.get('days'), 10) || 30))),
+  '/api/histogram': q => data.solarHistogram(Math.min(365, Math.max(1, parseInt(q.get('days'), 10) || 30)), q.get('mode') === 'time' ? 'time' : 'peaks',
+    Math.min(40, Math.max(2, parseInt(q.get('bins'), 10) || 10)), q.get('night') === '1'),
   '/api/solar-forecast': () => data.solarForecast(),
   '/api/solar/intraday': () => data.solarIntraday()
 };
