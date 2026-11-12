@@ -40,6 +40,8 @@ const BUCKET = pick('bucket', 'Bar size', [['15m', '15 minutes'], ['1h', '1 hour
 /** Options to try, per card type (config paths unless marked block). */
 const OPTIONS = {
   'flow-card': [yes('showGauge', 'Show the solar gauge')],
+  'power-flow': [text('title', 'Title'), yes('showGridSource', 'Grid as a source while it imports'), yes('showGenerator', 'Generator as a source while it runs'),
+    yes('showBatterySource', 'Battery as a source while it discharges'), yes('showGridExport', 'Grid as a destination while it exports')],
   'system-overview': [text('title', 'Title'), yes('showWeather', 'Show the weather')],
   'metric-trend': [text('title', 'Title'), pick('preset', 'Look', [['subtle-area', 'Subtle'], ['filled-body', 'Filled']]),
     yes('graph.enabled', 'Show a graph'), pick('graph.window', 'Graph period', [['1h', '1 hour'], ['6h', '6 hours'], ['24h', '24 hours'], ['7d', '7 days']]),
@@ -174,7 +176,7 @@ function optionField(item, opt, n) {
 
 /** Checkbox options that are on when the config leaves them out. */
 function defaultOn(type, path) {
-  return (type === 'flow-card' && path === 'showGauge') || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
+  return (type === 'flow-card' && path === 'showGauge') || (type === 'power-flow' && /^show/.test(path)) || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
     (type === 'energy-day' && path === 'showForecast');
 }
 

@@ -384,6 +384,35 @@ function readBreakdownFields(config) {
   if (d && d.value === 'all') config.breakdown_depth = 'all'; else delete config.breakdown_depth;
 }
 
+/** Power flow: what feeds each node, and which of the optional sources and destinations may appear (when active). */
+function buildPowerFlowForm(block) {
+  var cfg = block.config || {};
+  var metrics = cfg.metrics || {};
+  var slots = ['solar','consumption','battery_charge','battery_discharge','battery_soc','grid_import','grid_export','generator'];
+  var labels = {solar:'Solar',consumption:'Home',battery_charge:'Battery Charge',battery_discharge:'Battery Discharge',battery_soc:'Battery SoC',grid_import:'Grid Import',grid_export:'Grid Export',generator:'Generator'};
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Map</legend>';
+  for (var i = 0; i < slots.length; i++) {
+    var s = slots[i];
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">' + labels[s] + '</span>';
+    html += '<div data-ui="grow">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
+    html += '</div>';
+  }
+  html += '</fieldset>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">What appears</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-pf-title" value="' + escHtml(cfg.title === undefined ? 'Power flow' : cfg.title) + '" placeholder="Empty for no title" data-ui="input"></label>';
+  var toggles = [['modal-pf-grid', 'Grid as a source, while it imports', cfg.showGridSource !== false], ['modal-pf-generator', 'Generator as a source, while it runs', cfg.showGenerator !== false],
+    ['modal-pf-battery', 'Battery as a source, while it discharges', cfg.showBatterySource !== false], ['modal-pf-export', 'Grid as a destination, while it exports', cfg.showGridExport !== false]];
+  for (var t = 0; t < toggles.length; t++) {
+    html += '<span class="toggle-wrap" data-ui="span"><label class="toggle-switch"><input type="checkbox" id="' + toggles[t][0] + '"' + (toggles[t][2] ? ' checked' : '') + '><span class="slider"></span></label><label for="' + toggles[t][0] + '">' + toggles[t][1] + '</label></span>';
+  }
+  html += '<p data-ui="help">Solar and Home are always shown. The others appear only while they are active, and never if their metric is not reported.</p>';
+  html += '</fieldset>';
+  return html;
+}
+
 /** System Topology (flow-card-2) / Flow Card Square / Flow Card Square 2: same metrics shape */
 function buildSystemTopologyForm(block) {
   var cfg = block.config || {};
@@ -2087,6 +2116,9 @@ function buildSettingsForm(block) {
     case 'flow-card':
       html += buildFlowCardForm(block);
       break;
+    case 'power-flow':
+      html += buildPowerFlowForm(block);
+      break;
     case 'flow-card-2':
     case 'flow-card-square':
     case 'flow-card-square-2':
@@ -2322,6 +2354,22 @@ function readSettingsForm(block) {
       config.metrics = metrics;
       config.showGauge = document.getElementById('modal-showgauge')?.checked !== false;
       readBreakdownFields(config);
+      break;
+    }
+    case 'power-flow': {
+      var pslots = ['solar','consumption','battery_charge','battery_discharge','battery_soc','grid_import','grid_export','generator'];
+      var pmetrics = {};
+      pslots.forEach(function(s) {
+        var el = document.getElementById('modal-metric-' + s);
+        if (el) pmetrics[s] = el.value || s;
+      });
+      block.metrics = pmetrics;
+      config.metrics = pmetrics;
+      config.title = (document.getElementById('modal-pf-title')?.value || '').trim();
+      [['modal-pf-grid', 'showGridSource'], ['modal-pf-generator', 'showGenerator'], ['modal-pf-battery', 'showBatterySource'], ['modal-pf-export', 'showGridExport']].forEach(function(o) {
+        var box = document.getElementById(o[0]);
+        if (box && !box.checked) config[o[1]] = false; else delete config[o[1]];
+      });
       break;
     }
     case 'flow-card-2':

@@ -14,6 +14,7 @@ const FLOW = {
 export const SHOWCASE_BLOCKS = [
   { type: 'flow-card-2', config: { metrics: FLOW } },
   { type: 'system-overview', config: { title: 'System overview' } },
+  { type: 'power-flow', config: { metrics: { ...FLOW, generator: 'generator_power' } } },
   { type: 'flow-card', config: { metrics: FLOW } },
   { type: 'flow-card-square', config: { metrics: FLOW } },
   { type: 'flow-card-square-2', config: { metrics: FLOW } },
