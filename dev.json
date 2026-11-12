@@ -1,16 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43183878891.1",
-    "version": "1.2.5-dev+f7c2d74",
-    "commit": "f7c2d74effe0c19975a9ae0f5970c06f502a0a8e",
-    "digest": "sha256:35d25368fcc5a93b4a88f069b657939b50e25197d9c525e68ce9d087b2ae5428",
+    "buildId": "43212304888.1",
+    "version": "1.2.5-dev+dd39685",
+    "commit": "dd396858a1bf6c2d2592563b2832184feaad1d2c",
+    "digest": "sha256:8a2f822ad7cf04f285397b3477462c8bc8f84ee7ed174b9a992b96214326dd3c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T08:33:30Z",
+    "builtAt": "2026-11-12T11:48:49Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
+      "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
+      "Solar forecast cards: the day tiles follow the card's transparency (#328)"
+    ]
   },
   "history": [
+    {
+      "buildId": "43212304888.1",
+      "version": "1.2.5-dev+dd39685",
+      "commit": "dd396858a1bf6c2d2592563b2832184feaad1d2c",
+      "digest": "sha256:8a2f822ad7cf04f285397b3477462c8bc8f84ee7ed174b9a992b96214326dd3c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T11:48:49Z",
+      "kind": "release",
+      "notes": [
+        "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
+        "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
+        "Solar forecast cards: the day tiles follow the card's transparency (#328)"
+      ]
+    },
     {
       "buildId": "43183878891.1",
       "version": "1.2.5-dev+f7c2d74",
@@ -353,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Push prompt: shorten the toast to \"Enable notifications from this dashboard\" (#300)"
-      ]
-    },
-    {
-      "buildId": "42505702709.1",
-      "version": "1.1.5-dev+e44c352",
-      "commit": "e44c3528c8a1672dad7bcf10e3890c05e404bee9",
-      "digest": "sha256:874bdcfbb2acf4b3faf00e1b344bc7173983580d4a0e40f325917d5d98cbb628",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T17:35:31Z",
-      "kind": "release",
-      "notes": [
-        "Control cards: use inverter and battery settings as a source (#298)"
       ]
     }
   ]
