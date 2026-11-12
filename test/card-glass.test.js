@@ -37,9 +37,9 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   const scope = ':is(.glass-on, body.glass-cards :not(.glass-off))';
   assert.ok(css.split(scope).length - 1 >= 12, 'every card and tile rule, and the fallbacks, take the scope');
   assert.ok(!/body\.glass-cards \.dashboard-block >/.test(css), 'no rule still needs the dashboard to be glass');
-  assert.match(css, /\.dashboard-block > :is\(\.glass-on, \.glass-own\) \{ --glass-tint: calc\(\.36 \* var\(--glass-frost\)\); \}/, 'the tint follows the card\'s own frost');
-  assert.match(css, /\[data-theme="dark"\] \.dashboard-block > :is\(\.glass-on, \.glass-own\) \{ --glass-tint: calc\(\.14/);
-  assert.match(css, /body:not\(\.glass-cards\) \.dashboard-block > \.glass-on \{ --glass-blur: 18px; --glass-frost: 1;/, 'a glass card on a plain dashboard starts from the usual numbers');
+  assert.match(css, /:is\(\.dashboard-block, \.ct-card\) > :is\(\.glass-on, \.glass-own\) \{ --glass-tint: calc\(\.36 \* var\(--glass-frost\)\); \}/, 'the tint follows the card\'s own frost');
+  assert.match(css, /\[data-theme="dark"\] :is\(\.dashboard-block, \.ct-card\) > :is\(\.glass-on, \.glass-own\) \{ --glass-tint: calc\(\.14/);
+  assert.match(css, /body:not\(\.glass-cards\) :is\(\.dashboard-block, \.ct-card\) > \.glass-on \{ --glass-blur: 18px; --glass-frost: 1;/, 'a glass card on a plain dashboard starts from the usual numbers');
 
   // The layout editor: the settings sit with the card's Style settings and are saved on the block.
   const ed = read('public/js/editor.js');

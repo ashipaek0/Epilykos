@@ -6,6 +6,7 @@ import { buildChartPower } from './chartPower.js';
 import { buildChartEnergy } from './chartEnergy.js';
 import { buildChartMetric } from './chartMetric.js';
 import { buildTextMetricCard } from './textMetricCard.js';
+import { applyTileIcon } from './tileIcon.js';
 import { buildSavingsSummary } from './savingsSummary.js';
 import { buildDataTableDaily } from './dataTableDaily.js';
 import { buildDataTableMonthly } from './dataTableMonthly.js';
@@ -22,6 +23,7 @@ import { buildForecastInfo } from './forecastInfo.js';
 import { buildHalfGaugeCard, updateHalfGaugeCard } from './halfGaugeCard.js';
 import { buildHalfGauge2Card, updateHalfGauge2Card } from './halfGauge2Card.js';
 import { buildFlowCardSquare, updateFlowCardSquare } from './flowCardSquare.js';
+import { buildPowerFlow } from './powerFlow.js';
 import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.js';
 import { buildPvToday } from './pvToday.js';
 import { buildEnergyDay } from './energyDay.js';
@@ -48,6 +50,7 @@ import { registerBlock } from './blockRegistry.js';
 
 export const componentBuilders = {
   'flow-card': buildFlowCard,
+  'power-flow': buildPowerFlow,
   'forecast-banner': buildForecastBanner,
   'forecast-sparkline': buildForecastSparkline,
   'forecast-info': buildForecastInfo,
@@ -57,7 +60,8 @@ export const componentBuilders = {
   'chart-power': buildChartPower,
   'chart-energy': buildChartEnergy,
   'chart-metric': buildChartMetric,
-  'text-metric': buildTextMetricCard,
+  // The Text metric card has no imports of its own (see its header), so its optional icon is added here.
+  'text-metric': block => { const card = buildTextMetricCard(block); applyTileIcon(card, (block && block.config || {}).icon); return card; },
   'savings-summary': buildSavingsSummary,
   'data-table-daily': buildDataTableDaily,
   'data-table-monthly': buildDataTableMonthly,

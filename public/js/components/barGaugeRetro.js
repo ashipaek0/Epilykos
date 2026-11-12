@@ -18,6 +18,7 @@ export function buildBarGaugeRetro(block = {}) {
   const container = document.createElement('div');
   container.className = 'bar-gauge-retro-card ep-card' + barGaugeClasses(config);
   container.dataset.blockId = id;
+  container.style.setProperty('--bars', String(rows.length));   // cards.css sizes the bars from the card's height and this
   markBreakdown(container, config);
   container.dataset.metricMap = JSON.stringify(rows);
 

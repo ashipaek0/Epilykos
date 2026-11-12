@@ -290,6 +290,7 @@ body.st {
 .st-type-head { margin-bottom: 12px; }
 .st .st-type-head h2 { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--st-text); }
 /* Device view: just the chosen device and settings shared by its type. */
+.st-type-panel .device-card.is-other-type,
 .st-type-panel.is-device-view .device-card:not(.is-focused),
 .st-type-panel.is-device-view .st-type-extra { display: none !important; }
 .st-type-panel:not(.is-device-view) .st-type-device-only { display: none !important; }

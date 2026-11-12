@@ -42,6 +42,7 @@
     register: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',
     serial: '<path d="M4 9h16v6H4z"/><path d="M8 9V6M16 9V6M8 15v3M16 15v3"/>',
     dongle: '<path d="M5 12a7 7 0 0114 0M9 12a3 3 0 016 0"/><circle cx="12" cy="12" r="1"/><path d="M12 13v7"/>',
+    bluetooth: '<path d="M7 7l10 10-5 4V3l5 4L7 17"/>',
     mqtt: '<path d="M4 12a8 8 0 0116 0M8 12a4 4 0 018 0"/><circle cx="12" cy="12" r="1.5"/>',
     battery: '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 3V1.5h4V3M9 9h6M9 13h6"/>',
     bank: '<rect x="3" y="6" width="7" height="14" rx="1.5"/><rect x="14" y="6" width="7" height="14" rx="1.5"/><path d="M6 6V4M17 6V4"/>',
@@ -553,7 +554,12 @@
   var LABELS = (window.EPILYKOS_LABELS && window.EPILYKOS_LABELS.subnav) || {};
   var TYPES = [
     { key: 'modbus', panel: 'modbus', container: 'modbus-devices-container', add: 'add-modbus-device', label: 'Modbus', icon: 'register', group: 'Inverter', desc: 'RS485 or TCP. Most hybrid inverters, with ready profiles.' },
-    { key: 'dongle', panel: 'dongle', container: 'dongle-devices-container', add: 'add-dongle-device', label: 'WiFi dongle', icon: 'dongle', group: 'Inverter', desc: 'Solarman, LuxPower, Growatt and Felicity sticks.' },
+    // WiFi and Bluetooth dongles are one list of cards saved together (dongle_config); each card is one or the other
+    // by its connection, and `match` says which. They are two source types, so each is added and listed on its own.
+    { key: 'dongle', panel: 'dongle', container: 'dongle-devices-container', add: 'add-dongle-device', label: 'WiFi dongle', icon: 'dongle', group: 'Inverter', desc: 'Solarman, LuxPower, Growatt and Felicity sticks.', match: function (card) { return !isBluetoothDongle(card); },
+      head: ['WiFi dongle', "Talks directly to the inverter's WiFi stick over your network."] },
+    { key: 'dongle-ble', panel: 'dongle', container: 'dongle-devices-container', add: 'add-dongle-ble-device', label: 'Bluetooth dongle', icon: 'bluetooth', group: 'Inverter', desc: 'Inverters with a Bluetooth module: LuxPower dongles, Phocos Any-Grid, Modbus over Bluetooth.', match: isBluetoothDongle,
+      head: ['Bluetooth dongle', 'Reads the inverter over Bluetooth, from the Bluetooth adapter on this device. Devices on one adapter are read one at a time.'] },
     { key: 'rs232', panel: 'rs232', container: 'rs232-devices-container', add: 'add-rs232-device', label: 'RS232 serial', icon: 'serial', group: 'Inverter', desc: 'Voltronic, Victron VE.Direct, SolaX Pocket USB.' },
     { key: 'ha', panel: 'ha', container: 'ha-devices-container', add: 'add-ha-device', label: LABELS.ha || 'Home Assistant', icon: 'home', group: 'Home automation', desc: 'Read any entity with a long-lived token.' },
     { key: 'mqtt', panel: 'mqtt', container: 'mqtt-devices-container', add: 'add-mqtt-device', label: 'MQTT', icon: 'mqtt', group: 'Home automation', desc: 'Subscribe to topics on a broker.' },
@@ -564,9 +570,33 @@
     { key: 'external', panel: 'external', container: 'external-sources-container', add: 'add-external-source', label: 'REST API', icon: 'rest', group: 'Other', desc: 'Read values from any JSON endpoint.' }
   ];
   function typeByKey(k) { return TYPES.filter(function (t) { return t.key === k; })[0] || null; }
+  // A dongle card is a Bluetooth one when its connection (the card's hidden transport) is a Bluetooth transport.
+  function isBluetoothDongle(card) {
+    var tx = card.querySelector('select[name$="[transport]"]');
+    return !!tx && /^ble-/.test(tx.value);
+  }
   function cardsOf(t) {
     var c = $(t.container);
-    return c ? Array.from(c.children).filter(function (el) { return el.classList.contains('device-card'); }) : [];
+    var cards = c ? Array.from(c.children).filter(function (el) { return el.classList.contains('device-card'); }) : [];
+    return t.match ? cards.filter(t.match) : cards;
+  }
+  // On a type that shares its cards with another (WiFi and Bluetooth dongles), show only that type's cards.
+  function applyTypeFilter() {
+    var t = current.type ? typeByKey(current.type) : null;
+    var c = t && t.match ? $(t.container) : $('dongle-devices-container');
+    if (!c) return;
+    Array.from(c.children).forEach(function (el) {
+      if (el.classList.contains('device-card')) el.classList.toggle('is-other-type', !!(t && t.match) && !t.match(el));
+    });
+    if (t && t.head) {
+      var title = $('dongle-head-title'), help = $('dongle-head-help');
+      if (title) title.textContent = t.head[0];
+      if (help) help.textContent = t.head[1];
+    }
+    ['dongle', 'dongle-ble'].forEach(function (k) {
+      var tt = typeByKey(k), btn = tt && $(tt.add);
+      if (btn) btn.style.display = t && t.key === k ? '' : 'none';
+    });
   }
   function cardName(card, t) {
     var input = card.querySelector('.device-header input[type="text"], .bank-name');
@@ -631,6 +661,7 @@
   function renderSourcesList() {
     var list = $('sources-list');
     if (!list) return;
+    applyTypeFilter();
     var total = 0, ok = 0, issues = 0, off = 0;
     var html = '';
     var groups = {};

@@ -384,6 +384,35 @@ function readBreakdownFields(config) {
   if (d && d.value === 'all') config.breakdown_depth = 'all'; else delete config.breakdown_depth;
 }
 
+/** Power flow: what feeds each node, and which of the optional sources and destinations may appear (when active). */
+function buildPowerFlowForm(block) {
+  var cfg = block.config || {};
+  var metrics = cfg.metrics || {};
+  var slots = ['solar','consumption','battery_charge','battery_discharge','battery_soc','grid_import','grid_export','generator'];
+  var labels = {solar:'Solar',consumption:'Home',battery_charge:'Battery Charge',battery_discharge:'Battery Discharge',battery_soc:'Battery SoC',grid_import:'Grid Import',grid_export:'Grid Export',generator:'Generator'};
+  var html = '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">Metrics Map</legend>';
+  for (var i = 0; i < slots.length; i++) {
+    var s = slots[i];
+    html += '<div data-ui="row">';
+    html += '<span data-ui="row-label">' + labels[s] + '</span>';
+    html += '<div data-ui="grow">' + metricSelect(metrics[s] || s, 'modal-metric-' + s) + '</div>';
+    html += '</div>';
+  }
+  html += '</fieldset>';
+  html += '<fieldset data-ui="section">';
+  html += '<legend data-ui="legend">What appears</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-pf-title" value="' + escHtml(cfg.title === undefined ? 'Power flow' : cfg.title) + '" placeholder="Empty for no title" data-ui="input"></label>';
+  var toggles = [['modal-pf-grid', 'Grid as a source, while it imports', cfg.showGridSource !== false], ['modal-pf-generator', 'Generator as a source, while it runs', cfg.showGenerator !== false],
+    ['modal-pf-battery', 'Battery as a source, while it discharges', cfg.showBatterySource !== false], ['modal-pf-export', 'Grid as a destination, while it exports', cfg.showGridExport !== false]];
+  for (var t = 0; t < toggles.length; t++) {
+    html += '<span class="toggle-wrap" data-ui="span"><label class="toggle-switch"><input type="checkbox" id="' + toggles[t][0] + '"' + (toggles[t][2] ? ' checked' : '') + '><span class="slider"></span></label><label for="' + toggles[t][0] + '">' + toggles[t][1] + '</label></span>';
+  }
+  html += '<p data-ui="help">Solar and Home are always shown. The others appear only while they are active, and never if their metric is not reported.</p>';
+  html += '</fieldset>';
+  return html;
+}
+
 /** System Topology (flow-card-2) / Flow Card Square / Flow Card Square 2: same metrics shape */
 function buildSystemTopologyForm(block) {
   var cfg = block.config || {};
@@ -425,10 +454,12 @@ function renderMultiValueRows(container) {
   try { rows = JSON.parse(dataEl.textContent); } catch(e) {}
   var rowsEl = container.querySelector('#mv-rows');
   if (!rowsEl) return;
+  ensureIconNames();
   var html = '';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
     html += '<div class="mv-row" data-ui="list-row">';
+    html += '<input type="text" class="mv-icon" value="' + escHtml(r.icon || '') + '" placeholder="Icon" title="An icon name like mdi:solar-power (pick from the list), an image address or path, or an emoji" list="bc-icon-names" autocomplete="off" data-ui="input unit">';
     html += '<input type="text" class="mv-label" value="' + escHtml(r.label || '') + '" placeholder="Label" data-ui="input grow">';
     html += metricSelect(r.metric || '', 'mv-metric-' + i);
     html += '<input type="text" class="mv-unit" value="' + escHtml(r.unit || '') + '" placeholder="Unit" data-ui="input unit">';
@@ -872,10 +903,12 @@ function renderMetricCardsRows(container) {
   try { cards = JSON.parse(dataEl.textContent); } catch(e) {}
   var rowsEl = container.querySelector('#mc-rows');
   if (!rowsEl) return;
+  ensureIconNames();
   var html = '';
   for (var i = 0; i < cards.length; i++) {
     var c = cards[i] || {};
     html += '<div class="mc-row" data-ui="list-row">';
+    html += '<input type="text" class="mc-icon" value="' + escHtml(c.icon || '') + '" placeholder="Icon" title="An icon name like mdi:solar-power (pick from the list), an image address or path, or an emoji" list="bc-icon-names" autocomplete="off" data-ui="input unit">';
     html += '<input type="text" class="mc-title" value="' + escHtml(c.title || '') + '" placeholder="Label" data-ui="input grow">';
     html += metricSelect(c.metric || '', 'mc-metric-' + i);
     html += '<input type="text" class="mc-unit" value="' + escHtml(c.unit || '') + '" placeholder="Unit" data-ui="input unit">';
@@ -950,6 +983,7 @@ function buildTextMetricForm(block) {
   html += '</div>';
   html += '<label data-ui="field">Label <input type="text" id="modal-textmetric-label" value="' + escHtml(cfg.label || '') + '" placeholder="Falls back to the metric key" data-ui="input"></label>';
   html += '<label data-ui="field">Unit suffix <input type="text" id="modal-textmetric-unit" value="' + escHtml(cfg.unit || '') + '" placeholder="Optional; appended to numeric values only" data-ui="input"></label>';
+  html += iconField('modal-textmetric-icon', 'Icon', cfg.icon || '', 'mdi:solar-power, an image address or an emoji');
   html += '</fieldset>';
   return html;
 }
@@ -1720,13 +1754,16 @@ document.addEventListener('change', function(e) {
   if (pill) pill.checked = layoutHasPill(t.value);
 });
 /** Name list and live preview for an icon box that is not on a Button form. */
-function bindIconPreview(id) {
+function ensureIconNames() {
   if (!document.getElementById('bc-icon-names')) {
     var dl = document.createElement('datalist');
     dl.id = 'bc-icon-names';
     dl.innerHTML = Object.keys(MDI_ICONS).map(function(n) { return '<option value="mdi:' + n + '">'; }).join('');
     document.body.appendChild(dl);
   }
+}
+function bindIconPreview(id) {
+  ensureIconNames();
   var input = document.getElementById(id);
   if (input) input.addEventListener('input', function() {
     var prev = document.getElementById(id + '-preview');
@@ -2087,6 +2124,9 @@ function buildSettingsForm(block) {
     case 'flow-card':
       html += buildFlowCardForm(block);
       break;
+    case 'power-flow':
+      html += buildPowerFlowForm(block);
+      break;
     case 'flow-card-2':
     case 'flow-card-square':
     case 'flow-card-square-2':
@@ -2324,6 +2364,22 @@ function readSettingsForm(block) {
       readBreakdownFields(config);
       break;
     }
+    case 'power-flow': {
+      var pslots = ['solar','consumption','battery_charge','battery_discharge','battery_soc','grid_import','grid_export','generator'];
+      var pmetrics = {};
+      pslots.forEach(function(s) {
+        var el = document.getElementById('modal-metric-' + s);
+        if (el) pmetrics[s] = el.value || s;
+      });
+      block.metrics = pmetrics;
+      config.metrics = pmetrics;
+      config.title = (document.getElementById('modal-pf-title')?.value || '').trim();
+      [['modal-pf-grid', 'showGridSource'], ['modal-pf-generator', 'showGenerator'], ['modal-pf-battery', 'showBatterySource'], ['modal-pf-export', 'showGridExport']].forEach(function(o) {
+        var box = document.getElementById(o[0]);
+        if (box && !box.checked) config[o[1]] = false; else delete config[o[1]];
+      });
+      break;
+    }
     case 'flow-card-2':
     case 'flow-card-square':
     case 'flow-card-square-2': {
@@ -2348,11 +2404,13 @@ function readSettingsForm(block) {
       // Read live inputs to update labels/units before saving
       var labelEls = document.querySelectorAll('.mv-label');
       var unitEls = document.querySelectorAll('.mv-unit');
+      var iconEls = document.querySelectorAll('.mv-icon');
       for (var i = 0; i < mvRows.length; i++) {
         if (labelEls[i]) mvRows[i].label = labelEls[i].value;
         var msel = document.getElementById('mv-metric-' + i);
         if (msel) mvRows[i].metric = msel.value;
         if (unitEls[i]) mvRows[i].unit = unitEls[i].value;
+        if (iconEls[i]) { if (iconEls[i].value.trim()) mvRows[i].icon = iconEls[i].value.trim(); else delete mvRows[i].icon; }
       }
       block.metrics = mvRows;
       config.metrics = mvRows;
@@ -2540,6 +2598,7 @@ function readSettingsForm(block) {
       try { mcRows = JSON.parse(mcData.textContent); } catch(e) {}
       var allMcTitles = document.querySelectorAll('.mc-title');
       var allMcUnits = document.querySelectorAll('.mc-unit');
+      var allMcIcons = document.querySelectorAll('.mc-icon');
       for (var m = 0; m < mcRows.length; m++) {
         var tEl = allMcTitles[m];
         if (tEl) mcRows[m].title = tEl.value;
@@ -2547,6 +2606,8 @@ function readSettingsForm(block) {
         if (mmel) mcRows[m].metric = mmel.value;
         var uel3 = allMcUnits[m];
         if (uel3) mcRows[m].unit = uel3.value;
+        var iconEl = allMcIcons[m];
+        if (iconEl) { if (iconEl.value.trim()) mcRows[m].icon = iconEl.value.trim(); else delete mcRows[m].icon; }
       }
       block.cards = mcRows;
       break;
@@ -2575,6 +2636,8 @@ function readSettingsForm(block) {
       config.metric = document.getElementById('modal-metric-textmetric')?.value || '';
       config.label = document.getElementById('modal-textmetric-label')?.value || '';
       config.unit = document.getElementById('modal-textmetric-unit')?.value || '';
+      var textIcon = (document.getElementById('modal-textmetric-icon')?.value || '').trim();
+      if (textIcon) config.icon = textIcon; else delete config.icon;
       break;
     }
     case 'iframe-card': {
@@ -4014,6 +4077,9 @@ function wireSettingsForm(body, block) {
     case 'switch-block':
       bindSwitchPicker('toggle', 'modal-switch');
       bindIconPreview('modal-switch-icon');
+      break;
+    case 'text-metric':
+      bindIconPreview('modal-textmetric-icon');
       break;
     case 'slider-card':
     case 'rotary-card':

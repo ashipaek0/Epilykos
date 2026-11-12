@@ -130,6 +130,30 @@
   .ep-tiles { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* ── Tile icons: an optional icon or image beside a tile's text (Metric cards, Multi-value rows, Text metric) ── */
+.stat-card.has-icon {
+  display: grid !important; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+  grid-template-areas: "icon label" "icon value"; align-content: center; align-items: center; justify-items: start;
+  column-gap: clamp(0.5rem, 2.2cqi, 1rem); row-gap: 0.15em;
+}
+.stat-card.has-icon > .tile-icon { grid-area: icon; align-self: center; }
+.stat-card.has-icon > .stat-label { grid-area: label; align-self: end; }
+.stat-card.has-icon > .stat-value { grid-area: value; align-self: start; }
+.stat-card.has-icon > :not(.tile-icon, .stat-label, .stat-value) { grid-column: 1 / -1; }   /* breakdown lists and the like span the tile */
+/* The icon's square follows the card (the block's width), with limits so it neither vanishes nor takes over. */
+.tile-icon {
+  --tile-icon-size: clamp(1.9rem, 5.2cqi, 3.4rem);
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; box-sizing: border-box;
+  width: var(--tile-icon-size); height: var(--tile-icon-size); border-radius: 0.7em; overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
+}
+.tile-icon > svg { width: 56%; height: 56%; }
+.tile-icon.is-image { background: transparent; }
+.tile-icon.is-image > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.tile-icon.is-emoji { font-size: calc(var(--tile-icon-size) * 0.52); line-height: 1; }
+/* A single card (Text metric) lays its icon out the same way. */
+.text-metric-card.has-icon { padding: var(--card-pad) !important; align-items: center !important; justify-content: start !important; }
+
 /* ── Text metric ──────────────────────────────────────────── */
 .text-metric-card {
   align-items: flex-start !important;
@@ -163,17 +187,28 @@
 }
 
 /* ── Bar gauges ───────────────────────────────────────────── */
-.bar-gauge-card, .bar-gauge-retro-card { justify-content: center !important; gap: clamp(8px, 3cqi, 16px) !important; padding: var(--card-pad) !important; }
-.bar-gauge-row, .bg-retro-row { display: grid !important; grid-template-columns: minmax(3.5em, 28%) minmax(0, 1fr) auto; align-items: center; gap: 0.6em; }
+/* The card is a size container, so its bars are sized from its width AND its height: rows share the height and each
+   bar is a share of its row; columns (Orientation: Vertical) share the width and each bar is a share of its column.
+   --bars is the number of metrics (set by the card), --bar-font the text size that fits a row or a column. A bigger
+   card gets bigger bars and text, a smaller one smaller, and the card is always filled. */
+.bar-gauge-card, .bar-gauge-retro-card {
+  container-type: size; justify-content: stretch !important; gap: 0 !important; padding: var(--card-pad) !important;
+  --bar-font: calc(clamp(0.7rem, min(100cqh / var(--bars, 4) * 0.36, 4.4cqw), 1.6rem) * var(--card-font-scale, 1));
+}
+.bar-gauge-row, .bg-retro-row {
+  display: grid !important; flex: 1 1 0; min-height: 0; font-size: var(--bar-font);
+  grid-template-columns: minmax(3.5em, min(28%, 9em)) minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center; column-gap: 0.6em;
+}
 .bar-gauge-label, .bg-retro-label {
-  font-size: calc(clamp(0.75rem, 3cqi, 0.95rem) * var(--card-font-scale, 1)) !important; font-weight: 600; color: var(--text-secondary);
+  font-size: inherit !important; font-weight: 600; color: var(--text-secondary);
   min-width: 0 !important; max-width: none !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.bar-gauge-track { height: clamp(10px, 3.4cqi, 18px) !important; background: var(--bg) !important; border: 1px solid var(--border); border-radius: 99px !important; }
+.bar-gauge-value, .bg-retro-value { font-size: calc(var(--bar-font) * 1.15) !important; min-width: 0 !important; }
+.bar-gauge-track { align-self: center; height: clamp(6px, 46%, 40px) !important; background: var(--bg) !important; border: 1px solid var(--border); border-radius: 99px !important; }
 .bar-gauge-fill { border-radius: 99px !important; }
-.bar-gauge-value, .bg-retro-value { font-size: calc(clamp(0.85rem, 3.6cqi, 1.15rem) * var(--card-font-scale, 1)) !important; min-width: 0 !important; }
-.bg-retro-segments { gap: 3px !important; }
-.bg-retro-seg { height: clamp(12px, 4cqi, 22px) !important; border-radius: 3px !important; background: var(--border); }
+.bg-retro-segments { align-self: center; height: clamp(8px, 52%, 44px); gap: clamp(1px, 0.5cqw, 4px) !important; }
+.bg-retro-seg { height: 100% !important; border-radius: 3px !important; background: var(--border); }
 
 /* Bar ends (the card's "Bar ends" setting): rounded or square, on the bars and on each segment. */
 .bar-gauge-card.bar-ends-rounded :is(.bar-gauge-track, .bar-gauge-fill),
@@ -183,20 +218,84 @@
 
 /* Vertical bars (the card's "Orientation" setting): one column per metric, the value on top, the bar in the
    middle and the label below. The bars fill from the bottom; the segments are stacked from the bottom up. */
-:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical { flex-direction: row !important; align-items: stretch; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical {
+  flex-direction: row !important; align-items: stretch; gap: clamp(4px, 1.4cqw, 16px) !important;
+  --bar-font: calc(clamp(0.55rem, min(100cqw / var(--bars, 4) * 0.2, 100cqh * 0.09), 1.6rem) * var(--card-font-scale, 1));
+}
 :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) {
   display: flex !important; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; min-height: 0; gap: 0.5em;
 }
-:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-value, .bg-retro-value) { order: 0; text-align: center; max-width: 100%; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-value, .bg-retro-value) { order: 0; text-align: center; max-width: 100%; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-label, .bg-retro-label) { order: 2; text-align: center; max-width: 100% !important; }
 :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) > .bd-list { order: 3; grid-column: auto; padding-left: 0; max-width: 100%; }
 .bar-gauge-card.is-vertical .bar-gauge-track {
-  order: 1; flex: 1 1 0; min-height: 0; height: auto !important; width: clamp(14px, 50%, 44px);
+  order: 1; flex: 1 1 0; min-height: 0; height: auto !important; width: clamp(12px, 46%, 140px);
   display: flex; flex-direction: column; justify-content: flex-end;
 }
-.bar-gauge-card.is-vertical .bar-gauge-fill { transition: height 0.5s ease; }
-.bar-gauge-retro-card.is-vertical .bg-retro-segments { order: 1; flex: 1 1 0; min-height: 0; width: clamp(14px, 50%, 44px); flex-direction: column-reverse; }
+/* The track is what is rounded; the fill is cut to it. A rounded fill is a blob when it is short and the column wide. */
+.bar-gauge-card.is-vertical .bar-gauge-fill { transition: height 0.5s ease; border-radius: 0 !important; }
+.bar-gauge-retro-card.is-vertical .bg-retro-segments { order: 1; flex: 1 1 0; min-height: 0; height: auto; width: clamp(12px, 46%, 140px); flex-direction: column-reverse; gap: clamp(1px, 0.9cqh, 5px) !important; }
 .bar-gauge-retro-card.is-vertical .bg-retro-seg { height: auto !important; width: 100%; flex: 1 1 0; min-height: 0; }
+/* A very short card keeps the bars and values and drops the labels, with less space around them, rather than
+   squeezing the bars away. */
+@container (max-height: 120px) {
+  :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-label, .bg-retro-label) { display: none; }
+  :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) { gap: 2px; }
+  .bar-gauge-retro-card.is-vertical .bg-retro-segments { gap: 0 !important; }   /* there is no room for gaps between segments */
+}
+/* Where a card has no height of its own (phones stack the blocks), each bar keeps a height to be drawn in. */
+@media (max-width: 768px) {
+  .bar-gauge-card, .bar-gauge-retro-card { min-height: calc(var(--bars, 4) * 3.2rem); }
+  .bar-gauge-card.is-vertical, .bar-gauge-retro-card.is-vertical { min-height: 14rem; }
+}
+
+/* ── Power flow ───────────────────────────────────────────── */
+/* Sources on the left, destinations on the right, lines through a junction between. The body is a size container: the
+   nodes in a column share its height equally (--pf-rows is the taller column's node count, set by the card), and the text
+   and icons follow the height of a row, limited by the width, so the card fills at any size. The lines are drawn from the
+   slot centres in a 0-100 box (powerFlow.js flowPaths), so they stay attached to the nodes. */
+.power-flow-card { display: flex !important; flex-direction: column; gap: 0.5em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.pf-title { flex: 0 0 auto; font-size: calc(clamp(0.8rem, 2.6cqi, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); }
+.pf-body {
+  flex: 1 1 0; min-height: 0; container-type: size;
+  display: grid; grid-template-columns: max-content minmax(1.5rem, 1fr) max-content; align-items: stretch;
+  --pf-font: calc(clamp(0.4rem, min(100cqh / var(--pf-rows, 3) * 0.24, 100cqw * 0.042), 1.6rem) * var(--card-font-scale, 1));
+}
+.pf-col { display: flex; flex-direction: column; min-height: 0; }
+.pf-sources { align-items: flex-end; }
+.pf-dests { align-items: flex-start; }
+.pf-node { flex: 1 1 0; min-height: 0; display: flex; align-items: center; gap: 0.6em; font-size: var(--pf-font); }
+.pf-node[hidden] { display: none; }
+.pf-icon {
+  flex: 0 0 auto; width: 2.6em; height: 2.6em; border-radius: 0.7em; display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--pf-color) 18%, transparent); color: var(--pf-color);
+}
+.pf-icon > svg { width: 58%; height: 58%; }
+.pf-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.pf-label { font-size: 0.8em; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.pf-value { font-size: 1.35em; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pf-sub { font-size: 0.8em; color: var(--text-secondary); white-space: nowrap; }
+.pf-sub:empty { display: none; }
+.pf-node:not(.is-flowing) .pf-value { color: var(--text-secondary); font-weight: 600; }
+.pf-mid { position: relative; min-width: 0; }
+.pf-lines { position: absolute; top: 0; bottom: 0; left: 0.5em; right: 0.5em; width: calc(100% - 1em); height: 100%; overflow: visible; }
+.pf-line {
+  fill: none; stroke: var(--pf-color); vector-effect: non-scaling-stroke; stroke-linecap: round;
+  stroke-width: calc(var(--pf-font, 14px) * 0.14); opacity: 0.22;
+}
+.pf-line.is-flowing { opacity: 0.9; stroke-dasharray: 0.5em 0.6em; animation: pf-flow 1.1s linear infinite; }
+@keyframes pf-flow { to { stroke-dashoffset: -1.1em; } }
+.pf-dot {
+  position: absolute; left: 50%; top: 50%; width: calc(var(--pf-font, 14px) * 0.7); height: calc(var(--pf-font, 14px) * 0.7);
+  transform: translate(-50%, -50%); border-radius: 50%; background: var(--text-secondary); opacity: 0.35;
+}
+.pf-dot.is-flowing { opacity: 0.9; background: var(--text); }
+@media (prefers-reduced-motion: reduce) { .pf-line.is-flowing { animation: none; stroke-dasharray: none; } }
+/* A narrow card drops the labels (the icons say which node is which); a short one drops the title. */
+@container (max-width: 300px) { .pf-label { display: none; } }
+@container (max-height: 150px) { .pf-title { display: none; } }
+/* Where a card has no height of its own (phones stack the blocks), each row keeps a height to be drawn in. */
+@media (max-width: 768px) { .power-flow-card { min-height: calc(var(--pf-rows, 3) * 4.2rem + 3rem); } }
 
 /* ── History and threshold bars ───────────────────────────── */
 .bar-single-card, .bar-stacked-card, .bar-threshold-card {

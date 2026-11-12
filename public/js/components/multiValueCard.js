@@ -2,6 +2,7 @@ import { escapeHtml } from '../utils.js';
 import { formatEntry, renderValue } from './format.js';
 import { markBreakdown, applyBreakdowns } from './breakdown.js';
 import { emptyBlock } from './emptyState.js';
+import { applyTileIcon } from './tileIcon.js';
 
 /** Several labelled values side by side (wrapping to rows when narrow). */
 export function buildMultiValueCard(block = {}) {
@@ -19,6 +20,7 @@ export function buildMultiValueCard(block = {}) {
     card.className = 'stat-card ep-tile';
     card.dataset.mvidx = i;
     card.innerHTML = `<div class="stat-label ep-label">${escapeHtml(m.label || m.metric || 'Value')}</div><div class="stat-value ep-value is-empty" data-metric="${escapeHtml(m.metric || '')}"><span class="ep-num">—</span></div>`;
+    applyTileIcon(card, m.icon);
     container.appendChild(card);
   });
   return container;

@@ -31,12 +31,17 @@ const yes = (path, label) => ({ path, label, kind: 'check' });
 const text = (path, label) => ({ path, label, kind: 'text' });
 const num = (path, label, min, max) => ({ path, label, kind: 'number', min, max });
 const pick = (path, label, choices) => ({ path, label, kind: 'select', choices });
+const BAR_LOOK = [pick('orientation', 'Orientation', [['horizontal', 'Horizontal (rows)'], ['vertical', 'Vertical (columns)']]),
+  pick('barEnds', 'Bar ends', [['', 'Default'], ['rounded', 'Rounded'], ['square', 'Square']])];
+const PEAK_DAYS = pick('days', 'Period', [[30, '30 days'], [90, '90 days'], [365, '1 year']]);
 const RANGE = pick('range', 'Period', [['24h', 'Last 24 hours'], ['7d', 'Last 7 days']]);
 const BUCKET = pick('bucket', 'Bar size', [['15m', '15 minutes'], ['1h', '1 hour'], ['1d', '1 day']]);
 
 /** Options to try, per card type (config paths unless marked block). */
 const OPTIONS = {
   'flow-card': [yes('showGauge', 'Show the solar gauge')],
+  'power-flow': [text('title', 'Title'), yes('showGridSource', 'Grid as a source while it imports'), yes('showGenerator', 'Generator as a source while it runs'),
+    yes('showBatterySource', 'Battery as a source while it discharges'), yes('showGridExport', 'Grid as a destination while it exports')],
   'system-overview': [text('title', 'Title'), yes('showWeather', 'Show the weather')],
   'metric-trend': [text('title', 'Title'), pick('preset', 'Look', [['subtle-area', 'Subtle'], ['filled-body', 'Filled']]),
     yes('graph.enabled', 'Show a graph'), pick('graph.window', 'Graph period', [['1h', '1 hour'], ['6h', '6 hours'], ['24h', '24 hours'], ['7d', '7 days']]),
@@ -52,20 +57,24 @@ const OPTIONS = {
     num('opening', 'Arc size (degrees)', 30, 300)],
   'half-gauge': [text('title', 'Title'), num('min', 'Lowest', -10000, 10000), num('max', 'Highest', -10000, 10000)],
   'half-gauge-2': [text('title', 'Title'), num('min', 'Lowest', -10000, 10000), num('max', 'Highest', -10000, 10000)],
+  'bar-gauge': BAR_LOOK,
+  'bar-gauge-retro': BAR_LOOK,
   'bar-single': [text('title', 'Title'), RANGE, BUCKET],
   'bar-stacked': [text('title', 'Title'), RANGE, BUCKET],
   'bar-threshold': [text('title', 'Title'), pick('valueAgg', 'Value', [['last', 'Latest'], ['avg', 'Average']])],
   'chart-power': [text('title', 'Title')],
+  'peak-bars': [text('title', 'Title'), PEAK_DAYS],
+  'peak-histogram': [text('title', 'Title'), PEAK_DAYS, pick('mode', 'Counts', [['peaks', 'Days, by their peak'], ['time', 'Hours, by solar power']]), num('bins', 'Number of bands', 4, 30)],
   'energy-day': [yes('showForecast', 'Show the forecast'), yes('showBattery', 'Show battery charge')],
   'energy-flows': [yes('showForecast', 'Show the forecast')],
   'energy-costs': [yes('showForecast', 'Show the forecast')],
   'weather-block': [text('title', 'Title')],
-  'switch-block': [text('label', 'Label')],
-  'button-card': [text('name', 'Name'), text('icon', 'Icon (mdi:name, image URL or emoji)')],
+  'switch-block': [text('label', 'Label'), pick('layout', 'Layout', [['classic', 'Classic'], ['tile', 'Tile'], ['compact', 'Compact'], ['row', 'Row']]), text('sublabel', 'Second line')],
+  'button-card': [text('name', 'Name'), text('icon', 'Icon (mdi:name, image URL or emoji)'), pick('layout', 'Layout', [['centered', 'Centered'], ['tile', 'Tile'], ['compact', 'Compact'], ['row', 'Row']]), text('sublabel', 'Second line')],
   'quick-actions': [text('title', 'Title')],
-  'state-select': [text('label', 'Label')],
-  'slider-card': [text('label', 'Label'), text('unit', 'Unit')],
-  'rotary-card': [text('label', 'Label'), text('unit', 'Unit')],
+  'state-select': [text('label', 'Label'), pick('layout', 'Layout', [['classic', 'Classic'], ['tile', 'Tile']])],
+  'slider-card': [text('label', 'Label'), text('unit', 'Unit'), pick('layout', 'Layout', [['classic', 'Classic'], ['tile', 'Tile']])],
+  'rotary-card': [text('label', 'Label'), text('unit', 'Unit'), pick('layout', 'Layout', [['classic', 'Classic'], ['tile', 'Tile']])],
   'text-card': [{ path: 'content', label: 'Text', kind: 'textarea' }]
 };
 
@@ -167,7 +176,7 @@ function optionField(item, opt, n) {
 
 /** Checkbox options that are on when the config leaves them out. */
 function defaultOn(type, path) {
-  return (type === 'flow-card' && path === 'showGauge') || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
+  return (type === 'flow-card' && path === 'showGauge') || (type === 'power-flow' && /^show/.test(path)) || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
     (type === 'energy-day' && path === 'showForecast');
 }
 

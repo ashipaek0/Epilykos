@@ -35,7 +35,7 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
   // The styles: a vertical card is a row of columns, filled from the bottom; the ends win over the card defaults.
   const css = read('public/cards.css');
-  assert.match(css, /:is\(\.bar-gauge-card, \.bar-gauge-retro-card\)\.is-vertical \{ flex-direction: row !important;/);
+  assert.match(css, /:is\(\.bar-gauge-card, \.bar-gauge-retro-card\)\.is-vertical \{\s*\n\s*flex-direction: row !important;/);
   assert.match(css, /\.bar-gauge-retro-card\.is-vertical \.bg-retro-segments \{[^}]*flex-direction: column-reverse;/, 'segments are stacked from the bottom up');
   assert.match(css, /\.bar-gauge-card\.bar-ends-square :is\(\.bar-gauge-track, \.bar-gauge-fill\),\s*\n\.bar-gauge-retro-card\.bar-ends-square \.bg-retro-seg \{ border-radius: 0 !important; \}/);
   assert.match(css, /\.bar-gauge-card\.bar-ends-rounded :is\(\.bar-gauge-track, \.bar-gauge-fill\),\s*\n\.bar-gauge-retro-card\.bar-ends-rounded \.bg-retro-seg \{ border-radius: 99px !important; \}/);

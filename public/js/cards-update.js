@@ -36,6 +36,7 @@ import { updateSliderCardsFromState } from './components/sliderCard.js';
 import { updateRotaryCardsFromState } from './components/rotaryCard.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
+import { updatePowerFlow } from './components/powerFlow.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
 const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
@@ -47,6 +48,7 @@ const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline'
 export function updateCards(state, blockTypes) {
   if (!state) return;
   if (blockTypes.has('flow-card')) updateFlowCard(state);
+  if (blockTypes.has('power-flow')) updatePowerFlow(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('system-overview')) updateSystemOverview(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);
