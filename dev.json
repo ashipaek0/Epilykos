@@ -1,16 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43183886092.1",
-    "version": "1.2.5-dev+eaacadf",
-    "commit": "eaacadf45b878c5cbd51301385529c51f7570386",
-    "digest": "sha256:f68ba4bdee422227a81240ca549506b07dff07188f72c543f4f316b4492e761b",
+    "buildId": "43183878891.1",
+    "version": "1.2.5-dev+f7c2d74",
+    "commit": "f7c2d74effe0c19975a9ae0f5970c06f502a0a8e",
+    "digest": "sha256:35d25368fcc5a93b4a88f069b657939b50e25197d9c525e68ce9d087b2ae5428",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T08:33:28Z",
+    "builtAt": "2026-11-12T08:33:30Z",
     "kind": "release",
     "notes": []
   },
   "history": [
+    {
+      "buildId": "43183878891.1",
+      "version": "1.2.5-dev+f7c2d74",
+      "commit": "f7c2d74effe0c19975a9ae0f5970c06f502a0a8e",
+      "digest": "sha256:35d25368fcc5a93b4a88f069b657939b50e25197d9c525e68ce9d087b2ae5428",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T08:33:30Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "43183886092.1",
       "version": "1.2.5-dev+eaacadf",
@@ -355,21 +365,6 @@
       "kind": "release",
       "notes": [
         "Control cards: use inverter and battery settings as a source (#298)"
-      ]
-    },
-    {
-      "buildId": "42503978718.1",
-      "version": "1.1.5-dev+db06605",
-      "commit": "db066056e30fee155e88d9210411e1c9db58fde3",
-      "digest": "sha256:93c4e55ed44de10230d227823a2e88df5b08069bb9ad027e6c92e3e06605861d",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T17:15:07Z",
-      "kind": "release",
-      "notes": [
-        "Refactor epilykos service configuration in docker-compose",
-        "Revise Docker setup instructions in README",
-        "Update README.md",
-        "Update README.md"
       ]
     }
   ]
