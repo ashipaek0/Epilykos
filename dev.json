@@ -1,18 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43183865889.1",
-    "version": "1.2.5-dev+fc10a39",
-    "commit": "fc10a393bd2050c6e0ff203ca0fe535f5f424339",
-    "digest": "sha256:7bfa543d7dd0d9a74e3d19305be98254cb3f5ec94c7e73b95314b40323d8a505",
+    "buildId": "43183893936.1",
+    "version": "1.2.5-dev+560c707",
+    "commit": "560c7072f190c2f41fcf7d2144dbb8f1ad8b78f6",
+    "digest": "sha256:bedf9f9b0462853c5a6c5a2fd7be6770fa9ae77d12981cee95acdf5b55ed0f08",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T08:33:22Z",
+    "builtAt": "2026-11-12T08:33:37Z",
     "kind": "release",
     "notes": [
-      "Sources: Bluetooth dongle is its own source type (#326)"
+      "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
+      "Solar forecast cards: the day tiles follow the card's transparency (#328)",
+      "Bar gauges: the bars scale with the card, in every variant (#327)"
     ]
   },
   "history": [
+    {
+      "buildId": "43183893936.1",
+      "version": "1.2.5-dev+560c707",
+      "commit": "560c7072f190c2f41fcf7d2144dbb8f1ad8b78f6",
+      "digest": "sha256:bedf9f9b0462853c5a6c5a2fd7be6770fa9ae77d12981cee95acdf5b55ed0f08",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T08:33:37Z",
+      "kind": "release",
+      "notes": [
+        "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
+        "Solar forecast cards: the day tiles follow the card's transparency (#328)",
+        "Bar gauges: the bars scale with the card, in every variant (#327)"
+      ]
+    },
     {
       "buildId": "43183865889.1",
       "version": "1.2.5-dev+fc10a39",
@@ -360,18 +376,6 @@
       "kind": "release",
       "notes": [
         "Notifications: any browser can offer itself as a push device (#296)"
-      ]
-    },
-    {
-      "buildId": "42486511850.1",
-      "version": "1.1.3-dev+d72612f",
-      "commit": "d72612f406e54acd1afb12bd1226a996ce9f2a93",
-      "digest": "sha256:9d7b2951b26ae8760de02eddf1865b93a8b50dfdceb42751f2387ee40b57de67",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T13:46:28Z",
-      "kind": "release",
-      "notes": [
-        "CI: remove the report-only Windows test job (#295)"
       ]
     }
   ]
