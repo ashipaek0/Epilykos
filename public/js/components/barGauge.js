@@ -17,6 +17,7 @@ export function buildBarGauge(block = {}) {
   container.className = 'bar-gauge-card ep-card' + barGaugeClasses(config);
   const vertical = barGaugeLook(config).vertical;
   container.dataset.blockId = id;
+  container.style.setProperty('--bars', String(rows.length));   // cards.css sizes the bars from the card's height and this
   markBreakdown(container, config);
   container.dataset.metricMap = JSON.stringify(rows);
 

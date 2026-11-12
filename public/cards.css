@@ -163,17 +163,28 @@
 }
 
 /* ── Bar gauges ───────────────────────────────────────────── */
-.bar-gauge-card, .bar-gauge-retro-card { justify-content: center !important; gap: clamp(8px, 3cqi, 16px) !important; padding: var(--card-pad) !important; }
-.bar-gauge-row, .bg-retro-row { display: grid !important; grid-template-columns: minmax(3.5em, 28%) minmax(0, 1fr) auto; align-items: center; gap: 0.6em; }
+/* The card is a size container, so its bars are sized from its width AND its height: rows share the height and each
+   bar is a share of its row; columns (Orientation: Vertical) share the width and each bar is a share of its column.
+   --bars is the number of metrics (set by the card), --bar-font the text size that fits a row or a column. A bigger
+   card gets bigger bars and text, a smaller one smaller, and the card is always filled. */
+.bar-gauge-card, .bar-gauge-retro-card {
+  container-type: size; justify-content: stretch !important; gap: 0 !important; padding: var(--card-pad) !important;
+  --bar-font: calc(clamp(0.7rem, min(100cqh / var(--bars, 4) * 0.36, 4.4cqw), 1.6rem) * var(--card-font-scale, 1));
+}
+.bar-gauge-row, .bg-retro-row {
+  display: grid !important; flex: 1 1 0; min-height: 0; font-size: var(--bar-font);
+  grid-template-columns: minmax(3.5em, min(28%, 9em)) minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center; column-gap: 0.6em;
+}
 .bar-gauge-label, .bg-retro-label {
-  font-size: calc(clamp(0.75rem, 3cqi, 0.95rem) * var(--card-font-scale, 1)) !important; font-weight: 600; color: var(--text-secondary);
+  font-size: inherit !important; font-weight: 600; color: var(--text-secondary);
   min-width: 0 !important; max-width: none !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.bar-gauge-track { height: clamp(10px, 3.4cqi, 18px) !important; background: var(--bg) !important; border: 1px solid var(--border); border-radius: 99px !important; }
+.bar-gauge-value, .bg-retro-value { font-size: calc(var(--bar-font) * 1.15) !important; min-width: 0 !important; }
+.bar-gauge-track { align-self: center; height: clamp(6px, 46%, 40px) !important; background: var(--bg) !important; border: 1px solid var(--border); border-radius: 99px !important; }
 .bar-gauge-fill { border-radius: 99px !important; }
-.bar-gauge-value, .bg-retro-value { font-size: calc(clamp(0.85rem, 3.6cqi, 1.15rem) * var(--card-font-scale, 1)) !important; min-width: 0 !important; }
-.bg-retro-segments { gap: 3px !important; }
-.bg-retro-seg { height: clamp(12px, 4cqi, 22px) !important; border-radius: 3px !important; background: var(--border); }
+.bg-retro-segments { align-self: center; height: clamp(8px, 52%, 44px); gap: clamp(1px, 0.5cqw, 4px) !important; }
+.bg-retro-seg { height: 100% !important; border-radius: 3px !important; background: var(--border); }
 
 /* Bar ends (the card's "Bar ends" setting): rounded or square, on the bars and on each segment. */
 .bar-gauge-card.bar-ends-rounded :is(.bar-gauge-track, .bar-gauge-fill),
@@ -183,20 +194,36 @@
 
 /* Vertical bars (the card's "Orientation" setting): one column per metric, the value on top, the bar in the
    middle and the label below. The bars fill from the bottom; the segments are stacked from the bottom up. */
-:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical { flex-direction: row !important; align-items: stretch; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical {
+  flex-direction: row !important; align-items: stretch; gap: clamp(4px, 1.4cqw, 16px) !important;
+  --bar-font: calc(clamp(0.55rem, min(100cqw / var(--bars, 4) * 0.2, 100cqh * 0.09), 1.6rem) * var(--card-font-scale, 1));
+}
 :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) {
   display: flex !important; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; min-height: 0; gap: 0.5em;
 }
-:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-value, .bg-retro-value) { order: 0; text-align: center; max-width: 100%; }
+:is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-value, .bg-retro-value) { order: 0; text-align: center; max-width: 100%; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-label, .bg-retro-label) { order: 2; text-align: center; max-width: 100% !important; }
 :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) > .bd-list { order: 3; grid-column: auto; padding-left: 0; max-width: 100%; }
 .bar-gauge-card.is-vertical .bar-gauge-track {
-  order: 1; flex: 1 1 0; min-height: 0; height: auto !important; width: clamp(14px, 50%, 44px);
+  order: 1; flex: 1 1 0; min-height: 0; height: auto !important; width: clamp(12px, 46%, 140px);
   display: flex; flex-direction: column; justify-content: flex-end;
 }
-.bar-gauge-card.is-vertical .bar-gauge-fill { transition: height 0.5s ease; }
-.bar-gauge-retro-card.is-vertical .bg-retro-segments { order: 1; flex: 1 1 0; min-height: 0; width: clamp(14px, 50%, 44px); flex-direction: column-reverse; }
+/* The track is what is rounded; the fill is cut to it. A rounded fill is a blob when it is short and the column wide. */
+.bar-gauge-card.is-vertical .bar-gauge-fill { transition: height 0.5s ease; border-radius: 0 !important; }
+.bar-gauge-retro-card.is-vertical .bg-retro-segments { order: 1; flex: 1 1 0; min-height: 0; height: auto; width: clamp(12px, 46%, 140px); flex-direction: column-reverse; gap: clamp(1px, 0.9cqh, 5px) !important; }
 .bar-gauge-retro-card.is-vertical .bg-retro-seg { height: auto !important; width: 100%; flex: 1 1 0; min-height: 0; }
+/* A very short card keeps the bars and values and drops the labels, with less space around them, rather than
+   squeezing the bars away. */
+@container (max-height: 120px) {
+  :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-label, .bg-retro-label) { display: none; }
+  :is(.bar-gauge-card, .bar-gauge-retro-card).is-vertical :is(.bar-gauge-row, .bg-retro-row) { gap: 2px; }
+  .bar-gauge-retro-card.is-vertical .bg-retro-segments { gap: 0 !important; }   /* there is no room for gaps between segments */
+}
+/* Where a card has no height of its own (phones stack the blocks), each bar keeps a height to be drawn in. */
+@media (max-width: 768px) {
+  .bar-gauge-card, .bar-gauge-retro-card { min-height: calc(var(--bars, 4) * 3.2rem); }
+  .bar-gauge-card.is-vertical, .bar-gauge-retro-card.is-vertical { min-height: 14rem; }
+}
 
 /* ── History and threshold bars ───────────────────────────── */
 .bar-single-card, .bar-stacked-card, .bar-threshold-card {
