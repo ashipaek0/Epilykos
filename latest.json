@@ -1,27 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43230508344.1",
-    "version": "1.2.5",
-    "commit": "260d9986131bd7b1b6ca6c2960141c0499c1dd4b",
-    "digest": "sha256:269c730351d9c874028a91aeb61a20e1a018beb223a046f75d5a243d27619f5c",
+    "buildId": "43233017409.1",
+    "version": "1.2.6",
+    "commit": "ab791cdaa8c28dac64ff6c0cc997b24f3e1fdcf2",
+    "digest": "sha256:49f9e72646fa591ca9dc86d957d525fd5a1d37d0bb4f43d315b9f6a5e606bbdc",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-12T13:46:52Z",
+    "builtAt": "2026-11-12T14:02:21Z",
     "kind": "release",
     "notes": [
-      "Controls page cards honour transparent, glass, blur, frost and colours (#333)",
-      "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)",
-      "Add Power flow card: Grid, Generator and Battery appear when active (#331)",
-      "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
-      "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
-      "Solar forecast cards: the day tiles follow the card's transparency (#328)",
-      "Bar gauges: the bars scale with the card, in every variant (#327)",
-      "Sources: Bluetooth dongle is its own source type (#326)",
-      "Update contribution guidelines for commits and PRs",
-      "Update contribution guidelines for commits and PRs"
+      "Combined metrics: Average per day, for any metric (#335)"
     ]
   },
   "history": [
+    {
+      "buildId": "43233017409.1",
+      "version": "1.2.6",
+      "commit": "ab791cdaa8c28dac64ff6c0cc997b24f3e1fdcf2",
+      "digest": "sha256:49f9e72646fa591ca9dc86d957d525fd5a1d37d0bb4f43d315b9f6a5e606bbdc",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-12T14:02:21Z",
+      "kind": "release",
+      "notes": [
+        "Combined metrics: Average per day, for any metric (#335)"
+      ]
+    },
     {
       "buildId": "43230508344.1",
       "version": "1.2.5",
