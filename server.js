@@ -918,9 +918,10 @@ app.post('/api/combined-metrics', (req, res) => {
       name: String(raw.name || '').trim(), unit: String(raw.unit || '').trim().slice(0, 12), enabled: raw.enabled !== false,
       fn: raw.fn, inputs: (Array.isArray(raw.inputs) ? raw.inputs : []).map(x => String(x || '').trim()).filter(Boolean)
     };
-    for (const k of ['weights', 'factor', 'offset', 'input_unit', 'start', 'stale_seconds', 'missing', 'note', 'when', 'on_at', 'off_at']) if (raw[k] !== undefined && raw[k] !== '') def[k] = raw[k];
+    for (const k of ['weights', 'factor', 'offset', 'input_unit', 'start', 'stale_seconds', 'missing', 'note', 'when', 'on_at', 'off_at', 'daily', 'days', 'include_today']) if (raw[k] !== undefined && raw[k] !== '') def[k] = raw[k];
     if (def.weights) def.weights = def.weights.map(Number);
     for (const k of ['factor', 'offset', 'start', 'stale_seconds', 'on_at', 'off_at']) if (def[k] !== undefined) def[k] = Number(def[k]);
+    if (def.days !== undefined) def.days = Number(def.days);   // average per day: the last N days (empty = every day on record)
     if (typeof def.note === 'string') def.note = def.note.slice(0, 200);
     // Names shown for the inputs on cards that list the parts: { input: label }, only for inputs in use.
     if (raw.labels && typeof raw.labels === 'object' && !Array.isArray(raw.labels)) {
@@ -965,7 +966,7 @@ app.post('/api/combined-metrics/preview', (req, res) => {
   });
   const result = cm.evaluate(def, name => { const r = stmt.get(String(name).trim()); if (!r || r.value == null) return null; return { value: Number(r.value), timestamp: Number(r.timestamp) > 1e12 ? Math.floor(r.timestamp / 1000) : Number(r.timestamp) }; }, null, now);
   const energy = ['energy_today', 'energy_total', 'counter_today'].includes(def.fn);
-  res.json({ inputs, value: result.skip ? null : result.value, skip: result.skip || null, note: energy ? 'Energy and daily counters start counting once saved.' : def.fn === 'threshold' ? 'Between the two limits it keeps its last state, and starts Off.' : null });
+  res.json({ inputs, value: result.skip ? null : result.value, skip: result.skip || null, note: energy ? 'Energy and daily counters start counting once saved.' : def.fn === 'threshold' ? 'Between the two limits it keeps its last state, and starts Off.' : result.note || null });
 });
 
 app.use('/api/ha-device-entities', isAuthenticated);

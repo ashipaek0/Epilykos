@@ -24,6 +24,10 @@
  *                            when it falls below `off_at` (or rises above it, for 'below');
  *                            in between it keeps the last state. Without `off_at` it
  *                            is a plain comparison with `on_at`.
+ *   average_per_day          the average of a metric's daily figure over every day on record (or the last N
+ *                            days): the day's total, energy worked out from power, the day's average or the
+ *                            day's highest (modules/dailyAverages.js). Worked out from the stored history, so
+ *                            it needs no start-up time; refreshed once a day (every 10 minutes with `include_today`)
  *   peak_today               the highest value so far today (inputs summed first, e.g. all PV
  *                            strings -> the day's peak solar power), starting again at local
  *                            midnight; the last value of a day is that day's peak
@@ -44,10 +48,11 @@
 const { getDb, getConfig, setConfig, queueMetricValue, flushMetrics } = require('./database');
 const { logger } = require('./logger');
 const { localDateString } = require('./localTime');
+const { averagePerDay, MODES: DAILY_MODES, MAX_DAYS: AVERAGE_MAX_DAYS } = require('./dailyAverages');
 
 const CONFIG_KEY = 'combined_metrics';
 const STATE_KEY = 'combined_metrics_state';
-const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today', 'peak_today', 'threshold'];
+const FNS = ['sum', 'mean', 'min', 'max', 'difference', 'product', 'weighted_mean', 'scale', 'energy_today', 'energy_total', 'counter_today', 'peak_today', 'threshold', 'average_per_day'];
 const ENERGY_FNS = new Set(['energy_today', 'energy_total']);
 const MAX_GAP_SECONDS = 600;
 const MAX_INPUTS = 64;   // e.g. 6 inverters x 4 MPPTs fits with room to spare
@@ -96,6 +101,15 @@ function validateThreshold(def) {
   return errors;
 }
 
+/** Problems with an average per day's settings, as plain sentences. */
+function validateAverage(def) {
+  const errors = [];
+  if (def.daily != null && !DAILY_MODES.includes(def.daily)) errors.push('Pick what each day\u2019s figure is.');
+  if (def.days != null && def.days !== '' && !(Number.isInteger(Number(def.days)) && Number(def.days) >= 1 && Number(def.days) <= AVERAGE_MAX_DAYS)) errors.push(`Days: a whole number from 1 to ${AVERAGE_MAX_DAYS}, or empty for every day on record.`);
+  if (def.include_today != null && typeof def.include_today !== 'boolean') errors.push('Include today: yes or no.');
+  return errors;
+}
+
 /** Problems with one definition, as plain sentences ([] when fine). */
 function validateDefinition(def, others = []) {
   const errors = [];
@@ -106,7 +120,7 @@ function validateDefinition(def, others = []) {
   if (others.some(o => o && o.id !== def.id && String(o.name || '').trim().toLowerCase() === name.toLowerCase())) errors.push(`Another combined metric is already called "${name}".`);
   if (!FNS.includes(def.fn)) errors.push('Pick what to compute.');
   const inputs = Array.isArray(def.inputs) ? def.inputs.map(s => String(s || '').trim()).filter(Boolean) : [];
-  const single = ['scale', 'counter_today', 'threshold'].includes(def.fn);
+  const single = ['scale', 'counter_today', 'threshold', 'average_per_day'].includes(def.fn);
   if (!inputs.length) errors.push('Pick at least one input metric.');
   if (inputs.length > MAX_INPUTS) errors.push(`Up to ${MAX_INPUTS} inputs (this has ${inputs.length}). Split them into groups, then add the groups together.`);
   if (new Set(inputs).size !== inputs.length) errors.push('Each input can only be used once.');
@@ -118,8 +132,9 @@ function validateDefinition(def, others = []) {
     if (w.length !== inputs.length || !w.every(x => Number.isFinite(Number(x)) && Number(x) >= 0) || !w.some(x => Number(x) > 0)) errors.push('Give each input a weight of 0 or more (at least one above 0).');
   }
   if (def.fn === 'threshold') errors.push(...validateThreshold(def));
+  if (def.fn === 'average_per_day') errors.push(...validateAverage(def));
   if (def.fn === 'scale' && (!Number.isFinite(Number(def.factor ?? 1)) || !Number.isFinite(Number(def.offset ?? 0)))) errors.push('Factor and offset must be numbers.');
-  if (ENERGY_FNS.has(def.fn) && def.input_unit && !['W', 'kW'].includes(def.input_unit)) errors.push('Input unit must be W or kW.');
+  if ((ENERGY_FNS.has(def.fn) || def.fn === 'average_per_day') && def.input_unit && !['W', 'kW'].includes(def.input_unit)) errors.push('Input unit must be W or kW.');
   if (def.stale_seconds != null && def.stale_seconds !== '' && !(Number(def.stale_seconds) >= 10 && Number(def.stale_seconds) <= 86400)) errors.push('Stale after: 10 seconds to 1 day.');
   if (def.missing && !['skip', 'zero'].includes(def.missing)) errors.push('Missing inputs: skip or count as zero.');
   return errors;
@@ -144,11 +159,37 @@ function orderDefinitions(defs) {
   return { ordered: out.filter(d => !cyclic.has(String(d.name).trim())), cyclic: [...cyclic] };
 }
 
+const AVERAGE_RETRY_S = 600;   // an average that includes today, or that found nothing yet, is looked at again after this long
+
+/**
+ * Average per day (modules/dailyAverages.js): worked out from the stored history, not from the latest
+ * reading, so a late or offline input does not matter. The result is kept in the state and reused until
+ * the day changes (or the settings do); nothing is returned as `state` while it is reused.
+ */
+function evaluateAverage(def, prev, now) {
+  const input = String((def.inputs || [])[0] || '').trim();
+  const sig = [input, def.daily || 'total', Number(def.days) || 0, def.include_today === true ? 1 : 0, def.input_unit === 'kW' ? 'kW' : 'W'].join('|');
+  const today = localDateString(new Date(now * 1000));
+  if (prev && prev.sig === sig && prev.day === today) {
+    if (Number.isFinite(prev.value) && (def.include_today !== true || now - prev.at < AVERAGE_RETRY_S)) return { value: prev.value, note: prev.note };
+    if (prev.skip && now - prev.at < AVERAGE_RETRY_S) return { skip: prev.skip };
+  }
+  let r;
+  try { r = averagePerDay(getDb(), def, new Date(now * 1000)); } catch (err) {
+    logger.warn(`[combined] average per day of ${input}: ${err.message}`);
+    return { skip: 'could not read the history' };
+  }
+  if (r.skip) return { skip: r.skip, state: { sig, day: today, at: now, skip: r.skip } };
+  const note = `over ${r.days} day${r.days === 1 ? '' : 's'} (${r.from}${r.from === r.to ? '' : ' to ' + r.to})`;
+  return { value: r.value, note, state: { sig, day: today, at: now, value: r.value, note } };
+}
+
 /**
  * Compute one definition. `read(name)` returns { value, timestamp } or null.
  * Returns { value } to write, or { skip: reason }.
  */
 function evaluate(def, read, prevState, now) {
+  if (def.fn === 'average_per_day') return evaluateAverage(def, prevState, now);
   const stale = staleSecondsOf(def);
   const zeroMissing = def.missing === 'zero';
   const inputs = (def.inputs || []).map(s => String(s).trim()).filter(Boolean);
@@ -251,7 +292,7 @@ function runCombinedMetrics(now = Math.floor(Date.now() / 1000)) {
     if (def.fn === 'energy_today') { const parts = partEnergy(def, read, state[`${key}#parts`], now, defs); if (parts) { state[`${key}#parts`] = parts; stateChanged = true; } }
     computed.set(String(def.name).trim(), result.value);
     queueMetricValue(String(def.name).trim(), result.value, now);
-    status[key] = { ok: true, value: result.value, at: now };
+    status[key] = { ok: true, value: result.value, at: now, ...(result.note ? { note: result.note } : {}) };
     written++;
   }
   if (stateChanged) setConfig(STATE_KEY, JSON.stringify(state));
