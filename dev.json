@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43042261078.1",
-    "version": "1.2.5-dev+7958214",
-    "commit": "79582143e0344ba79f5c96061bd485c341126913",
-    "digest": "sha256:48c58ad988050b68b4bb97fce2c5a5f840ca54d874b63bc7f93e304e99e3768f",
+    "buildId": "43183865889.1",
+    "version": "1.2.5-dev+fc10a39",
+    "commit": "fc10a393bd2050c6e0ff203ca0fe535f5f424339",
+    "digest": "sha256:7bfa543d7dd0d9a74e3d19305be98254cb3f5ec94c7e73b95314b40323d8a505",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-11T14:50:05Z",
+    "builtAt": "2026-11-12T08:33:22Z",
     "kind": "release",
     "notes": [
-      "Update contribution guidelines for commits and PRs"
+      "Sources: Bluetooth dongle is its own source type (#326)"
     ]
   },
   "history": [
+    {
+      "buildId": "43183865889.1",
+      "version": "1.2.5-dev+fc10a39",
+      "commit": "fc10a393bd2050c6e0ff203ca0fe535f5f424339",
+      "digest": "sha256:7bfa543d7dd0d9a74e3d19305be98254cb3f5ec94c7e73b95314b40323d8a505",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-12T08:33:22Z",
+      "kind": "release",
+      "notes": [
+        "Sources: Bluetooth dongle is its own source type (#326)"
+      ]
+    },
     {
       "buildId": "43042261078.1",
       "version": "1.2.5-dev+7958214",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "CI: remove the report-only Windows test job (#295)"
-      ]
-    },
-    {
-      "buildId": "42485461405.1",
-      "version": "1.1.3-dev+0e91423",
-      "commit": "0e914230862c43379c5f5a3ee26c1611ea326d45",
-      "digest": "sha256:8e4453498404a95f5a36f67a29e9fe49270e42dd73a78fa63529693c1c895eec",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-08T13:33:03Z",
-      "kind": "release",
-      "notes": [
-        "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)"
       ]
     }
   ]
