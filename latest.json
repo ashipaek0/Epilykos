@@ -1,29 +1,48 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43039409592.1",
-    "version": "1.2.4",
-    "commit": "4f24eb63edaa4b81232ac355d294dc31864f455b",
-    "digest": "sha256:c09afeca8f6068b9218f99a72cdbf4b99b691d778bb43ba9d803b84b362e12b3",
+    "buildId": "43230508344.1",
+    "version": "1.2.5",
+    "commit": "260d9986131bd7b1b6ca6c2960141c0499c1dd4b",
+    "digest": "sha256:269c730351d9c874028a91aeb61a20e1a018beb223a046f75d5a243d27619f5c",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-11T14:32:35Z",
+    "builtAt": "2026-11-12T13:46:52Z",
     "kind": "release",
     "notes": [
-      "Scale to screen width, and the editor shows cards where they are saved (#324)",
-      "Every mapping row can create a metric: a \"+\" beside the dropdown (#323)",
-      "LuxPower profiles: say what Green mode and Eco mode do (#322)",
-      "Bar gauges: vertical bars, and rounded or square bar ends (#321)",
-      "Cards can set their own glass, blur and frost (#320)",
-      "Dashboard grid, step 3: the editor places cards on the dashboard's grid (#319)",
-      "Dashboard grid, step 2: the dashboard page uses the grid a dashboard sets (#318)",
-      "Dashboard grid, step 1: the placement of blocks moves to one module (#317)",
+      "Controls page cards honour transparent, glass, blur, frost and colours (#333)",
+      "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)",
+      "Add Power flow card: Grid, Generator and Battery appear when active (#331)",
+      "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
+      "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
+      "Solar forecast cards: the day tiles follow the card's transparency (#328)",
+      "Bar gauges: the bars scale with the card, in every variant (#327)",
+      "Sources: Bluetooth dongle is its own source type (#326)",
       "Update contribution guidelines for commits and PRs",
-      "Update CONTRIBUTING.md to remove author attribution",
-      "Layout editor: the Dashboard style panel scrolls (#316)",
-      "Dashboard style: each dashboard can have its own background and blocks (#315)"
+      "Update contribution guidelines for commits and PRs"
     ]
   },
   "history": [
+    {
+      "buildId": "43230508344.1",
+      "version": "1.2.5",
+      "commit": "260d9986131bd7b1b6ca6c2960141c0499c1dd4b",
+      "digest": "sha256:269c730351d9c874028a91aeb61a20e1a018beb223a046f75d5a243d27619f5c",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-12T13:46:52Z",
+      "kind": "release",
+      "notes": [
+        "Controls page cards honour transparent, glass, blur, frost and colours (#333)",
+        "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)",
+        "Add Power flow card: Grid, Generator and Battery appear when active (#331)",
+        "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
+        "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
+        "Solar forecast cards: the day tiles follow the card's transparency (#328)",
+        "Bar gauges: the bars scale with the card, in every variant (#327)",
+        "Sources: Bluetooth dongle is its own source type (#326)",
+        "Update contribution guidelines for commits and PRs",
+        "Update contribution guidelines for commits and PRs"
+      ]
+    },
     {
       "buildId": "43039409592.1",
       "version": "1.2.4",
