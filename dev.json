@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43390016980.1",
-    "version": "1.2.7-dev+8cd32ab",
-    "commit": "8cd32abcf4f4049378e3f727ee36e27d128cfa5a",
-    "digest": "sha256:d5f991fad489c5fb5219fe5f986adae89911219c88990908aee90cb130464631",
+    "buildId": "43391104905.1",
+    "version": "1.2.7-dev+ebbd03b",
+    "commit": "ebbd03be837b7f0eeb1cce27452ad957e4c7f59b",
+    "digest": "sha256:54b8ffc953bdc3260046676eeb3028da59d7b04dc0ff439b36a544082719600a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T08:02:09Z",
+    "builtAt": "2026-11-13T08:10:24Z",
     "kind": "release",
     "notes": [
-      "Solcast: current API and response format, and every weather and irradiance value (#338)"
+      "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)"
     ]
   },
   "history": [
+    {
+      "buildId": "43391104905.1",
+      "version": "1.2.7-dev+ebbd03b",
+      "commit": "ebbd03be837b7f0eeb1cce27452ad957e4c7f59b",
+      "digest": "sha256:54b8ffc953bdc3260046676eeb3028da59d7b04dc0ff439b36a544082719600a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T08:10:24Z",
+      "kind": "release",
+      "notes": [
+        "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)"
+      ]
+    },
     {
       "buildId": "43390016980.1",
       "version": "1.2.7-dev+8cd32ab",
@@ -358,16 +370,6 @@
       "notes": [
         "Battery bank energy totals are published in kWh (#307)"
       ]
-    },
-    {
-      "buildId": "42598305569.1",
-      "version": "1.2.1-dev+3e8a44d",
-      "commit": "3e8a44d913d7029007af7e85110b5ccd7322ab37",
-      "digest": "sha256:cf1a924fa6874a383af49737a5aa2c16dc63afdc277376e0b65e2cbed6c31f36",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T10:05:48Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
