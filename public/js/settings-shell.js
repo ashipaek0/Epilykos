@@ -23,6 +23,7 @@
     plug: '<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 01-10 0V8zM12 16v5"/>',
     list: '<path d="M4 7h16M4 12h16M4 17h10"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
+    gauge: '<path d="M4.5 17a8.5 8.5 0 1115 0"/><path d="M12 13l4-4"/>',
     coin: '<circle cx="12" cy="12" r="8"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 010 3h-3a1.5 1.5 0 000 3h4"/>',
     monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
     upload: '<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',
@@ -181,7 +182,7 @@
 
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
-    sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings',
+    sources: 'Sources', metrics: 'Metrics', forecast: 'Forecast and weather', savings: 'Prices and savings', prepaid: 'Prepaid meter',
     appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', security: 'Security', logs: 'Logs', backup: 'Backup and restore', updates: 'Updates', system: 'System', help: 'Help'
   };
   var SAVABLE = ['sources', 'metrics', 'forecast', 'savings', 'appearance', 'uploads', 'network'];

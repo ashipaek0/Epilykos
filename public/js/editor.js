@@ -630,6 +630,30 @@ function buildMeterCardForm(block) {
   return html + buildExtrasSection(cfg);
 }
 
+var PREPAID_WORDS = [['left', 'Under the balance', 'kWh left'], ['daysText', 'Days left line (use {days}, {avg}, {date})', '≈ {days} days at {avg} kWh a day · empty about {date}'],
+  ['outText', 'When out of units', 'Out of units'], ['startText', 'Before the first balance is entered', 'Enter what the meter shows to start counting.'],
+  ['recharge', 'Record recharge button', 'Record recharge'], ['correct', 'Correct balance button', 'Correct balance'], ['undo', 'Undo button', 'Undo last'],
+  ['factUsedToday', 'Fact: used today', 'Used today'], ['factAvg', 'Fact: average a day', 'Average a day'], ['factSince', 'Fact: used since recharge', 'Used since recharge'],
+  ['factPrice', 'Fact: last recharge price', 'Last recharge price'], ['hiddenText', 'When the balance is private', 'Sign in to see the balance.'],
+  ['offText', 'When tracking is off', 'Prepaid meter tracking is off. Switch it on in Settings.']];
+
+/** Prepaid meter card: the look and the words; tracking itself is switched on in Settings. */
+function buildPrepaidMeterForm(block) {
+  var cfg = block.config || {};
+  var words = cfg.words || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
+  html += textSetting('modal-pm-title', 'Title', cfg.title === undefined ? 'Prepaid meter' : cfg.title, 'Empty for no title', 60);
+  html += formToggle('modal-pm-facts', 'Show the facts (used today, average, used since recharge, last price)', cfg.showFacts !== false);
+  html += formToggle('modal-pm-history', 'Show the latest entries (signed in only)', cfg.showHistory === true);
+  html += numberSetting('modal-pm-segments', 'Segments (0 for one continuous bar)', cfg.segments == null ? 12 : cfg.segments);
+  html += numberSetting('modal-pm-decimals', 'Decimals (0 to 3, empty for automatic)', cfg.decimals, 'auto');
+  html += '<p data-ui="help">Tracking is switched on, and the warning levels and who can see the balance are set, in Settings → Prepaid meter. The card shows a note until then.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Words</legend>';
+  PREPAID_WORDS.forEach(function(w) { html += textSetting('modal-pm-w-' + w[0], w[1], words[w[0]], w[2], 120); });
+  html += '<p data-ui="help">Leave a word empty for the English one; write your own for any language.</p></fieldset>';
+  return html;
+}
+
 /** Power flow: what feeds each node, and which of the optional sources and destinations may appear (when active). */
 function buildPowerFlowForm(block) {
   var cfg = block.config || {};
@@ -1312,6 +1336,15 @@ function buildGridCardForm(block, generator) {
     + '</select></div></div>';
   html += '<p data-ui="help">The card can switch between 7, 14 and 30 days.</p>';
   html += '</fieldset>';
+  if (!generator) {
+    html += '<fieldset data-ui="section"><legend data-ui="legend">Prepaid meter</legend>';
+    html += toggle('modal-grid-prepaid', 'Show the prepaid meter balance on this card', cfg.showPrepaid === true);
+    html += textSetting('modal-grid-pp-left', 'Balance words', cfg.prepaidLeft, '{balance} kWh left', 60);
+    html += textSetting('modal-grid-pp-days', 'Days left words', cfg.prepaidDays, '\u2248 {days} days at {avg} kWh a day', 80);
+    html += textSetting('modal-grid-pp-out', 'Words when out of units', cfg.prepaidOut, 'Out of units', 40);
+    html += '<p data-ui="help">Shown only while tracking is switched on in Settings \u2192 Prepaid meter, and once a balance has been entered. Otherwise the card is as it always was.</p>';
+    html += '</fieldset>';
+  }
   return html;
 }
 
@@ -2394,6 +2427,9 @@ function buildSettingsForm(block) {
     case 'meter-card':
       html += buildMeterCardForm(block);
       break;
+    case 'prepaid-meter':
+      html += buildPrepaidMeterForm(block);
+      break;
     case 'flow-card-2':
     case 'flow-card-square':
     case 'flow-card-square-2':
@@ -2754,6 +2790,20 @@ function readSettingsForm(block) {
       if (document.getElementById('modal-fr-bars') && !document.getElementById('modal-fr-bars').checked) config.showBars = false; else delete config.showBars;
       break;
     }
+    case 'prepaid-meter': {
+      var pmTitleEl = document.getElementById('modal-pm-title');
+      config.title = (pmTitleEl && pmTitleEl.value || '').trim();
+      if (document.getElementById('modal-pm-facts') && !document.getElementById('modal-pm-facts').checked) config.showFacts = false; else delete config.showFacts;
+      if (document.getElementById('modal-pm-history')?.checked) config.showHistory = true; else delete config.showHistory;
+      readNumber(config, 'segments', 'modal-pm-segments'); readNumber(config, 'decimals', 'modal-pm-decimals');
+      var pmWords = {};
+      ['left', 'daysText', 'outText', 'startText', 'recharge', 'correct', 'undo', 'factUsedToday', 'factAvg', 'factSince', 'factPrice', 'hiddenText', 'offText'].forEach(function(k) {
+        var v = (document.getElementById('modal-pm-w-' + k)?.value || '').trim();
+        if (v) pmWords[k] = v;
+      });
+      if (Object.keys(pmWords).length) config.words = pmWords; else delete config.words;
+      break;
+    }
     case 'meter-card': {
       var mtMetric = document.getElementById('modal-mt-metric')?.value || 'daily_solar';
       config.metric = mtMetric;
@@ -3071,6 +3121,10 @@ function readSettingsForm(block) {
       config.showCost = document.getElementById('modal-grid-showcost')?.checked === true;
       config.showDailyHours = document.getElementById('modal-grid-showdays')?.checked === true;
       config.dailyRange = Number(document.getElementById('modal-grid-dayrange')?.value) || 7;
+      if (block.type === 'grid-card') {
+        if (document.getElementById('modal-grid-prepaid')?.checked) config.showPrepaid = true; else delete config.showPrepaid;
+        readText(config, 'prepaidLeft', 'modal-grid-pp-left'); readText(config, 'prepaidDays', 'modal-grid-pp-days'); readText(config, 'prepaidOut', 'modal-grid-pp-out');
+      }
       break;
     }
     case 'chart-power':

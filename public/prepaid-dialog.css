@@ -1,0 +1,20 @@
+/* The prepaid meter's two dialogs (Recharge, Correct balance). Loaded by components/prepaidDialogs.js when one opens, so the
+   dashboard and the settings page both have it. */
+.pm-btn { font: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.5em 1em; border-radius: 8px; border: 1px solid var(--border, #d6d3d1); background: transparent; color: var(--text, inherit); cursor: pointer; }
+.pm-btn.pm-primary { background: var(--text, #1c1917); color: var(--bg, #fff); border-color: var(--text, #1c1917); }
+.pm-btn:disabled { opacity: 0.5; cursor: default; }
+.pm-btn:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+.pm-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.45); }
+.pm-dialog { width: min(24rem, 100%); max-height: 100%; overflow: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.8rem; padding: 1.1rem; border-radius: 14px; background: var(--card-bg, #fff); color: var(--text); border: 1px solid var(--border, #d6d3d1); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3); }
+.pm-dialog-title { margin: 0; font-size: 1.1rem; }
+.pm-lead { margin: 0; font-size: 0.85rem; color: var(--text-secondary); }
+.pm-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: var(--text-secondary); }
+.pm-input { display: flex; align-items: baseline; gap: 0.5rem; border: 1px solid var(--border, #d6d3d1); border-radius: 8px; padding: 0.5rem 0.65rem; background: var(--bg, transparent); }
+.pm-input input { flex: 1 1 auto; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 1.05rem; font-variant-numeric: tabular-nums; outline: none; }
+.pm-input:focus-within { border-color: var(--solar, #f59e0b); }
+.pm-input em { font-style: normal; color: var(--text-secondary); }
+.pm-note { min-height: 1.2em; font-size: 0.85rem; color: var(--text-secondary); }
+.pm-learn { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; }
+.pm-error { color: #ef4444; font-size: 0.88rem; }
+.pm-error[hidden] { display: none; }
+.pm-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
