@@ -55,7 +55,7 @@ const DOCUMENTED_WEATHER = ['air_temp', 'min_air_temp', 'max_air_temp', 'dewpoin
 
   // ── Merging by period_end across the two time formats ──
   const endMs = Date.UTC(2026, 10, 13, 10, 30);
-  const legacyEnd = new Date(endMs).toISOString().replace('Z', '0000Z').replace('.000', '.000');   // 2026-11-13T10:30:00.0000000Z style
+  const legacyEnd = new Date(endMs).toISOString().replace('Z', '0000Z');   // 2026-11-13T10:30:00.0000000Z style
   const v3End = '2026-11-13T10:30:00+00:00';
   const periods = [{ period_end: legacyEnd, period: 'PT30M', pv_estimate: 2 }, { period_end: '2026-11-13T11:00:00+00:00', pv_estimate: 3 }];
   const byEnd = new Map([[endMs, solar.mapSolcastWeatherPeriod({ period_end: v3End, ghi: 640, air_temp: 28, pv_estimate: 99 })]]);
