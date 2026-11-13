@@ -22,8 +22,8 @@
  *
  * NOTE on cfg: solcast_resource_id is intentionally left EMPTY here. With a
  * resource id set, one logical upstream attempt fires TWO fetches (rooftop
- * path fails -> world_pv_power fallback fires), so "exactly once" is only
- * well-defined on the single world_pv_power path.
+ * path fails -> location-based fallback fires), so "exactly once" is only
+ * well-defined on the single location-based path (/data/forecast/rooftop_pv_power).
  *
  * NOTE on first-call error text: the live failure itself returns the generic
  * { error: 'Solcast unavailable' } (solar.js getSolarForecast tail), while

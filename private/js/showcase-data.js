@@ -120,6 +120,18 @@ function dayTotals(dayStart) {
   };
 }
 
+/** A made-up prepaid meter, for the Prepaid meter card and the Grid card strip (no buttons: nothing here is real). */
+function prepaidDemo(now, today) {
+  const day = 86400, t = Math.floor(now / 1000), balance = 42.3, avg = 7.2;
+  return {
+    enabled: true, started: true, unit: 'kWh', level: 'ok', balance, daysLeft: Math.round(balance / avg * 10) / 10, emptyOn: new Date(now + balance / avg * day * 1000).toISOString(),
+    avgDaily: avg, usedToday: Math.round((today.grid_import_kwh || 9.4) * 10) / 10, usedSinceRecharge: 17.7, fill: 0.705, currency: CURRENCY, canEdit: false, source: 'counter', private: false, factor: 1,
+    lastRecharge: { ts: t - 2 * day, units: 60, amount: 4080, price: 68 }, lastCheck: { ts: t - 5 * day, errorKwh: 0.1, errorPct: 0.5, learned: true }, warn: { kwh: 10, days: 2 },
+    ledger: [{ id: 'a', ts: t - 2 * day, type: 'recharge', units: 60, amount: 4080, price: 68 }, { id: 'b', ts: t - 5 * day, type: 'check', units: 21.5, est: 21.6, errorKwh: 0.1, errorPct: 0.5 },
+      { id: 'c', ts: t - 12 * day, type: 'recharge', units: 72, amount: 4896, price: 68 }]
+  };
+}
+
 // ── Live values ───────────────────────────────────────────────────────────
 
 /** The values right now, with a small wobble so the cards move. */
@@ -161,6 +173,10 @@ function metricsFor(s, now, today) {
     daily_battery_charge: m(today.battery_charge_kwh, 'kWh'), daily_battery_discharge: m(today.battery_discharge_kwh, 'kWh'),
     daily_grid_import: m(today.grid_import_kwh, 'kWh'), daily_grid_export: m(today.grid_export_kwh, 'kWh'),
     grid_status: m(s.grid ? 1 : 0, null),
+    battery_current: m(Math.round((s.bc - s.bd) / Math.max(40, ex.battery_voltage) * 10) / 10, 'A'), ambient_temperature: m(Math.round((26 + s.solar / 700) * 10) / 10, '°C'),
+    solar_peak_today: m(Math.max(...today.list.map(x => x.solar), s.solar), 'W'), forecast_solar_today: m(today.solar_kwh * 1.08, 'kWh'), savings_today: m(today.solar_kwh * 0.22, null),
+    system_size: m(6400, 'W'), panels_producing: m(s.solar > 40 ? 16 : 0, null), battery_stored: m(Math.round(s.soc * 13.5) / 100, 'kWh'), battery_capacity: m(13.5, 'kWh'), self_sufficiency_today: m(84, '%'),
+    device_boiler: m(s.load > 1400 ? 1800 : 3, 'W'), device_washer: m(s.load > 900 ? 600 : 0, 'W'), device_pump: m(s.solar > 1500 ? 750 : 0, 'W'), device_ac: m(s.load > 1100 ? 1200 : 0, 'W'),
     inverter_temperature: m(ex.inverter_temperature, '°C'), grid_voltage: m(ex.grid_voltage, 'V'),
     battery_voltage: m(ex.battery_voltage, 'V'), pv_voltage: m(ex.pv_voltage, 'V'), load_percent: m(ex.load_percent, '%'),
     inverter_mode: m(s.grid ? (s.solar > s.load ? 'Solar + battery' : 'Grid + battery') : 'Off grid, battery', null, 'text'),
@@ -250,6 +266,7 @@ export function dashboardState(now = Date.now()) {
     },
     metrics: metricsFor(s, now, today),
     savings,
+    prepaid: prepaidDemo(now, today),
     ...gridState(now),
     powerHistory: power,
     dailyEnergyBar: daily,

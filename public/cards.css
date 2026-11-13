@@ -297,6 +297,198 @@
 /* Where a card has no height of its own (phones stack the blocks), each row keeps a height to be drawn in. */
 @media (max-width: 768px) { .power-flow-card { min-height: calc(var(--pf-rows, 3) * 4.2rem + 3rem); } }
 
+/* ── Ring gauge ───────────────────────────────────────────── */
+/* The card and its dial are size containers: the dial (a square SVG in a 0-100 box) fills the room the card has, and the
+   centre text follows the dial (cqmin), so the card scales to any size. Three rings leave less room in the middle, so the
+   text steps down. */
+.ring-gauge-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.rg-title { flex: 0 0 auto; font-size: calc(clamp(0.8rem, 2.6cqi, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); text-align: center; }
+.rg-dial { flex: 1 1 0; min-height: 0; position: relative; container-type: size; display: flex; align-items: center; justify-content: center; --rg-fs: 11.3cqmin; }
+/* The text block must fit inside the innermost ring (a circle), corners included: it measured 10 to 20% too big at 14 and 11, so it is kept about 10% inside. */
+.rg-n1 .rg-dial { --rg-fs: 15cqmin; }
+.rg-n3 .rg-dial { --rg-fs: 7.9cqmin; }
+.rg-svg { width: 100%; height: 100%; display: block; }
+.rg-track { stroke: var(--text-secondary); opacity: 0.16; }
+.rg-arc { transition: stroke-dasharray 0.6s ease; }
+.rg-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  gap: 0.15em; font-size: calc(var(--rg-fs) * var(--card-font-scale, 1)); line-height: 1.1; pointer-events: none;
+}
+.rg-read { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.rg-label { font-size: 0.42em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
+.rg-value { font-size: 1em; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rg-read-1 .rg-value { font-size: 0.82em; }
+.rg-divider { width: 3.2em; height: 1px; background: var(--text-secondary); opacity: 0.3; margin: 0.12em 0; }
+.rg-center > .tile-icon.rg-icon { --tile-icon-size: 0.7em; width: 0.7em; height: 0.7em; background: transparent; color: var(--rg-icon-color, var(--solar, #f59e0b)); border-radius: 0; margin-bottom: 0.1em; }
+.rg-center > .tile-icon.rg-icon > svg { width: 100%; height: 100%; }
+.rg-center > .tile-icon.rg-icon.is-emoji { font-size: 0.8em; }
+.rg-legend { flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3em 1em; font-size: calc(clamp(0.7rem, 2cqi, 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.rg-leg-item { display: inline-flex; align-items: center; gap: 0.4em; white-space: nowrap; }
+.rg-leg-dot { width: 0.7em; height: 0.7em; border-radius: 50%; display: inline-block; }
+.rg-leg-value { color: var(--text); font-variant-numeric: tabular-nums; }
+@container (max-height: 160px) { .rg-title { display: none; } }
+@media (max-width: 768px) { .ring-gauge-card { min-height: 18rem; } }
+
+/* ── Battery ──────────────────────────────────────────────── */
+/* The body is a size container: the battery and the current marker are sized from its height, and the charge scale and
+   marker labels from the card. Below it the charge in big type, and a row of small readings. */
+.battery-card { display: flex !important; flex-direction: column; gap: 0.5em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; container-name: bc-card; align-items: center; }
+.bc-title { flex: 0 0 auto; font-size: calc(clamp(0.8rem, 2.6cqi, 1.1rem) * var(--card-font-scale, 1)); font-weight: 800; color: var(--text); text-align: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.bc-body { flex: 1 1 0; min-height: 0; width: 100%; container-type: size; display: flex; align-items: stretch; justify-content: center; gap: 0.6em; }
+.bc-scale { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; padding: 6% 0 0; font-size: calc(clamp(0.5rem, 6cqh * 0.6, 0.75rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.bc-battery { height: 100%; width: min(calc(100cqh * 0.58), 56cqw); display: flex; flex-direction: column; align-items: center; }
+.bc-cap { flex: 0 0 auto; width: 34%; height: 5%; border-radius: 3px 3px 0 0; background: var(--text-secondary); opacity: 0.55; }
+.bc-shell { flex: 1 1 0; min-height: 0; width: 100%; position: relative; box-sizing: border-box; border: max(2px, 1.6cqh) solid color-mix(in srgb, var(--text-secondary) 55%, transparent); border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--text-secondary) 10%, transparent); }
+.bc-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--bc-band, #22c55e); transition: height 0.6s ease; }
+.battery-card[data-band="low"] { --bc-band: var(--bc-low, #ef4444); }
+.battery-card[data-band="mid"] { --bc-band: var(--bc-mid, #f59e0b); }
+.battery-card[data-band="high"] { --bc-band: var(--bc-high, #22c55e); }
+.bc-tick { position: absolute; left: 0; right: 0; height: 1px; background: var(--text-secondary); opacity: 0.3; }
+.bc-current { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; font-size: calc(clamp(0.45rem, 5cqh * 0.6, 0.7rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.bc-cur-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bc-cur-zero { display: none; }
+.bc-track { flex: 1 1 0; min-height: 0; width: 0.9em; margin: 0.4em 0; border-radius: 999px; position: relative; background: linear-gradient(to bottom, color-mix(in srgb, var(--bc-charge, #22c55e) 45%, transparent), color-mix(in srgb, var(--text-secondary) 20%, transparent) 50%, color-mix(in srgb, var(--bc-discharge, #ef4444) 45%, transparent)); }
+.bc-marker { position: absolute; left: 50%; top: 50%; width: 1.3em; height: 1.3em; margin: -0.65em 0 0 -0.65em; border-radius: 50%; background: var(--text); border: 2px solid var(--bg, #fff); box-sizing: border-box; transition: top 0.6s ease; }
+.bc-marker[hidden] { display: none; }
+.bc-readout { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.bc-soc { font-size: calc(clamp(1.1rem, min(9cqh, 16cqw), 2.6rem) * var(--card-font-scale, 1)); font-weight: 800; color: var(--bc-band, var(--text)); font-variant-numeric: tabular-nums; }
+.bc-amps { font-size: calc(clamp(0.7rem, min(4.5cqh, 7cqw), 1.1rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.bc-amps[data-dir="charge"] { color: var(--bc-charge, #22c55e); }
+.bc-amps[data-dir="discharge"] { color: var(--bc-discharge, #ef4444); }
+.bc-amps:empty { display: none; }
+.bc-chips { flex: 0 0 auto; width: 100%; display: flex; flex-wrap: wrap; justify-content: space-around; gap: 0.3em 0.8em; padding-top: 0.4em; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); font-size: calc(clamp(0.65rem, 2.2cqi, 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.bc-chip { display: inline-flex; align-items: center; gap: 0.4em; white-space: nowrap; }
+.bc-chip-dot { width: 0.65em; height: 0.65em; border-radius: 50%; background: var(--text-secondary); display: inline-block; }
+.bc-chip-value { color: var(--text); font-variant-numeric: tabular-nums; }
+@container bc-card (max-height: 170px) { .bc-title { display: none; } }
+@container bc-card (max-height: 230px) { .bc-scale, .bc-cur-label { display: none; } }
+@media (max-width: 768px) { .battery-card { min-height: 22rem; } }
+
+/* ── System hero ──────────────────────────────────────────── */
+/* Words on the left, a picture on the right. The card is a size container; the text follows its height and width, and the
+   picture is dropped when the card is too narrow for both. */
+.system-hero-card { display: block !important; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; overflow: hidden; }
+.sh-body { height: 100%; min-width: 0; display: flex; flex-direction: column; gap: 0.5em; }
+.sh-text { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.3em; }
+.sh-title { font-size: calc(clamp(0.6rem, min(8cqh, 3.2cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.sh-headline { font-size: calc(clamp(0.95rem, min(11cqh, 4.6cqw), 2rem) * var(--card-font-scale, 1)); font-weight: 500; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
+.sh-headline:empty { display: none; }
+/* The pill is dark with a dot in the state's colour, whatever the theme (the text colour is its background). */
+.sh-pill { --sh-pill: var(--solar, #f59e0b); flex: 0 0 auto; align-self: flex-start; max-width: 100%; box-sizing: border-box; display: inline-flex; align-items: center; gap: 0.55em; padding: 0.4em 0.9em; border-radius: 999px;
+  font-size: calc(clamp(0.65rem, min(7.5cqh, 3cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 600; color: var(--bg, #fff); background: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-pill::before { content: ''; flex: 0 0 auto; width: 0.6em; height: 0.6em; border-radius: 50%; background: var(--sh-pill); }
+.sh-pill:empty { display: none; }
+.sh-art { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+.sh-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+/* Side by side: the words on the left (pill under them), the picture on the right. */
+.system-hero-card[data-layout="side"] .sh-body { display: grid; grid-template-columns: minmax(0, 1fr) 42%; grid-template-rows: 1fr auto; grid-template-areas: "text art" "pill art"; column-gap: 0.8em; row-gap: 0.4em; }
+.system-hero-card[data-layout="side"] .sh-text { grid-area: text; align-self: end; }
+.system-hero-card[data-layout="side"] .sh-art { grid-area: art; height: 100%; }
+.system-hero-card[data-layout="side"] .sh-pill { grid-area: pill; align-self: start; justify-self: start; }
+.system-hero-card[data-layout="side"]:not(.sh-has-image) .sh-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "text" "pill"; }
+/* A stacked card too short to hold the picture under the words is drawn side by side (when it is wide enough). */
+@container (max-height: 210px) and (min-width: 261px) {
+  .system-hero-card[data-layout="stacked"] .sh-body { display: grid; grid-template-columns: minmax(0, 1fr) 42%; grid-template-rows: 1fr auto; grid-template-areas: "text art" "pill art"; column-gap: 0.8em; row-gap: 0.4em; }
+  .system-hero-card[data-layout="stacked"] .sh-text { grid-area: text; align-self: end; }
+  .system-hero-card[data-layout="stacked"] .sh-art { grid-area: art; height: 100%; }
+  .system-hero-card[data-layout="stacked"] .sh-pill { grid-area: pill; align-self: start; justify-self: start; }
+  .system-hero-card[data-layout="stacked"]:not(.sh-has-image) .sh-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "text" "pill"; }
+}
+@container (max-width: 260px) { .system-hero-card[data-layout="side"] .sh-art { display: none; } }
+@container (max-height: 80px) { .system-hero-card .sh-art { display: none; } }
+@media (max-width: 768px) { .system-hero-card { min-height: 14rem; } .system-hero-card[data-layout="side"] { min-height: 8.5rem; } }
+
+/* ── Speedometer ──────────────────────────────────────────── */
+/* The face is a box with the dial's proportions (100 × 86); the reading is laid over its lower half, sized in the face's
+   own units, so it scales with the dial. */
+.speedometer-card { display: flex !important; flex-direction: column; align-items: center; gap: 0.35em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.sp-head { flex: 0 0 auto; width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 0.8em; }
+.sp-title { font-size: calc(clamp(0.7rem, min(8cqh, 3cqw), 1rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.sp-status { font-size: calc(clamp(0.65rem, min(8cqh, 3cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; margin-left: auto; color: var(--text-secondary); }
+.sp-status[data-rule="near-peak"] { color: var(--battery, #22c55e); }
+.sp-status:empty { display: none; }
+.sp-dial { flex: 1 1 0; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+.sp-face { position: relative; width: min(100cqw, calc(100cqh * 100 / 86)); aspect-ratio: 100 / 86; container-type: size; }
+.sp-svg { width: 100%; height: 100%; display: block; }
+.sp-track { stroke: var(--text-secondary); opacity: 0.18; }
+.sp-arc { stroke: var(--solar, #f59e0b); transition: stroke-dasharray 0.6s ease; }
+.sp-tick { stroke: var(--text-secondary); opacity: 0.5; }
+.sp-needle { transform-origin: 50px 52px; transform: rotate(150deg); transition: transform 0.6s ease; }
+.sp-needle-line { stroke: var(--text); }
+.sp-hub { fill: var(--text); }
+.sp-read { position: absolute; left: 0; right: 0; top: 63%; display: flex; flex-direction: column; align-items: center; line-height: 1.05; pointer-events: none; }
+.sp-main { display: flex; align-items: baseline; gap: 0.25em; white-space: nowrap; }
+.sp-value { font-size: calc(13cqw * var(--card-font-scale, 1)); font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.sp-unit { font-size: calc(6cqw * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.sp-of { font-size: calc(5.4cqw * var(--card-font-scale, 1)); color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sp-end { position: absolute; top: 84%; transform: translateX(-50%); font-size: calc(5cqw * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; pointer-events: none; }
+.sp-end-min { left: 18.8%; }
+.sp-end-max { left: 81.2%; }
+.sp-hl { color: var(--solar, #f59e0b); font-weight: 800; }
+.sp-caption { flex: 0 0 auto; font-size: calc(clamp(0.65rem, min(7cqh, 2.8cqw), 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); text-align: center; }
+.sp-caption:empty { display: none; }
+@container (max-height: 150px) { .sp-title { display: none; } }
+@container (max-height: 110px) { .sp-end { display: none; } }
+@media (max-width: 768px) { .speedometer-card { min-height: 16rem; } }
+
+/* ── Flow rows ────────────────────────────────────────────── */
+/* The rows share the card's height (--fr-rows is how many); a row is its label and value over a bar, sized from the row. */
+.flow-rows-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.fr-title { flex: 0 0 auto; font-size: calc(clamp(0.7rem, 2.6cqi, 1rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.fr-rows { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; grid-auto-rows: minmax(0, 1fr); align-items: center; column-gap: 1em; container-type: size; --fr-font: calc(clamp(0.45rem, min(100cqh / var(--fr-rows, 3) * 0.34, 100cqw * 0.07), 1.3rem) * var(--card-font-scale, 1)); font-size: var(--fr-font); }
+/* A row is its label, its bar and its value on one line; the rows' cells sit in shared columns so the bars line up. */
+.fr-row { display: contents; }
+.fr-label { min-width: 0; max-width: 40cqw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 600; }
+.fr-value { justify-self: end; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fr-row[data-state="idle"] .fr-value, .fr-row[data-state="unknown"] .fr-value { color: var(--text-secondary); }
+.fr-bar { height: 0.8em; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 16%, transparent); overflow: hidden; }
+.fr-fill { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 0.6s ease; }
+.fr-row[data-state="idle"] .fr-fill, .fr-row[data-state="unknown"] .fr-fill { background: var(--text-secondary) !important; opacity: 0.55; }
+.fr-no-bars .fr-bar { visibility: hidden; }
+.fr-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 0.5em; }
+@container (max-height: 120px) { .fr-title { display: none; } }
+@media (max-width: 768px) { .flow-rows-card { min-height: calc(var(--fr-rows, 3) * 3.2rem + 2.5rem); } }
+
+/* ── Meter card ───────────────────────────────────────────── */
+/* A label, the big value, a bar of segments, and up to two lines of words, sized from the card's height and width. */
+.meter-card { --mt-color: var(--solar, #f59e0b); display: flex !important; flex-direction: column; justify-content: center; gap: 0.35em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.mt-label { font-size: calc(clamp(0.6rem, min(10cqh, 3.2cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.mt-main { display: flex; align-items: baseline; gap: 0.25em; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text); }
+.mt-value { font-size: calc(clamp(1.2rem, min(30cqh, 16cqw), 3.4rem) * var(--card-font-scale, 1)); font-weight: 800; line-height: 1; }
+.mt-prefix { font-size: calc(clamp(0.8rem, min(16cqh, 8cqw), 1.8rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.mt-unit { font-size: calc(clamp(0.7rem, min(13cqh, 6.5cqw), 1.4rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.mt-bar { --mt-fill: var(--mt-color); height: clamp(0.4rem, 8cqh, 1rem); border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.meter-card[data-band="low"] .mt-bar { --mt-fill: var(--bc-low, #ef4444); }
+.meter-card[data-band="mid"] .mt-bar { --mt-fill: var(--bc-mid, #f59e0b); }
+.meter-card[data-band="high"] .mt-bar { --mt-fill: var(--bc-high, #22c55e); }
+.mt-fill { display: block; height: 100%; width: 0; background: var(--mt-fill); border-radius: inherit; transition: width 0.6s ease; }
+.mt-bar.mt-segmented { display: grid; grid-template-columns: repeat(var(--mt-n, 10), minmax(0, 1fr)); gap: 0.18em; background: none; border-radius: 0; overflow: visible; }
+.mt-seg { display: block; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); transition: background 0.4s ease; }
+.mt-seg[data-on="1"] { background: var(--mt-fill); }
+.mt-note { font-size: calc(clamp(0.6rem, min(9cqh, 3.2cqw), 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.mt-note:empty { display: none; }
+@container (max-height: 90px) { .mt-note, .mt-label { display: none; } }
+@media (max-width: 768px) { .meter-card { min-height: 7.5rem; } }
+
+/* ── Status list ──────────────────────────────────────────── */
+/* The rows share the card's height (--sl-rows is how many) and the text follows a row's height, limited by the width. */
+.status-list-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.sl-head { flex: 0 0 auto; display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; }
+.sl-title { font-size: calc(clamp(0.8rem, 2.6cqi, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
+.sl-count { font-size: calc(clamp(0.65rem, 2cqi, 0.85rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.sl-rows { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; container-type: size; --sl-font: calc(clamp(0.45rem, min(100cqh / var(--sl-rows, 4) * 0.36, 100cqw * 0.075), 1.3rem) * var(--card-font-scale, 1)); }
+.sl-row { flex: 1 1 0; min-height: 0; display: flex; align-items: center; gap: 0.7em; font-size: var(--sl-font); padding: 0 0.6em; border-radius: 0.5em; }
+.sl-dot { flex: 0 0 auto; width: 0.8em; height: 0.8em; border-radius: 50%; background: color-mix(in srgb, var(--text-secondary) 45%, transparent); transition: background 0.3s ease, box-shadow 0.3s ease; }
+.sl-row[data-state="on"] .sl-dot { background: var(--sl-on, #22c55e); box-shadow: 0 0 0.6em var(--sl-on, #22c55e); }
+.sl-row[data-state="unknown"] .sl-dot { background: transparent; border: 1px solid color-mix(in srgb, var(--text-secondary) 55%, transparent); box-sizing: border-box; }
+.sl-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-weight: 600; }
+.sl-row[data-state="on"] .sl-label { color: var(--text); }
+.sl-value { flex: 0 0 auto; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.sl-value:empty { display: none; }
+.sl-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 0.5em; }
+@container (max-height: 120px) { .sl-head .sl-title { display: none; } }
+@media (max-width: 768px) { .status-list-card { min-height: calc(var(--sl-rows, 4) * 2.6rem + 3rem); } }
+
 /* ── History and threshold bars ───────────────────────────── */
 .bar-single-card, .bar-stacked-card, .bar-threshold-card {
   display: flex !important; flex-direction: column !important;
@@ -962,3 +1154,53 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 .grid-card.generator-card .ep-grid-day { background: var(--color-warning); }
 .grid-card.generator-card .ep-grid-day.today { background: repeating-linear-gradient(45deg, var(--color-warning) 0 4px, color-mix(in srgb, var(--color-warning) 45%, transparent) 4px 8px); }
 .grid-card.generator-card .ep-grid-day.none, .grid-card.generator-card .ep-grid-day.unknown { height: 2px !important; background: var(--border); }
+
+/* ── Prepaid meter ────────────────────────────────────────── */
+/* A big balance, a segmented bar against the last recharge, the days left, facts, the latest entries and the buttons. Sized from
+   the card (a size container); the colour follows the level (green, amber at a warning level, red when out). */
+.prepaid-card { --pm-c: var(--battery, #22c55e); display: flex !important; flex-direction: column; gap: 0.6em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; overflow: hidden; }
+.prepaid-card[data-level="low"] { --pm-c: var(--solar, #f59e0b); }
+.prepaid-card[data-level="out"] { --pm-c: #ef4444; }
+.prepaid-card[data-level="unknown"] { --pm-c: var(--text-secondary); }
+.pm-title { flex: 0 0 auto; font-size: calc(clamp(0.65rem, min(5cqh, 3cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.pm-msg { color: var(--text-secondary); font-size: calc(clamp(0.75rem, 3.2cqw, 1rem) * var(--card-font-scale, 1)); }
+.pm-msg[hidden], .pm-body[hidden], .pm-actions[hidden], .pm-facts[hidden], .pm-ledger[hidden], .pm-btn[hidden] { display: none; }
+.pm-body { display: flex; flex-direction: column; gap: 0.45em; }
+.pm-big { display: flex; align-items: baseline; gap: 0.35em; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.pm-num { font-size: calc(clamp(1.8rem, min(15cqh, 17cqw), 4rem) * var(--card-font-scale, 1)); font-weight: 800; line-height: 1; color: var(--pm-c); }
+.pm-unit { font-size: calc(clamp(0.8rem, min(6cqh, 4.5cqw), 1.2rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-weight: 600; }
+.pm-bar { height: clamp(0.6rem, 4cqh, 1rem); border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.pm-fill { display: block; height: 100%; width: 0; background: var(--pm-c); border-radius: inherit; transition: width 0.6s ease; }
+.pm-bar.pm-segmented { display: grid; grid-template-columns: repeat(var(--pm-n, 12), minmax(0, 1fr)); gap: 0.18em; background: none; border-radius: 0; overflow: visible; }
+.pm-seg { display: block; border-radius: 3px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); transition: background 0.4s ease; }
+.pm-seg[data-on="1"] { background: var(--pm-c); }
+.pm-days { font-size: calc(clamp(0.7rem, min(4.5cqh, 3.2cqw), 0.95rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pm-days:empty { display: none; }
+.pm-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5em 1em; font-size: calc(clamp(0.65rem, min(4cqh, 2.8cqw), 0.85rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.pm-fact b { display: block; color: var(--text); font-size: 1.2em; font-variant-numeric: tabular-nums; }
+.pm-ledger { display: flex; flex-direction: column; font-size: calc(clamp(0.65rem, min(4cqh, 2.8cqw), 0.85rem) * var(--card-font-scale, 1)); font-variant-numeric: tabular-nums; }
+.pm-ledger-row { display: grid; grid-template-columns: 4.5em minmax(0, 1fr) auto; gap: 0.6em; padding: 0.35em 0; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent); }
+.pm-ledger-date { color: var(--text-secondary); } .pm-ledger-note { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-plus { color: var(--battery, #22c55e); } .pm-fix { color: var(--home, #38bdf8); }
+.pm-actions { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: auto; }
+.pm-btn { font: inherit; font-size: calc(clamp(0.7rem, min(4.5cqh, 3cqw), 0.9rem) * var(--card-font-scale, 1)); font-weight: 600; padding: 0.45em 0.9em; border-radius: 8px; border: 1px solid var(--border, #d6d3d1); background: transparent; color: var(--text); cursor: pointer; }
+.pm-btn.pm-primary { background: var(--text); color: var(--bg, #fff); border-color: var(--text); }
+.pm-btn.pm-quiet { border-color: transparent; color: var(--text-secondary); }
+.pm-btn:disabled { opacity: 0.5; cursor: default; }
+.pm-btn:focus-visible { outline: 2px solid var(--solar, #f59e0b); outline-offset: 2px; }
+/* A short card gives up the entries first, then the facts, so the balance and the buttons always fit. */
+@container (max-height: 380px) { .pm-ledger { display: none; } }
+@container (max-height: 230px) { .pm-facts { display: none; } }
+@media (max-width: 768px) { .prepaid-card { min-height: 20rem; } }
+
+/* The strip on the Grid card. */
+.pm-strip { --pm-c: var(--battery, #22c55e); flex: 0 0 auto; border-radius: 9px; padding: 0.55em 0.7em; display: flex; flex-direction: column; gap: 0.4em; background: color-mix(in srgb, var(--pm-c) 14%, transparent); }
+.pm-strip[data-level="low"] { --pm-c: var(--solar, #f59e0b); }
+.pm-strip[data-level="out"] { --pm-c: #ef4444; }
+.pm-strip[hidden] { display: none; }
+.pm-strip-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.pm-strip-main { font-weight: 700; color: var(--pm-c); }
+.pm-strip-sub { font-size: 0.85em; color: var(--text-secondary); }
+.pm-strip-sub:empty { display: none; }
+.pm-strip-bar { height: 0.45em; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.pm-strip-bar i { display: block; height: 100%; width: 0; background: var(--pm-c); border-radius: inherit; transition: width 0.6s ease; }

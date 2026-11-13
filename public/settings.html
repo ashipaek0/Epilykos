@@ -47,6 +47,7 @@
       <li><a href="#metrics" class="st-nav-link" data-section="metrics"><span data-icon="list" data-size="18"></span><span class="st-nav-label">Metrics</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#forecast" class="st-nav-link" data-section="forecast"><span data-icon="sun" data-size="18"></span><span class="st-nav-label">Forecast and weather</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#savings" class="st-nav-link" data-section="savings"><span data-icon="coin" data-size="18"></span><span class="st-nav-label">Prices and savings</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#prepaid" class="st-nav-link" data-section="prepaid"><span data-icon="gauge" data-size="18"></span><span class="st-nav-label">Prepaid meter</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#appearance" class="st-nav-link" data-section="appearance"><span data-icon="monitor" data-size="18"></span><span class="st-nav-label">Appearance</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
@@ -305,6 +306,8 @@
             <div class="st-grid-2" id="st-solcast-fields">
               <div class="st-field"><label for="solcast-api-key">Solcast API key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div>
               <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your rooftop site in the Solcast toolkit. If one site covers all your arrays, put it here; otherwise give each array its own above.</span></div>
+              <div class="st-field"><label for="solcast-weather">Also fetch Solcast weather and irradiance</label><select id="solcast-weather" class="input" name="solcast_weather"><option value="true">Yes</option><option value="false">No</option></select><span class="st-help">Temperature, sunshine (GHI, DNI, DHI), cloud, wind, rain, snow and more, for the same days as the forecast, shown on the weather card and available as <em>solcast_…</em> metrics. It costs one extra request per refresh, so it is fetched only while the day's request limit leaves room for the forecast itself. Needs a Solcast plan that includes it.</span></div>
+              <div class="st-field"><label for="solcast-daily-limit">Solcast requests per day</label><input id="solcast-daily-limit" class="input" name="solcast_daily_limit" type="number" min="1" max="100000" step="1" placeholder="10"><span class="st-help">What your Solcast plan allows each UTC day: 10 for a hobbyist account. The forecast refreshes every 3 hours and always has priority; the weather request uses what is left.</span></div>
             </div>
             <div class="st-inline-actions"><button type="button" id="test-forecast" class="st-btn">Test forecast</button><span id="forecast-test-status" class="test-status" role="status"></span></div>
           </div>
@@ -337,6 +340,19 @@
               <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" placeholder="e.g. 15" inputmode="decimal"><span class="st-help">Used to project battery charge for the rest of the day.</span></div>
               <div class="st-field"><label for="battery-min-soc">Lowest charge (%)</label><input id="battery-min-soc" class="input" name="battery_min_soc" type="number" min="0" max="100" step="1" placeholder="e.g. 20" inputmode="numeric"><span class="st-help">The charge your inverter stops discharging at.</span></div>
             </div>
+          </div>
+        </section>
+
+        <!-- ════════════ PREPAID METER ════════════ -->
+        <section class="st-section" id="section-prepaid" data-section="prepaid" aria-labelledby="h-prepaid" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-prepaid">Prepaid meter</h1><p class="st-lede">Keep a running balance of the units on a prepaid electricity meter.</p></div>
+          </div>
+          <div class="st-card" id="prepaid-card" data-own-save>
+            <div class="st-card-head"><h2>Prepaid meter</h2></div>
+            <p class="st-help">For a grid supply on a prepaid meter, where a token adds units (1 unit is 1 kWh). Epilykos takes the grid energy it measures off a running balance, and you add a recharge, or correct the balance to what the meter shows, whenever you like. Off by default: nothing appears on the dashboard until you switch it on.</p>
+            <div id="pm-root"><p class="st-help">Loading…</p></div>
+            <p class="status" id="pm-status" role="status"></p>
           </div>
         </section>
 
@@ -1071,6 +1087,7 @@
 <script src="js/settings-shell.js?v=10"></script>
 <script src="js/combined-metrics.js?v=9"></script>
 <script src="js/battery-estimator.js?v=3"></script>
+<script src="js/prepaid-settings.js?v=1"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
 <script defer src="/js/push-prompt.js?v=1"></script>

@@ -797,6 +797,7 @@ app.get('/setup', (req, res) => {
 // EpilykosOS system actions (Settings → System): restart, shut down, Wi-Fi, SSH.
 app.use('/api/system', isAuthenticated, require('./routes/system'));
 app.use('/api/notices', isAuthenticated, require('./routes/notices'));
+app.use('/api/prepaid', require('./routes/prepaid'));   // the balance: public unless private; changes and settings: signed in
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {
@@ -1770,7 +1771,7 @@ app.post('/api/settings/solar', isAuthenticated, (req, res) => {
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id', 'solar_arrays',
       'solar_loss_factor', 'solar_install_date',
-      'forecast_default_source', 'weather_default_source', 'role_metrics'
+      'forecast_default_source', 'weather_default_source', 'solcast_daily_limit', 'solcast_weather', 'role_metrics'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
     if (shouldInvalidateForecastCache(saved)) clearForecastCache();

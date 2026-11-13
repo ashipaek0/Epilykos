@@ -144,6 +144,78 @@ test('scheduled forecast report honours "only below"', async () => {
   assert.strictEqual(sent.length, 0);
 });
 
+test('a limited forecast says why it was sent, and compares with recent solar and use', async () => {
+  // Four recent days of totals: solar averages 22.5 kWh, use averages 26 kWh.
+  for (const [back, sol, use] of [[1, 22, 25], [2, 23, 26], [3, 21, 27], [4, 24, 26]]) {
+    const { start } = reports.dayBounds(reports.dayString(-back));
+    getDb().prepare('INSERT INTO history (timestamp, daily_solar, daily_consumption) VALUES (?, ?, ?)').run(start + 43200, sol, use);
+  }
+  solar.getSolarForecast = async () => ({ source_label: 'Open-Meteo', daily: [{ date: tomorrow, total_kwh: 28.9, peak_kw: 4.1 }] });
+  const rule = { id: 'sl', kind: 'schedule', enabled: true, name: 'Low solar tomorrow', report: 'forecast', day: 'tomorrow', time: '19:00', days: [], below_kwh: 30, severity: 'warning', channels: [TG.id] };
+  store.saveRules([rule]);
+  sent.length = 0;
+  await notifications.runSchedules(at(19, 4));
+  assert.strictEqual(sent.length, 1, 'below the limit, so it is sent');
+  const body = sent[0].msg.body;
+  assert.match(body, /📊 128% of your 7-day average solar \(22\.5 kWh\)/, 'the average is of solar, and says so');
+  assert.match(body, /🏠 Your 7-day average use: 26 kWh/, 'with recent use beside it');
+  assert.match(body, /⚠️ Below your 30 kWh limit$/m, 'and the limit that made it a warning');
+  // Without a limit nothing is added.
+  store.saveRules([{ ...rule, id: 'sl2', below_kwh: 0 }]);
+  sent.length = 0;
+  await notifications.runSchedules(at(19, 5));
+  assert.strictEqual(sent.length, 1);
+  assert.doesNotMatch(sent[0].msg.body, /limit/);
+  store.saveRules([]);
+});
+
+test('a forecast limit can be a number of kWh or a share of the 7-day average solar or use', async () => {
+  // The four days seeded above: average solar 22.5 kWh, average use 26 kWh. Tomorrow's forecast: 28.9 kWh.
+  solar.getSolarForecast = async () => ({ source_label: 'Open-Meteo', daily: [{ date: tomorrow, total_kwh: 28.9, peak_kw: 4.1 }] });
+  const base = { kind: 'schedule', enabled: true, name: 'Low solar tomorrow', report: 'forecast', day: 'tomorrow', time: '19:00', days: [], severity: 'warning', channels: [TG.id] };
+  let minute = 10;
+  const run = async over => {
+    store.saveRules([{ ...base, id: 'lim' + minute, ...over }]);
+    sent.length = 0;
+    await notifications.runSchedules(at(19, minute++));
+    return sent.length ? sent[0].msg.body : null;
+  };
+  assert.strictEqual(await run({ below_mode: 'avg_solar', below_pct: 100 }), null, '128% of the average solar is not below it');
+  const b130 = await run({ below_mode: 'avg_solar', below_pct: 130 });
+  assert.match(b130, /⚠️ Below 130% of your 7-day average solar \(22\.5 kWh\)$/m);
+  assert.strictEqual(await run({ below_mode: 'avg_use', below_pct: 100 }), null, 'above the average use');
+  assert.match(await run({ below_mode: 'avg_use', below_pct: 120 }), /⚠️ Below 120% of your 7-day average use \(26 kWh\)$/m);
+  assert.strictEqual(await run({ below_mode: 'kwh', below_kwh: 20 }), null, 'a number still works');
+  assert.match(await run({ below_mode: 'kwh', below_kwh: 30 }), /Below your 30 kWh limit/);
+  assert.match(await run({ below_pct: 50, below_kwh: 30 }), /Below your 30 kWh limit/, 'no mode is a number of kWh, as before');
+  store.saveRules([]);
+
+  // The decision on its own: a share of an average needs the average.
+  const lim = reports.forecastLimit;
+  assert.deepStrictEqual(lim({ below_mode: 'avg_use', below_pct: 100 }, { kwh: 10, average_kwh: 20, average_use_kwh: null }), { skip: 'no 7-day average use yet' });
+  assert.deepStrictEqual(lim({ below_mode: 'avg_solar' }, { kwh: null, average_kwh: 20 }), { skip: 'no forecast available' });
+  assert.match(lim({ below_mode: 'avg_solar' }, { kwh: 10, average_kwh: 20 }).line, /Below your 7-day average solar \(20 kWh\)/, 'no percent given is 100');
+  assert.deepStrictEqual(lim({ below_kwh: 0 }, { kwh: 99 }), {}, '0 kWh = no limit');
+  assert.deepStrictEqual(lim({ below_mode: 'bogus', below_kwh: 5 }, { kwh: 3 }), { line: '⚠️ Below your 5 kWh limit' }, 'an unknown mode is a number of kWh');
+});
+
+test('forecast rule limit settings are validated', () => {
+  const rule = over => normalizeRule({ kind: 'schedule', name: 'F', report: 'forecast', day: 'tomorrow', time: '19:00', days: [], channels: [TG.id], ...over });
+  let r = rule({ below_mode: 'avg_use', below_pct: 80, below_kwh: 12 });
+  assert.strictEqual(r.below_mode, 'avg_use'); assert.strictEqual(r.below_pct, 80); assert.strictEqual(r.below_kwh, 12, 'the number is kept for when it is switched back');
+  r = rule({ below_mode: 'nonsense', below_pct: 'x' });
+  assert.strictEqual(r.below_mode, 'kwh'); assert.strictEqual(r.below_pct, 100);
+  assert.strictEqual(rule({ below_mode: 'avg_solar', below_pct: 5000 }).below_pct, 1000, 'at most 1000');
+  assert.strictEqual(rule({ below_mode: 'avg_solar', below_pct: 0 }).below_pct, 100, 'at least 1 (0 falls back to 100)');
+  // Other reports carry none of it
+  r = normalizeRule({ kind: 'schedule', name: 'S', report: 'day_summary', day: 'today', time: '19:00', days: [], channels: [TG.id], below_mode: 'avg_use', below_pct: 80 });
+  assert.strictEqual(r.below_mode, undefined); assert.strictEqual(r.below_kwh, 0);
+  // The settings page
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'public/js/notifications-settings.js'), 'utf8');
+  assert.match(ui, /id="nt-r-below-mode"|'nt-r-below-mode'/); assert.match(ui, /d\.below_mode = val\('nt-r-below-mode'\)/); assert.match(ui, /d\.below_pct = val\('nt-r-below-pct'\)/);
+  assert.match(ui, /el\.id === 'nt-r-below-mode'/, 'changing it redraws the field');
+});
+
 test('scheduled reports go out during quiet hours', async () => {
   store.saveSettings({ ...store.getSettings(), quiet_hours: { enabled: true, start: '00:00', end: '23:59' } });
   store.saveRules([{ id: 'sum', kind: 'schedule', enabled: true, name: 'Evening summary', report: 'day_summary', day: 'today', time: '00:00', days: [], severity: 'info', channels: [TG.id] }]);

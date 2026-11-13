@@ -110,22 +110,52 @@ async function forecastReport(which = 'tomorrow') {
   const day = (forecast.daily || []).find(d => d.date === date);
   if (!day) return { title: `${dayLabel(date)}'s solar forecast`, body: 'The forecast does not cover this day yet.', data: { date, kwh: null } };
   const lines = [`☀️ Expected: ${kwh(day.total_kwh)} (peak ${round(day.peak_kw, 1)} kW)`];
-  // Compare with the last 7 days' actual generation.
-  let avg = null;
+  // Compare with the last 7 days' actual solar generation and use, so a "low" forecast can be judged against both.
+  let avg = null, avgUse = null;
   try {
     const db = getDb();
     const { readDailySnapshots } = require('../timeseriesReader');
     const from = dayBounds(dayString(-7)).start, to = dayBounds(dayString(-1)).end;
-    const rows = readDailySnapshots(db, { from, to, toInclusive: true, fields: ['daily_solar'] }).filter(r => r.daily_solar > 0);
-    if (rows.length >= 3) avg = rows.reduce((a, r) => a + r.daily_solar, 0) / rows.length;
+    const rows = readDailySnapshots(db, { from, to, toInclusive: true, fields: ['daily_solar', 'daily_consumption'] });
+    const mean = key => { const v = rows.map(r => r[key]).filter(x => x > 0); return v.length >= 3 ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    avg = mean('daily_solar'); avgUse = mean('daily_consumption');
   } catch (_) { /* no history yet */ }
   if (avg) {
     const pct = Math.round(day.total_kwh / avg * 100);
-    lines.push(`📊 ${pct}% of your 7-day average (${kwh(avg)})`);
+    lines.push(`📊 ${pct}% of your 7-day average solar (${kwh(avg)})`);
   }
+  if (avgUse) lines.push(`🏠 Your 7-day average use: ${kwh(avgUse)}`);
   if (which === 'today' && day.actual_so_far != null) lines.push(`So far: ${kwh(day.actual_so_far)}`);
   if (forecast.source_label) lines.push(`Source: ${forecast.source_label}`);
-  return { title: `${dayLabel(date)}'s solar forecast`, body: lines.join('\n'), data: { date, kwh: day.total_kwh, peak_kw: day.peak_kw, average_kwh: avg } };
+  return { title: `${dayLabel(date)}'s solar forecast`, body: lines.join('\n'), data: { date, kwh: day.total_kwh, peak_kw: day.peak_kw, average_kwh: avg, average_use_kwh: avgUse } };
+}
+
+/** What a forecast rule's "only below" can compare with: a fixed number of kWh, or a share of a 7-day average. */
+const BELOW_MODES = ['kwh', 'avg_solar', 'avg_use'];
+
+/**
+ * Whether a forecast rule's limit lets the report through: { skip } (a reason) when it should not be sent,
+ * { line } (the reason it was sent, for the message) when it should, {} when the rule has no limit.
+ * Modes: 'kwh' (below `below_kwh`; 0 = no limit), 'avg_solar' / 'avg_use' (below `below_pct` percent, 100 by default, of
+ * the 7-day average solar generation / use). A relative limit needs the average, so without enough history it sends nothing.
+ */
+function forecastLimit(rule, data) {
+  const mode = BELOW_MODES.includes(rule.below_mode) ? rule.below_mode : 'kwh';
+  if (mode === 'kwh') {
+    const limit = Number(rule.below_kwh);
+    if (!(limit > 0)) return {};
+    if (data.kwh === null || data.kwh === undefined) return { skip: 'no forecast available' };
+    if (data.kwh >= limit) return { skip: `forecast ${data.kwh} kWh is not below ${limit} kWh` };
+    return { line: `⚠️ Below your ${limit} kWh limit` };
+  }
+  const pct = Number(rule.below_pct) > 0 ? Number(rule.below_pct) : 100;
+  const solarBase = mode === 'avg_solar';
+  const what = solarBase ? 'solar' : 'use';
+  const base = solarBase ? data.average_kwh : data.average_use_kwh;
+  if (data.kwh === null || data.kwh === undefined) return { skip: 'no forecast available' };
+  if (!base) return { skip: `no 7-day average ${what} yet` };
+  if (data.kwh >= base * pct / 100) return { skip: `forecast ${data.kwh} kWh is not below ${pct}% of the 7-day average ${what} (${round(base, 1)} kWh)` };
+  return { line: `⚠️ Below ${pct === 100 ? 'your' : pct + '% of your'} 7-day average ${what} (${kwh(base)})` };
 }
 
 function roleMetrics() {
@@ -188,4 +218,4 @@ const REPORTS = {
   status: { label: 'Current status', days: [], build: () => statusReport() },
 };
 
-module.exports = { REPORTS, daySummary, forecastReport, statusReport, gridOnSeconds, dayString, dayBounds, hm };
+module.exports = { REPORTS, BELOW_MODES, forecastLimit, daySummary, forecastReport, statusReport, gridOnSeconds, dayString, dayBounds, hm };

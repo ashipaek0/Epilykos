@@ -8,6 +8,7 @@
 import { renderTimelineBar, updateGridDate, formatTimestamp } from '../grid.js';
 import { formatDuration, formatMoney, formatMoneyShort } from './format.js';
 import { uid } from '../utils/uid.js';
+import { buildPrepaidStrip } from './prepaidMeter.js';
 
 export const GRID_PERIODS = [
   { key: 'day', label: 'Today' },
@@ -95,6 +96,9 @@ function buildStatusCard(block, kindName) {
     <div class="ep-grid-days-axis"><span id="${uid(p + '-days-from', id)}"></span><span>Today</span></div>
     <div class="ep-grid-days-sum" id="${uid(p + '-days-sum', id)}" aria-live="polite"></div>` : ''}
   `;
+
+  // The optional prepaid meter balance, under everything else (grid card only; hidden until tracking is on and has a balance).
+  if (kindName === 'grid' && config.showPrepaid === true) card.appendChild(buildPrepaidStrip({ left: config.prepaidLeft, days: config.prepaidDays, out: config.prepaidOut }));
 
   if (showDays) {
     const sumEl = () => card.querySelector('.ep-grid-days-sum');

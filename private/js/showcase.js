@@ -42,6 +42,14 @@ const OPTIONS = {
   'flow-card': [yes('showGauge', 'Show the solar gauge')],
   'power-flow': [text('title', 'Title'), yes('showGridSource', 'Grid as a source while it imports'), yes('showGenerator', 'Generator as a source while it runs'),
     yes('showBatterySource', 'Battery as a source while it discharges'), yes('showGridExport', 'Grid as a destination while it exports')],
+  'ring-gauge': [text('title', 'Title'), yes('showTracks', 'Show the empty ring behind each one')],
+  'battery-card': [text('title', 'Title'), yes('showCurrent', 'Show the current marker'), num('lowAt', 'Red at or below (%)', 0, 100), num('warnAt', 'Amber at or below (%)', 0, 100)],
+  'system-hero': [text('title', 'Title'), text('image', 'Picture address'), pick('layout', 'Layout', [['stacked', 'Picture under the words'], ['side', 'Picture beside the words']])],
+  'speedometer': [text('title', 'Title'), text('caption', 'Line under the dial')],
+  'flow-rows': [text('title', 'Title'), yes('showBars', 'Show the bars'), text('idleText', 'Idle word'), num('idleBelow', 'Idle below (W)', 0, 100000)],
+  'prepaid-meter': [text('title', 'Title'), yes('showFacts', 'Show the facts'), yes('showHistory', 'Show the latest entries'), num('segments', 'Segments (0 for one bar)', 0, 40)],
+  'meter-card': [text('label', 'Label'), num('segments', 'Segments (0 for one bar)', 0, 40), num('lowAt', 'Red at or below (%)', 0, 100), num('warnAt', 'Amber at or below (%)', 0, 100)],
+  'status-list': [text('title', 'Title'), yes('showCount', 'Show how many are on'), yes('showValue', 'Show each row\u2019s value')],
   'system-overview': [text('title', 'Title'), yes('showWeather', 'Show the weather')],
   'metric-trend': [text('title', 'Title'), pick('preset', 'Look', [['subtle-area', 'Subtle'], ['filled-body', 'Filled']]),
     yes('graph.enabled', 'Show a graph'), pick('graph.window', 'Graph period', [['1h', '1 hour'], ['6h', '6 hours'], ['24h', '24 hours'], ['7d', '7 days']]),
@@ -176,7 +184,7 @@ function optionField(item, opt, n) {
 
 /** Checkbox options that are on when the config leaves them out. */
 function defaultOn(type, path) {
-  return (type === 'flow-card' && path === 'showGauge') || (type === 'power-flow' && /^show/.test(path)) || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
+  return (type === 'flow-card' && path === 'showGauge') || (type === 'power-flow' && /^show/.test(path)) || (type === 'ring-gauge' && path === 'showTracks') || (type === 'flow-rows' && path === 'showBars') || (type === 'prepaid-meter' && path === 'showFacts') || (type === 'battery-card' && path === 'showCurrent') || ((type === 'grid-card' || type === 'generator-card') && path === 'showTimeline') ||
     (type === 'energy-day' && path === 'showForecast');
 }
 
