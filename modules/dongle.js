@@ -13,6 +13,7 @@ const path = require('path');
 const { getConfig, setConfig } = require('./database');
 const { queueMetricValue } = require('./database');
 const { logger } = require('./logger');
+const { decodeInverterClock } = require('./luxpowerClock');
 const { createBackoff } = require('./pollBackoff');
 const { SolarmanV5Transport } = require('./dongle/solarmanV5');
 const { GrowattServer } = require('./dongle/growatt');
@@ -206,6 +207,15 @@ function stopDonglePolling() {
 
 function restartDonglePolling() { startDonglePolling(); }
 
+/**
+ * The key a profile metric is mapped by: its namespaced register ('holding:0x000C'), plus `key_suffix` for a metric that is
+ * worked out from registers another metric already uses (the inverter clock and its skew share registers 12 to 14), so each
+ * has its own entity.
+ */
+function luxMetricKey(m) {
+  return (m.register_type ? `${m.register_type}:${m.register}` : m.register) + (m.key_suffix || '');
+}
+
 function writeMetrics(metrics, units) {
   const now = Math.floor(Date.now() / 1000);
   for (const [name, rawValue] of Object.entries(metrics)) {
@@ -319,7 +329,7 @@ function migrateLuxpowerExplicitMappings(instance, profile) {
     const m = byName.get(name);
     if (!m) continue; // renamed/removed in the phase-2 profile — skip
     if (!universe.has(prefix + name)) return false; // not proven legacy — leave untouched
-    const key = m.register_type ? `${m.register_type}:${m.register}` : m.register;
+    const key = luxMetricKey(m);
     mappings[prefix + name] = key;
   }
   if (Object.keys(mappings).length === 0) return false;
@@ -582,8 +592,8 @@ function decodeLuxpowerMetrics(profile, instance, registerData) {
     // hex for configs saved before namespacing; unmapped → skip.
     let metricName;
     if (mappings) {
-      const key = m.register_type ? `${m.register_type}:${m.register}` : m.register;
-      metricName = regToMetric[key] !== undefined ? regToMetric[key] : regToMetric[m.register];
+      const key = luxMetricKey(m);
+      metricName = regToMetric[key] !== undefined ? regToMetric[key] : (m.key_suffix ? undefined : regToMetric[m.register]);
       if (metricName === undefined) continue;
     } else {
       metricName = prefix + m.name;
@@ -593,6 +603,15 @@ function decodeLuxpowerMetrics(profile, instance, registerData) {
     const space = m.register_type || 'holding';
     const wordAt = off => registerData[`${space}:${addr + off}`];
     let raw;
+
+    // The inverter clock (registers 12 to 14): its time as text, or its skew from this server's clock in seconds.
+    if (m.decode === 'lux_rtc_time' || m.decode === 'lux_rtc_skew') {
+      const clock = decodeInverterClock([wordAt(0), wordAt(1), wordAt(2)]);
+      if (!clock) continue;
+      metrics[metricName] = m.decode === 'lux_rtc_skew' ? clock.skewSeconds : clock.text;
+      if (m.unit) units[metricName] = m.unit;
+      continue;
+    }
 
     if (m.type === 'uint64') {
       const w0 = wordAt(0);
@@ -666,8 +685,8 @@ function luxpowerPollPlan(profile, instance) {
     const regToMetric = {};
     for (const [metric, reg] of Object.entries(instance.mappings)) regToMetric[reg] = metric;
     for (const m of profile.metrics) {
-      const key = m.register_type ? `${m.register_type}:${m.register}` : m.register;
-      if (regToMetric[key] === undefined && regToMetric[m.register] === undefined) continue;
+      const key = luxMetricKey(m);
+      if (regToMetric[key] === undefined && (m.key_suffix || regToMetric[m.register] === undefined)) continue;
       const space = m.register_type || 'holding';
       need(space, parseInt(m.register, 16), m.type === 'uint64' ? 4 : (m.count || 1));
       if (m.decode === 'lux_bms_current') { need('input', 80, 1); need('holding', 19, 1); }
