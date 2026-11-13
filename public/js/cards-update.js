@@ -40,6 +40,10 @@ import { updatePowerFlow } from './components/powerFlow.js';
 import { updateRingGauge } from './components/ringGauge.js';
 import { updateBatteryCard } from './components/batteryCard.js';
 import { updateStatusList } from './components/statusList.js';
+import { updateSystemHero } from './components/systemHero.js';
+import { updateSpeedometer } from './components/speedometer.js';
+import { updateFlowRows } from './components/flowRows.js';
+import { updateMeterCard } from './components/meterCard.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
 const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
@@ -55,6 +59,10 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('ring-gauge')) updateRingGauge(state);
   if (blockTypes.has('battery-card')) updateBatteryCard(state);
   if (blockTypes.has('status-list')) updateStatusList(state);
+  if (blockTypes.has('system-hero')) updateSystemHero(state);
+  if (blockTypes.has('speedometer')) updateSpeedometer(state);
+  if (blockTypes.has('flow-rows')) updateFlowRows(state);
+  if (blockTypes.has('meter-card')) updateMeterCard(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('system-overview')) updateSystemOverview(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);

@@ -162,6 +162,8 @@ function metricsFor(s, now, today) {
     daily_grid_import: m(today.grid_import_kwh, 'kWh'), daily_grid_export: m(today.grid_export_kwh, 'kWh'),
     grid_status: m(s.grid ? 1 : 0, null),
     battery_current: m(Math.round((s.bc - s.bd) / Math.max(40, ex.battery_voltage) * 10) / 10, 'A'), ambient_temperature: m(Math.round((26 + s.solar / 700) * 10) / 10, '°C'),
+    solar_peak_today: m(Math.max(...today.list.map(x => x.solar), s.solar), 'W'), forecast_solar_today: m(today.solar_kwh * 1.08, 'kWh'), savings_today: m(today.solar_kwh * 0.22, null),
+    system_size: m(6400, 'W'), panels_producing: m(s.solar > 40 ? 16 : 0, null), battery_stored: m(Math.round(s.soc * 13.5) / 100, 'kWh'), battery_capacity: m(13.5, 'kWh'), self_sufficiency_today: m(84, '%'),
     device_boiler: m(s.load > 1400 ? 1800 : 3, 'W'), device_washer: m(s.load > 900 ? 600 : 0, 'W'), device_pump: m(s.solar > 1500 ? 750 : 0, 'W'), device_ac: m(s.load > 1100 ? 1200 : 0, 'W'),
     inverter_temperature: m(ex.inverter_temperature, '°C'), grid_voltage: m(ex.grid_voltage, 'V'),
     battery_voltage: m(ex.battery_voltage, 'V'), pv_voltage: m(ex.pv_voltage, 'V'), load_percent: m(ex.load_percent, '%'),

@@ -520,6 +520,112 @@ function buildStatusListForm(block) {
   return html;
 }
 
+var EXTRA_SPEC = { list: 'xr', max: 3, blank: { metric: '', unit: '', signed: 'false' }, fields: [
+  { k: 'metric', type: 'metric' }, { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 },
+  { k: 'signed', type: 'select', options: [['false', 'Show as it is'], ['true', 'Put a + before a positive value']] }] };
+var HERO_STATE_SPEC = { list: 'hs', max: 8, blank: { metric: '', when: 'on', limit: 0, headline: '', pill: '', color: '' }, fields: [
+  { k: 'metric', type: 'metric' },
+  { k: 'when', type: 'select', options: [['on', 'When it says on, or is above 0'], ['above', 'When above the limit'], ['below', 'When below the limit']] },
+  { k: 'limit', type: 'number', ph: 'Limit' }, { k: 'headline', type: 'text', ph: 'Headline', maxlength: 80 }, { k: 'pill', type: 'text', ph: 'Pill text', maxlength: 40 },
+  { k: 'color', type: 'text', ph: 'Pill colour #rrggbb (optional)', maxlength: 7 }] };
+var FLOWROW_SPEC = { list: 'fr', max: 8, blank: { label: '', metric: '', unit: '', color: '', sign: 'any', max: '' }, fields: [
+  { k: 'label', type: 'text', ph: 'Label (e.g. Home)', maxlength: 40 }, { k: 'metric', type: 'metric' },
+  { k: 'sign', type: 'select', options: [['any', 'Count both directions'], ['positive', 'Count only positive values'], ['negative', 'Count only negative values']] },
+  { k: 'max', type: 'number', ph: 'Highest (empty: compare the rows)' }, { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 },
+  { k: 'color', type: 'text', ph: 'Bar colour #rrggbb (optional)', maxlength: 7 }] };
+
+/** The extra readings {a}, {b}, {c} that a card's words can use. */
+function buildExtrasSection(cfg) {
+  return '<fieldset data-ui="section"><legend data-ui="legend">Extra readings for the words</legend>' +
+    buildRowList(EXTRA_SPEC, Array.isArray(cfg.extras) ? cfg.extras : []) +
+    '<p data-ui="help">The first is {a}, the second {b}, the third {c}. Use them in the words above, for example &ldquo;All {a} panels producing&rdquo;. A text metric works too.</p></fieldset>';
+}
+function textSetting(id, label, value, placeholder, maxlength) {
+  return '<label data-ui="field">' + label + ' <input type="text" id="' + id + '" value="' + escHtml(value || '') + '" placeholder="' + escHtml(placeholder || '') + '"' + (maxlength ? ' maxlength="' + maxlength + '"' : '') + ' data-ui="input"></label>';
+}
+function numberSetting(id, label, value, placeholder) {
+  return '<label data-ui="field">' + label + ' <input type="number" step="any" id="' + id + '" value="' + escHtml(value == null ? '' : value) + '" placeholder="' + escHtml(placeholder || '') + '" data-ui="input"></label>';
+}
+/** System hero: the picture, the title, and the states (a rule, a headline and a pill each; the first true one wins). */
+function buildSystemHeroForm(block) {
+  var cfg = block.config || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">States</legend>';
+  html += buildRowList(HERO_STATE_SPEC, Array.isArray(cfg.states) ? cfg.states : []);
+  html += '<p data-ui="help">The first row whose rule is true sets the headline and the pill. A row with no metric always applies, so put it last as the fallback.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
+  html += textSetting('modal-sh-title', 'Title', cfg.title, 'Empty for no title', 40);
+  html += textSetting('modal-sh-image', 'Picture (web address, or a path starting with /)', cfg.image, 'https://... or /uploads/house.png');
+  html += '</fieldset>';
+  return html + buildExtrasSection(cfg);
+}
+
+/** Speedometer: the metric, its range, the peak for the tag, and the words. */
+function buildSpeedometerForm(block) {
+  var cfg = block.config || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Reading</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Metric</span><div data-ui="grow">' + metricSelect(cfg.metric || 'solar', 'modal-sp-metric') + '</div></div>';
+  html += textSetting('modal-sp-unit', 'Unit (empty: from the metric)', cfg.unit, '', 12);
+  html += numberSetting('modal-sp-decimals', 'Decimals (0 to 3, empty for automatic)', cfg.decimals, 'auto');
+  html += '<div data-ui="grid2">' + numberSetting('modal-sp-min', 'Lowest', cfg.min == null ? 0 : cfg.min).replace('data-ui="field"', 'data-ui="label"') +
+    numberSetting('modal-sp-max', 'Highest', cfg.max == null ? 5000 : cfg.max).replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Highest from a metric (optional)</span><div data-ui="grow">' + metricSelect(cfg.maxMetric || '', 'modal-sp-maxmetric') + '</div></div>';
+  html += '<p data-ui="help">A metric for the highest value, such as the system size, replaces the number while it has a reading.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Near the peak</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Today&rsquo;s peak (a metric)</span><div data-ui="grow">' + metricSelect(cfg.peakMetric || '', 'modal-sp-peakmetric') + '</div></div>';
+  html += numberSetting('modal-sp-nearpct', 'Show the tag from this share of the peak (%)', cfg.nearPct == null ? 85 : cfg.nearPct);
+  html += textSetting('modal-sp-neartext', 'Tag text (empty for no tag)', cfg.nearText, 'e.g. Near today’s peak', 40);
+  html += '<p data-ui="help">For the peak use a metric that holds today&rsquo;s highest value, such as a &ldquo;Highest today&rdquo; combined metric.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Look and words</legend>';
+  html += textSetting('modal-sp-title', 'Title', cfg.title, 'Empty for no title', 60);
+  html += textSetting('modal-sp-color', 'Dial colour (#rrggbb, empty for solar)', cfg.color, '', 7);
+  html += textSetting('modal-sp-of', 'Word between the value and the highest', cfg.ofText, 'of', 16);
+  html += textSetting('modal-sp-caption', 'Line under the dial', cfg.caption, 'e.g. Peaks at {a} · {pct}% of system size', 120);
+  html += '<p data-ui="help">In the line you can use {value}, {max}, {peak}, {pct} and {a}, {b}, {c}.</p></fieldset>';
+  return html + buildExtrasSection(cfg);
+}
+
+/** Flow rows: a row per destination with a bar, and the word for a row that is not flowing. */
+function buildFlowRowsForm(block) {
+  var cfg = block.config || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Rows</legend>';
+  html += buildRowList(FLOWROW_SPEC, Array.isArray(cfg.rows) ? cfg.rows : []);
+  html += '<p data-ui="help">A bar fills against the row&rsquo;s own highest value, or against the largest row when that is empty. Pick &ldquo;only positive&rdquo; or &ldquo;only negative&rdquo; to follow one direction of a reading that goes both ways, such as battery power.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Look and words</legend>';
+  html += textSetting('modal-fr-title', 'Title', cfg.title, 'Empty for no title', 60);
+  html += formToggle('modal-fr-bars', 'Show the bars', cfg.showBars !== false);
+  html += numberSetting('modal-fr-decimals', 'Decimals (0 to 3, empty for automatic)', cfg.decimals, 'auto');
+  html += numberSetting('modal-fr-idle', 'A row below this shows the idle word (W for power readings)', cfg.idleBelow == null ? 10 : cfg.idleBelow);
+  html += textSetting('modal-fr-idletext', 'Idle word', cfg.idleText, 'Idle', 16);
+  html += '</fieldset>';
+  return html;
+}
+
+/** Meter card: the value, the bar and its target, and two lines of words. */
+function buildMeterCardForm(block) {
+  var cfg = block.config || {};
+  var notes = Array.isArray(cfg.notes) ? cfg.notes : [];
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Value</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Metric</span><div data-ui="grow">' + metricSelect(cfg.metric || 'daily_solar', 'modal-mt-metric') + '</div></div>';
+  html += '<div data-ui="grid2">' + textSetting('modal-mt-prefix', 'Before the value (e.g. a currency)', cfg.prefix, '', 8).replace('data-ui="field"', 'data-ui="label"') +
+    textSetting('modal-mt-unit', 'Unit (empty: from the metric)', cfg.unit, '', 12).replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += numberSetting('modal-mt-decimals', 'Decimals (0 to 3, empty for automatic)', cfg.decimals, 'auto');
+  html += textSetting('modal-mt-label', 'Label', cfg.label, 'e.g. Made today', 40);
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Bar</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Bar follows (empty: the value)</span><div data-ui="grow">' + metricSelect(cfg.barMetric || '', 'modal-mt-barmetric') + '</div></div>';
+  html += '<div data-ui="grid2">' + numberSetting('modal-mt-min', 'Empty at', cfg.min == null ? 0 : cfg.min).replace('data-ui="field"', 'data-ui="label"') +
+    numberSetting('modal-mt-max', 'Full at', cfg.max == null ? 100 : cfg.max).replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Full at a metric (optional)</span><div data-ui="grow">' + metricSelect(cfg.maxMetric || '', 'modal-mt-maxmetric') + '</div></div>';
+  html += numberSetting('modal-mt-segments', 'Segments (0 for one continuous bar)', cfg.segments == null ? 12 : cfg.segments);
+  html += textSetting('modal-mt-color', 'Bar colour (#rrggbb, empty for solar)', cfg.color, '', 7);
+  html += '<div data-ui="grid2">' + numberSetting('modal-mt-low', 'Red at or below (% of the bar)', cfg.lowAt, 'off').replace('data-ui="field"', 'data-ui="label"') +
+    numberSetting('modal-mt-warn', 'Amber at or below (%)', cfg.warnAt, 'off').replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Lines under the bar</legend>';
+  html += textSetting('modal-mt-note0', 'First line', notes[0], 'e.g. ~{max} expected today', 120);
+  html += textSetting('modal-mt-note1', 'Second line', notes[1], '', 120);
+  html += '<p data-ui="help">In a line you can use {value}, {max}, {pct} (how full the bar is) and {a}, {b}, {c}.</p></fieldset>';
+  return html + buildExtrasSection(cfg);
+}
+
 /** Power flow: what feeds each node, and which of the optional sources and destinations may appear (when active). */
 function buildPowerFlowForm(block) {
   var cfg = block.config || {};
@@ -2272,6 +2378,18 @@ function buildSettingsForm(block) {
     case 'status-list':
       html += buildStatusListForm(block);
       break;
+    case 'system-hero':
+      html += buildSystemHeroForm(block);
+      break;
+    case 'speedometer':
+      html += buildSpeedometerForm(block);
+      break;
+    case 'flow-rows':
+      html += buildFlowRowsForm(block);
+      break;
+    case 'meter-card':
+      html += buildMeterCardForm(block);
+      break;
     case 'flow-card-2':
     case 'flow-card-square':
     case 'flow-card-square-2':
@@ -2375,6 +2493,18 @@ var BREAKDOWN_VALUE_TYPES = ['gauge-card', 'configurable-gauge', 'half-gauge', '
 /** Read all form values from the modal and update the block's config */
 function readSettingsForm(block) {
   var config = Object.assign({}, block.config || {});
+  // Small readers for the forms of the newer cards (kept inside this function: the editor tests run it on its own with only a document).
+  var readText = function(cfg, key, id) { var v = (document.getElementById(id)?.value || '').trim(); if (v) cfg[key] = v; else delete cfg[key]; };
+  var readNumber = function(cfg, key, id) { var v = parseFloat(document.getElementById(id)?.value); if (!isNaN(v)) cfg[key] = v; else delete cfg[key]; };
+  var readExtras = function(cfg) {
+    var out = [];
+    document.querySelectorAll('#xr-rows .rl-row').forEach(function(row) {
+      var o = {};
+      row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+      if (o.metric) out.push({ metric: o.metric, unit: (o.unit || '').trim(), signed: o.signed === 'true' });
+    });
+    if (out.length) cfg.extras = out.slice(0, 3); else delete cfg.extras;
+  };
   if (block.type === 'dual-metric') {
     var dmGet = function(id) { return document.getElementById('dm-' + id); };
     var dmRaw = function(id, fallback) { var el = dmGet(id); return el ? String(el.value).trim() : String(fallback == null ? '' : fallback); };
@@ -2566,6 +2696,61 @@ function readSettingsForm(block) {
         var wv = (document.getElementById(w[0])?.value || '').trim();
         if (wv) config[w[1]] = wv; else delete config[w[1]];
       });
+      break;
+    }
+    case 'system-hero': {
+      var shStates = [];
+      document.querySelectorAll('#hs-rows .rl-row').forEach(function(row) {
+        var o = {};
+        row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+        var lim = parseFloat(o.limit);
+        if ((o.headline || '').trim() || (o.pill || '').trim()) shStates.push({ metric: o.metric || '', when: o.when || 'on', limit: isNaN(lim) ? 0 : lim, headline: (o.headline || '').trim(), pill: (o.pill || '').trim(), color: (o.color || '').trim() });
+      });
+      config.states = shStates.slice(0, 8);
+      block.metrics = config.states;
+      var shImg = (document.getElementById('modal-sh-image')?.value || '').trim();
+      if (shImg && !/^(https?:)?\/\//i.test(shImg) && (shImg.charAt(0) !== '/' || shImg.charAt(1) === '/')) return 'The picture must be a web address (https://...) or a path starting with /.';
+      if (shImg) config.image = shImg; else delete config.image;
+      readText(config, 'title', 'modal-sh-title');
+      readExtras(config);
+      break;
+    }
+    case 'speedometer': {
+      var spMetric = document.getElementById('modal-sp-metric')?.value || 'solar';
+      config.metric = spMetric;
+      block.metrics = [{ metric: spMetric }];
+      readText(config, 'unit', 'modal-sp-unit'); readText(config, 'title', 'modal-sp-title'); readText(config, 'color', 'modal-sp-color');
+      readText(config, 'ofText', 'modal-sp-of'); readText(config, 'caption', 'modal-sp-caption'); readText(config, 'nearText', 'modal-sp-neartext');
+      readNumber(config, 'decimals', 'modal-sp-decimals'); readNumber(config, 'min', 'modal-sp-min'); readNumber(config, 'max', 'modal-sp-max'); readNumber(config, 'nearPct', 'modal-sp-nearpct');
+      readText(config, 'maxMetric', 'modal-sp-maxmetric'); readText(config, 'peakMetric', 'modal-sp-peakmetric');
+      readExtras(config);
+      break;
+    }
+    case 'flow-rows': {
+      var frRows = [];
+      document.querySelectorAll('#fr-rows .rl-row').forEach(function(row) {
+        var o = {};
+        row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+        var fmax = parseFloat(o.max);
+        if (o.metric) frRows.push({ label: (o.label || '').trim(), metric: o.metric, unit: (o.unit || '').trim(), color: (o.color || '').trim(), sign: o.sign || 'any', max: isNaN(fmax) ? 0 : fmax });
+      });
+      config.rows = frRows.slice(0, 8);
+      block.metrics = config.rows;
+      readText(config, 'title', 'modal-fr-title'); readText(config, 'idleText', 'modal-fr-idletext'); readNumber(config, 'idleBelow', 'modal-fr-idle'); readNumber(config, 'decimals', 'modal-fr-decimals');
+      if (document.getElementById('modal-fr-bars') && !document.getElementById('modal-fr-bars').checked) config.showBars = false; else delete config.showBars;
+      break;
+    }
+    case 'meter-card': {
+      var mtMetric = document.getElementById('modal-mt-metric')?.value || 'daily_solar';
+      config.metric = mtMetric;
+      block.metrics = [{ metric: mtMetric }];
+      readText(config, 'label', 'modal-mt-label'); readText(config, 'prefix', 'modal-mt-prefix'); readText(config, 'unit', 'modal-mt-unit'); readText(config, 'color', 'modal-mt-color');
+      readText(config, 'barMetric', 'modal-mt-barmetric'); readText(config, 'maxMetric', 'modal-mt-maxmetric');
+      readNumber(config, 'decimals', 'modal-mt-decimals'); readNumber(config, 'min', 'modal-mt-min'); readNumber(config, 'max', 'modal-mt-max'); readNumber(config, 'segments', 'modal-mt-segments');
+      readNumber(config, 'lowAt', 'modal-mt-low'); readNumber(config, 'warnAt', 'modal-mt-warn');
+      var mtNotes = [(document.getElementById('modal-mt-note0')?.value || '').trim(), (document.getElementById('modal-mt-note1')?.value || '').trim()];
+      if (mtNotes[0] || mtNotes[1]) config.notes = mtNotes; else delete config.notes;
+      readExtras(config);
       break;
     }
     case 'power-flow': {
@@ -4258,6 +4443,17 @@ function wireSettingsForm(body, block) {
       break;
     case 'status-list':
       renderRowList(body, STATUS_SPEC);
+      break;
+    case 'system-hero':
+      renderRowList(body, HERO_STATE_SPEC);
+      renderRowList(body, EXTRA_SPEC);
+      break;
+    case 'speedometer':
+    case 'meter-card':
+      renderRowList(body, EXTRA_SPEC);
+      break;
+    case 'flow-rows':
+      renderRowList(body, FLOWROW_SPEC);
       break;
     case 'bar-gauge-retro':
       renderBarGaugeRetroRows(body);
