@@ -4,6 +4,7 @@ const databaseWork = require('./databaseWork');
 const { getConfig, setConfig, getDb, flushMetrics } = require('./database');
 const { localDateString } = require('./localTime');
 const { readMetricSeries, readHistorySeries, readDailySnapshots } = require('./timeseriesReader');
+const { publishForecastRemaining } = require('./forecastRemaining');
 
 let forecastCache = {}; // S1-prime: per-selector entries { <selector>: { data, timestamp } }
 let solarCache = { value: 0, timestamp: 0 };
@@ -871,6 +872,7 @@ async function getSolarForecast(sourceParam, restMap) {
         if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
       }
       await attachWeather(cached.data, cached.ctx);
+      publishForecastRemaining(cached.data);
       return cached.data;
     }
   }
@@ -1029,6 +1031,7 @@ async function getSolarForecast(sourceParam, restMap) {
 
   databaseWork.assertCurrent();
   forecastCache[selector] = { data: result, timestamp: now, ctx };
+  publishForecastRemaining(result);   // the solar still expected today, as a metric
   return result;
 }
 

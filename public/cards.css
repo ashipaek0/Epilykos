@@ -297,6 +297,92 @@
 /* Where a card has no height of its own (phones stack the blocks), each row keeps a height to be drawn in. */
 @media (max-width: 768px) { .power-flow-card { min-height: calc(var(--pf-rows, 3) * 4.2rem + 3rem); } }
 
+/* ── Ring gauge ───────────────────────────────────────────── */
+/* The card and its dial are size containers: the dial (a square SVG in a 0-100 box) fills the room the card has, and the
+   centre text follows the dial (cqmin), so the card scales to any size. Three rings leave less room in the middle, so the
+   text steps down. */
+.ring-gauge-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.rg-title { flex: 0 0 auto; font-size: calc(clamp(0.8rem, 2.6cqi, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); text-align: center; }
+.rg-dial { flex: 1 1 0; min-height: 0; position: relative; container-type: size; display: flex; align-items: center; justify-content: center; --rg-fs: 11.3cqmin; }
+/* The text block must fit inside the innermost ring (a circle), corners included: it measured 10 to 20% too big at 14 and 11, so it is kept about 10% inside. */
+.rg-n1 .rg-dial { --rg-fs: 15cqmin; }
+.rg-n3 .rg-dial { --rg-fs: 7.9cqmin; }
+.rg-svg { width: 100%; height: 100%; display: block; }
+.rg-track { stroke: var(--text-secondary); opacity: 0.16; }
+.rg-arc { transition: stroke-dasharray 0.6s ease; }
+.rg-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  gap: 0.15em; font-size: calc(var(--rg-fs) * var(--card-font-scale, 1)); line-height: 1.1; pointer-events: none;
+}
+.rg-read { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.rg-label { font-size: 0.42em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
+.rg-value { font-size: 1em; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rg-read-1 .rg-value { font-size: 0.82em; }
+.rg-divider { width: 3.2em; height: 1px; background: var(--text-secondary); opacity: 0.3; margin: 0.12em 0; }
+.rg-center > .tile-icon.rg-icon { --tile-icon-size: 0.7em; width: 0.7em; height: 0.7em; background: transparent; color: var(--rg-icon-color, var(--solar, #f59e0b)); border-radius: 0; margin-bottom: 0.1em; }
+.rg-center > .tile-icon.rg-icon > svg { width: 100%; height: 100%; }
+.rg-center > .tile-icon.rg-icon.is-emoji { font-size: 0.8em; }
+.rg-legend { flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3em 1em; font-size: calc(clamp(0.7rem, 2cqi, 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.rg-leg-item { display: inline-flex; align-items: center; gap: 0.4em; white-space: nowrap; }
+.rg-leg-dot { width: 0.7em; height: 0.7em; border-radius: 50%; display: inline-block; }
+.rg-leg-value { color: var(--text); font-variant-numeric: tabular-nums; }
+@container (max-height: 160px) { .rg-title { display: none; } }
+@media (max-width: 768px) { .ring-gauge-card { min-height: 18rem; } }
+
+/* ── Battery ──────────────────────────────────────────────── */
+/* The body is a size container: the battery and the current marker are sized from its height, and the charge scale and
+   marker labels from the card. Below it the charge in big type, and a row of small readings. */
+.battery-card { display: flex !important; flex-direction: column; gap: 0.5em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; container-name: bc-card; align-items: center; }
+.bc-title { flex: 0 0 auto; font-size: calc(clamp(0.8rem, 2.6cqi, 1.1rem) * var(--card-font-scale, 1)); font-weight: 800; color: var(--text); text-align: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.bc-body { flex: 1 1 0; min-height: 0; width: 100%; container-type: size; display: flex; align-items: stretch; justify-content: center; gap: 0.6em; }
+.bc-scale { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; padding: 6% 0 0; font-size: calc(clamp(0.5rem, 6cqh * 0.6, 0.75rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.bc-battery { height: 100%; width: min(calc(100cqh * 0.58), 56cqw); display: flex; flex-direction: column; align-items: center; }
+.bc-cap { flex: 0 0 auto; width: 34%; height: 5%; border-radius: 3px 3px 0 0; background: var(--text-secondary); opacity: 0.55; }
+.bc-shell { flex: 1 1 0; min-height: 0; width: 100%; position: relative; box-sizing: border-box; border: max(2px, 1.6cqh) solid color-mix(in srgb, var(--text-secondary) 55%, transparent); border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--text-secondary) 10%, transparent); }
+.bc-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--bc-band, #22c55e); transition: height 0.6s ease; }
+.battery-card[data-band="low"] { --bc-band: var(--bc-low, #ef4444); }
+.battery-card[data-band="mid"] { --bc-band: var(--bc-mid, #f59e0b); }
+.battery-card[data-band="high"] { --bc-band: var(--bc-high, #22c55e); }
+.bc-tick { position: absolute; left: 0; right: 0; height: 1px; background: var(--text-secondary); opacity: 0.3; }
+.bc-current { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; font-size: calc(clamp(0.45rem, 5cqh * 0.6, 0.7rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.bc-cur-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bc-cur-zero { display: none; }
+.bc-track { flex: 1 1 0; min-height: 0; width: 0.9em; margin: 0.4em 0; border-radius: 999px; position: relative; background: linear-gradient(to bottom, color-mix(in srgb, var(--bc-charge, #22c55e) 45%, transparent), color-mix(in srgb, var(--text-secondary) 20%, transparent) 50%, color-mix(in srgb, var(--bc-discharge, #ef4444) 45%, transparent)); }
+.bc-marker { position: absolute; left: 50%; top: 50%; width: 1.3em; height: 1.3em; margin: -0.65em 0 0 -0.65em; border-radius: 50%; background: var(--text); border: 2px solid var(--bg, #fff); box-sizing: border-box; transition: top 0.6s ease; }
+.bc-marker[hidden] { display: none; }
+.bc-readout { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.bc-soc { font-size: calc(clamp(1.1rem, min(9cqh, 16cqw), 2.6rem) * var(--card-font-scale, 1)); font-weight: 800; color: var(--bc-band, var(--text)); font-variant-numeric: tabular-nums; }
+.bc-amps { font-size: calc(clamp(0.7rem, min(4.5cqh, 7cqw), 1.1rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.bc-amps[data-dir="charge"] { color: var(--bc-charge, #22c55e); }
+.bc-amps[data-dir="discharge"] { color: var(--bc-discharge, #ef4444); }
+.bc-amps:empty { display: none; }
+.bc-chips { flex: 0 0 auto; width: 100%; display: flex; flex-wrap: wrap; justify-content: space-around; gap: 0.3em 0.8em; padding-top: 0.4em; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); font-size: calc(clamp(0.65rem, 2.2cqi, 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.bc-chip { display: inline-flex; align-items: center; gap: 0.4em; white-space: nowrap; }
+.bc-chip-dot { width: 0.65em; height: 0.65em; border-radius: 50%; background: var(--text-secondary); display: inline-block; }
+.bc-chip-value { color: var(--text); font-variant-numeric: tabular-nums; }
+@container bc-card (max-height: 170px) { .bc-title { display: none; } }
+@container bc-card (max-height: 230px) { .bc-scale, .bc-cur-label { display: none; } }
+@media (max-width: 768px) { .battery-card { min-height: 22rem; } }
+
+/* ── Status list ──────────────────────────────────────────── */
+/* The rows share the card's height (--sl-rows is how many) and the text follows a row's height, limited by the width. */
+.status-list-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.sl-head { flex: 0 0 auto; display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; }
+.sl-title { font-size: calc(clamp(0.8rem, 2.6cqi, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
+.sl-count { font-size: calc(clamp(0.65rem, 2cqi, 0.85rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.sl-rows { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; container-type: size; --sl-font: calc(clamp(0.45rem, min(100cqh / var(--sl-rows, 4) * 0.36, 100cqw * 0.075), 1.3rem) * var(--card-font-scale, 1)); }
+.sl-row { flex: 1 1 0; min-height: 0; display: flex; align-items: center; gap: 0.7em; font-size: var(--sl-font); padding: 0 0.6em; border-radius: 0.5em; }
+.sl-dot { flex: 0 0 auto; width: 0.8em; height: 0.8em; border-radius: 50%; background: color-mix(in srgb, var(--text-secondary) 45%, transparent); transition: background 0.3s ease, box-shadow 0.3s ease; }
+.sl-row[data-state="on"] .sl-dot { background: var(--sl-on, #22c55e); box-shadow: 0 0 0.6em var(--sl-on, #22c55e); }
+.sl-row[data-state="unknown"] .sl-dot { background: transparent; border: 1px solid color-mix(in srgb, var(--text-secondary) 55%, transparent); box-sizing: border-box; }
+.sl-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-weight: 600; }
+.sl-row[data-state="on"] .sl-label { color: var(--text); }
+.sl-value { flex: 0 0 auto; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.sl-value:empty { display: none; }
+.sl-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 0.5em; }
+@container (max-height: 120px) { .sl-head .sl-title { display: none; } }
+@media (max-width: 768px) { .status-list-card { min-height: calc(var(--sl-rows, 4) * 2.6rem + 3rem); } }
+
 /* ── History and threshold bars ───────────────────────────── */
 .bar-single-card, .bar-stacked-card, .bar-threshold-card {
   display: flex !important; flex-direction: column !important;
