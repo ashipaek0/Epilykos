@@ -188,6 +188,13 @@ const load = f => import(pathToFileURL(path.join(REPO, 'public/js/components', f
   assert.ok(!/prepaid|pm-root/i.test(savings), 'the Prices and savings page is unchanged');
   assert.match(read('public/js/settings-shell.js'), /prepaid: 'Prepaid meter'/); assert.match(read('public/js/prepaid-settings.js'), /getElementById\('section-prepaid'\)/);
   assert.ok(!/SAVABLE = \[[^\]]*prepaid/.test(read('public/js/settings-shell.js')), 'the card saves itself, outside the page save bar');
+  // One way to save: the settings are a draft until Save is pressed. The switch and the fields only change the form.
+  const ps = read('public/js/prepaid-settings.js');
+  assert.match(ps, /id="pm-save" disabled>Save/, 'Save starts off, and stays off until something changes');
+  assert.match(ps, /\$\('pm-enabled'\)\.addEventListener\('change', function \(\) \{ \$\('pm-fields'\)\.hidden = !\$\('pm-enabled'\)\.checked; drawBalance\(\); markDirty\(\); \}\)/, 'the switch only shows or hides the fields');
+  assert.ok(!/addEventListener\('change', save\)/.test(ps), 'nothing saves before Save is pressed');
+  assert.strictEqual((ps.match(/api\('\/api\/prepaid\/settings', /g) || []).length, 1, 'the settings are sent from one place: the Save button');
+  assert.ok(!html.includes('id="pm-status"') && /stShell\.toast/.test(ps), 'feedback is the page\u2019s toast, not a box inside the card');
   assert.match(read('public/js/prepaid-settings.js'), /Everyone who can see the dashboard[\s\S]*Only me, when signed in/, 'who can see the balance is a setting');
   const sc = read('private/js/showcase-layout.js'), so = read('private/js/showcase.js'), sd = read('private/js/showcase-data.js');
   assert.ok(sc.includes("type: 'prepaid-meter'") && so.includes("'prepaid-meter': [") && sd.includes('prepaidDemo'), 'in the showcase');
