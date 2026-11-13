@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43443624306.1",
-    "version": "1.2.9-dev+61c9b56",
-    "commit": "61c9b564f54d0432854385147d21ec9fc5060cc6",
-    "digest": "sha256:8f7f22f5c78730da8be9d0ffe9ba876b6d842a9733146c84b51924ade58006ff",
+    "buildId": "43443595838.1",
+    "version": "1.2.9-dev+ff183ae",
+    "commit": "ff183ae1d525cc8176e43d410a8552c4413c381a",
+    "digest": "sha256:a6796233784828d05a15b2d1c6dc7a3629e2e37a7fde8d10b4b5fbc80022bd14",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T14:32:37Z",
+    "builtAt": "2026-11-13T14:32:18Z",
     "kind": "release",
-    "notes": [
-      "Settings: Virtual Battery on its own page (#349)",
-      "LuxPower: inverter clock and clock skew (#348)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "43443595838.1",
+      "version": "1.2.9-dev+ff183ae",
+      "commit": "ff183ae1d525cc8176e43d410a8552c4413c381a",
+      "digest": "sha256:a6796233784828d05a15b2d1c6dc7a3629e2e37a7fde8d10b4b5fbc80022bd14",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T14:32:18Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "43443624306.1",
       "version": "1.2.9-dev+61c9b56",
@@ -361,18 +368,6 @@
       "kind": "release",
       "notes": [
         "Layout editor: the Dashboard style panel scrolls (#316)"
-      ]
-    },
-    {
-      "buildId": "42994477276.1",
-      "version": "1.2.4-dev+1eced94",
-      "commit": "1eced9421393a6fad3c18d240280a89aecf277c0",
-      "digest": "sha256:3f4bd2ed4448124e2d0d302a60d3840ad1ca2f42b10eb2417e2721f492921e43",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T09:21:43Z",
-      "kind": "release",
-      "notes": [
-        "Dashboard style: each dashboard can have its own background and blocks (#315)"
       ]
     }
   ]
