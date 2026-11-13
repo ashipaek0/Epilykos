@@ -243,6 +243,17 @@ async function stopSnapshotScheduler() {
   if (scheduler) await scheduler.stop();
   if (snapshotScheduler === scheduler) snapshotScheduler = null;
 }
+// Newest verified snapshot, and a fresh one on request (used by the off-box backup).
+function latestManagedSnapshot() { return getSnapshots().find(s => s.managed && s.format === 'gzip') || null; }
+async function snapshotNow() {
+  const release = await acquireLock('maintenance', { timeoutMs: MAINTENANCE_TIMEOUT_MS, allowPendingOsUpdate: true });
+  try {
+    flushMetrics();
+    const result = await snapshotFiles.createCompressedSnapshot(getDb(), SNAPSHOT_DIR, { leaseFds: release.leaseFd === undefined ? [] : [release.leaseFd] });
+    logger.info('Snapshot: created ' + result.name + ' for an off-box backup');
+    return { name: result.name, path: result.path, size: result.size, time: Date.now() };
+  } finally { release(); }
+}
 function snapshotStatus() { return snapshotScheduler?.status() || { phase: 'stopped', overdue: false, error: null }; }
 
 // ── Snapshot API ──────────────────────────────────────────────────
@@ -263,4 +274,4 @@ async function restoreFromSnapshot(snapshotName, options) {
   return restoreDatabase(match.path, options);
 }
 
-module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal, snapshotStatus };
+module.exports = { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal, snapshotStatus, latestManagedSnapshot, snapshotNow };

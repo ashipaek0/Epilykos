@@ -1508,6 +1508,21 @@ function restoreFailure(res, err) {
   return res.status(err.status || 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired || err.code === 'DB_RETIRED' ? err.message : 'Restore failed, original database restored.' });
 }
 
+// Off-box backup: an encrypted copy of the newest snapshot, sent to a folder (Google Drive and WebDAV later).
+const cloudBackup = require('./modules/cloudBackup').createCloudBackup({
+  getConfig, setConfig, dataDir: path.dirname(require('./modules/database').DB_PATH),
+  latestSnapshot: require('./modules/backup').latestManagedSnapshot,
+  snapshotNow: require('./modules/backup').snapshotNow,
+  emit: (type, fields) => require('./modules/notifications/events').emitEvent(type, fields),
+  restore: restoreDatabase,
+  readSpace: dir => require('./modules/storageStatus').readSpace(dir),
+  logger
+});
+app.use('/api/cloud-backup', isAuthenticated, require('./routes/cloudBackup')(cloudBackup, {
+  restoreOptions: req => ({ lifecycle: restoreLifecycle, ...restoreSessionOptions(req) }), restoreFailure
+}));
+cloudBackup.start();
+
 app.use('/api/restore-jobs', isAuthenticated, require('./routes/restoreUploads')(restoreUploads));
 app.use('/api/restore', isAuthenticated);
 app.post('/api/restore', upload.single('dbfile'), async (req, res) => {

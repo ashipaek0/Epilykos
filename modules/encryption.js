@@ -151,6 +151,7 @@ const SECRET_FIELDS = {
   notification_channels: ['bot_token', 'webhook_url', 'token', 'auth_header'],
   notification_devices: ['auth'],
   notification_vapid: ['privateKey'],
+  cloud_backup: ['passphrase'],     // Settings → Backup and restore → Off-box backup
 };
 
 function cloneDeep(v) {
