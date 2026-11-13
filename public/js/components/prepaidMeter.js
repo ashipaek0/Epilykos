@@ -4,7 +4,8 @@
  * buttons to add a recharge or correct the balance by hand, and the latest entries. It also draws the optional strip on the
  * Grid card. The figures come from modules/prepaidMeter.js through /api/prepaid (shared by every card on the page).
  *
- * The colour follows the level: green, amber from a warning level you set in Settings, red when the meter is out.
+ * The colour follows the level: green, and red from a warning level you set in Settings (and when the meter is out), as on the
+ * Grid card.
  * Every word is a setting with an English default, so none is tied to a language: the labels, the "days left" line (which
  * can hold {days}, {avg} and {date}), and the messages. The history shows symbols and numbers only: + for a recharge, = for
  * a correction.
@@ -156,15 +157,17 @@ export function updatePrepaidMeter(state) {
   return getPrepaid(state).then(data => { allCards().forEach(c => renderPrepaidCard(c, data)); document.querySelectorAll('.pm-strip').forEach(s => renderPrepaidStrip(s, data)); });
 }
 
-// ── The strip on the Grid card ───────────────────────────────────────────
+// ── The text on the Grid card ────────────────────────────────────────────
 
-/** The optional strip: the balance, the days left and a bar. `words` are the Grid card's own (templates, English by default). */
+/**
+ * The prepaid text at the top right of the Grid card: the units left, and under it the days left, as plain text with no bar.
+ * It is quiet while all is well and red from the warning level you set (and when the meter is out). `words` are the Grid
+ * card's own (templates, English by default).
+ */
 export function buildPrepaidStrip(words = {}) {
   const w = { left: word(words.left, '{balance} kWh left', 60), days: word(words.days, '≈ {days} days at {avg} kWh a day', 80), out: word(words.out, DEFAULT_WORDS.outText, 40) };
   const strip = el('div', 'pm-strip'); strip.hidden = true; strip.dataset.stripWords = JSON.stringify(w);
-  const row = el('div', 'pm-strip-row'); row.append(el('span', 'pm-strip-main'), el('span', 'pm-strip-sub'));
-  const bar = el('div', 'pm-strip-bar'); bar.appendChild(el('i'));
-  strip.append(row, bar);
+  strip.append(el('div', 'pm-strip-main'), el('div', 'pm-strip-sub'));
   return strip;
 }
 
@@ -176,5 +179,4 @@ export function renderPrepaidStrip(strip, data) {
   const dec = decimalsFor(data.balance, {});
   strip.querySelector('.pm-strip-main').textContent = data.level === 'out' ? w.out : fillWords(w.left, { balance: fmt(data.balance, dec) });
   strip.querySelector('.pm-strip-sub').textContent = data.level === 'out' ? '' : daysLine(data, w.days).replace(/\s*·.*$/, '');
-  strip.querySelector('.pm-strip-bar i').style.width = ((data.fill || 0) * 100).toFixed(1) + '%';
 }
