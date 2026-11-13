@@ -27,7 +27,7 @@ export const SHOWCASE_BLOCKS = [
   { type: 'system-hero', config: { title: 'System', extras: [{ metric: 'panels_producing' }], states: [
     { metric: 'solar', when: 'above', limit: 100, headline: 'All {a} panels producing', pill: 'Sun is powering the home', color: '#16a34a' },
     { metric: '', headline: 'Waiting for the sun', pill: 'Running on the battery', color: '#38bdf8' }] } },
-  { type: 'speedometer', config: { title: 'Live output', metric: 'solar', max: 6400, maxMetric: 'system_size', peakMetric: 'solar_peak_today', nearText: 'Near today\u2019s peak', caption: '{pct}% of system size' } },
+  { type: 'speedometer', config: { title: 'Live output', metric: 'solar', max: 6400, maxMetric: 'system_size', peakMetric: 'solar_peak_today', statuses: [{ rule: 'near-peak', limit: 85, text: 'Near today\u2019s peak' }, { rule: 'always', text: 'Producing' }], caption: '{pct}% of system size' } },
   { type: 'flow-rows', config: { title: 'Where it\u2019s going', rows: [
     { label: 'Battery', metric: 'battery_power', sign: 'positive' }, { label: 'Home', metric: 'consumption' }, { label: 'Grid', metric: 'grid_export' }] } },
   { type: 'meter-card', config: { label: 'Made today', metric: 'daily_solar', maxMetric: 'forecast_solar_today', notes: ['~{max} expected today'] } },

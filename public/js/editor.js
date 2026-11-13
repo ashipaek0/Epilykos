@@ -528,6 +528,9 @@ var HERO_STATE_SPEC = { list: 'hs', max: 8, blank: { metric: '', when: 'on', lim
   { k: 'when', type: 'select', options: [['on', 'When it says on, or is above 0'], ['above', 'When above the limit'], ['below', 'When below the limit']] },
   { k: 'limit', type: 'number', ph: 'Limit' }, { k: 'headline', type: 'text', ph: 'Headline', maxlength: 80 }, { k: 'pill', type: 'text', ph: 'Pill text', maxlength: 40 },
   { k: 'color', type: 'text', ph: 'Pill colour #rrggbb (optional)', maxlength: 7 }] };
+var SPEED_STATUS_SPEC = { list: 'ss', max: 4, blank: { rule: 'near-peak', limit: 85, text: '', color: '' }, fields: [
+  { k: 'rule', type: 'select', options: [['near-peak', 'Near today\u2019s peak (from this % of the peak)'], ['above', 'At or above this % of the highest'], ['below', 'Below this % of the highest'], ['always', 'Always (the fallback)']] },
+  { k: 'limit', type: 'number', ph: '%' }, { k: 'text', type: 'text', ph: 'Words', maxlength: 60 }, { k: 'color', type: 'text', ph: 'Colour #rrggbb (optional)', maxlength: 7 }] };
 var FLOWROW_SPEC = { list: 'fr', max: 8, blank: { label: '', metric: '', unit: '', color: '', sign: 'any', max: '' }, fields: [
   { k: 'label', type: 'text', ph: 'Label (e.g. Home)', maxlength: 40 }, { k: 'metric', type: 'metric' },
   { k: 'sign', type: 'select', options: [['any', 'Count both directions'], ['positive', 'Count only positive values'], ['negative', 'Count only negative values']] },
@@ -555,6 +558,7 @@ function buildSystemHeroForm(block) {
   html += '<fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
   html += textSetting('modal-sh-title', 'Title', cfg.title, 'Empty for no title', 40);
   html += textSetting('modal-sh-image', 'Picture (web address, or a path starting with /)', cfg.image, 'https://... or /uploads/house.png');
+  html += '<label data-ui="field">Layout <select id="modal-sh-layout" data-ui="input"><option value="stacked"' + (cfg.layout === 'side' ? '' : ' selected') + '>Picture under the words</option><option value="side"' + (cfg.layout === 'side' ? ' selected' : '') + '>Picture beside the words</option></select></label>';
   html += '</fieldset>';
   return html + buildExtrasSection(cfg);
 }
@@ -570,11 +574,11 @@ function buildSpeedometerForm(block) {
     numberSetting('modal-sp-max', 'Highest', cfg.max == null ? 5000 : cfg.max).replace('data-ui="field"', 'data-ui="label"') + '</div>';
   html += '<div data-ui="row"><span data-ui="row-label">Highest from a metric (optional)</span><div data-ui="grow">' + metricSelect(cfg.maxMetric || '', 'modal-sp-maxmetric') + '</div></div>';
   html += '<p data-ui="help">A metric for the highest value, such as the system size, replaces the number while it has a reading.</p></fieldset>';
-  html += '<fieldset data-ui="section"><legend data-ui="legend">Near the peak</legend>';
+  var statuses = Array.isArray(cfg.statuses) && cfg.statuses.length ? cfg.statuses : (cfg.nearText ? [{ rule: 'near-peak', limit: cfg.nearPct == null ? 85 : cfg.nearPct, text: cfg.nearText, color: '' }] : []);
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Status (plain text at the top right)</legend>';
   html += '<div data-ui="row"><span data-ui="row-label">Today&rsquo;s peak (a metric)</span><div data-ui="grow">' + metricSelect(cfg.peakMetric || '', 'modal-sp-peakmetric') + '</div></div>';
-  html += numberSetting('modal-sp-nearpct', 'Show the tag from this share of the peak (%)', cfg.nearPct == null ? 85 : cfg.nearPct);
-  html += textSetting('modal-sp-neartext', 'Tag text (empty for no tag)', cfg.nearText, 'e.g. Near today’s peak', 40);
-  html += '<p data-ui="help">For the peak use a metric that holds today&rsquo;s highest value, such as a &ldquo;Highest today&rdquo; combined metric.</p></fieldset>';
+  html += buildRowList(SPEED_STATUS_SPEC, statuses);
+  html += '<p data-ui="help">The first row whose rule is true is shown, so it can say &ldquo;Near today&rsquo;s peak&rdquo; at that moment and something else the rest of the day. Put an &ldquo;Always&rdquo; row last as the fallback. The words can hold {value}, {max}, {peak}, {pct} and {a}, {b}, {c}. For the peak use a metric that holds today&rsquo;s highest value, such as a &ldquo;Highest today&rdquo; combined metric.</p></fieldset>';
   html += '<fieldset data-ui="section"><legend data-ui="legend">Look and words</legend>';
   html += textSetting('modal-sp-title', 'Title', cfg.title, 'Empty for no title', 60);
   html += textSetting('modal-sp-color', 'Dial colour (#rrggbb, empty for solar)', cfg.color, '', 7);
@@ -2712,6 +2716,7 @@ function readSettingsForm(block) {
       if (shImg && !/^(https?:)?\/\//i.test(shImg) && (shImg.charAt(0) !== '/' || shImg.charAt(1) === '/')) return 'The picture must be a web address (https://...) or a path starting with /.';
       if (shImg) config.image = shImg; else delete config.image;
       readText(config, 'title', 'modal-sh-title');
+      if (document.getElementById('modal-sh-layout')?.value === 'side') config.layout = 'side'; else delete config.layout;
       readExtras(config);
       break;
     }
@@ -2720,9 +2725,18 @@ function readSettingsForm(block) {
       config.metric = spMetric;
       block.metrics = [{ metric: spMetric }];
       readText(config, 'unit', 'modal-sp-unit'); readText(config, 'title', 'modal-sp-title'); readText(config, 'color', 'modal-sp-color');
-      readText(config, 'ofText', 'modal-sp-of'); readText(config, 'caption', 'modal-sp-caption'); readText(config, 'nearText', 'modal-sp-neartext');
-      readNumber(config, 'decimals', 'modal-sp-decimals'); readNumber(config, 'min', 'modal-sp-min'); readNumber(config, 'max', 'modal-sp-max'); readNumber(config, 'nearPct', 'modal-sp-nearpct');
+      readText(config, 'ofText', 'modal-sp-of'); readText(config, 'caption', 'modal-sp-caption');
+      readNumber(config, 'decimals', 'modal-sp-decimals'); readNumber(config, 'min', 'modal-sp-min'); readNumber(config, 'max', 'modal-sp-max');
       readText(config, 'maxMetric', 'modal-sp-maxmetric'); readText(config, 'peakMetric', 'modal-sp-peakmetric');
+      var spStatuses = [];
+      document.querySelectorAll('#ss-rows .rl-row').forEach(function(row) {
+        var o = {};
+        row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+        var slim = parseFloat(o.limit);
+        if ((o.text || '').trim()) spStatuses.push({ rule: o.rule || 'near-peak', limit: isNaN(slim) ? 85 : slim, text: (o.text || '').trim(), color: (o.color || '').trim() });
+      });
+      if (spStatuses.length) config.statuses = spStatuses.slice(0, 4); else delete config.statuses;
+      delete config.nearText; delete config.nearPct;   // folded into the statuses
       readExtras(config);
       break;
     }
@@ -4449,6 +4463,9 @@ function wireSettingsForm(body, block) {
       renderRowList(body, EXTRA_SPEC);
       break;
     case 'speedometer':
+      renderRowList(body, SPEED_STATUS_SPEC);
+      renderRowList(body, EXTRA_SPEC);
+      break;
     case 'meter-card':
       renderRowList(body, EXTRA_SPEC);
       break;
