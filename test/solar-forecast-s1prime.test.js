@@ -124,9 +124,14 @@ check('pick: all-absent->nulls', () => {
 // ---- (D/E/F/G) getSolarForecast with stubbed fetch + https ----
 // Local date: forecast days follow the process time zone (modules/localTime).
 const todayStr = require('../modules/localTime').localDateString();
+// Periods are placed relative to now, so the first one is always the one in progress (the code puts the current period first
+// for the weather): fixed clock times such as T10:00 made these tests fail for the rest of the day once that hour had passed.
+const pad2 = (n) => String(n).padStart(2, '0');
+const localIsoAt = (ms) => { const d = new Date(ms); return `${require('../modules/localTime').localDateString(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
+const END1 = localIsoAt(Date.now() + 60 * 1000), END2 = localIsoAt(Date.now() + 120 * 1000);
 const solcastPeriods = [
-  { period_end: `${todayStr}T10:00:00`, pv_estimate: null, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
-  { period_end: `${todayStr}T11:00:00`, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20, custom_future: 'fwd' }
+  { period_end: END1, pv_estimate: null, air_temp: 28.5, relative_humidity: 61, cloud_opacity: 10 },
+  { period_end: END2, pv_estimate: 2.5, air_temp: 29, relative_humidity: 60, cloud_opacity: 20, custom_future: 'fwd' }
 ];
 let fetchCalls = 0;
 global.fetch = async () => {
