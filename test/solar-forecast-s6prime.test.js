@@ -114,7 +114,7 @@ let lastFetchHeaders = {};
 global.fetch = async (url, opts) => {
   lastFetchHeaders = (opts && opts.headers) || {};
   fetchCalls++;
-  lastFetchUrl = String(url);
+  if (!/radiation_and_weather/.test(String(url))) lastFetchUrl = String(url);   // the forecast request; the weather one follows it
   return { ok: true, json: async () => ({ forecasts: upstreamPeriods }) };
 };
 
