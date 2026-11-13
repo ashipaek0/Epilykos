@@ -4,7 +4,8 @@
  * buttons to add a recharge or correct the balance by hand, and the latest entries. It also draws the optional strip on the
  * Grid card. The figures come from modules/prepaidMeter.js through /api/prepaid (shared by every card on the page).
  *
- * The colour follows the level: green, amber from a warning level you set in Settings, red when the meter is out.
+ * The colour follows the level: green, and red from a warning level you set in Settings (and when the meter is out), as on the
+ * Grid card.
  * Every word is a setting with an English default, so none is tied to a language: the labels, the "days left" line (which
  * can hold {days}, {avg} and {date}), and the messages. The history shows symbols and numbers only: + for a recharge, = for
  * a correction.

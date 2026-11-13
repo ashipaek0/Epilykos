@@ -1159,8 +1159,7 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 /* A big balance, a segmented bar against the last recharge, the days left, facts, the latest entries and the buttons. Sized from
    the card (a size container); the colour follows the level (green, amber at a warning level, red when out). */
 .prepaid-card { --pm-c: var(--battery, #22c55e); display: flex !important; flex-direction: column; gap: 0.6em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; overflow: hidden; }
-.prepaid-card[data-level="low"] { --pm-c: var(--solar, #f59e0b); }
-.prepaid-card[data-level="out"] { --pm-c: #ef4444; }
+.prepaid-card[data-level="low"], .prepaid-card[data-level="out"] { --pm-c: #ef4444; }   /* red from the warning level, as on the Grid card */
 .prepaid-card[data-level="unknown"] { --pm-c: var(--text-secondary); }
 .pm-title { flex: 0 0 auto; font-size: calc(clamp(0.65rem, min(5cqh, 3cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
 .pm-msg { color: var(--text-secondary); font-size: calc(clamp(0.75rem, 3.2cqw, 1rem) * var(--card-font-scale, 1)); }

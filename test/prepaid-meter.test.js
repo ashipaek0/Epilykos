@@ -177,6 +177,7 @@ const load = f => import(pathToFileURL(path.join(REPO, 'public/js/components', f
   const stripCss = read('public/cards.css');
   assert.match(stripCss, /\.pm-strip \{ margin-left: auto; text-align: right;/); assert.match(stripCss, /\.pm-strip\[data-level="low"\] :is\(\.pm-strip-main, \.pm-strip-sub\), \.pm-strip\[data-level="out"\] :is\(\.pm-strip-main, \.pm-strip-sub\) \{ color: #ef4444; \}/, 'red at the low level and when out');
   assert.ok(!/\.pm-strip \{[^}]*(background|border-radius)/.test(stripCss), 'no box around it');
+  assert.match(stripCss, /\.prepaid-card\[data-level="low"\], \.prepaid-card\[data-level="out"\] \{ --pm-c: #ef4444; \}/, 'the Prepaid meter card is red from the warning level too');
   assert.match(read('public/js/cards-update.js'), /prepaid-meter'\) \|\| document\.querySelector\('\.pm-strip'\)\) updatePrepaidMeter\(state\)/, 'refreshed only where a card or a strip is');
   assert.match(read('public/js/editor-catalog.js'), /'prepaid-meter':\s+\{ group: 'values', name: 'Prepaid meter'/);
   const ed = read('public/js/editor.js');
