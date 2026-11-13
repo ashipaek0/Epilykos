@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43396751253.1",
-    "version": "1.2.7-dev+832882e",
-    "commit": "832882e2fff3b4b9e40932bb97b55afc9adf9a11",
-    "digest": "sha256:3ab945c536539b76759f894dc7feeb881be04cf3d2bd0afbd453eb23a7f3c7be",
+    "buildId": "43410936250.1",
+    "version": "1.2.7-dev+e234fba",
+    "commit": "e234fbad27d4cb102aeef51d7664e87d3d9d46fd",
+    "digest": "sha256:7cf044b0a7970ea5be04dba595db911e78312deac9a76d5c17e18c271138a504",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T08:53:33Z",
+    "builtAt": "2026-11-13T10:41:06Z",
     "kind": "release",
     "notes": [
-      "Speedometer, Flow rows and System hero: follow the sample picture (#341)"
+      "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)"
     ]
   },
   "history": [
+    {
+      "buildId": "43410936250.1",
+      "version": "1.2.7-dev+e234fba",
+      "commit": "e234fbad27d4cb102aeef51d7664e87d3d9d46fd",
+      "digest": "sha256:7cf044b0a7970ea5be04dba595db911e78312deac9a76d5c17e18c271138a504",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T10:41:06Z",
+      "kind": "release",
+      "notes": [
+        "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)"
+      ]
+    },
     {
       "buildId": "43396751253.1",
       "version": "1.2.7-dev+832882e",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)"
-      ]
-    },
-    {
-      "buildId": "42792735963.1",
-      "version": "1.2.3-dev+8de634c",
-      "commit": "8de634c5e2dfb8a1d5a3f7a86c18eecbc4a87da1",
-      "digest": "sha256:0e58e445bf06d5c99a7cc83c8360605632cb826adb7b19e102a3806f2148b321",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-10T09:41:13Z",
-      "kind": "release",
-      "notes": [
-        "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
       ]
     }
   ]
