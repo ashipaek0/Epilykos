@@ -14,6 +14,7 @@ const NUMERIC = {
   solar_azimuth: { min: -360, max: 360 },
   solar_capacity_kwp: { min: 0, max: 100000 },
   solar_loss_factor: { min: 0, max: 1 },
+  solcast_daily_limit: { min: 1, max: 100000 },
   savings_rate: { min: 0, max: 1000000 },
   energy_sell_price: { min: 0, max: 1000000 },
   battery_wear_cost: { min: 0, max: 1000000 },
