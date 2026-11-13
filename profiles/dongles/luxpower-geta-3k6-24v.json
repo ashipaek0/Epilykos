@@ -724,6 +724,30 @@
       "label": "RTC Minute/Second"
     },
     {
+      "name": "inverter_time",
+      "register": "0x000C",
+      "register_type": "holding",
+      "count": 3,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "",
+      "decode": "lux_rtc_time",
+      "key_suffix": "#time",
+      "label": "Inverter Time"
+    },
+    {
+      "name": "inverter_clock_skew",
+      "register": "0x000C",
+      "register_type": "holding",
+      "count": 3,
+      "type": "uint16",
+      "scale": 1,
+      "unit": "s",
+      "decode": "lux_rtc_skew",
+      "key_suffix": "#skew",
+      "label": "Inverter Clock Skew (ahead of the server)"
+    },
+    {
       "name": "com_address",
       "register": "0x000F",
       "register_type": "holding",
