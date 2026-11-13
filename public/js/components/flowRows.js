@@ -1,7 +1,7 @@
 /**
  * Flow rows card (type key `flow-rows`): a row per destination (or source) of energy, each with its label, a bar and its
- * value, for "where it's going": the battery, the home, the grid. A row whose power is below a small limit shows a word
- * such as "Idle" instead of a value, and its bar stays empty.
+ * value, on one line (label, bar, value), for "where it's going": the battery, the home, the grid. A row whose power is
+ * below a small limit shows a word such as "Idle" instead of a value, and its bar shrinks to a short grey stub.
  *
  * A bar fills against the row's own highest value, or, when that is empty, against the largest row, so the rows compare
  * with each other. A row can count only one direction of a signed reading (`sign`): a battery power that is positive
@@ -18,7 +18,9 @@ import { decimalOpts, decimalsOption, hexColor, num, word } from './cardText.js'
 
 export const MAX_ROWS = 8;
 export const SIGNS = ['any', 'positive', 'negative'];
-const PALETTE = ['var(--battery, #22c55e)', 'var(--home, #38bdf8)', 'var(--grid, #a78bfa)', 'var(--solar, #f59e0b)'];
+export const IDLE_STUB = 6;   // an idle row keeps a short grey stub of its bar, as in the picture this card follows
+// As in the picture this card follows: the first bar in the accent colour, the second in the text colour, the third grey.
+const PALETTE = ['var(--solar, #f59e0b)', 'var(--text)', 'var(--text-secondary)', 'var(--home, #38bdf8)'];
 
 /** The valid options of a card's config. */
 export function flowRowsOptions(config = {}) {
@@ -70,9 +72,8 @@ export function buildFlowRows(block = {}) {
   const list = el('div', 'fr-rows');
   o.rows.forEach((r, i) => {
     const row = el('div', 'fr-row'); row.dataset.row = String(i);
-    const top = el('div', 'fr-top'); top.append(el('span', 'fr-label', r.label || r.metric), el('span', 'fr-value', '—'));
     const bar = el('div', 'fr-bar'); const fill = el('i', 'fr-fill'); fill.style.background = r.color; bar.appendChild(fill);
-    row.append(top, bar);
+    row.append(el('span', 'fr-label', r.label || r.metric), bar, el('span', 'fr-value', '—'));
     list.appendChild(row);
   });
   if (!o.rows.length) list.appendChild(el('div', 'fr-empty'));
@@ -94,7 +95,7 @@ export function updateFlowRows(state) {
       const idle = isIdle(amounts[i], units[i], o.idleBelow);
       row.dataset.state = amounts[i] === null ? 'unknown' : idle ? 'idle' : 'active';
       row.querySelector('.fr-value').textContent = amounts[i] === null ? '—' : idle ? o.idleText : formatMetric(amounts[i], units[i], decimalOpts(o.decimals)).text;
-      row.querySelector('.fr-fill').style.width = (idle ? 0 : fracs[i] * 100).toFixed(1) + '%';
+      row.querySelector('.fr-fill').style.width = (idle ? IDLE_STUB : fracs[i] * 100).toFixed(1) + '%';
     });
   });
 }

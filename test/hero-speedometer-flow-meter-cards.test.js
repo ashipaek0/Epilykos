@@ -33,6 +33,7 @@ const load = f => import(pathToFileURL(path.join(__dirname, '..', 'public/js/com
   assert.strictEqual(h.title, 'System'); assert.strictEqual(h.image, '', 'only a web address or a path is a picture');
   assert.strictEqual(h.states.length, 2, 'a state needs a headline or a pill'); assert.deepStrictEqual([h.states[0].metric, h.states[0].limit], ['solar', 100]); assert.strictEqual(h.states[1].color, '', 'a colour that is not #rrggbb is dropped');
   const day = { solar: { value: 2400 } }, night = { solar: { value: 0 } };
+  assert.strictEqual(h.layout, 'stacked', 'the picture goes under the words unless told otherwise'); assert.strictEqual(H.heroOptions({ layout: 'side' }).layout, 'side'); assert.strictEqual(H.heroOptions({ layout: 'x' }).layout, 'stacked');
   assert.strictEqual(H.activeState(h, day).pill, 'Sun'); assert.strictEqual(H.activeState(h, night).headline, 'Fallback', 'the state with no metric is the fallback');
   assert.strictEqual(H.activeState(h, {}).headline, 'Fallback', 'no reading: the fallback'); assert.strictEqual(H.activeState(H.heroOptions({ states: [{ metric: 'solar', headline: 'x' }] }), {}), null, 'no fallback, no match: nothing');
   assert.strictEqual(H.heroOptions({ states: Array.from({ length: 20 }, () => ({ headline: 'x' })) }).states.length, 8, 'at most eight states');
@@ -40,9 +41,18 @@ const load = f => import(pathToFileURL(path.join(__dirname, '..', 'public/js/com
   // ── Speedometer ──
   const S = await load('speedometer.js');
   let s = S.speedometerOptions({});
-  assert.deepStrictEqual([s.metric, s.min, s.max, s.nearPct, s.ofText, s.nearText, s.caption], ['solar', 0, 5000, 85, 'of', '', ''], 'no tag and no caption until you write them');
-  s = S.speedometerOptions({ metric: 'pv', min: 0, max: -5, nearPct: 500, ofText: 'de', nearText: ' Near ', color: 'blue', caption: '{pct}%' });
-  assert.ok(s.max > s.min, 'a range that runs backwards is made valid'); assert.strictEqual(s.nearPct, 100); assert.strictEqual(s.ofText, 'de'); assert.strictEqual(s.color, '');
+  assert.deepStrictEqual([s.metric, s.min, s.max, s.statuses.length, s.ofText, s.caption], ['solar', 0, 5000, 0, 'of', ''], 'no status and no caption until you write them');
+  s = S.speedometerOptions({ metric: 'pv', min: 0, max: -5, ofText: 'de', color: 'blue', caption: '{pct}%' });
+  assert.ok(s.max > s.min, 'a range that runs backwards is made valid'); assert.strictEqual(s.ofText, 'de'); assert.strictEqual(s.color, '');
+  // The status: plain text that follows the first rule that is true, so it says something else when not near the peak
+  s = S.speedometerOptions({ statuses: [{ rule: 'near-peak', limit: 85, text: ' Near today ' }, { rule: 'above', limit: 50, text: 'Strong' }, { rule: 'below', limit: 10, text: 'Weak {pct}%' }, { rule: 'sideways', text: 'x' }, { rule: 'always', text: 'Producing', color: '#abc' }, { rule: 'always', text: 'fifth' }, { rule: 'always', text: '' }] });
+  assert.deepStrictEqual(s.statuses.map(x => x.rule), ['near-peak', 'above', 'below', 'near-peak'], 'four at most; an unknown rule is near-peak; none without words'); assert.strictEqual(s.statuses[0].text, 'Near today');
+  const st = S.speedometerOptions({ statuses: [{ rule: 'near-peak', limit: 85, text: 'Near' }, { rule: 'above', limit: 50, text: 'Strong' }, { rule: 'below', limit: 10, text: 'Weak' }, { rule: 'always', text: 'Producing' }] }).statuses;
+  assert.strictEqual(S.activeStatus(st, { value: 4200, peak: 4800, frac: 0.66 }).text, 'Near'); assert.strictEqual(S.activeStatus(st, { value: 3500, peak: 6000, frac: 0.55 }).text, 'Strong', 'not near the peak: the next rule');
+  assert.strictEqual(S.activeStatus(st, { value: 100, peak: 6000, frac: 0.02 }).text, 'Weak'); assert.strictEqual(S.activeStatus(st, { value: 2000, peak: undefined, frac: 0.3 }).text, 'Producing', 'no peak: the fallback');
+  assert.strictEqual(S.activeStatus(st.slice(0, 3), { value: 2000, peak: 6000, frac: 0.3 }), null, 'no rule true, no fallback: nothing'); assert.strictEqual(S.activeStatus(st.slice(1, 3), { value: 1, peak: 1, frac: null }), null, 'no reading: only a fallback applies');
+  const old = S.speedometerOptions({ nearText: ' Near today\u2019s peak ', nearPct: 90 }).statuses;
+  assert.deepStrictEqual(old.map(x => [x.rule, x.limit, x.text]), [['near-peak', 90, 'Near today\u2019s peak']], 'a card from before statuses keeps its near-peak text');
   assert.strictEqual(S.dialFraction(3200, 0, 6400), 0.5); assert.strictEqual(S.dialFraction(-1, 0, 6400), 0); assert.strictEqual(S.dialFraction(9999, 0, 6400), 1); assert.strictEqual(S.dialFraction('x', 0, 6400), null);
   assert.strictEqual(S.nearPeak(4200, 4800, 85), true); assert.strictEqual(S.nearPeak(4000, 4800, 85), false); assert.strictEqual(S.nearPeak(100, 0, 85), false, 'no peak, no tag'); assert.strictEqual(S.nearPeak(100, undefined, 85), false);
   const p0 = S.dialPoint(S.START, 36), p1 = S.dialPoint(S.START + S.SWEEP, 36);
@@ -100,7 +110,7 @@ const load = f => import(pathToFileURL(path.join(__dirname, '..', 'public/js/com
     assert.ok(new RegExp(`case '${type}': \\{`).test(ed) && new RegExp(`case '${type}':\\n\\s+html \\+= build`).test(ed), type + ' has a form and a save case');
   }
   for (const fn of ['buildSystemHeroForm', 'buildSpeedometerForm', 'buildFlowRowsForm', 'buildMeterCardForm', 'buildExtrasSection']) assert.ok(ed.includes('function ' + fn), fn);
-  for (const id of ['modal-sh-title', 'modal-sh-image', 'modal-sp-metric', 'modal-sp-maxmetric', 'modal-sp-peakmetric', 'modal-sp-nearpct', 'modal-sp-neartext', 'modal-sp-of', 'modal-sp-caption', 'modal-sp-decimals', 'modal-mt-decimals', 'modal-fr-decimals', 'modal-fr-title', 'modal-fr-bars', 'modal-fr-idle', 'modal-fr-idletext',
+  for (const id of ['modal-sh-title', 'modal-sh-image', 'modal-sp-metric', 'modal-sp-maxmetric', 'modal-sp-peakmetric', 'modal-sh-layout', 'modal-sp-of', 'modal-sp-caption', 'modal-sp-decimals', 'modal-mt-decimals', 'modal-fr-decimals', 'modal-fr-title', 'modal-fr-bars', 'modal-fr-idle', 'modal-fr-idletext',
     'modal-mt-metric', 'modal-mt-barmetric', 'modal-mt-maxmetric', 'modal-mt-segments', 'modal-mt-low', 'modal-mt-warn', 'modal-mt-note0', 'modal-mt-note1', 'modal-mt-prefix']) assert.ok(ed.includes(id), id);
   const fnStart = ed.indexOf('function readSettingsForm('), save = ed.slice(ed.indexOf("case 'system-hero': {", fnStart), ed.indexOf("case 'power-flow': {", fnStart));
   assert.ok(!/\brenderRowList\b|\breadRowList\b|\bescHtml\b|\bmetricSelect\b|\btextSetting\b|\bnumberSetting\b/.test(save), 'the save cases use only the document, as the editor tests that extract readSettingsForm need');
@@ -114,6 +124,9 @@ const load = f => import(pathToFileURL(path.join(__dirname, '..', 'public/js/com
     assert.ok(new RegExp(`\\.${cls}\\s*\\{[^}]*container-type:\\s*size`).test(css), cls + ' is a size container');
     assert.ok(new RegExp(`@media \\(max-width: 768px\\)[^}]*\\.${cls} \\{ min-height`).test(css), cls + ' keeps a height where phones stack the blocks');
   }
+  assert.ok(/\.sp-status\s*\{[^}]*margin-left:\s*auto/.test(css) && /\.sp-head\s*\{[^}]*justify-content:\s*space-between/.test(css) && !/\.sp-tag/.test(css), 'the status is plain text at the right of the title row, not a pill');
+  assert.ok(/\.fr-row\s*\{\s*display:\s*contents/.test(css) && /grid-template-columns:\s*max-content minmax\(0, 1fr\) max-content/.test(css), 'a flow row is its label, bar and value on one line, in shared columns');
+  assert.ok(/\.sh-pill::before/.test(css) && /\.sh-pill\s*\{[^}]*background:\s*var\(--text\)/.test(css), 'the hero pill is dark with a dot');
   assert.ok(/\.sp-face\s*\{[^}]*aspect-ratio:\s*100 \/ 86/.test(css) && /\.sp-value\s*\{[^}]*cqw/.test(css), 'the speedometer reading is sized from its face');
   assert.ok(/--fr-font:[^;]*cqh[^;]*cqw/.test(css), 'the flow rows text follows the row height and the width');
   assert.ok(/\.mt-bar\.mt-segmented\s*\{[^}]*repeat\(var\(--mt-n/.test(css), 'the meter card segments follow the setting');
