@@ -37,6 +37,9 @@ import { updateRotaryCardsFromState } from './components/rotaryCard.js';
 import { updateStateSelectBlockFromState } from './components/stateSelectBlock.js';
 import { updateTextMetricCard } from './components/textMetricCard.js';
 import { updatePowerFlow } from './components/powerFlow.js';
+import { updateRingGauge } from './components/ringGauge.js';
+import { updateBatteryCard } from './components/batteryCard.js';
+import { updateStatusList } from './components/statusList.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
 const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
@@ -49,6 +52,9 @@ export function updateCards(state, blockTypes) {
   if (!state) return;
   if (blockTypes.has('flow-card')) updateFlowCard(state);
   if (blockTypes.has('power-flow')) updatePowerFlow(state);
+  if (blockTypes.has('ring-gauge')) updateRingGauge(state);
+  if (blockTypes.has('battery-card')) updateBatteryCard(state);
+  if (blockTypes.has('status-list')) updateStatusList(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('system-overview')) updateSystemOverview(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);

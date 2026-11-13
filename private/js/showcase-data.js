@@ -161,6 +161,8 @@ function metricsFor(s, now, today) {
     daily_battery_charge: m(today.battery_charge_kwh, 'kWh'), daily_battery_discharge: m(today.battery_discharge_kwh, 'kWh'),
     daily_grid_import: m(today.grid_import_kwh, 'kWh'), daily_grid_export: m(today.grid_export_kwh, 'kWh'),
     grid_status: m(s.grid ? 1 : 0, null),
+    battery_current: m(Math.round((s.bc - s.bd) / Math.max(40, ex.battery_voltage) * 10) / 10, 'A'), ambient_temperature: m(Math.round((26 + s.solar / 700) * 10) / 10, '°C'),
+    device_boiler: m(s.load > 1400 ? 1800 : 3, 'W'), device_washer: m(s.load > 900 ? 600 : 0, 'W'), device_pump: m(s.solar > 1500 ? 750 : 0, 'W'), device_ac: m(s.load > 1100 ? 1200 : 0, 'W'),
     inverter_temperature: m(ex.inverter_temperature, '°C'), grid_voltage: m(ex.grid_voltage, 'V'),
     battery_voltage: m(ex.battery_voltage, 'V'), pv_voltage: m(ex.pv_voltage, 'V'), load_percent: m(ex.load_percent, '%'),
     inverter_mode: m(s.grid ? (s.solar > s.load ? 'Solar + battery' : 'Grid + battery') : 'Off grid, battery', null, 'text'),

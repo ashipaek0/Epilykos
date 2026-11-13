@@ -15,6 +15,15 @@ export const SHOWCASE_BLOCKS = [
   { type: 'flow-card-2', config: { metrics: FLOW } },
   { type: 'system-overview', config: { title: 'System overview' } },
   { type: 'power-flow', config: { metrics: { ...FLOW, generator: 'generator_power' } } },
+  { type: 'ring-gauge', config: { icon: 'mdi:solar-power', rings: [
+    { label: 'Production', metric: 'solar', unit: '', min: 0, max: 5000, color: '#f59e0b' }, { label: 'Consumption', metric: 'consumption', unit: '', min: 0, max: 5000, color: '#38bdf8' },
+    { label: 'Battery', metric: 'battery_soc', unit: '%', min: 0, max: 100, color: '#22c55e' }] } },
+  { type: 'battery-card', config: { metrics: { soc: 'battery_soc', current: 'battery_current' }, chips: [
+    { label: 'Inverter', metric: 'inverter_temperature', unit: '°C', color: '#f59e0b' }, { label: 'Outside', metric: 'ambient_temperature', unit: '°C', color: '#2dd4bf' }] } },
+  { type: 'status-list', config: { title: 'Consumers', showCount: true, showValue: true, rows: [
+    { label: 'Boiler', metric: 'device_boiler', unit: 'W', when: 'above', limit: 50 }, { label: 'Washing machine', metric: 'device_washer', unit: 'W', when: 'above', limit: 20 },
+    { label: 'Water pump', metric: 'device_pump', unit: 'W', when: 'above', limit: 20 }, { label: 'Air conditioner', metric: 'device_ac', unit: 'W', when: 'above', limit: 50 },
+    { label: 'Generator', metric: 'switch.generator', when: 'on' }, { label: 'Grid', metric: 'grid_status', when: 'on' }] } },
   { type: 'flow-card', config: { metrics: FLOW } },
   { type: 'flow-card-square', config: { metrics: FLOW } },
   { type: 'flow-card-square-2', config: { metrics: FLOW } },

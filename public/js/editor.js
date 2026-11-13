@@ -384,6 +384,142 @@ function readBreakdownFields(config) {
   if (d && d.value === 'all') config.breakdown_depth = 'all'; else delete config.breakdown_depth;
 }
 
+/** One line of an on/off switch in a card form. */
+function formToggle(id, label, checked) {
+  return '<span class="toggle-wrap" data-ui="span"><label class="toggle-switch"><input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + '><span class="slider"></span></label><label for="' + id + '">' + label + '</label></span>';
+}
+
+/**
+ * A list of rows for Ring gauge rings, Battery readings and Status list rows. Each field is an input with data-k (its key),
+ * so saving only has to read the rows' inputs. `spec`: { list, fields: [{ k, type, ph, options }], blank, max }.
+ */
+function buildRowList(spec, rows) {
+  return '<div id="' + spec.list + '-rows" class="rl-rows" data-max="' + spec.max + '"></div>' +
+    '<button type="button" id="' + spec.list + '-add" data-ui="add">+ Add row</button>' +
+    '<script id="' + spec.list + '-data" type="application/json">' + JSON.stringify(rows || []).replace(/</g, '\\u003c') + '</script>';
+}
+function readRowList(listEl) {
+  var out = [];
+  listEl.querySelectorAll('.rl-row').forEach(function(row) {
+    var o = {};
+    row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+    out.push(o);
+  });
+  return out;
+}
+function renderRowList(container, spec) {
+  var dataEl = container.querySelector('#' + spec.list + '-data');
+  var rowsEl = container.querySelector('#' + spec.list + '-rows');
+  if (!dataEl || !rowsEl) return;
+  var rows = [];
+  try { rows = JSON.parse(dataEl.textContent) || []; } catch(e) {}
+  var html = '';
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i] || {};
+    html += '<div class="rl-row" data-ui="card grid2">';
+    for (var f = 0; f < spec.fields.length; f++) {
+      var fd = spec.fields[f], v = r[fd.k] == null ? '' : r[fd.k];
+      if (fd.type === 'metric') {
+        html += '<div data-ui="span">' + metricSelect(v, spec.list + '-metric-' + i).replace('<select ', '<select data-k="' + fd.k + '" ') + '</div>';
+      } else if (fd.type === 'select') {
+        html += '<select data-k="' + fd.k + '" data-ui="input">' + fd.options.map(function(o) { return '<option value="' + o[0] + '"' + (String(v) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+      } else if (fd.type === 'color') {
+        html += '<label data-ui="inline-label">' + fd.ph + ' <input type="color" data-k="' + fd.k + '" value="' + escHtml(v || fd.fallback || '#888888') + '" data-ui="swatch"></label>';
+      } else {
+        html += '<input type="' + fd.type + '" data-k="' + fd.k + '" value="' + escHtml(v) + '" placeholder="' + escHtml(fd.ph || '') + '" data-ui="input"' + (fd.type === 'number' ? ' step="any"' : '') + (fd.type === 'text' && fd.maxlength ? ' maxlength="' + fd.maxlength + '"' : '') + '>';
+      }
+    }
+    html += '<button type="button" class="rl-remove row-remove-btn" data-idx="' + i + '" data-ui="span" aria-label="Remove row">✕ Remove</button></div>';
+  }
+  rowsEl.innerHTML = html;
+  var addBtn = container.querySelector('#' + spec.list + '-add');
+  if (addBtn) {
+    addBtn.disabled = rows.length >= spec.max;
+    addBtn.onclick = function() {
+      var cur = readRowList(rowsEl);
+      if (cur.length >= spec.max) return;
+      cur.push(JSON.parse(JSON.stringify(spec.blank)));
+      dataEl.textContent = JSON.stringify(cur);
+      renderRowList(container, spec);
+    };
+  }
+  rowsEl.querySelectorAll('.rl-remove').forEach(function(btn) {
+    btn.onclick = function() {
+      var cur = readRowList(rowsEl);
+      cur.splice(parseInt(btn.dataset.idx, 10), 1);
+      dataEl.textContent = JSON.stringify(cur);
+      renderRowList(container, spec);
+    };
+  });
+}
+
+var RING_SPEC = { list: 'rg', max: 3, blank: { label: '', metric: '', unit: '', min: 0, max: 100, color: '#22c55e' }, fields: [
+  { k: 'label', type: 'text', ph: 'Label', maxlength: 30 }, { k: 'metric', type: 'metric' }, { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 },
+  { k: 'min', type: 'number', ph: 'Lowest' }, { k: 'max', type: 'number', ph: 'Highest' }, { k: 'color', type: 'color', ph: 'Colour' }] };
+var CHIP_SPEC = { list: 'bc', max: 4, blank: { label: '', metric: '', unit: '', color: '' }, fields: [
+  { k: 'label', type: 'text', ph: 'Label (e.g. Inside)', maxlength: 24 }, { k: 'metric', type: 'metric' }, { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 },
+  { k: 'color', type: 'text', ph: 'Dot colour #rrggbb (optional)', maxlength: 7 }] };
+var STATUS_SPEC = { list: 'sl', max: 12, blank: { label: '', metric: '', unit: '', when: 'on', limit: 0, color: '' }, fields: [
+  { k: 'label', type: 'text', ph: 'Label (e.g. Boiler)', maxlength: 40 }, { k: 'metric', type: 'metric' },
+  { k: 'when', type: 'select', options: [['on', 'On when it says on, or is above 0'], ['above', 'On when above the limit'], ['below', 'On when below the limit']] },
+  { k: 'limit', type: 'number', ph: 'Limit' }, { k: 'unit', type: 'text', ph: 'Unit (for the value)', maxlength: 12 },
+  { k: 'color', type: 'text', ph: 'Dot colour #rrggbb (optional)', maxlength: 7 }] };
+
+/** Ring gauge: its rings (the first two are read out in the middle), an optional icon and title. */
+function buildRingGaugeForm(block) {
+  var cfg = block.config || {};
+  var rings = Array.isArray(cfg.rings) && cfg.rings.length ? cfg.rings : [
+    { label: 'Production', metric: 'solar', unit: '', min: 0, max: 5000, color: '#f59e0b' }, { label: 'Consumption', metric: 'consumption', unit: '', min: 0, max: 5000, color: '#38bdf8' }];
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Rings</legend>';
+  html += buildRowList(RING_SPEC, rings);
+  html += '<p data-ui="help">The first ring is the outer one. Each fills from its lowest to its highest value. The first two are read out in the middle; a third is listed below the dial.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-rg-title" value="' + escHtml(cfg.title || '') + '" placeholder="Empty for no title" data-ui="input"></label>';
+  html += iconField('modal-rg-icon', 'Icon', cfg.icon || '', 'Above the first reading: an icon name, an emoji or an image address');
+  html += formToggle('modal-rg-tracks', 'Show the empty ring behind each one', cfg.showTracks !== false);
+  html += '</fieldset>';
+  return html;
+}
+
+/** Battery: the charge and current metrics, the colour bands, and a row of small readings. */
+function buildBatteryCardForm(block) {
+  var cfg = block.config || {};
+  var metrics = cfg.metrics || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Metrics</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Charge (%)</span><div data-ui="grow">' + metricSelect(metrics.soc || 'battery_soc', 'modal-bc-soc') + '</div></div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Current (A)</span><div data-ui="grow">' + metricSelect(metrics.current || 'battery_current', 'modal-bc-current') + '</div></div>';
+  html += formToggle('modal-bc-showcurrent', 'Show the current marker (charging above zero, discharging below)', cfg.showCurrent !== false);
+  html += '<label data-ui="field">Marker range (A, either side of zero) <input type="number" id="modal-bc-currentmax" min="1" step="any" value="' + escHtml(cfg.currentMax == null ? 100 : cfg.currentMax) + '" data-ui="input"></label>';
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-bc-title" value="' + escHtml(cfg.title === undefined ? 'Battery' : cfg.title) + '" placeholder="Empty for no title" data-ui="input"></label>';
+  html += '<div data-ui="grid2"><label data-ui="label">Red at or below (%) <input type="number" id="modal-bc-low" min="0" max="100" value="' + escHtml(cfg.lowAt == null ? 20 : cfg.lowAt) + '" data-ui="input"></label>' +
+    '<label data-ui="label">Amber at or below (%) <input type="number" id="modal-bc-warn" min="0" max="100" value="' + escHtml(cfg.warnAt == null ? 50 : cfg.warnAt) + '" data-ui="input"></label></div>';
+  html += '<label data-ui="field">One fill colour instead (#rrggbb, empty for red, amber and green) <input type="text" id="modal-bc-fill" value="' + escHtml(cfg.fillColor || '') + '" maxlength="7" data-ui="input"></label>';
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Small readings along the bottom</legend>';
+  html += buildRowList(CHIP_SPEC, Array.isArray(cfg.chips) ? cfg.chips : []);
+  html += '<p data-ui="help">For example the inside and outside temperature. Up to four.</p></fieldset>';
+  return html;
+}
+
+/** Status list: a row per device, with the metric that says whether it is on. */
+function buildStatusListForm(block) {
+  var cfg = block.config || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Rows</legend>';
+  html += buildRowList(STATUS_SPEC, Array.isArray(cfg.rows) ? cfg.rows : []);
+  html += '<p data-ui="help">A row is on when its metric says on (or true, yes, active, running) or is above 0. Pick &ldquo;above the limit&rdquo; for a power reading, such as a load above 10 W.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Look</legend>';
+  html += '<label data-ui="field">Title <input type="text" id="modal-sl-title" value="' + escHtml(cfg.title || '') + '" placeholder="Empty for no title" data-ui="input"></label>';
+  html += formToggle('modal-sl-count', 'Show how many are on', cfg.showCount === true);
+  html += formToggle('modal-sl-value', 'Show each row’s value', cfg.showValue === true);
+  html += '<label data-ui="field">Dot colour while on (#rrggbb, empty for green) <input type="text" id="modal-sl-onc" value="' + escHtml(cfg.onColor || '') + '" maxlength="7" data-ui="input"></label>';
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Words</legend>';
+  html += '<label data-ui="field">Count line (use {on} and {total}) <input type="text" id="modal-sl-counttext" value="' + escHtml(cfg.countText || '') + '" placeholder="{on} of {total} on" maxlength="40" data-ui="input"></label>';
+  html += '<div data-ui="grid2"><label data-ui="label">Word for on <input type="text" id="modal-sl-ontext" value="' + escHtml(cfg.onText || '') + '" placeholder="On" maxlength="16" data-ui="input"></label>' +
+    '<label data-ui="label">Word for off <input type="text" id="modal-sl-offtext" value="' + escHtml(cfg.offText || '') + '" placeholder="Off" maxlength="16" data-ui="input"></label></div>';
+  html += '<p data-ui="help">Used when a row shows only on or off. Leave empty for the English words; write your own for any language.</p></fieldset>';
+  return html;
+}
+
 /** Power flow: what feeds each node, and which of the optional sources and destinations may appear (when active). */
 function buildPowerFlowForm(block) {
   var cfg = block.config || {};
@@ -2127,6 +2263,15 @@ function buildSettingsForm(block) {
     case 'power-flow':
       html += buildPowerFlowForm(block);
       break;
+    case 'ring-gauge':
+      html += buildRingGaugeForm(block);
+      break;
+    case 'battery-card':
+      html += buildBatteryCardForm(block);
+      break;
+    case 'status-list':
+      html += buildStatusListForm(block);
+      break;
     case 'flow-card-2':
     case 'flow-card-square':
     case 'flow-card-square-2':
@@ -2362,6 +2507,65 @@ function readSettingsForm(block) {
       config.metrics = metrics;
       config.showGauge = document.getElementById('modal-showgauge')?.checked !== false;
       readBreakdownFields(config);
+      break;
+    }
+    case 'ring-gauge': {
+      var rgRows = [];
+      document.querySelectorAll('#rg-rows .rl-row').forEach(function(row) {
+        var o = {};
+        row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+        var rmin = parseFloat(o.min), rmax = parseFloat(o.max);
+        rgRows.push({ label: (o.label || '').trim(), metric: o.metric || '', unit: (o.unit || '').trim(), min: isNaN(rmin) ? 0 : rmin, max: isNaN(rmax) ? 100 : rmax, color: o.color || '' });
+      });
+      config.rings = rgRows.slice(0, 3);
+      block.metrics = config.rings;
+      config.title = (document.getElementById('modal-rg-title')?.value || '').trim();
+      var rgIcon = (document.getElementById('modal-rg-icon')?.value || '').trim();
+      if (rgIcon) config.icon = rgIcon; else delete config.icon;
+      if (document.getElementById('modal-rg-tracks') && !document.getElementById('modal-rg-tracks').checked) config.showTracks = false; else delete config.showTracks;
+      break;
+    }
+    case 'battery-card': {
+      var bcMetrics = { soc: document.getElementById('modal-bc-soc')?.value || 'battery_soc', current: document.getElementById('modal-bc-current')?.value || 'battery_current' };
+      config.metrics = bcMetrics;
+      block.metrics = bcMetrics;
+      config.title = (document.getElementById('modal-bc-title')?.value || '').trim();
+      if (document.getElementById('modal-bc-showcurrent') && !document.getElementById('modal-bc-showcurrent').checked) config.showCurrent = false; else delete config.showCurrent;
+      var bcMax = parseFloat(document.getElementById('modal-bc-currentmax')?.value);
+      if (bcMax > 0 && bcMax !== 100) config.currentMax = bcMax; else delete config.currentMax;
+      var bcLow = parseFloat(document.getElementById('modal-bc-low')?.value), bcWarn = parseFloat(document.getElementById('modal-bc-warn')?.value);
+      if (!isNaN(bcLow) && bcLow !== 20) config.lowAt = bcLow; else delete config.lowAt;
+      if (!isNaN(bcWarn) && bcWarn !== 50) config.warnAt = bcWarn; else delete config.warnAt;
+      var bcFill = (document.getElementById('modal-bc-fill')?.value || '').trim();
+      if (bcFill) config.fillColor = bcFill; else delete config.fillColor;
+      var bcChips = [];
+      document.querySelectorAll('#bc-rows .rl-row').forEach(function(row) {
+        var o = {};
+        row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+        if (o.metric) bcChips.push({ label: (o.label || '').trim(), metric: o.metric, unit: (o.unit || '').trim(), color: (o.color || '').trim() });
+      });
+      config.chips = bcChips.slice(0, 4);
+      break;
+    }
+    case 'status-list': {
+      var slRows = [];
+      document.querySelectorAll('#sl-rows .rl-row').forEach(function(row) {
+        var o = {};
+        row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+        var lim = parseFloat(o.limit);
+        if (o.metric || o.label) slRows.push({ label: (o.label || '').trim(), metric: o.metric || '', unit: (o.unit || '').trim(), when: o.when || 'on', limit: isNaN(lim) ? 0 : lim, color: (o.color || '').trim() });
+      });
+      config.rows = slRows.slice(0, 12);
+      block.metrics = config.rows;
+      config.title = (document.getElementById('modal-sl-title')?.value || '').trim();
+      if (document.getElementById('modal-sl-count')?.checked) config.showCount = true; else delete config.showCount;
+      if (document.getElementById('modal-sl-value')?.checked) config.showValue = true; else delete config.showValue;
+      var slOn = (document.getElementById('modal-sl-onc')?.value || '').trim();
+      if (slOn) config.onColor = slOn; else delete config.onColor;
+      [['modal-sl-counttext', 'countText'], ['modal-sl-ontext', 'onText'], ['modal-sl-offtext', 'offText']].forEach(function(w) {
+        var wv = (document.getElementById(w[0])?.value || '').trim();
+        if (wv) config[w[1]] = wv; else delete config[w[1]];
+      });
       break;
     }
     case 'power-flow': {
@@ -4044,6 +4248,16 @@ function wireSettingsForm(body, block) {
       break;
     case 'bar-gauge':
       renderBarGaugeRows(body);
+      break;
+    case 'ring-gauge':
+      renderRowList(body, RING_SPEC);
+      bindIconPreview('modal-rg-icon');
+      break;
+    case 'battery-card':
+      renderRowList(body, CHIP_SPEC);
+      break;
+    case 'status-list':
+      renderRowList(body, STATUS_SPEC);
       break;
     case 'bar-gauge-retro':
       renderBarGaugeRetroRows(body);
