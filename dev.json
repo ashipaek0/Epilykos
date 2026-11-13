@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43390009497.1",
-    "version": "1.2.7-dev+1b14b3d",
-    "commit": "1b14b3ddd2a4f7cc65daf0cdc638c67d0d50f541",
-    "digest": "sha256:15f44a403ccecc10604971e7571c42013b246fb4e16ca2ff74a0093c01c6d5c0",
+    "buildId": "43390016980.1",
+    "version": "1.2.7-dev+8cd32ab",
+    "commit": "8cd32abcf4f4049378e3f727ee36e27d128cfa5a",
+    "digest": "sha256:d5f991fad489c5fb5219fe5f986adae89911219c88990908aee90cb130464631",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T08:02:01Z",
+    "builtAt": "2026-11-13T08:02:09Z",
     "kind": "release",
     "notes": [
-      "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
+      "Solcast: current API and response format, and every weather and irradiance value (#338)"
     ]
   },
   "history": [
+    {
+      "buildId": "43390016980.1",
+      "version": "1.2.7-dev+8cd32ab",
+      "commit": "8cd32abcf4f4049378e3f727ee36e27d128cfa5a",
+      "digest": "sha256:d5f991fad489c5fb5219fe5f986adae89911219c88990908aee90cb130464631",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T08:02:09Z",
+      "kind": "release",
+      "notes": [
+        "Solcast: current API and response format, and every weather and irradiance value (#338)"
+      ]
+    },
     {
       "buildId": "43390009497.1",
       "version": "1.2.7-dev+1b14b3d",
@@ -356,21 +368,6 @@
       "builtAt": "2026-11-09T10:05:48Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "42593387790.1",
-      "version": "1.2.1-dev+8c9ca39",
-      "commit": "8c9ca398d5861ab6910edfbea21382e9d4b302bd",
-      "digest": "sha256:d0a4872148798ccfdde18e985942f535cdb74eefcf8a67f0ee0c0f5705577a3e",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T09:26:29Z",
-      "kind": "release",
-      "notes": [
-        "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
-        "Battery bank test: don't depend on a D-Bus socket",
-        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
-        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
-      ]
     }
   ]
 }
