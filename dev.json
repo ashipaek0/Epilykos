@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43415390024.1",
-    "version": "1.2.7-dev+a4fc418",
-    "commit": "a4fc418e53e24c815bb66988aebaa07d6eac512b",
-    "digest": "sha256:273fac99267d01cb89d77719ac305272cd96b9b4c4dd1b0b2304d330f5235d5b",
+    "buildId": "43426642799.1",
+    "version": "1.2.8-dev+23847a0",
+    "commit": "23847a06c387371890c561d884602aaab354e5f6",
+    "digest": "sha256:7c055cb026649b7dcb7f8e7ae6804c53f162bdca66e065008a6e612da8e9ede6",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T11:14:20Z",
+    "builtAt": "2026-11-13T12:37:00Z",
     "kind": "release",
     "notes": [
-      "Solcast test: drop a replace that replaced a string with itself (#344)"
+      "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
     ]
   },
   "history": [
+    {
+      "buildId": "43426642799.1",
+      "version": "1.2.8-dev+23847a0",
+      "commit": "23847a06c387371890c561d884602aaab354e5f6",
+      "digest": "sha256:7c055cb026649b7dcb7f8e7ae6804c53f162bdca66e065008a6e612da8e9ede6",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T12:37:00Z",
+      "kind": "release",
+      "notes": [
+        "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
+      ]
+    },
     {
       "buildId": "43415390024.1",
       "version": "1.2.7-dev+a4fc418",
@@ -359,19 +371,6 @@
       "builtAt": "2026-11-11T08:18:47Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "42985991377.1",
-      "version": "1.2.3-dev+9814999",
-      "commit": "9814999bf713438c0bffe79d33c8a089f373ed93",
-      "digest": "sha256:80e9e89c9bc0a427d93ba9c89238b7b28b43828dfcfd9129ef9024ee4fc5ad73",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T08:18:46Z",
-      "kind": "release",
-      "notes": [
-        "External sources: back off when a source fails, and log it once (#313)",
-        "Bluetooth: restart the helper when its D-Bus connection is lost (#312)"
-      ]
     }
   ]
 }
