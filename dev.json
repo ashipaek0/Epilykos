@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43410936250.1",
-    "version": "1.2.7-dev+e234fba",
-    "commit": "e234fbad27d4cb102aeef51d7664e87d3d9d46fd",
-    "digest": "sha256:7cf044b0a7970ea5be04dba595db911e78312deac9a76d5c17e18c271138a504",
+    "buildId": "43415390024.1",
+    "version": "1.2.7-dev+a4fc418",
+    "commit": "a4fc418e53e24c815bb66988aebaa07d6eac512b",
+    "digest": "sha256:273fac99267d01cb89d77719ac305272cd96b9b4c4dd1b0b2304d330f5235d5b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T10:41:06Z",
+    "builtAt": "2026-11-13T11:14:20Z",
     "kind": "release",
     "notes": [
-      "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)"
+      "Solcast test: drop a replace that replaced a string with itself (#344)"
     ]
   },
   "history": [
+    {
+      "buildId": "43415390024.1",
+      "version": "1.2.7-dev+a4fc418",
+      "commit": "a4fc418e53e24c815bb66988aebaa07d6eac512b",
+      "digest": "sha256:273fac99267d01cb89d77719ac305272cd96b9b4c4dd1b0b2304d330f5235d5b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T11:14:20Z",
+      "kind": "release",
+      "notes": [
+        "Solcast test: drop a replace that replaced a string with itself (#344)"
+      ]
+    },
     {
       "buildId": "43410936250.1",
       "version": "1.2.7-dev+e234fba",
@@ -359,18 +371,6 @@
       "notes": [
         "External sources: back off when a source fails, and log it once (#313)",
         "Bluetooth: restart the helper when its D-Bus connection is lost (#312)"
-      ]
-    },
-    {
-      "buildId": "42796322357.1",
-      "version": "1.2.3-dev+ecce1c5",
-      "commit": "ecce1c57f76f16f3227b94df08763ec9709e3934",
-      "digest": "sha256:41ae558703a2a6a142e859515a00dd5d04c8bb9bad9a15de140b14d2603e56bb",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-10T10:06:56Z",
-      "kind": "release",
-      "notes": [
-        "Layout editor: a slider or knob on an inverter or battery setting can be saved (#310)"
       ]
     }
   ]
