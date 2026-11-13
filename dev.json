@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43433801768.1",
-    "version": "1.2.8-dev+fe4c2cf",
-    "commit": "fe4c2cfc0a9a03fa840c396bdda377a3de39a0ac",
-    "digest": "sha256:57ed4f8e06aa6db49164f8a8cd2d9b226c1c2ebfeb269087c0fd615db70d0d51",
+    "buildId": "43443624306.1",
+    "version": "1.2.9-dev+61c9b56",
+    "commit": "61c9b564f54d0432854385147d21ec9fc5060cc6",
+    "digest": "sha256:8f7f22f5c78730da8be9d0ffe9ba876b6d842a9733146c84b51924ade58006ff",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T13:27:44Z",
+    "builtAt": "2026-11-13T14:32:37Z",
     "kind": "release",
     "notes": [
-      "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)"
+      "Settings: Virtual Battery on its own page (#349)",
+      "LuxPower: inverter clock and clock skew (#348)"
     ]
   },
   "history": [
+    {
+      "buildId": "43443624306.1",
+      "version": "1.2.9-dev+61c9b56",
+      "commit": "61c9b564f54d0432854385147d21ec9fc5060cc6",
+      "digest": "sha256:8f7f22f5c78730da8be9d0ffe9ba876b6d842a9733146c84b51924ade58006ff",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T14:32:37Z",
+      "kind": "release",
+      "notes": [
+        "Settings: Virtual Battery on its own page (#349)",
+        "LuxPower: inverter clock and clock skew (#348)"
+      ]
+    },
     {
       "buildId": "43433801768.1",
       "version": "1.2.8-dev+fe4c2cf",
@@ -359,19 +373,6 @@
       "kind": "release",
       "notes": [
         "Dashboard style: each dashboard can have its own background and blocks (#315)"
-      ]
-    },
-    {
-      "buildId": "42986936818.1",
-      "version": "1.2.3-dev+f2d600e",
-      "commit": "f2d600e50989903ba77f77a5dfbb498f60a3999d",
-      "digest": "sha256:a004885c9928fb1dad80ecd4c7a88cda97999a03877c6295cb17194429d67044",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T08:25:58Z",
-      "kind": "release",
-      "notes": [
-        "Dual metric card: Background colour and Transparent reach the header and panes (#311)",
-        "External sources: back off when a source fails, and log it once (#313)"
       ]
     }
   ]
