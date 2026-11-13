@@ -24,7 +24,7 @@ function defaultRegistry() {
     { id: 'modbus', pollFn: () => require('../modules/modbus').pollModbus() },
     { id: 'tuya', pollFn: () => require('../modules/tuya').pollTuyaDevices() },
     { id: 'rs232', pollFn: () => require('../modules/rs232').pollRs232() },
-    // Battery estimate, then combined metrics (sums, energy from power, ...),
+    // Virtual Battery, then combined metrics (sums, energy from power, ...),
     // before history, so a role mapped to either gets this cycle's value.
     { id: 'battery', pollFn: () => require('../modules/batteryEstimator').runBatteryEstimator() },
     // Today's savings is published here too, so it is current for the same cycle (it never fails the poll).

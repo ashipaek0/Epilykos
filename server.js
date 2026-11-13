@@ -882,7 +882,7 @@ app.post('/api/role-metrics', (req, res) => {
   res.json({ success: true });
 });
 
-// Battery estimate (Settings > Metrics): SOC from counting the inverters' battery current.
+// Virtual Battery (Settings > Virtual Battery): SOC from counting the inverters' battery current.
 app.use('/api/battery-estimator', isAuthenticated);
 function batteryEstimatorView() {
   const be = require('./modules/batteryEstimator');

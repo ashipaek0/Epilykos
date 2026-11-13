@@ -159,10 +159,15 @@ assert.equal(be.settings({}, 24).nominal_voltage, 24, 'used while none is saved'
 assert.equal(be.settings({ nominal_voltage: 12 }, 24).nominal_voltage, 12, 'a saved choice wins');
 console.log('ok - system voltage found from the inverters');
 
-// Settings > Metrics card, its routes, and the cycle order.
+// Settings > Virtual Battery card, its routes, and the cycle order.
 const html = fs.readFileSync(path.join(REPO, 'public/settings.html'), 'utf8');
 assert.match(html, /<div class="st-card" id="battery-est-card" data-own-save>/);
 assert.match(html, /<script src="js\/battery-estimator\.js\?v=3"><\/script>/);
+const vb = html.match(/<section class="st-section" id="section-virtual-battery"[\s\S]*?<\/section>/);
+assert.ok(vb && vb[0].includes('id="battery-est-card"'), 'the card lives on its own Virtual Battery page');
+assert.ok(!/id="section-metrics"[\s\S]*?<\/section>/.exec(html)[0].includes('battery-est-card'), 'and not on the Metrics page');
+assert.match(html, /class="st-nav-label">Virtual Battery</);
+assert.match(fs.readFileSync(path.join(REPO, 'public/js/settings-shell.js'), 'utf8'), /'virtual-battery': 'Virtual Battery'/);
 const ui = fs.readFileSync(path.join(REPO, 'public/js/battery-estimator.js'), 'utf8');
 assert.doesNotMatch(ui, /type="radio"/);
 assert.match(ui, /class="toggle-switch"/, 'toggle switches');

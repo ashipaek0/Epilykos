@@ -45,6 +45,7 @@
     <ul class="st-nav-list" id="st-nav-list">
       <li><a href="#sources" class="st-nav-link" data-section="sources"><span data-icon="plug" data-size="18"></span><span class="st-nav-label">Sources</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#metrics" class="st-nav-link" data-section="metrics"><span data-icon="list" data-size="18"></span><span class="st-nav-label">Metrics</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#virtual-battery" class="st-nav-link" data-section="virtual-battery"><span data-icon="battery" data-size="18"></span><span class="st-nav-label">Virtual Battery</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#forecast" class="st-nav-link" data-section="forecast"><span data-icon="sun" data-size="18"></span><span class="st-nav-label">Forecast and weather</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#savings" class="st-nav-link" data-section="savings"><span data-icon="coin" data-size="18"></span><span class="st-nav-label">Prices and savings</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#prepaid" class="st-nav-link" data-section="prepaid"><span data-icon="gauge" data-size="18"></span><span class="st-nav-label">Prepaid meter</span><span class="st-nav-meta"></span></a></li>
@@ -235,12 +236,6 @@
             <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
             <div id="role-metrics-container" class="st-roles"></div>
           </div>
-          <div class="st-card" id="battery-est-card" data-own-save>
-            <div class="st-card-head"><h2>Battery estimate</h2></div>
-            <p class="st-help">For inverters with no link to the battery's BMS, whose own battery % is a guess from voltage. Epilykos counts the current going in and out of the battery through every inverter, and sets the charge to 100% each time the battery is full.</p>
-            <div id="be-root"><p class="st-help">Loading…</p></div>
-            <p class="status" id="be-status" role="status"></p>
-          </div>
           <div class="st-card" id="combined-card" data-own-save>
             <div class="st-card-head"><h2>Combined metrics</h2><button type="button" class="st-btn" id="cm-add"><span data-icon="plus" data-size="16"></span>Add combined metric</button></div>
             <p class="st-help">Add up readings from several inverters, MPPTs or batteries, or work out energy from power. Each result is a new metric you can pick in roles and cards. Switch one off to stop computing it. Several BMS packs that make up one battery go in a <a href="#sources/bms">battery bank</a> (weighted charge by capacity); its bank_ metrics can be used here too.</p>
@@ -340,6 +335,19 @@
               <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" placeholder="e.g. 15" inputmode="decimal"><span class="st-help">Used to project battery charge for the rest of the day.</span></div>
               <div class="st-field"><label for="battery-min-soc">Lowest charge (%)</label><input id="battery-min-soc" class="input" name="battery_min_soc" type="number" min="0" max="100" step="1" placeholder="e.g. 20" inputmode="numeric"><span class="st-help">The charge your inverter stops discharging at.</span></div>
             </div>
+          </div>
+        </section>
+
+        <!-- ════════════ VIRTUAL BATTERY ════════════ -->
+        <section class="st-section" id="section-virtual-battery" data-section="virtual-battery" aria-labelledby="h-virtual-battery" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-virtual-battery">Virtual Battery</h1><p class="st-lede">A battery charge worked out by Epilykos, for inverters that cannot read the battery directly.</p></div>
+          </div>
+          <div class="st-card" id="battery-est-card" data-own-save>
+            <div class="st-card-head"><h2>Virtual Battery</h2></div>
+            <p class="st-help">For inverters with no link to the battery's BMS, whose own battery % is a guess from voltage. Epilykos counts the current going in and out of the battery through every inverter, and sets the charge to 100% each time the battery is full.</p>
+            <div id="be-root"><p class="st-help">Loading…</p></div>
+            <p class="status" id="be-status" role="status"></p>
           </div>
         </section>
 
