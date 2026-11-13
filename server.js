@@ -1770,7 +1770,7 @@ app.post('/api/settings/solar', isAuthenticated, (req, res) => {
       'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
       'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id', 'solar_arrays',
       'solar_loss_factor', 'solar_install_date',
-      'forecast_default_source', 'weather_default_source', 'role_metrics'
+      'forecast_default_source', 'weather_default_source', 'solcast_daily_limit', 'solcast_weather', 'role_metrics'
     ];
     const { saved } = saveConfigKeys(allowed, req, res);
     if (shouldInvalidateForecastCache(saved)) clearForecastCache();

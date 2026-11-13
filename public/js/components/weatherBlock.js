@@ -427,6 +427,18 @@ function renderCard(container, data, disp, charts, alerts) {
     if (w.uv_index != null) items.push(detailItem('fi-sr-sun', 'UV', uvLabel(w.uv_index)));
     if (w.pressure != null) items.push(detailItem('fi-sr-tachometer-average', 'Pressure', fmtNum(w.pressure, 0, ' hPa')));
     if (w.ghi != null) items.push(detailItem('fi-sr-sun-dust', 'Irradiance', fmtNum(w.ghi, 0, ' W/m²')));
+    // The rest of what Solcast forecasts for now (only what it sent): direct and diffuse sun, dew point, snow, air quality.
+    const sc = w.solcast || null;
+    if (sc) {
+      if (sc.dni != null) items.push(detailItem('fi-sr-sun-dust', 'Direct sun', fmtNum(sc.dni, 0, ' W/m²')));
+      if (sc.dhi != null) items.push(detailItem('fi-sr-sun-dust', 'Diffuse sun', fmtNum(sc.dhi, 0, ' W/m²')));
+      if (sc.dewpoint_temp != null) items.push(detailItem('fi-sr-humidity', 'Dew point', fmtTemp(sc.dewpoint_temp)));
+      if (sc.precipitable_water != null) items.push(detailItem('fi-sr-clouds', 'Water in air', fmtNum(sc.precipitable_water, 0, ' mm')));
+      if (sc.snow_depth != null && sc.snow_depth > 0) items.push(detailItem('fi-sr-clouds', 'Snow depth', fmtNum(sc.snow_depth, 0, ' cm')));
+      if (sc.cape != null && sc.cape > 0) items.push(detailItem('fi-sr-tachometer-average', 'Storm energy', fmtNum(sc.cape, 0, ' J/kg')));
+      if (sc.pm2_5 != null) items.push(detailItem('fi-sr-wind', 'PM2.5', fmtNum(sc.pm2_5, 0, ' µg/m³')));
+      if (sc.pm10 != null) items.push(detailItem('fi-sr-wind', 'PM10', fmtNum(sc.pm10, 0, ' µg/m³')));
+    }
   }
   if (show.sun && w.sunrise) items.push(detailItem('fi-sr-sunrise', 'Sunrise', timeLabel(w.sunrise)));
   if (show.sun && w.sunset) items.push(detailItem('fi-sr-sunset', 'Sunset', timeLabel(w.sunset)));

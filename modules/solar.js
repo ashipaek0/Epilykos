@@ -1,7 +1,7 @@
 const { logger } = require('./logger');
 const https = require('https');
 const databaseWork = require('./databaseWork');
-const { getConfig, setConfig, getDb, flushMetrics } = require('./database');
+const { getConfig, setConfig, getDb, flushMetrics, queueMetricValue } = require('./database');
 const { localDateString } = require('./localTime');
 const { readMetricSeries, readHistorySeries, readDailySnapshots } = require('./timeseriesReader');
 
@@ -33,14 +33,66 @@ function solcastRooftopUrl(resourceId) {
   return url;
 }
 
-function solcastWorldUrl(params) {
-  const url = new URL('/world_pv_power/forecasts', SOLCAST_BASE);
+// The location-based forecasts use Solcast's current API and response format (version 3: explicit time offsets
+// in period_end). The old /world_pv_power/forecasts path and its legacy format are retired by Solcast on
+// 1 February 2027. The site (rooftop resource) forecast above is a separate endpoint and stays as it is.
+const SOLCAST_FORMAT = 'json;version=3';
+const SOLCAST_FORECAST_HOURS = 168;   // seven days: what the app shows, so no more is fetched
+const SOLCAST_PV_PARAMS = ['pv_power_rooftop', 'pv_power_rooftop10', 'pv_power_rooftop90'];
+// Every weather and irradiance parameter Solcast's forecast accepts (docs.solcast.com.au/docs/output-parameters).
+const SOLCAST_WEATHER_PARAMS = [
+  'air_temp', 'min_air_temp', 'max_air_temp', 'dewpoint_temp', 'relative_humidity',
+  'ghi', 'ghi10', 'ghi90', 'dni', 'dni10', 'dni90', 'dhi', 'dhi10', 'dhi90', 'gti', 'gti10', 'gti90',
+  'clearsky_ghi', 'clearsky_dni', 'clearsky_dhi', 'clearsky_gti',
+  'cloud_opacity', 'cloud_opacity10', 'cloud_opacity90', 'albedo', 'azimuth', 'zenith',
+  'wind_speed_10m', 'wind_speed_100m', 'wind_direction_10m', 'wind_direction_100m', 'wind_gust',
+  'precipitation_rate', 'snowfall_rate', 'snow_depth', 'snow_water_equivalent', 'snow_soiling_rooftop', 'snow_soiling_ground',
+  'surface_pressure', 'precipitable_water', 'cape', 'weather_type', 'pm10', 'pm2.5'
+];
+// If Solcast rejects the full list (a parameter this account or endpoint does not take), the well-established ones.
+const SOLCAST_WEATHER_CORE = ['air_temp', 'relative_humidity', 'ghi', 'ghi10', 'ghi90', 'dni', 'dhi', 'cloud_opacity', 'wind_speed_10m', 'precipitation_rate', 'surface_pressure', 'zenith', 'azimuth'];
+
+function solcastPvUrl({ latitude, longitude, capacity, tilt, azimuth, loss_factor, install_date }) {
+  const url = new URL('/data/forecast/rooftop_pv_power', SOLCAST_BASE);
+  const params = { latitude, longitude, capacity, tilt, azimuth, loss_factor, install_date, hours: SOLCAST_FORECAST_HOURS, period: 'PT30M', output_parameters: SOLCAST_PV_PARAMS.join(',') };
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
-  url.searchParams.set('format', 'json');
+  url.searchParams.set('format', SOLCAST_FORMAT);
   return url;
 }
 
+function solcastWeatherUrl({ latitude, longitude, tilt, azimuth }, params = SOLCAST_WEATHER_PARAMS) {
+  const url = new URL('/data/forecast/radiation_and_weather', SOLCAST_BASE);
+  const q = { latitude, longitude, tilt, azimuth, hours: SOLCAST_FORECAST_HOURS, period: 'PT30M', output_parameters: params.join(',') };
+  for (const [k, v] of Object.entries(q)) url.searchParams.set(k, String(v));
+  url.searchParams.set('format', SOLCAST_FORMAT);
+  return url;
+}
+
+// ---- Solcast request budget ----
+// A plan allows a number of requests per UTC day (10 for a hobbyist account). Every request this module makes is
+// counted, and the optional weather request is made only when it leaves room for the PV refreshes still due today.
+const SOLCAST_USAGE_KEY = 'solcast_requests';
+const SOLCAST_DEFAULT_DAILY_LIMIT = 10;
+const utcDay = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 10);
+function solcastDailyLimit() {
+  const n = parseInt(getConfig('solcast_daily_limit'), 10);
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 100000) : SOLCAST_DEFAULT_DAILY_LIMIT;
+}
+function solcastRequestsToday(ms = Date.now()) {
+  try { const u = JSON.parse(getConfig(SOLCAST_USAGE_KEY) || 'null'); return u && u.day === utcDay(ms) ? Number(u.count) || 0 : 0; } catch (_) { return 0; }
+}
+function noteSolcastRequest(ms = Date.now()) {
+  try { setConfig(SOLCAST_USAGE_KEY, JSON.stringify({ day: utcDay(ms), count: solcastRequestsToday(ms) + 1 })); } catch (_) { /* counting is best effort */ }
+}
+/** Whether one more request fits today without starving the PV refreshes (one per FORECAST_CACHE_MS) still due. */
+function solcastBudgetAllows(pvJobs = 1, ms = Date.now()) {
+  const untilMidnight = Date.UTC(new Date(ms).getUTCFullYear(), new Date(ms).getUTCMonth(), new Date(ms).getUTCDate() + 1) - ms;
+  const reserve = Math.ceil(untilMidnight / FORECAST_CACHE_MS) * Math.max(1, pvJobs);
+  return solcastRequestsToday(ms) + 1 + reserve <= solcastDailyLimit();
+}
+
 function solcastFetch(url, apiKey) {
+  noteSolcastRequest();
   return fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10000) });
 }
 
@@ -209,7 +261,7 @@ let openMeteoCache = { key: null, data: null, timestamp: 0 };
 // today, per source, and put the earlier ones back in front of each fetch.
 // Kept in config so a restart doesn't lose the morning.
 const TODAY_PERIODS_KEY = 'forecast_today_periods';
-const KEPT_PERIOD_FIELDS = ['period', 'period_end', 'pv_estimate', 'pv_estimate10', 'pv_estimate90', 'cloud_cover', 'air_temp', 'weather_code', 'is_day'];
+const KEPT_PERIOD_FIELDS = ['period', 'period_end', 'pv_estimate', 'pv_estimate10', 'pv_estimate90', 'cloud_cover', 'air_temp', 'weather_code', 'is_day', 'precip_rate', ...SOLCAST_WEATHER_PARAMS];
 let todayPeriods = null; // { date, sources: { [source]: { [endMs]: period } } }
 
 function loadTodayPeriods(today) {
@@ -628,13 +680,27 @@ const SOLCAST_KNOWN_FIELDS = [
 // Full-schema passthrough (D3): forward every upstream field verbatim,
 // fill absent known fields with null, keep derived cloud_cover alias.
 // Present values (including 0) are never rewritten.
+// Solcast's current names for the values the rest of the app already knows by another name. Both are kept.
+const SOLCAST_ALIASES = { pv_power_rooftop: 'pv_estimate', pv_power_rooftop10: 'pv_estimate10', pv_power_rooftop90: 'pv_estimate90', precipitation_rate: 'precip_rate' };
+function applySolcastAliases(out) {
+  for (const [from, to] of Object.entries(SOLCAST_ALIASES)) if (out[from] != null && out[to] == null) out[to] = out[from];
+  if (out.cloud_cover == null && out.cloud_opacity != null) out.cloud_cover = out.cloud_opacity;
+  return out;
+}
 function mapSolcastPeriod(f) {
   const src = (f && typeof f === 'object') ? f : {};
   const out = {};
   for (const k of Object.keys(src)) out[k] = src[k] === undefined ? null : src[k];
+  applySolcastAliases(out);
   for (const k of SOLCAST_KNOWN_FIELDS) if (!(k in out)) out[k] = null;
   if (out.cloud_cover == null) out.cloud_cover = out.cloud_opacity ?? null;
   return out;
+}
+/** A weather/irradiance period: the values Solcast sent, under the app's names too, with no PV fields made up. */
+function mapSolcastWeatherPeriod(f) {
+  const out = {};
+  for (const [k, v] of Object.entries((f && typeof f === 'object') ? f : {})) out[k] = v === undefined ? null : v;
+  return applySolcastAliases(out);
 }
 
 // Normalize the ?source= selector. Returns 'auto' | 'solcast' | 'open-meteo'
@@ -650,9 +716,15 @@ function normalizeSourceSelector(sel) {
 
 // D4: prefer Solcast air_temp / relative_humidity for weather when present.
 // First non-null occurrence wins; missing values stay null (OM fallback).
-function pickSolcastWeather(periods) {
+function pickSolcastWeather(periods, nowMs) {
   let temp = null, humidity = null;
-  for (const p of periods || []) {
+  // With the time given, the period that is current comes first: the first period of today is this morning's.
+  let list = periods || [];
+  if (Number.isFinite(nowMs)) {
+    const cur = list.find(p => { const end = periodEndMs(p); return end != null && end > nowMs && end - periodHours(p) * 3600000 <= nowMs; });
+    if (cur) list = [cur, ...list];
+  }
+  for (const p of list) {
     if (temp == null && p && p.air_temp != null) temp = p.air_temp;
     if (humidity == null && p && p.relative_humidity != null) humidity = p.relative_humidity;
     if (temp != null && humidity != null) break;
@@ -664,6 +736,7 @@ function pickSolcastWeather(periods) {
 function clearForecastCache() {
   solarCache = { value: 0, timestamp: 0 };
   forecastCache = {}; solcastNegativeCache = {}; solcastLastUpstreamAttempt = 0;
+  solcastWeatherCache = { at: 0, byEnd: new Map(), params: 'all' }; solcastWeatherOffUntil = 0;
   openMeteoCache = { key: null, data: null, timestamp: 0 }; lastGoodWeather = null; tiltedCache.clear();
 }
 
@@ -745,7 +818,7 @@ const FORECAST_CACHE_KEYS = [
   'forecast_enabled', 'solar_latitude', 'solar_longitude', 'solar_tilt',
   'solar_azimuth', 'solar_capacity_kwp', 'solcast_api_key', 'solcast_resource_id',
   'solar_loss_factor', 'solar_install_date', 'solar_arrays',
-  'forecast_default_source', 'weather_default_source'
+  'forecast_default_source', 'weather_default_source', 'solcast_daily_limit', 'solcast_weather'
 ];
 
 // Resolve a global default source key to an effective selector.
@@ -845,6 +918,168 @@ function resolveRestSource(name, restMap) {
   };
 }
 
+
+// ---- A day's weather from the forecast periods (Solcast supplies it per period) ----
+const numOf = v => (v == null || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null));
+/** Fold one period's weather into its day's running totals (kept on the day as `wx`, removed by finishDayWeather). */
+function accumulateDayWeather(day, f) {
+  const wx = day.wx || (day.wx = { tmin: null, tmax: null, precip: null, wind: null, gust: null, cloud: 0, cloudN: 0, ghi: null, snow: null });
+  const h = periodHours(f);
+  const t = numOf(f.air_temp), tmin = numOf(f.min_air_temp), tmax = numOf(f.max_air_temp);
+  for (const v of [t, tmin]) if (v != null) wx.tmin = wx.tmin == null ? v : Math.min(wx.tmin, v);
+  for (const v of [t, tmax]) if (v != null) wx.tmax = wx.tmax == null ? v : Math.max(wx.tmax, v);
+  const pr = numOf(f.precip_rate ?? f.precipitation_rate); if (pr != null) wx.precip = (wx.precip || 0) + pr * h;
+  const ws = numOf(f.wind_speed_10m); if (ws != null) wx.wind = wx.wind == null ? ws : Math.max(wx.wind, ws);
+  const wg = numOf(f.wind_gust); if (wg != null) wx.gust = wx.gust == null ? wg : Math.max(wx.gust, wg);
+  const cc = numOf(f.cloud_opacity); if (cc != null) { wx.cloud += cc; wx.cloudN++; }
+  const g = numOf(f.ghi); if (g != null) wx.ghi = (wx.ghi || 0) + g * h / 1000;
+  const sn = numOf(f.snowfall_rate); if (sn != null) wx.snow = (wx.snow || 0) + sn * h;
+}
+/** Turn a day's running totals into its fields (only the ones the forecast supplied) and drop the working data. */
+function finishDayWeather(day) {
+  const wx = day.wx; delete day.wx;
+  if (!wx) return;
+  const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
+  if (wx.tmin != null) day.temp_min = r1(wx.tmin);
+  if (wx.tmax != null) day.temp_max = r1(wx.tmax);
+  if (wx.precip != null) day.precip_mm = r1(wx.precip);
+  if (wx.wind != null) day.wind_max = r1(wx.wind);
+  if (wx.gust != null) day.wind_gust_max = r1(wx.gust);
+  if (wx.cloudN) day.cloud_cover_avg = Math.round(wx.cloud / wx.cloudN);
+  if (wx.ghi != null) day.ghi_kwh_m2 = r2(wx.ghi);
+  if (wx.snow != null) day.snowfall_cm = r1(wx.snow);
+}
+
+
+/** The forecast period that is current at `nowMs` (its end is ahead, its start is not), or null. */
+function currentPeriod(periods, nowMs = Date.now()) {
+  return (periods || []).find(p => { const end = periodEndMs(p); return end != null && end > nowMs && end - periodHours(p) * 3600000 <= nowMs; }) || null;
+}
+
+/**
+ * What the current Solcast period says about the weather, in the shapes the weather card uses:
+ * `overrides` replace the card's point values (same units as Open-Meteo's: °C, %, m/s, hPa, mm, W/m²), `details` are the
+ * extra values the card can list. Both hold only what Solcast actually sent.
+ */
+function solcastWeatherView(cur) {
+  if (!cur) return { overrides: {}, details: {} };
+  const n = k => numOf(cur[k]);
+  const put = (obj, k, v) => { if (v != null) obj[k] = v; };
+  const overrides = {};
+  put(overrides, 'temp', n('air_temp')); put(overrides, 'humidity', n('relative_humidity'));
+  put(overrides, 'wind_speed', n('wind_speed_10m')); put(overrides, 'wind_gusts', n('wind_gust'));
+  const dir = n('wind_direction_10m'); if (dir != null) { overrides.wind_direction = dir; overrides.wind_compass = compassPoint(dir); }
+  put(overrides, 'cloud_cover', n('cloud_opacity')); put(overrides, 'precip', n('precip_rate') ?? n('precipitation_rate'));
+  put(overrides, 'pressure', n('surface_pressure')); put(overrides, 'ghi', n('ghi'));
+  const details = {};
+  for (const k of ['dewpoint_temp', 'dni', 'dhi', 'gti', 'clearsky_ghi', 'albedo', 'zenith', 'wind_speed_100m', 'snow_depth', 'snowfall_rate', 'snow_water_equivalent', 'snow_soiling_rooftop', 'snow_soiling_ground', 'precipitable_water', 'cape', 'pm10', 'pm2.5']) put(details, k.replace('.', '_'), n(k));
+  return { overrides, details };
+}
+
+// ---- Solcast weather and irradiance (every forecast parameter Solcast offers) ----
+// One extra request per refresh, to /data/forecast/radiation_and_weather, merged into the PV periods by period_end.
+// It is optional: when it fails (the plan does not include it, the quota is used up) the PV forecast is untouched,
+// and what was last fetched stays merged. Requests are counted against the daily limit (solcastBudgetAllows).
+let solcastWeatherCache = { at: 0, byEnd: new Map(), params: 'all' };
+let solcastWeatherOffUntil = 0;   // epoch ms: not tried again before this (plan lacks it, or the quota is used up)
+
+function nextUtcMidnight(ms) { return Date.UTC(new Date(ms).getUTCFullYear(), new Date(ms).getUTCMonth(), new Date(ms).getUTCDate() + 1); }
+
+/** Copy each fetched weather period's values onto the PV period with the same end (PV values are never replaced). */
+function mergeSolcastWeather(periods, byEnd) {
+  if (!Array.isArray(periods) || !(byEnd instanceof Map) || !byEnd.size) return periods;
+  for (const p of periods) {
+    const w = byEnd.get(periodEndMs(p));
+    if (!w) continue;
+    for (const [k, v] of Object.entries(w)) {
+      if (k === 'period' || k === 'period_end' || v == null) continue;
+      if (p[k] == null) p[k] = v;
+    }
+  }
+  return periods;
+}
+
+async function refreshSolcastWeather(site, apiKey, now) {
+  const c = solcastWeatherCache;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const list = c.params === 'core' ? SOLCAST_WEATHER_CORE : SOLCAST_WEATHER_PARAMS;
+    let res;
+    try { res = await solcastFetch(solcastWeatherUrl(site, list), apiKey); databaseWork.assertCurrent(); }
+    catch (e) { databaseWork.assertCurrent(); solcastWeatherOffUntil = now + 30 * 60000; logger.warn(`[forecast] Solcast weather unavailable: ${e.message}`); return; }
+    if (res.ok) {
+      let data = null;
+      try { data = await res.json(); } catch (_) { data = null; }
+      databaseWork.assertCurrent();
+      const byEnd = new Map();
+      for (const f of (data && Array.isArray(data.forecasts) ? data.forecasts : [])) {
+        const w = mapSolcastWeatherPeriod(f), ms = periodEndMs(w);
+        if (ms != null) byEnd.set(ms, w);
+      }
+      if (byEnd.size) { solcastWeatherCache = { at: now, byEnd, params: c.params }; solcastWeatherOffUntil = 0; }
+      else { solcastWeatherOffUntil = now + 30 * 60000; logger.warn('[forecast] Solcast weather returned no periods'); }
+      return;
+    }
+    let body = ''; try { body = (await res.text()).slice(0, 200); } catch (_) { /* no body */ }
+    databaseWork.assertCurrent();
+    if (res.status === 400 && c.params !== 'core') {
+      // One of the parameters is not accepted: carry on with the well-established ones, and remember it.
+      logger.warn(`[forecast] Solcast weather rejected the full parameter list (${body || 'HTTP 400'}); using the core set`);
+      c.params = 'core';
+      continue;
+    }
+    if (res.status === 401 || res.status === 403) { solcastWeatherOffUntil = now + 24 * 3600000; logger.warn(`[forecast] Solcast weather is not available for this key (HTTP ${res.status}); trying again tomorrow`); }
+    else if (res.status === 402 || res.status === 429) {
+      const retry = Number(res.headers && res.headers.get && res.headers.get('retry-after'));
+      solcastWeatherOffUntil = Number.isFinite(retry) && retry > 0 ? now + Math.min(retry * 1000, 6 * 3600000) : nextUtcMidnight(now);
+      logger.warn(`[forecast] Solcast weather: request limit reached (HTTP ${res.status})`);
+    } else { solcastWeatherOffUntil = now + 30 * 60000; logger.warn(`[forecast] Solcast weather HTTP ${res.status}`); }
+    return;
+  }
+}
+
+/** Fetch (when due and affordable) and merge Solcast's weather and irradiance into the PV periods. */
+async function attachSolcastWeatherData(periods, site, apiKey, pvJobs, now = Date.now()) {
+  if (getConfig('solcast_weather') === 'false' || !(site.latitude && site.longitude)) return;
+  const due = now - solcastWeatherCache.at >= FORECAST_CACHE_MS && now >= solcastWeatherOffUntil && solcastBudgetAllows(pvJobs, now);
+  if (due) await refreshSolcastWeather(site, apiKey, now);
+  mergeSolcastWeather(periods, solcastWeatherCache.byEnd);
+}
+
+// What each Solcast value is measured in, for the metrics below.
+const SOLCAST_METRIC_UNITS = {
+  pv_estimate: 'kW', pv_estimate10: 'kW', pv_estimate90: 'kW',
+  air_temp: '°C', min_air_temp: '°C', max_air_temp: '°C', dewpoint_temp: '°C', relative_humidity: '%',
+  ghi: 'W/m²', ghi10: 'W/m²', ghi90: 'W/m²', dni: 'W/m²', dni10: 'W/m²', dni90: 'W/m²', dhi: 'W/m²', dhi10: 'W/m²', dhi90: 'W/m²',
+  gti: 'W/m²', gti10: 'W/m²', gti90: 'W/m²', clearsky_ghi: 'W/m²', clearsky_dni: 'W/m²', clearsky_dhi: 'W/m²', clearsky_gti: 'W/m²',
+  cloud_opacity: '%', cloud_opacity10: '%', cloud_opacity90: '%', albedo: '', azimuth: '°', zenith: '°',
+  wind_speed_10m: 'm/s', wind_speed_100m: 'm/s', wind_direction_10m: '°', wind_direction_100m: '°', wind_gust: 'm/s',
+  precipitation_rate: 'mm/h', snowfall_rate: 'cm/h', snow_depth: 'cm', snow_water_equivalent: 'cm', snow_soiling_rooftop: '%', snow_soiling_ground: '%',
+  surface_pressure: 'hPa', precipitable_water: 'kg/m²', cape: 'J/kg', pm10: 'µg/m³', 'pm2.5': 'µg/m³'
+};
+let lastSolcastMetricsAt = 0;
+
+/**
+ * Publish the values of the forecast period that is current now as metrics named solcast_<value>, so any card,
+ * chart, notification or combined metric can use them. At most once a minute.
+ */
+function publishSolcastMetrics(periods, now = Date.now()) {
+  if (!Array.isArray(periods) || now - lastSolcastMetricsAt < 60000) return 0;
+  const cur = currentPeriod(periods, now);
+  if (!cur) return 0;
+  lastSolcastMetricsAt = now;
+  const ts = Math.floor(now / 1000);
+  let n = 0;
+  try {
+    for (const [field, unit] of Object.entries(SOLCAST_METRIC_UNITS)) {
+      const v = cur[field] == null ? NaN : Number(cur[field]);
+      if (!Number.isFinite(v)) continue;
+      queueMetricValue(`solcast_${field.replace(/\./g, '_')}`, v, ts, unit);
+      n++;
+    }
+  } catch (e) { logger.debug(`[forecast] could not publish Solcast metrics: ${e.message}`); }   // never breaks the forecast
+  return n;
+}
+
 async function getSolarForecast(sourceParam, restMap) {
   const forecastEnabled = getConfig('forecast_enabled') === 'true';
   if (!forecastEnabled) return { error: 'Forecast disabled' };
@@ -871,6 +1106,7 @@ async function getSolarForecast(sourceParam, restMap) {
         if (dayEntry.date === todayDate) dayEntry.actual_so_far = actualTodayKwh;
       }
       await attachWeather(cached.data, cached.ctx);
+      if (cached.data.source === 'solcast') publishSolcastMetrics(cached.data.hourly);
       return cached.data;
     }
   }
@@ -923,9 +1159,9 @@ async function getSolarForecast(sourceParam, restMap) {
         // partial total is never shown as the whole site.
         const perArray = !resourceId && (arrays.length > 1 || arrays.some(a => a.solcast_resource_id));
         const jobs = !perArray
-          ? [resourceId ? { url: solcastRooftopUrl(resourceId), what: 'rooftop' } : (lat && lon ? { url: solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), what: 'world PV' } : null)]
+          ? [resourceId ? { url: solcastRooftopUrl(resourceId), what: 'rooftop' } : (lat && lon ? { url: solcastPvUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), what: 'world PV' } : null)]
           : arrays.map(a => (a.solcast_resource_id ? { url: solcastRooftopUrl(a.solcast_resource_id), what: `rooftop (${a.name})` }
-            : (lat && lon ? { url: solcastWorldUrl({ latitude: lat, longitude: lon, capacity: a.kwp, tilt: a.tilt, azimuth: a.azimuth, loss_factor: lossFactor, install_date: installDate }), what: `world PV (${a.name})` } : null)));
+            : (lat && lon ? { url: solcastPvUrl({ latitude: lat, longitude: lon, capacity: a.kwp, tilt: a.tilt, azimuth: a.azimuth, loss_factor: lossFactor, install_date: installDate }), what: `world PV (${a.name})` } : null)));
         const results = [];
         for (const job of jobs) {
           if (!job) { solcastErrText = 'Solcast needs a location or a resource ID'; break; }
@@ -942,7 +1178,7 @@ async function getSolarForecast(sourceParam, restMap) {
         // A site-wide rooftop that fails still falls back to the world PV API.
         if (!forecastData && !perArray && resourceId && lat && lon) {
           try {
-            const res = await solcastFetch(solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), solcastKey);
+            const res = await solcastFetch(solcastPvUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate }), solcastKey);
             databaseWork.assertCurrent();
             if (res.ok) { const data = await res.json(); databaseWork.assertCurrent(); if (data.forecasts) { forecastData = data.forecasts.map(mapSolcastPeriod); source = 'solcast'; } }
             else { solcastErrStatus = res.status; solcastRetryAfter = res.headers.get('retry-after'); solcastErrText = `Solcast world PV HTTP ${res.status}`; }
@@ -966,6 +1202,12 @@ async function getSolarForecast(sourceParam, restMap) {
         }
       }
     }
+  }
+
+  if (forecastData && source === 'solcast') {
+    // The weather and irradiance Solcast offers, with the PV forecast. One extra request, kept inside the daily budget.
+    const pvJobs = resourceId ? 1 : (arrays.length > 1 || arrays.some(a => a.solcast_resource_id) ? arrays.length : 1);
+    await attachSolcastWeatherData(forecastData, { latitude: lat, longitude: lon, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth }, solcastKey, pvJobs, now);
   }
 
   if (!forecastData && forecastSel === 'solcast') return { error: 'Solcast unavailable' };
@@ -1001,8 +1243,10 @@ async function getSolarForecast(sourceParam, restMap) {
     f.energy_kwh = pv * periodHours(f);
     existing.total_kwh += f.energy_kwh;
     existing.peak_kw = Math.max(existing.peak_kw, pv);
+    accumulateDayWeather(existing, f);
     dailyMap.set(date, existing);
   });
+  for (const d of dailyMap.values()) finishDayWeather(d);
   const daily = Array.from(dailyMap.values()).slice(0, 7);
   const todayDate = localDateString();
   for (const dayEntry of daily) {
@@ -1023,12 +1267,13 @@ async function getSolarForecast(sourceParam, restMap) {
   // relative_humidity -> prefer them for weather temp/humidity.
   const ctx = {
     lat, lon, restMap,
-    solcastWx: source === 'solcast' ? pickSolcastWeather(forecastData) : { temp: null, humidity: null }
+    solcastWx: source === 'solcast' ? pickSolcastWeather(forecastData, Date.now()) : { temp: null, humidity: null }
   };
   await attachWeather(result, ctx);
 
   databaseWork.assertCurrent();
   forecastCache[selector] = { data: result, timestamp: now, ctx };
+  if (source === 'solcast') publishSolcastMetrics(result.hourly);
   return result;
 }
 
@@ -1090,6 +1335,15 @@ async function attachWeather(result, ctx) {
     weather.available = true;
     weatherSource = restWeather.weather_source;
   }
+  // Everything else Solcast sent for the current period: it replaces the point values and adds detail rows.
+  if (useSolcastWx && result.source === 'solcast') {
+    const { overrides, details } = solcastWeatherView(currentPeriod(result.hourly));
+    if (Object.keys(overrides).length || Object.keys(details).length) {
+      weather = { ...weather, ...overrides };
+      if (Object.keys(details).length) weather.solcast = details;
+      if (Object.keys(overrides).length) { weather.extra = buildWeatherExtra(weather.feels_like, weather.humidity); weatherSource = 'solcast'; }
+    }
+  }
   result.weather = weather;
   // S2 (AC9, additive): which provider supplied the weather temp/humidity.
   result.weather_source = weatherSource;
@@ -1119,8 +1373,8 @@ async function testForecast(opts) {
   if (solcastKey) {
     const perArray = !resourceId && (arrays.length > 1 || arrays.some(a => a.solcast_resource_id));
     const urls = !perArray
-      ? [resourceId ? solcastRooftopUrl(resourceId) : solcastWorldUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate })]
-      : arrays.map(a => (a.solcast_resource_id ? solcastRooftopUrl(a.solcast_resource_id) : solcastWorldUrl({ latitude: lat, longitude: lon, capacity: a.kwp, tilt: a.tilt, azimuth: a.azimuth, loss_factor: lossFactor, install_date: installDate })));
+      ? [resourceId ? solcastRooftopUrl(resourceId) : solcastPvUrl({ latitude: lat, longitude: lon, capacity: capacityKwp, tilt: arrays[0].tilt, azimuth: arrays[0].azimuth, loss_factor: lossFactor, install_date: installDate })]
+      : arrays.map(a => (a.solcast_resource_id ? solcastRooftopUrl(a.solcast_resource_id) : solcastPvUrl({ latitude: lat, longitude: lon, capacity: a.kwp, tilt: a.tilt, azimuth: a.azimuth, loss_factor: lossFactor, install_date: installDate })));
     try {
       const lists = [];
       for (const url of urls) {
@@ -1142,4 +1396,4 @@ async function testForecast(opts) {
   return { source, arrays: arrays.length, capacity_kwp: +capacityKwp.toFixed(2), today_estimate_kwh: result.kwh.toFixed(2), peak_kw: result.peak.toFixed(2) };
 }
 
-module.exports = { getArrays, openMeteoAzimuth, sumForecastPeriods, getOpenMeteoArrays, withTodaysEarlierPeriods, fillPeriodWeather, computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
+module.exports = { solcastPvUrl, solcastWeatherUrl, solcastRooftopUrl, mapSolcastWeatherPeriod, mergeSolcastWeather, attachSolcastWeatherData, publishSolcastMetrics, solcastBudgetAllows, solcastRequestsToday, solcastDailyLimit, accumulateDayWeather, finishDayWeather, SOLCAST_WEATHER_PARAMS, SOLCAST_WEATHER_CORE, SOLCAST_METRIC_UNITS, SOLCAST_FORMAT, resetSolcastWeather: () => { solcastWeatherCache = { at: 0, byEnd: new Map(), params: 'all' }; solcastWeatherOffUntil = 0; lastSolcastMetricsAt = 0; }, getArrays, openMeteoAzimuth, sumForecastPeriods, getOpenMeteoArrays, withTodaysEarlierPeriods, fillPeriodWeather, computeSolarForDate, computeTodaySolar, getSolarForecast, testForecast, weatherCodeMap, DEFAULT_WEATHER, describeWeatherCode, parseOpenMeteo, buildOpenMeteoWeather, periodHours, compassPoint, mapSolcastPeriod, normalizeSourceSelector, pickSolcastWeather, clearForecastCache, resolveDefaultSource, shouldInvalidateForecastCache, FORECAST_CACHE_KEYS, resolveRestSource, REST_DEFAULT_ALIASES, solcastNegativeCache, solcastLastUpstreamAttempt, SOLCAST_UPSTREAM_GATE_MS, SOLCAST_NEGATIVE_TTL_TRANSPORT_MS, SOLCAST_NEGATIVE_TTL_429_BASE_MS, SOLCAST_NEGATIVE_TTL_MAX_MS, clearSolcastNegativeCache, isNegativeCacheValid, computeNegativeCacheEntry, canAttemptSolcastUpstream, recordSolcastUpstreamAttempt, recordSolcastSuccess, buildCachedErrorResponse };
