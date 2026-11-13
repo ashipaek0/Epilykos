@@ -364,6 +364,87 @@
 @container bc-card (max-height: 230px) { .bc-scale, .bc-cur-label { display: none; } }
 @media (max-width: 768px) { .battery-card { min-height: 22rem; } }
 
+/* ── System hero ──────────────────────────────────────────── */
+/* Words on the left, a picture on the right. The card is a size container; the text follows its height and width, and the
+   picture is dropped when the card is too narrow for both. */
+.system-hero-card { display: flex !important; flex-direction: row; align-items: center; gap: 0.8em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; overflow: hidden; }
+.sh-text { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 0.35em; }
+.sh-title { font-size: calc(clamp(0.6rem, min(11cqh, 3.2cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.sh-headline { font-size: calc(clamp(0.95rem, min(26cqh, 6.5cqw), 2.4rem) * var(--card-font-scale, 1)); font-weight: 800; line-height: 1.12; color: var(--text); overflow-wrap: anywhere; }
+.sh-headline:empty { display: none; }
+.sh-pill { --sh-pill: var(--battery, #22c55e); display: inline-block; max-width: 100%; box-sizing: border-box; padding: 0.25em 0.8em; border-radius: 999px; font-size: calc(clamp(0.65rem, min(11cqh, 3cqw), 1rem) * var(--card-font-scale, 1)); font-weight: 700;
+  color: var(--sh-pill); background: color-mix(in srgb, var(--sh-pill) 16%, transparent); border: 1px solid color-mix(in srgb, var(--sh-pill) 45%, transparent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-pill:empty { display: none; }
+.sh-art { flex: 0 0 42%; height: 100%; min-width: 0; display: flex; align-items: center; justify-content: center; }
+.sh-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+@container (max-width: 260px) { .sh-art { display: none; } }
+@media (max-width: 768px) { .system-hero-card { min-height: 8.5rem; } }
+
+/* ── Speedometer ──────────────────────────────────────────── */
+/* The face is a box with the dial's proportions (100 × 86); the reading is laid over its lower half, sized in the face's
+   own units, so it scales with the dial. */
+.speedometer-card { display: flex !important; flex-direction: column; align-items: center; gap: 0.35em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.sp-title { flex: 0 0 auto; font-size: calc(clamp(0.7rem, min(8cqh, 3cqw), 1rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); text-align: center; }
+.sp-dial { flex: 1 1 0; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+.sp-face { position: relative; width: min(100cqw, calc(100cqh * 100 / 86)); aspect-ratio: 100 / 86; container-type: size; }
+.sp-svg { width: 100%; height: 100%; display: block; }
+.sp-track { stroke: var(--text-secondary); opacity: 0.18; }
+.sp-arc { stroke: var(--solar, #f59e0b); transition: stroke-dasharray 0.6s ease; }
+.sp-tick { stroke: var(--text-secondary); opacity: 0.5; }
+.sp-needle { transform-origin: 50px 52px; transform: rotate(150deg); transition: transform 0.6s ease; }
+.sp-needle-line { stroke: var(--text); }
+.sp-hub { fill: var(--text); }
+.sp-read { position: absolute; left: 0; right: 0; top: 63%; display: flex; flex-direction: column; align-items: center; line-height: 1.05; pointer-events: none; }
+.sp-main { display: flex; align-items: baseline; gap: 0.25em; white-space: nowrap; }
+.sp-value { font-size: calc(13cqw * var(--card-font-scale, 1)); font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.sp-unit { font-size: calc(6cqw * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.sp-of { font-size: calc(5.4cqw * var(--card-font-scale, 1)); color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sp-tag { flex: 0 0 auto; padding: 0.2em 0.8em; border-radius: 999px; font-size: calc(clamp(0.6rem, min(7cqh, 2.6cqw), 0.85rem) * var(--card-font-scale, 1)); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+  color: var(--battery, #22c55e); background: color-mix(in srgb, var(--battery, #22c55e) 16%, transparent); }
+.sp-tag[hidden], .sp-tag:empty { display: none; }
+.sp-caption { flex: 0 0 auto; font-size: calc(clamp(0.65rem, min(7cqh, 2.8cqw), 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); text-align: center; }
+.sp-caption:empty { display: none; }
+@container (max-height: 150px) { .sp-title { display: none; } }
+@media (max-width: 768px) { .speedometer-card { min-height: 16rem; } }
+
+/* ── Flow rows ────────────────────────────────────────────── */
+/* The rows share the card's height (--fr-rows is how many); a row is its label and value over a bar, sized from the row. */
+.flow-rows-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.fr-title { flex: 0 0 auto; font-size: calc(clamp(0.7rem, 2.6cqi, 1rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.fr-rows { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; container-type: size; --fr-font: calc(clamp(0.45rem, min(100cqh / var(--fr-rows, 3) * 0.27, 100cqw * 0.065), 1.2rem) * var(--card-font-scale, 1)); }
+.fr-row { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 0.3em; font-size: var(--fr-font); }
+.fr-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; }
+.fr-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-weight: 600; }
+.fr-value { flex: 0 0 auto; color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fr-row[data-state="idle"] .fr-value, .fr-row[data-state="unknown"] .fr-value { color: var(--text-secondary); font-weight: 600; }
+.fr-bar { height: 0.45em; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.fr-fill { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 0.6s ease; }
+.fr-no-bars .fr-bar { display: none; }
+.fr-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 0.5em; }
+@container (max-height: 120px) { .fr-title { display: none; } }
+@media (max-width: 768px) { .flow-rows-card { min-height: calc(var(--fr-rows, 3) * 3.2rem + 2.5rem); } }
+
+/* ── Meter card ───────────────────────────────────────────── */
+/* A label, the big value, a bar of segments, and up to two lines of words, sized from the card's height and width. */
+.meter-card { --mt-color: var(--solar, #f59e0b); display: flex !important; flex-direction: column; justify-content: center; gap: 0.35em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }
+.mt-label { font-size: calc(clamp(0.6rem, min(10cqh, 3.2cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.mt-main { display: flex; align-items: baseline; gap: 0.25em; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text); }
+.mt-value { font-size: calc(clamp(1.2rem, min(30cqh, 16cqw), 3.4rem) * var(--card-font-scale, 1)); font-weight: 800; line-height: 1; }
+.mt-prefix { font-size: calc(clamp(0.8rem, min(16cqh, 8cqw), 1.8rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.mt-unit { font-size: calc(clamp(0.7rem, min(13cqh, 6.5cqw), 1.4rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.mt-bar { --mt-fill: var(--mt-color); height: clamp(0.4rem, 8cqh, 1rem); border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.meter-card[data-band="low"] .mt-bar { --mt-fill: var(--bc-low, #ef4444); }
+.meter-card[data-band="mid"] .mt-bar { --mt-fill: var(--bc-mid, #f59e0b); }
+.meter-card[data-band="high"] .mt-bar { --mt-fill: var(--bc-high, #22c55e); }
+.mt-fill { display: block; height: 100%; width: 0; background: var(--mt-fill); border-radius: inherit; transition: width 0.6s ease; }
+.mt-bar.mt-segmented { display: grid; grid-template-columns: repeat(var(--mt-n, 10), minmax(0, 1fr)); gap: 0.18em; background: none; border-radius: 0; overflow: visible; }
+.mt-seg { display: block; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); transition: background 0.4s ease; }
+.mt-seg[data-on="1"] { background: var(--mt-fill); }
+.mt-note { font-size: calc(clamp(0.6rem, min(9cqh, 3.2cqw), 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.mt-note:empty { display: none; }
+@container (max-height: 90px) { .mt-note, .mt-label { display: none; } }
+@media (max-width: 768px) { .meter-card { min-height: 7.5rem; } }
+
 /* ── Status list ──────────────────────────────────────────── */
 /* The rows share the card's height (--sl-rows is how many) and the text follows a row's height, limited by the width. */
 .status-list-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }

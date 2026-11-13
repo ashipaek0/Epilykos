@@ -24,6 +24,13 @@ export const SHOWCASE_BLOCKS = [
     { label: 'Boiler', metric: 'device_boiler', unit: 'W', when: 'above', limit: 50 }, { label: 'Washing machine', metric: 'device_washer', unit: 'W', when: 'above', limit: 20 },
     { label: 'Water pump', metric: 'device_pump', unit: 'W', when: 'above', limit: 20 }, { label: 'Air conditioner', metric: 'device_ac', unit: 'W', when: 'above', limit: 50 },
     { label: 'Generator', metric: 'switch.generator', when: 'on' }, { label: 'Grid', metric: 'grid_status', when: 'on' }] } },
+  { type: 'system-hero', config: { title: 'System', extras: [{ metric: 'panels_producing' }], states: [
+    { metric: 'solar', when: 'above', limit: 100, headline: 'All {a} panels producing', pill: 'Sun is powering the home', color: '#16a34a' },
+    { metric: '', headline: 'Waiting for the sun', pill: 'Running on the battery', color: '#38bdf8' }] } },
+  { type: 'speedometer', config: { title: 'Live output', metric: 'solar', max: 6400, maxMetric: 'system_size', peakMetric: 'solar_peak_today', nearText: 'Near today\u2019s peak', caption: '{pct}% of system size' } },
+  { type: 'flow-rows', config: { title: 'Where it\u2019s going', rows: [
+    { label: 'Battery', metric: 'battery_power', sign: 'positive' }, { label: 'Home', metric: 'consumption' }, { label: 'Grid', metric: 'grid_export' }] } },
+  { type: 'meter-card', config: { label: 'Made today', metric: 'daily_solar', maxMetric: 'forecast_solar_today', notes: ['~{max} expected today'] } },
   { type: 'flow-card', config: { metrics: FLOW } },
   { type: 'flow-card-square', config: { metrics: FLOW } },
   { type: 'flow-card-square-2', config: { metrics: FLOW } },

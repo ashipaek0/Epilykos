@@ -27,6 +27,10 @@ import { buildPowerFlow } from './powerFlow.js';
 import { buildRingGauge } from './ringGauge.js';
 import { buildBatteryCard } from './batteryCard.js';
 import { buildStatusList } from './statusList.js';
+import { buildSystemHero } from './systemHero.js';
+import { buildSpeedometer } from './speedometer.js';
+import { buildFlowRows } from './flowRows.js';
+import { buildMeterCard } from './meterCard.js';
 import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.js';
 import { buildPvToday } from './pvToday.js';
 import { buildEnergyDay } from './energyDay.js';
@@ -57,6 +61,10 @@ export const componentBuilders = {
   'ring-gauge': buildRingGauge,
   'battery-card': buildBatteryCard,
   'status-list': buildStatusList,
+  'system-hero': buildSystemHero,
+  'speedometer': buildSpeedometer,
+  'flow-rows': buildFlowRows,
+  'meter-card': buildMeterCard,
   'forecast-banner': buildForecastBanner,
   'forecast-sparkline': buildForecastSparkline,
   'forecast-info': buildForecastInfo,
