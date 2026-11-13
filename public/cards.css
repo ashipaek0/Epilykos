@@ -1193,14 +1193,10 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 @container (max-height: 230px) { .pm-facts { display: none; } }
 @media (max-width: 768px) { .prepaid-card { min-height: 20rem; } }
 
-/* The strip on the Grid card. */
-.pm-strip { --pm-c: var(--battery, #22c55e); flex: 0 0 auto; border-radius: 9px; padding: 0.55em 0.7em; display: flex; flex-direction: column; gap: 0.4em; background: color-mix(in srgb, var(--pm-c) 14%, transparent); }
-.pm-strip[data-level="low"] { --pm-c: var(--solar, #f59e0b); }
-.pm-strip[data-level="out"] { --pm-c: #ef4444; }
+/* The prepaid text at the top right of the Grid card: plain text, no bar. Quiet while all is well, red from the warning level. */
+.pm-strip { margin-left: auto; text-align: right; min-width: 0; font-variant-numeric: tabular-nums; line-height: 1.25; }
 .pm-strip[hidden] { display: none; }
-.pm-strip-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
-.pm-strip-main { font-weight: 700; color: var(--pm-c); }
-.pm-strip-sub { font-size: 0.85em; color: var(--text-secondary); }
+.pm-strip-main { font-size: 0.95em; font-weight: 700; color: var(--text); }
+.pm-strip-sub { font-size: 0.8em; font-weight: 500; color: var(--text-secondary); }
 .pm-strip-sub:empty { display: none; }
-.pm-strip-bar { height: 0.45em; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
-.pm-strip-bar i { display: block; height: 100%; width: 0; background: var(--pm-c); border-radius: inherit; transition: width 0.6s ease; }
+.pm-strip[data-level="low"] :is(.pm-strip-main, .pm-strip-sub), .pm-strip[data-level="out"] :is(.pm-strip-main, .pm-strip-sub) { color: #ef4444; }

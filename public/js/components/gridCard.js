@@ -97,8 +97,8 @@ function buildStatusCard(block, kindName) {
     <div class="ep-grid-days-sum" id="${uid(p + '-days-sum', id)}" aria-live="polite"></div>` : ''}
   `;
 
-  // The optional prepaid meter balance, under everything else (grid card only; hidden until tracking is on and has a balance).
-  if (kindName === 'grid' && config.showPrepaid === true) card.appendChild(buildPrepaidStrip({ left: config.prepaidLeft, days: config.prepaidDays, out: config.prepaidOut }));
+  // The optional prepaid meter text at the top right, level with the date (grid card only; hidden until tracking is on and has a balance).
+  if (kindName === 'grid' && config.showPrepaid === true) card.querySelector('.ep-grid-head').appendChild(buildPrepaidStrip({ left: config.prepaidLeft, days: config.prepaidDays, out: config.prepaidOut }));
 
   if (showDays) {
     const sumEl = () => card.querySelector('.ep-grid-days-sum');
