@@ -1,18 +1,42 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43233017409.1",
-    "version": "1.2.6",
-    "commit": "ab791cdaa8c28dac64ff6c0cc997b24f3e1fdcf2",
-    "digest": "sha256:49f9e72646fa591ca9dc86d957d525fd5a1d37d0bb4f43d315b9f6a5e606bbdc",
+    "buildId": "43416769567.1",
+    "version": "1.2.7",
+    "commit": "515a8f20f9f5e03bd535fb25ca8f46809092930f",
+    "digest": "sha256:681025aad5a39e1a14fe5f5944c6238d87c9b252c6bd7497e4defb893551c9a5",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-12T14:02:21Z",
+    "builtAt": "2026-11-13T11:24:22Z",
     "kind": "release",
     "notes": [
-      "Combined metrics: Average per day, for any metric (#335)"
+      "Solcast test: drop a replace that replaced a string with itself (#344)",
+      "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)",
+      "Speedometer, Flow rows and System hero: follow the sample picture (#341)",
+      "New cards: System hero, Speedometer, Flow rows and Meter card (#340)",
+      "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)",
+      "Solcast: current API and response format, and every weather and irradiance value (#338)",
+      "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
     ]
   },
   "history": [
+    {
+      "buildId": "43416769567.1",
+      "version": "1.2.7",
+      "commit": "515a8f20f9f5e03bd535fb25ca8f46809092930f",
+      "digest": "sha256:681025aad5a39e1a14fe5f5944c6238d87c9b252c6bd7497e4defb893551c9a5",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-13T11:24:22Z",
+      "kind": "release",
+      "notes": [
+        "Solcast test: drop a replace that replaced a string with itself (#344)",
+        "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)",
+        "Speedometer, Flow rows and System hero: follow the sample picture (#341)",
+        "New cards: System hero, Speedometer, Flow rows and Meter card (#340)",
+        "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)",
+        "Solcast: current API and response format, and every weather and irradiance value (#338)",
+        "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
+      ]
+    },
     {
       "buildId": "43233017409.1",
       "version": "1.2.6",
