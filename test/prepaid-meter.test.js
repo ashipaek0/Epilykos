@@ -170,6 +170,14 @@ const load = f => import(pathToFileURL(path.join(REPO, 'public/js/components', f
 
   // ── Wiring ──
   assert.match(read('public/js/components/index.js'), /'prepaid-meter': buildPrepaidMeter/);
+  // The Grid card text: top right, level with the date, plain text with no bar, red from the warning level
+  const pmSrc = read('public/js/components/prepaidMeter.js');
+  assert.ok(!/pm-strip-bar|pm-strip-row/.test(pmSrc) && !/pm-strip-bar/.test(read('public/cards.css')), 'no bar on the Grid card');
+  assert.match(read('public/js/components/gridCard.js'), /card\.querySelector\('\.ep-grid-head'\)\.appendChild\(buildPrepaidStrip/, 'placed in the head, with the date');
+  const stripCss = read('public/cards.css');
+  assert.match(stripCss, /\.pm-strip \{ margin-left: auto; text-align: right;/); assert.match(stripCss, /\.pm-strip\[data-level="low"\] :is\(\.pm-strip-main, \.pm-strip-sub\), \.pm-strip\[data-level="out"\] :is\(\.pm-strip-main, \.pm-strip-sub\) \{ color: #ef4444; \}/, 'red at the low level and when out');
+  assert.ok(!/\.pm-strip \{[^}]*(background|border-radius)/.test(stripCss), 'no box around it');
+  assert.match(stripCss, /\.prepaid-card\[data-level="low"\], \.prepaid-card\[data-level="out"\] \{ --pm-c: #ef4444; \}/, 'the Prepaid meter card is red from the warning level too');
   assert.match(read('public/js/cards-update.js'), /prepaid-meter'\) \|\| document\.querySelector\('\.pm-strip'\)\) updatePrepaidMeter\(state\)/, 'refreshed only where a card or a strip is');
   assert.match(read('public/js/editor-catalog.js'), /'prepaid-meter':\s+\{ group: 'values', name: 'Prepaid meter'/);
   const ed = read('public/js/editor.js');
@@ -188,6 +196,13 @@ const load = f => import(pathToFileURL(path.join(REPO, 'public/js/components', f
   assert.ok(!/prepaid|pm-root/i.test(savings), 'the Prices and savings page is unchanged');
   assert.match(read('public/js/settings-shell.js'), /prepaid: 'Prepaid meter'/); assert.match(read('public/js/prepaid-settings.js'), /getElementById\('section-prepaid'\)/);
   assert.ok(!/SAVABLE = \[[^\]]*prepaid/.test(read('public/js/settings-shell.js')), 'the card saves itself, outside the page save bar');
+  // One way to save: the settings are a draft until Save is pressed. The switch and the fields only change the form.
+  const ps = read('public/js/prepaid-settings.js');
+  assert.match(ps, /id="pm-save" disabled>Save/, 'Save starts off, and stays off until something changes');
+  assert.match(ps, /\$\('pm-enabled'\)\.addEventListener\('change', function \(\) \{ \$\('pm-fields'\)\.hidden = !\$\('pm-enabled'\)\.checked; drawBalance\(\); markDirty\(\); \}\)/, 'the switch only shows or hides the fields');
+  assert.ok(!/addEventListener\('change', save\)/.test(ps), 'nothing saves before Save is pressed');
+  assert.strictEqual((ps.match(/api\('\/api\/prepaid\/settings', /g) || []).length, 1, 'the settings are sent from one place: the Save button');
+  assert.ok(!html.includes('id="pm-status"') && /stShell\.toast/.test(ps), 'feedback is the page\u2019s toast, not a box inside the card');
   assert.match(read('public/js/prepaid-settings.js'), /Everyone who can see the dashboard[\s\S]*Only me, when signed in/, 'who can see the balance is a setting');
   const sc = read('private/js/showcase-layout.js'), so = read('private/js/showcase.js'), sd = read('private/js/showcase-data.js');
   assert.ok(sc.includes("type: 'prepaid-meter'") && so.includes("'prepaid-meter': [") && sd.includes('prepaidDemo'), 'in the showcase');
