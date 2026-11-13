@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43232035392.1",
-    "version": "1.2.6-dev+f1aa302",
-    "commit": "f1aa3023fee591abdb7503dce31c2bc4796f1af8",
-    "digest": "sha256:7f20665c85982cbb18d3b81afeba8843a9f41517cfffe7d0e0d81fdfa1c55401",
+    "buildId": "43390009497.1",
+    "version": "1.2.7-dev+1b14b3d",
+    "commit": "1b14b3ddd2a4f7cc65daf0cdc638c67d0d50f541",
+    "digest": "sha256:15f44a403ccecc10604971e7571c42013b246fb4e16ca2ff74a0093c01c6d5c0",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-12T13:56:14Z",
+    "builtAt": "2026-11-13T08:02:01Z",
     "kind": "release",
     "notes": [
-      "Combined metrics: Average per day, for any metric (#335)"
+      "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
     ]
   },
   "history": [
+    {
+      "buildId": "43390009497.1",
+      "version": "1.2.7-dev+1b14b3d",
+      "commit": "1b14b3ddd2a4f7cc65daf0cdc638c67d0d50f541",
+      "digest": "sha256:15f44a403ccecc10604971e7571c42013b246fb4e16ca2ff74a0093c01c6d5c0",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T08:02:01Z",
+      "kind": "release",
+      "notes": [
+        "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
+      ]
+    },
     {
       "buildId": "43232035392.1",
       "version": "1.2.6-dev+f1aa302",
@@ -359,16 +371,6 @@
         "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
         "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks"
       ]
-    },
-    {
-      "buildId": "42593089430.1",
-      "version": "1.2.1-dev+0851b8c",
-      "commit": "0851b8cc2b6c98f764ee0ef2b346dd2691c1a4f5",
-      "digest": "sha256:9bbbb53c4e490fe72ec1b01d8434bf6a5c24c73a8df042c7a065b98490143111",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T09:23:58Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
