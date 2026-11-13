@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43394089331.1",
-    "version": "1.2.7-dev+769db1a",
-    "commit": "769db1a383f7e22d677c40392846e0d70272cf24",
-    "digest": "sha256:0b2a2f64afcc8a3635fdc6bba62997e6cd903e7813a3d10db6eeb5f1b35847c8",
+    "buildId": "43396751253.1",
+    "version": "1.2.7-dev+832882e",
+    "commit": "832882e2fff3b4b9e40932bb97b55afc9adf9a11",
+    "digest": "sha256:3ab945c536539b76759f894dc7feeb881be04cf3d2bd0afbd453eb23a7f3c7be",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T08:33:25Z",
+    "builtAt": "2026-11-13T08:53:33Z",
     "kind": "release",
     "notes": [
-      "New cards: System hero, Speedometer, Flow rows and Meter card (#340)"
+      "Speedometer, Flow rows and System hero: follow the sample picture (#341)"
     ]
   },
   "history": [
+    {
+      "buildId": "43396751253.1",
+      "version": "1.2.7-dev+832882e",
+      "commit": "832882e2fff3b4b9e40932bb97b55afc9adf9a11",
+      "digest": "sha256:3ab945c536539b76759f894dc7feeb881be04cf3d2bd0afbd453eb23a7f3c7be",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T08:53:33Z",
+      "kind": "release",
+      "notes": [
+        "Speedometer, Flow rows and System hero: follow the sample picture (#341)"
+      ]
+    },
     {
       "buildId": "43394089331.1",
       "version": "1.2.7-dev+769db1a",
@@ -360,16 +372,6 @@
       "notes": [
         "Control cards: a setting off the card's step is no longer refused; say why a card is locked (#309)"
       ]
-    },
-    {
-      "buildId": "42791337827.1",
-      "version": "1.2.3-dev+e2d8330",
-      "commit": "e2d8330a76fac21cde567534024698cd070dae3c",
-      "digest": "sha256:f2585565809f3e4c162359ca4c3afcf7882f46ba9b49b751540ef637f555bedb",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-10T09:31:15Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
