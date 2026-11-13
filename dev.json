@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43391104905.1",
-    "version": "1.2.7-dev+ebbd03b",
-    "commit": "ebbd03be837b7f0eeb1cce27452ad957e4c7f59b",
-    "digest": "sha256:54b8ffc953bdc3260046676eeb3028da59d7b04dc0ff439b36a544082719600a",
+    "buildId": "43394089331.1",
+    "version": "1.2.7-dev+769db1a",
+    "commit": "769db1a383f7e22d677c40392846e0d70272cf24",
+    "digest": "sha256:0b2a2f64afcc8a3635fdc6bba62997e6cd903e7813a3d10db6eeb5f1b35847c8",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T08:10:24Z",
+    "builtAt": "2026-11-13T08:33:25Z",
     "kind": "release",
     "notes": [
-      "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)"
+      "New cards: System hero, Speedometer, Flow rows and Meter card (#340)"
     ]
   },
   "history": [
+    {
+      "buildId": "43394089331.1",
+      "version": "1.2.7-dev+769db1a",
+      "commit": "769db1a383f7e22d677c40392846e0d70272cf24",
+      "digest": "sha256:0b2a2f64afcc8a3635fdc6bba62997e6cd903e7813a3d10db6eeb5f1b35847c8",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T08:33:25Z",
+      "kind": "release",
+      "notes": [
+        "New cards: System hero, Speedometer, Flow rows and Meter card (#340)"
+      ]
+    },
     {
       "buildId": "43391104905.1",
       "version": "1.2.7-dev+ebbd03b",
@@ -358,18 +370,6 @@
       "builtAt": "2026-11-10T09:31:15Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "42609924093.1",
-      "version": "1.2.2-dev+b7ce0ce",
-      "commit": "b7ce0cef86e0c4e71d5d2fcbc0a1fc65c7254bc7",
-      "digest": "sha256:a67de7ff6783b4ac8cbd62bb5f3ae30a11b28caeea3b28ed6654cf95ecc9661c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-09T11:33:26Z",
-      "kind": "release",
-      "notes": [
-        "Battery bank energy totals are published in kWh (#307)"
-      ]
     }
   ]
 }
