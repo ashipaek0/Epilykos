@@ -1,24 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43416769567.1",
-    "version": "1.2.7",
-    "commit": "515a8f20f9f5e03bd535fb25ca8f46809092930f",
-    "digest": "sha256:681025aad5a39e1a14fe5f5944c6238d87c9b252c6bd7497e4defb893551c9a5",
+    "buildId": "43435975226.1",
+    "version": "1.2.8",
+    "commit": "cbe5c43f266bd02f773f7e17e4e6bebbe9d7cf22",
+    "digest": "sha256:f657e9e59e812824fd1d42edb076f817af494219689180982fb5e9a82bbabb9d",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-13T11:24:22Z",
+    "builtAt": "2026-11-13T13:42:34Z",
     "kind": "release",
     "notes": [
-      "Solcast test: drop a replace that replaced a string with itself (#344)",
-      "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)",
-      "Speedometer, Flow rows and System hero: follow the sample picture (#341)",
-      "New cards: System hero, Speedometer, Flow rows and Meter card (#340)",
-      "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)",
-      "Solcast: current API and response format, and every weather and irradiance value (#338)",
-      "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
+      "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)",
+      "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
     ]
   },
   "history": [
+    {
+      "buildId": "43435975226.1",
+      "version": "1.2.8",
+      "commit": "cbe5c43f266bd02f773f7e17e4e6bebbe9d7cf22",
+      "digest": "sha256:f657e9e59e812824fd1d42edb076f817af494219689180982fb5e9a82bbabb9d",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-13T13:42:34Z",
+      "kind": "release",
+      "notes": [
+        "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)",
+        "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
+      ]
+    },
     {
       "buildId": "43416769567.1",
       "version": "1.2.7",
