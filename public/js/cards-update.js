@@ -44,6 +44,7 @@ import { updateSystemHero } from './components/systemHero.js';
 import { updateSpeedometer } from './components/speedometer.js';
 import { updateFlowRows } from './components/flowRows.js';
 import { updateMeterCard } from './components/meterCard.js';
+import { updatePrepaidMeter } from './components/prepaidMeter.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
 const FORECAST_TYPES = ['forecast-banner', 'forecast-info', 'forecast-sparkline', 'forecast-pvtoday', 'pv-today', 'weather-block'];
@@ -63,6 +64,7 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('speedometer')) updateSpeedometer(state);
   if (blockTypes.has('flow-rows')) updateFlowRows(state);
   if (blockTypes.has('meter-card')) updateMeterCard(state);
+  if (blockTypes.has('prepaid-meter') || document.querySelector('.pm-strip')) updatePrepaidMeter(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('system-overview')) updateSystemOverview(state);
   if (blockTypes.has('multi-value')) updateMultiValueCard(state);

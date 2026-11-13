@@ -30,6 +30,7 @@ export const SHOWCASE_BLOCKS = [
   { type: 'speedometer', config: { title: 'Live output', metric: 'solar', max: 6400, maxMetric: 'system_size', peakMetric: 'solar_peak_today', statuses: [{ rule: 'near-peak', limit: 85, text: 'Near today\u2019s peak' }, { rule: 'always', text: 'Producing' }], caption: '{pct}% of system size' } },
   { type: 'flow-rows', config: { title: 'Where it\u2019s going', rows: [
     { label: 'Battery', metric: 'battery_power', sign: 'positive' }, { label: 'Home', metric: 'consumption' }, { label: 'Grid', metric: 'grid_export' }] } },
+  { type: 'prepaid-meter', config: { showHistory: true } },
   { type: 'meter-card', config: { label: 'Made today', metric: 'daily_solar', maxMetric: 'forecast_solar_today', notes: ['~{max} expected today'] } },
   { type: 'flow-card', config: { metrics: FLOW } },
   { type: 'flow-card-square', config: { metrics: FLOW } },
@@ -46,7 +47,7 @@ export const SHOWCASE_BLOCKS = [
     { label: 'Inverter temperature', metric: 'inverter_temperature', unit: '°C', icon: 'mdi:thermometer' }, { label: 'Grid voltage', metric: 'grid_voltage', unit: 'V', icon: 'mdi:flash' },
     { label: 'PV voltage', metric: 'pv_voltage', unit: 'V' }, { label: 'Mode', metric: 'inverter_mode', unit: '' }] } },
   { type: 'text-metric', config: { metric: 'inverter_mode', label: 'Inverter mode', unit: '', icon: 'mdi:solar-panel' } },
-  { type: 'grid-card', config: {} },
+  { type: 'grid-card', config: { showPrepaid: true } },
   { type: 'generator-card', config: {} },
   { type: 'energy-totals', config: {} },
   { type: 'savings-summary', config: { title: 'Savings' } },

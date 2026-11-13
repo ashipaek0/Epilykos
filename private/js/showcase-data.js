@@ -120,6 +120,18 @@ function dayTotals(dayStart) {
   };
 }
 
+/** A made-up prepaid meter, for the Prepaid meter card and the Grid card strip (no buttons: nothing here is real). */
+function prepaidDemo(now, today) {
+  const day = 86400, t = Math.floor(now / 1000), balance = 42.3, avg = 7.2;
+  return {
+    enabled: true, started: true, unit: 'kWh', level: 'ok', balance, daysLeft: Math.round(balance / avg * 10) / 10, emptyOn: new Date(now + balance / avg * day * 1000).toISOString(),
+    avgDaily: avg, usedToday: Math.round((today.grid_import_kwh || 9.4) * 10) / 10, usedSinceRecharge: 17.7, fill: 0.705, currency: CURRENCY, canEdit: false, source: 'counter', private: false, factor: 1,
+    lastRecharge: { ts: t - 2 * day, units: 60, amount: 4080, price: 68 }, lastCheck: { ts: t - 5 * day, errorKwh: 0.1, errorPct: 0.5, learned: true }, warn: { kwh: 10, days: 2 },
+    ledger: [{ id: 'a', ts: t - 2 * day, type: 'recharge', units: 60, amount: 4080, price: 68 }, { id: 'b', ts: t - 5 * day, type: 'check', units: 21.5, est: 21.6, errorKwh: 0.1, errorPct: 0.5 },
+      { id: 'c', ts: t - 12 * day, type: 'recharge', units: 72, amount: 4896, price: 68 }]
+  };
+}
+
 // ── Live values ───────────────────────────────────────────────────────────
 
 /** The values right now, with a small wobble so the cards move. */
@@ -254,6 +266,7 @@ export function dashboardState(now = Date.now()) {
     },
     metrics: metricsFor(s, now, today),
     savings,
+    prepaid: prepaidDemo(now, today),
     ...gridState(now),
     powerHistory: power,
     dailyEnergyBar: daily,

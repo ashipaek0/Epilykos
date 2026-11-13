@@ -1154,3 +1154,53 @@ button.button-card:focus-visible { outline: 2px solid var(--bc-on, #ffc107); out
 .grid-card.generator-card .ep-grid-day { background: var(--color-warning); }
 .grid-card.generator-card .ep-grid-day.today { background: repeating-linear-gradient(45deg, var(--color-warning) 0 4px, color-mix(in srgb, var(--color-warning) 45%, transparent) 4px 8px); }
 .grid-card.generator-card .ep-grid-day.none, .grid-card.generator-card .ep-grid-day.unknown { height: 2px !important; background: var(--border); }
+
+/* ── Prepaid meter ────────────────────────────────────────── */
+/* A big balance, a segmented bar against the last recharge, the days left, facts, the latest entries and the buttons. Sized from
+   the card (a size container); the colour follows the level (green, amber at a warning level, red when out). */
+.prepaid-card { --pm-c: var(--battery, #22c55e); display: flex !important; flex-direction: column; gap: 0.6em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; overflow: hidden; }
+.prepaid-card[data-level="low"] { --pm-c: var(--solar, #f59e0b); }
+.prepaid-card[data-level="out"] { --pm-c: #ef4444; }
+.prepaid-card[data-level="unknown"] { --pm-c: var(--text-secondary); }
+.pm-title { flex: 0 0 auto; font-size: calc(clamp(0.65rem, min(5cqh, 3cqw), 0.95rem) * var(--card-font-scale, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.pm-msg { color: var(--text-secondary); font-size: calc(clamp(0.75rem, 3.2cqw, 1rem) * var(--card-font-scale, 1)); }
+.pm-msg[hidden], .pm-body[hidden], .pm-actions[hidden], .pm-facts[hidden], .pm-ledger[hidden], .pm-btn[hidden] { display: none; }
+.pm-body { display: flex; flex-direction: column; gap: 0.45em; }
+.pm-big { display: flex; align-items: baseline; gap: 0.35em; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.pm-num { font-size: calc(clamp(1.8rem, min(15cqh, 17cqw), 4rem) * var(--card-font-scale, 1)); font-weight: 800; line-height: 1; color: var(--pm-c); }
+.pm-unit { font-size: calc(clamp(0.8rem, min(6cqh, 4.5cqw), 1.2rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-weight: 600; }
+.pm-bar { height: clamp(0.6rem, 4cqh, 1rem); border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.pm-fill { display: block; height: 100%; width: 0; background: var(--pm-c); border-radius: inherit; transition: width 0.6s ease; }
+.pm-bar.pm-segmented { display: grid; grid-template-columns: repeat(var(--pm-n, 12), minmax(0, 1fr)); gap: 0.18em; background: none; border-radius: 0; overflow: visible; }
+.pm-seg { display: block; border-radius: 3px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); transition: background 0.4s ease; }
+.pm-seg[data-on="1"] { background: var(--pm-c); }
+.pm-days { font-size: calc(clamp(0.7rem, min(4.5cqh, 3.2cqw), 0.95rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pm-days:empty { display: none; }
+.pm-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5em 1em; font-size: calc(clamp(0.65rem, min(4cqh, 2.8cqw), 0.85rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.pm-fact b { display: block; color: var(--text); font-size: 1.2em; font-variant-numeric: tabular-nums; }
+.pm-ledger { display: flex; flex-direction: column; font-size: calc(clamp(0.65rem, min(4cqh, 2.8cqw), 0.85rem) * var(--card-font-scale, 1)); font-variant-numeric: tabular-nums; }
+.pm-ledger-row { display: grid; grid-template-columns: 4.5em minmax(0, 1fr) auto; gap: 0.6em; padding: 0.35em 0; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent); }
+.pm-ledger-date { color: var(--text-secondary); } .pm-ledger-note { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-plus { color: var(--battery, #22c55e); } .pm-fix { color: var(--home, #38bdf8); }
+.pm-actions { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: auto; }
+.pm-btn { font: inherit; font-size: calc(clamp(0.7rem, min(4.5cqh, 3cqw), 0.9rem) * var(--card-font-scale, 1)); font-weight: 600; padding: 0.45em 0.9em; border-radius: 8px; border: 1px solid var(--border, #d6d3d1); background: transparent; color: var(--text); cursor: pointer; }
+.pm-btn.pm-primary { background: var(--text); color: var(--bg, #fff); border-color: var(--text); }
+.pm-btn.pm-quiet { border-color: transparent; color: var(--text-secondary); }
+.pm-btn:disabled { opacity: 0.5; cursor: default; }
+.pm-btn:focus-visible { outline: 2px solid var(--solar, #f59e0b); outline-offset: 2px; }
+/* A short card gives up the entries first, then the facts, so the balance and the buttons always fit. */
+@container (max-height: 380px) { .pm-ledger { display: none; } }
+@container (max-height: 230px) { .pm-facts { display: none; } }
+@media (max-width: 768px) { .prepaid-card { min-height: 20rem; } }
+
+/* The strip on the Grid card. */
+.pm-strip { --pm-c: var(--battery, #22c55e); flex: 0 0 auto; border-radius: 9px; padding: 0.55em 0.7em; display: flex; flex-direction: column; gap: 0.4em; background: color-mix(in srgb, var(--pm-c) 14%, transparent); }
+.pm-strip[data-level="low"] { --pm-c: var(--solar, #f59e0b); }
+.pm-strip[data-level="out"] { --pm-c: #ef4444; }
+.pm-strip[hidden] { display: none; }
+.pm-strip-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.pm-strip-main { font-weight: 700; color: var(--pm-c); }
+.pm-strip-sub { font-size: 0.85em; color: var(--text-secondary); }
+.pm-strip-sub:empty { display: none; }
+.pm-strip-bar { height: 0.45em; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.pm-strip-bar i { display: block; height: 100%; width: 0; background: var(--pm-c); border-radius: inherit; transition: width 0.6s ease; }

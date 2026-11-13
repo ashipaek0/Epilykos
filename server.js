@@ -797,6 +797,7 @@ app.get('/setup', (req, res) => {
 // EpilykosOS system actions (Settings → System): restart, shut down, Wi-Fi, SSH.
 app.use('/api/system', isAuthenticated, require('./routes/system'));
 app.use('/api/notices', isAuthenticated, require('./routes/notices'));
+app.use('/api/prepaid', require('./routes/prepaid'));   // the balance: public unless private; changes and settings: signed in
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   for (const k of ['ha_devices', 'mqtt_devices', 'dongle_config', 'rs232_devices', 'modbus_devices', 'bms_devices', 'external_sources']) {

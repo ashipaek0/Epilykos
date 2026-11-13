@@ -28,7 +28,7 @@ function defaultRegistry() {
     // before history, so a role mapped to either gets this cycle's value.
     { id: 'battery', pollFn: () => require('../modules/batteryEstimator').runBatteryEstimator() },
     // Today's savings is published here too, so it is current for the same cycle (it never fails the poll).
-    { id: 'combined', pollFn: () => { const out = require('../modules/combinedMetrics').runCombinedMetrics(); require('../modules/savingsMetric').publishSavingsToday(); return out; } },
+    { id: 'combined', pollFn: () => { const out = require('../modules/combinedMetrics').runCombinedMetrics(); require('../modules/savingsMetric').publishSavingsToday(); require('../modules/prepaidMeter').tick(); return out; } },
     { id: 'history', pollFn: () => require('../modules/history').pollLegacyHistory() },
     { id: 'grid', pollFn: () => require('../modules/grid').pollGridStatus() },
     { id: 'generator', pollFn: () => require('../modules/generator').pollGeneratorStatus() },

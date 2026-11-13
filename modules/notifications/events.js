@@ -34,6 +34,8 @@ const EVENT_TYPES = {
   'backup.snapshot_overdue': { label: 'Automatic snapshot overdue', category: 'System', severity: 'warning', description: 'No recent automatic snapshot is available, or its timestamp is ahead of the system clock.' },
   'backup.snapshot_failed': { label: 'Automatic snapshot failed', category: 'System', severity: 'warning', description: 'The daily database snapshot could not be written.' },
   'update.available': { label: 'Update available', category: 'System', severity: 'info', description: 'A newer Epilykos build is out: a new release, or the weekly rebuild with security updates. Sent once per build.' },
+  'prepaid.low': { label: 'Prepaid meter low', category: 'Grid', severity: 'warning', description: 'The prepaid meter balance fell to a warning level you set in Settings (units left, or days left).' },
+  'prepaid.out': { label: 'Prepaid meter out of units', category: 'Grid', severity: 'critical', description: 'The prepaid meter balance reached 0.' },
   'system.started': { label: 'Epilykos started', category: 'System', severity: 'info', description: 'The server started (after an update, a reboot or a crash).' },
 };
 

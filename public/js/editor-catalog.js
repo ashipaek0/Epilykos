@@ -92,6 +92,7 @@ export const BLOCKS = {
   'speedometer':        { group: 'gauges', name: 'Speedometer', desc: 'A dial with a needle, a near-peak tag and a line of words under it', icon: 'gauge', w: 4, h: 5 },
   'flow-rows':          { group: 'values', name: 'Flow rows', desc: 'A row per destination with a bar and its value, and Idle when it is not flowing', icon: 'list', w: 4, h: 4 },
   'meter-card':         { group: 'values', name: 'Meter card', desc: 'A big value with a segmented bar against a target, and two lines of words', icon: 'segments', w: 3, h: 3 },
+  'prepaid-meter':      { group: 'values', name: 'Prepaid meter', desc: 'The units left on a prepaid electricity meter, days left, and buttons to recharge or correct the balance', icon: 'plug', w: 4, h: 6 },
   'status-list':        { group: 'values', name: 'Status list', desc: 'A dot per device or circuit that lights while its metric says it is on', icon: 'list', w: 3, h: 5 },
   'power-flow':         { group: 'flow', name: 'Power flow', desc: 'Solar on the left, where it goes on the right; grid, generator and battery appear when active', icon: 'flow', w: 6, h: 4 },
   'flow-card':          { group: 'flow', name: 'Flow card', desc: 'Power flow with an optional solar gauge', icon: 'flow', w: 6, h: 6 },
