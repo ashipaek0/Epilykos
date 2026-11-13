@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43426642799.1",
-    "version": "1.2.8-dev+23847a0",
-    "commit": "23847a06c387371890c561d884602aaab354e5f6",
-    "digest": "sha256:7c055cb026649b7dcb7f8e7ae6804c53f162bdca66e065008a6e612da8e9ede6",
+    "buildId": "43433801768.1",
+    "version": "1.2.8-dev+fe4c2cf",
+    "commit": "fe4c2cfc0a9a03fa840c396bdda377a3de39a0ac",
+    "digest": "sha256:57ed4f8e06aa6db49164f8a8cd2d9b226c1c2ebfeb269087c0fd615db70d0d51",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T12:37:00Z",
+    "builtAt": "2026-11-13T13:27:44Z",
     "kind": "release",
     "notes": [
-      "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
+      "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)"
     ]
   },
   "history": [
+    {
+      "buildId": "43433801768.1",
+      "version": "1.2.8-dev+fe4c2cf",
+      "commit": "fe4c2cfc0a9a03fa840c396bdda377a3de39a0ac",
+      "digest": "sha256:57ed4f8e06aa6db49164f8a8cd2d9b226c1c2ebfeb269087c0fd615db70d0d51",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-13T13:27:44Z",
+      "kind": "release",
+      "notes": [
+        "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)"
+      ]
+    },
     {
       "buildId": "43426642799.1",
       "version": "1.2.8-dev+23847a0",
@@ -361,16 +373,6 @@
         "Dual metric card: Background colour and Transparent reach the header and panes (#311)",
         "External sources: back off when a source fails, and log it once (#313)"
       ]
-    },
-    {
-      "buildId": "42985979901.1",
-      "version": "1.2.3-dev+5194096",
-      "commit": "5194096619ad961a5789c40c27c11d2ff651ae85",
-      "digest": "sha256:a47df0ce8b308ee1ef1dea5e3a6c71a6e1f7649468ceff773a217c9bc26cbc65",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T08:18:47Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
