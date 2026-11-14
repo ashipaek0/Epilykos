@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43604484679.1",
-    "version": "1.2.11-dev+9f8497b",
-    "commit": "9f8497b204d963c53589f11f234b6cd5bd5671dc",
-    "digest": "sha256:84ebb9838c77ffdd47854d78f5dc8207b7cacd311545bb44eefa62ecd65891d4",
+    "buildId": "43608737346.1",
+    "version": "1.2.12-dev+6e962d9",
+    "commit": "6e962d9e3071d1ff6e4b9ad924aca01d83f8e197",
+    "digest": "sha256:8d570117e1b3090826868e2699fc06102bc32a63f8ee2bc861a98ead95149739",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T14:22:22Z",
+    "builtAt": "2026-11-14T15:10:48Z",
     "kind": "release",
     "notes": [
-      "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
+      "Settings: more room between sections and a short faint divider (#363)"
     ]
   },
   "history": [
+    {
+      "buildId": "43608737346.1",
+      "version": "1.2.12-dev+6e962d9",
+      "commit": "6e962d9e3071d1ff6e4b9ad924aca01d83f8e197",
+      "digest": "sha256:8d570117e1b3090826868e2699fc06102bc32a63f8ee2bc861a98ead95149739",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T15:10:48Z",
+      "kind": "release",
+      "notes": [
+        "Settings: more room between sections and a short faint divider (#363)"
+      ]
+    },
     {
       "buildId": "43604484679.1",
       "version": "1.2.11-dev+9f8497b",
@@ -359,18 +371,6 @@
         "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
         "Solar forecast cards: the day tiles follow the card's transparency (#328)",
         "Bar gauges: the bars scale with the card, in every variant (#327)"
-      ]
-    },
-    {
-      "buildId": "43183865889.1",
-      "version": "1.2.5-dev+fc10a39",
-      "commit": "fc10a393bd2050c6e0ff203ca0fe535f5f424339",
-      "digest": "sha256:7bfa543d7dd0d9a74e3d19305be98254cb3f5ec94c7e73b95314b40323d8a505",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T08:33:22Z",
-      "kind": "release",
-      "notes": [
-        "Sources: Bluetooth dongle is its own source type (#326)"
       ]
     }
   ]
