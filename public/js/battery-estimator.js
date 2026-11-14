@@ -1,5 +1,5 @@
 /**
- * Settings > Metrics > Battery estimate (modules/batteryEstimator.js).
+ * Settings > Virtual Battery (modules/batteryEstimator.js).
  *
  * Shows the estimate and how it got there (voltage guess, last full charge,
  * time not counted), and edits its settings: battery, the inverters' battery
@@ -162,10 +162,10 @@
   });
 
   load(true);
-  // The figures move with every reading: refresh them while the Metrics section is on screen.
+  // The figures move with every reading: refresh them while the Virtual Battery section is on screen.
   setInterval(function () {
-    var sec = document.getElementById('section-metrics');
+    var sec = document.getElementById('section-virtual-battery');
     if (!document.hidden && sec && !sec.hidden) load(false);
   }, 30000);
-  document.addEventListener('st:section-shown', function (e) { if (e.detail && e.detail.section === 'metrics') load(false); });
+  document.addEventListener('st:section-shown', function (e) { if (e.detail && e.detail.section === 'virtual-battery') load(false); });
 })();

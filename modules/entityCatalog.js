@@ -250,7 +250,7 @@ function dongleLuxpowerEntities(profile) {
   for (const m of metrics) {
     const w = writableMap.get(wKey(m.register_type, m.register));
     const entity = {
-      id: m.register_type !== undefined ? `${m.register_type}:${m.register}` : m.register, // decode key (namespaced)
+      id: (m.register_type !== undefined ? `${m.register_type}:${m.register}` : m.register) + (m.key_suffix || ''), // decode key (namespaced; key_suffix for a metric worked out from another's registers)
       register_type: m.register_type !== undefined ? m.register_type : 'holding',
       register: m.register,
       name: m.name,

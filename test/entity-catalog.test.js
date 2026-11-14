@@ -78,13 +78,14 @@ check('AC-2: luxpower-geta projection is byte-identical to captured current-rout
 check('AC-2: snapshot structure — item keys, namespaced ids, sort, decode-key match', () => {
   const baseKeys = ['id', 'register_type', 'register', 'name', 'label', 'unit', 'scale', 'type', 'count', 'access', 'writable'];
   const allowed = new Set([...baseKeys, 'min', 'max', 'step', 'kind', 'actions']);
-  const byId = new Map(LUX.metrics.map(m => [m.register_type ? `${m.register_type}:${m.register}` : m.register, m]));
+  const keyOf = m => (m.register_type ? `${m.register_type}:${m.register}` : m.register) + (m.key_suffix || '');
+  const byId = new Map(LUX.metrics.map(m => [keyOf(m), m]));
   let prevKey = null;
   const ids = new Set();
   for (const e of SNAPSHOT_ENTITIES) {
     for (const k of Object.keys(e)) assert.ok(allowed.has(k), `unexpected key ${k} on ${e.id}`);
-    assert.strictEqual(e.id, `${e.register_type}:${e.register}`, 'id is namespaced register_type:register');
-    assert.ok(/^(input|holding):0x[0-9A-Fa-f]{4}$/.test(e.id), `namespaced hex id expected, got ${e.id}`);
+    assert.ok(e.id === `${e.register_type}:${e.register}` || e.id.startsWith(`${e.register_type}:${e.register}#`), 'id is namespaced register_type:register (plus an optional #suffix)');
+    assert.ok(/^(input|holding):0x[0-9A-Fa-f]{4}(#[a-z]+)?$/.test(e.id), `namespaced hex id expected, got ${e.id}`);
     ids.add(e.id);
     assert.ok(!e.id.includes('undefined'), `no undefined:0x ids (got ${e.id})`);
     // Every emitted id is exactly the decode key decodeLuxpowerMetrics consumes,
@@ -116,7 +117,7 @@ check('AC-2: snapshot structure — item keys, namespaced ids, sort, decode-key 
   }
   assert.strictEqual(ids.size, LUX.metrics.length, 'ids unique, 1:1 with metrics');
   // decode-key bijection: emitted id set === set of decodeLuxpowerMetrics keys
-  const decodeKeys = new Set(LUX.metrics.map(m => (m.register_type ? `${m.register_type}:${m.register}` : m.register)));
+  const decodeKeys = new Set(LUX.metrics.map(keyOf));
   assert.strictEqual(ids.size, decodeKeys.size);
   for (const k of decodeKeys) assert.ok(ids.has(k), `decode key ${k} missing from emitted set`);
 });
@@ -281,7 +282,7 @@ function decodeUnits(profile) {
   if (Array.isArray(profile.fields) && profile.fields.length) return profile.fields.map(f => ({ unit: f, key: f.path, kind: 'path' }));
   return profile.metrics.map(m => {
     if (profile.transport === 'growatt') return { unit: m, key: m.field, kind: 'field' };
-    if (m.register_type) return { unit: m, key: `${m.register_type}:${m.register}`, kind: 'namespaced' };
+    if (m.register_type) return { unit: m, key: `${m.register_type}:${m.register}${m.key_suffix || ''}`, kind: 'namespaced' };   // key_suffix: a metric worked out from another's registers (the LuxPower inverter clock)
     return { unit: m, key: m.register, kind: 'register' };
   });
 }

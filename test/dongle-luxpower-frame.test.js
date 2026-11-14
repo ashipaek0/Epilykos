@@ -225,7 +225,9 @@ function parseAndCheck(buf, expect, label) {
     const rtype = m.register_type || 'holding';
     assert.ok(rtype === 'input' || rtype === 'holding', `AC15: ${m.name} register_type must be input or holding`);
     const count = m.count || 1;
-    assert.ok(count === 1 || count === 2, `AC15: ${m.name} count must be 1 or 2`);
+    // The inverter clock (registers 12 to 14) is three words, decoded as one value; everything else is one or two.
+    const isClock = m.decode === 'lux_rtc_time' || m.decode === 'lux_rtc_skew';
+    assert.ok(count === 1 || count === 2 || (isClock && count === 3 && reg === 0x0C), `AC15: ${m.name} count must be 1 or 2 (3 for the inverter clock)`);
     if (rtype === 'input') {
       inputCount++;
       assert.ok(reg >= 0x00 && reg <= 0xEE, `AC15: input ${m.name} register ${m.register} outside scope 0x00..0xEE (issue #109)`);
@@ -240,12 +242,12 @@ function parseAndCheck(buf, expect, label) {
       assert.strictEqual(m.word_order, 'lsb_first', `AC15: ${m.name} count:2 must be word_order lsb_first (lower addr = low word)`);
     }
     assert.ok(rangeCovers(reg, rtype), `AC15: ${m.name} register ${m.register} (${rtype}) not inside any ${rtype} read_range`);
-    const pairKey = `${rtype}:${m.register}`;
+    const pairKey = `${rtype}:${m.register}${m.key_suffix || ''}`;   // a derived metric (key_suffix) may share the registers of another
     assert.ok(!seen.has(pairKey), `AC15: duplicate (register_type, register) ${pairKey}`);
     seen.add(pairKey);
   }
   assert.strictEqual(inputCount, 180, 'AC15: profile must hold exactly 180 input metrics (165 + 2 unmapped raws, issue #109; + 13 AFCI, HA parity)');
-  assert.strictEqual(holdingCount, 169, 'AC15: profile must hold exactly 169 holding metrics (18 + 40, issue #109; + 111, HA parity)');
+  assert.strictEqual(holdingCount, 171, 'AC15: profile must hold exactly 171 holding metrics (18 + 40, issue #109; + 111, HA parity; + 2, the decoded inverter clock and its skew)');
   assert.strictEqual(count2Count, 20, 'AC15: count:2 uint32 metric count must stay 20 (issue #109 adds no count:2)');
 
   const names = profile.metrics.map(m => m.name);

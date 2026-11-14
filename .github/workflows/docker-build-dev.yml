@@ -60,6 +60,16 @@ jobs:
           echo "$v"
           echo "version=$(jq -r .version <<<"$v")" >> "$GITHUB_OUTPUT"
 
+      - name: Add the Google sign-in secret to the build
+        # Google Drive backup needs the app's Google client secret. It lives in the repository's GOOGLE_CLIENT_SECRET
+        # secret, never in the source. Without it (a fork) the build still works and Drive shows as not set up.
+        env:
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          if [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+            node -e "require('fs').writeFileSync('modules/cloudBackup/google-client.json', JSON.stringify({ clientSecret: process.env.GOOGLE_CLIENT_SECRET }), { mode: 0o600 })"
+          fi
+
       - name: Build and push ${{ matrix.service.name }}
         id: build
         uses: docker/build-push-action@v7

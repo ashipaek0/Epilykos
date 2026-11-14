@@ -18,16 +18,16 @@ Public display with no login required — settings are password-protected.
 
 ## Documentation
 
-Guides for everything below live in the **[Epilykos Wiki](https://ashipaek0.github.io/epilykos-wiki/)**:
+Guides for everything below live in the **[Epilykos Wiki](https://epilykos.ashipaek0.com.ng/)**:
 
 | Topic | Guides |
 |-------|--------|
-| Install | [Raspberry Pi with EpilykosOS](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-epilykos-os/) · [Docker](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/) · [First-run setup](https://ashipaek0.github.io/epilykos-wiki/getting-started/first-run-setup/) |
-| Connect equipment | [Choosing a source](https://ashipaek0.github.io/epilykos-wiki/data-sources/) · [Inverter dongles](https://ashipaek0.github.io/epilykos-wiki/data-sources/inverter-dongles/) · [Modbus](https://ashipaek0.github.io/epilykos-wiki/data-sources/modbus/) · [RS232](https://ashipaek0.github.io/epilykos-wiki/data-sources/rs232/) · [Battery BMS](https://ashipaek0.github.io/epilykos-wiki/data-sources/bms/) · [Home Assistant](https://ashipaek0.github.io/epilykos-wiki/data-sources/home-assistant/) · [MQTT](https://ashipaek0.github.io/epilykos-wiki/data-sources/mqtt/) · [Tuya](https://ashipaek0.github.io/epilykos-wiki/data-sources/tuya/) · [REST API](https://ashipaek0.github.io/epilykos-wiki/data-sources/rest-api/) · [Supported hardware](https://ashipaek0.github.io/epilykos-wiki/data-sources/supported-hardware/) |
-| Dashboard | [Layout editor](https://ashipaek0.github.io/epilykos-wiki/dashboard/editor/) · [Cards and the showcase](https://ashipaek0.github.io/epilykos-wiki/dashboard/cards/) · [Device controls](https://ashipaek0.github.io/epilykos-wiki/dashboard/controls/) · [Install as an app](https://ashipaek0.github.io/epilykos-wiki/dashboard/app-and-network/) |
-| Settings | [Metrics](https://ashipaek0.github.io/epilykos-wiki/settings/metrics/) · [Forecast](https://ashipaek0.github.io/epilykos-wiki/settings/forecast-and-weather/) · [Prices and savings](https://ashipaek0.github.io/epilykos-wiki/settings/prices-and-savings/) · [Notifications](https://ashipaek0.github.io/epilykos-wiki/settings/notifications/) · [Remote access](https://ashipaek0.github.io/epilykos-wiki/settings/network-and-remote-access/) · [Two-step sign-in](https://ashipaek0.github.io/epilykos-wiki/settings/security/) · [Backups](https://ashipaek0.github.io/epilykos-wiki/settings/backup-and-restore/) · [Updates](https://ashipaek0.github.io/epilykos-wiki/settings/updates-and-system/) |
-| EpilykosOS | [Wi-Fi setup](https://ashipaek0.github.io/epilykos-wiki/epilykos-os/wifi-setup/) · [Password and factory reset](https://ashipaek0.github.io/epilykos-wiki/epilykos-os/password-and-reset/) · [Updates and recovery](https://ashipaek0.github.io/epilykos-wiki/epilykos-os/updates-and-recovery/) |
-| Help | [Troubleshooting](https://ashipaek0.github.io/epilykos-wiki/troubleshooting/) · [Development guide](https://ashipaek0.github.io/epilykos-wiki/development/development-guide/) |
+| Install | [Raspberry Pi with EpilykosOS](https://epilykos.ashipaek0.com.ng/getting-started/install-epilykos-os/) · [Docker](https://epilykos.ashipaek0.com.ng/getting-started/install-docker/) · [First-run setup](https://epilykos.ashipaek0.com.ng/getting-started/first-run-setup/) |
+| Connect equipment | [Choosing a source](https://epilykos.ashipaek0.com.ng/data-sources/) · [Inverter dongles](https://epilykos.ashipaek0.com.ng/data-sources/inverter-dongles/) · [Modbus](https://epilykos.ashipaek0.com.ng/data-sources/modbus/) · [RS232](https://epilykos.ashipaek0.com.ng/data-sources/rs232/) · [Battery BMS](https://epilykos.ashipaek0.com.ng/data-sources/bms/) · [Home Assistant](https://epilykos.ashipaek0.com.ng/data-sources/home-assistant/) · [MQTT](https://epilykos.ashipaek0.com.ng/data-sources/mqtt/) · [Tuya](https://epilykos.ashipaek0.com.ng/data-sources/tuya/) · [REST API](https://epilykos.ashipaek0.com.ng/data-sources/rest-api/) · [Supported hardware](https://epilykos.ashipaek0.com.ng/data-sources/supported-hardware/) |
+| Dashboard | [Layout editor](https://epilykos.ashipaek0.com.ng/dashboard/editor/) · [Cards and the showcase](https://epilykos.ashipaek0.com.ng/dashboard/cards/) · [Device controls](https://epilykos.ashipaek0.com.ng/dashboard/controls/) · [Install as an app](https://epilykos.ashipaek0.com.ng/dashboard/app-and-network/) |
+| Settings | [Metrics](https://epilykos.ashipaek0.com.ng/settings/metrics/) · [Forecast](https://epilykos.ashipaek0.com.ng/settings/forecast-and-weather/) · [Prices and savings](https://epilykos.ashipaek0.com.ng/settings/prices-and-savings/) · [Notifications](https://epilykos.ashipaek0.com.ng/settings/notifications/) · [Remote access](https://epilykos.ashipaek0.com.ng/settings/network-and-remote-access/) · [Two-step sign-in](https://epilykos.ashipaek0.com.ng/settings/security/) · [Backups](https://epilykos.ashipaek0.com.ng/settings/backup-and-restore/) · [Updates](https://epilykos.ashipaek0.com.ng/settings/updates-and-system/) |
+| EpilykosOS | [Wi-Fi setup](https://epilykos.ashipaek0.com.ng/epilykos-os/wifi-setup/) · [Password and factory reset](https://epilykos.ashipaek0.com.ng/epilykos-os/password-and-reset/) · [Updates and recovery](https://epilykos.ashipaek0.com.ng/epilykos-os/updates-and-recovery/) |
+| Help | [Troubleshooting](https://epilykos.ashipaek0.com.ng/troubleshooting/) · [Development guide](https://epilykos.ashipaek0.com.ng/development/development-guide/) |
 
 ---
 
@@ -49,7 +49,7 @@ If people you don't trust can reach the server, set the password before the firs
 and only the compose file can change it.
 
 On a Raspberry Pi, flash **[EpilykosOS](https://github.com/ashipaek0/epilykos-os)** instead and open
-`http://epilykos.local:3000`: see [Install on a Raspberry Pi](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-epilykos-os/).
+`http://epilykos.local:3000`: see [Install on a Raspberry Pi](https://epilykos.ashipaek0.com.ng/getting-started/install-epilykos-os/).
 
 | URL | Purpose |
 |-----|---------|
@@ -108,12 +108,12 @@ services:
 ```
 
 Bluetooth, USB serial adapters, a time zone, host networking for Tuya discovery and one-click updates
-are explained in [Install with Docker](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/), with the environment
+are explained in [Install with Docker](https://epilykos.ashipaek0.com.ng/getting-started/install-docker/), with the environment
 variables and the `/healthz` health check. 
 
 On Docker Desktop (Windows, macOS), USB adapters need
 USB/IP and Bluetooth isn't available: see
-[Docker Desktop on Windows and macOS](https://ashipaek0.github.io/epilykos-wiki/getting-started/install-docker/#docker-desktop-on-windows-and-macos).
+[Docker Desktop on Windows and macOS](https://epilykos.ashipaek0.com.ng/getting-started/install-docker/#docker-desktop-on-windows-and-macos).
 
 ---
 
@@ -145,7 +145,7 @@ PORT=3002 SETTINGS_PASSWORD=dev node server.js      # local instance (data/ in t
 
 Bluetooth outside Docker needs Python ≥ 3.12 with `pip install -r modules/ble/requirements.txt` and a running BlueZ.
 
-For how the code fits together — the stack, repository layout, how data flows, adding a card or a data source, secrets at rest, builds and releases — see the **[Development guide](https://ashipaek0.github.io/epilykos-wiki/development/development-guide/)** on the wiki.
+For how the code fits together — the stack, repository layout, how data flows, adding a card or a data source, secrets at rest, builds and releases — see the **[Development guide](https://epilykos.ashipaek0.com.ng/development/development-guide/)** on the wiki.
 
 User documentation lives in [ashipaek0/epilykos-wiki](https://github.com/ashipaek0/epilykos-wiki); see
 [CONTRIBUTING.md](CONTRIBUTING.md).
