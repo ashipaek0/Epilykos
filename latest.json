@@ -1,19 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43603311213.1",
-    "version": "1.2.10",
-    "commit": "32b18d09638c20a043e8258d6c9d2f257fe49a8c",
-    "digest": "sha256:6188dc7d002585c755e0fb112e1ee976431a532e2445d0bde71caf5e59d47758",
+    "buildId": "43604937754.1",
+    "version": "1.2.11",
+    "commit": "9c56272865f6a353fedf701673de2c0c91f1e784",
+    "digest": "sha256:eb88f4cd41df29ce3c4417997ae7d36a911e8b8c1e426043d1d94a0e45205564",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-14T14:08:58Z",
+    "builtAt": "2026-11-14T14:27:36Z",
     "kind": "release",
     "notes": [
-      "Settings: green switches and status pills when on (#359)",
-      "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
+      "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
     ]
   },
   "history": [
+    {
+      "buildId": "43604937754.1",
+      "version": "1.2.11",
+      "commit": "9c56272865f6a353fedf701673de2c0c91f1e784",
+      "digest": "sha256:eb88f4cd41df29ce3c4417997ae7d36a911e8b8c1e426043d1d94a0e45205564",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-14T14:27:36Z",
+      "kind": "release",
+      "notes": [
+        "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
+      ]
+    },
     {
       "buildId": "43603311213.1",
       "version": "1.2.10",
