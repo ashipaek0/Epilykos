@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43584356190.1",
-    "version": "1.2.9-dev+94d6fe7",
-    "commit": "94d6fe787bee28415d92a11a3667d3cb6139e014",
-    "digest": "sha256:3c51a213e2ce9f5d0748406133f93281f266722e9a81c3697d7afee5090ae394",
+    "buildId": "43584362315.1",
+    "version": "1.2.9-dev+27fa267",
+    "commit": "27fa267f731d5b5fb3960f984430d7be9e4764e8",
+    "digest": "sha256:d5e7c05c8b147d2b2598151c3870a7ec4942f6039c994fc6993b7d1f94350be2",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:15:12Z",
+    "builtAt": "2026-11-14T10:15:15Z",
     "kind": "release",
     "notes": [
-      "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
-      "Settings: Virtual Battery on its own page (#349)"
+      "Point the Help links and README at epilykos.ashipaek0.com.ng (#352)"
     ]
   },
   "history": [
+    {
+      "buildId": "43584362315.1",
+      "version": "1.2.9-dev+27fa267",
+      "commit": "27fa267f731d5b5fb3960f984430d7be9e4764e8",
+      "digest": "sha256:d5e7c05c8b147d2b2598151c3870a7ec4942f6039c994fc6993b7d1f94350be2",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:15:15Z",
+      "kind": "release",
+      "notes": [
+        "Point the Help links and README at epilykos.ashipaek0.com.ng (#352)"
+      ]
+    },
     {
       "buildId": "43584356190.1",
       "version": "1.2.9-dev+94d6fe7",
@@ -360,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Dashboard grid, step 2: the dashboard page uses the grid a dashboard sets (#318)"
-      ]
-    },
-    {
-      "buildId": "43006212187.1",
-      "version": "1.2.4-dev+8f2a303",
-      "commit": "8f2a303a8aedc22ecdaa34fc6669fc7d87bcda35",
-      "digest": "sha256:277a810113d0c3d26a93267b3ba0ed971aab5fda37088305aa7c292e0a2e21fb",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T10:45:24Z",
-      "kind": "release",
-      "notes": [
-        "Dashboard grid, step 1: the placement of blocks moves to one module (#317)"
       ]
     }
   ]
