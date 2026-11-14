@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43602911547.1",
-    "version": "1.2.10-dev+f6f66e0",
-    "commit": "f6f66e0a9a27f81763fcc7eeee0fe9d2680da96e",
-    "digest": "sha256:ac0792f5dce81d16e32c0e5a480a68789c34a69a0b1870b860bc6364c8c716b3",
+    "buildId": "43604484679.1",
+    "version": "1.2.11-dev+9f8497b",
+    "commit": "9f8497b204d963c53589f11f234b6cd5bd5671dc",
+    "digest": "sha256:84ebb9838c77ffdd47854d78f5dc8207b7cacd311545bb44eefa62ecd65891d4",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T14:04:27Z",
+    "builtAt": "2026-11-14T14:22:22Z",
     "kind": "release",
     "notes": [
-      "Settings: green switches and status pills when on (#359)"
+      "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
     ]
   },
   "history": [
+    {
+      "buildId": "43604484679.1",
+      "version": "1.2.11-dev+9f8497b",
+      "commit": "9f8497b204d963c53589f11f234b6cd5bd5671dc",
+      "digest": "sha256:84ebb9838c77ffdd47854d78f5dc8207b7cacd311545bb44eefa62ecd65891d4",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T14:22:22Z",
+      "kind": "release",
+      "notes": [
+        "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
+      ]
+    },
     {
       "buildId": "43602911547.1",
       "version": "1.2.10-dev+f6f66e0",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Sources: Bluetooth dongle is its own source type (#326)"
-      ]
-    },
-    {
-      "buildId": "43042261078.1",
-      "version": "1.2.5-dev+7958214",
-      "commit": "79582143e0344ba79f5c96061bd485c341126913",
-      "digest": "sha256:48c58ad988050b68b4bb97fce2c5a5f840ca54d874b63bc7f93e304e99e3768f",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T14:50:05Z",
-      "kind": "release",
-      "notes": [
-        "Update contribution guidelines for commits and PRs"
       ]
     }
   ]
