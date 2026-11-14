@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43587366137.1",
-    "version": "1.2.9-dev+09b56fd",
-    "commit": "09b56fd81b60b529de234622733ca63355f7fc2d",
-    "digest": "sha256:3ad9d75fb68d7de56f043cbdd71ed4896b164b6b56122143bb61d8a54ef4c921",
+    "buildId": "43587798183.1",
+    "version": "1.2.9-dev+93312d3",
+    "commit": "93312d3c0ab6f812e3bd0f15a5e9f9ed69f18be3",
+    "digest": "sha256:942f21fc0f4fee17fa06f918e78fa6c6ba49295862e7a24f8d9d27754994f446",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:53:20Z",
+    "builtAt": "2026-11-14T10:59:12Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
+      "Bump web-push from 3.6.7 to 4.0.0 (#354)"
+    ]
   },
   "history": [
+    {
+      "buildId": "43587798183.1",
+      "version": "1.2.9-dev+93312d3",
+      "commit": "93312d3c0ab6f812e3bd0f15a5e9f9ed69f18be3",
+      "digest": "sha256:942f21fc0f4fee17fa06f918e78fa6c6ba49295862e7a24f8d9d27754994f446",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:59:12Z",
+      "kind": "release",
+      "notes": [
+        "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
+        "Bump web-push from 3.6.7 to 4.0.0 (#354)"
+      ]
+    },
     {
       "buildId": "43587366137.1",
       "version": "1.2.9-dev+09b56fd",
@@ -356,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Every mapping row can create a metric: a \"+\" beside the dropdown (#323)"
-      ]
-    },
-    {
-      "buildId": "43018453532.1",
-      "version": "1.2.4-dev+9407702",
-      "commit": "94077025cba43ca1e8e480a56212fd03083b3ae9",
-      "digest": "sha256:481bb8906f18466fe39a2d83de1150f59b9da2a0ed64b6c6d199b1daa056a89a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T12:13:36Z",
-      "kind": "release",
-      "notes": [
-        "LuxPower profiles: say what Green mode and Eco mode do (#322)"
       ]
     }
   ]
