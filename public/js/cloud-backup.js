@@ -1,5 +1,5 @@
 /**
- * Settings > Backup and restore > Remote backup (modules/cloudBackup): a folder or a WebDAV server.
+ * Settings > Backup and restore > Remote backup (modules/cloudBackup): a folder, a WebDAV server or Google Drive.
  *
  * One way to save, like the Prepaid meter page: the switch, the folder, the
  * schedule, the copies to keep and the passphrase are a draft until Save is
@@ -13,7 +13,7 @@
   if (!root) return;
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var settings = null, status = null, copies = null, copiesError = '', busy = false, formBusy = false;
+  var settings = null, status = null, google = { available: false, connected: false }, flow = null, copies = null, copiesError = '', busy = false, formBusy = false;
   function api(url, body) {
     return fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(body) } : { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || ('Server error ' + r.status)); e.data = d; throw e; } return d; }); });
@@ -29,9 +29,9 @@
     var s = settings;
     var h = '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="cb-enabled"' + (s.enabled ? ' checked' : '') + '><span class="slider"></span></label><label for="cb-enabled">Back up off this box</label></span>';
     h += '<div id="cb-fields"' + (s.enabled ? '' : ' hidden') + '>';
-    var d = s.destination, isDav = d.type === 'webdav';
-    h += field('cb-dest', 'Where to send it', '<select class="input" id="cb-dest">' + opt('folder', 'Folder or drive on this box', d.type) + opt('webdav', 'WebDAV server', d.type) + '</select>');
-    h += '<div id="cb-pane-folder"' + (isDav ? ' hidden' : '') + '>' + field('cb-path', 'Folder on this box', '<input class="input" id="cb-path" value="' + esc(isDav ? '' : d.path) + '" placeholder="/mnt/usb-backup/epilykos" autocomplete="off" spellcheck="false">',
+    var d = s.destination, isDav = d.type === 'webdav', isG = d.type === 'gdrive';
+    h += field('cb-dest', 'Where to send it', '<select class="input" id="cb-dest">' + opt('folder', 'Folder or drive on this box', d.type) + opt('webdav', 'WebDAV server', d.type) + opt('gdrive', 'Google Drive', d.type) + '</select>');
+    h += '<div id="cb-pane-folder"' + (d.type === 'folder' ? '' : ' hidden') + '>' + field('cb-path', 'Folder on this box', '<input class="input" id="cb-path" value="' + esc(isDav ? '' : d.path) + '" placeholder="/mnt/usb-backup/epilykos" autocomplete="off" spellcheck="false">',
       'A USB drive, or a network share you have mounted on the box. In Docker, a folder you mapped in as a volume. The drive must be mounted before the folder is created.') + '</div>';
     h += '<div id="cb-pane-webdav"' + (isDav ? '' : ' hidden') + '>'
       + '<div class="st-grid-2">'
@@ -43,6 +43,7 @@
       + field('cb-w-fingerprint', 'Certificate fingerprint (optional)', '<input class="input" id="cb-w-fingerprint" value="' + esc(isDav ? d.fingerprint : '') + '" placeholder="AA:BB:CC:…" autocomplete="off" spellcheck="false">',
         'Only for a server with a certificate you made yourself. Paste its SHA-256 fingerprint and only that certificate is trusted. Leave empty for a normal https address.')
       + '</div>';
+    h += '<div id="cb-pane-gdrive"' + (isG ? '' : ' hidden') + '></div>';
     h += '<div class="st-grid-2">'
       + field('cb-pass', s.hasPassphrase ? 'New passphrase (optional)' : 'Passphrase (required)', '<input class="input" id="cb-pass" type="password" autocomplete="new-password" minlength="8" maxlength="256">',
         s.hasPassphrase ? 'A passphrase is saved. Fill this in only to change it. Older copies keep the passphrase they were made with, until they are replaced.' : 'Locks the whole copy, history included, before it leaves the box. At least 8 characters. Epilykos cannot recover it, and you need it to restore.')
@@ -59,12 +60,14 @@
     $('cb-enabled').addEventListener('change', function () { $('cb-fields').hidden = !$('cb-enabled').checked; markDirty(); });
     ['cb-path', 'cb-pass', 'cb-pass2', 'cb-w-url', 'cb-w-folder', 'cb-w-user', 'cb-w-pass', 'cb-w-fingerprint'].forEach(function (id) { $(id).addEventListener('input', markDirty); });
     ['cb-schedule', 'cb-keep'].forEach(function (id) { $(id).addEventListener('change', markDirty); });
-    $('cb-dest').addEventListener('change', function () { $('cb-pane-folder').hidden = $('cb-dest').value !== 'folder'; $('cb-pane-webdav').hidden = $('cb-dest').value !== 'webdav'; $('cb-test-result').textContent = ''; markDirty(); });
+    $('cb-dest').addEventListener('change', function () { ['folder', 'webdav', 'gdrive'].forEach(function (k) { $('cb-pane-' + k).hidden = $('cb-dest').value !== k; }); $('cb-test-result').textContent = ''; markDirty(); });
+    drawGoogle();
     $('cb-save').addEventListener('click', save);
     $('cb-test').addEventListener('click', testDestination);
     drawState();
   }
   function destinationDraft() {
+    if ($('cb-dest').value === 'gdrive') return { type: 'gdrive' };
     if ($('cb-dest').value === 'webdav') {
       return { type: 'webdav', url: $('cb-w-url').value.trim(), folder: $('cb-w-folder').value.trim(), username: $('cb-w-user').value, password: $('cb-w-pass').value, fingerprint: $('cb-w-fingerprint').value.trim() };
     }
@@ -76,6 +79,7 @@
   }
   function sameDestination(d, s) {
     if (d.type !== s.type) return false;
+    if (d.type === 'gdrive') return true;
     if (d.type === 'folder') return d.path === s.path;
     return d.url === s.url && d.folder === s.folder && d.username === s.username && d.fingerprint === s.fingerprint && d.password === '';
   }
@@ -97,6 +101,7 @@
     if (d.passphrase !== $('cb-pass2').value) { tell('The two passphrases do not match.', 'error'); return; }
     if (d.enabled && !settings.hasPassphrase && !d.passphrase) { tell('Enter a passphrase first.', 'error'); return; }
     if (d.enabled && d.destination.type === 'folder' && !d.destination.path) { tell('Enter the folder to back up to.', 'error'); return; }
+    if (d.enabled && d.destination.type === 'gdrive' && !google.connected) { tell('Connect Google Drive first.', 'error'); return; }
     if (d.enabled && d.destination.type === 'webdav' && (!d.destination.url || !d.destination.username)) { tell('Enter the server address and the username.', 'error'); return; }
     var proceed = d.passphrase ? confirmSaved() : Promise.resolve(true);
     proceed.then(function (ok) {
@@ -105,7 +110,7 @@
       var body = { enabled: d.enabled, destination: d.destination, schedule: d.schedule, keep: d.keep };
       if (d.passphrase) body.passphrase = d.passphrase;
       return api('/api/cloud-backup/settings', body).then(function (res) {
-        settings = res.settings; status = res.status;
+        settings = res.settings; status = res.status; google = res.google || google;
         tell(d.enabled ? 'Remote backup saved. The first copy is sent shortly.' : 'Remote backup switched off.');
         formBusy = false; drawForm(); loadCopies();
       });
@@ -118,8 +123,67 @@
     api('/api/cloud-backup/test', { destination: destination }).then(function (r) {
       var warnings = r.warnings || [];
       out.className = warnings.length ? 'test-status' : 'test-status success';
-      out.textContent = (destination.type === 'webdav' ? 'The server accepted the sign-in and a test file.' : 'This folder works.') + (warnings.length ? ' ' + warnings.join(' ') : '');
+      out.textContent = (destination.type === 'webdav' ? 'The server accepted the sign-in and a test file.' : destination.type === 'gdrive' ? 'Google Drive accepted a test file.' : 'This folder works.') + (warnings.length ? ' ' + warnings.join(' ') : '');
     }).catch(function (e) { out.className = 'test-status error'; out.textContent = e.message; }).then(function () { button.disabled = false; });
+  }
+
+  // ── Google Drive: connecting from a box with no browser ──
+  function drawGoogle() {
+    var el = $('cb-pane-gdrive'); if (!el) return;
+    var h;
+    if (!google.available) h = '<p class="st-help">Google Drive is not set up in this build of Epilykos.</p>';
+    else if (google.connected) h = '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Connected to Google Drive</span><div class="st-help">Backups go in a folder called Epilykos in your Drive, which you can see and delete yourself. Epilykos can see only the files it creates.</div></div><button type="button" class="st-btn" id="cb-g-disconnect">Disconnect</button></div>';
+    else h = '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Not connected</span><div class="st-help">Epilykos asks Google only for access to the files it creates itself, in a folder called Epilykos. It cannot see the rest of your Drive.</div></div><button type="button" class="st-btn st-btn-primary" id="cb-g-connect">Connect Google Drive…</button></div>';
+    h += '<div id="cb-g-flow"></div>';
+    el.innerHTML = h;
+    var c = $('cb-g-connect'); if (c) c.addEventListener('click', googleConnect);
+    var x = $('cb-g-disconnect'); if (x) x.addEventListener('click', googleDisconnect);
+    drawFlow();
+  }
+  function drawFlow() {
+    var el = $('cb-g-flow'); if (!el) return;
+    if (!flow) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="st-field"><p class="st-help">On any phone or computer, open this address and enter the code. Epilykos waits and finishes by itself.</p>'
+      + '<p><a class="help-link" href="' + esc(flow.verificationUrl) + '" target="_blank" rel="noopener">' + esc(flow.verificationUrl) + '</a></p>'
+      + '<p style="font:600 1.4rem ui-monospace,Menlo,monospace;letter-spacing:.08em;margin:.3rem 0">' + esc(flow.userCode) + '</p>'
+      + '<p class="st-help" id="cb-g-wait">Waiting for you to approve…</p><div><button type="button" class="st-btn" id="cb-g-cancel">Cancel</button></div></div>';
+    $('cb-g-cancel').addEventListener('click', function () { stopFlow(); api('/api/cloud-backup/google/cancel', {}).catch(function () {}); });
+  }
+  function stopFlow() { if (flow && flow.timer) clearTimeout(flow.timer); flow = null; drawFlow(); }
+  function googleConnect() {
+    var button = $('cb-g-connect'); if (button) button.disabled = true;
+    api('/api/cloud-backup/google/start', {}).then(function (r) {
+      flow = { userCode: r.userCode, verificationUrl: r.verificationUrl, interval: r.interval, deadline: Date.now() + r.expiresIn * 1000, timer: null };
+      drawFlow(); pollFlow();
+    }).catch(function (e) { tell(e.message, 'error'); if (button) button.disabled = false; });
+  }
+  function pollFlow() {
+    if (!flow) return;
+    flow.timer = setTimeout(function () {
+      if (!flow) return;
+      api('/api/cloud-backup/google/poll').then(function (r) {
+        if (!flow) return;
+        if (r.status === 'pending') { flow.interval = r.interval || flow.interval; return pollFlow(); }
+        stopFlow();
+        if (r.status === 'connected') {
+          settings = r.overview.settings; status = r.overview.status; google = r.overview.google;
+          tell('Google Drive connected.'); drawGoogle(); loadCopies();
+          if ($('cb-save')) $('cb-save').disabled = !changed();
+        } else tell(r.status === 'denied' ? 'Google Drive access was not approved.' : 'The code ran out. Press Connect Google Drive to try again.', 'error');
+        drawGoogle();
+      }).catch(function (e) { stopFlow(); tell(e.message, 'error'); drawGoogle(); });
+    }, Math.max(2, flow.interval) * 1000);
+  }
+  function googleDisconnect() {
+    window.stShell.openDialog({ title: 'Disconnect Google Drive?', alert: true,
+      body: '<p>Epilykos tells Google it no longer needs access and forgets the sign-in. A backup that uses Google Drive is switched off. The copies already in your Drive stay there until you delete them.</p>',
+      actions: [{ label: 'Cancel', value: null }, { label: 'Disconnect', value: 'ok', kind: 'danger' }] }).then(function (r) {
+      if (r.value !== 'ok') return;
+      return api('/api/cloud-backup/google/disconnect', {}).then(function (o) {
+        settings = o.settings; status = o.status; google = o.google; tell('Google Drive disconnected.');
+        drawForm(); loadCopies();
+      }).catch(function (e) { tell(e.message, 'error'); });
+    });
   }
 
   // ── Status, the copies, and the actions: redrawn without touching the form ──
@@ -158,7 +222,7 @@
 
   function runNow() {
     busy = true; status.running = true; status.phase = 'starting'; drawState();
-    api('/api/cloud-backup/run', {}).then(function (r) { settings = r.settings; status = r.status; tell('Backup sent: ' + size(r.bytes) + '.'); })
+    api('/api/cloud-backup/run', {}).then(function (r) { settings = r.settings; status = r.status; google = r.google || google; tell('Backup sent: ' + size(r.bytes) + '.'); })
       .catch(function (e) { if (e.data && e.data.status) status = e.data.status; tell('Backup failed: ' + e.message, 'error'); })
       .then(function () { busy = false; return refresh(true); });
   }
@@ -182,17 +246,17 @@
   }
 
   function loadCopies() {
-    if (!settings.enabled && !(settings.destination.path || settings.destination.url)) { copies = []; drawState(); return Promise.resolve(); }
+    if (!settings.enabled && !(settings.destination.path || settings.destination.url || google.connected)) { copies = []; drawState(); return Promise.resolve(); }
     return api('/api/cloud-backup/copies').then(function (r) { copies = r.copies; copiesError = ''; })
       .catch(function (e) { copies = []; copiesError = e.message; }).then(drawState);
   }
   function refresh(withCopies) {
-    return api('/api/cloud-backup').then(function (r) { settings = r.settings; status = r.status; drawState(); return withCopies !== false ? loadCopies() : null; })
+    return api('/api/cloud-backup').then(function (r) { settings = r.settings; status = r.status; google = r.google || google; drawState(); return withCopies !== false ? loadCopies() : null; })
       .catch(function (e) { tell(e.message, 'error'); });
   }
 
   function load() {
-    return api('/api/cloud-backup').then(function (r) { settings = r.settings; status = r.status; drawForm(); return loadCopies(); })
+    return api('/api/cloud-backup').then(function (r) { settings = r.settings; status = r.status; google = r.google || google; drawForm(); return loadCopies(); })
       .catch(function (e) { root.innerHTML = '<p class="st-help">Could not load: ' + esc(e.message) + '</p><button type="button" class="st-btn" id="cb-retry">Try again</button>'; $('cb-retry').addEventListener('click', load); });
   }
   load();

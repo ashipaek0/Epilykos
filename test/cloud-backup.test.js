@@ -126,7 +126,7 @@ const rejects = async (promise, pattern, label) => { let error = null; try { awa
   assert.throws(() => svc.saveSettings({ enabled: true, destination: { type: 'folder', path: folder } }), /Enter a passphrase/);
   assert.throws(() => svc.saveSettings({ enabled: true, destination: { type: 'folder', path: folder }, passphrase: 'short' }), /at least 8/);
   assert.throws(() => svc.saveSettings({ enabled: true, destination: { type: 'folder', path: '' }, passphrase: PASS }), /Enter the folder/);
-  assert.throws(() => svc.saveSettings({ destination: { type: 'gdrive' } }), /not available yet/);
+  assert.throws(() => svc.saveSettings({ destination: { type: 'dropbox' } }), /not available yet/);
   assert.throws(() => svc.saveSettings({ schedule: 'hourly' }), /weekly or daily/);
   for (const keep of [0, 9, 1.5, 'x']) assert.throws(() => svc.saveSettings({ keep }), /1 to 8/, 'keep ' + keep);
   assert.strictEqual(config.cloud_backup, undefined, 'nothing saved by the refused attempts');
@@ -232,7 +232,7 @@ const rejects = async (promise, pattern, label) => { let error = null; try { awa
   const call = async (p, body) => { const r = await fetch(base + p, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}); return { status: r.status, body: await r.json() }; };
   try {
     let r = await call('/'); assert.strictEqual(r.status, 200); assert.ok(!JSON.stringify(r.body).includes(PASS));
-    assert.deepStrictEqual(Object.keys(r.body).sort(), ['settings', 'status']);
+    assert.deepStrictEqual(Object.keys(r.body).sort(), ['google', 'settings', 'status']);
     r = await call('/settings', { keep: 99 }); assert.strictEqual(r.status, 400); assert.match(r.body.error, /1 to 8/);
     r = await call('/settings', { enabled: true, destination: { type: 'folder', path: folder }, passphrase: 'short' }); assert.strictEqual(r.status, 400);
     r = await call('/settings', { enabled: true, destination: { type: 'folder', path: folder } }); assert.strictEqual(r.status, 200); assert.strictEqual(r.body.settings.enabled, true);

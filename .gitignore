@@ -21,3 +21,6 @@ start-with-pass.js
 settings.db
 ui-*.html
 public/ui-*.html
+
+# Written by the Docker build from the GOOGLE_CLIENT_SECRET secret
+modules/cloudBackup/google-client.json

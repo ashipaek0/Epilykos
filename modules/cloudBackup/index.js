@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Remote backup: sends an encrypted copy of the newest daily snapshot to a
- * destination (a folder or a WebDAV server; Google Drive next), weekly by
+ * destination (a folder, a WebDAV server or Google Drive), weekly by
  * default, and keeps the newest N copies.
  *
  *   settings   config row `cloud_backup` (the passphrase is a SECRET_FIELDS leaf,
@@ -26,9 +26,12 @@ const { pipeline } = require('node:stream/promises');
 const envelope = require('./envelope');
 const { createFolderDestination } = require('./destinations/folder');
 const { createWebdavDestination } = require('./destinations/webdav');
+const { createGdriveDestination } = require('./destinations/gdrive');
+const { createGoogleAuth } = require('./google');
 
 const CONFIG_KEY = 'cloud_backup';
 const STATUS_KEY = 'cloud_backup_status';
+const GOOGLE_KEY = 'cloud_backup_google';        // { refresh_token, folder_id, box }: the refresh token is a SECRET_FIELDS leaf
 const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 const INTERVALS = { weekly: 7 * DAY, daily: DAY };
 const RETRY = [30 * MINUTE, 2 * HOUR, 6 * HOUR, DAY];
@@ -48,11 +51,17 @@ const timeOfName = name => { const m = /(\d{4}-\d\d-\d\d)T(\d\d)-(\d\d)-(\d\d)/.
 
 function createCloudBackup({
   getConfig, setConfig, latestSnapshot, snapshotNow, dataDir, emit = () => {}, restore, readSpace,
-  now = Date.now, makeDestination, logger = { info() {}, warn() {} }
+  now = Date.now, makeDestination, logger = { info() {}, warn() {} }, google
 }) {
+  const auth = google || createGoogleAuth(require('./googleClient'));
+  const googleTokens = {
+    get() { try { const raw = getConfig(GOOGLE_KEY); return raw ? JSON.parse(raw) : {}; } catch (_) { return {}; } },
+    save(patch) { const next = { ...googleTokens.get(), ...patch }; for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k]; setConfig(GOOGLE_KEY, JSON.stringify(next)); }
+  };
   const destinationFor = makeDestination || (settings => {
     if (settings && settings.type === 'folder') return createFolderDestination(settings, { dataDir });
     if (settings && settings.type === 'webdav') return createWebdavDestination(settings);
+    if (settings && settings.type === 'gdrive') return createGdriveDestination({ auth, tokens: googleTokens });
     throw problem('Choose where to send the backup.', 'DESTINATION_REQUIRED', 400);
   });
 
@@ -69,6 +78,7 @@ function createCloudBackup({
     const d = s.destination;
     const destination = d.type === 'webdav'
       ? { type: 'webdav', url: d.url || '', folder: d.folder || '', username: d.username || '', fingerprint: d.fingerprint || '', hasPassword: Boolean(d.password) }
+      : d.type === 'gdrive' ? { type: 'gdrive', connected: Boolean(googleTokens.get().refresh_token) }
       : { type: 'folder', path: d.path || '' };
     return { enabled: Boolean(s.enabled), destination, schedule: s.schedule, keep: s.keep, hasPassphrase: Boolean(s.passphrase) };
   }
@@ -83,6 +93,7 @@ function createCloudBackup({
       if (!next.password && saved && saved.type === 'webdav' && saved.url === next.url && saved.username === next.username) next.password = saved.password || '';
       return next;
     }
+    if (d.type === 'gdrive') return { type: 'gdrive' };
     throw problem('That destination is not available yet.', 'BAD_DESTINATION', 400);
   }
 
@@ -102,6 +113,7 @@ function createCloudBackup({
     if (input.destination !== undefined) next.destination = cleanDestination(input.destination, current.destination);
     if (input.passphrase !== undefined && input.passphrase !== '') next.passphrase = envelope.normalisePassphrase(input.passphrase);
     if (next.enabled) {
+      if (next.destination.type === 'gdrive' && !googleTokens.get().refresh_token) throw problem('Connect Google Drive first.', 'GOOGLE_NOT_CONNECTED', 400);
       destinationFor(next.destination);   // throws for a missing or invalid destination
       if (!next.passphrase) throw problem('Enter a passphrase. You need it to restore, and it cannot be recovered.', 'PASSPHRASE_REQUIRED', 400);
     }
@@ -155,6 +167,7 @@ function createCloudBackup({
   }
 
   function label(d) {
+    if (d.type === 'gdrive') return 'Google Drive › Epilykos';
     if (d.type === 'webdav') { try { return new URL(d.url).host + (d.folder ? '/' + d.folder : ''); } catch (_) { return ''; } }
     return d.path || '';
   }
@@ -182,7 +195,7 @@ function createCloudBackup({
   }
 
   async function prune(dest, keep, justWritten) {
-    const copies = (await dest.list()).filter(c => c.name !== justWritten).sort((a, b) => b.name.localeCompare(a.name));
+    const copies = (await dest.list()).filter(c => c.name !== justWritten && c.own !== false).sort((a, b) => b.name.localeCompare(a.name));
     for (const old of copies.slice(Math.max(0, keep - 1))) await dest.remove(old.name);
   }
 
@@ -263,7 +276,7 @@ function createCloudBackup({
   // ── The copies at the destination ──────────────────────────────────
   async function listCopies() {
     const s = settings();
-    if (s.destination.type === 'folder' ? !s.destination.path : !s.destination.url) return [];
+    if (s.destination.type === 'folder' ? !s.destination.path : s.destination.type === 'webdav' ? !s.destination.url : !googleTokens.get().refresh_token) return [];
     const copies = await destinationFor(s.destination).list();
     return copies.map(c => ({ name: c.name, size: c.size, time: new Date(timeOfName(c.name)).toISOString() }))
       .sort((a, b) => b.name.localeCompare(a.name));
@@ -315,8 +328,39 @@ function createCloudBackup({
     }
   }
 
-  return { settings: publicSettings, rawSettings: settings, saveSettings, test, status, run, tick, start, stop, isDue, isOverdue,
+  // ── Connecting Google Drive from a box with no browser ──
+  let pending = null;
+  const googleStatus = () => ({ available: auth.available(), connected: Boolean(googleTokens.get().refresh_token) });
+  async function googleStart() {
+    const flow = await auth.start();
+    pending = { deviceCode: flow.deviceCode, expiresAt: now() + flow.expiresIn * 1000, interval: flow.interval };
+    return { userCode: flow.userCode, verificationUrl: flow.verificationUrl, expiresIn: flow.expiresIn, interval: flow.interval };
+  }
+  async function googlePoll() {
+    if (!pending) return { status: 'none' };
+    if (now() > pending.expiresAt) { pending = null; return { status: 'expired' }; }
+    const result = await auth.poll(pending.deviceCode);
+    if (result.status === 'pending') return { status: 'pending', interval: pending.interval };
+    if (result.status === 'slow_down') { pending.interval += 5; return { status: 'pending', interval: pending.interval }; }
+    if (result.status !== 'done') { pending = null; return { status: result.status }; }
+    pending = null;
+    const before = googleTokens.get();
+    googleTokens.save({ refresh_token: result.refreshToken, folder_id: before.refresh_token && before.refresh_token === result.refreshToken ? before.folder_id : undefined });
+    return { status: 'connected' };
+  }
+  function googleCancel() { pending = null; return { status: 'none' }; }
+  async function googleDisconnect() {
+    if (running) throw problem('A backup is running. Wait for it to finish, then disconnect.', 'BUSY', 409);
+    const { refresh_token: token } = googleTokens.get();
+    if (token) await auth.revoke(token);
+    googleTokens.save({ refresh_token: undefined, folder_id: undefined });
+    const current = settings();
+    if (current.destination.type === 'gdrive' && current.enabled) { setConfig(CONFIG_KEY, JSON.stringify({ ...current, enabled: false })); const st = state(); st.dueNow = false; saveState(st); }
+    return { connected: false };
+  }
+
+  return { settings: publicSettings, rawSettings: settings, googleStatus, googleStart, googlePoll, googleCancel, googleDisconnect, saveSettings, test, status, run, tick, start, stop, isDue, isOverdue,
     listCopies, checkCopy, restoreCopy, CONFIG_KEY, STATUS_KEY };
 }
 
-module.exports = { createCloudBackup, CONFIG_KEY, STATUS_KEY, backupName, timeOfName };
+module.exports = { createCloudBackup, CONFIG_KEY, STATUS_KEY, GOOGLE_KEY, backupName, timeOfName };
