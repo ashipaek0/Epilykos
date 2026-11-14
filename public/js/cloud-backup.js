@@ -56,7 +56,7 @@
     h += '<div id="cb-test-result" class="test-status" role="status"></div>';
     h += '<div id="cb-state"></div>';
     root.innerHTML = h;
-    var markDirty = function () { $('cb-save').disabled = formBusy || !changed(); };
+    var markDirty = function () { clearTest(); $('cb-save').disabled = formBusy || !changed(); };
     $('cb-enabled').addEventListener('change', function () { $('cb-fields').hidden = !$('cb-enabled').checked; markDirty(); });
     ['cb-path', 'cb-pass', 'cb-pass2', 'cb-w-url', 'cb-w-folder', 'cb-w-user', 'cb-w-pass', 'cb-w-cert'].forEach(function (id) { $(id).addEventListener('input', markDirty); });
     ['cb-schedule', 'cb-keep'].forEach(function (id) { $(id).addEventListener('change', markDirty); });
@@ -106,7 +106,7 @@
     var proceed = d.passphrase ? confirmSaved() : Promise.resolve(true);
     proceed.then(function (ok) {
       if (!ok) return;
-      formBusy = true; $('cb-save').disabled = true;
+      formBusy = true; $('cb-save').disabled = true; clearTest();
       var body = { enabled: d.enabled, destination: d.destination, schedule: d.schedule, keep: d.keep };
       if (d.passphrase) body.passphrase = d.passphrase;
       return api('/api/cloud-backup/settings', body).then(function (res) {
@@ -117,13 +117,21 @@
     }).catch(function (e) { tell(e.message, 'error'); }).then(function () { formBusy = false; if ($('cb-save')) $('cb-save').disabled = !changed(); });
   }
 
+  var testTimer = null;
+  // The test result is a snapshot of one moment: it goes when the form changes, a save or backup starts, or after a while.
+  function clearTest() {
+    clearTimeout(testTimer);
+    var out = $('cb-test-result'); if (out) { out.className = 'test-status'; out.textContent = ''; }
+  }
   function testDestination() {
     var out = $('cb-test-result'), button = $('cb-test'), destination = destinationDraft();
+    clearTimeout(testTimer);
     out.className = 'test-status'; out.textContent = 'Testing…'; button.disabled = true;
     api('/api/cloud-backup/test', { destination: destination }).then(function (r) {
       var warnings = r.warnings || [];
       out.className = warnings.length ? 'test-status' : 'test-status success';
       out.textContent = (destination.type === 'webdav' ? 'The server accepted the sign-in and a test file.' : destination.type === 'gdrive' ? 'Google Drive accepted a test file.' : 'This folder works.') + (warnings.length ? ' ' + warnings.join(' ') : '');
+      if (!warnings.length) testTimer = setTimeout(clearTest, 10000);
     }).catch(function (e) { out.className = 'test-status error'; out.textContent = e.message; }).then(function () { button.disabled = false; });
   }
 
@@ -201,7 +209,7 @@
     var h = '<hr style="border:0;border-top:1px solid var(--st-line-soft);width:100%;margin:4px 0">' + '<div class="st-inline-actions" style="justify-content:space-between">' + pill() + '</div>';
     h += '<p class="st-help">' + (status.lastOkAt ? 'Last copy sent <b>' + esc(when(status.lastOkAt)) + '</b> (' + esc(size(status.lastBytes || 0)) + ').' : 'No copy has been sent yet.')
       + (status.enabled && status.nextAt && !status.running ? ' Next: <b>' + esc(when(status.nextAt)) + '</b>.' : '') + '</p>';
-    if (status.lastError) h += '<p class="st-help" style="color:var(--st-err)">' + esc(status.lastError) + (status.attempts ? ' Retrying.' : '') + '</p>';
+    if (status.lastError && !status.running) h += '<p class="st-help" style="color:var(--st-err)">' + esc(status.lastError) + (status.attempts && status.nextAt ? ' Trying again ' + esc(when(status.nextAt)) + '.' : '') + '</p>';
     h += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="cb-run"' + (!status.enabled || status.running || busy ? ' disabled' : '') + '>Back up now</button>'
       + '<button type="button" class="st-btn" id="cb-refresh">Refresh</button></div>';
     h += '<div id="cb-copies" class="st-snapshots">';
@@ -221,7 +229,7 @@
   }
 
   function runNow() {
-    busy = true; status.running = true; status.phase = 'starting'; drawState();
+    clearTest(); busy = true; status.running = true; status.phase = 'starting'; drawState();
     api('/api/cloud-backup/run', {}).then(function (r) { settings = r.settings; status = r.status; google = r.google || google; tell('Backup sent: ' + size(r.bytes) + '.'); })
       .catch(function (e) { if (e.data && e.data.status) status = e.data.status; tell('Backup failed: ' + e.message, 'error'); })
       .then(function () { busy = false; return refresh(true); });
