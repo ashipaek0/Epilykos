@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43587798183.1",
-    "version": "1.2.9-dev+93312d3",
-    "commit": "93312d3c0ab6f812e3bd0f15a5e9f9ed69f18be3",
-    "digest": "sha256:942f21fc0f4fee17fa06f918e78fa6c6ba49295862e7a24f8d9d27754994f446",
+    "buildId": "43602024041.1",
+    "version": "1.2.10-dev+0b9d351",
+    "commit": "0b9d3512e5d485fe6a2fc8eecab34d4f22fa3709",
+    "digest": "sha256:16c7e800eb3d32c8848c11a52279af6685cabc9904cce05a40d5f03239a904d3",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:59:12Z",
+    "builtAt": "2026-11-14T13:53:50Z",
     "kind": "release",
     "notes": [
-      "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
-      "Bump web-push from 3.6.7 to 4.0.0 (#354)"
+      "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
     ]
   },
   "history": [
+    {
+      "buildId": "43602024041.1",
+      "version": "1.2.10-dev+0b9d351",
+      "commit": "0b9d3512e5d485fe6a2fc8eecab34d4f22fa3709",
+      "digest": "sha256:16c7e800eb3d32c8848c11a52279af6685cabc9904cce05a40d5f03239a904d3",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T13:53:50Z",
+      "kind": "release",
+      "notes": [
+        "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
+      ]
+    },
     {
       "buildId": "43587798183.1",
       "version": "1.2.9-dev+93312d3",
@@ -360,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Scale to screen width, and the editor shows cards where they are saved (#324)"
-      ]
-    },
-    {
-      "buildId": "43021726288.1",
-      "version": "1.2.4-dev+4bee25a",
-      "commit": "4bee25a17d5e50278eca09ab0355e3d2201f1c84",
-      "digest": "sha256:3ef2debfc41f0862444615ca6eb8d2ebbdcbfe3635674795362dafd71b6c205c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T12:36:16Z",
-      "kind": "release",
-      "notes": [
-        "Every mapping row can create a metric: a \"+\" beside the dropdown (#323)"
       ]
     }
   ]
