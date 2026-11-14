@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43602024041.1",
-    "version": "1.2.10-dev+0b9d351",
-    "commit": "0b9d3512e5d485fe6a2fc8eecab34d4f22fa3709",
-    "digest": "sha256:16c7e800eb3d32c8848c11a52279af6685cabc9904cce05a40d5f03239a904d3",
+    "buildId": "43602911547.1",
+    "version": "1.2.10-dev+f6f66e0",
+    "commit": "f6f66e0a9a27f81763fcc7eeee0fe9d2680da96e",
+    "digest": "sha256:ac0792f5dce81d16e32c0e5a480a68789c34a69a0b1870b860bc6364c8c716b3",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T13:53:50Z",
+    "builtAt": "2026-11-14T14:04:27Z",
     "kind": "release",
     "notes": [
-      "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
+      "Settings: green switches and status pills when on (#359)"
     ]
   },
   "history": [
+    {
+      "buildId": "43602911547.1",
+      "version": "1.2.10-dev+f6f66e0",
+      "commit": "f6f66e0a9a27f81763fcc7eeee0fe9d2680da96e",
+      "digest": "sha256:ac0792f5dce81d16e32c0e5a480a68789c34a69a0b1870b860bc6364c8c716b3",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T14:04:27Z",
+      "kind": "release",
+      "notes": [
+        "Settings: green switches and status pills when on (#359)"
+      ]
+    },
     {
       "buildId": "43602024041.1",
       "version": "1.2.10-dev+0b9d351",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Update contribution guidelines for commits and PRs"
-      ]
-    },
-    {
-      "buildId": "43024504629.1",
-      "version": "1.2.4-dev+c339c11",
-      "commit": "c339c1163b0d6a88c55f2acc413cad02d849f6fb",
-      "digest": "sha256:6d618389c566763085cdbedc4766bbd40fdbf3553e27a591e820ff30b3cffab0",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T12:55:38Z",
-      "kind": "release",
-      "notes": [
-        "Scale to screen width, and the editor shows cards where they are saved (#324)"
       ]
     }
   ]
