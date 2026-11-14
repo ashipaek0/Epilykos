@@ -13,9 +13,22 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+  <script>
+    // New settings look (settings-datum.css). ?look=classic opts out and is remembered; ?look=datum opts back in.
+    (function() {
+      var l = 'datum';
+      try {
+        var q = new URLSearchParams(location.search).get('look');
+        if (q === 'classic' || q === 'datum') localStorage.setItem('epilykos-settings-look', q);
+        l = localStorage.getItem('epilykos-settings-look') === 'classic' ? 'classic' : 'datum';
+      } catch (e) {}
+      if (l === 'datum') document.documentElement.classList.add('dt');
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="settings-redesign.css">
   <link rel="stylesheet" href="settings-shell.css?v=8">
+  <link rel="stylesheet" href="settings-datum.css?v=1">
   <link rel="stylesheet" href="notifications.css?v=3">
   <link rel="stylesheet" href="color-picker.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -1115,5 +1128,6 @@
 <script type="module">import { initColorPicker } from '/js/editor-color.js'; initColorPicker();</script>
   <script src="/js/maintenance.js?v=2"></script>
 <script src="/js/appliance-settings.js?v=3"></script>
+<script src="js/settings-datum.js?v=1"></script>
 </body>
 </html>
