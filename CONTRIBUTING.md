@@ -14,7 +14,7 @@
 ## Documentation
 
 - User documentation lives in the wiki, [ashipaek0/epilykos-wiki](https://github.com/ashipaek0/epilykos-wiki),
-  published at <https://ashipaek0.github.io/epilykos-wiki/>. The README keeps only the quick start, the
+  published at <https://epilykos.ashipaek0.com.ng/>. The README keeps only the quick start, the
   compose file and links.
 - When a change alters what users see or do (settings, sources, cards, install steps), update the
   matching wiki page in the same pass, and the in-app Help in `public/settings.html` if it covers it.
