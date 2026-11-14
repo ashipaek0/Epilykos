@@ -195,7 +195,7 @@
             <h3 class="st-subhead">Smart Life login</h3>
             <p class="st-help">Your <strong>Smart Life UID</strong> is under Me → ⚙ → Account → User ID in the Smart Life app.</p>
             <div class="form-row" style="margin-bottom:0.75rem;">
-              <label for="tuya-uid" class="st-visually-hidden">Smart Life UID</label><input type="text" id="tuya-uid" class="input" placeholder="Smart Life UID" style="flex:1;" autocomplete="off">
+              <label for="tuya-uid" class="st-visually-hidden">Smart Life UID</label><input type="text" id="tuya-uid" class="input" style="flex:1;" autocomplete="off">
               <button type="button" id="tuya-generate-qr-btn" class="st-btn st-btn-primary" style="flex:0 0 auto;">Generate QR code</button>
             </div>
             <div id="tuya-qr-container" style="display:none;text-align:center;margin:1rem 0;">
@@ -299,7 +299,7 @@
               <div class="st-field"><label for="solcast-api-key">Solcast API key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div>
               <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your Solcast rooftop site.</span></div>
               <div class="st-field"><label for="solcast-weather">Also fetch Solcast weather and irradiance</label><select id="solcast-weather" class="input" name="solcast_weather"><option value="true">Yes</option><option value="false">No</option></select><span class="st-help">Adds temperature, cloud and irradiance. Needs a plan that includes it.</span></div>
-              <div class="st-field"><label for="solcast-daily-limit">Solcast requests per day</label><input id="solcast-daily-limit" class="input" name="solcast_daily_limit" type="number" min="1" max="100000" step="1" placeholder="10"><span class="st-help">Your plan's daily limit (10 on hobbyist).</span></div>
+              <div class="st-field"><label for="solcast-daily-limit">Solcast requests per day</label><input id="solcast-daily-limit" class="input" name="solcast_daily_limit" type="number" min="1" max="100000" step="1"><span class="st-help">Your plan's daily limit (10 on hobbyist).</span></div>
             </div>
             <div class="st-inline-actions"><button type="button" id="test-forecast" class="st-btn">Test forecast</button><span id="forecast-test-status" class="test-status" role="status"></span></div>
           </div>
@@ -324,13 +324,13 @@
               <option value="bought">By what you actually bought</option>
             </select><span class="st-help"><strong>Grid price:</strong> every kWh at the grid price. <strong>Availability:</strong> generator price in outages. <strong>Bought:</strong> the average price you paid.</span></div>
             <div class="st-field" id="savings-history-field"><label>Savings history</label><div><button type="button" class="st-btn" id="savings-recalculate">Recalculate history</button> <span class="st-help" id="savings-recalculate-status" role="status" aria-live="polite"></span></div><span class="st-help">Re-values every finished day at current prices.</span></div>
-            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names" placeholder="grid_status"><span class="st-help">Says whether the grid is up.</span></div>
-            <div class="st-field"><label for="generator-status-entity">Generator status metric</label><input id="generator-status-entity" class="input" name="generator_status_entity" list="st-metric-names" placeholder="Use the generator power metric"><span class="st-help">Optional. Leave empty to use the generator power metric.</span></div>
-            <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names" placeholder="Detect automatically"><span class="st-help">Counts solar energy made today. Leave empty to detect it.</span></div>
+            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names"><span class="st-help">Says whether the grid is up.</span></div>
+            <div class="st-field"><label for="generator-status-entity">Generator status metric</label><input id="generator-status-entity" class="input" name="generator_status_entity" list="st-metric-names"><span class="st-help">Optional. Leave empty to use the generator power metric.</span></div>
+            <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names"><span class="st-help">Counts solar energy made today. Leave empty to detect it.</span></div>
             <h2 class="st-card-subhead">Battery</h2>
             <div class="st-grid-2">
-              <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" placeholder="e.g. 15" inputmode="decimal"><span class="st-help">Used to project the charge for the rest of the day.</span></div>
-              <div class="st-field"><label for="battery-min-soc">Lowest charge (%)</label><input id="battery-min-soc" class="input" name="battery_min_soc" type="number" min="0" max="100" step="1" placeholder="e.g. 20" inputmode="numeric"><span class="st-help">The charge your inverter stops discharging at.</span></div>
+              <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" inputmode="decimal"><span class="st-help">Used to project the charge for the rest of the day.</span></div>
+              <div class="st-field"><label for="battery-min-soc">Lowest charge (%)</label><input id="battery-min-soc" class="input" name="battery_min_soc" type="number" min="0" max="100" step="1" inputmode="numeric"><span class="st-help">The charge your inverter stops discharging at.</span></div>
             </div>
           </div>
         </section>
@@ -368,17 +368,17 @@
           </div>
           <div class="st-card">
             <h2 class="st-card-subhead st-first">Branding</h2>
-            <div class="st-field"><label for="dashboard-title">Dashboard title</label><input id="dashboard-title" class="input" name="dashboard_title" value="Epilykos" placeholder="My solar dashboard"></div>
+            <div class="st-field"><label for="dashboard-title">Dashboard title</label><input id="dashboard-title" class="input" name="dashboard_title" value="Epilykos"></div>
             <div class="st-grid-2">
-              <div class="st-field"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="input" name="dashboard_logo" type="url" placeholder="https://example.com/logo.png"></div>
-              <div class="st-field"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="input" name="dashboard_favicon" type="url" placeholder="https://example.com/favicon.ico"></div>
+              <div class="st-field"><label for="dashboard-logo">Logo URL</label><input id="dashboard-logo" class="input" name="dashboard_logo" type="url"></div>
+              <div class="st-field"><label for="dashboard-favicon">Favicon URL</label><input id="dashboard-favicon" class="input" name="dashboard_favicon" type="url"></div>
             </div>
             <h2 class="st-card-subhead">Background and blocks</h2>
             <div class="st-grid-2">
               <div class="st-field"><label for="dashboard-bg-color-light">Background in light mode</label><input id="dashboard-bg-color-light" name="dashboard_bg_color_light" type="color" value="#f8fafc" class="st-color"></div>
               <div class="st-field"><label for="dashboard-bg-color-dark">Background in dark mode</label><input id="dashboard-bg-color-dark" name="dashboard_bg_color_dark" type="color" value="#0f172a" class="st-color"></div>
             </div>
-            <div class="st-field"><label for="dashboard-bg-image">Background image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" type="url" placeholder="https://…"></div>
+            <div class="st-field"><label for="dashboard-bg-image">Background image URL</label><input id="dashboard-bg-image" class="input" name="dashboard_bg_image" type="url"></div>
             <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="transparent-blocks" name="transparent_blocks"><span class="slider"></span></label><label for="transparent-blocks">Transparent blocks</label></span><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="square-corners" name="square_corners"><span class="slider"></span></label><label for="square-corners">Square corners</label></span><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="glass-cards" name="glass_cards"><span class="slider"></span></label><label for="glass-cards">Glass cards</label></span></div>
             <div class="st-grid-2" id="glass-options" hidden>
               <div class="st-field"><label for="glass-blur">Glass blur: <output id="glass-blur-out">18</output> px</label><input id="glass-blur" name="glass_blur" type="range" min="0" max="40" step="1" value="18" data-no-reveal></div>
@@ -404,10 +404,10 @@
             <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="pvoutput-enabled"><span class="slider"></span></label><label for="pvoutput-enabled">Upload to PVOutput</label></span></div>
             <div class="st-grid-2">
               <div class="st-field"><label for="pvoutput-api-key">API key</label><input type="password" id="pvoutput-api-key" class="input" autocomplete="off"></div>
-              <div class="st-field"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="input" inputmode="numeric" placeholder="12345"></div>
-              <div class="st-field"><label for="pvoutput-timezone">Time zone</label><input type="text" id="pvoutput-timezone" class="input" placeholder="Africa/Lagos"><span class="st-help">Detected when you test the connection, or enter it yourself.</span></div>
+              <div class="st-field"><label for="pvoutput-system-id">System ID</label><input type="text" id="pvoutput-system-id" class="input" inputmode="numeric"></div>
+              <div class="st-field"><label for="pvoutput-timezone">Time zone</label><input type="text" id="pvoutput-timezone" class="input"><span class="st-help">Detected when you test the connection, or enter it yourself.</span></div>
               <div class="st-field"><label for="pvoutput-interval">Upload every</label><select id="pvoutput-interval" class="input"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option></select></div>
-              <div class="st-field"><label for="pvoutput-system-size">System size</label><div class="st-input-unit"><input type="number" id="pvoutput-system-size" class="input" min="0" placeholder="5000"><span>W</span></div></div>
+              <div class="st-field"><label for="pvoutput-system-size">System size</label><div class="st-input-unit"><input type="number" id="pvoutput-system-size" class="input" min="0"><span>W</span></div></div>
             </div>
             <div class="st-inline-actions"><button type="button" id="pvoutput-test-btn" class="st-btn">Test connection</button><span id="pvoutput-test-status" class="test-status" role="status"></span></div>
             <h3 class="st-card-subhead">Metric mapping</h3>
@@ -440,8 +440,8 @@
           <div id="sys-network-root" data-own-save hidden></div>
           <div class="st-card">
             <div class="st-card-head"><h2>App addresses</h2></div>
-            <div class="st-field"><label for="network-local-url">Address at home</label><input id="network-local-url" class="input" name="network_local_url" type="url" placeholder="http://192.168.1.10:3000"><span class="st-help">Used on your home network. Fast, and works offline.</span></div>
-            <div class="st-field"><label for="network-remote-url">Address away from home</label><input id="network-remote-url" class="input" name="network_remote_url" type="url" placeholder="https://energy.example.com"><span class="st-help">Used everywhere else.</span></div>
+            <div class="st-field"><label for="network-local-url">Address at home</label><input id="network-local-url" class="input" name="network_local_url" type="url"><span class="st-help">Used on your home network. Fast, and works offline.</span></div>
+            <div class="st-field"><label for="network-remote-url">Address away from home</label><input id="network-remote-url" class="input" name="network_remote_url" type="url"><span class="st-help">Used everywhere else.</span></div>
             <p class="st-help">The installed app picks the faster address.</p>
           </div>
           <div class="st-card" id="rm-card" data-own-save>

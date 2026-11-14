@@ -299,18 +299,18 @@ function renderHaDevice(device, idx) {
   card.dataset.index = idx;
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="ha_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="ha_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="ha_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-ha">✕</button>
     </div>
     <div class="section-divider">Connection</div>
     <div class="form-row">
-      <input type="text" name="ha_devices[${idx}][url]" placeholder="http://homeassistant.local:8123" value="${escapeHtml(device.url || '')}">
-      <input type="password" name="ha_devices[${idx}][token]" placeholder="Access Token" value="${escapeHtml(device.token || '')}">
+      <label class="dt-fld"><span>URL</span><input type="text" name="ha_devices[${idx}][url]" value="${escapeHtml(device.url || '')}"></label>
+      <label class="dt-fld"><span>Access Token</span><input type="password" name="ha_devices[${idx}][token]" value="${escapeHtml(device.token || '')}"></label>
     </div>
     <div class="section-divider">Polling</div>
     <div class="form-row">
-      <input type="number" name="ha_devices[${idx}][poll_interval]" placeholder="Poll Interval (s)" value="${device.poll_interval || 30}" style="width:120px;">
+      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="ha_devices[${idx}][poll_interval]" value="${device.poll_interval || 30}"></label>
       <button type="button" class="fetch-btn fetch-ha-entities">Fetch Entities</button>
       <span class="test-status" id="ha-entities-status-${idx}"></span>
     </div>
@@ -836,17 +836,17 @@ function renderMqttDevice(device, idx) {
   card.dataset.index = idx;
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="mqtt_devices[${idx}][name]" placeholder="Broker Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="mqtt_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="mqtt_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-mqtt">✕</button>
     </div>
     <div class="section-divider">Connection</div>
     <div class="form-row">
-      <input type="text" name="mqtt_devices[${idx}][broker]" placeholder="mqtt://broker.local:1883" value="${escapeHtml(device.broker || '')}">
+      <label class="dt-fld"><span>Broker URL</span><input type="text" name="mqtt_devices[${idx}][broker]" value="${escapeHtml(device.broker || '')}"></label>
     </div>
     <div class="form-row">
-      <input type="text" name="mqtt_devices[${idx}][username]" placeholder="Username" value="${escapeHtml(device.username || '')}">
-      <input type="password" name="mqtt_devices[${idx}][password]" placeholder="Password" value="${escapeHtml(device.password || '')}">
+      <label class="dt-fld"><span>Username</span><input type="text" name="mqtt_devices[${idx}][username]" value="${escapeHtml(device.username || '')}"></label>
+      <label class="dt-fld"><span>Password</span><input type="password" name="mqtt_devices[${idx}][password]" value="${escapeHtml(device.password || '')}"></label>
     </div>
     <div class="section-divider">Test</div>
     <div class="test-row">
@@ -854,7 +854,7 @@ function renderMqttDevice(device, idx) {
       <span class="test-status" id="mqtt-broker-status-${idx}"></span>
     </div>
     <div class="test-row">
-      <input type="text" class="test-topic-input" placeholder="Test Topic">
+      <label class="dt-fld"><span>Test Topic</span><input type="text" class="test-topic-input"></label>
       <button type="button" class="fetch-btn test-mqtt-topic-btn">Test Topic</button>
       <span class="test-status" id="mqtt-topic-status-${idx}"></span>
     </div>
@@ -1046,7 +1046,7 @@ function addMqttMetricRow(device, deviceIdx, container, metric = '', topic = '',
   const topicInput = document.createElement('input');
   topicInput.type = 'text';
   topicInput.className = 'topic-input';
-  topicInput.placeholder = 'topic';
+  topicInput.setAttribute('aria-label', 'Topic');
   topicInput.value = topic;
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -1184,7 +1184,7 @@ function renderModbusDevice(device, idx) {
   card.className = 'device-card';
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="modbus_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="modbus_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="modbus_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-modbus">✕</button>
     </div>
@@ -1200,8 +1200,8 @@ function renderModbusDevice(device, idx) {
     </div>
     <div class="modbus-tcp-fields" style="${device.transport === 'tcp' ? '' : 'display:none;'}">
       <div class="form-row">
-        <input type="text" name="modbus_devices[${idx}][host]" placeholder="Host/IP" value="${escapeHtml(device.host || '')}">
-        <input type="number" name="modbus_devices[${idx}][port]" placeholder="Port" value="${device.port || 502}">
+        <label class="dt-fld"><span>Host / IP</span><input type="text" name="modbus_devices[${idx}][host]" value="${escapeHtml(device.host || '')}"></label>
+        <label class="dt-fld"><span>Port</span><input type="number" name="modbus_devices[${idx}][port]" value="${device.port || 502}"></label>
       </div>
       <div class="form-row modbus-gateway-row">
         <select name="modbus_devices[${idx}][tcp_framing]" class="modbus-framing-select" title="How your RS485-to-Ethernet gateway forwards Modbus">
@@ -1213,11 +1213,11 @@ function renderModbusDevice(device, idx) {
     </div>
     <div class="modbus-serial-fields" style="${device.transport === 'serial' ? '' : 'display:none;'}">
       <div class="form-row">
-        <input type="text" name="modbus_devices[${idx}][serial_path]" placeholder="Serial path (e.g., /dev/ttyUSB0)" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}">
-        <input type="number" name="modbus_devices[${idx}][serial_baud]" placeholder="Baud rate" value="${device.serial_baud || 9600}">
+        <label class="dt-fld"><span>Serial path</span><input type="text" name="modbus_devices[${idx}][serial_path]" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}"></label>
+        <label class="dt-fld"><span>Baud rate</span><input type="number" name="modbus_devices[${idx}][serial_baud]" value="${device.serial_baud || 9600}"></label>
       </div>
       <div class="form-row">
-        <input type="number" name="modbus_devices[${idx}][serial_data_bits]" placeholder="Data bits" value="${device.serial_data_bits || 8}">
+        <label class="dt-fld"><span>Data bits</span><input type="number" name="modbus_devices[${idx}][serial_data_bits]" value="${device.serial_data_bits || 8}"></label>
         <select name="modbus_devices[${idx}][serial_parity]">
           <option value="none" ${device.serial_parity === 'none' ? 'selected' : ''}>None</option>
           <option value="even" ${device.serial_parity === 'even' ? 'selected' : ''}>Even</option>
@@ -1225,13 +1225,13 @@ function renderModbusDevice(device, idx) {
         </select>
       </div>
       <div class="form-row">
-        <input type="number" name="modbus_devices[${idx}][serial_stop_bits]" placeholder="Stop bits" value="${device.serial_stop_bits || 1}">
+        <label class="dt-fld"><span>Stop bits</span><input type="number" name="modbus_devices[${idx}][serial_stop_bits]" value="${device.serial_stop_bits || 1}"></label>
       </div>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
-      <input type="number" name="modbus_devices[${idx}][unit]" placeholder="Unit ID" value="${device.unit || 1}">
-      <input type="number" name="modbus_devices[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:120px;">
+      <label class="dt-fld"><span>Unit ID</span><input type="number" name="modbus_devices[${idx}][unit]" value="${device.unit || 1}"></label>
+      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="modbus_devices[${idx}][poll_interval]" value="${device.poll_interval || 30}"></label>
       <button type="button" class="fetch-btn test-modbus">Test Modbus</button>
     </div>
     <div class="section-divider">Register Mappings</div>
@@ -1698,7 +1698,7 @@ function renderRs232Device(device, idx) {
   card.className = 'device-card';
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="rs232_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="rs232_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="rs232_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-rs232">✕</button>
     </div>
@@ -1713,7 +1713,7 @@ function renderRs232Device(device, idx) {
       </select>
     </div>
     <div class="form-row rs232-custom-path" style="${device.serial_path && !availableRs232Ports.some(p => p.path === device.serial_path) ? '' : 'display:none;'}">
-      <input type="text" name="rs232_devices[${idx}][custom_path]" placeholder="/dev/ttyUSB0" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}">
+      <label class="dt-fld"><span>Serial path</span><input type="text" name="rs232_devices[${idx}][custom_path]" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}"></label>
     </div>
     <div class="form-row">
       <select name="rs232_devices[${idx}][baud]">
@@ -1734,14 +1734,14 @@ function renderRs232Device(device, idx) {
         <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
         <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
       </select>
-      <input type="number" name="rs232_devices[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 5}" style="width:120px;" title="Modbus Unit ID">
+      <label class="dt-fld" style="width:120px;"><span>Unit ID</span><input type="number" name="rs232_devices[${idx}][modbus_unit_id]" value="${device.modbus_unit_id || 5}" title="Modbus Unit ID"></label>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
       <select name="rs232_devices[${idx}][profile]" class="rs232-profile-select">
         <option value="">-- Select profile --</option>
       </select>
-      <input type="number" name="rs232_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;">
+      <label class="dt-fld" style="width:140px;"><span>Timeout (ms)</span><input type="number" name="rs232_devices[${idx}][timeout]" value="${device.timeout || 5000}"></label>
       <button type="button" class="fetch-btn test-rs232">Test RS232</button>
     </div>
     <div class="section-divider">Field Mappings</div>
@@ -2014,13 +2014,13 @@ function renderExternalSource(source, idx) {
   card.dataset.index = idx;
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="external_sources[${idx}][name]" placeholder="Source Name (e.g., WeatherAPI)" value="${escapeHtml(source.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="external_sources[${idx}][name]" value="${escapeHtml(source.name || '')}"></label>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-external">✕</button>
     </div>
     <div class="section-divider">Endpoint</div>
     <div class="form-row">
-      <input type="text" name="external_sources[${idx}][url]" placeholder="https://api.example.com/v1/data?key=..." value="${escapeHtml(source.url || '')}" style="font-family:monospace;font-size:0.82em;">
+      <label class="dt-fld"><span>URL</span><input type="text" name="external_sources[${idx}][url]" value="${escapeHtml(source.url || '')}" style="font-family:monospace;font-size:0.82em;"></label>
     </div>
     <div class="section-divider">Mappings <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— for each row: pick a metric, then enter the JSON path in the response to extract its value</span></div>
     <div class="mappings-section">
@@ -2038,7 +2038,7 @@ function renderExternalSource(source, idx) {
     </div>
     <div class="section-divider">Test Path <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— enter a JSON path and test it against the URL above</span></div>
     <div class="test-row" style="display:flex;gap:0.5rem;align-items:center;margin-top:0.3rem;">
-      <input type="text" class="test-jsonpath" placeholder="e.g. current.temp_c" style="flex:1;font-family:monospace;font-size:0.85em;">
+      <input type="text" class="test-jsonpath" aria-label="JSON path" style="flex:1;font-family:monospace;font-size:0.85em;">
       <button type="button" class="fetch-btn test-external" style="white-space:nowrap;">Test Path</button>
       <span class="test-status" id="external-test-status-${idx}"></span>
     </div>
@@ -2153,7 +2153,7 @@ function addExternalMetricRow(deviceIdx, container, metric = '', jsonPath = '', 
   const jsonPathInput = document.createElement('input');
   jsonPathInput.type = 'text';
   jsonPathInput.className = 'jsonpath';
-  jsonPathInput.placeholder = 'e.g. current.temp_c';
+  jsonPathInput.setAttribute('aria-label', 'JSON path');
   jsonPathInput.value = jsonPath;
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -2390,14 +2390,14 @@ function renderBmsDevice(device, idx) {
   card.dataset.index = idx;
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="bms_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="bms-status-dot" id="bms-status-${idx}" title="Checking..."></span>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bms">✕</button>
     </div>
     <div class="section-divider">Connection</div>
     <div class="form-row">
-      <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
+      <label class="dt-fld" style="flex:2;"><span>Bluetooth address</span><input type="text" name="bms_devices[${idx}][address]" value="${escapeHtml(device.address || '')}"></label>
       <select name="bms_devices[${idx}][bms_type]" class="bms-type-select" style="flex:1;" title="Leave on Auto-detect unless the BMS is not recognised (rebranded packs)">
         ${[['', 'Auto-detect type'], ['jbd_bms', 'JBD / Jiabaida / Xiaoxiang'], ['jikong_bms', 'JK-BMS (Jikong)'], ['daly_bms', 'Daly'], ['seplos_bms', 'Seplos'], ['ant_bms', 'ANT'], ['pace_bms', 'PACE (PACEEX app)']]
           .map(([v, l]) => `<option value="${v}" ${(device.bms_type || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
@@ -2551,7 +2551,7 @@ function renderBmsWiredDevice(device, idx) {
 
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="bms_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="bms_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bms-wired">✕</button>
     </div>
@@ -2564,10 +2564,10 @@ function renderBmsWiredDevice(device, idx) {
         ).join('')}
         <option value="custom" ${pathIsCustom ? 'selected' : ''}>Custom path...</option>
       </select>
-      <input type="number" name="bms_devices[${idx}][baud]" placeholder="Baud" value="${device.baud || 9600}" style="width:130px;" title="Baud rate">
+      <label class="dt-fld" style="width:130px;"><span>Baud rate</span><input type="number" name="bms_devices[${idx}][baud]" value="${device.baud || 9600}" title="Baud rate"></label>
     </div>
     <div class="form-row bms-wired-custom-path" style="gap:0.5rem;display:${pathIsCustom ? '' : 'none'};">
-      <input type="text" name="bms_devices[${idx}][custom_path]" placeholder="/dev/ttyUSB0" value="${escapeHtml(inputPath || '/dev/ttyUSB0')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Serial path</span><input type="text" name="bms_devices[${idx}][custom_path]" value="${escapeHtml(inputPath || '/dev/ttyUSB0')}"></label>
     </div>
     <div class="form-row">
       <select name="bms_devices[${idx}][data_bits]">
@@ -2585,7 +2585,7 @@ function renderBmsWiredDevice(device, idx) {
         <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
         <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
       </select>
-      <input type="number" name="bms_devices[${idx}][modbus_unit_id]" placeholder="Unit ID" value="${device.modbus_unit_id || 1}" style="width:110px;" title="Modbus Unit ID">
+      <label class="dt-fld" style="width:110px;"><span>Unit ID</span><input type="number" name="bms_devices[${idx}][modbus_unit_id]" value="${device.modbus_unit_id || 1}" title="Modbus Unit ID"></label>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
@@ -2593,7 +2593,7 @@ function renderBmsWiredDevice(device, idx) {
         <option value="">-- Select profile --</option>
       </select>
       <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
-      <input type="number" name="bms_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;" title="Timeout in milliseconds">
+      <label class="dt-fld" style="width:140px;"><span>Timeout (ms)</span><input type="number" name="bms_devices[${idx}][timeout]" value="${device.timeout || 5000}" title="Timeout in milliseconds"></label>
       <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
       <span class="test-status"></span>
     </div>
@@ -2636,8 +2636,12 @@ function renderBmsWiredDevice(device, idx) {
     const unitInput = card.querySelector('input[name$="[modbus_unit_id]"]');
     // JBD and JK have no bus address; Modbus and PACE (DIP switch) do.
     if (unitInput) {
-      unitInput.style.display = (p && ['jbd', 'jk-rs485'].includes(p.protocol)) ? 'none' : '';
-      unitInput.placeholder = (p && p.protocol === 'pace-v25') ? 'Pack address' : 'Unit ID';
+      const unitBox = unitInput.closest('.dt-fld') || unitInput;
+      unitBox.style.display = (p && ['jbd', 'jk-rs485'].includes(p.protocol)) ? 'none' : '';
+      const unitName = (p && p.protocol === 'pace-v25') ? 'Pack address' : 'Unit ID';
+      const unitText = unitBox.querySelector('span');
+      if (unitText) unitText.textContent = unitName;
+      else unitInput.setAttribute('aria-label', unitName);
       unitInput.title = (p && p.protocol === 'pace-v25') ? 'Pack address (DIP switch, usually 1)' : 'Modbus Unit ID';
     }
     if (!userChange || !p || !p.defaults) return;
@@ -2966,7 +2970,7 @@ function renderBmsBank(bank, idx) {
 
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" class="bank-name" placeholder="Bank Name (e.g., House Bank)" value="${safeName}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" class="bank-name" value="${safeName}"></label>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bank">✕</button>
     </div>
@@ -3082,7 +3086,7 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
           <label class="toggle-switch"><input type="checkbox" class="bank-device-cb" value="${escapeHtml(name)}" ${checked}><span class="slider"></span></label>
           <label style="cursor:pointer;">${escapeHtml(name)}${tag}</label>
         </span>
-        <input type="number" class="bank-device-capacity input" placeholder="Capacity (Ah), auto" aria-label="Capacity in Ah" value="${capOverride}" style="width:170px; font-size:0.85em;" title="Leave empty to use the capacity the battery reports">
+        <label class="dt-fld" style="width:170px;"><span>Capacity (Ah)</span><input type="number" class="bank-device-capacity input" aria-label="Capacity in Ah" value="${capOverride}" style="font-size:0.85em;" title="Leave empty to use the capacity the battery reports"></label>
       </div>`;
   }).join('');
 }
@@ -3156,7 +3160,7 @@ function renderBankFunctionRow(container, bankIdx, fnIdx, fn) {
   // weight_by is kept as-is for saved banks but not offered.
   let html = `
     <div class="bank-fn-top">
-      <label class="bank-fn-field">Name <input type="text" class="bank-fn-output input" placeholder="e.g. house_soc" value="${escapeHtml(outputName)}" title="Saved as bank_ + this name"></label>
+      <label class="bank-fn-field">Name <input type="text" class="bank-fn-output input" value="${escapeHtml(outputName)}" title="Saved as bank_ + this name"></label>
       <label class="bank-fn-field">Calculation <select class="bank-fn-type input">
         ${BANK_FUNCTIONS.map(f => `<option value="${f}" ${f === selectedFn ? 'selected' : ''}>${escapeHtml(BANK_FN_LABELS[f] || f)}</option>`).join('')}
       </select></label>
@@ -3463,7 +3467,7 @@ function renderDongleDevice(device, idx) {
 
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="dongle_config[${idx}][name]" placeholder="Instance Name (e.g., SRNE Inverter)" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="dongle_config[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-dongle">✕</button>
     </div>
@@ -3482,13 +3486,13 @@ function renderDongleDevice(device, idx) {
       </label>
     </div>
     <div class="form-row dongle-net-row">
-      <input type="text" name="dongle_config[${idx}][host]" placeholder="Host / IP Address" value="${escapeHtml(device.host || '')}">
-      <input type="number" name="dongle_config[${idx}][port]" placeholder="Port" value="${device.port || ''}">
+      <label class="dt-fld"><span>Host / IP</span><input type="text" name="dongle_config[${idx}][host]" value="${escapeHtml(device.host || '')}"></label>
+      <label class="dt-fld"><span>Port</span><input type="number" name="dongle_config[${idx}][port]" value="${device.port || ''}"></label>
     </div>
     <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
-      <input type="text" name="dongle_config[${idx}][serial_number]" placeholder="Logger Serial Number" value="${escapeHtml(device.serial_number || '')}">
-      <input type="text" name="dongle_config[${idx}][dongle_serial]" placeholder="Dongle Serial" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)">
-      <input type="text" name="dongle_config[${idx}][inverter_serial]" placeholder="Inverter Serial" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)">
+      <label class="dt-fld"><span>Logger serial</span><input type="text" name="dongle_config[${idx}][serial_number]" value="${escapeHtml(device.serial_number || '')}"></label>
+      <label class="dt-fld"><span>Dongle Serial</span><input type="text" name="dongle_config[${idx}][dongle_serial]" value="${escapeHtml(device.dongle_serial || '')}" title="Dongle serial — 10-char serial on the dongle label (LuxPower only)"></label>
+      <label class="dt-fld"><span>Inverter Serial</span><input type="text" name="dongle_config[${idx}][inverter_serial]" value="${escapeHtml(device.inverter_serial || '')}" title="Inverter serial — 10-char serial on the inverter label (LuxPower only)"></label>
     </div>
     <div class="form-row dongle-lux-options" style="${isLuxTransport(transport) ? '' : 'display:none;'}">
       <label class="lux-wifi-option">Local Wi-Fi security
@@ -3508,18 +3512,18 @@ function renderDongleDevice(device, idx) {
       </label>
     </div>
     <div class="form-row dongle-ble-row" style="${isBleTransport(transport) ? '' : 'display:none;'}">
-      <input type="text" name="dongle_config[${idx}][ble_address]" placeholder="Bluetooth MAC (AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.ble_address || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Bluetooth address</span><input type="text" name="dongle_config[${idx}][ble_address]" value="${escapeHtml(device.ble_address || '')}"></label>
       <button type="button" class="fetch-btn scan-dongle-ble">Scan</button>
     </div>
     <div class="form-row dongle-ble-uuid-row" style="${transport === 'ble-modbus' ? '' : 'display:none;'}">
-      <input type="text" name="dongle_config[${idx}][ble_write_uuid]" placeholder="Write characteristic (default ffd1)" value="${escapeHtml(device.ble_write_uuid || '')}" title="GATT characteristic the Modbus request is written to">
-      <input type="text" name="dongle_config[${idx}][ble_notify_uuid]" placeholder="Notify characteristic (default fff1)" value="${escapeHtml(device.ble_notify_uuid || '')}" title="GATT characteristic the Modbus response arrives on">
+      <label class="dt-fld"><span>Write characteristic</span><input type="text" name="dongle_config[${idx}][ble_write_uuid]" value="${escapeHtml(device.ble_write_uuid || '')}" title="GATT characteristic the Modbus request is written to"></label>
+      <label class="dt-fld"><span>Notify characteristic</span><input type="text" name="dongle_config[${idx}][ble_notify_uuid]" value="${escapeHtml(device.ble_notify_uuid || '')}" title="GATT characteristic the Modbus response arrives on"></label>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
-      <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
-      <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : transport === 'ble-luxpower' ? 15 : 30)}" style="width:100px;">
-      <input type="text" name="dongle_config[${idx}][prefix]" placeholder="Metric Prefix (optional)" value="${escapeHtml(device.prefix || '')}" style="width:150px;">
+      <label class="dt-fld" style="width:100px;"><span>Unit ID</span><input type="number" name="dongle_config[${idx}][modbus_unit_id]" value="${device.modbus_unit_id || 1}"></label>
+      <label class="dt-fld" style="width:100px;"><span>Poll (s)</span><input type="number" name="dongle_config[${idx}][poll_interval]" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : transport === 'ble-luxpower' ? 15 : 30)}"></label>
+      <label class="dt-fld" style="width:150px;"><span>Metric prefix (optional)</span><input type="text" name="dongle_config[${idx}][prefix]" value="${escapeHtml(device.prefix || '')}"></label>
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
     </div>
@@ -5195,22 +5199,22 @@ function renderTuyaDevice(device, idx) {
   ).join('');
   card.innerHTML = `
     <div class="device-header">
-      <input type="text" name="tuya_devices[${idx}][name]" placeholder="Device Name" value="${escapeHtml(device.name || '')}" style="flex:1;">
+      <label class="dt-fld" style="flex:1;"><span>Name</span><input type="text" name="tuya_devices[${idx}][name]" value="${escapeHtml(device.name || '')}"></label>
       <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="tuya_devices[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-tuya">✕</button>
     </div>
     <div class="section-divider">Connection</div>
     <div class="form-row">
-      <input type="text" name="tuya_devices[${idx}][dev_id]" placeholder="Device ID" value="${escapeHtml(device.dev_id || '')}" readonly style="background:var(--bg-tertiary);cursor:not-allowed;">
-      <input type="text" name="tuya_devices[${idx}][address]" placeholder="IP Address" value="${escapeHtml(device.address || '')}">
+      <label class="dt-fld"><span>Device ID</span><input type="text" name="tuya_devices[${idx}][dev_id]" value="${escapeHtml(device.dev_id || '')}" readonly style="background:var(--bg-tertiary);cursor:not-allowed;"></label>
+      <label class="dt-fld"><span>IP Address</span><input type="text" name="tuya_devices[${idx}][address]" value="${escapeHtml(device.address || '')}"></label>
     </div>
     <div class="form-row">
-      <input type="password" autocomplete="off" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
+      <label class="dt-fld"><span>Local Key</span><input type="password" autocomplete="off" name="tuya_devices[${idx}][local_key]" value="${escapeHtml(device.local_key || '')}"></label>
       <select name="tuya_devices[${idx}][version]" style="width:120px;flex:0 0 auto;">${versionOptsHtml}</select>
     </div>
     <div class="section-divider">Polling</div>
     <div class="form-row">
-      <input type="number" name="tuya_devices[${idx}][poll_interval]" placeholder="Poll Interval (s)" value="${device.poll_interval || 30}" style="width:120px;">
+      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="tuya_devices[${idx}][poll_interval]" value="${device.poll_interval || 30}"></label>
     </div>
     <div class="section-divider">DP Mappings</div>
     <div class="mappings-section" id="tuya-mappings-${idx}">

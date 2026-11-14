@@ -31,7 +31,7 @@
     if (!initialized) {
       root.innerHTML = '<div class="st-card"><div class="st-card-head"><h2>Time and storage</h2></div>'
         + '<div class="st-snapshots">' + row('Clock', 'data-clock-status') + row('SD card', 'data-storage-status') + row('DATA', 'data-data-storage-status role="status"') + '</div>'
-        + '<div class="st-field" style="margin-top:14px"><label for="sys-timezone">Site time zone</label><input class="input" id="sys-timezone" value="' + esc((s.clock || {}).timezone || 'UTC') + '" placeholder="Africa/Lagos"><span class="st-help">An IANA name. Changing it restarts Epilykos.</span></div>'
+        + '<div class="st-field" style="margin-top:14px"><label for="sys-timezone">Site time zone</label><input class="input" id="sys-timezone" value="' + esc((s.clock || {}).timezone || 'UTC') + '"><span class="st-help">An IANA name. Changing it restarts Epilykos.</span></div>'
         + '<div class="st-inline-actions"><button class="st-btn" type="button" data-extra="timezone">Save time zone</button><button class="st-btn" type="button" data-extra="clock">Set time from this browser</button></div>'
         + '<div class="test-status" data-status="time" role="status"></div></div>'
         + '<div class="st-card"><div class="st-card-head"><h2>Bluetooth devices</h2></div><p class="st-help">Pair a device here if its source needs a PIN or a bond. Pairing does not add a source or add support for its protocol. Select the device in source settings afterwards. Nearby devices can be paired only during the five-minute window.</p>'
