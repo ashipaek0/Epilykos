@@ -49,6 +49,7 @@ for (const [name, t] of [['light', light], ['dark', dark]]) {
   assert.ok(ratio(t.acc, t.bg) >= 3, `${name} amber shape needs 3:1 against the page: ${ratio(t.acc, t.bg).toFixed(2)}`);
   assert.ok(ratio(t['on-acc'], t.acc) >= 4.5, `${name} label on the amber button needs 4.5:1: ${ratio(t['on-acc'], t.acc).toFixed(2)}`);
   assert.ok(ratio(t.mut, t.bg2) >= 4.5, `${name} muted text on the hover tint`);
+  assert.ok(ratio(t['on-thumb'], t.ok) >= 4.5, `${name} switch thumb on the green track: ${ratio(t['on-thumb'], t.ok).toFixed(2)}`);
 }
 
 // The font ships with the app (no third-party request).
