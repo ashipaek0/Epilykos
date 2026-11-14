@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Remote backup: sends an encrypted copy of the newest daily snapshot to a
- * destination (a folder today; Google Drive and WebDAV later), weekly by
+ * destination (a folder or a WebDAV server; Google Drive next), weekly by
  * default, and keeps the newest N copies.
  *
  *   settings   config row `cloud_backup` (the passphrase is a SECRET_FIELDS leaf,
@@ -25,6 +25,7 @@ const { PassThrough } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const envelope = require('./envelope');
 const { createFolderDestination } = require('./destinations/folder');
+const { createWebdavDestination } = require('./destinations/webdav');
 
 const CONFIG_KEY = 'cloud_backup';
 const STATUS_KEY = 'cloud_backup_status';
@@ -50,8 +51,9 @@ function createCloudBackup({
   now = Date.now, makeDestination, logger = { info() {}, warn() {} }
 }) {
   const destinationFor = makeDestination || (settings => {
-    if (!settings || settings.type !== 'folder') throw problem('Choose where to send the backup.', 'DESTINATION_REQUIRED', 400);
-    return createFolderDestination(settings, { dataDir });
+    if (settings && settings.type === 'folder') return createFolderDestination(settings, { dataDir });
+    if (settings && settings.type === 'webdav') return createWebdavDestination(settings);
+    throw problem('Choose where to send the backup.', 'DESTINATION_REQUIRED', 400);
   });
 
   let running = null, phase = 'idle', timer = null;
@@ -64,8 +66,24 @@ function createCloudBackup({
   const saveState = s => setConfig(STATUS_KEY, JSON.stringify(s));
 
   function publicSettings(s = settings()) {
-    return { enabled: Boolean(s.enabled), destination: { type: s.destination.type, path: s.destination.path || '' },
-      schedule: s.schedule, keep: s.keep, hasPassphrase: Boolean(s.passphrase) };
+    const d = s.destination;
+    const destination = d.type === 'webdav'
+      ? { type: 'webdav', url: d.url || '', folder: d.folder || '', username: d.username || '', fingerprint: d.fingerprint || '', hasPassword: Boolean(d.password) }
+      : { type: 'folder', path: d.path || '' };
+    return { enabled: Boolean(s.enabled), destination, schedule: s.schedule, keep: s.keep, hasPassphrase: Boolean(s.passphrase) };
+  }
+
+  /** The destination as typed. A WebDAV password left empty keeps the saved one, as long as it is still the same server and user. */
+  function cleanDestination(input, saved) {
+    const d = input || {};
+    if (d.type === 'folder') return { type: 'folder', path: typeof d.path === 'string' ? d.path.trim() : '' };
+    if (d.type === 'webdav') {
+      const text = v => (typeof v === 'string' ? v.trim() : '');
+      const next = { type: 'webdav', url: text(d.url), folder: text(d.folder), username: typeof d.username === 'string' ? d.username : '', fingerprint: text(d.fingerprint), password: typeof d.password === 'string' ? d.password : '' };
+      if (!next.password && saved && saved.type === 'webdav' && saved.url === next.url && saved.username === next.username) next.password = saved.password || '';
+      return next;
+    }
+    throw problem('That destination is not available yet.', 'BAD_DESTINATION', 400);
   }
 
   /** Checks what the person sent. Returns the settings to store; throws a message they can act on. */
@@ -81,11 +99,7 @@ function createCloudBackup({
       if (!Number.isInteger(keep) || keep < 1 || keep > 8) throw problem('Copies to keep must be a whole number from 1 to 8.', 'BAD_KEEP', 400);
       next.keep = keep;
     }
-    if (input.destination !== undefined) {
-      const d = input.destination || {};
-      if (d.type !== 'folder') throw problem('That destination is not available yet.', 'BAD_DESTINATION', 400);
-      next.destination = { type: 'folder', path: typeof d.path === 'string' ? d.path.trim() : '' };
-    }
+    if (input.destination !== undefined) next.destination = cleanDestination(input.destination, current.destination);
     if (input.passphrase !== undefined && input.passphrase !== '') next.passphrase = envelope.normalisePassphrase(input.passphrase);
     if (next.enabled) {
       destinationFor(next.destination);   // throws for a missing or invalid destination
@@ -109,7 +123,7 @@ function createCloudBackup({
 
   async function test(input) {
     const current = settings();
-    const dest = destinationFor(input && input.destination ? { type: 'folder', path: String(input.destination.path || '').trim() } : current.destination);
+    const dest = destinationFor(input && input.destination ? cleanDestination(input.destination, current.destination) : current.destination);
     return dest.test();
   }
 
@@ -140,11 +154,16 @@ function createCloudBackup({
     return t - (st.lastOkAt || st.enabledAt || t) > interval(s) + 2 * DAY;
   }
 
+  function label(d) {
+    if (d.type === 'webdav') { try { return new URL(d.url).host + (d.folder ? '/' + d.folder : ''); } catch (_) { return ''; } }
+    return d.path || '';
+  }
+
   function status() {
     const s = settings(), st = state();
     return {
       enabled: Boolean(s.enabled), running: Boolean(running), phase,
-      destination: s.destination.type === 'folder' ? { type: 'folder', label: s.destination.path } : { type: s.destination.type, label: '' },
+      destination: { type: s.destination.type, label: label(s.destination) },
       schedule: s.schedule, keep: s.keep,
       lastOkAt: st.lastOkAt ? new Date(st.lastOkAt).toISOString() : null,
       lastAttemptAt: st.lastAt ? new Date(st.lastAt).toISOString() : null,
@@ -154,11 +173,11 @@ function createCloudBackup({
     };
   }
 
-  async function stream(dest, snapshot, name, passphrase) {
+  async function stream(dest, snapshot, name, passphrase, size) {
     const locker = await envelope.createLocker(passphrase);
     const tail = new PassThrough();
     const pump = pipeline(fs.createReadStream(snapshot.path), locker, tail);
-    const [, result] = await Promise.all([pump, dest.put(name, tail)]);
+    const [, result] = await Promise.all([pump, dest.put(name, tail, { size: envelope.lockedSize(size) })]);
     return result;
   }
 
@@ -181,7 +200,7 @@ function createCloudBackup({
     const size = fs.statSync(snapshot.path).size;
     const name = backupName(now());
     phase = 'uploading';
-    const sent = await stream(dest, snapshot, name, s.passphrase);
+    const sent = await stream(dest, snapshot, name, s.passphrase, size);
     if (sent.bytes !== envelope.lockedSize(size)) throw problem('The snapshot changed while it was being sent. Try again.', 'CHANGED');
     phase = 'checking the copy';
     await dest.verify(name, sent);
@@ -244,7 +263,7 @@ function createCloudBackup({
   // ── The copies at the destination ──────────────────────────────────
   async function listCopies() {
     const s = settings();
-    if (!s.destination.path && s.destination.type === 'folder') return [];
+    if (s.destination.type === 'folder' ? !s.destination.path : !s.destination.url) return [];
     const copies = await destinationFor(s.destination).list();
     return copies.map(c => ({ name: c.name, size: c.size, time: new Date(timeOfName(c.name)).toISOString() }))
       .sort((a, b) => b.name.localeCompare(a.name));
