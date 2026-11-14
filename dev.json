@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43586918414.1",
-    "version": "1.2.9-dev+4919c05",
-    "commit": "4919c05425a27e6221410144549926a9772d96dd",
-    "digest": "sha256:2da78c5b9105fa5f669f5cf2fff25a7e471288f1d8dcf1690b3ea6b05eb18cdc",
+    "buildId": "43587375789.1",
+    "version": "1.2.9-dev+eea66be",
+    "commit": "eea66becacd10aad8b48f915d1d128e64e6bd5dd",
+    "digest": "sha256:4d6183093cbd5ba989cfdf6cfaf948db50c2760eec89a819822903f82ffc9fe1",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:47:31Z",
+    "builtAt": "2026-11-14T10:53:30Z",
     "kind": "release",
     "notes": [
-      "Remote backup, step 3: Google Drive destination (#356)"
+      "Bump web-push from 3.6.7 to 4.0.0 (#354)",
+      "Bump the minor-and-patch group with 4 updates (#353)"
     ]
   },
   "history": [
+    {
+      "buildId": "43587375789.1",
+      "version": "1.2.9-dev+eea66be",
+      "commit": "eea66becacd10aad8b48f915d1d128e64e6bd5dd",
+      "digest": "sha256:4d6183093cbd5ba989cfdf6cfaf948db50c2760eec89a819822903f82ffc9fe1",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:53:30Z",
+      "kind": "release",
+      "notes": [
+        "Bump web-push from 3.6.7 to 4.0.0 (#354)",
+        "Bump the minor-and-patch group with 4 updates (#353)"
+      ]
+    },
     {
       "buildId": "43586918414.1",
       "version": "1.2.9-dev+4919c05",
@@ -359,18 +373,6 @@
       "kind": "release",
       "notes": [
         "Bar gauges: vertical bars, and rounded or square bar ends (#321)"
-      ]
-    },
-    {
-      "buildId": "43015265875.1",
-      "version": "1.2.4-dev+9c7b058",
-      "commit": "9c7b058aa3581d9b747f83781463c7d419b4d0ce",
-      "digest": "sha256:fa1b103ddee1eca590574b8ca1f421420d99115e8b0d510fe9b92282eb62150e",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T11:50:51Z",
-      "kind": "release",
-      "notes": [
-        "Cards can set their own glass, blur and frost (#320)"
       ]
     }
   ]
