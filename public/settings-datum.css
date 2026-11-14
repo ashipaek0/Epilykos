@@ -396,3 +396,34 @@ html.dt body.st .help-step-num { background: var(--dt-acc); color: var(--dt-on-a
 html.dt body.st .help-badge { font-weight: 700; color: var(--dt-ink); }
 html.dt body.st .help-badge.must { color: var(--dt-acc-ink); }
 html.dt body.st .help-checklist-item { padding: 4px 0; }
+
+/* ══ More room between sections, a short faint divider between them ══ */
+html.dt body.st .st-card { border-top: 0; position: relative; }
+html.dt body.st .dt-band + .dt-band { border-top: 0; }
+html.dt body.st .dt-band { position: relative; padding: 56px 0 60px; }
+html.dt body.st .dt-band.no-anchor { padding-top: 56px; }
+html.dt body.st .st-card:not(.dt-card) { padding: 56px 0 60px; }
+html.dt body.st .st-card + .st-card::before,
+html.dt body.st .dt-band + .dt-band::before,
+html.dt body.st .dt-stream .st-card-subhead::before {
+  content: ""; position: absolute; top: 0; left: 50%; width: 72px; height: 2px; margin-left: -36px; border-radius: 2px; background: var(--dt-sect);
+}
+/* A heading that sits inside a section's controls (Prepaid meter's Balance and Latest entries) is its own break. */
+html.dt body.st .dt-stream .st-card-subhead, html.dt body.st .st-card:not(.dt-card) .st-card-subhead {
+  position: relative; margin: 72px 0 16px; padding: 0; border: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.25; color: var(--dt-ink);
+}
+html.dt body.st .dt-stream .st-card-subhead::before, html.dt body.st .st-card:not(.dt-card) .st-card-subhead::before { top: -36px; }
+html.dt body.st .dt-stream > .st-card-subhead:first-child, html.dt body.st .st-card:not(.dt-card) > .st-card-subhead:first-child { margin-top: 0; }
+html.dt body.st .dt-stream > .st-card-subhead:first-child::before, html.dt body.st .st-card:not(.dt-card) > .st-card-subhead:first-child::before { display: none; }
+
+/* Air between the kinds of thing inside a section */
+html.dt body.st .dt-stream .st-help { margin: 8px 0 14px; }
+html.dt body.st .dt-stream > * + .st-field, html.dt body.st .dt-stream > * + .st-grid-2, html.dt body.st .dt-stream > * + .toggle-wrap,
+html.dt body.st .dt-stream > * + .st-toggle-row, html.dt body.st .dt-stream > * + .st-inline-actions, html.dt body.st .dt-stream > * + .st-btn { margin-top: 16px; }
+html.dt body.st #pm-fields > * + *, html.dt body.st #pm-root > * + * { margin-top: 16px; }
+@media (max-width: 1100px) {
+  html.dt body.st .dt-band, html.dt body.st .dt-band.no-anchor, html.dt body.st .st-card:not(.dt-card) { padding: 44px 0 48px; }
+  html.dt body.st .dt-stream .st-card-subhead, html.dt body.st .st-card:not(.dt-card) .st-card-subhead { margin-top: 60px; }
+  html.dt body.st .dt-stream .st-card-subhead::before, html.dt body.st .st-card:not(.dt-card) .st-card-subhead::before { top: -30px; }
+}
+html.dt body.st .st-section-head { margin-bottom: 0; }
