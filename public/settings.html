@@ -492,6 +492,11 @@
             <div id="snapshot-list" class="st-snapshots"><p class="st-help">Loading snapshots…</p></div>
             <div id="snapshot-status" class="test-status" role="status"></div>
           </div>
+          <div class="st-card" id="cloud-backup-card" data-own-save>
+            <div class="st-card-head"><h2>Remote backup</h2></div>
+            <p class="st-help">Sends an encrypted copy of your latest snapshot to a place other than this box, so a failed card or a stolen box does not take your history with it. The copy is locked with a passphrase you choose, so whoever holds the drive sees only noise. Off by default.</p>
+            <div id="cb-root"><p class="st-help">Loading…</p></div>
+          </div>
         </section>
 
         <!-- ════════════ HELP ════════════ -->
@@ -1095,6 +1100,7 @@
 <script src="js/combined-metrics.js?v=9"></script>
 <script src="js/battery-estimator.js?v=3"></script>
 <script src="js/prepaid-settings.js?v=2"></script>
+<script src="js/cloud-backup.js?v=1"></script>
 <script src="js/pv-arrays.js?v=1"></script>
 <script src="js/notifications-settings.js?v=5"></script>
 <script defer src="/js/push-prompt.js?v=1"></script>
