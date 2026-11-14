@@ -100,7 +100,7 @@
     h += '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="up-install-auto"' + (on ? ' checked' : '')
       + (state.auto ? '' : ' disabled') + '><span class="slider"></span></label><label for="up-install-auto">Install signed app releases automatically</label></span>';
     h += '<p class="st-help">' + (state.auto ? '' : '<b>Turn on the daily check first.</b> ')
-      + 'Turning it on asks for your admin password. The host verifies the signature, checks health and rolls back a failed update. Each release is tried automatically at most once; a failed release can be retried manually. Epilykos restarts during installation. OS image updates remain manual.</p>';
+      + 'Verified, health-checked and rolled back if it fails. Asks for your admin password to turn on.</p>';
     return h + '</div>';
   }
 
@@ -113,14 +113,14 @@
     if (installing || state.applying) {
       return h + '<span class="st-badge is-warn">Installing</span></div>'
         + steps(DOCKER_STEPS, installing ? appStep : 2)
-        + '<p class="st-help">Epilykos restarts on the new version; this page reconnects by itself. It can take a few minutes on a Raspberry Pi'
+        + '<p class="st-help">Restarting on the new version, this page reconnects by itself'
         + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p></div>';
     }
     if (st.state === 'available') {
       var l = st.latest || {};
       h += '<span class="st-badge is-ok">Update ready</span></div>';
       if (st.kind === 'rebuild') {
-        h += '<p class="st-help"><b>Security updates are ready</b> for the system and the tools included with Epilykos (built ' + esc(when(l.builtAt)) + '). Nothing changes in how Epilykos works.</p>';
+        h += '<p class="st-help"><b>Security updates are ready</b> (built ' + esc(when(l.builtAt)) + ').</p>';
       } else {
         h += '<p class="st-help"><b>Epilykos ' + esc(l.version || '') + ' is ready</b> (built ' + esc(when(l.builtAt)) + ').</p>';
         if (st.notes && st.notes.length) h += '<ul class="st-help up-notes">' + st.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';
@@ -140,12 +140,12 @@
   function installPart(m) {
     if (m.kind === 'docker') {
       return '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="up-apply">Update now</button></div>'
-        + '<p class="st-help">Epilykos downloads the new version, restarts on it, and goes back to this one by itself if it does not start. Your settings and history stay.</p>';
+        + '<p class="st-help">Downloads and restarts on the new version, and rolls back if it fails.</p>';
     }
     if (m.kind === 'compose') {
-      return '<p class="st-help">To install it, run these in the folder with your <code>docker-compose.yaml</code>:</p>'
+      return '<p class="st-help">To install, run these next to your <code>docker-compose.yaml</code>:</p>'
         + '<pre class="up-cmd"><code>docker compose pull\ndocker compose up -d</code></pre>'
-        + '<p class="st-help">For an <b>Update now</b> button here, add the Docker socket line from the latest <code>docker-compose.yaml</code>. It gives Epilykos full control of Docker on this computer, so only do this if you are comfortable with that.</p>';
+        + '<p class="st-help">For an <b>Update now</b> button, add the Docker socket line from the latest <code>docker-compose.yaml</code>. It gives Epilykos full control of Docker.</p>';
     }
     return '';
   }
@@ -157,10 +157,10 @@
       return h + '<p class="st-help"><b>The appliance is installing the Epilykos update</b>'
         + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p>'
         + steps(HOST_APP_STEPS, installing ? appStep : hostStep(state.applying))
-        + '<p class="st-help">The dashboard is away while the new version starts and comes back by itself. If it does not start properly, the appliance puts the previous version back.</p></div>';
+        + '<p class="st-help">The dashboard returns by itself, or rolls back if the update fails.</p></div>';
     }
     if (!host) return h + '<p class="st-help">Not checked yet. Use <b>Check now</b>.</p></div>';
-    if (host.supported === false) return h + '<p class="st-help">This EpilykosOS version installs updates on its own. Updates can be installed from here after its next update.</p></div>';
+    if (host.supported === false) return h + '<p class="st-help">This version updates itself. Install from here after its next update.</p></div>';
     if (host.error) return h + '<p class="st-help">The appliance could not check: ' + esc(host.error) + '</p></div>';
     var app = host.app || {};
     h += '<div class="st-snapshots">';
@@ -182,7 +182,7 @@
     if (job.state === 'verifying') return 'Verifying the signature and contents…';
     if (job.state === 'installing') return 'Installing' + (job.percent != null ? ' ' + job.percent + ' %' : '…');
     if (job.state === 'restarting') return 'Restarting onto the new system…';
-    if (job.state === 'trying') return 'The new system is starting. It is kept once it has run properly; otherwise the box goes back to the previous version by itself.';
+    if (job.state === 'trying') return 'Starting the new system. It rolls back if it fails.';
     if (job.state === 'reconciling') return 'EpilykosOS is checking an update that was interrupted.';
     return '';
   }
@@ -218,7 +218,7 @@
       h += '<span class="st-badge is-warn">Restart to finish</span></div>'
         + steps(OS_STEPS, OS_STEP.ready)
         + '<p class="st-help"><b>EpilykosOS ' + esc(job.version || '') + ' is installed and ready.</b> '
-        + 'Monitoring stops for a few minutes while the new system starts. If it doesn\u2019t start properly, the box goes back to this version by itself.</p>'
+        + 'Monitoring pauses for a few minutes. It rolls back if the update fails.</p>'
         + (job.error ? '<p class="st-help">' + esc(job.error) + '</p>' : '')
         + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-os-restart="' + esc(job.id) + '">Restart to finish</button>'
         + '<button type="button" class="st-btn" data-os-discard="' + esc(job.id) + '">Discard</button></div>';
@@ -230,7 +230,7 @@
         + osBar(job)
         + (OS_STEP[job.state] != null ? steps(OS_STEPS, OS_STEP[job.state]) : '')
         + (job.state === 'downloading' || job.state === 'verifying' || job.state === 'installing'
-          ? '<p class="st-help">Monitoring keeps running. You can close this page; the appliance carries on.</p>' : '')
+          ? '<p class="st-help">Monitoring keeps running. You can close this page.</p>' : '')
         + (OS_CANCELLABLE.indexOf(job.state) !== -1 ? '<div class="st-inline-actions"><button type="button" class="st-btn" data-os-cancel="' + esc(job.id) + '">Cancel</button></div>' : '');
       return h + '</div>';
     }
@@ -246,7 +246,7 @@
       if (blockers.length) h += '<ul class="st-help up-notes">' + blockers.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>';
       h += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" data-os-install="' + esc(latest.sequence) + '"'
         + (blockers.length ? ' disabled' : '') + '>Install</button></div>'
-        + '<p class="st-help">It installs into the other system slot while monitoring keeps running; you choose when to restart.</p>';
+        + '<p class="st-help">Installs while monitoring runs. You choose when to restart.</p>';
     }
     return h + '</div>';
   }
@@ -376,13 +376,13 @@
       if (!latest) return;
       osAction('install', { sequence: latest.sequence, sha256: latest.sha256, request_id: requestId() }, {
         title: 'Install EpilykosOS ' + latest.version + '?',
-        text: 'The appliance downloads and installs it into the other system slot while monitoring keeps running. Nothing changes until you restart.',
+        text: 'Installs while monitoring runs. Nothing changes until you restart.',
         label: 'Install' });
     }
     else if (btn.dataset.osCancel) osAction('cancel', { job: btn.dataset.osCancel });
     else if (btn.dataset.osRestart) osAction('restart', { job: btn.dataset.osRestart }, {
       title: 'Restart to finish the update?',
-      text: 'Monitoring stops for a few minutes while the new system starts. If it doesn\u2019t start properly, the box goes back to this version by itself.',
+      text: 'Monitoring pauses for a few minutes. It rolls back if the update fails.',
       label: 'Restart' });
     else if (btn.dataset.osDiscard) osAction('discard', { job: btn.dataset.osDiscard }, {
       title: 'Discard the system update?', text: 'The box keeps running this version. You can install the update again later.', label: 'Discard' });

@@ -102,11 +102,11 @@
         view.detected_nominal && view.detected_nominal !== s.nominal_voltage ? 'Your inverters say ' + view.detected_nominal + ' V.' : '')
       + field('be-capacity', 'Capacity (Ah)', s.capacity_ah, { type: 'number', help: 'The whole bank, at system voltage: two 200 Ah packs in parallel are 400 Ah.' })
       + field('be-charge-efficiency', 'Charge efficiency', s.charge_efficiency, { type: 'number', help: 'Share of the charge that stays in the battery (0.5 to 1).' })
-      + field('be-cells', 'Cells in series', s.cells, { type: 'number', help: 'Empty: the usual count for this voltage. Set it for other packs, for example 15 for some 48 V LiFePO4.' })
+      + field('be-cells', 'Cells in series', s.cells, { type: 'number', help: 'Leave empty for the usual count, for example 15 on some 48 V packs.' })
       + '</div><h2 class="st-card-subhead">Readings</h2><div class="st-grid-2">'
-      + field('be-current', 'Battery current (+ while charging)', cur, { help: 'Enter the metric that shows the battery current: + while charging, − while discharging. With more than one inverter on this battery, enter one metric per inverter, separated by commas: each inverter only sees its own share.' + found(sug.current_inputs, cur) })
-      + field('be-voltage', 'Battery voltage', volt, { help: 'Enter the metric that shows the battery voltage. With more than one inverter, separate them with commas: the readings are averaged.' + found(sug.voltage_inputs, volt) })
-      + '</div><h2 class="st-card-subhead">Full and empty</h2><p class="st-help">Empty fields use the value shown, the usual one for this battery. Use your charger’s settings if they differ: full is a little under the absorption voltage.</p><div class="st-grid-2">'
+      + field('be-current', 'Battery current (+ while charging)', cur, { help: 'The battery current metric, + while charging. Separate several inverters with commas.' + found(sug.current_inputs, cur) })
+      + field('be-voltage', 'Battery voltage', volt, { help: 'The battery voltage metric. Separate several inverters with commas.' + found(sug.voltage_inputs, volt) })
+      + '</div><h2 class="st-card-subhead">Full and empty</h2><p class="st-help">Empty fields use the usual value, shown in each field.</p><div class="st-grid-2">'
       + field('be-full-voltage', 'Full at or above (V)', s.full_voltage, { type: 'number' })
       + field('be-tail-current-a', 'With the current settled within (A)', s.tail_current_a, { type: 'number', help: 'Charging has tapered off to this or less.' })
       + field('be-full-minutes', 'For (minutes)', s.full_minutes, { type: 'number' })
@@ -114,7 +114,7 @@
       + field('be-empty-voltage', 'Low voltage at or below (V)', s.empty_voltage, { type: 'number' })
       + field('be-empty-soc', 'Means a charge of (%)', s.empty_soc, { type: 'number' })
       + '</div><div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="be-save">Save</button></div>'
-      + '<h2 class="st-card-subhead">Set the charge now</h2><p class="st-help">If you know it, for example from the battery’s own app, or right after a full charge.</p>'
+      + '<h2 class="st-card-subhead">Set the charge now</h2><p class="st-help">Use the battery’s own app, or set it after a full charge.</p>'
       + '<div class="st-inline-actions"><input class="input" id="be-set-soc" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="%" style="max-width:110px" aria-label="Charge in %"><button type="button" class="st-btn" id="be-set">Set charge</button></div>';
     rendered = true;
     placeholders();

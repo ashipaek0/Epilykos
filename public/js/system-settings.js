@@ -75,18 +75,14 @@
     var html = '';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>Wi-Fi</h2></div>'
-      + '<p class="st-help">To join a different Wi-Fi network, open Bluetooth setup, then on a phone or computer with Chrome go to '
-      + '<a href="https://www.improv-wifi.com" target="_blank" rel="noopener">improv-wifi.com</a>, choose <b>Connect device to Wi-Fi</b> and pick <b>Epilykos</b>.'
-      + ' Setup also opens by itself if the box has had no network for 2 minutes.</p>'
+      + '<p class="st-help">Open Bluetooth setup, then join another network at <a href="https://www.improv-wifi.com" target="_blank" rel="noopener">improv-wifi.com</a> in Chrome.</p>'
       + (wifiOpen ? '<p class="st-help"><b>Bluetooth setup is open until ' + esc(untilText(state.wifi_setup_until)) + '.</b></p>' : '')
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="wifi">' + (wifiOpen ? 'Keep setup open 15 more minutes' : 'Change Wi-Fi') + '</button></div>'
       + '<div class="test-status" id="sys-wifi-status" role="status"></div></div>';
 
     var port = state.port || 3000;
     html += '<div class="st-card"><div class="st-card-head"><h2>Dashboard address</h2></div>'
-      + '<p class="st-help">Epilykos is at <code>' + esc(originForPort(port)) + '/</code>.'
-      + (port === 80 ? ' Port 80 needs no port in the address.' : ' Choose port 80 to drop the <code>:' + esc(port) + '</code> from the address.')
-      + ' Any port from 1024 to 65535 works too. Epilykos restarts on the new port and this page follows it.</p>'
+      + '<p class="st-help">Reachable at <code>' + esc(originForPort(port)) + '/</code>. Port 80 hides the port.</p>'
       + '<div class="st-field"><label for="sys-port">Port</label>'
       + '<input id="sys-port" class="input" type="number" inputmode="numeric" min="80" max="65535" step="1" value="' + esc(port) + '" style="max-width:10em"></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="port">Change port</button></div>'
@@ -98,8 +94,8 @@
   function renderContainer() {
     var viaDocker = state.container.restart === 'docker';
     return '<div class="st-card"><div class="st-card-head"><h2>Restart</h2></div>'
-      + '<p class="st-help">Restart Epilykos. It stops cleanly first, so nothing is lost, and this page reloads when it is back.'
-      + (viaDocker ? '' : ' Docker starts it again by itself only if the container has a restart policy, as in the compose file (<code>restart: unless-stopped</code>).') + '</p>'
+      + '<p class="st-help">Restarts Epilykos and reloads this page.'
+      + (viaDocker ? '' : ' In Docker, set <code>restart: unless-stopped</code>.') + '</p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="restart">Restart</button></div>'
       + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
   }
@@ -109,18 +105,17 @@
     var html = '';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>Power</h2></div>'
-      + '<p class="st-help">Restart or shut down the whole appliance. Epilykos stops cleanly first, so nothing is lost.'
-      + ' After shutting down, unplug the power once the green light on the board stops flashing.</p>'
+      + '<p class="st-help">Restart or shut down. Unplug once the green light stops flashing.</p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="restart">Restart</button>'
       + '<button type="button" class="st-btn st-btn-danger" data-act="shutdown">Shut down</button></div>'
       + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>SSH maintenance login</h2>'
-      + '<span class="st-badge" style="background:var(--st-hover)">' + (ssh.enabled ? 'On' : 'Off') + '</span></div>'
-      + '<p class="st-help">For maintenance from another computer. Log in as <code>' + esc(ssh.user) + '</code>, which can use <code>sudo</code>; root can never log in over SSH.'
-      + (ssh.enabled ? ' Connect with <code>ssh ' + esc(ssh.user) + '@' + esc(host()) + '</code>.' : '') + '</p>'
+      + '<span class="st-badge' + (ssh.enabled ? ' is-ok' : '') + '">' + (ssh.enabled ? 'On' : 'Off') + '</span></div>'
+      + '<p class="st-help">Log in as <code>' + esc(ssh.user) + '</code> from another computer'
+      + (ssh.enabled ? ': <code>ssh ' + esc(ssh.user) + '@' + esc(host()) + '</code>' : '') + '.</p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn' + (ssh.enabled ? '' : ' st-btn-primary') + '" data-act="ssh-toggle">' + (ssh.enabled ? 'Turn SSH off' : 'Turn SSH on') + '</button></div>'
-      + (ssh.enabled && !ssh.password_set && !ssh.keys.length ? '<p class="st-help"><b>Set a password or add a key below — until then nobody can log in.</b></p>' : '')
+      + (ssh.enabled && !ssh.password_set && !ssh.keys.length ? '<p class="st-help"><b>Set a password or add a key below, or nobody can log in.</b></p>' : '')
       + '<div class="test-status" id="sys-ssh-status" role="status"></div>';
 
     html += '<h3 class="st-help" style="margin:18px 0 6px;font-weight:800">Password</h3>'
@@ -142,7 +137,7 @@
     }
     html += '<div class="st-field" style="margin-top:10px"><label for="sys-ssh-key">Add a public key</label>'
       + '<textarea id="sys-ssh-key" class="input" rows="3" spellcheck="false" placeholder="ssh-ed25519 AAAA… you@laptop"></textarea>'
-      + '<span class="st-help">Paste the contents of a <code>.pub</code> file, e.g. <code>~/.ssh/id_ed25519.pub</code>. Never paste a private key.</span></div>'
+      + '<span class="st-help">Paste a <code>.pub</code> file. Never a private key.</span></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="ssh-add-key">Add key</button></div>'
       + '</div>';
     return html;
@@ -151,10 +146,7 @@
   /** Factory reset: typed ERASE, then the host erases DATA on the next boot. */
   function renderReset() {
     return '<div class="st-card"><div class="st-card-head"><h2>Factory reset</h2></div>'
-      + '<p class="st-help">Erases everything this box keeps: Epilykos data, settings and backups, Wi-Fi networks, SSH settings and keys,'
-      + ' Bluetooth pairings and logs. The box then restarts as if newly flashed, and is set up again over Bluetooth or with'
-      + ' <code>wifi.txt</code> on the SD card. Epilykos comes back as this system version shipped it.'
-      + ' <a href="#backup">Download a backup</a> first if you want your data back later.</p>'
+      + '<p class="st-help">Erases all data, settings, Wi-Fi and SSH, then restarts like a new box. <a href="#backup">Download a backup</a> first.</p>'
       + '<div class="st-field"><label for="sys-reset-confirm">Type ERASE to confirm</label>'
       + '<input id="sys-reset-confirm" class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ERASE"></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-danger" data-act="factory-reset" disabled>Erase everything and restart</button></div>'
@@ -250,8 +242,7 @@
         btn.disabled = true;
         document.getElementById('sys-reset-confirm').disabled = true;
         await api('POST', '/factory-reset', { confirm: document.getElementById('sys-reset-confirm').value });
-        status('sys-reset-status', 'The box is restarting to erase its data. This takes a few minutes. Afterwards it waits to be set up again,'
-          + ' like a newly flashed box: over Bluetooth (improv-wifi.com in Chrome or Edge), or with wifi.txt on the SD card.', 'warning');
+        status('sys-reset-status', 'Erasing and restarting. This takes a few minutes, then the box waits for setup.', 'warning');
       } else if (act === 'shutdown') {
         if (!(await confirmIt({ title: 'Shut down the appliance?', message: 'Monitoring stops until the power is unplugged and plugged back in.', confirmLabel: 'Shut down' }))) return;
         btn.disabled = true;

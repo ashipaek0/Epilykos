@@ -232,7 +232,7 @@
         field('nt-quiet-start', 'Quiet from', input('nt-quiet-start', q.start, ' type="time" data-general')) +
         field('nt-quiet-end', 'Until', input('nt-quiet-end', q.end, ' type="time" data-general')) +
       '</div>' : '') +
-      '<p class="st-help nt-gap">During quiet hours only critical alerts are sent; the rest are noted in History.</p>' +
+      '<p class="st-help nt-gap">Only critical alerts are sent during quiet hours.</p>' +
       field('nt-base-url', 'Dashboard address for links', input('nt-base-url', s.base_url, ' type="url" data-general placeholder="https://energy.example.com"'), 'Telegram, Discord, ntfy and webhook messages link here. Leave empty for no link.') +
       '<p class="st-help">Changes here save on their own.</p></div>';
   }
@@ -242,8 +242,8 @@
     var here;
     if (!thisDevice.supported) {
       var why = {
-        insecure: 'Push needs a secure (https://) address. Open Epilykos through your HTTPS address (see Network) to turn it on for this device.',
-        'ios-homescreen': 'On iPhone and iPad, add Epilykos to the Home Screen (Share → Add to Home Screen), open it from there, then come back here.',
+        insecure: 'Push needs an https address. Open Epilykos through yours (see Network).',
+        'ios-homescreen': 'On iPhone and iPad, add Epilykos to the Home Screen and open it from there.',
         unsupported: 'This browser does not support push notifications.'
       }[thisDevice.reason] || 'Push is not available here.';
       here = '<p class="st-help">' + esc(why) + '</p>';
@@ -251,7 +251,7 @@
       here = '<p class="st-help">This device is registered as <strong>' + esc(cur.label) + '</strong>.</p>' +
         '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="device-test" data-id="' + esc(cur.id) + '">Test</button><button type="button" class="st-btn st-btn-danger-text" data-act="push-off" data-id="' + esc(cur.id) + '">Turn off on this device</button></div>';
     } else {
-      here = (thisDevice.permission === 'denied' ? '<p class="st-help nt-warn">Notifications are blocked for this site in the browser settings.</p>' : '') +
+      here = (thisDevice.permission === 'denied' ? '<p class="st-help nt-warn">Notifications are blocked in this browser.</p>' : '') +
         '<div class="nt-row-form"><button type="button" class="st-btn st-btn-primary" data-act="push-on">Turn on push for this device</button></div>';
     }
     var list = state.devices.length ? '<ul class="nt-list">' + state.devices.map(function (d) {
@@ -261,9 +261,9 @@
         '<div class="nt-item-actions"><button type="button" class="st-btn" data-act="device-rename" data-id="' + esc(d.id) + '">Rename</button>' +
         '<button type="button" class="st-btn" data-act="device-test" data-id="' + esc(d.id) + '">Test</button>' +
         '<button type="button" class="st-btn st-btn-danger-text" data-act="device-remove" data-id="' + esc(d.id) + '">Remove</button></div></li>';
-    }).join('') + '</ul>' : '<p class="st-help">No devices yet. A browser appears here when it accepts the "Enable notifications from this dashboard" prompt on the dashboard.</p>';
+    }).join('') + '</ul>' : '<p class="st-help">No devices yet. A browser appears here once it accepts the notifications prompt.</p>';
     return '<div class="st-card"><div class="st-card-head"><h2>Push devices</h2></div>' +
-      '<p class="st-help">Any browser that opens the dashboard is offered a prompt to enable notifications. The ones that accept are listed here. A device only receives what you choose: pick it in a rule\'s "Send to", or in a push channel.</p>' + here +
+      '<p class="st-help">Browsers that accept the notifications prompt are listed here.</p>' + here +
       '<h3 class="st-card-subhead">Registered devices</h3>' + list + '</div>';
   }
 
@@ -289,12 +289,12 @@
     html += field('nt-ch-name', 'Name', input('nt-ch-name', d.name, ' maxlength="60"'));
     if (t === 'telegram') {
       html += field('nt-ch-bot', 'Bot token', input('nt-ch-bot', cfg.bot_token, ' type="password" autocomplete="off"' + secretHint(cfg.has_bot_token)),
-        'Message <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> on Telegram, send /newbot and paste the token here.');
+        'Create a bot with <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> and paste its token.');
       html += '<div class="nt-row-form">' + field('nt-ch-chat', 'Chat ID', input('nt-ch-chat', cfg.chat_id, ' inputmode="numeric" placeholder="123456789"'),
-        'Message your bot, or add it as an admin of your channel or group and post something there, then press Find chat. An ID copied from the Telegram app works too.') +
+        'Message your bot, then press Find chat.') +
         '<button type="button" class="st-btn" data-act="telegram-find">Find chat</button></div><div id="nt-chats"></div>';
       html += '<div class="st-toggle-row">' + toggle('nt-ch-commands', cfg.commands, 'Answer commands in this chat') + '</div>' +
-        '<p class="st-help nt-gap">Send /status, /today, /yesterday or /forecast to the bot. Only this chat gets answers.</p>';
+        '<p class="st-help nt-gap">The bot answers /status, /today, /yesterday and /forecast in this chat.</p>';
     } else if (t === 'discord') {
       html += field('nt-ch-webhook', 'Webhook URL', input('nt-ch-webhook', cfg.webhook_url, ' type="password" autocomplete="off"' + secretHint(cfg.has_webhook_url)),
         'In Discord: channel settings → Integrations → Webhooks → New webhook → Copy webhook URL.');
@@ -302,18 +302,18 @@
     } else if (t === 'ntfy') {
       html += field('nt-ch-server', 'Server', input('nt-ch-server', cfg.server_url || 'https://ntfy.sh', ' type="url"'), 'ntfy.sh or your own server.');
       html += field('nt-ch-topic', 'Topic', input('nt-ch-topic', cfg.topic, ' maxlength="64" placeholder="epilykos-' + Math.random().toString(36).slice(2, 10) + '"'),
-        'Anyone who knows a topic on ntfy.sh can read it — pick something hard to guess. Subscribe to it in the ntfy app.');
+        'Anyone who knows the topic can read it, so pick something hard to guess.');
       html += field('nt-ch-token', 'Access token (optional)', input('nt-ch-token', cfg.token, ' type="password" autocomplete="off"' + secretHint(cfg.has_token)), 'For servers or topics that need a login.');
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Server is on my local network') + '</div>';
     } else if (t === 'webhook') {
       html += field('nt-ch-webhook', 'URL', input('nt-ch-webhook', cfg.webhook_url, ' type="password" autocomplete="off"' + (cfg.has_webhook_url ? ' placeholder="Saved — leave empty to keep"' : ' placeholder="https://homeassistant.local:8123/api/webhook/…"')),
-        'Each alert is POSTed as JSON: source, title, message, severity, tag, url, timestamp (and event or rule). Works with Home Assistant, n8n, Node-RED and your own scripts.');
+        'Each alert is sent as JSON.');
       html += field('nt-ch-auth', 'Authorization header (optional)', input('nt-ch-auth', cfg.auth_header, ' type="password" autocomplete="off"' + secretHint(cfg.has_auth_header) + (cfg.has_auth_header ? '' : ' placeholder="Bearer …"')));
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Address is on my local network') + '</div>';
     } else if (t === 'webpush') {
       var all = cfg.devices === 'all';
       html += '<div class="st-toggle-row">' + toggle('nt-ch-alldev', all, 'All devices, including ones added later', ' data-act="webpush-all"') + '</div>' +
-        (all ? '<p class="st-help nt-gap">Any browser that accepts the dashboard\'s notifications prompt will receive what this channel sends. Pick devices below instead to keep it to the ones you choose.</p>' : '');
+        (all ? '<p class="st-help nt-gap">Every registered browser gets these. Pick devices below to limit it.</p>' : '');
       if (!all) {
         html += state.devices.length
           ? toggleList('nt-ch-dev', state.devices.map(function (dv) { return toggleItem('nt-ch-dev', dv.id, Array.isArray(cfg.devices) && cfg.devices.indexOf(dv.id) >= 0, dv.label); }), 'Send to these devices')
@@ -367,7 +367,7 @@
     var adding = editRule && !editRule.id ? '<div class="nt-editor-wrap">' + ruleEditor() + '</div>' : '';
     return '<div class="st-card"><div class="st-card-head"><h2>Alert rules</h2>' +
         '<button type="button" class="st-btn st-btn-primary" data-act="rule-pick"' + (editRule ? ' disabled' : '') + '>' + plusIcon() + 'Add rule</button></div>' +
-      '<p class="st-help">A rule watches any metric or any event, or sends a report on a schedule, to the channels you pick.</p>' +
+      '<p class="st-help">Watch a metric or event, or send a scheduled report.</p>' +
       adding + (items ? '<ul class="nt-list">' + items + '</ul>' : (adding ? '' : '<p class="st-help">No rules yet. Add one to get alerts.</p>')) + '</div>';
   }
 
@@ -434,7 +434,7 @@
             [['kwh', 'A number of kWh'], ['avg_solar', 'A percentage of your 7-day average solar'], ['avg_use', 'A percentage of your 7-day average use']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === bmode ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>') +
           (bmode === 'kwh'
             ? field('nt-r-below', 'kWh', input('nt-r-below', d.below_kwh || 0, ' type="number" min="0" step="0.5"'), '0 = send every time. Use it to be warned about a poor solar day ahead.')
-            : field('nt-r-below-pct', 'Percent', input('nt-r-below-pct', d.below_pct || 100, ' type="number" min="1" max="1000" step="5"'), '100 = below the average itself. 80 = at least a fifth under it. Without a few days of totals yet, nothing is sent.')) +
+            : field('nt-r-below-pct', 'Percent', input('nt-r-below-pct', d.below_pct || 100, ' type="number" min="1" max="1000" step="5"'), '100 is below the average, 80 is a fifth under it.')) +
         '</div>';
       }
     } else {
@@ -453,8 +453,8 @@
     var chosenDev = d.devices || [];
     if (state.channels.length) html += toggleList('nt-r-ch', state.channels.map(function (c) { return toggleItem('nt-r-ch', c.id, chosen.indexOf(c.id) >= 0, c.name, TYPE_LABEL[c.type] + (c.enabled ? '' : ', off')); }), 'Send to');
     if (state.devices.length) html += toggleList('nt-r-dev', state.devices.map(function (dv) { return toggleItem('nt-r-dev', dv.id, chosenDev.indexOf(dv.id) >= 0, dv.label, dv.service); }), 'Send push to these devices');
-    if (!state.channels.length && !state.devices.length) html += '<p class="st-help nt-warn">Add a channel first (Channels, above), or register a device: open the dashboard in a browser and accept the notifications prompt.</p>';
-    else if (!state.devices.length) html += '<p class="st-help">Browsers that accept the dashboard\'s notifications prompt appear here as devices you can pick.</p>';
+    if (!state.channels.length && !state.devices.length) html += '<p class="st-help nt-warn">Add a channel above, or accept the notifications prompt in a browser.</p>';
+    else if (!state.devices.length) html += '<p class="st-help">Browsers that accept the notifications prompt appear here.</p>';
     html += field('nt-r-msg', kind === 'schedule' ? 'Note above the report (optional)' : 'Custom message (optional)', input('nt-r-msg', d.message, ' maxlength="500"'),
       { metric: 'Use {metric}, {value}, {threshold}, {previous} and {rule}.', event: 'Use {message}, {subject}, {event} and {rule}.', schedule: '' }[kind]);
     html += '<div class="st-toggle-row">' + toggle('nt-r-enabled', d.enabled !== false, 'Rule on') + '</div>';
@@ -671,14 +671,14 @@
           var chatInput = document.getElementById('nt-ch-chat');
           var current = chatInput.value.trim();
           if (!found.chats.length) {
-            box.innerHTML = '<p class="st-help nt-warn">No chats found. Send your bot a message in Telegram first, then try again.</p>';
+            box.innerHTML = '<p class="st-help nt-warn">No chats found. Message your bot first.</p>';
           } else if (found.chats.length === 1 && current !== found.chats[0].id) {
             // One chat: fill it in, and say so if it replaced a different ID.
             chatInput.value = found.chats[0].id;
             box.innerHTML = '<p class="st-help">' + (current ? 'Replaced ' + esc(current) + ' with ' : 'Filled in ') + 'the chat with ' + esc(found.chats[0].name) + ' (' + esc(found.chats[0].id) + '). Save to keep it.</p>';
           } else {
             var matches = found.chats.some(function (c) { return c.id === current; });
-            box.innerHTML = (current && !matches ? '<p class="st-help nt-warn">The Chat ID above is not one of the chats that messaged this bot. Pick one:</p>' : '') +
+            box.innerHTML = (current && !matches ? '<p class="st-help nt-warn">That Chat ID has not messaged the bot. Pick one:</p>' : '') +
               '<div class="st-inline-actions">' + found.chats.map(function (c) {
                 return '<button type="button" class="st-btn" data-act="telegram-pick" data-chat="' + esc(c.id) + '">' + esc(c.name) + ' <span class="nt-muted">' + esc(c.type) + ' · ' + esc(c.id) + '</span></button>';
               }).join('') + '</div>';

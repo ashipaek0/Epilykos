@@ -27,15 +27,15 @@
     var h = '<span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="pm-enabled"' + (s.enabled ? ' checked' : '') + '><span class="slider"></span></label><label for="pm-enabled">Track a prepaid meter</label></span>';
     h += '<div id="pm-fields"' + (s.enabled ? '' : ' hidden') + '>';
     h += s.source === 'none'
-      ? '<p class="st-help">There is no grid energy reading to count yet. Map a daily grid import metric (Metrics page), or a grid import power metric.</p>'
+      ? '<p class="st-help">No grid energy reading yet. Map a daily grid import or grid import power metric.</p>'
       : '<p class="st-help">Counting from <b>' + esc(s.metric) + '</b> (' + (s.source === 'counter' ? 'the daily grid import counter' : 'grid import power') + ').</p>';
     h += '<div class="st-grid-2">'
       + numField('pm-warn-kwh', 'Warn when units left fall to (kWh)', s.warnKwh) + numField('pm-warn-days', 'Warn when days left fall to', s.warnDays) + '</div>';
-    h += '<p class="st-help">Either, both or neither. A warning sends the event <b>Prepaid meter low</b> to your notification rules; <b>Prepaid meter out of units</b> is sent when the balance reaches 0. Add an event rule for them under Notifications.</p>';
+    h += '<p class="st-help">Sends <b>Prepaid meter low</b> and <b>Prepaid meter out of units</b> to your Notifications rules.</p>';
     h += '<div class="st-field"><label for="pm-private">Who can see the balance</label><select class="input" id="pm-private">'
       + '<option value="everyone"' + (s.privateBalance ? '' : ' selected') + '>Everyone who can see the dashboard</option>'
       + '<option value="private"' + (s.privateBalance ? ' selected' : '') + '>Only me, when signed in</option></select>'
-      + '<span class="st-help">Recharges, corrections, the entries and these settings always need you to be signed in. <b>Only me</b> also keeps the balance out of the published metrics, so no other card or chart can show it for a viewer; the Prepaid meter card and the Grid card strip then show nothing to anyone who is not signed in.</span></div>';
+      + '<span class="st-help"><b>Only me</b> hides the balance from anyone who is not signed in.</span></div>';
     h += '</div>';
     h += '<div><button type="button" class="st-btn st-btn-primary" id="pm-save" disabled>Save</button></div>';
     h += '<div id="pm-balance"></div>';
@@ -81,7 +81,7 @@
       h += '<p class="st-help">No balance yet. Enter what the meter shows to start counting.</p>';
     }
     h += '<div><button type="button" class="st-btn" id="pm-correct">' + (v.started ? 'Correct balance' : 'Set the balance') + '</button> ' + (v.started ? '<button type="button" class="st-btn" id="pm-recharge">Record recharge</button> ' : '') + (v.ledger && v.ledger.length ? '<button type="button" class="st-btn" id="pm-undo">Undo last entry</button>' : '') + '</div>';
-    h += '<p class="st-help">These buttons only record what you have done by hand: Epilykos cannot buy a token, load one or read the meter. After you buy and load a token, record the units. Whenever the estimate has drifted, read the meter and correct the balance to match; Epilykos can learn from the difference, so later estimates drift less. They take effect straight away; they are not part of Save.</p>';
+    h += '<p class="st-help">Record recharges and correct the balance from your meter. These apply straight away.</p>';
     if (v.ledger && v.ledger.length) {
       h += '<h2 class="st-card-subhead">Latest entries</h2><div class="st-table-scroll"><table class="st-table"><thead><tr><th>Date</th><th>Entry</th><th>Units (kWh)</th><th>Paid</th></tr></thead><tbody>'
         + v.ledger.slice(0, 10).map(function (e) {
