@@ -303,21 +303,21 @@ function renderHaDevice(device, idx) {
       <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="ha_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-ha">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <input type="text" name="ha_devices[${idx}][url]" placeholder="http://homeassistant.local:8123" value="${escapeHtml(device.url || '')}">
       <input type="password" name="ha_devices[${idx}][token]" placeholder="Access Token" value="${escapeHtml(device.token || '')}">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">⏱</span> Polling</div>
+    <div class="section-divider">Polling</div>
     <div class="form-row">
       <input type="number" name="ha_devices[${idx}][poll_interval]" placeholder="Poll Interval (s)" value="${device.poll_interval || 30}" style="width:120px;">
       <button type="button" class="fetch-btn fetch-ha-entities">Fetch Entities</button>
       <span class="test-status" id="ha-entities-status-${idx}"></span>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Entity Mappings</div>
+    <div class="section-divider">Entity Mappings</div>
     <div class="mappings-section" id="ha-mappings-${idx}">
       <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="ha-mappings-list-${idx}">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." data-container="ha-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="ha-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-ha-metric" data-device="${idx}">
@@ -503,7 +503,7 @@ function renderActionsPanel(actionsEl, row, data, selected) {
   const doneBtn = document.createElement('button');
   doneBtn.type = 'button';
   doneBtn.className = 'fetch-btn';
-  doneBtn.textContent = '✓ Apply';
+  doneBtn.textContent = 'Apply';
   doneBtn.style.cssText = 'margin-top:0.5rem;font-size:0.75rem;padding:0.2rem 0.6rem;';
   doneBtn.addEventListener('click', () => {
     const chosen = Array.from(panel.querySelectorAll('.ha-action-cb:checked')).map(cb => cb.value);
@@ -550,7 +550,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
   const cfgBtn = document.createElement('button');
   cfgBtn.type = 'button';
   cfgBtn.className = 'fetch-btn configure-actions-btn';
-  cfgBtn.textContent = '⚙ Configure Actions';
+  cfgBtn.textContent = 'Configure Actions';
   cfgBtn.style.cssText = 'font-size:0.7rem;padding:0.15rem 0.5rem;';
   cfgBtn.addEventListener('click', async () => {
     const entityId = entitySelect.value;
@@ -598,7 +598,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
       setTimeout(() => err.remove(), 4000);
     } finally {
       cfgBtn.disabled = false;
-      cfgBtn.textContent = '⚙ Configure Actions';
+      cfgBtn.textContent = 'Configure Actions';
     }
   });
   actionsEl.appendChild(cfgBtn);
@@ -639,7 +639,7 @@ function addHaMetricRow(device, deviceIdx, container, metric = '', entityId = ''
 // expose-all rows: empty metric dropdown + entity <select> whose option reads
 // "friendly_name (unit) - entity_id - <state>". A domain filter <select>
 // re-renders those rows from the last fetch. The existing add-row entity-<select>
-// flow, '⚙ Configure Actions' and the {entityId, actions} value round-trip are
+// flow, 'Configure Actions' and the {entityId, actions} value round-trip are
 // all preserved — expose rows use the SAME row anatomy as addHaMetricRow, so
 // the unchanged save collector persists {userMetric: entity_id} byte-identically
 // (actions only when configured). Expose rows never touch saved mappings and
@@ -840,7 +840,7 @@ function renderMqttDevice(device, idx) {
       <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="mqtt_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-mqtt">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <input type="text" name="mqtt_devices[${idx}][broker]" placeholder="mqtt://broker.local:1883" value="${escapeHtml(device.broker || '')}">
     </div>
@@ -848,7 +848,7 @@ function renderMqttDevice(device, idx) {
       <input type="text" name="mqtt_devices[${idx}][username]" placeholder="Username" value="${escapeHtml(device.username || '')}">
       <input type="password" name="mqtt_devices[${idx}][password]" placeholder="Password" value="${escapeHtml(device.password || '')}">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🧪</span> Test</div>
+    <div class="section-divider">Test</div>
     <div class="test-row">
       <button type="button" class="fetch-btn test-mqtt-broker">Test Broker</button>
       <span class="test-status" id="mqtt-broker-status-${idx}"></span>
@@ -859,13 +859,13 @@ function renderMqttDevice(device, idx) {
       <span class="test-status" id="mqtt-topic-status-${idx}"></span>
     </div>
     <div class="test-row">
-      <button type="button" class="fetch-btn discover-mqtt-topics">🔍 Discover Topics</button>
+      <button type="button" class="fetch-btn discover-mqtt-topics">Discover Topics</button>
       <span class="test-status" id="mqtt-discover-status-${idx}"></span>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Topic Mappings</div>
+    <div class="section-divider">Topic Mappings</div>
     <div class="mappings-section">
       <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="mqtt-mappings-list-${idx}">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." data-container="mqtt-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="mqtt-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-mqtt-metric" data-device="${idx}">
@@ -1188,7 +1188,7 @@ function renderModbusDevice(device, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="modbus_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-modbus">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <select name="modbus_devices[${idx}][transport]" class="modbus-transport-select">
         <option value="tcp" ${device.transport === 'tcp' ? 'selected' : ''}>${modbusTransportLabels.tcp}</option>
@@ -1228,23 +1228,23 @@ function renderModbusDevice(device, idx) {
         <input type="number" name="modbus_devices[${idx}][serial_stop_bits]" placeholder="Stop bits" value="${device.serial_stop_bits || 1}">
       </div>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
+    <div class="section-divider">Configuration</div>
     <div class="form-row">
       <input type="number" name="modbus_devices[${idx}][unit]" placeholder="Unit ID" value="${device.unit || 1}">
       <input type="number" name="modbus_devices[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || 30}" style="width:120px;">
       <button type="button" class="fetch-btn test-modbus">Test Modbus</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
+    <div class="section-divider">Register Mappings</div>
     <div class="mappings-section">
       <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="modbus-mappings-list-${idx}">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." data-container="modbus-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="modbus-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn load-modbus-registers" data-device="${idx}">
-        📥 Load Profile Registers
+        Load Profile Registers
       </button>
       <button type="button" class="fetch-btn fetch-modbus-entities" data-device="${idx}" style="display:none;">
-        📋 Fetch Profile Entities
+        Fetch Profile Entities
       </button>
       <button type="button" class="fetch-btn add-modbus-mapping" data-device="${idx}" style="display:none;">
         + Add Mapping
@@ -1702,7 +1702,7 @@ function renderRs232Device(device, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="rs232_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-rs232">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <select name="rs232_devices[${idx}][serial_path]" class="rs232-port-select">
         <option value="">-- Select serial port --</option>
@@ -1736,7 +1736,7 @@ function renderRs232Device(device, idx) {
       </select>
       <input type="number" name="rs232_devices[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 5}" style="width:120px;" title="Modbus Unit ID">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
+    <div class="section-divider">Configuration</div>
     <div class="form-row">
       <select name="rs232_devices[${idx}][profile]" class="rs232-profile-select">
         <option value="">-- Select profile --</option>
@@ -1744,17 +1744,17 @@ function renderRs232Device(device, idx) {
       <input type="number" name="rs232_devices[${idx}][timeout]" placeholder="Timeout (ms)" value="${device.timeout || 5000}" style="width:140px;">
       <button type="button" class="fetch-btn test-rs232">Test RS232</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Field Mappings</div>
+    <div class="section-divider">Field Mappings</div>
     <div class="mappings-section">
       <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="rs232-mappings-list-${idx}">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." data-container="rs232-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="rs232-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn load-rs232-fields" data-device="${idx}">
-        📥 Load Profile Fields
+        Load Profile Fields
       </button>
       <button type="button" class="fetch-btn fetch-rs232-entities" data-device="${idx}" style="display:none;">
-        📋 Fetch Profile Entities
+        Fetch Profile Entities
       </button>
       <button type="button" class="fetch-btn add-rs232-mapping" data-device="${idx}" style="display:none;">
         + Add Mapping
@@ -2018,11 +2018,11 @@ function renderExternalSource(source, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="external_sources[${idx}][enabled]" ${source.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-external">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🌐</span> Endpoint</div>
+    <div class="section-divider">Endpoint</div>
     <div class="form-row">
       <input type="text" name="external_sources[${idx}][url]" placeholder="https://api.example.com/v1/data?key=..." value="${escapeHtml(source.url || '')}" style="font-family:monospace;font-size:0.82em;">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Mappings <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— for each row: pick a metric, then enter the JSON path in the response to extract its value</span></div>
+    <div class="section-divider">Mappings <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— for each row: pick a metric, then enter the JSON path in the response to extract its value</span></div>
     <div class="mappings-section">
       <div class="mappings-filter-bar" style="display:flex;gap:0.5rem;align-items:center;">
         <span style="font-size:0.75em;color:var(--text-muted);white-space:nowrap;">Metric</span>
@@ -2032,11 +2032,11 @@ function renderExternalSource(source, idx) {
       <div class="mappings-list" id="external-mappings-list-${idx}"></div>
       <div class="form-row" style="gap:0.5rem;align-items:center;margin-top:0.3rem;">
         <button type="button" class="fetch-btn add-external-metric" data-device="${idx}" style="flex:none;">+ Add Mapping</button>
-        <button type="button" class="fetch-btn fetch-external-fields" data-device="${idx}" style="flex:none;">📋 Fetch Fields</button>
+        <button type="button" class="fetch-btn fetch-external-fields" data-device="${idx}" style="flex:none;">Fetch Fields</button>
         <span class="test-status" id="external-fields-status-${idx}"></span>
       </div>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🧪</span> Test Path <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— enter a JSON path and test it against the URL above</span></div>
+    <div class="section-divider">Test Path <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— enter a JSON path and test it against the URL above</span></div>
     <div class="test-row" style="display:flex;gap:0.5rem;align-items:center;margin-top:0.3rem;">
       <input type="text" class="test-jsonpath" placeholder="e.g. current.temp_c" style="flex:1;font-family:monospace;font-size:0.85em;">
       <button type="button" class="fetch-btn test-external" style="white-space:nowrap;">Test Path</button>
@@ -2395,7 +2395,7 @@ function renderBmsDevice(device, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bms">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <input type="text" name="bms_devices[${idx}][address]" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.address || '')}" style="flex:2;">
       <select name="bms_devices[${idx}][bms_type]" class="bms-type-select" style="flex:1;" title="Leave on Auto-detect unless the BMS is not recognised (rebranded packs)">
@@ -2407,16 +2407,16 @@ function renderBmsDevice(device, idx) {
       <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
     </div>
     <div class="form-row" style="gap:0.5rem;">
-      <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">🔍 Scan</button>
+      <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">Scan</button>
       <button type="button" class="fetch-btn test-bms" style="flex:1;">Test Connection</button>
       <span class="test-status" id="bms-test-status-${idx}"></span>
     </div>
-    <div class="note">Use 🔍 Scan to pick a nearby BMS. Close the vendor phone app first — most BMS accept only one Bluetooth connection at a time.</div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
+    <div class="note">Use Scan to find a nearby BMS. Close the vendor app first, as most allow one Bluetooth connection.</div>
+    <div class="section-divider">Metric Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list" id="bms-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn load-bms-metrics" data-device="${idx}" style="margin-top:0.25rem;">
-        📥 Load BMS Metrics
+        Load BMS Metrics
       </button>
     </div>
   `;
@@ -2555,7 +2555,7 @@ function renderBmsWiredDevice(device, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="bms_devices[${idx}][enabled]" ${device.enabled ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bms-wired">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <select name="bms_devices[${idx}][serial_path]" class="bms-wired-port-select" style="flex:1;">
         <option value="">-- Select or type port --</option>
@@ -2587,7 +2587,7 @@ function renderBmsWiredDevice(device, idx) {
       </select>
       <input type="number" name="bms_devices[${idx}][modbus_unit_id]" placeholder="Unit ID" value="${device.modbus_unit_id || 1}" style="width:110px;" title="Modbus Unit ID">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
+    <div class="section-divider">Configuration</div>
     <div class="form-row">
       <select name="bms_devices[${idx}][profile]" class="bms-wired-profile-select" style="flex:1;">
         <option value="">-- Select profile --</option>
@@ -2598,11 +2598,11 @@ function renderBmsWiredDevice(device, idx) {
       <span class="test-status"></span>
     </div>
     <div class="bms-wired-profile-notes" style="display:none; white-space:pre-line; font-size:0.85em; opacity:0.85; margin-top:0.25rem; padding:0.5rem; border-left:3px solid var(--accent, #d65a00);"></div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Metric Mappings</div>
+    <div class="section-divider">Metric Mappings</div>
     <div class="mappings-section">
       <div class="mappings-list"></div>
       <button type="button" class="fetch-btn load-bms-wired-metrics" style="margin-top:0.25rem;">
-        📥 Load BMS Metrics
+        Load BMS Metrics
       </button>
     </div>
   `;
@@ -3274,7 +3274,7 @@ async function testBank(card, idx) {
       html += '<div style="color:#f59e0b; margin-bottom:4px;">' + data.warnings.map(w => escapeHtml(w)).join('<br>') + '</div>';
     }
     html += `<span style="font-weight:bold; color:${data.summary.will_publish ? '#16a34a' : '#dc2626'};">`;
-    html += data.summary.will_publish ? '✅ Would publish' : '❌ Would be suppressed';
+    html += data.summary.will_publish ? 'Would publish' : 'Would be suppressed';
     html += ` (${data.summary.devices_fresh}/${data.summary.devices_total} devices fresh)</span><br>`;
 
     if (data.results && Object.keys(data.results).length > 0) {
@@ -3467,7 +3467,7 @@ function renderDongleDevice(device, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" name="dongle_config[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-dongle">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row dongle-link-row">
       <label class="dongle-field" style="display:none;"><span class="dongle-field-label">Connection</span>
         <select class="dongle-link-select">
@@ -3509,13 +3509,13 @@ function renderDongleDevice(device, idx) {
     </div>
     <div class="form-row dongle-ble-row" style="${isBleTransport(transport) ? '' : 'display:none;'}">
       <input type="text" name="dongle_config[${idx}][ble_address]" placeholder="Bluetooth MAC (AA:BB:CC:DD:EE:FF)" value="${escapeHtml(device.ble_address || '')}" style="flex:1;">
-      <button type="button" class="fetch-btn scan-dongle-ble">🔍 Scan</button>
+      <button type="button" class="fetch-btn scan-dongle-ble">Scan</button>
     </div>
     <div class="form-row dongle-ble-uuid-row" style="${transport === 'ble-modbus' ? '' : 'display:none;'}">
       <input type="text" name="dongle_config[${idx}][ble_write_uuid]" placeholder="Write characteristic (default ffd1)" value="${escapeHtml(device.ble_write_uuid || '')}" title="GATT characteristic the Modbus request is written to">
       <input type="text" name="dongle_config[${idx}][ble_notify_uuid]" placeholder="Notify characteristic (default fff1)" value="${escapeHtml(device.ble_notify_uuid || '')}" title="GATT characteristic the Modbus response arrives on">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">⚙️</span> Configuration</div>
+    <div class="section-divider">Configuration</div>
     <div class="form-row">
       <input type="number" name="dongle_config[${idx}][modbus_unit_id]" placeholder="Modbus Unit ID" value="${device.modbus_unit_id || 1}" style="width:100px;">
       <input type="number" name="dongle_config[${idx}][poll_interval]" placeholder="Poll (s)" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : transport === 'ble-luxpower' ? 15 : 30)}" style="width:100px;">
@@ -3535,23 +3535,23 @@ function renderDongleDevice(device, idx) {
       <option value="ble-gatt" ${transport === 'ble-gatt' ? 'selected' : ''}>Bluetooth (read-only device)</option>
       <option value="ble-luxpower" ${transport === 'ble-luxpower' ? 'selected' : ''}>LuxPower Bluetooth</option>
     </select>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> Register Mappings</div>
+    <div class="section-divider">Register Mappings</div>
     <div class="mappings-section">
       <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="dongle-mappings-list-${idx}">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." data-container="dongle-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="dongle-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn load-dongle-registers" data-device="${idx}">
-        📥 Load Profile Registers
+        Load Profile Registers
       </button>
       <button type="button" class="fetch-btn fetch-dongle-entities" data-device="${idx}" style="display:none;">
-        📋 Fetch Profile Entities
+        Fetch Profile Entities
       </button>
       <button type="button" class="fetch-btn add-dongle-mapping" data-device="${idx}" style="display:none;">
         + Add Mapping
       </button>
     </div>
-    <div class="section-divider dongle-write-divider" id="dongle-write-divider-${idx}" style="display:none;"><span class="stg-divider-icon">✍️</span> Write Controls</div>
+    <div class="section-divider dongle-write-divider" id="dongle-write-divider-${idx}" style="display:none;">Write Controls</div>
     <div class="write-controls" id="dongle-write-controls-${idx}" style="display:none;"></div>
   `;
   container.appendChild(card);
@@ -4037,8 +4037,8 @@ const dongleLux = {
   },
 
   // Which mapping-section buttons the card shows for a profile capability:
-  // luxpower-tcp → '📋 Fetch Profile Entities' + '+ Add Mapping'; every other
-  // dongle transport keeps the legacy '📥 Load Profile Registers' button.
+  // luxpower-tcp → 'Fetch Profile Entities' + '+ Add Mapping'; every other
+  // dongle transport keeps the legacy 'Load Profile Registers' button.
   // Verbatim legacy applyDongleMappingMode logic (#106 Batch 2C).
   applyMode(card, enabled) {
     const loadBtn = card.querySelector('.load-dongle-registers');
@@ -4900,10 +4900,10 @@ if (forecastTestBtn) {
       };
       const res = await fetch('/api/test-forecast', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(params) });
       const data = await res.json();
-      if (res.ok) showStatus(statusEl, `✅ ${data.source}${data.arrays > 1 ? ` (${data.arrays} arrays, ${data.capacity_kwp} kWp)` : ''}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
-      else showStatus(statusEl, `❌ ${data.error}`, 'error');
+      if (res.ok) showStatus(statusEl, `${data.source}${data.arrays > 1 ? ` (${data.arrays} arrays, ${data.capacity_kwp} kWp)` : ''}: Today ~${data.today_estimate_kwh} kWh, Peak ${data.peak_kw} kW`, 'success');
+      else showStatus(statusEl, `${data.error}`, 'error');
     } catch (e) {
-      showStatus(statusEl, `❌ Error: ${e.message}`, 'error');
+      showStatus(statusEl, `Error: ${e.message}`, 'error');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Test Forecast';
@@ -5199,7 +5199,7 @@ function renderTuyaDevice(device, idx) {
       <span class="toggle-wrap" style="margin:0 1rem;"><label class="toggle-switch"><input type="checkbox" name="tuya_devices[${idx}][enabled]" ${device.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-tuya">✕</button>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔌</span> Connection</div>
+    <div class="section-divider">Connection</div>
     <div class="form-row">
       <input type="text" name="tuya_devices[${idx}][dev_id]" placeholder="Device ID" value="${escapeHtml(device.dev_id || '')}" readonly style="background:var(--bg-tertiary);cursor:not-allowed;">
       <input type="text" name="tuya_devices[${idx}][address]" placeholder="IP Address" value="${escapeHtml(device.address || '')}">
@@ -5208,14 +5208,14 @@ function renderTuyaDevice(device, idx) {
       <input type="password" autocomplete="off" name="tuya_devices[${idx}][local_key]" placeholder="Local Key" value="${escapeHtml(device.local_key || '')}">
       <select name="tuya_devices[${idx}][version]" style="width:120px;flex:0 0 auto;">${versionOptsHtml}</select>
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">⏱</span> Polling</div>
+    <div class="section-divider">Polling</div>
     <div class="form-row">
       <input type="number" name="tuya_devices[${idx}][poll_interval]" placeholder="Poll Interval (s)" value="${device.poll_interval || 30}" style="width:120px;">
     </div>
-    <div class="section-divider"><span class="stg-divider-icon">🔗</span> DP Mappings</div>
+    <div class="section-divider">DP Mappings</div>
     <div class="mappings-section" id="tuya-mappings-${idx}">
       <div class="mappings-filter-bar">
-        <input type="text" class="mappings-filter-input" placeholder="🔍 Filter mappings..." data-container="tuya-mappings-list-${idx}">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." data-container="tuya-mappings-list-${idx}">
       </div>
       <div class="mappings-list" id="tuya-mappings-list-${idx}"></div>
       <button type="button" class="fetch-btn add-tuya-dp" data-device="${idx}">
@@ -5511,10 +5511,10 @@ if (tuyaVerifyAllBtn) {
       const successCount = data.results.filter(r => r.success).length;
       const failCount = data.results.length - successCount;
       if (failCount === 0) {
-        showStatus(tuyaVerifyAllStatus, `✅ All ${successCount} device(s) connected`, 'success');
+        showStatus(tuyaVerifyAllStatus, `All ${successCount} devices connected`, 'success');
       } else {
         const failures = data.results.filter(r => !r.success).map(r => `${r.name}: ${r.error}`).join(', ');
-        showStatus(tuyaVerifyAllStatus, `⚠️ ${successCount}/${data.results.length} connected — failures: ${failures}`, 'warning');
+        showStatus(tuyaVerifyAllStatus, `${successCount} of ${data.results.length} connected. Failed: ${failures}`, 'warning');
       }
     } catch (e) {
       showStatus(tuyaVerifyAllStatus, e.message, 'error');
