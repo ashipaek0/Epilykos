@@ -1,19 +1,46 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43435975226.1",
-    "version": "1.2.8",
-    "commit": "cbe5c43f266bd02f773f7e17e4e6bebbe9d7cf22",
-    "digest": "sha256:f657e9e59e812824fd1d42edb076f817af494219689180982fb5e9a82bbabb9d",
+    "buildId": "43588316872.1",
+    "version": "1.2.9",
+    "commit": "09ef9a392d148ee0514d69653fd50a3ceb7e3113",
+    "digest": "sha256:24f0f3586883225f28750bdf3be21a557b94a64b8c566582ea6840b36b39d864",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-13T13:42:34Z",
+    "builtAt": "2026-11-14T11:05:23Z",
     "kind": "release",
     "notes": [
-      "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)",
-      "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
+      "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
+      "Bump web-push from 3.6.7 to 4.0.0 (#354)",
+      "Bump the minor-and-patch group with 4 updates (#353)",
+      "Remote backup, step 3: Google Drive destination (#356)",
+      "Remote backup, step 2: WebDAV destination (#355)",
+      "Point the Help links and README at epilykos.ashipaek0.com.ng (#352)",
+      "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
+      "Settings: Virtual Battery on its own page (#349)",
+      "LuxPower: inverter clock and clock skew (#348)"
     ]
   },
   "history": [
+    {
+      "buildId": "43588316872.1",
+      "version": "1.2.9",
+      "commit": "09ef9a392d148ee0514d69653fd50a3ceb7e3113",
+      "digest": "sha256:24f0f3586883225f28750bdf3be21a557b94a64b8c566582ea6840b36b39d864",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-14T11:05:23Z",
+      "kind": "release",
+      "notes": [
+        "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
+        "Bump web-push from 3.6.7 to 4.0.0 (#354)",
+        "Bump the minor-and-patch group with 4 updates (#353)",
+        "Remote backup, step 3: Google Drive destination (#356)",
+        "Remote backup, step 2: WebDAV destination (#355)",
+        "Point the Help links and README at epilykos.ashipaek0.com.ng (#352)",
+        "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
+        "Settings: Virtual Battery on its own page (#349)",
+        "LuxPower: inverter clock and clock skew (#348)"
+      ]
+    },
     {
       "buildId": "43435975226.1",
       "version": "1.2.8",
