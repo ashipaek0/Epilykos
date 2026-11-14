@@ -254,7 +254,7 @@ const rejects = async (promise, pattern, label) => { let error = null; try { awa
   assert.ok(serverJs.includes('cloudBackup.start()'), 'the schedule runs');
   const { isProtectedKey } = require(path.join(REPO, 'modules/protectedConfig'));
   assert.ok(isProtectedKey('cloud_backup') && isProtectedKey('cloud_backup_status'), 'only its own route writes the settings');
-  assert.deepStrictEqual(require(path.join(REPO, 'modules/encryption')).SECRET_FIELDS.cloud_backup, ['passphrase'], 'the passphrase is locked at rest');
+  assert.deepStrictEqual(require(path.join(REPO, 'modules/encryption')).SECRET_FIELDS.cloud_backup, ['passphrase', 'password'], 'the passphrase and a WebDAV password are locked at rest');
   const events2 = require(path.join(REPO, 'modules/notifications/events')).EVENT_TYPES;
   for (const t of ['backup.cloud_failed', 'backup.cloud_overdue']) assert.strictEqual(events2[t].category, 'System', t);
   const html = read('public/settings.html');
