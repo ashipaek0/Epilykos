@@ -18,14 +18,14 @@
 
 /* ── Tokens (override the shell's own) ───────────────────── */
 :root {
-  --dt-bg: #F6F5F1; --dt-bg2: #ECEBE5; --dt-ink: #17181A; --dt-mut: #53565B;
+  --dt-bg: #F6F5F1; --dt-bg2: #ECEBE5; --dt-ink: #17181A; --dt-mut: #46494E; --dt-sect: rgba(23, 24, 26, 0.34);
   --dt-edge: #7A7C80; --dt-rule: rgba(23, 24, 26, 0.14);
   --dt-acc: #C76800; --dt-acc-ink: #8F4A00; --dt-on-acc: #17181A;
   --dt-ok: #17733F; --dt-err: #B42318; --dt-scrim: rgba(23, 24, 26, 0.42);
   --dt-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 [data-theme="dark"] {
-  --dt-bg: #0B0D10; --dt-bg2: #13161B; --dt-ink: #F2F4F7; --dt-mut: #9AA3B2;
+  --dt-bg: #0B0D10; --dt-bg2: #13161B; --dt-ink: #F2F4F7; --dt-mut: #AAB2C0; --dt-sect: rgba(255, 255, 255, 0.30);
   --dt-edge: #6B7480; --dt-rule: rgba(255, 255, 255, 0.10);
   --dt-acc: #F97316; --dt-acc-ink: #F97316; --dt-on-acc: #0B0D10;
   --dt-ok: #4ADE80; --dt-err: #FF7A6E; --dt-scrim: rgba(0, 0, 0, 0.6);
@@ -343,3 +343,67 @@ html.dt body.st .toggle-wrap > label:not(.toggle-switch) { min-width: 0; white-s
 html.dt body.st .device-card label { font-size: 13.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 html.dt body.st .device-card .toggle-wrap > label { font-size: 15px; font-weight: 400; }
 html.dt body.st #settings-form .device-card button:not(.st-icon-btn), html.dt body.st #settings-form button.fetch-btn { justify-content: flex-start; justify-self: start; width: auto; text-align: left; }
+
+/* ══ Round 2: typefaces, no radio circles, stronger sections ══ */
+@font-face { font-family: 'DT Inter'; font-display: swap; font-weight: 100 900; src: url('fonts/inter-latin-wght-normal.woff2') format('woff2'); }
+@font-face { font-family: 'DT Plus Jakarta Sans'; font-display: swap; font-weight: 200 800; src: url('fonts/plus-jakarta-sans-latin-wght-normal.woff2') format('woff2'); }
+@font-face { font-family: 'DT Public Sans'; font-display: swap; font-weight: 100 900; src: url('fonts/public-sans-latin-wght-normal.woff2') format('woff2'); }
+@font-face { font-family: 'DT Atkinson'; font-display: swap; font-weight: 200 800; src: url('fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2') format('woff2'); }
+@font-face { font-family: 'DT Plex'; font-display: swap; font-weight: 100 700; src: url('fonts/ibm-plex-sans-latin-wght-normal.woff2') format('woff2'); }
+
+/* Inter is the default; ?font= in the preview switch lists the others. */
+html.dt body.st { --font: 'DT Inter', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; font-weight: 450; text-rendering: optimizeLegibility; font-optical-sizing: auto; }
+html.dt[data-dt-font="manrope"] body.st { --font: 'Manrope', system-ui, sans-serif; }
+html.dt[data-dt-font="jakarta"] body.st { --font: 'DT Plus Jakarta Sans', system-ui, sans-serif; }
+html.dt[data-dt-font="public"] body.st { --font: 'DT Public Sans', system-ui, sans-serif; }
+html.dt[data-dt-font="atkinson"] body.st { --font: 'DT Atkinson', system-ui, sans-serif; }
+html.dt[data-dt-font="plex"] body.st { --font: 'DT Plex', system-ui, sans-serif; }
+html.dt body.st .st-help, html.dt body.st .st-lede, html.dt body.st .st-nav-link { font-weight: 450; }
+html.dt body.st .st-btn { font-weight: 650; }
+
+/* ── Choices: no radio circles. The row is the control. ── */
+html.dt body.st .st-choice input[type="radio"] { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+html.dt body.st .st-choice { position: relative; cursor: pointer; padding-right: 44px; }
+html.dt body.st .st-choice:hover { background: var(--dt-bg2); }
+html.dt body.st .st-choice:has(input:checked) { padding-right: 44px; background: var(--dt-bg2); }
+html.dt body.st .st-choice:has(input:checked) .st-choice-title { font-weight: 700; }
+html.dt body.st .st-choice:has(input:checked)::after {
+  content: ""; position: absolute; right: 16px; top: 50%; width: 7px; height: 13px;
+  border: solid var(--dt-acc); border-width: 0 3px 3px 0; transform: translateY(-65%) rotate(45deg);
+}
+html.dt body.st .st-choice:has(input:focus-visible) { box-shadow: inset 3px 0 0 var(--dt-acc), var(--st-focus); }
+
+/* ── Sections: stronger separation (default "rules") ── */
+html.dt body.st .st-card { border-top: 1.5px solid var(--dt-sect); }
+html.dt body.st .dt-band + .dt-band { border-top: 1.5px solid var(--dt-sect); }
+html.dt body.st .dt-band { padding: 44px 0 50px; }
+html.dt body.st .dt-anchor::before { content: ""; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--dt-acc); margin: 0 0 14px; }
+html.dt body.st .dt-band.no-anchor { padding-top: 40px; }
+html.dt body.st .dt-anchor h2, html.dt body.st .dt-anchor h3, html.dt body.st .dt-anchor .st-card-subhead { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
+html.dt body.st .section-divider { color: var(--dt-ink); font-weight: 700; font-size: 14px; }
+html.dt body.st .section-divider::after { background: var(--dt-sect); }
+
+/* "tint": alternating soft panels, no rules */
+html.dt[data-dt-bands="tint"] body.st .st-card, html.dt[data-dt-bands="tint"] body.st .dt-band + .dt-band { border-top: 0; }
+html.dt[data-dt-bands="tint"] body.st .st-card { margin-bottom: 14px; }
+html.dt[data-dt-bands="tint"] body.st .dt-band { margin: 0 0 12px; padding: 34px 36px 38px; border-radius: 28px; background: var(--dt-bg2); }
+html.dt[data-dt-bands="tint"] body.st .dt-card .input:hover, html.dt[data-dt-bands="tint"] body.st .dt-card #settings-form input:hover { background-color: var(--dt-bg); }
+html.dt[data-dt-bands="tint"] body.st .dt-anchor::before { display: none; }
+
+/* "rail": a spine down the left of every band with a marker on it */
+html.dt[data-dt-bands="rail"] body.st .st-card, html.dt[data-dt-bands="rail"] body.st .dt-band + .dt-band { border-top: 0; }
+html.dt[data-dt-bands="rail"] body.st .dt-band { border-left: 3px solid var(--dt-sect); padding-left: 34px; margin-bottom: 8px; position: relative; }
+html.dt[data-dt-bands="rail"] body.st .dt-band::before { content: ""; position: absolute; left: -9px; top: 50px; width: 15px; height: 15px; border-radius: 50%; background: var(--dt-bg); border: 4px solid var(--dt-acc); box-sizing: border-box; }
+html.dt[data-dt-bands="rail"] body.st .dt-anchor::before { display: none; }
+@media (max-width: 1100px) {
+  html.dt[data-dt-bands="tint"] body.st .dt-band { padding: 26px 22px 30px; border-radius: 22px; }
+  html.dt[data-dt-bands="rail"] body.st .dt-band { padding-left: 22px; }
+}
+
+/* ── Preview controls (typeface, section style) ── */
+.dt-preview { margin: 0; font-size: 13px; color: var(--st-muted); }
+.dt-preview > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.dt-preview-body { display: grid; gap: 8px; padding-bottom: 8px; }
+.dt-preview label { display: grid; gap: 2px; font-weight: 600; }
+.dt-preview select { height: 36px; background: transparent; color: var(--st-text); border: 0; border-bottom: 1px solid var(--st-line); border-radius: 0; font: inherit; font-weight: 450; padding: 0 2px; }
+html.dt body.st .st-choice-group { margin: 22px 0 6px; }

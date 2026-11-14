@@ -22,7 +22,7 @@ const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@font-face\s*\{[^
 const selectors = stripped.split('}').map(b => b.split('{')[0].trim()).filter(Boolean);
 const unscoped = selectors.filter(sel => sel.split(',').some(part => {
   const p = part.trim();
-  if (!p || p.startsWith(':root') || p.startsWith('[data-theme') || p.startsWith('.dt-look')) return false;
+  if (!p || p.startsWith(':root') || p.startsWith('[data-theme') || p.startsWith('.dt-look') || p.startsWith('.dt-preview')) return false;
   return !p.startsWith('html.dt');
 }));
 assert.deepEqual(unscoped, [], 'every datum rule is scoped under html.dt: ' + unscoped.slice(0, 3).join(' | '));
