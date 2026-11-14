@@ -1,26 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43588316872.1",
-    "version": "1.2.9",
-    "commit": "09ef9a392d148ee0514d69653fd50a3ceb7e3113",
-    "digest": "sha256:24f0f3586883225f28750bdf3be21a557b94a64b8c566582ea6840b36b39d864",
+    "buildId": "43603311213.1",
+    "version": "1.2.10",
+    "commit": "32b18d09638c20a043e8258d6c9d2f257fe49a8c",
+    "digest": "sha256:6188dc7d002585c755e0fb112e1ee976431a532e2445d0bde71caf5e59d47758",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-14T11:05:23Z",
+    "builtAt": "2026-11-14T14:08:58Z",
     "kind": "release",
     "notes": [
-      "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
-      "Bump web-push from 3.6.7 to 4.0.0 (#354)",
-      "Bump the minor-and-patch group with 4 updates (#353)",
-      "Remote backup, step 3: Google Drive destination (#356)",
-      "Remote backup, step 2: WebDAV destination (#355)",
-      "Point the Help links and README at epilykos.ashipaek0.com.ng (#352)",
-      "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
-      "Settings: Virtual Battery on its own page (#349)",
-      "LuxPower: inverter clock and clock skew (#348)"
+      "Settings: green switches and status pills when on (#359)",
+      "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
     ]
   },
   "history": [
+    {
+      "buildId": "43603311213.1",
+      "version": "1.2.10",
+      "commit": "32b18d09638c20a043e8258d6c9d2f257fe49a8c",
+      "digest": "sha256:6188dc7d002585c755e0fb112e1ee976431a532e2445d0bde71caf5e59d47758",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-14T14:08:58Z",
+      "kind": "release",
+      "notes": [
+        "Settings: green switches and status pills when on (#359)",
+        "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
+      ]
+    },
     {
       "buildId": "43588316872.1",
       "version": "1.2.9",
