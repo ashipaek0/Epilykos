@@ -166,7 +166,7 @@ const load = f => import(pathToFileURL(path.join(REPO, 'public/js/components', f
   assert.ok(!/(Recharged|Meter check|Correction)['"`]/.test(read('public/js/components/prepaidMeter.js')), 'the history shows symbols and numbers, not words');
   // The buttons record what the owner did by hand; they do not claim to talk to the meter
   const dlg = read('public/js/components/prepaidDialogs.js');
-  assert.match(dlg, /does not buy or send one/); assert.match(dlg, /Nothing is sent to the meter/); assert.match(read('public/js/prepaid-settings.js'), /only record what you have done by hand/);
+  assert.match(dlg, /does not buy or send one/); assert.match(dlg, /Nothing is sent to the meter/); assert.match(read('public/js/prepaid-settings.js'), /Record recharges and correct the balance/);
 
   // ── Wiring ──
   assert.match(read('public/js/components/index.js'), /'prepaid-meter': buildPrepaidMeter/);

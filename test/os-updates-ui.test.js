@@ -94,7 +94,7 @@ const click = async (dataset) => { await listener({ target: { closest: () => ({ 
   page.os = osView({ job: { id: JOB, state: 'ready', version: '0.7' } });
   await click({ osDismiss: JOB });
   assert.match(root.innerHTML, /Restart to finish/);
-  assert.match(root.innerHTML, /goes back to this version by itself/);
+  assert.match(root.innerHTML, /rolls back if the update fails/);
   posts.length = 0;
   page.os = osView({ job: { id: JOB, state: 'restarting', version: '0.7' } });
   await click({ osRestart: JOB });

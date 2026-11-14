@@ -80,7 +80,7 @@ const bankMetrics = () => { database.flushMetrics(); return Object.fromEntries(d
   assert.match(srv, /getAvailableSourceKeys\(name, \{ fallback: req\.query\.fallback === '1' \}\)/);
   const pop = js.slice(js.indexOf('function populateBankDevices('), js.indexOf('function renderBankFunctionRow('));
   assert.match(pop, /#bms-devices-container \.device-card/); assert.match(pop, /#bms-wired-devices-container \.device-card/, 'wired batteries can be in a bank');
-  assert.match(pop, /missing/, 'a renamed or removed battery stays listed'); assert.match(pop, /was renamed or removed/);
+  assert.match(pop, /missing/, 'a renamed or removed battery stays listed'); assert.match(pop, /no battery with this name/);
   assert.match(js, /device-metrics\/\$\{encodeURIComponent\(deviceName\)\}\?fallback=1/);
   assert.match(js, /if \(selectedKey && !keys\.includes\(selectedKey\)\) keys\.unshift\(selectedKey\)/, 'a chosen reading is kept in its list');
   assert.match(js, /function refreshBankDeviceLists\(\)/); assert.match(js, /new MutationObserver\(later\)\.observe\(el, \{ childList: true \}\)/, 'the bank lists follow batteries being added, removed or drawn late (wired cards appear after a port lookup)');
