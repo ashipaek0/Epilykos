@@ -17,9 +17,11 @@
  * the locked file format itself when it is checked or restored.
  *
  * Redirects are not followed (they would drop the sign-in or change the verb),
- * and certificates are always checked. A server with a self-signed certificate
- * can be trusted by pasting that certificate's SHA-256 fingerprint: only that
- * certificate is accepted then.
+ * and certificates are always checked. A server with a certificate of its own
+ * (self-signed, or from a private authority) is trusted by pasting that
+ * certificate: it becomes the only trusted authority for this server, so the
+ * chain is still verified and no other certificate is accepted. Validation is
+ * never switched off.
  */
 const http = require('node:http');
 const https = require('node:https');
@@ -48,33 +50,31 @@ function parseSettings(settings) {
   if (url.search || url.hash) throw problem('The server address should not contain ? or #.', 'URL_INVALID');
   const folder = String(s.folder == null ? '' : s.folder).trim().replace(/^\/+|\/+$/g, '');
   if (folder.length > 200 || folder.split('/').some(part => part === '.' || part === '..')) throw problem('That folder name is not valid.', 'FOLDER_INVALID');
-  const fingerprint = String(s.fingerprint || '').replace(/[:\s]/g, '').toLowerCase();
-  if (fingerprint && !/^[0-9a-f]{64}$/.test(fingerprint)) throw problem('The certificate fingerprint must be a SHA-256 value (64 hex characters).', 'FINGERPRINT_INVALID');
+  const certificate = String(s.certificate || '').trim();
+  let pinned = null;
+  if (certificate) {
+    if (url.protocol !== 'https:') throw problem('A certificate only applies to an https:// address.', 'CERT_INVALID');
+    if (certificate.length > 20000) throw problem('That certificate is too long.', 'CERT_INVALID');
+    try { pinned = new crypto.X509Certificate(certificate); }
+    catch (_) { throw problem('That is not a certificate. Paste the whole certificate, from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.', 'CERT_INVALID'); }
+  }
   const username = String(s.username || '');
   if (!username) throw problem('Enter the username.', 'USER_REQUIRED');
   if (!s.password) throw problem('Enter the password. For Nextcloud, make an app password for this box.', 'PASSWORD_REQUIRED');
-  return { base: url, folder, fingerprint, username, password: String(s.password) };
+  return { base: url, folder, certificate, pinned, username, password: String(s.password) };
 }
 
 function createWebdavDestination(settings, { requestTimeout = TIMEOUT_MS, partBytes = PART_BYTES, retryDelay = attempt => attempt * 1500 } = {}) {
   const cfg = parseSettings(settings);
   const lib = cfg.base.protocol === 'https:' ? https : http;
   const auth = 'Basic ' + Buffer.from(`${cfg.username}:${cfg.password}`, 'utf8').toString('base64');
-  const agent = new lib.Agent({ keepAlive: true, maxSockets: 2 });
-  // A pinned certificate is checked on a connection of our own before anything is sent over it, because Node skips its
-  // identity check for a certificate it does not trust. A pinned connection is used for one request.
-  function pinnedSocket() {
-    return new Promise((resolve, reject) => {
-      const socket = tls.connect({ host: cfg.base.hostname, port: Number(cfg.base.port) || 443, rejectUnauthorized: false,
-        servername: /^[\d.]+$|:/.test(cfg.base.hostname) ? undefined : cfg.base.hostname });
-      socket.once('error', reject);
-      socket.once('secureConnect', () => {
-        const seen = (socket.getPeerCertificate().fingerprint256 || '').replace(/:/g, '').toLowerCase();
-        if (seen !== cfg.fingerprint) { socket.destroy(); return reject(Object.assign(new Error('The server\'s certificate is not the one you pinned.'), { code: 'PIN_MISMATCH' })); }
-        socket.removeAllListeners('error'); resolve(socket);
-      });
-    });
-  }
+  // A pasted certificate is the only authority trusted for this server. The chain is still verified against it; a server that
+  // uses that very certificate is accepted whatever name it is reached by, anything else must pass the normal name check.
+  const trust = cfg.pinned ? {
+    ca: cfg.certificate,
+    checkServerIdentity: (host, cert) => (cert && cert.raw && cfg.pinned.raw.equals(cert.raw) ? undefined : tls.checkServerIdentity(host, cert))
+  } : {};
+  const agent = new lib.Agent({ keepAlive: true, maxSockets: 2, ...trust });
 
   const baseParts = cfg.base.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const folderParts = cfg.folder ? cfg.folder.split('/') : [];
@@ -87,13 +87,9 @@ function createWebdavDestination(settings, { requestTimeout = TIMEOUT_MS, partBy
   const fileUrl = name => urlFor([...folderParts, name]);
 
   /** One request. Resolves with { status, headers, body } where body is a Buffer, or { status, headers, stream } when `stream` is set. */
-  async function send(method, url, { headers = {}, body, stream = false, timeout = requestTimeout } = {}) {
-    let connection = null;
-    try { if (cfg.fingerprint) connection = await pinnedSocket(); } catch (error) { throw translate(error); }
+  function send(method, url, { headers = {}, body, stream = false, timeout = requestTimeout } = {}) {
     return new Promise((resolve, reject) => {
-      const options = { method, headers: { Authorization: auth, 'User-Agent': 'Epilykos', ...headers }, timeout };
-      if (connection) options.createConnection = () => connection; else options.agent = agent;   // with no agent the request uses our checked socket
-      const req = lib.request(url, options, res => {
+      const req = lib.request(url, { method, agent, headers: { Authorization: auth, 'User-Agent': 'Epilykos', ...headers }, timeout }, res => {
         if (stream && res.statusCode >= 200 && res.statusCode < 300) return resolve({ status: res.statusCode, headers: res.headers, stream: res });
         const chunks = [];
         res.on('data', c => chunks.push(c)); res.on('error', reject);
@@ -106,9 +102,11 @@ function createWebdavDestination(settings, { requestTimeout = TIMEOUT_MS, partBy
   }
   function translate(error) {
     if (error.cloudBackup) return error;
-    if (error.code === 'PIN_MISMATCH') return problem(error.message, 'PIN_MISMATCH');
+    if (cfg.pinned && ['DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'ERR_TLS_CERT_ALTNAME_INVALID'].includes(error.code)) {
+      return problem('The server\'s certificate is not the one you pasted (' + error.code + '). Paste the certificate the server is using now.', 'CERT_MISMATCH');
+    }
     if (['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'ERR_TLS_CERT_ALTNAME_INVALID'].includes(error.code)) {
-      return problem('The server\'s certificate is not trusted (' + error.code + '). If it is a certificate you made yourself, paste its SHA-256 fingerprint in the certificate box.', 'CERT_UNTRUSTED');
+      return problem('The server\'s certificate is not trusted (' + error.code + '). If it is a certificate you made yourself, paste it in the certificate box.', 'CERT_UNTRUSTED');
     }
     if (error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') return problem('Cannot find that server. Check the address.', 'UNREACHABLE');
     if (error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH' || error.code === 'ENETUNREACH') return problem('Cannot reach that server (' + error.code + ').', 'UNREACHABLE');

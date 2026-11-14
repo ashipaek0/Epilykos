@@ -40,8 +40,8 @@
       + '<div class="st-grid-2">'
       + field('cb-w-user', 'Username', '<input class="input" id="cb-w-user" value="' + esc(isDav ? d.username : '') + '" autocomplete="off" spellcheck="false">')
       + field('cb-w-pass', isDav && d.hasPassword ? 'App password (saved)' : 'App password', '<input class="input" id="cb-w-pass" type="password" autocomplete="new-password">', isDav && d.hasPassword ? 'Leave empty to keep the saved password. Type one to change it.' : 'Make an app password for this box instead of using your main one.') + '</div>'
-      + field('cb-w-fingerprint', 'Certificate fingerprint (optional)', '<input class="input" id="cb-w-fingerprint" value="' + esc(isDav ? d.fingerprint : '') + '" placeholder="AA:BB:CC:…" autocomplete="off" spellcheck="false">',
-        'Only for a server with a certificate you made yourself. Paste its SHA-256 fingerprint and only that certificate is trusted. Leave empty for a normal https address.')
+      + field('cb-w-cert', 'Server certificate (optional)', '<textarea class="input" id="cb-w-cert" rows="4" placeholder="-----BEGIN CERTIFICATE-----" autocomplete="off" spellcheck="false">' + esc(isDav ? d.certificate : '') + '</textarea>',
+        'Only for a server with a certificate of its own. Paste the whole certificate and Epilykos trusts only that one for this server. Leave empty for a normal https address.')
       + '</div>';
     h += '<div id="cb-pane-gdrive"' + (isG ? '' : ' hidden') + '></div>';
     h += '<div class="st-grid-2">'
@@ -58,7 +58,7 @@
     root.innerHTML = h;
     var markDirty = function () { $('cb-save').disabled = formBusy || !changed(); };
     $('cb-enabled').addEventListener('change', function () { $('cb-fields').hidden = !$('cb-enabled').checked; markDirty(); });
-    ['cb-path', 'cb-pass', 'cb-pass2', 'cb-w-url', 'cb-w-folder', 'cb-w-user', 'cb-w-pass', 'cb-w-fingerprint'].forEach(function (id) { $(id).addEventListener('input', markDirty); });
+    ['cb-path', 'cb-pass', 'cb-pass2', 'cb-w-url', 'cb-w-folder', 'cb-w-user', 'cb-w-pass', 'cb-w-cert'].forEach(function (id) { $(id).addEventListener('input', markDirty); });
     ['cb-schedule', 'cb-keep'].forEach(function (id) { $(id).addEventListener('change', markDirty); });
     $('cb-dest').addEventListener('change', function () { ['folder', 'webdav', 'gdrive'].forEach(function (k) { $('cb-pane-' + k).hidden = $('cb-dest').value !== k; }); $('cb-test-result').textContent = ''; markDirty(); });
     drawGoogle();
@@ -69,7 +69,7 @@
   function destinationDraft() {
     if ($('cb-dest').value === 'gdrive') return { type: 'gdrive' };
     if ($('cb-dest').value === 'webdav') {
-      return { type: 'webdav', url: $('cb-w-url').value.trim(), folder: $('cb-w-folder').value.trim(), username: $('cb-w-user').value, password: $('cb-w-pass').value, fingerprint: $('cb-w-fingerprint').value.trim() };
+      return { type: 'webdav', url: $('cb-w-url').value.trim(), folder: $('cb-w-folder').value.trim(), username: $('cb-w-user').value, password: $('cb-w-pass').value, certificate: $('cb-w-cert').value.trim() };
     }
     return { type: 'folder', path: $('cb-path').value.trim() };
   }
@@ -81,7 +81,7 @@
     if (d.type !== s.type) return false;
     if (d.type === 'gdrive') return true;
     if (d.type === 'folder') return d.path === s.path;
-    return d.url === s.url && d.folder === s.folder && d.username === s.username && d.fingerprint === s.fingerprint && d.password === '';
+    return d.url === s.url && d.folder === s.folder && d.username === s.username && d.certificate === s.certificate && d.password === '';
   }
   function changed() {
     var d = draft(), s = settings;
