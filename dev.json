@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43608737346.1",
-    "version": "1.2.12-dev+6e962d9",
-    "commit": "6e962d9e3071d1ff6e4b9ad924aca01d83f8e197",
-    "digest": "sha256:8d570117e1b3090826868e2699fc06102bc32a63f8ee2bc861a98ead95149739",
+    "buildId": "43609529324.1",
+    "version": "1.2.12-dev+1aec3cf",
+    "commit": "1aec3cf2a47b24c7c93fd5f5607c493a829b77d6",
+    "digest": "sha256:33939214ba29387e7c8b44a0ba919aa17cf41b8341ff25bca3468f0205673ada",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T15:10:48Z",
+    "builtAt": "2026-11-14T15:19:39Z",
     "kind": "release",
     "notes": [
-      "Settings: more room between sections and a short faint divider (#363)"
+      "Settings: a faint amber wash marks the current section in the menu (#364)"
     ]
   },
   "history": [
+    {
+      "buildId": "43609529324.1",
+      "version": "1.2.12-dev+1aec3cf",
+      "commit": "1aec3cf2a47b24c7c93fd5f5607c493a829b77d6",
+      "digest": "sha256:33939214ba29387e7c8b44a0ba919aa17cf41b8341ff25bca3468f0205673ada",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T15:19:39Z",
+      "kind": "release",
+      "notes": [
+        "Settings: a faint amber wash marks the current section in the menu (#364)"
+      ]
+    },
     {
       "buildId": "43608737346.1",
       "version": "1.2.12-dev+6e962d9",
@@ -358,20 +370,6 @@
       "builtAt": "2026-11-12T08:33:28Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "43183893936.1",
-      "version": "1.2.5-dev+560c707",
-      "commit": "560c7072f190c2f41fcf7d2144dbb8f1ad8b78f6",
-      "digest": "sha256:bedf9f9b0462853c5a6c5a2fd7be6770fa9ae77d12981cee95acdf5b55ed0f08",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T08:33:37Z",
-      "kind": "release",
-      "notes": [
-        "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
-        "Solar forecast cards: the day tiles follow the card's transparency (#328)",
-        "Bar gauges: the bars scale with the card, in every variant (#327)"
-      ]
     }
   ]
 }
