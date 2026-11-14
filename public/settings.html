@@ -499,59 +499,53 @@
         <!-- ════════════ HELP ════════════ -->
         <section class="st-section" id="section-help" data-section="help" aria-labelledby="h-help" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-help">Help</h1><p class="st-lede">Setup guides, conventions and troubleshooting. The full documentation is in the <a class="help-link" href="https://epilykos.ashipaek0.com.ng/" target="_blank" rel="noopener">Epilykos Wiki ↗</a>.</p></div>
+            <div><h1 id="h-help">Help</h1><p class="st-lede">Guides and troubleshooting. Full docs are in the <a class="help-link" href="https://epilykos.ashipaek0.com.ng/" target="_blank" rel="noopener">Epilykos Wiki ↗</a>.</p></div>
           </div>
           <div class="st-filter st-help-filter"><label for="help-search" class="st-visually-hidden">Filter help topics</label><input type="search" class="input" id="help-search" placeholder="Filter topics, e.g. Modbus or forecast"></div>
           <!-- ── 1. Quick Start ──────────────────────────────── -->
         <details class="help-accordion" open>
-          <summary class="help-summary">Quick Start — 5 minutes to your first dashboard</summary>
+          <summary class="help-summary">Quick Start</summary>
           <div class="help-body">
-            <p>The quickest way in is the <a href="/setup" class="help-link">setup wizard</a>: it finds common hardware, maps your readings to roles and builds a first dashboard. The steps below do the same by hand.</p>
+            <p>Fastest: the <a href="/setup" class="help-link">setup wizard</a>. By hand:</p>
             <div class="help-steps">
               <div class="help-step"><span class="help-step-num">1</span>
-                <div><strong>Add a data source</strong><br>
-                Go to <a class="help-link" href="#sources">Sources → Add source</a> and pick your hardware: Modbus, WiFi dongle, RS232, BMS, Home Assistant, MQTT, Tuya or REST. Enter the connection details and pick the profile that matches your model.</div>
+                <div><strong>Add a source</strong><br>
+                <a class="help-link" href="#sources">Sources → Add source</a>, pick your hardware and its profile.</div>
               </div>
               <div class="help-step"><span class="help-step-num">2</span>
                 <div><strong>Name the readings</strong><br>
-                Click <em>Load Profile Fields</em> (Modbus, RS232) or <em>Load Profile Registers</em> (WiFi dongle). Each row is one reading: keep the suggested metric name or type your own. Save.</div>
+                Press <em>Load Profile Fields</em> or <em>Load Profile Registers</em>, keep or rename each metric, then save.</div>
               </div>
               <div class="help-step"><span class="help-step-num">3</span>
-                <div><strong>Set the metric roles</strong><br>
-                In <a class="help-link" href="#metrics">Metrics → Metric roles</a>, say which metric is solar power, home use, battery, grid, generator and so on. Charts, tables, costs, savings and several blocks use these.</div>
+                <div><strong>Set the roles</strong><br>
+                <a class="help-link" href="#metrics">Metrics → Metric roles</a>: solar, load, battery, grid.</div>
               </div>
               <div class="help-step"><span class="help-step-num">4</span>
                 <div><strong>Build a dashboard</strong><br>
-                Open the <a href="/editor" class="help-link">layout editor</a>, add blocks from the list on the left, and pick their metrics on each block's Data tab.</div>
+                Add blocks in the <a href="/editor" class="help-link">layout editor</a>.</div>
               </div>
             </div>
-            <p class="note" style="margin-top:0.75rem;">Readings refresh on their own: the main cycle runs every 30 seconds and each source has its own read interval. Charts and tables fill in as history builds up.</p>
             <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/getting-started/first-run-setup/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
           </div>
         </details>
 
         <!-- ── 2. Data Source Guides ────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Data Source Guides — setup each type step by step</summary>
+          <summary class="help-summary">Data source guides</summary>
           <div class="help-body">
             <!-- HA -->
             <details class="help-sub">
               <summary class="help-sub-summary">Home Assistant</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Pull sensor values from an existing Home Assistant instance over HTTP.</p>
+                <p>Reads sensor values from Home Assistant over HTTP.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> HA URL (e.g. <code>http://192.168.1.50:8123</code>)</div>
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Long-lived access token (HA → Profile → Security → Long-lived tokens)</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Entities listed: <code>sensor.*</code>, <code>binary_sensor.*</code>, <code>switch.*</code>, <code>light.*</code>, <code>climate.*</code>, <code>fan.*</code>, <code>cover.*</code> and <code>input_boolean.*</code></div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> <code>on</code>/<code>off</code> states are kept as on/off; the grid status and switch blocks read them directly</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> URL, e.g. <code>http://192.168.1.50:8123</code></div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Long-lived token (Profile → Security)</div>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/ha">Sources → Home Assistant</a></li>
-                  <li>Enter HA URL and token → click <em>Fetch Entities</em> to load your sensor list</li>
-                  <li>Click <em>+ Add Metric Mapping</em> for each value you want</li>
-                  <li>Pick a metric name (e.g. <code>grid_power</code>) and an entity (e.g. <code>sensor.shelly_em_grid_power</code>)</li>
-                  <li>Set poll interval (30–60s recommended)</li>
+                  <li><a class="help-link" href="#sources/ha">Sources → Home Assistant</a>: enter the URL and token, press <em>Fetch Entities</em></li>
+                  <li><em>+ Add Metric Mapping</em>: pick a metric name and an entity</li>
+                  <li>Set the poll interval (30 to 60 s)</li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/home-assistant/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
@@ -560,17 +554,15 @@
             <details class="help-sub">
               <summary class="help-sub-summary">MQTT</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Subscribe to MQTT topics from any broker (Mosquitto, EMQX, Tasmota devices, etc.).</p>
+                <p>Subscribes to topics on any broker.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Broker URL (e.g. <code>mqtt://192.168.1.50:1883</code>)</div>
-                  <div class="help-checklist-item"><span class="help-badge opt">Optional</span> Username and password if broker requires auth</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Broker URL, e.g. <code>mqtt://192.168.1.50:1883</code></div>
+                  <div class="help-checklist-item"><span class="help-badge opt">Optional</span> Username and password</div>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/mqtt">Sources → MQTT</a></li>
-                  <li>Enter broker URL → click <em>Test Broker</em></li>
-                  <li>Use <em>Discover Topics</em> to find available topics, or enter manually</li>
-                  <li>Click <em>+ Add Metric Mapping</em> → pick a metric name, enter the topic</li>
+                  <li><a class="help-link" href="#sources/mqtt">Sources → MQTT</a>: enter the URL, press <em>Test Broker</em></li>
+                  <li><em>Discover Topics</em>, or type one</li>
+                  <li><em>+ Add Metric Mapping</em>: pick a metric name and a topic</li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/mqtt/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
@@ -579,16 +571,14 @@
             <details class="help-sub">
               <summary class="help-sub-summary">Modbus (RTU / TCP)</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Direct serial (RS485/USB) or TCP connection to inverters and charge controllers.</p>
+                <p>Serial (RS485 or USB) or TCP to inverters and charge controllers.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Serial: <code>/dev/ttyUSB0</code> (or similar), correct baud rate + unit ID</div>
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> TCP: IP address + port (usually 502)</div>
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Select the correct profile for your hardware</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Serial</span> <code>/dev/ttyUSB0</code>, baud rate and unit ID</div>
+                  <div class="help-checklist-item"><span class="help-badge must">TCP</span> IP address and port (usually 502)</div>
                 </div>
-                <p><strong>Profile → hardware mapping:</strong></p>
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Inverter Brand</th><th>Profile Name</th></tr></thead>
+                  <thead><tr><th>Inverter</th><th>Profile</th></tr></thead>
                   <tbody>
                     <tr><td>SRNE / PowMr / EASun</td><td><code>SRNE Inverter (V1.96 / Latest Protocol)</code> or <code>SRNE All-in-One Inverter (Modbus RTU)</code></td></tr>
                     <tr><td>Growatt SPF 3500–6000 ES</td><td><code>Growatt SPF Series (Modbus RTU)</code></td></tr>
@@ -606,14 +596,11 @@
                   </tbody>
                 </table>
                 </div>
-                <p>LuxPower inverters aren't read over Modbus: connect their WiFi or Bluetooth dongle under <a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a>.</p>
-                <p><strong>Steps:</strong></p>
+                <p>LuxPower uses its dongle: <a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a>.</p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/modbus">Sources → Modbus</a></li>
-                  <li>Select transport (TCP or Serial), enter connection details</li>
-                  <li>Pick a profile from the dropdown matching your hardware</li>
-                  <li>Click <em>Load Profile Fields</em> → map each register to a metric name</li>
-                  <li>Click <em>Test Modbus</em> to verify the connection reads data</li>
+                  <li><a class="help-link" href="#sources/modbus">Sources → Modbus</a>: pick transport, enter details and the profile</li>
+                  <li><em>Load Profile Fields</em>, then name each register</li>
+                  <li><em>Test Modbus</em></li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/modbus/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
@@ -622,15 +609,14 @@
             <details class="help-sub">
               <summary class="help-sub-summary">RS232 (Serial ASCII / Binary)</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Direct serial connection to inverters using ASCII query/response or binary protocols.</p>
+                <p>Serial ASCII or binary protocols over a USB-to-serial cable.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> USB-to-serial cable with correct driver (CH340, FTDI, CP2102)</div>
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> User must be in the <code>dialout</code> group: <code>sudo usermod -a -G dialout $USER</code></div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> A cable with a driver (CH340, FTDI, CP2102)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Your user in <code>dialout</code>: <code>sudo usermod -a -G dialout $USER</code></div>
                 </div>
-                <p><strong>Profile → baud rate defaults:</strong></p>
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Protocol</th><th>Profile</th><th>Default Baud</th></tr></thead>
+                  <thead><tr><th>Protocol</th><th>Profile</th><th>Baud</th></tr></thead>
                   <tbody>
                     <tr><td>Voltronic QPIGS</td><td><code>Voltronic / Axpert (QPIGS ASCII)</code></td><td>2400</td></tr>
                     <tr><td>Infinisolar</td><td><code>Infinisolar (Voltronic QPIGS)</code></td><td>2400</td></tr>
@@ -640,13 +626,10 @@
                   </tbody>
                 </table>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/rs232">Sources → RS232</a></li>
-                  <li>Select serial port and baud rate (match profile defaults above)</li>
-                  <li>Pick a profile from the dropdown</li>
-                  <li>Click <em>Load Profile Fields</em> → map each field to a metric name</li>
-                  <li>Click <em>Test RS232</em> to verify</li>
+                  <li><a class="help-link" href="#sources/rs232">Sources → RS232</a>: pick the port, baud rate and profile</li>
+                  <li><em>Load Profile Fields</em>, then name each field</li>
+                  <li><em>Test RS232</em></li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/rs232/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
@@ -655,28 +638,26 @@
             <details class="help-sub">
               <summary class="help-sub-summary">WiFi dongle and Bluetooth modules</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Inverters with a WiFi logger stick or a Bluetooth module. Connects over your local network or the host's Bluetooth adapter; no cable to the inverter.</p>
+                <p>Inverters with a WiFi stick or Bluetooth module, with no cable.</p>
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Profile</th><th>Connection</th><th>What it needs</th></tr></thead>
+                  <thead><tr><th>Profile</th><th>Connection</th><th>Needs</th></tr></thead>
                   <tbody>
-                    <tr><td><code>Deye / SunSynk Hybrid (Solarman V5)</code>, <code>SRNE Hybrid Inverter (Solarman V5)</code></td><td>Solarman stick, port 8899</td><td>Stick IP and its serial number (sticker)</td></tr>
-                    <tr><td><code>LuxPowerTek Generic Hybrid</code></td><td>WiFi dongle, port 8000, or Bluetooth</td><td>Dongle IP, the dongle serial and the inverter serial (10 characters each, on their labels); or the Bluetooth address</td></tr>
-                    <tr><td><code>LuxPowerTek GETA 3.6kW 24V</code></td><td>Same as above</td><td>Only the registers the 24 V single-MPPT unit has; use it instead of the generic profile for that model</td></tr>
+                    <tr><td><code>Deye / SunSynk Hybrid (Solarman V5)</code>, <code>SRNE Hybrid Inverter (Solarman V5)</code></td><td>Solarman stick, port 8899</td><td>Stick IP and serial</td></tr>
+                    <tr><td><code>LuxPowerTek Generic Hybrid</code></td><td>WiFi dongle, port 8000, or Bluetooth</td><td>Dongle IP, dongle serial and inverter serial, or the Bluetooth address</td></tr>
+                    <tr><td><code>LuxPowerTek GETA 3.6kW 24V</code></td><td>Same</td><td>Use it instead of the generic profile for that model</td></tr>
                     <tr><td><code>Felicity Inverter (TCP/JSON)</code></td><td>WiFi, port 53970</td><td>Inverter IP</td></tr>
-                    <tr><td><code>Growatt SPF Series (TCP Server)</code></td><td>The stick connects to Epilykos on port 5279</td><td>Point the stick's server address at this machine</td></tr>
-                    <tr><td><code>Phocos Any-Grid PSW-H (Bluetooth)</code></td><td>Bluetooth</td><td>The Bluetooth address (use Scan)</td></tr>
+                    <tr><td><code>Growatt SPF Series (TCP Server)</code></td><td>Stick connects to Epilykos on port 5279</td><td>Point the stick at this machine</td></tr>
+                    <tr><td><code>Phocos Any-Grid PSW-H (Bluetooth)</code></td><td>Bluetooth</td><td>Bluetooth address (Scan)</td></tr>
                   </tbody>
                 </table>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a> and pick the profile for your inverter</li>
-                  <li>Fill in what the profile needs (above)</li>
-                  <li>Click <em>Load Profile Registers</em> → keep or change the metric names</li>
-                  <li>Click <em>Test Connection</em> to check it reads</li>
+                  <li><a class="help-link" href="#sources/dongle">Sources → WiFi dongle</a>: pick the profile and fill in what it needs</li>
+                  <li><em>Load Profile Registers</em>, then name the readings</li>
+                  <li><em>Test Connection</em></li>
                 </ol>
-                <p class="note">Bluetooth uses the host's adapter; in Docker, mount <code>/run/dbus</code>. Devices on one adapter are read one at a time, so allow about 10 seconds per device in their read intervals.</p>
+                <p class="note">Bluetooth needs the host's adapter. In Docker, mount <code>/run/dbus</code>.</p>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/inverter-dongles/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
             </details>
@@ -684,17 +665,15 @@
             <details class="help-sub">
               <summary class="help-sub-summary">BMS (Battery Management System)</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Readings straight from the battery's BMS: charge, cell voltages, temperatures, current.</p>
+                <p>Charge, cell voltages, temperatures and current from the battery's BMS.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge info">Bluetooth</span> JBD, JK and the other brands the scan recognises. Needs the host's Bluetooth adapter. JBD and JK packs can also be switched on and off from the Controls page.</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Wired</span> RS485 or RS232 to USB: pick the serial port, a profile (JBD, JK, PACE, Cworth) and the unit ID.</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Battery bank</span> Combines several packs into one battery (state of charge weighted by capacity, total power).</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Bluetooth</span> JBD, JK and other scanned brands</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Wired</span> RS485 or RS232 to USB, with a profile (JBD, JK, PACE, Cworth) and unit ID</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Battery bank</span> Several packs as one battery</div>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/bms">Sources → BMS</a></li>
-                  <li><em>+ Add Bluetooth BMS</em> and scan, or <em>+ Add wired BMS</em> and pick the serial port and profile</li>
-                  <li>Several packs in one battery: add a <em>battery bank</em> and pick its packs</li>
+                  <li><a class="help-link" href="#sources/bms">Sources → BMS</a>: <em>+ Add Bluetooth BMS</em> and scan, or <em>+ Add wired BMS</em></li>
+                  <li>For several packs, add a <em>battery bank</em></li>
                   <li>Save</li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/bms/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
@@ -704,16 +683,14 @@
             <details class="help-sub">
               <summary class="help-sub-summary">External / REST API</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Pull data from any HTTP JSON API (weather services, energy monitors, custom endpoints).</p>
+                <p>Reads values from any JSON endpoint.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> URL returning JSON</div>
-                  <div class="help-checklist-item"><span class="help-badge info">Note</span> JSON paths use dots, list items by number: <code>data.power</code>, <code>results.0.temperature</code> (not <code>results[0]</code>)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> A URL that returns JSON</div>
+                  <div class="help-checklist-item"><span class="help-badge info">Note</span> Paths use dots and list numbers: <code>results.0.temperature</code></div>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/external">Sources → REST API</a></li>
-                  <li>Enter URL, click <em>+ Add Metric Mapping</em> for each value</li>
-                  <li>Enter JSON path and pick a metric name</li>
+                  <li><a class="help-link" href="#sources/external">Sources → REST API</a>: enter the URL</li>
+                  <li><em>+ Add Metric Mapping</em>: enter a JSON path and metric name</li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/rest-api/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
@@ -722,15 +699,14 @@
             <details class="help-sub">
               <summary class="help-sub-summary">Tuya (Smart Life devices)</summary>
               <div class="help-sub-body">
-                <p><strong>What it's for:</strong> Tuya / Smart Life plugs, meters and switches, read directly on your network (port 6668). The cloud is used once, to fetch each device's local key.</p>
+                <p>Reads Tuya plugs, meters and switches locally. The cloud is used once for their keys.</p>
                 <div class="help-checklist">
-                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Your Smart Life user ID (app → Me → ⚙ → Account → User ID)</div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Smart Life user ID (Me → ⚙ → Account)</div>
                 </div>
-                <p><strong>Steps:</strong></p>
                 <ol>
-                  <li>Go to <a class="help-link" href="#sources/tuya">Sources → Tuya</a>, enter the user ID and scan the QR code with the Smart Life app</li>
-                  <li>Devices, local keys and readings are filled in; name the readings you want</li>
-                  <li>Click <em>Verify All</em>, then save</li>
+                  <li><a class="help-link" href="#sources/tuya">Sources → Tuya</a>: enter the ID and scan the QR code</li>
+                  <li>Name the readings you want</li>
+                  <li><em>Verify All</em>, then save</li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/tuya/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
@@ -740,66 +716,61 @@
 
         <!-- ── 3. Metric Naming ─────────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Metric Names — naming conventions and system roles</summary>
+          <summary class="help-summary">Metric names and roles</summary>
           <div class="help-body">
-            <p>Metric names are the labels that identify your data throughout the system. Choose them carefully — they connect your hardware to the dashboard.</p>
-            <h4>Conventions</h4>
             <ul>
-              <li>Use <strong>lowercase</strong> with <strong>underscores</strong>: <code>battery_voltage</code> not <code>BatteryVoltage</code></li>
-              <li>Be <strong>descriptive</strong>: <code>pv1_power</code> is better than <code>solar</code></li>
-              <li>Use <strong>consistent suffixes</strong>: <code>_power</code>, <code>_voltage</code>, <code>_current</code>, <code>_energy</code>, <code>_soc</code>, <code>_temp</code></li>
-              <li>Number multiple PV strings: <code>pv1_power</code>, <code>pv2_power</code></li>
+              <li>Lowercase with underscores: <code>battery_voltage</code></li>
+              <li>Descriptive: <code>pv1_power</code>, not <code>solar</code></li>
+              <li>Consistent suffixes: <code>_power</code>, <code>_voltage</code>, <code>_current</code>, <code>_energy</code>, <code>_soc</code>, <code>_temp</code></li>
             </ul>
-            <h4>Metric roles</h4>
-            <p>Roles tell Epilykos which of your metrics is which. Set them in <a class="help-link" href="#metrics">Metrics → Metric roles</a> (the setup wizard fills them in for you). They feed the history behind the power and energy charts, the daily and monthly tables, the energy day, flows and costs cards, and savings.</p>
+            <p>Roles tell Epilykos which metric is which. Set them in <a class="help-link" href="#metrics">Metrics → Metric roles</a>.</p>
             <div class="table-wrap">
             <table class="help-table">
               <thead><tr><th>Role</th><th>Unit</th><th>Typical metric names</th></tr></thead>
               <tbody>
                 <tr><td>Solar power</td><td>W</td><td><code>pv_power</code>, <code>solar_power</code></td></tr>
-                <tr><td>Consumption (home use)</td><td>W</td><td><code>load_power</code>, <code>ac_output_power</code></td></tr>
-                <tr><td>Battery charge / discharge power</td><td>W</td><td><code>battery_power</code> (one signed value fills both), or separate charge and discharge metrics</td></tr>
+                <tr><td>Consumption</td><td>W</td><td><code>load_power</code>, <code>ac_output_power</code></td></tr>
+                <tr><td>Battery charge / discharge power</td><td>W</td><td><code>battery_power</code>, or separate metrics</td></tr>
                 <tr><td>Grid import / export</td><td>W</td><td><code>grid_power</code>, <code>grid_import</code>, <code>grid_export</code></td></tr>
                 <tr><td>Battery SOC</td><td>%</td><td><code>battery_soc</code></td></tr>
                 <tr><td>Solar voltage</td><td>V</td><td><code>pv_voltage</code>, <code>pv1_voltage</code></td></tr>
-                <tr><td>Daily solar, consumption, battery charge and discharge, grid import and export</td><td>kWh today</td><td><code>daily_solar</code>, <code>pv_energy_today</code>, … (reset at midnight by the inverter)</td></tr>
-                <tr><td>Generator power and daily generator energy</td><td>W, kWh today</td><td><code>generator_power</code>, <code>generator_energy_today</code> (inverters with a generator input)</td></tr>
+                <tr><td>Daily solar, consumption, battery, grid</td><td>kWh today</td><td><code>daily_solar</code>, <code>pv_energy_today</code></td></tr>
+                <tr><td>Generator power and daily energy</td><td>W, kWh today</td><td><code>generator_power</code>, <code>generator_energy_today</code></td></tr>
               </tbody>
             </table>
             </div>
-            <p class="note">No daily energy reading for a role? <a class="help-link" href="#metrics">Combined metrics</a> can work it out from power, or add several inverters' readings together.</p>
+            <p class="note">No daily energy reading? <a class="help-link" href="#metrics">Combined metrics</a> can work it out from power.</p>
             <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/getting-started/core-concepts/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
           </div>
         </details>
 
         <!-- ── 4. Dashboard Builder ─────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Dashboard Builder — block types and tips</summary>
+          <summary class="help-summary">Dashboard builder</summary>
           <div class="help-body">
-            <p>Open the <a href="/editor" class="help-link">layout editor</a> to build your dashboards. The list on the left has every block with a short description, grouped as energy flow, values, gauges and bars, charts and tables, forecast and weather, controls, and text. Some of them:</p>
+            <p>Build dashboards in the <a href="/editor" class="help-link">layout editor</a>. Some blocks:</p>
             <div class="table-wrap">
             <table class="help-table">
               <thead><tr><th>Block</th><th>Shows</th><th>Needs</th></tr></thead>
               <tbody>
-                <tr><td><strong>System overview, System topology, Flow card</strong></td><td>Live power between solar, battery, grid and home</td><td>The power roles, or metrics picked on the block</td></tr>
-                <tr><td><strong>Power chart</strong></td><td>Power over the last 24 hours (or 3 days)</td><td>The power roles; a generator series appears when it ran</td></tr>
-                <tr><td><strong>Energy chart</strong></td><td>Daily energy as bars (7 days by default)</td><td>The daily energy roles</td></tr>
-                <tr><td><strong>Energy day, Energy flows, Costs and earnings</strong></td><td>One day by the hour: energy, where it came from and went, what it cost or earned</td><td>The power roles; prices from Prices and savings</td></tr>
-                <tr><td><strong>Daily and Monthly tables</strong></td><td>Energy per day (30 days) or month (12 months)</td><td>The daily energy roles</td></tr>
-                <tr><td><strong>Grid status</strong></td><td>Grid on/off, hours on and a 24-hour timeline</td><td>The <a class="help-link" href="#savings">grid status metric</a></td></tr>
-                <tr><td><strong>Savings</strong></td><td>Solar savings today, this week, month and all time</td><td>Daily solar role and the prices (see Prices and savings below)</td></tr>
+                <tr><td><strong>System overview, Flow card</strong></td><td>Live power between solar, battery, grid and home</td><td>The power roles</td></tr>
+                <tr><td><strong>Power chart</strong></td><td>Power over 24 hours or 3 days</td><td>The power roles</td></tr>
+                <tr><td><strong>Energy chart</strong></td><td>Daily energy as bars</td><td>The daily energy roles</td></tr>
+                <tr><td><strong>Energy day, Energy flows, Costs and earnings</strong></td><td>One day by the hour, and what it cost or earned</td><td>The power roles and your prices</td></tr>
+                <tr><td><strong>Daily and Monthly tables</strong></td><td>Energy per day or month</td><td>The daily energy roles</td></tr>
+                <tr><td><strong>Grid status</strong></td><td>Grid on or off, and a 24-hour timeline</td><td>The <a class="help-link" href="#savings">grid status metric</a></td></tr>
+                <tr><td><strong>Savings</strong></td><td>Solar savings today, week, month and all time</td><td>Daily solar role and prices</td></tr>
                 <tr><td><strong>Solar forecast blocks</strong></td><td>Forecast against actual solar</td><td>Forecast and weather settings</td></tr>
-                <tr><td><strong>Toggle switch, State select</strong></td><td>Switches and selectors</td><td>Only on the Controls page: pick <em>Controls page</em> in the editor's dashboard menu</td></tr>
-                <tr><td><strong>Gauges, bars, metric cards, text metric</strong></td><td>One or a few live values</td><td>Any metric</td></tr>
+                <tr><td><strong>Toggle switch, State select</strong></td><td>Switches and selectors</td><td>The Controls page dashboard</td></tr>
+                <tr><td><strong>Gauges, bars, metric cards</strong></td><td>Live values</td><td>Any metric</td></tr>
               </tbody>
             </table>
             </div>
-            <h4>Tips</h4>
             <ul>
-              <li><strong>Resize:</strong> Drag any edge or corner of a block, or select it and press Shift + arrow keys</li>
-              <li><strong>Duplicate:</strong> Select a block and press <em>Duplicate</em> (the copy icon) in its toolbar</li>
-              <li><strong>Undo:</strong> Ctrl + Z, redo Ctrl + Shift + Z; changes save as you go</li>
-              <li><strong>Multiple dashboards:</strong> New, rename, duplicate or delete them from the dashboard menu at the top left (e.g. "Overview", "Battery", "TV display")</li>
+              <li><strong>Resize:</strong> drag an edge, or Shift + arrow keys</li>
+              <li><strong>Duplicate:</strong> the copy icon in the block toolbar</li>
+              <li><strong>Undo:</strong> Ctrl + Z, redo Ctrl + Shift + Z</li>
+              <li><strong>Several dashboards:</strong> the dashboard menu, top left</li>
             </ul>
             <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/dashboard/cards/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
           </div>
@@ -807,16 +778,15 @@
 
         <!-- ── 5. Solar Forecast ────────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Solar Forecast — setup and accuracy</summary>
+          <summary class="help-summary">Solar forecast</summary>
           <div class="help-body">
-            <p>Go to <a class="help-link" href="#forecast">Forecast and weather</a> to configure.</p>
-            <h4>Free vs Paid</h4>
+            <p>Set it up in <a class="help-link" href="#forecast">Forecast and weather</a>.</p>
             <div class="table-wrap">
             <table class="help-table">
               <thead><tr><th>Provider</th><th>Accuracy</th><th>Cost</th></tr></thead>
               <tbody>
-                <tr><td><strong>Open-Meteo</strong></td><td>Moderate (general area forecast)</td><td>Free — no key needed</td></tr>
-                <tr><td><strong>Solcast</strong></td><td>High (rooftop-level modeling)</td><td>Free hobbyist plan (about 10 calls a day): Epilykos keeps each forecast for 3 hours, about 8 calls a day</td></tr>
+                <tr><td><strong>Open-Meteo</strong></td><td>Moderate</td><td>Free, no key</td></tr>
+                <tr><td><strong>Solcast</strong></td><td>High, per rooftop</td><td>Free hobbyist plan, about 8 of its 10 daily calls</td></tr>
               </tbody>
             </table>
             </div>
@@ -826,43 +796,35 @@
 
         <!-- ── Prices and savings ──────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Prices and savings — costs, generator and how savings are worked out</summary>
+          <summary class="help-summary">Prices and savings</summary>
           <div class="help-body">
-            <p>Set prices in <a class="help-link" href="#savings">Prices and savings</a>. All prices are per kWh, in your currency.</p>
-            <ul>
-              <li><strong>Grid buy price</strong> and <strong>grid sell price</strong>: grid costs and export earnings in Costs and earnings</li>
-              <li><strong>Generator buy price</strong>: for inverters with a generator input (fuel and upkeep per kWh); generator costs come from the daily generator role</li>
-              <li><strong>Battery wear cost</strong>: charged on every kWh into or out of the battery</li>
-            </ul>
-            <h4>Solar savings</h4>
-            <p>Each day's saving is that day's solar kWh × a price; today, week (from Monday), month and all time add the days up. <em>Solar savings</em> picks the price:</p>
+            <p>Prices are per kWh, set in <a class="help-link" href="#savings">Prices and savings</a>. Each day's saving is that day's solar kWh × a price, and <em>Solar savings</em> picks the price:</p>
             <div class="table-wrap">
             <table class="help-table">
               <thead><tr><th>Choice</th><th>Price per solar kWh</th><th>Example (4 kWh solar, grid 0.30, generator 0.50)</th></tr></thead>
               <tbody>
                 <tr><td><strong>At the grid buy price</strong> (default)</td><td>Grid price</td><td>4 × 0.30 = 1.20</td></tr>
-                <tr><td><strong>By grid availability</strong></td><td>Grid price for solar made while the grid was on, generator price for solar made during an outage. Needs the grid status metric; without it, the grid price.</td><td>Half made in an outage: 4 × (0.5 × 0.30 + 0.5 × 0.50) = 1.60</td></tr>
-                <tr><td><strong>By what you actually bought</strong></td><td>The day's average price of the grid and generator energy bought: (grid kWh × grid price + generator kWh × generator price) ÷ (grid kWh + generator kWh). A day with neither: the grid price.</td><td>Bought 2 kWh grid, 3 kWh generator: price 0.42, so 4 × 0.42 = 1.68</td></tr>
+                <tr><td><strong>By grid availability</strong></td><td>Grid price, or generator price during outages. Needs the grid status metric.</td><td>Half in an outage: 4 × (0.5 × 0.30 + 0.5 × 0.50) = 1.60</td></tr>
+                <tr><td><strong>By what you actually bought</strong></td><td>The day's average of the grid and generator prices you paid</td><td>Bought 2 kWh grid, 3 kWh generator: 4 × (2 × 0.30 + 3 × 0.50) ÷ 5 = 1.68</td></tr>
               </tbody>
             </table>
             </div>
-            <p class="note">Set a generator price before choosing either generator-based method: with a price of 0, solar made during outages (or the generator part of the average) counts as worth nothing. Solar stored in the battery is valued when it was made, not when it was used.</p>
+            <p class="note">Set a generator price first, or outage solar counts as worth nothing.</p>
             <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/settings/prices-and-savings/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
           </div>
         </details>
 
         <!-- ── 6. Appearance ────────────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Appearance &amp; Theming</summary>
+          <summary class="help-summary">Appearance</summary>
           <div class="help-body">
-            <p>Go to <a class="help-link" href="#appearance">Appearance</a> for visual options.</p>
             <ul>
-              <li><strong>Background:</strong> A colour for light mode and one for dark mode, or an image URL</li>
-              <li><strong>Transparent blocks:</strong> Makes block backgrounds see-through for a cleaner look with background images</li>
-              <li><strong>Title &amp; logo:</strong> A dashboard title, and a logo image by URL (shown top left)</li>
-              <li><strong>Favicon:</strong> The browser tab icon, by URL</li>
-              <li><strong>Default dashboards:</strong> Which dashboard opens on computers and which on phones</li>
-              <li><strong>Dark/Light theme:</strong> Choose Light, Dark or Auto at the bottom of the settings menu</li>
+              <li><strong>Background:</strong> a colour per theme, or an image URL</li>
+              <li><strong>Transparent blocks:</strong> see-through block backgrounds</li>
+              <li><strong>Title and logo:</strong> shown top left</li>
+              <li><strong>Favicon:</strong> the browser tab icon</li>
+              <li><strong>Default dashboards:</strong> one for computers, one for phones</li>
+              <li><strong>Theme:</strong> Light, Dark or Auto, at the bottom of the menu</li>
             </ul>
             <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/settings/appearance/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
           </div>
@@ -870,14 +832,13 @@
 
         <!-- ── 7. Backup & Restore ──────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Backup &amp; Restore</summary>
+          <summary class="help-summary">Backup and restore</summary>
           <div class="help-body">
-            <p>Go to <a class="help-link" href="#backup">Backup and restore</a>.</p>
             <ul>
-              <li><strong>Manual backup:</strong> Click <em>Download backup</em> to save the whole database (settings, layouts and history) as a <code>.db</code> file</li>
-              <li><strong>Restore:</strong> <em>Restore from file…</em> replaces everything with the backup</li>
-              <li><strong>Passphrase:</strong> switch on <em>Protect saved passwords with a passphrase</em> before downloading, to restore the backup on another box with its saved passwords. Epilykos asks for the passphrase when you restore the file</li>
-              <li><strong>Snapshots:</strong> One is made automatically each day and the last 2 are kept. Click <em>Restore</em> on one to roll back</li>
+              <li><strong>Download backup:</strong> the whole database as a <code>.db</code> file</li>
+              <li><strong>Restore from file:</strong> replaces everything with the backup</li>
+              <li><strong>Passphrase:</strong> turn it on before downloading to keep saved passwords on another box</li>
+              <li><strong>Snapshots:</strong> one a day, the last 2 kept. <em>Restore</em> rolls back</li>
             </ul>
             <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/settings/backup-and-restore/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
           </div>
@@ -885,84 +846,84 @@
 
         <!-- ── 8. Troubleshooting ───────────────────────────── -->
         <details class="help-accordion">
-          <summary class="help-summary">Troubleshooting — common issues and fixes</summary>
+          <summary class="help-summary">Troubleshooting</summary>
           <div class="help-body">
             <details class="help-sub">
-              <summary class="help-sub-summary">Modbus Issues</summary>
+              <summary class="help-sub-summary">Modbus</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
                   <tbody>
-                    <tr><td>Connection refused</td><td>Wrong IP or port</td><td>Verify IP reachable: <code>ping &lt;ip&gt;</code>. Check port 502 open.</td></tr>
-                    <tr><td>Timeout</td><td>Wrong unit ID</td><td>Most inverters use unit ID 1. Check your inverter manual.</td></tr>
-                    <tr><td>No data on dashboard</td><td>Unmapped registers</td><td>Click <em>Load Profile Fields</em> and ensure each register has a metric name selected.</td></tr>
-                    <tr><td>CRC / checksum errors</td><td>Baud rate mismatch</td><td>Match baud rate to your inverter (9600 for most, 2400 for Voltronic).</td></tr>
-                    <tr><td>Port not found</td><td>USB disconnected or driver missing</td><td>Check <code>ls /dev/ttyUSB*</code>. Install CH340/FTDI driver if needed.</td></tr>
-                    <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code> then log out and back in.</td></tr>
+                    <tr><td>Connection refused</td><td>Wrong IP or port</td><td>Ping the IP and check port 502</td></tr>
+                    <tr><td>Timeout</td><td>Wrong unit ID</td><td>Most inverters use 1</td></tr>
+                    <tr><td>No data</td><td>Unmapped registers</td><td>Press <em>Load Profile Fields</em> and name each one</td></tr>
+                    <tr><td>CRC errors</td><td>Baud rate mismatch</td><td>9600 for most, 2400 for Voltronic</td></tr>
+                    <tr><td>Port not found</td><td>USB or driver</td><td>Check <code>ls /dev/ttyUSB*</code></td></tr>
+                    <tr><td>Permission denied</td><td>Not in dialout</td><td><code>sudo usermod -a -G dialout $USER</code>, then log in again</td></tr>
                   </tbody>
                 </table>
                 </div>
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">RS232 Issues</summary>
+              <summary class="help-sub-summary">RS232</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
                   <tbody>
-                    <tr><td>Permission denied</td><td>Not in dialout group</td><td><code>sudo usermod -a -G dialout $USER</code></td></tr>
-                    <tr><td>Port not found</td><td>USB cable disconnected</td><td>Check <code>ls /dev/ttyUSB*</code> and reseat the cable</td></tr>
-                    <tr><td>Read timeout</td><td>Wrong baud rate</td><td>Match profile default: 2400 (Voltronic), 9600 (SolaX), 19200 (VE.Direct)</td></tr>
+                    <tr><td>Permission denied</td><td>Not in dialout</td><td><code>sudo usermod -a -G dialout $USER</code></td></tr>
+                    <tr><td>Port not found</td><td>Cable disconnected</td><td>Check <code>ls /dev/ttyUSB*</code> and reseat it</td></tr>
+                    <tr><td>Read timeout</td><td>Wrong baud rate</td><td>2400 Voltronic, 9600 SolaX, 19200 VE.Direct</td></tr>
                   </tbody>
                 </table>
                 </div>
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">Dongle Issues</summary>
+              <summary class="help-sub-summary">Dongle</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
                   <tbody>
-                    <tr><td>Timeout</td><td>Logger not reachable</td><td>Check WiFi signal. Ping the logger IP.</td></tr>
-                    <tr><td>Checksum mismatch</td><td>Wrong serial number</td><td>Serial number is case-sensitive and must match the sticker exactly.</td></tr>
-                    <tr><td>No data</td><td>Wrong profile</td><td>Match the profile to your inverter model — Solarman ≠ Felicity TCP.</td></tr>
+                    <tr><td>Timeout</td><td>Logger not reachable</td><td>Check WiFi and ping its IP</td></tr>
+                    <tr><td>Checksum mismatch</td><td>Wrong serial</td><td>Match the sticker exactly, including case</td></tr>
+                    <tr><td>No data</td><td>Wrong profile</td><td>Match the profile to your model</td></tr>
                   </tbody>
                 </table>
                 </div>
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">MQTT Issues</summary>
+              <summary class="help-sub-summary">MQTT</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
                   <tbody>
-                    <tr><td>Connection refused</td><td>Broker not running or wrong port</td><td>Check <code>systemctl status mosquitto</code>. Default port is 1883.</td></tr>
-                    <tr><td>Auth failure</td><td>Wrong username/password</td><td>Verify credentials in your MQTT broker config</td></tr>
-                    <tr><td>No data appearing</td><td>Topic not publishing</td><td>Use <code>mosquitto_sub -t "#" -v</code> to verify the topic is publishing values</td></tr>
+                    <tr><td>Connection refused</td><td>Broker down or wrong port</td><td>Check <code>systemctl status mosquitto</code>. Default port 1883</td></tr>
+                    <tr><td>Auth failure</td><td>Wrong credentials</td><td>Check the broker config</td></tr>
+                    <tr><td>No data</td><td>Topic not publishing</td><td>Try <code>mosquitto_sub -t "#" -v</code></td></tr>
                   </tbody>
                 </table>
                 </div>
               </div>
             </details>
             <details class="help-sub">
-              <summary class="help-sub-summary">General Issues</summary>
+              <summary class="help-sub-summary">General</summary>
               <div class="help-sub-body">
                 <div class="table-wrap">
                 <table class="help-table">
-                  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+                  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
                   <tbody>
-                    <tr><td>Dashboard shows zeros or empty</td><td>Metric name mismatch</td><td>The metric name in the block config must exactly match what your data source writes.</td></tr>
-                    <tr><td>Charts are empty</td><td>History not populated yet</td><td>Wait 2–3 poll cycles (60–90s).</td></tr>
-                    <tr><td>Settings not saving</td><td>Session expired</td><td>Log out and log back in.</td></tr>
-                    <tr><td>Grid status block shows nothing</td><td>No grid status metric</td><td>Set the <a class="help-link" href="#savings">Grid status metric</a> in Prices and savings to the metric that is 1/on when the grid is up.</td></tr>
-                    <tr><td>Savings look low after choosing a generator method</td><td>Generator price is 0</td><td>Set the generator buy price in <a class="help-link" href="#savings">Prices and savings</a>.</td></tr>
-                    <tr><td>Generator missing from charts and costs</td><td>Generator roles not set</td><td>Map Generator power and Daily generator energy in <a class="help-link" href="#metrics">Metric roles</a>.</td></tr>
+                    <tr><td>Dashboard shows zeros</td><td>Metric name mismatch</td><td>The block's metric must match the source's exactly</td></tr>
+                    <tr><td>Charts are empty</td><td>No history yet</td><td>Wait 2 to 3 poll cycles</td></tr>
+                    <tr><td>Settings not saving</td><td>Session expired</td><td>Log out and in</td></tr>
+                    <tr><td>Grid status shows nothing</td><td>No grid status metric</td><td>Set the <a class="help-link" href="#savings">Grid status metric</a></td></tr>
+                    <tr><td>Savings look low</td><td>Generator price is 0</td><td>Set it in <a class="help-link" href="#savings">Prices and savings</a></td></tr>
+                    <tr><td>Generator missing from charts</td><td>Generator roles not set</td><td>Map them in <a class="help-link" href="#metrics">Metric roles</a></td></tr>
                   </tbody>
                 </table>
                 </div>

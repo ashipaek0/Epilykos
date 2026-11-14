@@ -374,3 +374,24 @@ html.dt body.st .section-divider { color: var(--dt-ink); font-weight: 700; font-
 html.dt body.st .section-divider::after { background: var(--dt-sect); }
 
 html.dt body.st .st-choice-group { margin: 22px 0 6px; }
+
+/* ── Help: rows with a rule, not filled bars ── */
+html.dt body.st details.help-accordion { margin: 0; border: 0; border-top: 1.5px solid var(--dt-sect); border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+html.dt body.st details.help-accordion:last-of-type { border-bottom: 1.5px solid var(--dt-sect); }
+html.dt body.st details.help-accordion[open] { border-color: var(--dt-sect); }
+html.dt body.st .help-summary, html.dt body.st details.help-accordion[open] > .help-summary {
+  background: none; color: var(--dt-ink); min-height: 56px; padding: 12px 2px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; border-radius: 0; box-shadow: none;
+}
+html.dt body.st .help-summary:hover { background: var(--dt-bg2); }
+html.dt body.st .help-summary::before { color: var(--dt-acc); font-size: 0.6em; margin-right: 0.6rem; }
+html.dt body.st .help-body { background: none; padding: 4px 2px 28px 32px; }
+html.dt body.st .help-body h4 { color: var(--dt-ink); font-weight: 700; font-size: 15px; }
+html.dt body.st .help-body p, html.dt body.st .help-body ul, html.dt body.st .help-body ol { font-size: 15px; line-height: 1.55; }
+html.dt body.st details.help-sub { margin: 0; border: 0; border-top: 1px solid var(--dt-rule); border-radius: 0; background: none; overflow: visible; }
+html.dt body.st .help-sub-summary { background: none; min-height: 44px; display: flex; align-items: center; padding: 6px 2px; font-size: 15px; font-weight: 600; }
+html.dt body.st .help-sub-summary:hover { background: var(--dt-bg2); }
+html.dt body.st .help-sub-body { background: none; padding: 4px 2px 18px 24px; font-size: 14.5px; }
+html.dt body.st .help-step-num { background: var(--dt-acc); color: var(--dt-on-acc); }
+html.dt body.st .help-badge { font-weight: 700; color: var(--dt-ink); }
+html.dt body.st .help-badge.must { color: var(--dt-acc-ink); }
+html.dt body.st .help-checklist-item { padding: 4px 0; }
