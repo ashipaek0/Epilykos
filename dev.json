@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43584362315.1",
-    "version": "1.2.9-dev+27fa267",
-    "commit": "27fa267f731d5b5fb3960f984430d7be9e4764e8",
-    "digest": "sha256:d5e7c05c8b147d2b2598151c3870a7ec4942f6039c994fc6993b7d1f94350be2",
+    "buildId": "43586490688.1",
+    "version": "1.2.9-dev+25982e1",
+    "commit": "25982e10f66f1ef4cd963400ddcb9c7afdf236cc",
+    "digest": "sha256:184bfba7d7639a43ce11f68da9ee1708be09d83e7b8a0bfb25f206e2fdff9954",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:15:15Z",
+    "builtAt": "2026-11-14T10:42:04Z",
     "kind": "release",
     "notes": [
-      "Point the Help links and README at epilykos.ashipaek0.com.ng (#352)"
+      "Remote backup, step 2: WebDAV destination (#355)"
     ]
   },
   "history": [
+    {
+      "buildId": "43586490688.1",
+      "version": "1.2.9-dev+25982e1",
+      "commit": "25982e10f66f1ef4cd963400ddcb9c7afdf236cc",
+      "digest": "sha256:184bfba7d7639a43ce11f68da9ee1708be09d83e7b8a0bfb25f206e2fdff9954",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:42:04Z",
+      "kind": "release",
+      "notes": [
+        "Remote backup, step 2: WebDAV destination (#355)"
+      ]
+    },
     {
       "buildId": "43584362315.1",
       "version": "1.2.9-dev+27fa267",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Dashboard grid, step 3: the editor places cards on the dashboard's grid (#319)"
-      ]
-    },
-    {
-      "buildId": "43007405097.1",
-      "version": "1.2.4-dev+7bcd9a3",
-      "commit": "7bcd9a3e51063995768c5ce34a37fc9ecbcd6121",
-      "digest": "sha256:0be8c44fc98543a10916ddb8003b8dd6313a08dfcc8812e3e420d07317f02e68",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T10:53:59Z",
-      "kind": "release",
-      "notes": [
-        "Dashboard grid, step 2: the dashboard page uses the grid a dashboard sets (#318)"
       ]
     }
   ]
