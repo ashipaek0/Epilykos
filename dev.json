@@ -1,16 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43443595838.1",
-    "version": "1.2.9-dev+ff183ae",
-    "commit": "ff183ae1d525cc8176e43d410a8552c4413c381a",
-    "digest": "sha256:a6796233784828d05a15b2d1c6dc7a3629e2e37a7fde8d10b4b5fbc80022bd14",
+    "buildId": "43584356190.1",
+    "version": "1.2.9-dev+94d6fe7",
+    "commit": "94d6fe787bee28415d92a11a3667d3cb6139e014",
+    "digest": "sha256:3c51a213e2ce9f5d0748406133f93281f266722e9a81c3697d7afee5090ae394",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-13T14:32:18Z",
+    "builtAt": "2026-11-14T10:15:12Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
+      "Settings: Virtual Battery on its own page (#349)"
+    ]
   },
   "history": [
+    {
+      "buildId": "43584356190.1",
+      "version": "1.2.9-dev+94d6fe7",
+      "commit": "94d6fe787bee28415d92a11a3667d3cb6139e014",
+      "digest": "sha256:3c51a213e2ce9f5d0748406133f93281f266722e9a81c3697d7afee5090ae394",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:15:12Z",
+      "kind": "release",
+      "notes": [
+        "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
+        "Settings: Virtual Battery on its own page (#349)"
+      ]
+    },
     {
       "buildId": "43443595838.1",
       "version": "1.2.9-dev+ff183ae",
@@ -356,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Dashboard grid, step 1: the placement of blocks moves to one module (#317)"
-      ]
-    },
-    {
-      "buildId": "42998633248.1",
-      "version": "1.2.4-dev+7475737",
-      "commit": "7475737374fd9cd6b43e6dbab034a71174e884f6",
-      "digest": "sha256:daf1d45a08546edd9bca9e42b0b04300d98c2267a50f2be09466e8f28ffa8ccc",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T09:51:26Z",
-      "kind": "release",
-      "notes": [
-        "Layout editor: the Dashboard style panel scrolls (#316)"
       ]
     }
   ]
