@@ -1,18 +1,32 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43604937754.1",
-    "version": "1.2.11",
-    "commit": "9c56272865f6a353fedf701673de2c0c91f1e784",
-    "digest": "sha256:eb88f4cd41df29ce3c4417997ae7d36a911e8b8c1e426043d1d94a0e45205564",
+    "buildId": "43620286680.1",
+    "version": "1.2.12",
+    "commit": "4f0fffa36042416b2f7b14c2b653daba2a031b58",
+    "digest": "sha256:a3d0a27b24227b77805c961e20225e177fba1cfb54f6a32ef45ddb5d540c3b58",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-14T14:27:36Z",
+    "builtAt": "2026-11-14T17:17:49Z",
     "kind": "release",
     "notes": [
-      "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
+      "Settings: a faint amber wash marks the current section in the menu (#364)",
+      "Settings: more room between sections and a short faint divider (#363)"
     ]
   },
   "history": [
+    {
+      "buildId": "43620286680.1",
+      "version": "1.2.12",
+      "commit": "4f0fffa36042416b2f7b14c2b653daba2a031b58",
+      "digest": "sha256:a3d0a27b24227b77805c961e20225e177fba1cfb54f6a32ef45ddb5d540c3b58",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-14T17:17:49Z",
+      "kind": "release",
+      "notes": [
+        "Settings: a faint amber wash marks the current section in the menu (#364)",
+        "Settings: more room between sections and a short faint divider (#363)"
+      ]
+    },
     {
       "buildId": "43604937754.1",
       "version": "1.2.11",
