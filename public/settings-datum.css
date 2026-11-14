@@ -434,3 +434,12 @@ html.dt body.st .st-nav-link { padding: 4px 12px 4px 22px; border-radius: 10px; 
 html.dt body.st .st-nav-link:hover { background: none; color: var(--dt-ink); }
 html.dt body.st .st-nav-link[aria-current="page"], html.dt body.st .st-nav-link[aria-current="page"]:hover { background: color-mix(in srgb, var(--dt-acc) 13%, transparent); font-weight: 700; }
 html.dt body.st .st-nav-link[aria-current="page"]::before { left: 9px; width: 6px; height: 6px; margin-top: -3px; }
+
+/* Device-card fields: the small label that replaces the old placeholder text. */
+html.dt body.st .dt-fld { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+html.dt body.st .dt-fld > span:first-child { font-size: 12px; font-weight: 500; color: var(--dt-mut); line-height: 1.2; }
+html.dt body.st .dt-fld > input, html.dt body.st .dt-fld > .sr-wrap { width: 100%; box-sizing: border-box; }
+html.dt body.st .device-header { align-items: flex-end; }
+html.dt body.st .device-header .toggle-wrap, html.dt body.st .device-header .remove-btn { margin-bottom: 8px; }
+/* Scripts hide a field by setting display:none on the input; hide its label with it. */
+html.dt body.st .dt-fld:has(> input[style*="display: none"]), html.dt body.st .dt-fld:has(> .sr-wrap[style*="display: none"]) { display: none; }

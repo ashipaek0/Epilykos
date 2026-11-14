@@ -141,9 +141,9 @@
     var below = d.when === 'below', unit = (d.inputs && d.inputs[0] ? unitOf(d.inputs[0]) : '') || '';
     return '<div class="st-field"><span class="cm-label">Turns On when the input is</span><div class="st-grid-2">'
       + '<select id="cm-when" class="input" aria-label="Above or below"><option value="above"' + (below ? '' : ' selected') + '>at or above</option><option value="below"' + (below ? ' selected' : '') + '>at or below</option></select>'
-      + '<input id="cm-onat" class="input" type="number" step="any" value="' + esc(d.on_at == null ? '' : d.on_at) + '" placeholder="e.g. 180' + (unit ? ' ' + esc(unit) : '') + '" aria-label="On value"></div></div>'
+      + '<input id="cm-onat" class="input" type="number" step="any" value="' + esc(d.on_at == null ? '' : d.on_at) + '" aria-label="On value"></div></div>'
       + '<div class="st-field"><label for="cm-offat">Turns Off when it is ' + (below ? 'above' : 'below') + ' (optional)</label>'
-      + '<input id="cm-offat" class="input" type="number" step="any" value="' + esc(d.off_at == null ? '' : d.off_at) + '" placeholder="Same as the On value">'
+      + '<input id="cm-offat" class="input" type="number" step="any" value="' + esc(d.off_at == null ? '' : d.off_at) + '">'
       + '<span class="st-help">Set a different Off value to leave a gap, e.g. On at 180, Off below 160. A reading that hovers near the limit then does not flip On and Off. Inside the gap it keeps its last state.</span></div>';
   }
   // Average per day: what each day's figure is, over which days, and whether today counts.
@@ -165,19 +165,19 @@
     var auto = state.autoLabels[d.id || d.name] || {}, labels = d.labels || {};
     var inputs = (d.inputs || []).map(function (name, i) {
       return '<li class="cm-input" data-k="' + i + '"><span class="cm-input-name">' + (info.ordered && i === 0 ? '<em>From</em> ' : info.ordered ? '<em>minus</em> ' : '') + esc(name) + '</span>'
-        + (SPLITTABLE[d.fn] ? '<input class="input cm-lbl" data-input="' + esc(name) + '" value="' + esc(labels[name] || '') + '" maxlength="40" placeholder="' + esc(auto[name] ? 'Shown as ' + auto[name] : 'Shown as (automatic)') + '" aria-label="Name shown on cards for ' + esc(name) + '">' : '')
+        + (SPLITTABLE[d.fn] ? '<input class="input cm-lbl" data-input="' + esc(name) + '" value="' + esc(labels[name] || '') + '" maxlength="40" aria-label="Name shown on cards for ' + esc(name) + '">' : '')
         + (info.weights ? '<label class="cm-weight">Weight <input type="number" class="input cm-w" min="0" step="any" value="' + esc((d.weights || [])[i] == null ? 1 : d.weights[i]) + '"></label>' : '')
         + (info.ordered ? '<button type="button" class="st-btn cm-up" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' : '')
         + '<button type="button" class="st-btn cm-rm" aria-label="Remove ' + esc(name) + '">Remove</button></li>';
     }).join('');
     var full = (info.single && (d.inputs || []).length >= 1);
     $('cm-editor').innerHTML = '<h3>' + (state.editing.index == null ? 'New combined metric' : 'Edit ' + esc(d.name)) + '</h3>'
-      + '<div class="st-grid-2"><div class="st-field"><label for="cm-name">Name</label><input id="cm-name" class="input" value="' + esc(d.name) + '" maxlength="64" placeholder="e.g. pv_total_power" autocomplete="off"></div>'
-      + '<div class="st-field"><label for="cm-unit">Unit</label><input id="cm-unit" class="input" value="' + esc(d.unit || '') + '" maxlength="12" placeholder="e.g. W, kWh, %"></div></div>'
+      + '<div class="st-grid-2"><div class="st-field"><label for="cm-name">Name</label><input id="cm-name" class="input" value="' + esc(d.name) + '" maxlength="64" autocomplete="off"></div>'
+      + '<div class="st-field"><label for="cm-unit">Unit</label><input id="cm-unit" class="input" value="' + esc(d.unit || '') + '" maxlength="12"></div></div>'
       + '<div class="st-field"><label for="cm-fn">Calculation</label><select id="cm-fn" class="input">' + opts + '</select><span class="st-help">' + esc(info.help) + '</span></div>'
       + '<div class="st-field"><span class="cm-label">Inputs</span>' + (SPLITTABLE[d.fn] ? '<span class="st-help">Cards set to show parts list each input by the name beside it. Leave it empty to use the name worked out from your sources.</span>' : '') + '<ol class="cm-inputs">' + (inputs || '<li class="st-help">No inputs yet.</li>') + '</ol>'
       + (full ? '' : '<select id="cm-add-input" class="input" aria-label="Add an input">' + metricOpts + '</select>'
-        + (info.single ? '' : '<div class="cm-match"><input id="cm-match" class="input" placeholder="Add all that match, e.g. pv_power or inv*_pv1_power" aria-label="Add all metrics whose name matches" autocomplete="off"><button type="button" class="st-btn" id="cm-find">Find</button></div><div id="cm-matches" class="cm-matches" hidden></div>')) + '</div>'
+        + (info.single ? '' : '<label class="st-help" for="cm-match">Or add every metric whose name matches (use * as a wildcard)</label><div class="cm-match"><input id="cm-match" class="input" autocomplete="off"><button type="button" class="st-btn" id="cm-find">Find</button></div><div id="cm-matches" class="cm-matches" hidden></div>')) + '</div>'
       + (d.fn === 'scale' ? '<div class="st-grid-2"><div class="st-field"><label for="cm-factor">Factor</label><input id="cm-factor" class="input" type="number" step="any" value="' + esc(d.factor == null ? 1 : d.factor) + '"></div><div class="st-field"><label for="cm-offset">Offset</label><input id="cm-offset" class="input" type="number" step="any" value="' + esc(d.offset == null ? 0 : d.offset) + '"></div></div>' : '')
       + (info.threshold ? thresholdFields(d) : '')
       + (info.daily ? dailyFields(d) : '')

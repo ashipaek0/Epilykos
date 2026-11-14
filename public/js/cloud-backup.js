@@ -31,16 +31,16 @@
     h += '<div id="cb-fields"' + (s.enabled ? '' : ' hidden') + '>';
     var d = s.destination, isDav = d.type === 'webdav', isG = d.type === 'gdrive';
     h += field('cb-dest', 'Where to send it', '<select class="input" id="cb-dest">' + opt('folder', 'Folder or drive on this box', d.type) + opt('webdav', 'WebDAV server', d.type) + opt('gdrive', 'Google Drive', d.type) + '</select>');
-    h += '<div id="cb-pane-folder"' + (d.type === 'folder' ? '' : ' hidden') + '>' + field('cb-path', 'Folder on this box', '<input class="input" id="cb-path" value="' + esc(isDav ? '' : d.path) + '" placeholder="/mnt/usb-backup/epilykos" autocomplete="off" spellcheck="false">',
+    h += '<div id="cb-pane-folder"' + (d.type === 'folder' ? '' : ' hidden') + '>' + field('cb-path', 'Folder on this box', '<input class="input" id="cb-path" value="' + esc(isDav ? '' : d.path) + '" autocomplete="off" spellcheck="false">',
       'A mounted USB drive, network share or Docker volume.') + '</div>';
     h += '<div id="cb-pane-webdav"' + (isDav ? '' : ' hidden') + '>'
       + '<div class="st-grid-2">'
-      + field('cb-w-url', 'Server address', '<input class="input" id="cb-w-url" value="' + esc(isDav ? d.url : '') + '" placeholder="https://cloud.example.com/remote.php/dav/files/ade/" autocomplete="off" spellcheck="false">', 'Nextcloud, ownCloud, Synology and others.')
-      + field('cb-w-folder', 'Folder', '<input class="input" id="cb-w-folder" value="' + esc(isDav ? d.folder : 'Epilykos') + '" placeholder="Epilykos" autocomplete="off" spellcheck="false">', 'Created inside that address if it is missing.') + '</div>'
+      + field('cb-w-url', 'Server address', '<input class="input" id="cb-w-url" value="' + esc(isDav ? d.url : '') + '" autocomplete="off" spellcheck="false">', 'Nextcloud, ownCloud, Synology and others.')
+      + field('cb-w-folder', 'Folder', '<input class="input" id="cb-w-folder" value="' + esc(isDav ? d.folder : 'Epilykos') + '" autocomplete="off" spellcheck="false">', 'Created inside that address if it is missing.') + '</div>'
       + '<div class="st-grid-2">'
       + field('cb-w-user', 'Username', '<input class="input" id="cb-w-user" value="' + esc(isDav ? d.username : '') + '" autocomplete="off" spellcheck="false">')
       + field('cb-w-pass', isDav && d.hasPassword ? 'App password (saved)' : 'App password', '<input class="input" id="cb-w-pass" type="password" autocomplete="new-password">', isDav && d.hasPassword ? 'Leave empty to keep the saved password. Type one to change it.' : 'Make an app password for this box instead of using your main one.') + '</div>'
-      + field('cb-w-cert', 'Server certificate (optional)', '<textarea class="input" id="cb-w-cert" rows="4" placeholder="-----BEGIN CERTIFICATE-----" autocomplete="off" spellcheck="false">' + esc(isDav ? d.certificate : '') + '</textarea>',
+      + field('cb-w-cert', 'Server certificate (optional)', '<textarea class="input" id="cb-w-cert" rows="4" autocomplete="off" spellcheck="false">' + esc(isDav ? d.certificate : '') + '</textarea>',
         'Only for a server with its own certificate. Leave empty for a normal https address.')
       + '</div>';
     h += '<div id="cb-pane-gdrive"' + (isG ? '' : ' hidden') + '></div>';

@@ -233,7 +233,7 @@
         field('nt-quiet-end', 'Until', input('nt-quiet-end', q.end, ' type="time" data-general')) +
       '</div>' : '') +
       '<p class="st-help nt-gap">Only critical alerts are sent during quiet hours.</p>' +
-      field('nt-base-url', 'Dashboard address for links', input('nt-base-url', s.base_url, ' type="url" data-general placeholder="https://energy.example.com"'), 'Telegram, Discord, ntfy and webhook messages link here. Leave empty for no link.') +
+      field('nt-base-url', 'Dashboard address for links', input('nt-base-url', s.base_url, ' type="url" data-general'), 'Telegram, Discord, ntfy and webhook messages link here. Leave empty for no link.') +
       '<p class="st-help">Changes here save on their own.</p></div>';
   }
 
@@ -290,7 +290,7 @@
     if (t === 'telegram') {
       html += field('nt-ch-bot', 'Bot token', input('nt-ch-bot', cfg.bot_token, ' type="password" autocomplete="off"' + secretHint(cfg.has_bot_token)),
         'Create a bot with <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> and paste its token.');
-      html += '<div class="nt-row-form">' + field('nt-ch-chat', 'Chat ID', input('nt-ch-chat', cfg.chat_id, ' inputmode="numeric" placeholder="123456789"'),
+      html += '<div class="nt-row-form">' + field('nt-ch-chat', 'Chat ID', input('nt-ch-chat', cfg.chat_id, ' inputmode="numeric"'),
         'Message your bot, then press Find chat.') +
         '<button type="button" class="st-btn" data-act="telegram-find">Find chat</button></div><div id="nt-chats"></div>';
       html += '<div class="st-toggle-row">' + toggle('nt-ch-commands', cfg.commands, 'Answer commands in this chat') + '</div>' +
@@ -301,14 +301,14 @@
       html += '<div class="st-toggle-row">' + toggle('nt-ch-here', cfg.mention_here, 'Mention @here on critical alerts') + '</div>';
     } else if (t === 'ntfy') {
       html += field('nt-ch-server', 'Server', input('nt-ch-server', cfg.server_url || 'https://ntfy.sh', ' type="url"'), 'ntfy.sh or your own server.');
-      html += field('nt-ch-topic', 'Topic', input('nt-ch-topic', cfg.topic, ' maxlength="64" placeholder="epilykos-' + Math.random().toString(36).slice(2, 10) + '"'),
-        'Anyone who knows the topic can read it, so pick something hard to guess.');
+      html += field('nt-ch-topic', 'Topic', input('nt-ch-topic', cfg.topic, ' maxlength="64" data-auto="epilykos-' + Math.random().toString(36).slice(2, 10) + '"'),
+        'Anyone who knows the topic can read it, so pick something hard to guess. Leave empty to have one made up.');
       html += field('nt-ch-token', 'Access token (optional)', input('nt-ch-token', cfg.token, ' type="password" autocomplete="off"' + secretHint(cfg.has_token)), 'For servers or topics that need a login.');
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Server is on my local network') + '</div>';
     } else if (t === 'webhook') {
-      html += field('nt-ch-webhook', 'URL', input('nt-ch-webhook', cfg.webhook_url, ' type="password" autocomplete="off"' + (cfg.has_webhook_url ? ' placeholder="Saved — leave empty to keep"' : ' placeholder="https://homeassistant.local:8123/api/webhook/…"')),
+      html += field('nt-ch-webhook', 'URL', input('nt-ch-webhook', cfg.webhook_url, ' type="password" autocomplete="off"' + (cfg.has_webhook_url ? ' placeholder="Saved — leave empty to keep"' : '')),
         'Each alert is sent as JSON.');
-      html += field('nt-ch-auth', 'Authorization header (optional)', input('nt-ch-auth', cfg.auth_header, ' type="password" autocomplete="off"' + secretHint(cfg.has_auth_header) + (cfg.has_auth_header ? '' : ' placeholder="Bearer …"')));
+      html += field('nt-ch-auth', 'Authorization header (optional)', input('nt-ch-auth', cfg.auth_header, ' type="password" autocomplete="off"' + secretHint(cfg.has_auth_header)));
       html += '<div class="st-toggle-row">' + toggle('nt-ch-private', cfg.allow_private, 'Address is on my local network') + '</div>';
     } else if (t === 'webpush') {
       var all = cfg.devices === 'all';
@@ -332,7 +332,7 @@
     if (t === 'telegram') { cfg.bot_token = val('nt-ch-bot').trim(); cfg.chat_id = val('nt-ch-chat').trim(); cfg.commands = checked('nt-ch-commands'); }
     if (t === 'webhook') { cfg.webhook_url = val('nt-ch-webhook').trim(); cfg.auth_header = val('nt-ch-auth').trim(); cfg.allow_private = checked('nt-ch-private'); }
     if (t === 'discord') { cfg.webhook_url = val('nt-ch-webhook').trim(); cfg.mention_here = checked('nt-ch-here'); }
-    if (t === 'ntfy') { cfg.server_url = val('nt-ch-server').trim(); cfg.topic = val('nt-ch-topic').trim() || (document.getElementById('nt-ch-topic') || {}).placeholder || ''; cfg.token = val('nt-ch-token').trim(); cfg.allow_private = checked('nt-ch-private'); }
+    if (t === 'ntfy') { cfg.server_url = val('nt-ch-server').trim(); cfg.topic = val('nt-ch-topic').trim() || ((document.getElementById('nt-ch-topic') || {}).getAttribute('data-auto')) || ''; cfg.token = val('nt-ch-token').trim(); cfg.allow_private = checked('nt-ch-private'); }
     if (t === 'webpush') cfg.devices = checked('nt-ch-alldev') ? 'all' : checkedValues('nt-ch-dev');
     return { id: editChannel.id || undefined, type: t, name: val('nt-ch-name').trim(), enabled: checked('nt-ch-enabled'), config: cfg };
   }
@@ -391,7 +391,7 @@
 
   function ruleEditor() {
     var d = editRule.draft, kind = d.kind || 'metric', html = '';
-    html += field('nt-r-name', 'Name', input('nt-r-name', d.name, ' maxlength="80" placeholder="e.g. Battery low"'));
+    html += field('nt-r-name', 'Name', input('nt-r-name', d.name, ' maxlength="80"'));
     html += '<div class="st-field"><span class="nt-label" id="nt-r-kind-label">Watch</span><div class="st-seg nt-seg" role="radiogroup" aria-labelledby="nt-r-kind-label">' +
       [['metric', 'A metric'], ['event', 'An event'], ['schedule', 'On a schedule']].map(function (k) {
         return '<button type="button" role="radio" data-act="rule-kind" data-kind="' + k[0] + '" aria-checked="' + (kind === k[0]) + '" tabindex="' + (kind === k[0] ? '0' : '-1') + '">' + k[1] + '</button>';
@@ -400,11 +400,11 @@
       var op = d.operator || 'gt';
       var info = metricInfo(d.metric);
       var now = info && info.value != null ? 'Now: ' + esc(info.value) + (info.unit ? ' ' + esc(info.unit) : '') : (d.metric ? 'No current value' : 'Any metric from your sources, including text ones like a grid status.');
-      html += field('nt-r-metric', 'Metric', input('nt-r-metric', d.metric, ' list="nt-metric-list" autocomplete="off" placeholder="Start typing a metric name"'), '<span id="nt-r-metric-now">' + now + '</span>');
+      html += field('nt-r-metric', 'Metric', input('nt-r-metric', d.metric, ' list="nt-metric-list" autocomplete="off"'), '<span id="nt-r-metric-now">' + now + '</span>');
       html += '<datalist id="nt-metric-list">' + metrics.map(function (m) { return '<option value="' + esc(m.name) + '">'; }).join('') + '</datalist>';
       html += '<div class="st-grid-2">' +
         field('nt-r-op', 'Condition', '<select id="nt-r-op" class="input" data-act="rule-op">' + state.operators.map(function (o) { return '<option value="' + o.id + '"' + (o.id === op ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('') + '</select>') +
-        (op === 'changes' ? '<div></div>' : field('nt-r-value', op === 'stale' ? 'Minutes' : 'Value', input('nt-r-value', d.value, (op === 'eq' || op === 'neq') ? ' placeholder="e.g. 20 or off"' : ' type="number" step="any"'))) +
+        (op === 'changes' ? '<div></div>' : field('nt-r-value', op === 'stale' ? 'Minutes' : 'Value', input('nt-r-value', d.value, (op === 'eq' || op === 'neq') ? '' : ' type="number" step="any"'))) +
       '</div>';
       if (op !== 'changes' && op !== 'stale') {
         html += '<div class="st-grid-2">' +
@@ -441,7 +441,7 @@
       html += field('nt-r-event', 'Event', '<select id="nt-r-event" class="input">' + eventOptions(d.event) + '</select>', (function () {
         var t = state.eventTypes.find(function (e) { return e.type === d.event; }); return t ? esc(t.description) : '';
       })());
-      html += field('nt-r-subject', 'Only for (optional)', input('nt-r-subject', d.subject, ' placeholder="e.g. modbus, or a broker address"'), 'Limit to one source or broker. Leave empty for all.');
+      html += field('nt-r-subject', 'Only for (optional)', input('nt-r-subject', d.subject, ''), 'Limit to one source or broker. Leave empty for all.');
     }
     html += '<div class="st-grid-2">' +
       field('nt-r-sev', 'Severity', '<select id="nt-r-sev" class="input">' + (kind === 'event' ? '<option value="">Use the event\'s own</option>' : '') +
