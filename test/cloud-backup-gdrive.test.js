@@ -205,6 +205,25 @@ const KB256 = 262144;
   assert.ok(!/localStorage/.test(ui));
   const client = require(path.join(REPO, 'modules/cloudBackup/googleClient'));
   assert.deepStrictEqual(Object.keys(client).sort(), ['clientId', 'clientSecret']);
+  assert.match(client.clientId, /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/, 'the project\'s client id is in the source');
+  const secretFile = path.join(os.tmpdir(), `epilykos-gc-${process.pid}.json`);
+  fs.writeFileSync(secretFile, JSON.stringify({ clientSecret: 'from-the-build' }));
+  assert.strictEqual(client.load({}, secretFile).clientSecret, 'from-the-build', 'the build writes the secret to a file');
+  assert.strictEqual(client.load({ EPILYKOS_GOOGLE_CLIENT_SECRET: 'from-env' }, secretFile).clientSecret, 'from-env', 'an environment variable wins');
+  assert.strictEqual(client.load({ EPILYKOS_GOOGLE_CLIENT_ID: 'my-id' }, secretFile).clientId, 'my-id');
+  assert.strictEqual(client.load({}, path.join(os.tmpdir(), 'no-such-file.json')).clientSecret, '', 'a build without the file has no secret, so Drive shows as not set up');
+  fs.writeFileSync(secretFile, 'not json'); assert.strictEqual(client.load({}, secretFile).clientSecret, '', 'a damaged file is ignored');
+  fs.unlinkSync(secretFile);
+  // The secret itself is never in the source, and the build's file is not committed.
+  const tracked = require('child_process').execFileSync('git', ['ls-files'], { cwd: REPO, encoding: 'utf8' }).split('\n');
+  assert.ok(!tracked.includes('modules/cloudBackup/google-client.json'), 'the generated file is not tracked');
+  assert.ok(/google-client\.json/.test(fs.readFileSync(path.join(REPO, '.gitignore'), 'utf8')), 'and is ignored');
+  for (const f of ['.github/workflows/docker-build.yml', '.github/workflows/docker-build-dev.yml']) {
+    const y = fs.readFileSync(path.join(REPO, f), 'utf8');
+    assert.ok(y.includes('secrets.GOOGLE_CLIENT_SECRET') && y.includes('modules/cloudBackup/google-client.json'), f + ' writes the secret into the image build');
+    assert.ok(y.indexOf('google-client.json') < y.indexOf('docker/build-push-action'), f + ' does it before the image is built');
+  }
+  assert.ok(!/(^|\n)\s*modules\/cloudBackup\/google-client\.json/m.test(fs.readFileSync(path.join(REPO, '.dockerignore'), 'utf8')), 'and the image build context keeps it');
   await google.close(); fs.rmSync(tmp, { recursive: true, force: true });
   checks.done();
 })().catch(error => { console.error(error); process.exit(1); });
