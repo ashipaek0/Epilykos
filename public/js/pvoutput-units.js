@@ -105,13 +105,14 @@
    * HTML for one kWh/Wh unit selector, preselected from the saved config.
    * Preselection order: `_unit` → legacy `_is_kwh` → kWh (AC-3).
    */
-  function buildUnitSelectorHtml(key, map, escapeFn) {
+  function buildUnitSelectorHtml(key, map, escapeFn, label) {
     var esc = typeof escapeFn === 'function' ? escapeFn : defaultEscape;
     var selected = resolveEnergyUnit(map, key);
     var options = UNITS.map(function (u) {
       return '<option value="' + u + '"' + (u === selected ? ' selected' : '') + '>' + u + '</option>';
     }).join('');
     return '<select class="pvoutput-metric-unit" data-key="' + esc(key) + '"'
+      + ' aria-label="' + esc(label || key) + ' unit"'
       + ' title="Unit sent to PVOutput (Epilykos metrics are usually kWh)" style="width:100%;">'
       + options
       + '</select>';
@@ -134,10 +135,10 @@
 
     return METRIC_FIELDS.map(function (f) {
       var sel = optionsFn(mm[f.key]);
-      var unitSelect = f.unit ? buildUnitSelectorHtml(f.key, mm, esc) : '';
+      var unitSelect = f.unit ? buildUnitSelectorHtml(f.key, mm, esc, f.label) : '';
       return '<div class="form-group" style="flex:1;min-width:200px;">'
         + '<label>' + esc(f.label) + '</label>'
-        + '<select class="pvoutput-metric" data-key="' + f.key + '" style="width:100%;">' + sel + '</select>'
+        + '<select class="pvoutput-metric" data-key="' + f.key + '" aria-label="' + esc(f.label) + '" style="width:100%;">' + sel + '</select>'
         + unitSelect
         + '<div class="note">' + esc(f.hint) + '</div>'
         + '</div>';

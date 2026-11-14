@@ -1,11 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
    Settings "Datum" look. Loaded after settings-shell.css.
-   Everything is scoped to html.dt body.st, which js/settings-datum.js adds,
-   so removing that class (or ?look=classic) restores the earlier look.
+   Rules are scoped to html.dt (set in settings.html) so other pages that
+   share the older stylesheets are untouched.
    Cardless bands (title and help in a left column, controls in a right
    column), flush underline fields with a real edge, text-labelled states.
-   Contrast (computed): body 16.3:1, muted 6.8:1, field edge 3.8:1,
-   amber text 6.1:1, amber shape 3.6:1; dark 17.7 / 7.7 / 4.1 / 6.9.
+   Contrast (computed, checked by test/settings-datum.test.js): body 16.3:1,
+   muted 8.3:1, field edge 3.8:1, amber text 6.1:1, amber shape 3.6:1;
+   dark 17.7 / 9.1 / 4.1 / 6.9.
    ═══════════════════════════════════════════════════════════ */
 
 @font-face {
@@ -313,10 +314,8 @@ html.dt body.st .st-flash { animation: none; box-shadow: 0 0 0 2px var(--dt-acc)
 }
 @media (prefers-reduced-motion: reduce) { html.dt body.st * { transition: none !important; animation: none !important; } }
 
-/* ── Look switch (preview) and anchorless bands ──────────── */
+/* ── Bands without a title ──────────── */
 html.dt body.st .dt-band.no-anchor { grid-template-columns: minmax(0, 760px); }
-.dt-look { margin: 8px 0 0; font-size: 13px; }
-.dt-look button { background: none; border: 0; padding: 0; min-height: 44px; color: var(--st-muted); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; font: inherit; }
 
 /* ── Fixes found while testing ───────────────────────────── */
 html.dt body.st .st-btn { align-self: flex-start; }

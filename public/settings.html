@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" class="dt" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -11,20 +11,6 @@
       try { t = localStorage.getItem('theme') || localStorage.getItem('epilykos-theme'); } catch (e) {}
       if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <script>
-    // New settings look (settings-datum.css). ?look=classic opts out and is remembered; ?look=datum opts back in.
-    (function() {
-      var l = 'datum';
-      try {
-        var q = new URLSearchParams(location.search).get('look');
-        if (q === 'classic' || q === 'datum') localStorage.setItem('epilykos-settings-look', q);
-        l = localStorage.getItem('epilykos-settings-look') === 'classic' ? 'classic' : 'datum';
-      } catch (e) {}
-      if (l === 'datum') {
-        document.documentElement.classList.add('dt');
-      }
     })();
   </script>
   <link rel="stylesheet" href="style.css">

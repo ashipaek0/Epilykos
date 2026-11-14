@@ -1,27 +1,10 @@
-/* Settings "Datum" look (see settings-datum.css).
- * Adds body.dt, and turns each .st-card into bands: a left column with the
- * title and its help text, a right column with the controls. Elements are
- * moved, never cloned, so every id, listener and form field keeps working.
- * Cards that scripts render later are wrapped as they appear.
- *
- * ?look=classic switches the new look off (remembered), ?look=datum back on. */
+/* Settings "Datum" look (see settings-datum.css; html.dt is set in settings.html).
+ * Turns each .st-card into bands: a left column with the title and its help
+ * text, a right column with the controls. Elements are moved, never cloned,
+ * so every id, listener and form field keeps working. Cards that scripts
+ * render later are wrapped as they appear. */
 (function () {
   'use strict';
-  var KEY = 'epilykos-settings-look';
-
-  function readPref() {
-    var q = null;
-    try { q = new URLSearchParams(location.search).get('look'); } catch (e) {}
-    if (q === 'classic' || q === 'datum') {
-      try { localStorage.setItem(KEY, q); } catch (e) {}
-      return q;
-    }
-    try { return localStorage.getItem(KEY) === 'classic' ? 'classic' : 'datum'; } catch (e) { return 'datum'; }
-  }
-  var look = readPref();
-  addLookSwitch();
-  if (look === 'classic') return;
-  document.documentElement.classList.add('dt');
 
   var root = document.getElementById('main-content') || document.body;
   var scheduled = false;
@@ -121,23 +104,6 @@
     card.textContent = '';
     card.appendChild(frag);
     card.classList.add('dt-card');
-  }
-
-  function addLookSwitch() {
-    var nav = document.getElementById('st-nav');
-    if (!nav || document.getElementById('dt-look')) return;
-    var p = document.createElement('p');
-    p.className = 'dt-look';
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.id = 'dt-look';
-    b.textContent = look === 'classic' ? 'Try the new look' : 'Use the classic look';
-    b.addEventListener('click', function () {
-      try { localStorage.setItem(KEY, look === 'classic' ? 'datum' : 'classic'); } catch (e) {}
-      location.reload();
-    });
-    p.appendChild(b);
-    nav.appendChild(p);
   }
 
   run();

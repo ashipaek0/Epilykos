@@ -4949,7 +4949,7 @@ async function loadRoleMetrics() {
       const options = ['<option value="">-- Not mapped --</option>',
         ...metricNames.map(m => `<option value="${escapeHtml(m.name || m)}" ${(m.name || m) === current ? 'selected' : ''}>${escapeHtml(m.name || m)}</option>`)
       ].join('');
-      return `<div class="stg-form-row" style="margin-bottom:0.4rem;"><div class="stg-form-group" style="flex:1;"><label style="font-size:0.8rem;">${escapeHtml(label)}</label><select class="role-metric-select" data-role="${role}" style="width:100%;">${options}</select></div></div>`;
+      return `<div class="stg-form-row" style="margin-bottom:0.4rem;"><div class="stg-form-group" style="flex:1;"><label style="font-size:0.8rem;">${escapeHtml(label)}</label><select class="role-metric-select" data-role="${role}" aria-label="${escapeHtml(label)}" style="width:100%;">${options}</select></div></div>`;
     }).join('');
   } catch (e) {
     container.innerHTML = `<p class="note" style="color:#ef4444;">Failed to load: ${e.message}</p>`;

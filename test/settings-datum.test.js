@@ -10,19 +10,17 @@ const html = read('public/settings.html');
 const css = read('public/settings-datum.css');
 const js = read('public/js/settings-datum.js');
 
-// Wiring: stylesheet after the shell's own, script after the renderers, opt-out remembered.
+// Wiring: stylesheet after the shell's own, script after the renderers, class on <html>.
 assert.ok(html.indexOf('href="settings-datum.css') > html.indexOf('href="settings-shell.css'), 'datum stylesheet loads after the shell stylesheet');
 assert.ok(html.indexOf('src="js/settings-datum.js') > html.indexOf('src="js/settings-shell.js'), 'datum script loads after the shell script');
-assert.match(html, /epilykos-settings-look/, 'the early script reads the saved look');
-assert.match(html, /look=classic|'classic'/, 'classic opt-out exists');
-assert.match(js, /\?look=classic/, 'script documents the opt-out');
+assert.match(html, /<html[^>]*class="dt"/, 'the page opts in to the look from the first paint');
 
 // Scoped: every rule starts from html.dt, so without the class nothing changes.
 const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@font-face\s*\{[^}]*\}/g, '').replace(/@media[^{]*\{/g, '').replace(/@keyframes[^{]*\{[\s\S]*?\}\s*\}/g, '');
 const selectors = stripped.split('}').map(b => b.split('{')[0].trim()).filter(Boolean);
 const unscoped = selectors.filter(sel => sel.split(',').some(part => {
   const p = part.trim();
-  if (!p || p.startsWith(':root') || p.startsWith('[data-theme') || p.startsWith('.dt-look') || p.startsWith('.dt-preview')) return false;
+  if (!p || p.startsWith(':root') || p.startsWith('[data-theme')) return false;
   return !p.startsWith('html.dt');
 }));
 assert.deepEqual(unscoped, [], 'every datum rule is scoped under html.dt: ' + unscoped.slice(0, 3).join(' | '));
