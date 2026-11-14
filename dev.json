@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43609529324.1",
-    "version": "1.2.12-dev+1aec3cf",
-    "commit": "1aec3cf2a47b24c7c93fd5f5607c493a829b77d6",
-    "digest": "sha256:33939214ba29387e7c8b44a0ba919aa17cf41b8341ff25bca3468f0205673ada",
+    "buildId": "43622436575.1",
+    "version": "1.2.13-dev+c3df3cf",
+    "commit": "c3df3cfc4d074000604d52a33f6b75d49aa47b18",
+    "digest": "sha256:32c48ae4b802c0468a3679c9408096962926b2999f5a5fac7dc2dc1dd678639b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T15:19:39Z",
+    "builtAt": "2026-11-14T17:41:25Z",
     "kind": "release",
     "notes": [
-      "Settings: a faint amber wash marks the current section in the menu (#364)"
+      "Settings: blank placeholders; labels above device-card fields (#366)"
     ]
   },
   "history": [
+    {
+      "buildId": "43622436575.1",
+      "version": "1.2.13-dev+c3df3cf",
+      "commit": "c3df3cfc4d074000604d52a33f6b75d49aa47b18",
+      "digest": "sha256:32c48ae4b802c0468a3679c9408096962926b2999f5a5fac7dc2dc1dd678639b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T17:41:25Z",
+      "kind": "release",
+      "notes": [
+        "Settings: blank placeholders; labels above device-card fields (#366)"
+      ]
+    },
     {
       "buildId": "43609529324.1",
       "version": "1.2.12-dev+1aec3cf",
@@ -358,16 +370,6 @@
       "digest": "sha256:35d25368fcc5a93b4a88f069b657939b50e25197d9c525e68ce9d087b2ae5428",
       "image": "irunmole/epilykos:dev",
       "builtAt": "2026-11-12T08:33:30Z",
-      "kind": "release",
-      "notes": []
-    },
-    {
-      "buildId": "43183886092.1",
-      "version": "1.2.5-dev+eaacadf",
-      "commit": "eaacadf45b878c5cbd51301385529c51f7570386",
-      "digest": "sha256:f68ba4bdee422227a81240ca549506b07dff07188f72c543f4f316b4492e761b",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T08:33:28Z",
       "kind": "release",
       "notes": []
     }
