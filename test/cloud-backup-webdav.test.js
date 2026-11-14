@@ -26,11 +26,11 @@ const quick = { partBytes: 40000, retryDelay: () => 1 };
   assert.throws(() => parseSettings({ ...base, url: 'https://ade:secret@host/dav/' }), /own boxes/);
   assert.throws(() => parseSettings({ ...base, url: 'https://host/dav/?x=1' }), /\?/);
   assert.throws(() => parseSettings({ ...base, url: 'https://host/dav/', folder: '../up' }), /not valid/);
-  assert.throws(() => parseSettings({ ...base, url: 'https://host/dav/', fingerprint: 'nothex' }), /64 hex/);
+  assert.throws(() => parseSettings({ ...base, url: 'https://host/dav/', certificate: 'not a certificate' }), /not a certificate/);
+  assert.throws(() => parseSettings({ ...base, url: 'http://host/dav/', certificate: '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----' }), /only applies to an https/);
   assert.throws(() => parseSettings({ ...base, url: 'https://host/dav/', username: '' }), /username/);
   assert.throws(() => parseSettings({ ...base, url: 'https://host/dav/', password: '' }), /password/);
   assert.strictEqual(parseSettings({ ...base, url: 'https://host/dav/', folder: '/Epilykos/' }).folder, 'Epilykos', 'slashes around the folder are dropped');
-  assert.strictEqual(parseSettings({ ...base, url: 'https://host/dav/', fingerprint: 'AA:BB'.padEnd(95, ':AA') }).fingerprint.includes(':'), false);
 
   // ── The destination, against a server that refuses requests over 100 KB ──
   const dav = createFakeWebdav({ maxBody: 100000 });
@@ -102,10 +102,10 @@ const quick = { partBytes: 40000, retryDelay: () => 1 };
     readSpace: () => ({ available: true, available_bytes: 1e12 }), now: () => clock,
     makeDestination: settings => settings.type === 'webdav' ? createWebdavDestination(settings, quick) : (() => { throw new Error('unexpected'); })()
   });
-  const typed = { type: 'webdav', url, folder: 'Backups', username: 'ade', password: 'app-password', fingerprint: '' };
+  const typed = { type: 'webdav', url, folder: 'Backups', username: 'ade', password: 'app-password', certificate: '' };
   assert.throws(() => svc.saveSettings({ enabled: true, destination: { ...typed, password: '' }, passphrase: 'correct horse battery' }), /Enter the password/);
   const saved = svc.saveSettings({ enabled: true, destination: typed, passphrase: 'correct horse battery' });
-  assert.deepStrictEqual(saved.destination, { type: 'webdav', url, folder: 'Backups', username: 'ade', fingerprint: '', hasPassword: true });
+  assert.deepStrictEqual(saved.destination, { type: 'webdav', url, folder: 'Backups', username: 'ade', certificate: '', hasPassword: true });
   assert.ok(!JSON.stringify(saved).includes('app-password') && !JSON.stringify(svc.status()).includes('app-password'), 'the password never comes back');
   assert.strictEqual(svc.status().destination.label, new URL(url).host + '/Backups');
   // Saving again without the password keeps it; changing the server or user asks for it again.
@@ -143,29 +143,43 @@ const quick = { partBytes: 40000, retryDelay: () => 1 };
   await dav.close();
   console.log('ok - service with webdav');
 
-  // ── A server with its own certificate: refused until its fingerprint is pinned ──
+  // ── A server with its own certificate: refused until that certificate is pasted, and then only that one is trusted ──
   let haveOpenssl = true;
   const certDir = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-cert-'));
-  try {
-    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(certDir, 'k.pem'), '-out', path.join(certDir, 'c.pem'), '-days', '2', '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'], { stdio: 'ignore' });
-  } catch (_) { haveOpenssl = false; }
+  const makeCert = (name, subject, san) => {
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(certDir, name + '-k.pem'), '-out', path.join(certDir, name + '-c.pem'), '-days', '2', '-subj', subject, ...(san ? ['-addext', 'subjectAltName=' + san] : [])], { stdio: 'ignore' });
+    return { key: fs.readFileSync(path.join(certDir, name + '-k.pem')), cert: fs.readFileSync(path.join(certDir, name + '-c.pem'), 'utf8') };
+  };
+  let one, two, nameless;
+  try { one = makeCert('one', '/CN=127.0.0.1', 'IP:127.0.0.1'); two = makeCert('two', '/CN=127.0.0.1', 'IP:127.0.0.1'); nameless = makeCert('nameless', '/CN=somewhere-else.example'); } catch (_) { haveOpenssl = false; }
   if (haveOpenssl) {
-    const tlsDav = createFakeWebdav({ tls: { key: fs.readFileSync(path.join(certDir, 'k.pem')), cert: fs.readFileSync(path.join(certDir, 'c.pem')) } });
+    const tlsDav = createFakeWebdav({ tls: { key: one.key, cert: one.cert } });
     const tlsUrl = await tlsDav.listen();
-    const fingerprint = new crypto.X509Certificate(fs.readFileSync(path.join(certDir, 'c.pem'))).fingerprint256;
     const e = await rejects(createWebdavDestination({ ...base, url: tlsUrl }, quick).test(), /not trusted/, 'a self-signed certificate is refused');
-    assert.ok(/fingerprint/.test(e.message), 'and the message says what to do');
-    assert.strictEqual((await createWebdavDestination({ ...base, url: tlsUrl, fingerprint }, quick).test()).ok, true, 'accepted when its fingerprint is pinned');
-    assert.strictEqual((await createWebdavDestination({ ...base, url: tlsUrl, fingerprint: fingerprint.replace(/:/g, '').toLowerCase() }, quick).test()).ok, true, 'in either spelling');
-    await rejects(createWebdavDestination({ ...base, url: tlsUrl, fingerprint: '00'.repeat(32) }, quick).test(), /not the one you pinned/, 'a different certificate is refused');
-    assert.ok(!(await createWebdavDestination({ ...base, url: tlsUrl, fingerprint }, quick).test()).warnings.length, 'https carries no warning');
-    await tlsDav.close();
-    console.log('ok - pinned certificate');
-  } else console.log('skipped - pinned certificate (no openssl)');
+    assert.ok(/certificate box/.test(e.message), 'and the message says what to do');
+    const pasted = await createWebdavDestination({ ...base, url: tlsUrl, certificate: one.cert }, quick).test();
+    assert.strictEqual(pasted.ok, true, 'accepted once its certificate is pasted'); assert.deepStrictEqual(pasted.warnings, [], 'https carries no warning');
+    await rejects(createWebdavDestination({ ...base, url: tlsUrl, certificate: two.cert }, quick).test(), /not the one you pasted/, 'a different certificate is refused');
+    // The pasted certificate is trusted for its own server, whatever name it is reached by; nothing else gets that trust.
+    const namelessDav = createFakeWebdav({ tls: { key: nameless.key, cert: nameless.cert } });
+    const namelessUrl = await namelessDav.listen();
+    await rejects(createWebdavDestination({ ...base, url: namelessUrl }, quick).test(), /not trusted/, 'a certificate for another name is refused on its own');
+    assert.strictEqual((await createWebdavDestination({ ...base, url: namelessUrl, certificate: nameless.cert }, quick).test()).ok, true, 'but accepted when it is the pasted one');
+    await rejects(createWebdavDestination({ ...base, url: tlsUrl, certificate: nameless.cert }, quick).test(), /not the one you pasted/, 'and the pasted one is not trusted for other servers');
+    // A real run through the destination over that connection, to be sure the trust holds for uploads too.
+    const secure = createWebdavDestination({ ...base, url: tlsUrl, certificate: one.cert }, quick);
+    const small = crypto.randomBytes(90000);
+    const sentSecure = await secure.put(NAME, Readable.from([small]), { size: small.length }); await secure.verify(NAME, sentSecure);
+    assert.ok((await collect(secure.get(NAME))).equals(small), 'upload and download over a pinned connection'); await secure.remove(NAME);
+    await tlsDav.close(); await namelessDav.close();
+    console.log('ok - pasted certificate');
+  } else console.log('skipped - pasted certificate (no openssl)');
+  // Certificate validation is never switched off.
+  assert.ok(!/rejectUnauthorized\s*:\s*false/.test(fs.readFileSync(path.join(REPO, 'modules/cloudBackup/destinations/webdav.js'), 'utf8')), 'the destination never turns certificate validation off');
 
   // ── Wiring ──
   const ui = fs.readFileSync(path.join(REPO, 'public/js/cloud-backup.js'), 'utf8');
-  for (const word of ['cb-dest', 'cb-w-url', 'cb-w-user', 'cb-w-pass', 'cb-w-folder', 'cb-w-fingerprint', 'WebDAV']) assert.ok(ui.includes(word), 'the card has ' + word);
+  for (const word of ['cb-dest', 'cb-w-url', 'cb-w-user', 'cb-w-pass', 'cb-w-folder', 'cb-w-cert', 'WebDAV']) assert.ok(ui.includes(word), 'the card has ' + word);
   assert.ok(!/localStorage/.test(ui));
   fs.rmSync(tmp, { recursive: true, force: true }); fs.rmSync(certDir, { recursive: true, force: true });
   checks.done();

@@ -77,7 +77,7 @@ function createCloudBackup({
   function publicSettings(s = settings()) {
     const d = s.destination;
     const destination = d.type === 'webdav'
-      ? { type: 'webdav', url: d.url || '', folder: d.folder || '', username: d.username || '', fingerprint: d.fingerprint || '', hasPassword: Boolean(d.password) }
+      ? { type: 'webdav', url: d.url || '', folder: d.folder || '', username: d.username || '', certificate: d.certificate || '', hasPassword: Boolean(d.password) }
       : d.type === 'gdrive' ? { type: 'gdrive', connected: Boolean(googleTokens.get().refresh_token) }
       : { type: 'folder', path: d.path || '' };
     return { enabled: Boolean(s.enabled), destination, schedule: s.schedule, keep: s.keep, hasPassphrase: Boolean(s.passphrase) };
@@ -89,7 +89,7 @@ function createCloudBackup({
     if (d.type === 'folder') return { type: 'folder', path: typeof d.path === 'string' ? d.path.trim() : '' };
     if (d.type === 'webdav') {
       const text = v => (typeof v === 'string' ? v.trim() : '');
-      const next = { type: 'webdav', url: text(d.url), folder: text(d.folder), username: typeof d.username === 'string' ? d.username : '', fingerprint: text(d.fingerprint), password: typeof d.password === 'string' ? d.password : '' };
+      const next = { type: 'webdav', url: text(d.url), folder: text(d.folder), username: typeof d.username === 'string' ? d.username : '', certificate: typeof d.certificate === 'string' ? d.certificate.trim() : '', password: typeof d.password === 'string' ? d.password : '' };
       if (!next.password && saved && saved.type === 'webdav' && saved.url === next.url && saved.username === next.username) next.password = saved.password || '';
       return next;
     }
