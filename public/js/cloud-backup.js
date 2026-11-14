@@ -1,5 +1,5 @@
 /**
- * Settings > Backup and restore > Off-box backup (modules/cloudBackup).
+ * Settings > Backup and restore > Remote backup (modules/cloudBackup).
  *
  * One way to save, like the Prepaid meter page: the switch, the folder, the
  * schedule, the copies to keep and the passphrase are a draft until Save is
@@ -81,7 +81,7 @@
       if (d.passphrase) body.passphrase = d.passphrase;
       return api('/api/cloud-backup/settings', body).then(function (res) {
         settings = res.settings; status = res.status;
-        tell(d.enabled ? 'Off-box backup saved. The first copy is sent shortly.' : 'Off-box backup switched off.');
+        tell(d.enabled ? 'Remote backup saved. The first copy is sent shortly.' : 'Remote backup switched off.');
         formBusy = false; drawForm(); loadCopies();
       });
     }).catch(function (e) { tell(e.message, 'error'); }).then(function () { formBusy = false; if ($('cb-save')) $('cb-save').disabled = !changed(); });

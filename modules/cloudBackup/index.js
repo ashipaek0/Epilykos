@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Off-box backup: sends an encrypted copy of the newest daily snapshot to a
+ * Remote backup: sends an encrypted copy of the newest daily snapshot to a
  * destination (a folder today; Google Drive and WebDAV later), weekly by
  * default, and keeps the newest N copies.
  *
@@ -227,7 +227,7 @@ function createCloudBackup({
       const st = state();
       if (!st.overdueWarnAt || now() - st.overdueWarnAt >= DAY) {
         st.overdueWarnAt = now(); saveState(st);
-        try { emit('backup.cloud_overdue', { message: 'No off-box backup has been sent for more than ' + Math.round(interval(s) / DAY + 2) + ' days.' }); } catch (_) {}
+        try { emit('backup.cloud_overdue', { message: 'No remote backup has been sent for more than ' + Math.round(interval(s) / DAY + 2) + ' days.' }); } catch (_) {}
       }
     }
     if (isDue()) await run({ manual: false });

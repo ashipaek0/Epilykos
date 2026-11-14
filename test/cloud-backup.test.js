@@ -1,6 +1,6 @@
 'use strict';
 const checks = require('./_checks');
-// Off-box backup (modules/cloudBackup, routes/cloudBackup.js, the Backup and restore card): the locked file format, the folder
+// Remote backup (modules/cloudBackup, routes/cloudBackup.js, the Backup and restore card): the locked file format, the folder
 // destination, the service (validation, weekly schedule, keep N with replace-after-verify, failures, restore) and the wiring.
 // (The card is checked in a browser.)
 const assert = require('node:assert/strict');

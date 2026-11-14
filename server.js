@@ -1508,7 +1508,7 @@ function restoreFailure(res, err) {
   return res.status(err.status || 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired || err.code === 'DB_RETIRED' ? err.message : 'Restore failed, original database restored.' });
 }
 
-// Off-box backup: an encrypted copy of the newest snapshot, sent to a folder (Google Drive and WebDAV later).
+// Remote backup: an encrypted copy of the newest snapshot, sent to a folder (Google Drive and WebDAV later).
 const cloudBackup = require('./modules/cloudBackup').createCloudBackup({
   getConfig, setConfig, dataDir: path.dirname(require('./modules/database').DB_PATH),
   latestSnapshot: require('./modules/backup').latestManagedSnapshot,

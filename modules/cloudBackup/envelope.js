@@ -1,6 +1,6 @@
 'use strict';
 /**
- * The locked file format for off-box backups.
+ * The locked file format for remote backups.
  *
  * The whole file (a verified gzip snapshot) is locked with a key made from the
  * user's passphrase, so a provider, or anyone who finds the copy, sees only
@@ -115,7 +115,7 @@ async function createLocker(passphrase, { salt = crypto.randomBytes(16), noncePr
 }
 
 function readHeader(buffer) {
-  if (buffer.length < HEADER_BYTES || !buffer.subarray(0, 8).equals(MAGIC)) throw problem('This is not an Epilykos off-box backup, or it is damaged.', 'NOT_A_BACKUP');
+  if (buffer.length < HEADER_BYTES || !buffer.subarray(0, 8).equals(MAGIC)) throw problem('This is not an Epilykos remote backup, or it is damaged.', 'NOT_A_BACKUP');
   const params = { logN: buffer[8], r: buffer[9], p: buffer[10] };
   if (buffer[11] !== BLOCK_LOG2 || params.logN < 14 || params.logN > 20 || params.r !== 8 || params.p !== 1) throw problem('This backup uses a format this version cannot read.', 'UNSUPPORTED');
   return { header: Buffer.from(buffer.subarray(0, HEADER_BYTES)), params, salt: buffer.subarray(12, 28), noncePrefix: buffer.subarray(28, 32), check: buffer.subarray(32, 48) };
