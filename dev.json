@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43586490688.1",
-    "version": "1.2.9-dev+25982e1",
-    "commit": "25982e10f66f1ef4cd963400ddcb9c7afdf236cc",
-    "digest": "sha256:184bfba7d7639a43ce11f68da9ee1708be09d83e7b8a0bfb25f206e2fdff9954",
+    "buildId": "43586918414.1",
+    "version": "1.2.9-dev+4919c05",
+    "commit": "4919c05425a27e6221410144549926a9772d96dd",
+    "digest": "sha256:2da78c5b9105fa5f669f5cf2fff25a7e471288f1d8dcf1690b3ea6b05eb18cdc",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:42:04Z",
+    "builtAt": "2026-11-14T10:47:31Z",
     "kind": "release",
     "notes": [
-      "Remote backup, step 2: WebDAV destination (#355)"
+      "Remote backup, step 3: Google Drive destination (#356)"
     ]
   },
   "history": [
+    {
+      "buildId": "43586918414.1",
+      "version": "1.2.9-dev+4919c05",
+      "commit": "4919c05425a27e6221410144549926a9772d96dd",
+      "digest": "sha256:2da78c5b9105fa5f669f5cf2fff25a7e471288f1d8dcf1690b3ea6b05eb18cdc",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:47:31Z",
+      "kind": "release",
+      "notes": [
+        "Remote backup, step 3: Google Drive destination (#356)"
+      ]
+    },
     {
       "buildId": "43586490688.1",
       "version": "1.2.9-dev+25982e1",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Cards can set their own glass, blur and frost (#320)"
-      ]
-    },
-    {
-      "buildId": "43009458459.1",
-      "version": "1.2.4-dev+c2287ab",
-      "commit": "c2287ab15c558dff93e4963a3438408fecd17cbe",
-      "digest": "sha256:442b9e36277c8e3e6a82aac087de64f81473dbec7bc48f8ae954eddb19dae648",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T11:09:01Z",
-      "kind": "release",
-      "notes": [
-        "Dashboard grid, step 3: the editor places cards on the dashboard's grid (#319)"
       ]
     }
   ]
