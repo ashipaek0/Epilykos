@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43587375789.1",
-    "version": "1.2.9-dev+eea66be",
-    "commit": "eea66becacd10aad8b48f915d1d128e64e6bd5dd",
-    "digest": "sha256:4d6183093cbd5ba989cfdf6cfaf948db50c2760eec89a819822903f82ffc9fe1",
+    "buildId": "43587366137.1",
+    "version": "1.2.9-dev+09b56fd",
+    "commit": "09b56fd81b60b529de234622733ca63355f7fc2d",
+    "digest": "sha256:3ad9d75fb68d7de56f043cbdd71ed4896b164b6b56122143bb61d8a54ef4c921",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T10:53:30Z",
+    "builtAt": "2026-11-14T10:53:20Z",
     "kind": "release",
-    "notes": [
-      "Bump web-push from 3.6.7 to 4.0.0 (#354)",
-      "Bump the minor-and-patch group with 4 updates (#353)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "43587366137.1",
+      "version": "1.2.9-dev+09b56fd",
+      "commit": "09b56fd81b60b529de234622733ca63355f7fc2d",
+      "digest": "sha256:3ad9d75fb68d7de56f043cbdd71ed4896b164b6b56122143bb61d8a54ef4c921",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-14T10:53:20Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "43587375789.1",
       "version": "1.2.9-dev+eea66be",
@@ -361,18 +368,6 @@
       "kind": "release",
       "notes": [
         "LuxPower profiles: say what Green mode and Eco mode do (#322)"
-      ]
-    },
-    {
-      "buildId": "43015631121.1",
-      "version": "1.2.4-dev+d72a7ad",
-      "commit": "d72a7ad5eddbac5af4efd0f20b57cca731507f3a",
-      "digest": "sha256:857f58d9b4eda1795eb5a25fd69296d9905bb65aa66b0c08b42bb69217c9f22c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-11T11:53:26Z",
-      "kind": "release",
-      "notes": [
-        "Bar gauges: vertical bars, and rounded or square bar ends (#321)"
       ]
     }
   ]
