@@ -23,7 +23,7 @@
     card = el('div', 'st-card');
     card.innerHTML = '<div class="st-card-head"><h2>Database health and backups</h2></div>'
       + '<p class="st-help" data-maint-backup></p><p class="st-help" data-maint-db></p>'
-      + '<p class="st-help">Keep a backup outside this device: snapshots on the SD card cannot protect against the card failing.</p>'
+      + '<p class="st-help">Keep a backup off this device. Snapshots on the SD card fail with the card.</p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-maint-check>Check the database now</button>'
       + '<button type="button" class="st-btn" data-maint-snooze>Remind me about backups in 7 days</button></div>'
       + '<div class="test-status" data-maint-status role="status"></div>';

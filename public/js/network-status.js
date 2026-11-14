@@ -64,8 +64,7 @@
     if (rows) html += '<dl class="st-facts">' + rows + '</dl>';
     else html += '<p class="st-help">No network address yet.</p>';
     if (info.containerOnly) {
-      html += '<p class="st-help">These are the Docker container’s own addresses, which other devices can’t reach. '
-        + 'Open Epilykos at the address of the computer running Docker, on port ' + esc(info.port) + '.</p>';
+      html += '<p class="st-help">These addresses are inside Docker. Use the computer’s address on port ' + esc(info.port) + '.</p>';
     }
     root.innerHTML = html;
   }

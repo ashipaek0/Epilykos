@@ -99,7 +99,7 @@
 
           <div class="st-callout" id="st-combine-callout">
             <span data-icon="layers" data-size="18" aria-hidden="true"></span>
-            <p><strong>Several inverters, MPPTs or batteries?</strong> Add each as its own source, then add their readings together, or work out energy from power, in Combined metrics. <span id="st-combine-count"></span></p>
+            <p><strong>Several inverters or batteries?</strong> Add each as a source, then sum them in Combined metrics. <span id="st-combine-count"></span></p>
             <a href="#metrics/combined" class="st-btn" id="st-combine-link">Combine readings</a>
           </div>
 
@@ -127,13 +127,13 @@
               </div>
 
               <div class="st-type-panel" id="subtab-modbus" data-type="modbus" hidden>
-                <div class="st-type-head st-type-extra"><h2>Modbus (RS485 or TCP)</h2><p class="st-help">Most hybrid inverters. Pick the profile that matches your model.</p></div>
+                <div class="st-type-head st-type-extra"><h2>Modbus (RS485 or TCP)</h2><p class="st-help">Pick the profile that matches your inverter.</p></div>
                 <div id="modbus-devices-container"></div>
                 <button type="button" id="add-modbus-device" class="st-btn st-add-btn st-type-extra">+ Add Modbus device</button>
               </div>
 
               <div class="st-type-panel" id="subtab-rs232" data-type="rs232" hidden>
-                <div class="st-type-head st-type-extra"><h2>RS232 serial</h2><p class="st-help">Needs a USB-to-serial adapter. Ports are detected automatically. Profiles: Voltronic (also Infinisolar, Phocos, MUST, Sako), Victron VE.Direct, SolaX Pocket USB.</p></div>
+                <div class="st-type-head st-type-extra"><h2>RS232 serial</h2><p class="st-help">Needs a USB-to-serial adapter.</p></div>
                 <div id="rs232-devices-container"></div>
                 <button type="button" id="add-rs232-device" class="st-btn st-add-btn st-type-extra">+ Add RS232 device</button>
                 <div class="st-field st-type-setting">
@@ -153,21 +153,21 @@
               </div>
 
               <div class="st-type-panel" id="subtab-bms" data-type="bms" hidden>
-                <div class="st-type-head st-type-extra"><h2>Battery management (BMS)</h2><p class="st-help" id="bluetooth-status">Bluetooth uses the host's adapter. In Docker, mount <code>/run/dbus</code> into the container. Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth, allow about 10 seconds per device in their read intervals.</p></div>
+                <div class="st-type-head st-type-extra"><h2>Battery management (BMS)</h2><p class="st-help" id="bluetooth-status">Bluetooth needs the host's adapter. In Docker, mount <code>/run/dbus</code>.</p></div>
                 <div id="bms-devices-container"></div>
                 <button type="button" id="add-bms-device" class="st-btn st-add-btn st-type-extra">+ Add Bluetooth BMS</button>
                 <h3 class="st-subhead st-type-extra">Wired BMS</h3>
-                <p class="st-help st-type-extra">Connects over RS485 or RS232 (Modbus-RTU). Pick the serial port, profile and unit ID.</p>
+                <p class="st-help st-type-extra">Modbus RTU over RS485 or RS232.</p>
                 <div id="bms-wired-devices-container"></div>
                 <button type="button" id="add-bms-wired-device" class="st-btn st-add-btn st-type-extra">+ Add wired BMS</button>
                 <h3 class="st-subhead st-type-extra">Battery banks</h3>
-                <p class="st-help st-type-extra">Combine several BMS devices into one virtual battery with computed metrics (weighted state of charge, total power and so on).</p>
+                <p class="st-help st-type-extra">Combine several batteries into one.</p>
                 <div id="bms-banks-container"></div>
                 <button type="button" id="add-bms-bank" class="st-btn st-add-btn st-type-extra">+ Add battery bank</button>
               </div>
 
               <div class="st-type-panel" id="subtab-dongle" data-type="dongle" hidden>
-                <div class="st-type-head st-type-extra"><h2 id="dongle-head-title">WiFi dongle</h2><p class="st-help" id="dongle-head-help">Talks directly to the inverter's WiFi stick over your network.</p></div>
+                <div class="st-type-head st-type-extra"><h2 id="dongle-head-title">WiFi dongle</h2><p class="st-help" id="dongle-head-help">Reads the inverter's WiFi stick over your network.</p></div>
                 <div id="dongle-devices-container"></div>
                 <button type="button" id="add-dongle-device" class="st-btn st-add-btn st-type-extra">+ Add WiFi dongle</button>
                 <button type="button" id="add-dongle-ble-device" class="st-btn st-add-btn st-type-extra" style="display:none;">+ Add Bluetooth dongle</button>
@@ -177,34 +177,30 @@
                 <!-- EXPLANATORY HEADER -->
           <div class="st-type-head st-type-extra"><h2>Tuya</h2></div>
           <div class="tuya-intro st-note st-type-extra">
-            <strong style="color:var(--text);">All-Local LAN Protocol</strong> — Tuya devices are polled directly on your network via encrypted TCP (port 6668). No cloud dependency for runtime data.<br>
-            <strong>One-time setup:</strong> Devices encrypt their IDs and AES keys — fetch them <em>once</em> from the Tuya Cloud using your Smart Life UID + API credentials. After that, everything runs locally.
+            Devices are read locally on your network. Their keys are fetched once from the Tuya Cloud.
           </div>
 
           <!-- STEP-BY-STEP GUIDE -->
           <div class="tuya-guide st-note st-type-extra">
             <div class="st-note-title">Setup steps</div>
-            <div class="tuya-guide-step"><span class="help-step-num">1</span> Enter your <strong>Smart Life UID</strong>, generate QR code and scan with the Smart Life app</div>
-            <div class="tuya-guide-step"><span class="help-step-num">2</span> Devices are populated automatically — local keys, DP labels, and LAN IPs are matched</div>
-            <div class="tuya-guide-step"><span class="help-step-num">3</span> Map DP rows to metric names using the dropdowns</div>
-            <div class="tuya-guide-step"><span class="help-step-num">4</span> Click <strong>Verify All</strong> to test connectivity for all devices at once</div>
-            <div class="tuya-guide-step"><span class="help-step-num">5</span> Press <strong>Save changes</strong> in the bar at the bottom</div>
+            <div class="tuya-guide-step"><span class="help-step-num">1</span> Enter your <strong>Smart Life UID</strong> and scan the QR code</div>
+            <div class="tuya-guide-step"><span class="help-step-num">2</span> Devices, keys and addresses fill in</div>
+            <div class="tuya-guide-step"><span class="help-step-num">3</span> Map each data point to a metric</div>
+            <div class="tuya-guide-step"><span class="help-step-num">4</span> Press <strong>Verify all devices</strong></div>
+            <div class="tuya-guide-step"><span class="help-step-num">5</span> Press <strong>Save changes</strong></div>
           </div>
 
           <!-- QR Code Login. data-own-save: the UID is only used to log in, not a saved setting. -->
           <div class="tuya-panel st-type-extra" data-own-save>
             <h3 class="st-subhead">Smart Life login</h3>
-            <p class="st-help">
-              Enter your <strong>Smart Life UID</strong> (find it in Smart Life app → Me → ⚙ → Account → User ID).<br>
-              Scan the QR code with the Smart Life app to log in. Devices, local keys, and DP labels are fetched automatically.
-            </p>
+            <p class="st-help">Your <strong>Smart Life UID</strong> is under Me → ⚙ → Account → User ID in the Smart Life app.</p>
             <div class="form-row" style="margin-bottom:0.75rem;">
               <label for="tuya-uid" class="st-visually-hidden">Smart Life UID</label><input type="text" id="tuya-uid" class="input" placeholder="Smart Life UID" style="flex:1;" autocomplete="off">
               <button type="button" id="tuya-generate-qr-btn" class="st-btn st-btn-primary" style="flex:0 0 auto;">Generate QR code</button>
             </div>
             <div id="tuya-qr-container" style="display:none;text-align:center;margin:1rem 0;">
               <img id="tuya-qr-img" alt="Smart Life login QR code" width="220" height="220" style="background:#fff;padding:8px;border-radius:8px;">
-              <p class="st-help">Scan with Smart Life app → Me → + → Scan QR Code</p>
+              <p class="st-help">In Smart Life, tap Me → + → Scan QR Code.</p>
             </div>
             <div id="tuya-oauth-status" class="test-status"></div>
           </div>
@@ -217,7 +213,7 @@
           </div>
           <div id="tuya-devices-container" class="tuya-grid"></div>
           <button type="button" id="add-tuya-device" class="st-btn st-add-btn st-type-extra">+ Add device manually</button>
-          <p class="st-help st-type-device-only"><a class="help-link" href="#sources/tuya">Smart Life login and scan</a> fetches local keys and DP names for all your Tuya devices.</p>
+          <p class="st-help st-type-device-only"><a class="help-link" href="#sources/tuya">Smart Life login and scan</a> fetches keys and names for every Tuya device.</p>
           <p class="st-help st-type-extra">
             All communication is 100% local (encrypted TCP on port 6668) after initial cloud key retrieval.
           </p>
@@ -229,17 +225,17 @@
         <!-- ════════════ METRICS ════════════ -->
         <section class="st-section" id="section-metrics" data-section="metrics" aria-labelledby="h-metrics" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-metrics">Metrics</h1><p class="st-lede">Every value Epilykos records, and which ones play each role in charts and blocks.</p></div>
+            <div><h1 id="h-metrics">Metrics</h1><p class="st-lede">Everything Epilykos records, and the role each metric plays.</p></div>
             <div class="st-head-actions"><button type="button" class="st-btn st-btn-primary" id="st-new-metric"><span data-icon="plus" data-size="16"></span>New metric</button></div>
           </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Metric roles</h2></div>
-            <p class="st-help">Tell Epilykos which of your metrics is solar power, load, battery and so on. The power chart, history and several blocks use these roles.</p>
+            <p class="st-help">Pick which metric is solar, load, battery and so on.</p>
             <div id="role-metrics-container" class="st-roles"></div>
           </div>
           <div class="st-card" id="combined-card" data-own-save>
             <div class="st-card-head"><h2>Combined metrics</h2><button type="button" class="st-btn" id="cm-add"><span data-icon="plus" data-size="16"></span>Add combined metric</button></div>
-            <p class="st-help">Add up readings from several inverters, MPPTs or batteries, or work out energy from power. Each result is a new metric you can pick in roles and cards. Switch one off to stop computing it. Several BMS packs that make up one battery go in a <a href="#sources/bms">battery bank</a> (weighted charge by capacity); its bank_ metrics can be used here too.</p>
+            <p class="st-help">Add readings together or work out energy from power.</p>
             <div id="cm-suggestions" class="cm-suggestions" hidden></div>
             <p class="status" id="cm-status" role="status"></p>
             <div id="cm-list" class="cm-list"><p class="st-help">Loading…</p></div>
@@ -250,7 +246,7 @@
               <h2>All metrics <span class="st-count" id="metrics-count"></span></h2>
               <div class="st-filter"><label for="metrics-search" class="st-visually-hidden">Filter metrics</label><input type="search" class="input" id="metrics-search" placeholder="Filter metrics"></div>
             </div>
-            <p class="st-help">Everything your sources and combined metrics report, newest reading first. Metrics with no reading yet are listed last.</p>
+            <p class="st-help">Everything your sources report, newest first.</p>
             <p class="status" id="metrics-status" role="status"></p>
             <div class="st-bulk" id="metrics-bulk" hidden>
               <span class="st-bulk-count" id="metrics-selected-count" role="status"></span>
@@ -269,7 +265,7 @@
         <!-- ════════════ FORECAST ════════════ -->
         <section class="st-section" id="section-forecast" data-section="forecast" aria-labelledby="h-forecast" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-forecast">Forecast and weather</h1><p class="st-lede">Solar production forecast and weather for your location.</p></div>
+            <div><h1 id="h-forecast">Forecast and weather</h1><p class="st-lede">Solar forecast and weather for your location.</p></div>
           </div>
           <div class="st-card">
             <div class="st-toggle-row">
@@ -282,7 +278,7 @@
             </div>
             <div class="st-inline-actions"><button type="button" class="st-btn" id="st-use-location"><span data-icon="pin" data-size="16"></span>Use my location</button><span class="status" id="st-location-status" role="status"></span></div>
             <h2 class="st-card-subhead">Panels</h2>
-            <p class="st-help">Add each group of panels that has its own size, tilt or direction (for example an east and a west roof). The forecast works each one out and adds them up.</p>
+            <p class="st-help">One row for each group of panels with its own size, tilt or direction.</p>
             <!-- Row controls stay out of the save bar check; changes reach it through the hidden fields below. -->
             <div id="pv-arrays" class="pv-arrays" data-own-save></div>
             <button type="button" class="st-btn" id="pv-add-array"><span data-icon="plus" data-size="16"></span>Add array</button>
@@ -291,7 +287,7 @@
             <input type="hidden" id="solar-tilt" name="solar_tilt" value="30">
             <input type="hidden" id="solar-azimuth" name="solar_azimuth" value="180">
             <div class="st-grid-2" style="margin-top:14px">
-              <div class="st-field"><label for="solar-loss-factor">Loss factor</label><input id="solar-loss-factor" class="input" name="solar_loss_factor" type="number" min="0" max="1" step="0.01" value="0.9"><span class="st-help">Share of rated output you actually get, from 0 to 1. 0.9 suits most systems.</span></div>
+              <div class="st-field"><label for="solar-loss-factor">Loss factor</label><input id="solar-loss-factor" class="input" name="solar_loss_factor" type="number" min="0" max="1" step="0.01" value="0.9"><span class="st-help">Share of rated output you actually get, 0 to 1.</span></div>
               <div class="st-field"><label for="solar-install-date">Installation date</label><input id="solar-install-date" class="input" name="solar_install_date" type="date"></div>
             </div>
             <h2 class="st-card-subhead">Providers</h2>
@@ -301,9 +297,9 @@
             </div>
             <div class="st-grid-2" id="st-solcast-fields">
               <div class="st-field"><label for="solcast-api-key">Solcast API key</label><input id="solcast-api-key" class="input" type="password" name="solcast_api_key" autocomplete="off"></div>
-              <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your rooftop site in the Solcast toolkit. If one site covers all your arrays, put it here; otherwise give each array its own above.</span></div>
-              <div class="st-field"><label for="solcast-weather">Also fetch Solcast weather and irradiance</label><select id="solcast-weather" class="input" name="solcast_weather"><option value="true">Yes</option><option value="false">No</option></select><span class="st-help">Temperature, sunshine (GHI, DNI, DHI), cloud, wind, rain, snow and more, for the same days as the forecast, shown on the weather card and available as <em>solcast_…</em> metrics. It costs one extra request per refresh, so it is fetched only while the day's request limit leaves room for the forecast itself. Needs a Solcast plan that includes it.</span></div>
-              <div class="st-field"><label for="solcast-daily-limit">Solcast requests per day</label><input id="solcast-daily-limit" class="input" name="solcast_daily_limit" type="number" min="1" max="100000" step="1" placeholder="10"><span class="st-help">What your Solcast plan allows each UTC day: 10 for a hobbyist account. The forecast refreshes every 3 hours and always has priority; the weather request uses what is left.</span></div>
+              <div class="st-field"><label for="solcast-resource-id">Solcast resource ID</label><input id="solcast-resource-id" class="input" name="solcast_resource_id"><span class="st-help">From your Solcast rooftop site.</span></div>
+              <div class="st-field"><label for="solcast-weather">Also fetch Solcast weather and irradiance</label><select id="solcast-weather" class="input" name="solcast_weather"><option value="true">Yes</option><option value="false">No</option></select><span class="st-help">Adds temperature, cloud and irradiance. Needs a plan that includes it.</span></div>
+              <div class="st-field"><label for="solcast-daily-limit">Solcast requests per day</label><input id="solcast-daily-limit" class="input" name="solcast_daily_limit" type="number" min="1" max="100000" step="1" placeholder="10"><span class="st-help">Your plan's daily limit (10 on hobbyist).</span></div>
             </div>
             <div class="st-inline-actions"><button type="button" id="test-forecast" class="st-btn">Test forecast</button><span id="forecast-test-status" class="test-status" role="status"></span></div>
           </div>
@@ -312,28 +308,28 @@
         <!-- ════════════ SAVINGS ════════════ -->
         <section class="st-section" id="section-savings" data-section="savings" aria-labelledby="h-savings" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-savings">Prices and savings</h1><p class="st-lede">Energy prices, battery wear and how much your solar saves you.</p></div>
+            <div><h1 id="h-savings">Prices and savings</h1><p class="st-lede">Prices, battery wear and what your solar saves.</p></div>
           </div>
           <div class="st-card">
             <div class="st-grid-2">
               <div class="st-field"><label for="savings-currency">Currency symbol</label><input id="savings-currency" class="input" name="savings_currency" value="€" maxlength="6"></div>
-              <div class="st-field"><label for="savings-rate">Grid buy price per kWh</label><input id="savings-rate" class="input" name="savings_rate" type="number" min="0" step="any" value="0.30" inputmode="decimal"><span class="st-help">What you pay the grid for one kWh. Also used for solar savings.</span></div>
-              <div class="st-field"><label for="energy-sell-price">Grid sell price per kWh</label><input id="energy-sell-price" class="input" name="energy_sell_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">What the grid pays you for one exported kWh. Leave 0 if you aren't paid for export.</span></div>
-              <div class="st-field"><label for="generator-price">Generator buy price per kWh</label><input id="generator-price" class="input" name="generator_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">What one kWh from your generator costs you (fuel and upkeep). For inverters with a generator input; leave 0 if you have none.</span></div>
-              <div class="st-field"><label for="battery-wear-cost">Battery wear cost per kWh</label><input id="battery-wear-cost" class="input" name="battery_wear_cost" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">Charged on every kWh into or out of the battery. Battery price &divide; (usable kWh &times; rated cycles &times; 2). Example: 3,000,000 &divide; (15 &times; 6,000 &times; 2) = 17.</span></div>
+              <div class="st-field"><label for="savings-rate">Grid buy price per kWh</label><input id="savings-rate" class="input" name="savings_rate" type="number" min="0" step="any" value="0.30" inputmode="decimal"><span class="st-help">What you pay the grid per kWh.</span></div>
+              <div class="st-field"><label for="energy-sell-price">Grid sell price per kWh</label><input id="energy-sell-price" class="input" name="energy_sell_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">What the grid pays you per exported kWh.</span></div>
+              <div class="st-field"><label for="generator-price">Generator buy price per kWh</label><input id="generator-price" class="input" name="generator_price" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">Fuel and upkeep per kWh. Leave 0 without a generator.</span></div>
+              <div class="st-field"><label for="battery-wear-cost">Battery wear cost per kWh</label><input id="battery-wear-cost" class="input" name="battery_wear_cost" type="number" min="0" step="any" value="0" inputmode="decimal"><span class="st-help">Battery price &divide; (usable kWh &times; rated cycles &times; 2).</span></div>
             </div>
             <div class="st-field"><label for="savings-method">Solar savings</label><select id="savings-method" class="input" name="savings_method">
               <option value="grid">At the grid buy price</option>
               <option value="availability">By grid availability</option>
               <option value="bought">By what you actually bought</option>
-            </select><span class="st-help"><strong>At the grid buy price:</strong> every solar kWh is worth one grid kWh. <strong>By grid availability:</strong> solar made while the grid was on counts at the grid price, solar made during an outage at the generator price (needs the grid status metric below). <strong>By what you actually bought:</strong> each day, solar counts at the average price of the grid and generator energy you bought that day.</span></div>
-            <div class="st-field" id="savings-history-field"><label>Savings history</label><div><button type="button" class="st-btn" id="savings-recalculate">Recalculate history</button> <span class="st-help" id="savings-recalculate-status" role="status" aria-live="polite"></span></div><span class="st-help">Each finished day keeps the value it had when it was counted, so changing a price or the method above changes today and the days to come, and All time and This year never drop because of it. Recalculate re-values every finished day at the prices and method saved now.</span></div>
-            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names" placeholder="grid_status"><span class="st-help">The metric that says whether the grid is up. Used by the grid status block and by solar savings by grid availability.</span></div>
-            <div class="st-field"><label for="generator-status-entity">Generator status metric</label><input id="generator-status-entity" class="input" name="generator_status_entity" list="st-metric-names" placeholder="Use the generator power metric"><span class="st-help">Optional. A metric that is on while the generator runs, for the generator status block. Leave empty to count the generator as running while its power metric is above 20 W.</span></div>
-            <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names" placeholder="Detect automatically"><span class="st-help">The metric that counts solar energy produced today. Leave empty to detect it.</span></div>
+            </select><span class="st-help"><strong>Grid price:</strong> every kWh at the grid price. <strong>Availability:</strong> generator price in outages. <strong>Bought:</strong> the average price you paid.</span></div>
+            <div class="st-field" id="savings-history-field"><label>Savings history</label><div><button type="button" class="st-btn" id="savings-recalculate">Recalculate history</button> <span class="st-help" id="savings-recalculate-status" role="status" aria-live="polite"></span></div><span class="st-help">Re-values every finished day at current prices.</span></div>
+            <div class="st-field"><label for="grid-status-entity">Grid status metric</label><input id="grid-status-entity" class="input" name="grid_status_entity" list="st-metric-names" placeholder="grid_status"><span class="st-help">Says whether the grid is up.</span></div>
+            <div class="st-field"><label for="generator-status-entity">Generator status metric</label><input id="generator-status-entity" class="input" name="generator_status_entity" list="st-metric-names" placeholder="Use the generator power metric"><span class="st-help">Optional. Leave empty to use the generator power metric.</span></div>
+            <div class="st-field"><label for="savings-solar-metric">Solar energy metric</label><input id="savings-solar-metric" class="input" name="savings_solar_metric" list="st-metric-names" placeholder="Detect automatically"><span class="st-help">Counts solar energy made today. Leave empty to detect it.</span></div>
             <h2 class="st-card-subhead">Battery</h2>
             <div class="st-grid-2">
-              <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" placeholder="e.g. 15" inputmode="decimal"><span class="st-help">Used to project battery charge for the rest of the day.</span></div>
+              <div class="st-field"><label for="battery-capacity-kwh">Usable capacity (kWh)</label><input id="battery-capacity-kwh" class="input" name="battery_capacity_kwh" type="number" min="0" step="any" placeholder="e.g. 15" inputmode="decimal"><span class="st-help">Used to project the charge for the rest of the day.</span></div>
               <div class="st-field"><label for="battery-min-soc">Lowest charge (%)</label><input id="battery-min-soc" class="input" name="battery_min_soc" type="number" min="0" max="100" step="1" placeholder="e.g. 20" inputmode="numeric"><span class="st-help">The charge your inverter stops discharging at.</span></div>
             </div>
           </div>
@@ -342,11 +338,11 @@
         <!-- ════════════ VIRTUAL BATTERY ════════════ -->
         <section class="st-section" id="section-virtual-battery" data-section="virtual-battery" aria-labelledby="h-virtual-battery" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-virtual-battery">Virtual Battery</h1><p class="st-lede">A battery charge worked out by Epilykos, for inverters that cannot read the battery directly.</p></div>
+            <div><h1 id="h-virtual-battery">Virtual Battery</h1><p class="st-lede">Estimates charge for inverters that cannot read the battery.</p></div>
           </div>
           <div class="st-card" id="battery-est-card" data-own-save>
             <div class="st-card-head"><h2>Virtual Battery</h2></div>
-            <p class="st-help">For inverters with no link to the battery's BMS, whose own battery % is a guess from voltage. Epilykos counts the current going in and out of the battery through every inverter, and sets the charge to 100% each time the battery is full.</p>
+            <p class="st-help">Counts current in and out of the battery and resets to 100% when full.</p>
             <div id="be-root"><p class="st-help">Loading…</p></div>
             <p class="status" id="be-status" role="status"></p>
           </div>
@@ -355,11 +351,11 @@
         <!-- ════════════ PREPAID METER ════════════ -->
         <section class="st-section" id="section-prepaid" data-section="prepaid" aria-labelledby="h-prepaid" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-prepaid">Prepaid meter</h1><p class="st-lede">Keep a running balance of the units on a prepaid electricity meter.</p></div>
+            <div><h1 id="h-prepaid">Prepaid meter</h1><p class="st-lede">Tracks the units left on a prepaid meter.</p></div>
           </div>
           <div class="st-card" id="prepaid-card" data-own-save>
             <div class="st-card-head"><h2>Prepaid meter</h2></div>
-            <p class="st-help">For a grid supply on a prepaid meter, where a token adds units (1 unit is 1 kWh). Epilykos takes the grid energy it measures off a running balance, and you add a recharge, or correct the balance to what the meter shows, whenever you like. Off by default: nothing appears on the dashboard until you switch it on.</p>
+            <p class="st-help">Tracks the balance on a prepaid grid meter (1 unit = 1 kWh).</p>
             <div id="pm-root"><p class="st-help">Loading…</p></div>
           </div>
         </section>
@@ -367,7 +363,7 @@
         <!-- ════════════ APPEARANCE ════════════ -->
         <section class="st-section" id="section-appearance" data-section="appearance" aria-labelledby="h-appearance" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-appearance">Appearance</h1><p class="st-lede">How the dashboard looks and which dashboard opens on each device.</p></div>
+            <div><h1 id="h-appearance">Appearance</h1><p class="st-lede">Dashboard look and default dashboards.</p></div>
             <div class="st-head-actions"><a href="/editor" class="st-btn">Edit layouts</a></div>
           </div>
           <div class="st-card">
@@ -388,7 +384,7 @@
               <div class="st-field"><label for="glass-blur">Glass blur: <output id="glass-blur-out">18</output> px</label><input id="glass-blur" name="glass_blur" type="range" min="0" max="40" step="1" value="18" data-no-reveal></div>
               <div class="st-field"><label for="glass-frost">Glass frost: <output id="glass-frost-out">100</output>%</label><input id="glass-frost" name="glass_frost" type="range" min="20" max="200" step="5" value="100" data-no-reveal></div>
             </div>
-            <p class="st-help">Glass cards blur and tint what is behind the dashboard cards, so they look best over a background image. It replaces Transparent blocks while it is on. Turn it off if the dashboard is slow on this screen.</p>
+            <p class="st-help">Blurs what is behind cards. Best over a background image.</p>
             <h2 class="st-card-subhead">Default dashboards</h2>
             <div class="st-grid-2">
               <div class="st-field"><label for="desktop-dashboard">On computers</label><select id="desktop-dashboard" class="input" name="desktop_dashboard"></select></div>
@@ -420,13 +416,13 @@
             <fieldset class="st-choices">
               <legend class="st-visually-hidden">Upload mode</legend>
               <label class="st-choice"><input type="radio" name="pvoutput-mode" value="cumulative" checked><span><span class="st-choice-title">Cumulative (c1)</span><span class="st-choice-desc">Daily running totals. Right for most inverters.</span></span></label>
-              <label class="st-choice"><input type="radio" name="pvoutput-mode" value="net"><span><span class="st-choice-title">Net data (n)</span><span class="st-choice-desc">v2 and v4 are net export and import. Only if your inverter reports net metering values.</span></span></label>
+              <label class="st-choice"><input type="radio" name="pvoutput-mode" value="net"><span><span class="st-choice-title">Net data (n)</span><span class="st-choice-desc">v2 and v4 as net export and import.</span></span></label>
             </fieldset>
             <h3 class="st-card-subhead">Upload queue</h3>
             <div id="pvoutput-queue-status" class="st-help"></div>
             <div class="st-inline-actions"><button type="button" id="pvoutput-backfill-btn" class="st-btn">Run backfill</button><button type="button" id="pvoutput-view-queue-btn" class="st-btn">View queue</button></div>
             <h3 class="st-card-subhead">Notifications</h3>
-            <div class="st-field"><label for="pvoutput-webhook-url">Alert address for PVOutput</label><input type="password" id="pvoutput-webhook-url" class="input" readonly autocomplete="off"><span class="st-help">Give PVOutput this address for its alerts. It needs the dashboard to be reachable from the internet. It contains a secret, so only PVOutput should have it.</span></div>
+            <div class="st-field"><label for="pvoutput-webhook-url">Alert address for PVOutput</label><input type="password" id="pvoutput-webhook-url" class="input" readonly autocomplete="off"><span class="st-help">Secret address for PVOutput alerts. Keep it private.</span></div>
             <div class="st-inline-actions"><button type="button" id="pvoutput-webhook-copy" class="st-btn">Copy address</button><button type="button" id="pvoutput-webhook-new" class="st-btn">Make a new address</button></div>
           </div>
         </section>
@@ -444,9 +440,9 @@
           <div id="sys-network-root" data-own-save hidden></div>
           <div class="st-card">
             <div class="st-card-head"><h2>App addresses</h2></div>
-            <div class="st-field"><label for="network-local-url">Address at home</label><input id="network-local-url" class="input" name="network_local_url" type="url" placeholder="http://192.168.1.10:3000"><span class="st-help">Used when your phone or computer is on your home network. Fast, and works without internet.</span></div>
+            <div class="st-field"><label for="network-local-url">Address at home</label><input id="network-local-url" class="input" name="network_local_url" type="url" placeholder="http://192.168.1.10:3000"><span class="st-help">Used on your home network. Fast, and works offline.</span></div>
             <div class="st-field"><label for="network-remote-url">Address away from home</label><input id="network-remote-url" class="input" name="network_remote_url" type="url" placeholder="https://energy.example.com"><span class="st-help">Used everywhere else.</span></div>
-            <p class="st-help">Save these, then install Epilykos to your home screen: the app picks the faster address on its own.</p>
+            <p class="st-help">The installed app picks the faster address.</p>
           </div>
           <div class="st-card" id="rm-card" data-own-save>
             <div class="st-card-head"><h2>Remote access</h2><span class="st-badge" id="rm-badge" hidden></span></div>
@@ -472,7 +468,7 @@
         <!-- ════════════ BACKUP ════════════ -->
         <section class="st-section" id="section-backup" data-section="backup" aria-labelledby="h-backup" hidden>
           <div class="st-section-head">
-            <div><h1 id="h-backup">Backup and restore</h1><p class="st-lede">Your settings, metrics and history live in one database file.</p></div>
+            <div><h1 id="h-backup">Backup and restore</h1><p class="st-lede">Settings, metrics and history are one database file.</p></div>
           </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Backup file</h2></div>
@@ -482,20 +478,20 @@
               <div class="st-field"><label for="backup-pass">Passphrase</label><input type="password" id="backup-pass" autocomplete="new-password" minlength="8" maxlength="256"></div>
               <div class="st-field"><label for="backup-pass2">Type it again</label><input type="password" id="backup-pass2" autocomplete="new-password" minlength="8" maxlength="256"></div>
             </div>
-            <p class="st-help">Passphrase required to restore saved passwords and tokens. Without a passphrase, passwords and tokens need to be entered again in new install</p>
+            <p class="st-help">Needed to restore saved passwords and tokens.</p>
             <div id="backup-status" class="test-status" role="status"></div>
             <div id="restore-progress-row" class="st-inline-actions" hidden><progress id="restore-progress" aria-label="Backup upload progress" max="100" value="0"></progress><button type="button" id="restore-cancel" class="st-btn">Cancel restore</button></div>
           </div>
           <div class="st-card">
             <div class="st-card-head"><h2>Automatic snapshots</h2></div>
-            <p class="st-help">Verified gzip snapshots are taken daily. The two newest successful copies are kept.</p>
+            <p class="st-help">Taken daily and verified. The two newest are kept.</p>
             <button type="button" id="snapshot-refresh" class="st-btn">Refresh snapshots</button>
             <div id="snapshot-list" class="st-snapshots"><p class="st-help">Loading snapshots…</p></div>
             <div id="snapshot-status" class="test-status" role="status"></div>
           </div>
           <div class="st-card" id="cloud-backup-card" data-own-save>
             <div class="st-card-head"><h2>Remote backup</h2></div>
-            <p class="st-help">Sends an encrypted copy of your latest snapshot to a folder, a WebDAV server or your Google Drive other than this box, so a failed card or a stolen box does not take your history with it. The copy is locked with a passphrase you choose, so whoever holds the drive, the server or the Drive account sees only noise. Off by default.</p>
+            <p class="st-help">Sends an encrypted copy of your latest snapshot to another place.</p>
             <div id="cb-root"><p class="st-help">Loading…</p></div>
           </div>
         </section>

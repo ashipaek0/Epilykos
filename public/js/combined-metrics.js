@@ -18,12 +18,12 @@
     product: { label: 'Multiply', help: 'Inputs multiplied, e.g. voltage × current = power.', many: true },
     weighted_mean: { label: 'Weighted average', help: 'Each input counts by its weight, e.g. battery charge weighted by capacity (Ah or kWh).', many: true, weights: true },
     scale: { label: 'Scale', help: 'One input × factor + offset, e.g. Wh to kWh (factor 0.001).', single: true },
-    energy_today: { label: 'Energy today from power', help: 'kWh so far today from a power reading (inputs are added first). Resets at midnight. When the input is an Add up, each part\u2019s kWh is counted too, for cards that list parts; that starts when you save it, so earlier days show no parts.', many: true, energy: true },
+    energy_today: { label: 'Energy today from power', help: 'kWh so far today from a power reading. Resets at midnight.', many: true, energy: true },
     energy_total: { label: 'Lifetime energy from power', help: 'A kWh total that only goes up. Set a starting value to match a meter.', many: true, energy: true, start: true },
     counter_today: { label: 'Today’s increase of a counter', help: 'How much a lifetime counter (e.g. total kWh) went up since midnight.', single: true },
-    threshold: { label: 'On/Off from a limit', help: 'One input turned into On or Off (1 or 0): On at or past a limit you choose, e.g. grid voltage above 180 V for a grid status. Use it as a status metric, or in a card or notification.', single: true, threshold: true },
-    average_per_day: { label: 'Average per day', help: 'The average of a daily figure over the days on record, for any one metric: the average daily load, solar energy, grid import and so on. It is worked out from the stored history, so it is right as soon as you save it. Only complete days count.', single: true, daily: true },
-    peak_today: { label: 'Highest today', help: 'The highest value so far today (inputs are added first, e.g. all PV strings for the day\u2019s peak solar power). Starts again at midnight, so the last value of each day is that day\u2019s peak: use it for bar charts and histograms of daily peaks. It starts when you save it; earlier days have no peak.', many: true }
+    threshold: { label: 'On/Off from a limit', help: 'On or Off once a metric passes a limit you choose.', single: true, threshold: true },
+    average_per_day: { label: 'Average per day', help: 'The average of a daily figure over complete days on record.', single: true, daily: true },
+    peak_today: { label: 'Highest today', help: 'The highest value so far today. Resets at midnight.', many: true }
   };
   // Sums and averages can be shown split into their parts on cards; each part can be renamed.
   var SPLITTABLE = { sum: true, mean: true, weighted_mean: true };

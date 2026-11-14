@@ -32,25 +32,25 @@
     var d = s.destination, isDav = d.type === 'webdav', isG = d.type === 'gdrive';
     h += field('cb-dest', 'Where to send it', '<select class="input" id="cb-dest">' + opt('folder', 'Folder or drive on this box', d.type) + opt('webdav', 'WebDAV server', d.type) + opt('gdrive', 'Google Drive', d.type) + '</select>');
     h += '<div id="cb-pane-folder"' + (d.type === 'folder' ? '' : ' hidden') + '>' + field('cb-path', 'Folder on this box', '<input class="input" id="cb-path" value="' + esc(isDav ? '' : d.path) + '" placeholder="/mnt/usb-backup/epilykos" autocomplete="off" spellcheck="false">',
-      'A USB drive, or a network share you have mounted on the box. In Docker, a folder you mapped in as a volume. The drive must be mounted before the folder is created.') + '</div>';
+      'A mounted USB drive, network share or Docker volume.') + '</div>';
     h += '<div id="cb-pane-webdav"' + (isDav ? '' : ' hidden') + '>'
       + '<div class="st-grid-2">'
-      + field('cb-w-url', 'Server address', '<input class="input" id="cb-w-url" value="' + esc(isDav ? d.url : '') + '" placeholder="https://cloud.example.com/remote.php/dav/files/ade/" autocomplete="off" spellcheck="false">', 'Nextcloud, ownCloud, Synology and others. For Nextcloud, use the WebDAV address from its Files settings.')
+      + field('cb-w-url', 'Server address', '<input class="input" id="cb-w-url" value="' + esc(isDav ? d.url : '') + '" placeholder="https://cloud.example.com/remote.php/dav/files/ade/" autocomplete="off" spellcheck="false">', 'Nextcloud, ownCloud, Synology and others.')
       + field('cb-w-folder', 'Folder', '<input class="input" id="cb-w-folder" value="' + esc(isDav ? d.folder : 'Epilykos') + '" placeholder="Epilykos" autocomplete="off" spellcheck="false">', 'Created inside that address if it is missing.') + '</div>'
       + '<div class="st-grid-2">'
       + field('cb-w-user', 'Username', '<input class="input" id="cb-w-user" value="' + esc(isDav ? d.username : '') + '" autocomplete="off" spellcheck="false">')
       + field('cb-w-pass', isDav && d.hasPassword ? 'App password (saved)' : 'App password', '<input class="input" id="cb-w-pass" type="password" autocomplete="new-password">', isDav && d.hasPassword ? 'Leave empty to keep the saved password. Type one to change it.' : 'Make an app password for this box instead of using your main one.') + '</div>'
       + field('cb-w-cert', 'Server certificate (optional)', '<textarea class="input" id="cb-w-cert" rows="4" placeholder="-----BEGIN CERTIFICATE-----" autocomplete="off" spellcheck="false">' + esc(isDav ? d.certificate : '') + '</textarea>',
-        'Only for a server with a certificate of its own. Paste the whole certificate and Epilykos trusts only that one for this server. Leave empty for a normal https address.')
+        'Only for a server with its own certificate. Leave empty for a normal https address.')
       + '</div>';
     h += '<div id="cb-pane-gdrive"' + (isG ? '' : ' hidden') + '></div>';
     h += '<div class="st-grid-2">'
       + field('cb-pass', s.hasPassphrase ? 'New passphrase (optional)' : 'Passphrase (required)', '<input class="input" id="cb-pass" type="password" autocomplete="new-password" minlength="8" maxlength="256">',
-        s.hasPassphrase ? 'A passphrase is saved. Fill this in only to change it. Older copies keep the passphrase they were made with, until they are replaced.' : 'Locks the whole copy, history included, before it leaves the box. At least 8 characters. Epilykos cannot recover it, and you need it to restore.')
+        s.hasPassphrase ? 'A passphrase is saved. Fill this in only to change it.' : 'At least 8 characters. Epilykos cannot recover it.')
       + field('cb-pass2', 'Type it again', '<input class="input" id="cb-pass2" type="password" autocomplete="new-password" minlength="8" maxlength="256">') + '</div>';
     h += '<div class="st-grid-2">'
-      + field('cb-schedule', 'How often', '<select class="input" id="cb-schedule">' + opt('weekly', 'Weekly', s.schedule) + opt('daily', 'Daily', s.schedule) + '</select>', 'Each upload is a full copy of your latest snapshot. Scheduled uploads start between 01:00 and 06:00.')
-      + field('cb-keep', 'Copies to keep', '<select class="input" id="cb-keep">' + opt(1, '1', s.keep) + opt(2, '2', s.keep) + opt(4, '4', s.keep) + '</select>', 'The new copy is checked before an older one is deleted, so the destination briefly holds one more.') + '</div>';
+      + field('cb-schedule', 'How often', '<select class="input" id="cb-schedule">' + opt('weekly', 'Weekly', s.schedule) + opt('daily', 'Daily', s.schedule) + '</select>', 'Runs between 01:00 and 06:00.')
+      + field('cb-keep', 'Copies to keep', '<select class="input" id="cb-keep">' + opt(1, '1', s.keep) + opt(2, '2', s.keep) + opt(4, '4', s.keep) + '</select>', 'Older copies are deleted after the new one is checked.') + '</div>';
     h += '</div>';
     h += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="cb-save" disabled>Save</button><button type="button" class="st-btn" id="cb-test">Test connection</button></div>';
     h += '<div id="cb-test-result" class="test-status" role="status"></div>';
@@ -90,7 +90,7 @@
 
   function confirmSaved() {
     var body = document.createElement('div');
-    body.innerHTML = '<p>Without your passphrase, this backup cannot be opened by anyone, including us. Store it somewhere other than this box: a password manager or a printed page.</p>'
+    body.innerHTML = '<p>Without this passphrase nobody can open the backup. Keep it off this box, in a password manager or on paper.</p>'
       + '<label class="st-check" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="cb-kept" required> I have saved my passphrase</label>';
     return window.stShell.openDialog({ title: 'Keep your passphrase safe', body: body, alert: true,
       actions: [{ label: 'Cancel', value: null }, { label: 'Start backing up', value: 'ok', kind: 'primary' }] }).then(function (r) { return r.value === 'ok'; });
@@ -132,8 +132,8 @@
     var el = $('cb-pane-gdrive'); if (!el) return;
     var h;
     if (!google.available) h = '<p class="st-help">Google Drive is not set up in this build of Epilykos.</p>';
-    else if (google.connected) h = '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Connected to Google Drive</span><div class="st-help">Backups go in a folder called Epilykos in your Drive, which you can see and delete yourself. Epilykos can see only the files it creates.</div></div><button type="button" class="st-btn" id="cb-g-disconnect">Disconnect</button></div>';
-    else h = '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Not connected</span><div class="st-help">Epilykos asks Google only for access to the files it creates itself, in a folder called Epilykos. It cannot see the rest of your Drive.</div></div><button type="button" class="st-btn st-btn-primary" id="cb-g-connect">Connect Google Drive…</button></div>';
+    else if (google.connected) h = '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Connected to Google Drive</span><div class="st-help">Backups go in an Epilykos folder in your Drive.</div></div><button type="button" class="st-btn" id="cb-g-disconnect">Disconnect</button></div>';
+    else h = '<div class="st-snapshot"><div style="min-width:0"><span class="st-snapshot-date">Not connected</span><div class="st-help">Epilykos can only see the files it creates.</div></div><button type="button" class="st-btn st-btn-primary" id="cb-g-connect">Connect Google Drive…</button></div>';
     h += '<div id="cb-g-flow"></div>';
     el.innerHTML = h;
     var c = $('cb-g-connect'); if (c) c.addEventListener('click', googleConnect);
@@ -143,7 +143,7 @@
   function drawFlow() {
     var el = $('cb-g-flow'); if (!el) return;
     if (!flow) { el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="st-field"><p class="st-help">On any phone or computer, open this address and enter the code. Epilykos waits and finishes by itself.</p>'
+    el.innerHTML = '<div class="st-field"><p class="st-help">Open this address on any device and enter the code.</p>'
       + '<p><a class="help-link" href="' + esc(flow.verificationUrl) + '" target="_blank" rel="noopener">' + esc(flow.verificationUrl) + '</a></p>'
       + '<p style="font:600 1.4rem ui-monospace,Menlo,monospace;letter-spacing:.08em;margin:.3rem 0">' + esc(flow.userCode) + '</p>'
       + '<p class="st-help" id="cb-g-wait">Waiting for you to approve…</p><div><button type="button" class="st-btn" id="cb-g-cancel">Cancel</button></div></div>';
@@ -176,7 +176,7 @@
   }
   function googleDisconnect() {
     window.stShell.openDialog({ title: 'Disconnect Google Drive?', alert: true,
-      body: '<p>Epilykos tells Google it no longer needs access and forgets the sign-in. A backup that uses Google Drive is switched off. The copies already in your Drive stay there until you delete them.</p>',
+      body: '<p>Google Drive backup switches off. Copies already in your Drive stay there.</p>',
       actions: [{ label: 'Cancel', value: null }, { label: 'Disconnect', value: 'ok', kind: 'danger' }] }).then(function (r) {
       if (r.value !== 'ok') return;
       return api('/api/cloud-backup/google/disconnect', {}).then(function (o) {
@@ -201,7 +201,7 @@
     var h = '<hr style="border:0;border-top:1px solid var(--st-line-soft);width:100%;margin:4px 0">' + '<div class="st-inline-actions" style="justify-content:space-between">' + pill() + '</div>';
     h += '<p class="st-help">' + (status.lastOkAt ? 'Last copy sent <b>' + esc(when(status.lastOkAt)) + '</b> (' + esc(size(status.lastBytes || 0)) + ').' : 'No copy has been sent yet.')
       + (status.enabled && status.nextAt && !status.running ? ' Next: <b>' + esc(when(status.nextAt)) + '</b>.' : '') + '</p>';
-    if (status.lastError) h += '<p class="st-help" style="color:var(--st-err)">' + esc(status.lastError) + (status.attempts ? ' It will try again automatically.' : '') + ' The previous copy stays in place.</p>';
+    if (status.lastError) h += '<p class="st-help" style="color:var(--st-err)">' + esc(status.lastError) + (status.attempts ? ' Retrying.' : '') + '</p>';
     h += '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="cb-run"' + (!status.enabled || status.running || busy ? ' disabled' : '') + '>Back up now</button>'
       + '<button type="button" class="st-btn" id="cb-refresh">Refresh</button></div>';
     h += '<div id="cb-copies" class="st-snapshots">';

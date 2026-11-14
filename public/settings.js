@@ -87,7 +87,7 @@ document.addEventListener('click', async e => {
   const status = document.getElementById('savings-recalculate-status');
   const unsaved = document.getElementById('st-savebar');
   if (unsaved && !unsaved.hidden) { showStatus(status, 'Save your changes first: this uses the prices saved now.', 'error'); return; }
-  if (!(await showConfirm('Re-value every finished day at the prices and method saved now? All time and This year will change to match.', { title: 'Recalculate savings history', confirmLabel: 'Recalculate', danger: false }))) return;
+  if (!(await showConfirm('Re-value every finished day at current prices? All time and This year will change.', { title: 'Recalculate savings history', confirmLabel: 'Recalculate', danger: false }))) return;
   btn.disabled = true;
   showStatus(status, 'Recalculating...', 'info');
   try {
@@ -784,8 +784,8 @@ function renderHaCatalogRows(card) {
   const countEl = card.querySelector('.ha-catalog-count');
   if (countEl) {
     countEl.textContent = domain === 'all'
-      ? `${filtered.length} entities across all domains — ${added} expose rows added, ${mappedEntities.size} already mapped`
-      : `${filtered.length} entities in "${domain}" — ${added} expose rows added, ${mappedEntities.size} already mapped`;
+      ? `${filtered.length} entities, ${added} added, ${mappedEntities.size} already mapped`
+      : `${filtered.length} in "${domain}", ${added} added, ${mappedEntities.size} already mapped`;
   }
   refreshAllMetricDropdowns();
   updateMappingSaveNote(card);
@@ -1402,7 +1402,7 @@ function renderModbusDevice(device, idx) {
 function modbusRegisterResetNote() {
   const note = document.createElement('div');
   note.className = 'note';
-  note.textContent = 'No mappings yet — “Fetch Profile Entities” lists every register for this profile (metrics are never auto-created), “+ Add Mapping” adds a single row, or “Load Profile Registers” imports the profile defaults.';
+  note.textContent = 'No mappings yet. Use Fetch Profile Entities, + Add Mapping or Load Profile Registers.';
   return note;
 }
 
@@ -1899,7 +1899,7 @@ function renderRs232Device(device, idx) {
 function rs232ResetNote() {
   const note = document.createElement('div');
   note.className = 'note';
-  note.textContent = 'No mappings yet — “Fetch Profile Entities” lists every field for this profile (metrics are never auto-created), “+ Add Mapping” adds a single row, or “Load Profile Fields” imports the profile defaults.';
+  note.textContent = 'No mappings yet. Use Fetch Profile Entities, + Add Mapping or Load Profile Fields.';
   return note;
 }
 
@@ -2364,10 +2364,10 @@ async function refreshBluetoothStatus() {
     if (!res.ok) return;
     const st = await res.json();
     if (st.legacy_bms_bridge) {
-      el.textContent = 'Bluetooth BMS: using the legacy bms-bridge container (BMS_BRIDGE_URL is set). Unset it to use built-in Bluetooth.';
+      el.textContent = 'Using the legacy bms-bridge container. Unset BMS_BRIDGE_URL for built-in Bluetooth.';
     } else if (st.available) {
       const a = (st.adapters || []).find(x => x.powered) || {};
-      el.textContent = `Bluetooth ready${a.address ? ` — adapter ${a.address}` : ''}. Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth, allow about 10 seconds per device in their read intervals.`;
+      el.textContent = `Bluetooth ready${a.address ? ` (${a.address})` : ''}.`;
     } else {
       el.textContent = `Bluetooth unavailable: ${st.error || 'unknown error'}`;
     }
@@ -2970,7 +2970,7 @@ function renderBmsBank(bank, idx) {
       <span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" class="bank-enabled" ${bank.enabled !== false ? 'checked' : ''}><span class="slider"></span></label><label>Enabled</label></span>
       <button type="button" class="remove-btn danger" data-action="remove-bank">✕</button>
     </div>
-    ${isSingleDevice ? '<p class="st-help" style="margin:0 0 8px 0;">One device: the bank passes its readings through unchanged.</p>' : ''}
+    ${isSingleDevice ? '<p class="st-help" style="margin:0 0 8px 0;">One device: readings pass through unchanged.</p>' : ''}
 
     <h4 class="bank-subhead">Batteries in this bank</h4>
     <div class="bank-devices-list" id="bank-devices-${idx}"></div>
@@ -3075,7 +3075,7 @@ function populateBankDevices(card, bankIdx, selectedDevices) {
     const existing = (selectedDevices || []).find(d => (typeof d === 'string' ? d : d.name) === name);
     const capOverride = (existing && typeof existing === 'object' && existing.capacity_override) ? existing.capacity_override : '';
     const tag = kind === 'wired' ? ' <span class="st-help">(wired)</span>'
-      : kind === 'missing' ? ' <span class="st-help is-error">no battery with this name: it was renamed or removed. Untick it, or rename the battery back.</span>' : '';
+      : kind === 'missing' ? ' <span class="st-help is-error">no battery with this name. Untick it or rename it back.</span>' : '';
     return `
       <div class="form-row bank-device-row" style="align-items:center; gap:8px; margin-bottom:4px;">
         <span class="toggle-wrap" style="flex:1;">
@@ -3638,7 +3638,7 @@ function renderDongleDevice(device, idx) {
       if (lux) {
         const note = document.createElement('div');
         note.className = 'note';
-        note.textContent = 'No entities mapped yet — “Fetch Profile Entities” lists every register for this profile, or “+ Add Mapping” adds a single row.';
+        note.textContent = 'No entities mapped yet. Use Fetch Profile Entities or + Add Mapping.';
         mappingsList.innerHTML = '';
         mappingsList.appendChild(note);
         populateDongleWriteControls(card, profileSelect.value);
@@ -4553,9 +4553,7 @@ async function confirmImplicitToExplicitNoneFlips() {
   if (flagged.length === 0) return true;
   const list = flagged.map(n => `“${n}”`).join(', ');
   return await showConfirm(
-    `Saving will flip ${flagged.length === 1 ? 'a device' : flagged.length + ' devices'} from implicit ` +
-    `profile-default polling to explicit-none (polling stops) because it has no mapped metrics: ${list}. ` +
-    `Map at least one metric to keep it polling. Save anyway?`
+    `${list} ${flagged.length === 1 ? 'has' : 'have'} no mapped metrics, so polling stops. Save anyway?`
   );
 }
 
@@ -4605,7 +4603,7 @@ function dongleCatalogAdapterForProfile(profile) {
 function dongleRegisterResetNote() {
   const note = document.createElement('div');
   note.className = 'note';
-  note.textContent = 'No mappings yet — “Fetch Profile Entities” lists every register for this profile (metrics are never auto-created), “+ Add Mapping” adds a single row, or “Load Profile Registers” imports the profile defaults.';
+  note.textContent = 'No mappings yet. Use Fetch Profile Entities, + Add Mapping or Load Profile Registers.';
   return note;
 }
 
@@ -4637,11 +4635,11 @@ async function populateDongleWriteControls(card, profileId, profile) {
   wrap.style.display = '';
   const note = document.createElement('p');
   note.className = 'note';
-  note.append(`This inverter has ${writable.length} settings you can change: ${writable.map(w => w.label || w.name).join(', ')}. Change them on the `);
+  note.append(`${writable.length} settings can be changed on the `);
   const link = document.createElement('a');
   link.href = '/controls';
   link.textContent = 'Controls page';
-  note.append(link, ', which asks for your password again, reads each setting first and checks it afterwards.');
+  note.append(link, '.');
   wrap.appendChild(note);
 }
 
@@ -4811,7 +4809,7 @@ async function refreshPvoutputQueue() {
     if (data.pending > 0) {
       statusEl.innerHTML = `Pending: <strong>${data.pending}</strong> records across ${data.byDate?.length || 0} dates.`;
       if (data.pending > 100) {
-        statusEl.innerHTML += `<br><span class="note" style="color:#dc2626;">Large queue detected. Free account backfill may take several hours. Consider enabling donation mode for batch upload support.</span>`;
+        statusEl.innerHTML += `<br><span class="note" style="color:#dc2626;">Large queue. A free account may take hours to catch up.</span>`;
       }
     } else {
       statusEl.textContent = 'Queue empty.';
@@ -5021,7 +5019,7 @@ function renderMetricsTable() {
   const count = document.getElementById('metrics-count');
   if (count) count.textContent = metricsList.length ? `(${metricsList.length})` : '';
   if (!metricsList.length) {
-    tbody.innerHTML = '<tr><td colspan="6">No metrics yet. They appear here once a source reports, or add one with New metric.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">No metrics yet. They appear once a source reports.</td></tr>';
     selectedMetrics.clear();
     updateMetricsBulk();
     return;
@@ -5056,15 +5054,15 @@ function renderMetricsTable() {
   tbody.querySelectorAll('.delete-metric-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const name = btn.dataset.name;
-      if (!(await showConfirm(`Delete the metric "${name}"? It is removed from every source mapping and role, and its readings are deleted. This can't be undone.`))) return;
+      if (!(await showConfirm(`Delete "${name}"? Its readings are deleted too. This can't be undone.`))) return;
       btn.disabled = true;
       try {
         const res = await fetch(`/api/metrics/${encodeURIComponent(name)}`, { method: 'DELETE' });
         const body = await res.json().catch(() => ({}));
         if (res.ok) {
           const notes = [];
-          if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length === 1 ? 'The role it filled is' : 'The roles it filled are'} now not mapped.`);
-          if (body.used_by && body.used_by.length) notes.push(`Still an input of ${body.used_by.join(', ')}: edit ${body.used_by.length === 1 ? 'it' : 'them'} under Combined metrics, or ${body.used_by.length === 1 ? 'it waits' : 'they wait'} for a reading that won't come.`);
+          if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length === 1 ? 'A role is' : 'Roles are'} now not mapped.`);
+          if (body.used_by && body.used_by.length) notes.push(`Still used by ${body.used_by.join(', ')} under Combined metrics.`);
           showStatus(status, [`Deleted ${name}.`].concat(notes).join(' '), notes.length ? 'warning' : 'success');
           if (body.roles_cleared && body.roles_cleared.length && typeof loadRoleMetrics === 'function') loadRoleMetrics();
           await loadMetricsList();
@@ -5131,7 +5129,7 @@ function updateMetricsBulk() {
     const status = document.getElementById('metrics-status');
     const shownNames = names.slice(0, 6).map(n => `"${n}"`).join(', ') + (names.length > 6 ? ` and ${names.length - 6} more` : '');
     const one = names.length === 1;
-    if (!(await showConfirm(`${shownNames}: ${one ? 'it is' : 'they are'} removed from every source mapping and role, and ${one ? 'its readings are' : 'their readings are'} deleted. This can't be undone.`,
+    if (!(await showConfirm(`${shownNames}: ${one ? 'its readings are' : 'their readings are'} deleted too. This can't be undone.`,
       { title: one ? 'Delete this metric?' : `Delete ${names.length} metrics?`, confirmLabel: 'Delete' }))) return;
     del.disabled = true;
     try {
@@ -5139,10 +5137,10 @@ function updateMetricsBulk() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { showStatus(status, body.error || `Couldn't delete them (error ${res.status}).`, 'error'); return; }
       const notes = [];
-      if (body.blocked && body.blocked.length) notes.push(`Not deleted: ${body.blocked.map(b => b.name).join(', ')} (combined metrics: delete them under Combined metrics).`);
-      if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length} role${body.roles_cleared.length === 1 ? '' : 's'} they filled ${body.roles_cleared.length === 1 ? 'is' : 'are'} now not mapped.`);
+      if (body.blocked && body.blocked.length) notes.push(`Not deleted: ${body.blocked.map(b => b.name).join(', ')}. Delete combined metrics under Combined metrics.`);
+      if (body.roles_cleared && body.roles_cleared.length) notes.push(`${body.roles_cleared.length} role${body.roles_cleared.length === 1 ? '' : 's'} now not mapped.`);
       const users = Array.from(new Set(Object.values(body.used_by || {}).flat()));
-      if (users.length) notes.push(`Still an input of ${users.join(', ')}: edit ${users.length === 1 ? 'it' : 'them'} under Combined metrics.`);
+      if (users.length) notes.push(`Still used by ${users.join(', ')} under Combined metrics.`);
       (body.deleted || []).forEach(n => selectedMetrics.delete(n));
       (body.blocked || []).forEach(b => selectedMetrics.delete(b.name));
       showStatus(status, [`Deleted ${(body.deleted || []).length} metric${(body.deleted || []).length === 1 ? '' : 's'}.`].concat(notes).join(' '), notes.length ? 'warning' : 'success');
@@ -5898,7 +5896,7 @@ async function buildSourcesPayload() {
   // that saves with zero mapped rows would flip to explicit-none and stop
   // polling — confirm before persisting that.
   if (!(await confirmImplicitToExplicitNoneFlips())) {
-    const err = new Error('Save cancelled — a device would flip from implicit profile-default polling to explicit-none (polling stops). Map at least one metric for it first.');
+    const err = new Error('Not saved: a device has no mapped metrics, so polling would stop.');
     err.cancelled = true;
     throw err;
   }

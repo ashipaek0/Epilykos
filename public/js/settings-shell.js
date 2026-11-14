@@ -513,7 +513,7 @@
     if (RELOAD_DISCARD.indexOf(sec) !== -1 || changedCount(sec) === -1) {
       var r = await openDialog({
         title: 'Discard changes to ' + SECTION_TITLES[sec] + '?',
-        body: '<p>The page reloads with your saved settings. Unsaved changes in other sections are lost too.</p>',
+        body: '<p>Reloads with your saved settings. Unsaved changes in all sections are lost.</p>',
         alert: true,
         actions: [{ label: 'Keep editing', value: null }, { label: 'Discard and reload', value: 'discard', kind: 'danger' }]
       });
@@ -560,7 +560,7 @@
     { key: 'dongle', panel: 'dongle', container: 'dongle-devices-container', add: 'add-dongle-device', label: 'WiFi dongle', icon: 'dongle', group: 'Inverter', desc: 'Solarman, LuxPower, Growatt and Felicity sticks.', match: function (card) { return !isBluetoothDongle(card); },
       head: ['WiFi dongle', "Talks directly to the inverter's WiFi stick over your network."] },
     { key: 'dongle-ble', panel: 'dongle', container: 'dongle-devices-container', add: 'add-dongle-ble-device', label: 'Bluetooth dongle', icon: 'bluetooth', group: 'Inverter', desc: 'Inverters with a Bluetooth module: LuxPower dongles, Phocos Any-Grid, Modbus over Bluetooth.', match: isBluetoothDongle,
-      head: ['Bluetooth dongle', 'Reads the inverter over Bluetooth, from the Bluetooth adapter on this device. Devices on one adapter are read one at a time.'] },
+      head: ['Bluetooth dongle', 'Reads the inverter over this device’s Bluetooth adapter.'] },
     { key: 'rs232', panel: 'rs232', container: 'rs232-devices-container', add: 'add-rs232-device', label: 'RS232 serial', icon: 'serial', group: 'Inverter', desc: 'Voltronic, Victron VE.Direct, SolaX Pocket USB.' },
     { key: 'ha', panel: 'ha', container: 'ha-devices-container', add: 'add-ha-device', label: LABELS.ha || 'Home Assistant', icon: 'home', group: 'Home automation', desc: 'Read any entity with a long-lived token.' },
     { key: 'mqtt', panel: 'mqtt', container: 'mqtt-devices-container', add: 'add-mqtt-device', label: 'MQTT', icon: 'mqtt', group: 'Home automation', desc: 'Subscribe to topics on a broker.' },
@@ -1014,7 +1014,7 @@
   function restoreDialogBody(what) {
     var wrap = document.createElement('div');
     wrap.innerHTML = '<p>This replaces all settings, metrics and history with ' + what + '. Anything recorded since then is lost.</p>' +
-      '<label class="st-check-card"><input type="checkbox" name="downloadFirst" checked><span><span class="st-choice-title">Download current data first</span><span class="st-choice-desc">Saves a backup file before restoring, so you can go back.</span></span></label>';
+      '<label class="st-check-card"><input type="checkbox" name="downloadFirst" checked><span><span class="st-choice-title">Download current data first</span><span class="st-choice-desc">Saves a backup before restoring.</span></span></label>';
     return wrap;
   }
   async function confirmRestore(title, what) {
@@ -1031,10 +1031,10 @@
   // { skip: true } (restore without the saved passwords) or null (cancel).
   async function askRestorePassphrase(ctx) {
     var wrap = document.createElement('div');
-    wrap.innerHTML = '<p>This backup was made with a passphrase protecting its saved passwords and tokens. Enter it to restore them.</p>' +
+    wrap.innerHTML = '<p>Enter the passphrase to restore the saved passwords and tokens.</p>' +
       '<div class="st-field"><label for="restore-pass">Passphrase</label><input type="password" id="restore-pass" name="passphrase" autocomplete="off" maxlength="256"></div>' +
       '<p class="st-help st-dialog-error" role="alert"></p>' +
-      '<p class="st-help">No passphrase? <em>Restore without saved passwords</em> restores everything else, and you enter the passwords again.</p>';
+      '<p class="st-help">No passphrase? <em>Restore without saved passwords</em> keeps everything else.</p>';
     wrap.querySelector('.st-dialog-error').textContent = ctx && ctx.error ? ctx.error : '';
     var r = await openDialog({ title: 'Passphrase needed', body: wrap, alert: true, actions: [
       { label: 'Cancel restore', value: null },
@@ -1097,7 +1097,7 @@
       var r = await fetch('/api/snapshots');
       if (!r.ok) throw new Error('Couldn\'t load snapshots (' + r.status + ')');
       var snaps = await r.json();
-      if (!snaps.length) { list.innerHTML = '<p class="st-help">No snapshots yet. The first one is taken within a day of starting Epilykos.</p>'; return; }
+      if (!snaps.length) { list.innerHTML = '<p class="st-help">No snapshots yet. The first is taken within a day.</p>'; return; }
       list.innerHTML = snaps.map(function (s) {
         return '<div class="st-snapshot"><div><span class="st-snapshot-date">' + esc(new Date(s.time).toLocaleString()) + '</span><span class="st-help"> · ' + esc(formatBytes(s.size)) + (s.format === 'gzip' ? ' · Gzip' : ' · Legacy SQLite') + '</span></div>' +
           '<button type="button" class="st-btn" data-snapshot="' + esc(s.name) + '" data-when="' + esc(new Date(s.time).toLocaleString()) + '" data-size="' + esc(formatBytes(s.size)) + '">Restore…</button></div>';

@@ -74,7 +74,7 @@
   function showRecoveryCodes(codes, title) {
     var text = codes.join('\n');
     var body = document.createElement('div');
-    body.appendChild(el('p', {}, 'Keep these somewhere safe, apart from your phone. Each one signs you in once if you lose the app. They are shown only now.'));
+    body.appendChild(el('p', {}, 'Keep these away from your phone. Each signs you in once, and they are shown only now.'));
     var list = el('pre', { class: 'st-code', 'aria-label': 'Recovery codes', style: 'user-select: all; font-size: 1.05rem; line-height: 1.6;' });
     list.textContent = text;
     var listBox = el('div', { 'data-sensitive-display': 'two-step-codes', 'data-sensitive-label': 'recovery codes' });
@@ -109,7 +109,7 @@
     return ask({
       title: 'Turn on two-step sign-in',
       build: function (body) {
-        body.appendChild(el('p', {}, 'After your password, sign-in will ask for a 6-digit code from an authenticator app on your phone. Enter your dashboard password to start.'));
+        body.appendChild(el('p', {}, 'Sign-in will ask for a 6-digit authenticator code after your password. Enter your password to start.'));
         body.appendChild(field('ts-password', 'Dashboard password', { type: 'password' }));
       },
       submit: function (f) { return api('/begin', { password: f['ts-password'].value }); }
@@ -119,7 +119,7 @@
         title: 'Scan with your authenticator app',
         label: 'Turn on',
         build: function (body) {
-          body.appendChild(el('p', {}, 'Open an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password and others), add an account, and scan this code.'));
+          body.appendChild(el('p', {}, 'Scan this code with an authenticator app.'));
           var img = el('img', { alt: 'QR code for your authenticator app', width: '240', height: '240', style: 'display:block; margin: 8px auto; background: #fff; border-radius: 6px;' });
           img.src = setup.qr;
           var secretBox = el('div', { 'data-sensitive-display': 'two-step-setup', 'data-sensitive-label': 'QR code and key' });
@@ -144,7 +144,7 @@
       title: 'Turn off two-step sign-in',
       label: 'Turn off',
       build: function (body) {
-        body.appendChild(el('p', {}, 'Enter your password and a current code to confirm it is you. Sign-in goes back to the password alone.'));
+        body.appendChild(el('p', {}, 'Enter your password and a current code to turn it off.'));
         body.appendChild(field('ts-password', 'Dashboard password', { type: 'password' }));
         body.appendChild(field('ts-code', 'Code from the app, or a recovery code', { type: 'text', autocapitalize: 'characters' }));
       },
@@ -174,15 +174,15 @@
   function render() {
     var s = status;
     var detail;
-    if (s.broken) detail = '<p class="st-help" style="color: var(--danger, #dc6b4a);">Two-step sign-in is on, but its settings file is damaged, so nobody can sign in. Reset it with the password reset (see the README), then turn it on again.</p>';
+    if (s.broken) detail = '<p class="st-help" style="color: var(--danger, #dc6b4a);">Two-step settings are damaged, so nobody can sign in. Use the password reset (see the README).</p>';
     else if (s.enabled) {
-      detail = '<p class="st-help">Signing in asks for your password, then a code from your authenticator app. <strong>' + s.recoveryLeft + '</strong> recovery code' + (s.recoveryLeft === 1 ? '' : 's') + ' left.</p>' +
-        (s.recoveryLeft <= 2 ? '<p class="st-help" style="color: var(--danger, #dc6b4a);">You are nearly out of recovery codes. Make new ones.</p>' : '') +
+      detail = '<p class="st-help">On. <strong>' + s.recoveryLeft + '</strong> recovery code' + (s.recoveryLeft === 1 ? '' : 's') + ' left.</p>' +
+        (s.recoveryLeft <= 2 ? '<p class="st-help" style="color: var(--danger, #dc6b4a);">Nearly out of recovery codes. Make new ones.</p>' : '') +
         '<div class="st-inline-actions"><button type="button" class="st-btn" id="ts-new-codes">New recovery codes…</button></div>';
-    } else detail = '<p class="st-help">Add a code from an authenticator app after your password. Works without internet; if you lose the phone, the recovery codes or the password reset on the box (or <code>RESET_TWO_STEP</code> with Docker) let you back in.</p>';
+    } else detail = '<p class="st-help">Adds an authenticator code after your password. Works offline.</p>';
     root.innerHTML =
       '<div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="ts-toggle"' + (s.enabled ? ' checked' : '') + '><span class="slider"></span></label><label for="ts-toggle">Two-step sign-in</label></span></div>' +
-      (s.resetByEnv ? '<p class="st-help">RESET_TWO_STEP is set for this container, so two-step sign-in is switched off at every start. Remove it to use two-step sign-in.</p>' : '') +
+      (s.resetByEnv ? '<p class="st-help"><code>RESET_TWO_STEP</code> is set, so two-step is off at every start.</p>' : '') +
       detail;
     var badge = document.getElementById('ts-badge');
     if (badge) { badge.hidden = false; badge.textContent = s.broken ? 'Damaged' : s.enabled ? 'On' : 'Off'; badge.className = 'st-badge' + (s.broken ? ' is-warn' : s.enabled ? ' is-ok' : ''); }
