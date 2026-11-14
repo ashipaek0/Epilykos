@@ -21,6 +21,15 @@ const ATTEMPTS = 4;
 function problem(message, code) { return Object.assign(new Error(message), { code, cloudBackup: true }); }
 function checkName(name) { if (!NAME.test(String(name))) throw problem('That is not one of our backup file names.', 'BAD_NAME'); return name; }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+/** A connection that broke while an answer was being read (Node reports it as "terminated"): worth another try. */
+function lost(error, what) {
+  const why = (error && error.cause && (error.cause.code || error.cause.message)) || (error && error.message) || 'unknown';
+  return Object.assign(new Error(`Lost the connection to Google Drive while ${what} (${why}).`), { transient: true });
+}
+/** Reads an answer's JSON; a cut connection or a half answer counts as a connection problem, not a final failure. */
+async function readJson(res, what) { try { return await res.json(); } catch (error) { throw lost(error, what); } }
+/** Drops an answer's body without waiting for it (a 308 has nothing in it). */
+function discard(res) { try { const done = res.body && res.body.cancel(); if (done && done.catch) done.catch(() => {}); } catch (_) { /* already closed */ } }
 const quote = text => "'" + String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
 
 /**
@@ -74,7 +83,7 @@ function createGdriveDestination({ auth, tokens, fetchImpl = fetch, chunkBytes =
     }
     last.cloudBackup = true; throw last;
   }
-  const json = async (what, res) => { if (!res.ok) throw await failure(what, res); return res.json(); };
+  const json = async (what, res) => { if (!res.ok) throw await failure(what, res); return readJson(res, what); };
 
   const boxId = () => {
     let { box } = tokens.get();
@@ -86,7 +95,7 @@ function createGdriveDestination({ auth, tokens, fetchImpl = fetch, chunkBytes =
     const saved = tokens.get().folder_id;
     if (saved) {
       const res = await request('GET', `${api}/files/${encodeURIComponent(saved)}?fields=id,trashed`);
-      if (res.ok) { const f = await res.json(); if (!f.trashed) return saved; } else if (res.status !== 404) throw await failure('looking for the Epilykos folder', res); else await res.arrayBuffer();
+      if (res.ok) { const f = await readJson(res, 'looking for the Epilykos folder'); if (!f.trashed) return saved; } else if (res.status !== 404) throw await failure('looking for the Epilykos folder', res); else discard(res);
     }
     const q = `name = ${quote(FOLDER_NAME)} and mimeType = '${FOLDER_MIME}' and trashed = false and 'root' in parents`;
     const found = await retrying(async () => json('looking for the Epilykos folder', await request('GET', `${api}/files?q=${encodeURIComponent(q)}&orderBy=createdTime&fields=files(id)&pageSize=10&spaces=drive`)));
@@ -119,7 +128,7 @@ function createGdriveDestination({ auth, tokens, fetchImpl = fetch, chunkBytes =
     if (!record) {
       const done = await fetchImpl(start, { method: 'PUT', headers: { 'Content-Range': `bytes */${total}`, 'Content-Length': '0' }, signal: AbortSignal.timeout(requestTimeout) });
       if (!done.ok) throw await failure('finishing the upload', done);
-      record = await done.json();
+      record = await readJson(done, 'finishing the upload');
     }
     return record;
   }
@@ -132,9 +141,9 @@ function createGdriveDestination({ auth, tokens, fetchImpl = fetch, chunkBytes =
         if (attempt > 1) {
           const probe = await fetchImpl(session, { method: 'PUT', headers: { 'Content-Range': `bytes */${total}`, 'Content-Length': '0' }, signal: AbortSignal.timeout(requestTimeout) })
             .catch(error => { throw Object.assign(new Error(error.message), { transient: true }); });
-          if (probe.status === 200 || probe.status === 201) return probe.json();
+          if (probe.status === 200 || probe.status === 201) return readJson(probe, 'checking the upload');
           if (probe.status !== 308) throw await failure('continuing the upload', probe);
-          await probe.arrayBuffer();
+          discard(probe);
           const range = /bytes=0-(\d+)/.exec(probe.headers.get('range') || '');
           from = Math.min(chunk.length, Math.max(0, (range ? Number(range[1]) + 1 : 0) - offset));
           if (from >= chunk.length) return null;   // Google already has all of it
@@ -144,8 +153,8 @@ function createGdriveDestination({ auth, tokens, fetchImpl = fetch, chunkBytes =
           res = await fetchImpl(session, { method: 'PUT', body: chunk.subarray(from), signal: AbortSignal.timeout(requestTimeout * 3),
             headers: { 'Content-Range': `bytes ${offset + from}-${offset + chunk.length - 1}/${total}`, 'Content-Length': String(chunk.length - from) } });
         } catch (error) { throw Object.assign(new Error('Cannot reach Google Drive: ' + (error.cause && error.cause.code || error.message)), { transient: true }); }
-        if (res.status === 308) { await res.arrayBuffer(); return null; }
-        if (res.ok) return res.json();
+        if (res.status === 308) { discard(res); return null; }
+        if (res.ok) return await readJson(res, 'sending the file');
         throw await failure('sending the file', res);
       } catch (error) {
         if (!error.transient) throw error;
