@@ -111,7 +111,7 @@
       + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
 
     html += '<div class="st-card"><div class="st-card-head"><h2>SSH maintenance login</h2>'
-      + '<span class="st-badge" style="background:var(--st-hover)">' + (ssh.enabled ? 'On' : 'Off') + '</span></div>'
+      + '<span class="st-badge' + (ssh.enabled ? ' is-ok' : '') + '">' + (ssh.enabled ? 'On' : 'Off') + '</span></div>'
       + '<p class="st-help">Log in as <code>' + esc(ssh.user) + '</code> from another computer'
       + (ssh.enabled ? ': <code>ssh ' + esc(ssh.user) + '@' + esc(host()) + '</code>' : '') + '.</p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn' + (ssh.enabled ? '' : ' st-btn-primary') + '" data-act="ssh-toggle">' + (ssh.enabled ? 'Turn SSH off' : 'Turn SSH on') + '</button></div>'

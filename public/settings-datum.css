@@ -22,14 +22,14 @@
   --dt-bg: #F6F5F1; --dt-bg2: #ECEBE5; --dt-ink: #17181A; --dt-mut: #46494E; --dt-sect: rgba(23, 24, 26, 0.34);
   --dt-edge: #7A7C80; --dt-rule: rgba(23, 24, 26, 0.14);
   --dt-acc: #C76800; --dt-acc-ink: #8F4A00; --dt-on-acc: #17181A;
-  --dt-ok: #17733F; --dt-err: #B42318; --dt-scrim: rgba(23, 24, 26, 0.42);
+  --dt-ok: #17733F; --dt-on-thumb: #FFFFFF; --dt-err: #B42318; --dt-scrim: rgba(23, 24, 26, 0.42);
   --dt-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 [data-theme="dark"] {
   --dt-bg: #0B0D10; --dt-bg2: #13161B; --dt-ink: #F2F4F7; --dt-mut: #AAB2C0; --dt-sect: rgba(255, 255, 255, 0.30);
   --dt-edge: #6B7480; --dt-rule: rgba(255, 255, 255, 0.10);
   --dt-acc: #F97316; --dt-acc-ink: #F97316; --dt-on-acc: #0B0D10;
-  --dt-ok: #4ADE80; --dt-err: #FF7A6E; --dt-scrim: rgba(0, 0, 0, 0.6);
+  --dt-ok: #4ADE80; --dt-on-thumb: #0B0D10; --dt-err: #FF7A6E; --dt-scrim: rgba(0, 0, 0, 0.6);
 }
 html.dt body.st {
   --st-panel: var(--dt-bg); --st-canvas: var(--dt-bg);
@@ -148,12 +148,12 @@ html.dt body.st .toggle-wrap { display: inline-flex; align-items: center; gap: 1
 html.dt body.st .toggle-switch { width: 44px; height: 24px; }
 html.dt body.st .toggle-switch .slider { background: transparent; border: 1.5px solid var(--dt-edge); border-radius: 24px; box-sizing: border-box; }
 html.dt body.st .toggle-switch .slider::before { width: 15px; height: 15px; left: 3px; top: 3px; background: var(--dt-edge); box-shadow: none; }
-html.dt body.st .toggle-switch input:checked + .slider { background: var(--dt-acc); border-color: var(--dt-acc); }
-html.dt body.st .toggle-switch input:checked + .slider::before { background: var(--dt-on-acc); transform: translateX(20px); }
+html.dt body.st .toggle-switch input:checked + .slider { background: var(--dt-ok); border-color: var(--dt-ok); }
+html.dt body.st .toggle-switch input:checked + .slider::before { background: var(--dt-on-thumb); transform: translateX(20px); }
 html.dt body.st .toggle-switch input:focus-visible + .slider { box-shadow: var(--st-focus); }
 html.dt body.st .toggle-wrap label { font-size: 15px; }
 html.dt body.st .toggle-wrap > label:not(.toggle-switch):last-child::after { content: " · Off"; color: var(--dt-mut); font-weight: 600; font-size: 13.5px; }
-html.dt body.st .toggle-wrap:has(input:checked) > label:not(.toggle-switch):last-child::after { content: " · On"; color: var(--dt-acc-ink); }
+html.dt body.st .toggle-wrap:has(input:checked) > label:not(.toggle-switch):last-child::after { content: " · On"; color: var(--dt-ok); }
 html.dt body.st .st-toggle-row { gap: 6px 36px; margin-bottom: 8px; }
 
 /* ── Buttons: words, one pill for the main action ────────── */
@@ -195,6 +195,7 @@ html.dt body.st .st-pill.is-error .st-pill-dot { background: var(--dt-err); bord
 html.dt body.st .st-pill.is-error { color: var(--dt-err); }
 html.dt body.st .st-pill.is-new .st-pill-dot { background: var(--dt-acc); border-radius: 1px; transform: rotate(45deg) scale(0.9); }
 html.dt body.st .st-pill.is-new { color: var(--dt-acc-ink); }
+html.dt body.st .st-pill.is-ok { color: var(--dt-ok); }
 html.dt body.st .st-pill.is-off .st-pill-dot, html.dt body.st .st-pill.is-unknown .st-pill-dot { background: transparent; border: 1.5px solid var(--dt-mut); }
 html.dt body.st .st-pill.is-off, html.dt body.st .st-pill.is-unknown { color: var(--dt-mut); }
 
