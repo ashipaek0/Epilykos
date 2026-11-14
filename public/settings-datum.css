@@ -427,3 +427,10 @@ html.dt body.st #pm-fields > * + *, html.dt body.st #pm-root > * + * { margin-to
   html.dt body.st .dt-stream .st-card-subhead::before, html.dt body.st .st-card:not(.dt-card) .st-card-subhead::before { top: -30px; }
 }
 html.dt body.st .st-section-head { margin-bottom: 0; }
+
+/* ── Menu: the current section sits on a faint amber wash ── */
+html.dt body.st .st-nav-list { margin-left: -22px; margin-right: -12px; }
+html.dt body.st .st-nav-link { padding: 4px 12px 4px 22px; border-radius: 10px; }
+html.dt body.st .st-nav-link:hover { background: var(--dt-bg2); }
+html.dt body.st .st-nav-link[aria-current="page"], html.dt body.st .st-nav-link[aria-current="page"]:hover { background: color-mix(in srgb, var(--dt-acc) 13%, transparent); font-weight: 700; }
+html.dt body.st .st-nav-link[aria-current="page"]::before { left: 9px; width: 6px; height: 6px; margin-top: -3px; }
