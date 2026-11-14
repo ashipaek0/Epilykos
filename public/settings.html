@@ -24,11 +24,6 @@
       } catch (e) {}
       if (l === 'datum') {
         document.documentElement.classList.add('dt');
-        try {
-          var f = localStorage.getItem('epilykos-dt-font'), b = localStorage.getItem('epilykos-dt-bands');
-          if (f) document.documentElement.setAttribute('data-dt-font', f);
-          if (b) document.documentElement.setAttribute('data-dt-bands', b);
-        } catch (e) {}
       }
     })();
   </script>

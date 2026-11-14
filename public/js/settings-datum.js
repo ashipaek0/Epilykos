@@ -18,8 +18,6 @@
     }
     try { return localStorage.getItem(KEY) === 'classic' ? 'classic' : 'datum'; } catch (e) { return 'datum'; }
   }
-  var FONTS = [['inter', 'Inter'], ['jakarta', 'Plus Jakarta Sans'], ['public', 'Public Sans'], ['atkinson', 'Atkinson Hyperlegible'], ['plex', 'IBM Plex Sans'], ['manrope', 'Manrope (earlier)']];
-  var BANDS = [['rules', 'Rules and marker'], ['tint', 'Tinted panels'], ['rail', 'Side rail']];
   var look = readPref();
   addLookSwitch();
   if (look === 'classic') return;
@@ -125,36 +123,6 @@
     card.classList.add('dt-card');
   }
 
-  function pick(key, fallback, list) {
-    var v = null;
-    try { v = localStorage.getItem(key); } catch (e) {}
-    return list.some(function (x) { return x[0] === v; }) ? v : fallback;
-  }
-  function addPreviewControls(nav) {
-    var wrap = document.createElement('details');
-    wrap.className = 'dt-preview';
-    var sum = document.createElement('summary');
-    sum.textContent = 'Preview options';
-    wrap.appendChild(sum);
-    var inner = document.createElement('div');
-    inner.className = 'dt-preview-body';
-    wrap.appendChild(inner);
-    [['Typeface', 'epilykos-dt-font', FONTS, 'inter', 'data-dt-font'], ['Section style', 'epilykos-dt-bands', BANDS, 'rules', 'data-dt-bands']].forEach(function (c) {
-      var label = document.createElement('label');
-      label.textContent = c[0];
-      var sel = document.createElement('select');
-      c[2].forEach(function (o) { var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
-      sel.value = pick(c[1], c[3], c[2]);
-      sel.addEventListener('change', function () {
-        document.documentElement.setAttribute(c[4], sel.value);
-        try { localStorage.setItem(c[1], sel.value); } catch (e) {}
-      });
-      label.appendChild(sel);
-      inner.appendChild(label);
-    });
-    nav.appendChild(wrap);
-  }
-
   function addLookSwitch() {
     var nav = document.getElementById('st-nav');
     if (!nav || document.getElementById('dt-look')) return;
@@ -170,7 +138,6 @@
     });
     p.appendChild(b);
     nav.appendChild(p);
-    if (look !== 'classic') addPreviewControls(nav);
   }
 
   run();
