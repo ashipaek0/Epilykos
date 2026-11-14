@@ -6,7 +6,7 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 
 function createFakeGoogle({ clientId = 'client-1', clientSecret = 'secret-1', accessLifetime = 3600 } = {}) {
-  const state = { approved: false, denied: false, slowDown: 0, revoked: false, quotaFull: false, failChunks: [], accessLifetime, expireAccess: false };
+  const state = { approved: false, denied: false, slowDown: 0, revoked: false, quotaFull: false, failChunks: [], cutFinalReply: 0, accessLifetime, expireAccess: false };
   const tokens = new Map();                 // access token → expiry
   const files = new Map();                  // id → { id, name, mimeType, parents, appProperties, content }
   const sessions = new Map();
@@ -81,7 +81,12 @@ function createFakeGoogle({ clientId = 'client-1', clientSecret = 'secret-1', ac
       const s = sessions.get(sess[1]); if (!s) return send(404, {});
       const range = /^bytes (?:(\d+)-(\d+)|\*)\/(\d+)$/.exec(req.headers['content-range'] || '');
       if (!range) return send(400, {});
-      const complete = () => { const f = { id: id(), parents: [], ...s.meta, content: Buffer.concat(s.chunks) }; files.set(f.id, f); return send(200, publicFile(f)); };
+      const complete = () => {
+        if (!s.file) { s.file = { id: id(), parents: [], ...s.meta, content: Buffer.concat(s.chunks) }; files.set(s.file.id, s.file); }
+        // The reply to the last chunk is cut off part way: the file is stored, the connection drops while the answer is being read.
+        if (state.cutFinalReply > 0 && range[1] !== undefined) { state.cutFinalReply--; res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': '500' }); res.write('{"id":"'); return setTimeout(() => req.socket.destroy(), 20); }
+        return send(200, publicFile(s.file));
+      };
       if (range[1] === undefined) return s.received >= s.total ? complete() : send(308, undefined, s.received ? { Range: `bytes=0-${s.received - 1}` } : {});
       if (Number(range[1]) !== s.received) return send(400, { error: 'unexpected offset ' + range[1] + ' (have ' + s.received + ')' });
       const fail = state.failChunks.find(f => f.times > 0);

@@ -16,6 +16,7 @@ const { createCloudBackup, GOOGLE_KEY } = require(path.join(REPO, 'modules/cloud
 const envelope = require(path.join(REPO, 'modules/cloudBackup/envelope'));
 
 const NAME = 'epilykos-backup-2026-11-14T10-00-00-abc123.epkb';
+const NAME2 = 'epilykos-backup-2026-11-14T10-00-01-def456.epkb';
 const collect = async stream => { const parts = []; await pipeline(stream, new Writable({ write(c, _, d) { parts.push(c); d(); } })); return Buffer.concat(parts); };
 const rejects = async (promise, pattern, label) => { let error = null; try { await promise; } catch (e) { error = e; } assert.ok(error, label + ': should fail'); assert.match(error.message, pattern, label); return error; };
 const KB256 = 262144;
@@ -79,6 +80,14 @@ const KB256 = 262144;
   assert.deepStrictEqual(stored[0].parents, [store.folder_id], 'inside the Epilykos folder');
   assert.strictEqual(stored[0].appProperties.box, store.box, 'marked as this box\'s');
   await dest.verify(NAME, sent);
+  // The answer to the last chunk is cut off after Google stored the file: that is a lost connection, so the upload asks Google
+  // how it went, finds the finished file and carries on (it was once reported as a bare "terminated" and the whole run failed).
+  google.state.cutFinalReply = 1;
+  const again = await dest.put(NAME2, Readable.from([body]), { size });
+  assert.strictEqual(again.bytes, body.length); assert.strictEqual(google.state.cutFinalReply, 0, 'the answer really was cut');
+  assert.strictEqual([...google.files.values()].filter(f => f.name === NAME2).length, 1, 'one file, not two');
+  assert.ok([...google.files.values()].find(f => f.name === NAME2).content.equals(body));
+  await dest.remove(NAME2);
   await rejects(dest.verify(NAME, { ...sent, bytes: sent.bytes + 1 }), /wrong size/, 'wrong size');
   await rejects(dest.verify(NAME, { ...sent, md5: '0'.repeat(32) }), /different copy/, 'wrong checksum');
   await rejects(dest.verify('epilykos-backup-2020-01-01T00-00-00-000000.epkb', { bytes: 1, sha256: '' }), /does not show/, 'a copy that is not there');

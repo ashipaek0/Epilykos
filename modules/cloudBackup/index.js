@@ -236,7 +236,8 @@ function createCloudBackup({
         return { ok: true, ...result };
       } catch (error) {
         const st = state();
-        const message = String(error && error.message || error).slice(0, 300);
+        let message = String(error && error.message || error).slice(0, 300);
+        if (!/[.!?]$/.test(message)) message += '.';
         st.attempts = (st.attempts || 0) + 1; st.lastAt = started; st.lastError = message;
         st.retryAt = now() + RETRY[Math.min(st.attempts, RETRY.length) - 1];
         if (!st.warnAt || now() - st.warnAt >= WARN_EVERY) {
