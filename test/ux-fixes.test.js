@@ -132,10 +132,10 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     }
     const st = read('public/settings.js');
     assert.match(st, /devices on one adapter are read one at a time, so allow about 10 seconds per device/);
-    assert.match(st, /Devices on one adapter are read one at a time: with several batteries or inverters on Bluetooth/, 'kept when Bluetooth reports ready');
+    assert.match(st, /Bluetooth ready/, 'status still shown when Bluetooth reports ready');
     const wz = read('public/js/setup.js');
     assert.match(wz, /need = Math\.max\(30, units \* 10\)/); assert.match(wz, /Set Read every to at least ' \+ need \+ ' seconds/);
-    assert.match(read('public/js/combined-metrics.js'), /that starts when you save it, so earlier days show no parts/);
+    assert.match(read('public/js/combined-metrics.js'), /Parts are counted from when you save it/);
   });
 
   await check('review fixes: combined flag follows definitions; filter by name; whole-period durations; size can be cleared; partial months say so', () => {

@@ -63,11 +63,11 @@
   function render() {
     if (!st) return;
     var h = '';
-    var about = '<p class="st-help">Open your dashboard away from home without port forwarding or a reverse proxy. It uses <a href="https://tailscale.com" target="_blank" rel="noopener">Tailscale</a>, free for personal use: you sign in with Google, Apple, Microsoft or GitHub, and only your own devices can reach it unless you choose otherwise.</p>';
+    var about = '<p class="st-help">Reach your dashboard away from home with <a href="https://tailscale.com" target="_blank" rel="noopener">Tailscale</a>, with no port forwarding.</p>';
     var dis = busy ? ' disabled' : '';
     if (st.state === 'not-installed') {
       badge('');
-      h = about + '<p class="st-help"><strong>Not included in this install.</strong> Update to the latest Epilykos image to use it.</p>';
+      h = about + '<p class="st-help"><strong>Not included in this install.</strong> Update Epilykos to use it.</p>';
     } else if (st.state === 'off') {
       badge('');
       h = about + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="rm-connect"' + dis + '>' + (busy ? 'Starting…' : 'Connect with Tailscale') + '</button></div>';
@@ -77,8 +77,8 @@
     } else if (st.state === 'needs-login') {
       badge('Sign in needed', 'warn');
       h = st.needsApproval
-        ? '<p>Signed in. Approve this device in the <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener">Tailscale admin console</a>, then come back.</p>'
-        : '<p><strong>Sign in to Tailscale to finish.</strong> Open the link, or scan the code with your phone, and sign in with the account you want to use.</p>'
+        ? '<p>Approve this device in the <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener">Tailscale admin console</a>.</p>'
+        : '<p><strong>Sign in to Tailscale.</strong> Open the link or scan the code.</p>'
           + '<div class="rm-pair" data-sensitive-display="tailscale-signin" data-sensitive-label="sign-in link and code"><div class="rm-qr" aria-hidden="true">' + (st.signInQr || '') + '</div><div class="rm-pair-text">'
           + '<a class="st-btn st-btn-primary" href="' + esc(st.signInLink) + '" target="_blank" rel="noopener">Open sign-in page</a>'
           + '<p class="st-help">This page updates by itself once you have signed in.</p></div></div>';
@@ -89,7 +89,7 @@
         badge('Connected', 'ok');
         h = where;
         if (st.enableLink) {
-          h += '<p><strong>Turn on HTTPS for your Tailscale network.</strong> Tailscale needs this once to give your dashboard a secure address.</p>'
+          h += '<p><strong>Turn on HTTPS in Tailscale</strong> for a secure address.</p>'
             + '<div class="st-inline-actions"><a class="st-btn st-btn-primary" href="' + esc(st.enableLink) + '" target="_blank" rel="noopener">Turn on HTTPS</a></div>'
             + '<p class="st-help">This page updates by itself once it is on.</p>';
         } else {
@@ -103,10 +103,10 @@
           + '<div class="rm-url"><a href="' + esc(st.privateUrl) + '" target="_blank" rel="noopener">' + esc(st.privateUrl) + '</a>' + copyButton(st.privateUrl) + '</div>'
           + '<p class="st-help">' + (st.funnel
             ? 'Anyone with this address can reach your sign-in page from any browser.'
-            : 'Only devices signed in to your Tailscale account can open it. On your phone, install the Tailscale app and sign in with the same account.') + '</p></div></div>'
-          + (st.funnel ? '<p class="rm-warn">Your dashboard is open to the internet. Keep your admin password long and private.</p>' : '')
+            : 'Only devices on your Tailscale account can open it.') + '</p></div></div>'
+          + (st.funnel ? '<p class="rm-warn">Open to the internet. Keep your admin password long and private.</p>' : '')
           + '<div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="rm-funnel"' + (st.funnel ? ' checked' : '') + dis + (st.funnelAllowed || st.funnel ? '' : ' data-needs-enable="1"') + '><span class="slider"></span></label><label for="rm-funnel">Open to the internet</label></span></div>'
-          + '<p class="st-help">Lets any browser open the address, without the Tailscale app. Off by default.</p>'
+          + '<p class="st-help">Lets any browser open the address.</p>'
           + (st.enableLink ? '<p class="st-help"><a href="' + esc(st.enableLink) + '" target="_blank" rel="noopener">Allow it in Tailscale</a> first, then try again.</p>' : '')
           + offButton();
       }
@@ -124,7 +124,7 @@
 
   function askPassword() {
     var body = document.createElement('div');
-    body.innerHTML = '<p>Anyone on the internet will be able to reach your sign-in page and try passwords. Your admin password must be at least 12 characters.</p>'
+    body.innerHTML = '<p>Anyone can reach your sign-in page and try passwords. Use an admin password of 12 or more characters.</p>'
       + '<div class="st-field"><label for="rm-pw">Admin password</label><input id="rm-pw" class="input" type="password" autocomplete="current-password" required></div>';
     var input = body.querySelector('input');
     setTimeout(function () { input.focus(); }, 50);
@@ -215,16 +215,16 @@
 
   function form() {
     var port = st.port || 3000;
-    return '<p class="st-help">A public address on your own domain, through Cloudflare. No ports to open and no reverse proxy to run. You need a Cloudflare account with your domain on it.</p>'
+    return '<p class="st-help">A public address on your own domain through Cloudflare. Needs a Cloudflare account.</p>'
       + '<ol class="cf-steps">'
       + '<li>In Cloudflare Zero Trust, go to <strong>Networks → Tunnels</strong> and create a tunnel (type <strong>Cloudflared</strong>).</li>'
-      + '<li>Copy the install command it shows and paste it below. Just the long code starting with <code>eyJ</code> works too.</li>'
-      + '<li>Under <strong>Public hostname</strong>, add your address (for example <code>energy.example.com</code>) with service <strong>HTTP</strong> and URL <code>localhost:' + esc(port) + '</code>.</li>'
+      + '<li>Paste the install command below, or just the code starting <code>eyJ</code>.</li>'
+      + '<li>Under <strong>Public hostname</strong>, add your address with service <strong>HTTP</strong> and URL <code>localhost:' + esc(port) + '</code>.</li>'
       + '</ol>'
       + '<div class="st-field"><label for="cf-token">Tunnel token or install command</label><input id="cf-token" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="cloudflared service install eyJ…"></div>'
       + '<div class="st-field"><label for="cf-url">Public address</label><input id="cf-url" class="input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="energy.example.com"><span class="st-help">The hostname from step 3. Fills in “Address away from home” if that is empty.</span></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="cf-connect"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Connecting…' : 'Connect tunnel') + '</button></div>'
-      + '<p class="st-help">Optional: add Cloudflare Access to the hostname for an extra sign-in in front of Epilykos.</p>';
+      + '<p class="st-help">Optional: add Cloudflare Access for an extra sign-in.</p>';
   }
 
   function render() {
@@ -232,7 +232,7 @@
     var h;
     if (st.state === 'not-installed') {
       badge('');
-      h = '<p class="st-help"><strong>Not included in this install.</strong> Update to the latest Epilykos image to use it.</p>';
+      h = '<p class="st-help"><strong>Not included in this install.</strong> Update Epilykos to use it.</p>';
     } else if (st.state === 'off') {
       badge('');
       h = form();
@@ -247,7 +247,7 @@
       if (st.publicUrl) {
         h += '<div class="rm-pair" data-sensitive-display="tunnel-url" data-sensitive-label="address and QR code"><div class="rm-qr" aria-hidden="true">' + (st.urlQr || '') + '</div><div class="rm-pair-text">'
           + '<div class="rm-url"><a href="' + esc(st.publicUrl) + '" target="_blank" rel="noopener">' + esc(st.publicUrl) + '</a><button type="button" class="st-btn cf-copy" data-copy="' + esc(st.publicUrl) + '">Copy</button></div>'
-          + '<p class="st-help">Open to the internet. If it shows a Cloudflare error page, check the public hostname points to <code>localhost:' + esc(st.port || 3000) + '</code> (service HTTP).</p></div></div>';
+          + '<p class="st-help">Open to the internet. On a Cloudflare error, point the hostname at <code>localhost:' + esc(st.port || 3000) + '</code> (service HTTP).</p></div></div>';
       }
       h += '<div class="st-inline-actions rm-off"><button type="button" class="st-btn st-btn-danger-text" id="cf-disconnect"' + (busy ? ' disabled' : '') + '>Turn off tunnel</button></div>';
     }
@@ -256,7 +256,7 @@
 
   function askPassword() {
     var body = document.createElement('div');
-    body.innerHTML = '<p>Your public address will be reachable from anywhere. Your admin password must be at least 12 characters.</p>'
+    body.innerHTML = '<p>Your address will be reachable from anywhere. Use an admin password of 12 or more characters.</p>'
       + '<div class="st-field"><label for="cf-pw">Admin password</label><input id="cf-pw" class="input" type="password" autocomplete="current-password" required></div>';
     var input = body.querySelector('input');
     return shell.openDialog({ title: 'Open your dashboard to the internet?', body: body, actions: [{ label: 'Cancel', value: null }, { label: 'Connect tunnel', value: 'ok', kind: 'danger' }] })
@@ -283,7 +283,7 @@
         }).then(schedule);
       });
     } else if (t.id === 'cf-disconnect') {
-      var ask = window.stConfirm ? window.stConfirm({ title: 'Turn off the tunnel?', message: 'Your public address stops working. The token is forgotten; you would paste it again to turn it back on.', confirmLabel: 'Turn off' }) : Promise.resolve(true);
+      var ask = window.stConfirm ? window.stConfirm({ title: 'Turn off the tunnel?', message: 'Your public address stops working and the token is forgotten.', confirmLabel: 'Turn off' }) : Promise.resolve(true);
       Promise.resolve(ask).then(function (yes) {
         if (!yes) return;
         busy = true; render();
