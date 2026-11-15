@@ -1,19 +1,34 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43620286680.1",
-    "version": "1.2.12",
-    "commit": "4f0fffa36042416b2f7b14c2b653daba2a031b58",
-    "digest": "sha256:a3d0a27b24227b77805c961e20225e177fba1cfb54f6a32ef45ddb5d540c3b58",
+    "buildId": "43695658405.1",
+    "version": "1.2.13",
+    "commit": "c82670df2dc6ce062506f6c0f3270bce9b59d082",
+    "digest": "sha256:8b469bf24ef786bfbfa7584ce7ed32a65c2da997a96245f836e759392f63cf91",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-14T17:17:49Z",
+    "builtAt": "2026-11-15T08:41:33Z",
     "kind": "release",
     "notes": [
-      "Settings: a faint amber wash marks the current section in the menu (#364)",
-      "Settings: more room between sections and a short faint divider (#363)"
+      "Remote backup: stale status messages clear (#367)",
+      "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)",
+      "Settings: blank placeholders; labels above device-card fields (#366)"
     ]
   },
   "history": [
+    {
+      "buildId": "43695658405.1",
+      "version": "1.2.13",
+      "commit": "c82670df2dc6ce062506f6c0f3270bce9b59d082",
+      "digest": "sha256:8b469bf24ef786bfbfa7584ce7ed32a65c2da997a96245f836e759392f63cf91",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-15T08:41:33Z",
+      "kind": "release",
+      "notes": [
+        "Remote backup: stale status messages clear (#367)",
+        "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)",
+        "Settings: blank placeholders; labels above device-card fields (#366)"
+      ]
+    },
     {
       "buildId": "43620286680.1",
       "version": "1.2.12",
