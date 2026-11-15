@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43622436575.1",
-    "version": "1.2.13-dev+c3df3cf",
-    "commit": "c3df3cfc4d074000604d52a33f6b75d49aa47b18",
-    "digest": "sha256:32c48ae4b802c0468a3679c9408096962926b2999f5a5fac7dc2dc1dd678639b",
+    "buildId": "43694740723.1",
+    "version": "1.2.13-dev+d659028",
+    "commit": "d6590284f4366555737a73dac66203fcb7cbaef7",
+    "digest": "sha256:55f4efef933e2b9d27dd4cc856825ddbd553c54ae8f3785c6b7df7353361f8c2",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-14T17:41:25Z",
+    "builtAt": "2026-11-15T08:29:58Z",
     "kind": "release",
     "notes": [
-      "Settings: blank placeholders; labels above device-card fields (#366)"
+      "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)"
     ]
   },
   "history": [
+    {
+      "buildId": "43694740723.1",
+      "version": "1.2.13-dev+d659028",
+      "commit": "d6590284f4366555737a73dac66203fcb7cbaef7",
+      "digest": "sha256:55f4efef933e2b9d27dd4cc856825ddbd553c54ae8f3785c6b7df7353361f8c2",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-15T08:29:58Z",
+      "kind": "release",
+      "notes": [
+        "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)"
+      ]
+    },
     {
       "buildId": "43622436575.1",
       "version": "1.2.13-dev+c3df3cf",
@@ -362,16 +374,6 @@
         "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
         "Solar forecast cards: the day tiles follow the card's transparency (#328)"
       ]
-    },
-    {
-      "buildId": "43183878891.1",
-      "version": "1.2.5-dev+f7c2d74",
-      "commit": "f7c2d74effe0c19975a9ae0f5970c06f502a0a8e",
-      "digest": "sha256:35d25368fcc5a93b4a88f069b657939b50e25197d9c525e68ce9d087b2ae5428",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T08:33:30Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
