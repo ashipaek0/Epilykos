@@ -48,7 +48,7 @@
     drawBalance();
   }
   function numField(id, label, value) {
-    return '<div class="st-field"><label for="' + id + '">' + label + '</label><input class="input" id="' + id + '" type="number" min="0" step="any" inputmode="decimal" value="' + esc(value == null ? '' : value) + '" placeholder="No warning"></div>';
+    return '<div class="st-field"><label for="' + id + '">' + label + '</label><input class="input" id="' + id + '" type="number" min="0" step="any" inputmode="decimal" value="' + esc(value == null ? '' : value) + '"></div>';
   }
   function draft() {
     var num = function (id) { var v = $(id).value.trim(); return v === '' ? null : Number(v); };

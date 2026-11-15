@@ -25,7 +25,7 @@ const server = net.createServer(conn => {
     const req = JSON.parse(buf.slice(0, buf.indexOf('\n')));
     seen.push(req);
     let reply;
-    if (req.action === 'status') reply = { ok: true, appliance: true, os_version: 'v0.6.0', wifi_setup_until: 0, port: 3000, ssh: { enabled: false, password_set: false, keys: [], user: 'epilykos' } };
+    if (req.action === 'status') reply = { ok: true, appliance: true, os_version: 'v0.6.0', wifi_setup_until: 0, port: 3000, ssh: { enabled: false, password_set: false, keys: [], user: 'epilykos' }, power: { supported: true, undervoltage_now: false, undervoltage_since_boot: true, last_seen: 1767225600 } };
     else if (req.action === 'set_port' && req.port === 22) reply = { ok: false, error: 'the port must be 80 or between 1024 and 65535' };
     else if (req.action === 'set_port') reply = { ok: true, port: Number(req.port) };
     else if (req.action === 'ssh_set_password' && req.password.length < 8) reply = { ok: false, error: 'the SSH password must be 8 to 128 characters' };
@@ -73,7 +73,8 @@ async function call(method, routePath, body) {
   assert.equal(r.data.ssh.user, 'epilykos');
   assert.equal(r.data.os_version, 'v0.6.0');
   assert.equal(r.data.port, 3000);
-  console.log('ok - on EpilykosOS: status relayed from the host');
+  assert.deepEqual(r.data.power, { supported: true, undervoltage_now: false, undervoltage_since_boot: true, last_seen: 1767225600 });
+  console.log('ok - on EpilykosOS: status relayed from the host, with the power report');
 
   const statfs = fs.statfsSync;
   try {

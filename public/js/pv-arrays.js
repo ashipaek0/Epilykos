@@ -44,13 +44,13 @@
     var box = $('pv-arrays'); if (!box) return;
     box.innerHTML = arrays.map(function (a, i) {
       return '<div class="pv-array" data-i="' + i + '">'
-        + '<div class="pv-array-head"><input class="input pv-name" aria-label="Array name" value="' + esc(a.name) + '" placeholder="e.g. East roof" maxlength="40">'
+        + '<div class="pv-array-head"><input class="input pv-name" aria-label="Array name" value="' + esc(a.name) + '" maxlength="40">'
         + (arrays.length > 1 ? '<button type="button" class="st-btn pv-remove" aria-label="Remove ' + esc(a.name || 'array') + '">Remove</button>' : '') + '</div>'
         + '<div class="pv-array-grid">'
         + '<div class="st-field"><label>Peak capacity</label><div class="st-input-unit"><input class="input pv-kwp" aria-label="Peak capacity" type="number" min="0" step="any" value="' + esc(a.kwp) + '" inputmode="decimal"><span>kWp</span></div></div>'
         + '<div class="st-field"><label>Tilt</label><div class="st-input-unit"><input class="input pv-tilt" aria-label="Tilt" type="number" min="0" max="90" step="any" value="' + esc(a.tilt) + '"><span>°</span></div><span class="st-help">0° flat, 90° vertical.</span></div>'
         + '<div class="st-field"><label>Facing</label><div class="st-input-unit"><input class="input pv-az" aria-label="Facing" type="number" min="0" max="360" step="any" value="' + esc(a.azimuth) + '"><span>°</span></div><span class="st-help pv-compass">' + esc(compass(a.azimuth)) + ' (180° is south, 90° east)</span></div>'
-        + '<div class="st-field"><label>Solcast resource ID</label><input class="input pv-rid" aria-label="Solcast resource ID" value="' + esc(a.solcast_resource_id || '') + '" placeholder="Optional" autocomplete="off"></div>'
+        + '<div class="st-field"><label>Solcast resource ID</label><input class="input pv-rid" aria-label="Solcast resource ID" value="' + esc(a.solcast_resource_id || '') + '" autocomplete="off"></div>'
         + '</div></div>';
     }).join('') + '<p class="st-help" id="pv-total"></p>';
     write();

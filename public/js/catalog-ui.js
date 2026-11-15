@@ -328,14 +328,14 @@
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.className = 'inline-create-name';
-    nameInput.placeholder = 'New metric name';
+    nameInput.setAttribute('aria-label', 'New metric name');
     nameInput.style.cssText = 'flex:1;min-width:110px;';
     panel.appendChild(nameInput);
 
     const unitInput = document.createElement('input');
     unitInput.type = 'text';
     unitInput.className = 'inline-create-unit';
-    unitInput.placeholder = 'unit';
+    unitInput.setAttribute('aria-label', 'Unit');
     unitInput.title = 'Unit (prefilled from the register)';
     unitInput.style.cssText = 'width:72px;flex:none;';
     panel.appendChild(unitInput);

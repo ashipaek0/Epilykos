@@ -44,6 +44,14 @@ const settle = () => new Promise(r => setImmediate(r));
   assert.equal(s.calls.length, 2, 'again after 10 minutes if still stuck');
   console.log('ok - every device refused for two minutes: BlueZ restarted, at most once per 10 minutes');
 
+  // No adapter: the chip failed to start up, so the host reloads its driver (not bluetoothd).
+  s = setup({ ok: true, restarted: true, layer: 'driver' });
+  s.m.record('scan', {}, NO_ADAPTER);
+  s.tick(STUCK_MS + 1000); await s.m.record('scan', {}, NO_ADAPTER); await settle();
+  assert.deepEqual(s.calls, [['bluetooth_recover', { reason: 'no_adapter' }]]);
+  assert.ok(s.logs.some(([l, m]) => l === 'warn' && /reload the Bluetooth chip's driver/.test(m) && !/restart BlueZ/.test(m)), s.logs.join());
+  console.log('ok - no adapter for two minutes: the chip\'s driver is reloaded, and the log says so');
+
   // One device working: not stuck.
   s = setup();
   s.m.record('gatt_read', A, IN_PROGRESS); s.m.record('read_bms', B, null);

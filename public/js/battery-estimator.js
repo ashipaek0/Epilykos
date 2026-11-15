@@ -4,7 +4,7 @@
  * Shows the estimate and how it got there (voltage guess, last full charge,
  * time not counted), and edits its settings: battery, the inverters' battery
  * current and voltage readings, when the battery counts as full or empty.
- * Empty number fields take the chemistry's default, shown as the placeholder.
+ * Empty number fields take the chemistry's default, shown under the field.
  * Saves straight away through /api/battery-estimator (data-own-save card).
  */
 (function () {
@@ -31,7 +31,7 @@
   function field(id, label, value, opts) {
     opts = opts || {};
     return '<div class="st-field"><label for="' + id + '">' + label + '</label><input class="input" id="' + id + '" value="' + esc(value == null ? '' : value) + '"'
-      + (opts.type ? ' type="' + opts.type + '" step="any" inputmode="decimal"' : ' spellcheck="false" autocomplete="off"') + (opts.placeholder != null ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '>'
+      + (opts.type ? ' type="' + opts.type + '" step="any" inputmode="decimal"' : ' spellcheck="false" autocomplete="off"') + '>'
       + (opts.help ? '<span class="st-help">' + opts.help + '</span>' : '') + '</div>';
   }
   function select(id, label, value, options, help) {
@@ -55,7 +55,13 @@
   }
   function placeholders() {
     var d = defaults();
-    Object.keys(d).forEach(function (k) { var el = $('be-' + k.replace(/_/g, '-')); if (el) el.placeholder = d[k] === '' ? '' : String(d[k]); });
+    Object.keys(d).forEach(function (k) {
+      var el = $('be-' + k.replace(/_/g, '-')), box = el && el.closest('.st-field');
+      if (!box) return;
+      var hint = box.querySelector('.be-default');
+      if (!hint) { hint = document.createElement('span'); hint.className = 'st-help be-default'; box.appendChild(hint); }
+      hint.textContent = d[k] === '' ? '' : 'Default: ' + d[k];
+    });
   }
 
   function statusHtml() {
@@ -115,7 +121,7 @@
       + field('be-empty-soc', 'Means a charge of (%)', s.empty_soc, { type: 'number' })
       + '</div><div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="be-save">Save</button></div>'
       + '<h2 class="st-card-subhead">Set the charge now</h2><p class="st-help">Use the battery’s own app, or set it after a full charge.</p>'
-      + '<div class="st-inline-actions"><input class="input" id="be-set-soc" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="%" style="max-width:110px" aria-label="Charge in %"><button type="button" class="st-btn" id="be-set">Set charge</button></div>';
+      + '<div class="st-inline-actions"><input class="input" id="be-set-soc" type="number" min="0" max="100" step="1" inputmode="numeric" style="max-width:110px" aria-label="Charge in %"><button type="button" class="st-btn" id="be-set">Set charge</button></div>';
     rendered = true;
     placeholders();
   }

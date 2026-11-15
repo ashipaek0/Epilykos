@@ -121,7 +121,7 @@
     html += '<h3 class="st-help" style="margin:18px 0 6px;font-weight:800">Password</h3>'
       + '<p class="st-help">' + (ssh.password_set ? 'A password is set.' : 'No password: only the keys below can log in.') + '</p>'
       + '<div class="st-field"><label for="sys-ssh-pw">' + (ssh.password_set ? 'New password' : 'Password') + '</label>'
-      + '<input id="sys-ssh-pw" class="input" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="At least 8 characters"></div>'
+      + '<input id="sys-ssh-pw" class="input" type="password" autocomplete="new-password" minlength="8" maxlength="128"></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="ssh-password">Save password</button>'
       + (ssh.password_set ? '<button type="button" class="st-btn" data-act="ssh-clear">Remove password</button>' : '') + '</div>';
 
@@ -136,7 +136,7 @@
       html += '<p class="st-help">No keys yet.</p>';
     }
     html += '<div class="st-field" style="margin-top:10px"><label for="sys-ssh-key">Add a public key</label>'
-      + '<textarea id="sys-ssh-key" class="input" rows="3" spellcheck="false" placeholder="ssh-ed25519 AAAA… you@laptop"></textarea>'
+      + '<textarea id="sys-ssh-key" class="input" rows="3" spellcheck="false"></textarea>'
       + '<span class="st-help">Paste a <code>.pub</code> file. Never a private key.</span></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="ssh-add-key">Add key</button></div>'
       + '</div>';
@@ -148,7 +148,7 @@
     return '<div class="st-card"><div class="st-card-head"><h2>Factory reset</h2></div>'
       + '<p class="st-help">Erases all data, settings, Wi-Fi and SSH, then restarts like a new box. <a href="#backup">Download a backup</a> first.</p>'
       + '<div class="st-field"><label for="sys-reset-confirm">Type ERASE to confirm</label>'
-      + '<input id="sys-reset-confirm" class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ERASE"></div>'
+      + '<input id="sys-reset-confirm" class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-danger" data-act="factory-reset" disabled>Erase everything and restart</button></div>'
       + '<div class="test-status" id="sys-reset-status" role="status"></div></div>';
   }

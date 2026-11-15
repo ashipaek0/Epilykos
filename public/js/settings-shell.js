@@ -973,7 +973,7 @@
     var body = document.createElement('div');
     body.className = 'st-dialog-fields';
     body.innerHTML = '<div class="st-field"><label for="st-new-metric-name">Name</label><input id="st-new-metric-name" name="name" class="input" required pattern="[A-Za-z0-9_.:\\-]+" maxlength="128" autocomplete="off"><span class="st-help">Letters, numbers and _ . : - only, e.g. garage_battery_soc.</span></div>' +
-      '<div class="st-field"><label for="st-new-metric-unit">Unit (optional)</label><input id="st-new-metric-unit" name="unit" class="input" maxlength="16" placeholder="W, kWh, %"></div>';
+      '<div class="st-field"><label for="st-new-metric-unit">Unit (optional)</label><input id="st-new-metric-unit" name="unit" class="input" maxlength="16"></div>';
     var r = await openDialog({ title: 'New metric', body: body, actions: [{ label: 'Cancel', value: null }, { label: 'Create metric', value: 'ok', kind: 'primary' }] });
     if (r.value !== 'ok') return;
     var name = r.form.elements.name.value.trim();

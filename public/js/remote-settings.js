@@ -221,8 +221,8 @@
       + '<li>Paste the install command below, or just the code starting <code>eyJ</code>.</li>'
       + '<li>Under <strong>Public hostname</strong>, add your address with service <strong>HTTP</strong> and URL <code>localhost:' + esc(port) + '</code>.</li>'
       + '</ol>'
-      + '<div class="st-field"><label for="cf-token">Tunnel token or install command</label><input id="cf-token" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="cloudflared service install eyJ…"></div>'
-      + '<div class="st-field"><label for="cf-url">Public address</label><input id="cf-url" class="input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="energy.example.com"><span class="st-help">The hostname from step 3. Fills in “Address away from home” if that is empty.</span></div>'
+      + '<div class="st-field"><label for="cf-token">Tunnel token or install command</label><input id="cf-token" class="input" type="password" autocomplete="off" spellcheck="false"></div>'
+      + '<div class="st-field"><label for="cf-url">Public address</label><input id="cf-url" class="input" type="text" inputmode="url" autocomplete="off" spellcheck="false"><span class="st-help">The hostname from step 3. Fills in “Address away from home” if that is empty.</span></div>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="cf-connect"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Connecting…' : 'Connect tunnel') + '</button></div>'
       + '<p class="st-help">Optional: add Cloudflare Access for an extra sign-in.</p>';
   }
