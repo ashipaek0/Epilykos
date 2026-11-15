@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43694740723.1",
-    "version": "1.2.13-dev+d659028",
-    "commit": "d6590284f4366555737a73dac66203fcb7cbaef7",
-    "digest": "sha256:55f4efef933e2b9d27dd4cc856825ddbd553c54ae8f3785c6b7df7353361f8c2",
+    "buildId": "43694950063.1",
+    "version": "1.2.13-dev+019d814",
+    "commit": "019d81485e3dc1e69384a1db27fbc969e71123d5",
+    "digest": "sha256:ff52c93993848ae56a58e8135372bd2ded5c80406331cf455160f1f6a63ebb8c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-15T08:29:58Z",
+    "builtAt": "2026-11-15T08:32:24Z",
     "kind": "release",
     "notes": [
-      "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)"
+      "Remote backup: stale status messages clear (#367)"
     ]
   },
   "history": [
+    {
+      "buildId": "43694950063.1",
+      "version": "1.2.13-dev+019d814",
+      "commit": "019d81485e3dc1e69384a1db27fbc969e71123d5",
+      "digest": "sha256:ff52c93993848ae56a58e8135372bd2ded5c80406331cf455160f1f6a63ebb8c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-15T08:32:24Z",
+      "kind": "release",
+      "notes": [
+        "Remote backup: stale status messages clear (#367)"
+      ]
+    },
     {
       "buildId": "43694740723.1",
       "version": "1.2.13-dev+d659028",
@@ -359,20 +371,6 @@
       "kind": "release",
       "notes": [
         "Add Power flow card: Grid, Generator and Battery appear when active (#331)"
-      ]
-    },
-    {
-      "buildId": "43212304888.1",
-      "version": "1.2.5-dev+dd39685",
-      "commit": "dd396858a1bf6c2d2592563b2832184feaad1d2c",
-      "digest": "sha256:8a2f822ad7cf04f285397b3477462c8bc8f84ee7ed174b9a992b96214326dd3c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T11:48:49Z",
-      "kind": "release",
-      "notes": [
-        "Metric cards, Multi-value rows and Text metric can show an icon or image (#330)",
-        "Showcase: the Daily peak and Histogram cards, and the options added since (#329)",
-        "Solar forecast cards: the day tiles follow the card's transparency (#328)"
       ]
     }
   ]
