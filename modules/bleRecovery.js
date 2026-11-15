@@ -5,8 +5,11 @@
  * waiting on an operation that never finishes: from then on every connect
  * and scan is refused with org.bluez.Error.InProgress, for every device,
  * until bluetoothd restarts. A lost reply while the adapter starts leaves
- * no adapter at all ("no_adapter"). Restarting the app doesn't help (BlueZ
- * runs on the host); restarting bluetoothd does.
+ * no adapter at all ("no_adapter"): the chip itself failed to start up, which
+ * restarting bluetoothd cannot fix. Restarting the app doesn't help either
+ * (BlueZ runs on the host). The host picks the layer: bluetoothd for
+ * in_progress, the chip's driver (reloaded) for no_adapter, and says which
+ * in its reply.
  *
  * Every device request's outcome is recorded here (modules/ble.js). When
  * every device tried in the last RECENT_MS has been refused that way, the
@@ -62,7 +65,8 @@ function createMonitor({ now = Date.now, available, call, log }) {
     try {
       const reply = await call('bluetooth_recover', { reason });
       if (reply && reply.ok && reply.restarted) {
-        log.warn(`[ble] Bluetooth is stuck (${reason === 'no_adapter' ? 'no adapter' : 'every device refused: operation already in progress'}); asked EpilykosOS to restart BlueZ`);
+        const what = reply.layer === 'driver' ? "reload the Bluetooth chip's driver" : 'restart BlueZ';
+        log.warn(`[ble] Bluetooth is stuck (${reason === 'no_adapter' ? 'no adapter' : 'every device refused: operation already in progress'}); asked EpilykosOS to ${what}`);
         stuck.clear();
       } else if (reply && reply.ok) {
         nextAllowed = t + Math.max(60, Number(reply.retry_in) || 0) * 1000;
@@ -88,7 +92,7 @@ function createMonitor({ now = Date.now, available, call, log }) {
     if (reason && !stuck.has(key)) stuck.set(key, { reason, since: t });
     const r = due(t);
     if (!r) return null;
-    if (!available()) { nextAllowed = t + COOLDOWN_MS; log.warn('[ble] Bluetooth is stuck; restart BlueZ on the host (systemctl restart bluetooth)'); return null; }
+    if (!available()) { nextAllowed = t + COOLDOWN_MS; log.warn(`[ble] Bluetooth is stuck; ${reason === 'no_adapter' ? 'reload the Bluetooth driver (modprobe -r hci_uart; modprobe hci_uart) and restart BlueZ' : 'restart BlueZ (systemctl restart bluetooth)'} on the host`); return null; }
     return ask(r, t);
   }
 

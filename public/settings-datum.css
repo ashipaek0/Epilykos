@@ -443,3 +443,8 @@ html.dt body.st .device-header { align-items: flex-end; }
 html.dt body.st .device-header .toggle-wrap, html.dt body.st .device-header .remove-btn { margin-bottom: 8px; }
 /* Scripts hide a field by setting display:none on the input; hide its label with it. */
 html.dt body.st .dt-fld:has(> input[style*="display: none"]), html.dt body.st .dt-fld:has(> .sr-wrap[style*="display: none"]) { display: none; }
+
+/* Low-power warning: a red rule instead of the amber one while it is happening. */
+html.dt body.st .st-power-warning { margin: 0 0 28px; padding: 10px 0 10px 16px; max-width: 70ch; border-left-color: var(--dt-acc); }
+html.dt body.st .st-power-warning.is-now { border-left-color: var(--dt-err); }
+html.dt body.st .st-power-warning strong { color: var(--dt-ink); }
