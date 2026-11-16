@@ -1,20 +1,26 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43695658405.1",
+    "buildId": "43855572094.1",
     "version": "1.2.13",
     "commit": "c82670df2dc6ce062506f6c0f3270bce9b59d082",
-    "digest": "sha256:8b469bf24ef786bfbfa7584ce7ed32a65c2da997a96245f836e759392f63cf91",
+    "digest": "sha256:667551b99b8c01b71b48b07ac3cfb13028c2a8d2ba04cb7c64e2d6697d082cc6",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-15T08:41:33Z",
-    "kind": "release",
-    "notes": [
-      "Remote backup: stale status messages clear (#367)",
-      "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)",
-      "Settings: blank placeholders; labels above device-card fields (#366)"
-    ]
+    "builtAt": "2026-11-16T11:12:05Z",
+    "kind": "rebuild",
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "43855572094.1",
+      "version": "1.2.13",
+      "commit": "c82670df2dc6ce062506f6c0f3270bce9b59d082",
+      "digest": "sha256:667551b99b8c01b71b48b07ac3cfb13028c2a8d2ba04cb7c64e2d6697d082cc6",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-16T11:12:05Z",
+      "kind": "rebuild",
+      "notes": []
+    },
     {
       "buildId": "43695658405.1",
       "version": "1.2.13",
@@ -466,16 +472,6 @@
         "Refactor epilykos service configuration in docker-compose",
         "Revise Docker setup instructions in README"
       ]
-    },
-    {
-      "buildId": "40481705161.1",
-      "version": "1.0.7",
-      "commit": "747a305e356385c41ac879c604fe4c38aaa16190",
-      "digest": "sha256:e639c63f614ac1683283ae1ad195f9f91f5267a5f5b52a1822fb4c561befdd0f",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-10-27T09:34:01Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
