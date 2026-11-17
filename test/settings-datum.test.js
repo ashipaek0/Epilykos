@@ -60,4 +60,9 @@ assert.doesNotMatch(css, /https?:\/\//, 'the stylesheet makes no external reques
 // The script moves elements, never clones them, so ids and listeners survive.
 assert.doesNotMatch(js, /cloneNode|innerHTML\s*=/, 'bands are built by moving nodes');
 
+// Cards are arranged in the observer's own callback, which runs before the next
+// paint. A delay showed the plain layout for a few frames on every redraw.
+assert.match(js, /new MutationObserver\(run\)/, 'bands are built before the next paint');
+assert.doesNotMatch(js, /setTimeout/, 'no delay between a card appearing and its bands');
+
 checks.done();

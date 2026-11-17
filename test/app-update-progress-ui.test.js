@@ -53,6 +53,14 @@ const step = (html, n) => html.match(/<li class="is-now">([^<]*)<\/li>/)?.[1];
   host.get(() => ({ ...host.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'downloading' } }));
   await host.tick();
   assert.equal(step(host.root.innerHTML), 'Downloading the new version', 'the host is still downloading');
+  assert.match(host.root.innerHTML, /<progress class="up-progress" aria-label="Working"><\/progress>/, 'no size known yet: a moving bar');
+  host.get(() => ({ ...host.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'downloading', bytes: 30 * 1048576, total: 120 * 1048576 } }));
+  await host.tick();
+  assert.match(host.root.innerHTML, /Downloading 30\.0 MB of about 120 MB · 25 %/, 'the host reports how far it has got (the total is an estimate)');
+  assert.match(host.root.innerHTML, /<progress class="up-progress" max="125829120" value="31457280" aria-label="Download progress">/);
+  host.get(() => ({ ...host.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'downloading', bytes: 200 * 1048576, total: 120 * 1048576 } }));
+  await host.tick();
+  assert.match(host.root.innerHTML, /Downloading 120 MB of about 120 MB · 100 %/, 'never past the total');
   host.get(() => new Error('restarting'));
   await host.tick();
   assert.equal(step(host.root.innerHTML), 'Starting the new version', 'Epilykos is away');
@@ -60,6 +68,7 @@ const step = (html, n) => html.match(/<li class="is-now">([^<]*)<\/li>/)?.[1];
   host.get(() => ({ ...host.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'starting' } }));
   await host.tick();
   assert.equal(step(host.root.innerHTML), 'Checking it is healthy', 'answering, but the host waits for health');
+  assert.doesNotMatch(host.root.innerHTML, /<progress/, 'no download bar once the download is over');
   host.get(() => ({ ...host.base, host: { supported: true, app: {} }, lastResult: { ok: true, toVersion: '3.0', finishedAt: '2026-10-24T10:05:00Z' } }));
   await host.tick();
   assert.doesNotMatch(host.root.innerHTML, /up-steps/);
@@ -81,8 +90,20 @@ const step = (html, n) => html.match(/<li class="is-now">([^<]*)<\/li>/)?.[1];
   let finishPull;
   docker.post(new Promise(r => { finishPull = r; }));
   const clicked = docker.click({}, 'up-apply'); await flush();
+  docker.timers.shift(); // the password box takes focus (50 ms)
   assert.equal(step(docker.root.innerHTML), 'Downloading the new version', 'while the pull runs');
+  assert.match(docker.root.innerHTML, /aria-label="Working"/, 'nothing known yet: a moving bar');
+  // The page asks how far the download has got while the Update request is open.
+  docker.get(() => ({ ...docker.base, downloading: { startedAt: '2026-10-24T10:00:00Z', bytes: 12 * 1048576, total: 48 * 1048576 } }));
+  await docker.tick();
+  assert.match(docker.root.innerHTML, /Downloading 12\.0 MB of 48\.0 MB · 25 %/, 'Docker reports exact sizes: no "about"');
+  assert.match(docker.root.innerHTML, /<progress class="up-progress" max="50331648" value="12582912"/);
+  docker.get(() => ({ ...docker.base, downloading: { startedAt: '2026-10-24T10:00:00Z', bytes: 5, total: null } }));
+  await docker.tick();
+  assert.match(docker.root.innerHTML, /Downloading…/, 'a layer\'s size is not known yet: a moving bar');
   finishPull({ state: 'applying', toBuild: '2.1' }); await clicked; await flush();
+  await docker.tick(); // the watcher wakes once more, sees the request is over and stops
+  assert.equal(docker.timers.length, 1, 'only the wait for the restart is left');
   assert.equal(step(docker.root.innerHTML), 'Restarting Epilykos on it');
   docker.get(() => new Error('restarting'));
   await docker.tick();
@@ -94,5 +115,41 @@ const step = (html, n) => html.match(/<li class="is-now">([^<]*)<\/li>/)?.[1];
   await docker.tick();
   assert.doesNotMatch(docker.root.innerHTML, /up-steps/);
   console.log('ok - Docker app update: downloading (during the request) → restarting → checking health → result');
+  // ── Only the numbers change: the page is not drawn again ───────────────
+  // (Drawing it again every two seconds flickered, restarted the moving bar
+  // and took the focus off Cancel.)
+  const live = page('host');
+  const dl = (bytes, total) => ({ ...live.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'downloading', ...(total ? { bytes, total } : {}) } });
+  live.get(() => dl(10 * 1048576, 100 * 1048576));
+  live.start(); await flush();
+  let html = live.root.innerHTML, writes = 0;
+  Object.defineProperty(live.root, 'innerHTML', { get: () => html, set: v => { html = v; writes++; } });
+  const el = () => { const a = {}; return { innerHTML: '', getAttribute: n => (n in a ? a[n] : null), setAttribute: (n, v) => { a[n] = v; }, removeAttribute: n => { delete a[n]; }, a }; };
+  const text = el(), bar = el();
+  live.root.querySelectorAll = sel => (sel === '.up-os-progress' ? [text] : sel === 'progress.up-progress' ? [bar] : []);
+  live.get(() => dl(40 * 1048576, 100 * 1048576));
+  await live.tick();
+  assert.equal(writes, 0, 'new numbers do not redraw the page');
+  assert.equal(text.innerHTML, 'Downloading 40.0 MB of about 100 MB · 40 %');
+  assert.deepEqual(bar.a, { max: '104857600', value: '41943040', 'aria-label': 'Download progress' });
+  live.get(() => dl(0, 0));   // the size is not known any more: back to a moving bar, still in place
+  await live.tick();
+  assert.equal(writes, 0);
+  assert.equal(text.innerHTML, 'Downloading…');
+  assert.deepEqual(bar.a, { 'aria-label': 'Working' }, 'max and value are taken off');
+  live.get(() => ({ ...live.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'starting' } }));
+  await live.tick();
+  assert.equal(writes, 1, 'a real change (the next step) draws the page again');
+  // If the page was changed under it (the elements are not where they were), it redraws.
+  const lost = page('host');
+  lost.get(() => dl(10 * 1048576, 100 * 1048576));
+  lost.start(); await flush();
+  let html2 = lost.root.innerHTML, writes2 = 0;
+  Object.defineProperty(lost.root, 'innerHTML', { get: () => html2, set: v => { html2 = v; writes2++; } });
+  lost.get(() => dl(40 * 1048576, 100 * 1048576));
+  await lost.tick();
+  assert.equal(writes2, 1, 'no bar to update: the page is drawn again');
+  console.log('ok - while only the progress changes, the bar and its text are updated in place');
+
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

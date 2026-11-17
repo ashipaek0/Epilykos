@@ -215,6 +215,33 @@ function request(server, method, url, body) {
   assert.deepEqual(await dockerUpdate.apply(), { state: 'current' });
   assert.equal(dockerUpdate.applying(), null);
 
+  // The download's progress is visible while the image is pulled, and gone after it.
+  {
+    api = fakeDocker({ pulledImage: oldImage.Id });
+    const realCall = api.call;
+    let during = null;
+    api.call = async (method, p, opts = {}) => {
+      if (method === 'POST' && p.startsWith('/images/create')) {
+        assert.equal(dockerUpdate.downloading().total, null, 'nothing known before the first layer reports');
+        const feed = opts.onLine;
+        feed({ status: 'Pulling fs layer', progressDetail: {}, id: 'aaaaaaaaaaaa' });
+        feed({ status: 'Downloading', progressDetail: { current: 10, total: 40 }, id: 'aaaaaaaaaaaa' });
+        during = dockerUpdate.downloading();
+      }
+      return realCall(method, p, opts);
+    };
+    dockerUpdate.setDockerForTests(api, () => OLD_ID);
+    await dockerUpdate.apply();
+    assert.deepEqual({ ...during, startedAt: undefined }, { startedAt: undefined, bytes: 10, total: 40 });
+    assert.ok(during.startedAt);
+    assert.equal(dockerUpdate.downloading(), null, 'cleared when the download is over');
+    api = fakeDocker({ pullError: 'toomanyrequests: rate limit' });
+    dockerUpdate.setDockerForTests(api, () => OLD_ID);
+    await assert.rejects(dockerUpdate.apply(), /could not download/);
+    assert.equal(dockerUpdate.downloading(), null, 'and when it fails');
+    console.log('ok - the app can say how far the image download has got, and only while it runs');
+  }
+
   api = fakeDocker({ pullError: 'toomanyrequests: rate limit' });
   dockerUpdate.setDockerForTests(api, () => OLD_ID);
   await assert.rejects(dockerUpdate.apply(), /could not download the update: toomanyrequests/);
@@ -317,6 +344,15 @@ function request(server, method, url, body) {
     hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z', state: 'starting' } };
     g = await request(server2, 'GET', '/api/updates');
     assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z', step: 'starting' }, 'the page keeps waiting while the appliance works, and sees its step');
+    hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z', state: 'downloading', bytes: 30e6, total: 120e6 } };
+    g = await request(server2, 'GET', '/api/updates');
+    assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z', step: 'downloading', bytes: 30e6, total: 120e6 }, 'the page sees how far the download has got');
+    hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z', state: 'downloading', bytes: 999e6, total: 120e6 } };
+    g = await request(server2, 'GET', '/api/updates');
+    assert.equal(g.body.applying.bytes, 120e6, 'never past the total');
+    hostApp = { ...hostApp, state: 'applying', job: { started_at: '2026-10-16T10:00:00Z', state: 'downloading', bytes: 5 } };
+    g = await request(server2, 'GET', '/api/updates');
+    assert.deepEqual(g.body.applying, { startedAt: '2026-10-16T10:00:00Z', step: 'downloading' }, 'no total yet: no numbers');
     hostApp = { state: 'idle', current_version: '2.7.0-dev+aaaa', last_result: { ok: false, error: 'The new version did not start, so the previous version was put back', rolled_back: true, release: '2.8.0-dev+bbbb', finished_at: '2026-10-16T10:05:00Z' } };
     g = await request(server2, 'GET', '/api/updates');
     assert.equal(g.body.lastResult.rolledBack, true); assert.equal(g.body.lastResult.toVersion, '2.8.0-dev+bbbb');

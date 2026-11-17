@@ -32,6 +32,20 @@
     }).join('') + '</ol>';
   }
   function hostStep(applying) { return applying && applying.step === 'starting' ? 2 : 0; }
+
+  /**
+   * The download of the new version: a bar where the amount is known, a moving
+   * one where not. `p` is { bytes, total }; on the appliance the total is an
+   * estimate from the registry, so it says "about".
+   */
+  function downloadBar(p, estimate) {
+    if (p && p.total > 0) {
+      var done = Math.min(Math.max(0, p.bytes || 0), p.total);
+      return '<p class="st-help up-os-progress">Downloading ' + mb(done) + ' of ' + (estimate ? 'about ' : '') + mb(p.total) + ' · ' + Math.floor(done * 100 / p.total) + ' %</p>'
+        + '<progress class="up-progress" max="' + esc(p.total) + '" value="' + esc(done) + '" aria-label="Download progress"></progress>';
+    }
+    return '<p class="st-help up-os-progress">Downloading…</p><progress class="up-progress" aria-label="Working"></progress>';
+  }
   var HOST_APP_STEPS = ['Downloading the new version', 'Starting the new version', 'Checking it is healthy'];
   var DOCKER_STEPS = ['Downloading the new version', 'Restarting Epilykos on it', 'Checking it is healthy'];
 
@@ -62,8 +76,52 @@
   }
 
   // ── Render ───────────────────────────────────────────────────────────
+  // ── Painting ───────────────────────────────────────────────────────────
+  // While an update runs the page is drawn again every couple of seconds.
+  // Replacing everything each time makes it flicker, restarts the moving bar
+  // and takes the focus off Cancel, so when only the progress changed, only
+  // the bar and its line of text are updated.
+  var PROGRESS_TEXT = /(<(?:span|p) class="[^"]*\bup-os-progress\b[^"]*">)([^<]*)(<\/(?:span|p)>)/g;
+  var PROGRESS_BAR = /<progress class="up-progress"([^>]*)>/g;
+  var painted = null;   // the last page drawn, without its progress numbers
+
+  function skeleton(html) {
+    return html.replace(PROGRESS_TEXT, '$1$3').replace(PROGRESS_BAR, '<progress class="up-progress">');
+  }
+  function attr(text, name) {
+    var m = new RegExp('\\b' + name + '="([^"]*)"').exec(text);
+    return m ? m[1] : null;
+  }
+
+  function paint(html) {
+    var shape = skeleton(html);
+    if (shape === painted && patchProgress(html)) return;
+    root.innerHTML = html;
+    painted = shape;
+  }
+
+  /** Same page, new numbers: put them in place. False when the page has to be drawn again. */
+  function patchProgress(html) {
+    if (typeof root.querySelectorAll !== 'function') return false;
+    var texts = [], bars = [], m;
+    PROGRESS_TEXT.lastIndex = 0; PROGRESS_BAR.lastIndex = 0;
+    while ((m = PROGRESS_TEXT.exec(html))) texts.push(m[2]);
+    while ((m = PROGRESS_BAR.exec(html))) bars.push(m[1]);
+    var textEls = root.querySelectorAll('.up-os-progress'), barEls = root.querySelectorAll('progress.up-progress');
+    if (textEls.length !== texts.length || barEls.length !== bars.length) return false;
+    texts.forEach(function (t, i) { if (textEls[i].innerHTML !== t) textEls[i].innerHTML = t; });
+    bars.forEach(function (b, i) {
+      ['max', 'value', 'aria-label'].forEach(function (name) {
+        var v = attr(b, name);
+        if (v == null) barEls[i].removeAttribute(name);
+        else if (barEls[i].getAttribute(name) !== v) barEls[i].setAttribute(name, v);
+      });
+    });
+    return true;
+  }
+
   function render() {
-    if (!state) { root.innerHTML = '<p class="st-help">Loading…</p>'; return; }
+    if (!state) { painted = null; root.innerHTML = '<p class="st-help">Loading…</p>'; return; }
     var inst = state.installed || {};
     var st = state.status || {};
     var m = state.method || {};
@@ -89,7 +147,7 @@
       + '<p class="st-help">' + (state.autoLocked ? 'Turned off for this install with <code>UPDATE_CHECK=off</code>.' : 'Only downloads a small file listing the latest builds; nothing about this install is sent.' + (m.kind === 'epilykos-os' ? ' Installation is manual unless you turn on automatic installation below.' : '')) + '</p></div>';
 
     if (m.kind === 'epilykos-os') html += autoInstallCard();
-    root.innerHTML = html;
+    paint(html);
     if (shell.setNavBadge) shell.setNavBadge('updates', updateReady() ? '<span class="st-badge is-ok">New</span>' : '');
     schedulePoll();
   }
@@ -113,6 +171,7 @@
     if (installing || state.applying) {
       return h + '<span class="st-badge is-warn">Installing</span></div>'
         + steps(DOCKER_STEPS, installing ? appStep : 2)
+        + ((installing ? appStep : 2) === 0 ? downloadBar(state.downloading) : '')
         + '<p class="st-help">Restarting on the new version, this page reconnects by itself'
         + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p></div>';
     }
@@ -157,6 +216,7 @@
       return h + '<p class="st-help"><b>The appliance is installing the Epilykos update</b>'
         + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p>'
         + steps(HOST_APP_STEPS, installing ? appStep : hostStep(state.applying))
+        + ((installing ? appStep : hostStep(state.applying)) === 0 ? downloadBar(state.applying, true) : '')
         + '<p class="st-help">The dashboard returns by itself, or rolls back if the update fails.</p></div>';
     }
     if (!host) return h + '<p class="st-help">Not checked yet. Use <b>Check now</b>.</p></div>';
@@ -299,7 +359,7 @@
   // ── Load and actions ─────────────────────────────────────────────────
   async function load() {
     try { state = await api('GET', ''); }
-    catch (e) { root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>'; root.querySelector('p').textContent = e.message; return; }
+    catch (e) { painted = null; root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>'; root.querySelector('p').textContent = e.message; return; }
     if (state.applying && !installing) {
       // Opened while an app update is under way: follow it to the end.
       var isHost = state.method && state.method.kind === 'epilykos-os';
@@ -337,7 +397,7 @@
         appStep = 1;               // restarting: Epilykos is away
       }
       render();
-      await sleep(isHost ? 3000 : 5000);
+      await sleep(isHost ? (appStep === 0 ? 2000 : 3000) : 5000);
     }
     installing = false;
     load();
@@ -352,16 +412,32 @@
     installing = true;
     appStep = 0;                   // Docker downloads during this request; the host replies at once
     render();
+    var watching = !isHost;
+    if (watching) watchDownload(function () { return watching; });
     try {
       var r = await api('POST', '/apply', { password: pw, target: target });
+      watching = false;
       if (r.state === 'current') { installing = false; toast('This is already the newest version.'); await load(); return; }
       appStep = isHost ? 0 : 1;
       render();
       waitForRestart(isHost);
     } catch (e) {
+      watching = false;
       installing = false;
       toast(e.message, 'error');
       render();
+    }
+  }
+
+  /** Docker downloads while the Update request is still open: ask how far it has got. */
+  async function watchDownload(keepGoing) {
+    while (keepGoing()) {
+      await sleep(1500);
+      if (!keepGoing()) return;
+      try {
+        var data = await api('GET', '');
+        if (keepGoing() && appStep === 0) { state = data; render(); }
+      } catch (_) { /* the request itself reports a failure */ }
     }
   }
 
