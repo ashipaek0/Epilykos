@@ -15,6 +15,7 @@ const { getGeneratorHours, getGeneratorDailyHours, getGeneratorTimeline, getCurr
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
+const { forVisitor } = require('../modules/dashboardVisibility');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
 const { computeSavings } = require('../modules/solarValue');
@@ -623,7 +624,11 @@ router.get('/dashboard-config', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const config = getDashboardConfig();
-    res.json(config);
+    // A visitor gets only the dashboards chosen as the default or expressly made visible (Settings → Appearance).
+    if (req.session && req.session.authenticated) return res.json(config);
+    res.json(forVisitor(config, {
+      desktop: getConfig('desktop_dashboard'), mobile: getConfig('mobile_dashboard'), extra: getConfig('public_dashboards'),
+    }));
   } catch (err) {
     logger.error('Error fetching dashboard config:', err);
     const fallback = {
