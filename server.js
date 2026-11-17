@@ -1482,7 +1482,16 @@ function restoreSessionOptions(req) {
   };
 }
 function restoreFailure(res, err) {
-  logger.error('Restore error:', err);
+  // A file that is not a database (or is damaged) is found while the upload is
+  // checked, before anything is swapped: say so plainly instead of a 500.
+  if (!err.restoreRecoveryRequired && !err.status && /^SQLITE_(NOTADB|CORRUPT)/.test(String(err.code || ''))) {
+    err.status = 400;
+    err.restorePreflight = true;
+    err.message = 'That file is not an Epilykos backup, or it is damaged. Nothing was changed.';
+  }
+  // A refusal the person can act on (wrong file, passphrase needed) is not a server error.
+  if (err.status && err.status < 500) logger.warn('Restore refused: ' + err.message);
+  else logger.error('Restore error:', err);
   if (err.restoreRecoveryRequired) {
     // Files are retained for startup recovery. Do not serve a partly rebound
     // process indefinitely; the normal container/service supervisor restarts it.

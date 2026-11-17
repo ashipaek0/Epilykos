@@ -159,7 +159,10 @@ function createRestoreUploadManager({ directory = path.dirname(DB_PATH), liveFil
       });
       finish(job, 'selected');
     } catch (error) {
-      finish(job, error.restoreRecoveryRequired ? 'recovering' : job.controller.signal.aborted ? 'cancelled' : 'failed', error);
+      // A file that is not a database is found while it is checked, before anything is swapped.
+      const notBackup = !error.restoreRecoveryRequired && /^SQLITE_(NOTADB|CORRUPT)/.test(String(error.code || ''));
+      finish(job, error.restoreRecoveryRequired ? 'recovering' : job.controller.signal.aborted ? 'cancelled' : 'failed',
+        notBackup ? new Error('That file is not an Epilykos backup, or it is damaged. Nothing was changed.') : error);
       if (error.restoreRecoveryRequired) onFatal(error);
     }
   }
