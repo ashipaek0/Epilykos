@@ -152,6 +152,7 @@ function extras(s) {
   return {
     inverter_temperature: 33 + s.solar / 420 + (s.bd + s.bc) / 900,
     grid_voltage: s.grid ? 228 + 4 * Math.sin(s.t / 900000) : 0,
+    grid_frequency: s.grid ? 50 + 0.15 * Math.sin(s.t / 600000) : 0,
     battery_voltage: 50.4 + s.soc / 28,
     pv_voltage: s.solar > 20 ? 290 + s.solar / 55 : 0,
     load_percent: s.load / 50
@@ -177,7 +178,7 @@ function metricsFor(s, now, today) {
     solar_peak_today: m(Math.max(...today.list.map(x => x.solar), s.solar), 'W'), forecast_solar_today: m(today.solar_kwh * 1.08, 'kWh'), savings_today: m(today.solar_kwh * 0.22, null),
     system_size: m(6400, 'W'), panels_producing: m(s.solar > 40 ? 16 : 0, null), battery_stored: m(Math.round(s.soc * 13.5) / 100, 'kWh'), battery_capacity: m(13.5, 'kWh'), self_sufficiency_today: m(84, '%'),
     device_boiler: m(s.load > 1400 ? 1800 : 3, 'W'), device_washer: m(s.load > 900 ? 600 : 0, 'W'), device_pump: m(s.solar > 1500 ? 750 : 0, 'W'), device_ac: m(s.load > 1100 ? 1200 : 0, 'W'),
-    inverter_temperature: m(ex.inverter_temperature, '°C'), grid_voltage: m(ex.grid_voltage, 'V'),
+    inverter_temperature: m(ex.inverter_temperature, '°C'), grid_voltage: m(ex.grid_voltage, 'V'), grid_frequency: m(Math.round(ex.grid_frequency * 100) / 100, 'Hz'),
     battery_voltage: m(ex.battery_voltage, 'V'), pv_voltage: m(ex.pv_voltage, 'V'), load_percent: m(ex.load_percent, '%'),
     inverter_mode: m(s.grid ? (s.solar > s.load ? 'Solar + battery' : 'Grid + battery') : 'Off grid, battery', null, 'text'),
     'switch.generator': m(controls['switch.generator'], null, 'text'),
