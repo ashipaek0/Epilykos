@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44077381850.1",
-    "version": "1.3.1-dev+bbaf02c",
-    "commit": "bbaf02ca4793646830e7c640165c14bc2f4c038d",
-    "digest": "sha256:31b178ed28b24996ec565f543d15855ccae11a892e8de780d8474a03b81dbb4a",
+    "buildId": "44123774255.1",
+    "version": "1.3.2-dev+2928bef",
+    "commit": "2928befb9ce63fe1a1c0ea485325925c8758041e",
+    "digest": "sha256:b7c4abb84276568bf46cea2e24d7e3fc352390038712e0499a45530fa71e5af7",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T11:49:09Z",
+    "builtAt": "2026-11-17T16:16:19Z",
     "kind": "release",
     "notes": [
-      "Escape config values interpolated into settings device cards and load errors (#376)"
+      "Dashboard tabs for visitors, top/side/collapsible, per-dashboard visibility, Controls as signed-in tab (#378)"
     ]
   },
   "history": [
+    {
+      "buildId": "44123774255.1",
+      "version": "1.3.2-dev+2928bef",
+      "commit": "2928befb9ce63fe1a1c0ea485325925c8758041e",
+      "digest": "sha256:b7c4abb84276568bf46cea2e24d7e3fc352390038712e0499a45530fa71e5af7",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T16:16:19Z",
+      "kind": "release",
+      "notes": [
+        "Dashboard tabs for visitors, top/side/collapsible, per-dashboard visibility, Controls as signed-in tab (#378)"
+      ]
+    },
     {
       "buildId": "44077381850.1",
       "version": "1.3.1-dev+bbaf02c",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "New cards: System hero, Speedometer, Flow rows and Meter card (#340)"
-      ]
-    },
-    {
-      "buildId": "43391104905.1",
-      "version": "1.2.7-dev+ebbd03b",
-      "commit": "ebbd03be837b7f0eeb1cce27452ad957e4c7f59b",
-      "digest": "sha256:54b8ffc953bdc3260046676eeb3028da59d7b04dc0ff439b36a544082719600a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T08:10:24Z",
-      "kind": "release",
-      "notes": [
-        "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)"
       ]
     }
   ]
