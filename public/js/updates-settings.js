@@ -32,6 +32,20 @@
     }).join('') + '</ol>';
   }
   function hostStep(applying) { return applying && applying.step === 'starting' ? 2 : 0; }
+
+  /**
+   * The download of the new version: a bar where the amount is known, a moving
+   * one where not. `p` is { bytes, total }; on the appliance the total is an
+   * estimate from the registry, so it says "about".
+   */
+  function downloadBar(p, estimate) {
+    if (p && p.total > 0) {
+      var done = Math.min(Math.max(0, p.bytes || 0), p.total);
+      return '<p class="st-help up-os-progress">Downloading ' + mb(done) + ' of ' + (estimate ? 'about ' : '') + mb(p.total) + ' · ' + Math.floor(done * 100 / p.total) + ' %</p>'
+        + '<progress class="up-progress" max="' + esc(p.total) + '" value="' + esc(done) + '" aria-label="Download progress"></progress>';
+    }
+    return '<p class="st-help up-os-progress">Downloading…</p><progress class="up-progress" aria-label="Working"></progress>';
+  }
   var HOST_APP_STEPS = ['Downloading the new version', 'Starting the new version', 'Checking it is healthy'];
   var DOCKER_STEPS = ['Downloading the new version', 'Restarting Epilykos on it', 'Checking it is healthy'];
 
@@ -113,6 +127,7 @@
     if (installing || state.applying) {
       return h + '<span class="st-badge is-warn">Installing</span></div>'
         + steps(DOCKER_STEPS, installing ? appStep : 2)
+        + ((installing ? appStep : 2) === 0 ? downloadBar(state.downloading) : '')
         + '<p class="st-help">Restarting on the new version, this page reconnects by itself'
         + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p></div>';
     }
@@ -157,6 +172,7 @@
       return h + '<p class="st-help"><b>The appliance is installing the Epilykos update</b>'
         + (state.applying && state.applying.startedAt ? ' (started ' + esc(when(state.applying.startedAt)) + ')' : '') + '.</p>'
         + steps(HOST_APP_STEPS, installing ? appStep : hostStep(state.applying))
+        + ((installing ? appStep : hostStep(state.applying)) === 0 ? downloadBar(state.applying, true) : '')
         + '<p class="st-help">The dashboard returns by itself, or rolls back if the update fails.</p></div>';
     }
     if (!host) return h + '<p class="st-help">Not checked yet. Use <b>Check now</b>.</p></div>';
@@ -337,7 +353,7 @@
         appStep = 1;               // restarting: Epilykos is away
       }
       render();
-      await sleep(isHost ? 3000 : 5000);
+      await sleep(isHost ? (appStep === 0 ? 2000 : 3000) : 5000);
     }
     installing = false;
     load();
@@ -352,16 +368,32 @@
     installing = true;
     appStep = 0;                   // Docker downloads during this request; the host replies at once
     render();
+    var watching = !isHost;
+    if (watching) watchDownload(function () { return watching; });
     try {
       var r = await api('POST', '/apply', { password: pw, target: target });
+      watching = false;
       if (r.state === 'current') { installing = false; toast('This is already the newest version.'); await load(); return; }
       appStep = isHost ? 0 : 1;
       render();
       waitForRestart(isHost);
     } catch (e) {
+      watching = false;
       installing = false;
       toast(e.message, 'error');
       render();
+    }
+  }
+
+  /** Docker downloads while the Update request is still open: ask how far it has got. */
+  async function watchDownload(keepGoing) {
+    while (keepGoing()) {
+      await sleep(1500);
+      if (!keepGoing()) return;
+      try {
+        var data = await api('GET', '');
+        if (keepGoing() && appStep === 0) { state = data; render(); }
+      } catch (_) { /* the request itself reports a failure */ }
     }
   }
 

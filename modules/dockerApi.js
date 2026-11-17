@@ -16,8 +16,10 @@ function available(socket = SOCKET) {
 /**
  * One request. Resolves { status, body } (JSON parsed when it is JSON; for a
  * streamed reply like an image pull, the array of JSON lines; a Buffer with raw).
+ * `onLine` is called with each JSON line of a streamed reply as it arrives
+ * (an image pull's progress), without changing what is resolved.
  */
-function request(method, path, { body, socket = SOCKET, timeoutMs = 60000, raw = false } = {}) {
+function request(method, path, { body, socket = SOCKET, timeoutMs = 60000, raw = false, onLine } = {}) {
   return new Promise((resolve, reject) => {
     const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
     const req = http.request({
@@ -26,7 +28,19 @@ function request(method, path, { body, socket = SOCKET, timeoutMs = 60000, raw =
       timeout: timeoutMs,
     }, res => {
       const chunks = [];
-      res.on('data', c => chunks.push(c));
+      let pending = '';
+      res.on('data', c => {
+        chunks.push(c);
+        if (!onLine) return;
+        pending += c.toString('utf8');
+        let nl;
+        while ((nl = pending.indexOf('\n')) !== -1) {
+          const line = pending.slice(0, nl).trim();
+          pending = pending.slice(nl + 1);
+          if (!line) continue;
+          try { onLine(JSON.parse(line)); } catch (_) { /* not JSON, or a listener that failed: the pull goes on */ }
+        }
+      });
       res.on('end', () => {
         if (raw) return resolve({ status: res.statusCode, body: Buffer.concat(chunks) });
         const text = Buffer.concat(chunks).toString('utf8');

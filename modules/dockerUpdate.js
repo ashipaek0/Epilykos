@@ -15,6 +15,7 @@ const fs = require('fs');
 const docker = require('./dockerApi');
 const { logger } = require('./logger');
 const { getConfig, setConfig } = require('./database');
+const { createPullProgress } = require('./pullProgress');
 
 const LABEL = 'io.epilykos.updater';
 const PULL_TIMEOUT_MS = 15 * 60 * 1000;
@@ -22,6 +23,7 @@ const PULL_TIMEOUT_MS = 15 * 60 * 1000;
 let api = docker;      // replaced in tests
 let selfIdFn = () => docker.selfId();
 let busy = false;
+let download = null;   // { startedAt, progress } while the image is being pulled
 
 function setDockerForTests(stub, idFn) { api = stub || docker; selfIdFn = idFn || (() => docker.selfId()); }
 
@@ -50,6 +52,12 @@ const envOf = (img, key) => {
   const e = ((img && img.Config && img.Config.Env) || []).find(v => v.startsWith(`${key}=`));
   return e ? e.slice(key.length + 1) : null;
 };
+
+/** While the new image is downloading: { startedAt, bytes, total }; null otherwise. */
+function downloading() {
+  if (!download) return null;
+  return { startedAt: download.startedAt, ...download.progress.snapshot() };
+}
 
 function applying() {
   try { return JSON.parse(getConfig('update_applying') || 'null'); } catch (_) { return null; }
@@ -82,7 +90,12 @@ async function apply() {
     if (running.length) throw Object.assign(new Error('An update is already running'), { status: 409 });
 
     logger.info(`[updates] Downloading ${ref}`);
-    const pulled = await api.call('POST', `/images/create?fromImage=${encodeURIComponent(parts.fromImage)}&tag=${encodeURIComponent(parts.tag)}`, { timeoutMs: PULL_TIMEOUT_MS });
+    download = { startedAt: new Date().toISOString(), progress: createPullProgress() };
+    let pulled;
+    try {
+      pulled = await api.call('POST', `/images/create?fromImage=${encodeURIComponent(parts.fromImage)}&tag=${encodeURIComponent(parts.tag)}`,
+        { timeoutMs: PULL_TIMEOUT_MS, onLine: line => download && download.progress.add(line) });
+    } finally { download = null; }
     const failed = Array.isArray(pulled) && pulled.find(l => l && (l.error || l.errorDetail));
     if (failed) throw Object.assign(new Error(`Docker could not download the update: ${failed.error || failed.errorDetail.message}`), { status: 502 });
 
@@ -165,4 +178,4 @@ async function reconcile() {
   }
 }
 
-module.exports = { availability, apply, reconcile, applying, lastResult, splitRef, setDockerForTests, LABEL };
+module.exports = { availability, apply, reconcile, applying, downloading, lastResult, splitRef, setDockerForTests, LABEL };
