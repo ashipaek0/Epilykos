@@ -138,7 +138,7 @@
   function closeEditor() { state.editing = null; $('cm-editor').hidden = true; $('cm-editor').innerHTML = ''; }
   // "Turns On when the input is [at or above | at or below] [value]", and an optional different Off value.
   function thresholdFields(d) {
-    var below = d.when === 'below', unit = (d.inputs && d.inputs[0] ? unitOf(d.inputs[0]) : '') || '';
+    var below = d.when === 'below';
     return '<div class="st-field"><span class="cm-label">Turns On when the input is</span><div class="st-grid-2">'
       + '<select id="cm-when" class="input" aria-label="Above or below"><option value="above"' + (below ? '' : ' selected') + '>at or above</option><option value="below"' + (below ? ' selected' : '') + '>at or below</option></select>'
       + '<input id="cm-onat" class="input" type="number" step="any" value="' + esc(d.on_at == null ? '' : d.on_at) + '" aria-label="On value"></div></div>'
@@ -162,7 +162,7 @@
     var opts = Object.keys(FN_INFO).map(function (k) { return '<option value="' + k + '"' + (k === d.fn ? ' selected' : '') + '>' + esc(FN_INFO[k].label) + '</option>'; }).join('');
     var metricOpts = '<option value="">Add an input…</option>' + state.metrics.filter(function (m) { return m.name !== d.name && (d.inputs || []).indexOf(m.name) === -1; })
       .map(function (m) { return '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.unit ? ' (' + esc(m.unit) + ')' : '') + '</option>'; }).join('');
-    var auto = state.autoLabels[d.id || d.name] || {}, labels = d.labels || {};
+    var labels = d.labels || {};
     var inputs = (d.inputs || []).map(function (name, i) {
       return '<li class="cm-input" data-k="' + i + '"><span class="cm-input-name">' + (info.ordered && i === 0 ? '<em>From</em> ' : info.ordered ? '<em>minus</em> ' : '') + esc(name) + '</span>'
         + (SPLITTABLE[d.fn] ? '<input class="input cm-lbl" data-input="' + esc(name) + '" value="' + esc(labels[name] || '') + '" maxlength="40" aria-label="Name shown on cards for ' + esc(name) + '">' : '')

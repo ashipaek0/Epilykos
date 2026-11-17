@@ -358,9 +358,11 @@ async function pollInstance(instance, transport, profile) {
   try {
     const registerData = {};
     const start = Date.now();
+    let reads = 0;   // for the debug line below (once undefined, which failed every poll that had worked)
 
     for (const range of profile.poll_ranges) {
       const buf = await transport.readRegisters(range.start, range.count);
+      reads++;
       if (buf.length < range.count * 2) {
         logger.warn(`[dongle] ${instance.name}: short buffer at range ${range.start} (expected ${range.count} regs, got ${buf.length / 2})`);
       }
@@ -1208,7 +1210,7 @@ module.exports = {
   readDongleRegister, writeDongleSetting, writeLuxpowerRaw, registerWord,
   phocosSettings, changePhocosSetting,
   getByPathForTest: getByPath,
-  pollJsonInstance,
+  pollJsonInstance, pollInstance,
   // Shared LuxPower decode helpers (pure) — exported for unit tests (AC4/R4
   // golden fixture + push-decode coverage in the frame/socket suites).
   luxpowerWordsFromBuffer, decodeLuxpowerMetrics, handleLuxpowerFrame, luxpowerPollPlan, pollLuxpowerInstance,
