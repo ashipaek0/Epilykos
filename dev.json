@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44159149454.1",
-    "version": "1.3.2-dev+08f479b",
-    "commit": "08f479b5a1463a75c56d78ea81deafe34285d5e8",
-    "digest": "sha256:a3eff0583edb9d46e5a485baaea49bb56ca337980f7985ee65fe73d8f9ef2133",
+    "buildId": "44166098464.1",
+    "version": "1.3.2-dev+d99feb0",
+    "commit": "d99feb0e15eb99c12a8c4d65c6804ea4d7c2586d",
+    "digest": "sha256:e4ae383f34df108cf02c055953e7a65eee383c3f10ec8c768fcac1b1b026bcca",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T19:30:00Z",
+    "builtAt": "2026-11-17T20:08:47Z",
     "kind": "release",
     "notes": [
-      "Plan: Windows package (installer and service, Bluetooth and Tailscale in scope, no pipeline impact) (#380)"
+      "Windows package (beta): installer and service, Windows runtime support, updates (#381)"
     ]
   },
   "history": [
+    {
+      "buildId": "44166098464.1",
+      "version": "1.3.2-dev+d99feb0",
+      "commit": "d99feb0e15eb99c12a8c4d65c6804ea4d7c2586d",
+      "digest": "sha256:e4ae383f34df108cf02c055953e7a65eee383c3f10ec8c768fcac1b1b026bcca",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T20:08:47Z",
+      "kind": "release",
+      "notes": [
+        "Windows package (beta): installer and service, Windows runtime support, updates (#381)"
+      ]
+    },
     {
       "buildId": "44159149454.1",
       "version": "1.3.2-dev+08f479b",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Solcast test: drop a replace that replaced a string with itself (#344)"
-      ]
-    },
-    {
-      "buildId": "43410936250.1",
-      "version": "1.2.7-dev+e234fba",
-      "commit": "e234fbad27d4cb102aeef51d7664e87d3d9d46fd",
-      "digest": "sha256:7cf044b0a7970ea5be04dba595db911e78312deac9a76d5c17e18c271138a504",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T10:41:06Z",
-      "kind": "release",
-      "notes": [
-        "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)"
       ]
     }
   ]
