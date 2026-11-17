@@ -116,6 +116,6 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if CurUninstallStep = usDone then
+  if (CurUninstallStep = usDone) and not UninstallSilent then
     MsgBox('Epilykos was removed. Your data (database, keys and backups) is still in ' + ExpandConstant('{commonappdata}\Epilykos') + ' and is kept for a future install. Delete that folder to remove it.', mbInformation, MB_OK);
 end;
