@@ -1,19 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44059531918.1",
-    "version": "1.3.1-dev+15411ce",
-    "commit": "15411ceead5800e741001e7253d4295b3eb043fb",
-    "digest": "sha256:60f19441e7a64676512973eec0eade3a29264ff1f76838bb55af96bc7b92ccae",
+    "buildId": "44077373599.1",
+    "version": "1.3.1-dev+42ef1d9",
+    "commit": "42ef1d9ef21179e921648ea45b5c89147a6893eb",
+    "digest": "sha256:5da878cb5ce1073808e9b4aca1b4d5f02d3b8c6670045695e93e6a8623dbf7b9",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T09:52:40Z",
+    "builtAt": "2026-11-17T11:49:14Z",
     "kind": "release",
     "notes": [
-      "Settings: test the typed-text colour (contrast and read-only fields)",
-      "Settings: typed and chosen values are blue"
+      "Fix CodeQL js/xss-through-dom: the restore confirmation sets its text as text (#375)"
     ]
   },
   "history": [
+    {
+      "buildId": "44077373599.1",
+      "version": "1.3.1-dev+42ef1d9",
+      "commit": "42ef1d9ef21179e921648ea45b5c89147a6893eb",
+      "digest": "sha256:5da878cb5ce1073808e9b4aca1b4d5f02d3b8c6670045695e93e6a8623dbf7b9",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T11:49:14Z",
+      "kind": "release",
+      "notes": [
+        "Fix CodeQL js/xss-through-dom: the restore confirmation sets its text as text (#375)"
+      ]
+    },
     {
       "buildId": "44059531918.1",
       "version": "1.3.1-dev+15411ce",
@@ -361,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Solcast: current API and response format, and every weather and irradiance value (#338)"
-      ]
-    },
-    {
-      "buildId": "43390009497.1",
-      "version": "1.2.7-dev+1b14b3d",
-      "commit": "1b14b3ddd2a4f7cc65daf0cdc638c67d0d50f541",
-      "digest": "sha256:15f44a403ccecc10604971e7571c42013b246fb4e16ca2ff74a0093c01c6d5c0",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T08:02:01Z",
-      "kind": "release",
-      "notes": [
-        "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
       ]
     }
   ]
