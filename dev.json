@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44123774255.1",
-    "version": "1.3.2-dev+2928bef",
-    "commit": "2928befb9ce63fe1a1c0ea485325925c8758041e",
-    "digest": "sha256:b7c4abb84276568bf46cea2e24d7e3fc352390038712e0499a45530fa71e5af7",
+    "buildId": "44150037513.1",
+    "version": "1.3.2-dev+0d90f7a",
+    "commit": "0d90f7af5ba14ce7fbd86a32e9782f1fb6825420",
+    "digest": "sha256:0c17cb27a27e5d8ee8655eb10d7180e44ddd370ea1b4d0752c34cd702857efb8",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T16:16:19Z",
+    "builtAt": "2026-11-17T18:38:49Z",
     "kind": "release",
     "notes": [
-      "Dashboard tabs for visitors, top/side/collapsible, per-dashboard visibility, Controls as signed-in tab (#378)"
+      "Device card: header, value and status pill, bar, small readings, label/value rows (#379)"
     ]
   },
   "history": [
+    {
+      "buildId": "44150037513.1",
+      "version": "1.3.2-dev+0d90f7a",
+      "commit": "0d90f7af5ba14ce7fbd86a32e9782f1fb6825420",
+      "digest": "sha256:0c17cb27a27e5d8ee8655eb10d7180e44ddd370ea1b4d0752c34cd702857efb8",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T18:38:49Z",
+      "kind": "release",
+      "notes": [
+        "Device card: header, value and status pill, bar, small readings, label/value rows (#379)"
+      ]
+    },
     {
       "buildId": "44123774255.1",
       "version": "1.3.2-dev+2928bef",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Speedometer, Flow rows and System hero: follow the sample picture (#341)"
-      ]
-    },
-    {
-      "buildId": "43394089331.1",
-      "version": "1.2.7-dev+769db1a",
-      "commit": "769db1a383f7e22d677c40392846e0d70272cf24",
-      "digest": "sha256:0b2a2f64afcc8a3635fdc6bba62997e6cd903e7813a3d10db6eeb5f1b35847c8",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T08:33:25Z",
-      "kind": "release",
-      "notes": [
-        "New cards: System hero, Speedometer, Flow rows and Meter card (#340)"
       ]
     }
   ]
