@@ -768,9 +768,11 @@ async function testRs232Connection(device) {
   }
 }
 
+let lastScanError = null;   // so a scan that fails the same way every time is logged once
 async function getAvailablePorts() {
   try {
     const ports = await SerialPort.list();
+    lastScanError = null;
     return ports.map(p => ({
       path: p.path,
       manufacturer: p.manufacturer || 'Unknown',
@@ -779,7 +781,8 @@ async function getAvailablePorts() {
       friendlyName: `[${p.path}] ${p.manufacturer || 'Unknown adapter'}`,
     }));
   } catch (err) {
-    logger.warn(`RS232 port scan failed (udevadm missing?): ${err.message}`);
+    if (err.message !== lastScanError) logger.warn(`RS232 port scan failed (udevadm missing?): ${err.message}`);
+    lastScanError = err.message;
     return [];
   }
 }

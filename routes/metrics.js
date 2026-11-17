@@ -342,7 +342,6 @@ router.get('/history', async (req, res) => {
     const db = getDb();
     const rows = readHistorySeries(db, { from: since, to: now, toInclusive: true, fields: ['consumption', 'solar', 'battery_charge', 'battery_discharge', 'grid_import', 'grid_export', 'battery_soc', 'daily_consumption', 'daily_solar', 'daily_battery_charge', 'daily_battery_discharge', 'daily_grid_import', 'daily_grid_export'] });
     res.json(rows.map(r => ({
-      timestamp: r.timestamp,
       consumption: r.consumption, solar: r.solar, battery_charge: r.battery_charge,
       battery_discharge: r.battery_discharge, grid_import: r.grid_import, grid_export: r.grid_export,
       battery_soc: r.battery_soc, daily_consumption: r.daily_consumption, daily_solar: r.daily_solar,

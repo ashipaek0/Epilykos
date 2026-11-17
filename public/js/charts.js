@@ -115,8 +115,6 @@ function lineOptions(cfg, yTitle) {
   const { grid, text } = themeColors();
   const appearance = cfg.appearance || {};
   const valid = (v, fallback, min, max) => v !== '' && v != null && Number.isFinite(Number(v)) ? Math.min(max, Math.max(min, Number(v))) : fallback;
-  const min = valid(appearance.axisMin, undefined, -1e12, 1e12);
-  const max = valid(appearance.axisMax, undefined, -1e12, 1e12);
   return {
     responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
     interaction: { mode: 'index', intersect: false },

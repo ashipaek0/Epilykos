@@ -28,6 +28,7 @@ const { logger } = require('./modules/logger');
 const databaseWork = require('./modules/databaseWork');
 const { PollingManager } = require('./services/PollingManager');
 const { createLivePush } = require('./modules/livePush');
+const { planBroadcast, MAX_MESSAGE_BYTES } = require('./modules/broadcastPlan');
 const { timeZoneName } = require('./modules/localTime');
 const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, onMetricsFlushed, queueMetricWrite, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
 
@@ -617,74 +618,42 @@ const wsClients = new Set();
 // (staleness guard forces a full state every 3rd cycle when nothing changed).
 let lastBroadcastState = null;
 let consecutiveSuppress = 0;
+let broadcastTooLargeLogged = false;
 
 /**
  * Push dashboard state to all connected WebSocket clients.
- * Sends minimal { type: 'dashboard-delta', data: delta } when the delta is
- * small, full { type: 'dashboard-state', data: state } when the delta is
- * empty-but-stale (every 3rd suppressed cycle) or larger than 80% of the
- * full state, and suppresses (sends nothing) on small empty deltas.
+ * What is sent (the change, the whole state, or nothing) is decided in
+ * modules/broadcastPlan.js.
  * @param {object} state - built by buildDashboardState()
  * @param {{live?: boolean}} [opts] live: an extra push between polling cycles; an empty
  *   delta sends nothing and does not count toward the every-third full refresh.
  */
 function broadcastDashboardState(state, { live = false } = {}) {
-  const sendToAll = (message) => {
-    const MAX_MESSAGE_SIZE = 64 * 1024; // 64 KB
-    if (Buffer.byteLength(message, 'utf8') > MAX_MESSAGE_SIZE) {
-      logger.warn(`WebSocket broadcast blocked: message size ${Buffer.byteLength(message, 'utf8')} exceeds 64KB limit`);
-      return false;
-    }
-    wsClients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message, err => {
-          if (err) {
-            wsClients.delete(client);
-            client.terminate();
-          }
-        });
-      }
-    });
-    return true;
-  };
-  const snapshot = () => {
-    try {
-      lastBroadcastState = (typeof structuredClone === 'function')
-        ? structuredClone(state)
-        : JSON.parse(JSON.stringify(state));
-    } catch (e) {
-      lastBroadcastState = JSON.parse(JSON.stringify(state));
-    }
-  };
-
-  const delta = computeDelta(state, lastBroadcastState);
-
-  // Empty delta → suppress unless already suppressed twice consecutively
-  // (force full every 3rd, staleness guard so clients never drift stale).
-  if (typeof delta === 'object' && delta !== null && !Array.isArray(delta) && Object.keys(delta).length === 0) {
-    if (live) return;
-    if (consecutiveSuppress >= 2) {
-      consecutiveSuppress = 0;
-      if (sendToAll(JSON.stringify({ type: 'dashboard-state', data: state }))) snapshot();
-    } else {
-      consecutiveSuppress += 1;
-    }
+  const plan = planBroadcast({ state, delta: computeDelta(state, lastBroadcastState), quietCycles: consecutiveSuppress, live });
+  consecutiveSuppress = plan.quietCycles;
+  if (plan.tooLarge) {
+    // Once per episode, not every cycle; the pages fall back to fetching.
+    if (!broadcastTooLargeLogged) logger.warn(`Dashboard update not sent to open pages: ${plan.tooLarge} bytes is over the ${MAX_MESSAGE_BYTES} byte limit`);
+    broadcastTooLargeLogged = true;
     return;
   }
-
-  consecutiveSuppress = 0;
-
-  // Delta larger than 80% of full state → not worth it, send full.
-  let useFull = false;
+  if (!plan.message) return;
+  broadcastTooLargeLogged = false;
+  wsClients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(plan.message, err => {
+        if (err) {
+          wsClients.delete(client);
+          client.terminate();
+        }
+      });
+    }
+  });
+  // What the pages now have: the next change is measured against it.
   try {
-    useFull = Buffer.byteLength(JSON.stringify(delta), 'utf8') > 0.8 * Buffer.byteLength(JSON.stringify(state), 'utf8');
+    lastBroadcastState = (typeof structuredClone === 'function') ? structuredClone(state) : JSON.parse(JSON.stringify(state));
   } catch (e) {
-    useFull = true;
-  }
-  if (useFull) {
-    if (sendToAll(JSON.stringify({ type: 'dashboard-state', data: state }))) snapshot();
-  } else {
-    if (sendToAll(JSON.stringify({ type: 'dashboard-delta', data: delta }))) snapshot();
+    lastBroadcastState = JSON.parse(JSON.stringify(state));
   }
 }
 
@@ -1513,7 +1482,16 @@ function restoreSessionOptions(req) {
   };
 }
 function restoreFailure(res, err) {
-  logger.error('Restore error:', err);
+  // A file that is not a database (or is damaged) is found while the upload is
+  // checked, before anything is swapped: say so plainly instead of a 500.
+  if (!err.restoreRecoveryRequired && !err.status && /^SQLITE_(NOTADB|CORRUPT)/.test(String(err.code || ''))) {
+    err.status = 400;
+    err.restorePreflight = true;
+    err.message = 'That file is not an Epilykos backup, or it is damaged. Nothing was changed.';
+  }
+  // A refusal the person can act on (wrong file, passphrase needed) is not a server error.
+  if (err.status && err.status < 500) logger.warn('Restore refused: ' + err.message);
+  else logger.error('Restore error:', err);
   if (err.restoreRecoveryRequired) {
     // Files are retained for startup recovery. Do not serve a partly rebound
     // process indefinitely; the normal container/service supervisor restarts it.

@@ -3589,7 +3589,8 @@ function renderDongleDevice(device, idx) {
     let n = twins.length + 1; while (taken.has(`inv${n}_`)) n++;
     prefixEl.value = `inv${n}_`;
     prefixEl.dispatchEvent(new Event('input', { bubbles: true }));
-    if (typeof showToast === 'function') showToast(`Metric prefix set to inv${n}_ so this inverter's readings stay separate.`, 'info');
+    // (This called a showToast that does not exist here, so the note never showed.)
+    window.stShell?.toast?.(`Metric prefix set to inv${n}_ so this inverter's readings stay separate.`);
   });
 
   linkSelect.addEventListener('change', () => {
