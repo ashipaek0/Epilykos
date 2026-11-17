@@ -5115,6 +5115,13 @@ function wireTopbar() {
   document.querySelectorAll('[data-close-sheet]').forEach(function(b) { b.addEventListener('click', closeSheets); });
   window.matchMedia('(max-width: 900px)').addEventListener('change', closeSheets);
 
+  // Phones never show the leave warning below: switching apps only hides the
+  // page, and it may be closed after that without notice. A change still
+  // waiting for its short delay is saved as soon as the page is hidden.
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden' && saveTimer && !readOnly) flushSave();
+  });
+
   window.addEventListener('beforeunload', function(e) {
     if (leaving || readOnly || isSettled()) return;
     e.preventDefault();
