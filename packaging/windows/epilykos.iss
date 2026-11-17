@@ -5,6 +5,9 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
+#ifndef VersionNumeric
+  #define VersionNumeric "0.0.0.0"
+#endif
 #ifndef StageDir
   #define StageDir "..\..\dist\stage"
 #endif
@@ -29,7 +32,7 @@ LicenseFile={#StageDir}\LICENSE.txt
 CloseApplications=no
 SetupLogging=yes
 UninstallDisplayName=Epilykos
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#VersionNumeric}
 
 [Tasks]
 Name: "firewall"; Description: "Let other devices on my home network open the dashboard (Windows Firewall, private networks only)"; GroupDescription: "Network:"

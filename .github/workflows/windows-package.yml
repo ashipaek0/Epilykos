@@ -71,7 +71,8 @@ jobs:
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y; }
           $out = Join-Path (Get-Location) 'dist'
-          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DStageDir=$((Get-Location).Path)\dist\stage" "/O$out" packaging\windows\epilykos.iss
+          $numeric = ('${{ steps.version.outputs.version }}' -replace '[-+].*$', '') + '.0'
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DVersionNumeric=$numeric" "/DStageDir=$((Get-Location).Path)\dist\stage" "/O$out" packaging\windows\epilykos.iss
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
 
       - name: Smoke test (install, run, uninstall)
