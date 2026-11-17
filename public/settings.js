@@ -310,7 +310,7 @@ function renderHaDevice(device, idx) {
     </div>
     <div class="section-divider">Polling</div>
     <div class="form-row">
-      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="ha_devices[${idx}][poll_interval]" value="${device.poll_interval || 30}"></label>
+      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="ha_devices[${idx}][poll_interval]" value="${Number(device.poll_interval) || 30}"></label>
       <button type="button" class="fetch-btn fetch-ha-entities">Fetch Entities</button>
       <span class="test-status" id="ha-entities-status-${idx}"></span>
     </div>
@@ -1201,7 +1201,7 @@ function renderModbusDevice(device, idx) {
     <div class="modbus-tcp-fields" style="${device.transport === 'tcp' ? '' : 'display:none;'}">
       <div class="form-row">
         <label class="dt-fld"><span>Host / IP</span><input type="text" name="modbus_devices[${idx}][host]" value="${escapeHtml(device.host || '')}"></label>
-        <label class="dt-fld"><span>Port</span><input type="number" name="modbus_devices[${idx}][port]" value="${device.port || 502}"></label>
+        <label class="dt-fld"><span>Port</span><input type="number" name="modbus_devices[${idx}][port]" value="${Number(device.port) || 502}"></label>
       </div>
       <div class="form-row modbus-gateway-row">
         <select name="modbus_devices[${idx}][tcp_framing]" class="modbus-framing-select" title="How your RS485-to-Ethernet gateway forwards Modbus">
@@ -1214,10 +1214,10 @@ function renderModbusDevice(device, idx) {
     <div class="modbus-serial-fields" style="${device.transport === 'serial' ? '' : 'display:none;'}">
       <div class="form-row">
         <label class="dt-fld"><span>Serial path</span><input type="text" name="modbus_devices[${idx}][serial_path]" value="${escapeHtml(device.serial_path || '/dev/ttyUSB0')}"></label>
-        <label class="dt-fld"><span>Baud rate</span><input type="number" name="modbus_devices[${idx}][serial_baud]" value="${device.serial_baud || 9600}"></label>
+        <label class="dt-fld"><span>Baud rate</span><input type="number" name="modbus_devices[${idx}][serial_baud]" value="${Number(device.serial_baud) || 9600}"></label>
       </div>
       <div class="form-row">
-        <label class="dt-fld"><span>Data bits</span><input type="number" name="modbus_devices[${idx}][serial_data_bits]" value="${device.serial_data_bits || 8}"></label>
+        <label class="dt-fld"><span>Data bits</span><input type="number" name="modbus_devices[${idx}][serial_data_bits]" value="${Number(device.serial_data_bits) || 8}"></label>
         <select name="modbus_devices[${idx}][serial_parity]">
           <option value="none" ${device.serial_parity === 'none' ? 'selected' : ''}>None</option>
           <option value="even" ${device.serial_parity === 'even' ? 'selected' : ''}>Even</option>
@@ -1225,13 +1225,13 @@ function renderModbusDevice(device, idx) {
         </select>
       </div>
       <div class="form-row">
-        <label class="dt-fld"><span>Stop bits</span><input type="number" name="modbus_devices[${idx}][serial_stop_bits]" value="${device.serial_stop_bits || 1}"></label>
+        <label class="dt-fld"><span>Stop bits</span><input type="number" name="modbus_devices[${idx}][serial_stop_bits]" value="${Number(device.serial_stop_bits) || 1}"></label>
       </div>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
-      <label class="dt-fld"><span>Unit ID</span><input type="number" name="modbus_devices[${idx}][unit]" value="${device.unit || 1}"></label>
-      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="modbus_devices[${idx}][poll_interval]" value="${device.poll_interval || 30}"></label>
+      <label class="dt-fld"><span>Unit ID</span><input type="number" name="modbus_devices[${idx}][unit]" value="${Number(device.unit) || 1}"></label>
+      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="modbus_devices[${idx}][poll_interval]" value="${Number(device.poll_interval) || 30}"></label>
       <button type="button" class="fetch-btn test-modbus">Test Modbus</button>
     </div>
     <div class="section-divider">Register Mappings</div>
@@ -1734,14 +1734,14 @@ function renderRs232Device(device, idx) {
         <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
         <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
       </select>
-      <label class="dt-fld" style="width:120px;"><span>Unit ID</span><input type="number" name="rs232_devices[${idx}][modbus_unit_id]" value="${device.modbus_unit_id || 5}" title="Modbus Unit ID"></label>
+      <label class="dt-fld" style="width:120px;"><span>Unit ID</span><input type="number" name="rs232_devices[${idx}][modbus_unit_id]" value="${Number(device.modbus_unit_id) || 5}" title="Modbus Unit ID"></label>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
       <select name="rs232_devices[${idx}][profile]" class="rs232-profile-select">
         <option value="">-- Select profile --</option>
       </select>
-      <label class="dt-fld" style="width:140px;"><span>Timeout (ms)</span><input type="number" name="rs232_devices[${idx}][timeout]" value="${device.timeout || 5000}"></label>
+      <label class="dt-fld" style="width:140px;"><span>Timeout (ms)</span><input type="number" name="rs232_devices[${idx}][timeout]" value="${Number(device.timeout) || 5000}"></label>
       <button type="button" class="fetch-btn test-rs232">Test RS232</button>
     </div>
     <div class="section-divider">Field Mappings</div>
@@ -2404,7 +2404,7 @@ function renderBmsDevice(device, idx) {
       </select>
     </div>
     <div class="form-row" style="gap:0.5rem;">
-      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
+      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${Number(device.poll_interval) || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
     </div>
     <div class="form-row" style="gap:0.5rem;">
       <button type="button" class="fetch-btn scan-bms" data-device="${idx}" style="flex:1;">Scan</button>
@@ -2564,7 +2564,7 @@ function renderBmsWiredDevice(device, idx) {
         ).join('')}
         <option value="custom" ${pathIsCustom ? 'selected' : ''}>Custom path...</option>
       </select>
-      <label class="dt-fld" style="width:130px;"><span>Baud rate</span><input type="number" name="bms_devices[${idx}][baud]" value="${device.baud || 9600}" title="Baud rate"></label>
+      <label class="dt-fld" style="width:130px;"><span>Baud rate</span><input type="number" name="bms_devices[${idx}][baud]" value="${Number(device.baud) || 9600}" title="Baud rate"></label>
     </div>
     <div class="form-row bms-wired-custom-path" style="gap:0.5rem;display:${pathIsCustom ? '' : 'none'};">
       <label class="dt-fld" style="flex:1;"><span>Serial path</span><input type="text" name="bms_devices[${idx}][custom_path]" value="${escapeHtml(inputPath || '/dev/ttyUSB0')}"></label>
@@ -2585,15 +2585,15 @@ function renderBmsWiredDevice(device, idx) {
         <option value="1" ${(parseInt(device.stop_bits) || 1) === 1 ? 'selected' : ''}>1 stop</option>
         <option value="2" ${parseInt(device.stop_bits) === 2 ? 'selected' : ''}>2 stop</option>
       </select>
-      <label class="dt-fld" style="width:110px;"><span>Unit ID</span><input type="number" name="bms_devices[${idx}][modbus_unit_id]" value="${device.modbus_unit_id || 1}" title="Modbus Unit ID"></label>
+      <label class="dt-fld" style="width:110px;"><span>Unit ID</span><input type="number" name="bms_devices[${idx}][modbus_unit_id]" value="${Number(device.modbus_unit_id) || 1}" title="Modbus Unit ID"></label>
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
       <select name="bms_devices[${idx}][profile]" class="bms-wired-profile-select" style="flex:1;">
         <option value="">-- Select profile --</option>
       </select>
-      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${device.poll_interval || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
-      <label class="dt-fld" style="width:140px;"><span>Timeout (ms)</span><input type="number" name="bms_devices[${idx}][timeout]" value="${device.timeout || 5000}" title="Timeout in milliseconds"></label>
+      <label class="bms-poll-field" style="display:flex;align-items:center;gap:6px;white-space:nowrap;" title="How often this battery is read. Each battery has its own interval."><span style="font-size:0.85em;">Read every</span> <input type="number" name="bms_devices[${idx}][poll_interval]" min="5" max="3600" step="1" value="${Number(device.poll_interval) || 30}" style="width:84px;" aria-label="Read every (seconds)"> <span style="font-size:0.85em;">s</span></label>
+      <label class="dt-fld" style="width:140px;"><span>Timeout (ms)</span><input type="number" name="bms_devices[${idx}][timeout]" value="${Number(device.timeout) || 5000}" title="Timeout in milliseconds"></label>
       <button type="button" class="fetch-btn test-bms-wired">Test Connection</button>
       <span class="test-status"></span>
     </div>
@@ -3487,7 +3487,7 @@ function renderDongleDevice(device, idx) {
     </div>
     <div class="form-row dongle-net-row">
       <label class="dt-fld"><span>Host / IP</span><input type="text" name="dongle_config[${idx}][host]" value="${escapeHtml(device.host || '')}"></label>
-      <label class="dt-fld"><span>Port</span><input type="number" name="dongle_config[${idx}][port]" value="${device.port || ''}"></label>
+      <label class="dt-fld"><span>Port</span><input type="number" name="dongle_config[${idx}][port]" value="${Number(device.port) || ''}"></label>
     </div>
     <div class="form-row dongle-serial-row" style="${transport === 'modbus-tcp' ? 'display:none;' : ''}">
       <label class="dt-fld"><span>Logger serial</span><input type="text" name="dongle_config[${idx}][serial_number]" value="${escapeHtml(device.serial_number || '')}"></label>
@@ -3521,8 +3521,8 @@ function renderDongleDevice(device, idx) {
     </div>
     <div class="section-divider">Configuration</div>
     <div class="form-row">
-      <label class="dt-fld" style="width:100px;"><span>Unit ID</span><input type="number" name="dongle_config[${idx}][modbus_unit_id]" value="${device.modbus_unit_id || 1}"></label>
-      <label class="dt-fld" style="width:100px;"><span>Poll (s)</span><input type="number" name="dongle_config[${idx}][poll_interval]" value="${device.poll_interval || (transport === 'luxpower-tcp' ? 5 : transport === 'ble-luxpower' ? 15 : 30)}"></label>
+      <label class="dt-fld" style="width:100px;"><span>Unit ID</span><input type="number" name="dongle_config[${idx}][modbus_unit_id]" value="${Number(device.modbus_unit_id) || 1}"></label>
+      <label class="dt-fld" style="width:100px;"><span>Poll (s)</span><input type="number" name="dongle_config[${idx}][poll_interval]" value="${Number(device.poll_interval) || (transport === 'luxpower-tcp' ? 5 : transport === 'ble-luxpower' ? 15 : 30)}"></label>
       <label class="dt-fld" style="width:150px;"><span>Metric prefix (optional)</span><input type="text" name="dongle_config[${idx}][prefix]" value="${escapeHtml(device.prefix || '')}"></label>
       <button type="button" class="fetch-btn test-dongle">Test Connection</button>
       <span class="test-status" id="dongle-test-status-${idx}"></span>
@@ -4955,7 +4955,7 @@ async function loadRoleMetrics() {
       return `<div class="stg-form-row" style="margin-bottom:0.4rem;"><div class="stg-form-group" style="flex:1;"><label style="font-size:0.8rem;">${escapeHtml(label)}</label><select class="role-metric-select" data-role="${role}" aria-label="${escapeHtml(label)}" style="width:100%;">${options}</select></div></div>`;
     }).join('');
   } catch (e) {
-    container.innerHTML = `<p class="note" style="color:#ef4444;">Failed to load: ${e.message}</p>`;
+    container.innerHTML = `<p class="note" style="color:#ef4444;">Failed to load: ${escapeHtml(e.message)}</p>`;
   }
 }
 
@@ -5215,7 +5215,7 @@ function renderTuyaDevice(device, idx) {
     </div>
     <div class="section-divider">Polling</div>
     <div class="form-row">
-      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="tuya_devices[${idx}][poll_interval]" value="${device.poll_interval || 30}"></label>
+      <label class="dt-fld" style="width:120px;"><span>Poll (s)</span><input type="number" name="tuya_devices[${idx}][poll_interval]" value="${Number(device.poll_interval) || 30}"></label>
     </div>
     <div class="section-divider">DP Mappings</div>
     <div class="mappings-section" id="tuya-mappings-${idx}">
