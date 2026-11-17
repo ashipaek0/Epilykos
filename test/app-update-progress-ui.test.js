@@ -115,5 +115,41 @@ const step = (html, n) => html.match(/<li class="is-now">([^<]*)<\/li>/)?.[1];
   await docker.tick();
   assert.doesNotMatch(docker.root.innerHTML, /up-steps/);
   console.log('ok - Docker app update: downloading (during the request) → restarting → checking health → result');
+  // ── Only the numbers change: the page is not drawn again ───────────────
+  // (Drawing it again every two seconds flickered, restarted the moving bar
+  // and took the focus off Cancel.)
+  const live = page('host');
+  const dl = (bytes, total) => ({ ...live.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'downloading', ...(total ? { bytes, total } : {}) } });
+  live.get(() => dl(10 * 1048576, 100 * 1048576));
+  live.start(); await flush();
+  let html = live.root.innerHTML, writes = 0;
+  Object.defineProperty(live.root, 'innerHTML', { get: () => html, set: v => { html = v; writes++; } });
+  const el = () => { const a = {}; return { innerHTML: '', getAttribute: n => (n in a ? a[n] : null), setAttribute: (n, v) => { a[n] = v; }, removeAttribute: n => { delete a[n]; }, a }; };
+  const text = el(), bar = el();
+  live.root.querySelectorAll = sel => (sel === '.up-os-progress' ? [text] : sel === 'progress.up-progress' ? [bar] : []);
+  live.get(() => dl(40 * 1048576, 100 * 1048576));
+  await live.tick();
+  assert.equal(writes, 0, 'new numbers do not redraw the page');
+  assert.equal(text.innerHTML, 'Downloading 40.0 MB of about 100 MB · 40 %');
+  assert.deepEqual(bar.a, { max: '104857600', value: '41943040', 'aria-label': 'Download progress' });
+  live.get(() => dl(0, 0));   // the size is not known any more: back to a moving bar, still in place
+  await live.tick();
+  assert.equal(writes, 0);
+  assert.equal(text.innerHTML, 'Downloading…');
+  assert.deepEqual(bar.a, { 'aria-label': 'Working' }, 'max and value are taken off');
+  live.get(() => ({ ...live.base, applying: { startedAt: '2026-10-24T10:00:00Z', step: 'starting' } }));
+  await live.tick();
+  assert.equal(writes, 1, 'a real change (the next step) draws the page again');
+  // If the page was changed under it (the elements are not where they were), it redraws.
+  const lost = page('host');
+  lost.get(() => dl(10 * 1048576, 100 * 1048576));
+  lost.start(); await flush();
+  let html2 = lost.root.innerHTML, writes2 = 0;
+  Object.defineProperty(lost.root, 'innerHTML', { get: () => html2, set: v => { html2 = v; writes2++; } });
+  lost.get(() => dl(40 * 1048576, 100 * 1048576));
+  await lost.tick();
+  assert.equal(writes2, 1, 'no bar to update: the page is drawn again');
+  console.log('ok - while only the progress changes, the bar and its text are updated in place');
+
   checks.done();
 })().catch(e => { console.error(e); process.exit(1); });

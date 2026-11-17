@@ -76,8 +76,52 @@
   }
 
   // ── Render ───────────────────────────────────────────────────────────
+  // ── Painting ───────────────────────────────────────────────────────────
+  // While an update runs the page is drawn again every couple of seconds.
+  // Replacing everything each time makes it flicker, restarts the moving bar
+  // and takes the focus off Cancel, so when only the progress changed, only
+  // the bar and its line of text are updated.
+  var PROGRESS_TEXT = /(<(?:span|p) class="[^"]*\bup-os-progress\b[^"]*">)([^<]*)(<\/(?:span|p)>)/g;
+  var PROGRESS_BAR = /<progress class="up-progress"([^>]*)>/g;
+  var painted = null;   // the last page drawn, without its progress numbers
+
+  function skeleton(html) {
+    return html.replace(PROGRESS_TEXT, '$1$3').replace(PROGRESS_BAR, '<progress class="up-progress">');
+  }
+  function attr(text, name) {
+    var m = new RegExp('\\b' + name + '="([^"]*)"').exec(text);
+    return m ? m[1] : null;
+  }
+
+  function paint(html) {
+    var shape = skeleton(html);
+    if (shape === painted && patchProgress(html)) return;
+    root.innerHTML = html;
+    painted = shape;
+  }
+
+  /** Same page, new numbers: put them in place. False when the page has to be drawn again. */
+  function patchProgress(html) {
+    if (typeof root.querySelectorAll !== 'function') return false;
+    var texts = [], bars = [], m;
+    PROGRESS_TEXT.lastIndex = 0; PROGRESS_BAR.lastIndex = 0;
+    while ((m = PROGRESS_TEXT.exec(html))) texts.push(m[2]);
+    while ((m = PROGRESS_BAR.exec(html))) bars.push(m[1]);
+    var textEls = root.querySelectorAll('.up-os-progress'), barEls = root.querySelectorAll('progress.up-progress');
+    if (textEls.length !== texts.length || barEls.length !== bars.length) return false;
+    texts.forEach(function (t, i) { if (textEls[i].innerHTML !== t) textEls[i].innerHTML = t; });
+    bars.forEach(function (b, i) {
+      ['max', 'value', 'aria-label'].forEach(function (name) {
+        var v = attr(b, name);
+        if (v == null) barEls[i].removeAttribute(name);
+        else if (barEls[i].getAttribute(name) !== v) barEls[i].setAttribute(name, v);
+      });
+    });
+    return true;
+  }
+
   function render() {
-    if (!state) { root.innerHTML = '<p class="st-help">Loading…</p>'; return; }
+    if (!state) { painted = null; root.innerHTML = '<p class="st-help">Loading…</p>'; return; }
     var inst = state.installed || {};
     var st = state.status || {};
     var m = state.method || {};
@@ -103,7 +147,7 @@
       + '<p class="st-help">' + (state.autoLocked ? 'Turned off for this install with <code>UPDATE_CHECK=off</code>.' : 'Only downloads a small file listing the latest builds; nothing about this install is sent.' + (m.kind === 'epilykos-os' ? ' Installation is manual unless you turn on automatic installation below.' : '')) + '</p></div>';
 
     if (m.kind === 'epilykos-os') html += autoInstallCard();
-    root.innerHTML = html;
+    paint(html);
     if (shell.setNavBadge) shell.setNavBadge('updates', updateReady() ? '<span class="st-badge is-ok">New</span>' : '');
     schedulePoll();
   }
@@ -315,7 +359,7 @@
   // ── Load and actions ─────────────────────────────────────────────────
   async function load() {
     try { state = await api('GET', ''); }
-    catch (e) { root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>'; root.querySelector('p').textContent = e.message; return; }
+    catch (e) { painted = null; root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>'; root.querySelector('p').textContent = e.message; return; }
     if (state.applying && !installing) {
       // Opened while an app update is under way: follow it to the end.
       var isHost = state.method && state.method.kind === 'epilykos-os';

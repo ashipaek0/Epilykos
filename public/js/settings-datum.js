@@ -2,19 +2,16 @@
  * Turns each .st-card into bands: a left column with the title and its help
  * text, a right column with the controls. Elements are moved, never cloned,
  * so every id, listener and form field keeps working. Cards that scripts
- * render later are wrapped as they appear. */
+ * render later are wrapped as they appear, before the next paint. */
 (function () {
   'use strict';
 
   var root = document.getElementById('main-content') || document.body;
-  var scheduled = false;
-  var observer = new MutationObserver(schedule);
-
-  function schedule() {
-    if (scheduled) return;
-    scheduled = true;
-    setTimeout(function () { scheduled = false; run(); }, 60);
-  }
+  // The observer's callback runs before the browser next paints, so a card a
+  // script has just drawn is arranged before anyone sees it. (Waiting, as this
+  // once did, showed the plain layout for a few frames: a page that redraws
+  // itself every couple of seconds flickered.)
+  var observer = new MutationObserver(run);
 
   function run() {
     observer.disconnect();
