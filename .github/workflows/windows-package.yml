@@ -7,8 +7,6 @@
 name: Windows package
 
 on:
-  push:
-    branches: [windows-package-build]   # build trial branch (not in dev)
   workflow_dispatch:
     inputs:
       version:
