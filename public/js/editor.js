@@ -537,6 +537,20 @@ var FLOWROW_SPEC = { list: 'fr', max: 8, blank: { label: '', metric: '', unit: '
   { k: 'max', type: 'number', ph: 'Highest (empty: compare the rows)' }, { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 },
   { k: 'color', type: 'text', ph: 'Bar colour #rrggbb (optional)', maxlength: 7 }] };
 
+var DEVICE_STATUS_SPEC = { list: 'dst', max: 6, blank: { metric: '', when: 'on', limit: 0, text: '', color: '' }, fields: [
+  { k: 'metric', type: 'metric' },
+  { k: 'when', type: 'select', options: [['on', 'When it says on, or is above 0'], ['above', 'When above the limit'], ['below', 'When below the limit']] },
+  { k: 'limit', type: 'number', ph: 'Limit' }, { k: 'text', type: 'text', ph: 'Pill text (e.g. Discharging {value})', maxlength: 60 },
+  { k: 'color', type: 'text', ph: 'Pill colour #rrggbb (optional)', maxlength: 7 }] };
+var DEVICE_STAT_SPEC = { list: 'dsx', max: 3, blank: { label: '', metric: '', unit: '', decimals: '' }, fields: [
+  { k: 'label', type: 'text', ph: 'Label (e.g. Volts)', maxlength: 24 }, { k: 'metric', type: 'metric' },
+  { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 }, { k: 'decimals', type: 'number', ph: 'Decimals (empty: automatic)' }] };
+var DEVICE_ROW_SPEC = { list: 'drw', max: 6, blank: { label: '', metric: '', unit: '', decimals: '', color: '', signed: 'false' }, fields: [
+  { k: 'label', type: 'text', ph: 'Label (e.g. From grid)', maxlength: 40 }, { k: 'metric', type: 'metric' },
+  { k: 'unit', type: 'text', ph: 'Unit (empty: from the metric)', maxlength: 12 }, { k: 'decimals', type: 'number', ph: 'Decimals (empty: automatic)' },
+  { k: 'color', type: 'text', ph: 'Label colour #rrggbb (optional)', maxlength: 7 },
+  { k: 'signed', type: 'select', options: [['false', 'Show as it is'], ['true', 'Put a + before a positive value']] }] };
+
 /** The extra readings {a}, {b}, {c} that a card's words can use. */
 function buildExtrasSection(cfg) {
   return '<fieldset data-ui="section"><legend data-ui="legend">Extra readings for the words</legend>' +
@@ -602,6 +616,41 @@ function buildFlowRowsForm(block) {
   html += textSetting('modal-fr-idletext', 'Idle word', cfg.idleText, 'Idle', 16);
   html += '</fieldset>';
   return html;
+}
+
+/** Device card: header, the big value and its pill, an optional bar, up to three small readings, and rows. Every part is optional. */
+function buildDeviceCardForm(block) {
+  var cfg = block.config || {};
+  var html = '<fieldset data-ui="section"><legend data-ui="legend">Header</legend>';
+  html += textSetting('modal-dv-title', 'Title', cfg.title, 'e.g. MultiPlus-II', 60);
+  html += textSetting('modal-dv-subtitle', 'Subtitle', cfg.subtitle, 'e.g. Inverting', 80);
+  html += textSetting('modal-dv-icon', 'Picture or icon (web address, a path starting with /, an mdi: name or an emoji)', cfg.icon, 'https://... or /uploads/inverter.png', 500);
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Value</legend>';
+  html += '<div data-ui="row"><span data-ui="row-label">Metric (empty for no big value)</span><div data-ui="grow">' + metricSelect(cfg.metric || '', 'modal-dv-metric') + '</div></div>';
+  html += '<div data-ui="grid2">' + textSetting('modal-dv-prefix', 'Before the value (e.g. a currency)', cfg.prefix, '', 8).replace('data-ui="field"', 'data-ui="label"') +
+    textSetting('modal-dv-unit', 'Unit (empty: from the metric)', cfg.unit, '', 12).replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += numberSetting('modal-dv-decimals', 'Decimals (0 to 3, empty for automatic)', cfg.decimals, 'auto');
+  html += textSetting('modal-dv-note', 'Line under the value', cfg.note, 'e.g. {a} today', 120);
+  html += '<p data-ui="help">In words you can use {value}, {max}, {pct} and {a}, {b}, {c}.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Status pill</legend>';
+  html += buildRowList(DEVICE_STATUS_SPEC, Array.isArray(cfg.statuses) ? cfg.statuses : []);
+  html += '<p data-ui="help">The first row whose rule is true sets the pill. A row with no metric always applies, so put it last as the fallback.</p></fieldset>';
+  html += '<fieldset data-ui="section"><legend data-ui="legend">Bar</legend>';
+  html += formToggle('modal-dv-showbar', 'Show a bar', cfg.showBar === true);
+  html += '<div data-ui="row"><span data-ui="row-label">Bar follows (empty: the value)</span><div data-ui="grow">' + metricSelect(cfg.barMetric || '', 'modal-dv-barmetric') + '</div></div>';
+  html += '<div data-ui="grid2">' + numberSetting('modal-dv-min', 'Empty at', cfg.min == null ? 0 : cfg.min).replace('data-ui="field"', 'data-ui="label"') +
+    numberSetting('modal-dv-max', 'Full at', cfg.max == null ? 100 : cfg.max).replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += '<div data-ui="row"><span data-ui="row-label">Full at a metric (optional)</span><div data-ui="grow">' + metricSelect(cfg.maxMetric || '', 'modal-dv-maxmetric') + '</div></div>';
+  html += textSetting('modal-dv-color', 'Bar colour (#rrggbb, empty for solar)', cfg.color, '', 7);
+  html += '<div data-ui="grid2">' + numberSetting('modal-dv-low', 'Red at or below (% of the bar)', cfg.lowAt, 'off').replace('data-ui="field"', 'data-ui="label"') +
+    numberSetting('modal-dv-warn', 'Amber at or below (%)', cfg.warnAt, 'off').replace('data-ui="field"', 'data-ui="label"') + '</div>';
+  html += textSetting('modal-dv-caption', 'Caption under the bar', cfg.barCaption, 'e.g. {pct}% of capacity', 120);
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Small readings (up to three, side by side)</legend>';
+  html += buildRowList(DEVICE_STAT_SPEC, Array.isArray(cfg.stats) ? cfg.stats : []);
+  html += '</fieldset><fieldset data-ui="section"><legend data-ui="legend">Rows (label and value)</legend>';
+  html += buildRowList(DEVICE_ROW_SPEC, Array.isArray(cfg.rows) ? cfg.rows : []);
+  html += '</fieldset>';
+  return html + buildExtrasSection(cfg);
 }
 
 /** Meter card: the value, the bar and its target, and two lines of words. */
@@ -2427,6 +2476,9 @@ function buildSettingsForm(block) {
     case 'meter-card':
       html += buildMeterCardForm(block);
       break;
+    case 'device-card':
+      html += buildDeviceCardForm(block);
+      break;
     case 'prepaid-meter':
       html += buildPrepaidMeterForm(block);
       break;
@@ -2814,6 +2866,43 @@ function readSettingsForm(block) {
       readNumber(config, 'lowAt', 'modal-mt-low'); readNumber(config, 'warnAt', 'modal-mt-warn');
       var mtNotes = [(document.getElementById('modal-mt-note0')?.value || '').trim(), (document.getElementById('modal-mt-note1')?.value || '').trim()];
       if (mtNotes[0] || mtNotes[1]) config.notes = mtNotes; else delete config.notes;
+      readExtras(config);
+      break;
+    }
+    case 'device-card': {
+      var rowsOf = function(sel) {
+        var out = [];
+        document.querySelectorAll(sel + ' .rl-row').forEach(function(row) {
+          var o = {};
+          row.querySelectorAll('[data-k]').forEach(function(el) { o[el.dataset.k] = el.value; });
+          out.push(o);
+        });
+        return out;
+      };
+      var dvIcon = (document.getElementById('modal-dv-icon')?.value || '').trim();
+      if (dvIcon) config.icon = dvIcon; else delete config.icon;
+      readText(config, 'title', 'modal-dv-title'); readText(config, 'subtitle', 'modal-dv-subtitle'); readText(config, 'metric', 'modal-dv-metric');
+      readText(config, 'prefix', 'modal-dv-prefix'); readText(config, 'unit', 'modal-dv-unit'); readText(config, 'note', 'modal-dv-note');
+      readText(config, 'color', 'modal-dv-color'); readText(config, 'barMetric', 'modal-dv-barmetric'); readText(config, 'maxMetric', 'modal-dv-maxmetric'); readText(config, 'barCaption', 'modal-dv-caption');
+      readNumber(config, 'decimals', 'modal-dv-decimals'); readNumber(config, 'min', 'modal-dv-min'); readNumber(config, 'max', 'modal-dv-max');
+      readNumber(config, 'lowAt', 'modal-dv-low'); readNumber(config, 'warnAt', 'modal-dv-warn');
+      if (document.getElementById('modal-dv-showbar')?.checked) config.showBar = true; else delete config.showBar;
+      config.statuses = rowsOf('#dst-rows').filter(function(o) { return (o.text || '').trim(); }).map(function(o) {
+        var lim = parseFloat(o.limit);
+        return { metric: o.metric || '', when: o.when || 'on', limit: isNaN(lim) ? 0 : lim, text: (o.text || '').trim(), color: (o.color || '').trim() };
+      }).slice(0, 6);
+      config.stats = rowsOf('#dsx-rows').filter(function(o) { return o.metric; }).map(function(o) {
+        var d = parseFloat(o.decimals);
+        return { label: (o.label || '').trim(), metric: o.metric, unit: (o.unit || '').trim(), decimals: isNaN(d) ? '' : d };
+      }).slice(0, 3);
+      config.rows = rowsOf('#drw-rows').filter(function(o) { return o.metric; }).map(function(o) {
+        var d = parseFloat(o.decimals);
+        return { label: (o.label || '').trim(), metric: o.metric, unit: (o.unit || '').trim(), decimals: isNaN(d) ? '' : d, color: (o.color || '').trim(), signed: o.signed === 'true' };
+      }).slice(0, 6);
+      ['statuses', 'stats', 'rows'].forEach(function(k) { if (!config[k].length) delete config[k]; });
+      var dvMetrics = [];
+      [{ metric: config.metric }].concat(config.statuses || [], config.stats || [], config.rows || []).forEach(function(m) { if (m && m.metric) dvMetrics.push({ metric: m.metric }); });
+      block.metrics = dvMetrics;
       readExtras(config);
       break;
     }
@@ -4521,6 +4610,12 @@ function wireSettingsForm(body, block) {
       renderRowList(body, EXTRA_SPEC);
       break;
     case 'meter-card':
+      renderRowList(body, EXTRA_SPEC);
+      break;
+    case 'device-card':
+      renderRowList(body, DEVICE_STATUS_SPEC);
+      renderRowList(body, DEVICE_STAT_SPEC);
+      renderRowList(body, DEVICE_ROW_SPEC);
       renderRowList(body, EXTRA_SPEC);
       break;
     case 'flow-rows':

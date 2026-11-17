@@ -44,6 +44,7 @@ import { updateSystemHero } from './components/systemHero.js';
 import { updateSpeedometer } from './components/speedometer.js';
 import { updateFlowRows } from './components/flowRows.js';
 import { updateMeterCard } from './components/meterCard.js';
+import { updateDeviceCard } from './components/deviceCard.js';
 import { updatePrepaidMeter } from './components/prepaidMeter.js';
 import { updateEnergyTotalsFromState } from './components/energyTotals.js';
 
@@ -64,6 +65,7 @@ export function updateCards(state, blockTypes) {
   if (blockTypes.has('speedometer')) updateSpeedometer(state);
   if (blockTypes.has('flow-rows')) updateFlowRows(state);
   if (blockTypes.has('meter-card')) updateMeterCard(state);
+  if (blockTypes.has('device-card')) updateDeviceCard(state);
   if (blockTypes.has('prepaid-meter') || document.querySelector('.pm-strip')) updatePrepaidMeter(state);
   if (blockTypes.has('flow-card-2')) updateSystemTopology(state);
   if (blockTypes.has('system-overview')) updateSystemOverview(state);
