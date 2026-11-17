@@ -1,4 +1,5 @@
 const { logger } = require('./logger');
+const { defaultSerialPath } = require('./serialDefaults');
 const { createBackoff } = require('./pollBackoff');
 const backoff = createBackoff('Modbus');
 const ModbusRTU = require('modbus-serial');
@@ -38,7 +39,7 @@ async function connectModbus(device) {
   const client = new ModbusRTU();
   const transport = device.transport || 'tcp';
   if (transport === 'serial') {
-    const path_ = device.serial_path || '/dev/ttyUSB0';
+    const path_ = device.serial_path || defaultSerialPath();
     const baudRate = parseInt(device.serial_baud) || 9600;
     const dataBits = parseInt(device.serial_data_bits) || 8;
     const stopBits = parseInt(device.serial_stop_bits) || 1;

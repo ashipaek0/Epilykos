@@ -3,7 +3,7 @@
  *
  * "Today", daily buckets and savings follow the process time zone: the TZ
  * environment variable (set in docker-compose) or, when TZ is unset, the
- * host's /etc/localtime. Node's Date and SQLite's 'localtime' modifier both
+ * host's /etc/localtime (on Windows, the Windows time zone: leave TZ unset). Node's Date and SQLite's 'localtime' modifier both
  * read the same setting, so JS and SQL agree on where a day starts.
  *
  * @module localTime

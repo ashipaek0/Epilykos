@@ -13,7 +13,7 @@ const { PollResult } = require('./pollResult');
 function runBridge(script, args) {
   return new Promise((resolve, reject) => {
     logger.debug(`runBridge: python3 -u ${script} ${args[0]} (${args[1] ? args[1].substring(0,20) : ''}...)`);
-    execFile('python3', ['-u', script, ...args], { timeout: 60000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    execFile(require('./pythonCommand').pythonCommand(), ['-u', script, ...args], { timeout: 60000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
         // Many bridge scripts print structured JSON errors on stdout/stderr.
         const raw = (stdout || stderr || '').trim();
@@ -270,7 +270,7 @@ async function discoverTuyaDevices(subnet) {
 
   // UDP broadcast scan (original behaviour, same-subnet only)
   return new Promise((resolve, reject) => {
-    const child = execFile('python3', ['-m', 'tinytuya', 'scan'], { timeout: 30000 });
+    const child = execFile(require('./pythonCommand').pythonCommand(), ['-m', 'tinytuya', 'scan'], { timeout: 30000 });
 
     let stdout = '';
     let stderr = '';

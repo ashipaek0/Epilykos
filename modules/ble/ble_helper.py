@@ -288,6 +288,26 @@ def _map_error(exc):
     return HelperError(text, "ble_error")
 
 
+async def _status_without_bluez(result):
+    """Adapter status on Windows and macOS, where the system's own Bluetooth stack is used (no BlueZ).
+
+    A short scan is the check: it fails when there is no adapter or Bluetooth is switched off."""
+    result["dbus_socket"] = None
+    try:
+        from bleak import BleakScanner
+        await asyncio.wait_for(BleakScanner.discover(timeout=1.0), 15)
+        result["available"] = True
+    except Exception as exc:
+        text = str(exc).lower()
+        if "off" in text or "radio" in text or "disabled" in text:
+            result.update(available=False, error="Bluetooth is switched off in Windows.", code="adapter_off")
+        elif "no" in text and "adapter" in text:
+            result.update(available=False, error="No Bluetooth adapter found on this computer.", code="no_adapter")
+        else:
+            result.update(available=False, error=f"Bluetooth is not available: {exc}", code="ble_error")
+    return result
+
+
 async def cmd_status(_args):
     result = {"dbus_socket": DBUS_SOCKET, "keep_alive": KEEP_ALIVE}
     try:
@@ -298,6 +318,8 @@ async def cmd_status(_args):
     except Exception as exc:  # pragma: no cover - image always has them
         result.update(available=False, error=f"Bluetooth libraries missing: {exc}", code="no_library")
         return result
+    if sys.platform != "linux":
+        return await _status_without_bluez(result)
     try:
         from dbus_fast import BusType, Message
         from dbus_fast.aio import MessageBus
@@ -385,7 +407,7 @@ async def _release_stale(address):
     device stops advertising, so every scan ends in "not found" until something disconnects it.
     A link this process holds (_gatt, _bms) is never touched. Any failure here is ignored: the
     caller reports the scan's own result."""
-    if address in _gatt or address in _bms:
+    if address in _gatt or address in _bms or sys.platform != "linux":
         return False
     try:
         from dbus_fast import BusType, Message
@@ -1017,14 +1039,36 @@ async def _handle(line):
         _emit({"id": rid, "ok": False, "error": str(err), "code": err.code})
 
 
+async def _stdin_reader(loop):
+    """Return an async readline() for stdin.
+
+    Unix reads the pipe on the event loop. Windows cannot register stdin with its event loop, so a
+    worker thread reads each line and hands it over (it ends with the process)."""
+    if sys.platform != "win32":
+        reader = asyncio.StreamReader(limit=1024 * 1024)
+        await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
+        return reader.readline
+    import threading
+    lines = asyncio.Queue()
+
+    def pump():
+        try:
+            for raw in sys.stdin.buffer:
+                loop.call_soon_threadsafe(lines.put_nowait, raw)
+        finally:
+            loop.call_soon_threadsafe(lines.put_nowait, b"")
+
+    threading.Thread(target=pump, daemon=True).start()
+    return lines.get
+
+
 async def main():
     loop = asyncio.get_running_loop()
-    reader = asyncio.StreamReader(limit=1024 * 1024)
-    await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
+    readline = await _stdin_reader(loop)
     _emit({"event": "ready", "pid": os.getpid(), "keep_alive": KEEP_ALIVE})
     try:
         while True:
-            line = await reader.readline()
+            line = await readline()
             if not line:
                 break  # parent closed stdin
             line = line.strip()

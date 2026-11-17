@@ -21,6 +21,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { syncPath } = require('../../fsSync');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 
@@ -78,7 +79,7 @@ function createFolderDestination(settings, { dataDir } = {}) {
       const meter = new Transform({ transform(chunk, _, done) { bytes += chunk.length; hash.update(chunk); done(null, chunk); } });
       try {
         await pipeline(readable, meter, fs.createWriteStream(part, { flags: 'w', mode: 0o600 }));
-        const fd = fs.openSync(part, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+        syncPath(part);
         fs.renameSync(part, path.join(dir, name));
       } catch (error) {
         try { fs.unlinkSync(part); } catch (_) {}

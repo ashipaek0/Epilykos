@@ -12,7 +12,7 @@ const host = require('./hostActions');
 const { logger } = require('./logger');
 const MODERN = /^energy-snapshot-g([0-9]{20})-(\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d)-[0-9a-f-]{36}\.db\.gz$/;
 const LEGACY = /^energy-snapshot-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d\.db$/;
-function sync(file) { const fd = fs.openSync(file, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+const { syncPath: sync } = require('./fsSync');
 function syncDir(dir) { if (process.platform !== 'win32') sync(dir); }
 function getSnapshots(directory) {
   let names; try { names = fs.readdirSync(directory); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }

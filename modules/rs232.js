@@ -1,4 +1,5 @@
 const { SerialPort } = require('serialport');
+const { defaultSerialPath } = require('./serialDefaults');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const fs = require('fs');
 const path = require('path');
@@ -85,7 +86,7 @@ function resolveAliases() {
 async function openSerialPort(device) {
   return new Promise((resolve, reject) => {
     const port = new SerialPort({
-      path: device.serial_path || '/dev/ttyUSB0',
+      path: device.serial_path || defaultSerialPath(),
       baudRate: parseInt(device.baud) || 9600,
       dataBits: parseInt(device.data_bits) || 8,
       stopBits: parseInt(device.stop_bits) || 1,
@@ -836,7 +837,7 @@ function executeRS232Action(deviceName, commandName, value) {
 
   try {
     const { SerialPort } = require('serialport');
-    const port = new SerialPort({ path: device.serial_path || '/dev/ttyUSB0',
+    const port = new SerialPort({ path: device.serial_path || defaultSerialPath(),
       baudRate: parseInt(device.baud) || 9600,
       dataBits: parseInt(device.data_bits) || 8,
       stopBits: parseInt(device.stop_bits) || 1,
@@ -902,7 +903,7 @@ function executeRs232Action(deviceId, commandBytes) {
       }
 
       const { SerialPort } = require('serialport');
-      const port = new SerialPort({ path: device.serial_path || '/dev/ttyUSB0',
+      const port = new SerialPort({ path: device.serial_path || defaultSerialPath(),
         baudRate: parseInt(device.baud) || 9600,
         dataBits: parseInt(device.data_bits) || 8,
         stopBits: parseInt(device.stop_bits) || 1,
