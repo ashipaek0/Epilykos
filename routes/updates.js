@@ -8,6 +8,7 @@
  *   epilykos-os  the appliance installs it (host actions update_check / update_apply)
  *   docker       Docker Compose with the Docker socket mounted (modules/dockerUpdate.js)
  *   compose      Docker Compose without the socket: the page shows the commands
+ *   windows      the Windows installer build (modules/windowsUpdate.js)
  *   none         not in a container (development): nothing to install
  */
 const express = require('express');
@@ -18,6 +19,7 @@ const updates = require('../modules/updates');
 const dockerUpdate = require('../modules/dockerUpdate');
 const hostActions = require('../modules/hostActions');
 const osUpdates = require('../modules/osUpdates');
+const windowsUpdate = require('../modules/windowsUpdate');
 
 /** The admin password again, checked here and never sent to the host. */
 function passwordOk(body) {
@@ -41,6 +43,7 @@ function osRoute(fn, { password } = {}) {
 }
 
 function method() {
+  if (windowsUpdate.isWindowsInstall()) return { kind: 'windows' };
   if (hostActions.available()) {
     const host = updates.lastHostStatus();
     return { kind: 'epilykos-os', supported: !host || host.supported !== false };
@@ -107,10 +110,12 @@ function router() {
       // Docker: the image is downloading right now (the Update request is still open).
       downloading: m.kind === 'docker' ? dockerUpdate.downloading() : null,
       lastResult: result && result.finishedAt ? result : null,
+      windows: m.kind === 'windows' ? { status: windowsUpdate.status(), applying: windowsUpdate.progress() } : null,
     });
   });
 
   r.post('/check', async (req, res) => {
+    if (method().kind === 'windows') return res.json({ status: updates.lastStatus(), host: null, windows: { status: await windowsUpdate.check(), applying: windowsUpdate.progress() } });
     const [status, host] = await Promise.all([updates.check(), updates.hostCheck()]);
     res.json({ status, host });
   });
@@ -169,6 +174,10 @@ function router() {
         if (!reply || reply.ok !== true) return res.status(400).json({ error: (reply && reply.error) || 'The appliance refused the update' });
         logger.warn('[updates] EpilykosOS is installing the Epilykos update');
         return res.json({ state: reply.state || 'applying', message: reply.message || '' });
+      }
+      if (m.kind === 'windows') {
+        logger.warn('[updates] Windows update requested from Settings');
+        return res.json(await windowsUpdate.apply());
       }
       if (m.kind === 'docker') {
         logger.warn('[updates] Update requested from Settings');
