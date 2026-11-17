@@ -1,0 +1,27 @@
+<!-- Epilykos as a Windows service, run by WinSW (EpilykosService.exe). @VERSION@ is filled in when the package is staged. -->
+<service>
+  <id>Epilykos</id>
+  <name>Epilykos</name>
+  <description>Epilykos energy dashboard: reads your inverters and batteries and serves the dashboard on port 3000.</description>
+  <executable>%BASE%\..\node\node.exe</executable>
+  <arguments>server.js</arguments>
+  <workingdirectory>%BASE%\..\app</workingdirectory>
+  <env name="NODE_ENV" value="production"/>
+  <env name="PORT" value="3000"/>
+  <env name="EPILYKOS_INSTALLER" value="windows"/>
+  <env name="EPILYKOS_VERSION" value="@VERSION@"/>
+  <env name="EPILYKOS_PYTHON" value="%BASE%\..\python\python.exe"/>
+  <env name="CLOUDFLARED_BIN" value="%BASE%\..\tools\cloudflared.exe"/>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>30 sec</stoptimeout>
+  <logpath>%ProgramData%\Epilykos\service-logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>5120</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

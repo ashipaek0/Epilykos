@@ -37,7 +37,7 @@ const fakeFetch = async (url) => {
   return { ok: true, status: 200, body: new Response(body).body };
 };
 const launched = [];
-wu.setForTests({ fetch: fakeFetch, tmp: () => tmp, spawn: (file, args) => { launched.push([file, args]); return { unref() {} }; } });
+wu.setForTests({ fetch: fakeFetch, tmp: () => tmp, spawn: async (args) => { launched.push(args); } });
 
 (async () => {
   let r = await wu.check();
@@ -65,10 +65,13 @@ wu.setForTests({ fetch: fakeFetch, tmp: () => tmp, spawn: (file, args) => { laun
     served = release();
     const out = await wu.apply();
     assert.equal(out.state, 'applying');
-    assert.equal(launched.length, 1);
-    assert.match(path.basename(launched[0][0]), /^Epilykos-Setup-1\.3\.0\.exe$/);
-    assert.ok(launched[0][1].includes('/VERYSILENT') && launched[0][1].includes('/CLOSEAPPLICATIONS'));
-    assert.deepEqual(fs.readFileSync(launched[0][0]), payload);
+    assert.equal(launched.length, 2, 'creates the one-shot task, then runs it');
+    assert.equal(launched[0][0], '/Create'); assert.equal(launched[1][0], '/Run');
+    const command = launched[0][launched[0].indexOf('/TR') + 1];
+    assert.match(command, /Epilykos-Setup-1\.3\.0\.exe" \/VERYSILENT/);
+    assert.ok(launched[0].includes('SYSTEM'));
+    const file = /^"([^"]+)"/.exec(command)[1];
+    assert.deepEqual(fs.readFileSync(file), payload);
 
     // A download that does not match its checksum is never run
     launched.length = 0; body = Buffer.from('tampered'); 

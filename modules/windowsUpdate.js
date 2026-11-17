@@ -5,7 +5,7 @@
  * The installer sets EPILYKOS_INSTALLER=windows for the service. The check reads GitHub's latest release,
  * finds its Epilykos-Setup-<version>.exe, and compares the release's version with this one. Installing
  * downloads that file from this project's GitHub releases only, refuses it unless its SHA-256 matches the
- * digest GitHub publishes for the asset, then starts it silently: the installer stops the service, replaces
+ * digest GitHub publishes for the asset, then starts it silently through a one-shot scheduled task: the installer stops the service, replaces
  * the program files (the data folder is never touched) and starts the service again.
  *
  * Only plain GETs to api.github.com and github.com; nothing about this install is sent.
@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { execFile } = require('child_process');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 const { appVersion } = require('./version');
@@ -28,13 +28,13 @@ const ASSET = /^Epilykos-Setup-.+\.exe$/i;
 const MAX_BYTES = 600 * 1024 * 1024;
 
 let fetcher = (...a) => fetch(...a);       // replaced in tests
-let launcher = (file, args, opts) => spawn(file, args, opts);
+let schtasks = args => new Promise((resolve, reject) => execFile('schtasks.exe', args, { windowsHide: true, timeout: 30000 }, (err, out, errOut) => (err ? reject(new Error(String(errOut || err.message).trim())) : resolve(out))));
 let tmpDir = () => os.tmpdir();
 let applying = null;
 
 function setForTests({ fetch: f, spawn: s, tmp } = {}) {
   if (f) fetcher = f;
-  if (s) launcher = s;
+  if (s) schtasks = s;
   if (tmp) tmpDir = tmp;
   applying = null;
 }
@@ -140,8 +140,11 @@ async function apply() {
 
     applying.step = 'installing';
     logger.warn(`[updates] Starting the Epilykos ${version} installer`);
-    const child = launcher(file, ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'], { detached: true, stdio: 'ignore' });
-    if (child && child.unref) child.unref();
+    // The installer stops this service, which would end a child of this process with it. A one-shot scheduled
+    // task runs it under the Task Scheduler instead (as SYSTEM), outside this process tree.
+    const command = `"${file}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /RESTARTAPPLICATIONS`;
+    await schtasks(['/Create', '/TN', 'EpilykosUpdate', '/TR', command, '/SC', 'ONCE', '/ST', '00:00', '/RU', 'SYSTEM', '/RL', 'HIGHEST', '/F']);
+    await schtasks(['/Run', '/TN', 'EpilykosUpdate']);
     return { state: 'applying', message: `Installing Epilykos ${version}. The dashboard is away for a minute.`, version };
   } catch (error) {
     applying = null;

@@ -1,0 +1,114 @@
+# Builds the Windows installer (Epilykos-Setup-<version>.exe).
+#
+# This workflow is deliberately SEPARATE from test.yml and the Docker build workflows and nothing waits on it:
+# it runs only when started by hand (Actions -> Windows package -> Run workflow) or when a GitHub Release is
+# published. It does not run the fixture suite. It builds the installer, installs it on the runner, checks that
+# the dashboard answers, uninstalls it, and attaches the installer to the release.
+name: Windows package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (for example 1.2.3). Leave empty to use 0.0.0-dev.'
+        required: false
+        default: ''
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          $v = $env:RELEASE_TAG
+          if (-not $v) { $v = $env:INPUT_VERSION }
+          if (-not $v) { $v = '0.0.0-dev' }
+          $v = $v -replace '^v', ''
+          # Only a plain version: it ends up in file names and command lines.
+          if ($v -notmatch '^\d+\.\d+\.\d+([-+][0-9A-Za-z.+-]*)?$') { throw "Not a version: $v" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          # The same runtime as the Docker image (node:26), so the shipped native modules match.
+          node-version: '26'
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Stage the package
+        shell: pwsh
+        run: ./packaging/windows/stage.ps1 -Version '${{ steps.version.outputs.version }}'
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y; }
+          $out = Join-Path (Get-Location) 'dist'
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DStageDir=$((Get-Location).Path)\dist\stage" "/O$out" packaging\windows\epilykos.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
+
+      - name: Smoke test (install, run, uninstall)
+        shell: pwsh
+        run: ./packaging/windows/smoke.ps1 -Installer "dist\Epilykos-Setup-${{ steps.version.outputs.version }}.exe"
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $f = "dist\Epilykos-Setup-${{ steps.version.outputs.version }}.exe"
+          $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+          "$h  $(Split-Path $f -Leaf)" | Set-Content "$f.sha256" -Encoding ascii
+          Write-Host "$h  $f"
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: epilykos-windows-installer
+          path: |
+            dist/Epilykos-Setup-*.exe
+            dist/Epilykos-Setup-*.exe.sha256
+          if-no-files-found: error
+
+  attach:
+    # Only for a published release: add the installer to it. Nothing else writes to the repository.
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the installer
+        uses: actions/download-artifact@v8
+        with:
+          name: epilykos-windows-installer
+          path: dist
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/Epilykos-Setup-*.exe dist/Epilykos-Setup-*.exe.sha256 --clobber --repo "$GITHUB_REPOSITORY"
