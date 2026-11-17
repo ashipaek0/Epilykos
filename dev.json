@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44047935360.1",
-    "version": "1.2.14-dev+322adb4",
-    "commit": "322adb4eb82ba426aeb3d23bc23d5b5f41f14ef9",
-    "digest": "sha256:54c23cc1f80bcde156e72651c4c416e2a9b001bfbcef32d91be82c0e4471d758",
+    "buildId": "44059531918.1",
+    "version": "1.3.1-dev+15411ce",
+    "commit": "15411ceead5800e741001e7253d4295b3eb043fb",
+    "digest": "sha256:60f19441e7a64676512973eec0eade3a29264ff1f76838bb55af96bc7b92ccae",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T08:35:04Z",
+    "builtAt": "2026-11-17T09:52:40Z",
     "kind": "release",
     "notes": [
-      "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)"
+      "Settings: test the typed-text colour (contrast and read-only fields)",
+      "Settings: typed and chosen values are blue"
     ]
   },
   "history": [
+    {
+      "buildId": "44059531918.1",
+      "version": "1.3.1-dev+15411ce",
+      "commit": "15411ceead5800e741001e7253d4295b3eb043fb",
+      "digest": "sha256:60f19441e7a64676512973eec0eade3a29264ff1f76838bb55af96bc7b92ccae",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T09:52:40Z",
+      "kind": "release",
+      "notes": [
+        "Settings: test the typed-text colour (contrast and read-only fields)",
+        "Settings: typed and chosen values are blue"
+      ]
+    },
     {
       "buildId": "44047935360.1",
       "version": "1.2.14-dev+322adb4",
@@ -359,18 +373,6 @@
       "kind": "release",
       "notes": [
         "Forecast notification: say why it was sent, and let the limit be kWh or a share of the 7-day average (#337)"
-      ]
-    },
-    {
-      "buildId": "43232035392.1",
-      "version": "1.2.6-dev+f1aa302",
-      "commit": "f1aa3023fee591abdb7503dce31c2bc4796f1af8",
-      "digest": "sha256:7f20665c85982cbb18d3b81afeba8843a9f41517cfffe7d0e0d81fdfa1c55401",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T13:56:14Z",
-      "kind": "release",
-      "notes": [
-        "Combined metrics: Average per day, for any metric (#335)"
       ]
     }
   ]
