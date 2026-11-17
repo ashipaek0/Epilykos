@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44077373599.1",
-    "version": "1.3.1-dev+42ef1d9",
-    "commit": "42ef1d9ef21179e921648ea45b5c89147a6893eb",
-    "digest": "sha256:5da878cb5ce1073808e9b4aca1b4d5f02d3b8c6670045695e93e6a8623dbf7b9",
+    "buildId": "44077381850.1",
+    "version": "1.3.1-dev+bbaf02c",
+    "commit": "bbaf02ca4793646830e7c640165c14bc2f4c038d",
+    "digest": "sha256:31b178ed28b24996ec565f543d15855ccae11a892e8de780d8474a03b81dbb4a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T11:49:14Z",
+    "builtAt": "2026-11-17T11:49:09Z",
     "kind": "release",
     "notes": [
-      "Fix CodeQL js/xss-through-dom: the restore confirmation sets its text as text (#375)"
+      "Escape config values interpolated into settings device cards and load errors (#376)"
     ]
   },
   "history": [
+    {
+      "buildId": "44077381850.1",
+      "version": "1.3.1-dev+bbaf02c",
+      "commit": "bbaf02ca4793646830e7c640165c14bc2f4c038d",
+      "digest": "sha256:31b178ed28b24996ec565f543d15855ccae11a892e8de780d8474a03b81dbb4a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T11:49:09Z",
+      "kind": "release",
+      "notes": [
+        "Escape config values interpolated into settings device cards and load errors (#376)"
+      ]
+    },
     {
       "buildId": "44077373599.1",
       "version": "1.3.1-dev+42ef1d9",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "New cards: Ring gauge, Battery and Status list, and the remaining solar metric (#339)"
-      ]
-    },
-    {
-      "buildId": "43390016980.1",
-      "version": "1.2.7-dev+8cd32ab",
-      "commit": "8cd32abcf4f4049378e3f727ee36e27d128cfa5a",
-      "digest": "sha256:d5f991fad489c5fb5219fe5f986adae89911219c88990908aee90cb130464631",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T08:02:09Z",
-      "kind": "release",
-      "notes": [
-        "Solcast: current API and response format, and every weather and irradiance value (#338)"
       ]
     }
   ]
