@@ -1,16 +1,36 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "44059471592.1",
-    "version": "1.3.0",
-    "commit": "997b3c6a8b62373f2d45dbf85e8c43a5cbf0deee",
-    "digest": "sha256:1b93eed314195f910ee07262bc912aff57f4587248b7434f35a66c87f9bffa2b",
+    "buildId": "44077779992.1",
+    "version": "1.3.1",
+    "commit": "51c82547046f10603e7e40b9de3a7462cf347ef0",
+    "digest": "sha256:5d771c0a09ff689acfcbd2b4da25410f0a195b3906385d01a943ab537a0e2ab0",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-17T09:52:14Z",
-    "kind": "rebuild",
-    "notes": []
+    "builtAt": "2026-11-17T11:51:49Z",
+    "kind": "release",
+    "notes": [
+      "Escape config values interpolated into settings device cards and load errors (#376)",
+      "Fix CodeQL js/xss-through-dom: the restore confirmation sets its text as text (#375)",
+      "Settings: test the typed-text colour (contrast and read-only fields)",
+      "Settings: typed and chosen values are blue"
+    ]
   },
   "history": [
+    {
+      "buildId": "44077779992.1",
+      "version": "1.3.1",
+      "commit": "51c82547046f10603e7e40b9de3a7462cf347ef0",
+      "digest": "sha256:5d771c0a09ff689acfcbd2b4da25410f0a195b3906385d01a943ab537a0e2ab0",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-17T11:51:49Z",
+      "kind": "release",
+      "notes": [
+        "Escape config values interpolated into settings device cards and load errors (#376)",
+        "Fix CodeQL js/xss-through-dom: the restore confirmation sets its text as text (#375)",
+        "Settings: test the typed-text colour (contrast and read-only fields)",
+        "Settings: typed and chosen values are blue"
+      ]
+    },
     {
       "buildId": "44059471592.1",
       "version": "1.3.0",
@@ -444,20 +464,6 @@
       "notes": [
         "Settings → System: Restart button on Docker installs",
         "Controls page: Slider and Rotary knob cards"
-      ]
-    },
-    {
-      "buildId": "41057908621.1",
-      "version": "1.0.10",
-      "commit": "6bb8c1d50f9ab6a90c0bee1c9d38857f99901c26",
-      "digest": "sha256:ef9b43206b0d516830088631efa1f95e3224081653b5ede7d871ac82fce7fc11",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-10-30T12:46:59Z",
-      "kind": "release",
-      "notes": [
-        "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
-        "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
-        "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)"
       ]
     }
   ]
