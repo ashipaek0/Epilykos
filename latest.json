@@ -1,20 +1,26 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "44052691818.1",
-    "version": "1.2.14",
+    "buildId": "44059471592.1",
+    "version": "1.3.0",
     "commit": "997b3c6a8b62373f2d45dbf85e8c43a5cbf0deee",
-    "digest": "sha256:f8fdc4efece2aa22731b99d4cb4d81f3289d9336a647d85d3864f39e584a7c23",
+    "digest": "sha256:1b93eed314195f910ee07262bc912aff57f4587248b7434f35a66c87f9bffa2b",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-17T09:07:58Z",
-    "kind": "release",
-    "notes": [
-      "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)",
-      "Updates: app download progress bar, and no flicker while it refreshes (#371)",
-      "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
-    ]
+    "builtAt": "2026-11-17T09:52:14Z",
+    "kind": "rebuild",
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "44059471592.1",
+      "version": "1.3.0",
+      "commit": "997b3c6a8b62373f2d45dbf85e8c43a5cbf0deee",
+      "digest": "sha256:1b93eed314195f910ee07262bc912aff57f4587248b7434f35a66c87f9bffa2b",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-17T09:52:14Z",
+      "kind": "rebuild",
+      "notes": []
+    },
     {
       "buildId": "44052691818.1",
       "version": "1.2.14",
@@ -452,30 +458,6 @@
         "Phocos Bluetooth: corroborate readings with Phocos's RS-232 document; show setting values by name (#237)",
         "Phocos Any-Grid RS-232 / RS-485 profile (#236)",
         "RS-232 Voltronic/Phocos profile: stop scaling decimals that already have them (#235)"
-      ]
-    },
-    {
-      "buildId": "40704053562.1",
-      "version": "1.0.9",
-      "commit": "79c07254a2b4b126d36a311374cd66e20ab3c587",
-      "digest": "sha256:221d1a56a6c2f3fea463ab6f19b0f79aefe63ed98758489bc152b5490c096d60",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-10-28T14:15:24Z",
-      "kind": "release",
-      "notes": [
-        "Custom favicon: replace every built-in icon link, not just the first (#233)",
-        "two-step-ui test: find the login page's inline script by text, not a regexp over HTML (#234)",
-        "Fix CodeQL findings: sign-in redirect, recovery code bias, test regexp (#232)",
-        "Energy chart Compare: Yearly totals (#231)",
-        "Battery breakdown: one reading per inverter (Charging / Discharging / Idle), no arrows (#230)",
-        "Backup page: say the passphrase is needed to restore saved passwords (#228)",
-        "Energy chart: Compare view (year on year, month on month) (#227)",
-        "Backups: optional passphrase for saved passwords (#226)",
-        "Two-step sign-in, unreadable secrets, home page cleanup (#223)",
-        "Energy chart opens on 30d; power chart statistics start at midnight (#224)",
-        "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)",
-        "Refine Docker setup instructions in README",
-        "Refactor docker-compose.yaml for clarity and updates"
       ]
     }
   ]
