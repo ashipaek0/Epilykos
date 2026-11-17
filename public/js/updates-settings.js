@@ -69,9 +69,15 @@
   function cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
   function channelName(c) { return c === 'dev' ? 'Development builds' : 'Releases'; }
 
+  function checkFailed() {
+    var st = state && (state.windows ? state.windows.status : state.status);
+    return !!(st && st.state === 'error');
+  }
+
   function updateReady() {
     if (!state) return false;
     var host = state.host || {};
+    if (state.windows) return !!(state.windows.status && state.windows.status.state === 'available');
     return (state.status && state.status.state === 'available') || !!(host.app && host.app.available) || !!(state.os && state.os.available);
   }
 
@@ -130,7 +136,9 @@
     if (state.lastResult) html += resultCard(state.lastResult);
 
     html += '<div class="st-card"><div class="st-card-head"><h2>This version</h2></div>';
-    if (inst.buildId) {
+    if (m.kind === 'windows') {
+      html += '<p class="st-help"><b>Epilykos ' + esc(inst.version || '') + '</b> · Windows installer</p>';
+    } else if (inst.buildId) {
       html += '<p class="st-help"><b>Epilykos ' + esc(inst.version || '') + '</b> · ' + esc(channelName(inst.channel))
         + ' · built ' + esc(when(inst.builtAt)) + (inst.commit ? ' · <code>' + esc(inst.commit.slice(0, 7)) + '</code>' : '') + '</p>';
     } else {
@@ -138,7 +146,8 @@
     }
     html += '</div>';
 
-    if (m.kind === 'epilykos-os') html += hostCard() + osCard();
+    if (m.kind === 'windows') html += windowsCard();
+    else if (m.kind === 'epilykos-os') html += hostCard() + osCard();
     else if (inst.buildId) html += statusCard(st, m);
     else if (m.kind === 'none') html += '<div class="st-card"><div class="st-card-head"><h2>Updating</h2></div><p class="st-help">Not running in Docker. Update this copy with <code>git pull</code>, then <code>npm ci</code>, and restart it.</p></div>';
 
@@ -150,6 +159,37 @@
     paint(html);
     if (shell.setNavBadge) shell.setNavBadge('updates', updateReady() ? '<span class="st-badge is-ok">New</span>' : '');
     schedulePoll();
+  }
+
+  /** The Windows installer build: GitHub's latest release against this version. */
+  function windowsCard() {
+    var w = state.windows || {};
+    var st = w.status || {};
+    var h = '<div class="st-card"><div class="st-card-head"><h2>Status</h2>';
+    if (installing || w.applying) {
+      var step = w.applying && w.applying.step;
+      return h + '<span class="st-badge is-warn">Installing</span></div>'
+        + '<p class="st-help">' + (step === 'downloading' ? 'Downloading the installer…' : step === 'verifying' ? 'Checking the download…' : 'Installing. Epilykos restarts and this page reconnects by itself.') + '</p>'
+        + (w.applying && w.applying.total ? '<progress class="up-progress" max="' + esc(w.applying.total) + '" value="' + esc(w.applying.bytes || 0) + '" aria-label="Download progress"></progress>' : '<progress class="up-progress" aria-label="Working"></progress>')
+        + '</div>';
+    }
+    if (st.state === 'available') {
+      var l = st.latest || {};
+      h += '<span class="st-badge is-ok">Update ready</span></div>'
+        + '<p class="st-help"><b>Epilykos ' + esc(l.version || '') + ' is ready.</b></p>'
+        + (l.notes ? '<p class="st-help" style="white-space:pre-wrap">' + esc(l.notes) + '</p>' : '')
+        + checkedLine(st)
+        + (st.asset && st.asset.verifiable === false ? '<p class="st-help">This release has no published checksum, so it cannot be installed from here. Download it from GitHub.</p>'
+          : '<div class="st-inline-actions"><button type="button" class="st-btn st-btn-primary" id="up-apply">Update now</button></div>'
+            + '<p class="st-help">Downloads the installer from GitHub, checks it, then installs and restarts. Your data is kept.</p>');
+    } else if (st.state === 'up-to-date') {
+      h += '<span class="st-badge is-ok">Up to date</span></div><p class="st-help">You have the newest release.' + (st.note ? ' ' + esc(st.note) : '') + '</p>' + checkedLine(st);
+    } else if (st.state === 'error') {
+      h += '<span class="st-badge is-error">Could not check</span></div><p class="st-help">' + esc(st.error || '') + '</p>' + checkedLine(st);
+    } else {
+      h += '</div><p class="st-help">Not checked yet. Use <b>Check now</b>.</p>';
+    }
+    return h + '</div>';
   }
 
   function autoInstallCard() {
@@ -497,7 +537,7 @@
         await api('POST', '/os/check', {}).catch(function (e) { toast(e.message, 'error'); });
       }
       await load();
-      toast(updateReady() ? 'An update is ready.' : (state.status && state.status.state === 'error') ? 'Could not check for updates.' : 'You are up to date.', state.status && state.status.state === 'error' ? 'error' : undefined);
+      toast(updateReady() ? 'An update is ready.' : (checkFailed() ? 'Could not check for updates.' : 'You are up to date.'), checkFailed() ? 'error' : undefined);
     } catch (e) { toast(e.message, 'error'); }
     finally { checkBtn.disabled = false; }
   });

@@ -15,6 +15,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { syncPath } = require('./fsSync');
 
 const PREFIX = '$enc1$';
 const ALG = 'aes-256-gcm';
@@ -42,8 +43,7 @@ function loadOrCreateKey() {
   const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${crypto.randomUUID()}.tmp`);
   try {
     fs.writeFileSync(temporary, key, { flag: 'wx', mode: 0o600 });
-    const fd = fs.openSync(temporary, 'r');
-    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    syncPath(temporary);
     // A hard link publishes complete, synced bytes without replacing another
     // creator's key. An exclusive open alone exposes an empty file to readers.
     try { fs.linkSync(temporary, file); }
@@ -64,10 +64,7 @@ function encryptString(plaintext) {
   const key = loadOrCreateKey();
   // Another process may have just linked the winning key. Make the directory
   // entry durable before allowing ciphertext to be committed to SQLite.
-  if (process.platform !== 'win32') {
-    const fd = fs.openSync(path.dirname(keyFilePath()), 'r');
-    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-  }
+  syncPath(path.dirname(keyFilePath()));
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv(ALG, key, iv);
   const ct = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);

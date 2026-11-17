@@ -27,6 +27,7 @@
  */
 
 const { SerialPort } = require('serialport');
+const { defaultSerialPath } = require('./serialDefaults');
 const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
@@ -126,7 +127,7 @@ function openSerialPort(device, profile) {
   return new Promise((resolve, reject) => {
     const defaults = (profile && profile.defaults) || {};
     const port = new SerialPort({
-      path: device.serial_path || '/dev/ttyUSB0',
+      path: device.serial_path || defaultSerialPath(),
       baudRate: parseInt(device.baud, 10) || parseInt(defaults.baud, 10) || 9600,
       dataBits: parseInt(device.data_bits, 10) || parseInt(defaults.dataBits, 10) || 8,
       stopBits: parseInt(device.stop_bits, 10) || parseInt(defaults.stopBits, 10) || 1,

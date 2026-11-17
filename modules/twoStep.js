@@ -25,6 +25,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { syncFd } = require('./fsSync');
 const { encryptString, decryptString } = require('./encryption');
 const { logger } = require('./logger');
 
@@ -122,7 +123,7 @@ function writeState(state) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   const fd = fs.openSync(tmp, 'w', 0o600);
-  try { fs.writeSync(fd, JSON.stringify(state)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  try { fs.writeSync(fd, JSON.stringify(state)); syncFd(fd); } finally { fs.closeSync(fd); }
   fs.renameSync(tmp, file);
 }
 

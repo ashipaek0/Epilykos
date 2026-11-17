@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const { syncPath } = require('./fsSync');
 const zlib = require('node:zlib');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
@@ -51,7 +52,7 @@ async function normalizeRestoreInput(source, db, liveFile, { signal } = {}) {
     const after = stat(source);
     if (!same(before, after) || before.size !== after.size || before.mtimeMs !== after.mtimeMs) throw invalid('The gzip backup changed during expansion');
     if (received < 512) throw invalid('Expanded gzip backup is too small for SQLite');
-    const output = fs.openSync(destination, 'r'); try { fs.fsyncSync(output); } finally { fs.closeSync(output); }
+    syncPath(destination);
     return { filePath: destination, format: 'gzip', bytes: received, leaseFd: job.leaseFd, cleanup };
   } catch (error) {
     cleanup();

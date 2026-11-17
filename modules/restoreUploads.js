@@ -13,7 +13,7 @@ const backupSecrets = require('./backupSecrets');
 const CHUNK_BYTES = 4 * 1024 * 1024;
 const PHASES = new Set(['uploading', 'passphrase', 'preparing', 'activating', 'recovering', 'selected', 'recovered', 'failed', 'cancelled', 'unknown']);
 function problem(status, message) { return Object.assign(new Error(message), { status }); }
-function sync(file) { const fd = fs.openSync(file, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+const { syncPath: sync } = require('./fsSync');
 function identity(file) { const info = fs.statSync(file, { bigint: true }); return { dev: info.dev.toString(), ino: info.ino.toString() }; }
 function same(a, b) { return a && b && a.dev === b.dev && a.ino === b.ino; }
 

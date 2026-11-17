@@ -2,7 +2,7 @@
 const fs = require('node:fs'), path = require('node:path');
 const DAY = 24 * 60 * 60 * 1000, MINUTE = 60000;
 const DELAYS = [5 * MINUTE, 30 * MINUTE, 2 * 60 * MINUTE];
-function sync(file) { const fd = fs.openSync(file,'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+const { syncPath: sync } = require('./fsSync');
 function regular(file) {
   try { const s = fs.lstatSync(file); if (!s.isFile() || s.nlink !== 1 || s.size > 4096) throw new Error('Unknown snapshot retry state file'); return true; }
   catch (error) { if (error.code === 'ENOENT') return false; throw error; }

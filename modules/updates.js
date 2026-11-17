@@ -191,6 +191,13 @@ function start() {
     }, 15000);
     if (reconcileTimer.unref) reconcileTimer.unref();
   }
+  const windowsUpdate = require('./windowsUpdate');
+  if (windowsUpdate.isWindowsInstall()) {          // the Windows installer build checks GitHub's releases instead of the image feed
+    const runWindows = () => { if (autoCheck()) windowsUpdate.check().catch(() => {}); };
+    timer = setTimeout(function tick() { runWindows(); timer = setTimeout(tick, DAY_MS); if (timer.unref) timer.unref(); }, FIRST_CHECK_MS);
+    if (timer.unref) timer.unref();
+    return;
+  }
   if (!installed().buildId && !require('./hostActions').available()) return;   // local build: nothing to compare
   const run = () => {
     if (!autoCheck()) return;
