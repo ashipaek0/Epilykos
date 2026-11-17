@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44150037513.1",
-    "version": "1.3.2-dev+0d90f7a",
-    "commit": "0d90f7af5ba14ce7fbd86a32e9782f1fb6825420",
-    "digest": "sha256:0c17cb27a27e5d8ee8655eb10d7180e44ddd370ea1b4d0752c34cd702857efb8",
+    "buildId": "44159149454.1",
+    "version": "1.3.2-dev+08f479b",
+    "commit": "08f479b5a1463a75c56d78ea81deafe34285d5e8",
+    "digest": "sha256:a3eff0583edb9d46e5a485baaea49bb56ca337980f7985ee65fe73d8f9ef2133",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T18:38:49Z",
+    "builtAt": "2026-11-17T19:30:00Z",
     "kind": "release",
     "notes": [
-      "Device card: header, value and status pill, bar, small readings, label/value rows (#379)"
+      "Plan: Windows package (installer and service, Bluetooth and Tailscale in scope, no pipeline impact) (#380)"
     ]
   },
   "history": [
+    {
+      "buildId": "44159149454.1",
+      "version": "1.3.2-dev+08f479b",
+      "commit": "08f479b5a1463a75c56d78ea81deafe34285d5e8",
+      "digest": "sha256:a3eff0583edb9d46e5a485baaea49bb56ca337980f7985ee65fe73d8f9ef2133",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T19:30:00Z",
+      "kind": "release",
+      "notes": [
+        "Plan: Windows package (installer and service, Bluetooth and Tailscale in scope, no pipeline impact) (#380)"
+      ]
+    },
     {
       "buildId": "44150037513.1",
       "version": "1.3.2-dev+0d90f7a",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Prepaid meter: balance tracking, card, Grid card strip and its own settings page (#342)"
-      ]
-    },
-    {
-      "buildId": "43396751253.1",
-      "version": "1.2.7-dev+832882e",
-      "commit": "832882e2fff3b4b9e40932bb97b55afc9adf9a11",
-      "digest": "sha256:3ab945c536539b76759f894dc7feeb881be04cf3d2bd0afbd453eb23a7f3c7be",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T08:53:33Z",
-      "kind": "release",
-      "notes": [
-        "Speedometer, Flow rows and System hero: follow the sample picture (#341)"
       ]
     }
   ]
