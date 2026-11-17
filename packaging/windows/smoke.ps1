@@ -18,7 +18,8 @@ function Fail($msg) {
 }
 
 Write-Host '== install'
-$p = Start-Process -FilePath $Installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=firewall', "/LOG=$log" -Wait -PassThru
+$p = Start-Process -FilePath $Installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=firewall', "/LOG=$log" -PassThru
+if (-not $p.WaitForExit(600000)) { Fail 'the installer did not finish in 10 minutes' }
 if ($p.ExitCode -ne 0) { Fail "installer exited $($p.ExitCode)" }
 
 Write-Host '== service'
@@ -50,8 +51,16 @@ Write-Host '== tools'
 if ($LASTEXITCODE -ne 0) { Fail 'cloudflared does not run' }
 
 Write-Host '== uninstall'
-$u = Start-Process -FilePath (Join-Path $installDir 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
-if ($u.ExitCode -ne 0) { Fail "uninstaller exited $($u.ExitCode)" }
+$ulog = Join-Path $env:TEMP 'epilykos-uninstall.log'
+$u = Start-Process -FilePath (Join-Path $installDir 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$ulog" -PassThru
+if (-not $u.WaitForExit(180000)) {
+  Write-Host '----- the uninstaller did not finish in 3 minutes'
+  Get-Process | Where-Object { $_.Name -match 'unins|Epilykos|node|python|cloudflared' } | Format-Table Id, Name, StartTime
+  if (Test-Path $ulog) { Get-Content $ulog -Tail 60 }
+  Get-Process unins* -ErrorAction SilentlyContinue | Stop-Process -Force
+  Fail 'the uninstaller hung'
+}
+if ($u.ExitCode -ne 0) { $log = $ulog; Fail "uninstaller exited $($u.ExitCode)" }
 if (Get-Service Epilykos -ErrorAction SilentlyContinue) { Fail 'the service is still installed after uninstalling' }
 if (-not (Test-Path (Join-Path $data 'data'))) { Fail 'uninstalling removed the data folder' }
 Write-Host 'Windows package smoke test passed'
