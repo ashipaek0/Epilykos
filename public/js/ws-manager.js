@@ -44,7 +44,9 @@ async function cacheState(state) {
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(state, 'latest');
+    const store = tx.objectStore(STORE_NAME);
+    store.put(state, 'latest');
+    store.put(Date.now(), 'latestAt'); // when this copy was received, for "Updated … ago" on the next open
   } catch (e) {
     console.warn('[WSManager] Cache write failed:', e.message);
   }
@@ -150,6 +152,20 @@ function scheduleReconnect() {
 }
 
 // ── Load cached state on startup ─────────────────────────────────────
+/** When the saved copy was received (ms since 1970), or null. */
+export async function loadCachedAt() {
+  try {
+    const db = await openDB();
+    return await new Promise(resolve => {
+      const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get('latestAt');
+      req.onsuccess = () => resolve(Number.isFinite(req.result) ? req.result : null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function loadInitialState() {
   const cached = await loadCachedState();
   if (cached) {
