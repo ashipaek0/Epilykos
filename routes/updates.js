@@ -51,6 +51,16 @@ function method() {
   return { kind: 'none' };
 }
 
+/** The host's update job as the page sees it; the download's size and progress only while it has them. */
+function applyingView(job) {
+  const out = { startedAt: job.started_at || null, step: job.state || null };
+  if (Number.isFinite(job.total) && job.total > 0) {
+    out.total = job.total;
+    out.bytes = Number.isFinite(job.bytes) && job.bytes >= 0 ? Math.min(job.bytes, job.total) : 0;
+  }
+  return out;
+}
+
 /**
  * EpilykosOS: is the appliance installing an update, and how did the last one
  * end (host action update_status). Cheap, no network. Null when the host is
@@ -68,7 +78,7 @@ async function hostProgress() {
     // step: the host's own job state (downloading, then starting: the new
     // version is started and must report healthy before it is kept).
     return {
-      applying: reply.app.state === 'applying' ? { startedAt: job.started_at || null, step: job.state || null } : null, lastResult,
+      applying: reply.app.state === 'applying' ? applyingView(job) : null, lastResult,
       running: { digest: reply.app.current_digest || '', version: reply.app.current_version || '' },
     };
   } catch (_) {
@@ -94,6 +104,8 @@ function router() {
       autoLocked: /^(off|false|0|no)$/i.test(String(process.env.UPDATE_CHECK || '')),
       method: m,
       applying: m.kind === 'docker' ? dockerUpdate.applying() : host ? host.applying : null,
+      // Docker: the image is downloading right now (the Update request is still open).
+      downloading: m.kind === 'docker' ? dockerUpdate.downloading() : null,
       lastResult: result && result.finishedAt ? result : null,
     });
   });

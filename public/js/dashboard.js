@@ -20,6 +20,7 @@ import { destroyCharts, initPowerChart, initEnergyChart, initMetricChart } from 
 import { updateDailyTable, updateMonthlyTable } from './tables.js';
 import { clearSparklineCharts } from './forecast.js';
 import { updateAllComponents, updateWithState } from './updater.js';
+import { markFresh } from './updated-age.js';
 import { ensureBlockIds } from './utils/blockId.js';
 import { ensureChartJS } from './chartLoader.js';
 import { applyBlockStyle } from './components/blockStyle.js';
@@ -355,6 +356,7 @@ const PARTIAL_RENDER_KEYS = new Set([
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('state-updated', (event) => {
     const detail = event && event.detail;
+    markFresh();
     if (!detail || !detail.isPartial) {
       renderDashboard();
       return;

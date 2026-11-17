@@ -143,3 +143,17 @@ test('snapshot catalogue restores both published gzip and legacy SQLite through 
  const legacy='energy-snapshot-2020-01-01T00-00-00.db';fs.copyFileSync(input,path.join(snapshots,legacy));
  await require('../modules/backup').restoreFromSnapshot(legacy);assert.equal(db.getConfig('upload_probe'),'selected');
 });
+
+test('a file that is not a database fails with a plain message, and nothing changes', async () => {
+  fixture(); const input = path.join(root, 'junk-' + Math.random() + '.db');
+  fs.writeFileSync(input, Buffer.concat([Buffer.from('SQLite format 3\0'), Buffer.alloc(8192, 7)]));
+  const manager = createRestoreUploadManager(), size = fs.statSync(input).size;
+  try {
+    const job = await manager.create({ bytes: size, name: 'junk.db' });
+    await manager.receive(job.id, 0, fs.createReadStream(input), size);
+    const status = await terminal(manager, job.id);
+    assert.equal(status.phase, 'failed');
+    assert.equal(status.error, 'That file is not an Epilykos backup, or it is damaged. Nothing was changed.');
+    assert.equal(db.getConfig('upload_probe'), 'original', 'the live database is untouched');
+  } finally { await manager.close(); }
+});

@@ -13,7 +13,9 @@ const DB_NAME = 'epilykos-cache';
 const DB_VERSION = 1;
 const STORE_NAME = 'state';
 const RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000]; // exponential-ish
-const MAX_RECONNECT_ATTEMPTS = 30; // stop retrying after 30 attempts (~15 min)
+const FAST_RECONNECT_ATTEMPTS = 30; // about 13 minutes at the delays above
+const SLOW_RECONNECT_MS = 60000;    // after that: once a minute, for as long as the page is open
+const LIVE_MS = 35000;              // a connection that delivered something this recently is alive
 
 let ws = null;
 let reconnectAttempt = 0;
@@ -23,6 +25,7 @@ let onStateUpdate = null; // callback: (state) => void
 let onConnect = null;     // callback: () => void
 let db = null;
 let currentState = null; // live state must work even when IndexedDB is unavailable
+let lastMessageAt = 0;    // when the server last sent anything on the live connection
 
 // ── IndexedDB setup ──────────────────────────────────────────────────
 async function openDB() {
@@ -44,7 +47,9 @@ async function cacheState(state) {
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(state, 'latest');
+    const store = tx.objectStore(STORE_NAME);
+    store.put(state, 'latest');
+    store.put(Date.now(), 'latestAt'); // when this copy was received, for "Updated … ago" on the next open
   } catch (e) {
     console.warn('[WSManager] Cache write failed:', e.message);
   }
@@ -99,6 +104,7 @@ function doConnect() {
 
   ws.onmessage = async (event) => {
     if (socket !== ws) return;
+    lastMessageAt = Date.now();
     try {
       const message = JSON.parse(event.data);
       if (message.type === 'dashboard-state' && message.data) {
@@ -135,21 +141,41 @@ function doConnect() {
 }
 
 function scheduleReconnect() {
-  if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-    console.warn(`[WSManager] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached — giving up`);
-    return;
-  }
-  const baseDelay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
+  // Never give up: a dashboard left on a wall must find the box again after a
+  // long outage without someone reloading it. Past the first attempts it only
+  // tries once a minute.
+  if (reconnectAttempt === FAST_RECONNECT_ATTEMPTS) console.warn('[WSManager] Still no connection; trying once a minute from now on');
+  const baseDelay = reconnectAttempt >= FAST_RECONNECT_ATTEMPTS ? SLOW_RECONNECT_MS
+    : RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
   const jitter = Math.floor(Math.random() * baseDelay * 0.3); // ±30% jitter
   const delay = baseDelay + jitter;
-  console.debug(`[WSManager] Reconnecting in ${delay}ms (attempt ${reconnectAttempt + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+  console.debug(`[WSManager] Reconnecting in ${delay}ms (attempt ${reconnectAttempt + 1})`);
   reconnectTimer = setTimeout(() => {
     reconnectAttempt++;
     doConnect();
   }, delay);
 }
 
+/** True when the live connection is open and delivered something in the last `ms`. */
+export function liveWithin(ms) {
+  return Boolean(ws && ws.readyState === 1 && lastMessageAt && Date.now() - lastMessageAt < ms);
+}
+
 // ── Load cached state on startup ─────────────────────────────────────
+/** When the saved copy was received (ms since 1970), or null. */
+export async function loadCachedAt() {
+  try {
+    const db = await openDB();
+    return await new Promise(resolve => {
+      const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get('latestAt');
+      req.onsuccess = () => resolve(Number.isFinite(req.result) ? req.result : null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function loadInitialState() {
   const cached = await loadCachedState();
   if (cached) {
@@ -220,8 +246,13 @@ export function setupBackgroundSync() {
   // Handle visibility change — reconnect WS when app comes to foreground
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      // A phone that slept can leave a connection that looks open but is dead,
+      // so one that has been quiet is replaced. One that is plainly alive is kept:
+      // replacing it on every tab switch redrew the whole dashboard for nothing.
+      if (liveWithin(LIVE_MS)) return;
       console.debug('[WSManager] App resumed — reconnecting WS');
       reconnectAttempt = 0;
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       doConnect();
     }
   });

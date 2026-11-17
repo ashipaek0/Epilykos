@@ -2350,3 +2350,7 @@ details.help-sub.help-hidden { display: none; }
 .sr-toggle:hover, .sr-toggle:focus-visible, .sr-toggle[aria-pressed="true"] { opacity: 1; }
 .sr-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .sr-masked { filter: blur(10px); user-select: none; pointer-events: none; }
+
+/* "Updated 12 s ago" in the header: quiet while fresh, plain bold when stale (not by colour alone). */
+.updated-age { font-size: calc(var(--fs-small) * var(--card-font-scale, 1)); color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.updated-age.is-stale { color: var(--text-primary); font-weight: 600; }

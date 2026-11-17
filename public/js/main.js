@@ -1,7 +1,7 @@
 import { initTheme, toggleTheme } from './theme.js';
 import { loadDashboardConfig } from './dashboard.js';
 import { updateWithState } from './updater.js';
-import { connectWebSocket, loadInitialState, setupBackgroundSync } from './ws-manager.js';
+import { connectWebSocket, loadInitialState, loadCachedAt, setupBackgroundSync, liveWithin } from './ws-manager.js';
 
 let configLoadAttempts = 0;
 const MAX_CONFIG_ATTEMPTS = 3;
@@ -15,7 +15,8 @@ async function loadConfigWithRetry() {
     const cached = await loadInitialState();
     if (cached) {
       console.debug('Applying cached state from IndexedDB');
-      updateWithState(cached);
+      // Marked with the time it was received, so a copy from this morning says so.
+      updateWithState(cached, { at: (await loadCachedAt()) ?? 0 });
     }
 
     // 2. Connect WebSocket (with auto-reconnect and background handling)
@@ -31,8 +32,11 @@ async function loadConfigWithRetry() {
     // 3. Setup background sync (SW periodic + visibility change)
     setupBackgroundSync();
 
-    // 4. Fallback poll every 60s
+    // 4. Fallback poll every 30s, for when the live connection is down or has
+    // gone quiet. While it is delivering, asking again only makes the box
+    // build the same page twice.
     setInterval(async () => {
+      if (liveWithin(30000)) return;
       const { updateAllComponents } = await import('./updater.js');
       updateAllComponents();
     }, 30000);
