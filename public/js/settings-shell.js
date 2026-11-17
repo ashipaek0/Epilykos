@@ -1011,10 +1011,16 @@
     var body = await res.json().catch(function () { return {}; });
     if (!res.ok) throw new Error(body.error || 'The passphrase was not accepted (' + res.status + ')');
   }
+  // `what` is plain text (a file's size, a snapshot's size read from the page):
+  // it is put in with textContent, never parsed as HTML.
   function restoreDialogBody(what) {
     var wrap = document.createElement('div');
-    wrap.innerHTML = '<p>This replaces all settings, metrics and history with ' + what + '. Anything recorded since then is lost.</p>' +
-      '<label class="st-check-card"><input type="checkbox" name="downloadFirst" checked><span><span class="st-choice-title">Download current data first</span><span class="st-choice-desc">Saves a backup before restoring.</span></span></label>';
+    var p = document.createElement('p');
+    p.textContent = 'This replaces all settings, metrics and history with ' + what + '. Anything recorded since then is lost.';
+    wrap.appendChild(p);
+    var choice = document.createElement('div');
+    choice.innerHTML = '<label class="st-check-card"><input type="checkbox" name="downloadFirst" checked><span><span class="st-choice-title">Download current data first</span><span class="st-choice-desc">Saves a backup before restoring.</span></span></label>';
+    wrap.appendChild(choice.firstChild);
     return wrap;
   }
   async function confirmRestore(title, what) {
