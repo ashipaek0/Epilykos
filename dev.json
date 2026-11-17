@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44040525402.1",
-    "version": "1.2.14-dev+bebbe19",
-    "commit": "bebbe1987727e6526105fe6469e6fc706139113c",
-    "digest": "sha256:092ad0d26506697d8ecfabd77efa7567df0be503b14eca3d16b743f689c3fea2",
+    "buildId": "44047935360.1",
+    "version": "1.2.14-dev+322adb4",
+    "commit": "322adb4eb82ba426aeb3d23bc23d5b5f41f14ef9",
+    "digest": "sha256:54c23cc1f80bcde156e72651c4c416e2a9b001bfbcef32d91be82c0e4471d758",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T07:40:54Z",
+    "builtAt": "2026-11-17T08:35:04Z",
     "kind": "release",
     "notes": [
-      "Updates: app download progress bar, and no flicker while it refreshes (#371)"
+      "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)"
     ]
   },
   "history": [
+    {
+      "buildId": "44047935360.1",
+      "version": "1.2.14-dev+322adb4",
+      "commit": "322adb4eb82ba426aeb3d23bc23d5b5f41f14ef9",
+      "digest": "sha256:54c23cc1f80bcde156e72651c4c416e2a9b001bfbcef32d91be82c0e4471d758",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T08:35:04Z",
+      "kind": "release",
+      "notes": [
+        "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)"
+      ]
+    },
     {
       "buildId": "44040525402.1",
       "version": "1.2.14-dev+bebbe19",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Combined metrics: Average per day, for any metric (#335)"
-      ]
-    },
-    {
-      "buildId": "43220283228.1",
-      "version": "1.2.5-dev+c1e58ec",
-      "commit": "c1e58ec4220d924f8c27145b27a4c45bfd247863",
-      "digest": "sha256:8fa6e33a41638c0581ac85d242534ee6b0e14c10ae4829d85dcf729fa77722d2",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T12:42:28Z",
-      "kind": "release",
-      "notes": [
-        "Controls page cards honour transparent, glass, blur, frost and colours (#333)"
       ]
     }
   ]
