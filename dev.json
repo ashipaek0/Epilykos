@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44040479774.1",
-    "version": "1.2.14-dev+eb15791",
-    "commit": "eb15791987306559480fb410b58226388df4f72e",
-    "digest": "sha256:b883ced8388ab7a2b74faf71a9be54a8116fa0cb8dfab06c1d801b75c148e69c",
+    "buildId": "44040525402.1",
+    "version": "1.2.14-dev+bebbe19",
+    "commit": "bebbe1987727e6526105fe6469e6fc706139113c",
+    "digest": "sha256:092ad0d26506697d8ecfabd77efa7567df0be503b14eca3d16b743f689c3fea2",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T07:40:29Z",
+    "builtAt": "2026-11-17T07:40:54Z",
     "kind": "release",
     "notes": [
-      "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
+      "Updates: app download progress bar, and no flicker while it refreshes (#371)"
     ]
   },
   "history": [
+    {
+      "buildId": "44040525402.1",
+      "version": "1.2.14-dev+bebbe19",
+      "commit": "bebbe1987727e6526105fe6469e6fc706139113c",
+      "digest": "sha256:092ad0d26506697d8ecfabd77efa7567df0be503b14eca3d16b743f689c3fea2",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T07:40:54Z",
+      "kind": "release",
+      "notes": [
+        "Updates: app download progress bar, and no flicker while it refreshes (#371)"
+      ]
+    },
     {
       "buildId": "44040479774.1",
       "version": "1.2.14-dev+eb15791",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Controls page cards honour transparent, glass, blur, frost and colours (#333)"
-      ]
-    },
-    {
-      "buildId": "43215826316.1",
-      "version": "1.2.5-dev+b9c4214",
-      "commit": "b9c421405f6e49a97a56303750758296058e756b",
-      "digest": "sha256:a5907ee5617414372921e6f3e764b6b0f0446828bcc5448759a88e2534bf1faa",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T12:13:03Z",
-      "kind": "release",
-      "notes": [
-        "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)"
       ]
     }
   ]
