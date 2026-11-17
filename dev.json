@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44166098464.1",
-    "version": "1.3.2-dev+d99feb0",
-    "commit": "d99feb0e15eb99c12a8c4d65c6804ea4d7c2586d",
-    "digest": "sha256:e4ae383f34df108cf02c055953e7a65eee383c3f10ec8c768fcac1b1b026bcca",
+    "buildId": "44172737929.1",
+    "version": "1.3.2-dev+e07984f",
+    "commit": "e07984f19c9ee9fb4ff8a65b52f1d8ae93e285ea",
+    "digest": "sha256:7a00d14e98e9500d82a23c33619b68ad5c745062b6862e7aa4332bdd5189a397",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-17T20:08:47Z",
+    "builtAt": "2026-11-17T20:46:15Z",
     "kind": "release",
     "notes": [
-      "Windows package (beta): installer and service, Windows runtime support, updates (#381)"
+      "Windows package: fixes from the first successful build (#382)"
     ]
   },
   "history": [
+    {
+      "buildId": "44172737929.1",
+      "version": "1.3.2-dev+e07984f",
+      "commit": "e07984f19c9ee9fb4ff8a65b52f1d8ae93e285ea",
+      "digest": "sha256:7a00d14e98e9500d82a23c33619b68ad5c745062b6862e7aa4332bdd5189a397",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T20:46:15Z",
+      "kind": "release",
+      "notes": [
+        "Windows package: fixes from the first successful build (#382)"
+      ]
+    },
     {
       "buildId": "44166098464.1",
       "version": "1.3.2-dev+d99feb0",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Prepaid meter settings: one way to save, and a toast for the confirmation (#345)"
-      ]
-    },
-    {
-      "buildId": "43415390024.1",
-      "version": "1.2.7-dev+a4fc418",
-      "commit": "a4fc418e53e24c815bb66988aebaa07d6eac512b",
-      "digest": "sha256:273fac99267d01cb89d77719ac305272cd96b9b4c4dd1b0b2304d330f5235d5b",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T11:14:20Z",
-      "kind": "release",
-      "notes": [
-        "Solcast test: drop a replace that replaced a string with itself (#344)"
       ]
     }
   ]
