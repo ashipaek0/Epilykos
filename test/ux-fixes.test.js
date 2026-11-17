@@ -153,8 +153,8 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     const css = read('public/style.css');
     assert.match(css, /\.container > header \{[^}]*flex-wrap: wrap;/);
     assert.match(css, /@media \(max-width: 640px\) \{\s*\.header-right \{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;/);
-    assert.match(read('public/js/dashboard.js'), /\(document\.querySelector\('header \.header-right'\) \|\| document\.querySelector\('header'\)\)\.appendChild\(tabToggle\)/);
-    assert.match(read('public/js/dashboard.js'), /editorLink\.textContent = 'Edit layout';/);
+    assert.match(read('public/js/dashboard.js'), /\(document\.querySelector\('header \.header-right'\) \|\| header\)\.appendChild\(toggle\)/);
+    assert.match(read('public/js/dashboard.js'), /edit\.textContent = 'Edit layout';/);
     assert.doesNotMatch(read('public/index.html'), /⚙️/);
     const ed = read('public/js/editor.js');
     assert.match(ed, /DASHBOARD_MIN_WIDTH = 1024/);

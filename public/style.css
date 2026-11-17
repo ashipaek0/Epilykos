@@ -266,6 +266,8 @@ h1, h2, h3, h4,
 .settings-link:hover { background: var(--accent); color: var(--color-text-on-accent); }
 
 /* ── Tab bar ────────────────────────────────────────────────────────────── */
+/* Along the top by default; down the left or right side when Settings → Appearance says so (phones: always top). */
+#dash-shell { display: block; }
 #tab-bar {
   display: flex;
   gap: 0.5rem;
@@ -274,6 +276,7 @@ h1, h2, h3, h4,
   border-bottom: 2px solid var(--border);
   flex-wrap: wrap;
 }
+#tab-bar[hidden] { display: none; }
 
 .dashboard-tab {
   background: var(--card-bg);
@@ -282,6 +285,8 @@ h1, h2, h3, h4,
   padding: 0.5rem 1.5rem;
   border-radius: var(--radius);
   font-size: calc(var(--fs-small) * var(--card-font-scale, 1));
+  font-family: inherit;
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.2s;
   font-weight: 500;
@@ -296,6 +301,26 @@ h1, h2, h3, h4,
 .dashboard-tab:hover {
   background: var(--accent);
   color: var(--color-text-on-accent);
+}
+/* Pages that open elsewhere (Controls, Edit layout) read as links, a step quieter than the dashboards. */
+.dashboard-tab-page { background: transparent; border-style: dashed; }
+
+@media (min-width: 768px) {
+  #dash-shell[data-tabs="left"], #dash-shell[data-tabs="right"] { display: flex; align-items: flex-start; gap: 1.25rem; }
+  #dash-shell[data-tabs="right"] { flex-direction: row-reverse; }
+  #dash-shell[data-tabs="left"] #dashboard-container, #dash-shell[data-tabs="right"] #dashboard-container { flex: 1 1 0; min-width: 0; }
+  #dash-shell[data-tabs="left"] #tab-bar, #dash-shell[data-tabs="right"] #tab-bar {
+    flex: 0 0 200px; flex-direction: column; flex-wrap: nowrap; gap: 0.35rem;
+    position: sticky; top: 1rem; margin-bottom: 0; padding: 0; border-bottom: 0;
+  }
+  #dash-shell[data-tabs="left"] #tab-bar { padding-right: 1.25rem; border-right: 2px solid var(--border); }
+  #dash-shell[data-tabs="right"] #tab-bar { padding-left: 1.25rem; border-left: 2px solid var(--border); }
+  #dash-shell[data-tabs="left"] .dashboard-tab, #dash-shell[data-tabs="right"] .dashboard-tab { text-align: left; width: 100%; box-sizing: border-box; }
+}
+/* On a phone the bar scrolls sideways instead of wrapping over several rows. */
+@media (max-width: 767px) {
+  #tab-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .dashboard-tab { white-space: nowrap; flex: 0 0 auto; }
 }
 
 #dashboard-container {
@@ -710,7 +735,7 @@ h1, h2, h3, h4,
   .flow-item { min-height: auto; }
   .stat-value { font-size: calc(var(--fs-large) * var(--card-font-scale, 1)); }
   /* Signed out, the header row would be empty: drop it so it leaves no gap. */
-  .container > header:not(.is-signed-in) .header-right { display: none; }
+  .container > header:not(.is-signed-in) .header-right > :not(#tab-toggle) { display: none; }
   .container > header { margin-bottom: 1rem; }
   .chart-container { height: auto; min-height: 300px; }
 }
