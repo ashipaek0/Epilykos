@@ -27,8 +27,9 @@ const dns = require('dns');
 const { logger } = require('./modules/logger');
 const databaseWork = require('./modules/databaseWork');
 const { PollingManager } = require('./services/PollingManager');
+const { createLivePush } = require('./modules/livePush');
 const { timeZoneName } = require('./modules/localTime');
-const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, queueMetricWrite, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
+const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, onMetricsFlushed, queueMetricWrite, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
 
 /**
  * Compute delta between current and previous state objects.
@@ -624,8 +625,10 @@ let consecutiveSuppress = 0;
  * empty-but-stale (every 3rd suppressed cycle) or larger than 80% of the
  * full state, and suppresses (sends nothing) on small empty deltas.
  * @param {object} state - built by buildDashboardState()
+ * @param {{live?: boolean}} [opts] live: an extra push between polling cycles; an empty
+ *   delta sends nothing and does not count toward the every-third full refresh.
  */
-function broadcastDashboardState(state) {
+function broadcastDashboardState(state, { live = false } = {}) {
   const sendToAll = (message) => {
     const MAX_MESSAGE_SIZE = 64 * 1024; // 64 KB
     if (Buffer.byteLength(message, 'utf8') > MAX_MESSAGE_SIZE) {
@@ -659,6 +662,7 @@ function broadcastDashboardState(state) {
   // Empty delta → suppress unless already suppressed twice consecutively
   // (force full every 3rd, staleness guard so clients never drift stale).
   if (typeof delta === 'object' && delta !== null && !Array.isArray(delta) && Object.keys(delta).length === 0) {
+    if (live) return;
     if (consecutiveSuppress >= 2) {
       consecutiveSuppress = 0;
       if (sendToAll(JSON.stringify({ type: 'dashboard-state', data: state }))) snapshot();
@@ -735,6 +739,16 @@ pollingManager.on('device-error', ({ sourceId, error }) => {
 });
 
 let pollCycleRunning = false;
+// Between polling cycles: new readings reach the open pages within seconds (modules/livePush.js).
+const livePush = createLivePush({
+  hasClients: () => wsClients.size > 0,
+  isCurrent: () => databaseWork.isCurrent(),
+  busy: () => pollCycleRunning,
+  build: () => sharedDashboardState(),
+  send: state => broadcastDashboardState(state, { live: true }),
+  log: logger
+});
+onMetricsFlushed(() => livePush.request());
 function pollAllSources() { return databaseWork.run(async () => {
   // A slow source (serial timeouts, unreachable hosts) can push a cycle past
   // 30s; never run two cycles concurrently against the same devices.
@@ -755,6 +769,7 @@ function pollAllSources() { return databaseWork.run(async () => {
       const state = await buildDashboardState();
       if (!databaseWork.isCurrent()) return;
       broadcastDashboardState(state);
+      livePush.notePush();
     }
     const elapsed = Date.now() - start;
     logger.info(`Polling cycle completed in ${elapsed}ms`);

@@ -801,6 +801,13 @@ const METRIC_BUFFER_CAP = 500;
 const METRIC_FLUSH_INTERVAL_MS = 5000;
 let metricBuffer = [];
 let metricFlushTimer = null;
+const flushListeners = new Set();
+
+/** Call `fn` after a batch of readings is stored. Returns a function that removes it. */
+function onMetricsFlushed(fn) {
+  flushListeners.add(fn);
+  return () => flushListeners.delete(fn);
+}
 
 function queueMetricWrite(entry) {
   if (!databaseWork.isCurrent()) return; // discard observations from retired producers
@@ -876,6 +883,10 @@ function flushMetrics() {
   });
   runBatch(batch);
   metricBuffer = []; // synchronous transaction: keep the batch intact on failure
+  if (flushListeners.size) {
+    // After the flush returns, so a listener never slows or breaks the write.
+    setImmediate(() => { for (const fn of flushListeners) { try { fn(batch.length); } catch (_) { /* a listener must not break storage */ } } });
+  }
   return batch.length;
 }
 
@@ -926,6 +937,7 @@ function resolveStoredSecret(value, configKeys) {
 }
 
 module.exports = {
+  onMetricsFlushed,
   openPreparedDatabase,
   DEFAULT_DASHBOARD_LAYOUTS_JSON,
   initializeDatabase,

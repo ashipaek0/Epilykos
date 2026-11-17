@@ -1,3 +1,4 @@
+import { markFresh } from './updated-age.js';
 import { fetchDashboardState } from './api.js';
 import { dashboardConfig } from './dashboard.js';
 import { updateCards } from './cards-update.js';
@@ -18,7 +19,8 @@ export async function updateAllComponents() {
   }
 }
 
-export function updateWithState(state) {
+export function updateWithState(state, { at } = {}) {
+  markFresh(at);
   if (!dashboardConfig?.dashboards) return;
   const activeLayout = dashboardConfig.dashboards.find(db => db.id === dashboardConfig.activeDashboard)?.layout;
   if (!activeLayout) return;
