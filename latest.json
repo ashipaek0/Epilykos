@@ -1,16 +1,34 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "43855572094.1",
-    "version": "1.2.13",
-    "commit": "c82670df2dc6ce062506f6c0f3270bce9b59d082",
-    "digest": "sha256:667551b99b8c01b71b48b07ac3cfb13028c2a8d2ba04cb7c64e2d6697d082cc6",
+    "buildId": "44052691818.1",
+    "version": "1.2.14",
+    "commit": "997b3c6a8b62373f2d45dbf85e8c43a5cbf0deee",
+    "digest": "sha256:f8fdc4efece2aa22731b99d4cb4d81f3289d9336a647d85d3864f39e584a7c23",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-16T11:12:05Z",
-    "kind": "rebuild",
-    "notes": []
+    "builtAt": "2026-11-17T09:07:58Z",
+    "kind": "release",
+    "notes": [
+      "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)",
+      "Updates: app download progress bar, and no flicker while it refreshes (#371)",
+      "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
+    ]
   },
   "history": [
+    {
+      "buildId": "44052691818.1",
+      "version": "1.2.14",
+      "commit": "997b3c6a8b62373f2d45dbf85e8c43a5cbf0deee",
+      "digest": "sha256:f8fdc4efece2aa22731b99d4cb4d81f3289d9336a647d85d3864f39e584a7c23",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-17T09:07:58Z",
+      "kind": "release",
+      "notes": [
+        "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)",
+        "Updates: app download progress bar, and no flicker while it refreshes (#371)",
+        "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
+      ]
+    },
     {
       "buildId": "43855572094.1",
       "version": "1.2.13",
@@ -458,19 +476,6 @@
         "docker-compose.yaml: nothing to start but the dashboard; options are whole commented blocks (#225)",
         "Refine Docker setup instructions in README",
         "Refactor docker-compose.yaml for clarity and updates"
-      ]
-    },
-    {
-      "buildId": "40484358749.1",
-      "version": "1.0.8",
-      "commit": "511c82fe76c3319edb74e2b763a2899b0e092acd",
-      "digest": "sha256:14a80438eda37673d3d66473f314084cac621859d01cc77aa51a0a2fc9af9a1e",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-10-27T09:54:46Z",
-      "kind": "release",
-      "notes": [
-        "Refactor epilykos service configuration in docker-compose",
-        "Revise Docker setup instructions in README"
       ]
     }
   ]
