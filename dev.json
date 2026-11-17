@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "43694950063.1",
-    "version": "1.2.13-dev+019d814",
-    "commit": "019d81485e3dc1e69384a1db27fbc969e71123d5",
-    "digest": "sha256:ff52c93993848ae56a58e8135372bd2ded5c80406331cf455160f1f6a63ebb8c",
+    "buildId": "44040479774.1",
+    "version": "1.2.14-dev+eb15791",
+    "commit": "eb15791987306559480fb410b58226388df4f72e",
+    "digest": "sha256:b883ced8388ab7a2b74faf71a9be54a8116fa0cb8dfab06c1d801b75c148e69c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-15T08:32:24Z",
+    "builtAt": "2026-11-17T07:40:29Z",
     "kind": "release",
     "notes": [
-      "Remote backup: stale status messages clear (#367)"
+      "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
     ]
   },
   "history": [
+    {
+      "buildId": "44040479774.1",
+      "version": "1.2.14-dev+eb15791",
+      "commit": "eb15791987306559480fb410b58226388df4f72e",
+      "digest": "sha256:b883ced8388ab7a2b74faf71a9be54a8116fa0cb8dfab06c1d801b75c148e69c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-17T07:40:29Z",
+      "kind": "release",
+      "notes": [
+        "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
+      ]
+    },
     {
       "buildId": "43694950063.1",
       "version": "1.2.13-dev+019d814",
@@ -359,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Bluetooth: drop a stale BlueZ connection when a scan cannot find the device (#332)"
-      ]
-    },
-    {
-      "buildId": "43213062992.1",
-      "version": "1.2.5-dev+22f7f37",
-      "commit": "22f7f37ab786dccf6a2e001abf2104b996330cd6",
-      "digest": "sha256:22e3863b9664c83494099ae924791d4b62e86a313e0270eb54d3f83af7f57d38",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-12T11:54:03Z",
-      "kind": "release",
-      "notes": [
-        "Add Power flow card: Grid, Generator and Battery appear when active (#331)"
       ]
     }
   ]
