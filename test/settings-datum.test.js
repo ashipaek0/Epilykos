@@ -49,8 +49,15 @@ for (const [name, t] of [['light', light], ['dark', dark]]) {
   assert.ok(ratio(t.acc, t.bg) >= 3, `${name} amber shape needs 3:1 against the page: ${ratio(t.acc, t.bg).toFixed(2)}`);
   assert.ok(ratio(t['on-acc'], t.acc) >= 4.5, `${name} label on the amber button needs 4.5:1: ${ratio(t['on-acc'], t.acc).toFixed(2)}`);
   assert.ok(ratio(t.mut, t.bg2) >= 4.5, `${name} muted text on the hover tint`);
+  onBg('typed', 7, 'typed text');
+  assert.ok(ratio(t.typed, t.bg2) >= 7, `${name} typed text on the hover tint`);
+  assert.notEqual(t.typed, t.ink, `${name} typed text is not the label colour`);
   assert.ok(ratio(t['on-thumb'], t.ok) >= 4.5, `${name} switch thumb on the green track: ${ratio(t['on-thumb'], t.ok).toFixed(2)}`);
 }
+
+// Typed and chosen values use the typed colour; a field that cannot be changed does not.
+assert.match(css, /color: var\(--dt-typed\);\s*\n\s*border: 0; border-bottom/, 'fields use the typed colour');
+assert.match(css, /input\[readonly\][^{]*\{ color: var\(--dt-mut\); \}/, 'read-only and disabled fields stay grey');
 
 // The font ships with the app (no third-party request).
 assert.ok(fs.existsSync(path.join(__dirname, '..', 'public/fonts/jetbrains-mono-latin-wght-normal.woff2')), 'mono font is bundled');
