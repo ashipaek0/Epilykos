@@ -157,6 +157,20 @@ function ensureSchema(db = getDb()) {
       error        TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_notification_log_ts ON notification_log(timestamp);
+    CREATE TABLE IF NOT EXISTS notification_inbox (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp  INTEGER NOT NULL,
+      severity   TEXT,
+      title      TEXT,
+      body       TEXT,
+      path       TEXT,
+      event_type TEXT,
+      thread     TEXT,
+      rule_name  TEXT,
+      held       INTEGER NOT NULL DEFAULT 0,
+      read       INTEGER NOT NULL DEFAULT 0,
+      resolved   INTEGER NOT NULL DEFAULT 0
+    );
   `);
 }
 
@@ -164,7 +178,7 @@ function ensureSchema(db = getDb()) {
 function withLog(fn) {
   const db = getDb();
   try { return fn(db); } catch (e) {
-    if (!/no such table: notification_log/.test(e.message)) throw e;
+    if (!/no such table: notification_(log|inbox)/.test(e.message)) throw e;
     ensureSchema(db);
     return fn(db);
   }
@@ -190,6 +204,58 @@ function getLog(limit = 100) {
 }
 function clearLog() { withLog(db => db.prepare('DELETE FROM notification_log').run()); }
 
+// ── Inbox (the bell on the dashboard) ────────────────────────────────
+
+const INBOX_CAP = 200;
+const SEVERITY_SET = new Set(['info', 'warning', 'critical']);
+
+/**
+ * One row per alert, however many channels it went to. `entry.resolves` (a thread key) marks that thread's
+ * earlier alerts resolved first, so "grid restored" closes "grid outage". Returns the new row's id, or null.
+ */
+function addInbox(entry) {
+  try {
+    return withLog((db) => {
+      if (entry.resolves) db.prepare('UPDATE notification_inbox SET resolved = 1 WHERE thread = ? AND resolved = 0').run(String(entry.resolves));
+      const info = db.prepare(`INSERT INTO notification_inbox (timestamp, severity, title, body, path, event_type, thread, rule_name, held)
+        VALUES (@timestamp, @severity, @title, @body, @path, @event_type, @thread, @rule_name, @held)`).run({
+        timestamp: Math.floor(Date.now() / 1000),
+        severity: SEVERITY_SET.has(entry.severity) ? entry.severity : 'info',
+        title: String(entry.title || '').slice(0, 200), body: String(entry.body || '').slice(0, 2000),
+        path: String(entry.path || '/').slice(0, 300), event_type: entry.event_type ? String(entry.event_type).slice(0, 80) : null,
+        thread: entry.thread ? String(entry.thread).slice(0, 120) : null, rule_name: entry.rule_name ? String(entry.rule_name).slice(0, 120) : null,
+        held: entry.held ? 1 : 0,
+      });
+      db.prepare('DELETE FROM notification_inbox WHERE id <= (SELECT MAX(id) FROM notification_inbox) - ?').run(INBOX_CAP);
+      return Number(info.lastInsertRowid);
+    });
+  } catch (e) {
+    logger.warn(`notifications: could not write inbox: ${e.message}`);
+    return null;
+  }
+}
+
+/** Newest first, with how many are unread. */
+function getInbox(limit = 50) {
+  return withLog((db) => {
+    const items = db.prepare('SELECT * FROM notification_inbox ORDER BY id DESC LIMIT ?').all(Math.min(Math.max(1, limit | 0), INBOX_CAP))
+      .map(r => ({ id: r.id, timestamp: r.timestamp, severity: r.severity, title: r.title, body: r.body, path: r.path, event_type: r.event_type, rule_name: r.rule_name, held: !!r.held, read: !!r.read, resolved: !!r.resolved }));
+    const unread = db.prepare('SELECT COUNT(*) AS n FROM notification_inbox WHERE read = 0').get().n;
+    return { items, unread };
+  });
+}
+
+/** Mark alerts read: a list of ids, or everything. */
+function markInboxRead(ids) {
+  return withLog((db) => {
+    if (ids === 'all') return db.prepare('UPDATE notification_inbox SET read = 1 WHERE read = 0').run().changes;
+    const list = (Array.isArray(ids) ? ids : []).map(Number).filter(Number.isInteger).slice(0, 500);
+    if (!list.length) return 0;
+    return db.prepare(`UPDATE notification_inbox SET read = 1 WHERE id IN (${list.map(() => '?').join(',')})`).run(...list).changes;
+  });
+}
+function clearInbox() { withLog(db => db.prepare('DELETE FROM notification_inbox').run()); }
+
 module.exports = {
   KEYS,
   DEFAULT_SETTINGS,
@@ -202,4 +268,5 @@ module.exports = {
   publicChannel, mergeChannelConfig, publicDevice,
   getVapid,
   ensureSchema, addLog, getLog, clearLog,
+  addInbox, getInbox, markInboxRead, clearInbox,
 };

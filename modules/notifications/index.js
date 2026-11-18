@@ -26,6 +26,7 @@ const events = require('./events');
 const rules = require('./rules');
 const dispatcher = require('./dispatcher');
 const reports = require('./reports');
+const links = require('./links');
 const { localDateString } = require('../localTime');
 
 const evaluator = rules.createMetricEvaluator();
@@ -95,10 +96,21 @@ function evaluateMetrics(now = Math.floor(Date.now() / 1000)) {
   for (const hit of hits) {
     const { title, body } = rules.metricMessage(hit, now);
     const severity = hit.transition === 'resolve' ? 'info' : severityOf(hit.rule);
-    dispatcher.deliver({ title, body, severity, tag: 'rule-' + hit.rule.id, rule: hit.rule.name, metric: hit.rule.metric }, hit.rule.channels, hit.rule)
+    dispatcher.deliver({ title, body, severity, tag: 'rule-' + hit.rule.id, rule: hit.rule.name, metric: hit.rule.metric, path: '/' }, hit.rule.channels, hit.rule)
       .catch(e => logger.warn(`notifications: delivery failed: ${e.message}`));
   }
   return hits;
+}
+
+/** What the system looks like right now, for outage and generator alerts: "Battery 63%". Empty when not known. */
+function liveDetail(event) {
+  if (!/^(grid|generator)\./.test(event.type)) return '';
+  try {
+    const roles = JSON.parse(require('../database').getConfig('role_metrics') || '{}') || {};
+    const row = roles.battery_soc ? getDb().prepare('SELECT value FROM latest_metrics WHERE metric = ?').get(roles.battery_soc) : null;
+    const pct = row && Number.isFinite(Number(row.value)) ? Math.round(Number(row.value)) : null;
+    return pct === null ? '' : `🔋 Battery ${pct}%`;
+  } catch (_) { return ''; }
 }
 
 function handleEvent(event) {
@@ -114,7 +126,12 @@ function handleEvent(event) {
   for (const rule of matched) {
     const { title, body } = rules.eventMessage(rule, event);
     const severity = severityOf(rule, event.severity);
-    dispatcher.deliver({ title, body, severity, tag: 'event-' + event.type + (event.subject ? '-' + event.subject : ''), rule: rule.name, event: event.type }, rule.channels, rule)
+    const thread = links.threadFor(event.type, event.subject);
+    const resolves = links.resolvesThread(event.type);
+    // Alerts about the same thing share a tag, so "restored" replaces "outage" on a device's screen.
+    const tag = thread ? 'thread-' + thread : 'event-' + event.type + (event.subject ? '-' + event.subject : '');
+    const detail = rule.message ? '' : liveDetail(event);
+    dispatcher.deliver({ title, body: detail ? `${body}\n${detail}` : body, severity, tag, rule: rule.name, event: event.type, path: links.pathFor(event.type), thread, resolves }, rule.channels, rule)
       .catch(e => logger.warn(`notifications: delivery failed: ${e.message}`));
   }
 }
@@ -181,7 +198,7 @@ async function runSchedules(date = new Date()) {
     try {
       const rep = await buildReport(rule);
       if (rep.skip) { logger.debug(`notifications: "${rule.name}" skipped (${rep.skip})`); continue; }
-      await dispatcher.deliver({ title: rep.title, body: rep.body, severity: severityOf(rule, 'info'), tag: 'report-' + rule.id, rule: rule.name }, rule.channels, rule, { ignoreQuiet: true });
+      await dispatcher.deliver({ title: rep.title, body: rep.body, severity: severityOf(rule, 'info'), tag: 'report-' + rule.id, rule: rule.name, path: '/' }, rule.channels, rule, { ignoreQuiet: true });
     } catch (e) {
       logger.warn(`notifications: scheduled report "${rule.name}" failed: ${e.message}`);
     }
