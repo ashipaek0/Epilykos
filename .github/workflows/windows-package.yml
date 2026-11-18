@@ -13,6 +13,10 @@ on:
         description: 'Version to build (for example 1.2.3). Leave empty to use 0.0.0-dev.'
         required: false
         default: ''
+      release_tag:
+        description: 'Attach the installer to this existing release (for example v1.2.3). Releases made by the Docker build do not start this workflow by themselves, so start it by hand with the release tag.'
+        required: false
+        default: ''
   release:
     types: [published]
 
@@ -39,9 +43,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_VERSION: ${{ inputs.version }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           $v = $env:RELEASE_TAG
           if (-not $v) { $v = $env:INPUT_VERSION }
+          if (-not $v) { $v = $env:INPUT_RELEASE_TAG }
           if (-not $v) { $v = '0.0.0-dev' }
           $v = $v -replace '^v', ''
           # Only a plain version: it ends up in file names and command lines.
@@ -95,8 +101,8 @@ jobs:
           if-no-files-found: error
 
   attach:
-    # Only for a published release: add the installer to it. Nothing else writes to the repository.
-    if: github.event_name == 'release'
+    # Only for a release (published, or named when started by hand): add the installer to it. Nothing else writes to the repository.
+    if: github.event_name == 'release' || inputs.release_tag != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -111,5 +117,5 @@ jobs:
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: gh release upload "$TAG" dist/Epilykos-Setup-*.exe dist/Epilykos-Setup-*.exe.sha256 --clobber --repo "$GITHUB_REPOSITORY"
