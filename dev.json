@@ -1,20 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44332131031.1",
-    "version": "1.3.4-dev+1e5d78b",
-    "commit": "1e5d78b107956b5e15c9e3c3b805f687a0fc587c",
-    "digest": "sha256:3981a47e3be09d30da53e02988b1888eb99f423b1b861d8487d6a42c9894bb23",
+    "buildId": "44332735223.1",
+    "version": "1.3.4-dev+04e051a",
+    "commit": "04e051a260480f683acaa38f0ac5b2981a7d521e",
+    "digest": "sha256:bee0d5390b03307b8d7ed03c0c92312a58f33e5a4b6a8bd51a4265e265f8beca",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-18T15:08:43Z",
+    "builtAt": "2026-11-18T15:11:54Z",
     "kind": "release",
     "notes": [
-      "Update contribution guidelines for commits and PRs",
-      "Update contribution guidelines for commits and PRs",
-      "Update CONTRIBUTING.md to remove author attribution"
+      "Notifications: alerts open the page they are about, related alerts share a thread, and a bell lists them (signed-in admins) (#390)"
     ]
   },
   "history": [
+    {
+      "buildId": "44332735223.1",
+      "version": "1.3.4-dev+04e051a",
+      "commit": "04e051a260480f683acaa38f0ac5b2981a7d521e",
+      "digest": "sha256:bee0d5390b03307b8d7ed03c0c92312a58f33e5a4b6a8bd51a4265e265f8beca",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-18T15:11:54Z",
+      "kind": "release",
+      "notes": [
+        "Notifications: alerts open the page they are about, related alerts share a thread, and a bell lists them (signed-in admins) (#390)"
+      ]
+    },
     {
       "buildId": "44332131031.1",
       "version": "1.3.4-dev+1e5d78b",
@@ -364,18 +374,6 @@
       "kind": "release",
       "notes": [
         "Remote backup, step 3: Google Drive destination (#356)"
-      ]
-    },
-    {
-      "buildId": "43586490688.1",
-      "version": "1.2.9-dev+25982e1",
-      "commit": "25982e10f66f1ef4cd963400ddcb9c7afdf236cc",
-      "digest": "sha256:184bfba7d7639a43ce11f68da9ee1708be09d83e7b8a0bfb25f206e2fdff9954",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T10:42:04Z",
-      "kind": "release",
-      "notes": [
-        "Remote backup, step 2: WebDAV destination (#355)"
       ]
     }
   ]
