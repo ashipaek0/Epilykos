@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44296686394.1",
-    "version": "1.3.2-dev+c3417ab",
-    "commit": "c3417ab95b6dbec4dd1ce20ca8573151bcda3d28",
-    "digest": "sha256:96900f41712eae7bd3448915a1878987cfaa4f999b5bafe5e481e2866fd1655e",
+    "buildId": "44298674792.1",
+    "version": "1.3.2-dev+f7c9448",
+    "commit": "f7c9448217eceef0676859e2060e57c60520bdcd",
+    "digest": "sha256:7004497cbde21f255982d2f532ae72fb2ced1a82cdabf450c814bfde91727c1b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-18T11:39:51Z",
+    "builtAt": "2026-11-18T11:53:14Z",
     "kind": "release",
     "notes": [
-      "Windows package: a hand-started run can attach the installer to an existing release (#383)"
+      "Test: match the API host exactly (CodeQL js/incomplete-url-substring-sanitization) (#385)"
     ]
   },
   "history": [
+    {
+      "buildId": "44298674792.1",
+      "version": "1.3.2-dev+f7c9448",
+      "commit": "f7c9448217eceef0676859e2060e57c60520bdcd",
+      "digest": "sha256:7004497cbde21f255982d2f532ae72fb2ced1a82cdabf450c814bfde91727c1b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-18T11:53:14Z",
+      "kind": "release",
+      "notes": [
+        "Test: match the API host exactly (CodeQL js/incomplete-url-substring-sanitization) (#385)"
+      ]
+    },
     {
       "buildId": "44296686394.1",
       "version": "1.3.2-dev+c3417ab",
@@ -360,18 +372,6 @@
       "notes": [
         "Settings: Virtual Battery on its own page (#349)",
         "LuxPower: inverter clock and clock skew (#348)"
-      ]
-    },
-    {
-      "buildId": "43433801768.1",
-      "version": "1.2.8-dev+fe4c2cf",
-      "commit": "fe4c2cfc0a9a03fa840c396bdda377a3de39a0ac",
-      "digest": "sha256:57ed4f8e06aa6db49164f8a8cd2d9b226c1c2ebfeb269087c0fd615db70d0d51",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T13:27:44Z",
-      "kind": "release",
-      "notes": [
-        "Grid card: the prepaid balance is plain text at the top right, red from the low level (#347)"
       ]
     }
   ]
