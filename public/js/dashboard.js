@@ -27,6 +27,7 @@ import { applyBlockStyle } from './components/blockStyle.js';
 import { globalAppearance, effectiveAppearance, applyAppearance } from './appearance.js';
 import { gridOf, placeBlocks, blockStyle, areaHeight, SCALE_REFERENCE_WIDTH } from './layoutGrid.js';
 import { tabsFor, effectivePosition, readCollapsed, writeCollapsed } from './dashboard-tabs.js';
+import { initNotificationBell } from './notification-bell.js';
 
 let dashboardConfig;
 let signedIn = false;     // the visitor has a session: Controls, Edit layout and the header links show
@@ -318,6 +319,8 @@ function checkSession() {
         a.id = 'showcase-link'; a.href = '/showcase'; a.className = 'settings-link'; a.textContent = 'Card showcase';
         settingsBtn.before(a);
       }
+      // The notification bell: recent alerts, signed-in admins only.
+      initNotificationBell(document.querySelector('header .header-right'), signoutBtn || undefined);
       const themeToggle = document.getElementById('theme-toggle');
       if (themeToggle) themeToggle.style.display = '';
       renderTabs();

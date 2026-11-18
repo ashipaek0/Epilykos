@@ -265,6 +265,56 @@ h1, h2, h3, h4,
 }
 .settings-link:hover { background: var(--accent); color: var(--color-text-on-accent); }
 
+/* ── Notification bell (signed-in admins) ──────────────────────────────── */
+.notif-bell {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+  background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius);
+  cursor: pointer; box-shadow: var(--shadow); transition: background 0.2s;
+}
+.notif-bell:hover, .notif-bell[aria-expanded="true"] { background: var(--accent); color: var(--color-text-on-accent); }
+.notif-bell[data-level="critical"] svg { color: var(--color-danger); }
+.notif-bell[data-level="critical"]:hover svg, .notif-bell[data-level="critical"][aria-expanded="true"] svg { color: inherit; }
+.notif-badge {
+  position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
+  border-radius: 9px; background: var(--color-danger); color: #fff; font-size: 11px; font-weight: 700;
+  line-height: 18px; text-align: center; border: 2px solid var(--bg, #fff);
+}
+.notif-panel {
+  position: fixed; z-index: 1000; max-height: min(70vh, 560px); display: flex; flex-direction: column;
+  background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0,0,0,.28); overflow: hidden;
+}
+.notif-panel[hidden] { display: none; }
+.notif-head, .notif-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0.9rem; }
+.notif-head { border-bottom: 1px solid var(--border); }
+.notif-foot { border-top: 1px solid var(--border); justify-content: flex-end; }
+.notif-actions { display: inline-flex; gap: 0.9rem; }
+.notif-link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 0.85rem; text-decoration: none; }
+.notif-link:hover { text-decoration: underline; }
+.notif-link:disabled { color: var(--text-secondary, #888); cursor: default; text-decoration: none; opacity: .6; }
+.notif-list { overflow-y: auto; }
+.notif-empty { display: flex; flex-direction: column; gap: 0.35rem; padding: 1.4rem 1rem; color: var(--text-secondary, #888); font-size: 0.9rem; }
+.notif-empty strong { color: var(--text); }
+.notif-item {
+  display: flex; align-items: flex-start; gap: 0.7rem; width: 100%; padding: 0.75rem 0.9rem; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--border); color: inherit; font: inherit; cursor: pointer;
+}
+.notif-item:last-child { border-bottom: 0; }
+.notif-item:hover, .notif-item:focus-visible { background: color-mix(in srgb, var(--accent) 10%, transparent); outline: none; }
+.notif-dot { flex: none; width: 10px; height: 10px; margin-top: 0.4rem; border-radius: 50%; background: #3b82f6; }
+.notif-item[data-severity="warning"] .notif-dot { background: #f59e0b; }
+.notif-item[data-severity="critical"] .notif-dot { background: var(--color-danger); }
+.notif-item:not(.is-unread) .notif-dot { opacity: .35; }
+.notif-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.notif-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.4rem; }
+.notif-title { font-size: 0.92rem; }
+.notif-item.is-unread .notif-title { font-weight: 700; }
+.notif-body { font-size: 0.84rem; color: var(--text-secondary, #888); white-space: pre-line; overflow-wrap: anywhere; }
+.notif-time { font-size: 0.76rem; color: var(--text-secondary, #888); }
+.notif-tag { font-size: 0.68rem; padding: 1px 6px; border-radius: 8px; border: 1px solid var(--border); color: var(--text-secondary, #888); }
+.notif-item.is-resolved .notif-title { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text) 40%, transparent); }
+@media (max-width: 640px) { .notif-bell { width: 40px; flex: none; } }
+
 /* ── Tab bar ────────────────────────────────────────────────────────────── */
 /* Along the top by default; down the left or right side when Settings → Appearance says so (phones: always top). */
 #dash-shell { display: block; }
