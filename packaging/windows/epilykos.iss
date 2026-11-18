@@ -79,6 +79,8 @@ Filename: "{app}\service\EpilykosService.exe"; Parameters: "uninstall"; Flags: r
 Filename: "{cmd}"; Parameters: "/C rmdir ""{app}\app\data"""; Flags: runhidden; RunOnceId: "UnlinkData"
 Filename: "{cmd}"; Parameters: "/C rmdir ""{app}\app\logs"""; Flags: runhidden; RunOnceId: "UnlinkLogs"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Epilykos dashboard"""; Flags: runhidden; RunOnceId: "RemoveFirewall"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN EpilykosRestart /F"; Flags: runhidden; RunOnceId: "RemoveRestartTask"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN EpilykosUpdate /F"; Flags: runhidden; RunOnceId: "RemoveUpdateTask"
 
 [UninstallDelete]
 ; Only what the program itself creates; the data and logs links are removed (not followed) by the steps above.
