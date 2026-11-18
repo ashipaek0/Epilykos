@@ -470,6 +470,34 @@
 @container (max-height: 90px) { .mt-note, .mt-label { display: none; } }
 @media (max-width: 768px) { .meter-card { min-height: 7.5rem; } }
 
+/* Device card: header (title, subtitle, picture), big value with a pill and a line, a bar, a trio of small readings, label/value rows. */
+.device-card { --dv-color: var(--solar, #f59e0b); display: flex !important; flex-direction: column; gap: 0.5em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: inline-size; overflow: hidden; }
+.dv-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75em; }
+.dv-words { min-width: 0; }
+.dv-title { font-size: calc(clamp(0.85rem, 5.2cqw, 1.2rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.dv-subtitle { font-size: calc(clamp(0.7rem, 3.6cqw, 0.95rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.dv-head .tile-icon.dv-art { flex: 0 0 auto; width: clamp(2.2rem, 16cqw, 4rem); height: clamp(2.2rem, 16cqw, 4rem); margin: 0; background: none; border-radius: 0; }
+.dv-head .tile-icon.dv-art svg, .dv-head .tile-icon.dv-art img { width: 100%; height: 100%; object-fit: contain; }
+.dv-main { display: flex; align-items: baseline; gap: 0.25em; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text); margin-top: 0.25em; }
+.dv-value { font-size: calc(clamp(1.6rem, 14cqw, 3.4rem) * var(--card-font-scale, 1)); font-weight: 800; line-height: 1; }
+.dv-prefix, .dv-unit { font-size: calc(clamp(0.8rem, 5.5cqw, 1.4rem) * var(--card-font-scale, 1)); font-weight: 700; color: var(--text-secondary); }
+.dv-pill { align-self: flex-start; --dv-pill: var(--text-secondary); font-size: calc(clamp(0.7rem, 3.4cqw, 0.9rem) * var(--card-font-scale, 1)); font-weight: 600; padding: 0.25em 0.8em; border-radius: 999px; background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); border: 1px solid color-mix(in srgb, var(--dv-pill) 40%, transparent); }
+.dv-pill:empty { display: none; }
+.dv-note, .dv-caption { font-size: calc(clamp(0.7rem, 3.4cqw, 0.9rem) * var(--card-font-scale, 1)); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.dv-note:empty, .dv-caption:empty { display: none; }
+.dv-bar { --dv-fill: var(--dv-color); height: 0.5rem; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 18%, transparent); overflow: hidden; }
+.device-card[data-band="low"] .dv-bar { --dv-fill: var(--bc-low, #ef4444); }
+.device-card[data-band="mid"] .dv-bar { --dv-fill: var(--bc-mid, #f59e0b); }
+.device-card[data-band="high"] .dv-bar { --dv-fill: var(--bc-high, #22c55e); }
+.dv-fill { display: block; height: 100%; width: 0; background: var(--dv-fill); border-radius: inherit; transition: width 0.6s ease; }
+.dv-stats { display: grid; grid-template-columns: repeat(var(--dv-n, 3), minmax(0, 1fr)); gap: 0.5em; padding-top: 0.6em; border-top: 1px solid var(--border); }
+.dv-stat-label { font-size: calc(clamp(0.62rem, 3cqw, 0.8rem) * var(--card-font-scale, 1)); color: var(--text-secondary); }
+.dv-stat-value { font-size: calc(clamp(0.8rem, 4.2cqw, 1.05rem) * var(--card-font-scale, 1)); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.dv-rows { display: flex; flex-direction: column; gap: 0.3em; padding-top: 0.6em; border-top: 1px solid var(--border); }
+.dv-row { display: flex; justify-content: space-between; gap: 0.75em; font-size: calc(clamp(0.72rem, 3.6cqw, 0.95rem) * var(--card-font-scale, 1)); }
+.dv-row-label { color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
+.dv-row-value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+
 /* ── Status list ──────────────────────────────────────────── */
 /* The rows share the card's height (--sl-rows is how many) and the text follows a row's height, limited by the width. */
 .status-list-card { display: flex !important; flex-direction: column; gap: 0.4em; padding: var(--card-pad) !important; min-width: 0; height: 100%; width: 100%; box-sizing: border-box; container-type: size; }

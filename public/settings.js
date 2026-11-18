@@ -162,7 +162,7 @@ async function loadSettings() {
     // Auto-match LAN IPs for existing devices
     autoMatchTuyaLanIps();
     const dashConfig = data.dashboard_config ? JSON.parse(data.dashboard_config) : null;
-    populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard);
+    populateDashboardSelects(dashConfig, data.desktop_dashboard, data.mobile_dashboard, data.public_dashboards);
 
     usedDashboardMetrics = [];
     if (dashConfig && dashConfig.dashboards) {
@@ -5165,7 +5165,7 @@ setInterval(() => {
   const sec = document.getElementById('section-metrics');
   if (sec && !sec.hidden && document.visibilityState === 'visible') loadMetricsList();
 }, 60000);
-function populateDashboardSelects(config, savedDesktop, savedMobile) {
+function populateDashboardSelects(config, savedDesktop, savedMobile, savedPublic) {
   const dashboards = config?.dashboards || [];
   const saved = { 'desktop-dashboard': savedDesktop, 'mobile-dashboard': savedMobile };
   ['desktop-dashboard', 'mobile-dashboard'].forEach(id => {
@@ -5175,6 +5175,47 @@ function populateDashboardSelects(config, savedDesktop, savedMobile) {
     sel.innerHTML = '<option value="">-- Default --</option>';
     dashboards.forEach(db => { const o = document.createElement('option'); o.value = db.id; o.textContent = db.name; if (db.id === cur) o.selected = true; sel.appendChild(o); });
   });
+  let extra = [];
+  try { const v = JSON.parse(savedPublic || '[]'); if (Array.isArray(v)) extra = v; } catch { /* none */ }
+  buildPublicDashboards(dashboards, extra);
+}
+
+// Which dashboards visitors may see. The ones picked as the default on computers and phones always are;
+// every other one is hidden until ticked. The ticked ids travel in a hidden field (public_dashboards).
+function buildPublicDashboards(dashboards, extra) {
+  const box = document.getElementById('public-dashboards');
+  const hidden = document.getElementById('public-dashboards-value');
+  if (!box || !hidden) return;
+  const fallback = (dashboards[0] || {}).id;
+  const chosen = id => document.getElementById(id) && document.getElementById(id).value;
+  const isDefault = db => db.id === (chosen('desktop-dashboard') || fallback) || db.id === (chosen('mobile-dashboard') || fallback);
+  const picked = new Set(extra);
+  box.innerHTML = '';
+  dashboards.forEach(db => {
+    const label = document.createElement('label');
+    label.className = 'st-check-card';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.id = db.id;
+    const def = isDefault(db);
+    cb.checked = def || picked.has(db.id);
+    cb.disabled = def;
+    const text = document.createElement('span');
+    text.textContent = db.name + (def ? ' (default, always visible)' : '');
+    label.append(cb, text);
+    box.appendChild(label);
+  });
+  const sync = () => {
+    hidden.value = JSON.stringify([...box.querySelectorAll('input:checked:not(:disabled)')].map(i => i.dataset.id));
+    hidden.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  box.onchange = sync;
+  // Picking another default makes that dashboard always visible, so redraw the list.
+  ['desktop-dashboard', 'mobile-dashboard'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.onchange = () => buildPublicDashboards(dashboards, [...box.querySelectorAll('input:checked:not(:disabled)')].map(i => i.dataset.id));
+  });
+  hidden.value = JSON.stringify([...picked].filter(id => !dashboards.some(d => d.id === id && isDefault(d))));
 }
 
 // ======================== TUYA ========================

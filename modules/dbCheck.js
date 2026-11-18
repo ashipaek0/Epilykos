@@ -2,6 +2,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { syncFd } = require('./fsSync');
 const { runSqliteProcess } = require('./sqliteCheck');
 const { DB_PATH } = require('./database');
 const { logger } = require('./logger');
@@ -15,7 +16,7 @@ function markStart() {
   const unclean = fs.existsSync(marker);
   try {
     const fd = fs.openSync(marker, 'w');
-    try { fs.writeSync(fd, new Date().toISOString()); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    try { fs.writeSync(fd, new Date().toISOString()); syncFd(fd); } finally { fs.closeSync(fd); }
   } catch (e) { logger.warn(`[db-check] Cannot write running marker: ${e.message}`); }
   return unclean;
 }

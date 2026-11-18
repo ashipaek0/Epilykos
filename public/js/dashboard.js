@@ -26,8 +26,11 @@ import { ensureChartJS } from './chartLoader.js';
 import { applyBlockStyle } from './components/blockStyle.js';
 import { globalAppearance, effectiveAppearance, applyAppearance } from './appearance.js';
 import { gridOf, placeBlocks, blockStyle, areaHeight, SCALE_REFERENCE_WIDTH } from './layoutGrid.js';
+import { tabsFor, effectivePosition, readCollapsed, writeCollapsed } from './dashboard-tabs.js';
 
 let dashboardConfig;
+let signedIn = false;     // the visitor has a session: Controls, Edit layout and the header links show
+let tabsSetting = 'top';  // Settings → Appearance: where the dashboard tabs sit
 let defaultLook = null;   // Settings → Appearance: the look of every dashboard that does not override it
 
 /**
@@ -64,6 +67,7 @@ export async function loadDashboardConfig() {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
   defaultLook = globalAppearance(cfg);
+  tabsSetting = cfg.tabs_position;
   applyBranding(cfg);
 
   renderDashboard();
@@ -82,38 +86,7 @@ function renderDashboard() {
   destroyCharts();
   clearSparklineCharts();
 
-  // Build tab bar — hidden by default, shown when authenticated
-  let tabBar = document.getElementById('tab-bar');
-  let tabToggle = document.getElementById('tab-toggle');
-  if (!tabBar) {
-    tabBar = document.createElement('div');
-    tabBar.id = 'tab-bar';
-    tabBar.style.display = 'none';
-    document.querySelector('header').after(tabBar);
-  }
-  if (!tabToggle) {
-    tabToggle = document.createElement('button');
-    tabToggle.id = 'tab-toggle';
-    tabToggle.className = 'settings-link';
-    tabToggle.textContent = '☰';
-    tabToggle.title = 'Show dashboard tabs';
-    tabToggle.style.display = 'none';
-    tabToggle.onclick = () => {
-      const show = tabBar.style.display === 'none';
-      tabBar.style.display = show ? '' : 'none';
-      tabToggle.textContent = '☰';
-      tabToggle.title = show ? 'Hide dashboard tabs' : 'Show dashboard tabs';
-    };
-    (document.querySelector('header .header-right') || document.querySelector('header')).appendChild(tabToggle);
-  }
-  tabBar.innerHTML = '';
-  dashboardConfig.dashboards.forEach(db => {
-    const tab = document.createElement('button');
-    tab.className = 'dashboard-tab' + (db.id === dashboardConfig.activeDashboard ? ' active' : '');
-    tab.textContent = db.name;
-    tab.onclick = () => switchDashboard(db.id);
-    tabBar.appendChild(tab);
-  });
+  renderTabs();
 
   const container = document.getElementById('dashboard-container');
   container.innerHTML = '';
@@ -192,53 +165,8 @@ function renderDashboard() {
   }
   container.classList.toggle('is-scaled', !!grid.scale);
 
-  // Auth-dependent UI: sign-in/out, editor link
-  fetch('/api/auth/status')
-    .then(r => r.json())
-    .then(auth => {
-      if (auth.authenticated) {
-        const pageHeader = document.querySelector('.container > header');
-        if (pageHeader) pageHeader.classList.add('is-signed-in');
-        // Signed in: settings + signout
-        const signoutBtn = document.getElementById('signout-btn');
-        const settingsBtn = document.getElementById('settings-btn');
-        if (signoutBtn) {
-          signoutBtn.style.display = '';
-          // A POST, so another site cannot sign anyone out with a link.
-          signoutBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            fetch('/api/logout', { method: 'POST' }).catch(() => {}).finally(() => { window.location.href = '/'; });
-          });
-        }
-        if (settingsBtn) settingsBtn.style.display = '';
-        // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).
-        if (settingsBtn && !document.getElementById('showcase-link')) {
-          for (const [id, href, text] of [['showcase-link', '/showcase', 'Card showcase'], ['controls-link', '/controls', 'Controls']]) {
-            const a = document.createElement('a');
-            a.id = id; a.href = href; a.className = 'settings-link'; a.textContent = text;
-            settingsBtn.before(a);
-          }
-        }
-        const themeToggle = document.getElementById('theme-toggle');
-        if (themeToggle) themeToggle.style.display = '';
-
-        // Show tabs and tab toggle
-        tabBar.style.display = '';
-        if (tabToggle) tabToggle.style.display = '';
-
-        // Add editor link to tab bar
-        const editorLink = document.createElement('a');
-        editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
-        // Tabs switch without a reload, so point at the tab shown at click time.
-        editorLink.addEventListener('click', () => {
-          editorLink.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
-        });
-        editorLink.className = 'settings-link';
-        editorLink.textContent = 'Edit layout';
-        editorLink.style.marginLeft = '0.5rem';
-        tabBar.appendChild(editorLink);
-      }
-    }).catch(() => {});
+  // Auth-dependent UI: sign-in/out, Controls and the editor link
+  checkSession();
 
   // First-run setup detection: show banner + auto-open the wizard once per browser session
   fetch('/api/wizard/status')
@@ -282,9 +210,133 @@ function renderDashboard() {
   // updateAllComponents() is called by main.js after WebSocket connects
 }
 
+/**
+ * The tab bar. Everyone gets the dashboards' tabs (when there is more than one); a signed-in session also gets
+ * Controls and Edit layout. It sits along the top or down a side (Settings → Appearance), phones always top,
+ * and the ☰ button in the header folds it away; that choice is kept in this browser.
+ */
+function renderTabs() {
+  const header = document.querySelector('header');
+  const container = document.getElementById('dashboard-container');
+  if (!header || !container) return;
+
+  // One shell holds the bar and the cards, so a side bar can sit beside them.
+  let shell = document.getElementById('dash-shell');
+  if (!shell) {
+    shell = document.createElement('div');
+    shell.id = 'dash-shell';
+    container.before(shell);
+    shell.appendChild(container);
+  }
+  let tabBar = document.getElementById('tab-bar');
+  if (!tabBar) {
+    tabBar = document.createElement('nav');
+    tabBar.id = 'tab-bar';
+    tabBar.setAttribute('aria-label', 'Dashboards');
+    shell.prepend(tabBar);
+  }
+
+  const { tabs, show } = tabsFor(dashboardConfig.dashboards, signedIn);
+  const position = effectivePosition(tabsSetting, window.innerWidth);
+  shell.dataset.tabs = position;
+
+  let toggle = document.getElementById('tab-toggle');
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.id = 'tab-toggle';
+    toggle.type = 'button';
+    toggle.className = 'settings-link';
+    toggle.textContent = '☰';
+    toggle.onclick = () => {
+      writeCollapsed(!readCollapsed());
+      renderTabs();
+    };
+    (document.querySelector('header .header-right') || header).appendChild(toggle);
+  }
+  const collapsed = readCollapsed();
+  toggle.style.display = show ? '' : 'none';
+  toggle.title = collapsed ? 'Show dashboard tabs' : 'Hide dashboard tabs';
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  tabBar.hidden = !show || collapsed;
+
+  tabBar.innerHTML = '';
+  tabs.forEach(t => {
+    if (t.kind === 'page') {
+      const a = document.createElement('a');
+      a.className = 'dashboard-tab dashboard-tab-page';
+      a.href = t.href;
+      a.textContent = t.label;
+      tabBar.appendChild(a);
+      return;
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dashboard-tab' + (t.id === dashboardConfig.activeDashboard ? ' active' : '');
+    if (t.id === dashboardConfig.activeDashboard) b.setAttribute('aria-current', 'page');
+    b.textContent = t.label;
+    b.onclick = () => switchDashboard(t.id);
+    tabBar.appendChild(b);
+  });
+  if (signedIn) {
+    const edit = document.createElement('a');
+    edit.className = 'dashboard-tab dashboard-tab-page';
+    edit.textContent = 'Edit layout';
+    edit.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`;
+    // Tabs switch without a reload, so point at the tab shown at click time.
+    edit.addEventListener('click', () => { edit.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`; });
+    tabBar.appendChild(edit);
+  }
+}
+
+let sessionChecked = false;
+/** Asks once whether there is a session; then draws what only a signed-in session sees. */
+function checkSession() {
+  if (sessionChecked) return;
+  sessionChecked = true;
+  fetch('/api/auth/status')
+    .then(r => r.json())
+    .then(auth => {
+      if (!auth.authenticated) return;
+      signedIn = true;
+      const pageHeader = document.querySelector('.container > header');
+      if (pageHeader) pageHeader.classList.add('is-signed-in');
+      const signoutBtn = document.getElementById('signout-btn');
+      const settingsBtn = document.getElementById('settings-btn');
+      if (signoutBtn) {
+        signoutBtn.style.display = '';
+        // A POST, so another site cannot sign anyone out with a link.
+        signoutBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          fetch('/api/logout', { method: 'POST' }).catch(() => {}).finally(() => { window.location.href = '/'; });
+        });
+      }
+      if (settingsBtn) settingsBtn.style.display = '';
+      // Signed-in pages: added only for a signed-in session (the server refuses them otherwise).
+      // Controls is not here: it is a tab beside the dashboards, for a signed-in session only.
+      if (settingsBtn && !document.getElementById('showcase-link')) {
+        const a = document.createElement('a');
+        a.id = 'showcase-link'; a.href = '/showcase'; a.className = 'settings-link'; a.textContent = 'Card showcase';
+        settingsBtn.before(a);
+      }
+      const themeToggle = document.getElementById('theme-toggle');
+      if (themeToggle) themeToggle.style.display = '';
+      renderTabs();
+    }).catch(() => { sessionChecked = false; });
+}
+
+window.addEventListener('resize', () => { if (dashboardConfig && dashboardConfig.dashboards) renderTabs(); });
+window.addEventListener('popstate', () => {
+  const id = new URLSearchParams(window.location.search).get('tab');
+  if (dashboardConfig && id && id !== dashboardConfig.activeDashboard && dashboardConfig.dashboards.some(db => db.id === id)) {
+    dashboardConfig.activeDashboard = id;
+    renderDashboard();
+  }
+});
+
 async function switchDashboard(id) {
   dashboardConfig.activeDashboard = id;
-  await saveDashboardConfig(dashboardConfig);
+  // Only a signed-in session may save; a visitor just looks at the other dashboard.
+  if (signedIn) await saveDashboardConfig(dashboardConfig).catch(e => console.warn('Could not save the shown dashboard:', e));
   const url = new URL(window.location);
   url.searchParams.set('tab', id);
   window.history.pushState({}, '', url);

@@ -18,7 +18,7 @@ function roleOf(job) {
   return PREPARE.test(name) ? 'restore-prepare' : /^\.restore-upload-[A-Za-z0-9]{6}$/.test(name) ? 'restore-upload' : /^\.restore-expand-[A-Za-z0-9]{6}$/.test(name) ? 'restore-expand' : /^\.snapshot-owned-[A-Za-z0-9]{6}$/.test(name) ? 'snapshot-capture' : /^\.backup-owned-[A-Za-z0-9]{6}$/.test(name) ? 'backup-download' : null;
 }
 function stat(file) { try { return fs.lstatSync(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } }
-function sync(file) { const fd = fs.openSync(file, 'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+const { syncPath: sync } = require('./fsSync');
 function ownerOf(job) {
   const meta = stat(path.join(job, OWNER));
   if (!meta?.isFile() || meta.nlink !== 1 || meta.size > 1024) return null;

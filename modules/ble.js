@@ -43,6 +43,7 @@ class BleError extends Error {
 
 /** Path of the system D-Bus socket the helper will use. */
 function dbusSocketPath() {
+  if (process.platform === 'win32') return null;   // Windows uses its own Bluetooth stack: no socket
   const addr = process.env.DBUS_SYSTEM_BUS_ADDRESS;
   if (addr) {
     const m = /^unix:path=([^,;]+)/.exec(addr);
@@ -84,7 +85,7 @@ class BleHelper {
    * @param {() => boolean} [opts.isConfigured] - availability gate
    */
   constructor(opts = {}) {
-    this.command = opts.command || process.env.BLE_HELPER_PYTHON || 'python3';
+    this.command = opts.command || process.env.BLE_HELPER_PYTHON || require('./pythonCommand').pythonCommand();
     this.args = opts.args || ['-u', HELPER_SCRIPT];
     this.isConfigured = opts.isConfigured || isConfigured;
     this.linkCount = opts.linkCount || bleLinkCount;

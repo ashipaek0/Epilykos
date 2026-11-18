@@ -15,6 +15,7 @@ const { getGeneratorHours, getGeneratorDailyHours, getGeneratorTimeline, getCurr
 const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
+const { forVisitor } = require('../modules/dashboardVisibility');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
 const { computeSavings } = require('../modules/solarValue');
@@ -263,7 +264,7 @@ function safeBreakdowns() {
 
 router.get('/public-config', async (req, res) => {
   try {
-    const keys = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost', 'desktop_dashboard', 'mobile_dashboard', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
+    const keys = ['dashboard_title', 'dashboard_logo', 'dashboard_favicon', 'dashboard_bg_color', 'dashboard_bg_color_light', 'dashboard_bg_color_dark', 'dashboard_bg_image', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost', 'desktop_dashboard', 'mobile_dashboard', 'tabs_position', 'savings_currency', 'savings_rate', 'solar_capacity_kwp'];
     const config = {};
     for (const key of keys) config[key] = getConfig(key);
     config.dashboard_title = config.dashboard_title || '⚡ Epilykos';
@@ -623,7 +624,11 @@ router.get('/dashboard-config', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const config = getDashboardConfig();
-    res.json(config);
+    // A visitor gets only the dashboards chosen as the default or expressly made visible (Settings → Appearance).
+    if (req.session && req.session.authenticated) return res.json(config);
+    res.json(forVisitor(config, {
+      desktop: getConfig('desktop_dashboard'), mobile: getConfig('mobile_dashboard'), extra: getConfig('public_dashboards'),
+    }));
   } catch (err) {
     logger.error('Error fetching dashboard config:', err);
     const fallback = {

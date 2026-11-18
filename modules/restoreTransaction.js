@@ -20,10 +20,7 @@ function regular(file) {
   if (!info?.isFile() || info.nlink !== 1n) throw new Error('Restore requires an unaliased regular file: ' + path.basename(file));
   return info;
 }
-function sync(file) {
-  const fd = fs.openSync(file, 'r');
-  try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-}
+const { syncPath: sync } = require('./fsSync');
 function syncParents(p) { sync(p.directory); if (stat(p.job)) sync(p.job); }
 function writeJournal(p, record) {
   const temporary = path.join(p.directory, '.restore-journal-' + randomUUID() + '.tmp');

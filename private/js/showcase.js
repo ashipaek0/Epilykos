@@ -49,6 +49,7 @@ const OPTIONS = {
   'flow-rows': [text('title', 'Title'), yes('showBars', 'Show the bars'), text('idleText', 'Idle word'), num('idleBelow', 'Idle below (W)', 0, 100000)],
   'prepaid-meter': [text('title', 'Title'), yes('showFacts', 'Show the facts'), yes('showHistory', 'Show the latest entries'), num('segments', 'Segments (0 for one bar)', 0, 40)],
   'meter-card': [text('label', 'Label'), num('segments', 'Segments (0 for one bar)', 0, 40), num('lowAt', 'Red at or below (%)', 0, 100), num('warnAt', 'Amber at or below (%)', 0, 100)],
+  'device-card': [text('title', 'Title'), text('subtitle', 'Subtitle'), text('icon', 'Picture or icon'), yes('showBar', 'Show the bar'), num('lowAt', 'Red at or below (%)', 0, 100), num('warnAt', 'Amber at or below (%)', 0, 100)],
   'status-list': [text('title', 'Title'), yes('showCount', 'Show how many are on'), yes('showValue', 'Show each row\u2019s value')],
   'system-overview': [text('title', 'Title'), yes('showWeather', 'Show the weather')],
   'metric-trend': [text('title', 'Title'), pick('preset', 'Look', [['subtle-area', 'Subtle'], ['filled-body', 'Filled']]),

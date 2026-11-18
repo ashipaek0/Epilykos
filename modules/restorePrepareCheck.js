@@ -1,5 +1,6 @@
 'use strict';
 const fs = require('node:fs');
+const { syncPath } = require('./fsSync');
 const { randomUUID } = require('node:crypto');
 const database = require('./database');
 const [source, destination] = process.argv.slice(2);
@@ -33,8 +34,7 @@ try {
   // Convert only this private copy to a standalone file; never touch the source.
   if (handle.pragma('journal_mode = DELETE', { simple: true }) !== 'delete') throw new Error('Cannot finalize prepared database');
   handle.close(); handle = null;
-  const fd = fs.openSync(destination, 'r');
-  try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  syncPath(destination);
   result = { ok: true, bytes: fs.statSync(destination).size };
 } catch (error) {
   result = { ok: false, error: error.message.slice(0, 512), code: error.code };

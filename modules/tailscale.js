@@ -18,6 +18,12 @@
  * When the tailnet hasn't enabled HTTPS or Funnel yet, `serve`/`funnel` print a
  * login.tailscale.com link to enable it and wait: that link is passed on.
  * The image ships Tailscale's latest stable release (see the Dockerfile).
+ *
+ * On Windows (or with TAILSCALE_SYSTEM=1) Epilykos does not run its own tailscaled: it drives the Tailscale
+ * client installed on the PC (the installer can fetch the official one) through the same CLI, which reaches
+ * the Tailscale service on its own. That client may already belong to the user and carry their other
+ * devices, so Epilykos never logs it out or renames it: turning remote access off only removes what it
+ * serves.
  * Written against the CLI source at v1.102.5: `up --json` (AuthURL),
  * `status --json` (Version, BackendState, AuthURL, Self {DNSName, Online,
  * CapMap}, CurrentTailnet), `serve status --json` (AllowFunnel), `serve reset`.
@@ -31,7 +37,18 @@ const { logger } = require('./logger');
 
 const DIR = path.resolve(process.env.TAILSCALE_STATE_DIR || path.join('data', 'tailscale'));
 const SOCKET = path.join(DIR, 'tailscaled.sock');
-const BIN = process.env.TAILSCALE_BIN || 'tailscale';
+/** Drive the machine's own Tailscale service rather than a daemon of our own. */
+const systemMode = () => process.platform === 'win32' || process.env.TAILSCALE_SYSTEM === '1';
+const socketArgs = () => (systemMode() ? [] : [`--socket=${SOCKET}`]);
+/** The CLI: TAILSCALE_BIN, else (Windows) the standard install folder when it is there, else `tailscale` on the PATH. */
+function bin() {
+  if (process.env.TAILSCALE_BIN) return process.env.TAILSCALE_BIN;
+  if (process.platform === 'win32') {
+    const file = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Tailscale', 'tailscale.exe');
+    if (fs.existsSync(file)) return file;
+  }
+  return 'tailscale';
+}
 const DAEMON = process.env.TAILSCALED_BIN || 'tailscaled';
 const PENDING_MS = 15 * 60 * 1000;     // sign-in / enable links stay open this long
 const LINK = /https:\/\/login\.tailscale\.com\/\S+/;
@@ -48,13 +65,13 @@ function setRunnerForTests(r) { runner = r; installed = null; }
 function isInstalled() {
   if (installed !== null) return Promise.resolve(installed);
   return new Promise(resolve => {
-    runner.execFile(BIN, ['version'], { timeout: 5000 }, err => { installed = !err; resolve(installed); });
+    runner.execFile(bin(), ['version'], { timeout: 5000 }, err => { installed = !err; resolve(installed); });
   });
 }
 
 function cli(args, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    runner.execFile(BIN, [`--socket=${SOCKET}`, ...args], { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
+    runner.execFile(bin(), [...socketArgs(), ...args], { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) return reject(new Error(String(stderr || err.message).trim().split('\n').slice(-3).join(' ')));
       resolve(String(stdout));
     });
@@ -75,6 +92,10 @@ function waitForSocket(ms = 15000) {
 /** Start tailscaled (userspace networking) and keep it running while remote access is on. */
 async function startDaemon() {
   wanted = true;
+  if (systemMode()) {                       // the Tailscale service is already running (or is not installed)
+    if (!(await isInstalled())) throw new Error('Tailscale is not installed on this computer');
+    return;
+  }
   if (daemon) return waitForSocket();
   fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
   try { fs.unlinkSync(SOCKET); } catch (_) { /* not there */ }
@@ -111,11 +132,12 @@ function stopDaemon() {
 function runWaiting(kind, args) {
   if (pending[kind]) { try { pending[kind].kill(); } catch (_) {} }
   return new Promise((resolve, reject) => {
-    const child = runner.spawn(BIN, [`--socket=${SOCKET}`, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = runner.spawn(bin(), [...socketArgs(), ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
     pending[kind] = child;
     let out = '', settled = false;
     const finish = v => { if (!settled) { settled = true; resolve(v); } };
     const timer = setTimeout(() => { try { child.kill(); } catch (_) {} }, PENDING_MS);
+    if (timer.unref) timer.unref();
     const onData = d => {
       out += String(d);
       const m = LINK.exec(out);
@@ -148,7 +170,7 @@ async function status() {
   const base = { installed: await isInstalled(), enabled: wanted };
   if (!base.installed) return { ...base, state: 'not-installed' };
   if (!wanted) return { ...base, state: 'off' };
-  if (!daemon || !fs.existsSync(SOCKET)) return { ...base, state: 'starting' };
+  if (!systemMode() && (!daemon || !fs.existsSync(SOCKET))) return { ...base, state: 'starting' };
   let st;
   try { st = JSON.parse(await cli(['status', '--json', '--peers=false'], 10000)); }
   catch (e) { return { ...base, state: 'starting', error: e.message }; }
@@ -188,6 +210,17 @@ function hostname(name) {
 /** Start Tailscale and sign in. Resolves with the status (signInLink while waiting). */
 async function connect({ name } = {}) {
   await startDaemon();
+  if (systemMode()) {
+    // An already signed-in Tailscale is used as it is: no sign-in, and its name is not changed.
+    let backend = null;
+    try { backend = JSON.parse(await cli(['status', '--json', '--peers=false'], 10000)).BackendState; } catch (_) { /* treated as not running */ }
+    if (backend === 'Running') return status();
+    const args = ['up', '--json'];
+    if (backend === 'NeedsLogin' || backend === null) args.push(`--hostname=${hostname(name)}`);
+    const res = await runWaiting('up', args);
+    if (res.link) lastLink.signIn = res.link;
+    return status();
+  }
   const res = await runWaiting('up', ['up', '--json', `--hostname=${hostname(name)}`]);
   if (res.link) lastLink.signIn = res.link;
   return status();
@@ -214,6 +247,13 @@ async function setFunnel(on, port) {
 
 /** Leave the tailnet and stop Tailscale. */
 async function disconnect() {
+  if (systemMode()) {
+    wanted = false;
+    for (const k of Object.keys(pending)) { if (pending[k]) { try { pending[k].kill(); } catch (_) {} pending[k] = null; } }
+    try { await cli(['serve', 'reset']); } catch (_) { /* nothing served */ }
+    lastLink = { signIn: null, enable: null };
+    return status();
+  }
   if (daemon && fs.existsSync(SOCKET)) {
     try { await cli(['serve', 'reset']); } catch (_) { /* nothing served */ }
     try { await cli(['logout'], 20000); } catch (e) { logger.warn(`[tailscale] logout: ${e.message}`); }

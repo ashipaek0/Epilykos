@@ -31,6 +31,7 @@ import { buildSystemHero } from './systemHero.js';
 import { buildSpeedometer } from './speedometer.js';
 import { buildFlowRows } from './flowRows.js';
 import { buildMeterCard } from './meterCard.js';
+import { buildDeviceCard } from './deviceCard.js';
 import { buildPrepaidMeter } from './prepaidMeter.js';
 import { buildFlowCardSquare2, updateFlowCardSquare2 } from './flowCardSquare2.js';
 import { buildPvToday } from './pvToday.js';
@@ -66,6 +67,7 @@ export const componentBuilders = {
   'speedometer': buildSpeedometer,
   'flow-rows': buildFlowRows,
   'meter-card': buildMeterCard,
+  'device-card': buildDeviceCard,
   'prepaid-meter': buildPrepaidMeter,
   'forecast-banner': buildForecastBanner,
   'forecast-sparkline': buildForecastSparkline,
