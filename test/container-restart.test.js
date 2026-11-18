@@ -54,7 +54,7 @@ const docker = {
   assert.deepEqual(r.data, { appliance: false });
   r = await call('post', '/restart');
   assert.equal(r.status, 404);
-  assert.match(r.data.error, /EpilykosOS and Docker/);
+  assert.match(r.data.error, /EpilykosOS, Docker and the Windows installer/);
   console.log('ok - not in Docker: no restart offered, the route says 404');
 
   // Docker without the socket: stop, let the restart policy start it.
@@ -100,6 +100,30 @@ const docker = {
   await p3.go();
   assert.equal(killed, 1, 'falls back to stopping so the restart policy starts it');
   console.log('ok - Docker refusals: reported before answering; a late refusal falls back to a clean stop');
+
+  // The Windows installer build: the Task Scheduler stops and starts the service, after the reply.
+  const tasks = [];
+  containerRestart.setForTests({ availability: () => 'none', windows: () => true, kill: () => { killed++; }, tasks: async args => { tasks.push(args); } });
+  r = await call('get', '/');
+  assert.deepEqual(r.data, { appliance: false, container: { restart: 'service' } });
+  killed = 0;
+  r = await call('post', '/restart');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data, { success: true, mode: 'service' });
+  assert.equal(tasks.length, 0, 'nothing runs before the reply');
+  const winPlan = await containerRestart.prepare();
+  await winPlan.go();
+  assert.equal(tasks.length, 2);
+  assert.equal(tasks[0][0], '/Create');
+  assert.equal(tasks[0][tasks[0].indexOf('/TR') + 1], 'cmd /c "net stop Epilykos && net start Epilykos"');
+  assert.ok(tasks[0].includes('SYSTEM'));
+  assert.deepEqual(tasks[1], ['/Run', '/TN', 'EpilykosRestart']);
+  assert.equal(killed, 0);
+  // If the task cannot be started, keep running (a clean stop would leave the service stopped).
+  containerRestart.setForTests({ availability: () => 'none', windows: () => true, kill: () => { killed++; }, tasks: async () => { throw new Error('access denied'); } });
+  await (await containerRestart.prepare()).go();
+  assert.equal(killed, 0);
+  console.log('ok - Windows service: replies first, then a scheduled task restarts the service; if it cannot start, Epilykos keeps running');
 
   // On an appliance the host service is used, not Docker.
   containerRestart.setForTests({ availability: () => 'ready', stub: docker, idFn: () => ID });

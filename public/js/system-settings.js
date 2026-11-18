@@ -92,10 +92,9 @@
 
   /** Docker: Restart only. With the Docker socket Docker restarts it; without, Epilykos stops and the restart policy starts it. */
   function renderContainer() {
-    var viaDocker = state.container.restart === 'docker';
     return '<div class="st-card"><div class="st-card-head"><h2>Restart</h2></div>'
       + '<p class="st-help">Restarts Epilykos and reloads this page.'
-      + (viaDocker ? '' : ' In Docker, set <code>restart: unless-stopped</code>.') + '</p>'
+      + (state.container.restart === 'exit' ? ' In Docker, set <code>restart: unless-stopped</code>.' : '') + '</p>'
       + '<div class="st-inline-actions"><button type="button" class="st-btn" data-act="restart">Restart</button></div>'
       + '<div class="test-status" id="sys-power-status" role="status"></div></div>';
   }
