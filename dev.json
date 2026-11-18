@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44301231541.1",
-    "version": "1.3.3-dev+dd5af56",
-    "commit": "dd5af56fd217aec5ea1827e6bfe860b8cbdf35f6",
-    "digest": "sha256:c526969a37e6bb43cc1b230d9266ca8f3555810691ba8ee9e66fd57daf2d06bb",
+    "buildId": "44307847625.1",
+    "version": "1.3.3-dev+e5805b7",
+    "commit": "e5805b710399ece36e743ca7a2b99859c0d8e613",
+    "digest": "sha256:3db9c2373350ee7c2db417ced0e1e466f2850fb0186961e5e0b297d827bee449",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-18T12:09:45Z",
+    "builtAt": "2026-11-18T12:51:25Z",
     "kind": "release",
     "notes": [
-      "Docker release step starts the Windows package build for the new release (#386)"
+      "README: link the Windows installer (#387)"
     ]
   },
   "history": [
+    {
+      "buildId": "44307847625.1",
+      "version": "1.3.3-dev+e5805b7",
+      "commit": "e5805b710399ece36e743ca7a2b99859c0d8e613",
+      "digest": "sha256:3db9c2373350ee7c2db417ced0e1e466f2850fb0186961e5e0b297d827bee449",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-18T12:51:25Z",
+      "kind": "release",
+      "notes": [
+        "README: link the Windows installer (#387)"
+      ]
+    },
     {
       "buildId": "44301231541.1",
       "version": "1.3.3-dev+dd5af56",
@@ -362,16 +374,6 @@
         "Remote backup, step 1: encrypted weekly copy to a folder (#351)",
         "Settings: Virtual Battery on its own page (#349)"
       ]
-    },
-    {
-      "buildId": "43443595838.1",
-      "version": "1.2.9-dev+ff183ae",
-      "commit": "ff183ae1d525cc8176e43d410a8552c4413c381a",
-      "digest": "sha256:a6796233784828d05a15b2d1c6dc7a3629e2e37a7fde8d10b4b5fbc80022bd14",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-13T14:32:18Z",
-      "kind": "release",
-      "notes": []
     }
   ]
 }
