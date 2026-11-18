@@ -22,7 +22,7 @@ Guides for everything below live in the **[Epilykos Wiki](https://epilykos.aship
 
 | Topic | Guides |
 |-------|--------|
-| Install | [Raspberry Pi with EpilykosOS](https://epilykos.ashipaek0.com.ng/getting-started/install-epilykos-os/) · [Docker](https://epilykos.ashipaek0.com.ng/getting-started/install-docker/) · [First-run setup](https://epilykos.ashipaek0.com.ng/getting-started/first-run-setup/) |
+| Install | [Raspberry Pi with EpilykosOS](https://epilykos.ashipaek0.com.ng/getting-started/install-epilykos-os/) · [Windows installer (beta)](https://epilykos.ashipaek0.com.ng/getting-started/install-windows/) · [Docker](https://epilykos.ashipaek0.com.ng/getting-started/install-docker/) · [First-run setup](https://epilykos.ashipaek0.com.ng/getting-started/first-run-setup/) |
 | Connect equipment | [Choosing a source](https://epilykos.ashipaek0.com.ng/data-sources/) · [Inverter dongles](https://epilykos.ashipaek0.com.ng/data-sources/inverter-dongles/) · [Modbus](https://epilykos.ashipaek0.com.ng/data-sources/modbus/) · [RS232](https://epilykos.ashipaek0.com.ng/data-sources/rs232/) · [Battery BMS](https://epilykos.ashipaek0.com.ng/data-sources/bms/) · [Home Assistant](https://epilykos.ashipaek0.com.ng/data-sources/home-assistant/) · [MQTT](https://epilykos.ashipaek0.com.ng/data-sources/mqtt/) · [Tuya](https://epilykos.ashipaek0.com.ng/data-sources/tuya/) · [REST API](https://epilykos.ashipaek0.com.ng/data-sources/rest-api/) · [Supported hardware](https://epilykos.ashipaek0.com.ng/data-sources/supported-hardware/) |
 | Dashboard | [Layout editor](https://epilykos.ashipaek0.com.ng/dashboard/editor/) · [Cards and the showcase](https://epilykos.ashipaek0.com.ng/dashboard/cards/) · [Device controls](https://epilykos.ashipaek0.com.ng/dashboard/controls/) · [Install as an app](https://epilykos.ashipaek0.com.ng/dashboard/app-and-network/) |
 | Settings | [Metrics](https://epilykos.ashipaek0.com.ng/settings/metrics/) · [Forecast](https://epilykos.ashipaek0.com.ng/settings/forecast-and-weather/) · [Prices and savings](https://epilykos.ashipaek0.com.ng/settings/prices-and-savings/) · [Notifications](https://epilykos.ashipaek0.com.ng/settings/notifications/) · [Remote access](https://epilykos.ashipaek0.com.ng/settings/network-and-remote-access/) · [Two-step sign-in](https://epilykos.ashipaek0.com.ng/settings/security/) · [Backups](https://epilykos.ashipaek0.com.ng/settings/backup-and-restore/) · [Updates](https://epilykos.ashipaek0.com.ng/settings/updates-and-system/) |
@@ -47,6 +47,8 @@ If people you don't trust can reach the server, set the password before the firs
 `docker-compose.yaml` uncomment `environment:` and `- SETTINGS_PASSWORD=`, type the password after the
 `=` (write each `$` as `$$`), and run `docker compose up -d`. The wizard then asks for that password,
 and only the compose file can change it.
+
+On a Windows PC, download `Epilykos-Setup-<version>.exe` from the [latest release](https://github.com/ashipaek0/Epilykos/releases/latest) (beta; not code-signed yet): see [Install on Windows](https://epilykos.ashipaek0.com.ng/getting-started/install-windows/).
 
 On a Raspberry Pi, flash **[EpilykosOS](https://github.com/ashipaek0/epilykos-os)** instead and open
 `http://epilykos.local:3000`: see [Install on a Raspberry Pi](https://epilykos.ashipaek0.com.ng/getting-started/install-epilykos-os/).

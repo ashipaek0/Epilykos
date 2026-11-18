@@ -199,6 +199,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Create the release
         env:
@@ -208,6 +209,20 @@ jobs:
         run: |
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Epilykos $VERSION" --generate-notes --latest
+
+      # Start the Windows installer build for this release. A release made with
+      # GITHUB_TOKEN does not start other workflows, so it is started here. It runs on
+      # its own and attaches the installer to the release when it finishes; nothing
+      # here waits for it, and a failure to start it never fails this workflow.
+      - name: Start the Windows package build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build-and-push.outputs.tag }}
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+        run: |
+          gh workflow run windows-package.yml --repo "$GITHUB_REPOSITORY" --ref main \
+            -f version="$VERSION" -f release_tag="$TAG" \
+            || echo "::warning::Could not start the Windows package build; run it by hand (Actions -> Windows package)"
 
   # Bridge to EpilykosOS (C-RELEASE-001): hand the digest records of this
   # build to ashipaek0/epilykos-os, which opens a pull request updating its
