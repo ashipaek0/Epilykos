@@ -33,7 +33,7 @@ let body = payload;
 const calls = [];
 const fakeFetch = async (url) => {
   calls.push(url);
-  if (String(url).includes('api.github.com')) return { ok: true, status: 200, json: async () => served };
+  if (new URL(url).hostname === 'api.github.com') return { ok: true, status: 200, json: async () => served };
   return { ok: true, status: 200, body: new Response(body).body };
 };
 const launched = [];
