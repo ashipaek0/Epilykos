@@ -1,24 +1,34 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "44299048303.1",
-    "version": "1.3.2",
-    "commit": "269853bfff4ddfeb4633e9378e43e5054cb56e10",
-    "digest": "sha256:7a2428b0ddf53fc686c22f8642ead581da746cefaeb0627f76d99c43253d6094",
+    "buildId": "44320560655.1",
+    "version": "1.3.3",
+    "commit": "1e5d78b107956b5e15c9e3c3b805f687a0fc587c",
+    "digest": "sha256:c0e6f93ea26047312e446b4ce495ed6ae024576298378337527aec831967a00c",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-18T11:55:51Z",
+    "builtAt": "2026-11-18T14:06:23Z",
     "kind": "release",
     "notes": [
-      "Test: match the API host exactly (CodeQL js/incomplete-url-substring-sanitization) (#385)",
-      "Windows package: a hand-started run can attach the installer to an existing release (#383)",
-      "Windows package: fixes from the first successful build (#382)",
-      "Windows package (beta): installer and service, Windows runtime support, updates (#381)",
-      "Plan: Windows package (installer and service, Bluetooth and Tailscale in scope, no pipeline impact) (#380)",
-      "Device card: header, value and status pill, bar, small readings, label/value rows (#379)",
-      "Dashboard tabs for visitors, top/side/collapsible, per-dashboard visibility, Controls as signed-in tab (#378)"
+      "Settings → System → Restart works on the Windows installer build (#388)",
+      "README: link the Windows installer (#387)",
+      "Docker release step starts the Windows package build for the new release (#386)"
     ]
   },
   "history": [
+    {
+      "buildId": "44320560655.1",
+      "version": "1.3.3",
+      "commit": "1e5d78b107956b5e15c9e3c3b805f687a0fc587c",
+      "digest": "sha256:c0e6f93ea26047312e446b4ce495ed6ae024576298378337527aec831967a00c",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-18T14:06:23Z",
+      "kind": "release",
+      "notes": [
+        "Settings → System → Restart works on the Windows installer build (#388)",
+        "README: link the Windows installer (#387)",
+        "Docker release step starts the Windows package build for the new release (#386)"
+      ]
+    },
     {
       "buildId": "44299048303.1",
       "version": "1.3.2",
@@ -459,20 +469,6 @@
       "builtAt": "2026-11-02T10:59:29Z",
       "kind": "rebuild",
       "notes": []
-    },
-    {
-      "buildId": "41407655994.1",
-      "version": "1.0.12",
-      "commit": "60796ba4763f76f233abfa59a64cb5348c052e9a",
-      "digest": "sha256:a077feb6fbfe464e030a3f817c6921e56787481e4dd2cf2acde4cd977efbaba4",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-02T07:39:17Z",
-      "kind": "release",
-      "notes": [
-        "Fix two CodeQL alerts in the reveal script",
-        "Fix masked fields losing their value and misaligning boxes",
-        "Mask sensitive fields and displays, with a way to reveal them"
-      ]
     }
   ]
 }
