@@ -15,7 +15,7 @@ const STATUSES = new Set(['verified', 'unverified', 'community']);
 const FUNCTIONS = new Set(['holding', 'input']);
 const WORD_ORDERS = new Set(['msw_first', 'lsw_first']);
 // Units seen in the shipped profiles. An unlisted unit is a warning, not an error: a new device may need one.
-const UNITS = new Set(['', 'V', 'A', 'W', 'kW', 'VA', 'kVA', 'var', 'Wh', 'kWh', 'Ah', 'Hz', '%', '°C', 'mV', 'mA', 'min', 'h', 's', 'ms', 'Ohm', 'kOhm', 'KΩ', 'kΩ', 'VAR', 'cycles']);
+const UNITS = new Set(['', 'V', 'A', 'W', 'kW', 'VA', 'kVA', 'var', 'Wh', 'kWh', 'Ah', 'Hz', '%', '°C', 'mV', 'mA', 'min', 'h', 's', 'ms', 'Ohm', 'kOhm', 'KΩ', 'kΩ', 'MOhm', 'MΩ', 'VAR', 'cycles']);
 const METRIC_NAME = /^[a-z][a-z0-9_]*$/;
 
 function isInt(n) { return Number.isInteger(n); }
