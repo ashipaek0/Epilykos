@@ -237,9 +237,11 @@ function renderTabs() {
     shell.prepend(tabBar);
   }
 
-  const { tabs, show } = tabsFor(dashboardConfig.dashboards, signedIn);
   const position = effectivePosition(tabsSetting, window.innerWidth);
-  shell.dataset.tabs = position;
+  const off = position === 'off';
+  const { tabs, show } = tabsFor(dashboardConfig.dashboards, signedIn, off);
+  shell.dataset.tabs = off ? 'top' : position;
+  syncControlsLink(off && signedIn);
 
   let toggle = document.getElementById('tab-toggle');
   if (!toggle) {
@@ -249,12 +251,13 @@ function renderTabs() {
     toggle.className = 'settings-link';
     toggle.textContent = '☰';
     toggle.onclick = () => {
-      writeCollapsed(!readCollapsed());
+      writeCollapsed(!readCollapsed(undefined, tabsSetting === 'off'));
       renderTabs();
     };
     (document.querySelector('header .header-right') || header).appendChild(toggle);
   }
-  const collapsed = readCollapsed();
+  // With tabs off the bar starts folded away; the ☰ button still opens it (and that choice is remembered).
+  const collapsed = readCollapsed(undefined, off);
   toggle.style.display = show ? '' : 'none';
   toggle.title = collapsed ? 'Show dashboard tabs' : 'Hide dashboard tabs';
   toggle.setAttribute('aria-expanded', String(!collapsed));
@@ -287,6 +290,18 @@ function renderTabs() {
     edit.addEventListener('click', () => { edit.href = `/editor?tab=${encodeURIComponent(dashboardConfig.activeDashboard)}`; });
     tabBar.appendChild(edit);
   }
+}
+
+/** With tabs off, Controls is a link in the header again (as before tabs existed); otherwise it is a tab. */
+function syncControlsLink(wanted) {
+  const existing = document.getElementById('controls-link');
+  if (!wanted) { if (existing) existing.remove(); return; }
+  if (existing) return;
+  const settingsBtn = document.getElementById('settings-btn');
+  if (!settingsBtn) return;
+  const a = document.createElement('a');
+  a.id = 'controls-link'; a.href = '/controls'; a.className = 'settings-link'; a.textContent = 'Controls';
+  settingsBtn.before(a);
 }
 
 let sessionChecked = false;
