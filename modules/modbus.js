@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { getConfig, queueMetricValue } = require('./database');
 const { PollResult } = require('./pollResult');
+const { readRegisters } = require('./modbusDecode');
 
 let availableProfiles = [];
 
@@ -28,6 +29,9 @@ function loadProfiles() {
         // How the device speaks Modbus natively: 'rtu' (RS-485 port — reachable
         // over TCP only through an RS485-to-Ethernet gateway) or 'tcp'.
         connection: profile.connection === 'tcp' ? 'tcp' : 'rtu',
+        // Defaults for every register: 'input' reads function 04; wordOrder 'lsw_first' puts the low word of a 32/64-bit value first.
+        function: profile.function === 'input' ? 'input' : 'holding',
+        wordOrder: profile.wordOrder === 'lsw_first' ? 'lsw_first' : 'msw_first',
         registers: profile.registers || []
       });
     } catch (e) { logger.error(`Failed to parse profile ${file}:`, e.message); }
@@ -129,36 +133,14 @@ async function pollModbus() {
     try {
       client = await connectModbus(device);
 
-      const results = {};
-      const sorted = [...registersToPoll].sort((a, b) => a.address - b.address);
-      let i = 0;
-      while (i < sorted.length) {
-        const startAddr = sorted[i].address;
-        let count = 0;
-        while (i < sorted.length && sorted[i].address === startAddr + count && count < 32) { count++; i++; }
-        try {
-          const resp = await client.readHoldingRegisters(startAddr, count);
-          for (let j = 0; j < resp.data.length; j++) {
-            const reg = sorted[i - count + j];
-            let raw = resp.data[j];
-            if (reg.type === 'int16' && raw > 0x7FFF) raw -= 0x10000;
-            if (reg.type === 'uint32') {
-              // Combine this register (high word) with next (low word) for 32-bit
-              if (j + 1 < resp.data.length) {
-                const nextReg = sorted[i - count + j + 1];
-                if (nextReg && (!addrToMetric || addrToMetric[String(nextReg.address)] === addrToMetric[String(reg.address)])) {
-                  raw = (raw << 16) | resp.data[j + 1];
-                  j++; // skip the low word register
-                }
-              }
-            }
-            const value = reg.scale ? raw * reg.scale : raw;
-            const metricName = addrToMetric ? addrToMetric[String(reg.address)] : (device.prefix || '') + reg.metric;
-            if (metricName) results[metricName] = value;
-          }
-          result.success();
-        } catch (err) { result.fail(err); logger.error(`Modbus read error at ${startAddr}:`, err.message); }
-      }
+      const read = await readRegisters(client, registersToPoll, {
+        function: profile.function,
+        wordOrder: profile.wordOrder,
+        nameOf: reg => (addrToMetric ? addrToMetric[String(reg.address)] : (device.prefix || '') + reg.metric),
+      });
+      for (let n = 0; n < read.blocks - read.failed.length; n++) result.success();
+      for (const f of read.failed) { result.fail(f.error); logger.error(`Modbus read error at ${f.start}:`, f.error.message); }
+      const results = read.values;
       await closeClient(client);
 
       const now = Math.floor(Date.now() / 1000);
