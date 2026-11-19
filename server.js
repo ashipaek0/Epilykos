@@ -483,7 +483,7 @@ const restoreLifecycle = {
     require('./routes/health').checkHealth();
   }
 };
-databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); });
+databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); require('./modules/haDiscoveryService').start(); });
 const restoreUploads = require('./modules/restoreUploads').createRestoreUploadManager({
   lifecycle: restoreLifecycle,
   captureSession: sid => sessionStore.captureForRestore(sid),
@@ -782,6 +782,7 @@ app.get('/setup', (req, res) => {
 app.use('/api/system', isAuthenticated, require('./routes/system'));
 app.use('/api/notices', isAuthenticated, require('./routes/notices'));
 app.use('/api/presets', isAuthenticated, require('./routes/presets'));   // ready-made dashboards for the layout editor
+app.use('/api/ha-discovery', isAuthenticated, require('./routes/haDiscovery'));   // Settings → Home Assistant
 app.use('/api/prepaid', require('./routes/prepaid'));   // the balance: public unless private; changes and settings: signed in
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
@@ -2904,6 +2905,7 @@ async function shutdown(signal, exitCode = 0) {
   try { pvoutput.stop(); } catch (e) { logger.warn(`PVOutput stop failed: ${e.message}`); }
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
+  require('./modules/haDiscoveryService').stop();
   for (const client of wsClients) client.terminate();
   wsClients.clear();
   wss.close();

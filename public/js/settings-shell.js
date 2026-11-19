@@ -183,7 +183,7 @@
   // ── Sections and routing ───────────────────────────────────────────────
   var SECTION_TITLES = {
     sources: 'Sources', metrics: 'Metrics', 'virtual-battery': 'Virtual Battery', forecast: 'Forecast and weather', savings: 'Prices and savings', prepaid: 'Prepaid meter',
-    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', network: 'Network', security: 'Security', logs: 'Logs', backup: 'Backup and restore', updates: 'Updates', system: 'System', help: 'Help'
+    appearance: 'Appearance', uploads: 'Uploads', notifications: 'Notifications', homeassistant: 'Home Assistant', network: 'Network', security: 'Security', logs: 'Logs', backup: 'Backup and restore', updates: 'Updates', system: 'System', help: 'Help'
   };
   var SAVABLE = ['sources', 'metrics', 'forecast', 'savings', 'appearance', 'uploads', 'network'];
   // Old section ids (bookmarks, the setup wizard, help text) → new ones.
