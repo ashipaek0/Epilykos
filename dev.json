@@ -1,16 +1,34 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44536870132.1",
-    "version": "1.3.5-dev+c55159b",
-    "commit": "c55159b03f55d0041cf1da3138e811426dfad943",
-    "digest": "sha256:b43ec26c7bff426a0a5e11df37e5d677a3a1e231f09e54ee1742835c59573d64",
+    "buildId": "44537497870.1",
+    "version": "1.3.5-dev+10ecdd9",
+    "commit": "10ecdd9170ff17d5572698b85b1bef7a12db58aa",
+    "digest": "sha256:2c6954a481ac85c7af0b733b3c09f2ddfa8db9d15296ae6271ef1a1db1d085e5",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:47:13Z",
+    "builtAt": "2026-11-19T13:50:58Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Profile: GoodWe ET / EH / BT / BH hybrid (Modbus RTU), from GoodWe's third-party EMS protocol document (#401)",
+      "Settings → Home Assistant: publish metrics as sensors through MQTT discovery (#398)",
+      "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)"
+    ]
   },
   "history": [
+    {
+      "buildId": "44537497870.1",
+      "version": "1.3.5-dev+10ecdd9",
+      "commit": "10ecdd9170ff17d5572698b85b1bef7a12db58aa",
+      "digest": "sha256:2c6954a481ac85c7af0b733b3c09f2ddfa8db9d15296ae6271ef1a1db1d085e5",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:50:58Z",
+      "kind": "release",
+      "notes": [
+        "Profile: GoodWe ET / EH / BT / BH hybrid (Modbus RTU), from GoodWe's third-party EMS protocol document (#401)",
+        "Settings → Home Assistant: publish metrics as sensors through MQTT discovery (#398)",
+        "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)"
+      ]
+    },
     {
       "buildId": "44536870132.1",
       "version": "1.3.5-dev+c55159b",
@@ -359,18 +377,6 @@
       "kind": "release",
       "notes": [
         "Settings: blank placeholders; labels above device-card fields (#366)"
-      ]
-    },
-    {
-      "buildId": "43609529324.1",
-      "version": "1.2.12-dev+1aec3cf",
-      "commit": "1aec3cf2a47b24c7c93fd5f5607c493a829b77d6",
-      "digest": "sha256:33939214ba29387e7c8b44a0ba919aa17cf41b8341ff25bca3468f0205673ada",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T15:19:39Z",
-      "kind": "release",
-      "notes": [
-        "Settings: a faint amber wash marks the current section in the menu (#364)"
       ]
     }
   ]
