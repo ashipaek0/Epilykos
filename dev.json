@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44539031601.1",
-    "version": "1.3.5-dev+6c4c790",
-    "commit": "6c4c79020f06560af0953d21ec8bac5012f64934",
-    "digest": "sha256:7b6a29a57979e4b67a50b6e80ec1349fa60fbaee042785c928f4b671d9e68b31",
+    "buildId": "44562229058.1",
+    "version": "1.3.6-dev+39fe60d",
+    "commit": "39fe60d52efa27e66e31c9ede1a3e34c4750f9e4",
+    "digest": "sha256:f92da2d595cb029c3b27f2da1c18a215af7d81595548e35748c57115d0f010c7",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T14:00:15Z",
+    "builtAt": "2026-11-19T16:06:26Z",
     "kind": "release",
     "notes": [
-      "Presets and Home Assistant: file names come only from the listing, and a linear underscore trim (CodeQL) (#406)"
+      "Settings: close the Home Assistant section (Notifications, Security, Logs, Backup, Health, Updates, System and Help opened blank) (#407)"
     ]
   },
   "history": [
+    {
+      "buildId": "44562229058.1",
+      "version": "1.3.6-dev+39fe60d",
+      "commit": "39fe60d52efa27e66e31c9ede1a3e34c4750f9e4",
+      "digest": "sha256:f92da2d595cb029c3b27f2da1c18a215af7d81595548e35748c57115d0f010c7",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T16:06:26Z",
+      "kind": "release",
+      "notes": [
+        "Settings: close the Home Assistant section (Notifications, Security, Logs, Backup, Health, Updates, System and Help opened blank) (#407)"
+      ]
+    },
     {
       "buildId": "44539031601.1",
       "version": "1.3.5-dev+6c4c790",
@@ -363,18 +375,6 @@
       "kind": "release",
       "notes": [
         "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)"
-      ]
-    },
-    {
-      "buildId": "44040525402.1",
-      "version": "1.2.14-dev+bebbe19",
-      "commit": "bebbe1987727e6526105fe6469e6fc706139113c",
-      "digest": "sha256:092ad0d26506697d8ecfabd77efa7567df0be503b14eca3d16b743f689c3fea2",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-17T07:40:54Z",
-      "kind": "release",
-      "notes": [
-        "Updates: app download progress bar, and no flicker while it refreshes (#371)"
       ]
     }
   ]
