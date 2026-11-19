@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44537754261.1",
-    "version": "1.3.5-dev+63ea0ef",
-    "commit": "63ea0efd9e8515343713799f05db968a836f4bb1",
-    "digest": "sha256:c5d701745be8d59f35403e9db2becd853b6571cc395760537648d4c65a3aad8c",
+    "buildId": "44537790311.1",
+    "version": "1.3.5-dev+445d767",
+    "commit": "445d7677a0def506c2350d73c087588182f83b8a",
+    "digest": "sha256:3d7e3c3cb43e7de25f89e9d63f013a0e9d47e7ef07bdb1226ba39e8feac38004",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:52:30Z",
+    "builtAt": "2026-11-19T13:52:44Z",
     "kind": "release",
     "notes": [
-      "Profile: Huawei SUN2000 (Modbus TCP) with LUNA2000 battery and power meter (#402)"
+      "Profile: Sungrow SH-RT / SHx hybrid (Modbus TCP), input registers (#403)"
     ]
   },
   "history": [
+    {
+      "buildId": "44537790311.1",
+      "version": "1.3.5-dev+445d767",
+      "commit": "445d7677a0def506c2350d73c087588182f83b8a",
+      "digest": "sha256:3d7e3c3cb43e7de25f89e9d63f013a0e9d47e7ef07bdb1226ba39e8feac38004",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:52:44Z",
+      "kind": "release",
+      "notes": [
+        "Profile: Sungrow SH-RT / SHx hybrid (Modbus TCP), input registers (#403)"
+      ]
+    },
     {
       "buildId": "44537754261.1",
       "version": "1.3.5-dev+63ea0ef",
@@ -363,18 +375,6 @@
       "kind": "release",
       "notes": [
         "Remote backup: stale status messages clear (#367)"
-      ]
-    },
-    {
-      "buildId": "43694740723.1",
-      "version": "1.2.13-dev+d659028",
-      "commit": "d6590284f4366555737a73dac66203fcb7cbaef7",
-      "digest": "sha256:55f4efef933e2b9d27dd4cc856825ddbd553c54ae8f3785c6b7df7353361f8c2",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-15T08:29:58Z",
-      "kind": "release",
-      "notes": [
-        "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)"
       ]
     }
   ]
