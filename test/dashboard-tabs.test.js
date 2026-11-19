@@ -22,6 +22,17 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   assert.deepEqual(admin.tabs.map(t => t.label), ['Main', 'Controls']);
   assert.equal(admin.tabs[1].href, '/controls');
 
+  // Tabs off: the old behaviour. Visitors get no bar; an admin always has one, Controls included.
+  assert.equal(m.tabsFor(two, false, true).show, false, 'off: a visitor never gets a bar');
+  const offAdmin = m.tabsFor(two, true, true);
+  assert.equal(offAdmin.show, true, 'off: a signed-in admin always has the bar');
+  assert.deepEqual(offAdmin.tabs.map(t => t.label), ['Main', 'Power', 'Controls'], 'off: Controls stays in the bar');
+  assert.ok(!m.tabsFor(two, false, true).tabs.some(t => t.href === '/controls'), 'off: a visitor is never shown Controls');
+  assert.equal(m.tabsPosition('off'), 'off');
+  assert.equal(m.effectivePosition('off', 390), 'off');
+  assert.equal(m.effectivePosition('off', 1280), 'off');
+  assert.deepEqual(m.tabsFor(two, true), { tabs: m.tabsFor(two, true).tabs, show: true }, 'on is unchanged');
+
   assert.equal(m.tabsPosition('left'), 'left');
   assert.equal(m.tabsPosition('right'), 'right');
   assert.equal(m.tabsPosition('diagonal'), 'top');
@@ -38,10 +49,13 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   // Wiring: the setting is saved, served to visitors and shown in Settings; Controls left the header.
   for (const f of ['server.js', 'routes/metrics.js', 'modules/database.js']) assert.match(read(f), /'tabs_position'/, f + ' knows tabs_position');
   assert.match(read('public/settings.html'), /name="tabs_position"/);
+  assert.match(read('public/settings.html'), /<option value="off">No tabs/, 'Settings offers No tabs');
+  const dash = read('public/js/dashboard.js');
+  assert.match(dash, /tabsFor\(dashboardConfig\.dashboards, signedIn, off\)/, 'tabs off is passed to the tab rules');
   const js = read('public/js/dashboard.js');
-  assert.doesNotMatch(js, /controls-link/, 'no Controls link in the header any more');
+  assert.doesNotMatch(js, /controls-link/, 'no Controls link in the header, in any mode');
   assert.match(js, /if \(signedIn\) await saveDashboardConfig/, 'only a signed-in session saves the shown dashboard');
-  assert.match(js, /tabs: *tabsFor|tabsFor\(dashboardConfig\.dashboards, signedIn\)/);
+  assert.match(js, /tabs: *tabsFor|tabsFor\(dashboardConfig\.dashboards, signedIn(, off)?\)/);
   const css = read('public/style.css');
   assert.match(css, /#tab-bar\[hidden\]\s*\{\s*display:\s*none/);
   assert.match(css, /data-tabs="left"/); assert.match(css, /data-tabs="right"/);

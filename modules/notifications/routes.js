@@ -386,6 +386,15 @@ function createRouter() {
     res.json({ success: true });
   }));
 
+  // ── Inbox (the bell on the dashboard) ──
+  r.get('/inbox', handle((req, res) => res.json(store.getInbox(Number(req.query.limit) || 50))));
+  r.post('/inbox/read', handle((req, res) => {
+    const b = req.body || {};
+    const changed = store.markInboxRead(b.all === true ? 'all' : b.ids);
+    res.json({ success: true, changed, unread: store.getInbox(1).unread });
+  }));
+  r.delete('/inbox', handle((req, res) => { store.clearInbox(); res.json({ success: true, unread: 0 }); }));
+
   // ── Log ──
   r.get('/log', handle((req, res) => res.json(store.getLog(Number(req.query.limit) || 100))));
   r.delete('/log', handle((req, res) => { store.clearLog(); res.json({ success: true }); }));

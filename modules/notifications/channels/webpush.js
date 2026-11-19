@@ -29,7 +29,8 @@ function payloadFor(msg) {
     body: msg.body,
     severity: msg.severity,
     tag: msg.tag || 'epilykos',
-    url: msg.url || '/',
+    // The path (on this Epilykos) is what a click opens; a full address only when no path was given.
+    url: msg.path || msg.url || '/',
     timestamp: (msg.timestamp || Math.floor(Date.now() / 1000)) * 1000,
   });
 }

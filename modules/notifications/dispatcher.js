@@ -81,7 +81,7 @@ async function sendToChannel(channel, message, opts = {}) {
 }
 
 /**
- * Deliver `message` ({ title, body, severity, tag, url? }) to `channelIds` and
+ * Deliver `message` ({ title, body, severity, tag, path?, url?, event?, thread?, resolves? }) to `channelIds` and
  * to the push devices the rule lists (rule.devices).
  * `rule` is for the log. opts.force skips the enabled/quiet checks (tests);
  * opts.ignoreQuiet skips quiet hours only (reports scheduled for a set time).
@@ -89,12 +89,16 @@ async function sendToChannel(channel, message, opts = {}) {
 async function deliver(message, channelIds, rule, opts = {}) {
   const settings = store.getSettings();
   const msg = { timestamp: Math.floor(Date.now() / 1000), ...message };
-  if (!msg.url && settings.base_url) msg.url = String(settings.base_url).replace(/\/+$/, '') + '/';
+  // A link another service (Telegram, Discord, ntfy) can open needs the full address; the browser alert uses the path.
+  if (!msg.url && settings.base_url) msg.url = String(settings.base_url).replace(/\/+$/, '') + (msg.path && msg.path.startsWith('/') ? msg.path : '/');
   const base = { rule_id: rule ? rule.id : null, rule_name: rule ? rule.name : (opts.label || null), severity: msg.severity, title: msg.title, body: msg.body };
 
   if (!opts.force) {
     if (!settings.enabled) return [];
-    if (msg.severity !== 'critical' && !opts.ignoreQuiet && isQuietNow(settings)) {
+    // One inbox row per alert (the bell on the dashboard), whether or not quiet hours hold the delivery back.
+    const held = msg.severity !== 'critical' && !opts.ignoreQuiet && isQuietNow(settings);
+    store.addInbox({ severity: msg.severity, title: msg.title, body: msg.body, path: msg.path, event_type: msg.event, thread: msg.thread, resolves: msg.resolves ? msg.thread : null, rule_name: msg.rule, held });
+    if (held) {
       store.addLog({ ...base, status: 'quiet', error: 'Held back by quiet hours' });
       return [];
     }
