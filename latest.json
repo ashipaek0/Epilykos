@@ -1,28 +1,30 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "44540257924.1",
-    "version": "1.3.5",
-    "commit": "12cd5a6ef0338c7afba0ad4e82e58497f44ca3b0",
-    "digest": "sha256:8f0e1558620270986700410d389e9e0610bdc051a53b047a98f7fa94eae5538f",
+    "buildId": "44563590071.1",
+    "version": "1.3.6",
+    "commit": "712888e0d4122593469945cec8460ac16e33b9a8",
+    "digest": "sha256:1e1318a7771adf83ff79806c026b9f2a10c3ba52e95aedfdf1c23d914a4f01cc",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-19T14:07:14Z",
+    "builtAt": "2026-11-19T16:13:42Z",
     "kind": "release",
     "notes": [
-      "Presets and Home Assistant: file names come only from the listing, and a linear underscore trim (CodeQL) (#406)",
-      "Profile: Growatt SPH 3-6 kW hybrid (Modbus RTU), input registers (#404)",
-      "Profile: Sungrow SH-RT / SHx hybrid (Modbus TCP), input registers (#403)",
-      "Profile: Huawei SUN2000 (Modbus TCP) with LUNA2000 battery and power meter (#402)",
-      "Profile: GoodWe ET / EH / BT / BH hybrid (Modbus RTU), from GoodWe's third-party EMS protocol document (#401)",
-      "Settings → Home Assistant: publish metrics as sensors through MQTT discovery (#398)",
-      "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)",
-      "Modbus: read 32- and 64-bit values whole, input registers (function 04) and word order; fix the Deye 16-bit types (#400)",
-      "Settings → Health: setup checks with a fix link each, and warnings you can hide (#397)",
-      "Layout editor: Browse presets, a gallery of ready-made dashboards that ship with the app (#396)",
-      "Profile checker: npm run check:profile, a test over every shipped profile, issue and PR templates for new inverters (#395)"
+      "Settings: close the Home Assistant section (Notifications, Security, Logs, Backup, Health, Updates, System and Help opened blank) (#407)"
     ]
   },
   "history": [
+    {
+      "buildId": "44563590071.1",
+      "version": "1.3.6",
+      "commit": "712888e0d4122593469945cec8460ac16e33b9a8",
+      "digest": "sha256:1e1318a7771adf83ff79806c026b9f2a10c3ba52e95aedfdf1c23d914a4f01cc",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-19T16:13:42Z",
+      "kind": "release",
+      "notes": [
+        "Settings: close the Home Assistant section (Notifications, Security, Logs, Backup, Health, Updates, System and Help opened blank) (#407)"
+      ]
+    },
     {
       "buildId": "44540257924.1",
       "version": "1.3.5",
@@ -455,28 +457,6 @@
       "builtAt": "2026-11-04T14:45:10Z",
       "kind": "rebuild",
       "notes": []
-    },
-    {
-      "buildId": "41848738973.1",
-      "version": "1.0.14",
-      "commit": "ea24b7d0d1cfbe2ed6e73805105e08dbe4c177dc",
-      "digest": "sha256:78637f590c326acfe75e113b5ab7ea429f8ecb8c925973dcd8102662345a3044",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-04T14:33:40Z",
-      "kind": "release",
-      "notes": [
-        "Glass cards setting for every dashboard card (Settings → Appearance) (#267)",
-        "Compose file follows the edited README; drop the bluetooth Permissions-Policy entry (#266)",
-        "Remove documentation link from README",
-        "Update README.md",
-        "Update README.md",
-        "Make the forecast and time-series reader fixtures work in any time zone (#265)",
-        "Make fixtures independent of the time of day (#264)",
-        "Fix a flaky WebSocket test and the CodeQL cookie finding in a test app (#263)",
-        "Harden the PVOutput callback, logs, headers and Docker defaults (security audit) (#261)",
-        "Limit the live-state WebSocket (security audit) (#260)",
-        "Harden sign-in and sessions (security audit) (#259)"
-      ]
     }
   ]
 }
