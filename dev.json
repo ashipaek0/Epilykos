@@ -1,18 +1,32 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44534665102.1",
-    "version": "1.3.5-dev+afd929e",
-    "commit": "afd929eaab63dadf7fddab9916dd788465901c50",
-    "digest": "sha256:981d60c9dd8cfe5a757f338aecc3e5f21a2fd08ed843368e68c1eb63bf2f4224",
+    "buildId": "44536878122.1",
+    "version": "1.3.5-dev+5aaec49",
+    "commit": "5aaec49c655b3a90670561aca3a852b308cb7a60",
+    "digest": "sha256:6698ed61bba01cdb1fd280cb98afdbf8cf95c9fa08481c415cba354b87e2d6fe",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:33:57Z",
+    "builtAt": "2026-11-19T13:47:21Z",
     "kind": "release",
     "notes": [
-      "Settings → Health: setup checks with a fix link each, and warnings you can hide (#397)"
+      "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)",
+      "Modbus: read 32- and 64-bit values whole, input registers (function 04) and word order; fix the Deye 16-bit types (#400)"
     ]
   },
   "history": [
+    {
+      "buildId": "44536878122.1",
+      "version": "1.3.5-dev+5aaec49",
+      "commit": "5aaec49c655b3a90670561aca3a852b308cb7a60",
+      "digest": "sha256:6698ed61bba01cdb1fd280cb98afdbf8cf95c9fa08481c415cba354b87e2d6fe",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:47:21Z",
+      "kind": "release",
+      "notes": [
+        "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)",
+        "Modbus: read 32- and 64-bit values whole, input registers (function 04) and word order; fix the Deye 16-bit types (#400)"
+      ]
+    },
     {
       "buildId": "44534665102.1",
       "version": "1.3.5-dev+afd929e",
@@ -362,18 +376,6 @@
       "kind": "release",
       "notes": [
         "Settings: more room between sections and a short faint divider (#363)"
-      ]
-    },
-    {
-      "buildId": "43604484679.1",
-      "version": "1.2.11-dev+9f8497b",
-      "commit": "9f8497b204d963c53589f11f234b6cd5bd5671dc",
-      "digest": "sha256:84ebb9838c77ffdd47854d78f5dc8207b7cacd311545bb44eefa62ecd65891d4",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T14:22:22Z",
-      "kind": "release",
-      "notes": [
-        "Google Drive backup: retry when the connection drops while an answer is being read (#361)"
       ]
     }
   ]
