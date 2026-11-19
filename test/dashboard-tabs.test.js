@@ -22,6 +22,16 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   assert.deepEqual(admin.tabs.map(t => t.label), ['Main', 'Controls']);
   assert.equal(admin.tabs[1].href, '/controls');
 
+  // Tabs off: the old behaviour. Visitors get no bar, an admin keeps one (folded away at first), Controls leaves it.
+  assert.equal(m.tabsFor(two, false, true).show, false, 'off: a visitor never gets a bar');
+  const offAdmin = m.tabsFor(two, true, true);
+  assert.equal(offAdmin.show, true, 'off: a signed-in admin keeps the ☰ bar');
+  assert.deepEqual(offAdmin.tabs.map(t => t.label), ['Main', 'Power'], 'off: Controls is in the header, not in the bar');
+  assert.equal(m.tabsPosition('off'), 'off');
+  assert.equal(m.effectivePosition('off', 390), 'off');
+  assert.equal(m.effectivePosition('off', 1280), 'off');
+  assert.deepEqual(m.tabsFor(two, true), { tabs: m.tabsFor(two, true).tabs, show: true }, 'on is unchanged');
+
   assert.equal(m.tabsPosition('left'), 'left');
   assert.equal(m.tabsPosition('right'), 'right');
   assert.equal(m.tabsPosition('diagonal'), 'top');
@@ -34,14 +44,26 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   m.writeCollapsed(true, store); assert.equal(m.readCollapsed(store), true);
   m.writeCollapsed(false, store); assert.equal(m.readCollapsed(store), false);
   assert.equal(m.readCollapsed({ getItem() { throw new Error('blocked'); } }), false, 'blocked storage: tabs stay shown');
+  const empty = { getItem: () => null, setItem() {} };
+  assert.equal(m.readCollapsed(empty, true), true, 'no choice yet: the fallback (folded away when tabs are off)');
+  assert.equal(m.readCollapsed(empty), false);
+  m.writeCollapsed(false, store); assert.equal(m.readCollapsed(store, true), false, 'a saved choice beats the fallback');
+  assert.equal(m.readCollapsed({ getItem() { throw new Error('blocked'); } }, true), true);
 
   // Wiring: the setting is saved, served to visitors and shown in Settings; Controls left the header.
   for (const f of ['server.js', 'routes/metrics.js', 'modules/database.js']) assert.match(read(f), /'tabs_position'/, f + ' knows tabs_position');
   assert.match(read('public/settings.html'), /name="tabs_position"/);
+  assert.match(read('public/settings.html'), /<option value="off">No tabs/, 'Settings offers No tabs');
+  const dash = read('public/js/dashboard.js');
+  assert.match(dash, /syncControlsLink\(off && signedIn\)/, 'with tabs off, Controls goes back to the header');
+  assert.match(dash, /readCollapsed\(undefined, off\)/, 'with tabs off the bar starts folded away');
   const js = read('public/js/dashboard.js');
-  assert.doesNotMatch(js, /controls-link/, 'no Controls link in the header any more');
+  // The header Controls link exists only for tabs-off (inside syncControlsLink); it is not added with the other signed-in links.
+  const outside = js.replace(/function syncControlsLink[\s\S]*?\n}\n/, '');
+  assert.doesNotMatch(outside, /controls-link/, 'Controls is a tab, not a header link, unless tabs are off');
+  assert.match(js, /function syncControlsLink/);
   assert.match(js, /if \(signedIn\) await saveDashboardConfig/, 'only a signed-in session saves the shown dashboard');
-  assert.match(js, /tabs: *tabsFor|tabsFor\(dashboardConfig\.dashboards, signedIn\)/);
+  assert.match(js, /tabs: *tabsFor|tabsFor\(dashboardConfig\.dashboards, signedIn(, off)?\)/);
   const css = read('public/style.css');
   assert.match(css, /#tab-bar\[hidden\]\s*\{\s*display:\s*none/);
   assert.match(css, /data-tabs="left"/); assert.match(css, /data-tabs="right"/);
