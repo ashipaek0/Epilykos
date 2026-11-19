@@ -82,7 +82,39 @@ function conditionMet(rule, reading, row, now, phase) {
   }
 }
 
+// ── Rules that combine metrics ───────────────────────────────────────
+
+const CONDITION_OPS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'stale'];
+const MAX_CLAUSES = 3;
+
+/** A rule of kind 'condition' with 1 to 3 usable clauses. */
+function validClauses(rule) {
+  return Array.isArray(rule.clauses) && rule.clauses.length >= 1 && rule.clauses.length <= MAX_CLAUSES
+    && rule.clauses.every(c => c && typeof c.metric === 'string' && c.metric && CONDITION_OPS.includes(c.operator));
+}
+
+/** Each clause with the reading it is judged on. */
+function clauseDetails(rule, metricRows) {
+  return rule.clauses.map(clause => { const row = metricRows.get(clause.metric); return { clause, row, reading: readingOf(row) }; });
+}
+
+/**
+ * Is a combined condition met? true / false, or null when the data cannot decide. With "all", one clause that is
+ * false makes it false even if another has no data; with "any", one that is true makes it true. A clause with no
+ * data never counts as true or false, so a source dropping out can't fire or resolve the rule by itself.
+ */
+function combinedMet(rule, details, now, phase) {
+  const results = details.map(d => conditionMet(d.clause, d.reading, d.row, now, phase));
+  if (rule.join === 'any') {
+    if (results.includes(true)) return true;
+    return results.every(r => r === false) ? false : null;
+  }
+  if (results.includes(false)) return false;
+  return results.every(r => r === true) ? true : null;
+}
+
 function signature(rule) {
+  if (rule.kind === 'condition') return JSON.stringify(['condition', rule.join, (rule.clauses || []).map(c => [c.metric, c.operator, c.value, c.hysteresis]), rule.for_s]);
   return JSON.stringify([rule.metric, rule.operator, rule.value, rule.hysteresis, rule.for_s]);
 }
 
@@ -97,7 +129,9 @@ function createMetricEvaluator() {
     const out = [];
     const seen = new Set();
     for (const rule of rules) {
-      if (!rule || rule.kind !== 'metric' || !rule.enabled || !rule.metric || !OPERATORS[rule.operator]) continue;
+      if (!rule || !rule.enabled) continue;
+      const cond = rule.kind === 'condition';
+      if (cond ? !validClauses(rule) : (rule.kind !== 'metric' || !rule.metric || !OPERATORS[rule.operator])) continue;
       seen.add(rule.id);
       let st = states.get(rule.id);
       const sig = signature(rule);
@@ -105,8 +139,9 @@ function createMetricEvaluator() {
         st = { sig, phase: 'idle', since: 0, lastNotified: 0, notified: false, lastValue: undefined, lastTs: 0 };
         states.set(rule.id, st);
       }
-      const row = metricRows.get(rule.metric);
-      const reading = readingOf(row);
+      const details = cond ? clauseDetails(rule, metricRows) : null;
+      const row = cond ? (details[0] && details[0].row) : metricRows.get(rule.metric);
+      const reading = cond ? (details[0] && details[0].reading) : readingOf(row);
       const cooldown = Math.max(0, toNumber(rule.cooldown_s) || 0);
       const inCooldown = st.lastNotified && now - st.lastNotified < cooldown;
 
@@ -122,7 +157,7 @@ function createMetricEvaluator() {
         continue;
       }
 
-      const met = conditionMet(rule, reading, row, now, st.phase);
+      const met = cond ? combinedMet(rule, details, now, st.phase) : conditionMet(rule, reading, row, now, st.phase);
       if (met === null) {
         if (st.phase === 'pending') st.phase = 'idle'; // data gone: restart the wait
         continue;
@@ -135,19 +170,19 @@ function createMetricEvaluator() {
       if (st.phase === 'pending' && met && now - st.since >= (toNumber(rule.for_s) || 0)) {
         st.phase = 'firing';
         st.notified = !inCooldown;
-        if (st.notified) { st.lastNotified = now; out.push({ rule, transition: 'fire', reading, row }); }
+        if (st.notified) { st.lastNotified = now; out.push({ rule, transition: 'fire', reading, row, details }); }
         continue;
       }
       if (st.phase === 'firing') {
         if (!met) {
           st.phase = 'idle';
-          if (st.notified && rule.notify_resolved) out.push({ rule, transition: 'resolve', reading, row });
+          if (st.notified && rule.notify_resolved) out.push({ rule, transition: 'resolve', reading, row, details });
           st.notified = false;
         } else {
           const repeat = toNumber(rule.repeat_s) || 0;
           if (repeat > 0 && now - st.lastNotified >= repeat) {
             st.lastNotified = now; st.notified = true;
-            out.push({ rule, transition: 'repeat', reading, row });
+            out.push({ rule, transition: 'repeat', reading, row, details });
           }
         }
       }
@@ -268,6 +303,27 @@ function metricMessage(hit, now) {
   return { title, body };
 }
 
+/** { title, body } for a combined-condition rule transition. */
+function conditionMessage(hit, now) {
+  const { rule, transition, details } = hit;
+  const word = rule.join === 'any' ? ' or ' : ' and ';
+  const clauseText = d => {
+    const unit = (d.row && d.row.unit) || '';
+    const o = OPERATORS[d.clause.operator];
+    return d.clause.operator === 'stale'
+      ? `${d.clause.metric} has not updated for ${fmtMinutes((toNumber(d.clause.value) || 0) * 60)}`
+      : `${d.clause.metric} ${o.label} ${fmtValue(d.clause.value, unit)}`;
+  };
+  const nowText = (details || []).map(d => `${d.clause.metric} ${fmtValue(d.reading, (d.row && d.row.unit) || '')}`).join(', ');
+  const vars = { rule: rule.name, value: nowText, conditions: (details || []).map(clauseText).join(word) };
+  let body;
+  if (transition === 'resolve') body = `Back to normal: ${nowText}.`;
+  else body = `${vars.conditions}. Now: ${nowText}.`;
+  if (rule.message && transition !== 'resolve') body = applyTemplate(rule.message, vars);
+  const title = transition === 'resolve' ? `Resolved: ${rule.name}` : (transition === 'repeat' ? `Still active: ${rule.name}` : rule.name);
+  return { title, body };
+}
+
 /** { title, body } for an event rule. */
 function eventMessage(rule, event) {
   const vars = { rule: rule.name, event: event.type, subject: event.subject, message: event.message, title: event.title };
@@ -284,7 +340,12 @@ module.exports = {
   clockMinutes,
   matchEventRules,
   metricMessage,
+  conditionMessage,
   eventMessage,
+  CONDITION_OPS,
+  MAX_CLAUSES,
+  validClauses,
+  combinedMet,
   readingOf,
   conditionMet,
   fmtMinutes,

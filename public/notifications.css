@@ -55,3 +55,7 @@
   .nt-table tr { padding: 10px 0; border-bottom: 1px solid var(--st-line-soft); }
   .nt-table td { border: none; padding: 2px 0; }
 }
+
+/* "Several metrics" rules: one box per condition */
+.nt-clause { border: 1px solid var(--st-line, rgba(127, 127, 127, 0.3)); border-radius: 10px; padding: 10px 12px 12px; margin: 0 0 10px; display: flex; flex-direction: column; gap: 8px; }
+.nt-clause legend { font-size: 0.8rem; font-weight: 800; padding: 0 6px; }
