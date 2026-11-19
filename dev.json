@@ -1,20 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44537497870.1",
-    "version": "1.3.5-dev+10ecdd9",
-    "commit": "10ecdd9170ff17d5572698b85b1bef7a12db58aa",
-    "digest": "sha256:2c6954a481ac85c7af0b733b3c09f2ddfa8db9d15296ae6271ef1a1db1d085e5",
+    "buildId": "44537754261.1",
+    "version": "1.3.5-dev+63ea0ef",
+    "commit": "63ea0efd9e8515343713799f05db968a836f4bb1",
+    "digest": "sha256:c5d701745be8d59f35403e9db2becd853b6571cc395760537648d4c65a3aad8c",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:50:58Z",
+    "builtAt": "2026-11-19T13:52:30Z",
     "kind": "release",
     "notes": [
-      "Profile: GoodWe ET / EH / BT / BH hybrid (Modbus RTU), from GoodWe's third-party EMS protocol document (#401)",
-      "Settings → Home Assistant: publish metrics as sensors through MQTT discovery (#398)",
-      "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)"
+      "Profile: Huawei SUN2000 (Modbus TCP) with LUNA2000 battery and power meter (#402)"
     ]
   },
   "history": [
+    {
+      "buildId": "44537754261.1",
+      "version": "1.3.5-dev+63ea0ef",
+      "commit": "63ea0efd9e8515343713799f05db968a836f4bb1",
+      "digest": "sha256:c5d701745be8d59f35403e9db2becd853b6571cc395760537648d4c65a3aad8c",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:52:30Z",
+      "kind": "release",
+      "notes": [
+        "Profile: Huawei SUN2000 (Modbus TCP) with LUNA2000 battery and power meter (#402)"
+      ]
+    },
     {
       "buildId": "44537497870.1",
       "version": "1.3.5-dev+10ecdd9",
@@ -365,18 +375,6 @@
       "kind": "release",
       "notes": [
         "Settings: show the Pi's low-power warning; log which layer Bluetooth recovery acted on (#368)"
-      ]
-    },
-    {
-      "buildId": "43622436575.1",
-      "version": "1.2.13-dev+c3df3cf",
-      "commit": "c3df3cfc4d074000604d52a33f6b75d49aa47b18",
-      "digest": "sha256:32c48ae4b802c0468a3679c9408096962926b2999f5a5fac7dc2dc1dd678639b",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T17:41:25Z",
-      "kind": "release",
-      "notes": [
-        "Settings: blank placeholders; labels above device-card fields (#366)"
       ]
     }
   ]
