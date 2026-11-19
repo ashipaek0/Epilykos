@@ -1,20 +1,36 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "44320560655.1",
-    "version": "1.3.3",
-    "commit": "1e5d78b107956b5e15c9e3c3b805f687a0fc587c",
-    "digest": "sha256:c0e6f93ea26047312e446b4ce495ed6ae024576298378337527aec831967a00c",
+    "buildId": "44525944482.1",
+    "version": "1.3.4",
+    "commit": "3659d071567ed381a17599d5fcb9586b3623c8d7",
+    "digest": "sha256:a2b459cb9b6b4fe43bcdd17e3512da562e1e0c01f15ae6fe1f5b3c00a790015d",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-18T14:06:23Z",
+    "builtAt": "2026-11-19T12:40:00Z",
     "kind": "release",
     "notes": [
-      "Settings → System → Restart works on the Windows installer build (#388)",
-      "README: link the Windows installer (#387)",
-      "Docker release step starts the Windows package build for the new release (#386)"
+      "Layout editor: export one dashboard or a chosen few, not only all (#393)",
+      "Tabs off: an admin always has the bar, with Controls inside it; no header link (#392)",
+      "Settings → Appearance: Dashboard tabs can be switched off (the old behaviour) (#391)",
+      "Notifications: alerts open the page they are about, related alerts share a thread, and a bell lists them (signed-in admins) (#390)"
     ]
   },
   "history": [
+    {
+      "buildId": "44525944482.1",
+      "version": "1.3.4",
+      "commit": "3659d071567ed381a17599d5fcb9586b3623c8d7",
+      "digest": "sha256:a2b459cb9b6b4fe43bcdd17e3512da562e1e0c01f15ae6fe1f5b3c00a790015d",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-19T12:40:00Z",
+      "kind": "release",
+      "notes": [
+        "Layout editor: export one dashboard or a chosen few, not only all (#393)",
+        "Tabs off: an admin always has the bar, with Controls inside it; no header link (#392)",
+        "Settings → Appearance: Dashboard tabs can be switched off (the old behaviour) (#391)",
+        "Notifications: alerts open the page they are about, related alerts share a thread, and a bell lists them (signed-in admins) (#390)"
+      ]
+    },
     {
       "buildId": "44320560655.1",
       "version": "1.3.3",
@@ -459,16 +475,6 @@
         "Docker: set SETTINGS_PASSWORD in the compose file, publish Growatt port",
         "Fix masked fields losing their value and misaligning boxes"
       ]
-    },
-    {
-      "buildId": "41433100435.1",
-      "version": "1.0.12",
-      "commit": "60796ba4763f76f233abfa59a64cb5348c052e9a",
-      "digest": "sha256:223318962c517a342859e32d26db125f91b47e006ebc51d4d5a844da3d4e5415",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-02T10:59:29Z",
-      "kind": "rebuild",
-      "notes": []
     }
   ]
 }
