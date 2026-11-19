@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44464649116.1",
-    "version": "1.3.4-dev+154cffd",
-    "commit": "154cffd090ae00d4153c3e47eaca54a07c7e33a2",
-    "digest": "sha256:20eaa0d72bb00527beeb8a110ae862a429c09298b48ca0b5e7219a6687246501",
+    "buildId": "44467014736.1",
+    "version": "1.3.4-dev+8269f10",
+    "commit": "8269f10389abccfc438da0728f781fa0f16b55d4",
+    "digest": "sha256:62b1c426eaa27832abf4fa3e41fd5abde19910cf08ca096e0063d97ed11d0e70",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T05:22:07Z",
+    "builtAt": "2026-11-19T05:42:53Z",
     "kind": "release",
     "notes": [
-      "Settings → Appearance: Dashboard tabs can be switched off (the old behaviour) (#391)"
+      "Tabs off: an admin always has the bar, with Controls inside it; no header link (#392)"
     ]
   },
   "history": [
+    {
+      "buildId": "44467014736.1",
+      "version": "1.3.4-dev+8269f10",
+      "commit": "8269f10389abccfc438da0728f781fa0f16b55d4",
+      "digest": "sha256:62b1c426eaa27832abf4fa3e41fd5abde19910cf08ca096e0063d97ed11d0e70",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T05:42:53Z",
+      "kind": "release",
+      "notes": [
+        "Tabs off: an admin always has the bar, with Controls inside it; no header link (#392)"
+      ]
+    },
     {
       "buildId": "44464649116.1",
       "version": "1.3.4-dev+154cffd",
@@ -362,19 +374,6 @@
       "builtAt": "2026-11-14T10:53:20Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "43587375789.1",
-      "version": "1.2.9-dev+eea66be",
-      "commit": "eea66becacd10aad8b48f915d1d128e64e6bd5dd",
-      "digest": "sha256:4d6183093cbd5ba989cfdf6cfaf948db50c2760eec89a819822903f82ffc9fe1",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T10:53:30Z",
-      "kind": "release",
-      "notes": [
-        "Bump web-push from 3.6.7 to 4.0.0 (#354)",
-        "Bump the minor-and-patch group with 4 updates (#353)"
-      ]
     }
   ]
 }
