@@ -4981,15 +4981,76 @@ function deleteDashboard() {
   });
 }
 
-function exportLayout() {
+function exportFileName(list) {
+  if (list.length !== 1) return 'dashboard-config.json';
+  var slug = String(list[0].name || list[0].id || 'dashboard').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  return 'dashboard-' + (slug || 'dashboard') + '.json';
+}
+
+// Export the given dashboards (default: all) as a file the importer reads back.
+function exportLayout(list) {
   syncLayoutFromGrid();
-  var json = JSON.stringify(dashboardConfig, null, 2);
+  var chosen = Array.isArray(list) && list.length ? list : dashboardConfig.dashboards;
+  var out = Object.assign({}, dashboardConfig, { dashboards: chosen, activeDashboard: chosen[0].id });
+  var json = JSON.stringify(out, null, 2);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-  a.download = 'dashboard-config.json';
+  a.download = exportFileName(chosen);
   a.click();
   setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
-  toast('Exported ' + dashboardConfig.dashboards.length + (dashboardConfig.dashboards.length === 1 ? ' dashboard' : ' dashboards'));
+  toast('Exported ' + (chosen.length === 1 ? '"' + (chosen[0].name || 'Dashboard') + '"' : chosen.length + ' dashboards'));
+}
+
+function exportThisDashboard() {
+  if (onControlsTab()) return;
+  syncLayoutFromGrid();
+  var tab = dashboardConfig.dashboards.find(function(db) { return db.id === currentTabId; });
+  if (tab) exportLayout([tab]);
+}
+
+function exportBody() {
+  var wrap = document.createElement('div');
+  wrap.className = 'ed-import';
+  var fs = document.createElement('fieldset');
+  fs.className = 'ed-choice-group';
+  var legend = document.createElement('legend');
+  legend.textContent = 'Which dashboards?';
+  fs.appendChild(legend);
+  dashboardConfig.dashboards.forEach(function(db) {
+    var label = document.createElement('label');
+    label.className = 'ed-choice';
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = 'exportIds';
+    input.value = db.id;
+    input.checked = true;
+    var title = document.createElement('span');
+    title.className = 'ed-choice-title';
+    title.textContent = db.name || db.id;
+    label.appendChild(input);
+    label.appendChild(title);
+    fs.appendChild(label);
+  });
+  wrap.appendChild(fs);
+  return wrap;
+}
+
+async function exportSelected() {
+  syncLayoutFromGrid();
+  var form = await openDialog({ title: 'Export dashboards', body: exportBody(), confirmLabel: 'Export' });
+  if (!form) return;
+  var ids = Array.prototype.map.call(form.querySelectorAll('input[name="exportIds"]:checked'), function(i) { return i.value; });
+  var chosen = dashboardConfig.dashboards.filter(function(db) { return ids.indexOf(db.id) !== -1; });
+  if (!chosen.length) { toast('Pick at least one dashboard to export', { tone: 'error' }); return; }
+  exportLayout(chosen);
+}
+
+function exportMenuItems() {
+  var multi = dashboardConfig.dashboards.length > 1;
+  var items = [{ label: 'Export this dashboard', icon: 'file', disabled: onControlsTab(), hint: onControlsTab() ? 'Not on the Controls page' : '', onSelect: exportThisDashboard }];
+  if (multi) items.push({ label: 'Export selected…', icon: 'file', onSelect: exportSelected });
+  items.push({ label: 'Export all dashboards', icon: 'file', onSelect: function() { exportLayout(); } });
+  return items;
 }
 
 function importOptionsBody(fileName, importedCount, existingCount) {
@@ -5109,7 +5170,7 @@ function openDashboardMenu() {
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
   if (isNarrow()) {
     items.push({ separator: true });
-    items.push({ label: 'Export all dashboards', icon: 'file', onSelect: exportLayout });
+    exportMenuItems().forEach(function(it) { items.push(it); });
     items.push({ label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout });
   }
   items.push({ separator: true });
@@ -5118,10 +5179,9 @@ function openDashboardMenu() {
 }
 
 function openIoMenu() {
-  openMenu($('io-btn'), [
-    { label: 'Export all dashboards', icon: 'file', onSelect: exportLayout },
+  openMenu($('io-btn'), exportMenuItems().concat([
     { label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout }
-  ], { label: 'Import or export' });
+  ]), { label: 'Import or export' });
 }
 
 // ── Leaving the editor ───────────────────────────────────────────────────
