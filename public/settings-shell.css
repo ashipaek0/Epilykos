@@ -626,3 +626,12 @@ body.st {
 .st .st-table .st-select-col { width: 1%; white-space: nowrap; }
 .cm-check { display: flex; align-items: center; gap: .5rem; font-size: .9rem; margin: .25rem 0; }
 .cm-state small { display: block; font-weight: 400; color: var(--st-muted); }
+
+/* Settings → Health */
+.st-health-row { padding: 12px 0; border-top: 1px solid var(--st-line, rgba(127, 127, 127, 0.25)); }
+.st-health-row:first-child { border-top: none; }
+.st-health-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.st-health-title { font-size: 0.95rem; }
+.st-health-detail { margin: 4px 0 0; }
+.st-health-actions { display: flex; gap: 8px; margin-top: 8px; }
+.st-health-row.is-dismissed { opacity: 0.6; }

@@ -9,7 +9,7 @@ const { logger } = require('../logger');
 const { assertSafeFetchUrl } = require('../utils');
 const store = require('./store');
 const { listEventTypes, SEVERITIES } = require('./events');
-const { OPERATORS } = require('./rules');
+const { OPERATORS, CONDITION_OPS, MAX_CLAUSES } = require('./rules');
 const { CHANNEL_TYPES, deliver, sendToChannel } = require('./dispatcher');
 const { REPORTS, BELOW_MODES } = require('./reports');
 const { clockMinutes } = require('./rules');
@@ -58,8 +58,28 @@ function normalizeChannel(input, stored) {
   return { id: stored ? stored.id : store.newId('ch'), type, name, enabled: input.enabled !== false, config };
 }
 
+function normalizeClause(c, i) {
+  const x = c && typeof c === 'object' ? c : {};
+  const n = i + 1;
+  const metric = str(x.metric, 200);
+  if (!metric) fail(`Condition ${n}: pick a metric`);
+  const operator = CONDITION_OPS.includes(x.operator) ? x.operator : fail(`Condition ${n}: pick a comparison`);
+  const out = { metric, operator };
+  if (NUMERIC_OPS.has(operator)) {
+    const v = Number(x.value);
+    if (x.value === '' || x.value == null || !Number.isFinite(v)) fail(`Condition ${n}: the value must be a number`);
+    if (operator === 'stale' && v <= 0) fail(`Condition ${n}: minutes must be more than 0`);
+    out.value = v;
+    if (['gt', 'gte', 'lt', 'lte'].includes(operator)) out.hysteresis = Math.max(0, Number(x.hysteresis) || 0);
+  } else {
+    out.value = str(x.value, 200);
+    if (out.value === '') fail(`Condition ${n}: enter the value to compare with`);
+  }
+  return out;
+}
+
 function normalizeRule(input, stored) {
-  const kind = ['event', 'schedule'].includes(input.kind) ? input.kind : 'metric';
+  const kind = ['event', 'schedule', 'condition'].includes(input.kind) ? input.kind : 'metric';
   const name = str(input.name, 80);
   if (!name) fail('Give the rule a name');
   const knownChannels = new Set(store.getChannels().map(c => c.id));
@@ -74,7 +94,17 @@ function normalizeRule(input, stored) {
     cooldown_s: int(input.cooldown_s, 0, 7 * 86400, kind === 'event' ? 0 : 900),
     message: str(input.message, 500),
   };
-  if (kind === 'metric') {
+  if (kind === 'condition') {
+    const list = Array.isArray(input.clauses) ? input.clauses : [];
+    if (list.length < 2) fail('Add at least two conditions, or use a metric rule for one');
+    if (list.length > MAX_CLAUSES) fail(`Use at most ${MAX_CLAUSES} conditions`);
+    rule.clauses = list.map(normalizeClause);
+    rule.join = input.join === 'any' ? 'any' : 'all';
+    rule.for_s = int(input.for_s, 0, 86400, 0);
+    rule.repeat_s = int(input.repeat_s, 0, 7 * 86400, 0);
+    if (rule.repeat_s && rule.repeat_s < 300) rule.repeat_s = 300;
+    rule.notify_resolved = !!input.notify_resolved;
+  } else if (kind === 'metric') {
     rule.metric = str(input.metric, 200);
     if (!rule.metric) fail('Pick a metric');
     rule.operator = OPERATORS[input.operator] ? input.operator : fail('Pick a condition');

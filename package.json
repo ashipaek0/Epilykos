@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/run-all.js"
+    "test": "node test/run-all.js",
+    "check:profile": "node scripts/check-profile.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

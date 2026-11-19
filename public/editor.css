@@ -526,6 +526,13 @@ body.ed {
 .ed-choice-title { display: block; font-weight: 800; font-size: 15px; }
 .ed-choice-desc { display: block; margin-top: 2px; font-size: 13.5px; color: var(--ed-muted); }
 
+.ed-preset-intro { margin: 0; font-size: 14px; color: var(--ed-muted); }
+.ed-preset { align-items: center; flex-wrap: wrap; }
+.ed-preset-img { width: 120px; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 1px solid var(--ed-line); flex-shrink: 0; }
+.ed-preset > span { flex: 1; min-width: 180px; }
+.ed-preset-meta { font-size: 12.5px; }
+@media (max-width: 520px) { .ed-preset-img { width: 100%; aspect-ratio: 16 / 9; } }
+
 .ed-toast-region {
   position: fixed; left: 50%; bottom: 24px; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%);
   z-index: 4500; width: min(520px, calc(100vw - 24px)); pointer-events: none;

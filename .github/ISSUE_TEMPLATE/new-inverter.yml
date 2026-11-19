@@ -1,0 +1,47 @@
+name: Request or offer support for an inverter
+description: Ask for a new inverter or battery to be supported, or tell us you have a register map for one.
+title: "Inverter: <make and model>"
+labels: ["profile"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Epilykos reads inverters through a **profile**: a small JSON file that lists the registers to read. If you can find the maker's register document, a profile is usually a short job. The guide is on the wiki under **Contributing → Add your inverter**.
+  - type: input
+    id: model
+    attributes:
+      label: Make and model
+      description: Exactly as printed on the label, including firmware or protocol version if you know it.
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How do you connect to it?
+      options:
+        - RS-485 (Modbus RTU)
+        - Modbus TCP (built-in network port)
+        - WiFi dongle
+        - Bluetooth
+        - RS-232
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: document
+    attributes:
+      label: Link to the register or protocol document
+      description: The maker's PDF or web page, or a public repository that lists the registers. If you only have a file, say so below.
+  - type: textarea
+    id: capture
+    attributes:
+      label: Anything you have read from it already
+      description: For example a few lines from a Modbus tool, or the result of `/api/metrics/current` after a read. Remove passwords and serial numbers first.
+      render: text
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Can you test it?
+      options:
+        - label: I have this inverter and can test a profile and report what works.
+        - label: I would like to write the profile myself (I will follow the wiki guide).

@@ -130,6 +130,7 @@ function stopRestoreMqtt() {
     try { client.end(true); } catch (_) {}
   }
   mqttClients.clear();
+  require('./haDiscoveryService').stop();
 }
 
 function lifecycleCall(lifecycle, name) {
@@ -169,6 +170,7 @@ function activatePreparedDatabase(filePath, lifecycle, options) {
     transaction = beginRestoreSwap(DB_PATH, filePath);
     openPreparedDatabase();
     setupMqtt();
+    require('./haDiscoveryService').start();
     lifecycleCall(lifecycle, 'resume');
     lifecycleCall(options, 'afterActivate');
     const restoredDb = getDb();
@@ -192,6 +194,7 @@ function activatePreparedDatabase(filePath, lifecycle, options) {
         else recoverRestore(DB_PATH);
         openPreparedDatabase();
         setupMqtt();
+        require('./haDiscoveryService').start();
         lifecycleCall(lifecycle, 'resume');
       } catch (recovery) {
         try { if (getDb().open) getDb().close(); } catch (_) {}
