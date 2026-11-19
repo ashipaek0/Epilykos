@@ -5,8 +5,8 @@
  * visitor never sees it (the server refuses the page without a session as well). Pure helpers, so the
  * rules are testable; public/js/dashboard.js draws the bar.
  *
- * Settings → Appearance can switch tabs off ('off'): the old behaviour. Visitors then see no tabs at all, a
- * signed-in admin keeps the ☰ button (the bar starts folded away), and Controls goes back to the header.
+ * Settings → Appearance can switch tabs off ('off'): the old behaviour. Visitors then see no tabs at all; a
+ * signed-in admin always has the bar (with Controls and Edit layout), as before tabs were shown to everyone.
  */
 
 export const TAB_POSITIONS = ['top', 'left', 'right', 'off'];
@@ -26,21 +26,17 @@ export function effectivePosition(value, width) {
 /**
  * The tabs to draw, in order: one per dashboard, then (signed in only) Controls, which opens its own page.
  * A bar is worth drawing for a visitor only when there is more than one dashboard to choose from.
- * With tabs off, only a signed-in admin has a bar (Controls is in the header instead).
+ * With tabs off, only a signed-in admin has a bar (it still holds Controls); visitors have none.
  */
 export function tabsFor(dashboards, signedIn, off = false) {
   const tabs = (dashboards || []).map(d => ({ kind: 'dashboard', id: d.id, label: d.name }));
-  if (off) return { tabs, show: !!signedIn };
   if (signedIn) tabs.push({ kind: 'page', id: 'controls', label: 'Controls', href: '/controls' });
-  return { tabs, show: signedIn || tabs.length > 1 };
+  return { tabs, show: off ? !!signedIn : (signedIn || tabs.length > 1) };
 }
 
-/** Folded away by this browser's owner (kept per browser, not shared); `fallback` until a choice has been made. */
-export function readCollapsed(storage, fallback = false) {
-  try {
-    const v = (storage || localStorage).getItem(COLLAPSED_KEY);
-    return v === null || v === undefined ? fallback : v === '1';
-  } catch { return fallback; }
+/** Folded away by this browser's owner (kept per browser, not shared). */
+export function readCollapsed(storage) {
+  try { return (storage || localStorage).getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
 }
 export function writeCollapsed(collapsed, storage) {
   try { (storage || localStorage).setItem(COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* private window */ }
