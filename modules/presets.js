@@ -47,17 +47,25 @@ function listPresets(dir = DIR) {
   });
 }
 
+/**
+ * The listed preset an id names, as the listing itself holds it: the file names below come from presets/index.json,
+ * never from the request, so a request can only pick one of them.
+ */
+function listed(id) {
+  if (typeof id !== 'string') return null;
+  return listPresets().find(p => p.id === id) || null;
+}
+
 /** One preset's file contents, or null for an id that isn't listed. */
 function getPreset(id) {
-  if (typeof id !== 'string' || !ID.test(id)) return null;
-  if (!listPresets().some(p => p.id === id)) return null;
-  return read(`${id}.json`);
+  const entry = listed(id);
+  return entry ? read(`${entry.id}.json`) : null;
 }
 
 function previewPath(id) {
-  if (typeof id !== 'string' || !ID.test(id)) return null;
-  const p = path.join(DIR, 'previews', `${id}.webp`);
-  return listPresets().some(x => x.id === id) && fs.existsSync(p) ? p : null;
+  const entry = listed(id);
+  if (!entry || !entry.hasPreview) return null;
+  return path.join(DIR, 'previews', `${entry.id}.webp`);
 }
 
 module.exports = { listPresets, getPreset, previewPath, metricsUsed, cardTypesUsed, DIR };

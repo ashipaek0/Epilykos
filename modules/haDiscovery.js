@@ -17,7 +17,13 @@ const CONFIG_KEY = 'ha_discovery';
 const DEFAULTS = { enabled: false, broker: '', username: '', password: '', prefix: 'homeassistant', node: 'epilykos', mode: 'roles', interval: 10 };
 
 /** Home Assistant allows letters, digits, underscore and hyphen in these parts of a topic. */
-const safe = (s, fallback) => String(s || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || fallback;
+function safe(s, fallback) {
+  const t = String(s || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+  let a = 0, b = t.length;                     // trim underscores by hand: a regex for this is slow on long runs of them
+  while (a < b && t[a] === '_') a++;
+  while (b > a && t[b - 1] === '_') b--;
+  return t.slice(a, b) || fallback;
+}
 
 /** The settings as stored, with anything missing or odd replaced by its default. */
 function normalise(raw) {
