@@ -53,6 +53,7 @@ Type: filesandordirs; Name: "{app}\app\services"
 Type: filesandordirs; Name: "{app}\app\public"
 Type: filesandordirs; Name: "{app}\app\private"
 Type: filesandordirs; Name: "{app}\app\profiles"
+Type: filesandordirs; Name: "{app}\app\presets"
 Type: filesandordirs; Name: "{app}\python"
 
 [Files]

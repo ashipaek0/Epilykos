@@ -1,0 +1,500 @@
+{
+  "dashboards": [
+    {
+      "id": "phocos-inverter",
+      "name": "Phocos inverter",
+      "layout": [
+        {
+          "id": "b_overview",
+          "type": "system-overview",
+          "gridX": 0,
+          "gridY": 0,
+          "gridW": 12,
+          "gridH": 9,
+          "enabled": true,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "title": "",
+            "extras": [
+              {
+                "metric": "inv2_operating_mode_label",
+                "label": "Inverter Mode",
+                "unit": ""
+              },
+              {
+                "metric": "battery_energy",
+                "label": "Battery energy left",
+                "unit": "Wh"
+              },
+              {
+                "metric": "battery_voltage",
+                "label": "Battery Voltage",
+                "unit": ""
+              }
+            ],
+            "showWeather": true,
+            "names": {
+              "grid": "Grid",
+              "battery": "Battery",
+              "solar": "Solar",
+              "home": "Home"
+            },
+            "breakdown": "hover"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_totals",
+          "type": "energy-totals",
+          "gridX": 0,
+          "gridY": 9,
+          "gridW": 12,
+          "gridH": 4,
+          "enabled": true,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "115%",
+            "title": "",
+            "show": [
+              "grid_import",
+              "consumption",
+              "solar",
+              "battery_charge",
+              "battery_discharge"
+            ],
+            "breakdown": "hover"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "115%"
+        },
+        {
+          "id": "b_1793634590915_a7g2lq",
+          "type": "forecast-info",
+          "enabled": true,
+          "gridX": 0,
+          "gridY": 13,
+          "gridW": 12,
+          "gridH": 3,
+          "config": {}
+        },
+        {
+          "id": "b_1793869425508_8icgg3",
+          "type": "peak-bars",
+          "enabled": true,
+          "gridX": 0,
+          "gridY": 16,
+          "gridW": 12,
+          "gridH": 6,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "title": "Peak Solar",
+            "source": "solar",
+            "days": 90
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_grid",
+          "type": "grid-card",
+          "gridX": 0,
+          "gridY": 22,
+          "gridW": 12,
+          "gridH": 13,
+          "enabled": true,
+          "config": {
+            "showTimeline": true,
+            "metrics": {
+              "grid_status": ""
+            },
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "periods": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "showCost": true,
+            "showDailyHours": true,
+            "dailyRange": 30,
+            "showPrepaid": false
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_1793115898675_o2ttck",
+          "type": "chart-energy",
+          "enabled": true,
+          "gridX": 0,
+          "gridY": 35,
+          "gridW": 12,
+          "gridH": 6,
+          "config": {
+            "datasets": [
+              {
+                "label": "Solar Generated",
+                "metric": "daily_solar",
+                "color": "#f59e0b"
+              },
+              {
+                "label": "Grid Imported",
+                "metric": "daily_grid_import",
+                "color": "#b33a2e"
+              },
+              {
+                "label": "Energy Consumed",
+                "metric": "daily_consumption",
+                "color": "#333333"
+              }
+            ],
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "hideGrid": true,
+            "fill": true,
+            "title": " "
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_energy",
+          "type": "energy-tabs",
+          "gridX": 0,
+          "gridY": 41,
+          "gridW": 12,
+          "gridH": 7,
+          "enabled": true,
+          "config": {
+            "title": " ",
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "tabs": [
+              {
+                "type": "energy-day",
+                "label": ""
+              },
+              {
+                "type": "energy-flows",
+                "label": ""
+              }
+            ],
+            "breakdown": "inline"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_savings",
+          "type": "savings-summary",
+          "gridX": 0,
+          "gridY": 48,
+          "gridW": 12,
+          "gridH": 3,
+          "enabled": true,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "title": "Savings",
+            "showToday": true,
+            "showWeek": true,
+            "showMonth": true,
+            "showYear": true,
+            "showAll": false,
+            "savings_metric": ""
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_power",
+          "type": "chart-power",
+          "gridX": 0,
+          "gridY": 51,
+          "gridW": 12,
+          "gridH": 11,
+          "enabled": true,
+          "config": {
+            "title": "Power",
+            "datasets": [
+              {
+                "label": "Load",
+                "metric": "load_total_power",
+                "color": "#4f46e5",
+                "axis": "left",
+                "markers": true
+              },
+              {
+                "label": "Solar",
+                "metric": "pv_total_power",
+                "color": "#ffc107",
+                "axis": "left",
+                "markers": false
+              },
+              {
+                "label": "Battery Power",
+                "metric": "inv1_battery_net_power",
+                "color": "#4a6a2e",
+                "axis": "left",
+                "markers": false
+              },
+              {
+                "label": "Grid Import",
+                "metric": "grid_import",
+                "color": "#b33a2e",
+                "axis": "left",
+                "markers": false
+              }
+            ],
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "stats": {
+              "enabled": true,
+              "titleVisible": false,
+              "headerVisible": true,
+              "includeHiddenSeries": false,
+              "title": "Statistics",
+              "density": "comfortable",
+              "columns": [
+                {
+                  "key": "mean",
+                  "visible": true,
+                  "label": "Average"
+                },
+                {
+                  "key": "max",
+                  "visible": true,
+                  "label": "Max"
+                },
+                {
+                  "key": "min",
+                  "visible": false,
+                  "label": "Min"
+                },
+                {
+                  "key": "last",
+                  "visible": true,
+                  "label": "Latest",
+                  "showTimestamp": true,
+                  "staleAfterSeconds": 900
+                }
+              ],
+              "format": {
+                "locale": "auto",
+                "grouping": true,
+                "zeroDisplay": "0",
+                "noData": "—"
+              },
+              "tableStyle": {
+                "headerAlign": "start",
+                "labelAlign": "start",
+                "valueAlign": "end",
+                "fontWeight": "semibold",
+                "border": "subtle",
+                "fontSizePx": 18,
+                "rowSpacingPx": 10,
+                "textColor": "theme",
+                "showSwatches": true,
+                "tooltip": true
+              },
+              "series": {
+                "consumption": {
+                  "visible": true
+                },
+                "solar": {
+                  "visible": true
+                },
+                "battery_power": {
+                  "visible": true
+                },
+                "grid_import": {
+                  "visible": true
+                },
+                "load_total_power": {
+                  "visible": true
+                },
+                "pv_total_power": {
+                  "visible": true
+                },
+                "battery_total_discharging_power": {
+                  "visible": true
+                },
+                "inv1_battery_net_power": {
+                  "visible": true
+                }
+              }
+            },
+            "appearance": {
+              "lineStyle": "solid",
+              "markers": false,
+              "axisUnit": "kW",
+              "legend": true,
+              "tooltip": true,
+              "axes": {
+                "left": {
+                  "unit": "kW",
+                  "scale": "linear",
+                  "min": null,
+                  "max": null
+                },
+                "right": {
+                  "unit": "kW",
+                  "scale": "linear",
+                  "min": null,
+                  "max": null
+                }
+              }
+            },
+            "hideGrid": true,
+            "fill": true
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        },
+        {
+          "id": "b_1794489179762_hq29wz",
+          "type": "data-table-daily",
+          "enabled": true,
+          "gridX": 0,
+          "gridY": 62,
+          "gridW": 12,
+          "gridH": 6,
+          "config": {
+            "enabled": true,
+            "transparent": false,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "columns": [
+              {
+                "field": "consumption_kwh",
+                "label": "Load (kWh)"
+              },
+              {
+                "field": "solar_kwh",
+                "label": "Solar PV (kWh)"
+              },
+              {
+                "field": "grid_import_kwh",
+                "label": "Grid Used (kWh)"
+              }
+            ],
+            "title": ""
+          },
+          "transparent": false,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "columns": [
+            {
+              "field": "consumption_kwh",
+              "label": "Load (kWh)"
+            },
+            {
+              "field": "solar_kwh",
+              "label": "Solar PV (kWh)"
+            },
+            {
+              "field": "grid_import_kwh",
+              "label": "Grid Used (kWh)"
+            }
+          ]
+        },
+        {
+          "id": "b_1794489181570_mj2ujv",
+          "type": "data-table-monthly",
+          "enabled": true,
+          "gridX": 0,
+          "gridY": 68,
+          "gridW": 12,
+          "gridH": 6,
+          "config": {
+            "enabled": true,
+            "transparent": false,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "columns": [
+              {
+                "field": "consumption_kwh",
+                "label": "Load (kWh)"
+              },
+              {
+                "field": "solar_kwh",
+                "label": "Solar PV (kWh)"
+              },
+              {
+                "field": "grid_import_kwh",
+                "label": "Grid Used (kWh)"
+              }
+            ],
+            "title": ""
+          },
+          "transparent": false,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "columns": [
+            {
+              "field": "consumption_kwh",
+              "label": "Load (kWh)"
+            },
+            {
+              "field": "solar_kwh",
+              "label": "Solar PV (kWh)"
+            },
+            {
+              "field": "grid_import_kwh",
+              "label": "Grid Used (kWh)"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "activeDashboard": "phocos-inverter"
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "solar-house",
+    "name": "Solar house",
+    "description": "A picture of the house with live solar and load, plus weather, forecast, power rings, battery and savings around it. Suits a wall display or tablet.",
+    "tags": ["tablet", "picture", "solar"]
+  },
+  {
+    "id": "phocos-inverter",
+    "name": "Phocos inverter",
+    "description": "A full-width system overview for a Phocos Any-Grid: live flow diagram, daily totals, forecast, peak solar, charts and tables.",
+    "tags": ["computer", "phocos", "inverter"]
+  }
+]

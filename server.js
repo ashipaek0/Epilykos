@@ -782,6 +782,7 @@ app.get('/setup', (req, res) => {
 app.use('/api/system', isAuthenticated, require('./routes/system'));
 app.use('/api/notices', isAuthenticated, require('./routes/notices'));
 app.use('/api/setup-health', isAuthenticated, require('./routes/setupHealth'));   // Settings → Health
+app.use('/api/presets', isAuthenticated, require('./routes/presets'));   // ready-made dashboards for the layout editor
 app.use('/api/prepaid', require('./routes/prepaid'));   // the balance: public unless private; changes and settings: signed in
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
