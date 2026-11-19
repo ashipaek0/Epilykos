@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44532601986.1",
-    "version": "1.3.5-dev+a55c55e",
-    "commit": "a55c55e4d4dc7553d8ff3fd77c3877524259a1d9",
-    "digest": "sha256:eafde20f8980041d6fb6d6580b2a63fcca3b6f8625a1995863cfad0620513eca",
+    "buildId": "44533355884.1",
+    "version": "1.3.5-dev+c19828b",
+    "commit": "c19828b45fabb01792849ecd6b6e0067e4f23cfd",
+    "digest": "sha256:fba83fcf48541c2d32e81250fedd72c4b7a37bd369d81eda149d7aadd08cf489",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:21:34Z",
+    "builtAt": "2026-11-19T13:26:05Z",
     "kind": "release",
     "notes": [
-      "Profile checker: npm run check:profile, a test over every shipped profile, issue and PR templates for new inverters (#395)"
+      "Layout editor: Browse presets, a gallery of ready-made dashboards that ship with the app (#396)"
     ]
   },
   "history": [
+    {
+      "buildId": "44533355884.1",
+      "version": "1.3.5-dev+c19828b",
+      "commit": "c19828b45fabb01792849ecd6b6e0067e4f23cfd",
+      "digest": "sha256:fba83fcf48541c2d32e81250fedd72c4b7a37bd369d81eda149d7aadd08cf489",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:26:05Z",
+      "kind": "release",
+      "notes": [
+        "Layout editor: Browse presets, a gallery of ready-made dashboards that ship with the app (#396)"
+      ]
+    },
     {
       "buildId": "44532601986.1",
       "version": "1.3.5-dev+a55c55e",
@@ -362,18 +374,6 @@
       "kind": "release",
       "notes": [
         "Settings: green switches and status pills when on (#359)"
-      ]
-    },
-    {
-      "buildId": "43602024041.1",
-      "version": "1.2.10-dev+0b9d351",
-      "commit": "0b9d3512e5d485fe6a2fc8eecab34d4f22fa3709",
-      "digest": "sha256:16c7e800eb3d32c8848c11a52279af6685cabc9904cce05a40d5f03239a904d3",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T13:53:50Z",
-      "kind": "release",
-      "notes": [
-        "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
       ]
     }
   ]
