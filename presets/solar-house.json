@@ -1,0 +1,287 @@
+{
+  "dashboards": [
+    {
+      "id": "solar-house",
+      "name": "Solar house",
+      "layout": [
+        {
+          "id": "b_1794391462572_kv3fnt",
+          "type": "weather-block",
+          "enabled": true,
+          "gridX": 1,
+          "gridY": 2,
+          "gridW": 15,
+          "gridH": 35,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "title": "   ",
+            "display": {
+              "temp": true,
+              "feels_like": true,
+              "humidity": true,
+              "wind": true,
+              "desc": false,
+              "details": true,
+              "hourly": false,
+              "sun": true,
+              "days": 0
+            },
+            "charts": {
+              "ghi": false,
+              "temp": false
+            },
+            "alerts": [],
+            "glass": "off"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "glass": "off"
+        },
+        {
+          "id": "b_1794404299409_dottot",
+          "type": "forecast-info",
+          "enabled": true,
+          "gridX": 41,
+          "gridY": 2,
+          "gridW": 19,
+          "gridH": 25,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "title": "",
+            "days": 3,
+            "glass": "off"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "glass": "off"
+        },
+        {
+          "id": "b_1794392392400_i63uag",
+          "type": "metric-cards",
+          "enabled": true,
+          "gridX": 26,
+          "gridY": 14,
+          "gridW": 10,
+          "gridH": 10,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "#111111",
+            "fontSize": "130%",
+            "glass": "off"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "#111111",
+          "fontSize": "130%",
+          "cards": [
+            {
+              "title": "Solar",
+              "metric": "pv_energy_today",
+              "unit": ""
+            }
+          ],
+          "glass": "off"
+        },
+        {
+          "id": "b_1794566156763_pntiub",
+          "type": "ring-gauge",
+          "enabled": true,
+          "gridX": 48,
+          "gridY": 27,
+          "gridW": 12,
+          "gridH": 25,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "rings": [
+              {
+                "label": "Production",
+                "metric": "pv_total_power",
+                "unit": "W",
+                "min": 0,
+                "max": 8000,
+                "color": "#f59e0b"
+              },
+              {
+                "label": "Consumption",
+                "metric": "load_total_power",
+                "unit": "W",
+                "min": 0,
+                "max": 8000,
+                "color": "#2563eb"
+              }
+            ],
+            "title": "",
+            "glass": "off"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "metrics": [
+            {
+              "label": "Production",
+              "metric": "pv_total_power",
+              "unit": "W",
+              "min": 0,
+              "max": 8000,
+              "color": "#f59e0b"
+            },
+            {
+              "label": "Consumption",
+              "metric": "load_total_power",
+              "unit": "W",
+              "min": 0,
+              "max": 8000,
+              "color": "#2563eb"
+            }
+          ],
+          "glass": "off"
+        },
+        {
+          "id": "b_1794579629719_d835j4",
+          "type": "flow-rows",
+          "enabled": true,
+          "gridX": 0,
+          "gridY": 41,
+          "gridW": 11,
+          "gridH": 20,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "rows": [],
+            "idleBelow": 10,
+            "glass": "off",
+            "showBars": false
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "metrics": [],
+          "glass": "off"
+        },
+        {
+          "id": "b_1794405199421_9v3mhm",
+          "type": "metric-cards",
+          "enabled": true,
+          "gridX": 35,
+          "gridY": 42,
+          "gridW": 7,
+          "gridH": 10,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "#111111",
+            "fontSize": "150%",
+            "glass": "off"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "#111111",
+          "fontSize": "150%",
+          "cards": [
+            {
+              "title": "Load",
+              "metric": "load_energy_today",
+              "unit": ""
+            }
+          ],
+          "glass": "off"
+        },
+        {
+          "id": "b_1794404884820_em08ml",
+          "type": "gauge-card",
+          "enabled": true,
+          "gridX": 48,
+          "gridY": 52,
+          "gridW": 12,
+          "gridH": 24,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "metric": "battery_soc_estimate",
+            "title": "Battery",
+            "min": 0,
+            "max": 100,
+            "color": "#16a34a",
+            "glass": "off"
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": "",
+          "glass": "off"
+        },
+        {
+          "id": "b_1794406221941_nbqlml",
+          "type": "savings-summary",
+          "enabled": true,
+          "gridX": 9,
+          "gridY": 76,
+          "gridW": 40,
+          "gridH": 14,
+          "config": {
+            "enabled": true,
+            "transparent": true,
+            "bgColor": "",
+            "fontColor": "",
+            "fontSize": "",
+            "title": "Savings",
+            "showToday": true,
+            "showWeek": true,
+            "showMonth": true,
+            "showYear": true,
+            "showAll": false,
+            "savings_metric": ""
+          },
+          "transparent": true,
+          "bgColor": "",
+          "fontColor": "",
+          "fontSize": ""
+        }
+      ],
+      "appearance": {
+        "bgLight": "#d4d2cc",
+        "bgImage": "https://i.postimg.cc/kghRDX1F/Gemini-Generated-Image-kl7sxakl7sxakl7s.jpg",
+        "squareCorners": false,
+        "glassCards": true,
+        "glassBlur": 4,
+        "glassFrost": 25
+      },
+      "grid": {
+        "columns": 60,
+        "rowHeight": 10,
+        "gap": 8,
+        "free": true,
+        "overlap": true,
+        "scale": true
+      }
+    }
+  ],
+  "activeDashboard": "solar-house"
+}
