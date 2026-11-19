@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44500332001.1",
-    "version": "1.3.4-dev+65c971f",
-    "commit": "65c971f821469d6487ead9404934c9d4b9bc2558",
-    "digest": "sha256:535b8e0b63a9f2bc970601927d88b36e460b44a7efc4b90c4f6e808e765ccedd",
+    "buildId": "44532601986.1",
+    "version": "1.3.5-dev+a55c55e",
+    "commit": "a55c55e4d4dc7553d8ff3fd77c3877524259a1d9",
+    "digest": "sha256:eafde20f8980041d6fb6d6580b2a63fcca3b6f8625a1995863cfad0620513eca",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T09:52:22Z",
+    "builtAt": "2026-11-19T13:21:34Z",
     "kind": "release",
     "notes": [
-      "Layout editor: export one dashboard or a chosen few, not only all (#393)"
+      "Profile checker: npm run check:profile, a test over every shipped profile, issue and PR templates for new inverters (#395)"
     ]
   },
   "history": [
+    {
+      "buildId": "44532601986.1",
+      "version": "1.3.5-dev+a55c55e",
+      "commit": "a55c55e4d4dc7553d8ff3fd77c3877524259a1d9",
+      "digest": "sha256:eafde20f8980041d6fb6d6580b2a63fcca3b6f8625a1995863cfad0620513eca",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:21:34Z",
+      "kind": "release",
+      "notes": [
+        "Profile checker: npm run check:profile, a test over every shipped profile, issue and PR templates for new inverters (#395)"
+      ]
+    },
     {
       "buildId": "44500332001.1",
       "version": "1.3.4-dev+65c971f",
@@ -362,19 +374,6 @@
       "kind": "release",
       "notes": [
         "Settings: new look (cardless bands, Inter), shorter text, label fixes (#358)"
-      ]
-    },
-    {
-      "buildId": "43587798183.1",
-      "version": "1.2.9-dev+93312d3",
-      "commit": "93312d3c0ab6f812e3bd0f15a5e9f9ed69f18be3",
-      "digest": "sha256:942f21fc0f4fee17fa06f918e78fa6c6ba49295862e7a24f8d9d27754994f446",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T10:59:12Z",
-      "kind": "release",
-      "notes": [
-        "WebDAV: trust a pasted certificate instead of switching validation off (#357)",
-        "Bump web-push from 3.6.7 to 4.0.0 (#354)"
       ]
     }
   ]
