@@ -84,7 +84,7 @@ function evaluateMetrics(now = Math.floor(Date.now() / 1000)) {
   if (!initialised || !databaseWork.isCurrent()) return [];
   let hits = [];
   try {
-    const metricRules = rulesFor('metric');
+    const metricRules = [...rulesFor('metric'), ...rulesFor('condition')];
     if (!metricRules.length) { evaluator.evaluate([], new Map(), now); return []; }
     hits = evaluator.evaluate(metricRules, latestRows(), now);
   } catch (e) {
@@ -94,9 +94,9 @@ function evaluateMetrics(now = Math.floor(Date.now() / 1000)) {
     saveStateIfChanged();
   }
   for (const hit of hits) {
-    const { title, body } = rules.metricMessage(hit, now);
+    const { title, body } = hit.rule.kind === 'condition' ? rules.conditionMessage(hit, now) : rules.metricMessage(hit, now);
     const severity = hit.transition === 'resolve' ? 'info' : severityOf(hit.rule);
-    dispatcher.deliver({ title, body, severity, tag: 'rule-' + hit.rule.id, rule: hit.rule.name, metric: hit.rule.metric, path: '/' }, hit.rule.channels, hit.rule)
+    dispatcher.deliver({ title, body, severity, tag: 'rule-' + hit.rule.id, rule: hit.rule.name, metric: hit.rule.kind === 'condition' ? hit.rule.clauses[0].metric : hit.rule.metric, path: '/' }, hit.rule.channels, hit.rule)
       .catch(e => logger.warn(`notifications: delivery failed: ${e.message}`));
   }
   return hits;

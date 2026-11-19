@@ -196,6 +196,8 @@
           : r.report === 'forecast' && r.below_kwh > 0 ? ', only below ' + r.below_kwh + ' kWh' : '');
     } else if (r.kind === 'event') {
       when = 'When: ' + eventLabel(r.event) + (r.subject ? ' (' + r.subject + ')' : '');
+    } else if (r.kind === 'condition') {
+      when = (r.clauses || []).map(function (c) { return c.metric + (c.operator === 'stale' ? ' has not updated for ' + c.value + ' min' : ' ' + opLabel(c.operator) + ' ' + c.value); }).join(r.join === 'any' ? ' or ' : ' and ');
     } else if (r.operator === 'changes') {
       when = r.metric + ' changes';
     } else if (r.operator === 'stale') {
@@ -351,6 +353,10 @@
     'low-solar': function () { return { kind: 'schedule', name: 'Low solar tomorrow', report: 'forecast', day: 'tomorrow', time: '19:00', days: [], below_kwh: 5, severity: 'warning' }; },
     'forecast-down': function () { return { kind: 'event', name: 'Forecast unavailable', event: 'forecast.unavailable', severity: '', cooldown_s: 21600 }; },
     'schedule': function () { return { kind: 'schedule', name: '', report: 'status', day: '', time: '08:00', days: [], severity: 'info' }; },
+    'condition': function () { return { kind: 'condition', name: '', join: 'all', clauses: [{ metric: '', operator: 'lt', value: '', hysteresis: 0 }, { metric: '', operator: 'lt', value: '', hysteresis: 0 }], for_s: 0, notify_resolved: true, severity: 'warning', cooldown_s: 3600 }; },
+    'low-batt-poor-sun': function () { return { kind: 'condition', name: 'Battery low and poor sun', join: 'all', clauses: [{ metric: findMetric(/soc|state of charge/i), operator: 'lt', value: 30, hysteresis: 5 }, { metric: findMetric(/forecast_solar_today/i) || 'forecast_solar_today', operator: 'lt', value: 5, hysteresis: 0 }], for_s: 300, notify_resolved: true, severity: 'warning', cooldown_s: 3600 }; },
+    'heavy-load-low-batt': function () { return { kind: 'condition', name: 'Heavy load on a low battery', join: 'all', clauses: [{ metric: findMetric(/load.*power|power.*load/i), operator: 'gt', value: 3000, hysteresis: 300 }, { metric: findMetric(/soc|state of charge/i), operator: 'lt', value: 50, hysteresis: 5 }], for_s: 120, notify_resolved: true, severity: 'warning', cooldown_s: 1800 }; },
+    'fault-or-warning': function () { return { kind: 'condition', name: 'Inverter fault', join: 'any', clauses: [{ metric: findMetric(/fault|alarm/i), operator: 'neq', value: '0', hysteresis: 0 }, { metric: findMetric(/warning/i), operator: 'neq', value: '0', hysteresis: 0 }], for_s: 60, notify_resolved: true, severity: 'critical', cooldown_s: 1800 }; },
     'metric': function () { return { kind: 'metric', name: '', metric: '', operator: 'gt', value: '', for_s: 0, severity: 'warning', cooldown_s: 900 }; },
     'event': function () { return { kind: 'event', name: '', event: '', severity: '', cooldown_s: 0 }; }
   };
@@ -389,14 +395,56 @@
     return html;
   }
 
+  var CLAUSE_OPS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'stale'];
+
+  /** The "Several metrics" rule: up to three conditions joined by all / any. */
+  function conditionEditor(d) {
+    var clauses = Array.isArray(d.clauses) && d.clauses.length ? d.clauses : [{ metric: '', operator: 'lt', value: '' }, { metric: '', operator: 'lt', value: '' }];
+    var join = d.join === 'any' ? 'any' : 'all';
+    var ops = (state.operators || []).filter(function (o) { return CLAUSE_OPS.indexOf(o.id) !== -1; });
+    var html = '<datalist id="nt-metric-list">' + metrics.map(function (m) { return '<option value="' + esc(m.name) + '">'; }).join('') + '</datalist>';
+    html += field('nt-r-join', 'Alert when', '<select id="nt-r-join" class="input"><option value="all"' + (join === 'all' ? ' selected' : '') + '>All of these are true</option><option value="any"' + (join === 'any' ? ' selected' : '') + '>Any of these is true</option></select>');
+    clauses.forEach(function (c, i) {
+      var op = c.operator || 'lt';
+      var info = metricInfo(c.metric);
+      var now = info && info.value != null ? 'Now: ' + esc(info.value) + (info.unit ? ' ' + esc(info.unit) : '') : '';
+      html += '<fieldset class="nt-clause"><legend>Condition ' + (i + 1) + '</legend>' +
+        field('nt-c-metric-' + i, 'Metric', input('nt-c-metric-' + i, c.metric, ' list="nt-metric-list" autocomplete="off"'), now) +
+        '<div class="st-grid-2">' +
+          field('nt-c-op-' + i, 'Condition', '<select id="nt-c-op-' + i + '" class="input">' + ops.map(function (o) { return '<option value="' + o.id + '"' + (o.id === op ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('') + '</select>') +
+          field('nt-c-val-' + i, op === 'stale' ? 'Minutes' : 'Value', input('nt-c-val-' + i, c.value, (op === 'eq' || op === 'neq') ? '' : ' type="number" step="any"')) +
+        '</div>' +
+        ((op === 'gt' || op === 'gte' || op === 'lt' || op === 'lte') ? field('nt-c-hyst-' + i, 'Resolve margin', input('nt-c-hyst-' + i, c.hysteresis || 0, ' type="number" min="0" step="any"'), 'Below 20 with margin 5 clears above 25.') : '') +
+        (clauses.length > 2 ? '<button type="button" class="st-btn" data-act="cond-del" data-i="' + i + '">Remove this condition</button>' : '') +
+      '</fieldset>';
+    });
+    if (clauses.length < 3) html += '<div><button type="button" class="st-btn" data-act="cond-add">Add a condition</button></div>';
+    html += '<div class="st-grid-2">' +
+      field('nt-r-for', 'For at least (minutes)', input('nt-r-for', d.for_s ? d.for_s / 60 : 0, ' type="number" min="0" step="1"'), 'Ignores brief spikes. 0 = right away.') +
+      '<div></div></div>';
+    html += '<div class="st-toggle-row">' + toggle('nt-r-resolved', d.notify_resolved, 'Also notify when it is back to normal') + '</div>';
+    html += field('nt-r-repeat', 'Remind me every (minutes)', input('nt-r-repeat', d.repeat_s ? d.repeat_s / 60 : 0, ' type="number" min="0" step="5"'), 'While it stays active. 0 = once. At least 5.');
+    return html;
+  }
+
+  function readClauses() {
+    var out = [];
+    for (var i = 0; document.getElementById('nt-c-metric-' + i); i++) {
+      out.push({ metric: val('nt-c-metric-' + i).trim(), operator: val('nt-c-op-' + i), value: val('nt-c-val-' + i), hysteresis: document.getElementById('nt-c-hyst-' + i) ? val('nt-c-hyst-' + i) : 0 });
+    }
+    return out;
+  }
+
   function ruleEditor() {
     var d = editRule.draft, kind = d.kind || 'metric', html = '';
     html += field('nt-r-name', 'Name', input('nt-r-name', d.name, ' maxlength="80"'));
     html += '<div class="st-field"><span class="nt-label" id="nt-r-kind-label">Watch</span><div class="st-seg nt-seg" role="radiogroup" aria-labelledby="nt-r-kind-label">' +
-      [['metric', 'A metric'], ['event', 'An event'], ['schedule', 'On a schedule']].map(function (k) {
+      [['metric', 'A metric'], ['condition', 'Several metrics'], ['event', 'An event'], ['schedule', 'On a schedule']].map(function (k) {
         return '<button type="button" role="radio" data-act="rule-kind" data-kind="' + k[0] + '" aria-checked="' + (kind === k[0]) + '" tabindex="' + (kind === k[0] ? '0' : '-1') + '">' + k[1] + '</button>';
       }).join('') + '</div></div>';
-    if (kind === 'metric') {
+    if (kind === 'condition') {
+      html += conditionEditor(d);
+    } else if (kind === 'metric') {
       var op = d.operator || 'gt';
       var info = metricInfo(d.metric);
       var now = info && info.value != null ? 'Now: ' + esc(info.value) + (info.unit ? ' ' + esc(info.unit) : '') : (d.metric ? 'No current value' : 'Any metric from your sources, including text ones like a grid status.');
@@ -473,7 +521,13 @@
     d.enabled = checked('nt-r-enabled');
     d.channels = checkedValues('nt-r-ch');
     d.devices = checkedValues('nt-r-dev');
-    if (d.kind === 'metric') {
+    if (d.kind === 'condition') {
+      d.clauses = readClauses();
+      d.join = val('nt-r-join') === 'any' ? 'any' : 'all';
+      d.for_s = Math.round((Number(val('nt-r-for')) || 0) * 60);
+      d.notify_resolved = checked('nt-r-resolved');
+      d.repeat_s = Math.round((Number(val('nt-r-repeat')) || 0) * 60);
+    } else if (d.kind === 'metric') {
       d.metric = val('nt-r-metric').trim();
       d.operator = val('nt-r-op') || d.operator;
       if (document.getElementById('nt-r-value')) d.value = val('nt-r-value');
@@ -553,12 +607,18 @@
       ['stale', 'Data stopped updating', 'When a metric has had no new value for 15 minutes.'],
       ['forecast-down', 'Forecast unavailable', 'When Solcast or Open-Meteo cannot be reached.']
     ]],
+    ['Combined alerts', [
+      ['low-batt-poor-sun', 'Battery low and poor sun', 'When the battery is under 30% and today\'s solar forecast is under 5 kWh.'],
+      ['heavy-load-low-batt', 'Heavy load on a low battery', 'When the load is over 3000 W while the battery is under 50%.'],
+      ['fault-or-warning', 'Inverter fault', 'When a fault or warning metric is anything but 0.']
+    ]],
     ['Reports', [
       ['summary', 'Evening summary', "Today's solar, usage, grid and savings at 21:00."],
       ['low-solar', 'Low solar tomorrow', 'A warning in the evening when tomorrow looks poor.']
     ]],
     ['Build your own', [
       ['metric', 'Metric rule', 'Any metric above, below, equal to a value, changing or not updating.'],
+      ['condition', 'Several metrics', 'Two or three conditions that must all be true, or any of them.'],
       ['event', 'Event rule', 'Any event, or a whole group of them.'],
       ['schedule', 'Scheduled report', 'A summary, forecast or status at a set time.']
     ]]
@@ -694,6 +754,16 @@
       }
       case 'rule-edit': editRule = { id: id, draft: JSON.parse(JSON.stringify(state.rules.find(function (r) { return r.id === id; }))) }; render(); return scrollToEditor('nt-rule-editor');
       case 'rule-cancel': editRule = null; return render();
+      case 'cond-add': {
+        syncRuleDraft();
+        if (editRule.draft.clauses.length < 3) editRule.draft.clauses.push({ metric: '', operator: 'lt', value: '', hysteresis: 0 });
+        return render();
+      }
+      case 'cond-del': {
+        syncRuleDraft();
+        if (editRule.draft.clauses.length > 2) editRule.draft.clauses.splice(Number(el.dataset.i), 1);
+        return render();
+      }
       case 'rule-kind': {
         syncRuleDraft();
         var k = el.dataset.kind;
@@ -763,7 +833,7 @@
     } else if (el.dataset.act === 'webpush-all') {
       editChannel.draft = Object.assign(editChannel.draft, readChannelForm());
       render();
-    } else if (el.dataset.act === 'rule-op') {
+    } else if (el.dataset.act === 'rule-op' || /^nt-c-op-\d+$/.test(el.id)) {
       syncRuleDraft(); render();
     } else if (el.id === 'nt-r-event') {
       syncRuleDraft(); render();
