@@ -149,6 +149,7 @@ const SECRET_FIELDS = {
   notification_devices: ['auth'],
   notification_vapid: ['privateKey'],
   cloud_backup: ['passphrase', 'password'],
+  ha_discovery: ['password'],                 // Settings → Home Assistant (MQTT broker password)
   cloud_backup_google: ['refresh_token'],     // Settings → Backup and restore → Remote backup
 };
 

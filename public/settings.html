@@ -53,6 +53,7 @@
       <li><a href="#appearance" class="st-nav-link" data-section="appearance"><span data-icon="monitor" data-size="18"></span><span class="st-nav-label">Appearance</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#homeassistant" class="st-nav-link" data-section="homeassistant"><span data-icon="home" data-size="18"></span><span class="st-nav-label">Home Assistant</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#security" class="st-nav-link" data-section="security"><span data-icon="lock" data-size="18"></span><span class="st-nav-label">Security</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#logs" class="st-nav-link" data-section="logs"><span data-icon="terminal" data-size="18"></span><span class="st-nav-label">Logs</span><span class="st-nav-meta"></span></a></li>
@@ -462,6 +463,15 @@
           </div>
         </section>
 
+        <!-- ════════════ HOME ASSISTANT ════════════ -->
+        <section class="st-section" id="section-homeassistant" data-section="homeassistant" aria-labelledby="h-homeassistant" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-homeassistant">Home Assistant</h1><p class="st-lede">Show Epilykos metrics as sensors in Home Assistant.</p></div>
+          </div>
+          <div class="st-card" id="had-card" data-own-save>
+            <div class="st-card-head"><h2>Publish to Home Assistant</h2><span class="st-badge" id="had-badge" hidden></span></div>
+            <p class="st-help">Epilykos sends its readings to the MQTT broker Home Assistant uses, and Home Assistant adds them as sensors by itself, under one Epilykos device. This is separate from using Home Assistant as a data source.</p>
+            <div id="had-root"><p class="st-help">Loading…</p></div>
         <!-- ════════════ HEALTH ════════════ -->
         <section class="st-section" id="section-health" data-section="health" aria-labelledby="h-health" hidden>
           <div class="st-section-head">
@@ -1089,6 +1099,7 @@
 <script src="js/logs-settings.js?v=1"></script>
 <script src="js/remote-settings.js?v=2"></script>
 <script src="js/two-step-settings.js?v=2"></script>
+<script src="js/ha-discovery-settings.js?v=1"></script>
 <script src="js/health-settings.js?v=1"></script>
 <script src="js/updates-settings.js?v=4"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
