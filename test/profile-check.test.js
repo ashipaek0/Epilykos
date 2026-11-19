@@ -19,6 +19,17 @@ assert.ok(has({ ...good(), defaultUnitId: 1.5 }, /1 to 247/));
 assert.ok(has({ ...good(), status: 'great' }, /status, when given/));
 assert.equal(errs({ ...good(), status: 'unverified', source: 'Vendor protocol v1.2' }).length, 0, 'status and source are allowed');
 assert.ok(has({ ...good(), registers: [] }, /at least one/));
+assert.ok(has({ ...good(), function: 'coil' }, /holding.*input/));
+assert.ok(has({ ...good(), wordOrder: 'backwards' }, /msw_first/));
+assert.equal(errs({ ...good(), function: 'input', wordOrder: 'lsw_first' }).length, 0, 'profile-level function and word order');
+assert.ok(has(good([reg({ function: 'x' })]), /function must be/));
+assert.ok(has(good([reg({ type: 'uint32', word_order: 'x' })]), /word_order must be/));
+assert.equal(checkProfile(good([reg({ word_order: 'lsw_first' })])).find(f => /only matters for 32/.test(f.message)).level, 'warn', 'word order on a 16-bit value');
+assert.equal(errs(good([reg({ type: 'uint32', word_order: 'lsw_first', function: 'input' })])).length, 0);
+// Holding and input registers are separate address spaces: the same number may appear in both.
+assert.equal(errs(good([reg({ metric: 'a', address: 5 }), reg({ metric: 'b', address: 5, function: 'input' })])).length, 0);
+assert.ok(has(good([reg({ metric: 'a', address: 5, function: 'input' }), reg({ metric: 'b', address: 5, function: 'input' })]), /shares address/));
+assert.ok(has({ ...good([reg({ metric: 'a', type: 'uint32', address: 5 }), reg({ metric: 'b', address: 6 })]), function: 'input' }, /inside/), 'profile-level function applies to the overlap check');
 
 assert.ok(has(good([reg({ metric: 'PV Power' })]), /lower-case/));
 assert.ok(has(good([reg(), reg({ address: 2 })]), /already used/), 'duplicate metric names');
@@ -41,9 +52,8 @@ assert.equal(errs(good([reg({ type: 'uint64', metric: 'a', address: 10 }), reg({
 assert.ok(has(good([reg({ metric: 'a', address: 5 }), reg({ metric: 'b', address: 5 })]), /shares address/), 'two metrics at one address');
 assert.equal(errs(good([reg({ type: 'uint32', metric: 'a', address: 10 }), reg({ metric: 'b', address: 12 })])).length, 0, 'a neighbour right after the pair is fine');
 
-// Every shipped Modbus profile passes. Deye's two known overlaps (an int32 labelled where the document has a
-// 16-bit value) are listed so they stay visible; a NEW profile gets no such allowance.
-const KNOWN = { 'Deye Inverter.json': [/load_percent/, /battery_current/] };
+// Every shipped Modbus profile passes, with no allowances.
+const KNOWN = {};
 const dir = path.join(__dirname, '..', 'profiles');
 let n = 0;
 for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.json'))) {
