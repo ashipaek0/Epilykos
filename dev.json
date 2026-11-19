@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44537790311.1",
-    "version": "1.3.5-dev+445d767",
-    "commit": "445d7677a0def506c2350d73c087588182f83b8a",
-    "digest": "sha256:3d7e3c3cb43e7de25f89e9d63f013a0e9d47e7ef07bdb1226ba39e8feac38004",
+    "buildId": "44538650685.1",
+    "version": "1.3.5-dev+a25d5cd",
+    "commit": "a25d5cddace1b655f81f116076c9a809d8cf6750",
+    "digest": "sha256:80bfc589425ec649ac0b55187eb46642064d1e3a8843898f53292c6baeb7e4d0",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:52:44Z",
+    "builtAt": "2026-11-19T13:57:57Z",
     "kind": "release",
     "notes": [
-      "Profile: Sungrow SH-RT / SHx hybrid (Modbus TCP), input registers (#403)"
+      "Profile: Growatt SPH 3-6 kW hybrid (Modbus RTU), input registers (#404)"
     ]
   },
   "history": [
+    {
+      "buildId": "44538650685.1",
+      "version": "1.3.5-dev+a25d5cd",
+      "commit": "a25d5cddace1b655f81f116076c9a809d8cf6750",
+      "digest": "sha256:80bfc589425ec649ac0b55187eb46642064d1e3a8843898f53292c6baeb7e4d0",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:57:57Z",
+      "kind": "release",
+      "notes": [
+        "Profile: Growatt SPH 3-6 kW hybrid (Modbus RTU), input registers (#404)"
+      ]
+    },
     {
       "buildId": "44537790311.1",
       "version": "1.3.5-dev+445d767",
@@ -363,18 +375,6 @@
       "kind": "release",
       "notes": [
         "Dashboard: readings reach open pages within seconds; show how old the data is (#370)"
-      ]
-    },
-    {
-      "buildId": "43694950063.1",
-      "version": "1.2.13-dev+019d814",
-      "commit": "019d81485e3dc1e69384a1db27fbc969e71123d5",
-      "digest": "sha256:ff52c93993848ae56a58e8135372bd2ded5c80406331cf455160f1f6a63ebb8c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-15T08:32:24Z",
-      "kind": "release",
-      "notes": [
-        "Remote backup: stale status messages clear (#367)"
       ]
     }
   ]
