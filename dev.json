@@ -1,19 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44536878122.1",
-    "version": "1.3.5-dev+5aaec49",
-    "commit": "5aaec49c655b3a90670561aca3a852b308cb7a60",
-    "digest": "sha256:6698ed61bba01cdb1fd280cb98afdbf8cf95c9fa08481c415cba354b87e2d6fe",
+    "buildId": "44536870132.1",
+    "version": "1.3.5-dev+c55159b",
+    "commit": "c55159b03f55d0041cf1da3138e811426dfad943",
+    "digest": "sha256:b43ec26c7bff426a0a5e11df37e5d677a3a1e231f09e54ee1742835c59573d64",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T13:47:21Z",
+    "builtAt": "2026-11-19T13:47:13Z",
     "kind": "release",
-    "notes": [
-      "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)",
-      "Modbus: read 32- and 64-bit values whole, input registers (function 04) and word order; fix the Deye 16-bit types (#400)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "44536870132.1",
+      "version": "1.3.5-dev+c55159b",
+      "commit": "c55159b03f55d0041cf1da3138e811426dfad943",
+      "digest": "sha256:b43ec26c7bff426a0a5e11df37e5d677a3a1e231f09e54ee1742835c59573d64",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-19T13:47:13Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "44536878122.1",
       "version": "1.3.5-dev+5aaec49",
@@ -364,18 +371,6 @@
       "kind": "release",
       "notes": [
         "Settings: a faint amber wash marks the current section in the menu (#364)"
-      ]
-    },
-    {
-      "buildId": "43608737346.1",
-      "version": "1.2.12-dev+6e962d9",
-      "commit": "6e962d9e3071d1ff6e4b9ad924aca01d83f8e197",
-      "digest": "sha256:8d570117e1b3090826868e2699fc06102bc32a63f8ee2bc861a98ead95149739",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-14T15:10:48Z",
-      "kind": "release",
-      "notes": [
-        "Settings: more room between sections and a short faint divider (#363)"
       ]
     }
   ]
