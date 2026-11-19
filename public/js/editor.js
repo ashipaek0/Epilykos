@@ -5045,6 +5045,103 @@ async function exportSelected() {
   exportLayout(chosen);
 }
 
+// ── Preset gallery ───────────────────────────────────────────────────────
+
+function presetBody(list) {
+  var wrap = document.createElement('div');
+  wrap.className = 'ed-import';
+  var intro = document.createElement('p');
+  intro.className = 'ed-preset-intro';
+  intro.textContent = 'Pick a ready-made dashboard. It is added next to yours, and you can undo it right after.';
+  wrap.appendChild(intro);
+  var fs = document.createElement('fieldset');
+  fs.className = 'ed-choice-group ed-preset-list';
+  var legend = document.createElement('legend');
+  legend.textContent = 'Presets';
+  fs.appendChild(legend);
+  list.forEach(function(p, i) {
+    var label = document.createElement('label');
+    label.className = 'ed-choice ed-preset';
+    var input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'presetId';
+    input.value = p.id;
+    input.checked = i === 0;
+    label.appendChild(input);
+    if (p.hasPreview) {
+      var img = document.createElement('img');
+      img.className = 'ed-preset-img';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = '/api/presets/' + encodeURIComponent(p.id) + '/preview';
+      label.appendChild(img);
+    }
+    var text = document.createElement('span');
+    var title = document.createElement('span');
+    title.className = 'ed-choice-title';
+    title.textContent = p.name;
+    var desc = document.createElement('span');
+    desc.className = 'ed-choice-desc';
+    desc.textContent = p.description;
+    text.appendChild(title);
+    text.appendChild(desc);
+    var missing = availableMetrics.length ? p.metrics.filter(function(m) { return availableMetrics.indexOf(m) === -1; }) : [];
+    var notes = [];
+    notes.push(p.cards + (p.cards === 1 ? ' card' : ' cards'));
+    if (missing.length) notes.push('uses ' + missing.length + (missing.length === 1 ? ' metric' : ' metrics') + ' you don\'t have yet: ' + missing.slice(0, 4).join(', ') + (missing.length > 4 ? ', …' : ''));
+    if (p.remoteBackground) notes.push('its background picture loads from another site');
+    var meta = document.createElement('span');
+    meta.className = 'ed-choice-desc ed-preset-meta';
+    meta.textContent = notes.join(' · ');
+    text.appendChild(meta);
+    label.appendChild(text);
+    fs.appendChild(label);
+  });
+  wrap.appendChild(fs);
+  return wrap;
+}
+
+async function browsePresets() {
+  if (readOnly) return;
+  var list;
+  try {
+    var res = await fetch('/api/presets', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    list = await res.json();
+  } catch (err) {
+    toast('Could not load the presets: ' + err.message, { tone: 'error', timeout: 8000 });
+    return;
+  }
+  if (!Array.isArray(list) || !list.length) { toast('There are no presets to add'); return; }
+  var form = await openDialog({ title: 'Add a preset', body: presetBody(list), confirmLabel: 'Add dashboard' });
+  if (!form) return;
+  var chosen = form.querySelector('input[name="presetId"]:checked');
+  if (!chosen) return;
+  var preset;
+  try {
+    var r = await fetch('/api/presets/' + encodeURIComponent(chosen.value), { credentials: 'same-origin' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    preset = await r.json();
+  } catch (err) {
+    toast('Could not load that preset: ' + err.message, { tone: 'error', timeout: 8000 });
+    return;
+  }
+  var next;
+  try {
+    next = applyDashboardImport(dashboardConfig, preset, 'Append');
+    if (!next.dashboards.length) throw new Error('The preset has no dashboards');
+  } catch (err) {
+    toast('Could not add the preset: ' + err.message, { tone: 'error', timeout: 8000 });
+    return;
+  }
+  pushUndo();
+  dashboardConfig = next;
+  dashboardConfig.dashboards.forEach(function(db) { if (!Array.isArray(db.layout)) db.layout = []; });
+  loadTab(dashboardConfig.dashboards[dashboardConfig.dashboards.length - 1].id, { skipSync: true });
+  scheduleSave(0);
+  toast('Added "' + (list.find(function(p) { return p.id === chosen.value; }) || {}).name + '"', { actionLabel: 'Undo', onAction: undo, timeout: 10000 });
+}
+
 function exportMenuItems() {
   var multi = dashboardConfig.dashboards.length > 1;
   var items = [{ label: 'Export this dashboard', icon: 'file', disabled: onControlsTab(), hint: onControlsTab() ? 'Not on the Controls page' : '', onSelect: exportThisDashboard }];
@@ -5171,6 +5268,7 @@ function openDashboardMenu() {
   if (isNarrow()) {
     items.push({ separator: true });
     exportMenuItems().forEach(function(it) { items.push(it); });
+    items.push({ label: 'Browse presets…', icon: 'cards', disabled: readOnly, onSelect: browsePresets });
     items.push({ label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout });
   }
   items.push({ separator: true });
@@ -5180,6 +5278,7 @@ function openDashboardMenu() {
 
 function openIoMenu() {
   openMenu($('io-btn'), exportMenuItems().concat([
+    { label: 'Browse presets…', icon: 'cards', disabled: readOnly, onSelect: browsePresets },
     { label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout }
   ]), { label: 'Import or export' });
 }
