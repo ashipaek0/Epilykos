@@ -76,6 +76,7 @@ Download "https://github.com/winsw/winsw/releases/download/$WinSWVersion/WinSW-x
 $xml = Get-Content (Join-Path $PSScriptRoot 'EpilykosService.xml') -Raw
 $xml.Replace('@VERSION@', ($Version -replace '^v', '')) | Set-Content (Join-Path $svc 'EpilykosService.xml') -Encoding utf8
 
+Copy-Item (Join-Path $PSScriptRoot 'epilykos-reset-password.cmd') (Join-Path $stage 'epilykos-reset-password.cmd')
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $stage 'LICENSE.txt')
 Write-Host "Staged $Version in $stage"
 Get-ChildItem $stage | Format-Table Name
