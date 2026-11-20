@@ -61,6 +61,7 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdir
 
 [Icons]
 Name: "{autoprograms}\Epilykos dashboard"; Filename: "http://localhost:3000/"
+Name: "{autoprograms}\Reset Epilykos admin password"; Filename: "{app}\epilykos-reset-password.cmd"
 
 [Run]
 ; The app's data and logs folders are shortcuts (junctions) into %ProgramData%, so the program folder can be replaced freely.
