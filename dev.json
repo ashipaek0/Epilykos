@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44562229058.1",
-    "version": "1.3.6-dev+39fe60d",
-    "commit": "39fe60d52efa27e66e31c9ede1a3e34c4750f9e4",
-    "digest": "sha256:f92da2d595cb029c3b27f2da1c18a215af7d81595548e35748c57115d0f010c7",
+    "buildId": "44707256057.1",
+    "version": "1.3.7-dev+ebcd1ea",
+    "commit": "ebcd1eaa958167b8e0cdf3493ddd16ee5303754b",
+    "digest": "sha256:044de3962ebc0f8d77fc62c21f68348e62ca40f8ab0a2663307444b2f7dfa356",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-19T16:06:26Z",
+    "builtAt": "2026-11-20T09:02:16Z",
     "kind": "release",
     "notes": [
-      "Settings: close the Home Assistant section (Notifications, Security, Logs, Backup, Health, Updates, System and Help opened blank) (#407)"
+      "Add an offline admin-password reset for Windows installs (#409)"
     ]
   },
   "history": [
+    {
+      "buildId": "44707256057.1",
+      "version": "1.3.7-dev+ebcd1ea",
+      "commit": "ebcd1eaa958167b8e0cdf3493ddd16ee5303754b",
+      "digest": "sha256:044de3962ebc0f8d77fc62c21f68348e62ca40f8ab0a2663307444b2f7dfa356",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-20T09:02:16Z",
+      "kind": "release",
+      "notes": [
+        "Add an offline admin-password reset for Windows installs (#409)"
+      ]
+    },
     {
       "buildId": "44562229058.1",
       "version": "1.3.6-dev+39fe60d",
@@ -363,18 +375,6 @@
       "notes": [
         "Settings: test the typed-text colour (contrast and read-only fields)",
         "Settings: typed and chosen values are blue"
-      ]
-    },
-    {
-      "buildId": "44047935360.1",
-      "version": "1.2.14-dev+322adb4",
-      "commit": "322adb4eb82ba426aeb3d23bc23d5b5f41f14ef9",
-      "digest": "sha256:54c23cc1f80bcde156e72651c4c416e2a9b001bfbcef32d91be82c0e4471d758",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-17T08:35:04Z",
-      "kind": "release",
-      "notes": [
-        "Bug hunt: dongle polls, slow sources, live updates, editor saves, restore errors (#372)"
       ]
     }
   ]
