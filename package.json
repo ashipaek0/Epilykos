@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node test/run-all.js",
-    "check:profile": "node scripts/check-profile.js"
+    "check:profile": "node scripts/check-profile.js",
+    "gen:readme-hardware": "node scripts/gen-readme-hardware.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
