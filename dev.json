@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "44707256057.1",
-    "version": "1.3.7-dev+ebcd1ea",
-    "commit": "ebcd1eaa958167b8e0cdf3493ddd16ee5303754b",
-    "digest": "sha256:044de3962ebc0f8d77fc62c21f68348e62ca40f8ab0a2663307444b2f7dfa356",
+    "buildId": "44999646712.1",
+    "version": "1.3.8-dev+3748649",
+    "commit": "37486494a70630b10cd7000f6d04ed7a7ac5a7a6",
+    "digest": "sha256:a421c5df750fce9e2f4202b5ba7241fc4174a4decc889fed60435cc18d70b5cf",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-20T09:02:16Z",
+    "builtAt": "2026-11-22T07:45:29Z",
     "kind": "release",
     "notes": [
-      "Add an offline admin-password reset for Windows installs (#409)"
+      "Bump actions/setup-python from 6 to 7 in the actions group (#411)"
     ]
   },
   "history": [
+    {
+      "buildId": "44999646712.1",
+      "version": "1.3.8-dev+3748649",
+      "commit": "37486494a70630b10cd7000f6d04ed7a7ac5a7a6",
+      "digest": "sha256:a421c5df750fce9e2f4202b5ba7241fc4174a4decc889fed60435cc18d70b5cf",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-22T07:45:29Z",
+      "kind": "release",
+      "notes": [
+        "Bump actions/setup-python from 6 to 7 in the actions group (#411)"
+      ]
+    },
     {
       "buildId": "44707256057.1",
       "version": "1.3.7-dev+ebcd1ea",
@@ -362,19 +374,6 @@
       "kind": "release",
       "notes": [
         "Fix CodeQL js/xss-through-dom: the restore confirmation sets its text as text (#375)"
-      ]
-    },
-    {
-      "buildId": "44059531918.1",
-      "version": "1.3.1-dev+15411ce",
-      "commit": "15411ceead5800e741001e7253d4295b3eb043fb",
-      "digest": "sha256:60f19441e7a64676512973eec0eade3a29264ff1f76838bb55af96bc7b92ccae",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-17T09:52:40Z",
-      "kind": "release",
-      "notes": [
-        "Settings: test the typed-text colour (contrast and read-only fields)",
-        "Settings: typed and chosen values are blue"
       ]
     }
   ]
