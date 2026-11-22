@@ -27,7 +27,9 @@ test('SQLite children inherit staging ownership and place actual native temporar
     const result = await runSqliteProcess('../test/fixtures/restore-scratch-probe.cjs', [], { leaseFds: [job.leaseFd, release.leaseFd], scratch });
     assert.equal(result.held, true); assert.equal(result.scratch, scratch);
     assert.ok(result.tempPaths.includes(hostLock), 'the SQLite child must retain the host maintenance lease');
-    assert.ok(result.tempPaths.some(file => file.startsWith(scratch + '/etilqs_')), JSON.stringify(result.tempPaths));
+    // SQLite names a temp file etilqs_* in the scratch folder, or (3.54+ on Linux) creates it unnamed with
+    // O_TMPFILE, which /proc shows as "<scratch>/#<inode> (deleted)". Either way the file lives on DATA.
+    assert.ok(result.tempPaths.some(file => file.startsWith(scratch + '/etilqs_') || (file.startsWith(scratch + '/#') && file.endsWith(' (deleted)'))), JSON.stringify(result.tempPaths));
   } finally { release(); if (previousLock === undefined) delete process.env.EPILYKOS_MAINTENANCE_LOCK; else process.env.EPILYKOS_MAINTENANCE_LOCK = previousLock; job.cleanup(); }
 });
 
