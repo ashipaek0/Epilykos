@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45000134776.1",
-    "version": "1.3.8-dev+d2dd41c",
-    "commit": "d2dd41c96d6f3c43e2aa20d2df4d8a9634bba6af",
-    "digest": "sha256:f07550da07d5195881bc46cd21bfa5ce856bfc79b8bc796ee7438c337ba16501",
+    "buildId": "45180736274.1",
+    "version": "1.3.8-dev+c147161",
+    "commit": "c147161f44284bceafdcb0d4727e7fec5b60a5f8",
+    "digest": "sha256:9892d772fc1d41eb0564ef81b8fef408c50fe7fdefc09c2e46e4fcf3b74bca05",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-22T07:52:00Z",
+    "builtAt": "2026-11-23T13:07:31Z",
     "kind": "release",
     "notes": [
-      "Bump better-sqlite3, gridstack, ws (with restore test fix) (#414)"
+      "Bump express-rate-limit (#415)"
     ]
   },
   "history": [
+    {
+      "buildId": "45180736274.1",
+      "version": "1.3.8-dev+c147161",
+      "commit": "c147161f44284bceafdcb0d4727e7fec5b60a5f8",
+      "digest": "sha256:9892d772fc1d41eb0564ef81b8fef408c50fe7fdefc09c2e46e4fcf3b74bca05",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-23T13:07:31Z",
+      "kind": "release",
+      "notes": [
+        "Bump express-rate-limit (#415)"
+      ]
+    },
     {
       "buildId": "45000134776.1",
       "version": "1.3.8-dev+d2dd41c",
@@ -362,18 +374,6 @@
       "kind": "release",
       "notes": [
         "Dashboard tabs for visitors, top/side/collapsible, per-dashboard visibility, Controls as signed-in tab (#378)"
-      ]
-    },
-    {
-      "buildId": "44077381850.1",
-      "version": "1.3.1-dev+bbaf02c",
-      "commit": "bbaf02ca4793646830e7c640165c14bc2f4c038d",
-      "digest": "sha256:31b178ed28b24996ec565f543d15855ccae11a892e8de780d8474a03b81dbb4a",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-17T11:49:09Z",
-      "kind": "release",
-      "notes": [
-        "Escape config values interpolated into settings device cards and load errors (#376)"
       ]
     }
   ]
