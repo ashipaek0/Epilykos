@@ -1,18 +1,26 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "44782387723.1",
+    "buildId": "45175109401.1",
     "version": "1.3.7",
     "commit": "97ae88ae1f49afae01df4fa5f7bbdea95238647a",
-    "digest": "sha256:1a24133d34b5cdfe91b7acea5617a755cd1e6633fbaa9dff99ceb4d7351af3f1",
+    "digest": "sha256:b8908ba157fa9a64e05c4324d71d47d53f5238abd7ab3a7da53767933ee4a154",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-20T17:21:06Z",
-    "kind": "release",
-    "notes": [
-      "Add an offline admin-password reset for Windows installs (#409)"
-    ]
+    "builtAt": "2026-11-23T12:31:45Z",
+    "kind": "rebuild",
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "45175109401.1",
+      "version": "1.3.7",
+      "commit": "97ae88ae1f49afae01df4fa5f7bbdea95238647a",
+      "digest": "sha256:b8908ba157fa9a64e05c4324d71d47d53f5238abd7ab3a7da53767933ee4a154",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-23T12:31:45Z",
+      "kind": "rebuild",
+      "notes": []
+    },
     {
       "buildId": "44782387723.1",
       "version": "1.3.7",
@@ -432,32 +440,6 @@
       "notes": [
         "Combined metrics: On/Off from a limit (#284)",
         "Generator status card (#282)"
-      ]
-    },
-    {
-      "buildId": "42204879248.1",
-      "version": "1.1.1",
-      "commit": "9806bbb2197d4b5e3a9c0bafc087df0c9ee4f6b2",
-      "digest": "sha256:c38ee9cf4154aa3e43c73132c3ea4e7ad866e17ea2e171f1ef6611323146c75b",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-06T10:44:11Z",
-      "kind": "release",
-      "notes": [
-        "Daily peak and Histogram cards: use the Daily Energy chart's frame and buttons",
-        "Controls: sub-label, tile layout, tint and group for Slider, Rotary knob and State select",
-        "Controls page: filter chips by group",
-        "Controls page: Quick actions card, one card with up to six compact buttons",
-        "Control cards: Layout, sub-label, pill and fill options for Button and Toggle (#279)",
-        "Daily peak and Histogram cards, with peak solar power for every day on record",
-        "Combined metrics: \"Highest today\", for the day's peak solar power (#276)",
-        "Savings: finished days keep the value they had when they were counted (#275)",
-        "Align package.json with the lockfile for dotenv 18 (#274)",
-        "Test on Node 26, the runtime the image now ships",
-        "Bump dotenv from 17.4.2 to 18.0.9",
-        "Bump gridstack from 13.2.0 to 14.0.0",
-        "Bump the minor-and-patch group with 6 updates",
-        "Bump the actions group with 2 updates",
-        "Bump node from 22-trixie-slim to 26-trixie-slim"
       ]
     }
   ]
