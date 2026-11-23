@@ -106,7 +106,9 @@ function simulate(now = Date.now()) {
   return samples;
 }
 
-function between(from, to) { return simulate().filter(s => s.t >= from && s.t < to); }
+/** The samples in [from, to). The simulation runs up to `to` (never past the real clock), so a caller that
+ *  passes its own `now` gets the window it asked for instead of one that slides away as real time passes. */
+function between(from, to) { return simulate(Math.min(to, Date.now())).filter(s => s.t >= from && s.t < to); }
 const kwh = (list, key) => list.reduce((a, s) => a + s[key] * DT_H / 1000, 0);
 
 function dayTotals(dayStart) {
