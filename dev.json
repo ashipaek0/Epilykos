@@ -1,18 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45400208141.1",
-    "version": "1.3.9-dev+3795296",
-    "commit": "37952965c79d87e92fec443fb7977740a7356018",
-    "digest": "sha256:d6663fc9d3df3c889acc07dfca1ecbff06b75a94f35262798abb421025f9b675",
+    "buildId": "45426325234.1",
+    "version": "1.3.9-dev+6c33583",
+    "commit": "6c33583373aba6fff6be5ea32732d0ef6dd76ae5",
+    "digest": "sha256:4a4e445b57cac8eee8b7dbf852cef86f8f06c99057739d5b6529e8b879654b4d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T13:07:54Z",
+    "builtAt": "2026-11-24T15:31:00Z",
     "kind": "release",
-    "notes": [
-      "Settings: shorter intro on the Updates page (#430)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "45426325234.1",
+      "version": "1.3.9-dev+6c33583",
+      "commit": "6c33583373aba6fff6be5ea32732d0ef6dd76ae5",
+      "digest": "sha256:4a4e445b57cac8eee8b7dbf852cef86f8f06c99057739d5b6529e8b879654b4d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T15:31:00Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "45400208141.1",
       "version": "1.3.9-dev+3795296",
@@ -360,18 +368,6 @@
       "kind": "release",
       "notes": [
         "Profile checker: npm run check:profile, a test over every shipped profile, issue and PR templates for new inverters (#395)"
-      ]
-    },
-    {
-      "buildId": "44500332001.1",
-      "version": "1.3.4-dev+65c971f",
-      "commit": "65c971f821469d6487ead9404934c9d4b9bc2558",
-      "digest": "sha256:535b8e0b63a9f2bc970601927d88b36e460b44a7efc4b90c4f6e808e765ccedd",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T09:52:22Z",
-      "kind": "release",
-      "notes": [
-        "Layout editor: export one dashboard or a chosen few, not only all (#393)"
       ]
     }
   ]
