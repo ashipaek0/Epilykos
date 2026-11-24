@@ -10,29 +10,36 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const src = fs.readFileSync(path.join(__dirname, '../public/js/updates-settings.js'), 'utf8');
 
 function page(kind) {
-  const timers = [];
+  const timers = [], intervals = [], listeners = {};
   let listener = null, getReply = null, postReply = null;
   const root = { innerHTML: '', addEventListener: (t, fn) => { if (t === 'click') listener = fn; }, contains: () => true, querySelectorAll: () => [] };
   const ctx = {
-    document: { hidden: false, getElementById: id => (id === 'up-root' ? root : null),
+    document: { hidden: false, addEventListener: (t, fn) => { listeners[t] = fn; }, getElementById: id => (id === 'up-root' ? root : null),
       createElement: () => ({ innerHTML: '', querySelector: () => ({ value: 'pw', focus() {} }) }) },
     window: { stShell: { openDialog: async () => ({ value: 'ok' }), toast() {}, setNavBadge() {} } },
     JSON, String, Math, Date, Promise, isNaN, Number, Array, Object,
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    setInterval: fn => { intervals.push(fn); return intervals.length; },
     fetch: async (url, opts) => {
-      if (opts && opts.method === 'POST') { const r = await postReply; return { ok: true, json: async () => r }; }
+      if (opts && opts.method === 'POST') {
+        const r = await postReply;
+        if (r instanceof Error) throw r;
+        if (r && r.__status) return { ok: false, status: r.__status, json: async () => { throw new Error('not JSON'); } };   // a proxy's error page
+        return { ok: true, json: async () => r };
+      }
       const r = getReply();
       if (r instanceof Error) throw r;
       return { ok: true, json: async () => JSON.parse(JSON.stringify(r)) };
     },
   };
   const base = { installed: { version: '2.9.0', buildId: '1.1', channel: 'dev', builtAt: '2026-10-01T00:00:00Z' },
+    windows: kind === 'windows' ? { status: { state: 'available', latest: { version: '3.0' } }, applying: null } : undefined,
     status: kind === 'docker' ? { state: 'available', latest: { version: '3.0', builtAt: '2026-10-20T00:00:00Z' } } : null,
     host: kind === 'host' ? { supported: true, app: { available: true, latest_version: '3.0' } } : null,
-    method: { kind: kind === 'host' ? 'epilykos-os' : 'docker' }, auto: true, applying: null, lastResult: null, os: null };
+    method: { kind: kind === 'host' ? 'epilykos-os' : kind === 'windows' ? 'windows' : 'docker' }, auto: true, applying: null, lastResult: null, os: null };
   vm.createContext(ctx);
   return {
-    root, timers, base,
+    root, timers, intervals, listeners, base,
     get: fn => { getReply = fn; }, post: p => { postReply = p; },
     start() { vm.runInContext(src, ctx); },
     click: (dataset, id = '') => listener({ target: { closest: () => ({ disabled: false, id, dataset }) } }),
@@ -115,6 +122,70 @@ const step = (html, n) => html.match(/<li class="is-now">([^<]*)<\/li>/)?.[1];
   await docker.tick();
   assert.doesNotMatch(docker.root.innerHTML, /up-steps/);
   console.log('ok - Docker app update: downloading (during the request) → restarting → checking health → result');
+  // ── Docker behind a proxy that ends the long Update request (Cloudflare: 524 after 100 s) ──
+  for (const [name, cut] of [['a 524 from the proxy', { __status: 524 }], ['a dropped connection', new TypeError('Failed to fetch')]]) {
+    const lost = page('docker');
+    lost.get(() => lost.base);
+    lost.start(); await flush();
+    lost.post(Promise.resolve(cut));
+    const click = lost.click({}, 'up-apply'); await flush();
+    lost.timers.shift();
+    await click; await flush();
+    assert.equal(step(lost.root.innerHTML), 'Restarting Epilykos on it', name + ': not an error, the update is followed');
+    assert.doesNotMatch(lost.root.innerHTML, /Request failed/, name);
+    await lost.tick();   // the download watcher wakes once more and stops
+    lost.get(() => ({ ...lost.base, applying: { startedAt: '2026-10-24T10:00:00Z' } }));
+    await lost.tick();
+    assert.equal(step(lost.root.innerHTML), 'Checking it is healthy', name + ': still installing');
+    lost.get(() => ({ ...lost.base, status: { state: 'up-to-date' }, lastResult: { ok: true, toBuild: '2.1', finishedAt: '2026-10-24T10:03:00Z' } }));
+    await lost.tick();
+    assert.doesNotMatch(lost.root.innerHTML, /up-steps/, name + ': finished');
+    assert.doesNotMatch(lost.root.innerHTML, /available/, name + ': no stale "update ready"');
+  }
+  console.log('ok - Docker app update: a proxy time-out or dropped connection on the Update request is followed to the end, not reported as a failure');
+  // A refusal from Epilykos itself (wrong password) is still an error.
+  const refused = page('docker');
+  refused.get(() => refused.base);
+  refused.start(); await flush();
+  refused.post(Promise.resolve({ __status: 403 }));
+  const c2 = refused.click({}, 'up-apply'); await flush(); refused.timers.shift(); await c2; await flush();
+  assert.doesNotMatch(refused.root.innerHTML, /up-steps/, 'a 403 ends the install attempt');
+  console.log('ok - a 403 is still treated as a failed attempt');
+  // ── Windows: the old Epilykos still answers for a few seconds after the installer started ──
+  const win = page('windows');
+  win.get(() => win.base);
+  win.start(); await flush();
+  assert.match(win.root.innerHTML, /Update ready/);
+  win.post(Promise.resolve({ state: 'applying' }));
+  const wc = win.click({}, 'up-apply'); await flush();
+  win.timers.shift();
+  await wc; await flush();
+  await win.tick();   // the download watcher stops
+  await win.tick();   // first look, still the old process: not installing, same build
+  assert.match(win.root.innerHTML, /up-steps|Installing/, 'still waiting: the old process answering is not "done"');
+  assert.doesNotMatch(win.root.innerHTML, /Up to date/);
+  win.get(() => new Error('restarting'));
+  await win.tick();
+  win.get(() => ({ ...win.base, installed: { ...win.base.installed, version: '3.0', buildId: '3.0' }, windows: { status: { state: 'up-to-date' }, applying: null } }));
+  await win.tick();
+  assert.match(win.root.innerHTML, /Up to date/, 'back on the new version: the status is refreshed');
+  assert.doesNotMatch(win.root.innerHTML, /Update ready|up-steps/);
+  console.log('ok - Windows update: the page waits for the restart, then shows the new status');
+
+  // ── The page stays true while it is open: an update finished without a click here ──
+  const idle = page('docker');
+  idle.get(() => idle.base);
+  idle.start(); await flush();
+  assert.match(idle.root.innerHTML, /Update ready/);
+  assert.equal(idle.intervals.length, 1, 'it looks again by itself');
+  idle.get(() => ({ ...idle.base, installed: { ...idle.base.installed, version: '3.0', buildId: '3.0' }, status: { state: 'up-to-date' } }));
+  await idle.intervals[0](); await flush();
+  assert.match(idle.root.innerHTML, /Up to date|up-to-date/i, 'the new status shows without a reload');
+  assert.doesNotMatch(idle.root.innerHTML, /Update ready/);
+  idle.get(() => new Error('restarting'));
+  await idle.listeners.visibilitychange(); await flush();   // away: no error shown, tries again later
+  assert.doesNotMatch(idle.root.innerHTML, /Request failed|restarting/);
+  console.log('ok - an open page picks up a finished update by itself, and when the tab comes back');
   // ── Only the numbers change: the page is not drawn again ───────────────
   // (Drawing it again every two seconds flickered, restarted the moving bar
   // and took the focus off Cancel.)
