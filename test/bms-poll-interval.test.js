@@ -104,7 +104,7 @@ bridge.listen(0, '127.0.0.1', async () => {
 
     // --- the settings page, the wired poller and the connection dot ---
     const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
-    const js = read('public/settings.js'), wired = read('modules/bmsWired.js'), srv = read('server.js');
+    const js = read('public/settings.js'), wired = read('modules/bmsWired.js'), srv = read('routes/bms.js');
     assert.equal((js.match(/name="bms_devices\[\$\{idx\}\]\[poll_interval\]"/g) || []).length, 2, 'both the Bluetooth and the wired card have the field');
     assert.match(js, /dev\.transport = 'bluetooth';\s+dev\.poll_interval = Math\.min\(3600, Math\.max\(5,/);
     assert.match(js, /dev\.timeout = parseInt\(card\.querySelector\('input\[name\$="\[timeout\]"\]'\)\.value\) \|\| 5000;\s+dev\.poll_interval = Math\.min\(3600/, 'wired batteries save it');
