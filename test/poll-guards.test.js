@@ -84,7 +84,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
 
   await check('rate limit, delete tidy-up and combined refusal are in the routes', () => {
     // The rules live in modules/metricDeletion.js (shared by deleting one and several); the route refuses with 409.
-    const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'metricManagement.js'), 'utf8');
     const rules = fs.readFileSync(path.join(__dirname, '..', 'modules', 'metricDeletion.js'), 'utf8');
     assert.match(rules, /rolesCleared\.forEach\(r => \{ roles\[r\] = ''; \}\)/);
     assert.match(rules, /reason: `\$\{name\} is a combined metric/);
