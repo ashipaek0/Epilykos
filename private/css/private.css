@@ -260,3 +260,21 @@
 .st .ct-filter:focus-visible { outline: none; box-shadow: var(--st-focus); }
 .ct-cards.is-filtered { grid-auto-flow: row dense; }
 .ct-card[hidden] { display: none; }
+
+/* Settings' look (settings-datum.css): wide sections below the Unlock card are laid out full width, with the same
+   short accent bar above their heading as Settings' own sections. */
+.ct-block { position: relative; padding: 52px 0 12px; }
+.ct-block::before { content: ''; position: absolute; top: 24px; left: 0; width: 40px; height: 3px; background: var(--dt-acc, var(--st-amber)); }
+.ct-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+.ct-block-head h2 { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.015em; color: var(--st-text); }
+.ct-block[hidden] { display: none; }
+.ct-switch-row { display: grid; gap: 4px; margin-top: 14px; }
+.ct-switch-row .ct-chip { background: none; padding: 0; min-height: 0; justify-content: space-between; max-width: 24rem; }
+.ct-switch-row .ct-chip-name { font-size: .9rem; font-weight: 600; }
+.ct-switch-row .st-help { margin: 0 0 12px; }
+.ct-main { padding-bottom: 60px; }
+/* Settings' table styles uppercase and never wrap header cells; the device settings keep their name and
+   description in a row header, which has to read as text and wrap. */
+.st .ct-settings tbody th { text-transform: none; letter-spacing: 0; white-space: normal; font-size: .9rem; color: var(--st-text); }
+.st .ct-settings tbody th .ct-set-name { font-weight: 700; }
+.st .ct-settings tbody th .ct-help { font-weight: 400; font-size: .78rem; color: var(--st-muted); }
