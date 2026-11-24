@@ -38,6 +38,8 @@ const EVENT_TYPES = {
   'update.available': { label: 'Update available', category: 'System', severity: 'info', description: 'A newer Epilykos build is out: a new release, or the weekly rebuild with security updates. Sent once per build.' },
   'prepaid.low': { label: 'Prepaid meter low', category: 'Grid', severity: 'warning', description: 'The prepaid meter balance fell to a warning level you set in Settings (units left, or days left).' },
   'prepaid.out': { label: 'Prepaid meter out of units', category: 'Grid', severity: 'critical', description: 'The prepaid meter balance reached 0.' },
+  'automation.ran': { label: 'Automation changed a setting', category: 'Automations', severity: 'info', description: 'An automation switched a device or changed a setting.' },
+  'automation.failed': { label: 'Automation could not make a change', category: 'Automations', severity: 'warning', description: 'An automation tried to switch a device or change a setting and it did not work.' },
   'system.started': { label: 'Epilykos started', category: 'System', severity: 'info', description: 'The server started (after an update, a reboot or a crash).' },
 };
 
